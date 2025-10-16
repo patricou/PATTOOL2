@@ -1,0 +1,53 @@
+<div class="pat-title">
+  <h2>{{"PATGPT.TITLE" | translate }}</h2>
+</div>
+<div class="chat-container">
+  <div class="current-date"> {{ currentDate | date:'fullDate' }} / {{ currentDate | date:'mediumTime' }}
+  </div>
+  <div>
+    <small> <a href="https://platform.openai.com/settings/organization/billing/overview"
+        target="_blank"><strong>{{"PATGPT.BILLING" | translate }}</strong></a></small>
+  </div>
+  <textarea [value]="userInput" (input)="onUserInput($event)" (focus)="clearTextArea()" (keydown.enter)="
+    sendQuestion()" placeholder="{{'PATGPT.PLACEHOLDER' | translate }}"></textarea>
+  <div>
+    <div class="row">
+      <div class="col-12 gap-2 m-1">
+        <input type="checkbox" [(ngModel)]="sendWithHistorical">
+        <small><b>  {{ sendWithHistorical ? ('PATGPT.SENDWITHHISTORICAL' | translate) :
+            ('PATGPT.SENDWITHOUTHISTORICAL'
+            | translate)
+            }}</b></small>  /  
+        <input type="checkbox" [(ngModel)]="lastxquestion">
+        <small><b>   {{ lastxquestion ? ('PATGPT.WITHLASTXQUESTION' | translate) :
+            ('PATGPT.WITHLASTFIRSTQUESTION'
+            | translate)
+            }}</b></small>
+      </div>
+
+    </div>
+    <div class="row">
+      <div class="col-12">
+        <button class="btn btn-success btn-sm m-1" (click)="sendQuestion()">{{"PATGPT.BUTTONSEND" | translate
+          }}</button>
+        <button class="btn btn-danger btn-sm m-1" (click)="clearHistorical()">{{"PATGPT.CLEARHISTORICAL" | translate
+          }}</button>
+        <button class="btn btn-warning btn-sm m-1" (click)="clearTextArea()">{{"PATGPT.CLEAR" | translate }}</button>
+        <button class="btn btn-primary btn-sm m-1" (click)="navigateToHistorical()">{{"PATGPT.HISTORICAL" | translate
+          }}</button>
+
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="isLoading" style="display: flex; justify-content: left;">
+    <img src="assets/images/sablier.gif" />
+  </div>
+  <div *ngIf="chatResponse">
+    <p class="response-content"><b>{{"PATGPT.RESPONSE" | translate }}:</b><br> {{
+      chatResponse.choices[0].message.content }}
+    </p>
+    <p><strong>ID:</strong> {{ chatResponse.id }}</p>
+    <p><strong>Model:</strong> {{ chatResponse.model }}</p>
+    <p><strong>Usage:</strong> {{ chatResponse.usage.total_tokens }} tokens</p>
+  </div>

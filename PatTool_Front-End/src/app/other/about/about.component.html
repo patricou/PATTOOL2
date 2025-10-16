@@ -1,0 +1,223 @@
+<div class="about-container">
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">{{ 'MAP.TITLE' | translate }}</h1>
+            <p class="hero-subtitle">{{ 'ABOUT.VERSION' | translate }} - {{ 'ABOUT.PROFESSIONAL_PLATFORM' | translate }}</p>
+            <!-- <div class="hero-badge">
+                <i class="fa fa-code"></i>
+                <span>{{ 'ABOUT.FULL_STACK_APP' | translate }}</span>
+            </div> -->
+        </div>
+    </div>
+
+    <!-- Author Section -->
+    <div class="author-section">
+        <div class="author-content">
+            <div class="author-info">
+                <h4>{{ 'MAP.REF' | translate }}</h4>
+                <p>{{ 'ABOUT.DESIGNED_BY' | translate }}</p>
+            </div>
+            <div class="business-card">
+                <a href="https://patrickdeschamps.com:8001/" target="_blank">
+                    <img class="business-image" src="assets/images/carte-visite.jpg" alt="Patrick Deschamps Business Card">
+                </a>
+                <div class="business-info">
+                    <h5>Patrick Deschamps</h5>
+                    <a href="https://patrickdeschamps.com:8001/" target="_blank" class="website-link">
+                        www.patrickdeschamps.com
+                    </a>
+                    <p class="copyright">© 2017/2025 - {{ 'ABOUT.ALL_RIGHTS_RESERVED' | translate }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="tech-grid">
+            <!-- Frontend Card -->
+            <div class="tech-card frontend-card">
+                <div class="card-header">
+                    <i class="fa fa-desktop"></i>
+                    <h3>{{ 'MAP.FRONTEND' | translate }}</h3>
+                </div>
+                <div class="card-content">
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-code"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>Angular 17</h4>
+                            <p>{{ 'ABOUT.ANGULAR_DESC' | translate }}</p>
+                            <div class="tech-tags">
+                                <span class="tag">&#64;angular/fire</span>
+                                <span class="tag">ng2-file-upload</span>
+                                <span class="tag">ngx-mydatepicker</span>
+                                <span class="tag">&#64;ng-bootstrap</span>
+                                <span class="tag">&#64;ngx-translate</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-code"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>{{ 'ABOUT.UI_TECHNOLOGIES' | translate }}</h4>
+                            <p>Bootstrap 5.3, HTML5, CSS3, jQuery 3.7</p>
+                        </div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-wrench"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>{{ 'ABOUT.DEVELOPMENT_TOOLS' | translate }}</h4>
+                            <p>Node.js, npm, Angular CLI 17, Visual Studio Code, TypeScript 5.4</p>
+                            <div class="links">
+                                <a href="https://github.com/patricou/PatTool_Front-End" target="_blank" class="github-link">
+                                    <i class="fa fa-github"></i> {{ 'ABOUT.FRONT_END' | translate }}
+                                </a>
+                                <a href="https://github.com/patricou/PatTool_Back-End" target="_blank" class="github-link">
+                                    <i class="fa fa-github"></i> {{ 'ABOUT.BACK_END' | translate }}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Backend Card -->
+            <div class="tech-card backend-card">
+                <div class="card-header">
+                    <i class="fa fa-server"></i>
+                    <h3>{{ 'MAP.BACKEND' | translate }}</h3>
+                </div>
+                <div class="card-content">
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-coffee"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>Java 21</h4>
+                            <p>{{ 'ABOUT.JAVA_DESC' | translate }}</p>
+                        </div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-coffee"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>Spring Framework</h4>
+                            <p>Spring Boot 3.3.0 with Spring Security</p>
+                        </div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-wrench"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>{{ 'ABOUT.DEVELOPMENT_TOOLS' | translate }}</h4>
+                            <p>IntelliJ IDEA, Maven, Git, Docker</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Card -->
+            <div class="tech-card data-card">
+                <div class="card-header">
+                    <i class="fa fa-database"></i>
+                    <h3>{{ 'MAP.DATA' | translate }}</h3>
+                </div>
+                <div class="card-content">
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-plug"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>{{ 'ABOUT.API_ARCHITECTURE' | translate }}</h4>
+                            <p>{{ 'ABOUT.API_DESC' | translate }}</p>
+                            <a href="http://localhost:8000/swagger-ui.html" target="_blank" class="api-link">
+                                <i class="fa fa-book"></i> {{ 'ABOUT.SWAGGER_DOCS' | translate }}
+                            </a>
+                        </div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-plug"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>{{ 'ABOUT.DATA_PERSISTENCE' | translate }}</h4>
+                            <div class="storage-options">
+                                <div class="storage-item">
+                                    <strong>MongoDB (Local)</strong>
+                                    <p>{{ 'ABOUT.MONGODB_DESC' | translate }}</p>
+                                    <div class="tech-tags">
+                                        <span class="tag">Collections</span>
+                                        <span class="tag">Documents</span>
+                                        <span class="tag">Authentication</span>
+                                        <span class="tag">Spring Data</span>
+                                    </div>
+                                </div>
+                                <div class="storage-item">
+                                    <strong>Firebase</strong>
+                                    <a href="https://console.firebase.google.com/project/sportpat-5e155/overview" target="_blank" class="storage-link">
+                                        <i class="fa fa-fire"></i> {{ 'ABOUT.FIREBASE_CONSOLE' | translate }}
+                                    </a>
+                                    <p>{{ 'ABOUT.FIREBASE_DESC' | translate }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+</div>
+
+            <!-- Security Card -->
+            <div class="tech-card security-card">
+                <div class="card-header">
+                    <i class="fa fa-shield"></i>
+                    <h3>{{ 'MAP.SECURITY' | translate }}</h3>
+                </div>
+                <div class="card-content">
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-key"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>{{ 'ABOUT.KEYCLOAK_AUTH' | translate }}</h4>
+                            <p>{{ 'ABOUT.KEYCLOAK_DESC' | translate }}</p>
+                            <div class="keycloak-links">
+                                <a href="http://localhost:8080" target="_blank" class="keycloak-link">
+                                    <i class="fa fa-cog"></i> {{ 'ABOUT.DEV_ADMIN' | translate }}
+                                </a>
+                                <a href="https://www.patrickdeschamps.com:8543/auth" target="_blank" class="keycloak-link">
+                                    <i class="fa fa-globe"></i> {{ 'ABOUT.PROD_ADMIN' | translate }}
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-lock"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>{{ 'ABOUT.SECURITY_FRAMEWORK' | translate }}</h4>
+                            <p>{{ 'ABOUT.SPRING_SECURITY_DESC' | translate }}</p>
+                        </div>
+                    </div>
+                    <div class="tech-item">
+                        <div class="tech-icon">
+                            <i class="fa fa-certificate"></i>
+                        </div>
+                        <div class="tech-info">
+                            <h4>{{ 'ABOUT.SSL_CERTIFICATE' | translate }}</h4>
+                            <p>{{ 'ABOUT.SSL_DESC' | translate }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

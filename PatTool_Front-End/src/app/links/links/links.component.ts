@@ -1,0 +1,176 @@
+import { Component, OnInit } from '@angular/core';
+import { Category } from '../../model/Category';
+import { Member } from '../../model/member';
+import { urllink } from '../../model/urllink';
+import { CommonvaluesService } from '../../services/commonvalues.service';
+import { MembersService } from '../../services/members.service';
+import { UrllinkService } from '../../services/urllink.service';
+
+@Component({
+  selector: 'app-links',
+  templateUrl: './links.component.html',
+  styleUrls: ['./links.component.css']
+})
+export class LinksComponent implements OnInit {
+
+  public urllinks: urllink[] = [];
+  public categories: Category[] = [];
+  public user: Member = this._memberService.getUser();
+  public expandedCategoryIndex: number | null = null;
+  public searchFilter: string = '';
+  public searchSuggestions: urllink[] = [];
+  public showSuggestions: boolean = false;
+  public openUrlOnClick: boolean = true;
+
+  constructor(private _memberService: MembersService, private _urlLinkService: UrllinkService, private _commonValuesService: CommonvaluesService) { }
+
+  ngOnInit() {
+    // to get urls when user.id is not empty
+    this.waitForNonEmptyValue().then(() => {
+      let now = new Date();
+
+      console.log("4|------------------> This.user.id is no more null ( from LinksComponent ):", this.user.id + " at " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
+
+      this._urlLinkService
+        .getLinks(this.user)
+        .subscribe(ulks => {
+          //alert(JSON.stringify(ulks));
+          this.urllinks = ulks;
+        }
+          , err => alert("Error getting urllink" + err));
+    });
+    // to get Categories  
+    this._urlLinkService
+      .getCategories()
+      .subscribe(categ => {
+        this.categories = categ;
+      }
+        , err => alert("Error getting Category" + err))
+  };
+
+  private waitForNonEmptyValue(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      const checkValue = () => {
+        if (this.user.id !== "") {
+          resolve();
+        } else {
+          let now = new Date();
+          console.log("This.user.id is still empty " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
+          setTimeout(checkValue, 100); // Appeler checkValue de manière récursive après 100ms
+        }
+      };
+      checkValue(); // Déclencher la première vérification
+    });
+  }
+
+  submitVisibilityChange(urllink: any) {
+    // Convert the visibility to 'public' or 'private'
+    urllink.visibility = urllink.visibility === 'public' ? 'private' : 'public';
+
+    // Call your service to update the visibility in the database
+    this._urlLinkService.updateVisibility(urllink).subscribe(
+      response => {
+        // console.log('Visibility update successful', response);
+      },
+      error => {
+        console.error('An error occurred while updating visibility', error);
+      }
+    );
+  }
+
+  canEdit(u: urllink): boolean {
+    return u.author.id === this.user.id;
+  }
+
+  isVisible(u: urllink): boolean {
+    let v = u.author.id === this.user.id || u.visibility === 'public';
+    return v;
+  }
+
+  getCategoryLinks(category: Category): urllink[] {
+    return this.urllinks.filter(u => u.categoryLinkID === category.categoryLinkID && this.isVisible(u) && this.matchesSearchFilter(u));
+  }
+
+  matchesSearchFilter(link: urllink): boolean {
+    if (!this.searchFilter || !this.searchFilter.trim()) {
+      return true;
+    }
+    
+    const searchTerm = this.searchFilter.toLowerCase().trim();
+    const linkName = (link.linkName || '').toLowerCase();
+    const linkUrl = (link.url || '').toLowerCase();
+    
+    const matches = linkName.includes(searchTerm) || linkUrl.includes(searchTerm);
+    console.log(`Link "${link.linkName}" matches "${searchTerm}":`, matches);
+    
+    return matches;
+  }
+
+  onSearchChange(): void {
+    // This method will be called when the search input changes
+    console.log('Search filter changed:', this.searchFilter);
+    
+    if (!this.searchFilter || this.searchFilter.trim().length < 2) {
+      this.searchSuggestions = [];
+      this.showSuggestions = false;
+      return;
+    }
+    
+    // Generate suggestions
+    this.searchSuggestions = this.urllinks.filter(u => 
+      this.isVisible(u) && this.matchesSearchFilter(u)
+    ).slice(0, 5); // Limit to 5 suggestions
+    
+    this.showSuggestions = this.searchSuggestions.length > 0;
+    
+    console.log('Search suggestions:', this.searchSuggestions.length);
+  }
+
+  selectSuggestion(suggestion: urllink): void {
+    // Open the URL in a new tab only if checkbox is checked
+    if (this.openUrlOnClick) {
+      window.open(String(suggestion.url), '_blank');
+    }
+    
+    // Find the category index for this link
+    const categoryIndex = this.categories.findIndex(c => c.categoryLinkID === suggestion.categoryLinkID);
+    
+    if (categoryIndex !== -1) {
+      // Open the corresponding card
+      this.expandedCategoryIndex = categoryIndex;
+      // Clear search
+      this.searchFilter = '';
+      this.showSuggestions = false;
+      this.searchSuggestions = [];
+    }
+  }
+
+  hideSuggestions(): void {
+    // Delay hiding to allow click events to fire
+    setTimeout(() => {
+      this.showSuggestions = false;
+    }, 200);
+  }
+
+  getCategoryName(categoryLinkID: Number): string {
+    const category = this.categories.find(c => c.categoryLinkID === categoryLinkID);
+    return category ? String(category.categoryName) : '';
+  }
+
+  toggleCategory(categoryIndex: number): void {
+    console.log('Toggling category index:', categoryIndex, 'Current expanded:', this.expandedCategoryIndex);
+    
+    if (this.expandedCategoryIndex === categoryIndex) {
+      // Si la catégorie est déjà ouverte, la fermer
+      this.expandedCategoryIndex = null;
+    } else {
+      // Ouvrir cette catégorie et fermer toutes les autres
+      this.expandedCategoryIndex = categoryIndex;
+    }
+  }
+
+  isCategoryExpanded(categoryIndex: number): boolean {
+    return this.expandedCategoryIndex === categoryIndex;
+  }
+
+}

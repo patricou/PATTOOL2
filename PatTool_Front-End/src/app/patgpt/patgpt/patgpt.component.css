@@ -1,0 +1,49 @@
+.chat-container {
+    width: 90%;
+    margin: 0 auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+textarea {
+    width: 100%;
+    height: 100px;
+    margin-bottom: 10px;
+    padding: 10px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+p {
+    margin-top: 20px;
+    font-size: 16px;
+    color: #333;
+}
+
+.response-content {
+    padding: 10px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    font-size: 16px;
+    white-space: pre-wrap;
+    /* Conserver les sauts de ligne et les espaces */
+    word-wrap: break-word;
+    /* Permet de couper les mots longs */
+}
+
+.current-date {
+    font-size: 10px;
+}
+
+.move-right {
+    position: fixed;
+    left: 50px;
+    /* Ajustez la valeur selon vos besoins */
+}

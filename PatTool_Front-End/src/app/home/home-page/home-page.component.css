@@ -1,0 +1,56 @@
+.jumbotron.pat-jumbotron {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.5); /* Ajouter un fond semi-transparent pour améliorer la lisibilité */
+    padding: 20px; /* Ajouter un espace autour du texte */
+    color: rgba(240, 217, 9, 0.952); /* Couleur du texte */
+    z-index: 1; /* S'assurer que le jumbotron est au-dessus de la vidéo */
+    width: 100%;
+}
+
+.pat-jumbotron2 {
+    background-color: rgb(239, 241, 227);
+    margin: 15% 0 0 0;
+    color: lightsalmon;
+    z-index: 5;
+}
+
+#pat-bg-video  {
+    top: 54px;
+    left: 0px;
+    position: fixed;
+    width: 100%;
+    z-index: -2;
+}
+
+.pat-display {
+
+    height: 100%;    ;
+}
+
+.pat-banner {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background-color:rgba(0, 0, 0, 0.5);
+    color: #fff; /* Change the text color as needed */
+    padding: 10px; /* Adjust the padding as needed */
+    text-align: center;
+    font-size: small;
+  }
+  
+  .fullscreen-video {
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+}
+
+.center-vertically {
+    display: flex;
+    align-items: center; /* Centrer verticalement */
+    justify-content: center; /* Centrer horizontalement */
+    min-height: 100vh; /* Hauteur minimale de la vue */
+}

@@ -1,0 +1,283 @@
+/* IoT Component - Bootstrap Style */
+
+.iot-container {
+    min-height: 100vh;
+    background: #f8f9fa;
+    padding: 0;
+    margin: 0;
+}
+
+/* Hero Section */
+.hero-section {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #7f8c8d 100%);
+    color: white;
+    padding: 40px 30px;
+    margin: -20px -15px 30px -15px;
+    border-radius: 0 0 15px 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    pointer-events: none;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.hero-title {
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    position: relative;
+    z-index: 1;
+    text-overflow: initial !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    max-width: none !important;
+    width: auto !important;
+    display: block !important;
+}
+
+/* Main Content */
+.main-content {
+    padding: 30px 15px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* IoT Controls */
+.iot-controls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+/* Control Cards - Bootstrap Style */
+.control-card {
+    background: white;
+    border-radius: 8px;
+    padding: 0;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+    transition: box-shadow 0.15s ease-in-out;
+    overflow: hidden;
+}
+
+.control-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.control-header {
+    padding: 0.75rem 1rem;
+    background-color: #212529;
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+.control-icon {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 0.375rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    background-color: rgba(255, 255, 255, 0.2);
+    flex-shrink: 0;
+}
+
+.control-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    flex: 1;
+    text-overflow: initial !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    max-width: none !important;
+    width: auto !important;
+}
+
+.control-content {
+    padding: 1rem;
+}
+
+/* IoT Buttons - Bootstrap Style */
+.iot-button {
+    width: 100%;
+    padding: 0.375rem 0.75rem;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease-in-out;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.375rem;
+    margin-bottom: 0.75rem;
+    text-decoration: none;
+}
+
+.iot-button:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+}
+
+.iot-button:focus {
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.test-button {
+    background-color: #6c757d;
+    color: white;
+    border: 1px solid #6c757d;
+}
+
+.test-button:hover:not(:disabled) {
+    background-color: #5c636a;
+    border-color: #565e64;
+}
+
+.portail-button {
+    background-color: #495057;
+    color: white;
+    border: 1px solid #495057;
+}
+
+.portail-button:hover:not(:disabled) {
+    background-color: #3d4043;
+    border-color: #373a3d;
+}
+
+/* IoT Messages - Bootstrap Style */
+.iot-message {
+    background-color: #fff3cd;
+    border: 1px solid #ffecb5;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    margin-top: 0.375rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.message-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.test-message {
+    background-color: #fff3cd;
+    border-color: #ffecb5;
+    color: #664d03;
+}
+
+.test-message .message-icon {
+    background-color: #6c757d;
+    color: white;
+}
+
+.portail-message {
+    background-color: #fff3cd;
+    border-color: #ffecb5;
+    color: #664d03;
+}
+
+.portail-message .message-icon {
+    background-color: #495057;
+    color: white;
+}
+
+.message-content {
+    flex: 1;
+    font-weight: 500;
+}
+
+.message-content strong {
+    font-weight: 600;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 2rem;
+    }
+    
+    .iot-controls {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .control-header {
+        padding: 0.75rem 1rem;
+    }
+    
+    .control-content {
+        padding: 1rem;
+    }
+    
+    .main-content {
+        padding: 1.5rem 0.75rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-section {
+        padding: 1.5rem 0.75rem;
+    }
+    
+    .hero-title {
+        font-size: 1.75rem;
+    }
+    
+    .control-card {
+        border-radius: 0.5rem;
+    }
+    
+    .control-header {
+        padding: 0.5rem 0.75rem;
+    }
+    
+    .control-content {
+        padding: 0.75rem;
+    }
+    
+    .iot-button {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+}

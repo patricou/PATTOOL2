@@ -1,0 +1,434 @@
+/* About Component - Aligned with Links/IoT Component Style */
+
+.about-container {
+    min-height: 100vh;
+    background: #f8f9fa;
+    padding: 0;
+    margin: 0;
+}
+
+/* Hero Section */
+.hero-section {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #7f8c8d 100%);
+    color: white;
+    padding: 20px 30px;
+    margin: -20px -15px 20px -15px;
+    border-radius: 0 0 15px 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.hero-section::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    pointer-events: none;
+}
+
+.hero-content {
+    position: relative;
+    z-index: 1;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.hero-title {
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    position: relative;
+    z-index: 1;
+    text-overflow: initial !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    max-width: none !important;
+    width: auto !important;
+    display: block !important;
+}
+
+.hero-subtitle {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-top: 5px;
+    position: relative;
+    z-index: 1;
+}
+
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255,255,255,0.2);
+    padding: 8px 16px;
+    border-radius: 25px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.3);
+    font-weight: 500;
+}
+
+.hero-badge i {
+    font-size: 1.2rem;
+}
+
+/* Main Content */
+.main-content {
+    padding: 20px 15px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+/* Tech Grid */
+.tech-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+/* Tech Cards */
+.tech-card {
+    background: white;
+    border-radius: 12px;
+    padding: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #dee2e6;
+    transition: all 0.3s ease;
+    overflow: hidden;
+    position: relative;
+}
+
+.tech-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.card-header {
+    padding: 12px 15px;
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.card-header i {
+    font-size: 1rem;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: rgba(255,255,255,0.2);
+    flex-shrink: 0;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    flex: 1;
+    text-overflow: initial !important;
+    overflow: visible !important;
+    white-space: normal !important;
+    max-width: none !important;
+    width: auto !important;
+}
+
+
+.card-content {
+    padding: 15px;
+}
+
+/* Tech Items */
+.tech-item {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.tech-item:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.tech-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    color: white;
+    background: #007bff;
+    flex-shrink: 0;
+}
+
+.tech-info {
+    flex: 1;
+}
+
+.tech-info h4 {
+    margin: 0 0 4px 0;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #333;
+}
+
+.tech-info p {
+    margin: 0 0 8px 0;
+    color: #666;
+    line-height: 1.3;
+    font-size: 0.75rem;
+}
+
+/* Tech Tags */
+.tech-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.tag {
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    padding: 2px 6px;
+    border-radius: 8px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+/* Links */
+.links, .keycloak-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.github-link, .api-link, .storage-link, .keycloak-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    text-decoration: none;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.github-link:hover, .api-link:hover, .storage-link:hover, .keycloak-link:hover {
+    background: #667eea;
+    color: white;
+    transform: translateY(-2px);
+}
+
+/* Storage Options */
+.storage-options {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.storage-item {
+    padding: 15px;
+    background: rgba(0,0,0,0.02);
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+.storage-item strong {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-size: 1rem;
+}
+
+.storage-item p {
+    margin: 8px 0 0 0;
+    font-size: 0.9rem;
+    color: #666;
+}
+
+/* Author Section */
+.author-section {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    border: 1px solid #dee2e6;
+    margin: 0 20%;
+}
+
+.author-content {
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.author-info h4 {
+    font-size: 1.5rem;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: 600;
+}
+
+.author-info p {
+    color: #666;
+    margin-bottom: 20px;
+    font-size: 1rem;
+}
+
+.business-card {
+    display: flex;
+    align-items: center;
+    gap: 30px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.business-image {
+    max-width: 200px;
+    height: auto;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    transition: transform 0.3s ease;
+}
+
+.business-image:hover {
+    transform: scale(1.05);
+}
+
+.business-info {
+    text-align: left;
+}
+
+.business-info h5 {
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+    color: #333;
+    font-weight: 600;
+}
+
+.website-link {
+    display: inline-block;
+    color: #667eea;
+    text-decoration: none;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-bottom: 10px;
+    transition: color 0.3s ease;
+}
+
+.website-link:hover {
+    color: #5a4fcf;
+}
+
+.copyright {
+    color: #999;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1200px) {
+    .tech-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+}
+
+@media (max-width: 768px) {
+    .hero-title {
+        font-size: 1.5rem;
+    }
+    
+    .hero-subtitle {
+        font-size: 1rem;
+    }
+    
+    .tech-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .card-header {
+        padding: 10px 12px;
+    }
+    
+    .card-content {
+        padding: 12px;
+    }
+    
+    .business-card {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .business-info {
+        text-align: center;
+    }
+    
+    .main-content {
+        padding: 20px 10px;
+    }
+    
+    .author-section {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-section {
+        padding: 15px 10px;
+    }
+    
+    .hero-title {
+        font-size: 1.3rem;
+    }
+    
+    .hero-subtitle {
+        font-size: 0.9rem;
+    }
+    
+    .tech-card {
+        border-radius: 10px;
+    }
+    
+    .card-header {
+        padding: 8px 10px;
+    }
+    
+    .card-content {
+        padding: 10px;
+    }
+    
+    .tech-item {
+        flex-direction: column;
+        text-align: center;
+        gap: 4px;
+    }
+    
+    .tech-icon {
+        align-self: center;
+    }
+    
+    .links, .keycloak-links {
+        justify-content: center;
+    }
+}

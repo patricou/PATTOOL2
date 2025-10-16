@@ -1,0 +1,196 @@
+/* You can add global styles to this file, and also import other style files */
+
+html,
+body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    font-family: "Open Sans", sans-serif;
+}
+
+/* Global fix for any dropdown arrows appearing in modal titles */
+.pat-upload-modal .modal-title::after,
+.pat-upload-modal h5::after,
+.pat-upload-modal .pat-modal-title::after {
+    content: none !important;
+    display: none !important;
+    visibility: hidden !important;
+}
+
+/* Prevent default drag and drop behavior to avoid opening files */
+body {
+    -webkit-user-drag: none;
+    -khtml-user-drag: none;
+    -moz-user-drag: none;
+    -o-user-drag: none;
+    user-drag: none;
+}
+
+/* Allow drag and drop only in the upload modal */
+.pat-upload-modal .file-drop-zone {
+    -webkit-user-drag: element;
+    -khtml-user-drag: element;
+    -moz-user-drag: element;
+    -o-user-drag: element;
+    user-drag: element;
+}
+
+
+/* Scroll bar modifs : nothn appear*/
+
+::-webkit-scrollbar {
+    width: 4px;
+    /* for vertical scrollbars */
+    height: 0px;
+    /* for horizontal scrollbars */
+}
+
+::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 2px;
+}
+
+
+/* loading class at the start  of the appli */
+
+.loading,
+.loading:after,
+.loading:before {
+    content: ' ';
+    top: 0;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    animation: spinner 1600ms infinite ease-in-out;
+}
+
+.loading {
+    color: #555;
+    margin: 64px auto;
+    position: relative;
+    animation-delay: -160ms;
+}
+
+.loading:after {
+    left: 64px;
+}
+
+.loading:before {
+    left: -64px;
+    animation-delay: -320ms;
+}
+
+.loading:after,
+.loading:before {
+    position: absolute;
+}
+
+@keyframes spinner {
+    40% {
+        box-shadow: 0 40px 0 0;
+    }
+    0%,
+    80%,
+    100% {
+        box-shadow: 0 40px 0 -20px;
+    }
+}
+
+
+/*  to openthe calendar on the right and at the bottom of the input ( for Bootstrap 4 ) */
+
+.ngxmdp {
+    padding-top: 36px !important;
+    position: static !important;
+}
+
+input::-webkit-input-placeholder {
+    color: gainsboro !important;
+}
+
+input:-moz-placeholder {
+    /* Firefox 18- */
+    color: gainsboro !important;
+}
+
+input::-moz-placeholder {
+    /* Firefox 19+ */
+    color: gainsboro !important;
+}
+
+input:-ms-input-placeholder {
+    color: gainsboro !important;
+}
+
+input#message {
+    background: #fff;
+    width: 100%;
+    outline: none;
+    box-shadow: none;
+    font-size: 1.2em;
+    font-weight: 300;
+    margin-bottom: 0px;
+    border-top: 0;
+    border-right: 0;
+    border-left: 0;
+    border-bottom: 1px dotted black;
+}
+
+/* Beautiful unified title style for all components */
+.pat-title {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #7f8c8d 100%);
+    color: white;
+    padding: 20px 30px;
+    margin: -20px -15px 20px -15px;
+    border-radius: 0 0 15px 15px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.pat-title::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    pointer-events: none;
+}
+
+.pat-title h1,
+.pat-title h2,
+.pat-title h3 {
+    margin: 0;
+    font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    position: relative;
+    z-index: 1;
+}
+
+.pat-title h1 {
+    font-size: 2.5rem;
+}
+
+.pat-title h2 {
+    font-size: 2rem;
+}
+
+.pat-title h3 {
+    font-size: 1.75rem;
+}
+
+.pat-title-subtitle {
+    font-size: 0.9rem;
+    opacity: 0.9;
+    margin-top: 5px;
+    position: relative;
+    z-index: 1;
+}

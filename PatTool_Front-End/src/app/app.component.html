@@ -1,0 +1,366 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+    <!-- Brand -->
+    <a class="navbar-brand" href="#" (click)="navigateToHome($event)">
+        <img src="assets/images/pat.png" width="30" height="30" class="d-inline-block align-top" alt="">
+        {{ 'MENU.BRAND' | translate }}
+    </a>
+
+    <!-- Mobile toggle button -->
+    <button class="navbar-toggler" type="button" 
+            (click)="toggleMobileMenu()"
+            [attr.aria-expanded]="!isMenuCollapsed" 
+            aria-controls="navbarNav" 
+            aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <!-- Navigation menu -->
+    <div class="collapse navbar-collapse" 
+         id="navbarNav"
+         [ngClass]="{'show': !isMenuCollapsed}">
+        
+        <ul class="navbar-nav me-auto">
+            <!-- Events Dropdown -->
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" 
+                   href="#" 
+                   id="eventsDropdown" 
+                   role="button"
+                   (click)="toggleEventsDropdown($event)" 
+                   [attr.aria-expanded]="showEventsDropdown">
+                    <i class="fa fa-calendar"></i> {{ 'MENU.EVENTS' | translate }}
+                </a>
+                <ul class="dropdown-menu" 
+                    [class.show]="showEventsDropdown" 
+                    aria-labelledby="eventsDropdown">
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['even']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-list"></i> {{ 'MENU.EVENTSLIST' | translate }}
+                    </a></li>
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['neweven']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-plus"></i> {{ 'MENU.EVENTSCREATION' | translate }}
+                    </a></li>
+                </ul>
+            </li>
+
+            <!-- Links -->
+            <li class="nav-item">
+                <a class="nav-link" 
+                   [routerLink]="['links']" 
+                   (click)="closeMenu()">
+                    <i class="fa fa-link"></i> {{ 'MENU.LINKS' | translate }}
+                </a>
+            </li>
+
+            <!-- Tools Dropdown -->
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" 
+                   href="#" 
+                   id="toolsDropdown" 
+                   role="button"
+                   (click)="toggleToolsDropdown($event)" 
+                   [attr.aria-expanded]="showToolsDropdown">
+                    <i class="fa fa-wrench"></i> {{ 'MENU.TOOLS' | translate }}
+                </a>
+                <ul class="dropdown-menu" 
+                    [class.show]="showToolsDropdown" 
+                    aria-labelledby="toolsDropdown">
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['maps']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-map"></i> {{ 'MENU.MAPS' | translate }}
+                    </a></li>
+                    <li><a class="dropdown-item" 
+                           href="#" 
+                           (click)="toggleAISubmenu($event)" 
+                           [attr.aria-expanded]="showAISubmenu">
+                        <i class="fa fa-magic"></i> {{ 'MENU.IA' | translate }}
+                    </a></li>
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['results']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-comments"></i> {{ 'MENU.RESULTS' | translate }}
+                    </a></li>
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['iot']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-wifi"></i> {{ 'MENU.IOT' | translate }}
+                    </a></li>
+                    <li [hidden]="!isAuthenticated()"><a class="dropdown-item" 
+                           (click)="open(uploadfilecontent); closeMenu(); $event.preventDefault()">
+                        <i class="fa fa-cloud-upload"></i> {{ "UPLOADFILE.MENU" | translate }}
+                    </a></li>
+                </ul>
+            </li>
+
+            <!-- AI Submenu (positioned separately) -->
+            <ul class="ai-submenu-list" 
+                [style.display]="showAISubmenu ? 'block' : 'none'"
+                [style.top]="aiSubmenuPosition.top"
+                [style.left]="aiSubmenuPosition.left"
+                aria-labelledby="aiSubmenu">
+                <li><a class="dropdown-item" 
+                       href="https://search.brave.com/?lang=fr-fr" 
+                       target="_blank" 
+                       (click)="closeMenu()">
+                    <i class="fa fa-magic"></i> Brave
+                </a></li>
+                <li><a class="dropdown-item" 
+                       href="https://chatgpt.com/?oai-dm=1" 
+                       target="_blank" 
+                       (click)="closeMenu()">
+                    <i class="fa fa-comments"></i> ChatGPT
+                </a></li>
+                <li><a class="dropdown-item" 
+                       href="https://www.deepseek.com/" 
+                       target="_blank" 
+                       (click)="closeMenu()">
+                    <i class="fa fa-lightbulb-o"></i> Deepseek
+                </a></li>
+                <li><a class="dropdown-item" 
+                       href="https://chat.mistral.ai/chat" 
+                       target="_blank" 
+                       (click)="closeMenu()">
+                    <i class="fa fa-cloud"></i> Mistral AI
+                </a></li>
+                <li><a class="dropdown-item" 
+                       [routerLink]="['patgpt']" 
+                       (click)="closeMenu()">
+                    <i class="fa fa-magic"></i> {{ 'MENU.PATGPT' | translate }}
+                </a></li>
+            </ul>
+
+        </ul>
+
+        <!-- User Section -->
+        <ul class="navbar-nav">
+            <li class="nav-item" [hidden]="!isAuthenticated()">
+                <a class="nav-link" 
+                   (click)="open(usercontent); closeMenu(); $event.preventDefault()">
+                    <i class="fa fa-user"></i> {{ user.userName }}
+                </a>
+            </li>
+            <li class="nav-item" [hidden]="!isAuthenticated()">
+                <a class="nav-link" 
+                   href="#" 
+                   (click)="logout(); closeMenu()">
+                    <i class="fa fa-sign-out"></i> {{ 'MENU.LOGOUT' | translate }}
+                </a>
+            </li>
+        </ul>
+    </div>
+</nav>
+
+<!-- Langage Selector -->
+<div class="pat-lang-selector" 
+     [style.right.%]="langSelectorRight" 
+     [style.top.%]="langSelectorTop"
+     (mousedown)="onLangSelectorMouseDown($event)">
+    <div class="btn-group-vertical btn-group-sm">
+        <button *ngFor="let lang of _translate.getLangs()" [value]="lang" (click)="_translate.use(lang)"
+            class="btn" 
+            [class.btn-primary]="lang === _translate.currentLang"
+            [class.btn-light]="lang !== _translate.currentLang"
+            [style.color]="lang === _translate.currentLang ? 'white' : 'black'">
+            {{ lang }}
+        </button>
+    </div>
+</div>
+
+<div class="pat-div"></div>
+<router-outlet></router-outlet>
+
+<!-- Modal window for user information -->
+<ng-template #usercontent let-c="close" let-d="dismiss">
+    <div class="user-modal-container">
+        <div class="user-modal-header">
+            <div class="user-modal-title-section">
+                <i class="fa fa-user-circle user-modal-icon"></i>
+                <h5 class="user-modal-title">{{"USERINFO.TITLE" | translate }}</h5>
+            </div>
+            <button type="button" class="user-modal-close" aria-label="Close" (click)="d('Cross click')">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="user-modal-body">
+            <div class="user-info-grid">
+                <div class="user-info-item">
+                    <div class="info-icon">
+                        <i class="fa fa-envelope"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.EMAIL" | translate}}</div>
+                        <div class="info-value">{{user.addressEmail}}</div>
+                    </div>
+                </div>
+                
+                <div class="user-info-item">
+                    <div class="info-icon">
+                        <i class="fa fa-user"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.FIRSTNAME" | translate}}</div>
+                        <div class="info-value">{{user.firstName}}</div>
+                    </div>
+                </div>
+                
+                <div class="user-info-item">
+                    <div class="info-icon">
+                        <i class="fa fa-user"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.LASTNAME" | translate}}</div>
+                        <div class="info-value">{{user.lastName}}</div>
+                    </div>
+                </div>
+                
+                <div class="user-info-item">
+                    <div class="info-icon">
+                        <i class="fa fa-at"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.USERNAME" | translate}}</div>
+                        <div class="info-value">{{user.userName}}</div>
+                    </div>
+                </div>
+                
+                <div class="user-info-item">
+                    <div class="info-icon">
+                        <i class="fa fa-key"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.KEYCLOAKID" | translate}}</div>
+                        <div class="info-value">{{user.keycloakId}}</div>
+                    </div>
+                </div>
+                
+                <div class="user-info-item">
+                    <div class="info-icon">
+                        <i class="fa fa-id-card"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.ID" | translate}}</div>
+                        <div class="info-value">{{user.id}}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="user-modal-footer">
+            <button type="button" class="user-modal-btn user-modal-btn-close" (click)="c('Close click')">
+                <i class="fa fa-times"></i>
+                {{"COMMUN.CLOSE" | translate}}
+            </button>
+        </div>
+    </div>
+</ng-template>
+
+<!-- Modal window for Upload files -->
+<ng-template #uploadfilecontent let-c="close" let-d="dismiss">
+    <div class="modal-content pat-upload-modal">
+        <div class="modal-header pat-modal-header">
+            <div class="modal-title-container">
+                <i class="fa fa-cloud-upload modal-icon"></i>
+                <h6 class="modal-title pat-modal-title">{{"UPLOADFILE.TITLE" | translate}}</h6>
+            </div>
+        </div>
+        <div class="modal-body pat-modal-body">
+            <form (ngSubmit)="onSubmit()" enctype="multipart/form-data" class="upload-form">
+                <!-- File Drop Zone -->
+                <div class="file-drop-zone" 
+                     [class.has-files]="selectedFiles && selectedFiles.length > 0"
+                     [class.dragover]="isDragOver"
+                     (dragover)="onDragOver($event)"
+                     (dragleave)="onDragLeave($event)"
+                     (drop)="onFileDrop($event)">
+                    <div class="drop-zone-content">
+                        <i class="fa fa-upload drop-zone-icon"></i>
+                        <h6 class="drop-zone-title">{{"UPLOADFILE.DROPZONE_TITLE" | translate}}</h6>
+                        <p class="drop-zone-subtitle">{{"UPLOADFILE.DROPZONE_SUBTITLE" | translate}}</p>
+                        <input type="file" name="files" multiple (change)="onFilesSelected($event)" 
+                               class="file-input" id="fileInput" />
+                        <label for="fileInput" class="btn btn-outline-primary btn-lg file-select-btn" (click)="onFileSelectClick($event)">
+                            <i class="fa fa-folder-open"></i> {{"UPLOADFILE.SELECT_FILES" | translate}}
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Selected Files Display -->
+                <div *ngIf="selectedFiles && selectedFiles.length > 0" class="selected-files">
+                    <h6 class="files-title">
+                        <i class="fa fa-files-o"></i> {{"UPLOADFILE.SELECTED_FILES" | translate}} ({{selectedFiles.length}})
+                    </h6>
+                    
+                    <!-- Dropdown for file list -->
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle w-100" 
+                                type="button" 
+                                id="filesDropdown" 
+                                data-bs-toggle="dropdown" 
+                                aria-expanded="false">
+                            <i class="fa fa-list"></i> {{"UPLOADFILE.SELECTED_FILES" | translate}} ({{selectedFiles.length}})
+                        </button>
+                        <ul class="dropdown-menu w-100" aria-labelledby="filesDropdown">
+                            <li *ngFor="let file of selectedFiles; let i = index" class="dropdown-item file-dropdown-item">
+                                <div class="file-info-dropdown">
+                                    <div class="file-details">
+                                        <i class="fa fa-file file-icon"></i>
+                                        <span class="file-name">{{file.name}}</span>
+                                        <small class="file-size">({{formatFileSize(file.size)}})</small>
+                                    </div>
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-danger remove-file-btn-small" 
+                                            (click)="removeFile(i); $event.stopPropagation()"
+                                            title="Remove file">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Upload Progress -->
+                <div *ngIf="isLoading" class="upload-progress">
+                    <div class="progress-container">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">{{"UPLOADFILE.UPLOADING" | translate}}</span>
+                        </div>
+                        <p class="upload-text">{{"UPLOADFILE.UPLOADING" | translate}}...</p>
+                    </div>
+                </div>
+
+                <!-- Result Message -->
+                <div *ngIf="resultSaveOndisk" class="upload-result" 
+                     [class.success]="resultSaveOndisk.includes('OK') || resultSaveOndisk.includes('successful')"
+                     [class.error]="resultSaveOndisk.includes('Error') || resultSaveOndisk.includes('Issue')">
+                    <i class="fa" 
+                       [class.fa-check-circle]="resultSaveOndisk.includes('OK') || resultSaveOndisk.includes('successful')"
+                       [class.fa-exclamation-circle]="resultSaveOndisk.includes('Error') || resultSaveOndisk.includes('Issue')"></i>
+                    {{resultSaveOndisk}}
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary upload-btn" 
+                            [disabled]="!selectedFiles || selectedFiles.length === 0 || isLoading">
+                        <i class="fa fa-cloud-upload"></i> {{"UPLOADFILE.BUTTONSUBMIT" | translate}}
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary clear-btn" 
+                            (click)="clearFiles()" [disabled]="isLoading">
+                        <i class="fa fa-trash"></i> {{"UPLOADFILE.CLEAR" | translate}}
+                    </button>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer pat-modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+                <i class="fa fa-times"></i> {{"COMMUN.CLOSE" | translate}}
+            </button>
+        </div>
+    </div>
+</ng-template>

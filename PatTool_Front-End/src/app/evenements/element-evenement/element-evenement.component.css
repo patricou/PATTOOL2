@@ -1,0 +1,98 @@
+[hidden] {
+    display: none !important;
+}
+
+.my-class {
+    background-color: yellow;
+}
+
+.btn-xs {
+    margin-bottom: 4px;
+}
+
+.file-upload-wrapper {
+    display: inline-block;
+    position: relative;
+}
+
+.file-upload-wrapper label {
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.file-upload-wrapper label:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.file-upload-wrapper input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+/* Legacy styles for compatibility */
+.file-input-wrapper {
+    width: 22px;
+    height: 22px;
+    overflow: hidden;
+    position: relative;
+}
+
+.file-input-wrapper>input[type="file"] {
+    position: absolute;
+    top: 0;
+    right: 0;
+    opacity: 0;
+    height: 22px;
+    width: 22px;
+    margin-bottom: 0;
+}
+
+.file-input-wrapper:hover>#btn-file-input {
+    background-color: lightgray;
+}
+
+hr {
+    margin-top: 10px !important;
+    margin-bottom: 10px !important;
+}
+
+.list-group-item {
+    padding: 3px;
+}
+
+.chatitem {
+    border-left-width: 5px;
+    border-left-color: gainsboro;
+    border-left-style: solid;
+    margin-right: 3px;
+    margin-top: 3px;
+    padding-left: 8px;
+}
+
+.pat-members {
+    padding: 0;
+}
+
+.pat-alert {
+    margin-bottom: 3px;
+    margin-top: 3px;
+}
+
+.pat-card {
+    text-shadow: 1px 1px 2px black, 0 0 25px whitesmoke, 0 0 5px white;
+}
+
+.pat-card-footer {
+    padding-right: 0.7rem;
+    padding-left: 0.7rem;
+}
+
+.pat-card-block {
+    padding: 0px 5px 5px 5px;
+}

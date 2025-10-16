@@ -1,0 +1,19 @@
+<div class="pat-title">
+    <h2>{{ "RESULTS.TITLE" | translate }}</h2>
+</div>
+<div class="container">
+    <div class="input-group mb-3">
+        <input [(ngModel)]="msgVal" type="text" id="message" placeholder="{{ 'RESULTS.MESSAGEPLHD' | translate }}"
+            (keyup.enter)="Send()" autofocus class="small-placeholder"  />
+        <div class="input-group-append">
+            <button class="btn btn-primary" type="button" (click)="Send()">{{ 'RESULTS.SEND' | translate }}</button>
+        </div>
+    </div>
+    <blockquote class="blockquote" *ngFor="let item of items | async ">
+        <b>{{item.user.firstName}} {{item.user.lastName}}</b> ( {{item.date | date }}, {{item.date | date:'shortTime' }}
+        )
+        <a class="btn btn-sm btn-danger" [hidden]="!(item.user.userName == user.userName)"
+            (click)="deleteMessage(item)"><i class="fa fa-trash" aria-hidden="true"></i></a> :
+        <br> {{item.message}}
+    </blockquote>
+</div>

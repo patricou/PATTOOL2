@@ -1,0 +1,41 @@
+.pat-jumbotron-element {
+    padding-top: 25px;
+    padding-bottom: 5px;
+    padding-left: 15px;
+    padding-right: 15px;
+    margin-bottom: 0px;
+    margin-top: -20px;
+    border-bottom: none;
+    border: none;
+    background-color: transparent;
+}
+
+.jumbotron {
+    border-bottom: none !important;
+    border: none !important;
+}
+
+.pat-card {
+    margin-top: 15px;
+    margin-bottom: 15px;
+    margin-right: 0px;
+    margin-left: 0px;
+}
+
+.pat-page-btn {
+    margin-bottom: 3px;
+}
+
+.btn-filter {
+    border-top: 0;
+    border-right: 0;
+    border-left: 0;
+    border-bottom: 1px dotted black;
+}
+
+#message {
+    height: 30px;
+    width: 200px;
+    padding: 4px 8px;
+    font-size: 14px;
+}

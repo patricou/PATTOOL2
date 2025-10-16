@@ -1,0 +1,60 @@
+<div class="pat-title">
+    <h2>{{ "EVENTHOME.EVENTSLIST" | translate }}</h2>
+</div>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-12">
+            <!-- <input [(ngModel)]="msgVal" type="text" id="message" placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" (keyup.enter)="changeFiltre()" autofocus /> -->
+            <div class="d-flex align-items-center justify-content-center mb-1">
+                <input type="text" id="message" [value]="dataFIlter" #searchterm placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" class="form-control me-2" />
+                <button class="btn btn-sm btn-secondary btn-filter me-2" (click)="clearFilter()" type="button">X</button>
+                <div [hidden]="totalPages == 0" class="pat-page-btn me-2" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}">
+                    <select class="btn btn-secondary btn-sm" [(ngModel)]="elementsByPage" (change)="changeFiltre()">           
+                        <option value="1">1</option>
+                        <option value="2">2</option>
+                        <option value="3">3</option>
+                        <option value="6">6</option>
+                        <option value="9">9</option>
+                        <option value="15">15</option>
+                        <option value="15">21</option>
+                        <option value="50">50</option>
+                        <option value="100">100</option>
+                    </select>
+                </div>
+                <div [hidden]="totalPages == 0" class="pagination-container">
+                    <ul class="pagination pagination-sm mb-0">
+                        <li class="page-item">
+                            <a class="page-link" (click)="changePreviousPage()" aria-label="Previous">
+                                <span aria-hidden="true">&laquo;</span>
+                                <span class="sr-only">Previous</span>
+                            </a>
+                        </li>
+                        <li *ngFor="let p of pages" class="page-item" [class.active]="pageNumber == p">
+                            <a class="page-link" (click)="changePage(p)">{{p + 1}}</a>
+                        </li>
+                        <li class="page-item">
+                            <a class="page-link" (click)="changeNextPage()" aria-label="Next">
+                                <span aria-hidden="true">&raquo;</span>
+                                <span class="sr-only">Next</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="container-fluid ">
+    <div class="row ">
+        <div class="col-lg-4 card-group pat-card " *ngFor=" let evenement of evenements ">
+            <element-evenement class="card" [user]="user" [evenement]="evenement" (updateFileUploaded)="updateFileUploadedInEvent($event) " 
+            (addMember)="addMemberInEvent($event) " (delMember)="delMemberInEvent($event) " (updateEvenement)="updEvent($event)
+            " (delEvenement)="delEvent($event)"></element-evenement>
+        </div>
+    </div>
+</div>
+<div class="text-center" [hidden]="totalPages == 0"><small>Page {{pageNumber+1}}/{{totalPages}}</small></div>
+<!-- modif 2020.09.20  Operator '==' cannot be applied to types 'boolean' and '0'. -->
+<div class="container-fluid" [hidden]="!totalPages == false">
+    <ngb-alert type="info">{{ "EVENTHOME.NOEVENT" | translate }}</ngb-alert>
+</div>

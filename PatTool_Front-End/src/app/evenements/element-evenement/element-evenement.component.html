@@ -1,0 +1,168 @@
+<!-- <div class="panel panel-default" [ngClass]="{'animated pulse':mouseOvered}" (mouseout)="mouseOvered=false" (mouseover)="mouseOvered=true" data-bs-hover-animate="pulse"> -->
+<!-- thw following line allows to have tooltips on button in footer !! -->
+<div style="position:relative;">
+    <img class="card-img img-fluid img-thumbnail mx-auto d-block" [src]="thumbnailUrl" alt="Card image" />
+    <div class="card-img-overlay">
+        <h4 class="card-title text-center pat-card"><b>{{evenement.evenementName}}</b></h4>
+        <!-- <br><small><i>{{ "EVENTELEM.REF" | translate }} : {{evenement.id}}</i></small></p> -->
+    </div>
+</div>
+<div class="card-block pat-card-block">
+    <div class="text-center">
+        <span class="badge rounded-pill bg-danger" (click)="addRateMinus()" placement="left"
+            ngbTooltip="{{ 'COMMUN.IDONTLIKE' | translate }}"> {{evenement.ratingMinus || 0}}</span>
+        <ngb-rating [(rate)]="currentRate">
+        </ngb-rating>
+        <span class="badge rounded-pill bg-success" (click)="addRatePlus()" placement="right"
+            ngbTooltip="{{ 'COMMUN.ILIKE' | translate }}">{{evenement.ratingPlus || 0}}</span>
+    </div>
+    <div class="alert alert-warning small pat-alert">
+        <!-- <b>  {{"EVENTELEM.DESC" | translate }} :</b> -->{{evenement.comments}}
+    </div>
+    <div class="card-text text-center" [ngSwitch]="evenement.status">
+        <!--{{"EVENTELEM.STATUS" | translate }} :-->
+        <b>
+            <div *ngSwitchCase="'Closed'" class="d-inline bg-danger pl-2 pr-2">{{"COMMUN.STATUSCLOSE" | translate }}
+            </div>
+            <div *ngSwitchCase="'Open'" class="d-inline bg-success pl-2 pr-2"> {{"COMMUN.STATUSOPEN" | translate }}
+            </div>
+            <div *ngSwitchCase="'Cancel'" class="d-inline bg-warning pl-2 pr-2"> {{"COMMUN.STATUSCANCEL" | translate }}
+            </div>
+        </b>
+    </div>
+    <small class="mb-1"><i>{{"EVENTELEM.AUTHOR" | translate }} : {{ evenement.author.firstName }} {{
+            evenement.author.lastName }} &nbsp;&nbsp; ({{evenement.visibility}})</i></small>
+    <div class="card-text" [ngSwitch]="+evenement.type">
+        {{"EVENTELEM.TYPE" | translate }} :
+        <span *ngSwitchCase="1">{{"EVENTCREATION.TYPE.VTT" | translate }}</span>
+        <span *ngSwitchCase="2">{{"EVENTCREATION.TYPE.SKI" | translate }}</span>
+        <span *ngSwitchCase="3">{{"EVENTCREATION.TYPE.RUN" | translate }}</span>
+        <span *ngSwitchCase="4">{{"EVENTCREATION.TYPE.WALK" | translate }}</span>
+        <span *ngSwitchCase="5">{{"EVENTCREATION.TYPE.BIKE" | translate }}</span>
+        <span *ngSwitchCase="6">{{"EVENTCREATION.TYPE.PARTY" | translate }}</span>
+        <span *ngSwitchCase="7">{{"EVENTCREATION.TYPE.VACATION" | translate }}</span>
+        <span *ngSwitchCase="8">{{"EVENTCREATION.TYPE.TRAVEL" | translate }}</span>
+        <span *ngSwitchCase="9">{{"EVENTCREATION.TYPE.RANDO" | translate }}</span>
+    </div>
+    <div class="card-text" [ngSwitch]="+evenement.diffculty">
+        {{"EVENTELEM.DIFF" | translate }} :
+        <span *ngSwitchCase="0">{{"EVENTCREATION.DIFF.0" | translate }}</span>
+        <span *ngSwitchCase="1">{{"EVENTCREATION.DIFF.1" | translate }}</span>
+        <span *ngSwitchCase="2">{{"EVENTCREATION.DIFF.2" | translate }}</span>
+        <span *ngSwitchCase="3">{{"EVENTCREATION.DIFF.3" | translate }}</span>
+        <span *ngSwitchCase="4">{{"EVENTCREATION.DIFF.4" | translate }}</span>
+        <span *ngSwitchDefault>{{"EVENTCREATION.DIFF.0" | translate }}</span>
+    </div>
+    <div class="card-text">
+        {{"EVENTELEM.STARTLOCATION" | translate }} : {{evenement.startLocation}}
+    </div>
+    <div class="card-text">
+        {{"EVENTELEM.BEGINDT" | translate }} : {{evenement.beginEventDate | date }} {{"COMMUN.AT" | translate}} <b>{{
+            evenement.startHour }}</b>
+    </div>
+    <div class="card-text">
+        {{"EVENTELEM.ENDDT" | translate }} : {{evenement.endEventDate | date }}
+    </div>
+    <!--    
+    <div class="card-text">
+        {{"EVENTELEM.DURATION" | translate }} : {{evenement.durationEstimation }}
+    </div>
+    -->
+    <div [hidden]="tfl">
+        <div class="card-text">
+            <hr>
+            <h5><b> {{"EVENTELEM.FILES" | translate }} : </b></h5>
+            <ul class="list-group">
+                <li class="list-group-item justify-content-between"
+                    *ngFor="let uploadedFile of evenement.fileUploadeds ">
+                    <button class="btn btn-sm btn-primary" placement="right"
+                        ngbTooltip="{{ 'COMMUN.OPEN' | translate }}"
+                        (click)="openWindows(uploadedFile.fieldId, uploadedFile.fileName)"><i class="fa fa-files-o"
+                            aria-hidden="true"></i></button>
+                    <small>{{uploadedFile.fileName}}</small>
+                    <!-- ( {{ 'COMMUN.BY' | translate }} {{uploadedFile.uploaderMember.userName}} ) -->
+                    <button class="btn btn-sm btn-danger" placement="left"
+                        ngbTooltip="{{ 'EVENTELEM.DELETEFILE' | translate }}"
+                        [disabled]="!isFileOwner(uploadedFile.uploaderMember)"
+                        (click)="delFile(uploadedFile.fieldId)"><i class="fa fa-trash" aria-hidden="true"></i></button>
+                </li>
+            </ul>
+        </div>
+    </div>
+    <div class="card-text" [hidden]="!isAnyParticpants()">
+        <hr>
+        <h5 class="pat-members"><b> {{"EVENTELEM.MEMBERS" | translate }} : </b></h5>
+        <span *ngFor="let member of evenement.members ">
+            <small> {{member.firstName}} {{member.lastName}};</small>
+        </span>
+    </div>
+</div>
+<div class="card-footer card-text text-center">
+    <!-- <iframe width="100%" height="250" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" sandbox="allow-forms allow-scripts allow-same-origin" [src]="safeUrlMap" allowfullscreen></iframe> -->
+    <a class="btn btn-primary btn-sm mb-1" [hidden]="!isMapAvailable()" [href]="safeUrlMap" target="_blank"
+        placement="right" ngbTooltip=" {{ 'EVENTELEM.MAP' | translate }}"><i class="fa fa-map"
+            aria-hidden="true"></i></a>
+    <a class="btn btn-info btn-sm mb-1" [hidden]="!isPhotosUrlAvailable()" [href]="safePhotosUrl" target="_blank"
+        placement="right" ngbTooltip=" {{ 'EVENTELEM.PHOTOSURL' | translate }}"><i class="fa fa-picture-o"
+            aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-outline-info mb-1" (click)="open(content)"
+        ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}"><i class="fa fa-comments" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-info mb-1" [hidden]="!isParticipant()" (click)="delMemberClick()"
+        ngbTooltip=" {{ 'EVENTELEM.IDWTP' | translate }}"><i class="fa fa-user" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-success mb-1" [hidden]="isParticipant()" (click)="addMemberClick()"
+        ngbTooltip=" {{ 'EVENTELEM.IWTP' | translate }}"><i class="fa fa-user-o" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-primary mb-1" [hidden]="!isAuthor()" (click)="changeStatusEvent(evenement.status)"
+        ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}"><i class="fa fa-circle-o-notch"
+            aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-warning mb-1" [hidden]="!isAuthor()" [routerLink]="['/updeven',evenement.id]"
+        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-danger mb-1" [hidden]="!isAuthor()" (click)="deleteEvenement()" placement="left"
+        ngbTooltip="{{ 'EVENTELEM.DTE' | translate }}"><i class="fa fa-trash" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-outline-primary mb-1" [hidden]="!isAnyFiles()" (click)="toogleFileListe()"
+        placement="bottom" ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"><i class="fa fa-download"
+            aria-hidden="true"></i> </a>
+
+    <div class="file-upload-wrapper" placement="left" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}">
+        <label for="file-upload-input" class="btn btn-sm btn-success mb-1">
+            <i class="fa fa-upload" aria-hidden="true"></i>
+        </label>
+        <input type="file" id="file-upload-input" #fileInput (change)="onFileSelected($event)" multiple 
+               accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;" />
+    </div>
+</div>
+<!-- Modal window for live chat -->
+<ng-template #content let-c="close" let-d="dismiss">
+    <div class="modal-header">
+        <h5 class="modal-title">{{evenement.evenementName}}<small> ({{"EVENTELEM.LIVECHAT" | translate }})</small></h5>
+
+        <button type="button" class="close" aria-label="Close" (click)="d('Cross click')">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="input-group">
+            <input [(ngModel)]="msgVal" type="textarea" id="message"
+                placeholder="{{ 'RESULTS.MESSAGEPLHD' | translate }}" (keyup.enter)="Send()" autofocus />
+            <div class="input-group-append">
+                <button class="btn btn-primary" type="button" (click)="Send()">{{ 'RESULTS.SEND' | translate }}</button>
+            </div>
+        </div>
+    </div>
+    <div>
+        <div *ngFor="let item of items | async ">
+            <div class="chatitem">
+                <b> {{item.user.userName}}</b><i> <small>( {{item.date | date }}, {{item.date | date:'shortTime' }}
+                        )</small></i>
+                <a class="btn btn-sm btn-danger pull-right" placement="left"
+                    ngbTooltip="{{ 'EVENTELEM.DELMESCHAT' | translate }}"
+                    [hidden]="!(item.user.userName == user.userName)" (click)="deleteMessage(item)"><i
+                        class="fa fa-trash" aria-hidden="true"></i></a> :
+                <br> {{item.message}}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">{{"COMMUN.CLOSE" | translate
+            }}</button>
+    </div>
+</ng-template>

@@ -1,0 +1,64 @@
+<div class="iot-container">
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">{{ "IOT.TITLE" | translate }}</h1>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- IoT Controls -->
+        <div class="iot-controls">
+            <div class="control-card">
+                <div class="control-header">
+                    <div class="control-icon">
+                        <i class="fa fa-flask"></i>
+                    </div>
+                    <h3 class="control-title">{{ "IOT.TEST" | translate }}</h3>
+                </div>
+                <div class="control-content">
+                    <button (click)="testEthernetShield()" 
+                            class="iot-button test-button" 
+                            [disabled]="messageTestVisible">
+                        <i class="fa fa-play"></i>
+                        {{ "IOT.TEST" | translate }}
+                    </button>
+                    <div *ngIf="messageTestVisible" class="iot-message test-message">
+                        <div class="message-icon">
+                            <i class="fa fa-info-circle"></i>
+                        </div>
+                        <div class="message-content">
+                            <strong>{{ iotTestResponse }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-card">
+                <div class="control-header">
+                    <div class="control-icon">
+                        <i class="fa fa-unlock-alt"></i>
+                    </div>
+                    <h3 class="control-title">{{ "IOT.OPCLG" | translate }}</h3>
+                </div>
+                <div class="control-content">
+                    <button (click)="openOrCLosePortail()" 
+                            class="iot-button portail-button" 
+                            [disabled]="messageVisible">
+                        <i class="fa fa-power-off"></i>
+                        {{ "IOT.OPCLG" | translate }}
+                    </button>
+                    <div *ngIf="messageVisible" class="iot-message portail-message">
+                        <div class="message-icon">
+                            <i class="fa fa-exclamation-triangle"></i>
+                        </div>
+                        <div class="message-content">
+                            <strong>{{ iotResponse }}</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

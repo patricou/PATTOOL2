@@ -1,0 +1,122 @@
+<div class="links-container">
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">{{ "LINKS.TITLE" | translate }}</h1>
+            <p class="hero-subtitle">{{ "LINKS.COMMENT" | translate }}</p>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Search Filter -->
+        <div class="search-container">
+            <div class="search-input-wrapper">
+                <input type="text" 
+                       class="search-input" 
+                       [(ngModel)]="searchFilter"
+                       (input)="onSearchChange()"
+                       (blur)="hideSuggestions()"
+                       (focus)="onSearchChange()"
+                       placeholder="{{ 'LINKS.SEARCH_PLACEHOLDER' | translate }}">
+                <button class="clear-search" 
+                        *ngIf="searchFilter" 
+                        (click)="searchFilter = ''; onSearchChange()">
+                    <i class="fa fa-times"></i>
+                </button>
+                
+                <!-- Suggestions Dropdown -->
+                <div class="suggestions-dropdown" 
+                     *ngIf="showSuggestions && searchSuggestions.length > 0">
+                    <div class="suggestion-item" 
+                         *ngFor="let suggestion of searchSuggestions"
+                         (click)="selectSuggestion(suggestion)">
+                        <div class="suggestion-icon">
+                            <i class="fa fa-external-link"></i>
+                        </div>
+                        <div class="suggestion-content">
+                            <div class="suggestion-name">{{ suggestion.linkName }}</div>
+                            <div class="suggestion-url">{{ suggestion.url }}</div>
+                        </div>
+                        <div class="suggestion-category">
+                            {{ getCategoryName(suggestion.categoryLinkID) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- URL Opening Checkbox -->
+            <div class="url-checkbox-container">
+                <label class="url-checkbox-label">
+                    <input type="checkbox" 
+                           [(ngModel)]="openUrlOnClick"
+                           class="url-checkbox">
+                    <span class="checkbox-text">{{ "LINKS.OPEN_URL_ON_CLICK" | translate }}</span>
+                </label>
+            </div>
+        </div>
+        
+        <div class="links-grid">
+            <div class="category-card" 
+                 *ngFor="let c of categories; let i = index"
+                 [class.expanded]="isCategoryExpanded(i)">
+                <div class="card-header" (click)="toggleCategory(i)">
+                    <div class="category-icon">
+                        <i class="fa fa-folder"></i>
+                    </div>
+                    <h3 class="category-title">{{c.categoryName}}</h3>
+                    <div class="expand-icon">
+                        <i class="fa" [ngClass]="isCategoryExpanded(i) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                    </div>
+                </div>
+                <div class="card-content" *ngIf="isCategoryExpanded(i)">
+                    <div class="links-list">
+                        <ng-container *ngFor="let u of urllinks">
+                            <div class="link-item" *ngIf="u.categoryLinkID === c.categoryLinkID && isVisible(u)">
+                                <div class="link-content">
+                                    <div class="link-icon">
+                                        <i class="fa fa-external-link"></i>
+                                    </div>
+                                    <div class="link-info">
+                                        <a href="{{ u.url }}" target="_blank" class="link-name" (click)="$event.stopPropagation()">
+                                            {{ u.linkName }}
+                                        </a>
+                                        <div class="link-meta">
+                                            <span class="link-url">{{ u.url }}</span>
+                                            <span class="link-author" *ngIf="u.author">
+                                                <i class="fa fa-user"></i> {{ u.author.firstName }} {{ u.author.lastName }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="link-actions" *ngIf="canEdit(u)" (click)="$event.stopPropagation()">
+                                        <div class="visibility-toggle">
+                                            <label class="toggle-switch">
+                                                <input type="checkbox" 
+                                                       [checked]="u.visibility === 'public'"
+                                                       (change)="submitVisibilityChange(u)">
+                                                <span class="toggle-slider">
+                                                    <span class="toggle-label public" *ngIf="u.visibility === 'public'">
+                                                        <i class="fa fa-globe"></i>
+                                                    </span>
+                                                    <span class="toggle-label private" *ngIf="u.visibility === 'private'">
+                                                        <i class="fa fa-lock"></i>
+                                                    </span>
+                                                </span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </ng-container>
+                        <div class="empty-state" *ngIf="getCategoryLinks(c).length === 0">
+                            <i class="fa fa-folder-open" *ngIf="!searchFilter"></i>
+                            <i class="fa fa-search" *ngIf="searchFilter"></i>
+                            <p *ngIf="!searchFilter">{{ 'LINKS.NO_LINKS' | translate }}</p>
+                            <p *ngIf="searchFilter">{{ 'LINKS.NO_SEARCH_RESULTS' | translate }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

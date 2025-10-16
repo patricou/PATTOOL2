@@ -1,0 +1,342 @@
+<!-- Standard Title Section -->
+<div class="pat-title">
+    <h2>{{ "EVENTUPDT.TITLE" | translate }}</h2>
+    <div class="pat-title-subtitle">Référence : {{evenement.id}}</div>
+</div>
+
+<!-- Main Content -->
+<div class="container mt-0">
+    <div class="row justify-content-center">
+        <div class="col-lg-10 col-xl-8">
+            <form #f="ngForm" novalidate autocomplete="false" (ngSubmit)=" f.valid && updateEvenement(f.value, f.valid) " class="modern-form">
+                
+                <!-- Basic Information Card -->
+                <div class="form-card">
+                    <div class="card-header">
+                        <i class="fa fa-info-circle"></i>
+                        <h3>Informations de base</h3>
+                    </div>
+                    <div class="card-body">
+                        
+                        <!-- Author (Read-only) -->
+                        <div class="form-group">
+                            <label for="authorLastName" class="form-label">
+                                <i class="fa fa-user"></i>
+                                {{ "EVENTCREATION.EVENTAUTHORNAME" | translate }}
+                            </label>
+                            <input id="authorLastName" readonly [(ngModel)]="author" name="author" type="text"
+                                class="form-control" required>
+                        </div>
+
+                        <!-- Event Name -->
+                        <div class="form-group" [class.has-error]="EvenementName.invalid && f.submitted">
+                            <label for="EvenementName" class="form-label">
+                                <i class="fa fa-tag"></i>
+                                {{ "EVENTCREATION.EVENTNAME" | translate }}
+                                <span class="required">*</span>
+                            </label>
+                            <input id="EvenementName" #EvenementName="ngModel" [(ngModel)]="evenement.evenementName"
+                                name="EvenementName" type="text" placeholder="{{ 'EVENTCREATION.EVENTNAMEPLHD' | translate }}"
+                                class="form-control" required>
+                            <div class="error-message" [hidden]="!EvenementName.invalid || !f.submitted">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                {{ "EVENTCREATION.EVENTNAMEERR" | translate }}
+                            </div>
+                        </div>
+
+                        <!-- Event Description -->
+                        <div class="form-group" [class.has-error]="CommentsV.invalid && f.submitted">
+                            <label for="comments" class="form-label">
+                                <i class="fa fa-align-left"></i>
+                                {{ "EVENTCREATION.EVENTDESC" | translate }}
+                                <span class="required">*</span>
+                            </label>
+                            <textarea #CommentsV="ngModel" [(ngModel)]="evenement.comments" class="form-control" id="comments"
+                                required name="comments" rows="3" placeholder="Décrivez votre événement..."></textarea>
+                            <div class="error-message" [hidden]="!CommentsV.invalid || !f.submitted">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                {{ "EVENTCREATION.EVENTDESCERR" | translate }}
+                            </div>
+                        </div>
+
+                        <!-- Visibility -->
+                        <div class="form-group" [class.has-error]="visibility.invalid && f.submitted">
+                            <label for="visibility" class="form-label">
+                                <i class="fa fa-eye"></i>
+                                {{ "EVENTCREATION.VISIBILITY" | translate }}
+                                <span class="required">*</span>
+                            </label>
+                            <select id="visibility" [style.color]="typeColor" #visibility="ngModel"
+                                [(ngModel)]="evenement.visibility" name="visibility" class="form-control" required>
+                                <option value="" disabled selected>{{"EVENTCREATION.VISIBILITYPLHD" | translate }}</option>
+                                <option value="public">{{"EVENTCREATION.PUBLIC" | translate }}</option>
+                                <option value="private">{{"EVENTCREATION.PRIVATE" | translate }}</option>
+                            </select>
+                            <div class="error-message" [hidden]="!visibility.invalid || !f.submitted">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                {{ "EVENTCREATION.VISIBILITYERR" | translate }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <!-- Text input
+            <div class="form-group row" [class.has-danger]="EvenementName.invalid && f.submitted">
+                <label class="col-md-4 col-form-label" for="EvenementStatus">{{ "EVENTCREATION.EVENTSTATUS" | translate }}</label>
+                <div class="col-md-6">
+                    <input id="EvenementStatus" readonly #EvenementStatus="ngModel" [(ngModel)]="evenement.status" name="EvenementStatus" type="text" placeholder="{{ 'EVENTCREATION.EVENTSTATUSLHD' | translate }}" class="form-control input-md" required>
+                    <small class="text-danger" [hidden]="!EvenementStatus.invalid || !f.submitted" type="danger">{{ "EVENTCREATION.EVENTSTATUSERR" | translate }}</small>
+                </div>
+            </div> -->
+                <!-- Event Details Card -->
+                <div class="form-card">
+                    <div class="card-header">
+                        <i class="fa fa-cogs"></i>
+                        <h3>Détails de l'événement</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Event Type -->
+                            <div class="col-md-6">
+                                <div class="form-group" [class.has-error]="typeV.invalid && f.submitted">
+                                    <label for="typeV" class="form-label">
+                                        <i class="fa fa-list-alt"></i>
+                                        {{ "EVENTCREATION.EVENTTYPE" | translate }}
+                                        <span class="required">*</span>
+                                    </label>
+                                    <select id="typeV" [style.color]="typeColor" #typeV="ngModel" [(ngModel)]="evenement.type"
+                                        name="type" class="form-control" required>
+                                        <option value="" disabled selected>{{"EVENTCREATION.EVENTTYPEPLHD" | translate }}</option>
+                                        <option value="1">{{"EVENTCREATION.TYPE.VTT" | translate }}</option>
+                                        <option value="2">{{"EVENTCREATION.TYPE.SKI" | translate }}</option>
+                                        <option value="3">{{"EVENTCREATION.TYPE.RUN" | translate }}</option>
+                                        <option value="4">{{"EVENTCREATION.TYPE.WALK" | translate }}</option>
+                                        <option value="5">{{"EVENTCREATION.TYPE.BIKE" | translate }}</option>
+                                        <option value="6">{{"EVENTCREATION.TYPE.PARTY" | translate }}</option>
+                                        <option value="7">{{"EVENTCREATION.TYPE.VACATION" | translate }}</option>
+                                        <option value="8">{{"EVENTCREATION.TYPE.TRAVEL" | translate }}</option>
+                                        <option value="9">{{"EVENTCREATION.TYPE.RANDO" | translate }}</option>
+                                    </select>
+                                    <div class="error-message" [hidden]="!typeV.invalid || !f.submitted">
+                                        <i class="fa fa-exclamation-triangle"></i>
+                                        {{ "EVENTCREATION.EVENTTYPEERR" | translate }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Difficulty Level -->
+                            <div class="col-md-6">
+                                <div class="form-group" [class.has-error]="diffculty.invalid && f.submitted">
+                                    <label for="diffculty" class="form-label">
+                                        <i class="fa fa-signal"></i>
+                                        {{ "EVENTCREATION.DIFF" | translate }}
+                                        <span class="required">*</span>
+                                    </label>
+                                    <select id="diffculty" [style.color]="diffColor" #diffculty="ngModel"
+                                        [(ngModel)]="evenement.diffculty" name="diffculty" class="form-control" required>
+                                        <option value="" disabled selected>{{"EVENTCREATION.EVENTDIFFPLHD" | translate }}</option>
+                                        <option value="1">{{"EVENTCREATION.DIFF.0" | translate }}</option>
+                                        <option value="2">{{"EVENTCREATION.DIFF.1" | translate }}</option>
+                                        <option value="3">{{"EVENTCREATION.DIFF.2" | translate }}</option>
+                                        <option value="4">{{"EVENTCREATION.DIFF.3" | translate }}</option>
+                                        <option value="5">{{"EVENTCREATION.DIFF.4" | translate }}</option>
+                                    </select>
+                                    <div class="error-message" [hidden]="!diffculty.invalid || !f.submitted">
+                                        <i class="fa fa-exclamation-triangle"></i>
+                                        {{ "EVENTCREATION.DIFFERR" | translate }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Date & Time Card -->
+                <div class="form-card">
+                    <div class="card-header">
+                        <i class="fa fa-calendar"></i>
+                        <h3>Date et heure</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Start Date -->
+                            <div class="col-md-6">
+                                <div class="form-group" [class.has-error]="beginEventDateV.invalid && f.submitted">
+                                    <label for="beginEventDateV" class="form-label">
+                                        <i class="fa fa-play-circle"></i>
+                                        {{ "EVENTCREATION.BEGINEVENTDT" | translate }}
+                                        <span class="required">*</span>
+                                    </label>
+                                    <input type="datetime-local" id="beginEventDate" #beginEventDateV="ngModel" 
+                                        [(ngModel)]="beginEventDateString" name="beginEventDate" 
+                                        placeholder="{{ 'EVENTCREATION.BEGINEVENTDTPLHD' | translate }}"
+                                        class="form-control" required>
+                                    <div class="error-message" [hidden]="!beginEventDateV.invalid || !f.submitted">
+                                        <i class="fa fa-exclamation-triangle"></i>
+                                        {{ "EVENTCREATION.BEGINEVENTDTERR" | translate }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- End Date -->
+                            <div class="col-md-6">
+                                <div class="form-group" [class.has-error]="endEventDateV.invalid && f.submitted">
+                                    <label for="endEventDateV" class="form-label">
+                                        <i class="fa fa-stop-circle"></i>
+                                        {{ "EVENTCREATION.ENDEVENTDT" | translate }}
+                                        <span class="required">*</span>
+                                    </label>
+                                    <input type="datetime-local" id="endEventDateV" #endEventDateV="ngModel" 
+                                        [(ngModel)]="endEventDateString" name="endEventDate" 
+                                        placeholder="{{ 'EVENTCREATION.ENDEVENTDTPLHD' | translate }}"
+                                        class="form-control" required>
+                                    <div class="error-message" [hidden]="!endEventDateV.invalid || !f.submitted">
+                                        <i class="fa fa-exclamation-triangle"></i>
+                                        {{ "EVENTCREATION.ENDEVENTDTERR" | translate }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <!-- Begin Hour-->
+            <!--
+            <div class="form-group row" [class.has-danger]="startHour.invalid && f.submitted">
+                <label class="col-md-4 col-form-label" for="startHour">{{ "EVENTCREATION.STARTHOUR" | translate }}</label>
+                <div class="col-md-6">
+                    <input id="startHour" #startHour="ngModel" [(ngModel)]="evenement.startHour" name="startHour" placeholder="{{ 'EVENTCREATION.STARTHOURHLP' | translate }}" class="form-control input-md" required>
+                    <small class="text-danger" [hidden]="!startHour.invalid || !f.submitted" type="danger"> {{ "EVENTCREATION.STARTHOURERR" | translate }}  </small>
+                </div>
+            </div>
+            -->
+            <!-- Estimated duration-->
+            <!--
+            <div class="form-group row" [class.has-danger]="duraest.invalid && f.submitted">
+                <label class="col-md-4 col-form-label" for="duraest">{{ "EVENTCREATION.DURAEST" | translate }}</label>
+                <div class="col-md-6">
+                    <input id="duraest" #duraest="ngModel" [(ngModel)]="evenement.durationEstimation" name="duraest" placeholder="{{ 'EVENTCREATION.DURAESTHLP' | translate }}" class="form-control input-md" required>
+                    <small class="text-danger" [hidden]="!duraest.invalid || !f.submitted" type="danger"> {{ "EVENTCREATION.DURAESTERR" | translate }}  </small>
+                </div>
+            </div>
+            -->
+                <!-- Location & Links Card -->
+                <div class="form-card">
+                    <div class="card-header">
+                        <i class="fa fa-map-marker"></i>
+                        <h3>Localisation et liens</h3>
+                    </div>
+                    <div class="card-body">
+                        <!-- Location -->
+                        <div class="form-group" [class.has-error]="startLocation.invalid && f.submitted">
+                            <label for="startLocation" class="form-label">
+                                <i class="fa fa-map-pin"></i>
+                                {{ "EVENTCREATION.STARTLOCATION" | translate }}
+                                <span class="required">*</span>
+                            </label>
+                            <input id="startLocation" #startLocation="ngModel" [(ngModel)]="evenement.startLocation"
+                                name="startLocation" placeholder="{{ 'EVENTCREATION.STARTLOCATIONHLP' | translate }}"
+                                class="form-control" required>
+                            <div class="error-message" [hidden]="!startLocation.invalid || !f.submitted">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                {{ "EVENTCREATION.STARTLOCATIONERR" | translate }}
+                            </div>
+                        </div>
+
+                        <!-- Map URL -->
+                        <div class="form-group" [class.has-error]="mapV.invalid && f.submitted">
+                            <label for="map" class="form-label">
+                                <i class="fa fa-map"></i>
+                                {{ "EVENTCREATION.MAPURL" | translate }}
+                            </label>
+                            <div class="input-group">
+                                <input id="map" #mapV="ngModel" [(ngModel)]="evenement.map" name="map"
+                                    placeholder="{{ 'EVENTCREATION.MAPURLPLHD' | translate }}" class="form-control">
+                                <a href="https://www.geoportail.gouv.fr/carte" target="_blank" class="input-group-text" title="Ouvrir Géoportail">
+                                    <i class="fa fa-external-link"></i>
+                                </a>
+                            </div>
+                            <div class="error-message" [hidden]="!mapV.invalid || !f.submitted">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                {{ "EVENTCREATION.MAPURLERR" | translate }}
+                            </div>
+                        </div>
+
+                        <!-- Photos URL -->
+                        <div class="form-group" [class.has-error]="photosUrlV.invalid && f.submitted">
+                            <label for="photosUrl" class="form-label">
+                                <i class="fa fa-picture-o"></i>
+                                {{ "EVENTCREATION.PHOTOSURL" | translate }}
+                            </label>
+                            <input id="photosUrl" #photosUrlV="ngModel" [(ngModel)]="evenement.photosUrl" name="photosUrl"
+                                placeholder="{{ 'EVENTCREATION.PHOTOSURLPLHD' | translate }}" class="form-control">
+                            <div class="error-message" [hidden]="!photosUrlV.invalid || !f.submitted">
+                                <i class="fa fa-exclamation-triangle"></i>
+                                {{ "EVENTCREATION.PHOTOSURLERR" | translate }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Registration Dates Card -->
+                <div class="form-card">
+                    <div class="card-header">
+                        <i class="fa fa-calendar-check-o"></i>
+                        <h3>Dates d'inscription</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <!-- Open Registration Date -->
+                            <div class="col-md-6">
+                                <div class="form-group" [class.has-error]="openInscriptionDateV.invalid && f.submitted">
+                                    <label for="OpenInscriptionDate" class="form-label">
+                                        <i class="fa fa-unlock"></i>
+                                        {{ "EVENTCREATION.OPENEVENTINSCRIPTDT" | translate }}
+                                        <span class="required">*</span>
+                                    </label>
+                                    <input type="datetime-local" id="OpenInscriptionDate" #openInscriptionDateV="ngModel"
+                                        [(ngModel)]="openInscriptionDateString" name="openInscriptionDate"
+                                        placeholder="{{ 'EVENTCREATION.OPENEVENTINSCRIPTDTPLHD' | translate }}"
+                                        class="form-control" required>
+                                    <div class="error-message" [hidden]="!openInscriptionDateV.invalid || !f.submitted">
+                                        <i class="fa fa-exclamation-triangle"></i>
+                                        {{ "EVENTCREATION.OPENEVENTINSCRIPTDTERR" | translate }}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Close Registration Date -->
+                            <div class="col-md-6">
+                                <div class="form-group" [class.has-error]="closeInscriptionDateV.invalid && f.submitted">
+                                    <label for="closeInscriptionDate" class="form-label">
+                                        <i class="fa fa-lock"></i>
+                                        {{ "EVENTCREATION.CLOSEEVENTINSCRIPTDT" | translate }}
+                                        <span class="required">*</span>
+                                    </label>
+                                    <input type="datetime-local" id="closeInscriptionDate" #closeInscriptionDateV="ngModel"
+                                        [(ngModel)]="closeInscriptionDateString" name="closeInscriptionDate"
+                                        placeholder="{{ 'EVENTCREATION.CLOSEEVENTINSCRIPTDTPLHD' | translate }}"
+                                        class="form-control" required>
+                                    <div class="error-message" [hidden]="!closeInscriptionDateV.invalid || !f.submitted">
+                                        <i class="fa fa-exclamation-triangle"></i>
+                                        {{ "EVENTCREATION.CLOSEEVENTINSCRIPTDTERR" | translate }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="form-actions">
+                    <div class="button-group">
+                        <button id="submitevent" name="submitevent" class="btn btn-primary btn-lg">
+                            <i class="fa fa-save"></i>
+                            {{ "EVENTUPDT.SUBMIT" | translate }}
+                        </button>
+                        <a [routerLink]="['/even']" id="cancelevent" name="cancelevent" class="btn btn-secondary btn-lg">
+                            <i class="fa fa-times"></i>
+                            {{ "EVENTCREATION.CANCEL" | translate }}
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
