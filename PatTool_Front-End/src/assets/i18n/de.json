@@ -33,7 +33,11 @@
         "TITLE": "Haussteuerung",
         "OPCLG": "Tor Öffnen/Schließen",
         "COMMENT": "...",
-        "TEST": "IOT-Tests"
+        "TEST": "IOT-Tests",
+        "TEST_DESCRIPTION": "Ethernet Shield Konnektivitätstest zur Überprüfung der Kommunikation mit Arduino.",
+        "PORTAIL_DESCRIPTION": "Automatische Torsteuerung - Fernöffnung und -schließung.",
+        "TEST_RESULT": "Testergebnis",
+        "PORTAIL_STATUS": "Torstatus"
     },
     "EVENTHOME": {
         "EVENTSLIST": "Veranstaltungsliste:",

@@ -1,53 +1,119 @@
+<!-- Standard Title Section -->
 <div class="pat-title">
   <h2>{{"PATGPT.TITLE" | translate }}</h2>
 </div>
-<div class="chat-container">
-  <div class="current-date"> {{ currentDate | date:'fullDate' }} / {{ currentDate | date:'mediumTime' }}
-  </div>
-  <div>
-    <small> <a href="https://platform.openai.com/settings/organization/billing/overview"
-        target="_blank"><strong>{{"PATGPT.BILLING" | translate }}</strong></a></small>
-  </div>
-  <textarea [value]="userInput" (input)="onUserInput($event)" (focus)="clearTextArea()" (keydown.enter)="
-    sendQuestion()" placeholder="{{'PATGPT.PLACEHOLDER' | translate }}"></textarea>
-  <div>
-    <div class="row">
-      <div class="col-12 gap-2 m-1">
-        <input type="checkbox" [(ngModel)]="sendWithHistorical">
-        <small><b>  {{ sendWithHistorical ? ('PATGPT.SENDWITHHISTORICAL' | translate) :
-            ('PATGPT.SENDWITHOUTHISTORICAL'
-            | translate)
-            }}</b></small>  /  
-        <input type="checkbox" [(ngModel)]="lastxquestion">
-        <small><b>   {{ lastxquestion ? ('PATGPT.WITHLASTXQUESTION' | translate) :
-            ('PATGPT.WITHLASTFIRSTQUESTION'
-            | translate)
-            }}</b></small>
+
+<!-- Main Content -->
+<div class="container mt-0">
+  <div class="row justify-content-center">
+    <div class="col-lg-10 col-xl-8">
+      
+      <!-- Chat Interface Card -->
+      <div class="chat-card">
+        <div class="card-header">
+          <i class="fa fa-robot"></i>
+          <h3>Assistant IA</h3>
+          <div class="header-info">
+            <small class="current-date">{{ currentDate | date:'fullDate' }} / {{ currentDate | date:'mediumTime' }}</small>
+            <a href="https://platform.openai.com/settings/organization/billing/overview" target="_blank" class="billing-link">
+              <i class="fa fa-external-link-alt"></i>
+              {{"PATGPT.BILLING" | translate }}
+            </a>
+          </div>
+        </div>
+        <div class="card-body">
+          
+          <!-- Input Section -->
+          <div class="form-group">
+            <label class="form-label">
+              <i class="fa fa-comment-dots"></i>
+              Votre question
+            </label>
+            <textarea 
+              class="form-control chat-input" 
+              [value]="userInput" 
+              (input)="onUserInput($event)" 
+              (focus)="clearTextArea()" 
+              (keydown.enter)="sendQuestion()" 
+              placeholder="{{'PATGPT.PLACEHOLDER' | translate }}"
+              rows="4">
+            </textarea>
+          </div>
+
+          <!-- Options Section -->
+          <div class="options-section">
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" id="sendWithHistorical" [(ngModel)]="sendWithHistorical">
+              <label class="form-check-label" for="sendWithHistorical">
+                <small><strong>{{ sendWithHistorical ? ('PATGPT.SENDWITHHISTORICAL' | translate) : ('PATGPT.SENDWITHOUTHISTORICAL' | translate) }}</strong></small>
+              </label>
+            </div>
+            <div class="form-check form-check-inline">
+              <input class="form-check-input" type="checkbox" id="lastxquestion" [(ngModel)]="lastxquestion">
+              <label class="form-check-label" for="lastxquestion">
+                <small><strong>{{ lastxquestion ? ('PATGPT.WITHLASTXQUESTION' | translate) : ('PATGPT.WITHLASTFIRSTQUESTION' | translate) }}</strong></small>
+              </label>
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="button-group">
+            <button class="btn btn-success" (click)="sendQuestion()" [disabled]="isLoading">
+              <i class="fa fa-paper-plane"></i>
+              {{"PATGPT.BUTTONSEND" | translate }}
+            </button>
+            <button class="btn btn-outline-danger" (click)="clearHistorical()">
+              <i class="fa fa-trash-alt"></i>
+              {{"PATGPT.CLEARHISTORICAL" | translate }}
+            </button>
+            <button class="btn btn-outline-warning" (click)="clearTextArea()">
+              <i class="fa fa-eraser"></i>
+              {{"PATGPT.CLEAR" | translate }}
+            </button>
+            <button class="btn btn-outline-primary" (click)="navigateToHistorical()">
+              <i class="fa fa-history"></i>
+              {{"PATGPT.HISTORICAL" | translate }}
+            </button>
+          </div>
+
+          <!-- Loading State -->
+          <div *ngIf="isLoading" class="loading-section">
+            <div class="loading-spinner">
+              <img src="assets/images/sablier.gif" alt="Loading..." />
+              <span>Réflexion en cours...</span>
+            </div>
+          </div>
+
+          <!-- Response Section -->
+          <div *ngIf="chatResponse" class="response-section">
+            <div class="response-card">
+              <div class="response-header">
+                <i class="fa fa-robot"></i>
+                <strong>{{"PATGPT.RESPONSE" | translate }}</strong>
+              </div>
+              <div class="response-content">
+                {{ chatResponse.choices[0].message.content }}
+              </div>
+              <div class="response-meta">
+                <div class="meta-item">
+                  <i class="fa fa-fingerprint"></i>
+                  <span>ID: {{ chatResponse.id }}</span>
+                </div>
+                <div class="meta-item">
+                  <i class="fa fa-cogs"></i>
+                  <span>Model: {{ chatResponse.model }}</span>
+                </div>
+                <div class="meta-item">
+                  <i class="fa fa-coins"></i>
+                  <span>Tokens: {{ chatResponse.usage.total_tokens }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
 
     </div>
-    <div class="row">
-      <div class="col-12">
-        <button class="btn btn-success btn-sm m-1" (click)="sendQuestion()">{{"PATGPT.BUTTONSEND" | translate
-          }}</button>
-        <button class="btn btn-danger btn-sm m-1" (click)="clearHistorical()">{{"PATGPT.CLEARHISTORICAL" | translate
-          }}</button>
-        <button class="btn btn-warning btn-sm m-1" (click)="clearTextArea()">{{"PATGPT.CLEAR" | translate }}</button>
-        <button class="btn btn-primary btn-sm m-1" (click)="navigateToHistorical()">{{"PATGPT.HISTORICAL" | translate
-          }}</button>
-
-      </div>
-    </div>
   </div>
-
-  <div *ngIf="isLoading" style="display: flex; justify-content: left;">
-    <img src="assets/images/sablier.gif" />
-  </div>
-  <div *ngIf="chatResponse">
-    <p class="response-content"><b>{{"PATGPT.RESPONSE" | translate }}:</b><br> {{
-      chatResponse.choices[0].message.content }}
-    </p>
-    <p><strong>ID:</strong> {{ chatResponse.id }}</p>
-    <p><strong>Model:</strong> {{ chatResponse.model }}</p>
-    <p><strong>Usage:</strong> {{ chatResponse.usage.total_tokens }} tokens</p>
-  </div>
+</div>

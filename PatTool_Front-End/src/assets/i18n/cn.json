@@ -33,7 +33,11 @@
         "TITLE": "家庭控制",
         "OPCLG": "开/关大门",
         "COMMENT": "...",
-        "TEST": " 物联网测试"
+        "TEST": " 物联网测试",
+        "TEST_DESCRIPTION": "测试以太网盾连接以验证与Arduino的通信。",
+        "PORTAIL_DESCRIPTION": "自动门控制 - 远程开关。",
+        "TEST_RESULT": "测试结果",
+        "PORTAIL_STATUS": "门状态"
     },
     "EVENTHOME": {
         "EVENTSLIST": "活动列表：",

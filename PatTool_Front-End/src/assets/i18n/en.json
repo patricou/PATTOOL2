@@ -33,7 +33,11 @@
         "TITLE": "Home Control",
         "OPCLG": "Gate Open/Close",
         "COMMENT": "...",
-        "TEST": "IOT Testing"
+        "TEST": "IOT Testing",
+        "TEST_DESCRIPTION": "Test Ethernet Shield connectivity to verify communication with Arduino.",
+        "PORTAIL_DESCRIPTION": "Automatic gate control - Remote opening and closing.",
+        "TEST_RESULT": "Test result",
+        "PORTAIL_STATUS": "Gate status"
     },
     "EVENTHOME": {
         "EVENTSLIST": "Activities List :",

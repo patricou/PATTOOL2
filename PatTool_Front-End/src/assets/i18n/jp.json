@@ -33,7 +33,11 @@
         "TITLE": "ホームコントロール",
         "OPCLG": "ゲートの開閉",
         "COMMENT": "...",
-        "TEST": "IoTテスト"
+        "TEST": "IoTテスト",
+        "TEST_DESCRIPTION": "Arduinoとの通信を確認するためのEthernet Shield接続テスト。",
+        "PORTAIL_DESCRIPTION": "自動ゲート制御 - リモート開閉。",
+        "TEST_RESULT": "テスト結果",
+        "PORTAIL_STATUS": "ゲートステータス"
     },
     "EVENTHOME": {
         "EVENTSLIST": "活動リスト：",

@@ -1,49 +1,322 @@
-.chat-container {
-    width: 90%;
-    margin: 0 auto;
-    padding: 20px;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+/* PatGPT Component - Modern Style */
+
+/* Main Chat Card */
+.chat-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    margin-bottom: 1rem;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-textarea {
-    width: 100%;
-    height: 100px;
-    margin-bottom: 10px;
-    padding: 10px;
-    border-radius: 4px;
-    border: 1px solid #ccc;
-    font-size: 16px;
+.chat-card:hover {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+    transform: translateY(-1px);
 }
 
-button:hover {
-    background-color: #0056b3;
+/* Card Header */
+.card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1rem 1.5rem;
+    border-bottom: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
 }
 
-p {
-    margin-top: 20px;
-    font-size: 16px;
-    color: #333;
+.card-header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    pointer-events: none;
 }
 
-.response-content {
-    padding: 10px;
-    background-color: #e9ecef;
-    border-radius: 4px;
-    font-size: 16px;
-    white-space: pre-wrap;
-    /* Conserver les sauts de ligne et les espaces */
-    word-wrap: break-word;
-    /* Permet de couper les mots longs */
+.card-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.card-header i {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+.header-info {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.25rem;
+    position: relative;
+    z-index: 1;
 }
 
 .current-date {
-    font-size: 10px;
+    font-size: 0.75rem;
+    opacity: 0.8;
+    font-weight: 500;
 }
 
-.move-right {
-    position: fixed;
-    left: 50px;
-    /* Ajustez la valeur selon vos besoins */
+.billing-link {
+    color: white;
+    text-decoration: none;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    transition: opacity 0.3s ease;
+}
+
+.billing-link:hover {
+    opacity: 0.8;
+    color: white;
+}
+
+/* Card Body */
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.form-label i {
+    color: #667eea;
+    width: 16px;
+    font-size: 0.9rem;
+}
+
+/* Chat Input */
+.chat-input {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background: #fafafa;
+    resize: vertical;
+    min-height: 100px;
+    font-family: inherit;
+}
+
+.chat-input:focus {
+    border-color: #667eea;
+    box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
+    background: white;
+    outline: none;
+}
+
+.chat-input::placeholder {
+    color: #6c757d;
+    font-style: italic;
+}
+
+/* Options Section */
+.options-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    border: 1px solid #e9ecef;
+}
+
+.form-check {
+    margin-bottom: 0.5rem;
+}
+
+.form-check-input {
+    margin-top: 0.125rem;
+}
+
+.form-check-label {
+    font-size: 0.85rem;
+    color: #495057;
+}
+
+/* Button Group */
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.button-group .btn {
+    border-radius: 6px;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.3s ease;
+    border-width: 2px;
+}
+
+.button-group .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.button-group .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Loading Section */
+.loading-section {
+    text-align: center;
+    padding: 2rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+    margin-bottom: 1.5rem;
+}
+
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.loading-spinner img {
+    max-width: 40px;
+    height: auto;
+}
+
+.loading-spinner span {
+    color: #6c757d;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+/* Response Section */
+.response-section {
+    margin-top: 1.5rem;
+}
+
+.response-card {
+    background: linear-gradient(135deg, #e3f2fd 0%, #f3e5f5 100%);
+    border-radius: 8px;
+    border: 1px solid #e1bee7;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.response-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+}
+
+.response-content {
+    padding: 1rem;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: #333;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background: white;
+}
+
+.response-meta {
+    background: #f8f9fa;
+    padding: 0.75rem 1rem;
+    border-top: 1px solid #e9ecef;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.meta-item i {
+    color: #667eea;
+    width: 14px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+    
+    .header-info {
+        align-items: flex-start;
+        width: 100%;
+    }
+    
+    .button-group {
+        flex-direction: column;
+    }
+    
+    .button-group .btn {
+        justify-content: center;
+    }
+    
+    .response-meta {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
+
+/* Animation for smooth transitions */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.response-section {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.loading-section {
+    animation: fadeIn 0.2s ease-out;
 }

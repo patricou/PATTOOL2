@@ -33,7 +33,11 @@
         "TITLE": "التحكم في المنزل",
         "OPCLG": "فتح/إغلاق البوابة",
         "COMMENT": "...",
-        "TEST": "اختبار إنترنت الأشياء"
+        "TEST": "اختبار إنترنت الأشياء",
+        "TEST_DESCRIPTION": "اختبار اتصال Ethernet Shield للتحقق من التواصل مع Arduino.",
+        "PORTAIL_DESCRIPTION": "التحكم في البوابة التلقائية - الفتح والإغلاق عن بُعد.",
+        "TEST_RESULT": "نتيجة الاختبار",
+        "PORTAIL_STATUS": "حالة البوابة"
     },
     "EVENTHOME": {
         "EVENTSLIST": "قائمة الأنشطة :",
