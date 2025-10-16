@@ -66,10 +66,11 @@ export class AppComponent implements OnInit {
     }
 
     navigateToHome(event: Event): void {
-        // Only navigate if no dropdowns are open
-        if (!this.showEventsDropdown && !this.showIADropdown && !this.showToolsDropdown) {
+        // Only navigate if no dropdowns are open and it's not a dropdown trigger
+        if (!this.showEventsDropdown && !this.showIADropdown && !this.showToolsDropdown && !this.showAISubmenu) {
             event.preventDefault();
-            this.router.navigate(['/home']);
+            event.stopPropagation();
+            this.router.navigate(['']);
         }
     }
 
@@ -312,18 +313,25 @@ export class AppComponent implements OnInit {
         this.closeDropdowns();
     }
 
+    closeMenuOnly(): void {
+        this.isMenuCollapsed = true;
+        this.closeDropdowns();
+    }
+
     @HostListener('document:click', ['$event'])
     onDocumentClick(event: Event): void {
         const target = event.target as HTMLElement;
         
-        // Check if the click is inside any dropdown container
+        // Check if the click is inside any dropdown container or navbar
         const isEventsDropdown = target.closest('#eventsDropdown') || target.closest('[aria-labelledby="eventsDropdown"]');
         const isIADropdown = target.closest('#aiDropdown') || target.closest('[aria-labelledby="aiDropdown"]');
         const isToolsDropdown = target.closest('#toolsDropdown') || target.closest('[aria-labelledby="toolsDropdown"]');
-        const isAISubmenu = target.closest('#aiSubmenu') || target.closest('[aria-labelledby="aiSubmenu"]');
+        const isAISubmenu = target.closest('.ai-submenu-list') || target.closest('[aria-labelledby="aiSubmenu"]');
+        const isNavbar = target.closest('.navbar');
+        const isDropdownItem = target.closest('.dropdown-item');
         
-        // If click is outside all dropdowns, close them
-        if (!isEventsDropdown && !isIADropdown && !isToolsDropdown && !isAISubmenu) {
+        // If click is outside all dropdowns, navbar, and dropdown items, close them
+        if (!isEventsDropdown && !isIADropdown && !isToolsDropdown && !isAISubmenu && !isNavbar && !isDropdownItem) {
             this.closeDropdowns();
         }
     }

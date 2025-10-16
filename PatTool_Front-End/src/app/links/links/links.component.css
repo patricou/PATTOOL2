@@ -233,9 +233,6 @@
     margin: 0 auto;
 }
 
-.links-container:has(.category-card.expanded) .main-content {
-    /* Removed margin-top to prevent spacing increase */
-}
 
 /* Links Grid */
 .links-grid {
