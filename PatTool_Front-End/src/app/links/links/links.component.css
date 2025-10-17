@@ -69,27 +69,39 @@
     position: relative;
     max-width: 400px;
     width: 100%;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 123, 255, 0.2);
 }
 
 .search-input {
     width: 100%;
-    padding: 8px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
+    padding: 12px 16px;
+    border: 2px solid #007bff;
+    border-radius: 8px;
     background: white;
     color: #495057;
     font-size: 1rem;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+    margin: 0;
 }
 
 .search-input:hover {
-    border-color: #007bff;
+    border-color: #0056b3;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+    transform: translateY(-1px);
 }
 
 .search-input:focus {
     border-color: #007bff;
     outline: 0;
-    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.3), 0 4px 16px rgba(0, 123, 255, 0.2);
+    transform: translateY(-1px);
 }
 
 .search-input::placeholder {
@@ -122,6 +134,12 @@
     display: flex;
     justify-content: center;
     flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 12px;
+    padding: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 123, 255, 0.2);
 }
 
 .url-checkbox-label {
@@ -129,15 +147,19 @@
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    padding: 6px 12px;
-    border-radius: 4px;
+    padding: 10px 16px;
+    border-radius: 8px;
     background: white;
-    border: 1px solid #ced4da;
-    transition: border-color 0.15s ease-in-out;
+    border: 2px solid #007bff;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+    margin: 0;
 }
 
 .url-checkbox-label:hover {
-    border-color: #007bff;
+    border-color: #0056b3;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+    transform: translateY(-1px);
 }
 
 .url-checkbox {
