@@ -173,4 +173,46 @@ export class LinksComponent implements OnInit {
     return this.expandedCategoryIndex === categoryIndex;
   }
 
+  getCategoryIcon(categoryName: string): string {
+    // Normalize the category name (trim whitespace and convert to lowercase for comparison)
+    const normalizedName = categoryName ? categoryName.trim().toLowerCase() : '';
+    
+    const iconMap: { [key: string]: string } = {
+      'administratif': 'fa-file-text-o',
+      'commerce': 'fa-shopping-cart',
+      'finance': 'fa-money',
+      'ia': 'fa-cogs',
+      'ai': 'fa-cogs',
+      'intelligence artificielle': 'fa-cogs',
+      'artificial intelligence': 'fa-cogs',
+      'it': 'fa-laptop',
+      'it knowledge': 'fa-graduation-cap',
+      'iot': 'fa-microchip',
+      'internet of things': 'fa-microchip',
+      'languages': 'fa-language',
+      'langues': 'fa-language',
+      'maison': 'fa-home',
+      'home': 'fa-home',
+      'media': 'fa-play-circle',
+      'méditation': 'fa-leaf',
+      'meditation': 'fa-leaf',
+      'photo': 'fa-camera',
+      'photography': 'fa-camera',
+      'privé': 'fa-lock',
+      'private': 'fa-lock',
+      'professional': 'fa-briefcase',
+      'professionnel': 'fa-briefcase',
+      'social media': 'fa-share-alt',
+      'sport': 'fa-trophy',
+      'sports': 'fa-trophy'
+    };
+    
+    const icon = iconMap[normalizedName] || 'fa-folder';
+    
+    // Debug: log the category name to see what we're receiving
+    console.log('Category name received:', categoryName, 'Normalized:', normalizedName, 'Icon:', icon);
+    
+    return icon;
+  }
+
 }

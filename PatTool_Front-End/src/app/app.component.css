@@ -437,10 +437,18 @@
     border-radius: 0 !important;
     overflow: hidden !important;
     border-bottom: 1px solid rgba(0,0,0,0.1) !important;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: linear-gradient(315deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%) !important;
+    color: white !important;
     position: relative !important;
     margin: 0 !important;
     padding: 12px 18px !important;
+}
+
+.modal-header .modal-title {
+    color: black !important;
+    font-weight: 600 !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
 }
 
 .modal-header::after {
@@ -450,7 +458,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(315deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
     border-radius: 0;
     z-index: -1;
     pointer-events: none;
@@ -522,7 +530,7 @@
 .pat-modal-header {
     border-radius: 0 !important;
     overflow: hidden !important;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: linear-gradient(135deg, #87CEEB 0%, #5DADE2 100%) !important;
     position: relative !important;
 }
 
@@ -606,7 +614,7 @@
 }
 
 .user-modal-header {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(315deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
     padding: 12px 18px;
     display: flex;
     justify-content: space-between;
@@ -640,14 +648,16 @@
 
 .user-modal-icon {
     font-size: 1.3rem;
-    color: rgba(255,255,255,0.9);
+    color: white;
 }
 
 .user-modal-title {
     margin: 0;
     font-size: 1.1rem;
     font-weight: 600;
-    color: white;
+    color: black;
+    padding: 8px 16px;
+    border-radius: 8px;
 }
 
 .user-modal-close {
@@ -703,7 +713,7 @@
 .info-icon {
     width: 28px;
     height: 28px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(315deg, #1e3a8a 0%, #1e40af 50%, #1d4ed8 100%);
     border-radius: 50%;
     display: flex;
     align-items: center;
@@ -827,7 +837,7 @@
 }
 
 .pat-modal-header {
-    background: linear-gradient(135deg, #2c5aa0 0%, #1e3a8a 50%, #1e40af 100%);
+    background: linear-gradient(315deg, #8a1e1e 0%, #1e40af 50%, #1d4ed8 100%);
     color: white;
     border-bottom: none;
     padding: 20px 25px;
@@ -855,13 +865,17 @@
 .modal-icon {
     font-size: 1.2rem;
     margin-right: 10px;
-    color: rgba(255, 255, 255, 0.9);
+    color: white;
 }
 
 .pat-modal-title {
     position: relative !important;
     font-size: 1rem !important;
     margin: 0 !important;
+    color: black !important;
+    font-weight: 600 !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
 }
 
 .pat-modal-title::after,

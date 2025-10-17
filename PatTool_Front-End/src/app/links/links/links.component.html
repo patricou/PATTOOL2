@@ -62,7 +62,7 @@
                  [class.expanded]="isCategoryExpanded(i)">
                 <div class="card-header" (click)="toggleCategory(i)">
                     <div class="category-icon">
-                        <i class="fa fa-folder"></i>
+                        <i class="fa" [ngClass]="getCategoryIcon(c.categoryName)"></i>
                     </div>
                     <h3 class="category-title">{{c.categoryName}}</h3>
                     <div class="expand-icon">
