@@ -169,8 +169,11 @@
     },
     "RESULTS": {
         "TITLE": "一般讨论",
+        "SUBTITLE": "与您的团队实时沟通",
+        "MESSAGES": "消息",
         "MESSAGEPLHD": "在此输入消息或评论 .... ",
-        "SEND": "发送"
+        "SEND": "发送",
+        "INPUT_HINT": "按Enter发送，Shift+Enter换行"
     },
     "MAP": {
         "TITLE": "特点",

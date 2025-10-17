@@ -169,8 +169,11 @@
     },
     "RESULTS": {
         "TITLE": "Discussione Generale",
+        "SUBTITLE": "Comunica con il tuo team in tempo reale",
+        "MESSAGES": "messaggi",
         "MESSAGEPLHD": "Inserisci un messaggio o un commento qui .... ",
-        "SEND": "Invia"
+        "SEND": "Invia",
+        "INPUT_HINT": "Premi Invio per inviare, Maiusc+Invio per una nuova riga"
     },
     "MAP": {
         "TITLE": "Caratteristiche",

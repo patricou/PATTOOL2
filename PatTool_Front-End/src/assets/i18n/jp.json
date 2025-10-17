@@ -169,8 +169,11 @@
     },
     "RESULTS": {
         "TITLE": "一般的なディスカッション",
+        "SUBTITLE": "チームとリアルタイムでコミュニケーション",
+        "MESSAGES": "メッセージ",
         "MESSAGEPLHD": "ここにメッセージやコメントを入力 .... ",
-        "SEND": "送信"
+        "SEND": "送信",
+        "INPUT_HINT": "送信するにはEnterを押し、新しい行にはShift+Enterを押してください"
     },
     "MAP": {
         "TITLE": "特徴",

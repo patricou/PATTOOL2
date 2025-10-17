@@ -169,8 +169,11 @@
     },
     "RESULTS": {
         "TITLE": "مناقشة عامة",
+        "SUBTITLE": "تواصل مع فريقك في الوقت الفعلي",
+        "MESSAGES": "رسائل",
         "MESSAGEPLHD": "أدخل رسالة أو تعليق هنا .... ",
-        "SEND": "إرسال"
+        "SEND": "إرسال",
+        "INPUT_HINT": "اضغط Enter للإرسال، Shift+Enter لسطر جديد"
     },
     "MAP": {
         "TITLE": "الخصائص",

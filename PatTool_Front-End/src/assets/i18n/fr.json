@@ -164,8 +164,11 @@
     },
     "RESULTS": {
         "TITLE": "Dicussion Génèrale",
+        "SUBTITLE": "Communiquez avec votre équipe en temps réel",
+        "MESSAGES": "messages",
         "MESSAGEPLHD": "Entrez un Message ou Commentaire ici .... ",
-        "SEND": "Envoyez"
+        "SEND": "Envoyez",
+        "INPUT_HINT": "Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne"
     },
     "MAP": {
         "TITLE": "Caractéristiques",

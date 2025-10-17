@@ -169,8 +169,11 @@
     },
     "RESULTS": {
         "TITLE": "Chat global en tiempo real",
+        "SUBTITLE": "Comunícate con tu equipo en tiempo real",
+        "MESSAGES": "mensajes",
         "MESSAGEPLHD": "Ingrese un mensaje o comentario aquí .... ",
-        "SEND": "Enviar"
+        "SEND": "Enviar",
+        "INPUT_HINT": "Presiona Enter para enviar, Shift+Enter para una nueva línea"
     },
     "MAP": {
         "TITLE": "Características principales",

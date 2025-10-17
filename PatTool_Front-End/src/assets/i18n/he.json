@@ -169,8 +169,11 @@
     },
     "RESULTS": {
         "TITLE": "דיון כללי",
+        "SUBTITLE": "תקשרו עם הצוות שלכם בזמן אמת",
+        "MESSAGES": "הודעות",
         "MESSAGEPLHD": "הכנס הודעה או תגובה כאן...",
-        "SEND": "שלח"
+        "SEND": "שלח",
+        "INPUT_HINT": "לחץ Enter לשליחה, Shift+Enter לשורה חדשה"
     },
     "MAP": {
         "TITLE": "מאפיינים",

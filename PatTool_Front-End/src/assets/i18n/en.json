@@ -169,8 +169,11 @@
     },
     "RESULTS": {
         "TITLE": "Global Real Time Chat",
+        "SUBTITLE": "Communicate with your team in real time",
+        "MESSAGES": "messages",
         "MESSAGEPLHD": "Enter a message or commentary here .... ",
-        "SEND": "Enter"
+        "SEND": "Enter",
+        "INPUT_HINT": "Press Enter to send, Shift+Enter for a new line"
     },
     "MAP": {
         "TITLE": "Main Features",

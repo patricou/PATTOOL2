@@ -169,8 +169,11 @@
     },
     "RESULTS": {
         "TITLE": "Allgemeine Diskussion",
+        "SUBTITLE": "Kommunizieren Sie mit Ihrem Team in Echtzeit",
+        "MESSAGES": "Nachrichten",
         "MESSAGEPLHD": "Geben Sie hier eine Nachricht oder einen Kommentar ein .... ",
-        "SEND": "Senden"
+        "SEND": "Senden",
+        "INPUT_HINT": "Enter drücken zum Senden, Shift+Enter für eine neue Zeile"
     },
     "MAP": {
         "TITLE": "Eigenschaften",

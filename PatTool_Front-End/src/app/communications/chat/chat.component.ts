@@ -233,4 +233,8 @@ export class ChatComponent implements OnInit {
       alert('Error deleting message: ' + (error.message || error));
     }
   }
+
+  trackByMessageId(index: number, item: any): string {
+    return item.id || index.toString();
+  }
 }
