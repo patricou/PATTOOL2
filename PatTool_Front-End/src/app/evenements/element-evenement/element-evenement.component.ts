@@ -3,7 +3,7 @@ import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browse
 import { Router } from '@angular/router';
 // Removed ng2-file-upload - using native HTML file input
 import { NgbModal, ModalDismissReasons, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap';
-import { Firestore, collection, addDoc, deleteDoc, doc, collectionData } from '@angular/fire/firestore';
+import { Database, ref, push, remove, onValue, serverTimestamp } from '@angular/fire/database';
 
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -62,7 +62,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		private sanitizer: DomSanitizer,
 		private _router: Router,
 		private modalService: NgbModal,
-		private firestore: Firestore,
+		private database: Database,
 		private ratingConfig: NgbRatingConfig,
 		private _fileService: FileService,
 		private winRef: WindowRefService
@@ -86,9 +86,30 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.safeUrlMap = this.sanitizer.bypassSecurityTrustResourceUrl(this.evenement.map);
 		this.safePhotosUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.evenement.photosUrl);
 		
-		// for the firebase : create a collection with evenement.id as name 
-		const messagesCollection = collection(this.firestore, this.evenement.id);
-		this.items = collectionData(messagesCollection, { idField: 'id' }) as Observable<any[]>;
+		// for the firebase : create a reference with evenement.id as name 
+		const messagesRef = ref(this.database, this.evenement.id);
+		this.items = new Observable(observer => {
+			const unsubscribe = onValue(messagesRef, (snapshot) => {
+				const messages: any[] = [];
+				snapshot.forEach((childSnapshot) => {
+					messages.push({
+						id: childSnapshot.key,
+						...childSnapshot.val()
+					});
+				});
+				// Trier les messages par date/heure (plus récents en premier)
+				messages.sort((a, b) => {
+					// Utiliser la propriété 'priority' qui est définie comme 0 - Date.now()
+					// Plus la valeur est négative, plus le message est récent
+					return a.priority - b.priority;
+				});
+				observer.next(messages);
+			}, (error) => {
+				observer.error(error);
+			});
+			
+			return () => unsubscribe();
+		});
 		// Call Thumbnail Image function
 		this.setThumbnailImage();
 	}
@@ -351,10 +372,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	async Send() {     
-		const messagesCollection = collection(this.firestore, this.evenement.id);
-		await addDoc(messagesCollection, {
+		const messagesRef = ref(this.database, this.evenement.id);
+		await push(messagesRef, {
 			'message': this.msgVal,
-			'date': new Date(),
+			'date': new Date().toISOString(),
 			'user': {
 				firstName: this.user.firstName,
 				lastName: this.user.lastName,
@@ -367,8 +388,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 
 	public async deleteMessage(item: any) {
-		const messageDoc = doc(this.firestore, this.evenement.id, item.id);
-		await deleteDoc(messageDoc);
+		const messageRef = ref(this.database, this.evenement.id + '/' + item.id);
+		await remove(messageRef);
 	}
 	// for file list toogle
 	public tfl: boolean = true;

@@ -7,7 +7,7 @@ import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
-import { getFirestore, provideFirestore } from '@angular/fire/firestore';
+import { getDatabase, provideDatabase } from '@angular/fire/database';
 import { getAuth, provideAuth } from '@angular/fire/auth';
 import { HomeModule } from "./home/home.module";
 import { EvenementsModule } from './evenements/evenements.module';
@@ -92,7 +92,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		{ provide: HTTP_INTERCEPTORS, useClass: KeycloakHttpInterceptor, multi: true },
 		// Firebase providers
 		provideFirebaseApp(() => initializeApp(environment.firebase)),
-		provideFirestore(() => getFirestore()),
+		provideDatabase(() => getDatabase()),
 		provideAuth(() => getAuth())
 	],
 	bootstrap: [AppComponent]

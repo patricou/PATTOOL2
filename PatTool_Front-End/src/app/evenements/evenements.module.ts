@@ -10,7 +10,7 @@ import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 // import { FileUploadModule } from 'ng2-file-upload';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
-import { getFirestore, provideFirestore } from '@angular/fire/firestore';
+import { getDatabase, provideDatabase } from '@angular/fire/database';
 import { getAuth, provideAuth } from '@angular/fire/auth';
 import { environment } from '../../environments/environment';
 
@@ -55,7 +55,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		CommonvaluesService,
 		// Firebase providers for this module
 		provideFirebaseApp(() => initializeApp(environment.firebase)),
-		provideFirestore(() => getFirestore()),
+    provideDatabase(() => getDatabase()),
 		provideAuth(() => getAuth())
 	]
 })
