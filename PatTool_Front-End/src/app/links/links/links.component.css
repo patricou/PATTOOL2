@@ -7,53 +7,7 @@
     margin: 0;
 }
 
-/* Hero Section */
-.hero-section {
-    background: linear-gradient(135deg, #2c3e50 0%, #34495e 50%, #7f8c8d 100%);
-    color: white;
-    padding: 20px 30px;
-    margin: -20px -15px 20px -15px;
-    border-radius: 0 0 15px 15px;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-}
-
-.hero-section::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-    pointer-events: none;
-}
-
-.hero-content {
-    position: relative;
-    z-index: 1;
-    max-width: 800px;
-    margin: 0 auto;
-}
-
-.hero-title {
-    font-size: 2rem;
-    font-weight: 600;
-    margin: 0;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    position: relative;
-    z-index: 1;
-}
-
-.hero-subtitle {
-    font-size: 0.9rem;
-    opacity: 0.9;
-    margin-top: 5px;
-    position: relative;
-    z-index: 1;
-}
+/* Hero Section - Now using global .pat-title class */
 
 /* Search Container */
 .search-container {

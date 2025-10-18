@@ -11,73 +11,23 @@
     padding: 0;
 }
 
-/* Header Section */
-.chat-header {
-    background: linear-gradient(135deg, #007bff 0%, #0056b3 50%, #004085 100%);
-    color: white;
-    padding: 20px 25px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    box-shadow: 0 4px 20px rgba(0, 123, 255, 0.3);
-    position: relative;
-    z-index: 10;
-    border-radius: 0 0 15px 15px;
-}
-
-.header-content {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.header-icon {
-    width: 50px;
-    height: 50px;
-    background: rgba(255, 255, 255, 0.2);
-    border-radius: 12px;
+/* Header Section - Now using global .pat-title class */
+.chat-stats {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 1.5rem;
-}
-
-.header-info {
-    flex: 1;
-}
-
-.chat-title {
-    margin: 0;
-    font-size: 1.5rem;
-    font-weight: 600;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-}
-
-.chat-subtitle {
-    margin: 5px 0 0 0;
-    font-size: 0.9rem;
-    opacity: 0.9;
-    font-weight: 400;
-}
-
-.header-stats {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-.stat-item {
-    display: flex;
-    align-items: center;
     gap: 8px;
     background: rgba(255, 255, 255, 0.15);
-    padding: 8px 12px;
+    padding: 8px 16px;
     border-radius: 20px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     font-weight: 500;
+    margin-top: 10px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
-.stat-item i {
+.chat-stats i {
     font-size: 1rem;
 }
 

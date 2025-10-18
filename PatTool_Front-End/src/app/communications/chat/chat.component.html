@@ -1,21 +1,12 @@
 <!-- Chat Component - Modern Design -->
 <div class="chat-container">
     <!-- Header Section -->
-    <div class="chat-header">
-        <div class="header-content">
-            <div class="header-icon">
-                <i class="fa fa-comments"></i>
-            </div>
-            <div class="header-info">
-                <h2 class="chat-title">{{ "RESULTS.TITLE" | translate }}</h2>
-                <p class="chat-subtitle">{{ "RESULTS.SUBTITLE" | translate }}</p>
-            </div>
-        </div>
-        <div class="header-stats">
-            <div class="stat-item">
-                <i class="fa fa-users"></i>
-                <span>{{ (items | async)?.length || 0 }} {{ "RESULTS.MESSAGES" | translate }}</span>
-            </div>
+    <div class="pat-title">
+        <h2>{{ "RESULTS.TITLE" | translate }}</h2>
+        <div class="pat-title-subtitle">{{ "RESULTS.SUBTITLE" | translate }}</div>
+        <div class="chat-stats">
+            <i class="fa fa-users"></i>
+            <span>{{ (items | async)?.length || 0 }} {{ "RESULTS.MESSAGES" | translate }}</span>
         </div>
     </div>
 
