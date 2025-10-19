@@ -33,7 +33,7 @@ public class Evenement {
     @NotNull
     private String map;
     @NotNull
-    private String photosUrl;
+    private List<String> photosUrl = new ArrayList<String>();
     @NotNull
     private String comments;
     @NotNull
@@ -215,11 +215,11 @@ public class Evenement {
         this.ratingMinus = ratingMinus;
     }
 
-    public String getPhotosUrl() {
+    public List<String> getPhotosUrl() {
         return photosUrl;
     }
 
-    public void setPhotosUrl(String photosUrl) {
+    public void setPhotosUrl(List<String> photosUrl) {
         this.photosUrl = photosUrl;
     }
 
@@ -241,7 +241,7 @@ public class Evenement {
                 ", closeInscriptionDate=" + closeInscriptionDate +
                 ", author=" + author +
                 ", map='" + map + '\'' +
-                ", photosUrl='" + photosUrl + '\'' +
+                ", photosUrl=" + photosUrl +
                 ", comments='" + comments + '\'' +
                 ", endEventDate=" + endEventDate +
                 ", beginEventDate=" + beginEventDate +
