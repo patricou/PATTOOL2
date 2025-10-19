@@ -272,16 +272,37 @@
                         </div>
 
                         <!-- Photos URL -->
-                        <div class="form-group" [class.has-error]="photosUrlV.invalid && f.submitted">
-                            <label for="photosUrl" class="form-label">
+                        <div class="form-group">
+                            <label class="form-label">
                                 <i class="fa fa-picture-o"></i>
                                 {{ "EVENTCREATION.PHOTOSURL" | translate }}
                             </label>
-                            <input id="photosUrl" #photosUrlV="ngModel" [(ngModel)]="evenement.photosUrl" name="photosUrl"
-                                placeholder="{{ 'EVENTCREATION.PHOTOSURLPLHD' | translate }}" class="form-control">
-                            <div class="error-message" [hidden]="!photosUrlV.invalid || !f.submitted">
-                                <i class="fa fa-exclamation-triangle"></i>
-                                {{ "EVENTCREATION.PHOTOSURLERR" | translate }}
+                            
+                            <!-- Add Photo URL Input -->
+                            <div class="input-group mb-3">
+                                <input #photoUrlInput type="text" class="form-control" 
+                                    placeholder="{{ 'EVENTCREATION.PHOTOSURLPLHD' | translate }}"
+                                    (keyup.enter)="addPhotoUrl(photoUrlInput.value); photoUrlInput.value = ''">
+                                <button type="button" class="btn btn-outline-primary" 
+                                    (click)="addPhotoUrl(photoUrlInput.value); photoUrlInput.value = ''">
+                                    <i class="fa fa-plus"></i> Ajouter
+                                </button>
+                            </div>
+                            
+                            <!-- Display Added Photos -->
+                            <div class="photos-list" *ngIf="evenement.photosUrl.length > 0">
+                                <div class="photo-item" *ngFor="let photo of evenement.photosUrl; let i = index">
+                                    <div class="photo-preview">
+                                        <img [src]="photo" [alt]="'Photo ' + (i + 1)" 
+                                            class="photo-thumbnail" 
+                                            (error)="hideImageOnError($event)">
+                                        <div class="photo-url">{{ photo }}</div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" 
+                                        (click)="removePhotoUrl(i)">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

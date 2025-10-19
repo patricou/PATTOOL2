@@ -7,7 +7,7 @@ export class CommonvaluesService {
 
     private pageNumber: number = 0;
     private dataFilter: string = "";
-    private elementsByPage: number = 9;
+    private elementsByPage: number = 12;
     private lang: string;
 
     constructor(private _translate: TranslateService) {

@@ -1,6 +1,6 @@
 package com.pat.controller;
 
-import com.pat.domain.Evenement;
+import com.pat.repo.domain.Evenement;
 import com.pat.repo.EvenementsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

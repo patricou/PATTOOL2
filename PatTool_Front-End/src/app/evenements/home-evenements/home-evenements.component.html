@@ -5,55 +5,171 @@
     <div class="row">
         <div class="col-sm-12">
             <!-- <input [(ngModel)]="msgVal" type="text" id="message" placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" (keyup.enter)="changeFiltre()" autofocus /> -->
-            <div class="d-flex align-items-center justify-content-center mb-1">
+            <div class="d-flex align-items-center justify-content-center mb-1 flex-wrap">
                 <input type="text" id="message" [value]="dataFIlter" #searchterm placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" class="form-control me-2" />
                 <button class="btn btn-sm btn-secondary btn-filter me-2" (click)="clearFilter()" type="button">X</button>
-                <div [hidden]="totalPages == 0" class="pat-page-btn me-2" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}">
-                    <select class="btn btn-secondary btn-sm" [(ngModel)]="elementsByPage" (change)="changeFiltre()">           
-                        <option value="1">1</option>
-                        <option value="2">2</option>
-                        <option value="3">3</option>
-                        <option value="6">6</option>
-                        <option value="9">9</option>
-                        <option value="15">15</option>
-                        <option value="15">21</option>
-                        <option value="50">50</option>
-                        <option value="100">100</option>
-                    </select>
-                </div>
-                <div [hidden]="totalPages == 0" class="pagination-container">
-                    <ul class="pagination pagination-sm mb-0">
-                        <li class="page-item">
-                            <a class="page-link" (click)="changePreviousPage()" aria-label="Previous">
-                                <span aria-hidden="true">&laquo;</span>
-                                <span class="sr-only">Previous</span>
-                            </a>
-                        </li>
-                        <li *ngFor="let p of pages" class="page-item" [class.active]="pageNumber == p">
-                            <a class="page-link" (click)="changePage(p)">{{p + 1}}</a>
-                        </li>
-                        <li class="page-item">
-                            <a class="page-link" (click)="changeNextPage()" aria-label="Next">
-                                <span aria-hidden="true">&raquo;</span>
-                                <span class="sr-only">Next</span>
-                            </a>
-                        </li>
-                    </ul>
-                </div>
+                <button class="btn btn-sm btn-outline-primary me-2" (click)="toggleViewMode()" ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW' | translate }}">
+                    <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
+                </button>
+                <select [hidden]="totalPages == 0" class="btn btn-secondary btn-sm me-2" [(ngModel)]="elementsByPage" (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}">           
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="6">6</option>
+                    <option value="9">9</option>
+                    <option value="12">12</option>
+                    <option value="15">15</option>
+                    <option value="21">21</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+                <small [hidden]="totalPages == 0" class="me-2">Page {{pageNumber+1}}/{{totalPages}}</small>
             </div>
         </div>
     </div>
 </div>
-<div class="container-fluid ">
-    <div class="row ">
-        <div class="col-lg-4 card-group pat-card " *ngFor=" let evenement of evenements ">
-            <element-evenement class="card" [user]="user" [evenement]="evenement" (updateFileUploaded)="updateFileUploadedInEvent($event) " 
-            (addMember)="addMemberInEvent($event) " (delMember)="delMemberInEvent($event) " (updateEvenement)="updEvent($event)
-            " (delEvenement)="delEvent($event)"></element-evenement>
+<div class="d-flex justify-content-center mb-2" [hidden]="totalPages == 0">
+    <div class="pagination-container">
+        <ul class="pagination pagination-sm mb-0">
+            <li class="page-item">
+                <a class="page-link" (click)="changePreviousPage()" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                    <span class="sr-only">Previous</span>
+                </a>
+            </li>
+            <li *ngFor="let p of pages" class="page-item" [class.active]="pageNumber == p">
+                <a class="page-link" (click)="changePage(p)">{{p + 1}}</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" (click)="changeNextPage()" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                    <span class="sr-only">Next</span>
+                </a>
+            </li>
+        </ul>
+    </div>
+</div>
+<div class="container-fluid">
+    <!-- Vue normale (cartes complètes) -->
+    <div class="row" *ngIf="!isCompactView">
+        <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12 card-group pat-card" *ngFor="let evenement of evenements">
+            <element-evenement class="card" [user]="user" [evenement]="evenement" (updateFileUploaded)="updateFileUploadedInEvent($event)" 
+            (addMember)="addMemberInEvent($event)" (delMember)="delMemberInEvent($event)" (updateEvenement)="updEvent($event)"
+            (delEvenement)="delEvent($event)"></element-evenement>
+        </div>
+    </div>
+    
+    <!-- Vue compacte (liste) -->
+    <div class="compact-view" *ngIf="isCompactView">
+        <div class="compact-card" *ngFor="let evenement of evenements" (click)="openEventDetails(evenement)">
+            <div class="compact-image">
+                <img [src]="getEventThumbnail(evenement)" [alt]="evenement.evenementName" 
+                     class="compact-thumbnail" (error)="onImageError($event)">
+            </div>
+            <div class="compact-content">
+                <div class="compact-title">{{ evenement.evenementName }}</div>
+                <div class="compact-date">{{ formatEventDate(evenement.beginEventDate) }}</div>
+            </div>
+            <div class="compact-actions">
+                <!-- Map Button -->
+                <a class="btn btn-primary btn-sm me-1" [hidden]="!isMapAvailable(evenement)" [href]="evenement.map" target="_blank"
+                    ngbTooltip="{{ 'EVENTELEM.MAP' | translate }}" (click)="$event.stopPropagation()">
+                    <i class="fa fa-map" aria-hidden="true"></i>
+                </a>
+                
+                <!-- Photos Button -->
+                <button class="btn btn-info btn-sm me-1" [hidden]="!isPhotosUrlAvailable(evenement)"
+                    ngbTooltip="{{ 'EVENTELEM.PHOTOSURL' | translate }}" (click)="openPhotosModal(evenement); $event.stopPropagation()">
+                    <i class="fa fa-picture-o" aria-hidden="true"></i>
+                </button>
+                
+                <!-- Participate/Unparticipate Button -->
+                <a class="btn btn-sm btn-info me-1" [hidden]="!isParticipant(evenement)" (click)="delMemberInEvent(evenement); $event.stopPropagation()"
+                    ngbTooltip="{{ 'EVENTELEM.IDWTP' | translate }}">
+                    <i class="fa fa-user" aria-hidden="true"></i>
+                </a>
+                <a class="btn btn-sm btn-success me-1" [hidden]="isParticipant(evenement)" (click)="addMemberInEvent(evenement); $event.stopPropagation()"
+                    ngbTooltip="{{ 'EVENTELEM.IWTP' | translate }}">
+                    <i class="fa fa-user-o" aria-hidden="true"></i>
+                </a>
+                
+                <!-- Status Change Button -->
+                <a class="btn btn-sm btn-primary me-1" [hidden]="!isAuthor(evenement)" (click)="changeStatusEvent(evenement); $event.stopPropagation()"
+                    ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}">
+                    <i class="fa fa-circle-o-notch" aria-hidden="true"></i>
+                </a>
+                
+                <!-- Edit Button -->
+                <a class="btn btn-sm btn-warning me-1" [hidden]="!isAuthor(evenement)" [routerLink]="['/updeven', evenement.id]"
+                    ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" (click)="$event.stopPropagation()">
+                    <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
+                </a>
+                
+                <!-- Delete Button -->
+                <a class="btn btn-sm btn-danger me-1" [hidden]="!isAuthor(evenement)" (click)="deleteEvenement(evenement); $event.stopPropagation()"
+                    ngbTooltip="{{ 'EVENTELEM.DTE' | translate }}">
+                    <i class="fa fa-trash" aria-hidden="true"></i>
+                </a>
+                
+                <!-- Files Download Button -->
+                <a class="btn btn-sm btn-outline-primary me-1" [hidden]="!isAnyFiles(evenement)" (click)="toggleFileList(evenement); $event.stopPropagation()"
+                    ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD' | translate }}">
+                    <i class="fa fa-download" aria-hidden="true"></i>
+                </a>
+                
+                <!-- View Details Button -->
+                <button class="btn btn-sm btn-outline-primary" (click)="openEventDetails(evenement); $event.stopPropagation()" 
+                        ngbTooltip="{{ 'EVENTHOME.VIEW_DETAILS' | translate }}">
+                    <i class="fa fa-eye"></i>
+                </button>
+            </div>
         </div>
     </div>
 </div>
-<div class="text-center" [hidden]="totalPages == 0"><small>Page {{pageNumber+1}}/{{totalPages}}</small></div>
+
+<!-- Photos Modal -->
+<ng-template #photosModal let-c="close" let-d="dismiss">
+    <div class="modal-header">
+        <h5 class="modal-title">{{selectedEventName}}<small> ({{"EVENTELEM.PHOTOSURL" | translate }})</small></h5>
+    </div>
+    <div class="modal-body">
+        <div class="debug-info" style="background: #f0f0f0; padding: 10px; margin-bottom: 10px; font-size: 12px;">
+            <div *ngFor="let url of selectedEventPhotos; let i = index" style="margin: 5px 0;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span>{{ 'EVENTELEM.PHOTO_LINK' | translate }} {{i + 1}}:</span>
+                    <a [href]="url" target="_blank" style="color: #007bff; text-decoration: underline; word-break: break-all;">
+                        {{url}}
+                    </a>
+                    <button class="btn btn-sm btn-outline-primary" (click)="openPhotoInNewTab(url)">
+                        <i class="fa fa-external-link"></i> {{ 'EVENTELEM.OPEN_PHOTO' | translate }}
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="photos-gallery" *ngIf="selectedEventPhotos && selectedEventPhotos.length > 0">
+            <div class="row">
+                <div class="col-md-6 mb-3" *ngFor="let photoUrl of selectedEventPhotos; let i = index">
+                    <div class="card">
+                        <img [src]="photoUrl" class="card-img-top" [alt]="'Photo ' + (i + 1)" 
+                             style="height: 200px; object-fit: cover;" (error)="onImageError($event)">
+                        <div class="card-body p-2">
+                            <p class="card-text small mb-1">{{ 'Photo' }} {{ i + 1 }}</p>
+                            <button class="btn btn-sm btn-primary" (click)="openPhotoInNewTab(photoUrl)">
+                                <i class="fa fa-external-link"></i> {{ 'EVENTELEM.OPEN_PHOTO' | translate }}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            {{ 'Fermer' }}
+        </button>
+    </div>
+</ng-template>
+
 <!-- modif 2020.09.20  Operator '==' cannot be applied to types 'boolean' and '0'. -->
 <div class="container-fluid" [hidden]="!totalPages == false">
     <ngb-alert type="info">{{ "EVENTHOME.NOEVENT" | translate }}</ngb-alert>

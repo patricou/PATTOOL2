@@ -43,6 +43,8 @@ public class SecurityConfig {
                 .requestMatchers("/uploadondisk").permitAll()
                 // Allow public access to upload in the DB
                 .requestMatchers("/uploadfile").permitAll()
+                    // to migrate fields photoUrls
+                    .requestMatchers("/api/migration/**").permitAll()
                 // Allow public access to Swagger/OpenAPI
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Allow public access to actuator health endpoint

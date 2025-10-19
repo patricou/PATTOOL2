@@ -1,6 +1,6 @@
 package com.pat.controller;
 
-import com.pat.domain.ChatRequest;
+import com.pat.repo.domain.ChatRequest;
 import com.pat.service.ChatService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,8 +10,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api")

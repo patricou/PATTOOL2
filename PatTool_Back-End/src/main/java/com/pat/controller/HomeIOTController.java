@@ -1,14 +1,12 @@
 package com.pat.controller;
 
-import com.pat.domain.Member;
+import com.pat.repo.domain.Member;
 import com.pat.service.HomeIOTService;
-import org.apache.tomcat.util.net.openssl.ciphers.Authentication;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
-import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
 

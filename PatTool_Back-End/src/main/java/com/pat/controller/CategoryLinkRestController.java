@@ -1,8 +1,6 @@
 package com.pat.controller;
 
-import com.pat.domain.CategoryLink;
-import com.pat.domain.Evenement;
-import com.pat.domain.UrlLink;
+import com.pat.repo.domain.CategoryLink;
 import com.pat.repo.CategoryLinkRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,6 +1,6 @@
 package com.pat.service;
 
-import com.pat.domain.ChatRequest;
+import com.pat.repo.domain.ChatRequest;
 import com.pat.repo.ChatRequestRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,7 +11,6 @@ import org.springframework.web.client.RestTemplate;
 
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class ChatService {

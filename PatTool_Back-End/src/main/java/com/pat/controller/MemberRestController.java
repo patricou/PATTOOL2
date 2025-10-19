@@ -1,6 +1,6 @@
 package com.pat.controller;
 
-import com.pat.domain.Member;
+import com.pat.repo.domain.Member;
 import com.pat.repo.MembersRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -29,7 +29,6 @@ export class LinksComponent implements OnInit {
     this.waitForNonEmptyValue().then(() => {
       let now = new Date();
 
-      console.log("4|------------------> This.user.id is no more null ( from LinksComponent ):", this.user.id + " at " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
 
       this._urlLinkService
         .getLinks(this.user)
@@ -55,7 +54,6 @@ export class LinksComponent implements OnInit {
           resolve();
         } else {
           let now = new Date();
-          console.log("This.user.id is still empty " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
           setTimeout(checkValue, 100); // Appeler checkValue de manière récursive après 100ms
         }
       };
@@ -70,7 +68,6 @@ export class LinksComponent implements OnInit {
     // Call your service to update the visibility in the database
     this._urlLinkService.updateVisibility(urllink).subscribe(
       response => {
-        // console.log('Visibility update successful', response);
       },
       error => {
         console.error('An error occurred while updating visibility', error);
@@ -98,17 +95,17 @@ export class LinksComponent implements OnInit {
     
     const searchTerm = this.searchFilter.toLowerCase().trim();
     const linkName = (link.linkName || '').toLowerCase();
-    const linkUrl = (link.url || '').toLowerCase();
     
-    const matches = linkName.includes(searchTerm) || linkUrl.includes(searchTerm);
-    console.log(`Link "${link.linkName}" matches "${searchTerm}":`, matches);
+    // Recherche simple et efficace
+    const matches = linkName.includes(searchTerm);
+    
+    console.log(`Searching for "${searchTerm}" in "${link.linkName}" (${linkName}):`, matches);
     
     return matches;
   }
 
   onSearchChange(): void {
     // This method will be called when the search input changes
-    console.log('Search filter changed:', this.searchFilter);
     
     if (!this.searchFilter || this.searchFilter.trim().length < 2) {
       this.searchSuggestions = [];
@@ -117,13 +114,15 @@ export class LinksComponent implements OnInit {
     }
     
     // Generate suggestions
-    this.searchSuggestions = this.urllinks.filter(u => 
-      this.isVisible(u) && this.matchesSearchFilter(u)
-    ).slice(0, 5); // Limit to 5 suggestions
+    this.searchSuggestions = this.urllinks.filter(u => {
+      const isVisible = this.isVisible(u);
+      const matchesFilter = this.matchesSearchFilter(u);
+      console.log(`Link "${u.linkName}": visible=${isVisible}, matches=${matchesFilter}`);
+      return isVisible && matchesFilter;
+    }).slice(0, 10); // Limit to 10 suggestions
     
+    console.log(`Total suggestions found: ${this.searchSuggestions.length}`);
     this.showSuggestions = this.searchSuggestions.length > 0;
-    
-    console.log('Search suggestions:', this.searchSuggestions.length);
   }
 
   selectSuggestion(suggestion: urllink): void {
@@ -158,8 +157,6 @@ export class LinksComponent implements OnInit {
   }
 
   toggleCategory(categoryIndex: number): void {
-    console.log('Toggling category index:', categoryIndex, 'Current expanded:', this.expandedCategoryIndex);
-    
     if (this.expandedCategoryIndex === categoryIndex) {
       // Si la catégorie est déjà ouverte, la fermer
       this.expandedCategoryIndex = null;
@@ -208,9 +205,6 @@ export class LinksComponent implements OnInit {
     };
     
     const icon = iconMap[normalizedName] || 'fa-folder';
-    
-    // Debug: log the category name to see what we're receiving
-    console.log('Category name received:', categoryName, 'Normalized:', normalizedName, 'Icon:', icon);
     
     return icon;
   }

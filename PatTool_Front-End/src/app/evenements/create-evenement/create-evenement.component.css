@@ -37,7 +37,7 @@
     margin: 0;
     font-size: 1.1rem;
     font-weight: 600;
-    color: #495057;
+    color: #212529;
 }
 
 .card-body {
@@ -55,7 +55,7 @@
     align-items: center;
     gap: 0.4rem;
     font-weight: 600;
-    color: #495057;
+    color: #212529;
     margin-bottom: 0.5rem;
     font-size: 0.85rem;
 }
@@ -80,6 +80,7 @@
     font-size: 0.9rem;
     transition: all 0.3s ease;
     background: #fafafa;
+    color: #212529;
 }
 
 .form-control:focus {
@@ -87,12 +88,13 @@
     box-shadow: 0 0 0 0.2rem rgba(102, 126, 234, 0.25);
     background: white;
     outline: none;
+    color: #212529;
 }
 
 .form-control:read-only {
     background: #f8f9fa;
     border-color: #dee2e6;
-    color: #6c757d;
+    color: #495057;
 }
 
 /* Select Styles */
@@ -103,6 +105,17 @@ select.form-control {
     background-position: right 0.75rem center;
     background-size: 16px 12px;
     padding-right: 2.5rem;
+    color: #212529;
+}
+
+select.form-control option {
+    color: #212529;
+    background-color: white;
+}
+
+select.form-control option:disabled {
+    color: #6c757d;
+    background-color: #f8f9fa;
 }
 
 /* Textarea Styles */
@@ -116,7 +129,7 @@ textarea.form-control {
     background: #f8f9fa;
     border: 2px solid #e9ecef;
     border-left: none;
-    color: #6c757d;
+    color: #495057;
 }
 
 .input-group .form-control {
@@ -241,6 +254,86 @@ textarea.form-control {
         width: 100%;
         max-width: 300px;
     }
+}
+
+/* Photos Management Styles */
+.photos-list {
+    margin-top: 1rem;
+}
+
+.photo-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    transition: all 0.3s ease;
+}
+
+.photo-item:hover {
+    background: #e9ecef;
+    border-color: #dee2e6;
+}
+
+.photo-preview {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.photo-thumbnail {
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #dee2e6;
+    background: white;
+}
+
+.photo-url {
+    flex: 1;
+    font-size: 0.85rem;
+    color: #212529;
+    word-break: break-all;
+    font-family: monospace;
+    background: white;
+    padding: 0.5rem;
+    border-radius: 4px;
+    border: 1px solid #e9ecef;
+}
+
+.btn-outline-primary {
+    border: 1px solid #667eea;
+    color: #667eea;
+    background: transparent;
+}
+
+.btn-outline-primary:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+}
+
+.btn-outline-danger {
+    border: 1px solid #dc3545;
+    color: #dc3545;
+    background: transparent;
+}
+
+.btn-outline-danger:hover {
+    background: #dc3545;
+    color: white;
+    border-color: #dc3545;
+}
+
+.btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+    min-width: auto;
 }
 
 /* Legacy styles for compatibility */

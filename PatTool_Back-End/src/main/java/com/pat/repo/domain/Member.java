@@ -1,4 +1,4 @@
-package com.pat.domain;
+package com.pat.repo.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.annotation.Id;

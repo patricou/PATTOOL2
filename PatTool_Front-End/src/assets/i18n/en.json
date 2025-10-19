@@ -42,7 +42,9 @@
     "EVENTHOME": {
         "EVENTSLIST": "Activities List :",
         "EVENTFILTRE": "Filter ....",
-        "NOEVENT": "There is no Activity to display"
+        "NOEVENT": "There is no Activity to display",
+        "TOGGLE_VIEW": "Toggle between normal and compact view",
+        "VIEW_DETAILS": "View details"
     },
     "EVENTCREATION": {
         "TITLE": "Activity Creation",
@@ -150,7 +152,12 @@
         "DELETEFILE": "Delete File",
         "LIVECHAT": "Live Chat",
         "DELMESCHAT": "Delete message",
-        "DESC": "Description"
+        "DESC": "Description",
+        "PHOTO_LINK": "Link to photo",
+        "PHOTO_LINK_WITH_NUMBER": "Link to photo {0}",
+        "OPEN_PHOTO": "Open",
+        "NO_PHOTOS_AVAILABLE": "No photos available for this event.",
+        "VIEW_JSON": "View event in JSON format"
     },
     "COMMUN": {
         "YES": "Yes",

@@ -150,7 +150,11 @@
         "DELETEFILE": "Datei löschen",
         "LIVECHAT": "Live-Chat",
         "DELMESCHAT": "Nachricht löschen",
-        "DESC": "Beschreibung"
+        "DESC": "Beschreibung",
+        "PHOTO_LINK": "Foto-Link",
+        "OPEN_PHOTO": "Öffnen",
+        "NO_PHOTOS_AVAILABLE": "Keine Fotos für diese Veranstaltung verfügbar.",
+        "VIEW_JSON": "Veranstaltung im JSON-Format anzeigen"
     },
     "COMMUN": {
         "YES": "Ja",

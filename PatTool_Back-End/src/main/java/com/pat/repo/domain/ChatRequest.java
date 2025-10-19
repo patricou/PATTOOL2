@@ -1,4 +1,4 @@
-package com.pat.domain;
+package com.pat.repo.domain;
 
 import org.hibernate.validator.constraints.NotEmpty;
 

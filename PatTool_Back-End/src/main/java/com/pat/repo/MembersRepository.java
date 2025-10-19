@@ -1,6 +1,6 @@
 package com.pat.repo;
 
-import com.pat.domain.Member;
+import com.pat.repo.domain.Member;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.data.rest.core.annotation.RepositoryRestResource;

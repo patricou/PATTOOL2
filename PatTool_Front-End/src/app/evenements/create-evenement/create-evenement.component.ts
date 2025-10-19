@@ -15,7 +15,7 @@ import { EvenementsService } from '../../services/evenements.service';
 export class CreateEvenementComponent implements OnInit {
 
 	public user: Member = new Member("", "", "", "", "", [], "");
-	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "");
+	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "");
 	// Removed ngx-mydatepicker options - using native HTML date inputs
 	// Using native HTML date inputs instead of ngx-mydatepicker
 	public author: string = "";
@@ -33,7 +33,7 @@ export class CreateEvenementComponent implements OnInit {
 		this.user = this._memberService.getUser();
 
 		// init new event fields
-		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", "", "", [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public");
+		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public");
 		this.author = this.evenement.author.firstName + " " + this.evenement.author.lastName;
 
 		/*this.beginEventDate = { date: { 
@@ -75,5 +75,25 @@ export class CreateEvenementComponent implements OnInit {
 	};
 
 	// Removed onDateChanged method - using native HTML date inputs
+
+	// Methods to manage photos
+	addPhotoUrl(photoUrl: string) {
+		if (photoUrl && photoUrl.trim() !== '') {
+			this.evenement.photosUrl.push(photoUrl.trim());
+		}
+	}
+
+	removePhotoUrl(index: number) {
+		if (index >= 0 && index < this.evenement.photosUrl.length) {
+			this.evenement.photosUrl.splice(index, 1);
+		}
+	}
+
+	hideImageOnError(event: any) {
+		const target = event.target as HTMLImageElement;
+		if (target) {
+			target.style.display = 'none';
+		}
+	}
 
 }

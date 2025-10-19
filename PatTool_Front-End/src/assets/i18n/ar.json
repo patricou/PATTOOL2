@@ -150,7 +150,11 @@
         "DELETEFILE": "حذف الملف",
         "LIVECHAT": "دردشة مباشرة",
         "DELMESCHAT": "حذف الرسالة",
-        "DESC": "وصف"
+        "DESC": "وصف",
+        "PHOTO_LINK": "رابط الصورة",
+        "OPEN_PHOTO": "فتح",
+        "NO_PHOTOS_AVAILABLE": "لا توجد صور متاحة لهذا الحدث.",
+        "VIEW_JSON": "عرض الحدث بتنسيق JSON"
     },
     "COMMUN": {
         "YES": "نعم",

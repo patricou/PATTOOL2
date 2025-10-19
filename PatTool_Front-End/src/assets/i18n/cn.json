@@ -150,7 +150,11 @@
         "DELETEFILE": "删除文件",
         "LIVECHAT": "实时讨论",
         "DELMESCHAT": "删除消息",
-        "DESC": "描述"
+        "DESC": "描述",
+        "PHOTO_LINK": "照片链接",
+        "OPEN_PHOTO": "打开",
+        "NO_PHOTOS_AVAILABLE": "此活动没有可用照片。",
+        "VIEW_JSON": "以JSON格式查看活动"
     },
     "COMMUN": {
         "YES": "是",

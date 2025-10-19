@@ -150,7 +150,11 @@
         "DELETEFILE": "מחק את הקובץ",
         "LIVECHAT": "דיון חי",
         "DELMESCHAT": "מחק את ההודעה",
-        "DESC": "תיאור"
+        "DESC": "תיאור",
+        "PHOTO_LINK": "קישור לתמונה",
+        "OPEN_PHOTO": "פתח",
+        "NO_PHOTOS_AVAILABLE": "אין תמונות זמינות לאירוע זה.",
+        "VIEW_JSON": "הצג אירוע בפורמט JSON"
     },
     "COMMUN": {
         "YES": "כן",

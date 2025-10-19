@@ -99,30 +99,39 @@
 </div>
 <div class="card-footer card-text text-center">
     <!-- <iframe width="100%" height="250" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" sandbox="allow-forms allow-scripts allow-same-origin" [src]="safeUrlMap" allowfullscreen></iframe> -->
-    <a class="btn btn-primary btn-sm mb-1" [hidden]="!isMapAvailable()" [href]="safeUrlMap" target="_blank"
+    <a class="btn btn-primary btn-sm mb-1 me-1" [hidden]="!isMapAvailable()" [href]="safeUrlMap" target="_blank"
         placement="right" ngbTooltip=" {{ 'EVENTELEM.MAP' | translate }}"><i class="fa fa-map"
             aria-hidden="true"></i></a>
-    <a class="btn btn-info btn-sm mb-1" [hidden]="!isPhotosUrlAvailable()" [href]="safePhotosUrl" target="_blank"
-        placement="right" ngbTooltip=" {{ 'EVENTELEM.PHOTOSURL' | translate }}"><i class="fa fa-picture-o"
-            aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-outline-info mb-1" (click)="open(content)"
+    <!-- Photos Gallery Button -->
+    <button class="btn btn-info btn-sm mb-1 me-1" [hidden]="!isPhotosUrlAvailable()"
+        (click)="openPhotosModal()" placement="right"
+        ngbTooltip=" {{ 'EVENTELEM.PHOTOSURL' | translate }}">
+        <i class="fa fa-picture-o" aria-hidden="true"></i>
+    </button>
+    <a class="btn btn-sm btn-outline-info mb-1 me-1" (click)="open(content)"
         ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}"><i class="fa fa-comments" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-info mb-1" [hidden]="!isParticipant()" (click)="delMemberClick()"
+    <a class="btn btn-sm btn-info mb-1 me-1" [hidden]="!isParticipant()" (click)="delMemberClick()"
         ngbTooltip=" {{ 'EVENTELEM.IDWTP' | translate }}"><i class="fa fa-user" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-success mb-1" [hidden]="isParticipant()" (click)="addMemberClick()"
+    <a class="btn btn-sm btn-success mb-1 me-1" [hidden]="isParticipant()" (click)="addMemberClick()"
         ngbTooltip=" {{ 'EVENTELEM.IWTP' | translate }}"><i class="fa fa-user-o" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-primary mb-1" [hidden]="!isAuthor()" (click)="changeStatusEvent(evenement.status)"
+    <a class="btn btn-sm btn-primary mb-1 me-1" [hidden]="!isAuthor()" (click)="changeStatusEvent(evenement.status)"
         ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}"><i class="fa fa-circle-o-notch"
             aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-warning mb-1" [hidden]="!isAuthor()" [routerLink]="['/updeven',evenement.id]"
+    <a class="btn btn-sm btn-warning mb-1 me-1" [hidden]="!isAuthor()" [routerLink]="['/updeven',evenement.id]"
         ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-danger mb-1" [hidden]="!isAuthor()" (click)="deleteEvenement()" placement="left"
+    <a class="btn btn-sm btn-danger mb-1 me-1" [hidden]="!isAuthor()" (click)="deleteEvenement()" placement="left"
         ngbTooltip="{{ 'EVENTELEM.DTE' | translate }}"><i class="fa fa-trash" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-outline-primary mb-1" [hidden]="!isAnyFiles()" (click)="toogleFileListe()"
+    <a class="btn btn-sm btn-outline-primary mb-1 me-1" [hidden]="!isAnyFiles()" (click)="toogleFileListe()"
         placement="bottom" ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"><i class="fa fa-download"
             aria-hidden="true"></i> </a>
+    
+    <!-- JSON View Button -->
+    <button class="btn btn-sm btn-secondary mb-1 me-1" (click)="openJsonModal()" placement="right"
+        ngbTooltip="{{ 'EVENTELEM.VIEW_JSON' | translate }}">
+        <i class="fa fa-code" aria-hidden="true"></i>
+    </button>
 
-    <div class="file-upload-wrapper" placement="left" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}">
+    <div class="file-upload-wrapper me-1" placement="left" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}">
         <label for="file-upload-input" class="btn btn-sm btn-success mb-1">
             <i class="fa fa-upload" aria-hidden="true"></i>
         </label>
@@ -164,5 +173,65 @@
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">{{"COMMUN.CLOSE" | translate
             }}</button>
+    </div>
+</ng-template>
+
+<!-- Photos Gallery Modal -->
+<ng-template #photosModal let-c="close" let-d="dismiss">
+    <div class="modal-header">
+        <h5 class="modal-title">{{evenement.evenementName}}<small> ({{"EVENTELEM.PHOTOSURL" | translate }})</small></h5>
+    </div>
+    <div class="modal-body">
+        <div class="debug-info" style="background: #f0f0f0; padding: 10px; margin-bottom: 10px; font-size: 12px;">
+            <div *ngFor="let url of evenement.photosUrl; let i = index" style="margin: 5px 0;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span>{{ 'EVENTELEM.PHOTO_LINK' | translate }} {{i + 1}}:</span>
+                    <a [href]="url" target="_blank" style="color: #007bff; text-decoration: underline; word-break: break-all;">
+                        {{url}}
+                    </a>
+                    <button class="btn btn-sm btn-outline-primary" (click)="openPhotoInNewTab(url)">
+                        <i class="fa fa-external-link"></i> {{ 'EVENTELEM.OPEN_PHOTO' | translate }}
+                    </button>
+                </div>
+            </div>
+        </div>
+        <div class="photos-gallery" *ngIf="evenement.photosUrl && evenement.photosUrl.length > 0">
+            <div class="row">
+                <div class="col-md-6 col-lg-4 mb-3" *ngFor="let photo of evenement.photosUrl; let i = index">
+                    <div class="photo-card">
+                        <img [src]="photo" [alt]="'Photo ' + (i + 1)" 
+                            class="img-fluid photo-gallery-img" 
+                            (error)="hideImageOnError($event)"
+                            (click)="openPhotoInNewTab(photo)">
+                        <div class="photo-overlay">
+                            <button class="btn btn-sm btn-light" (click)="openPhotoInNewTab(photo)">
+                                <i class="fa fa-external-link"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div *ngIf="!evenement.photosUrl || evenement.photosUrl.length === 0" class="text-center">
+            <p>{{ 'EVENTELEM.NO_PHOTOS_AVAILABLE' | translate }}</p>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">{{"COMMUN.CLOSE" | translate }}</button>
+    </div>
+</ng-template>
+
+<!-- JSON View Modal -->
+<ng-template #jsonModal let-c="close" let-d="dismiss">
+    <div class="modal-header">
+        <h5 class="modal-title">{{evenement.evenementName}}<small> (Format JSON)</small></h5>
+    </div>
+    <div class="modal-body">
+        <div class="json-container">
+            <pre class="json-content">{{getEventAsJson()}}</pre>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">{{"COMMUN.CLOSE" | translate }}</button>
     </div>
 </ng-template>

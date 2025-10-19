@@ -1,4 +1,4 @@
-package com.pat.domain;
+package com.pat.repo.domain;
 
 
 import org.springframework.data.annotation.Id;
@@ -6,7 +6,7 @@ import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import jakarta.validation.constraints.NotNull;
-import java.math.BigInteger;
+
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;

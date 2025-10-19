@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, Output, ViewChild, EventEmitter, AfterViewInit } from '@angular/core';
+import { Component, OnInit, Input, Output, ViewChild, EventEmitter, AfterViewInit, TemplateRef } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 // Removed ng2-file-upload - using native HTML file input
@@ -37,8 +37,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// Thumbnail image
 	public thumbnailUrl: any = "assets/images/images.jpg";
 
+	@ViewChild('photosModal')
+	public photosModal!: TemplateRef<any>;
+
+	@ViewChild('jsonModal')
+	public jsonModal!: TemplateRef<any>;
+
 	@Input()
-	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "");
+	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "");
 
 	@Input()
 	user: Member = new Member("", "", "", "", "", [], "");
@@ -82,9 +88,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				this.currentRate = (this.evenement.ratingPlus) / rateClick * 10;
 			}
 		}
+		
+		
 		// sanitize the map url & photoUrl
 		this.safeUrlMap = this.sanitizer.bypassSecurityTrustResourceUrl(this.evenement.map);
-		this.safePhotosUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.evenement.photosUrl);
+		// Handle photosUrl as array - use first photo if available
+		if (this.evenement.photosUrl && Array.isArray(this.evenement.photosUrl) && this.evenement.photosUrl.length > 0) {
+			this.safePhotosUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.evenement.photosUrl[0]);
+		}
 		
 		// for the firebase : create a reference with evenement.id as name 
 		const messagesRef = ref(this.database, this.evenement.id);
@@ -126,6 +137,28 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		if (this.selectedFiles.length === 0) {
 			console.log('No files to upload');
 			return;
+		}
+
+		// Check if any of the selected files are images
+		const imageFiles = this.selectedFiles.filter(file => this.isImageFile(file));
+		
+		if (imageFiles.length > 0) {
+			// Ask user if they want to use the image as activity thumbnail
+			const imageFile = imageFiles[0]; // Use first image file
+			const useAsThumbnail = confirm(`Voulez-vous utiliser "${imageFile.name}" comme image de cette activité ?`);
+			
+			if (useAsThumbnail) {
+				// Modify the filename to add "thumbnail" in the middle
+				const modifiedFileName = this.addThumbnailToFileName(imageFile.name);
+				console.log("Modified filename:", modifiedFileName);
+				
+				// Create a new File object with the modified name
+				const modifiedFile = new File([imageFile], modifiedFileName, { type: imageFile.type });
+				
+				// Replace the original file in the array
+				const fileIndex = this.selectedFiles.indexOf(imageFile);
+				this.selectedFiles[fileIndex] = modifiedFile;
+			}
 		}
 
 		const formData = new FormData();
@@ -206,6 +239,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	private addUploadedFilesToEvent(uploadedFilesData: any[]): void {
+		let hasThumbnailFile = false;
+		
 		for (let fileData of uploadedFilesData) {
 			const uploadedFile = new UploadedFile(
 				fileData.fieldId || fileData.id || this.generateFileId(),
@@ -214,11 +249,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				this.user
 			);
 			
+			// Check if this file contains "thumbnail" in its name
+			if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
+				hasThumbnailFile = true;
+				console.log('Thumbnail file detected:', uploadedFile.fileName);
+			}
+			
 			// Add to event's file list if not already present
 			const existingFile = this.evenement.fileUploadeds.find(f => f.fieldId === uploadedFile.fieldId);
 			if (!existingFile) {
 				this.evenement.fileUploadeds.push(uploadedFile);
 			}
+		}
+		
+		// If a thumbnail file was uploaded, reload the card
+		if (hasThumbnailFile) {
+			console.log('Thumbnail file uploaded, reloading card...');
+			this.reloadEventCard();
 		}
 		
 		// Don't emit update event since the database upload already updated the event
@@ -227,6 +274,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	private createUploadedFileEntries(): void {
 		// Fallback method: create uploaded file entries based on selected files
+		let hasThumbnailFile = false;
+		
 		for (let file of this.selectedFiles) {
 			const uploadedFile = new UploadedFile(
 				this.generateFileId(),
@@ -235,11 +284,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				this.user
 			);
 			
+			// Check if this file contains "thumbnail" in its name
+			if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
+				hasThumbnailFile = true;
+				console.log('Thumbnail file detected in fallback:', uploadedFile.fileName);
+			}
+			
 			// Add to event's file list if not already present
 			const existingFile = this.evenement.fileUploadeds.find(f => f.fileName === uploadedFile.fileName);
 			if (!existingFile) {
 				this.evenement.fileUploadeds.push(uploadedFile);
 			}
+		}
+		
+		// If a thumbnail file was uploaded, reload the card
+		if (hasThumbnailFile) {
+			console.log('Thumbnail file uploaded in fallback, reloading card...');
+			this.reloadEventCard();
 		}
 		
 		// Don't emit update event since the database upload already updated the event
@@ -256,7 +317,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.evenement.fileUploadeds.map(fileUploaded => {
 				if (fileUploaded.fileName.indexOf('thumbnail') !== -1) {
 					this.getFileBlobUrl(fileUploaded.fieldId).subscribe((blob: any) => {
-						console.log('blob type : ' + blob.type + " // blob.size : " + blob.size);
 						let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
 						this.thumbnailUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
 						let natw = this.nativeWindow;
@@ -278,8 +338,24 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	delFile(fieldId: string) {
 		//console.log("File Id : " + fieldId);
 		if (confirm("Are you sure you want to delete the file ? ")) {
+			// Find the file being deleted to check if it contains "thumbnail"
+			const fileToDelete = this.evenement.fileUploadeds.find(fileUploaded => fileUploaded.fieldId === fieldId);
+			let isThumbnailFile = false;
+			
+			if (fileToDelete && fileToDelete.fileName && fileToDelete.fileName.toLowerCase().includes('thumbnail')) {
+				isThumbnailFile = true;
+				console.log('Thumbnail file being deleted:', fileToDelete.fileName);
+			}
+			
+			// Remove the file from the list
 			this.evenement.fileUploadeds = this.evenement.fileUploadeds.filter(fileUploaded => !(fileUploaded.fieldId == fieldId));
 			this.updateFileUploaded.emit(this.evenement);
+			
+			// If a thumbnail file was deleted, reload the card
+			if (isThumbnailFile) {
+				console.log('Thumbnail file deleted, reloading card...');
+				this.reloadEventCard();
+			}
 		}
 	}
 	// check if a map is available
@@ -290,9 +366,20 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 	// check if thur picture URL is available
 	public isPhotosUrlAvailable(): boolean {
-		let b: boolean = !!this.evenement.photosUrl;
-		// console.log("map is available " + b);
-		return b;
+		// Vérification simple : si photosUrl existe, est un tableau et n'est pas vide
+		if (!this.evenement.photosUrl) {
+			return false;
+		}
+		
+		if (!Array.isArray(this.evenement.photosUrl)) {
+			return false;
+		}
+		
+		// Vérifier que le tableau contient au moins une URL non vide
+		const hasValidUrls = this.evenement.photosUrl.length > 0 && 
+		       this.evenement.photosUrl.some(url => url && url.trim() !== '');
+		
+		return hasValidUrls;
 	}
 	// call the modal window for del confirmation
 	public deleteEvenement() {
@@ -361,6 +448,54 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		});
 	}
 
+	// Open photos modal
+	public openPhotosModal() {
+		console.log("Opening photos modal for event:", this.evenement.evenementName);
+		
+		if (this.photosModal) {
+			this.modalService.open(this.photosModal, { size: 'lg' }).result.then((result) => {
+				this.closeResult = `Photos modal closed with: ${result}`;
+			}, (reason) => {
+				this.closeResult = `Photos modal dismissed ${this.getDismissReason(reason)}`;
+			});
+		} else {
+			console.error('Photos modal template not found');
+		}
+	}
+
+	// Open photo in new tab
+	public openPhotoInNewTab(photoUrl: string) {
+		console.log("Opening photo in new tab:", photoUrl);
+		this.nativeWindow.open(photoUrl, '_blank');
+	}
+
+	hideImageOnError(event: any) {
+		const target = event.target as HTMLImageElement;
+		if (target) {
+			target.style.display = 'none';
+		}
+	}
+
+	// Open JSON modal
+	public openJsonModal() {
+		console.log("Opening JSON modal for event:", this.evenement.evenementName);
+		
+		if (this.jsonModal) {
+			this.modalService.open(this.jsonModal, { size: 'lg' }).result.then((result) => {
+				this.closeResult = `JSON modal closed with: ${result}`;
+			}, (reason) => {
+				this.closeResult = `JSON modal dismissed ${this.getDismissReason(reason)}`;
+			});
+		} else {
+			console.error('JSON modal template not found');
+		}
+	}
+
+	// Get event as formatted JSON
+	public getEventAsJson(): string {
+		return JSON.stringify(this.evenement, null, 2);
+	}
+
 	public getDismissReason(reason: any): string {
 		if (reason === ModalDismissReasons.ESC) {
 			return 'by pressing ESC';
@@ -420,7 +555,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// Open window when click on associate button
 	public openWindows(fileId: string, fileName: string) {
 		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
-			console.log('blob type : ' + blob.type + " // blob.size : " + blob.size);
 			//IE11 & Edge
 			if ((navigator as any).msSaveBlob) {
 				(navigator as any).msSaveBlob(blob, fileName);
@@ -444,6 +578,57 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			//this.nativeWindow.open(objectUrl);
 		}
 		);
+	}
+
+	// Check if a file is an image
+	private isImageFile(file: File): boolean {
+		const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
+		return imageTypes.includes(file.type.toLowerCase());
+	}
+
+	// Add "thumbnail" to the middle of the filename
+	private addThumbnailToFileName(originalName: string): string {
+		const lastDotIndex = originalName.lastIndexOf('.');
+		
+		if (lastDotIndex === -1) {
+			// No extension found, just add thumbnail at the end
+			return originalName + '_thumbnail';
+		}
+		
+		const nameWithoutExtension = originalName.substring(0, lastDotIndex);
+		const extension = originalName.substring(lastDotIndex);
+		
+		// Add thumbnail in the middle of the name
+		const middleIndex = Math.floor(nameWithoutExtension.length / 2);
+		const modifiedName = nameWithoutExtension.substring(0, middleIndex) + 
+							 'thumbnail' + 
+							 nameWithoutExtension.substring(middleIndex) + 
+							 extension;
+		
+		return modifiedName;
+	}
+
+	// Reload the event card thumbnail when a thumbnail file is uploaded/deleted
+	private reloadEventCard(): void {
+		console.log('Reloading thumbnail for event:', this.evenement.evenementName);
+		
+		// Find the thumbnail file in the uploaded files
+		const thumbnailFile = this.evenement.fileUploadeds.find(file => 
+			file.fileName && file.fileName.toLowerCase().includes('thumbnail')
+		);
+		
+		if (thumbnailFile) {
+			console.log('Found thumbnail file:', thumbnailFile.fileName);
+			// Update the thumbnail URL to force refresh
+			this.setThumbnailImage();
+		} else {
+			console.log('No thumbnail file found, using default image');
+			// Reset to default image if no thumbnail file exists
+			this.thumbnailUrl = "assets/images/images.jpg";
+		}
+		
+		// Emit an event to the parent component to update the event data
+		this.updateEvenement.emit(this.evenement);
 	}
 
 }

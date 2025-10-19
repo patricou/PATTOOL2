@@ -13,7 +13,7 @@ import { Member } from '../../model/member';
 })
 export class UpdateEvenementComponent implements OnInit {
 
-	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "Nouvel Evenement !!", "", "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "");
+	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "Nouvel Evenement !!", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "");
 	// Removed ngx-mydatepicker options - using native HTML date inputs
 	// Using native HTML date inputs instead of ngx-mydatepicker
 	public author: string = "";
@@ -50,6 +50,26 @@ export class UpdateEvenementComponent implements OnInit {
 		if (!date) return '';
 		const d = new Date(date);
 		return d.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:MM
+	}
+
+	// Photo management methods
+	addPhotoUrl(photoUrl: string) {
+		if (photoUrl && photoUrl.trim() !== '') {
+			this.evenement.photosUrl.push(photoUrl.trim());
+		}
+	}
+
+	removePhotoUrl(index: number) {
+		if (index >= 0 && index < this.evenement.photosUrl.length) {
+			this.evenement.photosUrl.splice(index, 1);
+		}
+	}
+
+	hideImageOnError(event: any) {
+		const target = event.target as HTMLImageElement;
+		if (target) {
+			target.style.display = 'none';
+		}
 	}
 
 	updateEvenement(fromform: any, isValid: boolean) {

@@ -150,7 +150,11 @@
         "DELETEFILE": "Elimina file",
         "LIVECHAT": "Discussione live",
         "DELMESCHAT": "Elimina messaggio",
-        "DESC": "Descrizione"
+        "DESC": "Descrizione",
+        "PHOTO_LINK": "Collegamento foto",
+        "OPEN_PHOTO": "Apri",
+        "NO_PHOTOS_AVAILABLE": "Nessuna foto disponibile per questo evento.",
+        "VIEW_JSON": "Visualizza evento in formato JSON"
     },
     "COMMUN": {
         "YES": "Sì",

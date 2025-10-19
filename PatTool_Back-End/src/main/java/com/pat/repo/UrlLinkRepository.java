@@ -1,6 +1,6 @@
 package com.pat.repo;
 
-import com.pat.domain.UrlLink;
+import com.pat.repo.domain.UrlLink;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.rest.core.annotation.RepositoryRestResource;

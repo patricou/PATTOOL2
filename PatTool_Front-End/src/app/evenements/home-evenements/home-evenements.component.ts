@@ -1,6 +1,8 @@
-import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild } from '@angular/core';
+import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, OnDestroy, TemplateRef } from '@angular/core';
 import { Observable, fromEvent } from 'rxjs';
-import { debounceTime } from 'rxjs/operators';
+import { debounceTime, map } from 'rxjs/operators';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 
 import { Evenement } from '../../model/evenement';
 import { MembersService } from '../../services/members.service';
@@ -10,6 +12,7 @@ import { WindowRefService } from '../../services/window-ref.service';
 import { FileService } from '../../services/file.service';
 import { CommonvaluesService } from '../../services/commonvalues.service';
 import { EvenementsService } from '../../services/evenements.service';
+import { environment } from '../../../environments/environment';
 
 export enum KEY_CODE {
 	RIGHT_ARROW = 39,
@@ -21,7 +24,7 @@ export enum KEY_CODE {
 	templateUrl: './home-evenements.component.html',
 	styleUrls: ['./home-evenements.component.css']
 })
-export class HomeEvenementsComponent implements OnInit, AfterViewInit {
+export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy {
 
 	public evenements: Evenement[] = [];
 	public user: Member = new Member("", "", "", "", "", [], "");
@@ -32,14 +35,25 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit {
 	public dataFIlter: string = this._commonValuesService.getDataFilter();
 	public pages: number[] = [];
 	public visible: boolean = false;
+	public isCompactView: boolean = false;
+	public thumbnailCache: Map<string, SafeUrl> = new Map();
+	public eventThumbnails: Map<string, SafeUrl> = new Map();
+	public nativeWindow: any;
+	public selectedEventPhotos: string[] = [];
+	public selectedEventName: string = '';
 	@ViewChild('searchterm')
 	public searchterm!: ElementRef;
+	@ViewChild('photosModal') photosModal!: TemplateRef<any>;
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
 		private _fileService: FileService,
 		private _router: Router,
-		private _commonValuesService: CommonvaluesService) {
+		private _commonValuesService: CommonvaluesService,
+		private sanitizer: DomSanitizer,
+		private winRef: WindowRefService,
+		private modalService: NgbModal) {
+		this.nativeWindow = winRef.getNativeWindow();
 	}
 
 	ngOnInit() {
@@ -147,6 +161,73 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit {
 				(err: any) => alert("Update Status Error : " + err));
 	}
 
+	public changeStatusEvent(evenement: Evenement) {
+		if (evenement.status == "Closed") {
+			evenement.status = "Cancel"
+		} else if (evenement.status == "Cancel") {
+			evenement.status = "Open"
+		} else {
+			evenement.status = "Closed"
+		}
+		this.updEvent(evenement);
+	}
+
+	// Méthodes pour les actions des événements dans la vue compacte
+	public isAuthor(evenement: Evenement): boolean {
+		return evenement.author.userName == this.user.userName;
+	}
+
+	public isParticipant(evenement: Evenement): boolean {
+		return evenement.members.some(member => member.userName == this.user.userName);
+	}
+
+	public isMapAvailable(evenement: Evenement): boolean {
+		return !!evenement.map;
+	}
+
+	public isPhotosUrlAvailable(evenement: Evenement): boolean {
+		return evenement.photosUrl && Array.isArray(evenement.photosUrl) && evenement.photosUrl.length > 0 && 
+		       evenement.photosUrl.some(url => url && url.trim() !== '');
+	}
+
+	public isAnyFiles(evenement: Evenement): boolean {
+		return evenement.fileUploadeds && evenement.fileUploadeds.length > 0;
+	}
+
+	public deleteEvenement(evenement: Evenement) {
+		if (confirm("Are you sure you want to delete the event ? ")) {
+			this.delEvent(evenement);
+		}
+	}
+
+	public toggleFileList(evenement: Evenement) {
+		// Cette méthode pourrait être implémentée si nécessaire
+		console.log('Toggle file list for event:', evenement.evenementName);
+	}
+
+	public openPhotosModal(evenement: Evenement) {
+		// Ouvrir le modal des photos pour l'événement
+		console.log('Opening photos modal for event:', evenement.evenementName);
+		console.log('PhotosUrl data:', evenement.photosUrl);
+		
+		if (evenement.photosUrl && Array.isArray(evenement.photosUrl) && evenement.photosUrl.length > 0) {
+			this.selectedEventPhotos = evenement.photosUrl;
+			this.selectedEventName = evenement.evenementName;
+			console.log('Selected photos for modal:', this.selectedEventPhotos);
+			this.modalService.open(this.photosModal, { size: 'lg' }).result.then((result) => {
+				console.log('Photos modal closed with:', result);
+			}, (reason) => {
+				console.log('Photos modal dismissed:', reason);
+			});
+		} else {
+			console.log('No photos available for this event');
+		}
+	}
+
+	public openPhotoInNewTab(url: string) {
+		this.nativeWindow.open(url, '_blank');
+	}
+
 	public updateFileUploadedInEvent(evenement: Evenement) {
 		this._evenementsService.put4FileEvenement(evenement)
 			.subscribe((resp: any) => // console.log("Delete file OK "),
@@ -200,5 +281,113 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit {
 		console.log(evenement.evenementName + " --> Current user : " + this.user.id);
 		console.log("visibility = " + (evenement.visibility === null || evenement.visibility === 'public') || (evenement.visibility === 'private' && evenement.author.id === this.user.id));
 		this.visible = (evenement.visibility === null || evenement.visibility === 'public') || (evenement.visibility === 'private' && evenement.author.id === this.user.id);
+	}
+
+	// Méthodes pour la vue compacte
+	public toggleViewMode() {
+		this.isCompactView = !this.isCompactView;
+	}
+
+	public getEventThumbnail(evenement: Evenement): SafeUrl {
+		// Vérifier si on a déjà cette thumbnail en cache
+		if (this.eventThumbnails.has(evenement.id)) {
+			const cachedUrl = this.eventThumbnails.get(evenement.id);
+			if (cachedUrl) {
+				return cachedUrl;
+			}
+		}
+
+		// Chercher un fichier avec "thumbnail" dans le nom
+		const thumbnailFile = evenement.fileUploadeds?.find(file => 
+			file.fileName && file.fileName.toLowerCase().includes('thumbnail')
+		);
+		
+		if (thumbnailFile) {
+			// Charger l'image via le service de fichiers pour l'authentification
+			this.loadThumbnailFromFile(evenement.id, thumbnailFile.fieldId);
+			// Retourner l'image par défaut en attendant le chargement
+			const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+			this.eventThumbnails.set(evenement.id, defaultUrl);
+			return defaultUrl;
+		}
+		
+		const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+		this.eventThumbnails.set(evenement.id, defaultUrl);
+		return defaultUrl;
+	}
+
+	private loadThumbnailFromFile(eventId: string, fileId: string): void {
+		this._fileService.getFile(fileId).pipe(
+			map((res: any) => {
+				let blob = new Blob([res], { type: 'application/octet-stream' });
+				return blob;
+			})
+		).subscribe((blob: any) => {
+			let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
+			let safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+			
+			// Mettre à jour l'URL dans le cache des événements
+			this.eventThumbnails.set(eventId, safeUrl);
+			
+			// Ne pas révoquer l'URL blob immédiatement - la garder en mémoire
+			// L'URL sera automatiquement révoquée quand le composant sera détruit
+		}, (error: any) => {
+			console.error('Error loading thumbnail for event:', eventId, error);
+			// En cas d'erreur, utiliser l'image par défaut
+			this.eventThumbnails.set(eventId, this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg"));
+		});
+	}
+
+	public formatEventDate(date: Date): string {
+		if (!date) return '';
+		
+		const eventDate = new Date(date);
+		const now = new Date();
+		const diffTime = eventDate.getTime() - now.getTime();
+		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+		
+		if (diffDays === 0) {
+			return "Aujourd'hui";
+		} else if (diffDays === 1) {
+			return "Demain";
+		} else if (diffDays === -1) {
+			return "Hier";
+		} else if (diffDays > 0) {
+			return `Dans ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+		} else {
+			return `Il y a ${Math.abs(diffDays)} jour${Math.abs(diffDays) > 1 ? 's' : ''}`;
+		}
+	}
+
+	public openEventDetails(evenement: Evenement) {
+		// Navigation vers la page de détails de l'événement
+		this._router.navigate(['/updeven', evenement.id]);
+	}
+
+	public onImageError(event: any) {
+		const target = event.target as HTMLImageElement;
+		if (target) {
+			target.src = "assets/images/images.jpg";
+		}
+	}
+
+	ngOnDestroy() {
+		// Nettoyer toutes les URLs blob pour éviter les fuites mémoire
+		this.eventThumbnails.forEach((safeUrl, eventId) => {
+			try {
+				// SafeUrl peut être un objet, on doit extraire la valeur string
+				const url = safeUrl && typeof safeUrl === 'object' && 'changingThisBreaksApplicationSecurity' in safeUrl 
+					? safeUrl['changingThisBreaksApplicationSecurity'] 
+					: safeUrl as string;
+				
+				if (url && typeof url === 'string' && url.startsWith('blob:')) {
+					this.nativeWindow.URL.revokeObjectURL(url);
+				}
+			} catch (error) {
+				// Ignorer les erreurs lors du nettoyage
+				console.warn('Error cleaning up blob URL:', error);
+			}
+		});
+		this.eventThumbnails.clear();
 	}
 }
