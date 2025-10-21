@@ -1,5 +1,6 @@
 <div class="pat-title">
     <h2>{{ "EVENTHOME.EVENTSLIST" | translate }}</h2>
+    <app-navigation-buttons></app-navigation-buttons>
 </div>
 <div class="container-fluid">
     <div class="row">
@@ -23,7 +24,7 @@
                     <option value="50">50</option>
                     <option value="100">100</option>
                 </select>
-                <small [hidden]="totalPages == 0" class="me-2">Page {{pageNumber+1}}/{{totalPages}}</small>
+                <small [hidden]="totalPages == 0" class="me-2">{{ 'EVENTHOME.PAGE' | translate }} {{pageNumber+1}}/{{totalPages}}</small>
             </div>
         </div>
     </div>
@@ -55,7 +56,7 @@
         <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12 card-group pat-card" *ngFor="let evenement of evenements">
             <element-evenement class="card" [user]="user" [evenement]="evenement" (updateFileUploaded)="updateFileUploadedInEvent($event)" 
             (addMember)="addMemberInEvent($event)" (delMember)="delMemberInEvent($event)" (updateEvenement)="updEvent($event)"
-            (delEvenement)="delEvent($event)"></element-evenement>
+            (delEvenement)="delEvent($event)" (openPhotosModal)="openPhotosModal($event)"></element-evenement>
         </div>
     </div>
     
@@ -148,25 +149,27 @@
         </div>
         <div class="photos-gallery" *ngIf="selectedEventPhotos && selectedEventPhotos.length > 0">
             <div class="row">
-                <div class="col-md-6 mb-3" *ngFor="let photoUrl of selectedEventPhotos; let i = index">
-                    <div class="card">
-                        <img [src]="photoUrl" class="card-img-top" [alt]="'Photo ' + (i + 1)" 
-                             style="height: 200px; object-fit: cover;" (error)="onImageError($event)">
-                        <div class="card-body p-2">
-                            <p class="card-text small mb-1">{{ 'Photo' }} {{ i + 1 }}</p>
-                            <button class="btn btn-sm btn-primary" (click)="openPhotoInNewTab(photoUrl)">
-                                <i class="fa fa-external-link"></i> {{ 'EVENTELEM.OPEN_PHOTO' | translate }}
+                <div class="col-md-6 col-lg-4 mb-3" *ngFor="let photoUrl of selectedEventPhotos; let i = index">
+                    <div class="photo-card">
+                        <img [src]="photoUrl" [alt]="'Photo ' + (i + 1)" 
+                            class="img-fluid photo-gallery-img" 
+                            (error)="hideImageOnError($event)"
+                            (click)="openPhotoInNewTab(photoUrl)">
+                        <div class="photo-overlay">
+                            <button class="btn btn-sm btn-light" (click)="openPhotoInNewTab(photoUrl)">
+                                <i class="fa fa-external-link"></i>
                             </button>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+        <div *ngIf="!selectedEventPhotos || selectedEventPhotos.length === 0" class="text-center">
+            <p>{{ 'EVENTELEM.NO_PHOTOS_AVAILABLE' | translate }}</p>
+        </div>
     </div>
     <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
-            {{ 'Fermer' }}
-        </button>
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">{{"COMMUN.CLOSE" | translate }}</button>
     </div>
 </ng-template>
 

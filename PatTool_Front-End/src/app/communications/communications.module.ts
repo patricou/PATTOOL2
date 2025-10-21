@@ -9,6 +9,7 @@ import { getDatabase, provideDatabase } from '@angular/fire/database';
 import { getAuth, provideAuth } from '@angular/fire/auth';
 import { environment } from '../../environments/environment';
 import { ChatComponent } from './chat/chat.component';
+import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -26,7 +27,8 @@ export function HttpLoaderFactory(http: HttpClient) {
         useFactory: HttpLoaderFactory,
         deps: [HttpClient]
       }
-    })
+    }),
+    NavigationButtonsModule
   ],
   declarations: [ChatComponent],
   exports: [ChatComponent],

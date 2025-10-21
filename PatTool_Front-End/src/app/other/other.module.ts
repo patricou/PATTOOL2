@@ -5,6 +5,7 @@ import { AboutComponent } from './about/about.component';
 import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -22,7 +23,8 @@ export function HttpLoaderFactory(http: HttpClient) {
         deps: [HttpClient]
       }
     }),
-    NgbModule
+    NgbModule,
+    NavigationButtonsModule
   ],
   declarations: [AboutComponent],
   exports: [AboutComponent]

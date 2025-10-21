@@ -16,6 +16,12 @@
         "IA": "AI",
         "PATGPT": "PatGPT"
     },
+    "NAVIGATION": {
+        "BACK": "戻る",
+        "FORWARD": "進む",
+        "GO_BACK": "前のページに移動",
+        "GO_FORWARD": "次のページに移動"
+    },
     "HOME": {
         "CITATION": "patrickdeschamps.com",
         "AUTHOR": "パトリック・デシャン",
@@ -42,7 +48,8 @@
     "EVENTHOME": {
         "EVENTSLIST": "活動リスト：",
         "EVENTFILTRE": "フィルター ....",
-        "NOEVENT": "表示する活動はありません ...."
+        "NOEVENT": "表示する活動はありません ....",
+        "PAGE": "ページ"
     },
     "EVENTCREATION": {
         "TITLE": "活動の作成",

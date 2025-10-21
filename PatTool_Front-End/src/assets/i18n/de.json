@@ -16,6 +16,12 @@
         "IA": "KI",
         "PATGPT": "PatGPT"
     },
+    "NAVIGATION": {
+        "BACK": "Zurück",
+        "FORWARD": "Vorwärts",
+        "GO_BACK": "Zur vorherigen Seite gehen",
+        "GO_FORWARD": "Zur nächsten Seite gehen"
+    },
     "HOME": {
         "CITATION": "patrickdeschamps.com",
         "AUTHOR": "Patrick DESCHAMPS",
@@ -42,7 +48,8 @@
     "EVENTHOME": {
         "EVENTSLIST": "Veranstaltungsliste:",
         "EVENTFILTRE": "Filter ....",
-        "NOEVENT": "Keine Veranstaltungen zum Anzeigen ...."
+        "NOEVENT": "Keine Veranstaltungen zum Anzeigen ....",
+        "PAGE": "Seite"
     },
     "EVENTCREATION": {
         "TITLE": "Veranstaltung erstellen",

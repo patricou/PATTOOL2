@@ -104,7 +104,7 @@
             aria-hidden="true"></i></a>
     <!-- Photos Gallery Button -->
     <button class="btn btn-info btn-sm mb-1 me-1" [hidden]="!isPhotosUrlAvailable()"
-        (click)="openPhotosModal()" placement="right"
+        (click)="openPhotosModalFromParent()" placement="right"
         ngbTooltip=" {{ 'EVENTELEM.PHOTOSURL' | translate }}">
         <i class="fa fa-picture-o" aria-hidden="true"></i>
     </button>
@@ -176,50 +176,6 @@
     </div>
 </ng-template>
 
-<!-- Photos Gallery Modal -->
-<ng-template #photosModal let-c="close" let-d="dismiss">
-    <div class="modal-header">
-        <h5 class="modal-title">{{evenement.evenementName}}<small> ({{"EVENTELEM.PHOTOSURL" | translate }})</small></h5>
-    </div>
-    <div class="modal-body">
-        <div class="debug-info" style="background: #f0f0f0; padding: 10px; margin-bottom: 10px; font-size: 12px;">
-            <div *ngFor="let url of evenement.photosUrl; let i = index" style="margin: 5px 0;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span>{{ 'EVENTELEM.PHOTO_LINK' | translate }} {{i + 1}}:</span>
-                    <a [href]="url" target="_blank" style="color: #007bff; text-decoration: underline; word-break: break-all;">
-                        {{url}}
-                    </a>
-                    <button class="btn btn-sm btn-outline-primary" (click)="openPhotoInNewTab(url)">
-                        <i class="fa fa-external-link"></i> {{ 'EVENTELEM.OPEN_PHOTO' | translate }}
-                    </button>
-                </div>
-            </div>
-        </div>
-        <div class="photos-gallery" *ngIf="evenement.photosUrl && evenement.photosUrl.length > 0">
-            <div class="row">
-                <div class="col-md-6 col-lg-4 mb-3" *ngFor="let photo of evenement.photosUrl; let i = index">
-                    <div class="photo-card">
-                        <img [src]="photo" [alt]="'Photo ' + (i + 1)" 
-                            class="img-fluid photo-gallery-img" 
-                            (error)="hideImageOnError($event)"
-                            (click)="openPhotoInNewTab(photo)">
-                        <div class="photo-overlay">
-                            <button class="btn btn-sm btn-light" (click)="openPhotoInNewTab(photo)">
-                                <i class="fa fa-external-link"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div *ngIf="!evenement.photosUrl || evenement.photosUrl.length === 0" class="text-center">
-            <p>{{ 'EVENTELEM.NO_PHOTOS_AVAILABLE' | translate }}</p>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="c('Close click')">{{"COMMUN.CLOSE" | translate }}</button>
-    </div>
-</ng-template>
 
 <!-- JSON View Modal -->
 <ng-template #jsonModal let-c="close" let-d="dismiss">

@@ -37,9 +37,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// Thumbnail image
 	public thumbnailUrl: any = "assets/images/images.jpg";
 
-	@ViewChild('photosModal')
-	public photosModal!: TemplateRef<any>;
-
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
 
@@ -63,6 +60,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	@Output()
 	updateFileUploaded: EventEmitter<Evenement> = new EventEmitter<Evenement>();
+
+	@Output()
+	openPhotosModal: EventEmitter<Evenement> = new EventEmitter<Evenement>();
 
 	constructor(
 		private sanitizer: DomSanitizer,
@@ -448,19 +448,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		});
 	}
 
-	// Open photos modal
-	public openPhotosModal() {
+	// Open photos modal from parent component
+	public openPhotosModalFromParent() {
 		console.log("Opening photos modal for event:", this.evenement.evenementName);
-		
-		if (this.photosModal) {
-			this.modalService.open(this.photosModal, { size: 'lg' }).result.then((result) => {
-				this.closeResult = `Photos modal closed with: ${result}`;
-			}, (reason) => {
-				this.closeResult = `Photos modal dismissed ${this.getDismissReason(reason)}`;
-			});
-		} else {
-			console.error('Photos modal template not found');
-		}
+		this.openPhotosModal.emit(this.evenement);
 	}
 
 	// Open photo in new tab

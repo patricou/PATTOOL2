@@ -1,0 +1,103 @@
+/* Navigation Buttons Styles */
+.navigation-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: 2px solid #ffffff;
+    color: #ffffff;
+    background: rgba(0, 123, 255, 0.8);
+    min-width: 80px;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.nav-btn:hover:not(:disabled) {
+    background: rgba(0, 123, 255, 1);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+    border-color: #ffffff;
+}
+
+.nav-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    background: rgba(108, 117, 125, 0.6);
+    border-color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.nav-btn i {
+    font-size: 0.75rem;
+}
+
+.btn-text {
+    font-size: 0.75rem;
+}
+
+/* Bouton Retour à gauche */
+.nav-back {
+    order: 1;
+}
+
+/* Bouton Suivant à droite */
+.nav-forward {
+    order: 2;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .navigation-buttons {
+        gap: 0.3rem;
+    }
+    
+    .nav-btn {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+        min-width: 60px;
+    }
+    
+    .btn-text {
+        display: none; /* Masquer le texte sur mobile */
+    }
+    
+    .nav-btn {
+        justify-content: center;
+    }
+}
+
+/* Animation pour les boutons */
+.nav-btn {
+    animation: fadeInUp 0.5s ease-out;
+}
+
+.nav-back {
+    animation-delay: 0.1s;
+}
+
+.nav-forward {
+    animation-delay: 0.2s;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

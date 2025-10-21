@@ -1,0 +1,18 @@
+<!-- Navigation Buttons Component -->
+<div class="navigation-buttons">
+    <button class="btn btn-outline-secondary btn-sm nav-btn nav-back" 
+            (click)="goBack()" 
+            [disabled]="!canGoBack"
+            title="{{ 'NAVIGATION.GO_BACK' | translate }}">
+        <i class="fa fa-arrow-left"></i>
+        <span class="btn-text">{{ 'NAVIGATION.BACK' | translate }}</span>
+    </button>
+    
+    <button class="btn btn-outline-secondary btn-sm nav-btn nav-forward" 
+            (click)="goForward()" 
+            [disabled]="!canGoForward"
+            title="{{ 'NAVIGATION.GO_FORWARD' | translate }}">
+        <span class="btn-text">{{ 'NAVIGATION.FORWARD' | translate }}</span>
+        <i class="fa fa-arrow-right"></i>
+    </button>
+</div>

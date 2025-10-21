@@ -35,6 +35,7 @@ import { PatgptComponent } from './patgpt/patgpt/patgpt.component';
 import { PatgptModule } from './patgpt/patgpt.module';
 import { IothomeComponent } from './iothome/iothome.component';
 import { IotService } from './services/iot.service';
+import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-buttons.module';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -57,6 +58,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		MapsModule,
 		LinksModule,
 		PatgptModule,
+		NavigationButtonsModule,
 		TranslateModule.forRoot({
 			loader: {
 				provide: TranslateLoader,

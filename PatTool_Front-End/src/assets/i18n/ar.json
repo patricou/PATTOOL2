@@ -16,6 +16,12 @@
         "IA": "الذكاء الاصطناعي",
         "PATGPT": "PatGPT"
     },
+    "NAVIGATION": {
+        "BACK": "رجوع",
+        "FORWARD": "تقدم",
+        "GO_BACK": "الانتقال إلى الصفحة السابقة",
+        "GO_FORWARD": "الانتقال إلى الصفحة التالية"
+    },
     "HOME": {
         "CITATION": "patrickdeschamps.com",
         "AUTHOR": "باتريك ديشامب",
@@ -42,7 +48,8 @@
     "EVENTHOME": {
         "EVENTSLIST": "قائمة الأنشطة :",
         "EVENTFILTRE": "فلتر ....",
-        "NOEVENT": "لا يوجد نشاط لعرضه ...."
+        "NOEVENT": "لا يوجد نشاط لعرضه ....",
+        "PAGE": "صفحة"
     },
     "EVENTCREATION": {
         "TITLE": "إنشاء نشاط",

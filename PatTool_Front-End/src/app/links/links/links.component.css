@@ -30,6 +30,21 @@
     backdrop-filter: blur(10px);
     border: 1px solid rgba(0, 123, 255, 0.2);
     z-index: 1000;
+    transition: all 0.3s ease;
+}
+
+.search-input-wrapper:hover {
+    border: 2px solid rgba(0, 123, 255, 0.6);
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.1),
+        0 0 20px rgba(0, 123, 255, 0.3);
+}
+
+.search-input-wrapper:focus-within {
+    border: 2px solid rgba(0, 123, 255, 0.8);
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.1),
+        0 0 30px rgba(0, 123, 255, 0.5);
 }
 
 .search-input {
@@ -95,6 +110,14 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(0, 123, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.url-checkbox-container:hover {
+    border: 2px solid rgba(0, 123, 255, 0.6);
+    box-shadow: 
+        0 4px 20px rgba(0, 0, 0, 0.1),
+        0 0 20px rgba(0, 123, 255, 0.3);
 }
 
 .url-checkbox-label {
@@ -237,6 +260,10 @@
 .category-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    border: 2px solid rgba(0, 123, 255, 0.6);
+    box-shadow: 
+        0 4px 8px rgba(0,0,0,0.15),
+        0 0 20px rgba(0, 123, 255, 0.3);
 }
 
 .links-container .links-grid .category-card.expanded {
@@ -367,6 +394,10 @@
     background: rgba(255,255,255,0.95);
     box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     transform: translateY(-2px);
+    border: 1px solid rgba(0, 123, 255, 0.6);
+    box-shadow: 
+        0 5px 15px rgba(0,0,0,0.1),
+        0 0 15px rgba(0, 123, 255, 0.3);
 }
 
 .link-content {

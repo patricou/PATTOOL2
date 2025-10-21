@@ -16,6 +16,12 @@
         "IA": "ИИ",
         "PATGPT": "PatGPT"
     },
+    "NAVIGATION": {
+        "BACK": "Назад",
+        "FORWARD": "Вперед",
+        "GO_BACK": "Перейти на предыдущую страницу",
+        "GO_FORWARD": "Перейти на следующую страницу"
+    },
     "HOME": {
         "CITATION": "patrickdeschamps.com",
         "AUTHOR": "Патрик Дешам",
@@ -42,7 +48,8 @@
     "EVENTHOME": {
         "EVENTSLIST": "Список мероприятий:",
         "EVENTFILTRE": "Фильтр ....",
-        "NOEVENT": "Нет мероприятий для отображения ...."
+        "NOEVENT": "Нет мероприятий для отображения ....",
+        "PAGE": "Страница"
     },
     "EVENTCREATION": {
         "TITLE": "Создание мероприятия",

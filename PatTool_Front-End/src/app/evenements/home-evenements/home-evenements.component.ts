@@ -214,7 +214,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.selectedEventPhotos = evenement.photosUrl;
 			this.selectedEventName = evenement.evenementName;
 			console.log('Selected photos for modal:', this.selectedEventPhotos);
-			this.modalService.open(this.photosModal, { size: 'lg' }).result.then((result) => {
+			this.modalService.open(this.photosModal, { 
+				size: 'lg',
+				backdrop: true,
+				keyboard: true,
+				animation: true,
+				centered: true
+			}).result.then((result) => {
 				console.log('Photos modal closed with:', result);
 			}, (reason) => {
 				console.log('Photos modal dismissed:', reason);
@@ -368,6 +374,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const target = event.target as HTMLImageElement;
 		if (target) {
 			target.src = "assets/images/images.jpg";
+		}
+	}
+
+	public hideImageOnError(event: any) {
+		const target = event.target as HTMLImageElement;
+		if (target) {
+			target.style.display = 'none';
 		}
 	}
 

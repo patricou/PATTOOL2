@@ -2,6 +2,16 @@
 .modern-form {
     background: transparent;
     padding: 0;
+    animation: fadeInUp 0.8s ease-out;
+}
+
+/* Page Entry Animation */
+.pat-title {
+    animation: slideInDown 0.6s ease-out 0.1s both;
+}
+
+.container {
+    animation: fadeIn 0.8s ease-out 0.2s both;
 }
 
 .form-card {
@@ -12,7 +22,19 @@
     overflow: hidden;
     transition: all 0.3s ease;
     border: 1px solid rgba(255, 255, 255, 0.2);
+    opacity: 0;
+    transform: translateY(30px);
+    animation: slideInUp 0.6s ease-out both;
 }
+
+.form-card:nth-child(1) { animation-delay: 0.3s; }
+.form-card:nth-child(2) { animation-delay: 0.4s; }
+.form-card:nth-child(3) { animation-delay: 0.5s; }
+.form-card:nth-child(4) { animation-delay: 0.6s; }
+.form-card:nth-child(5) { animation-delay: 0.7s; }
+.form-card:nth-child(6) { animation-delay: 0.8s; }
+.form-card:nth-child(7) { animation-delay: 0.9s; }
+.form-card:nth-child(8) { animation-delay: 1.0s; }
 
 .form-card:hover {
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
@@ -340,4 +362,47 @@ textarea.form-control {
 .btn-sm {
     padding: 0.3rem 0.6rem;
     font-size: 0.75rem;
+}
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }

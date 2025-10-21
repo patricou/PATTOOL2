@@ -55,6 +55,60 @@
                 </a>
             </li>
 
+            <!-- AI Dropdown -->
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" 
+                   href="#" 
+                   id="aiDropdown" 
+                   role="button"
+                   (click)="toggleIADropdown($event)" 
+                   [attr.aria-expanded]="showIADropdown">
+                    <i class="fa fa-magic"></i> {{ 'MENU.IA' | translate }}
+                </a>
+                <ul class="dropdown-menu" 
+                    [class.show]="showIADropdown" 
+                    aria-labelledby="aiDropdown">
+                    <li><a class="dropdown-item" 
+                           href="https://search.brave.com/?lang=fr-fr" 
+                           target="_blank" 
+                           (click)="closeMenuOnly(); $event.stopPropagation()">
+                        <i class="fa fa-magic"></i> Brave
+                    </a></li>
+                    <li><a class="dropdown-item" 
+                           href="https://chatgpt.com/?oai-dm=1" 
+                           target="_blank" 
+                           (click)="closeMenuOnly(); $event.stopPropagation()">
+                        <i class="fa fa-comments"></i> ChatGPT
+                    </a></li>
+                    <li><a class="dropdown-item" 
+                           href="https://www.deepseek.com/" 
+                           target="_blank" 
+                           (click)="closeMenuOnly(); $event.stopPropagation()">
+                        <i class="fa fa-lightbulb-o"></i> Deepseek
+                    </a></li>
+                    <li><a class="dropdown-item" 
+                           href="https://chat.mistral.ai/chat" 
+                           target="_blank" 
+                           (click)="closeMenuOnly(); $event.stopPropagation()">
+                        <i class="fa fa-cloud"></i> Mistral AI
+                    </a></li>
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['patgpt']" 
+                           (click)="closeMenu(); $event.stopPropagation()">
+                        <i class="fa fa-magic"></i> {{ 'MENU.PATGPT' | translate }}
+                    </a></li>
+                </ul>
+            </li>
+
+            <!-- IoT -->
+            <li class="nav-item">
+                <a class="nav-link" 
+                   [routerLink]="['iot']" 
+                   (click)="closeMenu()">
+                    <i class="fa fa-wifi"></i> {{ 'MENU.IOT' | translate }}
+                </a>
+            </li>
+
             <!-- Tools Dropdown -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" 
@@ -74,19 +128,9 @@
                         <i class="fa fa-map"></i> {{ 'MENU.MAPS' | translate }}
                     </a></li>
                     <li><a class="dropdown-item" 
-                           (click)="toggleAISubmenu($event); $event.preventDefault()" 
-                           [attr.aria-expanded]="showAISubmenu">
-                        <i class="fa fa-magic"></i> {{ 'MENU.IA' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item" 
                            [routerLink]="['results']" 
                            (click)="closeMenu()">
                         <i class="fa fa-comments"></i> {{ 'MENU.RESULTS' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['iot']" 
-                           (click)="closeMenu()">
-                        <i class="fa fa-wifi"></i> {{ 'MENU.IOT' | translate }}
                     </a></li>
                     <li [hidden]="!isAuthenticated()"><a class="dropdown-item" 
                            (click)="open(uploadfilecontent); closeMenu(); $event.preventDefault()">
@@ -94,43 +138,6 @@
                     </a></li>
                 </ul>
             </li>
-
-            <!-- AI Submenu (positioned separately) -->
-            <ul class="ai-submenu-list" 
-                [style.display]="showAISubmenu ? 'block' : 'none'"
-                [style.top]="aiSubmenuPosition.top"
-                [style.left]="aiSubmenuPosition.left"
-                aria-labelledby="aiSubmenu">
-                <li><a class="dropdown-item" 
-                       href="https://search.brave.com/?lang=fr-fr" 
-                       target="_blank" 
-                       (click)="closeMenuOnly(); $event.stopPropagation()">
-                    <i class="fa fa-magic"></i> Brave
-                </a></li>
-                <li><a class="dropdown-item" 
-                       href="https://chatgpt.com/?oai-dm=1" 
-                       target="_blank" 
-                       (click)="closeMenuOnly(); $event.stopPropagation()">
-                    <i class="fa fa-comments"></i> ChatGPT
-                </a></li>
-                <li><a class="dropdown-item" 
-                       href="https://www.deepseek.com/" 
-                       target="_blank" 
-                       (click)="closeMenuOnly(); $event.stopPropagation()">
-                    <i class="fa fa-lightbulb-o"></i> Deepseek
-                </a></li>
-                <li><a class="dropdown-item" 
-                       href="https://chat.mistral.ai/chat" 
-                       target="_blank" 
-                       (click)="closeMenuOnly(); $event.stopPropagation()">
-                    <i class="fa fa-cloud"></i> Mistral AI
-                </a></li>
-                <li><a class="dropdown-item" 
-                       [routerLink]="['patgpt']" 
-                       (click)="closeMenu(); $event.stopPropagation()">
-                    <i class="fa fa-magic"></i> {{ 'MENU.PATGPT' | translate }}
-                </a></li>
-            </ul>
 
         </ul>
 

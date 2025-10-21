@@ -1,12 +1,9 @@
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule, HttpClient } from '@angular/common/http';
+import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
-import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
-import { PatgptComponent } from './patgpt/patgpt.component';
-import { PatgptService } from '../services/patgpt.service';
-import { FormsModule } from '@angular/forms';
-import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
+import { NavigationButtonsComponent } from './navigation-buttons.component';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -14,9 +11,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 }
 
 @NgModule({
+  declarations: [
+    NavigationButtonsComponent
+  ],
   imports: [
     CommonModule,
-    FormsModule,
     HttpClientModule,
     TranslateModule.forChild({
       loader: {
@@ -24,11 +23,10 @@ export function HttpLoaderFactory(http: HttpClient) {
         useFactory: HttpLoaderFactory,
         deps: [HttpClient]
       }
-    }),
-    NavigationButtonsModule
+    })
   ],
-  declarations: [PatgptComponent],
-  exports: [PatgptComponent],
-  providers: [PatgptService]
+  exports: [
+    NavigationButtonsComponent
+  ]
 })
-export class PatgptModule { }
+export class NavigationButtonsModule { }

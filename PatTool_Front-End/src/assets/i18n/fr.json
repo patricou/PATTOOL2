@@ -16,6 +16,12 @@
         "IA": "IA",
         "PATGPT": "PatGPT"
     },
+    "NAVIGATION": {
+        "BACK": "Retour",
+        "FORWARD": "Suivant",
+        "GO_BACK": "Aller à la page précédente",
+        "GO_FORWARD": "Aller à la page suivante"
+    },
     "HOME": {
         "CITATION": "patrickdeschamps.com",
         "AUTHOR": "Patrick DESCHAMPS",
@@ -39,7 +45,8 @@
         "EVENTFILTRE": "Filtre ....",
         "NOEVENT": "Il n'y a pas d'Activité à afficher ....",
         "TOGGLE_VIEW": "Basculer entre vue normale et vue compacte",
-        "VIEW_DETAILS": "Voir les détails"
+        "VIEW_DETAILS": "Voir les détails",
+        "PAGE": "Page"
     },
     "EVENTCREATION": {
         "TITLE": "Création d'une Activité",

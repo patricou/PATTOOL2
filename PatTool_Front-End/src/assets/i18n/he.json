@@ -16,6 +16,12 @@
         "IA": "בינה מלאכותית",
         "PATGPT": "PatGPT"
     },
+    "NAVIGATION": {
+        "BACK": "חזור",
+        "FORWARD": "קדימה",
+        "GO_BACK": "עבור לעמוד הקודם",
+        "GO_FORWARD": "עבור לעמוד הבא"
+    },
     "HOME": {
         "CITATION": "patrickdeschamps.com",
         "AUTHOR": "פטריק דשאן",
@@ -42,7 +48,8 @@
     "EVENTHOME": {
         "EVENTSLIST": "רשימת פעילויות:",
         "EVENTFILTRE": "סינון ....",
-        "NOEVENT": "אין פעילויות להצגה ...."
+        "NOEVENT": "אין פעילויות להצגה ....",
+        "PAGE": "עמוד"
     },
     "EVENTCREATION": {
         "TITLE": "יצירת פעילות",

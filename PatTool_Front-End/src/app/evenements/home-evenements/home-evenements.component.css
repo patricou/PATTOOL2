@@ -23,12 +23,67 @@
     opacity: 0;
     transform: translateY(30px);
     animation: slideInUp 0.6s ease-out forwards;
-    transition: all 0.3s ease;
 }
 
-.pat-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+.pat-card .card {
+    transition: all 0.3s ease;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.pat-card .card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(0, 123, 255, 0.1), rgba(0, 123, 255, 0.05));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.pat-card .card:hover {
+    transform: scale(1.05);
+    box-shadow: 
+        0 15px 30px rgba(0, 0, 0, 0.25),
+        0 0 0 2px rgba(0, 123, 255, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    z-index: 1000;
+    border: 2px solid rgba(0, 123, 255, 0.8) !important;
+}
+
+.pat-card .card:hover::before {
+    opacity: 1;
+}
+
+/* Styles pour contourner les conteneurs Bootstrap */
+.card-group .pat-card .card:hover {
+    transform: scale(1.05) !important;
+    box-shadow: 
+        0 15px 30px rgba(0, 0, 0, 0.25),
+        0 0 0 2px rgba(0, 123, 255, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+    z-index: 1000 !important;
+    border: 2px solid rgba(0, 123, 255, 0.8) !important;
+}
+
+.col-xl-3 .pat-card .card:hover,
+.col-lg-4 .pat-card .card:hover,
+.col-md-6 .pat-card .card:hover,
+.col-sm-12 .pat-card .card:hover {
+    transform: scale(1.05) !important;
+    box-shadow: 
+        0 15px 30px rgba(0, 0, 0, 0.25),
+        0 0 0 2px rgba(0, 123, 255, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+    z-index: 1000 !important;
+    border: 2px solid rgba(0, 123, 255, 0.8) !important;
 }
 
 /* Animation pour l'apparition des cartes */
@@ -105,9 +160,17 @@
     box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
 }
 
-/* Animation pour la pagination */
+/* Styles pour la pagination */
 .pagination-container {
     animation: slideInDown 0.6s ease-out 0.3s both;
+}
+
+.pagination-container small {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-weight: 500;
+    color: #495057;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
 }
 
 @keyframes fadeIn {
@@ -145,7 +208,7 @@
     padding: 0.75rem;
     background: white;
     border: 1px solid #e9ecef;
-    border-radius: 8px;
+    border-radius: 12px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: all 0.3s ease;
     cursor: pointer;
@@ -153,12 +216,36 @@
     transform: translateX(-20px);
     animation: slideInLeft 0.5s ease-out forwards;
     gap: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.compact-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(0, 123, 255, 0.1), rgba(0, 123, 255, 0.05));
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+    pointer-events: none;
 }
 
 .compact-card:hover {
-    transform: translateX(5px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    border-color: #667eea;
+    transform: scale(1.05);
+    box-shadow: 
+        0 10px 25px rgba(0, 0, 0, 0.25),
+        0 0 0 2px rgba(0, 123, 255, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    z-index: 1000;
+    border: 2px solid rgba(0, 123, 255, 0.8) !important;
+}
+
+.compact-card:hover::before {
+    opacity: 1;
 }
 
 .compact-image {
@@ -237,3 +324,168 @@
 .compact-card:nth-child(18) { animation-delay: 0.95s; }
 .compact-card:nth-child(19) { animation-delay: 1.0s; }
 .compact-card:nth-child(20) { animation-delay: 1.05s; }
+
+/* Photos Gallery Styles */
+.photos-gallery {
+    max-height: 70vh;
+    overflow-y: auto;
+}
+
+/* Photos Modal Header */
+.modal-header {
+    background-color: #007bff;
+    color: white;
+    border-bottom: none;
+}
+
+.modal-title {
+    color: white;
+    font-weight: 600;
+}
+
+.modal-title small {
+    color: rgba(255, 255, 255, 0.8);
+    font-weight: 400;
+}
+
+.photo-card {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.photo-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.photo-gallery-img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.photo-gallery-img:hover {
+    transform: scale(1.05);
+}
+
+.photo-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.photo-card:hover .photo-overlay {
+    opacity: 1;
+}
+
+.photo-overlay .btn {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    color: #333;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    font-weight: 600;
+    transition: all 0.3s ease;
+}
+
+/* Modal Transitions */
+.modal.fade .modal-dialog {
+    transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+    transform: translate(0, -50px);
+    opacity: 0;
+}
+
+.modal.show .modal-dialog {
+    transform: translate(0, 0);
+    opacity: 1;
+}
+
+.modal-backdrop {
+    transition: opacity 0.4s ease-out;
+}
+
+.modal-backdrop.fade {
+    opacity: 0;
+}
+
+.modal-backdrop.show {
+    opacity: 0.5;
+}
+
+/* Modal Content Animations */
+.modal-body {
+    animation: slideInUp 0.5s ease-out 0.2s both;
+}
+
+.modal-header {
+    animation: slideInDown 0.5s ease-out 0.1s both;
+}
+
+.modal-footer {
+    animation: slideInUp 0.5s ease-out 0.3s both;
+}
+
+/* Photos Gallery Staggered Animation */
+.photos-gallery .photo-card {
+    animation: fadeInUp 0.6s ease-out both;
+}
+
+.photos-gallery .photo-card:nth-child(1) { animation-delay: 0.1s; }
+.photos-gallery .photo-card:nth-child(2) { animation-delay: 0.15s; }
+.photos-gallery .photo-card:nth-child(3) { animation-delay: 0.2s; }
+.photos-gallery .photo-card:nth-child(4) { animation-delay: 0.25s; }
+.photos-gallery .photo-card:nth-child(5) { animation-delay: 0.3s; }
+.photos-gallery .photo-card:nth-child(6) { animation-delay: 0.35s; }
+.photos-gallery .photo-card:nth-child(7) { animation-delay: 0.4s; }
+.photos-gallery .photo-card:nth-child(8) { animation-delay: 0.45s; }
+.photos-gallery .photo-card:nth-child(9) { animation-delay: 0.5s; }
+.photos-gallery .photo-card:nth-child(10) { animation-delay: 0.55s; }
+.photos-gallery .photo-card:nth-child(11) { animation-delay: 0.6s; }
+.photos-gallery .photo-card:nth-child(12) { animation-delay: 0.65s; }
+
+/* Keyframes for smooth animations */
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

@@ -16,6 +16,12 @@
         "IA": "人工智能",
         "PATGPT": "PatGPT"
     },
+    "NAVIGATION": {
+        "BACK": "返回",
+        "FORWARD": "前进",
+        "GO_BACK": "转到上一页",
+        "GO_FORWARD": "转到下一页"
+    },
     "HOME": {
         "CITATION": "patrickdeschamps.com",
         "AUTHOR": "Patrick DESCHAMPS",
@@ -42,7 +48,8 @@
     "EVENTHOME": {
         "EVENTSLIST": "活动列表：",
         "EVENTFILTRE": "过滤 ....",
-        "NOEVENT": "没有要显示的活动 ...."
+        "NOEVENT": "没有要显示的活动 ....",
+        "PAGE": "页面"
     },
     "EVENTCREATION": {
         "TITLE": "创建活动",

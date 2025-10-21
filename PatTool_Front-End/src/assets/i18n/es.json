@@ -16,6 +16,12 @@
         "IA": "AI",
         "PATGPT": "PatGPT"
     },
+    "NAVIGATION": {
+        "BACK": "Atrás",
+        "FORWARD": "Adelante",
+        "GO_BACK": "Ir a la página anterior",
+        "GO_FORWARD": "Ir a la página siguiente"
+    },
     "HOME": {
         "CITATION": "patrickdeschamps.com",
         "AUTHOR": "Patrick DESCHAMPS",
@@ -42,7 +48,8 @@
     "EVENTHOME": {
         "EVENTSLIST": "Lista de actividades:",
         "EVENTFILTRE": "Filtrar ....",
-        "NOEVENT": "No hay actividades para mostrar"
+        "NOEVENT": "No hay actividades para mostrar",
+        "PAGE": "Página"
     },
     "EVENTCREATION": {
         "TITLE": "Creación de actividad",

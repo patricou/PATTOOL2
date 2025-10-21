@@ -6,6 +6,7 @@ import { LinksComponent } from './links/links.component';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
 import { UrllinkService } from '../services/urllink.service';
+import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -23,7 +24,8 @@ export function HttpLoaderFactory(http: HttpClient) {
           useFactory: HttpLoaderFactory,
           deps: [HttpClient]
       }
-})
+}),
+    NavigationButtonsModule
   ],
   declarations: [LinksComponent],
   exports: [LinksComponent],

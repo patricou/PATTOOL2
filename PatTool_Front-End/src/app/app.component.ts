@@ -24,8 +24,6 @@ export class AppComponent implements OnInit {
     public showEventsDropdown: boolean = false;
     public showIADropdown: boolean = false;
     public showToolsDropdown: boolean = false;
-    public showAISubmenu: boolean = false;
-    public aiSubmenuPosition: { top: string, left: string } = { top: '0px', left: '0px' };
     public isDragOver: boolean = false;
     
     // Drag functionality for language selector
@@ -67,7 +65,7 @@ export class AppComponent implements OnInit {
 
     navigateToHome(event: Event): void {
         // Only navigate if no dropdowns are open and it's not a dropdown trigger
-        if (!this.showEventsDropdown && !this.showIADropdown && !this.showToolsDropdown && !this.showAISubmenu) {
+        if (!this.showEventsDropdown && !this.showIADropdown && !this.showToolsDropdown) {
             event.preventDefault();
             event.stopPropagation();
             this.router.navigate(['']);
@@ -277,7 +275,6 @@ export class AppComponent implements OnInit {
         this.showEventsDropdown = !this.showEventsDropdown;
         this.showIADropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
-        this.showAISubmenu = false; // Close AI submenu
     }
 
     toggleIADropdown(event: Event): void {
@@ -286,7 +283,6 @@ export class AppComponent implements OnInit {
         this.showIADropdown = !this.showIADropdown;
         this.showEventsDropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
-        this.showAISubmenu = false; // Close AI submenu
     }
 
     toggleToolsDropdown(event: Event): void {
@@ -295,23 +291,6 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = !this.showToolsDropdown;
         this.showEventsDropdown = false; // Close other dropdown
         this.showIADropdown = false; // Close other dropdown
-        this.showAISubmenu = false; // Close AI submenu
-    }
-
-    toggleAISubmenu(event: Event): void {
-        const button = event.target as HTMLElement;
-        const rect = button.getBoundingClientRect();
-        
-        // Position the submenu to the right of the button
-        const topPosition = rect.top;
-        const leftPosition = rect.right + 5; // 5px offset to the right
-        
-        this.aiSubmenuPosition = {
-            top: topPosition + 'px',
-            left: leftPosition + 'px'
-        };
-        
-        this.showAISubmenu = !this.showAISubmenu;
     }
 
     toggleMobileMenu(): void {
@@ -320,14 +299,12 @@ export class AppComponent implements OnInit {
         this.showEventsDropdown = false;
         this.showIADropdown = false;
         this.showToolsDropdown = false;
-        this.showAISubmenu = false;
     }
 
     closeDropdowns(): void {
         this.showEventsDropdown = false;
         this.showIADropdown = false;
         this.showToolsDropdown = false;
-        this.showAISubmenu = false;
     }
 
     closeMenu(): void {

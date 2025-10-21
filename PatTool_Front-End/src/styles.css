@@ -1,5 +1,59 @@
 /* You can add global styles to this file, and also import other style files */
 
+/* Navigation Title Styles */
+.pat-title {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 1rem;
+    padding: 1rem 0;
+    border-bottom: 1px solid #e9ecef;
+    position: relative;
+}
+
+.pat-title h2 {
+    margin: 0;
+    flex: 1;
+    text-align: center;
+}
+
+.pat-title-subtitle {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+/* Navigation buttons positioned absolutely */
+.pat-title .navigation-buttons {
+    position: absolute;
+    left: 40px;
+    top: 50%;
+    transform: translateY(-50%);
+    margin-left: 0;
+    z-index: 10;
+}
+
+/* Responsive Navigation Title */
+@media (max-width: 768px) {
+    .pat-title {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .pat-title h2 {
+        font-size: 1.5rem;
+        text-align: center;
+    }
+    
+    .pat-title .navigation-buttons {
+        position: static;
+        transform: none;
+        margin-top: 0.5rem;
+        margin-left: 40px;
+    }
+}
+
 html,
 body {
     height: 100%;
