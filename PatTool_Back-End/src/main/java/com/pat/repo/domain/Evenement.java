@@ -54,6 +54,7 @@ public class Evenement {
     private String startLocation;
     private String durationEstimation;
     private String visibility;
+    private List<UrlEvent> urlEvents = new ArrayList<UrlEvent>();
 
     public List<Member> getMembers() {
         return members;
@@ -231,6 +232,14 @@ public class Evenement {
         this.visibility = visibility;
     }
 
+    public List<UrlEvent> getUrlEvents() {
+        return urlEvents;
+    }
+
+    public void setUrlEvents(List<UrlEvent> urlEvents) {
+        this.urlEvents = urlEvents;
+    }
+
     @Override
     public String toString() {
         return "Evenement{" +
@@ -256,6 +265,7 @@ public class Evenement {
                 ", startLocation='" + startLocation + '\'' +
                 ", durationEstimation='" + durationEstimation + '\'' +
                 ", Visibility=" + visibility +
+                ", urlEvents=" + urlEvents +
                 '}';
     }
 }

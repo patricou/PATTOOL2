@@ -99,9 +99,12 @@
 </div>
 <div class="card-footer card-text text-center">
     <!-- <iframe width="100%" height="250" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" sandbox="allow-forms allow-scripts allow-same-origin" [src]="safeUrlMap" allowfullscreen></iframe> -->
-    <a class="btn btn-primary btn-sm mb-1 me-1" [hidden]="!isMapAvailable()" [href]="safeUrlMap" target="_blank"
-        placement="right" ngbTooltip=" {{ 'EVENTELEM.MAP' | translate }}"><i class="fa fa-map"
-            aria-hidden="true"></i></a>
+    <!-- URLs Button -->
+    <button class="btn btn-primary btn-sm mb-1 me-1" [hidden]="!isUrlEventsAvailable()" 
+        (click)="openUrlsModal(urlsModal)" placement="right"
+        ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount() }})">
+        <i class="fa fa-link" aria-hidden="true"></i> {{ getUrlEventsCount() }}
+    </button>
     <!-- Photos Gallery Button -->
     <button class="btn btn-info btn-sm mb-1 me-1" [hidden]="!isPhotosUrlAvailable()"
         (click)="openPhotosModalFromParent()" placement="right"
@@ -189,5 +192,59 @@
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">{{"COMMUN.CLOSE" | translate }}</button>
+    </div>
+</ng-template>
+
+<!-- URLs Modal -->
+<ng-template #urlsModal let-c="close" let-d="dismiss">
+    <div class="modal-header">
+        <h5 class="modal-title">
+            <i class="fa fa-link"></i> {{ 'EVENTELEM.URLS' | translate }} - {{ evenement.evenementName }}
+        </h5>
+        <button type="button" class="btn-close" aria-label="Close" (click)="d('Cross click')"></button>
+    </div>
+    <div class="modal-body">
+        <div *ngIf="isUrlEventsAvailable(); else noUrlsTemplate">
+            <div class="url-events-container">
+                <div class="url-event-item mb-3" *ngFor="let urlEvent of evenement.urlEvents; let i = index">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <div class="url-event-type-badge">
+                                <span class="badge bg-primary">{{ getUrlTypeLabel(urlEvent.typeUrl) | translate }}</span>
+                            </div>
+                            <div class="url-event-meta">
+                                <small class="text-muted">
+                                    <i class="fa fa-user"></i> {{ urlEvent.owner }} | 
+                                    <i class="fa fa-calendar"></i> {{ urlEvent.dateCreation | date:'short' }}
+                                </small>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div class="url-event-content d-flex align-items-start gap-3">
+                                <div class="url-event-link">
+                                    <a [href]="urlEvent.link" target="_blank" class="btn btn-outline-primary btn-sm">
+                                        <i class="fa fa-external-link"></i> {{ urlEvent.link }}
+                                    </a>
+                                </div>
+                                <div class="url-event-description flex-grow-1" *ngIf="urlEvent.urlDescription">
+                                    <p class="text-muted mb-0">{{ urlEvent.urlDescription }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <ng-template #noUrlsTemplate>
+            <div class="text-center text-muted py-4">
+                <i class="fa fa-link fa-3x mb-3"></i>
+                <p>{{ 'EVENTHOME.NO_LINKS_ADDED' | translate }}</p>
+            </div>
+        </ng-template>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+        </button>
     </div>
 </ng-template>

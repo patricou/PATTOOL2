@@ -136,6 +136,11 @@
                            (click)="open(uploadfilecontent); closeMenu(); $event.preventDefault()">
                         <i class="fa fa-cloud-upload"></i> {{ "UPLOADFILE.MENU" | translate }}
                     </a></li>
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['migration']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-database"></i> Migration
+                    </a></li>
                 </ul>
             </li>
 

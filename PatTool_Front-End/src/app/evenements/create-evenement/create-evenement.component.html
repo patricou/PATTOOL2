@@ -14,7 +14,7 @@
                 <div class="form-card">
                     <div class="card-header">
                         <i class="fa fa-info-circle"></i>
-                        <h3>Informations de base</h3>
+                        <h3>{{ "EVENTHOME.BASIC_INFO" | translate }}</h3>
                     </div>
                     <div class="card-body">
                         
@@ -96,7 +96,7 @@
                 <div class="form-card">
                     <div class="card-header">
                         <i class="fa fa-cogs"></i>
-                        <h3>Détails de l'événement</h3>
+                        <h3>{{ "EVENTHOME.EVENT_DETAILS" | translate }}</h3>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -159,7 +159,7 @@
                 <div class="form-card">
                     <div class="card-header">
                         <i class="fa fa-calendar"></i>
-                        <h3>Date et heure</h3>
+                        <h3>{{ "EVENTHOME.DATE_AND_TIME" | translate }}</h3>
                     </div>
                     <div class="card-body">
                         <div class="row">
@@ -234,7 +234,7 @@
                 <div class="form-card">
                     <div class="card-header">
                         <i class="fa fa-map-marker"></i>
-                        <h3>Localisation et liens</h3>
+                        <h3>{{ "EVENTHOME.LOCATION_AND_LINKS" | translate }}</h3>
                     </div>
                     <div class="card-body">
                         <!-- Location -->
@@ -305,6 +305,101 @@
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- URL Events Section -->
+                <div class="form-card">
+                    <div class="card-header">
+                        <i class="fa fa-link"></i>
+                        <h3>{{ "EVENTHOME.URL_EVENTS" | translate }}</h3>
+                    </div>
+                    <div class="card-body">
+                        
+                        <!-- Add New URL Event Form -->
+                        <div class="url-event-form mb-4">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <label class="form-label">
+                                        <i class="fa fa-tag"></i>
+                                        {{ "EVENTHOME.TYPE_URL" | translate }}
+                                    </label>
+                                    <select [(ngModel)]="newUrlEvent.typeUrl" name="typeUrl" class="form-control">
+                                        <option value="">{{ "EVENTHOME.TYPE_URL" | translate }}</option>
+                                        <option *ngFor="let type of urlEventTypes" [value]="type.id">{{ type.label | translate }}</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">
+                                        <i class="fa fa-link"></i>
+                                        {{ "EVENTHOME.URL_LINK" | translate }}
+                                    </label>
+                                    <input [(ngModel)]="newUrlEvent.link" name="link" type="url" 
+                                           placeholder="https://example.com" class="form-control">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">
+                                        <i class="fa fa-user"></i>
+                                        {{ "EVENTHOME.URL_OWNER" | translate }}
+                                    </label>
+                                    <input [(ngModel)]="newUrlEvent.owner" name="owner" type="text" 
+                                           class="form-control" readonly>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button type="button" class="btn btn-primary" (click)="addUrlEvent()">
+                                        <i class="fa fa-plus"></i> {{ "EVENTHOME.ADD_URL_EVENT" | translate }}
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="row mt-2">
+                                <div class="col-12">
+                                    <label class="form-label">
+                                        <i class="fa fa-comment"></i>
+                                        {{ "EVENTHOME.URL_DESCRIPTION" | translate }}
+                                    </label>
+                                    <textarea [(ngModel)]="newUrlEvent.urlDescription" name="urlDescription" 
+                                              class="form-control" rows="2" 
+                                              placeholder="{{ 'EVENTHOME.LINK_DESCRIPTION_PLACEHOLDER' | translate }}"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Display Existing URL Events -->
+                        <div class="url-events-list" *ngIf="evenement.urlEvents && evenement.urlEvents.length > 0">
+                            <h5>{{ "EVENTHOME.URL_EVENTS" | translate }} ({{ evenement.urlEvents.length }})</h5>
+                            <div class="url-event-item" *ngFor="let urlEvent of evenement.urlEvents; let i = index">
+                                <div class="url-event-card">
+                           <div class="url-event-header">
+                               <span class="url-event-type">{{ getUrlTypeLabel(urlEvent.typeUrl) | translate }}</span>
+                               <button type="button" class="btn btn-outline-danger btn-sm" 
+                                       (click)="removeUrlEvent(i)">
+                                   <i class="fa fa-trash"></i>
+                               </button>
+                           </div>
+                                    <div class="url-event-content">
+                                        <div class="url-event-link">
+                                            <a [href]="urlEvent.link" target="_blank" class="url-link">
+                                                <i class="fa fa-external-link"></i> {{ urlEvent.link }}
+                                            </a>
+                                        </div>
+                                        <div class="url-event-description" *ngIf="urlEvent.urlDescription">
+                                            {{ urlEvent.urlDescription }}
+                                        </div>
+                                        <div class="url-event-meta">
+                                            <small class="text-muted">
+                                                <i class="fa fa-user"></i> {{ urlEvent.owner }} | 
+                                                <i class="fa fa-calendar"></i> {{ urlEvent.dateCreation | date:'short' }}
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div *ngIf="!evenement.urlEvents || evenement.urlEvents.length === 0" class="text-center text-muted">
+                            <i class="fa fa-link fa-2x mb-2"></i>
+                            <p>{{ "EVENTHOME.NO_LINKS_ADDED" | translate }}</p>
                         </div>
                     </div>
                 </div>

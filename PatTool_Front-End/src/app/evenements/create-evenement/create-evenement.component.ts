@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 // Removed ngx-mydatepicker imports - using native HTML date inputs
 import { Member } from '../../model/member';
 import { Evenement } from '../../model/evenement';
+import { UrlEvent } from '../../model/url-event';
 import { MembersService } from '../../services/members.service';
 import { EvenementsService } from '../../services/evenements.service';
 
@@ -15,13 +16,23 @@ import { EvenementsService } from '../../services/evenements.service';
 export class CreateEvenementComponent implements OnInit {
 
 	public user: Member = new Member("", "", "", "", "", [], "");
-	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "");
+	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
 	// Removed ngx-mydatepicker options - using native HTML date inputs
 	// Using native HTML date inputs instead of ngx-mydatepicker
 	public author: string = "";
 	public beginEventDateString: string = "";
 	public endEventDateString: string = "";
 	//public closeInscriptionDate: Object;
+	
+	// URL Events management
+	public newUrlEvent: UrlEvent = new UrlEvent("", new Date(), "", "", "");
+	public urlEventTypes: {id: string, label: string}[] = [
+		{id: "MAP", label: "EVENTHOME.URL_TYPE_CARTE"},
+		{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION"},
+		{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER"},
+		{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
+		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
+	];
 
 	constructor(public _evenementsService: EvenementsService,
 		public _router: Router,
@@ -33,8 +44,11 @@ export class CreateEvenementComponent implements OnInit {
 		this.user = this._memberService.getUser();
 
 		// init new event fields
-		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public");
+		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public", []);
 		this.author = this.evenement.author.firstName + " " + this.evenement.author.lastName;
+		
+		// Initialize newUrlEvent with current user as owner
+		this.newUrlEvent = new UrlEvent("", new Date(), this.user.userName, "", "");
 
 		/*this.beginEventDate = { date: { 
 										year: this.evenement.beginEventDate.getFullYear() , 
@@ -87,6 +101,36 @@ export class CreateEvenementComponent implements OnInit {
 		if (index >= 0 && index < this.evenement.photosUrl.length) {
 			this.evenement.photosUrl.splice(index, 1);
 		}
+	}
+	
+	// Methods to manage URL Events
+	addUrlEvent() {
+		if (this.newUrlEvent.link && this.newUrlEvent.link.trim() !== '' && 
+			this.newUrlEvent.typeUrl && this.newUrlEvent.typeUrl.trim() !== '') {
+			// Create a new UrlEvent instance to avoid reference issues
+			const urlEvent = new UrlEvent(
+				this.newUrlEvent.typeUrl.trim(),
+				new Date(), // Always use current date for creation
+				this.user.userName, // Use userName instead of firstName + lastName
+				this.newUrlEvent.link.trim(),
+				this.newUrlEvent.urlDescription.trim()
+			);
+			this.evenement.urlEvents.push(urlEvent);
+			
+			// Reset the form
+			this.newUrlEvent = new UrlEvent("", new Date(), this.user.userName, "", "");
+		}
+	}
+	
+	removeUrlEvent(index: number) {
+		if (index >= 0 && index < this.evenement.urlEvents.length) {
+			this.evenement.urlEvents.splice(index, 1);
+		}
+	}
+
+	getUrlTypeLabel(typeId: string): string {
+		const type = this.urlEventTypes.find(t => t.id === typeId);
+		return type ? type.label : typeId;
 	}
 
 	hideImageOnError(event: any) {

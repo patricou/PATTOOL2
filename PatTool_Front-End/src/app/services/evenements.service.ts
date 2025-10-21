@@ -79,7 +79,8 @@ export class EvenementsService {
 							evenement.durationEstimation,
 							evenement.ratingPlus,
 							evenement.ratingMinus,
-							evenement.visibility
+							evenement.visibility,
+							evenement.urlEvents || []
 						)
 					})
 				)

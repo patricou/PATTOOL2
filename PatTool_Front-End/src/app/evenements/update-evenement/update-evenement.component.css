@@ -406,3 +406,79 @@ textarea.form-control {
         transform: translateY(0);
     }
 }
+
+/* URL Events Styles */
+.url-event-form {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.url-events-list {
+    margin-top: 20px;
+}
+
+.url-event-item {
+    margin-bottom: 15px;
+}
+
+.url-event-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.url-event-card:hover {
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+.url-event-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.url-event-type {
+    background: #007bff;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.url-event-content {
+    margin-left: 0;
+}
+
+.url-event-link {
+    margin-bottom: 8px;
+}
+
+.url-link {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.url-link:hover {
+    text-decoration: underline;
+}
+
+.url-event-description {
+    color: #6c757d;
+    font-style: italic;
+    margin-bottom: 8px;
+}
+
+.url-event-meta {
+    border-top: 1px solid #e9ecef;
+    padding-top: 8px;
+}

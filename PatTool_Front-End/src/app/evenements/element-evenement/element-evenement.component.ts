@@ -10,6 +10,7 @@ import { map } from 'rxjs/operators';
 import { UploadedFile } from '../../model/uploadedfile';
 import { Member } from '../../model/member';
 import { Evenement } from '../../model/evenement';
+import { UrlEvent } from '../../model/url-event';
 import { environment } from '../../../environments/environment';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FileService } from '../../services/file.service';
@@ -41,7 +42,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public jsonModal!: TemplateRef<any>;
 
 	@Input()
-	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "");
+	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
 
 	@Input()
 	user: Member = new Member("", "", "", "", "", [], "");
@@ -364,6 +365,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// console.log("map is available " + b);
 		return b;
 	}
+
+	// check if urlEvents are available
+	public isUrlEventsAvailable(): boolean {
+		return this.evenement.urlEvents && this.evenement.urlEvents.length > 0;
+	}
+
+	// get count of urlEvents
+	public getUrlEventsCount(): number {
+		return this.evenement.urlEvents ? this.evenement.urlEvents.length : 0;
+	}
+
+	// open URLs modal
+	public openUrlsModal(content: any) {
+		this.modalService.open(content, { size: 'lg', centered: true });
+	}
 	// check if thur picture URL is available
 	public isPhotosUrlAvailable(): boolean {
 		// Vérification simple : si photosUrl existe, est un tableau et n'est pas vide
@@ -620,6 +636,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		
 		// Emit an event to the parent component to update the event data
 		this.updateEvenement.emit(this.evenement);
+	}
+
+	getUrlTypeLabel(typeId: string): string {
+		const urlEventTypes = [
+			{id: "MAP", label: "EVENTHOME.URL_TYPE_CARTE"},
+			{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION"},
+			{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER"},
+			{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
+			{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
+		];
+		const type = urlEventTypes.find(t => t.id === typeId);
+		return type ? type.label : typeId;
 	}
 
 }

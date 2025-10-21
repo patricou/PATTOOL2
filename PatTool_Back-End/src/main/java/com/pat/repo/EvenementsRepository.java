@@ -7,6 +7,8 @@ import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 
+import java.util.List;
+
 /**
  * Created by patricou on 4/20/2017.
  */
@@ -15,5 +17,8 @@ public interface EvenementsRepository extends PagingAndSortingRepository<Eveneme
 
     Page<Evenement> findByEvenementNameLikeIgnoreCaseAndAuthor_idOrEvenementNameLikeIgnoreCaseAndVisibility(Pageable pageable, String eventName1, String AuthorId,String eventName2, String visibility );
 
+    // Additional methods for the controller
+    List<Evenement> findByAuthorId(String authorId);
+    List<Evenement> findByEvenementNameContainingIgnoreCase(String name);
 }
 

@@ -31,6 +31,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/urllink/**").permitAll()
                 // Allow public access to event endpoints
                 .requestMatchers("/api/even/**").permitAll()
+                .requestMatchers("/api/evenements/**").permitAll()
                 // Allow public access to file endpoints
                 .requestMatchers("/api/file/**").permitAll()
                 // Allow public access to chat endpoints
@@ -43,7 +44,7 @@ public class SecurityConfig {
                 .requestMatchers("/uploadondisk").permitAll()
                 // Allow public access to upload in the DB
                 .requestMatchers("/uploadfile").permitAll()
-                    // to migrate fields photoUrls
+                // to migrate fields photoUrls
                     .requestMatchers("/api/migration/**").permitAll()
                 // Allow public access to Swagger/OpenAPI
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()

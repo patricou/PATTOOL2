@@ -257,3 +257,61 @@ hr {
     word-wrap: break-word;
     overflow-x: auto;
 }
+
+/* URLs Modal Styles */
+.url-events-container {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.url-event-item .card {
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.url-event-item .card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+}
+
+.url-event-type-badge .badge {
+    font-size: 0.8em;
+    padding: 0.5em 0.8em;
+}
+
+.url-event-link .btn {
+    word-break: break-all;
+    text-align: left;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 200px;
+}
+
+.url-event-description {
+    margin-top: 0;
+    line-height: 1.4;
+}
+
+.url-event-content {
+    align-items: flex-start;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .url-event-content {
+        flex-direction: column;
+        gap: 10px !important;
+    }
+    
+    .url-event-link .btn {
+        min-width: auto;
+        width: 100%;
+    }
+    
+    .url-event-description {
+        width: 100%;
+    }
+}
