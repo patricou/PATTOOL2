@@ -15,7 +15,7 @@ import { MembersService } from '../../services/members.service';
 })
 export class UpdateEvenementComponent implements OnInit {
 
-	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "Nouvel Evenement !!", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
+	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "Nouvel Evenement !!", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
 	// Removed ngx-mydatepicker options - using native HTML date inputs
 	// Using native HTML date inputs instead of ngx-mydatepicker
 	public author: string = "";
@@ -37,6 +37,10 @@ export class UpdateEvenementComponent implements OnInit {
 		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
 	];
 	public user: Member = new Member("", "", "", "", "", [], "");
+	
+	// URL Event editing management
+	public editingUrlEvent: UrlEvent = new UrlEvent("", new Date(), "", "", "");
+	public editingIndex: number = -1;
 
 	constructor(private _route: ActivatedRoute,
 		private _evenementsService: EvenementsService,
@@ -78,17 +82,15 @@ export class UpdateEvenementComponent implements OnInit {
 		return d.toISOString().slice(0, 16); // Format: YYYY-MM-DDTHH:MM
 	}
 
-	// Photo management methods
+	// Photo management methods - REMOVED since photosUrl field has been removed
 	addPhotoUrl(photoUrl: string) {
-		if (photoUrl && photoUrl.trim() !== '') {
-			this.evenement.photosUrl.push(photoUrl.trim());
-		}
+		// Method disabled - photosUrl field has been removed
+		console.log('addPhotoUrl method disabled - photosUrl field has been removed');
 	}
 
 	removePhotoUrl(index: number) {
-		if (index >= 0 && index < this.evenement.photosUrl.length) {
-			this.evenement.photosUrl.splice(index, 1);
-		}
+		// Method disabled - photosUrl field has been removed
+		console.log('removePhotoUrl method disabled - photosUrl field has been removed');
 	}
 
 	hideImageOnError(event: any) {
@@ -122,10 +124,73 @@ export class UpdateEvenementComponent implements OnInit {
 			this.evenement.urlEvents.splice(index, 1);
 		}
 	}
+	
+	// URL Event editing methods
+	startEditUrlEvent(index: number) {
+		// Store the index being edited
+		this.editingIndex = index;
+		
+		// Create a copy of the urlEvent to edit
+		const urlEventToEdit = this.evenement.urlEvents[index];
+		this.editingUrlEvent = new UrlEvent(
+			urlEventToEdit.typeUrl,
+			urlEventToEdit.dateCreation,
+			urlEventToEdit.owner,
+			urlEventToEdit.link,
+			urlEventToEdit.urlDescription
+		);
+	}
+	
+	saveUrlEventEdit(index: number) {
+		if (this.editingUrlEvent.link && this.editingUrlEvent.link.trim() !== '' && 
+			this.editingUrlEvent.typeUrl && this.editingUrlEvent.typeUrl.trim() !== '') {
+			
+			// Update the original urlEvent with edited values
+			this.evenement.urlEvents[index].typeUrl = this.editingUrlEvent.typeUrl.trim();
+			this.evenement.urlEvents[index].link = this.editingUrlEvent.link.trim();
+			this.evenement.urlEvents[index].urlDescription = this.editingUrlEvent.urlDescription.trim();
+			// Keep original owner and dateCreation
+			
+			// Reset editing state
+			this.cancelUrlEventEdit();
+		}
+	}
+	
+	cancelUrlEventEdit() {
+		this.editingUrlEvent = new UrlEvent("", new Date(), "", "", "");
+		this.editingIndex = -1;
+	}
+	
+	// Helper method to get the actual index in the full urlEvents array
+	getActualIndex(urlEvent: UrlEvent): number {
+		return this.evenement.urlEvents.indexOf(urlEvent);
+	}
 
 	getUrlTypeLabel(typeId: string): string {
 		const type = this.urlEventTypes.find(t => t.id === typeId);
 		return type ? type.label : typeId;
+	}
+
+	// Method to group URL Events by typeUrl
+	getGroupedUrlEvents(): { [key: string]: UrlEvent[] } {
+		if (!this.evenement.urlEvents || this.evenement.urlEvents.length === 0) {
+			return {};
+		}
+		
+		return this.evenement.urlEvents.reduce((groups: { [key: string]: UrlEvent[] }, urlEvent: UrlEvent) => {
+			const typeUrl = urlEvent.typeUrl;
+			if (!groups[typeUrl]) {
+				groups[typeUrl] = [];
+			}
+			groups[typeUrl].push(urlEvent);
+			return groups;
+		}, {});
+	}
+
+	// Method to get sorted group keys
+	getGroupedUrlEventKeys(): string[] {
+		const groups = this.getGroupedUrlEvents();
+		return Object.keys(groups).sort();
 	}
 
 	updateEvenement(fromform: any, isValid: boolean) {

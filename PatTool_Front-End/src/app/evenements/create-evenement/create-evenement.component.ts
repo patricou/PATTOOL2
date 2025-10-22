@@ -16,7 +16,7 @@ import { EvenementsService } from '../../services/evenements.service';
 export class CreateEvenementComponent implements OnInit {
 
 	public user: Member = new Member("", "", "", "", "", [], "");
-	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
+	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
 	// Removed ngx-mydatepicker options - using native HTML date inputs
 	// Using native HTML date inputs instead of ngx-mydatepicker
 	public author: string = "";
@@ -44,7 +44,7 @@ export class CreateEvenementComponent implements OnInit {
 		this.user = this._memberService.getUser();
 
 		// init new event fields
-		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public", []);
+		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public", []);
 		this.author = this.evenement.author.firstName + " " + this.evenement.author.lastName;
 		
 		// Initialize newUrlEvent with current user as owner
@@ -90,17 +90,15 @@ export class CreateEvenementComponent implements OnInit {
 
 	// Removed onDateChanged method - using native HTML date inputs
 
-	// Methods to manage photos
+	// Methods to manage photos - REMOVED since photosUrl field has been removed
 	addPhotoUrl(photoUrl: string) {
-		if (photoUrl && photoUrl.trim() !== '') {
-			this.evenement.photosUrl.push(photoUrl.trim());
-		}
+		// Method disabled - photosUrl field has been removed
+		console.log('addPhotoUrl method disabled - photosUrl field has been removed');
 	}
 
 	removePhotoUrl(index: number) {
-		if (index >= 0 && index < this.evenement.photosUrl.length) {
-			this.evenement.photosUrl.splice(index, 1);
-		}
+		// Method disabled - photosUrl field has been removed
+		console.log('removePhotoUrl method disabled - photosUrl field has been removed');
 	}
 	
 	// Methods to manage URL Events
@@ -131,6 +129,28 @@ export class CreateEvenementComponent implements OnInit {
 	getUrlTypeLabel(typeId: string): string {
 		const type = this.urlEventTypes.find(t => t.id === typeId);
 		return type ? type.label : typeId;
+	}
+
+	// Method to group URL Events by typeUrl
+	getGroupedUrlEvents(): { [key: string]: UrlEvent[] } {
+		if (!this.evenement.urlEvents || this.evenement.urlEvents.length === 0) {
+			return {};
+		}
+		
+		return this.evenement.urlEvents.reduce((groups: { [key: string]: UrlEvent[] }, urlEvent: UrlEvent) => {
+			const typeUrl = urlEvent.typeUrl;
+			if (!groups[typeUrl]) {
+				groups[typeUrl] = [];
+			}
+			groups[typeUrl].push(urlEvent);
+			return groups;
+		}, {});
+	}
+
+	// Method to get sorted group keys
+	getGroupedUrlEventKeys(): string[] {
+		const groups = this.getGroupedUrlEvents();
+		return Object.keys(groups).sort();
 	}
 
 	hideImageOnError(event: any) {

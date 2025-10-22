@@ -73,7 +73,7 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "Link-Beschreibung...",
         "EVENT_DETAILS": "Veranstaltungsdetails",
         "DATE_AND_TIME": "Datum und Uhrzeit",
-        "LOCATION_AND_LINKS": "Standort und Links"
+        "LOCATION_AND_LINKS": "Standort"
     },
     "EVENTCREATION": {
         "TITLE": "Veranstaltung erstellen",

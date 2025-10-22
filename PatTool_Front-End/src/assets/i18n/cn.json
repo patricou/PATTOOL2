@@ -73,7 +73,7 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "链接描述...",
         "EVENT_DETAILS": "活动详情",
         "DATE_AND_TIME": "日期和时间",
-        "LOCATION_AND_LINKS": "位置和链接"
+        "LOCATION_AND_LINKS": "位置"
     },
     "EVENTCREATION": {
         "TITLE": "创建活动",

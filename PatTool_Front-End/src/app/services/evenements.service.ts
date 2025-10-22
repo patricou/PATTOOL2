@@ -39,39 +39,19 @@ export class EvenementsService {
 			switchMap(headers => this._http.get<any>(this.API_URL + "even/" + id, { headers: headers })
 				.pipe(
 					map(evenement => {
-						// Handle backward compatibility: convert string photosUrl to array if needed
-						let photosUrlArray: string[] = [];
-						if (evenement.photosUrl) {
-							if (Array.isArray(evenement.photosUrl)) {
-								photosUrlArray = evenement.photosUrl;
-							} else if (typeof evenement.photosUrl === 'string' && evenement.photosUrl.trim() !== '') {
-								// Check if it's a comma-separated string of URLs
-								const urlString = evenement.photosUrl.trim();
-								if (urlString.includes(',')) {
-									// Split by comma and clean up each URL
-									photosUrlArray = urlString.split(',').map((url: string) => url.trim()).filter((url: string) => url !== '');
-								} else {
-									// Single URL
-									photosUrlArray = [urlString];
-								}
-							}
-						}
-						
-						return new Evenement(
-							evenement.author,
-							evenement.closeInscriptionDate,
-							evenement.comments,
-							evenement.creationDate,
-							evenement.endEventDate,
-							evenement.beginEventDate,
-							evenement.evenementName,
-							evenement.id,
-							evenement.map,
-							photosUrlArray,
-							evenement.members,
-							evenement.openInscriptionDate,
-							evenement.status,
-							evenement.type,
+						return 							new Evenement(
+								evenement.author,
+								evenement.closeInscriptionDate,
+								evenement.comments,
+								evenement.creationDate,
+								evenement.endEventDate,
+								evenement.beginEventDate,
+								evenement.evenementName,
+								evenement.id,
+								evenement.members,
+								evenement.openInscriptionDate,
+								evenement.status,
+								evenement.type,
 							evenement.fileUploadeds,
 							evenement.startHour,
 							evenement.diffculty,

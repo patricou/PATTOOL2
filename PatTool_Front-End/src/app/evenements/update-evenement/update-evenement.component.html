@@ -241,107 +241,7 @@
                             </div>
                         </div>
 
-                        <!-- Map URL -->
-                        <div class="form-group" [class.has-error]="mapV.invalid && f.submitted">
-                            <label for="map" class="form-label">
-                                <i class="fa fa-map"></i>
-                                {{ "EVENTCREATION.MAPURL" | translate }}
-                            </label>
-                            <div class="input-group">
-                                <input id="map" #mapV="ngModel" [(ngModel)]="evenement.map" name="map"
-                                    placeholder="{{ 'EVENTCREATION.MAPURLPLHD' | translate }}" class="form-control">
-                                <a href="https://www.geoportail.gouv.fr/carte" target="_blank" class="input-group-text" title="Ouvrir Géoportail">
-                                    <i class="fa fa-external-link"></i>
-                                </a>
-                            </div>
-                            <div class="error-message" [hidden]="!mapV.invalid || !f.submitted">
-                                <i class="fa fa-exclamation-triangle"></i>
-                                {{ "EVENTCREATION.MAPURLERR" | translate }}
-                            </div>
-                        </div>
 
-                        <!-- Photos URL -->
-                        <div class="form-group">
-                            <label class="form-label">
-                                <i class="fa fa-picture-o"></i>
-                                {{ "EVENTCREATION.PHOTOSURL" | translate }}
-                            </label>
-                            
-                            <!-- Add Photo URL Input -->
-                            <div class="input-group mb-3">
-                                <input #photoUrlInput type="text" class="form-control" 
-                                    placeholder="{{ 'EVENTCREATION.PHOTOSURLPLHD' | translate }}"
-                                    (keyup.enter)="addPhotoUrl(photoUrlInput.value); photoUrlInput.value = ''">
-                                <button type="button" class="btn btn-outline-primary" 
-                                    (click)="addPhotoUrl(photoUrlInput.value); photoUrlInput.value = ''">
-                                    <i class="fa fa-plus"></i> Ajouter
-                                </button>
-                            </div>
-                            
-                            <!-- Display Added Photos -->
-                            <div class="photos-list" *ngIf="evenement.photosUrl.length > 0">
-                                <div class="photo-item" *ngFor="let photo of evenement.photosUrl; let i = index">
-                                    <div class="photo-preview">
-                                        <img [src]="photo" [alt]="'Photo ' + (i + 1)" 
-                                            class="photo-thumbnail" 
-                                            (error)="hideImageOnError($event)">
-                                        <div class="photo-url">{{ photo }}</div>
-                                    </div>
-                                    <button type="button" class="btn btn-outline-danger btn-sm" 
-                                        (click)="removePhotoUrl(i)">
-                                        <i class="fa fa-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <!-- Registration Dates Card -->
-                <div class="form-card">
-                    <div class="card-header">
-                        <i class="fa fa-calendar-check-o"></i>
-                        <h3>{{ "EVENTHOME.REGISTRATION_DATES" | translate }}</h3>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-                            <!-- Open Registration Date -->
-                            <div class="col-md-6">
-                                <div class="form-group" [class.has-error]="openInscriptionDateV.invalid && f.submitted">
-                                    <label for="OpenInscriptionDate" class="form-label">
-                                        <i class="fa fa-unlock"></i>
-                                        {{ "EVENTCREATION.OPENEVENTINSCRIPTDT" | translate }}
-                                        <span class="required">*</span>
-                                    </label>
-                                    <input type="datetime-local" id="OpenInscriptionDate" #openInscriptionDateV="ngModel"
-                                        [(ngModel)]="openInscriptionDateString" name="openInscriptionDate"
-                                        placeholder="{{ 'EVENTCREATION.OPENEVENTINSCRIPTDTPLHD' | translate }}"
-                                        class="form-control" required>
-                                    <div class="error-message" [hidden]="!openInscriptionDateV.invalid || !f.submitted">
-                                        <i class="fa fa-exclamation-triangle"></i>
-                                        {{ "EVENTCREATION.OPENEVENTINSCRIPTDTERR" | translate }}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Close Registration Date -->
-                            <div class="col-md-6">
-                                <div class="form-group" [class.has-error]="closeInscriptionDateV.invalid && f.submitted">
-                                    <label for="closeInscriptionDate" class="form-label">
-                                        <i class="fa fa-lock"></i>
-                                        {{ "EVENTCREATION.CLOSEEVENTINSCRIPTDT" | translate }}
-                                        <span class="required">*</span>
-                                    </label>
-                                    <input type="datetime-local" id="closeInscriptionDate" #closeInscriptionDateV="ngModel"
-                                        [(ngModel)]="closeInscriptionDateString" name="closeInscriptionDate"
-                                        placeholder="{{ 'EVENTCREATION.CLOSEEVENTINSCRIPTDTPLHD' | translate }}"
-                                        class="form-control" required>
-                                    <div class="error-message" [hidden]="!closeInscriptionDateV.invalid || !f.submitted">
-                                        <i class="fa fa-exclamation-triangle"></i>
-                                        {{ "EVENTCREATION.CLOSEEVENTINSCRIPTDTERR" | translate }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
@@ -404,29 +304,102 @@
                         <!-- Display Existing URL Events -->
                         <div class="url-events-list" *ngIf="evenement.urlEvents && evenement.urlEvents.length > 0">
                             <h5>{{ "EVENTHOME.URL_EVENTS" | translate }} ({{ evenement.urlEvents.length }})</h5>
-                            <div class="url-event-item" *ngFor="let urlEvent of evenement.urlEvents; let i = index">
-                                <div class="url-event-card">
-                           <div class="url-event-header">
-                               <span class="url-event-type">{{ getUrlTypeLabel(urlEvent.typeUrl) | translate }}</span>
-                               <button type="button" class="btn btn-outline-danger btn-sm" 
-                                       (click)="removeUrlEvent(i)">
-                                   <i class="fa fa-trash"></i>
-                               </button>
-                           </div>
-                                    <div class="url-event-content">
-                                        <div class="url-event-link">
-                                            <a [href]="urlEvent.link" target="_blank" class="url-link">
-                                                <i class="fa fa-external-link"></i> {{ urlEvent.link }}
-                                            </a>
-                                        </div>
-                                        <div class="url-event-description" *ngIf="urlEvent.urlDescription">
-                                            {{ urlEvent.urlDescription }}
-                                        </div>
-                                        <div class="url-event-meta">
-                                            <small class="text-muted">
-                                                <i class="fa fa-user"></i> {{ urlEvent.owner }} | 
-                                                <i class="fa fa-calendar"></i> {{ urlEvent.dateCreation | date:'short' }}
-                                            </small>
+                            
+                            <!-- Grouped URL Events by Type -->
+                            <div *ngFor="let typeUrl of getGroupedUrlEventKeys()" class="url-event-group">
+                                <h6 class="url-event-group-title">
+                                    <i class="fa fa-tag"></i> {{ getUrlTypeLabel(typeUrl) | translate }}
+                                </h6>
+                                
+                                <div class="url-event-items">
+                                    <div class="url-event-item" *ngFor="let urlEvent of getGroupedUrlEvents()[typeUrl]; let i = index">
+                                        <div class="url-event-card">
+                                            <!-- Display Mode -->
+                                            <div class="url-event-content" *ngIf="editingIndex !== getActualIndex(urlEvent)">
+                                                <div class="url-event-link">
+                                                    <a [href]="urlEvent.link" target="_blank" class="btn btn-outline-primary btn-sm url-link-button">
+                                                        <i class="fa fa-external-link"></i> {{ urlEvent.link }}
+                                                    </a>
+                                                </div>
+                                                <div class="url-event-description" *ngIf="urlEvent.urlDescription">
+                                                    <div class="url-description-box">
+                                                        <i class="fa fa-comment"></i> {{ urlEvent.urlDescription }}
+                                                    </div>
+                                                </div>
+                                                <div class="url-event-meta">
+                                                    <small class="text-muted">
+                                                        <i class="fa fa-tag"></i> {{ getUrlTypeLabel(urlEvent.typeUrl) | translate }} | 
+                                                        <i class="fa fa-user"></i> {{ urlEvent.owner }} | 
+                                                        <i class="fa fa-calendar"></i> {{ urlEvent.dateCreation | date:'short' }}
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Edit Mode -->
+                                            <div class="url-event-edit-form" *ngIf="editingIndex === getActualIndex(urlEvent)">
+                                                <div class="row">
+                                                    <div class="col-md-2">
+                                                        <label class="form-label">
+                                                            <i class="fa fa-tag"></i>
+                                                            {{ "EVENTHOME.TYPE_URL" | translate }}
+                                                        </label>
+                                                        <select [(ngModel)]="editingUrlEvent.typeUrl" name="editTypeUrl" class="form-control form-control-sm">
+                                                            <option value="">{{ "EVENTHOME.TYPE_URL" | translate }}</option>
+                                                            <option *ngFor="let type of urlEventTypes" [value]="type.id">{{ type.label | translate }}</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-5">
+                                                        <label class="form-label">
+                                                            <i class="fa fa-link"></i>
+                                                            {{ "EVENTHOME.URL_LINK" | translate }}
+                                                        </label>
+                                                        <input [(ngModel)]="editingUrlEvent.link" name="editLink" type="url" 
+                                                               placeholder="https://example.com" class="form-control form-control-sm">
+                                                    </div>
+                                                    <div class="col-md-3">
+                                                        <label class="form-label">
+                                                            <i class="fa fa-user"></i>
+                                                            {{ "EVENTHOME.URL_OWNER" | translate }}
+                                                        </label>
+                                                        <input [(ngModel)]="editingUrlEvent.owner" name="editOwner" type="text" 
+                                                               class="form-control form-control-sm" readonly>
+                                                    </div>
+                                                    <div class="col-md-2 d-flex align-items-end justify-content-end">
+                                                        <button type="button" class="btn btn-success btn-sm me-1" 
+                                                                (click)="saveUrlEventEdit(getActualIndex(urlEvent))" title="Sauvegarder">
+                                                            <i class="fa fa-check"></i>
+                                                        </button>
+                                                        <button type="button" class="btn btn-secondary btn-sm" 
+                                                                (click)="cancelUrlEventEdit()" title="Annuler">
+                                                            <i class="fa fa-times"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="row mt-2">
+                                                    <div class="col-12">
+                                                        <label class="form-label">
+                                                            <i class="fa fa-comment"></i>
+                                                            {{ "EVENTHOME.URL_DESCRIPTION" | translate }}
+                                                        </label>
+                                                        <textarea [(ngModel)]="editingUrlEvent.urlDescription" name="editDescription"
+                                                                  class="form-control form-control-sm" rows="2" 
+                                                                  placeholder="{{ 'EVENTHOME.LINK_DESCRIPTION_PLACEHOLDER' | translate }}"></textarea>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="url-event-actions" *ngIf="editingIndex !== getActualIndex(urlEvent)">
+                                                <button type="button" class="btn btn-outline-primary btn-sm me-1" 
+                                                        (click)="startEditUrlEvent(getActualIndex(urlEvent))"
+                                                        title="Modifier ce lien">
+                                                    <i class="fa fa-edit"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-outline-danger btn-sm" 
+                                                        (click)="removeUrlEvent(getActualIndex(urlEvent))"
+                                                        title="Supprimer ce lien">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

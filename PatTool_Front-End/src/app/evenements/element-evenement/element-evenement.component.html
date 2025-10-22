@@ -105,12 +105,6 @@
         ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount() }})">
         <i class="fa fa-link" aria-hidden="true"></i> {{ getUrlEventsCount() }}
     </button>
-    <!-- Photos Gallery Button -->
-    <button class="btn btn-info btn-sm mb-1 me-1" [hidden]="!isPhotosUrlAvailable()"
-        (click)="openPhotosModalFromParent()" placement="right"
-        ngbTooltip=" {{ 'EVENTELEM.PHOTOSURL' | translate }}">
-        <i class="fa fa-picture-o" aria-hidden="true"></i>
-    </button>
     <a class="btn btn-sm btn-outline-info mb-1 me-1" (click)="open(content)"
         ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}"><i class="fa fa-comments" aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-info mb-1 me-1" [hidden]="!isParticipant()" (click)="delMemberClick()"
@@ -135,10 +129,10 @@
     </button>
 
     <div class="file-upload-wrapper me-1" placement="left" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}">
-        <label for="file-upload-input" class="btn btn-sm btn-success mb-1">
+        <label [for]="'file-upload-input-' + evenement.id" class="btn btn-sm btn-success mb-1">
             <i class="fa fa-upload" aria-hidden="true"></i>
         </label>
-        <input type="file" id="file-upload-input" #fileInput (change)="onFileSelected($event)" multiple 
+        <input type="file" [id]="'file-upload-input-' + evenement.id" #fileInput (change)="onFileSelected($event)" multiple 
                accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;" />
     </div>
 </div>

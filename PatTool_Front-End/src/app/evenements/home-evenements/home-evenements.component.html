@@ -73,17 +73,6 @@
                 <div class="compact-date">{{ formatEventDate(evenement.beginEventDate) }}</div>
             </div>
             <div class="compact-actions">
-                <!-- Map Button -->
-                <a class="btn btn-primary btn-sm me-1" [hidden]="!isMapAvailable(evenement)" [href]="evenement.map" target="_blank"
-                    ngbTooltip="{{ 'EVENTELEM.MAP' | translate }}" (click)="$event.stopPropagation()">
-                    <i class="fa fa-map" aria-hidden="true"></i>
-                </a>
-                
-                <!-- Photos Button -->
-                <button class="btn btn-info btn-sm me-1" [hidden]="!isPhotosUrlAvailable(evenement)"
-                    ngbTooltip="{{ 'EVENTELEM.PHOTOSURL' | translate }}" (click)="openPhotosModal(evenement); $event.stopPropagation()">
-                    <i class="fa fa-picture-o" aria-hidden="true"></i>
-                </button>
                 
                 <!-- Links Button -->
                 <button class="btn btn-primary btn-sm me-1" [hidden]="!isUrlEventsAvailable(evenement)"

@@ -73,7 +73,7 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "Описание ссылки...",
         "EVENT_DETAILS": "Детали мероприятия",
         "DATE_AND_TIME": "Дата и время",
-        "LOCATION_AND_LINKS": "Местоположение и ссылки"
+        "LOCATION_AND_LINKS": "Местоположение"
     },
     "EVENTCREATION": {
         "TITLE": "Создание мероприятия",

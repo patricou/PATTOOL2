@@ -36,8 +36,6 @@ import { PatgptModule } from './patgpt/patgpt.module';
 import { IothomeComponent } from './iothome/iothome.component';
 import { IotService } from './services/iot.service';
 import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-buttons.module';
-import { MigrationComponent } from './migration/migration.component';
-import { MigrationService } from './services/migration.service';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -49,7 +47,6 @@ export function HttpLoaderFactory(http: HttpClient) {
 		AppComponent,
 		PageNotFoundComponent,
 		IothomeComponent,
-		MigrationComponent
 	],
 	imports: [
 		BrowserModule,
@@ -79,7 +76,6 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{ path: 'links', component: LinksComponent },
 			{ path: 'iot', component: IothomeComponent },
 			{ path: 'patgpt', component: PatgptComponent },
-			{ path: 'migration', component: MigrationComponent },
 			{ path: 'home', redirectTo: '', pathMatch: 'full' },
 			{ path: '**', component: PageNotFoundComponent }
 		]),
@@ -91,7 +87,6 @@ export function HttpLoaderFactory(http: HttpClient) {
 		FileService,
 		CommonvaluesService,
 		IotService,
-		MigrationService,
 		// to be able to do F5 in prod		
 		{ provide: LocationStrategy, useClass: HashLocationStrategy },
 		{ provide: TranslateLoader, useFactory: HttpLoaderFactory, deps: [HttpClient] },

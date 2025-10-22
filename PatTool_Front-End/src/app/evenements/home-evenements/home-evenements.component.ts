@@ -42,7 +42,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public eventThumbnails: Map<string, SafeUrl> = new Map();
 	public nativeWindow: any;
 	public selectedEventPhotos: string[] = [];
-	public selectedEvent: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
+	public selectedEvent: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
 	public selectedEventName: string = '';
 	public msgVal: string = '';
 	public items: Observable<any> = new Observable();
@@ -69,6 +69,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	ngOnInit() {
 		this.user = this._memberService.getUser();
 		this.getEvents(this.dataFIlter);
+		
+		// Scroll to top when component loads
+		this.scrollToTop();
 	}
 
 	ngAfterViewInit() {
@@ -191,14 +194,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		return evenement.members.some(member => member.userName == this.user.userName);
 	}
 
-	public isMapAvailable(evenement: Evenement): boolean {
-		return !!evenement.map;
-	}
 
-	public isPhotosUrlAvailable(evenement: Evenement): boolean {
-		return evenement.photosUrl && Array.isArray(evenement.photosUrl) && evenement.photosUrl.length > 0 && 
-		       evenement.photosUrl.some(url => url && url.trim() !== '');
-	}
 
 	public isAnyFiles(evenement: Evenement): boolean {
 		return evenement.fileUploadeds && evenement.fileUploadeds.length > 0;
@@ -218,26 +214,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public openPhotosModal(evenement: Evenement) {
 		// Ouvrir le modal des photos pour l'événement
 		console.log('Opening photos modal for event:', evenement.evenementName);
-		console.log('PhotosUrl data:', evenement.photosUrl);
 		
-		if (evenement.photosUrl && Array.isArray(evenement.photosUrl) && evenement.photosUrl.length > 0) {
-			this.selectedEventPhotos = evenement.photosUrl;
-			this.selectedEventName = evenement.evenementName;
-			console.log('Selected photos for modal:', this.selectedEventPhotos);
-			this.modalService.open(this.photosModal, { 
-				size: 'lg',
-				backdrop: true,
-				keyboard: true,
-				animation: true,
-				centered: true
-			}).result.then((result) => {
-				console.log('Photos modal closed with:', result);
-			}, (reason) => {
-				console.log('Photos modal dismissed:', reason);
-			});
-		} else {
-			console.log('No photos available for this event');
-		}
+		// No photos available since photosUrl field has been removed
+		console.log('No photos available - photosUrl field has been removed');
 	}
 
 	public openPhotoInNewTab(url: string) {
@@ -379,12 +358,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public changePage(page: number) {
 		this.pageNumber = page;
 		this.getEvents(this.dataFIlter);
+		this.scrollToTop();
 	}
 	public changePreviousPage() {
 		if (this.pageNumber > 0) {
 			this.pageNumber = this.pageNumber - 1;
 			this._commonValuesService.setPageNumber(this.pageNumber);
 			this.getEvents(this.dataFIlter);
+			this.scrollToTop();
 		}
 	}
 	public changeNextPage() {
@@ -392,6 +373,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.pageNumber = this.pageNumber + 1;
 			this._commonValuesService.setPageNumber(this.pageNumber);
 			this.getEvents(this.dataFIlter);
+			this.scrollToTop();
 		}
 	}
 	public changeFiltre() {
@@ -399,6 +381,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this._commonValuesService.setPageNumber(this.pageNumber);
 		this._commonValuesService.setElementsByPage(this.elementsByPage);
 		this.getEvents(this.dataFIlter);
+		this.scrollToTop();
 	}
 
 	public clearFilter() {
@@ -627,5 +610,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		});
 		this.eventThumbnails.clear();
+	}
+	
+	// Scroll to top of the page
+	private scrollToTop(): void {
+		this.nativeWindow.scrollTo(0, 0);
 	}
 }

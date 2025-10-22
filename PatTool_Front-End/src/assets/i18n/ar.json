@@ -73,7 +73,7 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "وصف الرابط...",
         "EVENT_DETAILS": "تفاصيل الحدث",
         "DATE_AND_TIME": "التاريخ والوقت",
-        "LOCATION_AND_LINKS": "الموقع والروابط"
+        "LOCATION_AND_LINKS": "الموقع"
     },
     "EVENTCREATION": {
         "TITLE": "إنشاء نشاط",

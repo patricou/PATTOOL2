@@ -31,7 +31,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public msgVal: string = '';
 	// Evaluate rating
 	public currentRate: number = 0;
-	public safeUrlMap: SafeUrl = {} as SafeUrl;
 	public safePhotosUrl: SafeUrl = {} as SafeUrl;
 	// Native Window
 	public nativeWindow: any;
@@ -43,7 +42,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 
 	@Input()
-	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
+	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
 
 	@Input()
 	user: Member = new Member("", "", "", "", "", [], "");
@@ -92,12 +91,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		}
 		
 		
-		// sanitize the map url & photoUrl
-		this.safeUrlMap = this.sanitizer.bypassSecurityTrustResourceUrl(this.evenement.map);
-		// Handle photosUrl as array - use first photo if available
-		if (this.evenement.photosUrl && Array.isArray(this.evenement.photosUrl) && this.evenement.photosUrl.length > 0) {
-			this.safePhotosUrl = this.sanitizer.bypassSecurityTrustResourceUrl(this.evenement.photosUrl[0]);
-		}
+		// sanitize the photoUrl
 		
 		// for the firebase : create a reference with evenement.id as name 
 		const messagesRef = ref(this.database, this.evenement.id);
@@ -183,8 +177,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 					
 					// Clear selected files
 					this.selectedFiles = [];
-					// Reset file input
-					const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+					// Reset file input for this specific event
+					const fileInput = document.querySelector(`input[id="file-upload-input-${this.evenement.id}"]`) as HTMLInputElement;
 					if (fileInput) {
 						fileInput.value = '';
 					}
@@ -360,12 +354,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			}
 		}
 	}
-	// check if a map is available
-	public isMapAvailable(): boolean {
-		let b: boolean = !!this.evenement.map;
-		// console.log("map is available " + b);
-		return b;
-	}
 
 	// check if urlEvents are available
 	public isUrlEventsAvailable(): boolean {
@@ -380,23 +368,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// open URLs modal
 	public openUrlsModal(content: any) {
 		this.modalService.open(content, { size: 'lg', centered: true });
-	}
-	// check if thur picture URL is available
-	public isPhotosUrlAvailable(): boolean {
-		// Vérification simple : si photosUrl existe, est un tableau et n'est pas vide
-		if (!this.evenement.photosUrl) {
-			return false;
-		}
-		
-		if (!Array.isArray(this.evenement.photosUrl)) {
-			return false;
-		}
-		
-		// Vérifier que le tableau contient au moins une URL non vide
-		const hasValidUrls = this.evenement.photosUrl.length > 0 && 
-		       this.evenement.photosUrl.some(url => url && url.trim() !== '');
-		
-		return hasValidUrls;
 	}
 	// call the modal window for del confirmation
 	public deleteEvenement() {

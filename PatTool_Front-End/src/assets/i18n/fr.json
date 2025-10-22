@@ -68,7 +68,7 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "Description du lien...",
         "EVENT_DETAILS": "Détails de l'événement",
         "DATE_AND_TIME": "Date et heure",
-        "LOCATION_AND_LINKS": "Localisation et liens"
+        "LOCATION_AND_LINKS": "Localisation"
     },
     "EVENTCREATION": {
         "TITLE": "Création d'une Activité",

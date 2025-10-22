@@ -13,8 +13,6 @@ export class Evenement {
         public beginEventDate: Date,
         public evenementName: string,
         public id: string,
-        public map: string,
-        public photosUrl: string[],
         public members: Member[],
         public openInscriptionDate: Date,
         public status: string,

@@ -1,3 +1,179 @@
+/* URL Event Groups */
+.url-event-group {
+    margin-bottom: 1.5rem;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    background: #f8f9fa;
+    overflow: hidden;
+}
+
+.url-event-group-title {
+    background: #f8f9fa;
+    color: #495057;
+    margin: 0;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid #e9ecef;
+    border-left: 4px solid #007bff;
+}
+
+.url-event-group-title i {
+    margin-right: 0.5rem;
+}
+
+.url-event-items {
+    padding: 1rem;
+}
+
+.url-event-items .url-event-item {
+    margin-bottom: 0.75rem;
+}
+
+.url-event-items .url-event-item:last-child {
+    margin-bottom: 0;
+}
+
+.url-event-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.url-event-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+}
+
+.url-event-edit-form {
+    width: 100%;
+    background: #f8f9fa;
+    border: 2px solid #007bff;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 0.5rem;
+    overflow: hidden; /* Empêche le débordement */
+}
+
+.url-event-edit-form .form-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.25rem;
+}
+
+.url-event-edit-form .form-control-sm {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.url-event-edit-form .btn-sm {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    min-width: 35px; /* Largeur minimale pour les boutons */
+}
+
+.url-event-edit-form .row {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.url-event-edit-form .col-md-2,
+.url-event-edit-form .col-md-3,
+.url-event-edit-form .col-md-5 {
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+}
+
+.url-event-content {
+    flex: 1;
+    margin-right: 1rem;
+}
+
+.url-link-button {
+    display: inline-block;
+    max-width: 100%;
+    word-break: break-all;
+    text-align: left;
+    margin-bottom: 0.5rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    padding: 0.5rem 0.75rem;
+    transition: all 0.3s ease;
+}
+
+.url-link-button:hover {
+    background-color: #007bff;
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+}
+
+.url-description-box {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+    font-style: italic;
+    color: #495057;
+    border-left: 4px solid #007bff;
+}
+
+.url-description-box i {
+    margin-right: 0.5rem;
+    color: #007bff;
+}
+
+.url-event-link {
+    margin-bottom: 0.5rem;
+}
+
+.url-event-link .url-link {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.url-event-link .url-link:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+.url-event-description {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+}
+
+.url-event-meta {
+    font-size: 0.8rem;
+}
+
+.url-event-actions {
+    flex-shrink: 0;
+}
+
+.url-event-actions .btn {
+    padding: 0.375rem 0.75rem;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.url-event-actions .btn:hover {
+    transform: scale(1.05);
+}
+
 /* Modern Form Styles */
 .modern-form {
     background: transparent;
