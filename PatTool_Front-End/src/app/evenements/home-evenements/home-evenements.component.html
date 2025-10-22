@@ -9,7 +9,8 @@
             <div class="d-flex align-items-center justify-content-center mb-1 flex-wrap">
                 <input type="text" id="message" [value]="dataFIlter" #searchterm placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" class="form-control me-2" />
                 <button class="btn btn-sm btn-secondary btn-filter me-2" (click)="clearFilter()" type="button">X</button>
-                <button class="btn btn-sm btn-outline-primary me-2" (click)="toggleViewMode()" ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW' | translate }}">
+                <button class="btn btn-sm btn-outline-primary me-2" (click)="toggleViewMode()" 
+                    ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}">
                     <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
                 </button>
                 <select [hidden]="totalPages == 0" class="btn btn-secondary btn-sm me-2" [(ngModel)]="elementsByPage" (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}">           
@@ -84,6 +85,18 @@
                     <i class="fa fa-picture-o" aria-hidden="true"></i>
                 </button>
                 
+                <!-- Links Button -->
+                <button class="btn btn-primary btn-sm me-1" [hidden]="!isUrlEventsAvailable(evenement)"
+                    ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount(evenement) }})" (click)="openUrlsModal(evenement); $event.stopPropagation()">
+                    <i class="fa fa-link" aria-hidden="true"></i> {{ getUrlEventsCount(evenement) }}
+                </button>
+                
+                <!-- Chat Button -->
+                <a class="btn btn-sm btn-outline-info me-1" (click)="openChatModal(evenement); $event.stopPropagation()"
+                        ngbTooltip="{{ 'EVENTELEM.CHAT' | translate }}">
+                    <i class="fa fa-comments" aria-hidden="true"></i>
+                </a>
+                
                 <!-- Participate/Unparticipate Button -->
                 <a class="btn btn-sm btn-info me-1" [hidden]="!isParticipant(evenement)" (click)="delMemberInEvent(evenement); $event.stopPropagation()"
                     ngbTooltip="{{ 'EVENTELEM.IDWTP' | translate }}">
@@ -110,12 +123,6 @@
                 <a class="btn btn-sm btn-danger me-1" [hidden]="!isAuthor(evenement)" (click)="deleteEvenement(evenement); $event.stopPropagation()"
                     ngbTooltip="{{ 'EVENTELEM.DTE' | translate }}">
                     <i class="fa fa-trash" aria-hidden="true"></i>
-                </a>
-                
-                <!-- Files Download Button -->
-                <a class="btn btn-sm btn-outline-primary me-1" [hidden]="!isAnyFiles(evenement)" (click)="toggleFileList(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD' | translate }}">
-                    <i class="fa fa-download" aria-hidden="true"></i>
                 </a>
                 
                 <!-- View Details Button -->
@@ -170,6 +177,139 @@
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">{{"COMMUN.CLOSE" | translate }}</button>
+    </div>
+</ng-template>
+
+<!-- Chat Modal - Design moderne et professionnel -->
+<ng-template #chatModal let-c="close" let-d="dismiss">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content chat-modal">
+            <!-- Header moderne -->
+            <div class="modal-header chat-header">
+                <div class="d-flex align-items-center">
+                    <div class="chat-avatar me-3">
+                        <i class="fa fa-comments"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title mb-0">{{selectedEventName}}</h5>
+                        <small class="text-muted">{{"EVENTELEM.LIVECHAT" | translate }}</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="d('Cross click')"></button>
+            </div>
+            
+            <!-- Messages Container -->
+            <div class="modal-body chat-body p-0">
+                <div class="chat-messages" #chatMessagesContainer>
+                    <div *ngFor="let item of items | async" class="message-item" [class.own-message]="item.user.userName == user.userName">
+                        <div class="message-avatar">
+                            <i class="fa fa-user"></i>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="message-author">{{item.user.userName}}</span>
+                                <span class="message-time">{{item.date | date:'short'}} {{item.date | date:'shortTime'}}</span>
+                                <button *ngIf="item.user.userName == user.userName" 
+                                        class="btn btn-sm btn-outline-danger message-delete" 
+                                        (click)="deleteMessage(item)"
+                                        ngbTooltip="{{ 'EVENTELEM.DELMESCHAT' | translate }}">
+                                    <i class="fa fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="message-text">{{item.message}}</div>
+                        </div>
+                    </div>
+                    <div *ngIf="!(items | async)?.length" class="no-messages text-center py-4">
+                        <i class="fa fa-comment-o fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">{{ 'EVENTELEM.NO_MESSAGES_YET' | translate }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Input moderne -->
+            <div class="modal-footer chat-footer">
+                <div class="input-group">
+                    <input [(ngModel)]="msgVal" 
+                           type="text" 
+                           class="form-control chat-input" 
+                           placeholder="{{ 'RESULTS.MESSAGEPLHD' | translate }}" 
+                           (keyup.enter)="Send()" 
+                           autofocus />
+                    <button class="btn btn-primary chat-send-btn" 
+                            type="button" 
+                            (click)="Send()"
+                            [disabled]="!msgVal.trim()">
+                        <i class="fa fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</ng-template>
+
+<!-- URL Events Modal (réutilisé de element-evenement) -->
+<ng-template #urlsModal let-c="close" let-d="dismiss">
+    <div class="modal-header">
+        <h5 class="modal-title">
+            <i class="fa fa-link"></i> {{ 'EVENTELEM.URLS' | translate }} - {{ selectedEventName }}
+        </h5>
+        <button type="button" class="btn-close" aria-label="Close" (click)="d('Cross click')"></button>
+    </div>
+    <div class="modal-body">
+        <div *ngIf="isUrlEventsAvailable(selectedEvent); else noUrlsTemplate">
+            <div class="url-events-container">
+                <!-- Group URLs by type -->
+                <div *ngFor="let typeKey of getSortedTypeKeys(selectedEvent)" class="url-type-group mb-4">
+                    <!-- Type Header -->
+                    <div class="url-type-header mb-3">
+                        <h6 class="url-type-title">
+                            <i class="fa fa-folder"></i> {{ getUrlTypeLabel(typeKey) | translate }}
+                            <span class="badge bg-secondary ms-2">{{ getGroupedUrlEvents(selectedEvent)[typeKey].length }}</span>
+                        </h6>
+                        <hr class="url-type-divider">
+                    </div>
+                    
+                    <!-- URLs for this type -->
+                    <div class="url-type-content">
+                        <div class="url-event-item mb-3" *ngFor="let urlEvent of getGroupedUrlEvents(selectedEvent)[typeKey]; let i = index">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <div class="url-event-meta">
+                                        <small class="text-muted">
+                                            <i class="fa fa-user"></i> {{ urlEvent.owner }} | 
+                                            <i class="fa fa-calendar"></i> {{ urlEvent.dateCreation | date:'short' }}
+                                        </small>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    <div class="url-event-content d-flex align-items-start gap-3">
+                                        <div class="url-event-link">
+                                            <a [href]="urlEvent.link" target="_blank" class="btn btn-outline-primary btn-sm">
+                                                <i class="fa fa-external-link"></i> {{ urlEvent.link }}
+                                            </a>
+                                        </div>
+                                        <div class="url-event-description flex-grow-1" *ngIf="urlEvent.urlDescription">
+                                            <p class="text-muted mb-0">{{ urlEvent.urlDescription }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <ng-template #noUrlsTemplate>
+            <div class="text-center text-muted py-4">
+                <i class="fa fa-link fa-3x mb-3"></i>
+                <p>{{ 'EVENTHOME.NO_LINKS_ADDED' | translate }}</p>
+            </div>
+        </ng-template>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+        </button>
     </div>
 </ng-template>
 

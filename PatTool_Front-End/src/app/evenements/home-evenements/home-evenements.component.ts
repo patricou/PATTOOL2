@@ -2,7 +2,9 @@ import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, 
 import { Observable, fromEvent } from 'rxjs';
 import { debounceTime, map } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModal, ModalDismissReasons } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateService } from '@ngx-translate/core';
+import { Database, ref, push, remove, onValue } from '@angular/fire/database';
 
 import { Evenement } from '../../model/evenement';
 import { MembersService } from '../../services/members.service';
@@ -40,10 +42,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public eventThumbnails: Map<string, SafeUrl> = new Map();
 	public nativeWindow: any;
 	public selectedEventPhotos: string[] = [];
+	public selectedEvent: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
 	public selectedEventName: string = '';
+	public msgVal: string = '';
+	public items: Observable<any> = new Observable();
 	@ViewChild('searchterm')
 	public searchterm!: ElementRef;
 	@ViewChild('photosModal') photosModal!: TemplateRef<any>;
+	@ViewChild('urlsModal') urlsModal!: TemplateRef<any>;
+	@ViewChild('chatModal') chatModal!: TemplateRef<any>;
+	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
@@ -52,7 +60,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		private _commonValuesService: CommonvaluesService,
 		private sanitizer: DomSanitizer,
 		private winRef: WindowRefService,
-		private modalService: NgbModal) {
+		private modalService: NgbModal,
+		private translateService: TranslateService,
+		private database: Database) {
 		this.nativeWindow = winRef.getNativeWindow();
 	}
 
@@ -234,6 +244,132 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.nativeWindow.open(url, '_blank');
 	}
 
+	public isUrlEventsAvailable(evenement: Evenement): boolean {
+		return evenement.urlEvents && evenement.urlEvents.length > 0;
+	}
+
+	public getUrlEventsCount(evenement: Evenement): number {
+		return evenement.urlEvents ? evenement.urlEvents.length : 0;
+	}
+
+	public openUrlsModal(evenement: Evenement) {
+		console.log('Opening URLs modal for event:', evenement.evenementName);
+		console.log('UrlEvents data:', evenement.urlEvents);
+		
+		this.selectedEvent = evenement;
+		this.selectedEventName = evenement.evenementName;
+		
+		this.modalService.open(this.urlsModal, { 
+			size: 'lg',
+			backdrop: true,
+			keyboard: true,
+			animation: true,
+			centered: true
+		}).result.then((result) => {
+			console.log('URLs modal closed with:', result);
+		}, (reason) => {
+			console.log('URLs modal dismissed:', reason);
+		});
+	}
+
+	public getUrlTypeLabel(typeUrl: string): string {
+		// Normaliser le type en supprimant les espaces et en convertissant en majuscules
+		const normalizedType = typeUrl?.trim().toUpperCase() || 'OTHER';
+		
+		const urlEventTypes = [
+			{id: "MAP", label: "EVENTHOME.URL_TYPE_CARTE", aliases: ["CARTE", "CARTA", "KARTE", "MAPA", "地图", "خريطة"]},
+			{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
+			{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
+			{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
+			{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
+		];
+		
+		// Chercher d'abord par ID exact
+		let type = urlEventTypes.find(t => t.id === normalizedType);
+		
+		// Si pas trouvé, chercher dans les alias
+		if (!type) {
+			type = urlEventTypes.find(t => 
+				t.aliases.some(alias => alias.toUpperCase() === normalizedType)
+			);
+		}
+		
+		// Si toujours pas trouvé, chercher une correspondance partielle
+		if (!type) {
+			type = urlEventTypes.find(t => 
+				t.id.includes(normalizedType) || 
+				normalizedType.includes(t.id) ||
+				t.aliases.some(alias => 
+					alias.includes(normalizedType) || 
+					normalizedType.includes(alias)
+				)
+			);
+		}
+		
+		return type ? type.label : normalizedType;
+	}
+
+	// Group URLs by type for better display
+	public getGroupedUrlEvents(evenement: Evenement): { [key: string]: any[] } {
+		if (!evenement.urlEvents || evenement.urlEvents.length === 0) {
+			return {};
+		}
+		
+		return evenement.urlEvents.reduce((groups: { [key: string]: any[] }, urlEvent) => {
+			// Normaliser le type pour le regroupement
+			const normalizedType = this.normalizeTypeForGrouping(urlEvent.typeUrl || 'OTHER');
+			if (!groups[normalizedType]) {
+				groups[normalizedType] = [];
+			}
+			groups[normalizedType].push(urlEvent);
+			return groups;
+		}, {});
+	}
+
+	// Normaliser le type pour le regroupement (utilise la même logique que getUrlTypeLabel)
+	private normalizeTypeForGrouping(typeId: string): string {
+		const normalizedType = typeId?.trim().toUpperCase() || 'OTHER';
+		
+		const urlEventTypes = [
+			{id: "MAP", aliases: ["CARTE", "CARTA", "KARTE", "MAPA", "地图", "خريطة"]},
+			{id: "DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
+			{id: "OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
+			{id: "PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
+			{id: "WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
+		];
+		
+		// Chercher d'abord par ID exact
+		let type = urlEventTypes.find(t => t.id === normalizedType);
+		
+		// Si pas trouvé, chercher dans les alias
+		if (!type) {
+			type = urlEventTypes.find(t => 
+				t.aliases.some(alias => alias.toUpperCase() === normalizedType)
+			);
+		}
+		
+		// Si toujours pas trouvé, chercher une correspondance partielle
+		if (!type) {
+			type = urlEventTypes.find(t => 
+				t.id.includes(normalizedType) || 
+				normalizedType.includes(t.id) ||
+				t.aliases.some(alias => 
+					alias.includes(normalizedType) || 
+					normalizedType.includes(alias)
+				)
+			);
+		}
+		
+		return type ? type.id : 'OTHER';
+	}
+
+	// Get sorted type keys for consistent display order
+	public getSortedTypeKeys(evenement: Evenement): string[] {
+		const grouped = this.getGroupedUrlEvents(evenement);
+		const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'PHOTOS', 'Photos', 'OTHER'];
+		return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+	}
+
 	public updateFileUploadedInEvent(evenement: Evenement) {
 		this._evenementsService.put4FileEvenement(evenement)
 			.subscribe((resp: any) => // console.log("Delete file OK "),
@@ -293,6 +429,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public toggleViewMode() {
 		this.isCompactView = !this.isCompactView;
 	}
+
 
 	public getEventThumbnail(evenement: Evenement): SafeUrl {
 		// Vérifier si on a déjà cette thumbnail en cache
@@ -382,6 +519,94 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		if (target) {
 			target.style.display = 'none';
 		}
+	}
+
+	// Méthodes pour le chat - utilisant la même logique que element-evenement
+	public openChatModal(evenement: Evenement) {
+		this.selectedEvent = evenement;
+		this.selectedEventName = evenement.evenementName;
+		
+		// Utiliser Firebase comme dans element-evenement
+		const messagesRef = ref(this.database, evenement.id);
+		this.items = new Observable(observer => {
+			const unsubscribe = onValue(messagesRef, (snapshot) => {
+				const messages: any[] = [];
+				snapshot.forEach((childSnapshot) => {
+					messages.push({
+						id: childSnapshot.key,
+						...childSnapshot.val()
+					});
+				});
+				// Trier les messages par date/heure (plus récents en premier)
+				messages.sort((a, b) => {
+					// Utiliser la propriété 'priority' qui est définie comme 0 - Date.now()
+					// Plus la valeur est négative, plus le message est récent
+					return a.priority - b.priority;
+				});
+				observer.next(messages);
+			}, (error) => {
+				console.error('Error loading messages:', error);
+				observer.error(error);
+			});
+			
+			// Retourner la fonction de nettoyage
+			return () => unsubscribe();
+		});
+		
+		// Utiliser la même méthode que element-evenement
+		this.open(this.chatModal);
+	}
+
+	// Méthode identique à celle d'element-evenement
+	public closeResult: string = "";
+
+	public open(content: any) {
+		this.modalService.open(content).result.then((result) => {
+			this.closeResult = `Closed with: ${result}`;
+		}, (reason) => {
+			this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;
+		});
+	}
+
+	private getDismissReason(reason: any): string {
+		if (reason === ModalDismissReasons.ESC) {
+			return 'by pressing ESC';
+		} else if (reason === ModalDismissReasons.BACKDROP_CLICK) {
+			return 'by clicking on a backdrop';
+		} else {
+			return `with: ${reason}`;
+		}
+	}
+
+	public async Send() {
+		if (this.msgVal.trim() !== '') {
+			const messagesRef = ref(this.database, this.selectedEvent.id);
+			await push(messagesRef, {
+				'message': this.msgVal,
+				'date': new Date().toISOString(),
+				'user': {
+					firstName: this.user.firstName,
+					lastName: this.user.lastName,
+					userName: this.user.userName
+				},
+				'priority': 0 - Date.now()
+			});
+			this.msgVal = '';
+			// Faire défiler vers le bas après l'envoi
+			setTimeout(() => this.scrollToBottom(), 100);
+		}
+	}
+
+	private scrollToBottom(): void {
+		if (this.chatMessagesContainer) {
+			const element = this.chatMessagesContainer.nativeElement;
+			element.scrollTop = element.scrollHeight;
+		}
+	}
+
+	public async deleteMessage(item: any) {
+		const messageRef = ref(this.database, this.selectedEvent.id + '/' + item.id);
+		await remove(messageRef);
 	}
 
 	ngOnDestroy() {

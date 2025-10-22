@@ -49,6 +49,10 @@
         "EVENTSLIST": "Lista de actividades:",
         "EVENTFILTRE": "Filtrar ....",
         "NOEVENT": "No hay actividades para mostrar",
+        "NO_LINKS_ADDED": "No se han añadido enlaces a este evento",
+        "TOGGLE_VIEW": "Alternar entre vista normal y compacta",        "TOGGLE_VIEW_CARDS_LIST": "Alternar vista Tarjetas/Lista",
+
+
         "PAGE": "Página",
         "URL_EVENTS": "Enlaces del evento",
         "ADD_URL_EVENT": "Agregar enlace",
@@ -287,3 +291,5 @@
         "OPEN_URL_ON_CLICK": "Abrir URL al hacer clic"
     }
 }
+
+

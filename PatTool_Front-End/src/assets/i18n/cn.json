@@ -49,6 +49,10 @@
         "EVENTSLIST": "活动列表：",
         "EVENTFILTRE": "过滤 ....",
         "NOEVENT": "没有要显示的活动 ....",
+        "NO_LINKS_ADDED": "此事件未添加链接",
+        "TOGGLE_VIEW": "在正常视图和紧凑视图之间切换",        "TOGGLE_VIEW_CARDS_LIST": "切换卡片/列表视图",
+
+
         "PAGE": "页面",
         "URL_EVENTS": "活动链接",
         "ADD_URL_EVENT": "添加链接",
@@ -287,3 +291,5 @@
         "OPEN_URL_ON_CLICK": "点击时打开URL"
     }
 }
+
+

@@ -15,6 +15,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.util.List;
+
 /**
  * Created by patricou on 4/20/2017.
  */
@@ -87,6 +89,41 @@ public class EvenementRestController {
         evenementsRepository.deleteById(id);
 
         return new ResponseEntity<>( HttpStatus.OK );
+    }
+
+    // Additional endpoint to match frontend expectations
+    @RequestMapping(value = "/evenements", method = RequestMethod.GET)
+    public ResponseEntity<List<Evenement>> getAllEvenements() {
+        log.info("Get all evenements");
+        List<Evenement> evenements = evenementsRepository.findAll();
+        return ResponseEntity.ok(evenements);
+    }
+
+    @RequestMapping(value = "/evenements/{id}", method = RequestMethod.GET)
+    public ResponseEntity<Evenement> getEvenementById(@PathVariable String id) {
+        log.info("Get evenement by id: " + id);
+        Evenement evenement = evenementsRepository.findById(id).orElse(null);
+        if (evenement != null) {
+            return ResponseEntity.ok(evenement);
+        } else {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    @RequestMapping(value = "/evenements", method = RequestMethod.POST)
+    public ResponseEntity<Evenement> addEvenementViaEvenements(@RequestBody Evenement evenement) {
+        return addEvenement(evenement);
+    }
+
+    @RequestMapping(value = "/evenements/{id}", method = RequestMethod.PUT)
+    public ResponseEntity<Evenement> updateEvenementViaEvenements(@PathVariable String id, @RequestBody Evenement evenement) {
+        evenement.setId(id);
+        return updateEvenement(evenement);
+    }
+
+    @RequestMapping(value = "/evenements/{id}", method = RequestMethod.DELETE)
+    public ResponseEntity<Evenement> deleteEvenementViaEvenements(@PathVariable String id) {
+        return deleteEvenement(id);
     }
 
 

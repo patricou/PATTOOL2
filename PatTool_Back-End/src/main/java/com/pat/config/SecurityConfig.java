@@ -32,6 +32,7 @@ public class SecurityConfig {
                 // Allow public access to event endpoints
                 .requestMatchers("/api/even/**").permitAll()
                 .requestMatchers("/api/evenements/**").permitAll()
+                    .requestMatchers("/api/evenements").permitAll()
                 // Allow public access to file endpoints
                 .requestMatchers("/api/file/**").permitAll()
                 // Allow public access to chat endpoints

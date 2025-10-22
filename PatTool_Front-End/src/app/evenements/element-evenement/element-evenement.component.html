@@ -142,40 +142,70 @@
                accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;" />
     </div>
 </div>
-<!-- Modal window for live chat -->
+<!-- Modal window for live chat - Design moderne -->
 <ng-template #content let-c="close" let-d="dismiss">
-    <div class="modal-header">
-        <h5 class="modal-title">{{evenement.evenementName}}<small> ({{"EVENTELEM.LIVECHAT" | translate }})</small></h5>
-
-        <button type="button" class="close" aria-label="Close" (click)="d('Cross click')">
-            <span aria-hidden="true">&times;</span>
-        </button>
-    </div>
-    <div class="modal-body">
-        <div class="input-group">
-            <input [(ngModel)]="msgVal" type="textarea" id="message"
-                placeholder="{{ 'RESULTS.MESSAGEPLHD' | translate }}" (keyup.enter)="Send()" autofocus />
-            <div class="input-group-append">
-                <button class="btn btn-primary" type="button" (click)="Send()">{{ 'RESULTS.SEND' | translate }}</button>
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content chat-modal">
+            <!-- Header moderne -->
+            <div class="modal-header chat-header">
+                <div class="d-flex align-items-center">
+                    <div class="chat-avatar me-3">
+                        <i class="fa fa-comments"></i>
+                    </div>
+                    <div>
+                        <h5 class="modal-title mb-0">{{evenement.evenementName}}</h5>
+                        <small class="text-muted">{{"EVENTELEM.LIVECHAT" | translate }}</small>
+                    </div>
+                </div>
+                <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="d('Cross click')"></button>
+            </div>
+            
+            <!-- Messages Container -->
+            <div class="modal-body chat-body p-0">
+                <div class="chat-messages" #chatMessagesContainer>
+                    <div *ngFor="let item of items | async" class="message-item" [class.own-message]="item.user.userName == user.userName">
+                        <div class="message-avatar">
+                            <i class="fa fa-user"></i>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="message-author">{{item.user.userName}}</span>
+                                <span class="message-time">{{item.date | date:'short'}} {{item.date | date:'shortTime'}}</span>
+                                <button *ngIf="item.user.userName == user.userName" 
+                                        class="btn btn-sm btn-outline-danger message-delete" 
+                                        (click)="deleteMessage(item)"
+                                        ngbTooltip="{{ 'EVENTELEM.DELMESCHAT' | translate }}">
+                                    <i class="fa fa-trash"></i>
+                                </button>
+                            </div>
+                            <div class="message-text">{{item.message}}</div>
+                        </div>
+                    </div>
+                    <div *ngIf="!(items | async)?.length" class="no-messages text-center py-4">
+                        <i class="fa fa-comment-o fa-3x text-muted mb-3"></i>
+                        <p class="text-muted">{{ 'EVENTELEM.NO_MESSAGES_YET' | translate }}</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Input moderne -->
+            <div class="modal-footer chat-footer">
+                <div class="input-group">
+                    <input [(ngModel)]="msgVal" 
+                           type="text" 
+                           class="form-control chat-input" 
+                           placeholder="{{ 'RESULTS.MESSAGEPLHD' | translate }}" 
+                           (keyup.enter)="Send()" 
+                           autofocus />
+                    <button class="btn btn-primary chat-send-btn" 
+                            type="button" 
+                            (click)="Send()"
+                            [disabled]="!msgVal.trim()">
+                        <i class="fa fa-paper-plane"></i>
+                    </button>
+                </div>
             </div>
         </div>
-    </div>
-    <div>
-        <div *ngFor="let item of items | async ">
-            <div class="chatitem">
-                <b> {{item.user.userName}}</b><i> <small>( {{item.date | date }}, {{item.date | date:'shortTime' }}
-                        )</small></i>
-                <a class="btn btn-sm btn-danger pull-right" placement="left"
-                    ngbTooltip="{{ 'EVENTELEM.DELMESCHAT' | translate }}"
-                    [hidden]="!(item.user.userName == user.userName)" (click)="deleteMessage(item)"><i
-                        class="fa fa-trash" aria-hidden="true"></i></a> :
-                <br> {{item.message}}
-            </div>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="c('Close click')">{{"COMMUN.CLOSE" | translate
-            }}</button>
     </div>
 </ng-template>
 
@@ -206,28 +236,40 @@
     <div class="modal-body">
         <div *ngIf="isUrlEventsAvailable(); else noUrlsTemplate">
             <div class="url-events-container">
-                <div class="url-event-item mb-3" *ngFor="let urlEvent of evenement.urlEvents; let i = index">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <div class="url-event-type-badge">
-                                <span class="badge bg-primary">{{ getUrlTypeLabel(urlEvent.typeUrl) | translate }}</span>
-                            </div>
-                            <div class="url-event-meta">
-                                <small class="text-muted">
-                                    <i class="fa fa-user"></i> {{ urlEvent.owner }} | 
-                                    <i class="fa fa-calendar"></i> {{ urlEvent.dateCreation | date:'short' }}
-                                </small>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="url-event-content d-flex align-items-start gap-3">
-                                <div class="url-event-link">
-                                    <a [href]="urlEvent.link" target="_blank" class="btn btn-outline-primary btn-sm">
-                                        <i class="fa fa-external-link"></i> {{ urlEvent.link }}
-                                    </a>
+                <!-- Group URLs by type -->
+                <div *ngFor="let typeKey of getSortedTypeKeys()" class="url-type-group mb-4">
+                    <!-- Type Header -->
+                    <div class="url-type-header mb-3">
+                        <h6 class="url-type-title">
+                            <i class="fa fa-folder"></i> {{ getUrlTypeLabel(typeKey) | translate }}
+                            <span class="badge bg-secondary ms-2">{{ getGroupedUrlEvents()[typeKey].length }}</span>
+                        </h6>
+                        <hr class="url-type-divider">
+                    </div>
+                    
+                    <!-- URLs for this type -->
+                    <div class="url-type-content">
+                        <div class="url-event-item mb-3" *ngFor="let urlEvent of getGroupedUrlEvents()[typeKey]; let i = index">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <div class="url-event-meta">
+                                        <small class="text-muted">
+                                            <i class="fa fa-user"></i> {{ urlEvent.owner }} | 
+                                            <i class="fa fa-calendar"></i> {{ urlEvent.dateCreation | date:'short' }}
+                                        </small>
+                                    </div>
                                 </div>
-                                <div class="url-event-description flex-grow-1" *ngIf="urlEvent.urlDescription">
-                                    <p class="text-muted mb-0">{{ urlEvent.urlDescription }}</p>
+                                <div class="card-body">
+                                    <div class="url-event-content d-flex align-items-start gap-3">
+                                        <div class="url-event-link">
+                                            <a [href]="urlEvent.link" target="_blank" class="btn btn-outline-primary btn-sm">
+                                                <i class="fa fa-external-link"></i> {{ urlEvent.link }}
+                                            </a>
+                                        </div>
+                                        <div class="url-event-description flex-grow-1" *ngIf="urlEvent.urlDescription">
+                                            <p class="text-muted mb-0">{{ urlEvent.urlDescription }}</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

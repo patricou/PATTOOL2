@@ -127,4 +127,108 @@ export class MigrationService {
       )
     );
   }
+
+  /**
+   * Execute the migration from photosUrl field to urlEvents using existing APIs
+   */
+  migratePhotosToUrlEventsFrontend(): Observable<string> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        // Get all events
+        return this.http.get<Evenement[]>(`${this.apiUrl}evenements`, { headers }).pipe(
+          switchMap(events => {
+            const eventsToMigrate = events.filter(event => 
+              event.photosUrl && event.photosUrl.length > 0
+            );
+            
+            if (eventsToMigrate.length === 0) {
+              return from(['Aucun événement avec photos à migrer trouvé.']);
+            }
+
+            // Create migration operations for each event
+            const migrationOperations = eventsToMigrate.map(event => {
+              // Initialize urlEvents list if null
+              if (!event.urlEvents) {
+                event.urlEvents = [];
+              }
+              
+              // Create UrlEvent for each photo URL
+              const photoUrlEvents = event.photosUrl.map(photoUrl => 
+                new UrlEvent(
+                  "Photos",                       // typeUrl: Corrected to "Photos"
+                  new Date(),                     // dateCreation: Current date
+                  "Patricou",                     // owner: As requested
+                  photoUrl.trim(),                // link: The photo URL
+                  "Photos"                        // urlDescription: Corrected to "Photos"
+                )
+              );
+              
+              // Add all photo UrlEvents to the list
+              event.urlEvents.push(...photoUrlEvents);
+              
+              // Clear the photosUrl field
+              event.photosUrl = [];
+              
+              // Update the event
+              return this.http.put<Evenement>(`${this.apiUrl}evenements/${event.id}`, event, { headers });
+            });
+
+            // Execute all migrations
+            return forkJoin(migrationOperations).pipe(
+              map(() => `Migration des photos terminée avec succès. ${eventsToMigrate.length} événements migrés.`)
+            );
+          })
+        );
+      })
+    );
+  }
+
+  /**
+   * Get migration status for photos using existing APIs
+   */
+  getPhotosMigrationStatusFrontend(): Observable<string> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this.http.get<Evenement[]>(`${this.apiUrl}evenements`, { headers }).pipe(
+          map(events => {
+            const eventsWithPhotos = events.filter(event => 
+              event.photosUrl && event.photosUrl.length > 0
+            ).length;
+            const eventsWithUrlEvents = events.filter(event => 
+              event.urlEvents && event.urlEvents.length > 0
+            ).length;
+            const totalEvents = events.length;
+
+            return `Statut de la migration des photos:\n` +
+                   `Total événements: ${totalEvents}\n` +
+                   `Événements avec photosUrl: ${eventsWithPhotos}\n` +
+                   `Événements avec urlEvents: ${eventsWithUrlEvents}\n` +
+                   `Événements prêts pour migration des photos: ${eventsWithPhotos}`;
+          })
+        )
+      )
+    );
+  }
+
+  /**
+   * Execute the migration from photosUrl field to urlEvents (backend endpoint)
+   */
+  migratePhotosToUrlEvents(): Observable<string> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this.http.post<string>(`${this.apiUrl}migration/migrate-photos-to-urlevents`, {}, { headers })
+      )
+    );
+  }
+
+  /**
+   * Get the current migration status for photos (backend endpoint)
+   */
+  getPhotosMigrationStatus(): Observable<string> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this.http.get<string>(`${this.apiUrl}migration/photos-migration-status`, { headers })
+      )
+    );
+  }
 }

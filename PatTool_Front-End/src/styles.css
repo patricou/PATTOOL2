@@ -1,5 +1,89 @@
 /* You can add global styles to this file, and also import other style files */
 
+/* ===== URL EVENTS GROUPING STYLES ===== */
+
+.url-type-group {
+    border-left: 3px solid #007bff;
+    padding-left: 15px;
+    margin-left: 10px;
+}
+
+.url-type-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    padding: 10px 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.url-type-title {
+    margin: 0;
+    color: #495057;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+}
+
+.url-type-title i {
+    color: #007bff;
+    margin-right: 8px;
+}
+
+.url-type-divider {
+    margin: 8px 0 0 0;
+    border-color: #dee2e6;
+    opacity: 0.5;
+}
+
+.url-type-content {
+    margin-left: 10px;
+}
+
+.url-event-item .card {
+    border-left: 2px solid #007bff;
+    transition: all 0.2s ease;
+}
+
+.url-event-item .card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.1);
+}
+
+.url-event-item .card-header {
+    background: rgba(0, 123, 255, 0.05);
+    border-bottom: 1px solid rgba(0, 123, 255, 0.1);
+}
+
+.url-event-link .btn {
+    border-radius: 20px;
+    font-size: 0.85rem;
+    padding: 5px 12px;
+}
+
+.url-event-description p {
+    font-style: italic;
+    font-size: 0.9rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .url-type-group {
+        margin-left: 5px;
+        padding-left: 10px;
+    }
+    
+    .url-type-content {
+        margin-left: 5px;
+    }
+    
+    .url-type-header {
+        padding: 8px 12px;
+    }
+    
+    .url-event-item .card:hover {
+        transform: none;
+    }
+}
+
 /* Navigation Title Styles */
 .pat-title {
     display: flex;

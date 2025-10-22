@@ -49,6 +49,10 @@
         "EVENTSLIST": "活動リスト：",
         "EVENTFILTRE": "フィルター ....",
         "NOEVENT": "表示する活動はありません ....",
+        "NO_LINKS_ADDED": "このイベントにリンクが追加されていません",
+        "TOGGLE_VIEW": "通常ビューとコンパクトビューを切り替え",        "TOGGLE_VIEW_CARDS_LIST": "カード/リスト表示切り替え",
+
+
         "PAGE": "ページ",
         "URL_EVENTS": "イベントリンク",
         "ADD_URL_EVENT": "リンクを追加",
@@ -287,3 +291,5 @@
         "OPEN_URL_ON_CLICK": "クリック時にURLを開く"
     }
 }
+
+

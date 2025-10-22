@@ -10,6 +10,7 @@ import { MigrationService } from '../services/migration.service';
           <h3><i class="fa fa-database"></i> Migration des données</h3>
         </div>
         <div class="card-body">
+          <!-- Migration Map → UrlEvents -->
           <div class="alert alert-info">
             <h5><i class="fa fa-info-circle"></i> Migration Map → UrlEvents</h5>
             <p>Cette migration va déplacer les données du champ <code>map</code> vers le nouveau système <code>urlEvents</code>.</p>
@@ -24,12 +25,39 @@ import { MigrationService } from '../services/migration.service';
           <div class="row">
             <div class="col-md-6">
               <button class="btn btn-info btn-block" (click)="checkStatus()" [disabled]="loading">
-                <i class="fa fa-info-circle"></i> Vérifier le statut
+                <i class="fa fa-info-circle"></i> Vérifier le statut Map
               </button>
             </div>
             <div class="col-md-6">
               <button class="btn btn-warning btn-block" (click)="executeMigration()" [disabled]="loading">
-                <i class="fa fa-play"></i> Exécuter la migration
+                <i class="fa fa-play"></i> Exécuter migration Map
+              </button>
+            </div>
+          </div>
+
+          <hr class="my-4">
+
+          <!-- Migration Photos → UrlEvents -->
+          <div class="alert alert-success">
+            <h5><i class="fa fa-camera"></i> Migration Photos → UrlEvents</h5>
+            <p>Cette migration va déplacer les données du champ <code>photosUrl</code> vers le nouveau système <code>urlEvents</code>.</p>
+            <ul>
+              <li><strong>typeUrl:</strong> Photos</li>
+              <li><strong>owner:</strong> Patricou</li>
+              <li><strong>urlDescription:</strong> Photos</li>
+              <li><strong>link:</strong> Valeur de chaque URL de photo</li>
+            </ul>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <button class="btn btn-info btn-block" (click)="checkPhotosStatus()" [disabled]="loading">
+                <i class="fa fa-info-circle"></i> Vérifier le statut Photos
+              </button>
+            </div>
+            <div class="col-md-6">
+              <button class="btn btn-success btn-block" (click)="executePhotosMigration()" [disabled]="loading">
+                <i class="fa fa-camera"></i> Exécuter migration Photos
               </button>
             </div>
           </div>
@@ -157,6 +185,67 @@ export class MigrationComponent implements OnInit {
           error: (backendError: any) => {
             this.errorMessage = 'Erreur lors de la migration: ' + 
               (error.message || 'Frontend: ' + error.message + ' | Backend: ' + backendError.message);
+            this.loading = false;
+          }
+        });
+      }
+    });
+  }
+
+  checkPhotosStatus() {
+    this.loading = true;
+    this.errorMessage = '';
+    this.resultMessage = '';
+
+    // Try backend method first, fallback to frontend method
+    this.migrationService.getPhotosMigrationStatus().subscribe({
+      next: (status: string) => {
+        this.statusMessage = status;
+        this.loading = false;
+      },
+      error: (error: any) => {
+        // If backend method fails, try frontend method
+        this.migrationService.getPhotosMigrationStatusFrontend().subscribe({
+          next: (status: string) => {
+            this.statusMessage = status;
+            this.loading = false;
+          },
+          error: (frontendError: any) => {
+            this.errorMessage = 'Erreur lors de la vérification du statut des photos: ' + 
+              (error.message || 'Backend: ' + error.message + ' | Frontend: ' + frontendError.message);
+            this.loading = false;
+          }
+        });
+      }
+    });
+  }
+
+  executePhotosMigration() {
+    this.loading = true;
+    this.errorMessage = '';
+    this.resultMessage = '';
+    this.statusMessage = '';
+
+    // Try backend method first, fallback to frontend method
+    this.migrationService.migratePhotosToUrlEvents().subscribe({
+      next: (result: string) => {
+        this.resultMessage = result;
+        this.loading = false;
+        // Refresh status after migration
+        setTimeout(() => this.checkPhotosStatus(), 1000);
+      },
+      error: (error: any) => {
+        // If backend method fails, try frontend method
+        this.migrationService.migratePhotosToUrlEventsFrontend().subscribe({
+          next: (result: string) => {
+            this.resultMessage = result;
+            this.loading = false;
+            // Refresh status after migration
+            setTimeout(() => this.checkPhotosStatus(), 1000);
+          },
+          error: (frontendError: any) => {
+            this.errorMessage = 'Erreur lors de la migration des photos: ' + 
+              (error.message || 'Backend: ' + error.message + ' | Frontend: ' + frontendError.message);
             this.loading = false;
           }
         });

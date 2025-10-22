@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, Output, ViewChild, EventEmitter, AfterViewInit, TemplateRef } from '@angular/core';
+import { Component, OnInit, Input, Output, ViewChild, EventEmitter, AfterViewInit, TemplateRef, ElementRef } from '@angular/core';
 import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 // Removed ng2-file-upload - using native HTML file input
@@ -40,6 +40,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
+	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 
 	@Input()
 	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", "", [], [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
@@ -526,6 +527,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			'priority': 0 - Date.now()
 		});
 		this.msgVal = '';
+		// Faire défiler vers le bas après l'envoi
+		setTimeout(() => this.scrollToBottom(), 100);
+	}
+
+	private scrollToBottom(): void {
+		if (this.chatMessagesContainer) {
+			const element = this.chatMessagesContainer.nativeElement;
+			element.scrollTop = element.scrollHeight;
+		}
 	}
 
 
@@ -639,15 +649,101 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	getUrlTypeLabel(typeId: string): string {
+		// Normaliser le type en supprimant les espaces et en convertissant en majuscules
+		const normalizedType = typeId?.trim().toUpperCase() || 'OTHER';
+		
 		const urlEventTypes = [
-			{id: "MAP", label: "EVENTHOME.URL_TYPE_CARTE"},
-			{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION"},
-			{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER"},
-			{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
-			{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
+			{id: "MAP", label: "EVENTHOME.URL_TYPE_CARTE", aliases: ["CARTE", "CARTA", "KARTE", "MAPA", "地图", "خريطة"]},
+			{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
+			{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
+			{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
+			{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
 		];
-		const type = urlEventTypes.find(t => t.id === typeId);
-		return type ? type.label : typeId;
+		
+		// Chercher d'abord par ID exact
+		let type = urlEventTypes.find(t => t.id === normalizedType);
+		
+		// Si pas trouvé, chercher dans les alias
+		if (!type) {
+			type = urlEventTypes.find(t => 
+				t.aliases.some(alias => alias.toUpperCase() === normalizedType)
+			);
+		}
+		
+		// Si toujours pas trouvé, chercher une correspondance partielle
+		if (!type) {
+			type = urlEventTypes.find(t => 
+				t.id.includes(normalizedType) || 
+				normalizedType.includes(t.id) ||
+				t.aliases.some(alias => 
+					alias.includes(normalizedType) || 
+					normalizedType.includes(alias)
+				)
+			);
+		}
+		
+		return type ? type.label : normalizedType;
+	}
+
+	// Group URLs by type for better display
+	public getGroupedUrlEvents(): { [key: string]: any[] } {
+		if (!this.evenement.urlEvents || this.evenement.urlEvents.length === 0) {
+			return {};
+		}
+		
+		return this.evenement.urlEvents.reduce((groups: { [key: string]: any[] }, urlEvent) => {
+			// Normaliser le type pour le regroupement
+			const normalizedType = this.normalizeTypeForGrouping(urlEvent.typeUrl || 'OTHER');
+			if (!groups[normalizedType]) {
+				groups[normalizedType] = [];
+			}
+			groups[normalizedType].push(urlEvent);
+			return groups;
+		}, {});
+	}
+
+	// Normaliser le type pour le regroupement (utilise la même logique que getUrlTypeLabel)
+	private normalizeTypeForGrouping(typeId: string): string {
+		const normalizedType = typeId?.trim().toUpperCase() || 'OTHER';
+		
+		const urlEventTypes = [
+			{id: "MAP", aliases: ["CARTE", "CARTA", "KARTE", "MAPA", "地图", "خريطة"]},
+			{id: "DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
+			{id: "OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
+			{id: "PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
+			{id: "WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
+		];
+		
+		// Chercher d'abord par ID exact
+		let type = urlEventTypes.find(t => t.id === normalizedType);
+		
+		// Si pas trouvé, chercher dans les alias
+		if (!type) {
+			type = urlEventTypes.find(t => 
+				t.aliases.some(alias => alias.toUpperCase() === normalizedType)
+			);
+		}
+		
+		// Si toujours pas trouvé, chercher une correspondance partielle
+		if (!type) {
+			type = urlEventTypes.find(t => 
+				t.id.includes(normalizedType) || 
+				normalizedType.includes(t.id) ||
+				t.aliases.some(alias => 
+					alias.includes(normalizedType) || 
+					normalizedType.includes(alias)
+				)
+			);
+		}
+		
+		return type ? type.id : 'OTHER';
+	}
+
+	// Get sorted type keys for consistent display order
+	public getSortedTypeKeys(): string[] {
+		const grouped = this.getGroupedUrlEvents();
+		const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'PHOTOS', 'Photos', 'OTHER'];
+		return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
 	}
 
 }

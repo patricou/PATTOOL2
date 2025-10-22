@@ -13,8 +13,9 @@ export class CommonvaluesService {
     constructor(private _translate: TranslateService) {
         // set the langage by the browser langage                
         let browserLang = this._translate.getBrowserLang();
-        //this._translate.use(browserLang.match(/en|fr|es/) ? browserLang : 'en');
-        this.lang = browserLang && browserLang.match(/en|fr|es/) ? browserLang : 'en';
+        // Check if browser language is in our supported languages
+        const supportedLangs = ['ar', 'cn', 'de', 'el', 'en', 'es', 'fr', 'he', 'it', 'jp', 'ru'];
+        this.lang = browserLang && supportedLangs.includes(browserLang) ? browserLang : 'en';
         //console.info("Value of lang in Constructor service commonValue : " + JSON.stringify(this.lang));
     };
 

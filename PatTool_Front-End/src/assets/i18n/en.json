@@ -49,7 +49,9 @@
         "EVENTSLIST": "Activities List :",
         "EVENTFILTRE": "Filter ....",
         "NOEVENT": "There is no Activity to display",
+        "NO_LINKS_ADDED": "No links added to this event",
         "TOGGLE_VIEW": "Toggle between normal and compact view",
+        "TOGGLE_VIEW_CARDS_LIST": "Toggle Cards/List view",
         "VIEW_DETAILS": "View details",
         "PAGE": "Page",
         "URL_EVENTS": "Event Links",
@@ -165,6 +167,13 @@
         "MAP": "See the Map",
         "URLS": "Links",
         "PHOTOSURL": "See Pictures",
+        "LINKS": "Links",
+        "OWNER": "Owner",
+        "DESCRIPTION": "Description",
+        "DATE_CREATION": "Creation Date",
+        "OPEN_LINK": "Open Link",
+        "NO_LINKS_AVAILABLE": "No links available",
+        "NO_PHOTOS_AVAILABLE": "No photos available",
         "CHAT": "Live Chat",
         "IWTP": "I participate",
         "IDWTP": "I don't participate",
@@ -290,3 +299,4 @@
         "OPEN_URL_ON_CLICK": "Open URL on click"
     }
 }
+
