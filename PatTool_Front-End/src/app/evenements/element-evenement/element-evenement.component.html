@@ -124,6 +124,12 @@
         placement="bottom" ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"><i class="fa fa-download"
             aria-hidden="true"></i> </a>
     
+    <!-- Comments Button -->
+    <button class="btn btn-sm comments-button mb-1 me-1" [hidden]="!hasComments()" (click)="openCommentsModal()" placement="right"
+        ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}">
+        <i class="fa fa-comments" aria-hidden="true"></i> {{ getCommentsCount() }}
+    </button>
+
     <!-- JSON View Button -->
     <button class="btn btn-sm btn-secondary mb-1 me-1" (click)="openJsonModal()" placement="right"
         ngbTooltip="{{ 'EVENTELEM.VIEW_JSON' | translate }}">
@@ -206,10 +212,50 @@
 </ng-template>
 
 
+<!-- Comments Modal -->
+<ng-template #commentsModal let-c="close" let-d="dismiss">
+    <div class="modal-header">
+        <h5 class="modal-title">
+            <i class="fa fa-comments"></i> {{ 'EVENTHOME.COMMENTARIES' | translate }} - {{ evenement.evenementName }}
+        </h5>
+        <button type="button" class="btn-close" aria-label="Close" (click)="c()"></button>
+    </div>
+    <div class="modal-body">
+        <div *ngIf="hasComments(); else noCommentsTemplate">
+            <div class="comments-container">
+                <div class="comment-item" *ngFor="let comment of getEventComments()">
+                    <div class="comment-header">
+                        <div class="comment-author">
+                            <i class="fa fa-user"></i> {{ comment.owner.firstName }} {{ comment.owner.lastName }}
+                        </div>
+                        <div class="comment-date">
+                            <i class="fa fa-clock-o"></i> {{ comment.dateCreation | date:'short' }}
+                        </div>
+                    </div>
+                    <div class="comment-content">
+                        {{ comment.commentary }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <ng-template #noCommentsTemplate>
+            <div class="text-center text-muted py-4">
+                <i class="fa fa-comments fa-3x mb-3"></i>
+                <p>{{ 'EVENTHOME.NO_COMMENTARIES_ADDED' | translate }}</p>
+            </div>
+        </ng-template>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c()">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+        </button>
+    </div>
+</ng-template>
+
 <!-- JSON View Modal -->
 <ng-template #jsonModal let-c="close" let-d="dismiss">
     <div class="modal-header">
-        <h5 class="modal-title">{{evenement.evenementName}}<small> (Format JSON)</small></h5>
+        <h5 class="modal-title">{{evenement.evenementName}}<small> ({{ 'EVENTELEM.FORMAT_JSON' | translate }})</small></h5>
     </div>
     <div class="modal-body">
         <div class="json-container">

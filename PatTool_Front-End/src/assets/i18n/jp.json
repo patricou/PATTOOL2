@@ -82,7 +82,8 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "リンクの説明...",
         "EVENT_DETAILS": "イベント詳細",
         "DATE_AND_TIME": "日時",
-        "LOCATION_AND_LINKS": "場所"
+        "LOCATION_AND_LINKS": "場所",
+        "SHOW_JSON": "JSON形式でイベントを表示"
     },
     "EVENTCREATION": {
         "TITLE": "活動の作成",
@@ -195,7 +196,8 @@
         "PHOTO_LINK": "写真リンク",
         "OPEN_PHOTO": "開く",
         "NO_PHOTOS_AVAILABLE": "このイベントに利用可能な写真はありません。",
-        "VIEW_JSON": "JSON形式でイベントを表示"
+        "VIEW_JSON": "JSON形式でイベントを表示",
+        "FORMAT_JSON": "JSON形式"
     },
     "COMMUN": {
         "YES": "はい",

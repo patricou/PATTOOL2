@@ -83,7 +83,8 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "Описание ссылки...",
         "EVENT_DETAILS": "Детали мероприятия",
         "DATE_AND_TIME": "Дата и время",
-        "LOCATION_AND_LINKS": "Местоположение"
+        "LOCATION_AND_LINKS": "Местоположение",
+        "SHOW_JSON": "Просмотр события в формате JSON"
     },
     "EVENTCREATION": {
         "TITLE": "Создание мероприятия",
@@ -196,7 +197,8 @@
         "PHOTO_LINK": "Ссылка на фото",
         "OPEN_PHOTO": "Открыть",
         "NO_PHOTOS_AVAILABLE": "Нет доступных фотографий для этого события.",
-        "VIEW_JSON": "Просмотр события в формате JSON"
+        "VIEW_JSON": "Просмотр события в формате JSON",
+        "FORMAT_JSON": "Формат JSON"
     },
     "COMMUN": {
         "YES": "Да",

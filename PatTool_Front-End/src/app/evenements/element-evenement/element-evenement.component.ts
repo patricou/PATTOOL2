@@ -42,6 +42,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
+	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 
@@ -817,5 +818,40 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				console.warn('Error cleaning up blob URL:', error);
 			}
 		}
+	}
+
+	public hasComments(): boolean {
+		return this.evenement.commentaries && this.evenement.commentaries.length > 0;
+	}
+
+	public getCommentsCount(): number {
+		return this.evenement.commentaries ? this.evenement.commentaries.length : 0;
+	}
+
+	public getEventComments(): any[] {
+		if (!this.evenement.commentaries || this.evenement.commentaries.length === 0) {
+			return [];
+		}
+		
+		// Trier les commentaires par date de création décroissante (plus récent en premier)
+		return this.evenement.commentaries.sort((a, b) => {
+			const dateA = new Date(a.dateCreation).getTime();
+			const dateB = new Date(b.dateCreation).getTime();
+			return dateB - dateA;
+		});
+	}
+
+	public openCommentsModal(): void {
+		this.modalService.open(this.commentsModal, { 
+			size: 'lg',
+			backdrop: true,
+			keyboard: true,
+			animation: true,
+			centered: true
+		}).result.then((result) => {
+			console.log('Comments modal closed with:', result);
+		}, (reason) => {
+			console.log('Comments modal dismissed:', reason);
+		});
 	}
 }

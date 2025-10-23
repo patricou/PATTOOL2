@@ -82,7 +82,8 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "תיאור הקישור...",
         "EVENT_DETAILS": "פרטי האירוע",
         "DATE_AND_TIME": "תאריך ושעה",
-        "LOCATION_AND_LINKS": "מיקום"
+        "LOCATION_AND_LINKS": "מיקום",
+        "SHOW_JSON": "הצגת אירוע בפורמט JSON"
     },
     "EVENTCREATION": {
         "TITLE": "יצירת פעילות",
@@ -195,7 +196,8 @@
         "PHOTO_LINK": "קישור לתמונה",
         "OPEN_PHOTO": "פתח",
         "NO_PHOTOS_AVAILABLE": "אין תמונות זמינות לאירוע זה.",
-        "VIEW_JSON": "הצג אירוע בפורמט JSON"
+        "VIEW_JSON": "הצג אירוע בפורמט JSON",
+        "FORMAT_JSON": "פורמט JSON"
     },
     "COMMUN": {
         "YES": "כן",

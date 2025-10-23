@@ -82,7 +82,8 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "وصف الرابط...",
         "EVENT_DETAILS": "تفاصيل الحدث",
         "DATE_AND_TIME": "التاريخ والوقت",
-        "LOCATION_AND_LINKS": "الموقع"
+        "LOCATION_AND_LINKS": "الموقع",
+        "SHOW_JSON": "عرض الحدث بتنسيق JSON"
     },
     "EVENTCREATION": {
         "TITLE": "إنشاء نشاط",
@@ -195,7 +196,8 @@
         "PHOTO_LINK": "رابط الصورة",
         "OPEN_PHOTO": "فتح",
         "NO_PHOTOS_AVAILABLE": "لا توجد صور متاحة لهذا الحدث.",
-        "VIEW_JSON": "عرض الحدث بتنسيق JSON"
+        "VIEW_JSON": "عرض الحدث بتنسيق JSON",
+        "FORMAT_JSON": "تنسيق JSON"
     },
     "COMMUN": {
         "YES": "نعم",

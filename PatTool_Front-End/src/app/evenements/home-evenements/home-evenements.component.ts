@@ -54,6 +54,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('urlsModal') urlsModal!: TemplateRef<any>;
 	@ViewChild('chatModal') chatModal!: TemplateRef<any>;
+	@ViewChild('jsonModal') jsonModal!: TemplateRef<any>;
+	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 
 	constructor(private _evenementsService: EvenementsService,
@@ -636,6 +638,68 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			keyboard: true,
 			animation: false,
 			windowClass: 'modal-smooth-animation'
+		});
+	}
+
+	public showEventJson(evenement: Evenement): void {
+		this.selectedEvent = evenement;
+		this.selectedEventName = evenement.evenementName;
+		
+		this.modalService.open(this.jsonModal, { 
+			size: 'lg',
+			backdrop: true,
+			keyboard: true,
+			animation: true,
+			centered: true
+		}).result.then((result) => {
+			console.log('JSON modal closed with:', result);
+		}, (reason) => {
+			console.log('JSON modal dismissed:', reason);
+		});
+	}
+
+	public getFormattedEventJson(): string {
+		if (this.selectedEvent) {
+			return JSON.stringify(this.selectedEvent, null, 2);
+		}
+		return '';
+	}
+
+	public hasComments(evenement: Evenement): boolean {
+		return evenement.commentaries && evenement.commentaries.length > 0;
+	}
+
+	public getCommentsCount(evenement: Evenement): number {
+		return evenement.commentaries ? evenement.commentaries.length : 0;
+	}
+
+	public getEventComments(evenement: Evenement): any[] {
+		if (!evenement.commentaries || evenement.commentaries.length === 0) {
+			return [];
+		}
+		
+		// Trier les commentaires par date de création décroissante (plus récent en premier)
+		return evenement.commentaries.sort((a, b) => {
+			const dateA = new Date(a.dateCreation).getTime();
+			const dateB = new Date(b.dateCreation).getTime();
+			return dateB - dateA;
+		});
+	}
+
+	public openCommentsModal(evenement: Evenement): void {
+		this.selectedEvent = evenement;
+		this.selectedEventName = evenement.evenementName;
+		
+		this.modalService.open(this.commentsModal, { 
+			size: 'lg',
+			backdrop: true,
+			keyboard: true,
+			animation: true,
+			centered: true
+		}).result.then((result) => {
+			console.log('Comments modal closed with:', result);
+		}, (reason) => {
+			console.log('Comments modal dismissed:', reason);
 		});
 	}
 	

@@ -83,7 +83,8 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "Link description...",
         "EVENT_DETAILS": "Event Details",
         "DATE_AND_TIME": "Date and Time",
-        "LOCATION_AND_LINKS": "Location"
+        "LOCATION_AND_LINKS": "Location",
+        "SHOW_JSON": "View event in JSON format"
     },
     "EVENTCREATION": {
         "TITLE": "Activity Creation",
@@ -204,7 +205,8 @@
         "PHOTO_LINK_WITH_NUMBER": "Link to photo {0}",
         "OPEN_PHOTO": "Open",
         "NO_PHOTOS_AVAILABLE": "No photos available for this event.",
-        "VIEW_JSON": "View event in JSON format"
+        "VIEW_JSON": "View event in JSON format",
+        "FORMAT_JSON": "Format JSON"
     },
     "COMMUN": {
         "YES": "Yes",

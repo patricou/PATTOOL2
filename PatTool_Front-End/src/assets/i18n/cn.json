@@ -82,7 +82,8 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "链接描述...",
         "EVENT_DETAILS": "活动详情",
         "DATE_AND_TIME": "日期和时间",
-        "LOCATION_AND_LINKS": "位置"
+        "LOCATION_AND_LINKS": "位置",
+        "SHOW_JSON": "以JSON格式查看活动"
     },
     "EVENTCREATION": {
         "TITLE": "创建活动",
@@ -195,7 +196,8 @@
         "PHOTO_LINK": "照片链接",
         "OPEN_PHOTO": "打开",
         "NO_PHOTOS_AVAILABLE": "此活动没有可用照片。",
-        "VIEW_JSON": "以JSON格式查看活动"
+        "VIEW_JSON": "以JSON格式查看活动",
+        "FORMAT_JSON": "JSON格式"
     },
     "COMMUN": {
         "YES": "是",

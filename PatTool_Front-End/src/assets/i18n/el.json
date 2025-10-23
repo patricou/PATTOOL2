@@ -82,7 +82,8 @@
         "LINK_DESCRIPTION_PLACEHOLDER": "Περιγραφή συνδέσμου...",
         "EVENT_DETAILS": "Λεπτομέρειες εκδήλωσης",
         "DATE_AND_TIME": "Ημερομηνία και ώρα",
-        "LOCATION_AND_LINKS": "Τοποθεσία"
+        "LOCATION_AND_LINKS": "Τοποθεσία",
+        "SHOW_JSON": "Προβολή εκδήλωσης σε μορφή JSON"
     },
     "EVENTCREATION": {
         "TITLE": "Δημιουργία Δραστηριότητας",
@@ -195,7 +196,8 @@
         "PHOTO_LINK": "Σύνδεσμος φωτογραφίας",
         "OPEN_PHOTO": "Άνοιγμα",
         "NO_PHOTOS_AVAILABLE": "Δεν υπάρχουν διαθέσιμες φωτογραφίες για αυτό το γεγονός.",
-        "VIEW_JSON": "Προβολή γεγονότος σε μορφή JSON"
+        "VIEW_JSON": "Προβολή γεγονότος σε μορφή JSON",
+        "FORMAT_JSON": "Μορφή JSON"
     },
     "COMMUN": {
         "YES": "Ναι",
