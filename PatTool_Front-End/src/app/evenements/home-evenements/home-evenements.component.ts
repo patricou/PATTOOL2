@@ -42,7 +42,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public eventThumbnails: Map<string, SafeUrl> = new Map();
 	public nativeWindow: any;
 	public selectedEventPhotos: string[] = [];
-	public selectedEvent: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
+	public selectedEvent: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], []);
 	public selectedEventName: string = '';
 	public msgVal: string = '';
 	public items: Observable<any> = new Observable();

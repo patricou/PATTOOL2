@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { Member } from '../../model/member';
 import { Evenement } from '../../model/evenement';
 import { UrlEvent } from '../../model/url-event';
+import { Commentary } from '../../model/commentary';
 import { MembersService } from '../../services/members.service';
 import { EvenementsService } from '../../services/evenements.service';
 
@@ -16,7 +17,7 @@ import { EvenementsService } from '../../services/evenements.service';
 export class CreateEvenementComponent implements OnInit {
 
 	public user: Member = new Member("", "", "", "", "", [], "");
-	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
+	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], []);
 	// Removed ngx-mydatepicker options - using native HTML date inputs
 	// Using native HTML date inputs instead of ngx-mydatepicker
 	public author: string = "";
@@ -26,6 +27,7 @@ export class CreateEvenementComponent implements OnInit {
 	
 	// URL Events management
 	public newUrlEvent: UrlEvent = new UrlEvent("", new Date(), "", "", "");
+	public isAddingUrlEvent: boolean = false;
 	public urlEventTypes: {id: string, label: string}[] = [
 		{id: "MAP", label: "EVENTHOME.URL_TYPE_CARTE"},
 		{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION"},
@@ -33,6 +35,12 @@ export class CreateEvenementComponent implements OnInit {
 		{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
 		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
 	];
+
+	// Commentary management
+	public newCommentary: Commentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+	public isAddingCommentary: boolean = false;
+	public editingCommentaryIndex: number = -1;
+	public editingCommentary: Commentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
 
 	constructor(public _evenementsService: EvenementsService,
 		public _router: Router,
@@ -44,11 +52,19 @@ export class CreateEvenementComponent implements OnInit {
 		this.user = this._memberService.getUser();
 
 		// init new event fields
-		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public", []);
+		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public", [], []);
 		this.author = this.evenement.author.firstName + " " + this.evenement.author.lastName;
 		
 		// Initialize newUrlEvent with current user as owner
 		this.newUrlEvent = new UrlEvent("", new Date(), this.user.userName, "", "");
+		
+		// Initialize commentaries if not present
+		if (!this.evenement.commentaries) {
+			this.evenement.commentaries = [];
+		}
+		
+		// Initialize newCommentary with current user as owner
+		this.newCommentary = new Commentary(this.user, "", new Date());
 
 		/*this.beginEventDate = { date: { 
 										year: this.evenement.beginEventDate.getFullYear() , 
@@ -109,7 +125,7 @@ export class CreateEvenementComponent implements OnInit {
 			const urlEvent = new UrlEvent(
 				this.newUrlEvent.typeUrl.trim(),
 				new Date(), // Always use current date for creation
-				this.user.userName, // Use userName instead of firstName + lastName
+				this.user.userName, // Use userName as owner
 				this.newUrlEvent.link.trim(),
 				this.newUrlEvent.urlDescription.trim()
 			);
@@ -117,6 +133,7 @@ export class CreateEvenementComponent implements OnInit {
 			
 			// Reset the form
 			this.newUrlEvent = new UrlEvent("", new Date(), this.user.userName, "", "");
+			this.isAddingUrlEvent = false;
 		}
 	}
 	
@@ -124,6 +141,11 @@ export class CreateEvenementComponent implements OnInit {
 		if (index >= 0 && index < this.evenement.urlEvents.length) {
 			this.evenement.urlEvents.splice(index, 1);
 		}
+	}
+	
+	cancelAddUrlEvent() {
+		this.isAddingUrlEvent = false;
+		this.newUrlEvent = new UrlEvent("", new Date(), this.user.userName, "", "");
 	}
 
 	getUrlTypeLabel(typeId: string): string {
@@ -158,6 +180,79 @@ export class CreateEvenementComponent implements OnInit {
 		if (target) {
 			target.style.display = 'none';
 		}
+	}
+
+	// Commentary management methods
+	public addCommentary(): void {
+		if (this.newCommentary.commentary && this.newCommentary.commentary.trim() !== '') {
+			// Create a new Commentary instance
+			const commentary = new Commentary(
+				this.user, // Use current user as owner
+				this.newCommentary.commentary.trim(),
+				new Date() // Use current date
+			);
+			
+			this.evenement.commentaries.push(commentary);
+			
+			// Reset the form
+			this.newCommentary = new Commentary(this.user, "", new Date());
+			this.isAddingCommentary = false;
+		}
+	}
+
+	// Cancel adding commentary
+	public cancelAddCommentary(): void {
+		this.newCommentary = new Commentary(this.user, "", new Date());
+		this.isAddingCommentary = false;
+	}
+
+	// Delete a commentary
+	public deleteCommentary(index: number): void {
+		if (confirm("Are you sure you want to delete this commentary?")) {
+			if (index >= 0 && index < this.evenement.commentaries.length) {
+				this.evenement.commentaries.splice(index, 1);
+			}
+		}
+	}
+
+	// Start editing commentary
+	public startEditCommentary(index: number): void {
+		this.editingCommentaryIndex = index;
+		const commentaryToEdit = this.evenement.commentaries[index];
+		this.editingCommentary = new Commentary(
+			commentaryToEdit.owner,
+			commentaryToEdit.commentary,
+			commentaryToEdit.dateCreation
+		);
+	}
+
+	// Save commentary edit
+	public saveCommentaryEdit(index: number): void {
+		if (this.editingCommentary.commentary && this.editingCommentary.commentary.trim() !== '') {
+			// Update the original commentary with edited values
+			this.evenement.commentaries[index].commentary = this.editingCommentary.commentary.trim();
+			// Keep original owner and dateCreation
+			
+			// Reset editing state
+			this.cancelCommentaryEdit();
+		}
+	}
+
+	// Cancel commentary edit
+	public cancelCommentaryEdit(): void {
+		this.editingCommentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+		this.editingCommentaryIndex = -1;
+	}
+
+	// Check if user can delete commentary (only owner or event author)
+	public canDeleteCommentary(commentary: Commentary): boolean {
+		return this.user.userName === commentary.owner.userName || this.user.userName === this.evenement.author.userName;
+	}
+
+	// Format date for display
+	public formatCommentaryDate(date: Date): string {
+		if (!date) return '';
+		return new Date(date).toLocaleString();
 	}
 
 }

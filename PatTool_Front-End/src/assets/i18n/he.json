@@ -50,6 +50,15 @@
         "EVENTFILTRE": "סינון ....",
         "NOEVENT": "אין פעילויות להצגה ....",
         "NO_LINKS_ADDED": "לא נוספו קישורים לאירוע זה",
+        "COMMENTARIES": "תגובות",
+        "ADD_COMMENTARY": "הוסף תגובה",
+        "COMMENTARY_TEXT": "טקסט התגובה",
+        "COMMENTARY_PLACEHOLDER": "הזן את התגובה שלך כאן...",
+        "SAVE_COMMENTARY": "שמור תגובה",
+        "CANCEL_COMMENTARY": "בטל",
+        "SAVE_URL_EVENT": "שמור קישור",
+        "CANCEL_URL_EVENT": "בטל",
+        "NO_COMMENTARIES_ADDED": "לא נוספו תגובות לאירוע זה",
         "TOGGLE_VIEW": "החלף בין תצוגה רגילה לקומפקטית",        "TOGGLE_VIEW_CARDS_LIST": "החלף תצוגת כרטיסים/רשימה",
 
 

@@ -50,6 +50,15 @@
         "EVENTFILTRE": "过滤 ....",
         "NOEVENT": "没有要显示的活动 ....",
         "NO_LINKS_ADDED": "此事件未添加链接",
+        "COMMENTARIES": "评论",
+        "ADD_COMMENTARY": "添加评论",
+        "COMMENTARY_TEXT": "评论文本",
+        "COMMENTARY_PLACEHOLDER": "在此输入您的评论...",
+        "SAVE_COMMENTARY": "保存评论",
+        "CANCEL_COMMENTARY": "取消",
+        "SAVE_URL_EVENT": "保存链接",
+        "CANCEL_URL_EVENT": "取消",
+        "NO_COMMENTARIES_ADDED": "此事件未添加任何评论",
         "TOGGLE_VIEW": "在正常视图和紧凑视图之间切换",        "TOGGLE_VIEW_CARDS_LIST": "切换卡片/列表视图",
 
 

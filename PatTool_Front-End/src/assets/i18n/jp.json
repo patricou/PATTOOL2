@@ -50,6 +50,15 @@
         "EVENTFILTRE": "フィルター ....",
         "NOEVENT": "表示する活動はありません ....",
         "NO_LINKS_ADDED": "このイベントにリンクが追加されていません",
+        "COMMENTARIES": "コメント",
+        "ADD_COMMENTARY": "コメントを追加",
+        "COMMENTARY_TEXT": "コメントテキスト",
+        "COMMENTARY_PLACEHOLDER": "ここにコメントを入力してください...",
+        "SAVE_COMMENTARY": "コメントを保存",
+        "CANCEL_COMMENTARY": "キャンセル",
+        "SAVE_URL_EVENT": "リンクを保存",
+        "CANCEL_URL_EVENT": "キャンセル",
+        "NO_COMMENTARIES_ADDED": "このイベントにコメントが追加されていません",
         "TOGGLE_VIEW": "通常ビューとコンパクトビューを切り替え",        "TOGGLE_VIEW_CARDS_LIST": "カード/リスト表示切り替え",
 
 

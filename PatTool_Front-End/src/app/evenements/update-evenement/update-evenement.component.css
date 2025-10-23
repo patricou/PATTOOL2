@@ -1,3 +1,84 @@
+/* Commentary Styles */
+.commentary-form {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.commentaries-list {
+    margin-top: 1rem;
+}
+
+.commentary-item {
+    margin-bottom: 1rem;
+}
+
+.commentary-card {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+}
+
+.commentary-card:hover {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.commentary-content {
+    margin-bottom: 0.75rem;
+}
+
+.commentary-text {
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #495057;
+    margin-bottom: 0.5rem;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.commentary-meta {
+    border-top: 1px solid #e9ecef;
+    padding-top: 0.5rem;
+    font-size: 0.8rem;
+}
+
+.commentary-edit-form {
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.commentary-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    border-top: 1px solid #e9ecef;
+    padding-top: 0.75rem;
+}
+
+.commentary-actions .btn {
+    font-size: 0.8rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .commentary-actions {
+        flex-direction: column;
+        gap: 0.25rem;
+    }
+    
+    .commentary-actions .btn {
+        width: 100%;
+    }
+}
+
 /* URL Event Groups */
 .url-event-group {
     margin-bottom: 1.5rem;

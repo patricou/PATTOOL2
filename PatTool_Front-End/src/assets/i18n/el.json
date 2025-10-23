@@ -50,6 +50,15 @@
         "EVENTFILTRE": "Φίλτρο ....",
         "NOEVENT": "Δεν υπάρχουν δραστηριότητες για εμφάνιση ....",
         "NO_LINKS_ADDED": "Δεν προστέθηκαν σύνδεσμοι σε αυτό το συμβάν",
+        "COMMENTARIES": "Σχόλια",
+        "ADD_COMMENTARY": "Προσθήκη σχολίου",
+        "COMMENTARY_TEXT": "Κείμενο σχολίου",
+        "COMMENTARY_PLACEHOLDER": "Εισάγετε το σχόλιό σας εδώ...",
+        "SAVE_COMMENTARY": "Αποθήκευση σχολίου",
+        "CANCEL_COMMENTARY": "Ακύρωση",
+        "SAVE_URL_EVENT": "Αποθήκευση συνδέσμου",
+        "CANCEL_URL_EVENT": "Ακύρωση",
+        "NO_COMMENTARIES_ADDED": "Δεν προστέθηκαν σχόλια σε αυτό το συμβάν",
         "TOGGLE_VIEW": "Εναλλαγή μεταξύ κανονικής και συμπαγούς προβολής",        "TOGGLE_VIEW_CARDS_LIST": "Εναλλαγή προβολής Κάρτες/Λίστα",
 
 

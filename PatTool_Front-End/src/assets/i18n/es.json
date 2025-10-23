@@ -50,6 +50,15 @@
         "EVENTFILTRE": "Filtrar ....",
         "NOEVENT": "No hay actividades para mostrar",
         "NO_LINKS_ADDED": "No se han añadido enlaces a este evento",
+        "COMMENTARIES": "Comentarios",
+        "ADD_COMMENTARY": "Añadir un comentario",
+        "COMMENTARY_TEXT": "Texto del comentario",
+        "COMMENTARY_PLACEHOLDER": "Escriba su comentario aquí...",
+        "SAVE_COMMENTARY": "Guardar comentario",
+        "CANCEL_COMMENTARY": "Cancelar",
+        "SAVE_URL_EVENT": "Guardar enlace",
+        "CANCEL_URL_EVENT": "Cancelar",
+        "NO_COMMENTARIES_ADDED": "No se han añadido comentarios a este evento",
         "TOGGLE_VIEW": "Alternar entre vista normal y compacta",        "TOGGLE_VIEW_CARDS_LIST": "Alternar vista Tarjetas/Lista",
 
 

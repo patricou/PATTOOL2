@@ -50,6 +50,15 @@
         "EVENTFILTRE": "فلتر ....",
         "NOEVENT": "لا يوجد نشاط لعرضه ....",
         "NO_LINKS_ADDED": "لم تتم إضافة روابط لهذا الحدث",
+        "COMMENTARIES": "التعليقات",
+        "ADD_COMMENTARY": "إضافة تعليق",
+        "COMMENTARY_TEXT": "نص التعليق",
+        "COMMENTARY_PLACEHOLDER": "أدخل تعليقك هنا...",
+        "SAVE_COMMENTARY": "حفظ التعليق",
+        "CANCEL_COMMENTARY": "إلغاء",
+        "SAVE_URL_EVENT": "حفظ الرابط",
+        "CANCEL_URL_EVENT": "إلغاء",
+        "NO_COMMENTARIES_ADDED": "لم يتم إضافة تعليقات لهذا الحدث",
         "TOGGLE_VIEW": "التبديل بين العرض العادي والمضغوط",        "TOGGLE_VIEW_CARDS_LIST": "تبديل عرض البطاقات/القائمة",
 
 

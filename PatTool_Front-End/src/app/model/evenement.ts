@@ -1,6 +1,7 @@
 import { Member } from './member';
 import { UploadedFile } from '../model/uploadedfile';
 import { UrlEvent } from './url-event';
+import { Commentary } from './commentary';
 
 export class Evenement {
 
@@ -25,6 +26,7 @@ export class Evenement {
         public ratingPlus: number,
         public ratingMinus: number,
         public visibility: string,
-        public urlEvents: UrlEvent[]
+        public urlEvents: UrlEvent[],
+        public commentaries: Commentary[]
     ) { }
 }

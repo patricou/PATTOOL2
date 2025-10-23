@@ -55,6 +55,7 @@ public class Evenement {
     private String durationEstimation;
     private String visibility;
     private List<UrlEvent> urlEvents = new ArrayList<UrlEvent>();
+    private List<Commentary> commentaries = new ArrayList<Commentary>();
 
     public List<Member> getMembers() {
         return members;
@@ -240,6 +241,14 @@ public class Evenement {
         this.urlEvents = urlEvents;
     }
 
+    public List<Commentary> getCommentaries() {
+        return commentaries;
+    }
+
+    public void setCommentaries(List<Commentary> commentaries) {
+        this.commentaries = commentaries;
+    }
+
     @Override
     public String toString() {
         return "Evenement{" +
@@ -266,6 +275,7 @@ public class Evenement {
                 ", durationEstimation='" + durationEstimation + '\'' +
                 ", Visibility=" + visibility +
                 ", urlEvents=" + urlEvents +
+                ", commentaries=" + commentaries +
                 '}';
     }
 }

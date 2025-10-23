@@ -36,6 +36,7 @@ public class UrlEvent {
         this.urlDescription = urlDescription;
     }
 
+
     // Getters and Setters
     public String getTypeUrl() {
         return typeUrl;

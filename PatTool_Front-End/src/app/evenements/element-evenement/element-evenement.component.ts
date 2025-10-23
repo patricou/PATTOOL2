@@ -11,6 +11,7 @@ import { UploadedFile } from '../../model/uploadedfile';
 import { Member } from '../../model/member';
 import { Evenement } from '../../model/evenement';
 import { UrlEvent } from '../../model/url-event';
+import { Commentary } from '../../model/commentary';
 import { environment } from '../../../environments/environment';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FileService } from '../../services/file.service';
@@ -42,7 +43,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 
 	@Input()
-	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", []);
+	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], []);
 
 	@Input()
 	user: Member = new Member("", "", "", "", "", [], "");
@@ -119,6 +120,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		});
 		// Call Thumbnail Image function
 		this.setThumbnailImage();
+		
+		// Initialize commentaries if not present
+		this.initializeCommentaries();
 	}
 	
 	public onFileSelected(event: any): void {
@@ -715,6 +719,66 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		const grouped = this.getGroupedUrlEvents();
 		const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'PHOTOS', 'Photos', 'OTHER'];
 		return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+	}
+
+	// Commentary management methods
+	public newCommentary: Commentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+	public isAddingCommentary: boolean = false;
+
+	// Initialize commentaries if not present
+	public initializeCommentaries(): void {
+		if (!this.evenement.commentaries) {
+			this.evenement.commentaries = [];
+		}
+	}
+
+	// Add a new commentary
+	public addCommentary(): void {
+		if (this.newCommentary.commentary && this.newCommentary.commentary.trim() !== '') {
+			// Create a new Commentary instance
+			const commentary = new Commentary(
+				this.user, // Use current user as owner
+				this.newCommentary.commentary.trim(),
+				new Date() // Use current date
+			);
+			
+			this.initializeCommentaries();
+			this.evenement.commentaries.push(commentary);
+			
+			// Reset the form
+			this.newCommentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+			this.isAddingCommentary = false;
+			
+			// Emit update event to save changes
+			this.updateEvenement.emit(this.evenement);
+		}
+	}
+
+	// Cancel adding commentary
+	public cancelAddCommentary(): void {
+		this.newCommentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+		this.isAddingCommentary = false;
+	}
+
+	// Delete a commentary
+	public deleteCommentary(index: number): void {
+		if (confirm("Are you sure you want to delete this commentary?")) {
+			if (index >= 0 && index < this.evenement.commentaries.length) {
+				this.evenement.commentaries.splice(index, 1);
+				this.updateEvenement.emit(this.evenement);
+			}
+		}
+	}
+
+	// Check if user can delete commentary (only owner or event author)
+	public canDeleteCommentary(commentary: Commentary): boolean {
+		return this.user.userName === commentary.owner.userName || this.isAuthor();
+	}
+
+	// Format date for display
+	public formatCommentaryDate(date: Date): string {
+		if (!date) return '';
+		return new Date(date).toLocaleString();
 	}
 
 }

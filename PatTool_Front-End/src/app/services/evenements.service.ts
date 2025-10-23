@@ -60,7 +60,8 @@ export class EvenementsService {
 							evenement.ratingPlus,
 							evenement.ratingMinus,
 							evenement.visibility,
-							evenement.urlEvents || []
+							evenement.urlEvents || [],
+							evenement.commentaries || []
 						)
 					})
 				)
