@@ -1,5 +1,30 @@
 /* You can add global styles to this file, and also import other style files */
 
+/* Modal smooth animation */
+.modal-smooth-animation {
+    animation: fadeIn 0.3s ease-out;
+}
+
+.modal-smooth-animation .modal-dialog {
+    animation: slideInDown 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideInDown {
+    from { 
+        transform: translateY(-30px); 
+        opacity: 0; 
+    }
+    to { 
+        transform: translateY(0); 
+        opacity: 1; 
+    }
+}
+
 /* ===== URL EVENTS GROUPING STYLES ===== */
 
 .url-type-group {

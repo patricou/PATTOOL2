@@ -44,11 +44,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public selectedEventPhotos: string[] = [];
 	public selectedEvent: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], []);
 	public selectedEventName: string = '';
+	public selectedImageUrl: SafeUrl | string = '';
+	public selectedImageAlt: string = '';
 	public msgVal: string = '';
 	public items: Observable<any> = new Observable();
 	@ViewChild('searchterm')
 	public searchterm!: ElementRef;
 	@ViewChild('photosModal') photosModal!: TemplateRef<any>;
+	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('urlsModal') urlsModal!: TemplateRef<any>;
 	@ViewChild('chatModal') chatModal!: TemplateRef<any>;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
@@ -616,4 +619,24 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private scrollToTop(): void {
 		this.nativeWindow.scrollTo(0, 0);
 	}
+	
+	// Open image modal for large display
+	openImageModal(imageUrl: SafeUrl, imageAlt: string): void {
+		this.selectedImageUrl = imageUrl;
+		this.selectedImageAlt = imageAlt;
+		
+		if (!this.imageModal) {
+			return;
+		}
+		
+		this.modalService.open(this.imageModal, { 
+			size: 'lg', 
+			centered: true,
+			backdrop: true,
+			keyboard: true,
+			animation: false,
+			windowClass: 'modal-smooth-animation'
+		});
+	}
+	
 }

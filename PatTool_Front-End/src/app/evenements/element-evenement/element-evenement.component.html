@@ -1,7 +1,9 @@
 <!-- <div class="panel panel-default" [ngClass]="{'animated pulse':mouseOvered}" (mouseout)="mouseOvered=false" (mouseover)="mouseOvered=true" data-bs-hover-animate="pulse"> -->
 <!-- thw following line allows to have tooltips on button in footer !! -->
-<div style="position:relative;">
-    <img class="card-img img-fluid img-thumbnail mx-auto d-block" [src]="thumbnailUrl" alt="Card image" />
+<div style="position:relative;" (click)="openImageModal(getEventThumbnail(), evenement.evenementName)">
+    <img class="card-img img-fluid img-thumbnail mx-auto d-block clickable-image" 
+         [src]="thumbnailUrl" 
+         alt="Card image" />
     <div class="card-img-overlay">
         <h4 class="card-title text-center pat-card"><b>{{evenement.evenementName}}</b></h4>
         <!-- <br><small><i>{{ "EVENTELEM.REF" | translate }} : {{evenement.id}}</i></small></p> -->
@@ -282,5 +284,21 @@
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">
             <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
         </button>
+    </div>
+</ng-template>
+
+<!-- Image Modal for large display -->
+<ng-template #imageModal let-c="close" let-d="dismiss">
+    <div class="modal-header">
+        <h5 class="modal-title">{{ selectedImageAlt }}</h5>
+        <button type="button" class="btn-close" (click)="c()" aria-label="Close">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body text-center">
+        <img [src]="selectedImageUrl" [alt]="selectedImageAlt" class="img-fluid modal-image" />
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c()">Close</button>
     </div>
 </ng-template>

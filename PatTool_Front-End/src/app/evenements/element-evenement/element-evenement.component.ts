@@ -37,9 +37,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public nativeWindow: any;
 	// Thumbnail image
 	public thumbnailUrl: any = "assets/images/images.jpg";
+	public selectedImageUrl: SafeUrl | string = '';
+	public selectedImageAlt: string = '';
 
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
+	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 
 	@Input()
@@ -319,11 +322,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 					this.getFileBlobUrl(fileUploaded.fieldId).subscribe((blob: any) => {
 						let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
 						this.thumbnailUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
-						let natw = this.nativeWindow;
-						setTimeout(function () {
-							console.log('Object revoked');
-							natw.URL.revokeObjectURL(objectUrl);
-						}, 5000);
+						// Removed automatic revocation to keep the blob URL available for modal
 					}
 					);
 				}
@@ -562,7 +561,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				link.click();
 				// remove the 				
 				setTimeout(function () {
-					console.log('Object revoked');
 					natw.document.body.removeChild(link);
 					natw.URL.revokeObjectURL(objectUrl);
 				}, 5000);
@@ -781,4 +779,43 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return new Date(date).toLocaleString();
 	}
 
+	// Get event thumbnail (similar to home-evenements)
+	public getEventThumbnail(): SafeUrl {
+		// Return the current thumbnailUrl which is already a SafeUrl
+		return this.thumbnailUrl;
+	}
+
+	// Open image modal for large display
+	openImageModal(imageUrl: any, imageAlt: string): void {
+		// Keep the original SafeUrl or string (same as home-evenements)
+		this.selectedImageUrl = imageUrl;
+		this.selectedImageAlt = imageAlt;
+		
+		if (!this.imageModal) {
+			return;
+		}
+		
+		this.modalService.open(this.imageModal, { 
+			size: 'lg', 
+			centered: true,
+			backdrop: true,
+			keyboard: true,
+			animation: false,
+			windowClass: 'modal-smooth-animation'
+		});
+	}
+	
+	ngOnDestroy() {
+		// Nettoyer les URLs blob pour éviter les fuites mémoire
+		if (this.thumbnailUrl && typeof this.thumbnailUrl === 'object' && 'changingThisBreaksApplicationSecurity' in this.thumbnailUrl) {
+			try {
+				const url = this.thumbnailUrl['changingThisBreaksApplicationSecurity'];
+				if (url && typeof url === 'string' && url.startsWith('blob:')) {
+					this.nativeWindow.URL.revokeObjectURL(url);
+				}
+			} catch (error) {
+				console.warn('Error cleaning up blob URL:', error);
+			}
+		}
+	}
 }
