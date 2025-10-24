@@ -191,7 +191,7 @@
         "CHGTSTATUS": "Changer le Status",
         "UPLOAD": "Uploader un fichier (Tous types)",
         "FILES": "Fichiers",
-        "FILESDOWNLOAD": "Downloader des fichiers",
+        "FILESDOWNLOAD": "Gestion des fichiers",
         "DELETEFILE": "Supprimer le fichier",
         "LIVECHAT": "Live Discussion",
         "DELMESCHAT": "Supprimer le message",
@@ -200,13 +200,16 @@
         "PHOTO_LINK_WITH_NUMBER": "Lien vers photo {0}",
         "OPEN_PHOTO": "Ouvrir",
         "VIEW_JSON": "Voir l'événement au format JSON",
-        "FORMAT_JSON": "Format JSON"
+        "FORMAT_JSON": "Format JSON",
+        "CLICK_TO_VIEW": "Cliquer pour voir l'image",
+        "CLICK_TO_OPEN_PDF": "Cliquer pour ouvrir le PDF"
     },
     "COMMUN": {
         "YES": "Oui",
         "NO": "Non",
         "CLOSE": "Fermer",
         "OPEN": "Ouvrir",
+        "DOWNLOAD": "Télécharger",
         "CANCEL": "Annuler",
         "STATUSCLOSE": "Fermé",
         "STATUSOPEN": "Ouvert",

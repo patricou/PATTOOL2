@@ -75,14 +75,19 @@
                     (click)="openImageModal(getEventThumbnail(evenement), evenement.evenementName); $event.stopPropagation()">
                 <!-- Badge de statut à droite -->
                 <div class="status-badge" [ngSwitch]="evenement.status">
-                    <span *ngSwitchCase="'Closed'" class="badge bg-danger">
+                    <span *ngSwitchCase="'Closed'" class="badge bg-danger me-1">
                         <i class="fa fa-times-circle"></i> {{"COMMUN.STATUSCLOSE" | translate }}
                     </span>
-                    <span *ngSwitchCase="'Open'" class="badge bg-success">
+                    <span *ngSwitchCase="'Open'" class="badge bg-success me-1">
                         <i class="fa fa-check-circle"></i> {{"COMMUN.STATUSOPEN" | translate }}
                     </span>
-                    <span *ngSwitchCase="'Cancel'" class="badge bg-warning">
+                    <span *ngSwitchCase="'Cancel'" class="badge bg-warning me-1">
                         <i class="fa fa-exclamation-triangle"></i> {{"COMMUN.STATUSCANCEL" | translate }}
+                    </span>
+                    <span [ngSwitch]="evenement.visibility" class="badge">
+                        <span *ngSwitchCase="'public'" class="badge bg-success">{{evenement.visibility}}</span>
+                        <span *ngSwitchCase="'private'" class="badge bg-warning">{{evenement.visibility}}</span>
+                        <span *ngSwitchDefault class="badge bg-info">{{evenement.visibility}}</span>
                     </span>
                 </div>
             </div>

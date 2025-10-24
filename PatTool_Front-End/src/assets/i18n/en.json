@@ -198,7 +198,7 @@
         "UPLOAD": "Upload a File (all type)",
         "CHGTSTATUS": "Status Change",
         "FILES": "Files",
-        "FILESDOWNLOAD": "Download Files",
+        "FILESDOWNLOAD": "File management",
         "DELETEFILE": "Delete File",
         "LIVECHAT": "Live Chat",
         "DELMESCHAT": "Delete message",
@@ -208,13 +208,16 @@
         "OPEN_PHOTO": "Open",
         "NO_PHOTOS_AVAILABLE": "No photos available for this event.",
         "VIEW_JSON": "View event in JSON format",
-        "FORMAT_JSON": "Format JSON"
+        "FORMAT_JSON": "Format JSON",
+        "CLICK_TO_VIEW": "Click to view image",
+        "CLICK_TO_OPEN_PDF": "Click to open PDF"
     },
     "COMMUN": {
         "YES": "Yes",
         "NO": "No",
         "CLOSE": "Close",
         "OPEN": "Open",
+        "DOWNLOAD": "Download",
         "CANCEL": "Cancel",
         "STATUSCLOSE": "Closed",
         "STATUSOPEN": "Open",

@@ -200,7 +200,7 @@
         "UPLOAD": "Subir un archivo (todos los tipos)",
         "CHGTSTATUS": "Cambiar estado",
         "FILES": "Archivos",
-        "FILESDOWNLOAD": "Descargar archivos",
+        "FILESDOWNLOAD": "Gestión de archivos",
         "DELETEFILE": "Eliminar archivo",
         "LIVECHAT": "Chat en vivo",
         "DELMESCHAT": "Eliminar mensaje",
@@ -210,13 +210,16 @@
         "OPEN_PHOTO": "Abrir",
         "NO_PHOTOS_AVAILABLE": "No hay fotos disponibles para este evento.",
         "VIEW_JSON": "Ver evento en formato JSON",
-        "FORMAT_JSON": "Formato JSON"
+        "FORMAT_JSON": "Formato JSON",
+        "CLICK_TO_VIEW": "Hacer clic para ver la imagen",
+        "CLICK_TO_OPEN_PDF": "Hacer clic para abrir el PDF"
     },
     "COMMUN": {
         "YES": "Sí",
         "NO": "No",
         "CLOSE": "Cerrar",
         "OPEN": "Abrir",
+        "DOWNLOAD": "Descargar",
         "CANCEL": "Cancelar",
         "STATUSCLOSE": "Cerrado",
         "STATUSOPEN": "Abierto",

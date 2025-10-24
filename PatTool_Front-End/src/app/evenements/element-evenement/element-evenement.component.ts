@@ -146,7 +146,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		}
 
 		// Check if any of the selected files are images
-		const imageFiles = this.selectedFiles.filter(file => this.isImageFile(file));
+		const imageFiles = this.selectedFiles.filter(file => this.isImageFileByMimeType(file));
 		
 		if (imageFiles.length > 0) {
 			// Ask user if they want to use the image as activity thumbnail
@@ -573,11 +573,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		);
 	}
 
-	// Check if a file is an image
-	private isImageFile(file: File): boolean {
-		const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
-		return imageTypes.includes(file.type.toLowerCase());
-	}
 
 	// Add "thumbnail" to the middle of the filename
 	private addThumbnailToFileName(originalName: string): string {
@@ -907,12 +902,115 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		}
 		
 		this.modalService.open(this.imageModal, { 
-			size: 'lg', 
+			size: 'xl', 
 			centered: true,
 			backdrop: true,
 			keyboard: true,
 			animation: false,
 			windowClass: 'modal-smooth-animation'
+		});
+	}
+
+	// Check if file is an image based on extension
+	public isImageFile(fileName: string): boolean {
+		if (!fileName) return false;
+		
+		const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif'];
+		const lowerFileName = fileName.toLowerCase();
+		
+		return imageExtensions.some(ext => lowerFileName.endsWith(ext));
+	}
+
+	// Check if file is a PDF based on extension
+	public isPdfFile(fileName: string): boolean {
+		if (!fileName) return false;
+		
+		const lowerFileName = fileName.toLowerCase();
+		return lowerFileName.endsWith('.pdf');
+	}
+
+	// Handle file click based on file type
+	public handleFileClick(uploadedFile: UploadedFile): void {
+		if (this.isImageFile(uploadedFile.fileName)) {
+			this.openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName);
+		} else if (this.isPdfFile(uploadedFile.fileName)) {
+			this.openPdfFile(uploadedFile.fieldId, uploadedFile.fileName);
+		}
+	}
+
+	// Get appropriate tooltip for file
+	public getFileTooltip(fileName: string): string | null {
+		if (this.isImageFile(fileName)) {
+			return this.translateService.instant('EVENTELEM.CLICK_TO_VIEW');
+		} else if (this.isPdfFile(fileName)) {
+			return this.translateService.instant('EVENTELEM.CLICK_TO_OPEN_PDF');
+		}
+		return null;
+	}
+
+	// Open PDF file in new tab
+	public openPdfFile(fileId: string, fileName: string): void {
+		console.log('Opening PDF file:', fileName, 'with ID:', fileId);
+		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
+			console.log('Blob received:', blob);
+			
+			// Create a new blob with proper MIME type for PDF
+			const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+			
+			// Create object URL for the blob
+			const objectUrl = URL.createObjectURL(pdfBlob);
+			console.log('Object URL created:', objectUrl);
+			
+			// Open PDF in new tab with optimized parameters
+			const newWindow = window.open(objectUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
+			
+			// Focus the new window
+			if (newWindow) {
+				newWindow.focus();
+			}
+			
+			// Clean up the URL after a delay to allow the browser to load it
+			setTimeout(() => {
+				URL.revokeObjectURL(objectUrl);
+			}, 10000);
+		}, (error) => {
+			console.error('Error loading PDF file:', error);
+			alert('Erreur lors du chargement du fichier PDF');
+		});
+	}
+
+	// Check if a File object is an image based on MIME type
+	private isImageFileByMimeType(file: File): boolean {
+		const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
+		return imageTypes.includes(file.type.toLowerCase());
+	}
+
+	// Open file image in modal
+	openFileImageModal(fileId: string, fileName: string): void {
+		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
+			// Create object URL for the blob
+			const objectUrl = URL.createObjectURL(blob);
+			
+			// Set the image URL and alt text
+			this.selectedImageUrl = objectUrl;
+			this.selectedImageAlt = fileName;
+			
+			if (!this.imageModal) {
+				return;
+			}
+			
+			// Open the modal
+			this.modalService.open(this.imageModal, { 
+				size: 'xl', 
+				centered: true,
+				backdrop: true,
+				keyboard: true,
+				animation: false,
+				windowClass: 'modal-smooth-animation'
+			});
+		}, (error) => {
+			console.error('Error loading file:', error);
+			alert('Erreur lors du chargement du fichier');
 		});
 	}
 	
