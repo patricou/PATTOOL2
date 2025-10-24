@@ -723,7 +723,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	// Commentary management methods
-	public newCommentary: Commentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+	public newCommentary: Commentary = new Commentary("", "", new Date());
 	public isAddingCommentary: boolean = false;
 
 	// Initialize commentaries if not present
@@ -738,7 +738,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		if (this.newCommentary.commentary && this.newCommentary.commentary.trim() !== '') {
 			// Create a new Commentary instance
 			const commentary = new Commentary(
-				this.user, // Use current user as owner
+				this.user.userName, // Use current user as owner
 				this.newCommentary.commentary.trim(),
 				new Date() // Use current date
 			);
@@ -747,7 +747,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.evenement.commentaries.push(commentary);
 			
 			// Reset the form
-			this.newCommentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+			this.newCommentary = new Commentary("", "", new Date());
 			this.isAddingCommentary = false;
 			
 			// Emit update event to save changes
@@ -757,7 +757,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Cancel adding commentary
 	public cancelAddCommentary(): void {
-		this.newCommentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+		this.newCommentary = new Commentary("", "", new Date());
 		this.isAddingCommentary = false;
 	}
 
@@ -771,9 +771,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		}
 	}
 
-	// Check if user can delete commentary (only owner or event author)
+	// Check if user can delete commentary (only owner of the commentary)
 	public canDeleteCommentary(commentary: Commentary): boolean {
-		return this.user.userName === commentary.owner.userName || this.isAuthor();
+		return this.user.userName === commentary.commentOwner;
 	}
 
 	// Format date for display

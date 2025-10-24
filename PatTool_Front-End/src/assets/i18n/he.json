@@ -19,6 +19,7 @@
     "NAVIGATION": {
         "BACK": "חזור",
         "FORWARD": "קדימה",
+        "REFRESH": "רענן",
         "GO_BACK": "עבור לעמוד הקודם",
         "GO_FORWARD": "עבור לעמוד הבא"
     },

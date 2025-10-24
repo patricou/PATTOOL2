@@ -393,7 +393,7 @@
                 <div class="comment-item" *ngFor="let comment of getEventComments(selectedEvent)">
                     <div class="comment-header">
                         <div class="comment-author">
-                            <i class="fa fa-user"></i> {{ comment.owner.firstName }} {{ comment.owner.lastName }}
+                            <i class="fa fa-user"></i> {{ comment.commentOwner }}
                         </div>
                         <div class="comment-date">
                             <i class="fa fa-clock-o"></i> {{ comment.dateCreation | date:'short' }}

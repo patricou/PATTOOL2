@@ -19,6 +19,7 @@
     "NAVIGATION": {
         "BACK": "戻る",
         "FORWARD": "進む",
+        "REFRESH": "更新",
         "GO_BACK": "前のページに移動",
         "GO_FORWARD": "次のページに移動"
     },

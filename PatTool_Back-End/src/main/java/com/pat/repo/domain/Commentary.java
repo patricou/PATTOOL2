@@ -1,6 +1,5 @@
 package com.pat.repo.domain;
 
-import org.springframework.data.mongodb.core.mapping.DBRef;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import jakarta.validation.constraints.NotNull;
@@ -14,8 +13,7 @@ import java.util.Date;
 public class Commentary {
 
     @NotNull
-    @DBRef
-    private Member owner;
+    private String commentOwner;
     
     @NotNull
     private String commentary;
@@ -27,19 +25,19 @@ public class Commentary {
     public Commentary() {
     }
 
-    public Commentary(Member owner, String commentary, Date dateCreation) {
-        this.owner = owner;
+    public Commentary(String commentOwner, String commentary, Date dateCreation) {
+        this.commentOwner = commentOwner;
         this.commentary = commentary;
         this.dateCreation = dateCreation;
     }
 
     // Getters and Setters
-    public Member getOwner() {
-        return owner;
+    public String getCommentOwner() {
+        return commentOwner;
     }
 
-    public void setOwner(Member owner) {
-        this.owner = owner;
+    public void setCommentOwner(String commentOwner) {
+        this.commentOwner = commentOwner;
     }
 
     public String getCommentary() {
@@ -61,7 +59,7 @@ public class Commentary {
     @Override
     public String toString() {
         return "Commentary{" +
-                "owner=" + owner +
+                "commentOwner='" + commentOwner + '\'' +
                 ", commentary='" + commentary + '\'' +
                 ", dateCreation=" + dateCreation +
                 '}';

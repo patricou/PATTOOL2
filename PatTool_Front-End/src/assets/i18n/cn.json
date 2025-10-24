@@ -19,6 +19,7 @@
     "NAVIGATION": {
         "BACK": "返回",
         "FORWARD": "前进",
+        "REFRESH": "刷新",
         "GO_BACK": "转到上一页",
         "GO_FORWARD": "转到下一页"
     },

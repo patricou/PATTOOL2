@@ -19,6 +19,7 @@
     "NAVIGATION": {
         "BACK": "Zurück",
         "FORWARD": "Vorwärts",
+        "REFRESH": "Aktualisieren",
         "GO_BACK": "Zur vorherigen Seite gehen",
         "GO_FORWARD": "Zur nächsten Seite gehen"
     },

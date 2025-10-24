@@ -37,10 +37,10 @@ export class CreateEvenementComponent implements OnInit {
 	];
 
 	// Commentary management
-	public newCommentary: Commentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+	public newCommentary: Commentary = new Commentary("", "", new Date());
 	public isAddingCommentary: boolean = false;
 	public editingCommentaryIndex: number = -1;
-	public editingCommentary: Commentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+	public editingCommentary: Commentary = new Commentary("", "", new Date());
 
 	constructor(public _evenementsService: EvenementsService,
 		public _router: Router,
@@ -53,7 +53,7 @@ export class CreateEvenementComponent implements OnInit {
 
 		// init new event fields
 		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public", [], []);
-		this.author = this.evenement.author.firstName + " " + this.evenement.author.lastName;
+		this.author = this.evenement.author.firstName + " " + this.evenement.author.lastName + " / " + this.evenement.author.userName;
 		
 		// Initialize date strings with local timezone
 		this.beginEventDateString = this.formatDateForInput(this.evenement.beginEventDate);
@@ -68,7 +68,7 @@ export class CreateEvenementComponent implements OnInit {
 		}
 		
 		// Initialize newCommentary with current user as owner
-		this.newCommentary = new Commentary(this.user, "", new Date());
+		this.newCommentary = new Commentary(this.user.userName, "", new Date());
 
 		/*this.beginEventDate = { date: { 
 										year: this.evenement.beginEventDate.getFullYear() , 
@@ -96,8 +96,13 @@ export class CreateEvenementComponent implements OnInit {
 
 	saveEvenement(fromform: any, isValid: boolean) {
 		// Using native HTML date inputs - convert string to Date objects
-		this.evenement.beginEventDate = new Date(fromform.beginEventDate);
-		this.evenement.endEventDate = new Date(fromform.endEventDate);
+		// Use the string values from the form inputs
+		if (this.beginEventDateString) {
+			this.evenement.beginEventDate = new Date(this.beginEventDateString);
+		}
+		if (this.endEventDateString) {
+			this.evenement.endEventDate = new Date(this.endEventDateString);
+		}
 		this.evenement.openInscriptionDate = new Date(1900, 1, 1);
 		this.evenement.closeInscriptionDate = new Date(1900, 1, 1);
 		// note  : it is perhaps bad but  fields eventname, map and comment are passed through 2 ways binding.    
@@ -157,7 +162,13 @@ export class CreateEvenementComponent implements OnInit {
 	
 	removeUrlEvent(index: number) {
 		if (index >= 0 && index < this.evenement.urlEvents.length) {
-			this.evenement.urlEvents.splice(index, 1);
+			const urlEvent = this.evenement.urlEvents[index];
+			// Check if user can delete this URL event
+			if (this.canDeleteUrlEvent(urlEvent)) {
+				this.evenement.urlEvents.splice(index, 1);
+			} else {
+				alert("Vous n'avez pas l'autorisation de supprimer ce lien.");
+			}
 		}
 	}
 	
@@ -205,7 +216,7 @@ export class CreateEvenementComponent implements OnInit {
 		if (this.newCommentary.commentary && this.newCommentary.commentary.trim() !== '') {
 			// Create a new Commentary instance
 			const commentary = new Commentary(
-				this.user, // Use current user as owner
+				this.user.userName, // Use current user userName as commentOwner
 				this.newCommentary.commentary.trim(),
 				new Date() // Use current date
 			);
@@ -213,22 +224,28 @@ export class CreateEvenementComponent implements OnInit {
 			this.evenement.commentaries.push(commentary);
 			
 			// Reset the form
-			this.newCommentary = new Commentary(this.user, "", new Date());
+			this.newCommentary = new Commentary(this.user.userName, "", new Date());
 			this.isAddingCommentary = false;
 		}
 	}
 
 	// Cancel adding commentary
 	public cancelAddCommentary(): void {
-		this.newCommentary = new Commentary(this.user, "", new Date());
+		this.newCommentary = new Commentary(this.user.userName, "", new Date());
 		this.isAddingCommentary = false;
 	}
 
 	// Delete a commentary
 	public deleteCommentary(index: number): void {
-		if (confirm("Are you sure you want to delete this commentary?")) {
-			if (index >= 0 && index < this.evenement.commentaries.length) {
-				this.evenement.commentaries.splice(index, 1);
+		if (index >= 0 && index < this.evenement.commentaries.length) {
+			const commentary = this.evenement.commentaries[index];
+			// Check if user can delete this commentary
+			if (this.canDeleteCommentary(commentary)) {
+				if (confirm("Are you sure you want to delete this commentary?")) {
+					this.evenement.commentaries.splice(index, 1);
+				}
+			} else {
+				alert("Vous n'avez pas l'autorisation de supprimer ce commentaire.");
 			}
 		}
 	}
@@ -238,7 +255,7 @@ export class CreateEvenementComponent implements OnInit {
 		this.editingCommentaryIndex = index;
 		const commentaryToEdit = this.evenement.commentaries[index];
 		this.editingCommentary = new Commentary(
-			commentaryToEdit.owner,
+			commentaryToEdit.commentOwner,
 			commentaryToEdit.commentary,
 			commentaryToEdit.dateCreation
 		);
@@ -258,13 +275,33 @@ export class CreateEvenementComponent implements OnInit {
 
 	// Cancel commentary edit
 	public cancelCommentaryEdit(): void {
-		this.editingCommentary = new Commentary(new Member("", "", "", "", "", [], ""), "", new Date());
+		this.editingCommentary = new Commentary("", "", new Date());
 		this.editingCommentaryIndex = -1;
 	}
 
-	// Check if user can delete commentary (only owner or event author)
+	// Check if user can delete commentary (only owner of the commentary)
 	public canDeleteCommentary(commentary: Commentary): boolean {
-		return this.user.userName === commentary.owner.userName || this.user.userName === this.evenement.author.userName;
+		return this.user.userName === commentary.commentOwner;
+	}
+
+	// Check if user can delete URL event (only owner of the link)
+	public canDeleteUrlEvent(urlEvent: UrlEvent): boolean {
+		return this.user.userName === urlEvent.owner;
+	}
+
+	// Check if user can edit URL event (only owner of the link)
+	public canEditUrlEvent(urlEvent: UrlEvent): boolean {
+		return this.user.userName === urlEvent.owner;
+	}
+
+	// Check if user can edit commentary (only owner of the commentary)
+	public canEditCommentary(commentary: Commentary): boolean {
+		return this.user.userName === commentary.commentOwner;
+	}
+
+	// Check if user can edit event fields (only event author)
+	public canEditEventFields(): boolean {
+		return this.user.userName === this.evenement.author.userName;
 	}
 
 	// Format date for display

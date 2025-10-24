@@ -33,6 +33,11 @@ export class NavigationButtonsComponent implements OnInit {
     }
   }
 
+  refreshPage() {
+    // Rafraîchir la page actuelle
+    window.location.reload();
+  }
+
   private updateNavigationState() {
     // Vérifier si on peut naviguer en arrière
     this.canGoBack = window.history.length > 1;

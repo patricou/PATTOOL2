@@ -42,7 +42,7 @@
                             </label>
                             <input id="EvenementName" #EvenementName="ngModel" [(ngModel)]="evenement.evenementName"
                                 name="EvenementName" type="text" placeholder="{{ 'EVENTCREATION.EVENTNAMEPLHD' | translate }}"
-                                class="form-control" required>
+                                class="form-control" required [disabled]="!canEditEventFields()">
                             <div class="error-message" [hidden]="!EvenementName.invalid || !f.submitted">
                                 <i class="fa fa-exclamation-triangle"></i>
                                 {{ "EVENTCREATION.EVENTNAMEERR" | translate }}
@@ -57,7 +57,7 @@
                                 <span class="required">*</span>
                             </label>
                             <textarea #CommentsV="ngModel" [(ngModel)]="evenement.comments" class="form-control" id="comments"
-                                required name="comments" rows="3" placeholder="Décrivez votre événement..."></textarea>
+                                required name="comments" rows="3" placeholder="Décrivez votre événement..." [disabled]="!canEditEventFields()"></textarea>
                             <div class="error-message" [hidden]="!CommentsV.invalid || !f.submitted">
                                 <i class="fa fa-exclamation-triangle"></i>
                                 {{ "EVENTCREATION.EVENTDESCERR" | translate }}
@@ -358,7 +358,8 @@
                                             <div class="url-event-actions">
                                                 <button type="button" class="btn btn-outline-danger btn-sm" 
                                                         (click)="removeUrlEvent(evenement.urlEvents.indexOf(urlEvent))"
-                                                        title="Supprimer ce lien">
+                                                        title="Supprimer ce lien"
+                                                        [disabled]="!canDeleteUrlEvent(urlEvent)">
                                                     <i class="fa fa-trash"></i>
                                                 </button>
                                             </div>
@@ -427,7 +428,7 @@
                                         </div>
                                         <div class="commentary-meta">
                                             <small class="text-muted">
-                                                <i class="fa fa-user"></i> {{ commentary.owner.userName }} | 
+                                                <i class="fa fa-user"></i> {{ commentary.commentOwner }} | 
                                                 <i class="fa fa-calendar"></i> {{ formatCommentaryDate(commentary.dateCreation) }}
                                             </small>
                                         </div>
@@ -469,7 +470,7 @@
                                         <button type="button" class="btn btn-outline-danger btn-sm" 
                                                 (click)="deleteCommentary(i)"
                                                 title="Supprimer ce commentaire"
-                                                *ngIf="canDeleteCommentary(commentary)">
+                                                [disabled]="!canDeleteCommentary(commentary)">
                                             <i class="fa fa-trash"></i>
                                         </button>
                                     </div>

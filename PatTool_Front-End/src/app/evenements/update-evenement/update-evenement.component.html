@@ -38,7 +38,7 @@
                             </label>
                             <input id="EvenementName" #EvenementName="ngModel" [(ngModel)]="evenement.evenementName"
                                 name="EvenementName" type="text" placeholder="{{ 'EVENTCREATION.EVENTNAMEPLHD' | translate }}"
-                                class="form-control" required>
+                                class="form-control" required [disabled]="!canEditEventFields()">
                             <div class="error-message" [hidden]="!EvenementName.invalid || !f.submitted">
                                 <i class="fa fa-exclamation-triangle"></i>
                                 {{ "EVENTCREATION.EVENTNAMEERR" | translate }}
@@ -53,7 +53,7 @@
                                 <span class="required">*</span>
                             </label>
                             <textarea #CommentsV="ngModel" [(ngModel)]="evenement.comments" class="form-control" id="comments"
-                                required name="comments" rows="3" placeholder="Décrivez votre événement..."></textarea>
+                                required name="comments" rows="3" placeholder="Décrivez votre événement..." [disabled]="!canEditEventFields()"></textarea>
                             <div class="error-message" [hidden]="!CommentsV.invalid || !f.submitted">
                                 <i class="fa fa-exclamation-triangle"></i>
                                 {{ "EVENTCREATION.EVENTDESCERR" | translate }}
@@ -68,7 +68,7 @@
                                 <span class="required">*</span>
                             </label>
                             <select id="visibility" [style.color]="typeColor" #visibility="ngModel"
-                                [(ngModel)]="evenement.visibility" name="visibility" class="form-control" required>
+                                [(ngModel)]="evenement.visibility" name="visibility" class="form-control" required [disabled]="!canEditEventFields()">
                                 <option value="" disabled selected>{{"EVENTCREATION.VISIBILITYPLHD" | translate }}</option>
                                 <option value="public">{{"EVENTCREATION.PUBLIC" | translate }}</option>
                                 <option value="private">{{"EVENTCREATION.PRIVATE" | translate }}</option>
@@ -105,7 +105,7 @@
                                         <span class="required">*</span>
                                     </label>
                                     <select id="typeV" [style.color]="typeColor" #typeV="ngModel" [(ngModel)]="evenement.type"
-                                        name="type" class="form-control" required>
+                                        name="type" class="form-control" required [disabled]="!canEditEventFields()">
                                         <option value="" disabled selected>{{"EVENTCREATION.EVENTTYPEPLHD" | translate }}</option>
                                         <option value="1">{{"EVENTCREATION.TYPE.VTT" | translate }}</option>
                                         <option value="2">{{"EVENTCREATION.TYPE.SKI" | translate }}</option>
@@ -133,7 +133,7 @@
                                         <span class="required">*</span>
                                     </label>
                                     <select id="diffculty" [style.color]="diffColor" #diffculty="ngModel"
-                                        [(ngModel)]="evenement.diffculty" name="diffculty" class="form-control" required>
+                                        [(ngModel)]="evenement.diffculty" name="diffculty" class="form-control" required [disabled]="!canEditEventFields()">
                                         <option value="" disabled selected>{{"EVENTCREATION.EVENTDIFFPLHD" | translate }}</option>
                                         <option value="1">{{"EVENTCREATION.DIFF.0" | translate }}</option>
                                         <option value="2">{{"EVENTCREATION.DIFF.1" | translate }}</option>
@@ -169,7 +169,7 @@
                                     <input type="datetime-local" id="beginEventDate" #beginEventDateV="ngModel" 
                                         [(ngModel)]="beginEventDateString" name="beginEventDate" 
                                         placeholder="{{ 'EVENTCREATION.BEGINEVENTDTPLHD' | translate }}"
-                                        class="form-control" required>
+                                        class="form-control" required [disabled]="!canEditEventFields()">
                                     <div class="error-message" [hidden]="!beginEventDateV.invalid || !f.submitted">
                                         <i class="fa fa-exclamation-triangle"></i>
                                         {{ "EVENTCREATION.BEGINEVENTDTERR" | translate }}
@@ -188,7 +188,7 @@
                                     <input type="datetime-local" id="endEventDateV" #endEventDateV="ngModel" 
                                         [(ngModel)]="endEventDateString" name="endEventDate" 
                                         placeholder="{{ 'EVENTCREATION.ENDEVENTDTPLHD' | translate }}"
-                                        class="form-control" required>
+                                        class="form-control" required [disabled]="!canEditEventFields()">
                                     <div class="error-message" [hidden]="!endEventDateV.invalid || !f.submitted">
                                         <i class="fa fa-exclamation-triangle"></i>
                                         {{ "EVENTCREATION.ENDEVENTDTERR" | translate }}
@@ -234,7 +234,7 @@
                             </label>
                             <input id="startLocation" #startLocation="ngModel" [(ngModel)]="evenement.startLocation"
                                 name="startLocation" placeholder="{{ 'EVENTCREATION.STARTLOCATIONHLP' | translate }}"
-                                class="form-control" required>
+                                class="form-control" required [disabled]="!canEditEventFields()">
                             <div class="error-message" [hidden]="!startLocation.invalid || !f.submitted">
                                 <i class="fa fa-exclamation-triangle"></i>
                                 {{ "EVENTCREATION.STARTLOCATIONERR" | translate }}
@@ -404,12 +404,14 @@
                                             <div class="url-event-actions" *ngIf="editingIndex !== getActualIndex(urlEvent)">
                                                 <button type="button" class="btn btn-outline-primary btn-sm me-1" 
                                                         (click)="startEditUrlEvent(getActualIndex(urlEvent))"
-                                                        title="Modifier ce lien">
+                                                        title="Modifier ce lien"
+                                                        [disabled]="!canEditUrlEvent(urlEvent)">
                                                     <i class="fa fa-edit"></i>
                                                 </button>
                                                 <button type="button" class="btn btn-outline-danger btn-sm" 
                                                         (click)="removeUrlEvent(getActualIndex(urlEvent))"
-                                                        title="Supprimer ce lien">
+                                                        title="Supprimer ce lien"
+                                                        [disabled]="!canDeleteUrlEvent(urlEvent)">
                                                     <i class="fa fa-trash"></i>
                                                 </button>
                                             </div>
@@ -478,7 +480,7 @@
                                         </div>
                                         <div class="commentary-meta">
                                             <small class="text-muted">
-                                                <i class="fa fa-user"></i> {{ commentary.owner.userName }} | 
+                                                <i class="fa fa-user"></i> {{ commentary.commentOwner }} | 
                                                 <i class="fa fa-calendar"></i> {{ formatCommentaryDate(commentary.dateCreation) }}
                                             </small>
                                         </div>
@@ -514,13 +516,14 @@
                                     <div class="commentary-actions" *ngIf="editingCommentaryIndex !== i">
                                         <button type="button" class="btn btn-outline-primary btn-sm me-1" 
                                                 (click)="startEditCommentary(i)"
-                                                title="Modifier ce commentaire">
+                                                title="Modifier ce commentaire"
+                                                [disabled]="!canEditCommentary(commentary)">
                                             <i class="fa fa-edit"></i>
                                         </button>
                                         <button type="button" class="btn btn-outline-danger btn-sm" 
                                                 (click)="deleteCommentary(i)"
                                                 title="Supprimer ce commentaire"
-                                                *ngIf="canDeleteCommentary(commentary)">
+                                                [disabled]="!canDeleteCommentary(commentary)">
                                             <i class="fa fa-trash"></i>
                                         </button>
                                     </div>

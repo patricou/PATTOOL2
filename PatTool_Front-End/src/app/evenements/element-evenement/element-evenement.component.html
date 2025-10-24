@@ -33,7 +33,7 @@
         </b>
     </div>
     <small class="mb-1"><i>{{"EVENTELEM.AUTHOR" | translate }} : {{ evenement.author.firstName }} {{
-            evenement.author.lastName }} &nbsp;&nbsp; ({{evenement.visibility}})</i></small>
+            evenement.author.lastName }} / {{ evenement.author.userName }} &nbsp;&nbsp; ({{evenement.visibility}})</i></small>
     <div class="card-text" [ngSwitch]="+evenement.type">
         {{"EVENTELEM.TYPE" | translate }} :
         <span *ngSwitchCase="1">{{"EVENTCREATION.TYPE.VTT" | translate }}</span>
@@ -93,9 +93,9 @@
     <div class="card-text" [hidden]="!isAnyParticpants()">
         <hr>
         <h5 class="pat-members"><b> {{"EVENTELEM.MEMBERS" | translate }} : </b></h5>
-        <span *ngFor="let member of evenement.members ">
-            <small> {{member.firstName}} {{member.lastName}};</small>
-        </span>
+        <div *ngFor="let member of evenement.members">
+            <small>{{member.firstName}} {{member.lastName}} / {{member.userName}}</small>
+        </div>
     </div>
 </div>
 <div class="card-footer card-text text-center">
@@ -121,7 +121,7 @@
     <a class="btn btn-sm btn-primary mb-1 me-1" [hidden]="!isAuthor()" (click)="changeStatusEvent(evenement.status)"
         ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" placement="top"><i class="fa fa-circle-o-notch"
             aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-warning mb-1 me-1" [hidden]="!isAuthor()" [routerLink]="['/updeven',evenement.id]"
+    <a class="btn btn-sm btn-warning mb-1 me-1" [routerLink]="['/updeven',evenement.id]"
         ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" placement="top"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-danger mb-1 me-1" [hidden]="!isAuthor()" (click)="deleteEvenement()" placement="top"
         ngbTooltip="{{ 'EVENTELEM.DTE' | translate }}"><i class="fa fa-trash" aria-hidden="true"></i></a>
@@ -225,7 +225,7 @@
                 <div class="comment-item" *ngFor="let comment of getEventComments()">
                     <div class="comment-header">
                         <div class="comment-author">
-                            <i class="fa fa-user"></i> {{ comment.owner.firstName }} {{ comment.owner.lastName }}
+                            <i class="fa fa-user"></i> {{ comment.commentOwner }}
                         </div>
                         <div class="comment-date">
                             <i class="fa fa-clock-o"></i> {{ comment.dateCreation | date:'short' }}
