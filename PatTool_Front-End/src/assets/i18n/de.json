@@ -208,6 +208,10 @@
         "FORMAT_JSON": "JSON-Format",
         "CLICK_TO_VIEW": "Klicken zum Anzeigen des Bildes",
         "CLICK_TO_OPEN_PDF": "Klicken zum Öffnen der PDF",
+        "DELETE_FILE": "Datei löschen",
+        "NO_FILES_CHOSEN": "Keine Dateien ausgewählt",
+        "ACCEPTED_FORMATS": "Akzeptierte Formate: Bilder, PDF, Dokumente, Archive",
+        "SELECT_FILES": "Dateien auswählen",
         "NO_LINKS_AVAILABLE": "Keine Links verfügbar",
         "PHOTO_LINK_WITH_NUMBER": "Link zu Foto {0}"
     },

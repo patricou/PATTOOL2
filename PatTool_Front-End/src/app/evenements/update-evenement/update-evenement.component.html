@@ -541,6 +541,102 @@
                     </div>
                 </div>
 
+                <!-- Documents Management Card -->
+                <div class="form-card">
+                    <div class="card-header">
+                        <i class="fa fa-file"></i>
+                        <h3>{{ "EVENTELEM.FILES" | translate }}</h3>
+                    </div>
+                    <div class="card-body">
+                        
+                        <!-- File Upload Section -->
+                        <div class="form-group">
+                            <label class="form-label">
+                                <i class="fa fa-upload"></i>
+                                {{ "EVENTELEM.UPLOAD" | translate }}
+                            </label>
+                            <div class="file-input-wrapper">
+                                <input type="file" 
+                                       id="fileInput"
+                                       class="form-control" 
+                                       multiple 
+                                       accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+                                       (change)="onFileSelected($event)">
+                                <label for="fileInput" class="file-input-label">
+                                    <i class="fa fa-upload me-2"></i>
+                                    {{ "EVENTELEM.SELECT_FILES" | translate }}
+                                </label>
+                            </div>
+                            <small class="form-text text-muted">
+                                {{ "EVENTELEM.ACCEPTED_FORMATS" | translate }}
+                            </small>
+                        </div>
+
+                        <!-- Files List -->
+                        <div class="files-list" *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0">
+                            <h5>{{ "EVENTELEM.FILES" | translate }} ({{ evenement.fileUploadeds.length }})</h5>
+                            <div class="list-group">
+                                <div class="list-group-item d-flex justify-content-between align-items-center" 
+                                     *ngFor="let uploadedFile of evenement.fileUploadeds; let i = index">
+                                    
+                                    <!-- File Info -->
+                                    <div class="file-info d-flex align-items-center">
+                                        <span class="badge me-2" 
+                                              [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
+                                              [class.bg-info]="isImageFile(uploadedFile.fileName)"
+                                              [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
+                                              [title]="uploadedFile.fileName"
+                                              ngbTooltip="{{uploadedFile.fileName}}" placement="top">
+                                            {{uploadedFile.fileName}}
+                                        </span>
+                                        <small class="text-muted clickable-user" 
+                                               (click)="openUserModal(uploadedFile.uploaderMember)"
+                                               title="Cliquer pour voir les détails de l'utilisateur">
+                                            {{uploadedFile.uploaderMember.userName}}
+                                        </small>
+                                    </div>
+
+                                    <!-- File Actions -->
+                                    <div class="file-actions d-flex gap-2">
+                                        <!-- View/Open Button -->
+                                        <button type="button" 
+                                                class="btn btn-outline-primary btn-sm"
+                                                *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
+                                                (click)="isImageFile(uploadedFile.fileName) ? openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName) : openPdfFile(uploadedFile.fieldId, uploadedFile.fileName)"
+                                                [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ('EVENTELEM.CLICK_TO_OPEN_PDF' | translate)">
+                                            <i class="fa fa-eye"></i>
+                                        </button>
+
+                                        <!-- Download Button -->
+                                        <button type="button" 
+                                                class="btn btn-outline-success btn-sm"
+                                                (click)="isImageFile(uploadedFile.fileName) ? openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName) : openPdfFile(uploadedFile.fieldId, uploadedFile.fileName)"
+                                                title="{{ 'EVENTELEM.FILESDOWNLOAD' | translate }}">
+                                            <i class="fa fa-download"></i>
+                                        </button>
+
+                                        <!-- Delete Button -->
+                                        <button type="button" 
+                                                class="btn btn-outline-danger btn-sm"
+                                                (click)="deleteFile(i)"
+                                                [disabled]="!isFileOwner(uploadedFile)"
+                                                title="{{ 'EVENTELEM.DELETE_FILE' | translate }}">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- No Files Message -->
+                        <div class="text-muted text-center py-3" *ngIf="!evenement.fileUploadeds || evenement.fileUploadeds.length === 0">
+                            <i class="fa fa-file-o fa-2x mb-2"></i>
+                            <p>{{ "EVENTELEM.NO_FILES_CHOSEN" | translate }}</p>
+                        </div>
+
+                    </div>
+                </div>
+
                 <!-- Action Buttons -->
                 <div class="form-actions">
                     <div class="button-group">
@@ -558,3 +654,66 @@
         </div>
     </div>
 </div>
+
+    <!-- Image Modal -->
+    <ng-template #imageModal let-modal>
+        <div class="modal-header">
+            <h4 class="modal-title">{{ selectedImageAlt }}</h4>
+            <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body text-center">
+            <img [src]="selectedImageUrl" [alt]="selectedImageAlt" class="modal-image">
+        </div>
+    </ng-template>
+
+    <!-- User Details Modal -->
+    <ng-template #userModal let-modal>
+        <div class="modal-header">
+            <h5 class="modal-title">
+                <i class="fa fa-user me-2"></i>
+                Détails de l'utilisateur
+            </h5>
+            <button type="button" class="btn-close" (click)="modal.dismiss('Cross click')" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body" *ngIf="selectedUser">
+            <div class="user-details">
+                <div class="detail-row">
+                    <strong>Prénom :</strong>
+                    <span>{{ selectedUser.firstName }}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Nom :</strong>
+                    <span>{{ selectedUser.lastName }}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Nom d'utilisateur :</strong>
+                    <span>{{ selectedUser.userName }}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Email :</strong>
+                    <span>{{ selectedUser.addressEmail }}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>ID :</strong>
+                    <span>{{ selectedUser.id }}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Keycloak ID :</strong>
+                    <span>{{ selectedUser.keycloakId }}</span>
+                </div>
+                <div class="detail-row">
+                    <strong>Rôles :</strong>
+                    <span>{{ selectedUser.roles.join(', ') }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Close click')">
+                Fermer
+            </button>
+        </div>
+    </ng-template>

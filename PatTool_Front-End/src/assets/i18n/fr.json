@@ -205,7 +205,11 @@
         "VIEW_JSON": "Voir l'événement au format JSON",
         "FORMAT_JSON": "Format JSON",
         "CLICK_TO_VIEW": "Cliquer pour voir l'image",
-        "CLICK_TO_OPEN_PDF": "Cliquer pour ouvrir le PDF"
+        "CLICK_TO_OPEN_PDF": "Cliquer pour ouvrir le PDF",
+        "DELETE_FILE": "Supprimer le fichier",
+        "NO_FILES_CHOSEN": "Aucun fichier choisi",
+        "ACCEPTED_FORMATS": "Formats acceptés : Images, PDF, Documents, Archives",
+        "SELECT_FILES": "Sélectionner des fichiers"
     },
     "COMMUN": {
         "YES": "Oui",

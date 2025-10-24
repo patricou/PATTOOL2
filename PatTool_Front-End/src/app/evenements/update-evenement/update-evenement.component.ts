@@ -1,13 +1,19 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, OnInit, ViewChild, TemplateRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Evenement } from '../../model/evenement';
 import { EvenementsService } from '../../services/evenements.service';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 
 // Removed ngx-mydatepicker imports - using native HTML date inputs
 import { Member } from '../../model/member';
 import { UrlEvent } from '../../model/url-event';
 import { Commentary } from '../../model/commentary';
 import { MembersService } from '../../services/members.service';
+import { FileService } from '../../services/file.service';
+import { UploadedFile } from '../../model/uploadedfile';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import { environment } from '../../../environments/environment';
 
 @Component({
 	selector: 'update-evenement',
@@ -50,10 +56,21 @@ export class UpdateEvenementComponent implements OnInit {
 	public editingCommentaryIndex: number = -1;
 	public editingCommentary: Commentary = new Commentary("", "", new Date());
 
+    // Image modal properties
+    @ViewChild('imageModal') imageModal!: TemplateRef<any>;
+    public selectedImageUrl: any = '';
+    public selectedImageAlt: string = '';
+
+    // User modal properties
+    public selectedUser: Member | null = null;
+    @ViewChild('userModal') userModal!: TemplateRef<any>;
+
 	constructor(private _route: ActivatedRoute,
 		private _evenementsService: EvenementsService,
 		private _router: Router,
-		private _memberService: MembersService
+		private _memberService: MembersService,
+		private _fileService: FileService,
+		private modalService: NgbModal
 	) { }
 
 	ngOnInit() {
@@ -360,6 +377,165 @@ export class UpdateEvenementComponent implements OnInit {
 	public formatCommentaryDate(date: Date): string {
 		if (!date) return '';
 		return new Date(date).toLocaleString();
+	}
+
+	// File management methods
+	public isFileOwner(uploadedFile: UploadedFile): boolean {
+		return this.user.userName === uploadedFile.uploaderMember.userName;
+	}
+
+	private reloadEvent(): void {
+		let id: string = this._route.snapshot.params['id'];
+		this._evenementsService.getEvenement(id).subscribe(
+			evenement => {
+				this.evenement = evenement;
+				this.author = evenement.author.firstName + " " + evenement.author.lastName + " / " + evenement.author.userName;
+				
+				// Initialize urlEvents if not present
+				if (!this.evenement.urlEvents) {
+					this.evenement.urlEvents = [];
+				}
+				
+				// Initialize commentaries if not present
+				if (!this.evenement.commentaries) {
+					this.evenement.commentaries = [];
+				}
+				
+				// Initialize fileUploadeds if not present
+				if (!this.evenement.fileUploadeds) {
+					this.evenement.fileUploadeds = [];
+				}
+			},
+			error => {
+				console.error('Error reloading event:', error);
+			}
+		);
+	}
+
+	public isImageFile(fileName: string): boolean {
+		const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'];
+		const extension = fileName.toLowerCase().substring(fileName.lastIndexOf('.'));
+		return imageExtensions.includes(extension);
+	}
+
+	public isPdfFile(fileName: string): boolean {
+		return fileName.toLowerCase().endsWith('.pdf');
+	}
+
+	public getFileBlobUrl(fileId: string): Observable<any> {
+		return this._fileService.getFile(fileId).pipe(
+			map((res: any) => {
+				let blob = new Blob([res], { type: 'application/octet-stream' });
+				return blob;
+			})
+		);
+	}
+
+    public openUserModal(user: Member): void {
+        this.selectedUser = user;
+        if (!this.userModal) {
+            return;
+        }
+
+        this.modalService.open(this.userModal, {
+            size: 'md',
+            centered: true,
+            backdrop: true,
+            keyboard: true,
+            animation: true
+        });
+    }
+
+    public openFileImageModal(fileId: string, fileName: string): void {
+		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
+			const objectUrl = URL.createObjectURL(blob);
+			this.selectedImageUrl = objectUrl;
+			this.selectedImageAlt = fileName;
+
+			if (!this.imageModal) {
+				return;
+			}
+
+			this.modalService.open(this.imageModal, {
+				size: 'xl',
+				centered: true,
+				backdrop: true,
+				keyboard: true,
+				animation: false,
+				windowClass: 'modal-smooth-animation'
+			});
+		}, (error) => {
+			console.error('Error loading file:', error);
+			alert('Erreur lors du chargement du fichier');
+		});
+	}
+
+	public openPdfFile(fileId: string, fileName: string): void {
+		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
+			const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+			const objectUrl = URL.createObjectURL(pdfBlob);
+			window.open(objectUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
+			setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+		}, (error) => {
+			console.error('Error loading PDF file:', error);
+			alert('Erreur lors du chargement du fichier PDF');
+		});
+	}
+
+	public handleFileClick(fileId: string, fileName: string): void {
+		if (this.isImageFile(fileName)) {
+			this.openFileImageModal(fileId, fileName);
+		} else if (this.isPdfFile(fileName)) {
+			this.openPdfFile(fileId, fileName);
+		}
+	}
+
+	public deleteFile(fileIndex: number): void {
+		if (confirm('Êtes-vous sûr de vouloir supprimer ce fichier ?')) {
+			this.evenement.fileUploadeds.splice(fileIndex, 1);
+			this._evenementsService.put4FileEvenement(this.evenement).subscribe(
+				(response) => {
+					console.log('File deleted successfully');
+				},
+				(error) => {
+					console.error('Error deleting file:', error);
+					alert('Erreur lors de la suppression du fichier');
+				}
+			);
+		}
+	}
+
+	public onFileSelected(event: any): void {
+		const files = event.target.files;
+		if (files && files.length > 0) {
+			const formData = new FormData();
+			for (let i = 0; i < files.length; i++) {
+				formData.append('file', files[i], files[i].name);
+			}
+			
+			// Build the correct upload URL like in element-evenement
+			const uploadUrl = `${environment.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
+			console.log("Upload URL:", uploadUrl);
+			
+			this._fileService.postFileToUrl(formData, this.user, uploadUrl).subscribe(
+				(response) => {
+					console.log('Files uploaded successfully:', response);
+					// Reload the event to get updated file list
+					this.reloadEvent();
+					// Reset file input
+					const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+					if (fileInput) {
+						fileInput.value = '';
+					}
+					// Show success message
+					alert('Fichiers uploadés avec succès!');
+				},
+				(error) => {
+					console.error('Error uploading files:', error);
+					alert('Erreur lors de l\'upload des fichiers');
+				}
+			);
+		}
 	}
 
 }

@@ -1264,3 +1264,59 @@ hr {
     white-space: pre-wrap;
     word-wrap: break-word;
 }
+
+/* File badge styling with fixed width */
+.file-name .badge {
+    width: 150px; /* Fixed width for all badges */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    text-align: center;
+}
+
+.file-name {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Clickable user styling */
+.clickable-user {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+}
+
+.clickable-user:hover {
+    color: #007bff !important;
+    text-decoration-color: #007bff;
+}
+
+/* User details modal styling */
+.user-details {
+    padding: 1rem 0;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-row strong {
+    color: #495057;
+    min-width: 150px;
+}
+
+.detail-row span {
+    color: #6c757d;
+    word-break: break-all;
+}

@@ -729,6 +729,235 @@ textarea.form-control {
     text-decoration: underline;
 }
 
+/* File Input Custom Styling */
+.file-input-wrapper {
+    position: relative;
+}
+
+.file-input-wrapper input[type="file"] {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.file-input-label {
+    display: block;
+    padding: 0.75rem 1rem;
+    background: #f8f9fa;
+    border: 2px dashed #dee2e6;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    width: 100%;
+    color: #6c757d;
+    margin-bottom: 0;
+}
+
+.file-input-label:hover {
+    background: #e9ecef;
+    border-color: #007bff;
+    color: #007bff;
+}
+
+.file-input-label i {
+    font-size: 1.2rem;
+}
+
+/* File badge styling with fixed width */
+.file-info .badge {
+    width: 150px; /* Fixed width for all badges */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    text-align: center;
+}
+
+.file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Clickable user styling */
+.clickable-user {
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+}
+
+.clickable-user:hover {
+    color: #007bff !important;
+    text-decoration-color: #007bff;
+}
+
+/* User details modal styling */
+.user-details {
+    padding: 1rem 0;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-row strong {
+    color: #495057;
+    min-width: 150px;
+}
+
+.detail-row span {
+    color: #6c757d;
+    word-break: break-all;
+}
+
+/* Image Modal Styles */
+.modal-image {
+    max-height: 70vh;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    border-radius: 20px;
+    box-shadow:
+        0 30px 60px rgba(0, 0, 0, 0.4),
+        0 15px 30px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+    transform: scale(0.8) translateY(50px) rotateX(20deg);
+    opacity: 0;
+    animation: imageSlideInUltra 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s forwards;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05));
+    object-fit: contain;
+}
+
+@keyframes imageSlideInUltra {
+    0% {
+        transform: scale(0.8) translateY(50px) rotateX(20deg);
+        opacity: 0;
+        filter: blur(10px);
+    }
+    50% {
+        transform: scale(0.95) translateY(20px) rotateX(10deg);
+        opacity: 0.7;
+        filter: blur(5px);
+    }
+    100% {
+        transform: scale(1) translateY(0) rotateX(0deg);
+        opacity: 1;
+        filter: blur(0px);
+    }
+}
+
+/* Force modal to be less wide but keep image proportions */
+::ng-deep .modal-smooth-animation .modal-dialog {
+    max-width: 70vw !important;
+    width: 70vw !important;
+    margin: 0 auto !important;
+}
+
+/* Override Bootstrap xl size - less wide */
+::ng-deep .modal-xl {
+    max-width: 70vw !important;
+    width: 70vw !important;
+}
+
+::ng-deep .modal-smooth-animation .modal-content {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 249, 250, 0.9));
+    border: none;
+    border-radius: 25px;
+    box-shadow: 
+        0 25px 50px rgba(0, 0, 0, 0.3),
+        0 10px 20px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(20px);
+    overflow: hidden;
+    margin: 0;
+}
+
+::ng-deep .modal-smooth-animation .modal-header {
+    background: linear-gradient(135deg, #007bff, #0056b3);
+    color: white;
+    border: none;
+    padding: 1rem 1.5rem;
+    border-radius: 25px 25px 0 0;
+}
+
+::ng-deep .modal-smooth-animation .modal-header .modal-title {
+    font-weight: 600;
+    font-size: 1.2rem;
+}
+
+::ng-deep .modal-smooth-animation .modal-header .btn-close {
+    color: white;
+    opacity: 0.8;
+    font-size: 1.5rem;
+}
+
+::ng-deep .modal-smooth-animation .modal-header .btn-close:hover {
+    opacity: 1;
+}
+
+::ng-deep .modal-smooth-animation .modal-body {
+    padding: 5px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 45vh;
+    width: 100%;
+    margin: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .modal-image {
+        max-height: 65vh;
+        max-width: 100%;
+        width: auto;
+        height: auto;
+        border-radius: 15px;
+        object-fit: contain;
+    }
+    ::ng-deep .modal-smooth-animation .modal-content {
+        max-width: 75vw;
+        width: 75vw;
+    }
+    ::ng-deep .modal-smooth-animation .modal-body {
+        min-height: 40vh;
+    }
+}
+
+@media (max-width: 480px) {
+    .modal-image {
+        max-height: 60vh;
+        max-width: 100%;
+        width: auto;
+        height: auto;
+        border-radius: 12px;
+        object-fit: contain;
+    }
+    ::ng-deep .modal-smooth-animation .modal-content {
+        max-width: 80vw;
+        width: 80vw;
+    }
+    ::ng-deep .modal-smooth-animation .modal-body {
+        min-height: 35vh;
+    }
+}
+
 .url-event-description {
     color: #6c757d;
     font-style: italic;

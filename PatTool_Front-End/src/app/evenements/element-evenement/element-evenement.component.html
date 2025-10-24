@@ -78,20 +78,29 @@
             <ul class="list-group">
                 <li class="list-group-item d-flex justify-content-between align-items-center"
                     *ngFor="let uploadedFile of evenement.fileUploadeds ">
-                    <span class="file-name" 
-                          [class.clickable-file-name]="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
-                          [class.non-clickable-file-name]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
-                          (click)="handleFileClick(uploadedFile)"
-                          [ngbTooltip]="getFileTooltip(uploadedFile.fileName)">
+                    <span class="file-name">
                         <span class="badge" 
                               [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
                               [class.bg-info]="isImageFile(uploadedFile.fileName)"
-                              [class.bg-danger]="isPdfFile(uploadedFile.fileName)">
+                              [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
+                              [title]="uploadedFile.fileName"
+                              ngbTooltip="{{uploadedFile.fileName}}" placement="top">
                             {{uploadedFile.fileName}}
                         </span>
-                        <small class="text-muted ms-2">{{uploadedFile.uploaderMember.userName}}</small>
+                        <small class="text-muted ms-2 clickable-user" 
+                               (click)="openUserModal(uploadedFile.uploaderMember)"
+                               title="Cliquer pour voir les détails de l'utilisateur">
+                            {{uploadedFile.uploaderMember.userName}}
+                        </small>
                     </span>
                     <div class="file-actions">
+                        <button class="btn btn-sm btn-outline-primary me-2" 
+                                placement="left"
+                                ngbTooltip="{{ isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ('EVENTELEM.CLICK_TO_OPEN_PDF' | translate) }}"
+                                *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
+                                (click)="handleFileClick(uploadedFile)">
+                            <i class="fa fa-eye" aria-hidden="true"></i>
+                        </button>
                         <button class="btn btn-sm btn-primary me-2" placement="left"
                             ngbTooltip="{{ 'COMMUN.DOWNLOAD' | translate }}"
                             (click)="openWindows(uploadedFile.fieldId, uploadedFile.fileName)">
@@ -363,5 +372,55 @@
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c()">Close</button>
+    </div>
+</ng-template>
+
+<!-- User Details Modal -->
+<ng-template #userModal let-modal>
+    <div class="modal-header">
+        <h5 class="modal-title">
+            <i class="fa fa-user me-2"></i>
+            Détails de l'utilisateur
+        </h5>
+        <button type="button" class="btn-close" (click)="modal.dismiss('Cross click')" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    <div class="modal-body" *ngIf="selectedUser">
+        <div class="user-details">
+            <div class="detail-row">
+                <strong>Prénom :</strong>
+                <span>{{ selectedUser.firstName }}</span>
+            </div>
+            <div class="detail-row">
+                <strong>Nom :</strong>
+                <span>{{ selectedUser.lastName }}</span>
+            </div>
+            <div class="detail-row">
+                <strong>Nom d'utilisateur :</strong>
+                <span>{{ selectedUser.userName }}</span>
+            </div>
+            <div class="detail-row">
+                <strong>Email :</strong>
+                <span>{{ selectedUser.addressEmail }}</span>
+            </div>
+            <div class="detail-row">
+                <strong>ID :</strong>
+                <span>{{ selectedUser.id }}</span>
+            </div>
+            <div class="detail-row">
+                <strong>Keycloak ID :</strong>
+                <span>{{ selectedUser.keycloakId }}</span>
+            </div>
+            <div class="detail-row">
+                <strong>Rôles :</strong>
+                <span>{{ selectedUser.roles.join(', ') }}</span>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Close click')">
+            Fermer
+        </button>
     </div>
 </ng-template>

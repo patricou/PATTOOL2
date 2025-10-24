@@ -40,11 +40,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public thumbnailUrl: any = "assets/images/images.jpg";
 	public selectedImageUrl: SafeUrl | string = '';
 	public selectedImageAlt: string = '';
+	public selectedUser: Member | null = null;
 
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
+	@ViewChild('userModal') userModal!: TemplateRef<any>;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 
 	@Input()
@@ -1060,6 +1062,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			console.log('Comments modal closed with:', result);
 		}, (reason) => {
 			console.log('Comments modal dismissed:', reason);
+		});
+	}
+
+	public openUserModal(user: Member): void {
+		this.selectedUser = user;
+		if (!this.userModal) {
+			return;
+		}
+
+		this.modalService.open(this.userModal, {
+			size: 'md',
+			centered: true,
+			backdrop: true,
+			keyboard: true,
+			animation: true
 		});
 	}
 }
