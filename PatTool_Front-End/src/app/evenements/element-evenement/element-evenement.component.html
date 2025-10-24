@@ -59,11 +59,10 @@
         {{"EVENTELEM.STARTLOCATION" | translate }} : {{evenement.startLocation}}
     </div>
     <div class="card-text">
-        {{"EVENTELEM.BEGINDT" | translate }} : {{evenement.beginEventDate | date }} {{"COMMUN.AT" | translate}} <b>{{
-            evenement.startHour }}</b>
+        {{"EVENTELEM.BEGINDT" | translate }} : {{formatEventDateTime(evenement.beginEventDate, evenement.startHour)}}
     </div>
     <div class="card-text">
-        {{"EVENTELEM.ENDDT" | translate }} : {{evenement.endEventDate | date }}
+        {{"EVENTELEM.ENDDATETIME" | translate }} : {{formatEventDateTime(evenement.endEventDate, '')}}
     </div>
     <!--    
     <div class="card-text">
@@ -103,40 +102,40 @@
     <!-- <iframe width="100%" height="250" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" sandbox="allow-forms allow-scripts allow-same-origin" [src]="safeUrlMap" allowfullscreen></iframe> -->
     <!-- URLs Button -->
     <button class="btn btn-primary btn-sm mb-1 me-1" [hidden]="!isUrlEventsAvailable()" 
-        (click)="openUrlsModal(urlsModal)" placement="right"
+        (click)="openUrlsModal(urlsModal)" placement="top"
         ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount() }})">
         <i class="fa fa-link" aria-hidden="true"></i> {{ getUrlEventsCount() }}
     </button>
-    <a class="btn btn-sm btn-outline-info mb-1 me-1" (click)="open(content)"
-        ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}"><i class="fa fa-comments" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-info mb-1 me-1" [hidden]="!isParticipant()" (click)="delMemberClick()"
-        ngbTooltip=" {{ 'EVENTELEM.IDWTP' | translate }}"><i class="fa fa-user" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-success mb-1 me-1" [hidden]="isParticipant()" (click)="addMemberClick()"
-        ngbTooltip=" {{ 'EVENTELEM.IWTP' | translate }}"><i class="fa fa-user-o" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-primary mb-1 me-1" [hidden]="!isAuthor()" (click)="changeStatusEvent(evenement.status)"
-        ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}"><i class="fa fa-circle-o-notch"
-            aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-warning mb-1 me-1" [hidden]="!isAuthor()" [routerLink]="['/updeven',evenement.id]"
-        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-danger mb-1 me-1" [hidden]="!isAuthor()" (click)="deleteEvenement()" placement="left"
-        ngbTooltip="{{ 'EVENTELEM.DTE' | translate }}"><i class="fa fa-trash" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-outline-primary mb-1 me-1" [hidden]="!isAnyFiles()" (click)="toogleFileListe()"
-        placement="bottom" ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"><i class="fa fa-download"
-            aria-hidden="true"></i> </a>
-    
     <!-- Comments Button -->
-    <button class="btn btn-sm comments-button mb-1 me-1" [hidden]="!hasComments()" (click)="openCommentsModal()" placement="right"
+    <button class="btn btn-sm comments-button mb-1 me-1" [hidden]="!hasComments()" (click)="openCommentsModal()" placement="top"
         ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}">
         <i class="fa fa-comments" aria-hidden="true"></i> {{ getCommentsCount() }}
     </button>
+    
+    <a class="btn btn-sm btn-outline-info mb-1 me-1" (click)="open(content)"
+        ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}" placement="top"><i class="fa fa-comments" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-info mb-1 me-1" [hidden]="!isParticipant()" (click)="delMemberClick()"
+        ngbTooltip=" {{ 'EVENTELEM.IDWTP' | translate }}" placement="top"><i class="fa fa-user" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-success mb-1 me-1" [hidden]="isParticipant()" (click)="addMemberClick()"
+        ngbTooltip=" {{ 'EVENTELEM.IWTP' | translate }}" placement="top"><i class="fa fa-user-o" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-primary mb-1 me-1" [hidden]="!isAuthor()" (click)="changeStatusEvent(evenement.status)"
+        ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" placement="top"><i class="fa fa-circle-o-notch"
+            aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-warning mb-1 me-1" [hidden]="!isAuthor()" [routerLink]="['/updeven',evenement.id]"
+        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" placement="top"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-danger mb-1 me-1" [hidden]="!isAuthor()" (click)="deleteEvenement()" placement="top"
+        ngbTooltip="{{ 'EVENTELEM.DTE' | translate }}"><i class="fa fa-trash" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-outline-primary mb-1 me-1" [hidden]="!isAnyFiles()" (click)="toogleFileListe()"
+        placement="top" ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"><i class="fa fa-download"
+            aria-hidden="true"></i> </a>
 
     <!-- JSON View Button -->
-    <button class="btn btn-sm btn-secondary mb-1 me-1" (click)="openJsonModal()" placement="right"
+    <button class="btn btn-sm btn-secondary mb-1 me-1" (click)="openJsonModal()" placement="top"
         ngbTooltip="{{ 'EVENTELEM.VIEW_JSON' | translate }}">
         <i class="fa fa-code" aria-hidden="true"></i>
     </button>
 
-    <div class="file-upload-wrapper me-1" placement="left" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}">
+    <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}">
         <label [for]="'file-upload-input-' + evenement.id" class="btn btn-sm btn-success mb-1">
             <i class="fa fa-upload" aria-hidden="true"></i>
         </label>

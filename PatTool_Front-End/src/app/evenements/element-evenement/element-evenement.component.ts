@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 // Removed ng2-file-upload - using native HTML file input
 import { NgbModal, ModalDismissReasons, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap';
 import { Database, ref, push, remove, onValue, serverTimestamp } from '@angular/fire/database';
+import { TranslateService } from '@ngx-translate/core';
 
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
@@ -77,7 +78,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		private database: Database,
 		private ratingConfig: NgbRatingConfig,
 		private _fileService: FileService,
-		private winRef: WindowRefService
+		private winRef: WindowRefService,
+		private translateService: TranslateService
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -777,7 +779,115 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// Format date for display
 	public formatCommentaryDate(date: Date): string {
 		if (!date) return '';
-		return new Date(date).toLocaleString();
+		
+		const commentaryDate = new Date(date);
+		
+		// Mapper la langue actuelle à la locale appropriée
+		const currentLang = this.translateService.currentLang || 'fr';
+		const localeMap: { [key: string]: string } = {
+			'fr': 'fr-FR',
+			'en': 'en-US',
+			'es': 'es-ES',
+			'de': 'de-DE',
+			'it': 'it-IT',
+			'ru': 'ru-RU',
+			'jp': 'ja-JP',
+			'cn': 'zh-CN',
+			'ar': 'ar-SA',
+			'el': 'el-GR',
+			'he': 'he-IL'
+		};
+		
+		const locale = localeMap[currentLang] || 'fr-FR';
+		
+		// Formater la date et l'heure selon la locale de la langue sélectionnée
+		return commentaryDate.toLocaleString(locale, {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit'
+		});
+	}
+
+	// Format event date with locale
+	public formatEventDate(date: Date): string {
+		if (!date) return '';
+		
+		const eventDate = new Date(date);
+		
+		// Mapper la langue actuelle à la locale appropriée
+		const currentLang = this.translateService.currentLang || 'fr';
+		const localeMap: { [key: string]: string } = {
+			'fr': 'fr-FR',
+			'en': 'en-US',
+			'es': 'es-ES',
+			'de': 'de-DE',
+			'it': 'it-IT',
+			'ru': 'ru-RU',
+			'jp': 'ja-JP',
+			'cn': 'zh-CN',
+			'ar': 'ar-SA',
+			'el': 'el-GR',
+			'he': 'he-IL'
+		};
+		
+		const locale = localeMap[currentLang] || 'fr-FR';
+		
+		// Formater la date selon la locale de la langue sélectionnée
+		return eventDate.toLocaleDateString(locale, {
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric'
+		});
+	}
+
+	// Format event date with time for card view
+	public formatEventDateTime(date: Date, time: string): string {
+		if (!date) return '';
+		
+		const eventDate = new Date(date);
+		
+		// Mapper la langue actuelle à la locale appropriée
+		const currentLang = this.translateService.currentLang || 'fr';
+		const localeMap: { [key: string]: string } = {
+			'fr': 'fr-FR',
+			'en': 'en-US',
+			'es': 'es-ES',
+			'de': 'de-DE',
+			'it': 'it-IT',
+			'ru': 'ru-RU',
+			'jp': 'ja-JP',
+			'cn': 'zh-CN',
+			'ar': 'ar-SA',
+			'el': 'el-GR',
+			'he': 'he-IL'
+		};
+		
+		const locale = localeMap[currentLang] || 'fr-FR';
+		
+		// Formater la date selon la locale de la langue sélectionnée
+		const formattedDate = eventDate.toLocaleDateString(locale, {
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric'
+		});
+		
+		// Extraire l'heure de la date si startHour est vide
+		let timeToDisplay = time;
+		if (!timeToDisplay || timeToDisplay.trim() === '') {
+			timeToDisplay = eventDate.toLocaleTimeString(locale, {
+				hour: '2-digit',
+				minute: '2-digit'
+			});
+		}
+		
+		// Ajouter l'heure si elle existe
+		if (timeToDisplay && timeToDisplay.trim() !== '') {
+			return `${formattedDate} ${this.translateService.instant('COMMUN.AT')} ${timeToDisplay}`;
+		}
+		
+		return formattedDate;
 	}
 
 	// Get event thumbnail (similar to home-evenements)

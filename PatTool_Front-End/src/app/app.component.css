@@ -371,6 +371,49 @@
     display: none !important;
 }
 
+/* Global Tooltip Fixes - Force tooltips to appear above everything */
+::ng-deep .tooltip {
+    z-index: 999999 !important;
+    position: fixed !important;
+    pointer-events: none !important;
+}
+
+::ng-deep .tooltip-inner {
+    background-color: #333 !important;
+    color: white !important;
+    border-radius: 4px !important;
+    padding: 8px 12px !important;
+    font-size: 0.875rem !important;
+    max-width: 200px !important;
+    word-wrap: break-word !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+}
+
+::ng-deep .tooltip.bs-tooltip-top .tooltip-arrow::before {
+    border-top-color: #333 !important;
+}
+
+::ng-deep .tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    border-bottom-color: #333 !important;
+}
+
+::ng-deep .tooltip.bs-tooltip-left .tooltip-arrow::before {
+    border-left-color: #333 !important;
+}
+
+::ng-deep .tooltip.bs-tooltip-right .tooltip-arrow::before {
+    border-right-color: #333 !important;
+}
+
+/* Force tooltips to appear above all cards */
+::ng-deep body .tooltip {
+    z-index: 999999 !important;
+}
+
+::ng-deep body .tooltip-inner {
+    z-index: 999999 !important;
+}
+
 /* Global Modal Backdrop Fix */
 .modal-backdrop {
     background-color: rgba(0,0,0,0.5) !important;

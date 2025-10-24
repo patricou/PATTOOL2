@@ -12,11 +12,11 @@
                 <button class="btn btn-sm btn-secondary btn-filter me-2" (click)="clearFilter()"
                     type="button">X</button>
                 <button class="btn btn-sm btn-outline-primary me-2" (click)="toggleViewMode()"
-                    ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}">
+                    ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="top">
                     <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
                 </button>
                 <select [hidden]="totalPages == 0" class="btn btn-secondary btn-sm me-2" [(ngModel)]="elementsByPage"
-                    (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}">
+                    (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}" placement="top">
                     <option value="1">1</option>
                     <option value="2">2</option>
                     <option value="3">3</option>
@@ -73,48 +73,68 @@
                 <img [src]="getEventThumbnail(evenement)" [alt]="evenement.evenementName"
                     class="compact-thumbnail clickable-image" (error)="onImageError($event)"
                     (click)="openImageModal(getEventThumbnail(evenement), evenement.evenementName); $event.stopPropagation()">
+                <!-- Badge de statut à droite -->
+                <div class="status-badge" [ngSwitch]="evenement.status">
+                    <span *ngSwitchCase="'Closed'" class="badge bg-danger">
+                        <i class="fa fa-times-circle"></i> {{"COMMUN.STATUSCLOSE" | translate }}
+                    </span>
+                    <span *ngSwitchCase="'Open'" class="badge bg-success">
+                        <i class="fa fa-check-circle"></i> {{"COMMUN.STATUSOPEN" | translate }}
+                    </span>
+                    <span *ngSwitchCase="'Cancel'" class="badge bg-warning">
+                        <i class="fa fa-exclamation-triangle"></i> {{"COMMUN.STATUSCANCEL" | translate }}
+                    </span>
+                </div>
             </div>
             <div class="compact-content">
                 <div class="compact-title">{{ evenement.evenementName }}</div>
-                <div class="compact-date">{{ formatEventDate(evenement.beginEventDate) }}</div>
+                <div class="compact-date" [innerHTML]="formatEventDate(evenement.beginEventDate)"></div>
             </div>
             <div class="compact-actions">
 
                 <!-- Links Button -->
                 <button class="btn btn-primary btn-sm me-1" [hidden]="!isUrlEventsAvailable(evenement)"
-                    ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount(evenement) }})"
+                    ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount(evenement) }})" placement="top"
                     (click)="openUrlsModal(evenement); $event.stopPropagation()">
                     <i class="fa fa-link" aria-hidden="true"></i> {{ getUrlEventsCount(evenement) }}
                 </button>
 
+       <!-- Comments Button -->
+       <button class="btn btn-sm comments-button me-1"
+           [hidden]="!hasComments(evenement)"
+           (click)="openCommentsModal(evenement); $event.stopPropagation()"
+           ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}" placement="top">
+           <i class="fa fa-comments"></i> {{ getCommentsCount(evenement) }}
+       </button>
+
                 <!-- Chat Button -->
                 <a class="btn btn-sm btn-outline-info me-1" (click)="openChatModal(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTELEM.CHAT' | translate }}">
+                    ngbTooltip="{{ 'EVENTELEM.CHAT' | translate }}" placement="top">
                     <i class="fa fa-comments" aria-hidden="true"></i>
                 </a>
 
                 <!-- Participate/Unparticipate Button -->
                 <a class="btn btn-sm btn-info me-1" [hidden]="!isParticipant(evenement)"
                     (click)="delMemberInEvent(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTELEM.IDWTP' | translate }}">
+                    ngbTooltip="{{ 'EVENTELEM.IDWTP' | translate }}" placement="top">
                     <i class="fa fa-user" aria-hidden="true"></i>
                 </a>
                 <a class="btn btn-sm btn-success me-1" [hidden]="isParticipant(evenement)"
                     (click)="addMemberInEvent(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTELEM.IWTP' | translate }}">
+                    ngbTooltip="{{ 'EVENTELEM.IWTP' | translate }}" placement="top">
                     <i class="fa fa-user-o" aria-hidden="true"></i>
                 </a>
 
                 <!-- Status Change Button -->
                 <a class="btn btn-sm btn-primary me-1" [hidden]="!isAuthor(evenement)"
                     (click)="changeStatusEvent(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}">
+                    ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" placement="top">
                     <i class="fa fa-circle-o-notch" aria-hidden="true"></i>
                 </a>
 
                 <!-- Edit Button -->
                 <a class="btn btn-sm btn-warning me-1" [hidden]="!isAuthor(evenement)"
-                    [routerLink]="['/updeven', evenement.id]" ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}"
+                    [routerLink]="['/updeven', evenement.id]" ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" placement="top"
                     (click)="$event.stopPropagation()">
                     <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
                 </a>
@@ -122,29 +142,21 @@
                 <!-- Delete Button -->
                 <a class="btn btn-sm btn-danger me-1" [hidden]="!isAuthor(evenement)"
                     (click)="deleteEvenement(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTELEM.DTE' | translate }}">
+                    ngbTooltip="{{ 'EVENTELEM.DTE' | translate }}" placement="top">
                     <i class="fa fa-trash" aria-hidden="true"></i>
                 </a>
-
-                <!-- Comments Button -->
-                <button class="btn btn-sm comments-button me-1"
-                    [hidden]="!hasComments(evenement)"
-                    (click)="openCommentsModal(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}">
-                    <i class="fa fa-comments"></i> {{ getCommentsCount(evenement) }}
-                </button>
 
                 <!-- JSON Button -->
                 <button class="btn btn-sm btn-secondary json-button me-1"
                     (click)="showEventJson(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTHOME.SHOW_JSON' | translate }}">
+                    ngbTooltip="{{ 'EVENTHOME.SHOW_JSON' | translate }}" placement="top">
                     <i class="fa fa-code"></i>
                 </button>
 
                 <!-- View Details Button -->
                 <button class="btn btn-sm btn-outline-primary"
                     (click)="openEventDetails(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTHOME.VIEW_DETAILS' | translate }}">
+                    ngbTooltip="{{ 'EVENTHOME.VIEW_DETAILS' | translate }}" placement="top">
                     <i class="fa fa-eye"></i>
                 </button>
             </div>
@@ -253,7 +265,7 @@
                                     date:'shortTime'}}</span>
                                 <button *ngIf="item.user.userName == user.userName"
                                     class="btn btn-sm btn-outline-danger message-delete" (click)="deleteMessage(item)"
-                                    ngbTooltip="{{ 'EVENTELEM.DELMESCHAT' | translate }}">
+                                    ngbTooltip="{{ 'EVENTELEM.DELMESCHAT' | translate }}" placement="top">
                                     <i class="fa fa-trash"></i>
                                 </button>
                             </div>

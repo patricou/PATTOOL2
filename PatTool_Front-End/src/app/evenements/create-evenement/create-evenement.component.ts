@@ -55,6 +55,10 @@ export class CreateEvenementComponent implements OnInit {
 		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public", [], []);
 		this.author = this.evenement.author.firstName + " " + this.evenement.author.lastName;
 		
+		// Initialize date strings with local timezone
+		this.beginEventDateString = this.formatDateForInput(this.evenement.beginEventDate);
+		this.endEventDateString = this.formatDateForInput(this.evenement.endEventDate);
+		
 		// Initialize newUrlEvent with current user as owner
 		this.newUrlEvent = new UrlEvent("", new Date(), this.user.userName, "", "");
 		
@@ -105,6 +109,20 @@ export class CreateEvenementComponent implements OnInit {
 	};
 
 	// Removed onDateChanged method - using native HTML date inputs
+
+	private formatDateForInput(date: Date): string {
+		if (!date) return '';
+		const d = new Date(date);
+		
+		// Format pour datetime-local en utilisant la zone horaire locale
+		const year = d.getFullYear();
+		const month = String(d.getMonth() + 1).padStart(2, '0');
+		const day = String(d.getDate()).padStart(2, '0');
+		const hours = String(d.getHours()).padStart(2, '0');
+		const minutes = String(d.getMinutes()).padStart(2, '0');
+		
+		return `${year}-${month}-${day}T${hours}:${minutes}`;
+	}
 
 	// Methods to manage photos - REMOVED since photosUrl field has been removed
 	addPhotoUrl(photoUrl: string) {

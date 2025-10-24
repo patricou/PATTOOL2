@@ -477,16 +477,41 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const diffTime = eventDate.getTime() - now.getTime();
 		const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 		
+		// Mapper la langue actuelle à la locale appropriée
+		const currentLang = this.translateService.currentLang || 'fr';
+		const localeMap: { [key: string]: string } = {
+			'fr': 'fr-FR',
+			'en': 'en-US',
+			'es': 'es-ES',
+			'de': 'de-DE',
+			'it': 'it-IT',
+			'ru': 'ru-RU',
+			'jp': 'ja-JP',
+			'cn': 'zh-CN',
+			'ar': 'ar-SA',
+			'el': 'el-GR',
+			'he': 'he-IL'
+		};
+		
+		const locale = localeMap[currentLang] || 'fr-FR';
+		
+		// Formater la date selon la locale de la langue sélectionnée
+		const formattedDate = eventDate.toLocaleDateString(locale, {
+			day: 'numeric',
+			month: 'long',
+			year: 'numeric'
+		});
+		
 		if (diffDays === 0) {
-			return "Aujourd'hui";
+			return this.translateService.instant('COMMUN.TODAY') + ` <em>(${formattedDate})</em>`;
 		} else if (diffDays === 1) {
-			return "Demain";
+			return this.translateService.instant('COMMUN.TOMORROW') + ` <em>(${formattedDate})</em>`;
 		} else if (diffDays === -1) {
-			return "Hier";
+			return this.translateService.instant('COMMUN.YESTERDAY') + ` <em>(${formattedDate})</em>`;
 		} else if (diffDays > 0) {
-			return `Dans ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+			return this.translateService.instant('COMMUN.IN_DAYS', { days: diffDays }) + ` <em>(${formattedDate})</em>`;
 		} else {
-			return `Il y a ${Math.abs(diffDays)} jour${Math.abs(diffDays) > 1 ? 's' : ''}`;
+			return this.translateService.instant('COMMUN.DAYS_AGO', { days: Math.abs(diffDays) }) + ` <em>(${formattedDate})</em>`;
 		}
 	}
 

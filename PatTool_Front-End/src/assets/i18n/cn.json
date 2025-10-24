@@ -31,9 +31,13 @@
         "SECTION3TITLE": " 主页，第3部分 (法语)."
     },
     "LINKS": {
-        "TITLE": "喜欢的链接",
-        "REF": "...",
-        "COMMENT": "选中的框是公开的"
+        "TITLE": "链接",
+        "COMMENT": "访问有用资源的组织化集合",
+        "RESOURCE_LIBRARY": "资源库",
+        "NO_LINKS": "此类别中没有可用的链接",
+        "SEARCH_PLACEHOLDER": "按名称或URL搜索...",
+        "NO_SEARCH_RESULTS": "未找到搜索结果",
+        "OPEN_URL_ON_CLICK": "点击时打开URL"
     },
     "IOT": {
         "TITLE": "家庭控制",
@@ -49,7 +53,7 @@
         "EVENTSLIST": "活动列表：",
         "EVENTFILTRE": "过滤 ....",
         "NOEVENT": "没有要显示的活动 ....",
-        "NO_LINKS_ADDED": "此事件未添加链接",
+        "NO_LINKS_ADDED": "此活动未添加链接",
         "COMMENTARIES": "评论",
         "ADD_COMMENTARY": "添加评论",
         "COMMENTARY_TEXT": "评论文本",
@@ -59,9 +63,9 @@
         "SAVE_URL_EVENT": "保存链接",
         "CANCEL_URL_EVENT": "取消",
         "NO_COMMENTARIES_ADDED": "此事件未添加任何评论",
-        "TOGGLE_VIEW": "在正常视图和紧凑视图之间切换",        "TOGGLE_VIEW_CARDS_LIST": "切换卡片/列表视图",
-
-
+        "TOGGLE_VIEW": "在正常视图和紧凑视图之间切换",
+        "TOGGLE_VIEW_CARDS_LIST": "切换卡片/列表视图",
+        "VIEW_DETAILS": "查看详情",
         "PAGE": "页面",
         "URL_EVENTS": "活动链接",
         "ADD_URL_EVENT": "添加链接",
@@ -78,12 +82,12 @@
         "URL_TYPE_WEBSITE": "网站",
         "BASIC_INFO": "基本信息",
         "REGISTRATION_DATES": "注册日期",
-        "NO_LINKS_ADDED": "此活动未添加链接",
         "LINK_DESCRIPTION_PLACEHOLDER": "链接描述...",
         "EVENT_DETAILS": "活动详情",
         "DATE_AND_TIME": "日期和时间",
         "LOCATION_AND_LINKS": "位置",
-        "SHOW_JSON": "以JSON格式查看活动"
+        "SHOW_JSON": "以JSON格式查看活动",
+        "IMAGE_PREVIEW": "图片预览"
     },
     "EVENTCREATION": {
         "TITLE": "创建活动",
@@ -168,6 +172,7 @@
         "REF": "参考",
         "BEGINDT": "开始日期/时间",
         "ENDDT": "结束日期",
+        "ENDDATETIME": "结束日期/时间",
         "STATUS": "状态",
         "TYPE": "类型",
         "DIFF": "难度",
@@ -197,7 +202,14 @@
         "OPEN_PHOTO": "打开",
         "NO_PHOTOS_AVAILABLE": "此活动没有可用照片。",
         "VIEW_JSON": "以JSON格式查看活动",
-        "FORMAT_JSON": "JSON格式"
+        "FORMAT_JSON": "JSON格式",
+        "LINKS": "链接",
+        "OWNER": "所有者",
+        "DESCRIPTION": "描述",
+        "DATE_CREATION": "创建日期",
+        "OPEN_LINK": "打开链接",
+        "NO_LINKS_AVAILABLE": "没有可用链接",
+        "PHOTO_LINK_WITH_NUMBER": "照片链接 {0}"
     },
     "COMMUN": {
         "YES": "是",
@@ -208,6 +220,11 @@
         "STATUSCLOSE": "关闭",
         "STATUSOPEN": "打开",
         "STATUSCANCEL": "取消",
+        "DAYS_AGO": "{{days}}天前",
+        "TODAY": "今天",
+        "TOMORROW": "明天",
+        "YESTERDAY": "昨天",
+        "IN_DAYS": "{{days}}天后",
         "BY": "通过",
         "AT": "在",
         "EVENTBYPAGE": "每页活动数",
@@ -262,7 +279,8 @@
         "SENDWITHHISTORICAL": "带历史发送",
         "SENDWITHOUTHISTORICAL": "不带历史发送",
         "WITHLASTXQUESTION": "与最后X个问题",
-        "WITHLASTFIRSTQUESTION": "与前X个问题"
+        "WITHLASTFIRSTQUESTION": "与前X个问题",
+        "CLEAR": "清除"
     },
     "ABOUT": {
         "DESIGNED_BY": "设计与开发者",
@@ -291,16 +309,5 @@
         "SPRING_SECURITY_DESC": "Spring Security集成",
         "SSL_CERTIFICATE": "SSL证书",
         "SSL_DESC": "使用GoDaddy SSL的安全通信"
-    },
-    "LINKS": {
-        "TITLE": "链接",
-        "COMMENT": "访问有用资源的组织化集合",
-        "RESOURCE_LIBRARY": "资源库",
-        "NO_LINKS": "此类别中没有可用的链接",
-        "SEARCH_PLACEHOLDER": "按名称或URL搜索...",
-        "NO_SEARCH_RESULTS": "未找到搜索结果",
-        "OPEN_URL_ON_CLICK": "点击时打开URL"
     }
 }
-
-

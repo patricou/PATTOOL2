@@ -31,9 +31,13 @@
         "SECTION3TITLE": " home-page, sezione 3 (fr)."
     },
     "LINKS": {
-        "TITLE": "Link preferiti",
-        "REF": "...",
-        "COMMENT": "Le caselle selezionate sono pubbliche"
+        "TITLE": "Collegamenti",
+        "COMMENT": "Accedi a una collezione organizzata di risorse utili",
+        "RESOURCE_LIBRARY": "Libreria di Risorse",
+        "NO_LINKS": "Nessun link disponibile in questa categoria",
+        "SEARCH_PLACEHOLDER": "Cerca per nome o URL...",
+        "NO_SEARCH_RESULTS": "Nessun risultato trovato per questa ricerca",
+        "OPEN_URL_ON_CLICK": "Apri URL al clic"
     },
     "IOT": {
         "TITLE": "Controllo Casa",
@@ -49,7 +53,7 @@
         "EVENTSLIST": "Elenco delle Attività:",
         "EVENTFILTRE": "Filtro ....",
         "NOEVENT": "Non ci sono Attività da mostrare ....",
-        "NO_LINKS_ADDED": "Nessun collegamento aggiunto a questo evento",
+        "NO_LINKS_ADDED": "Nessun link aggiunto per questo evento",
         "COMMENTARIES": "Commenti",
         "ADD_COMMENTARY": "Aggiungi un commento",
         "COMMENTARY_TEXT": "Testo del commento",
@@ -60,9 +64,9 @@
         "CANCEL_URL_EVENT": "Annulla",
         "IMAGE_PREVIEW": "Anteprima immagine",
         "NO_COMMENTARIES_ADDED": "Nessun commento aggiunto a questo evento",
-        "TOGGLE_VIEW": "Alterna tra vista normale e compatta",        "TOGGLE_VIEW_CARDS_LIST": "Alterna vista Card/Lista",
-
-
+        "TOGGLE_VIEW": "Alterna tra vista normale e compatta",
+        "TOGGLE_VIEW_CARDS_LIST": "Alterna vista Card/Lista",
+        "VIEW_DETAILS": "Visualizza dettagli",
         "PAGE": "Pagina",
         "URL_EVENTS": "Link dell'evento",
         "ADD_URL_EVENT": "Aggiungi link",
@@ -79,7 +83,6 @@
         "URL_TYPE_WEBSITE": "Sito Web",
         "BASIC_INFO": "Informazioni di base",
         "REGISTRATION_DATES": "Date di registrazione",
-        "NO_LINKS_ADDED": "Nessun link aggiunto per questo evento",
         "LINK_DESCRIPTION_PLACEHOLDER": "Descrizione del link...",
         "EVENT_DETAILS": "Dettagli dell'evento",
         "DATE_AND_TIME": "Data e ora",
@@ -169,6 +172,7 @@
         "REF": "Rif.",
         "BEGINDT": "Data/Ora di inizio",
         "ENDDT": "Data di fine",
+        "ENDDATETIME": "Data/Ora di fine",
         "STATUS": "Stato",
         "TYPE": "Tipo",
         "DIFF": "Difficoltà",
@@ -198,7 +202,14 @@
         "OPEN_PHOTO": "Apri",
         "NO_PHOTOS_AVAILABLE": "Nessuna foto disponibile per questo evento.",
         "VIEW_JSON": "Visualizza evento in formato JSON",
-        "FORMAT_JSON": "Formato JSON"
+        "FORMAT_JSON": "Formato JSON",
+        "LINKS": "Collegamenti",
+        "OWNER": "Proprietario",
+        "DESCRIPTION": "Descrizione",
+        "DATE_CREATION": "Data di creazione",
+        "OPEN_LINK": "Apri collegamento",
+        "NO_LINKS_AVAILABLE": "Nessun collegamento disponibile",
+        "PHOTO_LINK_WITH_NUMBER": "Collegamento a foto {0}"
     },
     "COMMUN": {
         "YES": "Sì",
@@ -209,6 +220,11 @@
         "STATUSCLOSE": "Chiuso",
         "STATUSOPEN": "Aperto",
         "STATUSCANCEL": "Annullato",
+        "DAYS_AGO": "{{days}} giorno(i) fa",
+        "TODAY": "Oggi",
+        "TOMORROW": "Domani",
+        "YESTERDAY": "Ieri",
+        "IN_DAYS": "Tra {{days}} giorno(i)",
         "BY": "da",
         "AT": "a",
         "EVENTBYPAGE": "Attività per pagina",
@@ -263,7 +279,8 @@
         "SENDWITHHISTORICAL": "Invia con lo storico",
         "SENDWITHOUTHISTORICAL": "Invia senza lo storico",
         "WITHLASTXQUESTION": "con le ultime X domande",
-        "WITHLASTFIRSTQUESTION": "con le prime X domande"
+        "WITHLASTFIRSTQUESTION": "con le prime X domande",
+        "CLEAR": "Cancella"
     },
     "ABOUT": {
         "DESIGNED_BY": "Progettato e sviluppato da",
@@ -292,16 +309,5 @@
         "SPRING_SECURITY_DESC": "Integrazione Spring Security",
         "SSL_CERTIFICATE": "Certificato SSL",
         "SSL_DESC": "Comunicazione sicura con SSL GoDaddy"
-    },
-    "LINKS": {
-        "TITLE": "Collegamenti",
-        "COMMENT": "Accedi a una collezione organizzata di risorse utili",
-        "RESOURCE_LIBRARY": "Libreria di Risorse",
-        "NO_LINKS": "Nessun link disponibile in questa categoria",
-        "SEARCH_PLACEHOLDER": "Cerca per nome o URL...",
-        "NO_SEARCH_RESULTS": "Nessun risultato trovato per questa ricerca",
-        "OPEN_URL_ON_CLICK": "Apri URL al clic"
     }
 }
-
-

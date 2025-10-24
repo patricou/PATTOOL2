@@ -31,9 +31,13 @@
         "SECTION3TITLE": " página de inicio, sección 3 (es)."
     },
     "LINKS": {
-        "TITLE": "URLs preferidas",
-        "REF": "...",
-        "COMMENT": "Las casillas marcadas son públicas"
+        "TITLE": "Enlaces",
+        "COMMENT": "Accede a una colección organizada de recursos útiles",
+        "RESOURCE_LIBRARY": "Biblioteca de Recursos",
+        "NO_LINKS": "No hay enlaces disponibles en esta categoría",
+        "SEARCH_PLACEHOLDER": "Buscar por nombre o URL...",
+        "NO_SEARCH_RESULTS": "No se encontraron resultados para esta búsqueda",
+        "OPEN_URL_ON_CLICK": "Abrir URL al hacer clic"
     },
     "IOT": {
         "TITLE": "Control de Casa",
@@ -49,7 +53,7 @@
         "EVENTSLIST": "Lista de actividades:",
         "EVENTFILTRE": "Filtrar ....",
         "NOEVENT": "No hay actividades para mostrar",
-        "NO_LINKS_ADDED": "No se han añadido enlaces a este evento",
+        "NO_LINKS_ADDED": "No se han añadido enlaces para este evento",
         "COMMENTARIES": "Comentarios",
         "ADD_COMMENTARY": "Añadir un comentario",
         "COMMENTARY_TEXT": "Texto del comentario",
@@ -60,9 +64,9 @@
         "CANCEL_URL_EVENT": "Cancelar",
         "IMAGE_PREVIEW": "Vista previa de imagen",
         "NO_COMMENTARIES_ADDED": "No se han añadido comentarios a este evento",
-        "TOGGLE_VIEW": "Alternar entre vista normal y compacta",        "TOGGLE_VIEW_CARDS_LIST": "Alternar vista Tarjetas/Lista",
-
-
+        "TOGGLE_VIEW": "Alternar entre vista normal y compacta",
+        "TOGGLE_VIEW_CARDS_LIST": "Alternar vista Tarjetas/Lista",
+        "VIEW_DETAILS": "Ver detalles",
         "PAGE": "Página",
         "URL_EVENTS": "Enlaces del evento",
         "ADD_URL_EVENT": "Agregar enlace",
@@ -79,7 +83,6 @@
         "URL_TYPE_WEBSITE": "Sitio Web",
         "BASIC_INFO": "Información básica",
         "REGISTRATION_DATES": "Fechas de registro",
-        "NO_LINKS_ADDED": "No se han añadido enlaces para este evento",
         "LINK_DESCRIPTION_PLACEHOLDER": "Descripción del enlace...",
         "EVENT_DETAILS": "Detalles del evento",
         "DATE_AND_TIME": "Fecha y hora",
@@ -169,6 +172,7 @@
         "REF": "Ref",
         "BEGINDT": "Fecha/Hora de inicio de la actividad",
         "ENDDT": "Fecha de finalización de la actividad",
+        "ENDDATETIME": "Fecha/Hora de finalización de la actividad",
         "STATUS": "Estado",
         "TYPE": "Tipo",
         "DIFF": "Dificultad",
@@ -178,6 +182,12 @@
         "MAP": "Ver el mapa",
         "URLS": "Enlaces",
         "PHOTOSURL": "Ver fotos",
+        "LINKS": "Enlaces",
+        "OWNER": "Propietario",
+        "DESCRIPTION": "Descripción",
+        "DATE_CREATION": "Fecha de creación",
+        "OPEN_LINK": "Abrir enlace",
+        "NO_LINKS_AVAILABLE": "No hay enlaces disponibles",
         "CHAT": "Chat en vivo",
         "IWTP": "Participo",
         "IDWTP": "No participo",
@@ -194,7 +204,8 @@
         "LIVECHAT": "Chat en vivo",
         "DELMESCHAT": "Eliminar mensaje",
         "DESC": "Descripción",
-        "PHOTO_LINK": "Enlace de foto",
+        "PHOTO_LINK": "Enlace a foto",
+        "PHOTO_LINK_WITH_NUMBER": "Enlace a foto {0}",
         "OPEN_PHOTO": "Abrir",
         "NO_PHOTOS_AVAILABLE": "No hay fotos disponibles para este evento.",
         "VIEW_JSON": "Ver evento en formato JSON",
@@ -209,6 +220,11 @@
         "STATUSCLOSE": "Cerrado",
         "STATUSOPEN": "Abierto",
         "STATUSCANCEL": "Cancelar",
+        "DAYS_AGO": "hace {{days}} día(s)",
+        "TODAY": "Hoy",
+        "TOMORROW": "Mañana",
+        "YESTERDAY": "Ayer",
+        "IN_DAYS": "En {{days}} día(s)",
         "BY": "por",
         "AT": "en",
         "EVENTBYPAGE": "Actividades por página",
@@ -258,6 +274,7 @@
         "BUTTONSEND": "Enviar",
         "RESPONSE": "Respuesta",
         "BILLING": "Facturación",
+        "CLEAR": "Limpiar",
         "HISTORICAL": "Histórico",
         "CLEARHISTORICAL": "Nueva discusión",
         "SENDWITHHISTORICAL": "Enviar con histórico",
@@ -292,16 +309,5 @@
         "SPRING_SECURITY_DESC": "Integración Spring Security",
         "SSL_CERTIFICATE": "Certificado SSL",
         "SSL_DESC": "Comunicación segura con SSL GoDaddy"
-    },
-    "LINKS": {
-        "TITLE": "Enlaces",
-        "COMMENT": "Accede a una colección organizada de recursos útiles",
-        "RESOURCE_LIBRARY": "Biblioteca de Recursos",
-        "NO_LINKS": "No hay enlaces disponibles en esta categoría",
-        "SEARCH_PLACEHOLDER": "Buscar por nombre o URL...",
-        "NO_SEARCH_RESULTS": "No se encontraron resultados para esta búsqueda",
-        "OPEN_URL_ON_CLICK": "Abrir URL al hacer clic"
     }
 }
-
-

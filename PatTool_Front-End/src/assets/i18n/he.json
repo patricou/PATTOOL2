@@ -31,9 +31,13 @@
         "SECTION3TITLE": " דף הבית, סעיף 3 (עברית)."
     },
     "LINKS": {
-        "TITLE": "קישורים מועדפים",
-        "REF": "...",
-        "COMMENT": "תיבות מסומנות הן ציבוריות"
+        "TITLE": "קישורים",
+        "COMMENT": "גישה לאוסף מאורגן של משאבים שימושיים",
+        "RESOURCE_LIBRARY": "ספריית משאבים",
+        "NO_LINKS": "אין קישורים זמינים בקטגוריה זו",
+        "SEARCH_PLACEHOLDER": "חיפוש לפי שם או כתובת...",
+        "NO_SEARCH_RESULTS": "לא נמצאו תוצאות לחיפוש זה",
+        "OPEN_URL_ON_CLICK": "פתח כתובת בלחיצה"
     },
     "IOT": {
         "TITLE": "שליטה בבית",
@@ -59,9 +63,9 @@
         "SAVE_URL_EVENT": "שמור קישור",
         "CANCEL_URL_EVENT": "בטל",
         "NO_COMMENTARIES_ADDED": "לא נוספו תגובות לאירוע זה",
-        "TOGGLE_VIEW": "החלף בין תצוגה רגילה לקומפקטית",        "TOGGLE_VIEW_CARDS_LIST": "החלף תצוגת כרטיסים/רשימה",
-
-
+        "TOGGLE_VIEW": "החלף בין תצוגה רגילה לקומפקטית",
+        "TOGGLE_VIEW_CARDS_LIST": "החלף תצוגת כרטיסים/רשימה",
+        "VIEW_DETAILS": "הצג פרטים",
         "PAGE": "עמוד",
         "URL_EVENTS": "קישורי האירוע",
         "ADD_URL_EVENT": "הוסף קישור",
@@ -78,12 +82,12 @@
         "URL_TYPE_WEBSITE": "אתר אינטרנט",
         "BASIC_INFO": "מידע בסיסי",
         "REGISTRATION_DATES": "תאריכי רישום",
-        "NO_LINKS_ADDED": "לא נוספו קישורים לאירוע זה",
         "LINK_DESCRIPTION_PLACEHOLDER": "תיאור הקישור...",
         "EVENT_DETAILS": "פרטי האירוע",
         "DATE_AND_TIME": "תאריך ושעה",
         "LOCATION_AND_LINKS": "מיקום",
-        "SHOW_JSON": "הצגת אירוע בפורמט JSON"
+        "SHOW_JSON": "הצגת אירוע בפורמט JSON",
+        "IMAGE_PREVIEW": "תצוגה מקדימה של תמונה"
     },
     "EVENTCREATION": {
         "TITLE": "יצירת פעילות",
@@ -168,6 +172,7 @@
         "REF": "הפניה",
         "BEGINDT": "תאריך/שעת התחלה",
         "ENDDT": "תאריך סיום",
+        "ENDDATETIME": "תאריך/שעת סיום",
         "STATUS": "סטטוס",
         "TYPE": "סוג",
         "DIFF": "קושי",
@@ -197,7 +202,14 @@
         "OPEN_PHOTO": "פתח",
         "NO_PHOTOS_AVAILABLE": "אין תמונות זמינות לאירוע זה.",
         "VIEW_JSON": "הצג אירוע בפורמט JSON",
-        "FORMAT_JSON": "פורמט JSON"
+        "FORMAT_JSON": "פורמט JSON",
+        "LINKS": "קישורים",
+        "OWNER": "בעלים",
+        "DESCRIPTION": "תיאור",
+        "DATE_CREATION": "תאריך יצירה",
+        "OPEN_LINK": "פתח קישור",
+        "NO_LINKS_AVAILABLE": "אין קישורים זמינים",
+        "PHOTO_LINK_WITH_NUMBER": "קישור לתמונה {0}"
     },
     "COMMUN": {
         "YES": "כן",
@@ -208,6 +220,11 @@
         "STATUSCLOSE": "סגור",
         "STATUSOPEN": "פתוח",
         "STATUSCANCEL": "מבוטל",
+        "DAYS_AGO": "לפני {{days}} יום(ימים)",
+        "TODAY": "היום",
+        "TOMORROW": "מחר",
+        "YESTERDAY": "אתמול",
+        "IN_DAYS": "בעוד {{days}} יום(ימים)",
         "BY": "על ידי",
         "AT": "ב",
         "EVENTBYPAGE": "פעילויות לעמוד",
@@ -262,7 +279,8 @@
         "SENDWITHHISTORICAL": "שלח עם היסטוריה",
         "SENDWITHOUTHISTORICAL": "שלח ללא היסטוריה",
         "WITHLASTXQUESTION": "X השאלות האחרונות",
-        "WITHLASTFIRSTQUESTION": "X השאלות הראשונות"
+        "WITHLASTFIRSTQUESTION": "X השאלות הראשונות",
+        "CLEAR": "נקה"
     },
     "ABOUT": {
         "DESIGNED_BY": "עוצב ופותח על ידי",
@@ -291,16 +309,5 @@
         "SPRING_SECURITY_DESC": "אינטגרציה של Spring Security",
         "SSL_CERTIFICATE": "תעודת SSL",
         "SSL_DESC": "תקשורת מאובטחת עם SSL GoDaddy"
-    },
-    "LINKS": {
-        "TITLE": "קישורים",
-        "COMMENT": "גישה לאוסף מאורגן של משאבים שימושיים",
-        "RESOURCE_LIBRARY": "ספריית משאבים",
-        "NO_LINKS": "אין קישורים זמינים בקטגוריה זו",
-        "SEARCH_PLACEHOLDER": "חיפוש לפי שם או כתובת...",
-        "NO_SEARCH_RESULTS": "לא נמצאו תוצאות לחיפוש זה",
-        "OPEN_URL_ON_CLICK": "פתח כתובת בלחיצה"
     }
 }
-
-
