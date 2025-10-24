@@ -28,8 +28,8 @@
             <span *ngSwitchCase="'Open'" class="badge bg-success me-2">{{"COMMUN.STATUSOPEN" | translate }}</span>
             <span *ngSwitchCase="'Cancel'" class="badge bg-warning me-2">{{"COMMUN.STATUSCANCEL" | translate }}</span>
             <span [ngSwitch]="evenement.visibility" class="badge">
-                <span *ngSwitchCase="'public'" class="badge bg-success">{{evenement.visibility}}</span>
-                <span *ngSwitchCase="'private'" class="badge bg-warning">{{evenement.visibility}}</span>
+                <span *ngSwitchCase="'public'" class="badge bg-success">{{"EVENTCREATION.PUBLIC" | translate }}</span>
+                <span *ngSwitchCase="'private'" class="badge bg-warning">{{"EVENTCREATION.PRIVATE" | translate }}</span>
                 <span *ngSwitchDefault class="badge bg-info">{{evenement.visibility}}</span>
             </span>
         </b>
@@ -38,24 +38,27 @@
             evenement.author.lastName }} / {{ evenement.author.userName }}</i></small>
     <div class="card-text" [ngSwitch]="+evenement.type">
         {{"EVENTELEM.TYPE" | translate }} :
-        <span *ngSwitchCase="1">{{"EVENTCREATION.TYPE.VTT" | translate }}</span>
-        <span *ngSwitchCase="2">{{"EVENTCREATION.TYPE.SKI" | translate }}</span>
+        <span *ngSwitchCase="11">{{"EVENTCREATION.TYPE.DOCUMENTS" | translate }}</span>
         <span *ngSwitchCase="3">{{"EVENTCREATION.TYPE.RUN" | translate }}</span>
-        <span *ngSwitchCase="4">{{"EVENTCREATION.TYPE.WALK" | translate }}</span>
-        <span *ngSwitchCase="5">{{"EVENTCREATION.TYPE.BIKE" | translate }}</span>
         <span *ngSwitchCase="6">{{"EVENTCREATION.TYPE.PARTY" | translate }}</span>
-        <span *ngSwitchCase="7">{{"EVENTCREATION.TYPE.VACATION" | translate }}</span>
-        <span *ngSwitchCase="8">{{"EVENTCREATION.TYPE.TRAVEL" | translate }}</span>
+        <span *ngSwitchCase="4">{{"EVENTCREATION.TYPE.WALK" | translate }}</span>
+        <span *ngSwitchCase="10">{{"EVENTCREATION.TYPE.PHOTOS" | translate }}</span>
         <span *ngSwitchCase="9">{{"EVENTCREATION.TYPE.RANDO" | translate }}</span>
+        <span *ngSwitchCase="2">{{"EVENTCREATION.TYPE.SKI" | translate }}</span>
+        <span *ngSwitchCase="7">{{"EVENTCREATION.TYPE.VACATION" | translate }}</span>
+        <span *ngSwitchCase="5">{{"EVENTCREATION.TYPE.BIKE" | translate }}</span>
+        <span *ngSwitchCase="8">{{"EVENTCREATION.TYPE.TRAVEL" | translate }}</span>
+        <span *ngSwitchCase="1">{{"EVENTCREATION.TYPE.VTT" | translate }}</span>
     </div>
     <div class="card-text" [ngSwitch]="+evenement.diffculty">
         {{"EVENTELEM.DIFF" | translate }} :
-        <span *ngSwitchCase="0">{{"EVENTCREATION.DIFF.0" | translate }}</span>
-        <span *ngSwitchCase="1">{{"EVENTCREATION.DIFF.1" | translate }}</span>
-        <span *ngSwitchCase="2">{{"EVENTCREATION.DIFF.2" | translate }}</span>
-        <span *ngSwitchCase="3">{{"EVENTCREATION.DIFF.3" | translate }}</span>
-        <span *ngSwitchCase="4">{{"EVENTCREATION.DIFF.4" | translate }}</span>
-        <span *ngSwitchDefault>{{"EVENTCREATION.DIFF.0" | translate }}</span>
+        <span *ngSwitchCase="0">{{"EVENTCREATION.DIFF.NA" | translate }}</span>
+        <span *ngSwitchCase="1">{{"EVENTCREATION.DIFF.0" | translate }}</span>
+        <span *ngSwitchCase="2">{{"EVENTCREATION.DIFF.1" | translate }}</span>
+        <span *ngSwitchCase="3">{{"EVENTCREATION.DIFF.2" | translate }}</span>
+        <span *ngSwitchCase="4">{{"EVENTCREATION.DIFF.3" | translate }}</span>
+        <span *ngSwitchCase="5">{{"EVENTCREATION.DIFF.4" | translate }}</span>
+        <span *ngSwitchDefault>{{"EVENTCREATION.DIFF.NA" | translate }}</span>
     </div>
     <div class="card-text">
         {{"EVENTELEM.STARTLOCATION" | translate }} : {{evenement.startLocation}}
@@ -86,6 +89,7 @@
                               [class.bg-danger]="isPdfFile(uploadedFile.fileName)">
                             {{uploadedFile.fileName}}
                         </span>
+                        <small class="text-muted ms-2">{{uploadedFile.uploaderMember.userName}}</small>
                     </span>
                     <div class="file-actions">
                         <button class="btn btn-sm btn-primary me-2" placement="left"

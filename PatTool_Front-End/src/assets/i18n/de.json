@@ -152,6 +152,8 @@
         "TYPE.TRAVEL": "Reise",
         "ISSUE": "Problem",
         "TYPE.RANDO": "Wanderung",
+        "TYPE.PHOTOS": "Fotos",
+        "TYPE.DOCUMENTS": "Dokumente",
         "ISSUEDETAIL": "Problem beim Speichern der Veranstaltung:",
         "ISSUEDELDETAIL": "Problem beim Löschen der Veranstaltung:",
         "VISIBILITY": "Sichtbarkeit",

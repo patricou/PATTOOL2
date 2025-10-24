@@ -63,7 +63,8 @@ hr {
 }
 
 .list-group-item {
-    padding: 8px 12px;
+    padding: 4px 8px;
+    margin-bottom: 2px;
 }
 
 /* File list styles */
@@ -71,7 +72,7 @@ hr {
     font-weight: 500;
     color: #495057;
     flex-grow: 1;
-    margin-right: 10px;
+    margin-right: 5px;
     word-break: break-word;
 }
 
@@ -101,7 +102,7 @@ hr {
 .file-actions {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 3px;
     flex-shrink: 0;
 }
 

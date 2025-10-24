@@ -337,6 +337,17 @@
     text-overflow: ellipsis;
 }
 
+.compact-author {
+    margin-bottom: 0.25rem;
+    font-size: 0.8rem;
+}
+
+.compact-author small {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
 .compact-date {
     font-size: 0.85rem;
     color: #6c757d;

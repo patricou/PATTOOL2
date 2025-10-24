@@ -84,15 +84,23 @@
                     <span *ngSwitchCase="'Cancel'" class="badge bg-warning me-1">
                         <i class="fa fa-exclamation-triangle"></i> {{"COMMUN.STATUSCANCEL" | translate }}
                     </span>
-                    <span [ngSwitch]="evenement.visibility" class="badge">
-                        <span *ngSwitchCase="'public'" class="badge bg-success">{{evenement.visibility}}</span>
-                        <span *ngSwitchCase="'private'" class="badge bg-warning">{{evenement.visibility}}</span>
-                        <span *ngSwitchDefault class="badge bg-info">{{evenement.visibility}}</span>
+                </div>
+                <div class="status-badge" [ngSwitch]="evenement.visibility">
+                    <span *ngSwitchCase="'public'" class="badge bg-success">
+                        {{"EVENTCREATION.PUBLIC" | translate }}
+                    </span>
+                    <span *ngSwitchCase="'private'" class="badge bg-warning">
+                        {{"EVENTCREATION.PRIVATE" | translate }}
                     </span>
                 </div>
             </div>
             <div class="compact-content">
                 <div class="compact-title">{{ evenement.evenementName }}</div>
+                <div class="compact-author">
+                    <small class="text-muted">
+                        <i class="fa fa-user"></i> {{ evenement.author.firstName }} {{ evenement.author.lastName }} / {{ evenement.author.userName }}
+                    </small>
+                </div>
                 <div class="compact-date" [innerHTML]="formatEventDate(evenement.beginEventDate)"></div>
             </div>
             <div class="compact-actions">
@@ -138,8 +146,10 @@
                 </a>
 
                 <!-- Edit Button -->
-                <a class="btn btn-sm btn-warning me-1" [hidden]="!isAuthor(evenement)"
-                    [routerLink]="['/updeven', evenement.id]" ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" placement="top"
+                <a class="btn btn-sm btn-warning me-1" 
+                    [routerLink]="['/updeven', evenement.id]" 
+                    ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" 
+                    placement="top"
                     (click)="$event.stopPropagation()">
                     <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
                 </a>
