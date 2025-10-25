@@ -1117,6 +1117,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.slideshowImages = [];
 		this.currentSlideshowIndex = 0;
 		this.isSlideshowActive = false;
+		let isFirstImageLoaded = false;
 
 		// Open the modal first
 		if (this.slideshowModal) {
@@ -1139,20 +1140,27 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			);
 		}
 
-		// Load all images asynchronously
-		Promise.all(imageFiles.map(async file => {
-			const blob = await this.getFileBlobUrl(file.fieldId).toPromise();
-			const objectUrl = URL.createObjectURL(blob);
-			return objectUrl;
-		})).then(imageUrls => {
-			this.slideshowImages = imageUrls;
-			this.isSlideshowActive = true;
-			
-			// Start automatic slideshow only after images are loaded
-			this.startSlideshow();
-		}).catch(error => {
-			console.error('Error loading images for slideshow:', error);
-			alert('Erreur lors du chargement des images.');
+		// Load images one by one and start slideshow as soon as first image is loaded
+		imageFiles.forEach(async (file, index) => {
+			try {
+				const blob = await this.getFileBlobUrl(file.fieldId).toPromise();
+				const objectUrl = URL.createObjectURL(blob);
+				
+				// Add to slideshow images array
+				this.slideshowImages.push(objectUrl);
+				
+				// Start slideshow when first image is loaded
+				if (!isFirstImageLoaded) {
+					isFirstImageLoaded = true;
+					this.isSlideshowActive = true;
+					// Wait a bit for the UI to update with the first image
+					setTimeout(() => {
+						this.startSlideshow();
+					}, 500);
+				}
+			} catch (error) {
+				console.error('Error loading image for slideshow:', error);
+			}
 		});
 	}
 
