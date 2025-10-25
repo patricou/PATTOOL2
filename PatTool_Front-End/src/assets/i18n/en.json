@@ -85,7 +85,21 @@
         "EVENT_DETAILS": "Event Details",
         "DATE_AND_TIME": "Date and Time",
         "LOCATION_AND_LINKS": "Location",
-        "SHOW_JSON": "View event in JSON format"
+        "SHOW_JSON": "View event in JSON format",
+        "DELETE_ALL_LINKS": "Delete all links",
+        "DELETE_ALL_LINKS_CONFIRM_TITLE": "Confirm deletion",
+        "DELETE_ALL_LINKS_CONFIRM_MESSAGE": "Are you sure you want to delete ALL links from this event?",
+        "DELETE_ALL_LINKS_COUNT": "link(s) will be permanently deleted.",
+        "DELETE_ALL_LINKS_IRREVERSIBLE": "This action is irreversible.",
+        "DELETE_ALL_LINKS_CANCEL": "Cancel",
+        "DELETE_ALL_LINKS_CONFIRM": "Delete all links",
+        "DELETE_ALL_COMMENTARIES": "Delete all comments",
+        "DELETE_ALL_COMMENTARIES_CONFIRM_TITLE": "Confirm deletion",
+        "DELETE_ALL_COMMENTARIES_CONFIRM_MESSAGE": "Are you sure you want to delete ALL comments from this event?",
+        "DELETE_ALL_COMMENTARIES_COUNT": "comment(s) will be permanently deleted.",
+        "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "This action is irreversible.",
+        "DELETE_ALL_COMMENTARIES_CANCEL": "Cancel",
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "Delete all comments"
     },
     "EVENTCREATION": {
         "TITLE": "Activity Creation",
@@ -244,7 +258,25 @@
 		"CONTACT_INFO": "Contact Information",
 		"PHONE": "Phone",
 		"ADDRESS": "Address",
-		"CLOSE": "Close"
+		"CLOSE": "Close",
+		"DRAG_DROP_FILES": "Drag and drop your files here",
+		"OR_CLICK_TO_SELECT": "or click to select",
+		"SELECTED_FILES": "Selected files",
+		"REMOVE_FILE": "Remove file",
+		"UPLOADING": "Uploading...",
+		"UPLOAD_FILES": "Upload files",
+		"CLEAR_ALL": "Clear all",
+		"DELETE_ALL_FILES": "Delete All Files",
+		"DELETE_ALL_FILES_CONFIRM_TITLE": "Deletion Confirmation",
+		"DELETE_ALL_FILES_CONFIRM_MESSAGE": "Are you sure you want to delete ALL uploaded files from this event?",
+		"DELETE_ALL_FILES_COUNT": "file(s) will be permanently deleted.",
+		"DELETE_ALL_FILES_IRREVERSIBLE": "This action is irreversible.",
+		"DELETE_ALL_FILES_CANCEL": "Cancel",
+		"DELETE_ALL_FILES_CONFIRM": "Delete all files"
+    },
+    "CAROUSEL": {
+        "START_AUTOPLAY": "Start auto-scroll",
+        "STOP_AUTOPLAY": "Stop auto-scroll"
     },
     "COMMUN": {
         "YES": "Yes",

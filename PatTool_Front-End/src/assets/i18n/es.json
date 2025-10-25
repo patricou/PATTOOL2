@@ -88,7 +88,21 @@
         "EVENT_DETAILS": "Detalles del evento",
         "DATE_AND_TIME": "Fecha y hora",
         "LOCATION_AND_LINKS": "Ubicación",
-        "SHOW_JSON": "Ver evento en formato JSON"
+        "SHOW_JSON": "Ver evento en formato JSON",
+        "DELETE_ALL_LINKS": "Eliminar todos los enlaces",
+        "DELETE_ALL_LINKS_CONFIRM_TITLE": "Confirmar eliminación",
+        "DELETE_ALL_LINKS_CONFIRM_MESSAGE": "¿Está seguro de que desea eliminar TODOS los enlaces de este evento?",
+        "DELETE_ALL_LINKS_COUNT": "enlace(s) serán eliminado(s) permanentemente.",
+        "DELETE_ALL_LINKS_IRREVERSIBLE": "Esta acción es irreversible.",
+        "DELETE_ALL_LINKS_CANCEL": "Cancelar",
+        "DELETE_ALL_LINKS_CONFIRM": "Eliminar todos los enlaces",
+        "DELETE_ALL_COMMENTARIES": "Eliminar todos los comentarios",
+        "DELETE_ALL_COMMENTARIES_CONFIRM_TITLE": "Confirmar eliminación",
+        "DELETE_ALL_COMMENTARIES_CONFIRM_MESSAGE": "¿Está seguro de que desea eliminar TODOS los comentarios de este evento?",
+        "DELETE_ALL_COMMENTARIES_COUNT": "comentario(s) serán eliminado(s) permanentemente.",
+        "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Esta acción es irreversible.",
+        "DELETE_ALL_COMMENTARIES_CANCEL": "Cancelar",
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "Eliminar todos los comentarios"
     },
     "EVENTCREATION": {
         "TITLE": "Creación de actividad",
@@ -246,7 +260,25 @@
 		"CONTACT_INFO": "Información de Contacto",
 		"PHONE": "Teléfono",
 		"ADDRESS": "Dirección",
-		"CLOSE": "Cerrar"
+		"CLOSE": "Cerrar",
+		"DRAG_DROP_FILES": "Arrastra y suelta tus archivos aquí",
+		"OR_CLICK_TO_SELECT": "o haz clic para seleccionar",
+		"SELECTED_FILES": "Archivos seleccionados",
+		"REMOVE_FILE": "Eliminar archivo",
+		"UPLOADING": "Subiendo...",
+		"UPLOAD_FILES": "Subir archivos",
+		"CLEAR_ALL": "Limpiar todo",
+		"DELETE_ALL_FILES": "Eliminar todos los archivos",
+		"DELETE_ALL_FILES_CONFIRM_TITLE": "Confirmación de eliminación",
+		"DELETE_ALL_FILES_CONFIRM_MESSAGE": "¿Está seguro de que desea eliminar TODOS los archivos subidos de este evento?",
+		"DELETE_ALL_FILES_COUNT": "archivo(s) serán eliminado(s) permanentemente.",
+		"DELETE_ALL_FILES_IRREVERSIBLE": "Esta acción es irreversible.",
+		"DELETE_ALL_FILES_CANCEL": "Cancelar",
+		"DELETE_ALL_FILES_CONFIRM": "Eliminar todos los archivos"
+    },
+    "CAROUSEL": {
+        "START_AUTOPLAY": "Iniciar desplazamiento automático",
+        "STOP_AUTOPLAY": "Detener desplazamiento automático"
     },
     "COMMUN": {
         "YES": "Sí",

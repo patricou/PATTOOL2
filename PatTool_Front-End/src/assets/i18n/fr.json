@@ -79,7 +79,21 @@
         "EVENT_DETAILS": "Détails de l'événement",
         "DATE_AND_TIME": "Date et heure",
         "LOCATION_AND_LINKS": "Localisation",
-        "SHOW_JSON": "Voir l'événement au format JSON"
+        "SHOW_JSON": "Voir l'événement au format JSON",
+        "DELETE_ALL_LINKS": "Supprimer tous les liens",
+        "DELETE_ALL_LINKS_CONFIRM_TITLE": "Confirmation de suppression",
+        "DELETE_ALL_LINKS_CONFIRM_MESSAGE": "Êtes-vous sûr de vouloir supprimer TOUS les liens de cet événement ?",
+        "DELETE_ALL_LINKS_COUNT": "lien(s) seront supprimé(s) définitivement.",
+        "DELETE_ALL_LINKS_IRREVERSIBLE": "Cette action est irréversible.",
+        "DELETE_ALL_LINKS_CANCEL": "Annuler",
+        "DELETE_ALL_LINKS_CONFIRM": "Supprimer tous les liens",
+        "DELETE_ALL_COMMENTARIES": "Supprimer tous les commentaires",
+        "DELETE_ALL_COMMENTARIES_CONFIRM_TITLE": "Confirmation de suppression",
+        "DELETE_ALL_COMMENTARIES_CONFIRM_MESSAGE": "Êtes-vous sûr de vouloir supprimer TOUS les commentaires de cet événement ?",
+        "DELETE_ALL_COMMENTARIES_COUNT": "commentaire(s) seront supprimé(s) définitivement.",
+        "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Cette action est irréversible.",
+        "DELETE_ALL_COMMENTARIES_CANCEL": "Annuler",
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "Supprimer tous les commentaires"
     },
     "EVENTCREATION": {
         "TITLE": "Création d'une Activité",
@@ -236,7 +250,24 @@
 		"CONTACT_INFO": "Informations de contact",
 		"PHONE": "Téléphone",
 		"ADDRESS": "Adresse",
-		"CLOSE": "Fermer"
+		"DRAG_DROP_FILES": "Glissez-déposez vos fichiers ici",
+		"OR_CLICK_TO_SELECT": "ou cliquez pour sélectionner",
+		"SELECTED_FILES": "Fichiers sélectionnés",
+		"REMOVE_FILE": "Supprimer le fichier",
+		"UPLOADING": "Upload en cours...",
+		"UPLOAD_FILES": "Uploader les fichiers",
+		"CLEAR_ALL": "Tout effacer",
+		"DELETE_ALL_FILES": "Supprimer tous les fichiers",
+		"DELETE_ALL_FILES_CONFIRM_TITLE": "Confirmation de suppression",
+		"DELETE_ALL_FILES_CONFIRM_MESSAGE": "Êtes-vous sûr de vouloir supprimer TOUS les fichiers uploadés de cet événement ?",
+		"DELETE_ALL_FILES_COUNT": "fichier(s) seront supprimé(s) définitivement.",
+		"DELETE_ALL_FILES_IRREVERSIBLE": "Cette action est irréversible.",
+		"DELETE_ALL_FILES_CANCEL": "Annuler",
+		"DELETE_ALL_FILES_CONFIRM": "Supprimer tous les fichiers"
+    },
+    "CAROUSEL": {
+        "START_AUTOPLAY": "Démarrer le défilement automatique",
+        "STOP_AUTOPLAY": "Arrêter le défilement automatique"
     },
     "COMMUN": {
         "YES": "Oui",

@@ -319,7 +319,17 @@
                         
                         <!-- Display Existing URL Events -->
                         <div class="url-events-list" *ngIf="evenement.urlEvents && evenement.urlEvents.length > 0">
-                            <h5>{{ "EVENTHOME.URL_EVENTS" | translate }} ({{ evenement.urlEvents.length }})</h5>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">{{ "EVENTHOME.URL_EVENTS" | translate }} ({{ evenement.urlEvents.length }})</h5>
+                                <button type="button" 
+                                        class="btn btn-danger btn-sm"
+                                        (click)="confirmDeleteAllLinks()"
+                                        [disabled]="!canEditEventFields()"
+                                        title="{{ 'EVENTHOME.DELETE_ALL_LINKS' | translate }}">
+                                    <i class="fa fa-trash me-1"></i>
+                                    {{ "EVENTHOME.DELETE_ALL_LINKS" | translate }}
+                                </button>
+                            </div>
                             
                             <!-- Grouped URL Events by Type -->
                             <div *ngFor="let typeUrl of getGroupedUrlEventKeys()" class="url-event-group">
@@ -472,7 +482,17 @@
                         
                         <!-- Display Existing Commentaries -->
                         <div class="commentaries-list" *ngIf="evenement.commentaries && evenement.commentaries.length > 0">
-                            <h5>{{ "EVENTHOME.COMMENTARIES" | translate }} ({{ evenement.commentaries.length }})</h5>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">{{ "EVENTHOME.COMMENTARIES" | translate }} ({{ evenement.commentaries.length }})</h5>
+                                <button type="button" 
+                                        class="btn btn-danger btn-sm"
+                                        (click)="confirmDeleteAllCommentaries()"
+                                        [disabled]="!canEditEventFields()"
+                                        title="{{ 'EVENTHOME.DELETE_ALL_COMMENTARIES' | translate }}">
+                                    <i class="fa fa-trash me-1"></i>
+                                    {{ "EVENTHOME.DELETE_ALL_COMMENTARIES" | translate }}
+                                </button>
+                            </div>
                             
                             <div class="commentary-item" *ngFor="let commentary of evenement.commentaries; let i = index">
                                 <div class="commentary-card">
@@ -555,26 +575,100 @@
                                 <i class="fa fa-upload"></i>
                                 {{ "EVENTELEM.UPLOAD" | translate }}
                             </label>
-                            <div class="file-input-wrapper">
-                                <input type="file" 
-                                       id="fileInput"
-                                       class="form-control" 
-                                       multiple 
-                                       accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
-                                       (change)="onFileSelected($event)">
-                                <label for="fileInput" class="file-input-label">
-                                    <i class="fa fa-upload me-2"></i>
-                                    {{ "EVENTELEM.SELECT_FILES" | translate }}
-                                </label>
+                            
+                            <!-- Drag & Drop Zone -->
+                            <div class="file-upload-zone" 
+                                 [class.drag-over]="isDragOver"
+                                 (dragover)="onDragOver($event)"
+                                 (dragleave)="onDragLeave($event)"
+                                 (drop)="onDrop($event)">
+                                <div class="upload-content">
+                                    <i class="fa fa-cloud-upload fa-3x text-primary mb-3"></i>
+                                    <h5>{{ "EVENTELEM.DRAG_DROP_FILES" | translate }}</h5>
+                                    <p class="text-muted">{{ "EVENTELEM.OR_CLICK_TO_SELECT" | translate }}</p>
+                                    
+                                    <!-- File Input -->
+                                    <div class="file-input-wrapper">
+                                        <input type="file" 
+                                               id="fileInput"
+                                               class="form-control" 
+                                               multiple 
+                                               accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+                                               (change)="onFileSelected($event)">
+                                        <label for="fileInput" class="btn btn-primary">
+                                            <i class="fa fa-upload me-2"></i>
+                                            {{ "EVENTELEM.SELECT_FILES" | translate }}
+                                        </label>
+                                    </div>
+                                </div>
                             </div>
+                            
+                            <!-- Selected Files Preview -->
+                            <div class="selected-files-preview" *ngIf="selectedFiles.length > 0">
+                                <h6 class="mt-3 mb-2">
+                                    <i class="fa fa-files-o"></i>
+                                    {{ "EVENTELEM.SELECTED_FILES" | translate }} ({{ selectedFiles.length }})
+                                </h6>
+                                <div class="selected-files-list">
+                                    <div class="file-preview-item" *ngFor="let file of selectedFiles; let i = index">
+                                        <div class="file-info">
+                                            <i class="fa" 
+                                               [class.fa-file-image-o]="isImageFile(file.name)"
+                                               [class.fa-file-pdf-o]="isPdfFile(file.name)"
+                                               [class.fa-file-o]="!isImageFile(file.name) && !isPdfFile(file.name)"></i>
+                                            <span class="file-name">{{ file.name }}</span>
+                                            <small class="file-size">({{ formatFileSize(file.size) }})</small>
+                                        </div>
+                                        <div class="file-actions">
+                                            <button type="button" 
+                                                    class="btn btn-sm btn-outline-danger"
+                                                    (click)="removeSelectedFile(i)"
+                                                    title="{{ 'EVENTELEM.REMOVE_FILE' | translate }}">
+                                                <i class="fa fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Upload Button -->
+                                <div class="upload-actions mt-3">
+                                    <button type="button" 
+                                            class="btn btn-success"
+                                            (click)="uploadSelectedFiles()"
+                                            [disabled]="isUploading">
+                                        <i class="fa fa-upload me-2" *ngIf="!isUploading"></i>
+                                        <i class="fa fa-spinner fa-spin me-2" *ngIf="isUploading"></i>
+                                        {{ isUploading ? ('EVENTELEM.UPLOADING' | translate) : ('EVENTELEM.UPLOAD_FILES' | translate) }}
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-secondary ms-2"
+                                            (click)="clearSelectedFiles()"
+                                            [disabled]="isUploading">
+                                        <i class="fa fa-times me-2"></i>
+                                        {{ "EVENTELEM.CLEAR_ALL" | translate }}
+                                    </button>
+                                </div>
+                            </div>
+                            
                             <small class="form-text text-muted">
+                                <i class="fa fa-info-circle"></i>
                                 {{ "EVENTELEM.ACCEPTED_FORMATS" | translate }}
                             </small>
                         </div>
 
                         <!-- Files List -->
                         <div class="files-list" *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0">
-                            <h5>{{ "EVENTELEM.FILES" | translate }} ({{ evenement.fileUploadeds.length }})</h5>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">{{ "EVENTELEM.FILES" | translate }} ({{ evenement.fileUploadeds.length }})</h5>
+                                <button type="button" 
+                                        class="btn btn-danger btn-sm"
+                                        (click)="confirmDeleteAllFiles()"
+                                        [disabled]="!canEditEventFields()"
+                                        title="{{ 'EVENTELEM.DELETE_ALL_FILES' | translate }}">
+                                    <i class="fa fa-trash me-1"></i>
+                                    {{ "EVENTELEM.DELETE_ALL_FILES" | translate }}
+                                </button>
+                            </div>
                             <div class="list-group">
                                 <div class="list-group-item d-flex justify-content-between align-items-center" 
                                      *ngFor="let uploadedFile of evenement.fileUploadeds; let i = index">
@@ -714,6 +808,114 @@
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Close click')">
                 Fermer
+            </button>
+        </div>
+    </ng-template>
+
+    <!-- Confirmation Modal for Delete All Files -->
+    <ng-template #confirmDeleteAllModal let-modal>
+        <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title">
+                <i class="fa fa-exclamation-triangle me-2"></i>
+                {{ "EVENTELEM.DELETE_ALL_FILES_CONFIRM_TITLE" | translate }}
+            </h5>
+            <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="text-danger">
+                <i class="fa fa-warning me-2"></i>
+                {{ "EVENTELEM.DELETE_ALL_FILES_CONFIRM_MESSAGE" | translate }}
+            </p>
+            <p class="text-muted">
+                {{ evenement.fileUploadeds?.length || 0 }} {{ "EVENTELEM.DELETE_ALL_FILES_COUNT" | translate }}
+            </p>
+            <p class="text-warning">
+                <i class="fa fa-info-circle me-2"></i>
+                {{ "EVENTELEM.DELETE_ALL_FILES_IRREVERSIBLE" | translate }}
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')">
+                <i class="fa fa-times me-1"></i>
+                {{ "EVENTELEM.DELETE_ALL_FILES_CANCEL" | translate }}
+            </button>
+            <button type="button" class="btn btn-danger" (click)="deleteAllFiles(); modal.close('Delete confirmed')">
+                <i class="fa fa-trash me-1"></i>
+                {{ "EVENTELEM.DELETE_ALL_FILES_CONFIRM" | translate }}
+            </button>
+        </div>
+    </ng-template>
+
+    <!-- Confirmation Modal for Delete All Links -->
+    <ng-template #confirmDeleteAllLinksModal let-modal>
+        <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title">
+                <i class="fa fa-exclamation-triangle me-2"></i>
+                {{ "EVENTHOME.DELETE_ALL_LINKS_CONFIRM_TITLE" | translate }}
+            </h5>
+            <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="text-danger">
+                <i class="fa fa-warning me-2"></i>
+                {{ "EVENTHOME.DELETE_ALL_LINKS_CONFIRM_MESSAGE" | translate }}
+            </p>
+            <p class="text-muted">
+                {{ evenement.urlEvents?.length || 0 }} {{ "EVENTHOME.DELETE_ALL_LINKS_COUNT" | translate }}
+            </p>
+            <p class="text-warning">
+                <i class="fa fa-info-circle me-2"></i>
+                {{ "EVENTHOME.DELETE_ALL_LINKS_IRREVERSIBLE" | translate }}
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')">
+                <i class="fa fa-times me-1"></i>
+                {{ "EVENTHOME.DELETE_ALL_LINKS_CANCEL" | translate }}
+            </button>
+            <button type="button" class="btn btn-danger" (click)="deleteAllLinks(); modal.close('Delete confirmed')">
+                <i class="fa fa-trash me-1"></i>
+                {{ "EVENTHOME.DELETE_ALL_LINKS_CONFIRM" | translate }}
+            </button>
+        </div>
+    </ng-template>
+
+    <!-- Confirmation Modal for Delete All Commentaries -->
+    <ng-template #confirmDeleteAllCommentariesModal let-modal>
+        <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title">
+                <i class="fa fa-exclamation-triangle me-2"></i>
+                {{ "EVENTHOME.DELETE_ALL_COMMENTARIES_CONFIRM_TITLE" | translate }}
+            </h5>
+            <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p class="text-danger">
+                <i class="fa fa-warning me-2"></i>
+                {{ "EVENTHOME.DELETE_ALL_COMMENTARIES_CONFIRM_MESSAGE" | translate }}
+            </p>
+            <p class="text-muted">
+                {{ evenement.commentaries?.length || 0 }} {{ "EVENTHOME.DELETE_ALL_COMMENTARIES_COUNT" | translate }}
+            </p>
+            <p class="text-warning">
+                <i class="fa fa-info-circle me-2"></i>
+                {{ "EVENTHOME.DELETE_ALL_COMMENTARIES_IRREVERSIBLE" | translate }}
+            </p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')">
+                <i class="fa fa-times me-1"></i>
+                {{ "EVENTHOME.DELETE_ALL_COMMENTARIES_CANCEL" | translate }}
+            </button>
+            <button type="button" class="btn btn-danger" (click)="deleteAllCommentaries(); modal.close('Delete confirmed')">
+                <i class="fa fa-trash me-1"></i>
+                {{ "EVENTHOME.DELETE_ALL_COMMENTARIES_CONFIRM" | translate }}
             </button>
         </div>
     </ng-template>

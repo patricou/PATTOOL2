@@ -52,6 +52,15 @@
           <i class="fa fa-chevron-right"></i>
         </button>
         
+        <!-- Auto-play Toggle Button -->
+        <button class="carousel-autoplay-btn" 
+                (click)="toggleAutoPlay()" 
+                *ngIf="photoItemsList.length > 1"
+                [class.active]="autoPlay"
+                title="{{ autoPlay ? ('CAROUSEL.STOP_AUTOPLAY' | translate) : ('CAROUSEL.START_AUTOPLAY' | translate) }}">
+          <i class="fa" [class.fa-pause]="autoPlay" [class.fa-play]="!autoPlay"></i>
+        </button>
+        
         <div class="carousel-slides" [style.transform]="'translateX(-' + (currentSlide * 100) + '%)'">
           <div class="carousel-slide" *ngFor="let photoItem of photoItemsList">
             <img [src]="photoItem.imageUrl" 
@@ -76,7 +85,10 @@
 
   <!-- General Comments -->
   <div class="general-comments" *ngIf="getEventComments().length > 0">
-    <h3>{{ 'EVENTHOME.COMMENTARIES' | translate }}</h3>
+    <h3>
+      {{ 'EVENTHOME.COMMENTARIES' | translate }}
+      <span class="badge bg-secondary ms-2">{{ getEventComments().length }}</span>
+    </h3>
     <div class="comments-list">
       <div class="comment" *ngFor="let comment of getEventComments()">
         <div class="comment-header">
@@ -90,7 +102,10 @@
 
   <!-- Links -->
   <div class="links-section" *ngIf="evenement.urlEvents && evenement.urlEvents.length > 0">
-    <h3>{{ 'EVENTELEM.URLS' | translate }}</h3>
+    <h3>
+      {{ 'EVENTELEM.URLS' | translate }}
+      <span class="badge bg-secondary ms-2">{{ evenement.urlEvents.length }}</span>
+    </h3>
     
     <!-- Group URLs by type -->
     <div *ngFor="let typeKey of getSortedTypeKeys()" class="url-type-group">
@@ -168,6 +183,7 @@
     <h3>
       <i class="fa fa-file-pdf-o me-2"></i>
       {{ 'EVENTELEM.PDF_DOCUMENTS' | translate }}
+      <span class="badge bg-secondary ms-2">{{ getPdfFiles().length }}</span>
     </h3>
     <div class="pdf-list">
       <div class="pdf-item" *ngFor="let pdfFile of getPdfFiles()">

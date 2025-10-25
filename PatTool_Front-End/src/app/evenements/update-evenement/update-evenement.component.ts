@@ -65,6 +65,20 @@ export class UpdateEvenementComponent implements OnInit {
     public selectedUser: Member | null = null;
     @ViewChild('userModal') userModal!: TemplateRef<any>;
 
+    // Confirmation modal for delete all files
+    @ViewChild('confirmDeleteAllModal') confirmDeleteAllModal!: TemplateRef<any>;
+
+    // Confirmation modal for delete all links
+    @ViewChild('confirmDeleteAllLinksModal') confirmDeleteAllLinksModal!: TemplateRef<any>;
+
+    // Confirmation modal for delete all commentaries
+    @ViewChild('confirmDeleteAllCommentariesModal') confirmDeleteAllCommentariesModal!: TemplateRef<any>;
+
+    // File upload properties
+    public selectedFiles: File[] = [];
+    public isDragOver: boolean = false;
+    public isUploading: boolean = false;
+
 	constructor(private _route: ActivatedRoute,
 		private _evenementsService: EvenementsService,
 		private _router: Router,
@@ -508,34 +522,259 @@ export class UpdateEvenementComponent implements OnInit {
 	public onFileSelected(event: any): void {
 		const files = event.target.files;
 		if (files && files.length > 0) {
-			const formData = new FormData();
-			for (let i = 0; i < files.length; i++) {
-				formData.append('file', files[i], files[i].name);
-			}
-			
-			// Build the correct upload URL like in element-evenement
-			const uploadUrl = `${environment.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
-			console.log("Upload URL:", uploadUrl);
-			
-			this._fileService.postFileToUrl(formData, this.user, uploadUrl).subscribe(
-				(response) => {
-					console.log('Files uploaded successfully:', response);
-					// Reload the event to get updated file list
-					this.reloadEvent();
-					// Reset file input
-					const fileInput = document.getElementById('fileInput') as HTMLInputElement;
-					if (fileInput) {
-						fileInput.value = '';
-					}
-					// Show success message
-					alert('Fichiers uploadés avec succès!');
-				},
-				(error) => {
-					console.error('Error uploading files:', error);
-					alert('Erreur lors de l\'upload des fichiers');
-				}
-			);
+			this.addFilesToSelection(Array.from(files));
 		}
+	}
+
+	// Drag and drop handlers
+	public onDragOver(event: DragEvent): void {
+		event.preventDefault();
+		event.stopPropagation();
+		this.isDragOver = true;
+	}
+
+	public onDragLeave(event: DragEvent): void {
+		event.preventDefault();
+		event.stopPropagation();
+		this.isDragOver = false;
+	}
+
+	public onDrop(event: DragEvent): void {
+		event.preventDefault();
+		event.stopPropagation();
+		this.isDragOver = false;
+
+		const files = event.dataTransfer?.files;
+		if (files && files.length > 0) {
+			this.addFilesToSelection(Array.from(files));
+		}
+	}
+
+	// File management methods
+	private addFilesToSelection(files: File[]): void {
+		// Add new files to the selection
+		this.selectedFiles = [...this.selectedFiles, ...files];
+		
+		// Reset file input
+		const fileInput = document.getElementById('fileInput') as HTMLInputElement;
+		if (fileInput) {
+			fileInput.value = '';
+		}
+	}
+
+	public removeSelectedFile(index: number): void {
+		this.selectedFiles.splice(index, 1);
+	}
+
+	public clearSelectedFiles(): void {
+		this.selectedFiles = [];
+	}
+
+	public formatFileSize(bytes: number): string {
+		if (bytes === 0) return '0 Bytes';
+		const k = 1024;
+		const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+		const i = Math.floor(Math.log(bytes) / Math.log(k));
+		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+	}
+
+	public uploadSelectedFiles(): void {
+		if (this.selectedFiles.length === 0) {
+			alert('Aucun fichier sélectionné');
+			return;
+		}
+
+		this.isUploading = true;
+		const formData = new FormData();
+		
+		// Add all files to FormData
+		for (let file of this.selectedFiles) {
+			formData.append('file', file, file.name);
+		}
+
+		// Build the correct upload URL
+		const uploadUrl = `${environment.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
+
+		this._fileService.postFileToUrl(formData, this.user, uploadUrl).subscribe(
+			(response) => {
+				this.isUploading = false;
+				
+				// Clear selected files
+				this.clearSelectedFiles();
+				
+				// Reload the event to get updated file list
+				this.reloadEvent();
+				
+				// Show success message with count
+				const fileCount = Array.isArray(response) ? response.length : 1;
+				alert(`Fichiers uploadés avec succès! (${fileCount} fichiers)`);
+			},
+			(error) => {
+				console.error('Error uploading files:', error);
+				this.isUploading = false;
+				
+				let errorMessage = "Erreur lors de l'upload des fichiers.";
+				
+				if (error.status === 0) {
+					errorMessage = "Impossible de se connecter au serveur. Vérifiez que le service backend fonctionne.";
+				} else if (error.status === 401) {
+					errorMessage = "Authentification échouée. Veuillez vous reconnecter.";
+				} else if (error.status === 403) {
+					errorMessage = "Accès interdit. Vous n'avez pas l'autorisation d'uploader des fichiers.";
+				} else if (error.status >= 500) {
+					errorMessage = "Erreur serveur. Veuillez réessayer plus tard.";
+				} else if (error.error && error.error.message) {
+					errorMessage = error.error.message;
+				}
+				
+				alert(errorMessage);
+			}
+		);
+	}
+
+	// Add "thumbnail" to the middle of the filename
+	private addThumbnailToFileName(originalName: string): string {
+		const lastDotIndex = originalName.lastIndexOf('.');
+		
+		if (lastDotIndex === -1) {
+			// No extension found, just add thumbnail at the end
+			return originalName + '_thumbnail';
+		}
+		
+		const nameWithoutExtension = originalName.substring(0, lastDotIndex);
+		const extension = originalName.substring(lastDotIndex);
+		
+		// Add thumbnail in the middle of the name
+		const middleIndex = Math.floor(nameWithoutExtension.length / 2);
+		const modifiedName = nameWithoutExtension.substring(0, middleIndex) + 
+							 'thumbnail' + 
+							 nameWithoutExtension.substring(middleIndex) + 
+							 extension;
+		
+		return modifiedName;
+	}
+
+	// Method to open confirmation modal for deleting all files
+	public confirmDeleteAllFiles(): void {
+		if (!this.confirmDeleteAllModal) {
+			console.error('confirmDeleteAllModal not found');
+			return;
+		}
+
+		this.modalService.open(this.confirmDeleteAllModal, {
+			size: 'md',
+			centered: true,
+			backdrop: true,
+			keyboard: true,
+			animation: true
+		});
+	}
+
+	// Method to delete all files
+	public deleteAllFiles(): void {
+		if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
+			alert('Aucun fichier à supprimer');
+			return;
+		}
+
+		// Clear all files from the event
+		this.evenement.fileUploadeds = [];
+
+		// Update the event on the server
+		this._evenementsService.put4FileEvenement(this.evenement).subscribe(
+			(response) => {
+				console.log('All files deleted successfully');
+				alert('Tous les fichiers ont été supprimés avec succès!');
+			},
+			(error) => {
+				console.error('Error deleting all files:', error);
+				alert('Erreur lors de la suppression des fichiers');
+				// Reload event to restore the file list
+				this.reloadEvent();
+			}
+		);
+	}
+
+	// Method to open confirmation modal for deleting all links
+	public confirmDeleteAllLinks(): void {
+		if (!this.confirmDeleteAllLinksModal) {
+			console.error('confirmDeleteAllLinksModal not found');
+			return;
+		}
+
+		this.modalService.open(this.confirmDeleteAllLinksModal, {
+			size: 'md',
+			centered: true,
+			backdrop: true,
+			keyboard: true,
+			animation: true
+		});
+	}
+
+	// Method to delete all links
+	public deleteAllLinks(): void {
+		if (!this.evenement.urlEvents || this.evenement.urlEvents.length === 0) {
+			alert('Aucun lien à supprimer');
+			return;
+		}
+
+		// Clear all links from the event
+		this.evenement.urlEvents = [];
+
+		// Update the event on the server
+		this._evenementsService.putEvenement(this.evenement).subscribe(
+			(response) => {
+				console.log('All links deleted successfully');
+				alert('Tous les liens ont été supprimés avec succès!');
+			},
+			(error) => {
+				console.error('Error deleting all links:', error);
+				alert('Erreur lors de la suppression des liens');
+				// Reload event to restore the links list
+				this.reloadEvent();
+			}
+		);
+	}
+
+	// Method to open confirmation modal for deleting all commentaries
+	public confirmDeleteAllCommentaries(): void {
+		if (!this.confirmDeleteAllCommentariesModal) {
+			console.error('confirmDeleteAllCommentariesModal not found');
+			return;
+		}
+
+		this.modalService.open(this.confirmDeleteAllCommentariesModal, {
+			size: 'md',
+			centered: true,
+			backdrop: true,
+			keyboard: true,
+			animation: true
+		});
+	}
+
+	// Method to delete all commentaries
+	public deleteAllCommentaries(): void {
+		if (!this.evenement.commentaries || this.evenement.commentaries.length === 0) {
+			alert('Aucun commentaire à supprimer');
+			return;
+		}
+
+		// Clear all commentaries from the event
+		this.evenement.commentaries = [];
+
+		// Update the event on the server
+		this._evenementsService.putEvenement(this.evenement).subscribe(
+			(response) => {
+				console.log('All commentaries deleted successfully');
+				alert('Tous les commentaires ont été supprimés avec succès!');
+			},
+			(error) => {
+				console.error('Error deleting all commentaries:', error);
+				alert('Erreur lors de la suppression des commentaires');
+				// Reload event to restore the commentaries list
+				this.reloadEvent();
+			}
+		);
 	}
 
 }

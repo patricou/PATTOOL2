@@ -37,8 +37,10 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -419,35 +421,61 @@ public class FileRestController {
 
     @RequestMapping( value = "/uploadfile/{userId}/{evenementid}", method = RequestMethod.POST, consumes = "multipart/form-data")
     // Important note : the name associate with RequestParam is 'file' --> seen in the browser network request.
-    public ResponseEntity<FileUploaded> postFile(@RequestParam("file") MultipartFile filedata, @PathVariable String userId, @PathVariable String evenementid  ){
-        log.info("Post file received, user.id : " +  userId +" / evenement.id : " + evenementid );
+    public ResponseEntity<List<FileUploaded>> postFile(@RequestParam("file") MultipartFile[] files, @PathVariable String userId, @PathVariable String evenementid  ){
+        log.info("Post files received, user.id : " +  userId +" / evenement.id : " + evenementid + " / files count: " + files.length);
 
+        List<FileUploaded> uploadedFiles = new ArrayList<>();
+        
         try {
             Member uploaderMember = membersRepository.findById(userId).orElse(null);
+            if (uploaderMember == null) {
+                log.error("User not found: " + userId);
+                return new ResponseEntity<>(null, null, HttpStatus.BAD_REQUEST);
+            }
 
-            DBObject metaData = new BasicDBObject();
-            metaData.put("UploaderName", uploaderMember.getFirstName()+" "+uploaderMember.getLastName());
-            metaData.put("UploaderId", uploaderMember.getId());
-
-            // Save the doc ( all type ) in  MongoDB
-            String fieldId =
-                    gridFsTemplate.store( filedata.getInputStream(), filedata.getOriginalFilename(), filedata.getContentType(), metaData).toString();
-            log.info("Doc created id : "+fieldId);
-
-            // create the file info
-            FileUploaded fileUploaded = new FileUploaded(fieldId, filedata.getOriginalFilename(), filedata.getContentType(), uploaderMember);
-            //find the evenement
+            // Find the evenement
             Evenement evenement = evenementsRepository.findById(evenementid).orElse(null);
-            evenement.getFileUploadeds().add(fileUploaded);
-            // Save the evenement updated
+            if (evenement == null) {
+                log.error("Evenement not found: " + evenementid);
+                return new ResponseEntity<>(null, null, HttpStatus.BAD_REQUEST);
+            }
+
+            // Process each file
+            for (MultipartFile filedata : files) {
+                if (filedata.isEmpty()) {
+                    log.warn("Skipping empty file");
+                    continue;
+                }
+
+                log.info("Processing file: " + filedata.getOriginalFilename());
+
+                DBObject metaData = new BasicDBObject();
+                metaData.put("UploaderName", uploaderMember.getFirstName()+" "+uploaderMember.getLastName());
+                metaData.put("UploaderId", uploaderMember.getId());
+
+                // Save the doc ( all type ) in  MongoDB
+                String fieldId =
+                        gridFsTemplate.store( filedata.getInputStream(), filedata.getOriginalFilename(), filedata.getContentType(), metaData).toString();
+                log.info("Doc created id : "+fieldId);
+
+                // create the file info
+                FileUploaded fileUploaded = new FileUploaded(fieldId, filedata.getOriginalFilename(), filedata.getContentType(), uploaderMember);
+                uploadedFiles.add(fileUploaded);
+                
+                // Add file to evenement
+                evenement.getFileUploadeds().add(fileUploaded);
+            }
+
+            // Save the evenement updated with all files
             Evenement eventSaved = evenementsRepository.save(evenement);
+            log.info("Evenement saved with " + uploadedFiles.size() + " files");
 
             HttpHeaders httpHeaders = new HttpHeaders();
             httpHeaders.setLocation(ServletUriComponentsBuilder
                     .fromCurrentRequest().path("/{id}")
                     .buildAndExpand(eventSaved.getId()).toUri());
 
-            return new ResponseEntity<FileUploaded>(fileUploaded, httpHeaders, HttpStatus.CREATED);
+            return new ResponseEntity<List<FileUploaded>>(uploadedFiles, httpHeaders, HttpStatus.CREATED);
 
         }catch (Exception e ){
             log.error(" Exception error " + e);

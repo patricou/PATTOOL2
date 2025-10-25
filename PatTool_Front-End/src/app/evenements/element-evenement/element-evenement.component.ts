@@ -172,18 +172,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 		const formData = new FormData();
 		for (let file of this.selectedFiles) {
-			console.log("Uploading file:", file.name, "Size:", file.size, "Type:", file.type);
 			formData.append('file', file, file.name);
 		}
 
 		// Build the correct upload URL with user ID and event ID
 		const uploadUrl = `${this.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
-		console.log("Upload URL:", uploadUrl);
 
 		this._fileService.postFileToUrl(formData, this.user, uploadUrl)
 			.subscribe({
 				next: (response: any) => {
-					console.log('File upload successful:', response);
 					
 					// The response should contain the uploaded file information directly
 					this.handleUploadResponse(response);

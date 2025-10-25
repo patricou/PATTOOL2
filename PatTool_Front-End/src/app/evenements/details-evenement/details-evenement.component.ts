@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, TemplateRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, TemplateRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { TranslateService } from '@ngx-translate/core';
@@ -22,7 +22,7 @@ import { environment } from '../../../environments/environment';
   templateUrl: './details-evenement.component.html',
   styleUrls: ['./details-evenement.component.css']
 })
-export class DetailsEvenementComponent implements OnInit {
+export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   public evenement: Evenement | null = null;
   public user: Member | null = null;
@@ -58,6 +58,8 @@ export class DetailsEvenementComponent implements OnInit {
 
   // Carousel properties
   public currentSlide: number = 0;
+  public autoPlay: boolean = false;
+  private autoPlayInterval: any = null;
   
   // Image cache for authenticated images
   private imageCache = new Map<string, SafeUrl>();
@@ -80,6 +82,10 @@ export class DetailsEvenementComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadEventDetails();
+  }
+
+  ngOnDestroy(): void {
+    this.stopAutoPlay();
   }
 
   private loadEventDetails(): void {
@@ -392,6 +398,36 @@ export class DetailsEvenementComponent implements OnInit {
   public goToSlide(index: number): void {
     if (index >= 0 && index < this.photoItemsList.length) {
       this.currentSlide = index;
+    }
+  }
+
+  // Auto-play methods
+  public toggleAutoPlay(): void {
+    this.autoPlay = !this.autoPlay;
+    
+    if (this.autoPlay) {
+      this.startAutoPlay();
+    } else {
+      this.stopAutoPlay();
+    }
+  }
+
+  private startAutoPlay(): void {
+    if (this.photoItemsList.length <= 1) {
+      return; // Don't auto-play if there's only one image or no images
+    }
+    
+    this.stopAutoPlay(); // Clear any existing interval
+    
+    this.autoPlayInterval = setInterval(() => {
+      this.nextSlide();
+    }, 3000); // Change slide every 3 seconds
+  }
+
+  private stopAutoPlay(): void {
+    if (this.autoPlayInterval) {
+      clearInterval(this.autoPlayInterval);
+      this.autoPlayInterval = null;
     }
   }
 

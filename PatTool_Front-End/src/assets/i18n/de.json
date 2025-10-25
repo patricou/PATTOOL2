@@ -88,7 +88,21 @@
         "EVENT_DETAILS": "Veranstaltungsdetails",
         "DATE_AND_TIME": "Datum und Uhrzeit",
         "LOCATION_AND_LINKS": "Standort",
-        "SHOW_JSON": "Veranstaltung im JSON-Format anzeigen"
+        "SHOW_JSON": "Veranstaltung im JSON-Format anzeigen",
+        "DELETE_ALL_LINKS": "Alle Links löschen",
+        "DELETE_ALL_LINKS_CONFIRM_TITLE": "Löschung bestätigen",
+        "DELETE_ALL_LINKS_CONFIRM_MESSAGE": "Sind Sie sicher, dass Sie ALLE Links von dieser Veranstaltung löschen möchten?",
+        "DELETE_ALL_LINKS_COUNT": "Link(s) werden dauerhaft gelöscht.",
+        "DELETE_ALL_LINKS_IRREVERSIBLE": "Diese Aktion ist unwiderruflich.",
+        "DELETE_ALL_LINKS_CANCEL": "Abbrechen",
+        "DELETE_ALL_LINKS_CONFIRM": "Alle Links löschen",
+        "DELETE_ALL_COMMENTARIES": "Alle Kommentare löschen",
+        "DELETE_ALL_COMMENTARIES_CONFIRM_TITLE": "Löschung bestätigen",
+        "DELETE_ALL_COMMENTARIES_CONFIRM_MESSAGE": "Sind Sie sicher, dass Sie ALLE Kommentare von dieser Veranstaltung löschen möchten?",
+        "DELETE_ALL_COMMENTARIES_COUNT": "Kommentar(e) werden dauerhaft gelöscht.",
+        "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Diese Aktion ist unwiderruflich.",
+        "DELETE_ALL_COMMENTARIES_CANCEL": "Abbrechen",
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "Alle Kommentare löschen"
     },
     "EVENTCREATION": {
         "TITLE": "Veranstaltung erstellen",
@@ -239,8 +253,26 @@
 		"PHONE": "Telefon",
 		"ADDRESS": "Adresse",
 		"CLOSE": "Schließen",
+		"DRAG_DROP_FILES": "Ziehen Sie Ihre Dateien hierher",
+		"OR_CLICK_TO_SELECT": "oder klicken Sie zum Auswählen",
+		"SELECTED_FILES": "Ausgewählte Dateien",
+		"REMOVE_FILE": "Datei entfernen",
+		"UPLOADING": "Hochladen...",
+		"UPLOAD_FILES": "Dateien hochladen",
+		"CLEAR_ALL": "Alles löschen",
         "NO_LINKS_AVAILABLE": "Keine Links verfügbar",
-        "PHOTO_LINK_WITH_NUMBER": "Link zu Foto {0}"
+        "PHOTO_LINK_WITH_NUMBER": "Link zu Foto {0}",
+		"DELETE_ALL_FILES": "Alle Dateien löschen",
+		"DELETE_ALL_FILES_CONFIRM_TITLE": "Löschbestätigung",
+		"DELETE_ALL_FILES_CONFIRM_MESSAGE": "Sind Sie sicher, dass Sie ALLE hochgeladenen Dateien dieser Veranstaltung löschen möchten?",
+		"DELETE_ALL_FILES_COUNT": "Datei(en) werden dauerhaft gelöscht.",
+		"DELETE_ALL_FILES_IRREVERSIBLE": "Diese Aktion ist unwiderruflich.",
+		"DELETE_ALL_FILES_CANCEL": "Abbrechen",
+		"DELETE_ALL_FILES_CONFIRM": "Alle Dateien löschen"
+    },
+    "CAROUSEL": {
+        "START_AUTOPLAY": "Automatisches Scrollen starten",
+        "STOP_AUTOPLAY": "Automatisches Scrollen stoppen"
     },
     "COMMUN": {
         "YES": "Ja",
