@@ -1197,3 +1197,24 @@
     white-space: pre-wrap;
     word-wrap: break-word;
 }
+
+/* Eye Button Custom Style */
+.eye-button {
+    background-color: white !important;
+    border-color: #17a2b8 !important;
+    color: #17a2b8 !important;
+}
+
+.eye-button:hover {
+    background-color: #17a2b8 !important;
+    border-color: #17a2b8 !important;
+    color: white !important;
+}
+
+.eye-button i {
+    color: #17a2b8 !important;
+}
+
+.eye-button:hover i {
+    color: white !important;
+}

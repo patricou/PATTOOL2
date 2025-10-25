@@ -517,7 +517,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	public openEventDetails(evenement: Evenement) {
 		// Navigation vers la page de détails de l'événement
-		this._router.navigate(['/updeven', evenement.id]);
+		this._router.navigate(['/details-evenement', evenement.id]);
 	}
 
 	public onImageError(event: any) {
@@ -696,6 +696,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	public getCommentsCount(evenement: Evenement): number {
 		return evenement.commentaries ? evenement.commentaries.length : 0;
+	}
+
+	public getFilesCount(evenement: Evenement): number {
+		return evenement.fileUploadeds ? evenement.fileUploadeds.length : 0;
 	}
 
 	public getEventComments(evenement: Evenement): any[] {

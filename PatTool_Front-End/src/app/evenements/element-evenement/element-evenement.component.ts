@@ -1038,6 +1038,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return this.evenement.commentaries ? this.evenement.commentaries.length : 0;
 	}
 
+	public getFilesCount(): number {
+		return this.evenement.fileUploadeds ? this.evenement.fileUploadeds.length : 0;
+	}
+
 	public getEventComments(): any[] {
 		if (!this.evenement.commentaries || this.evenement.commentaries.length === 0) {
 			return [];

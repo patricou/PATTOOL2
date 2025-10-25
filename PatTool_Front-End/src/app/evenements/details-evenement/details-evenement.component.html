@@ -1,0 +1,218 @@
+<!-- Loading Spinner -->
+<div *ngIf="loading" class="loading-container">
+  <div class="spinner-border text-primary" role="status">
+    <span class="visually-hidden">Chargement...</span>
+  </div>
+  <p class="mt-3 text-muted">{{ 'COMMUN.LOADING' | translate }}</p>
+</div>
+
+<!-- Error Message -->
+<div *ngIf="error && !loading" class="error-container">
+  <div class="alert alert-danger" role="alert">
+    <i class="fa fa-exclamation-triangle me-2"></i>
+    {{ error }}
+  </div>
+  <button class="btn btn-primary" (click)="goBack()">
+    <i class="fa fa-arrow-left me-2"></i>
+    {{ 'COMMUN.BACK' | translate }}
+  </button>
+</div>
+
+<!-- Event Details -->
+<div *ngIf="evenement && !loading && !error">
+  
+  <!-- Standard Title Section -->
+  <div class="pat-title">
+    <h2>{{ evenement.evenementName }}</h2>
+    <div class="pat-title-subtitle">
+      {{ formatEventDateTime(evenement.beginEventDate, evenement.startHour) }} - {{ evenement.author.firstName }} {{ evenement.author.lastName }}
+    </div>
+    <app-navigation-buttons></app-navigation-buttons>
+  </div>
+
+  <!-- Main Content -->
+  <div class="container mt-0">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-12 col-xl-11">
+
+  <!-- Description -->
+  <div class="description" *ngIf="evenement.comments">
+    <p>{{ evenement.comments }}</p>
+  </div>
+
+  <!-- Photo Gallery -->
+  <div class="photo-gallery" *ngIf="photoItemsList.length > 0">
+    <div class="carousel-container">
+      <div class="carousel-wrapper">
+        <!-- Navigation Arrows -->
+        <button class="carousel-nav carousel-prev" (click)="previousSlide()" *ngIf="photoItemsList.length > 1">
+          <i class="fa fa-chevron-left"></i>
+        </button>
+        <button class="carousel-nav carousel-next" (click)="nextSlide()" *ngIf="photoItemsList.length > 1">
+          <i class="fa fa-chevron-right"></i>
+        </button>
+        
+        <div class="carousel-slides" [style.transform]="'translateX(-' + (currentSlide * 100) + '%)'">
+          <div class="carousel-slide" *ngFor="let photoItem of photoItemsList">
+            <img [src]="photoItem.imageUrl" 
+                 [alt]="photoItem.file.fileName" 
+                 class="carousel-image"
+                 (click)="openImageModal(photoItem.file.fieldId, photoItem.file.fileName)"
+                 (error)="onImageError($event)">
+          </div>
+        </div>
+        
+        <!-- Dots Indicator -->
+        <div class="carousel-dots" *ngIf="photoItemsList.length > 1">
+          <span class="dot" 
+                *ngFor="let photoItem of photoItemsList; let i = index"
+                [class.active]="i === currentSlide"
+                (click)="goToSlide(i)">
+          </span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- General Comments -->
+  <div class="general-comments" *ngIf="getEventComments().length > 0">
+    <h3>{{ 'EVENTHOME.COMMENTARIES' | translate }}</h3>
+    <div class="comments-list">
+      <div class="comment" *ngFor="let comment of getEventComments()">
+        <div class="comment-header">
+          <strong>{{ comment.commentOwner }}</strong>
+          <span class="comment-date">{{ formatCommentaryDate(comment.dateCreation) }}</span>
+        </div>
+        <p class="comment-text">{{ comment.commentary }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Links -->
+  <div class="links-section" *ngIf="evenement.urlEvents && evenement.urlEvents.length > 0">
+    <h3>{{ 'EVENTELEM.URLS' | translate }}</h3>
+    
+    <!-- Group URLs by type -->
+    <div *ngFor="let typeKey of getSortedTypeKeys()" class="url-type-group">
+      <!-- Type Header -->
+      <div class="url-type-header">
+        <h4 class="url-type-title">
+          <i class="fa {{ getUrlTypeIcon(typeKey) }}"></i> {{ getUrlTypeLabel(typeKey) | translate }}
+          <span class="badge bg-secondary ms-2">{{ getGroupedUrlEvents()[typeKey].length }}</span>
+        </h4>
+      </div>
+      
+      <!-- URLs for this type -->
+      <div class="url-type-content">
+        <div class="url-event-item" *ngFor="let urlEvent of getGroupedUrlEvents()[typeKey]">
+          <div class="url-card">
+            <div class="url-card-header">
+              <div class="url-event-meta">
+                <small class="text-muted">
+                  <i class="fa fa-user"></i> {{ urlEvent.owner }} | 
+                  <i class="fa fa-calendar"></i> {{ formatCommentaryDate(urlEvent.dateCreation) }}
+                </small>
+              </div>
+            </div>
+            <div class="url-card-body">
+              <div class="url-event-content">
+                <!-- Website Content Display with Description on the side -->
+                <div class="website-content" *ngIf="urlEvent.link">
+                                    <div class="row align-items-center mb-3">
+                    <!-- Website title / Description -->
+                    <div class="col">
+                      <h5 class="website-title mb-0" *ngIf="!urlEvent.urlDescription">
+                        {{ 'EVENTELEM.WEBSITE_CONTENT' | translate }}
+                      </h5>
+                      <h5 class="website-title mb-0" *ngIf="urlEvent.urlDescription">
+                        {{ urlEvent.urlDescription }}
+                      </h5>
+                    </div>
+                  </div>
+                  
+                  <!-- Website Preview -->
+                  <div class="website-preview">
+                    <div class="preview-card">
+                      <div class="preview-info">
+                        <h5 class="preview-title">{{ getWebsiteTitle(urlEvent.link) }}</h5>
+                        <p class="preview-description">{{ getWebsiteDescription(urlEvent.link) }}</p>
+                        <div class="preview-url">{{ urlEvent.link }}</div>
+                      </div>
+                      
+                      <div class="preview-actions">
+                        <a [href]="urlEvent.link" target="_blank" class="btn btn-primary">
+                          <i class="fa fa-external-link"></i> {{ 'EVENTELEM.OPEN_WEBSITE' | translate }}
+                        </a>
+                        <button class="btn btn-outline-secondary" (click)="copyUrlToClipboard(urlEvent.link)">
+                          <i class="fa fa-copy"></i> {{ 'EVENTELEM.COPY_LINK' | translate }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Description only (when no website content) -->
+                <div class="url-event-description" *ngIf="!urlEvent.link && urlEvent.urlDescription">
+                  <p class="text-muted mb-0">{{ urlEvent.urlDescription }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Documents PDF Section -->
+  <div class="container mt-0" *ngIf="getPdfFiles().length > 0">
+    <div class="row justify-content-center">
+      <div class="col-12 col-lg-12 col-xl-11">
+        <div class="pdf-documents">
+            <h3>
+              <i class="fa fa-file-pdf-o me-2"></i>
+              {{ 'EVENTELEM.PDF_DOCUMENTS' | translate }}
+            </h3>
+          <div class="pdf-list">
+            <div class="pdf-item" *ngFor="let pdfFile of getPdfFiles()">
+              <div class="pdf-info">
+                <div class="pdf-icon">
+                  <i class="fa fa-file-pdf-o"></i>
+                </div>
+                <div class="pdf-details">
+                  <h5 class="pdf-name">{{ pdfFile.fileName }}</h5>
+                  <p class="pdf-meta">
+                    <span class="pdf-type">Document PDF</span>
+                  </p>
+                </div>
+              </div>
+              <div class="pdf-actions">
+                <button class="btn btn-primary" (click)="openPdfInPage(pdfFile)">
+                  <i class="fa fa-eye"></i> {{ 'EVENTELEM.OPEN_PDF' | translate }}
+                </button>
+                <button class="btn btn-outline-secondary" (click)="downloadPdf(pdfFile)">
+                  <i class="fa fa-download"></i> {{ 'EVENTELEM.DOWNLOAD_PDF' | translate }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  </div>
+</div>
+
+<!-- Image Modal -->
+<ng-template #imageModal let-c="close">
+  <div class="modal-header">
+    <h5 class="modal-title">{{ selectedImageAlt }}</h5>
+    <button type="button" class="btn-close" (click)="c()" aria-label="Close"></button>
+  </div>
+  <div class="modal-body text-center">
+    <img [src]="selectedImageUrl" [alt]="selectedImageAlt" class="img-fluid modal-image" />
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="c()">{{ 'COMMUN.CLOSE' | translate }}</button>
+  </div>
+</ng-template>

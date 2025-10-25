@@ -21,6 +21,7 @@ import { ChatComponent } from './communications/chat/chat.component';
 import { AboutComponent } from './other/about/about.component';
 import { CreateEvenementComponent } from './evenements/create-evenement/create-evenement.component';
 import { UpdateEvenementComponent } from './evenements/update-evenement/update-evenement.component';
+import { DetailsEvenementComponent } from './evenements/details-evenement/details-evenement.component';
 import { KeycloakService } from './keycloak/keycloak.service';
 import { KeycloakHttpInterceptor } from './keycloak/keycloak.http';
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
@@ -47,6 +48,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		AppComponent,
 		PageNotFoundComponent,
 		IothomeComponent,
+		DetailsEvenementComponent,
 	],
 	imports: [
 		BrowserModule,
@@ -71,6 +73,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{ path: 'even', component: HomeEvenementsComponent },
 			{ path: 'neweven', component: CreateEvenementComponent },
 			{ path: 'updeven/:id', component: UpdateEvenementComponent },
+			{ path: 'details-evenement/:id', component: DetailsEvenementComponent },
 			{ path: 'results', component: ChatComponent },
 			{ path: 'maps', component: AboutComponent },
 			{ path: 'links', component: LinksComponent },

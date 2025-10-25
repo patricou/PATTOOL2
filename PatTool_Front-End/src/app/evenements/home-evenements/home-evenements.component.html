@@ -168,12 +168,23 @@
                     <i class="fa fa-code"></i>
                 </button>
 
-                <!-- View Details Button -->
-                <button class="btn btn-sm btn-outline-primary"
-                    (click)="openEventDetails(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTHOME.VIEW_DETAILS' | translate }}" placement="top">
-                    <i class="fa fa-eye"></i>
+                <!-- Files Management Button -->
+                <button class="btn btn-sm btn-outline-primary me-1" 
+                    [hidden]="!isAnyFiles(evenement)"
+                    (click)="toggleFileList(evenement); $event.stopPropagation()"
+                    ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD' | translate }}" 
+                    placement="top">
+                    <i class="fa fa-download"></i> {{ getFilesCount(evenement) }}
                 </button>
+
+                <!-- View Details Button -->
+                <a class="btn btn-sm btn-outline-info me-1 eye-button" 
+                    [routerLink]="['/details-evenement', evenement.id]" 
+                    ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}" 
+                    placement="top"
+                    (click)="$event.stopPropagation()">
+                    <i class="fa fa-eye"></i>
+                </a>
             </div>
         </div>
     </div>
