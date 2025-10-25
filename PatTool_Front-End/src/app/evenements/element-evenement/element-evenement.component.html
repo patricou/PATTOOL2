@@ -181,6 +181,15 @@
     <a class="btn btn-sm btn-outline-primary mb-1 me-1" [hidden]="!isAnyFiles()" (click)="toogleFileListe()"
         placement="top" ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"><i class="fa fa-download"
             aria-hidden="true"></i> {{ getFilesCount() }}</a>
+    
+    <!-- Slideshow Button (only if there are images) -->
+    <button class="btn btn-sm btn-outline-success mb-1 me-1" 
+            [hidden]="!hasImageFiles()" 
+            (click)="openSlideshow()"
+            placement="top" 
+            ngbTooltip="Diaporama des photos">
+        <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getImageFilesCount() }}
+    </button>
 
     <!-- JSON View Button -->
     <button class="btn btn-sm btn-secondary mb-1 me-1" (click)="openJsonModal()" placement="top"
@@ -453,6 +462,60 @@
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Close click')">
             Fermer
+        </button>
+    </div>
+</ng-template>
+
+<!-- Slideshow Modal -->
+<ng-template #slideshowModal let-c="close" let-d="dismiss">
+    <div class="modal-header slideshow-header">
+        <h5 class="modal-title">
+            <i class="fa fa-picture-o"></i> Diaporama - {{ evenement.evenementName }}
+        </h5>
+        <button type="button" class="btn-close" (click)="d()" aria-label="Close"></button>
+    </div>
+    <div class="modal-body slideshow-body">
+        <div class="slideshow-container">
+            <div class="slideshow-image-wrapper">
+                <img *ngIf="slideshowImages.length > 0" 
+                     [src]="getCurrentSlideshowImage()" 
+                     alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
+                     class="slideshow-image" />
+                <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
+                    <i class="fa fa-spinner fa-spin fa-3x"></i>
+                    <p>Chargement des images...</p>
+                </div>
+                <div *ngIf="slideshowImages.length > 0" class="slideshow-counter">
+                    {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
+                </div>
+            </div>
+            <div class="slideshow-controls">
+                <button class="btn btn-lg btn-outline-light slideshow-btn-prev" 
+                        (click)="previousImage()"
+                        [disabled]="slideshowImages.length <= 1">
+                    <i class="fa fa-chevron-left"></i>
+                </button>
+                <button class="btn btn-lg btn-outline-light slideshow-btn-next" 
+                        (click)="nextImage()"
+                        [disabled]="slideshowImages.length <= 1">
+                    <i class="fa fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer slideshow-footer">
+        <div class="w-100 text-center">
+            <div class="slideshow-thumbnails">
+                <div *ngFor="let imgUrl of slideshowImages; let i = index" 
+                     class="slideshow-thumbnail"
+                     [class.active]="i === currentSlideshowIndex"
+                     (click)="currentSlideshowIndex = i">
+                    <img [src]="imgUrl" alt="Thumbnail {{ i + 1 }}" />
+                </div>
+            </div>
+        </div>
+        <button type="button" class="btn btn-secondary" (click)="c()">
+            <i class="fa fa-times"></i> Fermer
         </button>
     </div>
 </ng-template>

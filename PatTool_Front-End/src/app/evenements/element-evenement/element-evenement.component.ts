@@ -42,9 +42,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public selectedImageUrl: SafeUrl | string = '';
 	public selectedImageAlt: string = '';
 	public selectedUser: Member | null = null;
+	public isSlideshowActive: boolean = false;
+	public currentSlideshowIndex: number = 0;
+	public slideshowImages: string[] = [];
+	public slideshowInterval: any;
 
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
+	@ViewChild('slideshowModal') slideshowModal!: TemplateRef<any>;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
@@ -428,6 +433,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	public isAnyFiles(): boolean {
 		return this.evenement.fileUploadeds.length > 0;
+	}
+
+	public hasImageFiles(): boolean {
+		return this.evenement.fileUploadeds.some(file => this.isImageFile(file.fileName));
+	}
+
+	public getImageFilesCount(): number {
+		return this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName)).length;
 	}
 
 	public isFileOwner(member: Member): boolean {
@@ -1088,5 +1101,103 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	public sendEmail(email: string): void {
 		window.open(`mailto:${email}`, '_blank');
+	}
+
+	// Open slideshow modal with all images from this card
+	public openSlideshow(): void {
+		// Filter to get only image files
+		const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
+		
+		if (imageFiles.length === 0) {
+			alert('Aucune image trouvée dans cet événement.');
+			return;
+		}
+
+		// Initialize slideshow state
+		this.slideshowImages = [];
+		this.currentSlideshowIndex = 0;
+		this.isSlideshowActive = false;
+
+		// Open the modal first
+		if (this.slideshowModal) {
+			const modalRef = this.modalService.open(this.slideshowModal, { 
+				size: 'xl', 
+				centered: true,
+				backdrop: true,
+				keyboard: true,
+				windowClass: 'modal-smooth-animation'
+			});
+			
+			// Handle modal close event
+			modalRef.result.then(
+				(result) => {
+					this.stopSlideshow();
+				},
+				(reason) => {
+					this.stopSlideshow();
+				}
+			);
+		}
+
+		// Load all images asynchronously
+		Promise.all(imageFiles.map(async file => {
+			const blob = await this.getFileBlobUrl(file.fieldId).toPromise();
+			const objectUrl = URL.createObjectURL(blob);
+			return objectUrl;
+		})).then(imageUrls => {
+			this.slideshowImages = imageUrls;
+			this.isSlideshowActive = true;
+			
+			// Start automatic slideshow only after images are loaded
+			this.startSlideshow();
+		}).catch(error => {
+			console.error('Error loading images for slideshow:', error);
+			alert('Erreur lors du chargement des images.');
+		});
+	}
+
+	// Start automatic slideshow
+	private startSlideshow(): void {
+		// Change image every 3 seconds
+		this.slideshowInterval = setInterval(() => {
+			this.nextImage();
+		}, 3000);
+	}
+
+	// Stop slideshow
+	private stopSlideshow(): void {
+		if (this.slideshowInterval) {
+			clearInterval(this.slideshowInterval);
+			this.slideshowInterval = null;
+		}
+		this.isSlideshowActive = false;
+		
+		// Cleanup blob URLs to prevent memory leaks
+		this.slideshowImages.forEach(url => {
+			if (url.startsWith('blob:')) {
+				URL.revokeObjectURL(url);
+			}
+		});
+		this.slideshowImages = [];
+	}
+
+	// Navigate to next image
+	public nextImage(): void {
+		if (this.slideshowImages.length === 0) return;
+		this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
+	}
+
+	// Navigate to previous image
+	public previousImage(): void {
+		if (this.slideshowImages.length === 0) return;
+		this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
+	}
+
+	// Get current slideshow image URL
+	public getCurrentSlideshowImage(): string {
+		if (this.slideshowImages.length === 0 || this.currentSlideshowIndex >= this.slideshowImages.length) {
+			return '';
+		}
+		return this.slideshowImages[this.currentSlideshowIndex];
 	}
 }
