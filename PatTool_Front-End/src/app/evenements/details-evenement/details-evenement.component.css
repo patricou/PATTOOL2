@@ -1,6 +1,28 @@
 /* Header subtitle styling */
 .pat-title-subtitle {
   color: white !important;
+  text-align: center !important;
+}
+
+/* Centrer le titre de l'événement */
+.pat-title {
+  text-align: center !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+}
+
+.pat-title h2 {
+  text-align: center !important;
+  margin-bottom: 10px !important;
+  width: 100% !important;
+}
+
+.pat-title app-navigation-buttons {
+  display: flex !important;
+  justify-content: center !important;
+  margin-top: 15px !important;
+  width: 100% !important;
 }
 
 /* Global Button Styles - Uniform font family */
@@ -48,7 +70,7 @@
 }
 
 .description p {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: bold;
   line-height: 1.6;
   color: #495057;
@@ -176,7 +198,7 @@
 }
 
 .general-comments h3 {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 600;
   color: #2c3e50;
   margin-bottom: 20px;
@@ -237,7 +259,7 @@
 }
 
 .links-section h3 {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 600;
   color: #2c3e50;
   margin-bottom: 20px;
@@ -529,7 +551,7 @@
 }
 
 .pdf-documents h3 {
-  font-size: 1.5rem;
+  font-size: 1.3rem;
   font-weight: 600;
   color: #2c3e50;
   margin-bottom: 20px;
@@ -541,6 +563,39 @@
 .pdf-documents h3::before {
   content: "📄";
   font-size: 1.2rem;
+}
+
+/* Harmoniser les tailles de police entre PDF et Liens */
+.pdf-name {
+  margin: 0 0 5px 0;
+  color: #2c3e50;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.pdf-meta {
+  margin: 0;
+  color: #6c757d;
+  font-size: 0.9rem;
+  display: flex;
+  gap: 15px;
+}
+
+.pdf-type {
+  font-size: 0.9rem;
+}
+
+.pdf-owner {
+  font-size: 0.9rem;
+}
+
+/* Harmoniser avec les styles des liens */
+.url-event-meta {
+  font-size: 0.9rem;
+}
+
+.url-link-btn {
+  font-size: 0.9rem;
 }
 
 .pdf-list {

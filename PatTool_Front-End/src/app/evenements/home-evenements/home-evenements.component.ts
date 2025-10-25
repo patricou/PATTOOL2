@@ -46,6 +46,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public selectedEventName: string = '';
 	public selectedImageUrl: SafeUrl | string = '';
 	public selectedImageAlt: string = '';
+	public selectedUser: Member | null = null;
 	public msgVal: string = '';
 	public items: Observable<any> = new Observable();
 	@ViewChild('searchterm')
@@ -55,6 +56,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('urlsModal') urlsModal!: TemplateRef<any>;
 	@ViewChild('chatModal') chatModal!: TemplateRef<any>;
 	@ViewChild('jsonModal') jsonModal!: TemplateRef<any>;
+	@ViewChild('userModal') userModal!: TemplateRef<any>;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 
@@ -730,6 +732,25 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}, (reason) => {
 			console.log('Comments modal dismissed:', reason);
 		});
+	}
+
+	public openUserModal(user: Member): void {
+		this.selectedUser = user;
+		if (!this.userModal) {
+			return;
+		}
+
+		this.modalService.open(this.userModal, {
+			size: 'md',
+			centered: true,
+			backdrop: true,
+			keyboard: true,
+			animation: true
+		});
+	}
+
+	public sendEmail(email: string): void {
+		window.open(`mailto:${email}`, '_blank');
 	}
 	
 }

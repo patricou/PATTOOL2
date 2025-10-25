@@ -200,7 +200,14 @@
                     </div>
                     <div class="info-content">
                         <div class="info-label">{{"USERINFO.EMAIL" | translate}}</div>
-                        <div class="info-value">{{user.addressEmail}}</div>
+                        <div class="info-value d-flex align-items-center">
+                            <span class="flex-grow-1">{{user.addressEmail}}</span>
+                            <button class="btn btn-sm btn-outline-primary ms-2" 
+                                    (click)="sendEmail(user.addressEmail)"
+                                    title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
+                                <i class="fa fa-envelope"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 

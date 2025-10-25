@@ -164,37 +164,40 @@
   </div>
 
   <!-- Documents PDF Section -->
-  <div class="container mt-0" *ngIf="getPdfFiles().length > 0">
-    <div class="row justify-content-center">
-      <div class="col-12 col-lg-12 col-xl-11">
-        <div class="pdf-documents">
-            <h3>
-              <i class="fa fa-file-pdf-o me-2"></i>
-              {{ 'EVENTELEM.PDF_DOCUMENTS' | translate }}
-            </h3>
-          <div class="pdf-list">
-            <div class="pdf-item" *ngFor="let pdfFile of getPdfFiles()">
-              <div class="pdf-info">
-                <div class="pdf-icon">
-                  <i class="fa fa-file-pdf-o"></i>
-                </div>
-                <div class="pdf-details">
-                  <h5 class="pdf-name">{{ pdfFile.fileName }}</h5>
-                  <p class="pdf-meta">
-                    <span class="pdf-type">Document PDF</span>
-                  </p>
-                </div>
-              </div>
-              <div class="pdf-actions">
-                <button class="btn btn-primary" (click)="openPdfInPage(pdfFile)">
-                  <i class="fa fa-eye"></i> {{ 'EVENTELEM.OPEN_PDF' | translate }}
-                </button>
-                <button class="btn btn-outline-secondary" (click)="downloadPdf(pdfFile)">
-                  <i class="fa fa-download"></i> {{ 'EVENTELEM.DOWNLOAD_PDF' | translate }}
-                </button>
-              </div>
+  <div class="pdf-documents" *ngIf="getPdfFiles().length > 0">
+    <h3>
+      <i class="fa fa-file-pdf-o me-2"></i>
+      {{ 'EVENTELEM.PDF_DOCUMENTS' | translate }}
+    </h3>
+    <div class="pdf-list">
+      <div class="pdf-item" *ngFor="let pdfFile of getPdfFiles()">
+        <div class="pdf-info">
+          <div class="pdf-icon">
+            <i class="fa fa-file-pdf-o"></i>
+          </div>
+          <div class="pdf-details">
+            <h5 class="pdf-name">{{ pdfFile.fileName }}</h5>
+            <p class="pdf-meta">
+              <span class="pdf-type">Document PDF</span>
+            </p>
+            <div class="pdf-owner d-flex align-items-center">
+              <i class="fa fa-user"></i> {{ pdfFile.uploaderMember.firstName }} {{ pdfFile.uploaderMember.lastName }} ({{ pdfFile.uploaderMember.userName }})
+              <button class="btn btn-xs btn-outline-primary ms-2" 
+                      style="padding: 0.1rem 0.25rem; font-size: 0.6rem;"
+                      (click)="sendEmail(pdfFile.uploaderMember.addressEmail)"
+                      title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
+                <i class="fa fa-envelope"></i>
+              </button>
             </div>
           </div>
+        </div>
+        <div class="pdf-actions">
+          <button class="btn btn-primary" (click)="openPdfInPage(pdfFile)">
+            <i class="fa fa-eye"></i> {{ 'EVENTELEM.OPEN_PDF' | translate }}
+          </button>
+          <button class="btn btn-outline-secondary" (click)="downloadPdf(pdfFile)">
+            <i class="fa fa-download"></i> {{ 'EVENTELEM.DOWNLOAD_PDF' | translate }}
+          </button>
         </div>
       </div>
     </div>

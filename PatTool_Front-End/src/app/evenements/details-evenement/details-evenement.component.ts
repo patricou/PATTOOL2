@@ -727,4 +727,8 @@ export class DetailsEvenementComponent implements OnInit {
       document.body.removeChild(textArea);
     }
   }
+
+  public sendEmail(email: string): void {
+    window.open(`mailto:${email}`, '_blank');
+  }
 }

@@ -119,9 +119,29 @@
     </div>
     <div class="card-text" [hidden]="!isAnyParticpants()">
         <hr>
-        <h5 class="pat-members"><b> {{"EVENTELEM.MEMBERS" | translate }} : </b></h5>
-        <div *ngFor="let member of evenement.members">
-            <small>{{member.firstName}} {{member.lastName}} / {{member.userName}}</small>
+        <h5 class="pat-members">
+            <b> <span style="font-size: 0.85rem;">{{"EVENTELEM.MEMBERS" | translate }} ({{ evenement.members.length }})</span> : </b>
+            <button class="btn btn-sm btn-outline-primary ms-1" 
+                    style="padding: 0.1rem 0.25rem; font-size: 0.65rem;"
+                    (click)="toggleParticipantsList()"
+                    [title]="showParticipantsList ? ('EVENTELEM.HIDE_PARTICIPANTS' | translate) : ('EVENTELEM.SHOW_PARTICIPANTS' | translate)">
+                <i class="fa" [class.fa-plus]="!showParticipantsList" [class.fa-minus]="showParticipantsList"></i>
+            </button>
+        </h5>
+        <div *ngIf="showParticipantsList">
+            <div *ngFor="let member of evenement.members" class="d-flex align-items-center mb-1">
+                <small class="clickable-user flex-grow-1" 
+                       (click)="openUserModal(member)"
+                       title="Cliquer pour voir les détails du participant">
+                    {{member.firstName}} {{member.lastName}} / {{member.userName}}
+                </small>
+                <button class="btn btn-xs btn-outline-primary ms-2" 
+                        style="padding: 0.1rem 0.25rem; font-size: 0.6rem;"
+                        (click)="sendEmail(member.addressEmail); $event.stopPropagation()"
+                        title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
+                    <i class="fa fa-envelope"></i>
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -408,7 +428,13 @@
             </div>
             <div class="detail-row">
                 <strong>Email :</strong>
-                <span>{{ selectedUser.addressEmail }}</span>
+                <span>{{ selectedUser.addressEmail }}
+                    <button class="btn btn-sm btn-outline-primary ms-2" 
+                            (click)="sendEmail(selectedUser.addressEmail)"
+                            title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
+                        <i class="fa fa-envelope"></i>
+                    </button>
+                </span>
             </div>
             <div class="detail-row">
                 <strong>ID :</strong>

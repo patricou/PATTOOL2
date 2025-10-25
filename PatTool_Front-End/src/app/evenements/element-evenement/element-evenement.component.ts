@@ -31,6 +31,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// For firebase items
 	public items: Observable<any[]> = new Observable();
 	public msgVal: string = '';
+	public showParticipantsList: boolean = false;
 	// Evaluate rating
 	public currentRate: number = 0;
 	public safePhotosUrl: SafeUrl = {} as SafeUrl;
@@ -422,6 +423,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	public isAnyParticpants(): boolean {
 		return this.evenement.members.length > 0;
+	}
+
+	public toggleParticipantsList(): void {
+		this.showParticipantsList = !this.showParticipantsList;
 	}
 
 	public isAnyFiles(): boolean {
@@ -1082,5 +1087,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			keyboard: true,
 			animation: true
 		});
+	}
+
+	public sendEmail(email: string): void {
+		window.open(`mailto:${email}`, '_blank');
 	}
 }

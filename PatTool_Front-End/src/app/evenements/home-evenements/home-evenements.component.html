@@ -97,7 +97,9 @@
             <div class="compact-content">
                 <div class="compact-title">{{ evenement.evenementName }}</div>
                 <div class="compact-author">
-                    <small class="text-muted">
+                    <small class="text-muted clickable-user" 
+                           (click)="openUserModal(evenement.author); $event.stopPropagation()"
+                           title="Cliquer pour voir les détails de l'organisateur">
                         <i class="fa fa-user"></i> {{ evenement.author.firstName }} {{ evenement.author.lastName }} / {{ evenement.author.userName }}
                     </small>
                 </div>
@@ -402,6 +404,41 @@
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c()">Close</button>
+    </div>
+</ng-template>
+
+<!-- User Details Modal -->
+<ng-template #userModal let-c="close" let-d="dismiss">
+    <div class="modal-header">
+        <h4 class="modal-title">{{ 'EVENTELEM.USER_DETAILS' | translate }}</h4>
+        <button type="button" class="btn-close" aria-label="Close" (click)="d('Cross click')">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    <div class="modal-body" *ngIf="selectedUser">
+        <div class="user-details">
+            <div class="row">
+                <div class="col-md-6">
+                    <h5>{{ 'EVENTELEM.USER_INFO' | translate }}</h5>
+                    <p><strong>{{ 'EVENTELEM.FIRST_NAME' | translate }}:</strong> {{ selectedUser.firstName }}</p>
+                    <p><strong>{{ 'EVENTELEM.LAST_NAME' | translate }}:</strong> {{ selectedUser.lastName }}</p>
+                    <p><strong>{{ 'EVENTELEM.USERNAME' | translate }}:</strong> {{ selectedUser.userName }}</p>
+                    <p><strong>{{ 'EVENTELEM.EMAIL' | translate }}:</strong> {{ selectedUser.addressEmail }}
+                        <button class="btn btn-sm btn-outline-primary ms-2" 
+                                (click)="sendEmail(selectedUser.addressEmail)"
+                                title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
+                            <i class="fa fa-envelope"></i>
+                        </button>
+                    </p>
+                    <p><strong>{{ 'EVENTELEM.ROLES' | translate }}:</strong> {{ selectedUser.roles.join(', ') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            {{ 'EVENTELEM.CLOSE' | translate }}
+        </button>
     </div>
 </ng-template>
 

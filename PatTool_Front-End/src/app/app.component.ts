@@ -117,6 +117,10 @@ export class AppComponent implements OnInit {
         }
     }
 
+    public sendEmail(email: string): void {
+        window.open(`mailto:${email}`, '_blank');
+    }
+
     onFilesSelected(event: any) {
         this.resultSaveOndisk = "";
         this.selectedFiles = event.target.files;
