@@ -281,27 +281,27 @@ export class CreateEvenementComponent implements OnInit {
 
 	// Check if user can delete commentary (only owner of the commentary)
 	public canDeleteCommentary(commentary: Commentary): boolean {
-		return this.user.userName === commentary.commentOwner;
+		return this.user.userName.toLowerCase() === commentary.commentOwner.toLowerCase();
 	}
 
 	// Check if user can delete URL event (only owner of the link)
 	public canDeleteUrlEvent(urlEvent: UrlEvent): boolean {
-		return this.user.userName === urlEvent.owner;
+		return this.user.userName.toLowerCase() === urlEvent.owner.toLowerCase();
 	}
 
 	// Check if user can edit URL event (only owner of the link)
 	public canEditUrlEvent(urlEvent: UrlEvent): boolean {
-		return this.user.userName === urlEvent.owner;
+		return this.user.userName.toLowerCase() === urlEvent.owner.toLowerCase();
 	}
 
 	// Check if user can edit commentary (only owner of the commentary)
 	public canEditCommentary(commentary: Commentary): boolean {
-		return this.user.userName === commentary.commentOwner;
+		return this.user.userName.toLowerCase() === commentary.commentOwner.toLowerCase();
 	}
 
 	// Check if user can edit event fields (only event author)
 	public canEditEventFields(): boolean {
-		return this.user.userName === this.evenement.author.userName;
+		return this.user.userName.toLowerCase() === this.evenement.author.userName.toLowerCase();
 	}
 
 	// Format date for display

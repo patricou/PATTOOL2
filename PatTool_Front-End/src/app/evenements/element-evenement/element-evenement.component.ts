@@ -433,13 +433,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public isAuthor(): boolean {
 		// i don't search by Id becoze sometimes the page can be diaplyed after the id is filled 
 		// as it is completed by the id becoming from Mlab with an observable in membersService.completeMemberId()
-		return this.evenement.author.userName == this.user.userName;
+		return this.evenement.author.userName.toLowerCase() == this.user.userName.toLowerCase();
 	}
 
 	public isParticipant(): boolean {
 		let b: boolean = false;
 		this.evenement.members.forEach(member => {
-			if (member.userName == this.user.userName) { b = true };
+			if (member.userName.toLowerCase() == this.user.userName.toLowerCase()) { b = true };
 		}
 		);
 		return b;
@@ -807,7 +807,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Check if user can delete commentary (only owner of the commentary)
 	public canDeleteCommentary(commentary: Commentary): boolean {
-		return this.user.userName === commentary.commentOwner;
+		return this.user.userName.toLowerCase() === commentary.commentOwner.toLowerCase();
 	}
 
 	// Format date for display
