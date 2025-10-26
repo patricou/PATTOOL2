@@ -205,6 +205,12 @@
         "IDWTP": "أنا لا أشارك بعد الآن",
         "UTE": "تعديل النشاط",
         "DTE": "حذف النشاط",
+        "DELETE_EVENT_CONFIRM_MESSAGE": "هل أنت متأكد من حذف هذا النشاط؟ هذا الإجراء لا يمكن التراجع عنه وسيحذف بشكل دائم:",
+        "DELETE_EVENT_CONFIRM_FILES": "- جميع الملفات ({{count}} ملف/ملفات)",
+        "DELETE_EVENT_CONFIRM_URLS": "- جميع الروابط ({{count}} رابط/روابط)",
+        "DELETE_EVENT_CONFIRM_COMMENTARIES": "- جميع التعليقات ({{count}} تعليق/تعليقات)",
+        "DELETE_EVENT_CONFIRM_CHAT": "- جميع رسائل الدردشة",
+        "DELETE_EVENT_CONFIRM_TITLE": "تأكيد الحذف",
         "CLOSE": "إغلاق النشاط",
         "OPEN": "(إعادة) فتح النشاط",
         "CANCEL": "إلغاء النشاط",
@@ -424,6 +430,12 @@
         "NO_LINKS": "لا توجد روابط متاحة",
         "NO_VISIBLE_LINKS": "لا توجد روابط مرئية",
         "EDIT_LINK": "تعديل الرابط",
-        "NAME_FIELD": "الاسم"
+        "NAME_FIELD": "الاسم",
+        "SHOW_JSON": "عرض JSON",
+        "COPY_TO_CLIPBOARD": "نسخ إلى الحافظة",
+        "CATEGORIES_JSON_DATA": "بيانات JSON للفئات",
+        "URLLINKS_JSON_DATA": "بيانات JSON لروابط URL",
+        "ELEMENTS": "عناصر",
+        "CLOSE": "إغلاق"
     }
 }

@@ -205,6 +205,12 @@
         "IDWTP": "Я больше не участвую",
         "UTE": "Изменить мероприятие",
         "DTE": "Удалить мероприятие",
+        "DELETE_EVENT_CONFIRM_MESSAGE": "Вы уверены, что хотите удалить это мероприятие? Это действие необратимо и навсегда удалит:",
+        "DELETE_EVENT_CONFIRM_FILES": "- Все файлы ({{count}} файл(ов))",
+        "DELETE_EVENT_CONFIRM_URLS": "- Все ссылки ({{count}} ссылка/и)",
+        "DELETE_EVENT_CONFIRM_COMMENTARIES": "- Все комментарии ({{count}} комментарий(ев))",
+        "DELETE_EVENT_CONFIRM_CHAT": "- Все сообщения чата",
+        "DELETE_EVENT_CONFIRM_TITLE": "Подтверждение удаления",
         "CLOSE": "Закрыть мероприятие",
         "OPEN": "(Повторно) Открыть мероприятие",
         "CANCEL": "Отменить мероприятие",
@@ -424,6 +430,12 @@
         "NO_LINKS": "Нет доступных ссылок",
         "NO_VISIBLE_LINKS": "Нет видимых ссылок",
         "EDIT_LINK": "Редактировать ссылку",
-        "NAME_FIELD": "Название"
+        "NAME_FIELD": "Название",
+        "SHOW_JSON": "Показать JSON",
+        "COPY_TO_CLIPBOARD": "Копировать в буфер обмена",
+        "CATEGORIES_JSON_DATA": "Данные JSON категорий",
+        "URLLINKS_JSON_DATA": "Данные JSON URL ссылок",
+        "ELEMENTS": "элементов",
+        "CLOSE": "Закрыть"
     }
 }

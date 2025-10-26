@@ -383,7 +383,28 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 	// call the modal window for del confirmation
 	public deleteEvenement() {
-		if (confirm("Are you sure you want to delete the event ? ")) {
+		// Count associated data
+		const fileCount = this.evenement.fileUploadeds ? this.evenement.fileUploadeds.length : 0;
+		const urlCount = this.evenement.urlEvents ? this.evenement.urlEvents.length : 0;
+		const commentaryCount = this.evenement.commentaries ? this.evenement.commentaries.length : 0;
+		
+		// Build detailed confirmation message
+		let confirmMessage = this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_MESSAGE') + '\n\n';
+		
+		if (fileCount > 0) {
+			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_FILES', { count: fileCount }) + '\n';
+		}
+		if (urlCount > 0) {
+			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_URLS', { count: urlCount }) + '\n';
+		}
+		if (commentaryCount > 0) {
+			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_COMMENTARIES', { count: commentaryCount }) + '\n';
+		}
+		
+		// Always mention chat messages (Firebase) regardless of count
+		confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_CHAT');
+		
+		if (confirm(confirmMessage)) {
 			this.delEvenement.emit(this.evenement);
 		}
 	}

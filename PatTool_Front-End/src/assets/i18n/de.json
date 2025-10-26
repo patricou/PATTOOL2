@@ -204,6 +204,12 @@
         "IDWTP": "Ich nehme nicht mehr teil",
         "UTE": "Veranstaltung ändern",
         "DTE": "Veranstaltung löschen",
+        "DELETE_EVENT_CONFIRM_MESSAGE": "Möchten Sie diese Veranstaltung wirklich löschen? Diese Aktion ist unwiderruflich und wird dauerhaft löschen:",
+        "DELETE_EVENT_CONFIRM_FILES": "- Alle Dateien ({{count}} Datei(en))",
+        "DELETE_EVENT_CONFIRM_URLS": "- Alle Links ({{count}} Link(s))",
+        "DELETE_EVENT_CONFIRM_COMMENTARIES": "- Alle Kommentare ({{count}} Kommentar(e))",
+        "DELETE_EVENT_CONFIRM_CHAT": "- Alle Chat-Nachrichten",
+        "DELETE_EVENT_CONFIRM_TITLE": "Löschbestätigung",
         "CLOSE": "Veranstaltung schließen",
         "OPEN": "Veranstaltung (wieder) öffnen",
         "CANCEL": "Veranstaltung absagen",
@@ -418,6 +424,12 @@
         "NO_LINKS": "Keine Links verfügbar",
         "NO_VISIBLE_LINKS": "Keine sichtbaren Links",
         "EDIT_LINK": "Link bearbeiten",
-        "NAME_FIELD": "Name"
+        "NAME_FIELD": "Name",
+        "SHOW_JSON": "JSON anzeigen",
+        "COPY_TO_CLIPBOARD": "In Zwischenablage kopieren",
+        "CATEGORIES_JSON_DATA": "Kategorien JSON-Daten",
+        "URLLINKS_JSON_DATA": "URL-Links JSON-Daten",
+        "ELEMENTS": "Elemente",
+        "CLOSE": "Schließen"
     }
 }

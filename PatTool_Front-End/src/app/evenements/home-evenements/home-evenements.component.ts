@@ -162,7 +162,18 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				(err: any) => alert("Error when deleting participant " + err));
 	}
 
-	public delEvent(evenement: Evenement) {
+	public async delEvent(evenement: Evenement) {
+		// Delete Firebase chat messages first
+		try {
+			const messagesRef = ref(this.database, evenement.id);
+			await remove(messagesRef);
+			console.log("Firebase chat messages deleted for event: " + evenement.id);
+		} catch (error) {
+			console.error("Error deleting Firebase chat messages:", error);
+			// Continue with event deletion even if Firebase deletion fails
+		}
+		
+		// Then delete the event from backend
 		this._evenementsService.delEvenement(evenement.id)
 			.subscribe(
 				(res: any) => {  //  update evenements for screen update			
@@ -208,7 +219,28 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	public deleteEvenement(evenement: Evenement) {
-		if (confirm("Are you sure you want to delete the event ? ")) {
+		// Count associated data
+		const fileCount = evenement.fileUploadeds ? evenement.fileUploadeds.length : 0;
+		const urlCount = evenement.urlEvents ? evenement.urlEvents.length : 0;
+		const commentaryCount = evenement.commentaries ? evenement.commentaries.length : 0;
+		
+		// Build detailed confirmation message
+		let confirmMessage = this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_MESSAGE') + '\n\n';
+		
+		if (fileCount > 0) {
+			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_FILES', { count: fileCount }) + '\n';
+		}
+		if (urlCount > 0) {
+			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_URLS', { count: urlCount }) + '\n';
+		}
+		if (commentaryCount > 0) {
+			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_COMMENTARIES', { count: commentaryCount }) + '\n';
+		}
+		
+		// Always mention chat messages (Firebase) regardless of count
+		confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_CHAT');
+		
+		if (confirm(confirmMessage)) {
 			this.delEvent(evenement);
 		}
 	}

@@ -209,6 +209,12 @@
         "IDWTP": "I don't participate",
         "UTE": "Update Event",
         "DTE": "Delete Event",
+        "DELETE_EVENT_CONFIRM_MESSAGE": "Are you sure you want to delete this event? This action is irreversible and will permanently delete:",
+        "DELETE_EVENT_CONFIRM_FILES": "- All files ({{count}} file(s))",
+        "DELETE_EVENT_CONFIRM_URLS": "- All links ({{count}} link(s))",
+        "DELETE_EVENT_CONFIRM_COMMENTARIES": "- All commentaries ({{count}} commentary(ies))",
+        "DELETE_EVENT_CONFIRM_CHAT": "- All chat messages",
+        "DELETE_EVENT_CONFIRM_TITLE": "Deletion Confirmation",
         "CLOSE": "Close Event",
         "OPEN": "Open Event",
         "CANCEL": "Cancel Event",
@@ -430,7 +436,13 @@
         "NO_LINKS": "No links available",
         "NO_VISIBLE_LINKS": "No visible links",
         "EDIT_LINK": "Edit link",
-        "NAME_FIELD": "Name"
+        "NAME_FIELD": "Name",
+        "SHOW_JSON": "Show JSON",
+        "COPY_TO_CLIPBOARD": "Copy to Clipboard",
+        "CATEGORIES_JSON_DATA": "Categories JSON Data",
+        "URLLINKS_JSON_DATA": "Urllinks JSON Data",
+        "ELEMENTS": "elements",
+        "CLOSE": "Close"
     }
 }
 

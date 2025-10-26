@@ -2,6 +2,7 @@ package com.pat.repo.domain;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
+import org.springframework.data.mongodb.core.mapping.DBRef;
 
 import jakarta.validation.constraints.NotNull;
 
@@ -15,6 +16,9 @@ public class CategoryLink {
     private String categoryName;
     @NotNull
     private String categoryDescription;
+    @DBRef
+    private Member author;
+    private String visibility;
 
     // Default constructor for MongoDB
     public CategoryLink() {
@@ -56,5 +60,21 @@ public class CategoryLink {
 
     public void setCategoryDescription(String categoryDescription) {
         this.categoryDescription = categoryDescription;
+    }
+
+    public Member getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(Member author) {
+        this.author = author;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
     }
 }

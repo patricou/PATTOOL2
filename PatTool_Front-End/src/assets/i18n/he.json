@@ -205,6 +205,12 @@
         "IDWTP": "אני לא משתתף",
         "UTE": "שנה את הפעילות",
         "DTE": "מחק את הפעילות",
+        "DELETE_EVENT_CONFIRM_MESSAGE": "האם אתה בטוח שברצונך למחוק את הפעילות הזו? פעולה זו אינה ניתנת לביטול ותמחק לצמיתות:",
+        "DELETE_EVENT_CONFIRM_FILES": "- כל הקבצים ({{count}} קובץ/ים)",
+        "DELETE_EVENT_CONFIRM_URLS": "- כל הקישורים ({{count}} קישור/ים)",
+        "DELETE_EVENT_CONFIRM_COMMENTARIES": "- כל ההערות ({{count}} הערה/ות)",
+        "DELETE_EVENT_CONFIRM_CHAT": "- כל הודעות הצ'אט",
+        "DELETE_EVENT_CONFIRM_TITLE": "אישור מחיקה",
         "CLOSE": "סגור את הפעילות",
         "OPEN": "פתח מחדש את הפעילות",
         "CANCEL": "בטל את הפעילות",
@@ -424,6 +430,12 @@
         "NO_LINKS": "אין קישורים זמינים",
         "NO_VISIBLE_LINKS": "אין קישורים גלויים",
         "EDIT_LINK": "ערוך קישור",
-        "NAME_FIELD": "שם"
+        "NAME_FIELD": "שם",
+        "SHOW_JSON": "הצג JSON",
+        "COPY_TO_CLIPBOARD": "העתק ללוח",
+        "CATEGORIES_JSON_DATA": "נתוני JSON של קטגוריות",
+        "URLLINKS_JSON_DATA": "נתוני JSON של קישורי URL",
+        "ELEMENTS": "פריטים",
+        "CLOSE": "סגור"
     }
 }

@@ -55,9 +55,10 @@
         </div>
         
         <div class="links-grid">
-            <div class="category-card" 
-                 *ngFor="let c of categories; let i = index"
-                 [class.expanded]="isCategoryExpanded(i)">
+            <ng-container *ngFor="let c of categories; let i = index">
+                <div class="category-card" 
+                     *ngIf="isCategoryVisible(c)"
+                     [class.expanded]="isCategoryExpanded(i)">
                 <div class="card-header" (click)="toggleCategory(i)">
                     <div class="category-icon">
                         <i class="fa" [ngClass]="getCategoryIcon(c.categoryName)"></i>
@@ -114,7 +115,8 @@
                         </div>
                     </div>
                 </div>
-            </div>
+                </div>
+            </ng-container>
         </div>
     </div>
 </div>

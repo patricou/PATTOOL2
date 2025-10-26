@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -24,11 +25,33 @@ public class UrlLinkRestController {
     @Autowired
     UrlLinkRepository urlLinkRepository;
 
-    @GetMapping(value="/urllink/{userid}", produces = MediaType.APPLICATION_JSON_VALUE)
-    public List<UrlLink> getUrlLink(@PathVariable("userid") String userId){
+    @GetMapping(value="/urllink", produces = MediaType.APPLICATION_JSON_VALUE)
+    public List<UrlLink> getUrlLink(@RequestHeader(value = "user-id", required = false) String userId){
         log.info("Get urlLink / User Id : "+ userId);
         Sort sort = Sort.by(Sort.Direction.ASC, "linkName");
-        return urlLinkRepository.findByVisibilityOrAuthor_Id(sort,"public",userId);
+        List<UrlLink> allLinks = urlLinkRepository.findAll(sort);
+        
+        // Filter links: show public ones or those where user is author
+        if (userId != null && !userId.isEmpty()) {
+            return allLinks.stream()
+                .filter(link -> {
+                    // If no visibility or public, show it
+                    if (link.getVisibility() == null || "public".equals(link.getVisibility())) {
+                        return true;
+                    }
+                    // If private, only show if user is the author
+                    if ("private".equals(link.getVisibility()) && link.getAuthor() != null) {
+                        return userId.equals(link.getAuthor().getId());
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+        }
+        
+        // If no user ID, return only public links
+        return allLinks.stream()
+            .filter(link -> link.getVisibility() == null || "public".equals(link.getVisibility()))
+            .collect(Collectors.toList());
     }
 
     @GetMapping(value="/urllink/id/{id}", produces = MediaType.APPLICATION_JSON_VALUE)

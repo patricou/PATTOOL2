@@ -30,17 +30,21 @@ export class UrllinkService {
 
 	getLinks(user: Member): Observable<any> {
 		return this.getHeaderWithToken().pipe(
-			switchMap(headers =>
-				this._http.get(this.API_URL + "urllink/" + user.id, { headers: headers })
-			)
+			switchMap(headers => {
+				// Add user-id header for filtering
+				const headersWithUser = headers.set('user-id', user.id || '');
+				return this._http.get(this.API_URL + "urllink", { headers: headersWithUser });
+			})
 		);
 	}
 
-	getCategories(): Observable<any> {
+	getCategories(user: Member): Observable<any> {
 		return this.getHeaderWithToken().pipe(
-			switchMap(headers =>
-				this._http.get(this.API_URL + "categories", { headers: headers })
-			)
+			switchMap(headers => {
+				// Add user-id header for filtering
+				const headersWithUser = headers.set('user-id', user.id || '');
+				return this._http.get(this.API_URL + "categories", { headers: headersWithUser });
+			})
 		);
 	}
 

@@ -14,6 +14,7 @@ public interface UrlLinkRepository extends MongoRepository<UrlLink,String> {
     List<UrlLink> findByVisibilityOrAuthor_Id(Sort sort,String visibility, String AuthorId);
     //List<UrlLink> findByVisibilityOrAuthor_Id(String visibility, String AuthorId);
     //List<UrlLink> findAllByAuthor_Id(String AuthorId);
+    List<UrlLink> findByCategoryLinkID(String categoryLinkID);
 
 
 }

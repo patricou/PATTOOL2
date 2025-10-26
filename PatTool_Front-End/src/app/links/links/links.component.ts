@@ -29,7 +29,6 @@ export class LinksComponent implements OnInit {
     this.waitForNonEmptyValue().then(() => {
       let now = new Date();
 
-
       this._urlLinkService
         .getLinks(this.user)
         .subscribe(ulks => {
@@ -37,15 +36,16 @@ export class LinksComponent implements OnInit {
           this.urllinks = ulks;
         }
           , err => alert("Error getting urllink" + err));
+
+      // to get Categories - INSIDE waitForNonEmptyValue so user.id is set
+      this._urlLinkService
+        .getCategories(this.user)
+        .subscribe(categ => {
+          this.categories = categ;
+        }
+          , err => alert("Error getting Category" + err));
     });
-    // to get Categories  
-    this._urlLinkService
-      .getCategories()
-      .subscribe(categ => {
-        this.categories = categ;
-      }
-        , err => alert("Error getting Category" + err))
-  };
+  }
 
   private waitForNonEmptyValue(): Promise<void> {
     return new Promise<void>((resolve) => {
@@ -88,6 +88,12 @@ export class LinksComponent implements OnInit {
     return this.urllinks.filter(u => u.categoryLinkID === category.categoryLinkID && this.isVisible(u) && this.matchesSearchFilter(u));
   }
 
+  isCategoryVisible(category: Category): boolean {
+    // Categories are already filtered by the backend
+    // Just return true for all categories received
+    return true;
+  }
+
   matchesSearchFilter(link: urllink): boolean {
     if (!this.searchFilter || !this.searchFilter.trim()) {
       return true;
@@ -97,11 +103,7 @@ export class LinksComponent implements OnInit {
     const linkName = (link.linkName || '').toLowerCase();
     
     // Recherche simple et efficace
-    const matches = linkName.includes(searchTerm);
-    
-    console.log(`Searching for "${searchTerm}" in "${link.linkName}" (${linkName}):`, matches);
-    
-    return matches;
+    return linkName.includes(searchTerm);
   }
 
   onSearchChange(): void {
@@ -117,11 +119,9 @@ export class LinksComponent implements OnInit {
     this.searchSuggestions = this.urllinks.filter(u => {
       const isVisible = this.isVisible(u);
       const matchesFilter = this.matchesSearchFilter(u);
-      console.log(`Link "${u.linkName}": visible=${isVisible}, matches=${matchesFilter}`);
       return isVisible && matchesFilter;
     }).slice(0, 10); // Limit to 10 suggestions
     
-    console.log(`Total suggestions found: ${this.searchSuggestions.length}`);
     this.showSuggestions = this.searchSuggestions.length > 0;
   }
 

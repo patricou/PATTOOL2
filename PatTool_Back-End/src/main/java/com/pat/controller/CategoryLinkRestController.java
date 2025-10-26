@@ -1,7 +1,9 @@
 package com.pat.controller;
 
 import com.pat.repo.domain.CategoryLink;
+import com.pat.repo.domain.UrlLink;
 import com.pat.repo.CategoryLinkRepository;
+import com.pat.repo.UrlLinkRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/categories")
@@ -21,12 +24,37 @@ public class CategoryLinkRestController {
 
     @Autowired
     CategoryLinkRepository categoryLinkRepository;
+    
+    @Autowired
+    UrlLinkRepository urlLinkRepository;
 
     @RequestMapping(method = RequestMethod.GET)
-    public List<CategoryLink> getCategory(){
-        log.info("Get categoryUrl");
+    public List<CategoryLink> getCategory(@RequestHeader(value = "user-id", required = false) String userId){
+        log.info("Get categoryUrl for user: {}", userId);
         Sort sort = Sort.by(Sort.Direction.ASC, "categoryName");
-        return categoryLinkRepository.findAll(sort);
+        List<CategoryLink> allCategories = categoryLinkRepository.findAll(sort);
+        
+        // Filter categories: show public ones or those where user is author
+        if (userId != null && !userId.isEmpty()) {
+            return allCategories.stream()
+                .filter(category -> {
+                    // If no visibility or public, show it
+                    if (category.getVisibility() == null || "public".equals(category.getVisibility())) {
+                        return true;
+                    }
+                    // If private, only show if user is the author
+                    if ("private".equals(category.getVisibility()) && category.getAuthor() != null) {
+                        return userId.equals(category.getAuthor().getId());
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+        }
+        
+        // If no user ID, return only public categories
+        return allCategories.stream()
+            .filter(category -> category.getVisibility() == null || "public".equals(category.getVisibility()))
+            .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
@@ -101,6 +129,16 @@ public class CategoryLinkRestController {
             
             category.setCategoryLinkID(categoryDetails.getCategoryLinkID());
             
+            // Update visibility if provided
+            if (categoryDetails.getVisibility() != null && !categoryDetails.getVisibility().isEmpty()) {
+                category.setVisibility(categoryDetails.getVisibility());
+            }
+            
+            // Update author if provided
+            if (categoryDetails.getAuthor() != null) {
+                category.setAuthor(categoryDetails.getAuthor());
+            }
+            
             CategoryLink updatedCategory = categoryLinkRepository.save(category);
             return ResponseEntity.ok(updatedCategory);
         } else {
@@ -109,14 +147,34 @@ public class CategoryLinkRestController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<HttpStatus> deleteCategory(@PathVariable String id) {
+    public ResponseEntity<?> deleteCategory(@PathVariable String id) {
         log.info("Delete category with id: {}", id);
         try {
+            Optional<CategoryLink> categoryOptional = categoryLinkRepository.findById(id);
+            
+            if (!categoryOptional.isPresent()) {
+                log.warn("Category not found: {}", id);
+                return new ResponseEntity<>("Category not found", HttpStatus.NOT_FOUND);
+            }
+            
+            CategoryLink category = categoryOptional.get();
+            String categoryLinkID = category.getCategoryLinkID();
+            
+            // Check if any urllinks are associated with this category
+            List<UrlLink> urllinks = urlLinkRepository.findByCategoryLinkID(categoryLinkID);
+            
+            if (urllinks != null && !urllinks.isEmpty()) {
+                log.warn("Cannot delete category {} because it has {} associated urllinks", categoryLinkID, urllinks.size());
+                return new ResponseEntity<>("Cannot delete category: it has " + urllinks.size() + " associated link(s)", HttpStatus.BAD_REQUEST);
+            }
+            
+            // No urllinks associated, safe to delete
             categoryLinkRepository.deleteById(id);
+            log.info("Category deleted successfully: {}", id);
             return new ResponseEntity<>(HttpStatus.NO_CONTENT);
         } catch (Exception e) {
             log.error("Error deleting category: ", e);
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+            return new ResponseEntity<>("Error deleting category: " + e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 }

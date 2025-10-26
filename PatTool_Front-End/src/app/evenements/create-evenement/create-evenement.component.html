@@ -284,7 +284,7 @@
                                         <i class="fa fa-tag"></i>
                                         {{ "EVENTHOME.TYPE_URL" | translate }}
                                     </label>
-                                    <select [(ngModel)]="newUrlEvent.typeUrl" name="typeUrl" class="form-control form-control-sm">
+                                    <select [(ngModel)]="newUrlEvent.typeUrl" name="typeUrl" class="form-control">
                                         <option value="">{{ "EVENTHOME.TYPE_URL" | translate }}</option>
                                         <option *ngFor="let type of urlEventTypes" [value]="type.id">{{ type.label | translate }}</option>
                                     </select>
@@ -295,7 +295,7 @@
                                         {{ "EVENTHOME.URL_LINK" | translate }}
                                     </label>
                                     <input [(ngModel)]="newUrlEvent.link" name="link" type="url" 
-                                           placeholder="https://example.com" class="form-control form-control-sm">
+                                           placeholder="https://example.com" class="form-control">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">
@@ -303,7 +303,7 @@
                                         {{ "EVENTHOME.URL_OWNER" | translate }}
                                     </label>
                                     <input [(ngModel)]="newUrlEvent.owner" name="owner" type="text" 
-                                           class="form-control form-control-sm" readonly>
+                                           class="form-control" readonly>
                                 </div>
                             </div>
                             <div class="row mt-2">
@@ -313,7 +313,7 @@
                                         {{ "EVENTHOME.URL_DESCRIPTION" | translate }}
                                     </label>
                                     <textarea [(ngModel)]="newUrlEvent.urlDescription" name="urlDescription" 
-                                              class="form-control form-control-sm" rows="2" 
+                                              class="form-control" rows="2" 
                                               placeholder="{{ 'EVENTHOME.LINK_DESCRIPTION_PLACEHOLDER' | translate }}"></textarea>
                                 </div>
                             </div>
@@ -446,7 +446,7 @@
                                                     {{ "EVENTHOME.COMMENTARY_TEXT" | translate }}
                                                 </label>
                                                 <textarea [(ngModel)]="editingCommentary.commentary" name="editCommentary"
-                                                          class="form-control form-control-sm" rows="3" 
+                                                          class="form-control" rows="3" 
                                                           placeholder="{{ 'EVENTHOME.COMMENTARY_PLACEHOLDER' | translate }}"></textarea>
                                             </div>
                                         </div>

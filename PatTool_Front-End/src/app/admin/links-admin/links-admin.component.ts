@@ -15,8 +15,12 @@ export class LinksAdminComponent implements OnInit {
   // Categories
   public categories: Category[] = [];
   public selectedCategory: Category | null = null;
-  public newCategory: Category = new Category('', '', '', '');
+  public newCategory: Category = new Category('', '', '', '', new Member("", "", "", "", "", [], ""), 'public');
   public isEditingCategory: boolean = false;
+
+  private createNewCategory(): Category {
+    return new Category('', '', '', '', this.getPatricouMember(), 'public');
+  }
 
   // UrlLinks
   public urllinks: urllink[] = [];
@@ -37,6 +41,11 @@ export class LinksAdminComponent implements OnInit {
   public categoryFilter: string = '';
   public linkFilter: string = '';
 
+  // JSON display state
+  public showJSONModal: boolean = false;
+  public categoriesJSON: string = '';
+  public urllinksJSON: string = '';
+
   constructor(
     private _urlLinkService: UrllinkService,
     private _memberService: MembersService
@@ -46,6 +55,8 @@ export class LinksAdminComponent implements OnInit {
     this.waitForNonEmptyValue().then(() => {
       this.loadCategories();
       this.loadLinks();
+      // Initialize newCategory with patricou author
+      this.newCategory = this.createNewCategory();
     });
   }
 
@@ -65,7 +76,7 @@ export class LinksAdminComponent implements OnInit {
   // ==================== CATEGORIES ====================
 
   loadCategories() {
-    this._urlLinkService.getCategories().subscribe(
+    this._urlLinkService.getCategories(this.user).subscribe(
       categories => {
         this.categories = categories;
       },
@@ -79,11 +90,14 @@ export class LinksAdminComponent implements OnInit {
       return;
     }
 
+    // Set author to patricou
+    this.newCategory.author = this.getPatricouMember();
+
     this._urlLinkService.createCategory(this.newCategory).subscribe(
       response => {
         alert("Catégorie créée avec succès");
         this.loadCategories();
-        this.newCategory = new Category('', '', '', '');
+        this.newCategory = this.createNewCategory();
       },
       error => alert("Erreur lors de la création de la catégorie: " + error)
     );
@@ -114,7 +128,16 @@ export class LinksAdminComponent implements OnInit {
           alert("Catégorie supprimée avec succès");
           this.loadCategories();
         },
-        error => alert("Erreur lors de la suppression de la catégorie: " + error)
+        error => {
+          let errorMessage = "Erreur lors de la suppression de la catégorie";
+          if (error.error) {
+            // The backend returns the error message in error.error
+            errorMessage = error.error;
+          } else if (error.message) {
+            errorMessage = error.message;
+          }
+          alert(errorMessage);
+        }
       );
     }
   }
@@ -366,5 +389,85 @@ export class LinksAdminComponent implements OnInit {
   isSortedColumn(table: 'categories' | 'links', column: string): boolean {
     const sortColumn = table === 'categories' ? this.categorySortColumn : this.linkSortColumn;
     return sortColumn === column;
+  }
+
+  // Get patricou member for author field
+  getPatricouMember(): Member {
+    return new Member(
+      this.user.id || "patricou-id",
+      "patricou@example.com",
+      "Patricou",
+      "Author",
+      "patricou",
+      [],
+      "patricou-keycloak-id"
+    );
+  }
+
+  // Check if current user can edit a category
+  canEditCategory(category: Category): boolean {
+    // If category has no author (old categories), allow editing
+    if (!category.author) {
+      return true;
+    }
+    // Only the author can edit their own category
+    return category.author.id === this.user.id;
+  }
+
+  // Display categories as JSON
+  showCategoriesJSON(): void {
+    this.categoriesJSON = JSON.stringify(this.categories, null, 2);
+    this.showJSONModal = true;
+    // Prevent body scrolling when modal is open
+    document.body.style.overflow = 'hidden';
+    console.log('Categories JSON:', this.categories);
+  }
+
+  closeJSONModal(): void {
+    this.showJSONModal = false;
+    this.categoriesJSON = '';
+    this.urllinksJSON = '';
+    // Restore body scrolling
+    document.body.style.overflow = 'auto';
+  }
+
+  copyToClipboard(): void {
+    // Determine which JSON to copy based on which modal is open
+    const jsonToCopy = this.categoriesJSON || this.urllinksJSON;
+    
+    // Create a temporary textarea element
+    const textarea = document.createElement('textarea');
+    textarea.value = jsonToCopy;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    
+    // Select and copy the text
+    textarea.select();
+    textarea.setSelectionRange(0, 99999); // For mobile devices
+    
+    try {
+      const successful = document.execCommand('copy');
+      if (successful) {
+        alert('JSON copied to clipboard!');
+      } else {
+        alert('Failed to copy to clipboard');
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      alert('Failed to copy to clipboard');
+    }
+    
+    // Clean up
+    document.body.removeChild(textarea);
+  }
+
+  // Display urllinks as JSON
+  showUrllinksJSON(): void {
+    this.urllinksJSON = JSON.stringify(this.urllinks, null, 2);
+    this.showJSONModal = true;
+    // Prevent body scrolling when modal is open
+    document.body.style.overflow = 'hidden';
+    console.log('Urllinks JSON:', this.urllinks);
   }
 }

@@ -205,6 +205,12 @@
         "IDWTP": "我不再参加",
         "UTE": "修改活动",
         "DTE": "删除活动",
+        "DELETE_EVENT_CONFIRM_MESSAGE": "您确定要删除此活动吗？此操作不可逆，将永久删除：",
+        "DELETE_EVENT_CONFIRM_FILES": "- 所有文件（{{count}}个文件）",
+        "DELETE_EVENT_CONFIRM_URLS": "- 所有链接（{{count}}个链接）",
+        "DELETE_EVENT_CONFIRM_COMMENTARIES": "- 所有评论（{{count}}条评论）",
+        "DELETE_EVENT_CONFIRM_CHAT": "- 所有聊天消息",
+        "DELETE_EVENT_CONFIRM_TITLE": "删除确认",
         "CLOSE": "关闭活动",
         "OPEN": "（重新）打开活动",
         "CANCEL": "取消活动",
@@ -424,6 +430,12 @@
         "NO_LINKS": "没有可用的链接",
         "NO_VISIBLE_LINKS": "没有可见的链接",
         "EDIT_LINK": "编辑链接",
-        "NAME_FIELD": "名称"
+        "NAME_FIELD": "名称",
+        "SHOW_JSON": "显示JSON",
+        "COPY_TO_CLIPBOARD": "复制到剪贴板",
+        "CATEGORIES_JSON_DATA": "类别JSON数据",
+        "URLLINKS_JSON_DATA": "URL链接JSON数据",
+        "ELEMENTS": "元素",
+        "CLOSE": "关闭"
     }
 }

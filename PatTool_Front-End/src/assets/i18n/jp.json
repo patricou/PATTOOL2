@@ -205,6 +205,12 @@
         "IDWTP": "もう参加しません",
         "UTE": "活動を編集",
         "DTE": "活動を削除",
+        "DELETE_EVENT_CONFIRM_MESSAGE": "この活動を削除してもよろしいですか？この操作は元に戻せず、以下を永続的に削除します：",
+        "DELETE_EVENT_CONFIRM_FILES": "- すべてのファイル（{{count}}ファイル）",
+        "DELETE_EVENT_CONFIRM_URLS": "- すべてのリンク（{{count}}リンク）",
+        "DELETE_EVENT_CONFIRM_COMMENTARIES": "- すべてのコメント（{{count}}コメント）",
+        "DELETE_EVENT_CONFIRM_CHAT": "- すべてのチャットメッセージ",
+        "DELETE_EVENT_CONFIRM_TITLE": "削除の確認",
         "CLOSE": "活動を閉じる",
         "OPEN": "活動を再開する",
         "CANCEL": "活動をキャンセル",
@@ -424,6 +430,12 @@
         "NO_LINKS": "利用可能なリンクがありません",
         "NO_VISIBLE_LINKS": "表示可能なリンクがありません",
         "EDIT_LINK": "リンクを編集",
-        "NAME_FIELD": "名前"
+        "NAME_FIELD": "名前",
+        "SHOW_JSON": "JSONを表示",
+        "COPY_TO_CLIPBOARD": "クリップボードにコピー",
+        "CATEGORIES_JSON_DATA": "カテゴリJSONデータ",
+        "URLLINKS_JSON_DATA": "URLリンクJSONデータ",
+        "ELEMENTS": "要素",
+        "CLOSE": "閉じる"
     }
 }

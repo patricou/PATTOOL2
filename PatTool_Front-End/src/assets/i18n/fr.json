@@ -202,6 +202,12 @@
         "IDWTP": "Je ne particpe plus",
         "UTE": "Modifier l'Activité",
         "DTE": "Supprimer l'Activité",
+        "DELETE_EVENT_CONFIRM_MESSAGE": "Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible et supprimera définitivement :",
+        "DELETE_EVENT_CONFIRM_FILES": "- Tous les fichiers ({{count}} fichier(s))",
+        "DELETE_EVENT_CONFIRM_URLS": "- Tous les liens ({{count}} lien(s))",
+        "DELETE_EVENT_CONFIRM_COMMENTARIES": "- Tous les commentaires ({{count}} commentaire(s))",
+        "DELETE_EVENT_CONFIRM_CHAT": "- Tous les messages du chat",
+        "DELETE_EVENT_CONFIRM_TITLE": "Confirmation de suppression",
         "CLOSE": "Fermer l'Activité",
         "OPEN": "(re)Ouvrir l'Activité",
         "CANCEL": "Annuler l'Activité",
@@ -421,7 +427,13 @@
         "NO_LINKS": "Aucun lien disponible",
         "NO_VISIBLE_LINKS": "Aucun lien visible",
         "EDIT_LINK": "Modifier le lien",
-        "NAME_FIELD": "Nom"
+        "NAME_FIELD": "Nom",
+        "SHOW_JSON": "Afficher JSON",
+        "COPY_TO_CLIPBOARD": "Copier dans le presse-papier",
+        "CATEGORIES_JSON_DATA": "Données JSON Catégories",
+        "URLLINKS_JSON_DATA": "Données JSON Liens URL",
+        "ELEMENTS": "éléments",
+        "CLOSE": "Fermer"
     }
 }
 

@@ -27,9 +27,11 @@ export class EvenementsService {
 	// GET + %name%
 	getEvents(name: string, pageNumber: number, elementsByPage: number, userId: string): Observable<any> {
 		return this.getHeaderWithToken().pipe(
-			switchMap(headers =>
-				this._http.get(this.API_URL + "even/" + name + "/" + pageNumber + "/" + elementsByPage + "/" + userId, { headers: headers })
-			)
+			switchMap(headers => {
+				// Add user-id header for filtering
+				const headersWithUser = headers.set('user-id', userId || '');
+				return this._http.get(this.API_URL + "even/" + name + "/" + pageNumber + "/" + elementsByPage, { headers: headersWithUser });
+			})
 		);
 	}
 
