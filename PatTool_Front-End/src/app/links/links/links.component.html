@@ -34,6 +34,7 @@
                         </div>
                         <div class="suggestion-content">
                             <div class="suggestion-name">{{ suggestion.linkName }}</div>
+                            <div class="suggestion-description" *ngIf="suggestion.linkDescription">{{ suggestion.linkDescription }}</div>
                             <div class="suggestion-url">{{ suggestion.url }}</div>
                         </div>
                         <div class="suggestion-category">
@@ -83,7 +84,7 @@
                                         <div class="link-meta">
                                             <span class="link-url">{{ u.url }}</span>
                                             <span class="link-author" *ngIf="u.author">
-                                                <i class="fa fa-user"></i> {{ u.author.firstName }} {{ u.author.lastName }}
+                                                <i class="fa fa-user"></i> {{ u.author.userName }} ({{ u.author.firstName }} {{ u.author.lastName }})
                                             </span>
                                         </div>
                                     </div>

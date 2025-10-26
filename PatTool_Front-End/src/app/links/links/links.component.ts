@@ -101,9 +101,10 @@ export class LinksComponent implements OnInit {
     
     const searchTerm = this.searchFilter.toLowerCase().trim();
     const linkName = (link.linkName || '').toLowerCase();
+    const linkDescription = (link.linkDescription || '').toLowerCase();
     
-    // Recherche simple et efficace
-    return linkName.includes(searchTerm);
+    // Recherche sur le nom ET la description
+    return linkName.includes(searchTerm) || linkDescription.includes(searchTerm);
   }
 
   onSearchChange(): void {

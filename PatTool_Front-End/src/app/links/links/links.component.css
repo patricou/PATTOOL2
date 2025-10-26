@@ -209,6 +209,16 @@
     margin-bottom: 2px;
 }
 
+.suggestion-description {
+    font-size: 0.8rem;
+    color: #74b9ff;
+    font-style: italic;
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 .suggestion-url {
     font-size: 0.8rem;
     color: #636e72;
