@@ -169,3 +169,4 @@ PatTool_Back-End/target/classes/com/pat/service/SmtpMailSender.class
 PatTool_Back-End/target/maven-status/maven-compiler-plugin/compile/default-compile/createdFiles.lst
 PatTool_Back-End/target/maven-status/maven-compiler-plugin/compile/default-compile/inputFiles.lst
 PatTool_Front-End/.angular/cache/**
+PatTool_Back-End/src/main/resources/application.properties
