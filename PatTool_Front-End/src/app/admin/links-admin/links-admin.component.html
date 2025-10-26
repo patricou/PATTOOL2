@@ -1,0 +1,373 @@
+<!-- Standard Title Section -->
+<div class="pat-title">
+  <h2>
+    <i class="fa fa-cog"></i> {{ 'LINKSADMIN.TITLE' | translate }}
+  </h2>
+  <app-navigation-buttons></app-navigation-buttons>
+</div>
+
+<!-- Main Content -->
+<div class="container mt-0">
+  <div class="row">
+    <div class="col-12">
+      <!-- Tabs Navigation -->
+      <ul class="nav nav-tabs mb-3" role="tablist">
+        <li class="nav-item">
+          <a class="nav-link" 
+             [class.active]="activeTab === 'categories'"
+             (click)="setActiveTab('categories')">
+            <i class="fa fa-folder"></i> {{ 'LINKSADMIN.CATEGORIES' | translate }}
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" 
+             [class.active]="activeTab === 'links'"
+             (click)="setActiveTab('links')">
+            <i class="fa fa-link"></i> {{ 'LINKSADMIN.LINKS_URL' | translate }}
+          </a>
+        </li>
+      </ul>
+
+      <!-- Categories Tab -->
+      <div *ngIf="activeTab === 'categories'" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">
+              <i class="fa fa-folder"></i> {{ 'LINKSADMIN.CATEGORIES_MANAGEMENT' | translate }} ({{ categories.length }})
+            </h5>
+          </div>
+          <div class="card-body">
+            
+            <!-- Form: Create New Category -->
+            <div class="mb-4">
+              <h6>{{ 'LINKSADMIN.CREATE_CATEGORY' | translate }}</h6>
+              <div class="row">
+                <div class="col-md-4">
+                  <input type="text" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.CATEGORY_NAME' | translate"
+                         [(ngModel)]="newCategory.categoryName">
+                </div>
+                <div class="col-md-6">
+                  <input type="text" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.DESCRIPTION' | translate"
+                         [(ngModel)]="newCategory.categoryDescription">
+                </div>
+                <div class="col-md-2">
+                  <button class="btn btn-primary w-100" (click)="createCategory()">
+                    <i class="fa fa-plus"></i> {{ 'LINKSADMIN.CREATE' | translate }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form: Edit Category -->
+            <div *ngIf="isEditingCategory && selectedCategory" class="mb-4 alert alert-info">
+              <h6>{{ 'LINKSADMIN.EDIT_CATEGORY' | translate }}</h6>
+              <div class="row">
+                <div class="col-md-4">
+                  <input type="text" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.NAME_FIELD' | translate"
+                         [(ngModel)]="selectedCategory.categoryName">
+                </div>
+                <div class="col-md-6">
+                  <input type="text" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.DESCRIPTION' | translate"
+                         [(ngModel)]="selectedCategory.categoryDescription">
+                </div>
+                <div class="col-md-2">
+                  <div class="btn-group w-100">
+                    <button class="btn btn-success" (click)="updateCategory()">
+                      <i class="fa fa-save"></i>
+                    </button>
+                    <button class="btn btn-secondary" (click)="cancelEditCategory()">
+                      <i class="fa fa-times"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Categories List -->
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">{{ 'LINKSADMIN.CATEGORIES_LIST' | translate }} ({{ getFilteredCategories().length }})</h6>
+                <div class="input-group" style="max-width: 300px;">
+                  <span class="input-group-text">
+                    <i class="fa fa-search"></i>
+                  </span>
+                  <input type="text" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.SEARCH_PLACEHOLDER' | translate"
+                         [(ngModel)]="categoryFilter">
+                  <button *ngIf="categoryFilter" 
+                          class="btn btn-outline-secondary" 
+                          type="button" 
+                          (click)="categoryFilter = ''">
+                    <i class="fa fa-times"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-striped table-hover">
+                <thead>
+                  <tr>
+                    <th (click)="sortCategories('id')" class="sortable">
+                      {{ 'LINKSADMIN.ID' | translate }} <i class="fa" [ngClass]="getSortIcon('categories', 'id')"></i>
+                    </th>
+                    <th (click)="sortCategories('name')" class="sortable">
+                      {{ 'LINKSADMIN.NAME' | translate }} <i class="fa" [ngClass]="getSortIcon('categories', 'name')"></i>
+                    </th>
+                    <th (click)="sortCategories('description')" class="sortable">
+                      {{ 'LINKSADMIN.DESCRIPTION' | translate }} <i class="fa" [ngClass]="getSortIcon('categories', 'description')"></i>
+                    </th>
+                    <th>{{ 'LINKSADMIN.ACTIONS' | translate }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let category of getFilteredCategories()">
+                    <td>{{ category.categoryLinkID }}</td>
+                    <td><strong>{{ category.categoryName }}</strong></td>
+                    <td>{{ category.categoryDescription || '-' }}</td>
+                    <td>
+                      <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-warning" (click)="editCategory(category)">
+                          <i class="fa fa-edit"></i> {{ 'LINKSADMIN.EDIT' | translate }}
+                        </button>
+                        <button class="btn btn-sm btn-danger" disabled>
+                          <i class="fa fa-trash"></i> {{ 'LINKSADMIN.DELETE' | translate }}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="getFilteredCategories().length === 0">
+                    <td colspan="4" class="text-center text-muted">
+                      <span *ngIf="!categoryFilter">{{ 'LINKSADMIN.NO_CATEGORIES' | translate }}</span>
+                      <span *ngIf="categoryFilter">{{ 'LINKSADMIN.NO_RESULTS' | translate }} "{{ categoryFilter }}"</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Links Tab -->
+      <div *ngIf="activeTab === 'links'" class="tab-content">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">
+              <i class="fa fa-link"></i> {{ 'LINKSADMIN.LINKS_MANAGEMENT' | translate }} ({{ getVisibleLinks().length }})
+            </h5>
+          </div>
+          <div class="card-body">
+            
+            <!-- Form: Create New Link -->
+            <div class="mb-4">
+              <h6>{{ 'LINKSADMIN.CREATE_LINK' | translate }}</h6>
+              <div class="row mb-2">
+                <div class="col-md-3">
+                  <input type="text" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.LINK_NAME' | translate"
+                         [(ngModel)]="newUrllink.linkName">
+                </div>
+                <div class="col-md-3">
+                  <input type="url" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.URL' | translate"
+                         [(ngModel)]="newUrllink.url">
+                </div>
+                <div class="col-md-3">
+                  <input type="text" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.DESCRIPTION' | translate"
+                         [(ngModel)]="newUrllink.linkDescription">
+                </div>
+                <div class="col-md-3">
+                  <select class="form-control" [(ngModel)]="newUrllink.categoryLinkID">
+                    <option [value]="''">{{ 'LINKSADMIN.SELECT_CATEGORY' | translate }}</option>
+                    <option *ngFor="let cat of categories" [value]="cat.categoryLinkID">
+                      {{ cat.categoryName }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-3">
+                  <select class="form-control" [(ngModel)]="newUrllink.visibility">
+                    <option value="public">{{ 'LINKSADMIN.PUBLIC' | translate }}</option>
+                    <option value="private">{{ 'LINKSADMIN.PRIVATE' | translate }}</option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <button class="btn btn-primary w-100" (click)="createUrllink()">
+                    <i class="fa fa-plus"></i> {{ 'LINKSADMIN.CREATE' | translate }}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form: Edit Link -->
+            <div *ngIf="isEditingUrllink && selectedUrllink" class="mb-4 alert alert-info">
+              <h6>{{ 'LINKSADMIN.EDIT_LINK' | translate }}</h6>
+              <div class="row mb-2">
+                <div class="col-md-4">
+                  <input type="text" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.NAME_FIELD' | translate"
+                         [(ngModel)]="selectedUrllink.linkName">
+                </div>
+                <div class="col-md-4">
+                  <input type="url" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.URL' | translate"
+                         [(ngModel)]="selectedUrllink.url">
+                </div>
+                <div class="col-md-4">
+                  <input type="text" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.DESCRIPTION' | translate"
+                         [(ngModel)]="selectedUrllink.linkDescription">
+                </div>
+              </div>
+              <div class="row">
+                <div class="col-md-4">
+                  <select class="form-control" [(ngModel)]="selectedUrllink.categoryLinkID">
+                    <option [value]="''">{{ 'LINKSADMIN.SELECT_CATEGORY' | translate }}</option>
+                    <option *ngFor="let cat of categories" [value]="cat.categoryLinkID">
+                      {{ cat.categoryName }}
+                    </option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <select class="form-control" [(ngModel)]="selectedUrllink.visibility">
+                    <option value="public">{{ 'LINKSADMIN.PUBLIC' | translate }}</option>
+                    <option value="private">{{ 'LINKSADMIN.PRIVATE' | translate }}</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <div class="btn-group w-100">
+                    <button class="btn btn-success" (click)="updateUrllink()">
+                      <i class="fa fa-save"></i> {{ 'LINKSADMIN.SAVE' | translate }}
+                    </button>
+                    <button class="btn btn-secondary" (click)="cancelEditUrllink()">
+                      <i class="fa fa-times"></i> {{ 'LINKSADMIN.CANCEL' | translate }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Links List -->
+            <div class="mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">{{ 'LINKSADMIN.LINKS_LIST' | translate }} ({{ getVisibleLinks().length }})</h6>
+                <div class="input-group" style="max-width: 300px;">
+                  <span class="input-group-text">
+                    <i class="fa fa-search"></i>
+                  </span>
+                  <input type="text" 
+                         class="form-control" 
+                         [placeholder]="'LINKSADMIN.SEARCH_PLACEHOLDER' | translate"
+                         [(ngModel)]="linkFilter">
+                  <button *ngIf="linkFilter" 
+                          class="btn btn-outline-secondary" 
+                          type="button" 
+                          (click)="linkFilter = ''">
+                    <i class="fa fa-times"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-striped table-hover links-table">
+                <thead>
+                  <tr>
+                    <th (click)="sortLinks('id')" class="sortable">
+                      {{ 'LINKSADMIN.ID' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'id')"></i>
+                    </th>
+                    <th (click)="sortLinks('name')" class="sortable">
+                      {{ 'LINKSADMIN.NAME' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'name')"></i>
+                    </th>
+                    <th (click)="sortLinks('description')" class="sortable">
+                      {{ 'LINKSADMIN.DESCRIPTION' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'description')"></i>
+                    </th>
+                    <th (click)="sortLinks('url')" class="sortable">
+                      {{ 'LINKSADMIN.URL' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'url')"></i>
+                    </th>
+                    <th (click)="sortLinks('category')" class="sortable">
+                      {{ 'LINKSADMIN.CATEGORY' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'category')"></i>
+                    </th>
+                    <th (click)="sortLinks('visibility')" class="sortable">
+                      {{ 'LINKSADMIN.VISIBILITY' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'visibility')"></i>
+                    </th>
+                    <th (click)="sortLinks('author')" class="sortable">
+                      {{ 'LINKSADMIN.AUTHOR' | translate }} <i class="fa" [ngClass]="getSortIcon('links', 'author')"></i>
+                    </th>
+                    <th>{{ 'LINKSADMIN.ACTIONS' | translate }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let link of getVisibleLinks()">
+                    <td [title]="link.urlLinkID">{{ link.urlLinkID }}</td>
+                    <td [title]="link.linkName"><strong>{{ link.linkName }}</strong></td>
+                    <td [title]="link.linkDescription || '-'">{{ link.linkDescription || '-' }}</td>
+                    <td [title]="link.url">
+                      <a [href]="link.url" target="_blank" class="text-decoration-none">
+                        {{ link.url }}
+                        <i class="fa fa-external-link"></i>
+                      </a>
+                    </td>
+                    <td>
+                      <span class="badge bg-secondary" [title]="getCategoryName(link.categoryLinkID)">
+                        {{ getCategoryName(link.categoryLinkID) }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="badge" 
+                            [class.bg-success]="link.visibility === 'public'"
+                            [class.bg-warning]="link.visibility === 'private'">
+                        {{ link.visibility }}
+                      </span>
+                    </td>
+                    <td [title]="link.author.userName">
+                      <small>{{ link.author.userName }}</small>
+                    </td>
+                    <td>
+                      <div class="d-flex gap-2">
+                        <button class="btn btn-sm btn-warning" 
+                                (click)="editUrllink(link)"
+                                [disabled]="link.author.id !== user.id">
+                          <i class="fa fa-edit"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" 
+                                (click)="deleteUrllink(link)"
+                                [disabled]="link.author.id !== user.id">
+                          <i class="fa fa-trash"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr *ngIf="getVisibleLinks().length === 0">
+                    <td colspan="8" class="text-center text-muted">
+                      <span *ngIf="urllinks.length === 0">{{ 'LINKSADMIN.NO_LINKS' | translate }}</span>
+                      <span *ngIf="urllinks.length > 0 && !linkFilter">{{ 'LINKSADMIN.NO_VISIBLE_LINKS' | translate }}</span>
+                      <span *ngIf="linkFilter">{{ 'LINKSADMIN.NO_RESULTS' | translate }} "{{ linkFilter }}"</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

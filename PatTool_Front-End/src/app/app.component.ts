@@ -24,6 +24,7 @@ export class AppComponent implements OnInit {
     public showEventsDropdown: boolean = false;
     public showIADropdown: boolean = false;
     public showToolsDropdown: boolean = false;
+    public showLinksDropdown: boolean = false;
     public isDragOver: boolean = false;
     
     // Drag functionality for language selector
@@ -279,6 +280,7 @@ export class AppComponent implements OnInit {
         this.showEventsDropdown = !this.showEventsDropdown;
         this.showIADropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
+        this.showLinksDropdown = false; // Close other dropdown
     }
 
     toggleIADropdown(event: Event): void {
@@ -286,6 +288,16 @@ export class AppComponent implements OnInit {
         event.stopPropagation();
         this.showIADropdown = !this.showIADropdown;
         this.showEventsDropdown = false; // Close other dropdown
+        this.showToolsDropdown = false; // Close other dropdown
+        this.showLinksDropdown = false; // Close other dropdown
+    }
+
+    toggleLinksDropdown(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.showLinksDropdown = !this.showLinksDropdown;
+        this.showEventsDropdown = false; // Close other dropdown
+        this.showIADropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
     }
 
@@ -295,6 +307,7 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = !this.showToolsDropdown;
         this.showEventsDropdown = false; // Close other dropdown
         this.showIADropdown = false; // Close other dropdown
+        this.showLinksDropdown = false; // Close other dropdown
     }
 
     toggleMobileMenu(): void {
@@ -303,12 +316,14 @@ export class AppComponent implements OnInit {
         this.showEventsDropdown = false;
         this.showIADropdown = false;
         this.showToolsDropdown = false;
+        this.showLinksDropdown = false;
     }
 
     closeDropdowns(): void {
         this.showEventsDropdown = false;
         this.showIADropdown = false;
         this.showToolsDropdown = false;
+        this.showLinksDropdown = false;
     }
 
     closeMenu(): void {
@@ -328,13 +343,14 @@ export class AppComponent implements OnInit {
         // Check if the click is inside any dropdown container or navbar
         const isEventsDropdown = target.closest('#eventsDropdown') || target.closest('[aria-labelledby="eventsDropdown"]');
         const isIADropdown = target.closest('#aiDropdown') || target.closest('[aria-labelledby="aiDropdown"]');
+        const isLinksDropdown = target.closest('#linksDropdown') || target.closest('[aria-labelledby="linksDropdown"]');
         const isToolsDropdown = target.closest('#toolsDropdown') || target.closest('[aria-labelledby="toolsDropdown"]');
         const isAISubmenu = target.closest('.ai-submenu-list') || target.closest('[aria-labelledby="aiSubmenu"]');
         const isNavbar = target.closest('.navbar');
         const isDropdownItem = target.closest('.dropdown-item');
         
         // If click is outside all dropdowns, navbar, and dropdown items, close them
-        if (!isEventsDropdown && !isIADropdown && !isToolsDropdown && !isAISubmenu && !isNavbar && !isDropdownItem) {
+        if (!isEventsDropdown && !isIADropdown && !isToolsDropdown && !isLinksDropdown && !isAISubmenu && !isNavbar && !isDropdownItem) {
             this.closeDropdowns();
         }
     }

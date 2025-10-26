@@ -187,7 +187,7 @@
             [hidden]="!hasImageFiles()" 
             (click)="openSlideshow()"
             placement="top" 
-            ngbTooltip="Diaporama des photos">
+            ngbTooltip="{{ 'EVENTELEM.SLIDESHOW' | translate }}">
         <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getImageFilesCount() }}
     </button>
 
@@ -470,9 +470,9 @@
 <ng-template #slideshowModal let-c="close" let-d="dismiss">
     <div class="modal-header slideshow-header">
         <h5 class="modal-title">
-            <i class="fa fa-picture-o"></i> Diaporama - {{ evenement.evenementName }}
+            <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW_TITLE' | translate }} - {{ evenement.evenementName }}
         </h5>
-        <button type="button" class="btn-close" (click)="d()" aria-label="Close"></button>
+        <button type="button" class="btn-close" (click)="d()" aria-label="Close"><span aria-hidden="true">&times;</span></button>
     </div>
     <div class="modal-body slideshow-body">
         <div class="slideshow-container">
@@ -480,10 +480,12 @@
                 <img *ngIf="slideshowImages.length > 0" 
                      [src]="getCurrentSlideshowImage()" 
                      alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
-                     class="slideshow-image" />
+                     class="slideshow-image"
+                     (click)="toggleSlideshowWithMessage()" 
+                     style="cursor: pointer;" />
                 <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
                     <i class="fa fa-spinner fa-spin fa-3x"></i>
-                    <p>Chargement des images...</p>
+                    <p>{{ 'EVENTELEM.LOADING_IMAGES' | translate }}</p>
                 </div>
                 <div *ngIf="slideshowImages.length > 0" class="slideshow-counter">
                     {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
@@ -514,8 +516,27 @@
                 </div>
             </div>
         </div>
-        <button type="button" class="btn btn-secondary" (click)="c()">
-            <i class="fa fa-times"></i> Fermer
-        </button>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-secondary" 
+                    (click)="toggleSlideshow()"
+                    [disabled]="slideshowImages.length <= 1"
+                    [ngbTooltip]="isSlideshowActive ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate)"
+                    placement="top">
+                <i class="fa me-1" [ngClass]="isSlideshowActive ? 'fa-pause-circle-o' : 'fa-play-circle-o'"></i>
+                <span *ngIf="!isSlideshowActive">{{ 'EVENTELEM.PLAY' | translate }}</span>
+                <span *ngIf="isSlideshowActive">{{ 'EVENTELEM.PAUSE' | translate }}</span>
+            </button>
+            <button type="button" class="btn btn-secondary" 
+                    (click)="toggleFullscreen()"
+                    [ngbTooltip]="isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)"
+                    placement="top">
+                <i [class.fa-arrows-alt]="!isFullscreen" [class.fa-compress]="isFullscreen" class="me-1"></i>
+                <span *ngIf="!isFullscreen">{{ 'EVENTELEM.FULLSCREEN' | translate }}</span>
+                <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span>
+            </button>
+            <button type="button" class="btn btn-secondary" (click)="c()">
+                <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+            </button>
+        </div>
     </div>
 </ng-template>

@@ -1,0 +1,162 @@
+.container {
+  max-width: 98% !important;
+}
+
+.nav-tabs .nav-link {
+  cursor: pointer;
+}
+
+.nav-tabs .nav-link.active {
+  background-color: #f8f9fa;
+  border-bottom-color: transparent;
+}
+
+.table-responsive {
+  border-radius: 8px;
+  max-height: 500px;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
+}
+
+.alert-info {
+  background-color: #e7f3ff;
+  border-color: #b8daff;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.badge {
+  font-size: 0.875rem;
+  padding: 0.35em 0.65em;
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable:hover {
+  background-color: #e9ecef !important;
+}
+
+.sortable i {
+  margin-left: 5px;
+  font-size: 0.85em;
+}
+
+.table-responsive::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.input-group-text {
+  background-color: #f8f9fa;
+  border-color: #dee2e6;
+}
+
+.input-group:focus-within .input-group-text {
+  border-color: #80bdff;
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Links table specific column widths */
+.links-table th:nth-child(1),
+.links-table td:nth-child(1) {
+  width: 70px;
+  min-width: 70px;
+}
+
+.links-table th:nth-child(2),
+.links-table td:nth-child(2) {
+  width: 120px;
+  min-width: 120px;
+}
+
+.links-table th:nth-child(3),
+.links-table td:nth-child(3) {
+  width: 150px;
+  min-width: 150px;
+}
+
+.links-table th:nth-child(4),
+.links-table td:nth-child(4) {
+  width: 180px;
+  min-width: 180px;
+}
+
+.links-table th:nth-child(5),
+.links-table td:nth-child(5) {
+  width: 100px;
+  min-width: 100px;
+}
+
+.links-table th:nth-child(6),
+.links-table td:nth-child(6) {
+  width: 90px;
+  min-width: 90px;
+}
+
+.links-table th:nth-child(7),
+.links-table td:nth-child(7) {
+  width: 90px;
+  min-width: 90px;
+}
+
+.links-table th:nth-child(8),
+.links-table td:nth-child(8) {
+  width: 110px;
+  min-width: 110px;
+}
+
+.links-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 0;
+}
+
+.links-table td strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.links-table td a {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 100%;
+}

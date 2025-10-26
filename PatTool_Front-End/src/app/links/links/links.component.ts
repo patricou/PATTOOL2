@@ -151,7 +151,7 @@ export class LinksComponent implements OnInit {
     }, 200);
   }
 
-  getCategoryName(categoryLinkID: Number): string {
+  getCategoryName(categoryLinkID: string): string {
     const category = this.categories.find(c => c.categoryLinkID === categoryLinkID);
     return category ? String(category.categoryName) : '';
   }

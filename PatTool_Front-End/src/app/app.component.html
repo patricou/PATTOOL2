@@ -46,13 +46,30 @@
                 </ul>
             </li>
 
-            <!-- Links -->
-            <li class="nav-item">
-                <a class="nav-link" 
-                   [routerLink]="['links']" 
-                   (click)="closeMenu()">
+            <!-- Links Dropdown -->
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" 
+                   href="#" 
+                   id="linksDropdown" 
+                   role="button"
+                   (click)="toggleLinksDropdown($event)" 
+                   [attr.aria-expanded]="showLinksDropdown">
                     <i class="fa fa-link"></i> {{ 'MENU.LINKS' | translate }}
                 </a>
+                <ul class="dropdown-menu" 
+                    [class.show]="showLinksDropdown" 
+                    aria-labelledby="linksDropdown">
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['links']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-link"></i> {{ 'MENU.LINKS' | translate }}
+                    </a></li>
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['links-admin']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-cog"></i> Administration
+                    </a></li>
+                </ul>
             </li>
 
             <!-- AI Dropdown -->

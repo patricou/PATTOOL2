@@ -53,4 +53,56 @@ export class UrllinkService {
 		);
 	}
 
+	// ==================== CATEGORIES CRUD ====================
+
+	createCategory(category: Category): Observable<any> {
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers =>
+				this._http.post(this.API_URL + 'categories', category, { headers: headers })
+			)
+		);
+	}
+
+	updateCategory(id: string, category: Category): Observable<any> {
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers =>
+				this._http.put(this.API_URL + 'categories/' + id, category, { headers: headers })
+			)
+		);
+	}
+
+	deleteCategory(id: string): Observable<any> {
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers =>
+				this._http.delete(this.API_URL + 'categories/' + id, { headers: headers })
+			)
+		);
+	}
+
+	// ==================== URLLINKS CRUD ====================
+
+	createUrlLink(urlLink: urllink): Observable<any> {
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers =>
+				this._http.post(this.API_URL + 'urllink', urlLink, { headers: headers })
+			)
+		);
+	}
+
+	updateUrlLink(id: string, urlLink: urllink): Observable<any> {
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers =>
+				this._http.put(this.API_URL + 'urllink/' + id, urlLink, { headers: headers })
+			)
+		);
+	}
+
+	deleteUrlLink(id: string): Observable<any> {
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers =>
+				this._http.delete(this.API_URL + 'urllink/' + id, { headers: headers })
+			)
+		);
+	}
+
 }

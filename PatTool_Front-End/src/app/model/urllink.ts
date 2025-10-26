@@ -2,12 +2,12 @@ import { Member } from "./member";
 
 export class urllink{
     constructor(        
-        public id: String,
-        public urlLinkID: Number,
-        public linkDescription:String,
-        public linkName:String,
-        public url:String,
-        public categoryLinkID:Number,
+        public id: string,
+        public urlLinkID: string,
+        public linkDescription:string,
+        public linkName:string,
+        public url:string,
+        public categoryLinkID:string,
         public visibility:string,
         public author:Member
         ){}

@@ -37,6 +37,8 @@ import { PatgptModule } from './patgpt/patgpt.module';
 import { IothomeComponent } from './iothome/iothome.component';
 import { IotService } from './services/iot.service';
 import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-buttons.module';
+import { LinksAdminModule } from './admin/links-admin/links-admin.module';
+import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -59,6 +61,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		ChatModule,
 		MapsModule,
 		LinksModule,
+		LinksAdminModule,
 		PatgptModule,
 		NavigationButtonsModule,
 		TranslateModule.forRoot({
@@ -76,9 +79,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{ path: 'details-evenement/:id', component: DetailsEvenementComponent },
 			{ path: 'results', component: ChatComponent },
 			{ path: 'maps', component: AboutComponent },
-			{ path: 'links', component: LinksComponent },
-			{ path: 'iot', component: IothomeComponent },
-			{ path: 'patgpt', component: PatgptComponent },
+					{ path: 'links', component: LinksComponent },
+		{ path: 'links-admin', component: LinksAdminComponent },
+		{ path: 'iot', component: IothomeComponent },
+		{ path: 'patgpt', component: PatgptComponent },
 			{ path: 'home', redirectTo: '', pathMatch: 'full' },
 			{ path: '**', component: PageNotFoundComponent }
 		]),

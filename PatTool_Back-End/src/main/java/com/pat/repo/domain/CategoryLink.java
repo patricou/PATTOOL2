@@ -16,6 +16,10 @@ public class CategoryLink {
     @NotNull
     private String categoryDescription;
 
+    // Default constructor for MongoDB
+    public CategoryLink() {
+    }
+
     public CategoryLink(String categoryLinkID, String categoryName, String categoryDescription) {
         this.categoryLinkID = categoryLinkID;
         this.categoryName = categoryName;

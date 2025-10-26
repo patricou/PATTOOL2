@@ -46,6 +46,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public currentSlideshowIndex: number = 0;
 	public slideshowImages: string[] = [];
 	public slideshowInterval: any;
+	public isFullscreen: boolean = false;
 
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
@@ -1103,8 +1104,22 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		window.open(`mailto:${email}`, '_blank');
 	}
 
+	// Listen to fullscreen events
+	private setupFullscreenListener(): void {
+		const handleFullscreenChange = () => {
+			this.isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
+				(document as any).mozFullScreenElement || (document as any).msFullscreenElement);
+		};
+
+		document.addEventListener('fullscreenchange', handleFullscreenChange);
+		document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+		document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+		document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+	}
+
 	// Open slideshow modal with all images from this card
 	public openSlideshow(): void {
+		this.setupFullscreenListener();
 		// Filter to get only image files
 		const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
 		
@@ -1149,14 +1164,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				// Add to slideshow images array
 				this.slideshowImages.push(objectUrl);
 				
-				// Start slideshow when first image is loaded
+				// Initialize slideshow state when first image is loaded (don't start automatically)
 				if (!isFirstImageLoaded) {
 					isFirstImageLoaded = true;
-					this.isSlideshowActive = true;
-					// Wait a bit for the UI to update with the first image
-					setTimeout(() => {
-						this.startSlideshow();
-					}, 500);
+					this.isSlideshowActive = false; // Start paused
 				}
 			} catch (error) {
 				console.error('Error loading image for slideshow:', error);
@@ -1165,7 +1176,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	// Start automatic slideshow
-	private startSlideshow(): void {
+	public startSlideshow(): void {
 		// Change image every 3 seconds
 		this.slideshowInterval = setInterval(() => {
 			this.nextImage();
@@ -1173,7 +1184,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	// Stop slideshow
-	private stopSlideshow(): void {
+	public stopSlideshow(): void {
 		if (this.slideshowInterval) {
 			clearInterval(this.slideshowInterval);
 			this.slideshowInterval = null;
@@ -1207,5 +1218,76 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			return '';
 		}
 		return this.slideshowImages[this.currentSlideshowIndex];
+	}
+
+	// Toggle slideshow play/pause
+	public toggleSlideshow(): void {
+		if (this.isSlideshowActive) {
+			// Just stop the interval, don't cleanup images
+			if (this.slideshowInterval) {
+				clearInterval(this.slideshowInterval);
+				this.slideshowInterval = null;
+			}
+			this.isSlideshowActive = false;
+		} else {
+			this.startSlideshow();
+			this.isSlideshowActive = true;
+		}
+	}
+
+	// Toggle slideshow with message
+	public toggleSlideshowWithMessage(): void {
+		// Store current state before toggling
+		const wasActive = this.isSlideshowActive;
+		this.toggleSlideshow();
+		
+		// Show message based on the NEW state (opposite of the old state)
+		if (wasActive) {
+			this.showSlideshowMessage('EVENTELEM.SLIDESHOW_PAUSED');
+		} else {
+			this.showSlideshowMessage('EVENTELEM.SLIDESHOW_PLAYING');
+		}
+	}
+
+	private showSlideshowMessage(translationKey: string): void {
+		this.translateService.get(translationKey).subscribe((translation: string) => {
+			const toast = document.createElement('div');
+			toast.textContent = translation;
+			toast.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 5px; z-index: 9999; font-size: 16px;';
+			document.body.appendChild(toast);
+			setTimeout(() => {
+				toast.remove();
+			}, 2000);
+		});
+	}
+
+	// Toggle fullscreen mode
+	public toggleFullscreen(): void {
+		const slideshowImageWrapper = document.querySelector('.slideshow-image-wrapper');
+		if (!slideshowImageWrapper) return;
+
+		if (!this.isFullscreen) {
+			// Enter fullscreen
+			if ((slideshowImageWrapper as any).requestFullscreen) {
+				(slideshowImageWrapper as any).requestFullscreen();
+			} else if ((slideshowImageWrapper as any).webkitRequestFullscreen) {
+				(slideshowImageWrapper as any).webkitRequestFullscreen();
+			} else if ((slideshowImageWrapper as any).mozRequestFullScreen) {
+				(slideshowImageWrapper as any).mozRequestFullScreen();
+			} else if ((slideshowImageWrapper as any).msRequestFullscreen) {
+				(slideshowImageWrapper as any).msRequestFullscreen();
+			}
+		} else {
+			// Exit fullscreen
+			if (document.exitFullscreen) {
+				document.exitFullscreen();
+			} else if ((document as any).webkitExitFullscreen) {
+				(document as any).webkitExitFullscreen();
+			} else if ((document as any).mozCancelFullScreen) {
+				(document as any).mozCancelFullScreen();
+			} else if ((document as any).msExitFullscreen) {
+				(document as any).msExitFullscreen();
+			}
+		}
 	}
 }
