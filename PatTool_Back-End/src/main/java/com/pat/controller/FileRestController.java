@@ -29,6 +29,11 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import jakarta.servlet.http.HttpServletRequest;
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -42,6 +47,13 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import com.drew.imaging.ImageMetadataReader;
+import com.drew.imaging.ImageProcessingException;
+import com.drew.metadata.Metadata;
+import com.drew.metadata.MetadataException;
+import com.drew.metadata.exif.ExifIFD0Directory;
+
+
 
 
 /**
@@ -52,6 +64,10 @@ public class FileRestController {
 
     @Value("${app.uploaddir:C:\\temp}")
     private String uploadDir;
+    
+    @Value("${app.imagemaxsizekb:500}")
+    private int imagemaxsizekb;
+    
     @Autowired
     private EvenementsRepository evenementsRepository;
     @Autowired
@@ -66,7 +82,7 @@ public class FileRestController {
     @RequestMapping( value = "/api/file/test", method = RequestMethod.GET )
     public ResponseEntity<String> testFileEndpoint(){
         
-        log.info("Testing file endpoint configuration");
+        log.debug("Testing file endpoint configuration");
         
         try {
             if (gridFsTemplate == null) {
@@ -75,7 +91,7 @@ public class FileRestController {
             
             return ResponseEntity.ok("GridFsTemplate is available - MongoDB GridFS configured");
         } catch (Exception e) {
-            log.error("Error testing file endpoint", e);
+            log.debug("Error testing file endpoint", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Error: " + e.getMessage());
         }
@@ -84,7 +100,7 @@ public class FileRestController {
     @RequestMapping( value = "/api/file/debug/{fileId}", method = RequestMethod.GET )
     public ResponseEntity<String> debugFileEndpoint(@PathVariable String fileId){
         
-        log.info("Debug file endpoint for ID: " + fileId);
+        log.debug("Debug file endpoint for ID: " + fileId);
         
         try {
             if (gridFsTemplate == null) {
@@ -95,7 +111,7 @@ public class FileRestController {
             ObjectId objectId;
             try {
                 objectId = new ObjectId(fileId);
-                log.info("ObjectId validation passed: " + objectId);
+                log.debug("ObjectId validation passed: " + objectId);
             } catch (IllegalArgumentException e) {
                 return ResponseEntity.ok("Invalid ObjectId format: " + fileId + " - " + e.getMessage());
             }
@@ -115,7 +131,7 @@ public class FileRestController {
             }
             
         } catch (Exception e) {
-            log.error("Error in debug endpoint", e);
+            log.debug("Error in debug endpoint", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Error: " + e.getMessage());
         }
@@ -124,7 +140,7 @@ public class FileRestController {
     @RequestMapping( value = "/api/file/list", method = RequestMethod.GET )
     public ResponseEntity<String> listFilesEndpoint(){
         
-        log.info("List files endpoint");
+        log.debug("List files endpoint");
         
         try {
             if (gridFsTemplate == null) {
@@ -161,7 +177,7 @@ public class FileRestController {
             return ResponseEntity.ok(result.toString());
             
         } catch (Exception e) {
-            log.error("Error in list endpoint", e);
+            log.debug("Error in list endpoint", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Error: " + e.getMessage());
         }
@@ -170,7 +186,7 @@ public class FileRestController {
     @RequestMapping( value = "/api/file/search/{fileId}", method = RequestMethod.GET )
     public ResponseEntity<String> searchFileEndpoint(@PathVariable String fileId){
         
-        log.info("Search file endpoint for ID: " + fileId);
+        log.debug("Search file endpoint for ID: " + fileId);
         
         try {
             if (gridFsTemplate == null) {
@@ -235,7 +251,7 @@ public class FileRestController {
             return ResponseEntity.ok(result.toString());
             
         } catch (Exception e) {
-            log.error("Error in search endpoint", e);
+            log.debug("Error in search endpoint", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Error: " + e.getMessage());
         }
@@ -244,12 +260,12 @@ public class FileRestController {
     @RequestMapping( value = "/api/file/{fileId}", method = RequestMethod.GET )
     public ResponseEntity< InputStreamResource> getFile(@PathVariable String fileId){
         
-        log.info("Attempting to retrieve file with ID: " + fileId);
+        log.debug("Attempting to retrieve file with ID: " + fileId);
 
         try {
             // Check if GridFsTemplate is available
             if (gridFsTemplate == null) {
-                log.error("GridFsTemplate is null - MongoDB GridFS not properly configured");
+                log.debug("GridFsTemplate is null - MongoDB GridFS not properly configured");
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(new InputStreamResource(new java.io.ByteArrayInputStream("GridFS not configured".getBytes())));
             }
@@ -259,7 +275,7 @@ public class FileRestController {
             try {
                 objectId = new ObjectId(fileId);
             } catch (IllegalArgumentException e) {
-                log.error("Invalid ObjectId format: " + fileId, e);
+                log.debug("Invalid ObjectId format: " + fileId, e);
                 return ResponseEntity.badRequest()
                     .body(new InputStreamResource(new java.io.ByteArrayInputStream("Invalid file ID format".getBytes())));
             }
@@ -268,7 +284,7 @@ public class FileRestController {
             GridFSFile gridFsFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(objectId)));
             
             if (gridFsFile == null) {
-                log.info("File not found: " + fileId);
+                log.debug("File not found: " + fileId);
                 return ResponseEntity.notFound().build();
             }
             
@@ -284,7 +300,7 @@ public class FileRestController {
                 if (contentType == null || contentType.isEmpty()) {
                     // Fallback to application/octet-stream if no content type is available
                     contentType = "application/octet-stream";
-                    log.warn("No content type found for file: " + fileId + ", using fallback: " + contentType);
+                    log.debug("No content type found for file: " + fileId + ", using fallback: " + contentType);
                 }
             } catch (com.mongodb.MongoGridFSException e) {
                 // Specifically handle the "No contentType data" exception
@@ -293,7 +309,7 @@ public class FileRestController {
                 contentType = getContentTypeFromFilename(filename);
                 log.debug("No content type metadata for file: " + fileId + " (" + filename + "), determined type: " + contentType);
             } catch (Exception e) {
-                log.warn("Error getting content type for file: " + fileId + ", using fallback", e);
+                log.debug("Error getting content type for file: " + fileId + ", using fallback", e);
                 contentType = "application/octet-stream";
             }
             
@@ -303,10 +319,10 @@ public class FileRestController {
             String filename = gridFsResource.getFilename();
             if (filename == null || filename.isEmpty()) {
                 filename = "file_" + fileId; // Fallback filename
-                log.warn("No filename found for file: " + fileId + ", using fallback: " + filename);
+                log.debug("No filename found for file: " + fileId + ", using fallback: " + filename);
             }
             
-            log.info("Request file " + filename);
+            log.debug("Request file " + filename);
             headers.setContentDispositionFormData(filename, filename);
             headers.set("Content-Disposition","inline; filename =" + filename);
             
@@ -319,30 +335,33 @@ public class FileRestController {
                         headers.set("Content-Length", Long.toString(contentLength));
                     }
                 } catch (Exception e) {
-                    log.warn("Could not determine content length for file: " + fileId, e);
+                    log.debug("Could not determine content length for file: " + fileId, e);
                 }
+                
+                // No resizing - return original image as-is
                 
                 return ResponseEntity.ok()
                         .headers(headers)
                         .body(new InputStreamResource(gridFsResource.getInputStream()));
             } catch (IOException e) {
-                log.error("Error accessing file content: " + fileId, e);
+                log.debug("Error accessing file content: " + fileId, e);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new InputStreamResource(new java.io.ByteArrayInputStream("Error accessing file content".getBytes())));
             }
         } catch (IllegalStateException e) {
-            log.info("File does not exist: " + fileId + " - " + e.getMessage());
+            log.debug("File does not exist: " + fileId + " - " + e.getMessage());
             return ResponseEntity.notFound().build();
         } catch (com.mongodb.MongoGridFSException e) {
-            log.error("GridFS error for file: " + fileId + " - " + e.getMessage(), e);
+            log.debug("GridFS error for file: " + fileId + " - " + e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new InputStreamResource(new java.io.ByteArrayInputStream(("GridFS error: " + e.getMessage()).getBytes())));
         } catch (Exception e) {
-            log.error("Error retrieving file: " + fileId, e);
+            log.debug("Error retrieving file: " + fileId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new InputStreamResource(new java.io.ByteArrayInputStream(("Error: " + e.getMessage()).getBytes())));
         }
     }
+
 
     @PostMapping({"/uploadondisk", "/uploadondisk/"})
     public ResponseEntity<String> handleFileUpload(@RequestParam("files") MultipartFile[] files, HttpServletRequest request) {
@@ -357,13 +376,55 @@ public class FileRestController {
         String formattedDate = date.format(formatter);
 
         String dir  = uploadDir + year + File.separator+formattedDate+"_from_uploaded";
-        log.info("Dir : " +dir);
+        log.debug("Dir : " +dir);
 
 
         for (MultipartFile file : files) {
 
                 if (!file.isEmpty()) {
                     try {
+                        
+                        String contentType = file.getContentType();
+                        long fileSize = file.getSize();
+                        long maxSizeInBytes = imagemaxsizekb * 1024L; // Convert KB to bytes
+                        
+                        byte[] fileBytesToWrite;
+                        
+                        // Check if file is an image and if it needs compression
+                        if (isImageType(contentType) && fileSize > maxSizeInBytes) {
+                            log.debug("Image too large for disk upload: {} bytes, compressing...", fileSize);
+                            
+                            try {
+                                // Read entire file into byte array
+                                byte[] fileBytes = file.getBytes();
+                                
+                                // Read the image from bytes
+                                BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
+                                if (originalImage != null) {
+                                    // Compress the image
+                                    byte[] compressedBytes = resizeImageIfNeeded(
+                                        file.getOriginalFilename(), 
+                                        originalImage, 
+                                        contentType, 
+                                        fileSize, 
+                                        maxSizeInBytes,
+                                        fileBytes
+                                    );
+                                    fileBytesToWrite = compressedBytes;
+                                    log.debug("Image compressed from {} to {} bytes", fileSize, compressedBytes.length);
+                                } else {
+                                    // ImageIO couldn't read it, use original bytes
+                                    fileBytesToWrite = fileBytes;
+                                    log.debug("Could not read image with ImageIO, using original");
+                                }
+                            } catch (Exception e) {
+                                log.debug("Error compressing image: {}, using original", e.getMessage());
+                                fileBytesToWrite = file.getBytes();
+                            }
+                        } else {
+                            // Use original file
+                            fileBytesToWrite = file.getBytes();
+                        }
 
                         Path uploadPath = Paths.get(dir);
 
@@ -372,7 +433,7 @@ public class FileRestController {
                         }
 
                         Path filePath = uploadPath.resolve(file.getOriginalFilename());
-                        Files.copy(file.getInputStream(), filePath,StandardCopyOption.REPLACE_EXISTING);
+                        Files.write(filePath, fileBytesToWrite);
 
                         // log.info("File Uploaded : " + filePath + " Successfully");
 
@@ -399,7 +460,7 @@ public class FileRestController {
                                     Member user = objectMapper.readValue(headerValue, Member.class);
                                     subject = subject + " from : "+ user.getUserName() + " ( " + user.getFirstName()+" "+user.getLastName()+" )";
                                 }catch(JsonProcessingException je){
-                                    log.info("Issue to Unwrap user : " + je.getMessage());
+                                    log.debug("Issue to Unwrap user : " + je.getMessage());
                                 }
                             }
 
@@ -411,7 +472,7 @@ public class FileRestController {
 
 
                     } catch (IOException e) {
-                        log.info("File Exception : " + e.getMessage());
+                        log.debug("File Exception : " + e.getMessage());
                         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("File Upload error : " + e.getMessage());
                     }
                 }
@@ -422,41 +483,86 @@ public class FileRestController {
     @RequestMapping( value = "/uploadfile/{userId}/{evenementid}", method = RequestMethod.POST, consumes = "multipart/form-data")
     // Important note : the name associate with RequestParam is 'file' --> seen in the browser network request.
     public ResponseEntity<List<FileUploaded>> postFile(@RequestParam("file") MultipartFile[] files, @PathVariable String userId, @PathVariable String evenementid  ){
-        log.info("Post files received, user.id : " +  userId +" / evenement.id : " + evenementid + " / files count: " + files.length);
+        log.debug("Post files received, user.id : " +  userId +" / evenement.id : " + evenementid + " / files count: " + files.length);
 
         List<FileUploaded> uploadedFiles = new ArrayList<>();
         
         try {
             Member uploaderMember = membersRepository.findById(userId).orElse(null);
             if (uploaderMember == null) {
-                log.error("User not found: " + userId);
+                log.debug("User not found: " + userId);
                 return new ResponseEntity<>(null, null, HttpStatus.BAD_REQUEST);
             }
 
             // Find the evenement
             Evenement evenement = evenementsRepository.findById(evenementid).orElse(null);
             if (evenement == null) {
-                log.error("Evenement not found: " + evenementid);
+                log.debug("Evenement not found: " + evenementid);
                 return new ResponseEntity<>(null, null, HttpStatus.BAD_REQUEST);
             }
 
             // Process each file
             for (MultipartFile filedata : files) {
                 if (filedata.isEmpty()) {
-                    log.warn("Skipping empty file");
+                    log.debug("Skipping empty file");
                     continue;
                 }
 
-                log.info("Processing file: " + filedata.getOriginalFilename());
+                log.debug("Processing file: " + filedata.getOriginalFilename());
 
                 DBObject metaData = new BasicDBObject();
                 metaData.put("UploaderName", uploaderMember.getFirstName()+" "+uploaderMember.getLastName());
                 metaData.put("UploaderId", uploaderMember.getId());
 
+                // Check if file is an image
+                String contentType = filedata.getContentType();
+                long fileSize = filedata.getSize();
+                long maxSizeInBytes = imagemaxsizekb * 1024L; // Convert KB to bytes
+                
+                java.io.InputStream inputStream;
+                
+                // Check if file is an image and if it needs compression
+                if (isImageType(contentType) && fileSize > maxSizeInBytes) {
+                    log.info("Image too large: {} bytes, compressing...", fileSize);
+                    
+                    try {
+                        // Read entire file into byte array (needed for both ImageIO and fallback)
+                        byte[] fileBytes = filedata.getBytes();
+                        
+                        // Read the image from bytes
+                        BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
+                        if (originalImage != null) {
+                            // Compress the image
+                            byte[] compressedBytes = resizeImageIfNeeded(
+                                filedata.getOriginalFilename(), 
+                                originalImage, 
+                                contentType, 
+                                fileSize, 
+                                maxSizeInBytes,
+                                fileBytes
+                            );
+                            
+                            // Create input stream from compressed bytes
+                            inputStream = new ByteArrayInputStream(compressedBytes);
+                            log.debug("Image compressed from {} to {} bytes", fileSize, compressedBytes.length);
+                        } else {
+                            // ImageIO couldn't read it, use original bytes
+                            inputStream = new ByteArrayInputStream(fileBytes);
+                            log.debug("Could not read image with ImageIO, using original");
+                        }
+                    } catch (Exception e) {
+                        log.debug("Error compressing image: {}, using original", e.getMessage());
+                        inputStream = new ByteArrayInputStream(filedata.getBytes());
+                    }
+                } else {
+                    // Use original file
+                    inputStream = filedata.getInputStream();
+                }
+
                 // Save the doc ( all type ) in  MongoDB
                 String fieldId =
-                        gridFsTemplate.store( filedata.getInputStream(), filedata.getOriginalFilename(), filedata.getContentType(), metaData).toString();
-                log.info("Doc created id : "+fieldId);
+                        gridFsTemplate.store( inputStream, filedata.getOriginalFilename(), filedata.getContentType(), metaData).toString();
+                log.debug("Doc created id : "+fieldId);
 
                 // create the file info
                 FileUploaded fileUploaded = new FileUploaded(fieldId, filedata.getOriginalFilename(), filedata.getContentType(), uploaderMember);
@@ -468,7 +574,7 @@ public class FileRestController {
 
             // Save the evenement updated with all files
             Evenement eventSaved = evenementsRepository.save(evenement);
-            log.info("Evenement saved with " + uploadedFiles.size() + " files");
+            log.debug("Evenement saved with " + uploadedFiles.size() + " files");
 
             HttpHeaders httpHeaders = new HttpHeaders();
             httpHeaders.setLocation(ServletUriComponentsBuilder
@@ -478,7 +584,7 @@ public class FileRestController {
             return new ResponseEntity<List<FileUploaded>>(uploadedFiles, httpHeaders, HttpStatus.CREATED);
 
         }catch (Exception e ){
-            log.error(" Exception error " + e);
+            log.debug(" Exception error " + e);
         }
 
         return new ResponseEntity<>(null,null,HttpStatus.INTERNAL_SERVER_ERROR);
@@ -488,7 +594,7 @@ public class FileRestController {
     @RequestMapping( value = "/api/file", method = RequestMethod.PUT )
     public ResponseEntity<Evenement> updateFile(@RequestBody Evenement evenement){
 
-        log.info("Update file for evenement " + evenement.getId());
+        log.debug("Update file for evenement " + evenement.getId());
 
         // retrieve the evenement id ( with file to delete )
         Evenement evenementNotUpdated = evenementsRepository.findById(evenement.getId()).orElse(null);
@@ -506,7 +612,7 @@ public class FileRestController {
                             }
                         ).findFirst().get();
 
-        log.info("File to delete " + f.getFieldId() );
+        log.debug("File to delete " + f.getFieldId() );
 
         // update the evenement without the file ( the save erase all )
         Evenement savedEvenement = evenementsRepository.save(evenement);
@@ -570,6 +676,169 @@ public class FileRestController {
         } else {
             return "application/octet-stream";
         }
+    }
+
+    /**
+     * Check if content type is an image
+     */
+    private boolean isImageType(String contentType) {
+        if (contentType == null) {
+            return false;
+        }
+        return contentType.startsWith("image/");
+    }
+
+    /**
+     * Apply EXIF orientation to image if needed
+     */
+    private BufferedImage applyOrientation(BufferedImage image, byte[] fileBytes) {
+        try {
+            Metadata metadata = ImageMetadataReader.readMetadata(new ByteArrayInputStream(fileBytes));
+            ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
+            
+            if (exifIFD0Directory != null && exifIFD0Directory.containsTag(ExifIFD0Directory.TAG_ORIENTATION)) {
+                int orientation = exifIFD0Directory.getInt(ExifIFD0Directory.TAG_ORIENTATION);
+                log.debug("Image EXIF orientation: {}", orientation);
+                
+                // Apply rotation based on EXIF orientation
+                switch (orientation) {
+                    case 3: // 180 degrees
+                        return rotateImage(image, 180);
+                    case 6: // 90 degrees CW
+                        return rotateImage(image, 90);
+                    case 8: // 90 degrees CCW
+                        return rotateImage(image, -90);
+                    case 2: // Flip horizontal
+                    case 4: // Flip vertical
+                    case 5: // Flip horizontal + 90 CW
+                    case 7: // Flip horizontal + 90 CCW
+                        log.debug("Flip operations not fully supported, returning as-is");
+                        break;
+                    default:
+                        log.debug("No rotation needed (orientation: {})", orientation);
+                        break;
+                }
+            }
+        } catch (ImageProcessingException | MetadataException | IOException e) {
+            log.debug("Could not read EXIF metadata: {}", e.getMessage());
+        }
+        
+        return image;
+    }
+    
+    /**
+     * Rotate image by specified angle
+     */
+    private BufferedImage rotateImage(BufferedImage image, double angle) {
+        int width = image.getWidth();
+        int height = image.getHeight();
+        int type = image.getType();
+        
+        // Calculate new dimensions for rotation
+        double radians = Math.toRadians(angle);
+        double cos = Math.abs(Math.cos(radians));
+        double sin = Math.abs(Math.sin(radians));
+        int newWidth = (int) Math.round(width * cos + height * sin);
+        int newHeight = (int) Math.round(height * cos + width * sin);
+        
+        BufferedImage rotated = new BufferedImage(newWidth, newHeight, type);
+        Graphics2D g = rotated.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        
+        // Translate and rotate
+        int offsetX = (newWidth - width) / 2;
+        int offsetY = (newHeight - height) / 2;
+        g.translate(offsetX, offsetY);
+        g.rotate(radians, width / 2.0, height / 2.0);
+        g.drawImage(image, 0, 0, null);
+        g.dispose();
+        
+        log.debug("Rotated image by {} degrees", angle);
+        return rotated;
+    }
+
+    /**
+     * Compress image to meet max size requirement
+     * Only compresses by reducing quality, never resizes to preserve orientation
+     */
+    private byte[] resizeImageIfNeeded(String filename, BufferedImage originalImage, String contentType, long originalSize, long maxSize, byte[] originalFileBytes) throws IOException {
+        // Log original dimensions
+        int originalWidth = originalImage.getWidth();
+        int originalHeight = originalImage.getHeight();
+        log.debug("Original image dimensions: {}x{}", originalWidth, originalHeight);
+        log.debug("Original image size: {} bytes, max size: {} bytes", originalSize, maxSize);
+        
+        // Apply EXIF orientation if needed
+        BufferedImage imageWithOrientation = applyOrientation(originalImage, originalFileBytes);
+        
+        // Create a new BufferedImage with TYPE_INT_RGB to ensure color encoding
+        // This prevents any transparency or palette issues
+        BufferedImage imageToCompress;
+        if (imageWithOrientation.getType() == BufferedImage.TYPE_INT_RGB || imageWithOrientation.getType() == BufferedImage.TYPE_INT_ARGB) {
+            imageToCompress = imageWithOrientation;
+        } else {
+            // Convert to RGB to ensure consistent handling
+            int width = imageWithOrientation.getWidth();
+            int height = imageWithOrientation.getHeight();
+            imageToCompress = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = imageToCompress.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.drawImage(imageWithOrientation, 0, 0, null);
+            g.dispose();
+            log.debug("Converted image to TYPE_INT_RGB for consistent handling");
+        }
+        
+        String format = contentType.contains("png") ? "png" : "jpeg";
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        
+        // Try progressive quality reduction without resizing
+        // Only compress to reduce file size, never resize to preserve orientation
+        // Optimized for speed: larger steps, lower starting quality
+        if (format.equals("jpeg")) {
+            // Start with lower quality for faster compression
+            float quality = 0.7f;
+            
+            while (quality >= 0.2f) {
+                outputStream.reset();
+                
+                javax.imageio.ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+                javax.imageio.plugins.jpeg.JPEGImageWriteParam params = new javax.imageio.plugins.jpeg.JPEGImageWriteParam(null);
+                params.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+                params.setCompressionQuality(quality);
+                
+                javax.imageio.stream.ImageOutputStream imageOutputStream = ImageIO.createImageOutputStream(outputStream);
+                writer.setOutput(imageOutputStream);
+                writer.write(null, new javax.imageio.IIOImage(imageToCompress, null, null), params);
+                writer.dispose();
+                
+                log.debug("Compressed to {} bytes with quality {}", outputStream.size(), quality);
+                
+                // Check if we're below max size
+                if (outputStream.size() <= maxSize) {
+                    log.debug("Successfully compressed below max size with quality {}", quality);
+                    return outputStream.toByteArray();
+                }
+                
+                // Use larger step for faster compression (0.15 instead of 0.05)
+                log.debug("Still too large ({} bytes), reducing quality to {}", outputStream.size(), quality - 0.15f);
+                quality -= 0.15f;
+            }
+            
+            log.debug("Minimum quality reached, returning smallest compressed version");
+        } else {
+            // PNG: no compression quality control, write as-is
+            ImageIO.write(imageToCompress, format, outputStream);
+            log.debug("PNG saved as-is: {} bytes", outputStream.size());
+        }
+        
+        // Return the compressed version (might still be over maxSize, but we preserve orientation)
+        byte[] result = outputStream.toByteArray();
+        if (result.length > maxSize) {
+            log.debug("Final compressed image size: {} bytes (over limit of {} bytes), but preserving original dimensions", result.length, maxSize);
+        }
+        return result;
     }
 
 }

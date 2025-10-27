@@ -74,8 +74,23 @@
     <div [hidden]="tfl">
         <div class="card-text">
             <hr>
-            <h5><b> {{"EVENTELEM.FILES" | translate }} : </b></h5>
-            <ul class="list-group">
+            <h5 class="d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center">
+                    <b> <span style="font-size: 0.85rem;">{{"EVENTELEM.FILES" | translate }} ({{ evenement.fileUploadeds.length }})</span> : </b>
+                    <button class="btn btn-sm btn-outline-primary ms-1" 
+                            style="padding: 0.1rem 0.25rem; font-size: 0.65rem;"
+                            (click)="toggleFilesList()"
+                            [title]="showFilesList ? ('Hide files list' | translate) : ('Show files list' | translate)">
+                        <i class="fa" [class.fa-plus]="!showFilesList" [class.fa-minus]="showFilesList"></i>
+                    </button>
+                </div>
+                <button class="btn btn-sm btn-success" 
+                        *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0"
+                        (click)="downloadAllFiles()">
+                    <i class="fa fa-download"></i> {{ 'COMMUN.DOWNLOAD_ALL' | translate }}
+                </button>
+            </h5>
+            <ul class="list-group" *ngIf="showFilesList">
                 <li class="list-group-item d-flex justify-content-between align-items-center"
                     *ngFor="let uploadedFile of evenement.fileUploadeds ">
                     <span class="file-name">
@@ -147,6 +162,15 @@
 </div>
 <div class="card-footer card-text text-center">
     <!-- <iframe width="100%" height="250" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" sandbox="allow-forms allow-scripts allow-same-origin" [src]="safeUrlMap" allowfullscreen></iframe> -->
+    <!-- Slideshow Button (only if there are images) - placed first -->
+    <button class="btn btn-sm btn-outline-success mb-1 me-1" 
+            [hidden]="!hasImageFiles()" 
+            (click)="openSlideshow()"
+            placement="top" 
+            ngbTooltip="{{ 'EVENTELEM.SLIDESHOW' | translate }}">
+        <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getImageFilesCount() }}
+    </button>
+    
     <!-- View Details Button -->
     <a class="btn btn-sm btn-outline-info mb-1 me-1 eye-button" [routerLink]="['/details-evenement', evenement.id]" placement="top"
         ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}">
@@ -181,21 +205,6 @@
     <a class="btn btn-sm btn-outline-primary mb-1 me-1" [hidden]="!isAnyFiles()" (click)="toogleFileListe()"
         placement="top" ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"><i class="fa fa-download"
             aria-hidden="true"></i> {{ getFilesCount() }}</a>
-    
-    <!-- Slideshow Button (only if there are images) -->
-    <button class="btn btn-sm btn-outline-success mb-1 me-1" 
-            [hidden]="!hasImageFiles()" 
-            (click)="openSlideshow()"
-            placement="top" 
-            ngbTooltip="{{ 'EVENTELEM.SLIDESHOW' | translate }}">
-        <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getImageFilesCount() }}
-    </button>
-
-    <!-- JSON View Button -->
-    <button class="btn btn-sm btn-secondary mb-1 me-1" (click)="openJsonModal()" placement="top"
-        ngbTooltip="{{ 'EVENTELEM.VIEW_JSON' | translate }}">
-        <i class="fa fa-code" aria-hidden="true"></i>
-    </button>
 
     <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}">
         <label [for]="'file-upload-input-' + evenement.id" class="btn btn-sm btn-success mb-1">
@@ -204,6 +213,12 @@
         <input type="file" [id]="'file-upload-input-' + evenement.id" #fileInput (change)="onFileSelected($event)" multiple 
                accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;" />
     </div>
+
+    <!-- JSON View Button -->
+    <button class="btn btn-sm btn-secondary mb-1 me-1" (click)="openJsonModal()" placement="top"
+        ngbTooltip="{{ 'EVENTELEM.VIEW_JSON' | translate }}">
+        <i class="fa fa-code" aria-hidden="true"></i>
+    </button>
 </div>
 <!-- Modal window for live chat - Design moderne -->
 <ng-template #content let-c="close" let-d="dismiss">

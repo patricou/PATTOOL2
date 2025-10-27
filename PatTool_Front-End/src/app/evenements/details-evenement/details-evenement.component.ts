@@ -199,6 +199,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   }
 
   // Get the file url with the bearer token for authentication
+  // Returns original file
   public getFileBlobUrl(fileId: string): Observable<any> {
     return this.fileService.getFile(fileId).pipe(
       map((res: any) => {
@@ -227,7 +228,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       'cn': 'zh-CN',
       'ar': 'ar-SA',
       'el': 'el-GR',
-      'he': 'he-IL'
+      'he': 'he-IL',
+      'in': 'hi-IN'
     };
     
     const locale = localeMap[currentLang] || 'fr-FR';
@@ -604,7 +606,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       'cn': 'zh-CN',
       'ar': 'ar-SA',
       'el': 'el-GR',
-      'he': 'he-IL'
+      'he': 'he-IL',
+      'in': 'hi-IN'
     };
     
     const locale = localeMap[currentLang] || 'fr-FR';

@@ -5,8 +5,9 @@ import { Router } from '@angular/router';
 import { NgbModal, ModalDismissReasons, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap';
 import { Database, ref, push, remove, onValue, serverTimestamp } from '@angular/fire/database';
 import { TranslateService } from '@ngx-translate/core';
+import * as JSZip from 'jszip';
 
-import { Observable } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { UploadedFile } from '../../model/uploadedfile';
 import { Member } from '../../model/member';
@@ -32,6 +33,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public items: Observable<any[]> = new Observable();
 	public msgVal: string = '';
 	public showParticipantsList: boolean = false;
+	public showFilesList: boolean = false;
 	// Evaluate rating
 	public currentRate: number = 0;
 	public safePhotosUrl: SafeUrl = {} as SafeUrl;
@@ -323,17 +325,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Generate a unique file ID (you might want to use a proper UUID generator)
 		return 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 	}
-	// Set image thumbnail
+	// Set image thumbnail - USE GETFILE for display (with resizing)
 	public setThumbnailImage() {
 		if (this.evenement.fileUploadeds.length != 0) {
 			this.evenement.fileUploadeds.map(fileUploaded => {
 				if (fileUploaded.fileName.indexOf('thumbnail') !== -1) {
-					this.getFileBlobUrl(fileUploaded.fieldId).subscribe((blob: any) => {
-						let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
-						this.thumbnailUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
-						// Removed automatic revocation to keep the blob URL available for modal
-					}
-					);
+					// Use getFile for display (with image resizing)
+					this._fileService.getFile(fileUploaded.fieldId).pipe(
+						map((res: any) => {
+							let blob = new Blob([res], { type: 'application/octet-stream' });
+							let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
+							return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+						})
+					).subscribe((safeUrl: SafeUrl) => {
+						this.thumbnailUrl = safeUrl;
+					});
 				}
 			}
 			)
@@ -451,6 +457,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	public toggleParticipantsList(): void {
 		this.showParticipantsList = !this.showParticipantsList;
+	}
+
+	public toggleFilesList(): void {
+		this.showFilesList = !this.showFilesList;
 	}
 
 	public isAnyFiles(): boolean {
@@ -575,7 +585,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.currentRate = (this.evenement.ratingPlus) / (this.evenement.ratingMinus + this.evenement.ratingPlus) * 10;
 		this.updateEvenement.emit(this.evenement);
 	}
-	// Get the file url with the baerer token for authentifcation
+	// Get the file url with the bearer token for authentication
+	// Returns original file
 	public getFileBlobUrl(fileId: string): Observable<any> {
 		return this._fileService.getFile(fileId).pipe(
 			map((res: any) => {
@@ -610,6 +621,66 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			//this.nativeWindow.open(objectUrl);
 		}
 		);
+	}
+
+	// Download all files from the event as a single ZIP file
+	public async downloadAllFiles(): Promise<void> {
+		if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
+			alert('Aucun fichier à télécharger');
+			return;
+		}
+
+		// Show loading message
+		const loadingMessage = `Téléchargement de ${this.evenement.fileUploadeds.length} fichier(s)...`;
+		
+		console.log('Starting download of all files:', this.evenement.fileUploadeds.length);
+		
+		try {
+			// Create a new ZIP file
+			const zip = new JSZip();
+			let successCount = 0;
+			
+			// Download all files and add them to the ZIP
+			const downloadPromises = this.evenement.fileUploadeds.map(async (file) => {
+				try {
+					console.log(`Fetching file: ${file.fileName}`);
+					const blob = await firstValueFrom(this.getFileBlobUrl(file.fieldId));
+					zip.file(file.fileName, blob);
+					successCount++;
+					console.log(`Added to ZIP: ${file.fileName} (${successCount}/${this.evenement.fileUploadeds.length})`);
+				} catch (error) {
+					console.error(`Error fetching file ${file.fileName}:`, error);
+				}
+			});
+			
+			// Wait for all files to be added to the ZIP
+			await Promise.all(downloadPromises);
+			
+			if (successCount === 0) {
+				alert('Aucun fichier n\'a pu être téléchargé');
+				return;
+			}
+			
+			// Generate the ZIP file
+			console.log('Generating ZIP file...');
+			const zipBlob = await zip.generateAsync({ type: 'blob' });
+			
+			// Create a download link and trigger download
+			const zipFileName = `${this.evenement.evenementName}_files_${new Date().getTime()}.zip`;
+			const url = window.URL.createObjectURL(zipBlob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = zipFileName;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			window.URL.revokeObjectURL(url);
+			
+			console.log(`ZIP file downloaded successfully with ${successCount} file(s)`);
+		} catch (error) {
+			console.error('Error creating ZIP file:', error);
+			alert('Erreur lors de la création du fichier ZIP');
+		}
 	}
 
 
@@ -829,7 +900,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			'cn': 'zh-CN',
 			'ar': 'ar-SA',
 			'el': 'el-GR',
-			'he': 'he-IL'
+			'he': 'he-IL',
+			'in': 'hi-IN'
 		};
 		
 		const locale = localeMap[currentLang] || 'fr-FR';
@@ -863,7 +935,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			'cn': 'zh-CN',
 			'ar': 'ar-SA',
 			'el': 'el-GR',
-			'he': 'he-IL'
+			'he': 'he-IL',
+			'in': 'hi-IN'
 		};
 		
 		const locale = localeMap[currentLang] || 'fr-FR';
@@ -895,7 +968,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			'cn': 'zh-CN',
 			'ar': 'ar-SA',
 			'el': 'el-GR',
-			'he': 'he-IL'
+			'he': 'he-IL',
+			'in': 'hi-IN'
 		};
 		
 		const locale = localeMap[currentLang] || 'fr-FR';
@@ -1024,12 +1098,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return imageTypes.includes(file.type.toLowerCase());
 	}
 
-	// Open file image in modal
+	// Open file image in modal - USE GETFILE for display (with resizing)
 	openFileImageModal(fileId: string, fileName: string): void {
-		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
-			// Create object URL for the blob
-			const objectUrl = URL.createObjectURL(blob);
-			
+		// Use getFile for display (with image resizing)
+		this._fileService.getFile(fileId).pipe(
+			map((res: any) => {
+				let blob = new Blob([res], { type: 'application/octet-stream' });
+				return URL.createObjectURL(blob);
+			})
+		).subscribe((objectUrl: string) => {
 			// Set the image URL and alt text
 			this.selectedImageUrl = objectUrl;
 			this.selectedImageAlt = fileName;
@@ -1177,11 +1254,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		}
 
 		// Load images one by one and start slideshow as soon as first image is loaded
-		imageFiles.forEach(async (file, index) => {
-			try {
-				const blob = await this.getFileBlobUrl(file.fieldId).toPromise();
-				const objectUrl = URL.createObjectURL(blob);
-				
+		// USE GETFILE for display (with image resizing)
+		imageFiles.forEach((file, index) => {
+			this._fileService.getFile(file.fieldId).pipe(
+				map((res: any) => {
+					const blob = new Blob([res], { type: 'application/octet-stream' });
+					return URL.createObjectURL(blob);
+				})
+			).subscribe((objectUrl: string) => {
 				// Add to slideshow images array
 				this.slideshowImages.push(objectUrl);
 				
@@ -1190,9 +1270,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 					isFirstImageLoaded = true;
 					this.isSlideshowActive = false; // Start paused
 				}
-			} catch (error) {
+			}, (error) => {
 				console.error('Error loading image for slideshow:', error);
-			}
+			});
 		});
 	}
 

@@ -281,9 +281,12 @@
 		"EXIT_FULLSCREEN": "Vollbild verlassen",
 		"SLIDESHOW_PAUSED": "Diashow pausiert",
 		"SLIDESHOW_PLAYING": "Diashow läuft",
-		"PLAY": "Abspielen",
-		"PAUSE": "Pausieren",
-		"LOADING_IMAGES": "Bilder werden geladen..."
+		        "PLAY": "Abspielen",
+        "PAUSE": "Pausieren",
+        "LOADING_IMAGES": "Bilder werden geladen...",
+        "DOWNLOAD_ALL_FILES": "Alle Dateien herunterladen",
+        "ATTENTION": "Achtung",
+        "IMAGE_COMPRESSION_WARNING": "Hochgeladene Bilder werden automatisch komprimiert, um ihre Größe zu reduzieren, was zu einem Verlust der Bildqualität führen kann."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Automatisches Scrollen starten",
@@ -308,7 +311,9 @@
         "AT": "um",
         "EVENTBYPAGE": "Veranstaltungen pro Seite",
         "LOADING": "Laden...",
-        "IDONTLIKE": "Gefällt mir nicht"
+        "IDONTLIKE": "Gefällt mir nicht",
+        "ILIKE": "Gefällt mir",
+        "DOWNLOAD_ALL": "Alle herunterladen"
     },
     "RESULTS": {
         "TITLE": "Allgemeine Diskussion",

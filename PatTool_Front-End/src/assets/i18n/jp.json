@@ -287,9 +287,12 @@
 		"EXIT_FULLSCREEN": "フルスクリーンを終了",
 		"SLIDESHOW_PAUSED": "スライドショー一時停止",
 		"SLIDESHOW_PLAYING": "スライドショー再生中",
-		"PLAY": "再生",
-		"PAUSE": "一時停止",
-		"LOADING_IMAGES": "画像を読み込み中..."
+		        "PLAY": "再生",
+        "PAUSE": "一時停止",
+        "LOADING_IMAGES": "画像を読み込み中...",
+        "DOWNLOAD_ALL_FILES": "すべてのファイルをダウンロード",
+        "ATTENTION": "注意",
+        "IMAGE_COMPRESSION_WARNING": "アップロードされた画像は、サイズを小さくするために自動的に圧縮されます。これにより、視覚的な品質の低下が生じる可能性があります。"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "自動スクロールを開始",
@@ -314,7 +317,9 @@
         "AT": "で",
         "EVENTBYPAGE": "ページごとの活動",
         "LOADING": "読み込み中...",
-        "IDONTLIKE": "嫌い"
+        "IDONTLIKE": "嫌い",
+        "ILIKE": "好き",
+        "DOWNLOAD_ALL": "すべてダウンロード"
     },
     "RESULTS": {
         "TITLE": "一般的なディスカッション",

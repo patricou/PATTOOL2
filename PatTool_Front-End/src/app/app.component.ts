@@ -124,7 +124,7 @@ export class AppComponent implements OnInit {
 
     onFilesSelected(event: any) {
         this.resultSaveOndisk = "";
-        this.selectedFiles = event.target.files;
+        this.selectedFiles = Array.from(event.target.files);
     }
 
     formatFileSize(bytes: number): string {
@@ -178,6 +178,7 @@ export class AppComponent implements OnInit {
 
     onFileSelectClick(event: Event): void {
         // Only trigger file input when clicking the button, not the entire drop zone
+        event.preventDefault();
         event.stopPropagation();
         const fileInput = document.getElementById('fileInput') as HTMLInputElement;
         if (fileInput) {
@@ -195,28 +196,6 @@ export class AppComponent implements OnInit {
             console.log('Aucun fichier sélectionné.');
             return;
         };
-
-        // Check if any of the selected files are images
-        const imageFiles = this.selectedFiles.filter(file => this.isImageFile(file));
-        
-        if (imageFiles.length > 0) {
-            // Ask user if they want to use the image as activity thumbnail
-            const imageFile = imageFiles[0]; // Use first image file
-            const useAsThumbnail = confirm(`Voulez-vous utiliser "${imageFile.name}" comme image de cette activité ?`);
-            
-            if (useAsThumbnail) {
-                // Modify the filename to add "thumbnail" in the middle
-                const modifiedFileName = this.addThumbnailToFileName(imageFile.name);
-                console.log("Modified filename:", modifiedFileName);
-                
-                // Create a new File object with the modified name
-                const modifiedFile = new File([imageFile], modifiedFileName, { type: imageFile.type });
-                
-                // Replace the original file in the array
-                const fileIndex = this.selectedFiles.indexOf(imageFile);
-                this.selectedFiles[fileIndex] = modifiedFile;
-            }
-        }
 
         const formData = new FormData();
         for (let file of this.selectedFiles) {
@@ -374,34 +353,6 @@ export class AppComponent implements OnInit {
     @HostListener('document:mouseup', ['$event'])
     onDocumentMouseUp(event: MouseEvent): void {
         this.isDragging = false;
-    }
-
-    // Check if a file is an image
-    private isImageFile(file: File): boolean {
-        const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
-        return imageTypes.includes(file.type.toLowerCase());
-    }
-
-    // Add "thumbnail" to the middle of the filename
-    private addThumbnailToFileName(originalName: string): string {
-        const lastDotIndex = originalName.lastIndexOf('.');
-        
-        if (lastDotIndex === -1) {
-            // No extension found, just add thumbnail at the end
-            return originalName + '_thumbnail';
-        }
-        
-        const nameWithoutExtension = originalName.substring(0, lastDotIndex);
-        const extension = originalName.substring(lastDotIndex);
-        
-        // Add thumbnail in the middle of the name
-        const middleIndex = Math.floor(nameWithoutExtension.length / 2);
-        const modifiedName = nameWithoutExtension.substring(0, middleIndex) + 
-                             'thumbnail' + 
-                             nameWithoutExtension.substring(middleIndex) + 
-                             extension;
-        
-        return modifiedName;
     }
 
 }

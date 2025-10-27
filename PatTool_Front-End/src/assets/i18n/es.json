@@ -287,9 +287,12 @@
 		"EXIT_FULLSCREEN": "Salir de pantalla completa",
 		"SLIDESHOW_PAUSED": "Presentación en pausa",
 		"SLIDESHOW_PLAYING": "Presentación en reproducción",
-		"PLAY": "Reproducir",
-		"PAUSE": "Pausa",
-		"LOADING_IMAGES": "Cargando imágenes..."
+		        "PLAY": "Reproducir",
+        "PAUSE": "Pausa",
+        "LOADING_IMAGES": "Cargando imágenes...",
+        "DOWNLOAD_ALL_FILES": "Descargar todos los archivos",
+        "ATTENTION": "Atención",
+        "IMAGE_COMPRESSION_WARNING": "Las imágenes cargadas se comprimirán automáticamente para reducir su tamaño, lo que puede resultar en una pérdida de calidad visual."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Iniciar desplazamiento automático",
@@ -314,7 +317,9 @@
         "AT": "en",
         "EVENTBYPAGE": "Actividades por página",
         "LOADING": "Cargando...",
-        "IDONTLIKE": "No me gusta"
+        "IDONTLIKE": "No me gusta",
+        "ILIKE": "Me gusta",
+        "DOWNLOAD_ALL": "Descargar Todo"
     },
     "RESULTS": {
         "TITLE": "Chat global en tiempo real",

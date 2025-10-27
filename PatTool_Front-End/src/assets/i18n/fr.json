@@ -277,8 +277,11 @@
 		"SLIDESHOW_PAUSED": "Diaporama en pause",
 		"SLIDESHOW_PLAYING": "Diaporama en lecture",
 		"PLAY": "Lecture",
-		"PAUSE": "Pause",
-		"LOADING_IMAGES": "Chargement des images..."
+        "PAUSE": "Pause",
+        "LOADING_IMAGES": "Chargement des images...",
+        "DOWNLOAD_ALL_FILES": "Télécharger tous les fichiers",
+        "ATTENTION": "Attention",
+        "IMAGE_COMPRESSION_WARNING": "Les images téléchargées seront automatiquement compressées pour réduire leur taille, ce qui peut entraîner une perte de qualité visuelle."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Démarrer le défilement automatique",
@@ -303,7 +306,9 @@
         "AT": "à",
         "EVENTBYPAGE": "Activités par page",
         "LOADING": "Chargement...",
-        "IDONTLIKE": "Je n'aime pas"
+        "IDONTLIKE": "Je n'aime pas",
+        "ILIKE": "J'aime",
+        "DOWNLOAD_ALL": "Tout télécharger"
     },
     "RESULTS": {
         "TITLE": "Dicussion Génèrale",

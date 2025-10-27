@@ -287,9 +287,12 @@
 		"EXIT_FULLSCREEN": "退出全屏",
 		"SLIDESHOW_PAUSED": "幻灯片已暂停",
 		"SLIDESHOW_PLAYING": "幻灯片播放中",
-		"PLAY": "播放",
-		"PAUSE": "暂停",
-		"LOADING_IMAGES": "加载图片中..."
+		        "PLAY": "播放",
+        "PAUSE": "暂停",
+        "LOADING_IMAGES": "加载图片中...",
+        "DOWNLOAD_ALL_FILES": "下载所有文件",
+        "ATTENTION": "注意",
+        "IMAGE_COMPRESSION_WARNING": "上传的图片将自动压缩以减小文件大小，这可能会导致视觉质量损失。"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "开始自动滚动",
@@ -314,7 +317,9 @@
         "AT": "在",
         "EVENTBYPAGE": "每页活动数",
         "LOADING": "加载中...",
-        "IDONTLIKE": "我不喜欢"
+        "IDONTLIKE": "我不喜欢",
+        "ILIKE": "我喜欢",
+        "DOWNLOAD_ALL": "全部下载"
     },
     "RESULTS": {
         "TITLE": "一般讨论",

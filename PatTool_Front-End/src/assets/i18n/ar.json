@@ -287,9 +287,12 @@
 		"EXIT_FULLSCREEN": "الخروج من ملء الشاشة",
 		"SLIDESHOW_PAUSED": "عرض شرائح متوقف",
 		"SLIDESHOW_PLAYING": "عرض شرائح يعمل",
-		"PLAY": "تشغيل",
-		"PAUSE": "إيقاف",
-		"LOADING_IMAGES": "تحميل الصور..."
+		        "PLAY": "تشغيل",
+        "PAUSE": "إيقاف",
+        "LOADING_IMAGES": "تحميل الصور...",
+        "DOWNLOAD_ALL_FILES": "تحميل جميع الملفات",
+        "ATTENTION": "تنبيه",
+        "IMAGE_COMPRESSION_WARNING": "سيتم ضغط الصور المرفوعة تلقائياً لتقليل حجمها، مما قد يؤدي إلى فقدان الجودة المرئية."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "بدء التمرير التلقائي",
@@ -314,7 +317,9 @@
         "AT": "في",
         "EVENTBYPAGE": "أنشطة لكل صفحة",
         "LOADING": "جاري التحميل...",
-        "IDONTLIKE": "لا يعجبني"
+        "IDONTLIKE": "لا يعجبني",
+        "ILIKE": "يعجبني",
+        "DOWNLOAD_ALL": "تحميل الكل"
     },
     "RESULTS": {
         "TITLE": "مناقشة عامة",

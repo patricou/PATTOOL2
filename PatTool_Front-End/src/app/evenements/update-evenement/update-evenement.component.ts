@@ -436,6 +436,7 @@ export class UpdateEvenementComponent implements OnInit {
 		return fileName.toLowerCase().endsWith('.pdf');
 	}
 
+	// Get file blob URL - returns original file
 	public getFileBlobUrl(fileId: string): Observable<any> {
 		return this._fileService.getFile(fileId).pipe(
 			map((res: any) => {

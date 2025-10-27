@@ -287,9 +287,12 @@
 		"EXIT_FULLSCREEN": "יציאה ממסך מלא",
 		"SLIDESHOW_PAUSED": "מצגת מושהה",
 		"SLIDESHOW_PLAYING": "מצגת מתנגנת",
-		"PLAY": "נגן",
-		"PAUSE": "השהה",
-		"LOADING_IMAGES": "טוען תמונות..."
+		        "PLAY": "נגן",
+        "PAUSE": "השהה",
+        "LOADING_IMAGES": "טוען תמונות...",
+        "DOWNLOAD_ALL_FILES": "הורד את כל הקבצים",
+        "ATTENTION": "שים לב",
+        "IMAGE_COMPRESSION_WARNING": "התמונות המועלות יידחסו אוטומטית לצמצום גודלן, מה שעלול לגרום לאובדן איכות חזותית."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "התחל גלילה אוטומטית",
@@ -314,7 +317,9 @@
         "AT": "ב",
         "EVENTBYPAGE": "פעילויות לעמוד",
         "LOADING": "טוען...",
-        "IDONTLIKE": "אני לא אוהב"
+        "IDONTLIKE": "אני לא אוהב",
+        "ILIKE": "אני אוהב",
+        "DOWNLOAD_ALL": "הורד הכל"
     },
     "RESULTS": {
         "TITLE": "דיון כללי",

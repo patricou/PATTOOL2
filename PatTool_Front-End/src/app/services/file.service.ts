@@ -31,7 +31,7 @@ export class FileService {
             })
         );
     }
-    // GET file    
+    // GET file - returns original file
     getFile(fileId: string): Observable<any> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers =>

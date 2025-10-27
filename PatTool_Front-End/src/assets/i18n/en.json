@@ -285,9 +285,12 @@
 		"EXIT_FULLSCREEN": "Exit fullscreen",
 		"SLIDESHOW_PAUSED": "Slideshow paused",
 		"SLIDESHOW_PLAYING": "Slideshow playing",
-		"PLAY": "Play",
-		"PAUSE": "Pause",
-		"LOADING_IMAGES": "Loading images..."
+		        "PLAY": "Play",
+        "PAUSE": "Pause",
+        "LOADING_IMAGES": "Loading images...",
+        "DOWNLOAD_ALL_FILES": "Download all files",
+        "ATTENTION": "Attention",
+        "IMAGE_COMPRESSION_WARNING": "Uploaded images will be automatically compressed to reduce their size, which may result in a loss of visual quality."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Start auto-scroll",
@@ -312,7 +315,9 @@
         "AT": "at",
         "EVENTBYPAGE": "Activities by page",
         "LOADING": "Loading...",
-        "IDONTLIKE": "I don't Like"
+        "IDONTLIKE": "I don't Like",
+        "ILIKE": "I Like",
+        "DOWNLOAD_ALL": "Download All"
     },
     "RESULTS": {
         "TITLE": "Global Real Time Chat",

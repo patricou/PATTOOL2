@@ -287,9 +287,12 @@
 		"EXIT_FULLSCREEN": "Esci da schermo intero",
 		"SLIDESHOW_PAUSED": "Presentazione in pausa",
 		"SLIDESHOW_PLAYING": "Presentazione in riproduzione",
-		"PLAY": "Riproduci",
-		"PAUSE": "Pausa",
-		"LOADING_IMAGES": "Caricamento immagini..."
+		        "PLAY": "Riproduci",
+        "PAUSE": "Pausa",
+        "LOADING_IMAGES": "Caricamento immagini...",
+        "DOWNLOAD_ALL_FILES": "Scarica tutti i file",
+        "ATTENTION": "Attenzione",
+        "IMAGE_COMPRESSION_WARNING": "Le immagini caricate verranno automaticamente compresse per ridurre la loro dimensione, il che può comportare una perdita di qualità visiva."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Avvia scorrimento automatico",
@@ -314,7 +317,9 @@
         "AT": "a",
         "EVENTBYPAGE": "Attività per pagina",
         "LOADING": "Caricamento...",
-        "IDONTLIKE": "Non mi piace"
+        "IDONTLIKE": "Non mi piace",
+        "ILIKE": "Mi piace",
+        "DOWNLOAD_ALL": "Scarica Tutto"
     },
     "RESULTS": {
         "TITLE": "Discussione Generale",

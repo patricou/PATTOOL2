@@ -524,7 +524,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			'cn': 'zh-CN',
 			'ar': 'ar-SA',
 			'el': 'el-GR',
-			'he': 'he-IL'
+			'he': 'he-IL',
+			'in': 'hi-IN'
 		};
 		
 		const locale = localeMap[currentLang] || 'fr-FR';

@@ -41,7 +41,7 @@ public class EvenementRestController {
                                             @PathVariable("page") int page,
                                             @PathVariable("size") int size,
                                             @RequestHeader(value = "user-id", required = false) String userId) {
-        log.info("Get evenement : "+evenementName+" / page : "+ page +" / size : " +size+ " / User Id : "+ userId );
+        //log.info("Get evenement : "+evenementName+" / page : "+ page +" / size : " +size+ " / User Id : "+ userId );
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "beginEventDate"));
 
@@ -53,7 +53,7 @@ public class EvenementRestController {
 
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)
     public Evenement getEvenement(@PathVariable String id) {
-        log.info("Get evenement {id} : " + id );
+        //log.info("Get evenement {id} : " + id );
         return evenementsRepository.findById(id).orElse(null);
     }
 
@@ -64,7 +64,7 @@ public class EvenementRestController {
 
         Evenement eventSaved = evenementsRepository.save(evenement);
 
-        log.info("Evenements POST " + eventSaved +" Saved !");
+        //log.info("Evenements POST " + eventSaved +" Saved !");
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setLocation(ServletUriComponentsBuilder
@@ -79,7 +79,7 @@ public class EvenementRestController {
 
         Evenement eventSaved = evenementsRepository.save(evenement);
 
-        log.info("Evenements PUT " + eventSaved.getEvenementName()+" Updated ! ( Visbility "+ eventSaved.getVisibility() +") ");
+        //log.info("Evenements PUT " + eventSaved.getEvenementName()+" Updated ! ( Visbility "+ eventSaved.getVisibility() +") ");
 
         HttpHeaders httpHeaders = new HttpHeaders();
         httpHeaders.setLocation(ServletUriComponentsBuilder
@@ -92,7 +92,7 @@ public class EvenementRestController {
     @RequestMapping(value = "/{id}", method = RequestMethod.DELETE)
     public  ResponseEntity<Evenement>  deleteEvenement(@PathVariable String id) {
 
-        log.info("Delete evenement id " + id );
+        //log.info("Delete evenement id " + id );
         
         // Retrieve the event first to get associated files
         Evenement evenement = evenementsRepository.findById(id).orElse(null);
@@ -100,12 +100,12 @@ public class EvenementRestController {
         if (evenement != null) {
             // Delete all associated files from GridFS
             if (evenement.getFileUploadeds() != null && !evenement.getFileUploadeds().isEmpty()) {
-                log.info("Deleting " + evenement.getFileUploadeds().size() + " associated files from GridFS");
+                //log.info("Deleting " + evenement.getFileUploadeds().size() + " associated files from GridFS");
                 for (var fileUploaded : evenement.getFileUploadeds()) {
                     try {
                         ObjectId fileObjectId = new ObjectId(fileUploaded.getFieldId());
                         gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileObjectId)));
-                        log.info("Deleted file from GridFS: " + fileUploaded.getFileName() + " (ID: " + fileUploaded.getFieldId() + ")");
+                        //log.info("Deleted file from GridFS: " + fileUploaded.getFileName() + " (ID: " + fileUploaded.getFieldId() + ")");
                     } catch (Exception e) {
                         log.error("Error deleting file from GridFS: " + fileUploaded.getFieldId(), e);
                     }
@@ -113,8 +113,8 @@ public class EvenementRestController {
             }
             
             // Delete urlEvents, commentaries are embedded in the event document and will be deleted with it
-            log.info("Deleting event with " + (evenement.getUrlEvents() != null ? evenement.getUrlEvents().size() : 0) + " URL(s) and " + 
-                     (evenement.getCommentaries() != null ? evenement.getCommentaries().size() : 0) + " commentarie(s)");
+            //log.info("Deleting event with " + (evenement.getUrlEvents() != null ? evenement.getUrlEvents().size() : 0) + " URL(s) and " +
+            //         (evenement.getCommentaries() != null ? evenement.getCommentaries().size() : 0) + " commentarie(s)");
         }
         
         // Delete the event (which also deletes embedded urlEvents and commentaries)
@@ -126,14 +126,14 @@ public class EvenementRestController {
     // Additional endpoint to match frontend expectations
     @RequestMapping(value = "/evenements", method = RequestMethod.GET)
     public ResponseEntity<List<Evenement>> getAllEvenements() {
-        log.info("Get all evenements");
+        //log.info("Get all evenements");
         List<Evenement> evenements = evenementsRepository.findAll();
         return ResponseEntity.ok(evenements);
     }
 
     @RequestMapping(value = "/evenements/{id}", method = RequestMethod.GET)
     public ResponseEntity<Evenement> getEvenementById(@PathVariable String id) {
-        log.info("Get evenement by id: " + id);
+        //log.info("Get evenement by id: " + id);
         Evenement evenement = evenementsRepository.findById(id).orElse(null);
         if (evenement != null) {
             return ResponseEntity.ok(evenement);

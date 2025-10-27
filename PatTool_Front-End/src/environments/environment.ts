@@ -30,5 +30,5 @@ export const environment = {
         appId: "1:193416492629:web:your-app-id" // Add if available
     },
     // Langages for the translator
-    langs: ["ar", "cn", "de", "el", "en", "es", "fr", "he", "it", "jp", "ru"]
+    langs: ["ar", "cn", "de", "el", "en", "es", "fr", "he", "in", "it", "jp", "ru"]
 };
