@@ -27,7 +27,7 @@ export class MembersService {
             return from(this._keycloakService.getToken()).pipe(
                 map((token: string) => {
                     let now = new Date();
-                    console.log("1|------------------> GetToken : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds());
+                    // console.log("1|------------------> GetToken : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds());
                     return new HttpHeaders({
                         'Accept': 'application/json',
                         'Content-Type': 'application/json',
@@ -38,11 +38,11 @@ export class MembersService {
                 }),
                 switchMap(headers => {
                     let now = new Date();
-                    console.log("2|------------------> Just before user POST request : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds());
+                    // console.log("2|------------------> Just before user POST request : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds());
                     return this._http.post<any>(this.API_URL + 'memb/user', this.user, { headers: headers }).pipe(
                         map((res: any) => {
                             let now = new Date();
-                            console.log("3|------------------> OK : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds() );
+                            // console.log("3|------------------> OK : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds() );
                             return res;
                         }),
                         catchError((error: any) => {

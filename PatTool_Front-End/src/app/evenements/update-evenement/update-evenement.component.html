@@ -611,6 +611,8 @@
                                         <i class="fa fa-spinner fa-spin fa-3x mb-3" style="color: #0d6efd;"></i>
                                         <h5 style="color: #0d6efd;">{{ "EVENTELEM.UPLOADING" | translate }}...</h5>
                                         <p class="text-muted">Veuillez patienter, les fichiers sont en cours de téléchargement</p>
+                                        
+                                        <!-- Upload Logs -->
                                     </div>
                                 </div>
                                 
@@ -931,6 +933,34 @@
             <button type="button" class="btn btn-danger" (click)="deleteAllCommentaries(); modal.close('Delete confirmed')">
                 <i class="fa fa-trash me-1"></i>
                 {{ "EVENTHOME.DELETE_ALL_COMMENTARIES_CONFIRM" | translate }}
+            </button>
+        </div>
+    </ng-template>
+
+    <!-- Upload Logs Modal -->
+    <ng-template #uploadLogsModal let-modal>
+        <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title">
+                <i class="fa fa-upload me-2"></i>
+                Upload Progress
+            </h5>
+            <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <div class="upload-logs-content">
+                <div class="log-content" #logContent>
+                    <div class="log-entry" *ngFor="let log of uploadLogs">
+                        {{ log }}
+                    </div>
+                    <div *ngIf="uploadLogs.length === 0" class="text-center text-muted">
+                        Waiting for upload to start...
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')" [disabled]="isUploading">
+                Close
             </button>
         </div>
     </ng-template>

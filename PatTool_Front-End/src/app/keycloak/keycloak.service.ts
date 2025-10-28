@@ -28,7 +28,7 @@ export class KeycloakService {
         .success(() => {
           KeycloakService.auth.loggedIn = true;
           KeycloakService.auth.authz = keycloakAuth;
-          console.log ("|------------> document.baseURI :" + document.baseURI );
+          // console.log ("|------------> document.baseURI :" + document.baseURI );
           //console.log ("|----------->  keycloakAuth :" + JSON.stringify(keycloakAuth) );
           KeycloakService.auth.logoutUrl =
             keycloakAuth.authServerUrl +
@@ -67,6 +67,13 @@ export class KeycloakService {
         reject('Not loggen in');
       }
     });
+  }
+
+  getTokenSync(): string {
+    if (KeycloakService.auth.authz && KeycloakService.auth.authz.token) {
+      return KeycloakService.auth.authz.token;
+    }
+    return '';
   }
 
   getAuth(): any {

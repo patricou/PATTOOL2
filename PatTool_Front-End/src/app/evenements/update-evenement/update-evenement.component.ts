@@ -73,11 +73,18 @@ export class UpdateEvenementComponent implements OnInit {
 
     // Confirmation modal for delete all commentaries
     @ViewChild('confirmDeleteAllCommentariesModal') confirmDeleteAllCommentariesModal!: TemplateRef<any>;
+    
+    // Upload logs modal
+    @ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
+    
+    // Upload logs container reference
+    @ViewChild('logContent') logContent: any;
 
     // File upload properties
     public selectedFiles: File[] = [];
     public isDragOver: boolean = false;
     public isUploading: boolean = false;
+    public uploadLogs: string[] = [];
 
 	constructor(private _route: ActivatedRoute,
 		private _evenementsService: EvenementsService,
@@ -90,6 +97,15 @@ export class UpdateEvenementComponent implements OnInit {
 	ngOnInit() {
 		// Initialize user
 		this.user = this._memberService.getUser();
+		
+		// If user doesn't have an ID, get it from the service
+		if (!this.user.id || this.user.id === "") {
+			this._memberService.getUserId().subscribe(member => {
+				this.user.id = member.id;
+				this._memberService.setUser(this.user);
+				console.log("User ID obtained:", this.user.id);
+			});
+		}
 		
 		let id: string = this._route.snapshot.params['id'];
 		this._evenementsService.getEvenement(id).subscribe
@@ -581,11 +597,48 @@ export class UpdateEvenementComponent implements OnInit {
 
 	public uploadSelectedFiles(): void {
 		if (this.selectedFiles.length === 0) {
-			alert('Aucun fichier sélectionné');
+			alert('No files selected');
 			return;
 		}
 
 		this.isUploading = true;
+		this.uploadLogs = [];
+		
+		// Open upload logs modal
+		let modalRef: any;
+		if (this.uploadLogsModal) {
+			modalRef = this.modalService.open(this.uploadLogsModal, {
+				centered: true,
+				backdrop: 'static',
+				keyboard: false
+			});
+		}
+		
+		// Generate session ID
+		const sessionId = this.generateSessionId();
+		
+		// Initialize logs
+		this.addLog(`📤 Starting upload of ${this.selectedFiles.length} file(s)...`);
+		
+		// Start polling for server logs
+		let lastLogCount = 0;
+		const pollInterval = setInterval(() => {
+			this._fileService.getUploadLogs(sessionId).subscribe(
+				(serverLogs: string[]) => {
+					if (serverLogs.length > lastLogCount) {
+						// New logs available
+						for (let i = lastLogCount; i < serverLogs.length; i++) {
+							this.addLog(serverLogs[i]);
+						}
+						lastLogCount = serverLogs.length;
+					}
+				},
+				(error) => {
+					console.error('Error fetching logs:', error);
+				}
+			);
+		}, 500); // Poll every 500ms
+		
 		const formData = new FormData();
 		
 		// Add all files to FormData
@@ -595,42 +648,90 @@ export class UpdateEvenementComponent implements OnInit {
 
 		// Build the correct upload URL
 		const uploadUrl = `${environment.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
+		
+		console.log('Upload URL:', uploadUrl);
+		console.log('User:', this.user);
+		console.log('Evenement ID:', this.evenement.id);
 
-		this._fileService.postFileToUrl(formData, this.user, uploadUrl).subscribe(
+		if (!this.user.id || !this.evenement.id) {
+			this.addLog(`❌ Erreur: User ID ou Evenement ID manquant`);
+			this.addLog(`User ID: "${this.user.id}"`);
+			this.addLog(`Evenement ID: "${this.evenement.id}"`);
+			this.isUploading = false;
+			alert('Erreur: Impossible de déterminer l\'utilisateur ou l\'événement. Vérifiez votre session.');
+			return;
+		}
+
+		this.addLog(`🔄 Sending to server...`);
+		
+		this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId).subscribe(
 			(response) => {
-				this.isUploading = false;
-				
-				// Clear selected files
-				this.clearSelectedFiles();
-				
-				// Reload the event to get updated file list
-				this.reloadEvent();
-				
-				// Show success message with count
 				const fileCount = Array.isArray(response) ? response.length : 1;
-				alert(`Fichiers uploadés avec succès! (${fileCount} fichiers)`);
+				
+				// Wait a bit for final logs
+				setTimeout(() => {
+					clearInterval(pollInterval);
+					this.addLog(`✅ Upload successful! ${fileCount} file(s) processed`);
+					
+					setTimeout(() => {
+						this.isUploading = false;
+						this.uploadLogs = [];
+						this.clearSelectedFiles();
+						this.reloadEvent();
+						alert(`Files uploaded successfully! (${fileCount} files)`);
+						// Close modal automatically after alert
+						if (modalRef) {
+							modalRef.close();
+						}
+					}, 1000);
+				}, 500);
 			},
 			(error) => {
+				clearInterval(pollInterval);
 				console.error('Error uploading files:', error);
-				this.isUploading = false;
+				this.addLog(`❌ Upload error`);
 				
-				let errorMessage = "Erreur lors de l'upload des fichiers.";
-				
-				if (error.status === 0) {
-					errorMessage = "Impossible de se connecter au serveur. Vérifiez que le service backend fonctionne.";
-				} else if (error.status === 401) {
-					errorMessage = "Authentification échouée. Veuillez vous reconnecter.";
-				} else if (error.status === 403) {
-					errorMessage = "Accès interdit. Vous n'avez pas l'autorisation d'uploader des fichiers.";
-				} else if (error.status >= 500) {
-					errorMessage = "Erreur serveur. Veuillez réessayer plus tard.";
-				} else if (error.error && error.error.message) {
-					errorMessage = error.error.message;
-				}
-				
-				alert(errorMessage);
+				setTimeout(() => {
+					this.isUploading = false;
+					
+					let errorMessage = "Error uploading files.";
+					
+					if (error.status === 0) {
+						errorMessage = "Unable to connect to server. Please check that the backend service is running.";
+					} else if (error.status === 401) {
+						errorMessage = "Authentication failed. Please log in again.";
+					} else if (error.status === 403) {
+						errorMessage = "Access denied. You don't have permission to upload files.";
+					} else if (error.status >= 500) {
+						errorMessage = "Server error. Please try again later.";
+					} else if (error.error && error.error.message) {
+						errorMessage = error.error.message;
+					}
+					
+					alert(errorMessage);
+					// Close modal automatically after error alert
+					if (modalRef) {
+						modalRef.close();
+					}
+				}, 1000);
 			}
 		);
+	}
+	
+	private addLog(message: string): void {
+		this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+		
+		// Auto-scroll to top to show latest log
+		setTimeout(() => {
+			if (this.logContent && this.logContent.nativeElement) {
+				const container = this.logContent.nativeElement;
+				container.scrollTop = 0;
+			}
+		}, 0);
+	}
+	
+	private generateSessionId(): string {
+		return 'upload-' + Date.now() + '-' + Math.random().toString(36).substring(7);
 	}
 
 	// Add "thumbnail" to the middle of the filename

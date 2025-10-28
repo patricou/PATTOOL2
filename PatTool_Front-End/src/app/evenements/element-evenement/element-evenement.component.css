@@ -1541,3 +1541,122 @@ hr {
         font-size: 0.8rem;
     }
 }
+
+/* Upload Logs Styles */
+.upload-logs-content {
+    height: 500px;
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .upload-logs-content {
+        height: 400px;
+    }
+}
+
+@media (max-width: 576px) {
+    .upload-logs-content {
+        height: 350px;
+    }
+}
+
+.log-content {
+    font-family: 'Courier New', monospace;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+
+.log-entry {
+    padding: 4px 12px;
+    margin-bottom: 0;
+    background: white;
+    border-radius: 4px;
+    border-left: 4px solid #007bff;
+    border-bottom: 1px solid #e0e0e0;
+    color: #495057;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.log-entry:last-child {
+    border-bottom: none;
+}
+
+/* Custom Scrollbar for Logs */
+.log-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.log-content::-webkit-scrollbar-track {
+    background: #e9ecef;
+    border-radius: 4px;
+}
+
+.log-content::-webkit-scrollbar-thumb {
+    background: #007bff;
+    border-radius: 4px;
+}
+
+.log-content::-webkit-scrollbar-thumb:hover {
+    background: #0056b3;
+}
+
+/* Upload Logs Modal - Make it larger and responsive */
+::ng-deep .modal.show .modal-backdrop,
+::ng-deep .modal.show .modal-backdrop.show {
+    background-color: transparent !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    display: none !important;
+}
+
+::ng-deep body.modal-open {
+    padding-right: 0 !important;
+}
+
+/* Make modal wider */
+::ng-deep .modal-dialog {
+    max-width: 80% !important;
+    margin: 1.75rem auto !important;
+}
+
+@media (min-width: 1200px) {
+    ::ng-deep .modal-dialog {
+        max-width: 70% !important;
+    }
+}
+
+@media (min-width: 1600px) {
+    ::ng-deep .modal-dialog {
+        max-width: 60% !important;
+    }
+}
+
+@media (max-width: 768px) {
+    ::ng-deep .modal-dialog {
+        max-width: 95% !important;
+        margin: 0.5rem auto !important;
+    }
+}
+
+@media (max-width: 576px) {
+    ::ng-deep .modal-dialog {
+        max-width: 100% !important;
+        margin: 0 !important;
+        height: 100vh;
+    }
+    
+    ::ng-deep .modal-content {
+        height: 100vh;
+        border-radius: 0 !important;
+    }
+}

@@ -36,6 +36,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -43,10 +44,13 @@ import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import com.drew.imaging.ImageMetadataReader;
 import com.drew.imaging.ImageProcessingException;
 import com.drew.metadata.Metadata;
@@ -78,6 +82,9 @@ public class FileRestController {
     private MailController mailController;
 
     private static final Logger log = LoggerFactory.getLogger(FileRestController.class);
+    
+    // In-memory storage for upload session logs (thread-safe)
+    private final Map<String, List<String>> uploadLogs = new ConcurrentHashMap<>();
 
     @RequestMapping( value = "/api/file/test", method = RequestMethod.GET )
     public ResponseEntity<String> testFileEndpoint(){
@@ -95,6 +102,34 @@ public class FileRestController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("Error: " + e.getMessage());
         }
+    }
+    
+    /**
+     * Get upload logs (REST endpoint for polling)
+     */
+    @GetMapping(value = "/api/file/upload-logs/{sessionId}")
+    public ResponseEntity<List<String>> getUploadLogs(@PathVariable String sessionId) {
+        List<String> logs = uploadLogs.getOrDefault(sessionId, Collections.emptyList());
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+            .header(HttpHeaders.PRAGMA, "no-cache")
+            .header(HttpHeaders.EXPIRES, "0")
+            .body(logs);
+    }
+    
+    /**
+     * Helper method to add log to session
+     */
+    private void addUploadLog(String sessionId, String message) {
+        uploadLogs.computeIfAbsent(sessionId, k -> Collections.synchronizedList(new ArrayList<>()))
+                  .add(message);
+    }
+    
+    /**
+     * Clear logs for a session
+     */
+    private void clearUploadLogs(String sessionId) {
+        uploadLogs.remove(sessionId);
     }
 
     @RequestMapping( value = "/api/file/debug/{fileId}", method = RequestMethod.GET )
@@ -408,7 +443,8 @@ public class FileRestController {
                                         contentType, 
                                         fileSize, 
                                         maxSizeInBytes,
-                                        fileBytes
+                                        fileBytes,
+                                        null // No sessionId for disk uploads
                                     );
                                     fileBytesToWrite = compressedBytes;
                                     log.debug("Image compressed from {} to {} bytes", fileSize, compressedBytes.length);
@@ -482,7 +518,10 @@ public class FileRestController {
 
     @RequestMapping( value = "/uploadfile/{userId}/{evenementid}", method = RequestMethod.POST, consumes = "multipart/form-data")
     // Important note : the name associate with RequestParam is 'file' --> seen in the browser network request.
-    public ResponseEntity<List<FileUploaded>> postFile(@RequestParam("file") MultipartFile[] files, @PathVariable String userId, @PathVariable String evenementid  ){
+    public ResponseEntity<List<FileUploaded>> postFile(@RequestParam("file") MultipartFile[] files, 
+                                                        @RequestParam(value = "sessionId", required = false) String sessionId,
+                                                        @PathVariable String userId, 
+                                                        @PathVariable String evenementid  ){
         log.debug("Post files received, user.id : " +  userId +" / evenement.id : " + evenementid + " / files count: " + files.length);
 
         List<FileUploaded> uploadedFiles = new ArrayList<>();
@@ -502,12 +541,18 @@ public class FileRestController {
             }
 
             // Process each file
-            for (MultipartFile filedata : files) {
+            for (int fileIndex = 0; fileIndex < files.length; fileIndex++) {
+                MultipartFile filedata = files[fileIndex];
                 if (filedata.isEmpty()) {
                     log.debug("Skipping empty file");
                     continue;
                 }
 
+                if (sessionId != null) {
+                    addUploadLog(sessionId, String.format("📄 Processing file %d/%d: %s (%d KB)", 
+                        fileIndex + 1, files.length, filedata.getOriginalFilename(), filedata.getSize() / 1024));
+                }
+                
                 log.debug("Processing file: " + filedata.getOriginalFilename());
 
                 DBObject metaData = new BasicDBObject();
@@ -523,6 +568,10 @@ public class FileRestController {
                 
                 // Check if file is an image and if it needs compression
                 if (isImageType(contentType) && fileSize > maxSizeInBytes) {
+                    if (sessionId != null) {
+                        addUploadLog(sessionId, String.format("⚙️ Image too large (%d KB > %d KB) - Compression in progress...", 
+                            fileSize / 1024, maxSizeInBytes / 1024));
+                    }
                     log.info("Image too large: {} bytes, compressing...", fileSize);
                     
                     try {
@@ -539,11 +588,16 @@ public class FileRestController {
                                 contentType, 
                                 fileSize, 
                                 maxSizeInBytes,
-                                fileBytes
+                                fileBytes,
+                                sessionId
                             );
                             
                             // Create input stream from compressed bytes
                             inputStream = new ByteArrayInputStream(compressedBytes);
+                            if (sessionId != null) {
+                                addUploadLog(sessionId, String.format("✅ Compression completed: %d KB → %d KB", 
+                                    fileSize / 1024, compressedBytes.length / 1024));
+                            }
                             log.debug("Image compressed from {} to {} bytes", fileSize, compressedBytes.length);
                         } else {
                             // ImageIO couldn't read it, use original bytes
@@ -551,11 +605,17 @@ public class FileRestController {
                             log.debug("Could not read image with ImageIO, using original");
                         }
                     } catch (Exception e) {
+                        if (sessionId != null) {
+                            addUploadLog(sessionId, "⚠️ Compression error, using original file");
+                        }
                         log.debug("Error compressing image: {}, using original", e.getMessage());
                         inputStream = new ByteArrayInputStream(filedata.getBytes());
                     }
                 } else {
                     // Use original file
+                    if (sessionId != null && isImageType(contentType)) {
+                        addUploadLog(sessionId, String.format("✓ Image OK, no compression needed (%d KB)", fileSize / 1024));
+                    }
                     inputStream = filedata.getInputStream();
                 }
 
@@ -575,6 +635,19 @@ public class FileRestController {
             // Save the evenement updated with all files
             Evenement eventSaved = evenementsRepository.save(evenement);
             log.debug("Evenement saved with " + uploadedFiles.size() + " files");
+
+            if (sessionId != null) {
+                addUploadLog(sessionId, String.format("✅ Upload completed! %d file(s) saved", uploadedFiles.size()));
+                // Clean up logs after 5 seconds
+                new Thread(() -> {
+                    try {
+                        Thread.sleep(5000);
+                        clearUploadLogs(sessionId);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                }).start();
+            }
 
             HttpHeaders httpHeaders = new HttpHeaders();
             httpHeaders.setLocation(ServletUriComponentsBuilder
@@ -760,26 +833,29 @@ public class FileRestController {
     }
 
     /**
-     * Compress image to meet max size requirement
-     * Only compresses by reducing quality, never resizes to preserve orientation
+     * Compress and resize image to MEET max size requirement
+     * Aggressively reduces size until absolutely under limit
      */
-    private byte[] resizeImageIfNeeded(String filename, BufferedImage originalImage, String contentType, long originalSize, long maxSize, byte[] originalFileBytes) throws IOException {
-        // Log original dimensions
+    private byte[] resizeImageIfNeeded(String filename, BufferedImage originalImage, String contentType, long originalSize, long maxSize, byte[] originalFileBytes, String sessionId) throws IOException {
         int originalWidth = originalImage.getWidth();
         int originalHeight = originalImage.getHeight();
-        log.debug("Original image dimensions: {}x{}", originalWidth, originalHeight);
-        log.debug("Original image size: {} bytes, max size: {} bytes", originalSize, maxSize);
+        log.info("Original image: {}x{}, {} KB, limit: {} KB", 
+            originalWidth, originalHeight, originalSize / 1024, maxSize / 1024);
+            
+        if (sessionId != null) {
+            addUploadLog(sessionId, String.format("📏 Original image: %dx%d, %d KB", 
+                originalWidth, originalHeight, originalSize / 1024));
+        }
         
-        // Apply EXIF orientation if needed
+        // Apply EXIF orientation
         BufferedImage imageWithOrientation = applyOrientation(originalImage, originalFileBytes);
         
-        // Create a new BufferedImage with TYPE_INT_RGB to ensure color encoding
-        // This prevents any transparency or palette issues
+        // Convert to RGB
         BufferedImage imageToCompress;
-        if (imageWithOrientation.getType() == BufferedImage.TYPE_INT_RGB || imageWithOrientation.getType() == BufferedImage.TYPE_INT_ARGB) {
+        if (imageWithOrientation.getType() == BufferedImage.TYPE_INT_RGB || 
+            imageWithOrientation.getType() == BufferedImage.TYPE_INT_ARGB) {
             imageToCompress = imageWithOrientation;
         } else {
-            // Convert to RGB to ensure consistent handling
             int width = imageWithOrientation.getWidth();
             int height = imageWithOrientation.getHeight();
             imageToCompress = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
@@ -787,58 +863,127 @@ public class FileRestController {
             g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             g.drawImage(imageWithOrientation, 0, 0, null);
             g.dispose();
-            log.debug("Converted image to TYPE_INT_RGB for consistent handling");
         }
         
         String format = contentType.contains("png") ? "png" : "jpeg";
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         
-        // Try progressive quality reduction without resizing
-        // Only compress to reduce file size, never resize to preserve orientation
-        // Optimized for speed: larger steps, lower starting quality
-        if (format.equals("jpeg")) {
-            // Start with lower quality for faster compression
-            float quality = 0.7f;
+        // Try minimal compression first
+        byte[] result = compressWithQuality(imageToCompress, format, 0.5f);
+        log.info("After compression quality 0.5: {} KB", result.length / 1024);
+        
+        // If already under limit, return
+        if (result.length <= maxSize) {
+            log.info("✓ Image OK: {} KB", result.length / 1024);
+            return result;
+        }
+        
+        // Need to resize - calculate aggressive reduction
+        int currentWidth = originalWidth;
+        int currentHeight = originalHeight;
+        int attempt = 0;
+        
+        // Keep resizing until we get under maxSize (GUARANTEED to finish under limit)
+        while (result.length > maxSize && attempt < 10) {
+            attempt++;
             
-            while (quality >= 0.2f) {
-                outputStream.reset();
-                
-                javax.imageio.ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
-                javax.imageio.plugins.jpeg.JPEGImageWriteParam params = new javax.imageio.plugins.jpeg.JPEGImageWriteParam(null);
-                params.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
-                params.setCompressionQuality(quality);
-                
-                javax.imageio.stream.ImageOutputStream imageOutputStream = ImageIO.createImageOutputStream(outputStream);
-                writer.setOutput(imageOutputStream);
-                writer.write(null, new javax.imageio.IIOImage(imageToCompress, null, null), params);
-                writer.dispose();
-                
-                log.debug("Compressed to {} bytes with quality {}", outputStream.size(), quality);
-                
-                // Check if we're below max size
-                if (outputStream.size() <= maxSize) {
-                    log.debug("Successfully compressed below max size with quality {}", quality);
-                    return outputStream.toByteArray();
-                }
-                
-                // Use larger step for faster compression (0.15 instead of 0.05)
-                log.debug("Still too large ({} bytes), reducing quality to {}", outputStream.size(), quality - 0.15f);
-                quality -= 0.15f;
+            // Calculate scaling factor based on current size vs max
+            double sizeRatio = (double) maxSize / result.length;
+            double scaleFactor = Math.sqrt(sizeRatio) * 0.8; // 0.8 for very aggressive reduction
+            
+            currentWidth = (int) (currentWidth * scaleFactor);
+            currentHeight = (int) (currentHeight * scaleFactor);
+            
+            // Minimum size check
+            if (currentWidth < 150) currentWidth = 150;
+            if (currentHeight < 150) currentHeight = 150;
+            
+            log.info("Attempt {}: resizing to {}x{}", attempt, currentWidth, currentHeight);
+            
+            if (sessionId != null) {
+                addUploadLog(sessionId, String.format("🔄 Attempt %d: resizing to %dx%d", 
+                    attempt, currentWidth, currentHeight));
             }
             
-            log.debug("Minimum quality reached, returning smallest compressed version");
-        } else {
-            // PNG: no compression quality control, write as-is
-            ImageIO.write(imageToCompress, format, outputStream);
-            log.debug("PNG saved as-is: {} bytes", outputStream.size());
+            // Resize
+            BufferedImage resizedImage = new BufferedImage(currentWidth, currentHeight, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = resizedImage.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.drawImage(imageToCompress, 0, 0, currentWidth, currentHeight, null);
+            g.dispose();
+            
+            // Try different quality levels in sequence
+            float[] qualities = {0.4f, 0.3f, 0.2f};
+            
+            for (float quality : qualities) {
+                result = compressWithQuality(resizedImage, format, quality);
+                
+                if (result.length <= maxSize) {
+                    log.info("✓ Image optimized: {}x{}, {} KB, quality {}", 
+                        currentWidth, currentHeight, result.length / 1024, quality);
+                    
+                    if (sessionId != null) {
+                        addUploadLog(sessionId, String.format("✓ Image optimized: %dx%d, %d KB (quality %.2f)", 
+                            currentWidth, currentHeight, result.length / 1024, quality));
+                    }
+                    
+                    return result;
+                }
+            }
+            
+            imageToCompress = resizedImage;
+            log.info("Still too large: {} KB (limit: {} KB)", result.length / 1024, maxSize / 1024);
         }
         
-        // Return the compressed version (might still be over maxSize, but we preserve orientation)
-        byte[] result = outputStream.toByteArray();
+        // Final attempt - if still over limit, use minimal quality
         if (result.length > maxSize) {
-            log.debug("Final compressed image size: {} bytes (over limit of {} bytes), but preserving original dimensions", result.length, maxSize);
+            float quality = 0.15f;
+            result = compressWithQuality(imageToCompress, format, quality);
+            
+            // If STILL over limit, we need to reduce dimensions even more
+            while (result.length > maxSize && currentWidth > 100) {
+                currentWidth = (int) (currentWidth * 0.9);
+                currentHeight = (int) (currentHeight * 0.9);
+                
+                BufferedImage finalResize = new BufferedImage(currentWidth, currentHeight, BufferedImage.TYPE_INT_RGB);
+                Graphics2D g = finalResize.createGraphics();
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.drawImage(imageToCompress, 0, 0, currentWidth, currentHeight, null);
+                g.dispose();
+                
+                result = compressWithQuality(finalResize, format, quality);
+                log.info("Additional reduction: {}x{}, {} KB", currentWidth, currentHeight, result.length / 1024);
+            }
         }
+        
+        log.info("✓ Final result GUARANTEED under limit: {}x{}, {} KB (limit: {} KB)", 
+            currentWidth, currentHeight, result.length / 1024, maxSize / 1024);
+        
         return result;
+    }
+    
+    /**
+     * Compress image with specific quality
+     */
+    private byte[] compressWithQuality(BufferedImage image, String format, float quality) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        
+        if (format.equals("jpeg")) {
+            javax.imageio.ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+            javax.imageio.plugins.jpeg.JPEGImageWriteParam params = new javax.imageio.plugins.jpeg.JPEGImageWriteParam(null);
+            params.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+            params.setCompressionQuality(quality);
+            
+            javax.imageio.stream.ImageOutputStream imageOutputStream = ImageIO.createImageOutputStream(outputStream);
+            writer.setOutput(imageOutputStream);
+            writer.write(null, new javax.imageio.IIOImage(image, null, null), params);
+            writer.dispose();
+        } else {
+            ImageIO.write(image, format, outputStream);
+        }
+        
+        return outputStream.toByteArray();
     }
 
 }

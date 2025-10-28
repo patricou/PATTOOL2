@@ -34,6 +34,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public msgVal: string = '';
 	public showParticipantsList: boolean = false;
 	public showFilesList: boolean = false;
+	// Upload logs
+	public uploadLogs: string[] = [];
+	public isUploading: boolean = false;
 	// Evaluate rating
 	public currentRate: number = 0;
 	public safePhotosUrl: SafeUrl = {} as SafeUrl;
@@ -57,6 +60,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
+	@ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
+	@ViewChild('logContent') logContent: any;
 
 	@Input()
 	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], []);
@@ -156,10 +161,30 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			return;
 		}
 
+		this.isUploading = true;
+		this.uploadLogs = [];
+		
+		// Open upload logs modal
+		let modalRef: any;
+		if (this.uploadLogsModal) {
+			modalRef = this.modalService.open(this.uploadLogsModal, {
+				centered: true,
+				backdrop: 'static',
+				keyboard: false
+			});
+		}
+		
+		// Generate session ID
+		const sessionId = this.generateSessionId();
+		
+		// Initialize logs
+		this.addLog(`📤 Starting upload of ${this.selectedFiles.length} file(s)...`);
+
 		// Check if any of the selected files are images
 		const imageFiles = this.selectedFiles.filter(file => this.isImageFileByMimeType(file));
 		
-		if (imageFiles.length > 0) {
+		// Only ask for thumbnail if there's exactly ONE file selected
+		if (imageFiles.length > 0 && this.selectedFiles.length === 1) {
 			// Ask user if they want to use the image as activity thumbnail
 			const imageFile = imageFiles[0]; // Use first image file
 			const useAsThumbnail = confirm(`Voulez-vous utiliser "${imageFile.name}" comme image de cette activité ?`);
@@ -167,7 +192,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			if (useAsThumbnail) {
 				// Modify the filename to add "thumbnail" in the middle
 				const modifiedFileName = this.addThumbnailToFileName(imageFile.name);
-				console.log("Modified filename:", modifiedFileName);
+				// console.log("Modified filename:", modifiedFileName);
 				
 				// Create a new File object with the modified name
 				const modifiedFile = new File([imageFile], modifiedFileName, { type: imageFile.type });
@@ -186,48 +211,108 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Build the correct upload URL with user ID and event ID
 		const uploadUrl = `${this.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
 
-		this._fileService.postFileToUrl(formData, this.user, uploadUrl)
+		// Start polling for server logs
+		let lastLogCount = 0;
+		const pollInterval = setInterval(() => {
+			this._fileService.getUploadLogs(sessionId).subscribe(
+				(serverLogs: string[]) => {
+					if (serverLogs.length > lastLogCount) {
+						// New logs available
+						for (let i = lastLogCount; i < serverLogs.length; i++) {
+							this.addLog(serverLogs[i]);
+						}
+						lastLogCount = serverLogs.length;
+					}
+				},
+				(error: any) => {
+					console.error('Error fetching logs:', error);
+				}
+			);
+		}, 500); // Poll every 500ms
+
+		this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId)
 			.subscribe({
 				next: (response: any) => {
 					
-					// The response should contain the uploaded file information directly
-					this.handleUploadResponse(response);
-					
-					// Clear selected files
-					this.selectedFiles = [];
-					// Reset file input for this specific event
-					const fileInput = document.querySelector(`input[id="file-upload-input-${this.evenement.id}"]`) as HTMLInputElement;
-					if (fileInput) {
-						fileInput.value = '';
-					}
-					
-					// Show success message
-					alert('Fichiers uploadés avec succès!');
+					// Wait a bit for final logs
+						setTimeout(() => {
+							clearInterval(pollInterval);
+							
+							const fileCount = Array.isArray(response) ? response.length : 1;
+							this.addLog(`✅ Upload successful! ${fileCount} file(s) processed`);
+							
+							// The response should contain the uploaded file information directly
+							this.handleUploadResponse(response);
+							
+							// Clear selected files
+							this.selectedFiles = [];
+							// Reset file input for this specific event
+							const fileInput = document.querySelector(`input[id="file-upload-input-${this.evenement.id}"]`) as HTMLInputElement;
+							if (fileInput) {
+								fileInput.value = '';
+							}
+							
+						setTimeout(() => {
+							this.isUploading = false;
+							alert('Files uploaded successfully!');
+							// Close modal automatically after alert
+							if (modalRef) {
+								modalRef.close();
+							}
+						}, 1000);
+						}, 500);
 				},
 				error: (error: any) => {
+					clearInterval(pollInterval);
 					console.error('File upload error:', error);
-					let errorMessage = "Erreur lors de l'upload des fichiers.";
+					this.addLog(`❌ Upload error`);
 					
-					if (error.status === 0) {
-						errorMessage = "Impossible de se connecter au serveur. Vérifiez que le service backend fonctionne.";
-					} else if (error.status === 401) {
-						errorMessage = "Authentification échouée. Veuillez vous reconnecter.";
-					} else if (error.status === 403) {
-						errorMessage = "Accès interdit. Vous n'avez pas l'autorisation d'uploader des fichiers.";
-					} else if (error.status >= 500) {
-						errorMessage = "Erreur serveur. Veuillez réessayer plus tard.";
-					} else if (error.error && error.error.message) {
-						errorMessage = error.error.message;
-					}
-					
-					alert(errorMessage);
+					setTimeout(() => {
+						this.isUploading = false;
+						
+						let errorMessage = "Error uploading files.";
+						
+						if (error.status === 0) {
+							errorMessage = "Unable to connect to server. Please check that the backend service is running.";
+						} else if (error.status === 401) {
+							errorMessage = "Authentication failed. Please log in again.";
+						} else if (error.status === 403) {
+							errorMessage = "Access denied. You don't have permission to upload files.";
+						} else if (error.status >= 500) {
+							errorMessage = "Server error. Please try again later.";
+						} else if (error.error && error.error.message) {
+							errorMessage = error.error.message;
+						}
+						
+						alert(errorMessage);
+						// Close modal automatically after error alert
+						if (modalRef) {
+							modalRef.close();
+						}
+					}, 1000);
 				}
 			});
 	}
 
+	private addLog(message: string): void {
+		this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+		
+		// Auto-scroll to top to show latest log
+		setTimeout(() => {
+			if (this.logContent && this.logContent.nativeElement) {
+				const container = this.logContent.nativeElement;
+				container.scrollTop = 0;
+			}
+		}, 0);
+	}
+
+	private generateSessionId(): string {
+		return 'upload-' + Date.now() + '-' + Math.random().toString(36).substring(7);
+	}
+
 	private handleUploadResponse(response: any): void {
 		try {
-			console.log('Processing upload response:', response);
+			// console.log('Processing upload response:', response);
 			
 			// The response from database upload should contain the uploaded file information
 			if (response && Array.isArray(response)) {
@@ -266,7 +351,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			// Check if this file contains "thumbnail" in its name
 			if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
 				hasThumbnailFile = true;
-				console.log('Thumbnail file detected:', uploadedFile.fileName);
+				// console.log('Thumbnail file detected:', uploadedFile.fileName);
 			}
 			
 			// Add to event's file list if not already present
@@ -276,9 +361,33 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			}
 		}
 		
-		// If a thumbnail file was uploaded, reload the card
+		// If a thumbnail file was uploaded, remove "thumbnail" from old files and update
 		if (hasThumbnailFile) {
-			console.log('Thumbnail file uploaded, reloading card...');
+			// console.log('Thumbnail file uploaded, cleaning up old thumbnails...');
+			
+			// Remove "thumbnail" from any old thumbnail files
+			let hasModifiedFiles = false;
+			this.evenement.fileUploadeds.forEach(fileUploaded => {
+				// Skip the newly uploaded file
+				const isNewFile = uploadedFilesData.some(f => 
+					(f.fieldId || f.id) === fileUploaded.fieldId
+				);
+				
+				// If not the new file and contains "thumbnail", clean it up
+				if (!isNewFile && fileUploaded.fileName && fileUploaded.fileName.toLowerCase().includes('thumbnail')) {
+					const newName = fileUploaded.fileName.replace(/thumbnail/gi, '').replace(/\s+/g, '');
+					// console.log(`Removing thumbnail from old file: ${fileUploaded.fileName} → ${newName}`);
+					fileUploaded.fileName = newName;
+					hasModifiedFiles = true;
+				}
+			});
+			
+			// Update the event in database if we modified any file names
+			if (hasModifiedFiles) {
+				// console.log('Updating event with cleaned file names...');
+				this.updateEvenement.emit(this.evenement);
+			}
+			
 			this.reloadEventCard();
 		}
 		
@@ -289,6 +398,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	private createUploadedFileEntries(): void {
 		// Fallback method: create uploaded file entries based on selected files
 		let hasThumbnailFile = false;
+		const newUploadedFiles: UploadedFile[] = [];
 		
 		for (let file of this.selectedFiles) {
 			const uploadedFile = new UploadedFile(
@@ -308,12 +418,35 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			const existingFile = this.evenement.fileUploadeds.find(f => f.fileName === uploadedFile.fileName);
 			if (!existingFile) {
 				this.evenement.fileUploadeds.push(uploadedFile);
+				newUploadedFiles.push(uploadedFile);
 			}
 		}
 		
-		// If a thumbnail file was uploaded, reload the card
+		// If a thumbnail file was uploaded, remove "thumbnail" from old files and update
 		if (hasThumbnailFile) {
-			console.log('Thumbnail file uploaded in fallback, reloading card...');
+			console.log('Thumbnail file uploaded in fallback, cleaning up old thumbnails...');
+			
+			// Remove "thumbnail" from any old thumbnail files
+			let hasModifiedFiles = false;
+			this.evenement.fileUploadeds.forEach(fileUploaded => {
+				// Skip the newly uploaded files
+				const isNewFile = newUploadedFiles.some(f => f.fieldId === fileUploaded.fieldId);
+				
+				// If not a new file and contains "thumbnail", clean it up
+				if (!isNewFile && fileUploaded.fileName && fileUploaded.fileName.toLowerCase().includes('thumbnail')) {
+					const newName = fileUploaded.fileName.replace(/thumbnail/gi, '').replace(/\s+/g, '');
+					console.log(`Removing thumbnail from old file: ${fileUploaded.fileName} → ${newName}`);
+					fileUploaded.fileName = newName;
+					hasModifiedFiles = true;
+				}
+			});
+			
+			// Update the event in database if we modified any file names
+			if (hasModifiedFiles) {
+				console.log('Updating event with cleaned file names...');
+				this.updateEvenement.emit(this.evenement);
+			}
+			
 			this.reloadEventCard();
 		}
 		
@@ -708,7 +841,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Reload the event card thumbnail when a thumbnail file is uploaded/deleted
 	private reloadEventCard(): void {
-		console.log('Reloading thumbnail for event:', this.evenement.evenementName);
+		// console.log('Reloading thumbnail for event:', this.evenement.evenementName);
 		
 		// Find the thumbnail file in the uploaded files
 		const thumbnailFile = this.evenement.fileUploadeds.find(file => 
@@ -716,11 +849,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		);
 		
 		if (thumbnailFile) {
-			console.log('Found thumbnail file:', thumbnailFile.fileName);
+			// console.log('Found thumbnail file:', thumbnailFile.fileName);
 			// Update the thumbnail URL to force refresh
 			this.setThumbnailImage();
 		} else {
-			console.log('No thumbnail file found, using default image');
+			// console.log('No thumbnail file found, using default image');
 			// Reset to default image if no thumbnail file exists
 			this.thumbnailUrl = "assets/images/images.jpg";
 		}

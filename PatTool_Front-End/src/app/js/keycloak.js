@@ -669,7 +669,7 @@
                 }
 
                 if (kc.timeSkew != null) {
-                    console.info('[KEYCLOAK] Estimated time difference between browser and server is ' + kc.timeSkew + ' seconds');
+                    // console.info('[KEYCLOAK] Estimated time difference between browser and server is ' + kc.timeSkew + ' seconds');
 
                     if (kc.onTokenExpired) {
                         var expiresIn = (kc.tokenParsed['exp'] - (new Date().getTime() / 1000) + kc.timeSkew) * 1000;

@@ -43,27 +43,45 @@ export class FileService {
     // POST file to database    
     postFile(formData: FormData, user: Member): Observable<any> {
         this.user = user;
-        console.log("Upload URL:", this.API_URL4FILE);
-        console.log("User info:", JSON.stringify(user));
+        // console.log("Upload URL:", this.API_URL4FILE);
+        // console.log("User info:", JSON.stringify(user));
         
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
-                console.log("Request headers:", headers);
+                // console.log("Request headers:", headers);
                 return this._http.post(this.API_URL4FILE, formData, { headers: headers, responseType: 'json' });
             })
         );
     }
 
-    // POST file to specific URL (for event-specific uploads)
-    postFileToUrl(formData: FormData, user: Member, url: string): Observable<any> {
+    // POST file to specific URL (for event-specific uploads) with sessionId support
+    postFileToUrl(formData: FormData, user: Member, url: string, sessionId?: string): Observable<any> {
         this.user = user;
-        console.log("Upload URL:", url);
-        console.log("User info:", JSON.stringify(user));
+        
+        // Add sessionId to FormData if provided
+        if (sessionId) {
+            formData.append('sessionId', sessionId);
+        }
+        
+        // console.log("Upload URL:", url);
+        // console.log("User info:", JSON.stringify(user));
+        if (sessionId) {
+            // console.log("Session ID:", sessionId);
+        }
         
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
-                console.log("Request headers:", headers);
+                // console.log("Request headers:", headers);
                 return this._http.post(url, formData, { headers: headers, responseType: 'json' });
+            })
+        );
+    }
+    
+    // Get upload logs (polling endpoint)
+    getUploadLogs(sessionId: string): Observable<string[]> {
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers => {
+                return this._http.get<string[]>(`${this.API_URL}file/upload-logs/${sessionId}`, { headers });
             })
         );
     }
@@ -71,12 +89,12 @@ export class FileService {
     // POST file on disk    
     postFileOnDisk(formData: FormData, user: Member): Observable<any> {
         this.user = user;
-        console.log("Upload URL:", this.API_URL4FILEONDISK);
-        console.log("User info:", JSON.stringify(user));
+        // console.log("Upload URL:", this.API_URL4FILEONDISK);
+        // console.log("User info:", JSON.stringify(user));
         
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
-                console.log("Request headers:", headers);
+                // console.log("Request headers:", headers);
                 return this._http.post(this.API_URL4FILEONDISK, formData, { headers: headers, responseType: 'text' });
             })
         );
