@@ -522,7 +522,23 @@ public class FileRestController {
                                                         @RequestParam(value = "sessionId", required = false) String sessionId,
                                                         @PathVariable String userId, 
                                                         @PathVariable String evenementid  ){
-        log.debug("Post files received, user.id : " +  userId +" / evenement.id : " + evenementid + " / files count: " + files.length);
+        // Clean sessionId if it contains duplicates (comma-separated)
+        String cleanSessionId = sessionId;
+        if (sessionId != null && sessionId.contains(",")) {
+            cleanSessionId = sessionId.split(",")[0].trim();
+        }
+        
+        // Make a final variable for use in lambdas
+        final String finalSessionId = cleanSessionId;
+        
+        // Initialize session logs if sessionId provided
+        if (finalSessionId != null && !finalSessionId.isEmpty()) {
+            uploadLogs.computeIfAbsent(finalSessionId, k -> Collections.synchronizedList(new ArrayList<>()));
+            addUploadLog(finalSessionId, String.format("📤 Processing %d file(s)", files.length));
+        }
+        
+        // Use finalSessionId throughout the rest of the method
+        sessionId = finalSessionId;
 
         List<FileUploaded> uploadedFiles = new ArrayList<>();
         
@@ -548,12 +564,10 @@ public class FileRestController {
                     continue;
                 }
 
-                if (sessionId != null) {
-                    addUploadLog(sessionId, String.format("📄 Processing file %d/%d: %s (%d KB)", 
+                if (finalSessionId != null) {
+                    addUploadLog(finalSessionId, String.format("📄 Processing file %d/%d: %s (%d KB)", 
                         fileIndex + 1, files.length, filedata.getOriginalFilename(), filedata.getSize() / 1024));
                 }
-                
-                log.debug("Processing file: " + filedata.getOriginalFilename());
 
                 DBObject metaData = new BasicDBObject();
                 metaData.put("UploaderName", uploaderMember.getFirstName()+" "+uploaderMember.getLastName());
@@ -572,7 +586,6 @@ public class FileRestController {
                         addUploadLog(sessionId, String.format("⚙️ Image too large (%d KB > %d KB) - Compression in progress...", 
                             fileSize / 1024, maxSizeInBytes / 1024));
                     }
-                    log.info("Image too large: {} bytes, compressing...", fileSize);
                     
                     try {
                         // Read entire file into byte array (needed for both ImageIO and fallback)
@@ -581,6 +594,11 @@ public class FileRestController {
                         // Read the image from bytes
                         BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
                         if (originalImage != null) {
+                            if (sessionId != null) {
+                                addUploadLog(sessionId, String.format("🖼️ Starting image compression for: %s", 
+                                    filedata.getOriginalFilename()));
+                            }
+                            
                             // Compress the image
                             byte[] compressedBytes = resizeImageIfNeeded(
                                 filedata.getOriginalFilename(), 
@@ -636,13 +654,13 @@ public class FileRestController {
             Evenement eventSaved = evenementsRepository.save(evenement);
             log.debug("Evenement saved with " + uploadedFiles.size() + " files");
 
-            if (sessionId != null) {
-                addUploadLog(sessionId, String.format("✅ Upload completed! %d file(s) saved", uploadedFiles.size()));
+            if (finalSessionId != null) {
+                addUploadLog(finalSessionId, String.format("✅ Upload completed! %d file(s) saved", uploadedFiles.size()));
                 // Clean up logs after 5 seconds
                 new Thread(() -> {
                     try {
                         Thread.sleep(5000);
-                        clearUploadLogs(sessionId);
+                        clearUploadLogs(finalSessionId);
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
                     }
@@ -839,9 +857,6 @@ public class FileRestController {
     private byte[] resizeImageIfNeeded(String filename, BufferedImage originalImage, String contentType, long originalSize, long maxSize, byte[] originalFileBytes, String sessionId) throws IOException {
         int originalWidth = originalImage.getWidth();
         int originalHeight = originalImage.getHeight();
-        log.info("Original image: {}x{}, {} KB, limit: {} KB", 
-            originalWidth, originalHeight, originalSize / 1024, maxSize / 1024);
-            
         if (sessionId != null) {
             addUploadLog(sessionId, String.format("📏 Original image: %dx%d, %d KB", 
                 originalWidth, originalHeight, originalSize / 1024));
@@ -869,17 +884,35 @@ public class FileRestController {
         
         // Try minimal compression first
         byte[] result = compressWithQuality(imageToCompress, format, 0.5f);
-        log.info("After compression quality 0.5: {} KB", result.length / 1024);
+        
+        if (sessionId != null) {
+            addUploadLog(sessionId, String.format("📊 Size after compression: %d KB", result.length / 1024));
+        }
         
         // If already under limit, return
         if (result.length <= maxSize) {
-            log.info("✓ Image OK: {} KB", result.length / 1024);
+            if (sessionId != null) {
+                addUploadLog(sessionId, String.format("✅ Final size: %d KB (no resize needed)", 
+                    result.length / 1024));
+            }
             return result;
         }
         
         // Need to resize - calculate aggressive reduction
-        int currentWidth = originalWidth;
-        int currentHeight = originalHeight;
+        // IMPORTANT: Use dimensions from imageToCompress (after EXIF orientation), not originalImage
+        int imageToCompressWidth = imageToCompress.getWidth();
+        int imageToCompressHeight = imageToCompress.getHeight();
+        
+        if (sessionId != null) {
+            addUploadLog(sessionId, String.format("📐 Starting resize: %dx%d, current size: %d KB", 
+                imageToCompressWidth, imageToCompressHeight, result.length / 1024));
+        }
+        
+        // Calculate aspect ratio to maintain proportions
+        double aspectRatio = (double) imageToCompressWidth / imageToCompressHeight;
+        
+        int currentWidth = imageToCompressWidth;
+        int currentHeight = imageToCompressHeight;
         int attempt = 0;
         
         // Keep resizing until we get under maxSize (GUARANTEED to finish under limit)
@@ -890,18 +923,39 @@ public class FileRestController {
             double sizeRatio = (double) maxSize / result.length;
             double scaleFactor = Math.sqrt(sizeRatio) * 0.8; // 0.8 for very aggressive reduction
             
+            // Apply scale factor while maintaining aspect ratio
             currentWidth = (int) (currentWidth * scaleFactor);
             currentHeight = (int) (currentHeight * scaleFactor);
             
-            // Minimum size check
-            if (currentWidth < 150) currentWidth = 150;
-            if (currentHeight < 150) currentHeight = 150;
+            // Ensure we maintain the aspect ratio by recalculating if needed
+            double currentAspectRatio = (double) currentWidth / currentHeight;
+            if (Math.abs(currentAspectRatio - aspectRatio) > 0.01) {
+                // Recalculate to maintain exact aspect ratio
+                if (currentAspectRatio > aspectRatio) {
+                    // Width is too large, adjust based on height
+                    currentWidth = (int) (currentHeight * aspectRatio);
+                } else {
+                    // Height is too large, adjust based on width
+                    currentHeight = (int) (currentWidth / aspectRatio);
+                }
+            }
             
-            log.info("Attempt {}: resizing to {}x{}", attempt, currentWidth, currentHeight);
+            // Minimum size check - maintain aspect ratio
+            if (currentWidth < 150 || currentHeight < 150) {
+                if (aspectRatio >= 1.0) {
+                    // Landscape or square
+                    currentWidth = Math.max(150, currentWidth);
+                    currentHeight = (int) (currentWidth / aspectRatio);
+                } else {
+                    // Portrait
+                    currentHeight = Math.max(150, currentHeight);
+                    currentWidth = (int) (currentHeight * aspectRatio);
+                }
+            }
             
-            if (sessionId != null) {
-                addUploadLog(sessionId, String.format("🔄 Attempt %d: resizing to %dx%d", 
-                    attempt, currentWidth, currentHeight));
+            if (sessionId != null && attempt == 1) {
+                addUploadLog(sessionId, String.format("🔄 Resizing to %dx%d", 
+                    currentWidth, currentHeight));
             }
             
             // Resize
@@ -919,21 +973,21 @@ public class FileRestController {
             for (float quality : qualities) {
                 result = compressWithQuality(resizedImage, format, quality);
                 
+                if (sessionId != null && result.length <= maxSize) {
+                    addUploadLog(sessionId, String.format("📊 Size after resize %dx%d: %d KB", 
+                        currentWidth, currentHeight, result.length / 1024));
+                }
+                
                 if (result.length <= maxSize) {
-                    log.info("✓ Image optimized: {}x{}, {} KB, quality {}", 
-                        currentWidth, currentHeight, result.length / 1024, quality);
-                    
                     if (sessionId != null) {
-                        addUploadLog(sessionId, String.format("✓ Image optimized: %dx%d, %d KB (quality %.2f)", 
-                            currentWidth, currentHeight, result.length / 1024, quality));
+                        addUploadLog(sessionId, String.format("✅ Final size: %d KB (%dx%d)", 
+                            result.length / 1024, currentWidth, currentHeight));
                     }
-                    
                     return result;
                 }
             }
             
             imageToCompress = resizedImage;
-            log.info("Still too large: {} KB (limit: {} KB)", result.length / 1024, maxSize / 1024);
         }
         
         // Final attempt - if still over limit, use minimal quality
@@ -942,9 +996,21 @@ public class FileRestController {
             result = compressWithQuality(imageToCompress, format, quality);
             
             // If STILL over limit, we need to reduce dimensions even more
-            while (result.length > maxSize && currentWidth > 100) {
-                currentWidth = (int) (currentWidth * 0.9);
-                currentHeight = (int) (currentHeight * 0.9);
+            // Maintain aspect ratio during reduction
+            while (result.length > maxSize && currentWidth > 100 && currentHeight > 100) {
+                double reductionFactor = 0.9;
+                currentWidth = (int) (currentWidth * reductionFactor);
+                currentHeight = (int) (currentHeight * reductionFactor);
+                
+                // Ensure aspect ratio is maintained
+                double currentAspectRatio = (double) currentWidth / currentHeight;
+                if (Math.abs(currentAspectRatio - aspectRatio) > 0.01) {
+                    if (currentAspectRatio > aspectRatio) {
+                        currentWidth = (int) (currentHeight * aspectRatio);
+                    } else {
+                        currentHeight = (int) (currentWidth / aspectRatio);
+                    }
+                }
                 
                 BufferedImage finalResize = new BufferedImage(currentWidth, currentHeight, BufferedImage.TYPE_INT_RGB);
                 Graphics2D g = finalResize.createGraphics();
@@ -953,12 +1019,13 @@ public class FileRestController {
                 g.dispose();
                 
                 result = compressWithQuality(finalResize, format, quality);
-                log.info("Additional reduction: {}x{}, {} KB", currentWidth, currentHeight, result.length / 1024);
             }
         }
         
-        log.info("✓ Final result GUARANTEED under limit: {}x{}, {} KB (limit: {} KB)", 
-            currentWidth, currentHeight, result.length / 1024, maxSize / 1024);
+        if (sessionId != null) {
+            addUploadLog(sessionId, String.format("✅ Final size: %d KB (%dx%d)", 
+                result.length / 1024, currentWidth, currentHeight));
+        }
         
         return result;
     }

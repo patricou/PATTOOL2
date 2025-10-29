@@ -211,6 +211,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		for (let file of this.selectedFiles) {
 			formData.append('file', file, file.name);
 		}
+		
+		// Add sessionId to FormData
+		if (sessionId) {
+			formData.append('sessionId', sessionId);
+		}
 
 		// Build the correct upload URL with user ID and event ID
 		const uploadUrl = `${this.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;

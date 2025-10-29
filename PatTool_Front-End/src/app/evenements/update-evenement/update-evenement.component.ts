@@ -11,8 +11,8 @@ import { Commentary } from '../../model/commentary';
 import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
 import { UploadedFile } from '../../model/uploadedfile';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, from, of } from 'rxjs';
+import { map, concatMap, catchError, finalize } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -85,6 +85,8 @@ export class UpdateEvenementComponent implements OnInit {
     public isDragOver: boolean = false;
     public isUploading: boolean = false;
     public uploadLogs: string[] = [];
+    public uploadResult: 'success' | 'error' | null = null;
+    public uploadResultMessage: string = '';
 
 	constructor(private _route: ActivatedRoute,
 		private _evenementsService: EvenementsService,
@@ -604,6 +606,8 @@ export class UpdateEvenementComponent implements OnInit {
 
 		this.isUploading = true;
 		this.uploadLogs = [];
+		this.uploadResult = null;
+		this.uploadResultMessage = '';
 		
 		// Open upload logs modal
 		let modalRef: any;
@@ -620,6 +624,7 @@ export class UpdateEvenementComponent implements OnInit {
 		
 		// Initialize logs
 		this.addLog(`📤 Starting upload of ${this.selectedFiles.length} file(s)...`);
+		this.addLog(`⚠️ Uploading files one by one to avoid size limits...`);
 		
 		// Start polling for server logs
 		let lastLogCount = 0;
@@ -639,13 +644,6 @@ export class UpdateEvenementComponent implements OnInit {
 				}
 			);
 		}, 500); // Poll every 500ms
-		
-		const formData = new FormData();
-		
-		// Add all files to FormData
-		for (let file of this.selectedFiles) {
-			formData.append('file', file, file.name);
-		}
 
 		// Build the correct upload URL
 		const uploadUrl = `${environment.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
@@ -659,62 +657,112 @@ export class UpdateEvenementComponent implements OnInit {
 			this.addLog(`User ID: "${this.user.id}"`);
 			this.addLog(`Evenement ID: "${this.evenement.id}"`);
 			this.isUploading = false;
+			clearInterval(pollInterval);
+			if (modalRef) {
+				modalRef.close();
+			}
 			alert('Erreur: Impossible de déterminer l\'utilisateur ou l\'événement. Vérifiez votre session.');
 			return;
 		}
 
-		this.addLog(`🔄 Sending to server...`);
+		// Upload files sequentially (one at a time) to avoid hitting maximum upload size limits
+		let uploadedCount = 0;
+		let failedCount = 0;
+		const totalFiles = this.selectedFiles.length;
 		
-		this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId).subscribe(
-			(response) => {
-				const fileCount = Array.isArray(response) ? response.length : 1;
+		// Create an observable stream that uploads files sequentially
+		from(this.selectedFiles).pipe(
+			concatMap((file, index) => {
+				const fileIndex = index + 1;
+				this.addLog(`📎 Uploading file ${fileIndex}/${totalFiles}: ${file.name} (${this.formatFileSize(file.size)})`);
 				
-				// Wait a bit for final logs
+				// Create FormData with single file
+				const formData = new FormData();
+				formData.append('file', file, file.name);
+				if (sessionId) {
+					formData.append('sessionId', sessionId);
+				}
+				
+				return this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId).pipe(
+					map(response => ({ success: true, file, response, index: fileIndex })),
+					catchError(error => {
+						console.error(`Error uploading file ${file.name}:`, error);
+						return of({ success: false, file, error, index: fileIndex });
+					})
+				);
+			}),
+			finalize(() => {
+				// Continue polling for a bit longer to catch all backend logs
 				setTimeout(() => {
-					clearInterval(pollInterval);
-					this.addLog(`✅ Upload successful! ${fileCount} file(s) processed`);
-					
-					setTimeout(() => {
-						this.isUploading = false;
-						this.uploadLogs = [];
-						this.clearSelectedFiles();
-						this.reloadEvent();
-						alert(`Files uploaded successfully! (${fileCount} files)`);
-						// Close modal automatically after alert
-						if (modalRef) {
-							modalRef.close();
+					// Poll a few more times to get remaining logs
+					let remainingPolls = 10; // Poll 10 more times (5 seconds)
+					const remainingPollInterval = setInterval(() => {
+						remainingPolls--;
+						this._fileService.getUploadLogs(sessionId).subscribe(
+							(serverLogs: string[]) => {
+								if (serverLogs.length > lastLogCount) {
+									// New logs available
+									for (let i = lastLogCount; i < serverLogs.length; i++) {
+										this.addLog(serverLogs[i]);
+									}
+									lastLogCount = serverLogs.length;
+								}
+							},
+							(error) => {
+								console.error('Error fetching remaining logs:', error);
+							}
+						);
+						
+						if (remainingPolls <= 0) {
+							clearInterval(remainingPollInterval);
+							clearInterval(pollInterval);
+							this.isUploading = false;
+							
+							setTimeout(() => {
+								if (failedCount === 0) {
+									this.uploadResult = 'success';
+									this.uploadResultMessage = `✅ Upload completed successfully! ${uploadedCount} file(s) uploaded.`;
+									this.addLog(`✅ Upload completed! ${uploadedCount} file(s) uploaded successfully`);
+									this.clearSelectedFiles();
+									this.reloadEvent();
+								} else {
+									this.uploadResult = 'error';
+									this.uploadResultMessage = `⚠️ Upload completed with errors: ${uploadedCount} succeeded, ${failedCount} failed.`;
+									this.addLog(`⚠️ Upload completed with errors: ${uploadedCount} succeeded, ${failedCount} failed`);
+								}
+							}, 500);
 						}
-					}, 1000);
-				}, 500);
+					}, 500);
+				}, 1000); // Wait 1 second before starting remaining polls
+			})
+		).subscribe(
+			(result) => {
+				if (result.success) {
+					uploadedCount++;
+					this.addLog(`✅ File ${result.index}/${totalFiles} uploaded: ${result.file.name}`);
+				} else {
+					failedCount++;
+					let errorMsg = `Failed to upload ${result.file.name}`;
+					const error = (result as any).error;
+					if (error) {
+						if (error.status === 413 || 
+							(error.error && error.error.message && 
+							 error.error.message.includes('size exceeded'))) {
+							errorMsg = `File too large: ${result.file.name} (${this.formatFileSize(result.file.size)})`;
+						} else if (error.error && error.error.message) {
+							errorMsg = `${result.file.name}: ${error.error.message}`;
+						}
+					}
+					this.addLog(`❌ ${errorMsg}`);
+				}
 			},
 			(error) => {
 				clearInterval(pollInterval);
-				console.error('Error uploading files:', error);
-				this.addLog(`❌ Upload error`);
-				
-				setTimeout(() => {
-					this.isUploading = false;
-					
-					let errorMessage = "Error uploading files.";
-					
-					if (error.status === 0) {
-						errorMessage = "Unable to connect to server. Please check that the backend service is running.";
-					} else if (error.status === 401) {
-						errorMessage = "Authentication failed. Please log in again.";
-					} else if (error.status === 403) {
-						errorMessage = "Access denied. You don't have permission to upload files.";
-					} else if (error.status >= 500) {
-						errorMessage = "Server error. Please try again later.";
-					} else if (error.error && error.error.message) {
-						errorMessage = error.error.message;
-					}
-					
-					alert(errorMessage);
-					// Close modal automatically after error alert
-					if (modalRef) {
-						modalRef.close();
-					}
-				}, 1000);
+				console.error('Error in upload stream:', error);
+				this.isUploading = false;
+				this.uploadResult = 'error';
+				this.uploadResultMessage = `❌ Upload stream error: ${error.message || 'Unknown error'}`;
+				this.addLog(`❌ Upload stream error: ${error.message || 'Unknown error'}`);
 			}
 		);
 	}

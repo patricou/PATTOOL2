@@ -55,13 +55,12 @@ export class FileService {
     }
 
     // POST file to specific URL (for event-specific uploads) with sessionId support
+    // NOTE: sessionId should already be added to FormData by the caller to avoid duplication
     postFileToUrl(formData: FormData, user: Member, url: string, sessionId?: string): Observable<any> {
         this.user = user;
         
-        // Add sessionId to FormData if provided
-        if (sessionId) {
-            formData.append('sessionId', sessionId);
-        }
+        // NOTE: Do NOT add sessionId here - it should already be in FormData from the caller
+        // Adding it here causes duplication when the caller also adds it
         
         // console.log("Upload URL:", url);
         // console.log("User info:", JSON.stringify(user));

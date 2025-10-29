@@ -945,6 +945,13 @@
             <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')" aria-label="Close"></button>
         </div>
         <div class="modal-body">
+            <!-- Result message (success or error) -->
+            <div *ngIf="uploadResult" 
+                 [class]="uploadResult === 'success' ? 'alert alert-success mb-3' : 'alert alert-danger mb-3'"
+                 role="alert">
+                <strong>{{ uploadResultMessage }}</strong>
+            </div>
+            
             <div class="upload-logs-content">
                 <div class="log-content" #logContent>
                     <div class="log-entry" *ngFor="let log of uploadLogs">
@@ -957,7 +964,7 @@
             </div>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')" [disabled]="isUploading">
+            <button type="button" class="btn btn-secondary" (click)="modal.close('Close click')">
                 Close
             </button>
         </div>
