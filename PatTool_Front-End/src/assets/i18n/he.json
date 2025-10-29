@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "צרפתית",
+        "EN": "אנגלית",
+        "ES": "ספרדית",
+        "DE": "גרמנית",
+        "IT": "איטלקית",
+        "AR": "ערבית",
+        "CN": "סינית",
+        "RU": "רוסית",
+        "JP": "יפנית",
+        "HE": "עברית",
+        "EL": "יוונית",
+        "IN": "הינדי"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "שפה",
@@ -102,7 +116,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "הערה(ות) תימחק(נה) לצמיתות.",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "פעולה זו אינה ניתנת לביטול.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "בטל",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "מחק את כל ההערות"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "מחק את כל ההערות",
+        "SELECT_PAGE": "בחר עמוד"
     },
     "EVENTCREATION": {
         "TITLE": "יצירת פעילות",
@@ -319,7 +334,10 @@
         "LOADING": "טוען...",
         "IDONTLIKE": "אני לא אוהב",
         "ILIKE": "אני אוהב",
-        "DOWNLOAD_ALL": "הורד הכל"
+        "DOWNLOAD_ALL": "הורד הכל",
+        "CLEAR_FILTER": "נקה מסנן",
+        "PREVIOUS_PAGE": "עמוד קודם",
+        "NEXT_PAGE": "עמוד הבא"
     },
     "RESULTS": {
         "TITLE": "דיון כללי",

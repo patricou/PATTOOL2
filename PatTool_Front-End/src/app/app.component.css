@@ -119,6 +119,31 @@
     color: rgba(255, 255, 255, 0.6);
 }
 
+/* Remove arrow from language toggle */
+.language-toggle::after {
+    content: none !important;
+}
+
+/* Ensure language toggle is always visible */
+.language-toggle,
+.dropdown-item.language-toggle {
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.language-toggle:hover,
+.dropdown-item.language-toggle:hover,
+.dropdown-submenu:hover .language-toggle,
+.dropdown-submenu:hover .dropdown-item.language-toggle {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.dropdown-submenu:hover .dropdown-item.language-toggle,
+.dropdown-item.language-toggle:focus {
+    color: white !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+}
+
 /* Custom AI submenu styling */
 .ai-submenu-list {
     position: fixed;
@@ -160,6 +185,117 @@
 
 /* Force display when style is set to block */
 .ai-submenu-list[style*="block"] {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+/* Custom Language submenu styling */
+.language-submenu-list {
+    position: fixed !important;
+    margin-top: 0 !important;
+    margin-left: 0 !important;
+    border-radius: 8px;
+    display: none !important;
+    z-index: 99999 !important;
+    min-width: 180px !important;
+    max-width: 220px !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    background: rgba(30, 30, 46, 0.95) !important;
+    backdrop-filter: blur(10px);
+    border: 2px solid white !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+    list-style: none !important;
+    padding: 4px 0 !important;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    clip: unset !important;
+    clip-path: none !important;
+}
+
+.language-submenu-list.show,
+.language-submenu-list[style*="display: block"],
+.language-submenu-list[style*="display:block"],
+.language-submenu-list[style*="display: block !important"],
+.language-submenu-list[style*="display:block !important"] {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+/* Ensure language submenu stays open on hover */
+.dropdown-submenu:hover .language-submenu-list,
+.dropdown-submenu .language-submenu-list.show {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+/* Override any parent hiding */
+.dropdown-menu .language-submenu-list.show,
+.dropdown-menu.show .language-submenu-list.show {
+    display: block !important;
+    visibility: visible !important;
+}
+
+.language-submenu-list li {
+    margin: 0;
+    padding: 0;
+    display: block;
+    width: 100%;
+}
+
+.language-submenu-list .dropdown-item {
+    color: rgba(255, 255, 255, 0.9);
+    padding: 5px 10px;
+    font-size: 0.8rem;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+    white-space: nowrap;
+}
+
+.language-submenu-list .language-check {
+    font-size: 0.75rem;
+    flex-shrink: 0;
+}
+
+.language-submenu-list .flag-wrapper {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.language-submenu-list .flag-wrapper .fi {
+    font-size: 1.1rem;
+    width: 1.2em;
+    height: 1.2em;
+    border-radius: 2px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.language-submenu-list .dropdown-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white;
+    transform: translateX(5px);
+}
+
+.language-submenu-list .dropdown-item.active {
+    background-color: rgba(59, 130, 246, 0.3);
+    color: white;
+    font-weight: 600;
+}
+
+/* Force display when style is set to block */
+.language-submenu-list[style*="block"] {
     display: block !important;
     opacity: 1 !important;
     visibility: visible !important;
@@ -230,6 +366,18 @@
     }
     
     .ai-submenu-list {
+        position: static !important;
+        float: none !important;
+        width: 100% !important;
+        margin-left: 20px !important;
+        margin-top: 5px !important;
+        border-radius: 8px !important;
+        box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+        display: none !important;
+        min-width: auto !important;
+    }
+    
+    .language-submenu-list {
         position: static !important;
         float: none !important;
         width: 100% !important;
@@ -371,11 +519,28 @@
     display: none !important;
 }
 
-/* Global Tooltip Fixes - Force tooltips to appear above everything */
-::ng-deep .tooltip {
-    z-index: 999999 !important;
+/* Global Tooltip Fixes - Force tooltips to appear above everything including navbar and pat-title header */
+/* Bootstrap injects tooltips directly into body, so they should not be affected by stacking contexts */
+body > .tooltip,
+body > .tooltip.show,
+::ng-deep .tooltip,
+::ng-deep .tooltip.show {
+    z-index: 99999 !important;
     position: fixed !important;
     pointer-events: none !important;
+}
+
+/* Ensure tooltips are appended to body and not contained by any parent */
+body > .tooltip {
+    z-index: 99999 !important;
+    position: fixed !important;
+}
+
+/* Override any potential stacking context issues */
+.tooltip,
+.tooltip.show {
+    z-index: 99999 !important;
+    position: fixed !important;
 }
 
 ::ng-deep .tooltip-inner {
@@ -387,31 +552,76 @@
     max-width: 200px !important;
     word-wrap: break-word !important;
     box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+    z-index: 99999 !important;
+}
+
+::ng-deep .tooltip.bs-tooltip-top,
+::ng-deep .tooltip.bs-tooltip-top .tooltip-arrow,
+::ng-deep .tooltip.bs-tooltip-top .tooltip-arrow::before {
+    z-index: 99999 !important;
 }
 
 ::ng-deep .tooltip.bs-tooltip-top .tooltip-arrow::before {
     border-top-color: #333 !important;
 }
 
+::ng-deep .tooltip.bs-tooltip-bottom,
+::ng-deep .tooltip.bs-tooltip-bottom .tooltip-arrow,
+::ng-deep .tooltip.bs-tooltip-bottom .tooltip-arrow::before {
+    z-index: 99999 !important;
+}
+
 ::ng-deep .tooltip.bs-tooltip-bottom .tooltip-arrow::before {
     border-bottom-color: #333 !important;
+}
+
+::ng-deep .tooltip.bs-tooltip-left,
+::ng-deep .tooltip.bs-tooltip-left .tooltip-arrow,
+::ng-deep .tooltip.bs-tooltip-left .tooltip-arrow::before {
+    z-index: 99999 !important;
 }
 
 ::ng-deep .tooltip.bs-tooltip-left .tooltip-arrow::before {
     border-left-color: #333 !important;
 }
 
+::ng-deep .tooltip.bs-tooltip-right,
+::ng-deep .tooltip.bs-tooltip-right .tooltip-arrow,
+::ng-deep .tooltip.bs-tooltip-right .tooltip-arrow::before {
+    z-index: 99999 !important;
+}
+
 ::ng-deep .tooltip.bs-tooltip-right .tooltip-arrow::before {
     border-right-color: #333 !important;
 }
 
-/* Force tooltips to appear above all cards */
-::ng-deep body .tooltip {
-    z-index: 999999 !important;
+/* Force tooltips to appear above all cards, navbar, and pat-title header */
+::ng-deep body .tooltip,
+::ng-deep body .tooltip.show {
+    z-index: 99999 !important;
 }
 
 ::ng-deep body .tooltip-inner {
-    z-index: 999999 !important;
+    z-index: 99999 !important;
+}
+
+/* Ensure navbar and pat-title don't interfere with tooltips */
+.navbar {
+    z-index: 1030 !important;
+}
+
+/* Ensure pat-title header has lower z-index than tooltips and doesn't create stacking context issues */
+.pat-title {
+    z-index: 1 !important;
+    /* Remove isolation to prevent creating new stacking context that traps tooltips */
+    overflow: visible !important;
+}
+
+/* Ensure controls-bar and its children don't create stacking contexts that trap tooltips */
+.controls-bar,
+.controls-bar * {
+    position: relative;
+    z-index: auto;
 }
 
 /* Global Modal Backdrop Fix */

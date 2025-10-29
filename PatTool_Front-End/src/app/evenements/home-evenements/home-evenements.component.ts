@@ -59,6 +59,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
+	@ViewChild('slideshowModal') slideshowModal!: TemplateRef<any>;
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
@@ -394,8 +395,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				(err: any) => alert("Delete File Error : " + err));
 	}
 	// Pagination functions
-	public changePage(page: number) {
-		this.pageNumber = page;
+	public changePage(page: number | string) {
+		// Convert to number if it's a string (from select box)
+		const pageNum = typeof page === 'string' ? parseInt(page, 10) : page;
+		this.pageNumber = pageNum;
+		this._commonValuesService.setPageNumber(this.pageNumber);
 		this.getEvents(this.dataFIlter);
 		this.scrollToTop();
 	}
@@ -431,6 +435,25 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Allow to use arrow for pagination
 	@HostListener('window:keyup', ['$event'])
 	keyEvent(event: KeyboardEvent) {
+		// Don't handle arrow keys if a modal is open
+		const modal = document.querySelector('.modal.show');
+		if (modal) {
+			return;
+		}
+		
+		// Don't handle arrow keys if we're in fullscreen mode (slideshow fullscreen)
+		const isFullscreenActive = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
+			(document as any).mozFullScreenElement || (document as any).msFullscreenElement);
+		if (isFullscreenActive) {
+			return;
+		}
+		
+		// Check if target is an input or textarea
+		const target = event.target as HTMLElement;
+		if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+			return;
+		}
+		
 		if (event.keyCode === KEY_CODE.RIGHT_ARROW) {
 			this.changeNextPage();
 		}
@@ -784,6 +807,325 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	public sendEmail(email: string): void {
 		window.open(`mailto:${email}`, '_blank');
+	}
+
+	// Slideshow properties
+	public isSlideshowActive: boolean = false;
+	public currentSlideshowIndex: number = 0;
+	public slideshowImages: string[] = [];
+	public slideshowInterval: any;
+	public isFullscreen: boolean = false;
+	private keyboardListener?: (event: KeyboardEvent) => void;
+	private isSlideshowModalOpen: boolean = false;
+	private lastKeyPressTime: number = 0;
+	private lastKeyCode: number = 0;
+	private selectedEventForSlideshow: Evenement | null = null;
+
+	// Check if file is an image based on extension
+	public isImageFile(fileName: string): boolean {
+		if (!fileName) return false;
+		
+		const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif'];
+		const lowerFileName = fileName.toLowerCase();
+		
+		return imageExtensions.some(ext => lowerFileName.endsWith(ext));
+	}
+
+	// Check if event has image files
+	public hasImageFiles(evenement: Evenement): boolean {
+		return evenement.fileUploadeds && evenement.fileUploadeds.some(file => this.isImageFile(file.fileName));
+	}
+
+	// Get count of image files
+	public getImageFilesCount(evenement: Evenement): number {
+		if (!evenement.fileUploadeds) return 0;
+		return evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName)).length;
+	}
+
+	// Listen to fullscreen events
+	private setupFullscreenListener(): void {
+		const handleFullscreenChange = () => {
+			this.isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
+				(document as any).mozFullScreenElement || (document as any).msFullscreenElement);
+		};
+
+		document.addEventListener('fullscreenchange', handleFullscreenChange);
+		document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+		document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+		document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+	}
+
+	// Open slideshow modal with all images from this event
+	public openSlideshow(evenement: Evenement): void {
+		this.selectedEventForSlideshow = evenement;
+		this.setupFullscreenListener();
+		// Filter to get only image files
+		const imageFiles = evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
+		
+		if (imageFiles.length === 0) {
+			alert('Aucune image trouvée dans cet événement.');
+			return;
+		}
+
+		// Initialize slideshow state
+		this.slideshowImages = [];
+		this.currentSlideshowIndex = 0;
+		this.isSlideshowActive = false;
+		let isFirstImageLoaded = false;
+
+		// Open the modal first
+		if (this.slideshowModal) {
+			const modalRef = this.modalService.open(this.slideshowModal, { 
+				size: 'xl', 
+				centered: true,
+				backdrop: true,
+				keyboard: true,
+				windowClass: 'modal-smooth-animation'
+			});
+			
+			// Set flag that modal is open
+			this.isSlideshowModalOpen = true;
+			this.lastKeyPressTime = 0;
+			this.lastKeyCode = 0;
+			
+			// Setup keyboard listener after modal is opened
+			setTimeout(() => {
+				this.setupKeyboardListener();
+			}, 0);
+			
+			// Handle modal close event
+			modalRef.result.then(
+				(result) => {
+					this.isSlideshowModalOpen = false;
+					this.stopSlideshow();
+					this.removeKeyboardListener();
+					this.selectedEventForSlideshow = null;
+				},
+				(reason) => {
+					this.isSlideshowModalOpen = false;
+					this.stopSlideshow();
+					this.removeKeyboardListener();
+					this.selectedEventForSlideshow = null;
+				}
+			);
+		}
+
+		// Load images one by one
+		imageFiles.forEach((file, index) => {
+			this._fileService.getFile(file.fieldId).pipe(
+				map((res: any) => {
+					const blob = new Blob([res], { type: 'application/octet-stream' });
+					return URL.createObjectURL(blob);
+				})
+			).subscribe((objectUrl: string) => {
+				// Add to slideshow images array
+				this.slideshowImages.push(objectUrl);
+				
+				// Initialize slideshow state when first image is loaded
+				if (!isFirstImageLoaded) {
+					isFirstImageLoaded = true;
+					this.isSlideshowActive = false; // Start paused
+				}
+			}, (error) => {
+				console.error('Error loading image for slideshow:', error);
+			});
+		});
+	}
+
+	// Start automatic slideshow
+	public startSlideshow(): void {
+		if (this.slideshowImages.length <= 1) return;
+		
+		this.stopSlideshow();
+		
+		this.slideshowInterval = setInterval(() => {
+			this.nextImage();
+		}, 3000);
+	}
+
+	// Stop slideshow
+	public stopSlideshow(): void {
+		if (this.slideshowInterval) {
+			clearInterval(this.slideshowInterval);
+			this.slideshowInterval = null;
+		}
+		this.isSlideshowActive = false;
+		
+		// Cleanup blob URLs to prevent memory leaks
+		this.slideshowImages.forEach(url => {
+			if (url.startsWith('blob:')) {
+				URL.revokeObjectURL(url);
+			}
+		});
+		this.slideshowImages = [];
+	}
+
+	// Setup keyboard listener for arrow keys navigation
+	private setupKeyboardListener(): void {
+		this.keyboardListener = (event: KeyboardEvent) => {
+			// Only handle if modal is open
+			if (!this.isSlideshowModalOpen) {
+				return;
+			}
+			
+			// Check if target is not an input or textarea to avoid interfering with form inputs
+			const target = event.target as HTMLElement;
+			if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+				return;
+			}
+			
+			// Check if modal is open OR if we're in fullscreen mode
+			const modal = document.querySelector('.modal.show');
+			const isFullscreenActive = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
+				(document as any).mozFullScreenElement || (document as any).msFullscreenElement);
+			
+			// Allow if modal is open OR if we're in fullscreen (modal might not have .show class in fullscreen)
+			if (!modal && !isFullscreenActive) {
+				return;
+			}
+			
+			// In fullscreen, we still want to handle the keys even if modal doesn't contain target
+			if (modal && !modal.contains(target) && !isFullscreenActive) {
+				return;
+			}
+			
+			const currentTime = Date.now();
+			const currentKeyCode = event.keyCode || (event.key === 'ArrowLeft' ? 37 : event.key === 'ArrowRight' ? 39 : 0);
+			
+			// Debounce: ignore if same key pressed within 100ms (to prevent double triggering)
+			if (currentKeyCode === this.lastKeyCode && currentTime - this.lastKeyPressTime < 100) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				return;
+			}
+			
+			if (event.key === 'ArrowLeft' || event.keyCode === 37) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				this.lastKeyPressTime = currentTime;
+				this.lastKeyCode = 37;
+				this.previousImage();
+			} else if (event.key === 'ArrowRight' || event.keyCode === 39) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				this.lastKeyPressTime = currentTime;
+				this.lastKeyCode = 39;
+				this.nextImage();
+			}
+		};
+		
+		// Use capture phase with keydown only (to avoid double triggering)
+		window.addEventListener('keydown', this.keyboardListener, { capture: true, passive: false });
+		document.addEventListener('keydown', this.keyboardListener, { capture: true, passive: false });
+	}
+
+	// Remove keyboard listener
+	private removeKeyboardListener(): void {
+		if (this.keyboardListener) {
+			window.removeEventListener('keydown', this.keyboardListener, { capture: true });
+			document.removeEventListener('keydown', this.keyboardListener, { capture: true });
+			this.keyboardListener = undefined;
+		}
+	}
+
+	// Navigate to next image
+	public nextImage(): void {
+		if (this.slideshowImages.length === 0) return;
+		this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
+	}
+
+	// Navigate to previous image
+	public previousImage(): void {
+		if (this.slideshowImages.length === 0) return;
+		this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
+	}
+
+	// Get current slideshow image URL
+	public getCurrentSlideshowImage(): string {
+		if (this.slideshowImages.length === 0 || this.currentSlideshowIndex >= this.slideshowImages.length) {
+			return '';
+		}
+		return this.slideshowImages[this.currentSlideshowIndex];
+	}
+
+	// Toggle slideshow play/pause
+	public toggleSlideshow(): void {
+		if (this.isSlideshowActive) {
+			// Just stop the interval, don't cleanup images
+			if (this.slideshowInterval) {
+				clearInterval(this.slideshowInterval);
+				this.slideshowInterval = null;
+			}
+			this.isSlideshowActive = false;
+		} else {
+			this.startSlideshow();
+			this.isSlideshowActive = true;
+		}
+	}
+
+	// Toggle slideshow with message
+	public toggleSlideshowWithMessage(): void {
+		const wasActive = this.isSlideshowActive;
+		this.toggleSlideshow();
+		
+		if (wasActive) {
+			this.showSlideshowMessage('EVENTELEM.SLIDESHOW_PAUSED');
+		} else {
+			this.showSlideshowMessage('EVENTELEM.SLIDESHOW_PLAYING');
+		}
+	}
+
+	private showSlideshowMessage(translationKey: string): void {
+		this.translateService.get(translationKey).subscribe((translation: string) => {
+			const toast = document.createElement('div');
+			toast.textContent = translation;
+			toast.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 5px; z-index: 9999; font-size: 16px;';
+			document.body.appendChild(toast);
+			setTimeout(() => {
+				toast.remove();
+			}, 2000);
+		});
+	}
+
+	// Toggle fullscreen mode
+	public toggleFullscreen(): void {
+		// Use slideshow-container to include both image and controls
+		const slideshowContainer = document.querySelector('.slideshow-container');
+		const slideshowImageWrapper = document.querySelector('.slideshow-image-wrapper');
+		const imageElement = slideshowContainer || slideshowImageWrapper;
+		if (!imageElement) return;
+
+		if (!this.isFullscreen) {
+			// Enter fullscreen
+			if ((imageElement as any).requestFullscreen) {
+				(imageElement as any).requestFullscreen();
+			} else if ((imageElement as any).webkitRequestFullscreen) {
+				(imageElement as any).webkitRequestFullscreen();
+			} else if ((imageElement as any).mozRequestFullScreen) {
+				(imageElement as any).mozRequestFullScreen();
+			} else if ((imageElement as any).msRequestFullscreen) {
+				(imageElement as any).msRequestFullscreen();
+			}
+		} else {
+			// Exit fullscreen
+			if (document.exitFullscreen) {
+				document.exitFullscreen();
+			} else if ((document as any).webkitExitFullscreen) {
+				(document as any).webkitExitFullscreen();
+			} else if ((document as any).mozCancelFullScreen) {
+				(document as any).mozCancelFullScreen();
+			} else if ((document as any).msExitFullscreen) {
+				(document as any).msExitFullscreen();
+			}
+		}
+	}
+
+	// Get event name for slideshow title
+	public getSlideshowEventName(): string {
+		return this.selectedEventForSlideshow ? this.selectedEventForSlideshow.evenementName : '';
 	}
 	
 }

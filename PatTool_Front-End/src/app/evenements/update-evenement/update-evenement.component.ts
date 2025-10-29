@@ -493,7 +493,8 @@ export class UpdateEvenementComponent implements OnInit {
 				backdrop: true,
 				keyboard: true,
 				animation: false,
-				windowClass: 'modal-smooth-animation'
+				windowClass: 'modal-smooth-animation',
+				backdropClass: 'modal-backdrop'
 			});
 		}, (error) => {
 			console.error('Error loading file:', error);

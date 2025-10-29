@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "फ्रेंच",
+        "EN": "अंग्रेजी",
+        "ES": "स्पेनिश",
+        "DE": "जर्मन",
+        "IT": "इतालवी",
+        "AR": "अरबी",
+        "CN": "चीनी",
+        "RU": "रूसी",
+        "JP": "जापानी",
+        "HE": "हिब्रू",
+        "EL": "यूनानी",
+        "IN": "हिंदी"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "भाषा",
@@ -93,7 +107,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "टिप्पणी(यों) स्थायी रूप से हटा दी जाएंगी।",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "यह क्रिया अपरिवर्तनीय है।",
         "DELETE_ALL_COMMENTARIES_CANCEL": "रद्द करें",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "सभी टिप्पणियाँ हटाएं"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "सभी टिप्पणियाँ हटाएं",
+        "SELECT_PAGE": "पृष्ठ चुनें"
     },
     "EVENTCREATION": {
         "TITLE": "गतिविधि निर्माण",
@@ -308,7 +323,10 @@
         "LOADING": "लोड हो रहा है...",
         "IDONTLIKE": "मुझे पसंद नहीं है",
         "ILIKE": "मुझे पसंद है",
-        "DOWNLOAD_ALL": "सभी डाउनलोड करें"
+        "DOWNLOAD_ALL": "सभी डाउनलोड करें",
+        "CLEAR_FILTER": "फ़िल्टर साफ़ करें",
+        "PREVIOUS_PAGE": "पिछला पृष्ठ",
+        "NEXT_PAGE": "अगला पृष्ठ"
     },
     "RESULTS": {
         "TITLE": "वैश्विक वास्तविक समय चैट",

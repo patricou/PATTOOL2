@@ -52,6 +52,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public slideshowImages: string[] = [];
 	public slideshowInterval: any;
 	public isFullscreen: boolean = false;
+	private keyboardListener?: (event: KeyboardEvent) => void;
+	private isSlideshowModalOpen: boolean = false;
+	private lastKeyPressTime: number = 0;
+	private lastKeyCode: number = 0;
 
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
@@ -1375,13 +1379,27 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				windowClass: 'modal-smooth-animation'
 			});
 			
+			// Set flag that modal is open
+			this.isSlideshowModalOpen = true;
+			this.lastKeyPressTime = 0;
+			this.lastKeyCode = 0;
+			
+			// Setup keyboard listener after modal is opened
+			setTimeout(() => {
+				this.setupKeyboardListener();
+			}, 0);
+			
 			// Handle modal close event
 			modalRef.result.then(
 				(result) => {
+					this.isSlideshowModalOpen = false;
 					this.stopSlideshow();
+					this.removeKeyboardListener();
 				},
 				(reason) => {
+					this.isSlideshowModalOpen = false;
 					this.stopSlideshow();
+					this.removeKeyboardListener();
 				}
 			);
 		}
@@ -1432,6 +1450,77 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			}
 		});
 		this.slideshowImages = [];
+	}
+
+	// Setup keyboard listener for arrow keys navigation
+	private setupKeyboardListener(): void {
+		this.keyboardListener = (event: KeyboardEvent) => {
+			// Only handle if modal is open
+			if (!this.isSlideshowModalOpen) {
+				return;
+			}
+			
+			// Check if target is not an input or textarea to avoid interfering with form inputs
+			const target = event.target as HTMLElement;
+			if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+				return;
+			}
+			
+			// Check if modal is open OR if we're in fullscreen mode
+			const modal = document.querySelector('.modal.show');
+			const isFullscreenActive = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
+				(document as any).mozFullScreenElement || (document as any).msFullscreenElement);
+			
+			// Allow if modal is open OR if we're in fullscreen (modal might not have .show class in fullscreen)
+			if (!modal && !isFullscreenActive) {
+				return;
+			}
+			
+			// In fullscreen, we still want to handle the keys even if modal doesn't contain target
+			if (modal && !modal.contains(target) && !isFullscreenActive) {
+				return;
+			}
+			
+			const currentTime = Date.now();
+			const currentKeyCode = event.keyCode || (event.key === 'ArrowLeft' ? 37 : event.key === 'ArrowRight' ? 39 : 0);
+			
+			// Debounce: ignore if same key pressed within 100ms (to prevent double triggering)
+			if (currentKeyCode === this.lastKeyCode && currentTime - this.lastKeyPressTime < 100) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				return;
+			}
+			
+			if (event.key === 'ArrowLeft' || event.keyCode === 37) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				this.lastKeyPressTime = currentTime;
+				this.lastKeyCode = 37;
+				this.previousImage();
+			} else if (event.key === 'ArrowRight' || event.keyCode === 39) {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation();
+				this.lastKeyPressTime = currentTime;
+				this.lastKeyCode = 39;
+				this.nextImage();
+			}
+		};
+		
+		// Use capture phase with keydown only (to avoid double triggering)
+		window.addEventListener('keydown', this.keyboardListener, { capture: true, passive: false });
+		document.addEventListener('keydown', this.keyboardListener, { capture: true, passive: false });
+	}
+
+	// Remove keyboard listener
+	private removeKeyboardListener(): void {
+		if (this.keyboardListener) {
+			window.removeEventListener('keydown', this.keyboardListener, { capture: true });
+			document.removeEventListener('keydown', this.keyboardListener, { capture: true });
+			this.keyboardListener = undefined;
+		}
 	}
 
 	// Navigate to next image
@@ -1497,19 +1586,22 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Toggle fullscreen mode
 	public toggleFullscreen(): void {
+		// Use slideshow-container to include both image and controls
+		const slideshowContainer = document.querySelector('.slideshow-container');
 		const slideshowImageWrapper = document.querySelector('.slideshow-image-wrapper');
-		if (!slideshowImageWrapper) return;
+		const imageElement = slideshowContainer || slideshowImageWrapper;
+		if (!imageElement) return;
 
 		if (!this.isFullscreen) {
 			// Enter fullscreen
-			if ((slideshowImageWrapper as any).requestFullscreen) {
-				(slideshowImageWrapper as any).requestFullscreen();
-			} else if ((slideshowImageWrapper as any).webkitRequestFullscreen) {
-				(slideshowImageWrapper as any).webkitRequestFullscreen();
-			} else if ((slideshowImageWrapper as any).mozRequestFullScreen) {
-				(slideshowImageWrapper as any).mozRequestFullScreen();
-			} else if ((slideshowImageWrapper as any).msRequestFullscreen) {
-				(slideshowImageWrapper as any).msRequestFullscreen();
+			if ((imageElement as any).requestFullscreen) {
+				(imageElement as any).requestFullscreen();
+			} else if ((imageElement as any).webkitRequestFullscreen) {
+				(imageElement as any).webkitRequestFullscreen();
+			} else if ((imageElement as any).mozRequestFullScreen) {
+				(imageElement as any).mozRequestFullScreen();
+			} else if ((imageElement as any).msRequestFullscreen) {
+				(imageElement as any).msRequestFullscreen();
 			}
 		} else {
 			// Exit fullscreen

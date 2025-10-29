@@ -314,7 +314,9 @@ input#message {
     box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
     text-align: center;
     position: relative;
-    overflow: hidden;
+    overflow: visible !important;
+    z-index: 1 !important;
+    isolation: isolate;
 }
 
 .pat-title::before {

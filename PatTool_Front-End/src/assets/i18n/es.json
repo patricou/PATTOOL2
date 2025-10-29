@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "Francés",
+        "EN": "Inglés",
+        "ES": "Español",
+        "DE": "Alemán",
+        "IT": "Italiano",
+        "AR": "Árabe",
+        "CN": "Chino",
+        "RU": "Ruso",
+        "JP": "Japonés",
+        "HE": "Hebreo",
+        "EL": "Griego",
+        "IN": "Hindi"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Idioma",
@@ -102,7 +116,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "comentario(s) serán eliminado(s) permanentemente.",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Esta acción es irreversible.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "Cancelar",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "Eliminar todos los comentarios"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "Eliminar todos los comentarios",
+        "SELECT_PAGE": "Seleccionar página"
     },
     "EVENTCREATION": {
         "TITLE": "Creación de actividad",
@@ -319,7 +334,10 @@
         "LOADING": "Cargando...",
         "IDONTLIKE": "No me gusta",
         "ILIKE": "Me gusta",
-        "DOWNLOAD_ALL": "Descargar Todo"
+        "DOWNLOAD_ALL": "Descargar Todo",
+        "CLEAR_FILTER": "Limpiar filtro",
+        "PREVIOUS_PAGE": "Página anterior",
+        "NEXT_PAGE": "Página siguiente"
     },
     "RESULTS": {
         "TITLE": "Chat global en tiempo real",

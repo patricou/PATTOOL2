@@ -64,17 +64,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // Fullscreen properties
   public isFullscreen: boolean = false;
   
-  // Slideshow properties
-  public slideshowImages: SafeUrl[] = [];
-  public currentSlideshowIndex: number = 0;
-  public isSlideshowActive: boolean = false;
-  private slideshowInterval: any = null;
-  
   // Image cache for authenticated images
   private imageCache = new Map<string, SafeUrl>();
   
   @ViewChild('imageModal') imageModal!: TemplateRef<any>;
-  @ViewChild('slideshowModal') slideshowModal!: TemplateRef<any>;
 
   constructor(
     private route: ActivatedRoute,
@@ -96,7 +89,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopAutoPlay();
-    this.stopSlideshow();
   }
 
   private loadEventDetails(): void {
@@ -789,8 +781,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   // Toggle fullscreen mode
   public toggleFullscreen(): void {
-    const slideshowImageWrapper = document.querySelector('.slideshow-image-wrapper');
-    const imageElement = slideshowImageWrapper || document.querySelector('.modal-image');
+    const imageElement = document.querySelector('.modal-image');
     if (!imageElement) return;
 
     if (!this.isFullscreen) {
@@ -831,94 +822,4 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     document.addEventListener('MSFullscreenChange', handleFullscreenChange);
   }
 
-  // Slideshow methods
-  public openSlideshow(startIndex: number = 0): void {
-    if (!this.photoItemsList || this.photoItemsList.length === 0) return;
-    
-    this.slideshowImages = this.photoItemsList.map(item => item.imageUrl);
-    this.currentSlideshowIndex = startIndex;
-    this.isSlideshowActive = false;
-    
-    if (this.slideshowModal) {
-      this.setupFullscreenListener();
-      this.modalService.open(this.slideshowModal, {
-        size: 'xl',
-        centered: true,
-        backdrop: true,
-        keyboard: true,
-        animation: true
-      });
-    }
-  }
-
-  public previousImage(): void {
-    if (this.slideshowImages.length > 0) {
-      this.currentSlideshowIndex = this.currentSlideshowIndex === 0 
-        ? this.slideshowImages.length - 1 
-        : this.currentSlideshowIndex - 1;
-    }
-  }
-
-  public nextImage(): void {
-    if (this.slideshowImages.length > 0) {
-      this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
-    }
-  }
-
-  public getCurrentSlideshowImage(): SafeUrl {
-    if (this.slideshowImages.length === 0 || this.currentSlideshowIndex >= this.slideshowImages.length) {
-      return this.sanitizer.bypassSecurityTrustUrl('assets/images/images.jpg');
-    }
-    return this.slideshowImages[this.currentSlideshowIndex];
-  }
-
-  public toggleSlideshow(): void {
-    if (this.isSlideshowActive) {
-      this.stopSlideshow();
-    } else {
-      this.startSlideshow();
-      this.isSlideshowActive = true;
-    }
-  }
-
-  public toggleSlideshowWithMessage(): void {
-    const wasActive = this.isSlideshowActive;
-    this.toggleSlideshow();
-    
-    if (wasActive) {
-      this.showSlideshowMessage('EVENTELEM.SLIDESHOW_PAUSED');
-    } else {
-      this.showSlideshowMessage('EVENTELEM.SLIDESHOW_PLAYING');
-    }
-  }
-
-  private showSlideshowMessage(translationKey: string): void {
-    this.translateService.get(translationKey).subscribe((translation: string) => {
-      const toast = document.createElement('div');
-      toast.textContent = translation;
-      toast.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 5px; z-index: 9999; font-size: 16px;';
-      document.body.appendChild(toast);
-      setTimeout(() => {
-        toast.remove();
-      }, 2000);
-    });
-  }
-
-  public startSlideshow(): void {
-    if (this.slideshowImages.length <= 1) return;
-    
-    this.stopSlideshow();
-    
-    this.slideshowInterval = setInterval(() => {
-      this.nextImage();
-    }, 3000);
-  }
-
-  public stopSlideshow(): void {
-    if (this.slideshowInterval) {
-      clearInterval(this.slideshowInterval);
-      this.slideshowInterval = null;
-    }
-    this.isSlideshowActive = false;
-  }
 }

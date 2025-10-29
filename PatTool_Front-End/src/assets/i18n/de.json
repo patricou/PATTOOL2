@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "Französisch",
+        "EN": "Englisch",
+        "ES": "Spanisch",
+        "DE": "Deutsch",
+        "IT": "Italienisch",
+        "AR": "Arabisch",
+        "CN": "Chinesisch",
+        "RU": "Russisch",
+        "JP": "Japanisch",
+        "HE": "Hebräisch",
+        "EL": "Griechisch",
+        "IN": "Hindi"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Sprache",
@@ -102,7 +116,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "Kommentar(e) werden dauerhaft gelöscht.",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Diese Aktion ist unwiderruflich.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "Abbrechen",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "Alle Kommentare löschen"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "Alle Kommentare löschen",
+        "SELECT_PAGE": "Seite auswählen"
     },
     "EVENTCREATION": {
         "TITLE": "Veranstaltung erstellen",
@@ -313,7 +328,10 @@
         "LOADING": "Laden...",
         "IDONTLIKE": "Gefällt mir nicht",
         "ILIKE": "Gefällt mir",
-        "DOWNLOAD_ALL": "Alle herunterladen"
+        "DOWNLOAD_ALL": "Alle herunterladen",
+        "CLEAR_FILTER": "Filter löschen",
+        "PREVIOUS_PAGE": "Vorherige Seite",
+        "NEXT_PAGE": "Nächste Seite"
     },
     "RESULTS": {
         "TITLE": "Allgemeine Diskussion",

@@ -5,18 +5,39 @@
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-12">
-            <!-- <input [(ngModel)]="msgVal" type="text" id="message" placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" (keyup.enter)="changeFiltre()" autofocus /> -->
-            <div class="d-flex align-items-center justify-content-center mb-1 flex-wrap">
+            <div class="controls-bar">
                 <input type="text" id="message" [value]="dataFIlter" #searchterm
-                    placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" class="form-control me-2" />
-                <button class="btn btn-sm btn-secondary btn-filter me-2" (click)="clearFilter()"
-                    type="button">X</button>
-                <button class="btn btn-sm btn-outline-primary me-2" (click)="toggleViewMode()"
-                    ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="top">
-                    <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
-                </button>
-                <select [hidden]="totalPages == 0" class="btn btn-secondary btn-sm me-2" [(ngModel)]="elementsByPage"
-                    (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}" placement="top">
+                    placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" class="form-control search-input" />
+                <button class="btn btn-sm btn-secondary btn-filter" (click)="clearFilter()"
+                    type="button" ngbTooltip="{{ 'COMMUN.CLEAR_FILTER' | translate }}" placement="bottom" container="body">X</button>
+                <div class="pagination-controls" [hidden]="totalPages == 0">
+                    <button class="btn btn-sm btn-outline-secondary btn-pagination" 
+                            (click)="changePreviousPage()" 
+                            [disabled]="pageNumber === 0"
+                            aria-label="Previous"
+                            ngbTooltip="{{ 'COMMUN.PREVIOUS_PAGE' | translate }}" 
+                            placement="bottom" container="body">
+                        <span aria-hidden="true">&laquo;</span>
+                    </button>
+                    <select class="form-select form-select-sm select-page" 
+                            [(ngModel)]="pageNumber" 
+                            (change)="changePage(pageNumber)"
+                            ngbTooltip="{{ 'EVENTHOME.SELECT_PAGE' | translate }}" 
+                            placement="bottom" container="body">
+                        <option *ngFor="let p of pages" [value]="p">{{ 'EVENTHOME.PAGE' | translate }} {{p + 1}}</option>
+                    </select>
+                    <button class="btn btn-sm btn-outline-secondary btn-pagination" 
+                            (click)="changeNextPage()" 
+                            [disabled]="pageNumber >= totalPages - 1"
+                            aria-label="Next"
+                            ngbTooltip="{{ 'COMMUN.NEXT_PAGE' | translate }}" 
+                            placement="bottom" container="body">
+                        <span aria-hidden="true">&raquo;</span>
+                    </button>
+                    <small class="text-muted page-indicator">{{ 'EVENTHOME.PAGE' | translate }} {{pageNumber+1}}/{{totalPages}}</small>
+                </div>
+                <select [hidden]="totalPages == 0" class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
+                    (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}" placement="bottom" container="body">
                     <option value="1">1</option>
                     <option value="2">2</option>
                     <option value="3">3</option>
@@ -28,31 +49,12 @@
                     <option value="50">50</option>
                     <option value="100">100</option>
                 </select>
-                <small [hidden]="totalPages == 0" class="me-2">{{ 'EVENTHOME.PAGE' | translate }}
-                    {{pageNumber+1}}/{{totalPages}}</small>
+                <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
+                    ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom" container="body">
+                    <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
+                </button>
             </div>
         </div>
-    </div>
-</div>
-<div class="d-flex justify-content-center mb-2" [hidden]="totalPages == 0">
-    <div class="pagination-container">
-        <ul class="pagination pagination-sm mb-0">
-            <li class="page-item">
-                <a class="page-link" (click)="changePreviousPage()" aria-label="Previous">
-                    <span aria-hidden="true">&laquo;</span>
-                    <span class="sr-only">Previous</span>
-                </a>
-            </li>
-            <li *ngFor="let p of pages" class="page-item" [class.active]="pageNumber == p">
-                <a class="page-link" (click)="changePage(p)">{{p + 1}}</a>
-            </li>
-            <li class="page-item">
-                <a class="page-link" (click)="changeNextPage()" aria-label="Next">
-                    <span aria-hidden="true">&raquo;</span>
-                    <span class="sr-only">Next</span>
-                </a>
-            </li>
-        </ul>
     </div>
 </div>
 <div class="container-fluid">
@@ -106,6 +108,15 @@
                 <div class="compact-date" [innerHTML]="formatEventDate(evenement.beginEventDate)"></div>
             </div>
             <div class="compact-actions">
+
+                <!-- Slideshow Button -->
+                <button class="btn btn-sm btn-outline-primary me-1" 
+                        [hidden]="!hasImageFiles(evenement)"
+                        (click)="openSlideshow(evenement); $event.stopPropagation()"
+                        ngbTooltip="{{ 'EVENTELEM.SLIDESHOW' | translate }}" 
+                        placement="top">
+                    <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getImageFilesCount(evenement) }}
+                </button>
 
                 <!-- Links Button -->
                 <button class="btn btn-primary btn-sm me-1" [hidden]="!isUrlEventsAvailable(evenement)"
@@ -163,13 +174,6 @@
                     <i class="fa fa-trash" aria-hidden="true"></i>
                 </a>
 
-                <!-- JSON Button -->
-                <button class="btn btn-sm btn-secondary json-button me-1"
-                    (click)="showEventJson(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTHOME.SHOW_JSON' | translate }}" placement="top">
-                    <i class="fa fa-code"></i>
-                </button>
-
                 <!-- Files Management Button -->
                 <button class="btn btn-sm btn-outline-primary me-1" 
                     [hidden]="!isAnyFiles(evenement)"
@@ -187,33 +191,17 @@
                     (click)="$event.stopPropagation()">
                     <i class="fa fa-eye"></i>
                 </a>
+
+                <!-- JSON Button -->
+                <button class="btn btn-sm btn-secondary json-button me-1"
+                    (click)="showEventJson(evenement); $event.stopPropagation()"
+                    ngbTooltip="{{ 'EVENTHOME.SHOW_JSON' | translate }}" placement="top">
+                    <i class="fa fa-code"></i>
+                </button>
             </div>
         </div>
     </div>
 </div>
-<br>
-<div class="d-flex justify-content-center mb-2" [hidden]="totalPages == 0">
-    <div class="pagination-container">
-        <ul class="pagination pagination-sm mb-0">
-            <li class="page-item">
-                <a class="page-link" (click)="changePreviousPage()" aria-label="Previous">
-                    <span aria-hidden="true">&laquo;</span>
-                    <span class="sr-only">Previous</span>
-                </a>
-            </li>
-            <li *ngFor="let p of pages" class="page-item" [class.active]="pageNumber == p">
-                <a class="page-link" (click)="changePage(p)">{{p + 1}}</a>
-            </li>
-            <li class="page-item">
-                <a class="page-link" (click)="changeNextPage()" aria-label="Next">
-                    <span aria-hidden="true">&raquo;</span>
-                    <span class="sr-only">Next</span>
-                </a>
-            </li>
-        </ul>
-    </div>
-</div>
-<br>
 <!-- Photos Modal -->
 <ng-template #photosModal let-c="close" let-d="dismiss">
     <div class="modal-header">
@@ -240,11 +228,6 @@
                     <div class="photo-card">
                         <img [src]="photoUrl" [alt]="'Photo ' + (i + 1)" class="img-fluid photo-gallery-img"
                             (error)="hideImageOnError($event)" (click)="openPhotoInNewTab(photoUrl)">
-                        <div class="photo-overlay">
-                            <button class="btn btn-sm btn-light" (click)="openPhotoInNewTab(photoUrl)">
-                                <i class="fa fa-external-link"></i>
-                            </button>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -495,5 +478,71 @@
         <button type="button" class="btn btn-secondary" (click)="c()">
             <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
         </button>
+    </div>
+</ng-template>
+
+<!-- Slideshow Modal -->
+<ng-template #slideshowModal let-c="close" let-d="dismiss">
+    <div class="modal-header slideshow-header">
+        <h5 class="modal-title">
+            <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW_TITLE' | translate }} - {{ getSlideshowEventName() }}
+        </h5>
+        <button type="button" class="btn-close" (click)="d()" aria-label="Close"></button>
+    </div>
+    <div class="modal-body slideshow-body">
+        <div class="slideshow-container">
+            <div class="slideshow-image-wrapper">
+                <img *ngIf="slideshowImages.length > 0" 
+                     [src]="getCurrentSlideshowImage()" 
+                     alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
+                     class="slideshow-image"
+                     [class.fullscreen-image]="isFullscreen"
+                     (click)="toggleSlideshowWithMessage()" 
+                     style="cursor: pointer;" />
+                <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
+                    <i class="fa fa-spinner fa-spin fa-3x"></i>
+                    <p>{{ 'EVENTELEM.LOADING_IMAGES' | translate }}</p>
+                </div>
+                <div *ngIf="slideshowImages.length > 0" class="slideshow-counter">
+                    {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
+                </div>
+            </div>
+            <div class="slideshow-controls" [class.always-visible]="isFullscreen && !isSlideshowActive">
+                <button class="btn btn-lg btn-outline-light slideshow-btn-prev" 
+                        (click)="previousImage()"
+                        [disabled]="slideshowImages.length <= 1">
+                    <i class="fa fa-chevron-left"></i>
+                </button>
+                <button class="btn btn-lg btn-outline-light slideshow-btn-next" 
+                        (click)="nextImage()"
+                        [disabled]="slideshowImages.length <= 1">
+                    <i class="fa fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer slideshow-footer">
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-secondary" 
+                    (click)="toggleSlideshow()"
+                    [disabled]="slideshowImages.length <= 1"
+                    [ngbTooltip]="isSlideshowActive ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate)"
+                    placement="top">
+                <i class="fa me-1" [ngClass]="isSlideshowActive ? 'fa-pause-circle-o' : 'fa-play-circle-o'"></i>
+                <span *ngIf="!isSlideshowActive">{{ 'EVENTELEM.PLAY' | translate }}</span>
+                <span *ngIf="isSlideshowActive">{{ 'EVENTELEM.PAUSE' | translate }}</span>
+            </button>
+            <button type="button" class="btn btn-secondary" 
+                    (click)="toggleFullscreen()"
+                    [ngbTooltip]="isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)"
+                    placement="top">
+                <i [class.fa-arrows-alt]="!isFullscreen" [class.fa-compress]="isFullscreen" class="me-1"></i>
+                <span *ngIf="!isFullscreen">{{ 'EVENTELEM.FULLSCREEN' | translate }}</span>
+                <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span>
+            </button>
+            <button type="button" class="btn btn-secondary" (click)="c()">
+                <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+            </button>
+        </div>
     </div>
 </ng-template>

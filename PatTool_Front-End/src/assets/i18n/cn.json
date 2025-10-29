@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "法语",
+        "EN": "英语",
+        "ES": "西班牙语",
+        "DE": "德语",
+        "IT": "意大利语",
+        "AR": "阿拉伯语",
+        "CN": "中文",
+        "RU": "俄语",
+        "JP": "日语",
+        "HE": "希伯来语",
+        "EL": "希腊语",
+        "IN": "印地语"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "语言",
@@ -102,7 +116,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "个评论将被永久删除。",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "此操作不可逆。",
         "DELETE_ALL_COMMENTARIES_CANCEL": "取消",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "删除所有评论"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "删除所有评论",
+        "SELECT_PAGE": "选择页面"
     },
     "EVENTCREATION": {
         "TITLE": "创建活动",
@@ -319,7 +334,10 @@
         "LOADING": "加载中...",
         "IDONTLIKE": "我不喜欢",
         "ILIKE": "我喜欢",
-        "DOWNLOAD_ALL": "全部下载"
+        "DOWNLOAD_ALL": "全部下载",
+        "CLEAR_FILTER": "清除筛选",
+        "PREVIOUS_PAGE": "上一页",
+        "NEXT_PAGE": "下一页"
     },
     "RESULTS": {
         "TITLE": "一般讨论",

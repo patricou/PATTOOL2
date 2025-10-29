@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "Γαλλικά",
+        "EN": "Αγγλικά",
+        "ES": "Ισπανικά",
+        "DE": "Γερμανικά",
+        "IT": "Ιταλικά",
+        "AR": "Αραβικά",
+        "CN": "Κινεζικά",
+        "RU": "Ρωσικά",
+        "JP": "Ιαπωνικά",
+        "HE": "Εβραϊκά",
+        "EL": "Ελληνικά",
+        "IN": "Χίντι"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Γλώσσα",
@@ -102,7 +116,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "σχόλιο(α) θα διαγραφούν μόνιμα.",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Αυτή η ενέργεια είναι μη αναστρέψιμη.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "Ακύρωση",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "Διαγραφή όλων των σχολίων"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "Διαγραφή όλων των σχολίων",
+        "SELECT_PAGE": "Επιλογή σελίδας"
     },
     "EVENTCREATION": {
         "TITLE": "Δημιουργία Δραστηριότητας",
@@ -318,7 +333,10 @@
         "LOADING": "Φόρτωση...",
         "IDONTLIKE": "Δεν μου αρέσει",
         "ILIKE": "Μου αρέσει",
-        "DOWNLOAD_ALL": "Λήψη Όλων"
+        "DOWNLOAD_ALL": "Λήψη Όλων",
+        "CLEAR_FILTER": "Καθαρισμός φίλτρου",
+        "PREVIOUS_PAGE": "Προηγούμενη σελίδα",
+        "NEXT_PAGE": "Επόμενη σελίδα"
     },
     "RESULTS": {
         "TITLE": "Γενική Συζήτηση",

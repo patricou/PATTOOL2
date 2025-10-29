@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "French",
+        "EN": "English",
+        "ES": "Spanish",
+        "DE": "German",
+        "IT": "Italian",
+        "AR": "Arabic",
+        "CN": "Chinese",
+        "RU": "Russian",
+        "JP": "Japanese",
+        "HE": "Hebrew",
+        "EL": "Greek",
+        "IN": "Hindi"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Language",
@@ -99,7 +113,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "comment(s) will be permanently deleted.",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "This action is irreversible.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "Cancel",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "Delete all comments"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "Delete all comments",
+        "SELECT_PAGE": "Select page"
     },
     "EVENTCREATION": {
         "TITLE": "Activity Creation",
@@ -317,7 +332,10 @@
         "LOADING": "Loading...",
         "IDONTLIKE": "I don't Like",
         "ILIKE": "I Like",
-        "DOWNLOAD_ALL": "Download All"
+        "DOWNLOAD_ALL": "Download All",
+        "CLEAR_FILTER": "Clear filter",
+        "PREVIOUS_PAGE": "Previous page",
+        "NEXT_PAGE": "Next page"
     },
     "RESULTS": {
         "TITLE": "Global Real Time Chat",

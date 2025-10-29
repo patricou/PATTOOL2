@@ -498,6 +498,7 @@
                      [src]="getCurrentSlideshowImage()" 
                      alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
                      class="slideshow-image"
+                     [class.fullscreen-image]="isFullscreen"
                      (click)="toggleSlideshowWithMessage()" 
                      style="cursor: pointer;" />
                 <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
@@ -508,7 +509,7 @@
                     {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
                 </div>
             </div>
-            <div class="slideshow-controls">
+            <div class="slideshow-controls" [class.always-visible]="isFullscreen && !isSlideshowActive">
                 <button class="btn btn-lg btn-outline-light slideshow-btn-prev" 
                         (click)="previousImage()"
                         [disabled]="slideshowImages.length <= 1">
@@ -523,16 +524,6 @@
         </div>
     </div>
     <div class="modal-footer slideshow-footer">
-        <div class="w-100 text-center">
-            <div class="slideshow-thumbnails">
-                <div *ngFor="let imgUrl of slideshowImages; let i = index" 
-                     class="slideshow-thumbnail"
-                     [class.active]="i === currentSlideshowIndex"
-                     (click)="currentSlideshowIndex = i">
-                    <img [src]="imgUrl" alt="Thumbnail {{ i + 1 }}" />
-                </div>
-            </div>
-        </div>
         <div class="d-flex gap-2">
             <button type="button" class="btn btn-secondary" 
                     (click)="toggleSlideshow()"

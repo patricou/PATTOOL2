@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "الفرنسية",
+        "EN": "الإنجليزية",
+        "ES": "الإسبانية",
+        "DE": "الألمانية",
+        "IT": "الإيطالية",
+        "AR": "العربية",
+        "CN": "الصينية",
+        "RU": "الروسية",
+        "JP": "اليابانية",
+        "HE": "العبرية",
+        "EL": "اليونانية",
+        "IN": "الهندية"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "اللغة",
@@ -102,7 +116,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "تعليق(تعليقات) سيتم حذفه(حذفها) بشكل دائم.",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "هذا الإجراء لا يمكن التراجع عنه.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "إلغاء",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "حذف جميع التعليقات"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "حذف جميع التعليقات",
+        "SELECT_PAGE": "اختر الصفحة"
     },
     "EVENTCREATION": {
         "TITLE": "إنشاء نشاط",
@@ -319,7 +334,10 @@
         "LOADING": "جاري التحميل...",
         "IDONTLIKE": "لا يعجبني",
         "ILIKE": "يعجبني",
-        "DOWNLOAD_ALL": "تحميل الكل"
+        "DOWNLOAD_ALL": "تحميل الكل",
+        "CLEAR_FILTER": "مسح الفلتر",
+        "PREVIOUS_PAGE": "الصفحة السابقة",
+        "NEXT_PAGE": "الصفحة التالية"
     },
     "RESULTS": {
         "TITLE": "مناقشة عامة",

@@ -25,6 +25,7 @@ export class AppComponent implements OnInit {
     public showIADropdown: boolean = false;
     public showToolsDropdown: boolean = false;
     public showLinksDropdown: boolean = false;
+    public showLanguageSubmenu: boolean = false;
     public isDragOver: boolean = false;
     
     // Drag functionality for language selector
@@ -287,6 +288,114 @@ export class AppComponent implements OnInit {
         this.showEventsDropdown = false; // Close other dropdown
         this.showIADropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
+        if (!this.showToolsDropdown) {
+            this.showLanguageSubmenu = false; // Close language submenu when tools dropdown closes
+        }
+    }
+
+    onToolsMenuLeave(event: MouseEvent): void {
+        const relatedTarget = event.relatedTarget as HTMLElement;
+        const isOverLanguageSubmenu = relatedTarget?.closest('.language-submenu-list') || 
+                                      relatedTarget?.closest('.dropdown-submenu');
+        if (!isOverLanguageSubmenu) {
+            this.showToolsDropdown = false;
+            this.showLanguageSubmenu = false;
+        }
+    }
+
+    toggleLanguageSubmenuOnClick(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.showToolsDropdown = true;
+        this.showLanguageSubmenu = !this.showLanguageSubmenu;
+        if (this.showLanguageSubmenu) {
+            this.positionLanguageSubmenu();
+        }
+    }
+
+    checkCloseLanguageSubmenu(event: MouseEvent): void {
+        setTimeout(() => {
+            const relatedTarget = event.relatedTarget as HTMLElement;
+            const isOverLanguage = relatedTarget?.closest('.language-submenu-list') || 
+                                  relatedTarget?.closest('.dropdown-submenu') ||
+                                  relatedTarget?.id === 'languageSubmenu';
+            const isOverTools = relatedTarget?.closest('#toolsDropdown') ||
+                               relatedTarget?.closest('[aria-labelledby="toolsDropdown"]');
+            if (!isOverLanguage && !isOverTools) {
+                this.showLanguageSubmenu = false;
+            }
+        }, 100);
+    }
+
+    positionLanguageSubmenu(): void {
+        setTimeout(() => {
+            const submenuElement = document.querySelector('.language-submenu-list') as HTMLElement;
+            const parentItem = document.querySelector('#languageSubmenu')?.closest('.dropdown-submenu') as HTMLElement;
+            
+            if (submenuElement && parentItem) {
+                const parentRect = parentItem.getBoundingClientRect();
+                
+                // Check if parent is visible
+                const parentComputed = window.getComputedStyle(parentItem);
+                const toolsMenu = document.querySelector('[aria-labelledby="toolsDropdown"]') as HTMLElement;
+                const toolsComputed = toolsMenu ? window.getComputedStyle(toolsMenu) : null;
+                
+                // Ensure Tools menu is visible
+                if (toolsMenu && !toolsComputed?.display || toolsComputed?.display === 'none') {
+                    toolsMenu.style.display = 'block';
+                }
+                
+                // Move submenu to body to avoid parent overflow issues
+                if (submenuElement.parentElement?.tagName !== 'BODY') {
+                    document.body.appendChild(submenuElement);
+                }
+                
+                // Calculate position relative to viewport
+                const left = parentRect.right + 5;
+                const top = parentRect.top;
+                
+                // Apply all styles directly
+                submenuElement.style.cssText = `
+                    position: fixed !important;
+                    left: ${left}px !important;
+                    top: ${top}px !important;
+                    z-index: 99999 !important;
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    pointer-events: auto !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    transform: none !important;
+                    width: auto !important;
+                    height: auto !important;
+                `;
+                
+                // Force class
+                submenuElement.classList.add('show');
+                
+                // Mark as visible
+                submenuElement.setAttribute('data-visible', 'true');
+            }
+        }, 10);
+    }
+
+    getCountryCode(lang: string): string {
+        const langToCountry: { [key: string]: string } = {
+            'fr': 'fr',
+            'en': 'gb',
+            'es': 'es',
+            'de': 'de',
+            'it': 'it',
+            'ar': 'sa',
+            'cn': 'cn',
+            'ru': 'ru',
+            'jp': 'jp',
+            'he': 'il',
+            'el': 'gr',
+            'in': 'in'
+        };
+        return langToCountry[lang.toLowerCase()] || lang.toLowerCase();
     }
 
     toggleMobileMenu(): void {
@@ -296,6 +405,7 @@ export class AppComponent implements OnInit {
         this.showIADropdown = false;
         this.showToolsDropdown = false;
         this.showLinksDropdown = false;
+        this.showLanguageSubmenu = false;
     }
 
     closeDropdowns(): void {
@@ -303,6 +413,7 @@ export class AppComponent implements OnInit {
         this.showIADropdown = false;
         this.showToolsDropdown = false;
         this.showLinksDropdown = false;
+        this.showLanguageSubmenu = false;
     }
 
     closeMenu(): void {
@@ -325,11 +436,12 @@ export class AppComponent implements OnInit {
         const isLinksDropdown = target.closest('#linksDropdown') || target.closest('[aria-labelledby="linksDropdown"]');
         const isToolsDropdown = target.closest('#toolsDropdown') || target.closest('[aria-labelledby="toolsDropdown"]');
         const isAISubmenu = target.closest('.ai-submenu-list') || target.closest('[aria-labelledby="aiSubmenu"]');
+        const isLanguageSubmenu = target.closest('.language-submenu-list') || target.closest('[aria-labelledby="languageSubmenu"]');
         const isNavbar = target.closest('.navbar');
         const isDropdownItem = target.closest('.dropdown-item');
         
         // If click is outside all dropdowns, navbar, and dropdown items, close them
-        if (!isEventsDropdown && !isIADropdown && !isToolsDropdown && !isLinksDropdown && !isAISubmenu && !isNavbar && !isDropdownItem) {
+        if (!isEventsDropdown && !isIADropdown && !isToolsDropdown && !isLinksDropdown && !isAISubmenu && !isLanguageSubmenu && !isNavbar && !isDropdownItem) {
             this.closeDropdowns();
         }
     }

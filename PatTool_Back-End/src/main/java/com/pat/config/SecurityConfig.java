@@ -51,6 +51,10 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                 // Allow public access to actuator health endpoint
                 .requestMatchers("/actuator/health").permitAll()
+                // Deny access to .git directory (security)
+                .requestMatchers("/.git/**").denyAll()
+                // Deny access to PHP files (security - this is a Java app, not PHP)
+                .requestMatchers("/**/*.php", "/**/*.php/**").denyAll()
                 // Protect other API endpoints
                 .requestMatchers("/api/**").authenticated()
                 // Allow all other requests

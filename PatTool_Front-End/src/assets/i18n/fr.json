@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "Français",
+        "EN": "Anglais",
+        "ES": "Espagnol",
+        "DE": "Allemand",
+        "IT": "Italien",
+        "AR": "Arabe",
+        "CN": "Chinois",
+        "RU": "Russe",
+        "JP": "Japonais",
+        "HE": "Hébreu",
+        "EL": "Grec",
+        "IN": "Hindi"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Langue",
@@ -93,7 +107,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "commentaire(s) seront supprimé(s) définitivement.",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Cette action est irréversible.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "Annuler",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "Supprimer tous les commentaires"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "Supprimer tous les commentaires",
+        "SELECT_PAGE": "Sélectionner la page"
     },
     "EVENTCREATION": {
         "TITLE": "Création d'une Activité",
@@ -308,7 +323,10 @@
         "LOADING": "Chargement...",
         "IDONTLIKE": "Je n'aime pas",
         "ILIKE": "J'aime",
-        "DOWNLOAD_ALL": "Tout télécharger"
+        "DOWNLOAD_ALL": "Tout télécharger",
+        "CLEAR_FILTER": "Effacer le filtre",
+        "PREVIOUS_PAGE": "Page précédente",
+        "NEXT_PAGE": "Page suivante"
     },
     "RESULTS": {
         "TITLE": "Dicussion Génèrale",

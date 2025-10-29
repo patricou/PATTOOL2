@@ -135,32 +135,407 @@
     transform: scale(1.05);
 }
 
+/* ===== CONTROLS BAR - Style professionnel et responsive ===== */
+.controls-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+    padding: 1rem 0;
+    margin-bottom: 1rem;
+    animation: slideInDown 0.6s ease-out 0.3s both;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.controls-bar::-webkit-scrollbar {
+    height: 6px;
+}
+
+.controls-bar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.controls-bar::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 3px;
+}
+
+.controls-bar > * {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* Style professionnel pour le champ de recherche */
+.search-input {
+    height: 38px;
+    min-width: 200px;
+    flex: 0 1 auto;
+    max-width: 300px;
+    padding: 0.5rem 1rem;
+    font-size: 14px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1.5px solid #dee2e6;
+    border-radius: 8px;
+    background-color: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    font-weight: 500;
+}
+
+.search-input:hover {
+    border-color: #adb5bd;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.search-input:focus {
+    border-color: #007bff;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25), 0 4px 8px rgba(0, 123, 255, 0.15);
+    transform: translateY(-1px);
+    background-color: #ffffff;
+}
+
+.search-input::placeholder {
+    color: #6c757d;
+    opacity: 0.7;
+}
+
+/* Style professionnel pour le bouton de filtre (X) */
 .btn-filter {
-    border-top: 0;
-    border-right: 0;
-    border-left: 0;
-    border-bottom: 1px dotted black;
-    transition: all 0.3s ease;
+    height: 38px;
+    min-width: 38px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: #ffffff;
+    color: #dc3545;
+    border: 1.5px solid #dee2e6;
+    border-radius: 8px;
+    padding: 0.375rem 0.75rem;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .btn-filter:hover {
-    transform: scale(1.05);
+    transform: translateY(-2px) scale(1.05);
+    background-color: #dc3545;
+    color: #ffffff;
+    border-color: #dc3545;
+    box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
 }
 
-#message {
-    height: 30px;
-    width: 200px;
-    padding: 4px 8px;
-    font-size: 14px;
+.btn-filter:active {
+    transform: translateY(0) scale(0.98);
+}
+
+/* Style professionnel pour le bouton toggle vue liste/cartes */
+.btn-toggle-view {
+    height: 38px;
+    min-width: 38px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1.5px solid #007bff !important;
+    color: #007bff !important;
+    background-color: #ffffff !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 0.75rem !important;
+    font-weight: 500 !important;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1) !important;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-toggle-view::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+    z-index: 0;
+}
+
+.btn-toggle-view:hover::before {
+    left: 100%;
+}
+
+.btn-toggle-view i {
+    position: relative;
+    z-index: 1;
+}
+
+.btn-toggle-view:hover {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+    border-color: #007bff !important;
+    color: #ffffff !important;
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3) !important;
+}
+
+.btn-toggle-view:hover i {
+    color: #ffffff !important;
+}
+
+.btn-toggle-view:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.2) !important;
+}
+
+/* Style professionnel pour la select box d'éléments par page */
+.select-elements {
+    height: 38px;
+    min-width: 80px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border: 1.5px solid #6c757d !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem !important;
+    font-weight: 500 !important;
+    color: #495057 !important;
+    background-color: #ffffff !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+    cursor: pointer;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+}
+
+.select-elements:hover {
+    border-color: #007bff !important;
+    background-color: #f8f9ff !important;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.15) !important;
+    transform: translateY(-1px);
+    color: #007bff !important;
+}
+
+.select-elements:focus {
+    border-color: #007bff !important;
+    outline: 0 !important;
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25) !important;
+    background-color: #ffffff !important;
+    transform: translateY(-1px);
+}
+
+/* Conteneur pour les contrôles de pagination */
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+}
+
+/* Styles professionnels pour les boutons de pagination */
+.btn-pagination {
+    height: 38px;
+    min-width: 38px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-color: #dee2e6;
+    color: #6c757d;
+    background-color: #ffffff;
+    border-width: 1.5px;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-pagination::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.btn-pagination:hover:not(:disabled)::before {
+    left: 100%;
+}
+
+.btn-pagination:hover:not(:disabled) {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+    border-color: #007bff !important;
+    color: #ffffff !important;
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.btn-pagination:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.2);
+}
+
+.btn-pagination:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background-color: #f8f9fa;
+    border-color: #e9ecef;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Style professionnel pour la select box de sélection de page */
+.select-page {
+    height: 38px;
+    min-width: 90px;
+    max-width: 120px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1.5px solid #dee2e6;
+    border-radius: 8px;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+    font-weight: 500;
+    color: #495057;
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+}
+
+.select-page:hover {
+    border-color: #007bff;
+    background-color: #f8f9ff;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+.select-page:focus {
+    border-color: #007bff;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+    background-color: #ffffff;
+    transform: translateY(-1px);
+}
+
+/* Style pour le texte "Page x/y" */
+.page-indicator {
+    font-weight: 600;
+    color: #6c757d;
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
     transition: all 0.3s ease;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    min-height: 38px;
 }
 
-#message:focus {
-    transform: scale(1.02);
-    box-shadow: 0 0 10px rgba(0, 123, 255, 0.3);
+.page-indicator:hover {
+    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Styles pour la pagination */
+/* Responsive design */
+@media (max-width: 1200px) {
+    .controls-bar {
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        padding: 0.75rem 0;
+    }
+}
+
+@media (max-width: 768px) {
+    .controls-bar {
+        gap: 0.4rem;
+        padding: 0.75rem 0;
+        justify-content: flex-start;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    .search-input {
+        min-width: 150px;
+        max-width: 200px;
+        flex: 0 0 auto;
+    }
+    
+    .btn-filter,
+    .btn-toggle-view,
+    .btn-pagination {
+        min-width: 36px;
+        height: 36px;
+        padding: 0.375rem 0.625rem;
+    }
+    
+    .select-elements,
+    .select-page {
+        min-width: 70px;
+        height: 36px;
+        padding: 0.375rem 2rem 0.375rem 0.625rem;
+        font-size: 0.875rem;
+    }
+    
+    .page-indicator {
+        padding: 0.375rem 0.625rem;
+        font-size: 0.875rem;
+        min-height: 36px;
+    }
+}
+
+@media (max-width: 576px) {
+    .controls-bar {
+        gap: 0.3rem;
+        padding: 0.5rem 0;
+    }
+    
+    .search-input {
+        min-width: 120px;
+        max-width: 180px;
+        font-size: 13px;
+        padding: 0.375rem 0.75rem;
+    }
+    
+    .btn-filter,
+    .btn-toggle-view,
+    .btn-pagination {
+        min-width: 32px;
+        height: 32px;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .select-elements,
+    .select-page {
+        min-width: 60px;
+        height: 32px;
+        padding: 0.25rem 1.75rem 0.25rem 0.5rem;
+        font-size: 0.875rem;
+    }
+    
+    .page-indicator {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.8rem;
+        min-height: 32px;
+    }
+    
+    .pagination-controls {
+        gap: 0.25rem;
+    }
+}
+
+/* Styles pour la pagination - Design professionnel et smooth */
 .pagination-container {
     animation: slideInDown 0.6s ease-out 0.3s both;
 }
@@ -171,6 +546,218 @@
     color: #495057;
     font-size: 0.9rem;
     letter-spacing: 0.5px;
+}
+
+/* Container principal de pagination */
+.pagination-wrapper {
+    padding: 1rem 0;
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.pagination-wrapper > * {
+    flex-shrink: 0;
+}
+
+/* Style professionnel pour le bouton toggle vue liste/cartes */
+.btn-outline-primary:has(.fa-th-large),
+.btn-outline-primary:has(.fa-list) {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1.5px solid #007bff !important;
+    color: #007bff !important;
+    background-color: #ffffff !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 0.75rem !important;
+    font-weight: 500 !important;
+    box-shadow: 0 2px 4px rgba(0, 123, 255, 0.1) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn-outline-primary:has(.fa-th-large)::before,
+.btn-outline-primary:has(.fa-list)::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+    z-index: 0;
+}
+
+.btn-outline-primary:has(.fa-th-large):hover::before,
+.btn-outline-primary:has(.fa-list):hover::before {
+    left: 100%;
+}
+
+.btn-outline-primary:has(.fa-th-large) i,
+.btn-outline-primary:has(.fa-list) i {
+    position: relative;
+    z-index: 1;
+}
+
+.btn-outline-primary:has(.fa-th-large):hover,
+.btn-outline-primary:has(.fa-list):hover {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+    border-color: #007bff !important;
+    color: #ffffff !important;
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3) !important;
+}
+
+.btn-outline-primary:has(.fa-th-large):hover i,
+.btn-outline-primary:has(.fa-list):hover i {
+    color: #ffffff !important;
+}
+
+.btn-outline-primary:has(.fa-th-large):active,
+.btn-outline-primary:has(.fa-list):active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.2) !important;
+}
+
+/* Style professionnel pour la select box d'éléments par page */
+select.btn.btn-secondary.btn-sm {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    border: 1.5px solid #6c757d !important;
+    border-radius: 8px !important;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem !important;
+    font-weight: 500 !important;
+    color: #495057 !important;
+    background-color: #ffffff !important;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e") !important;
+    background-repeat: no-repeat !important;
+    background-position: right 0.75rem center !important;
+    background-size: 16px 12px !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+    cursor: pointer;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+}
+
+select.btn.btn-secondary.btn-sm:hover {
+    border-color: #007bff !important;
+    background-color: #f8f9ff !important;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.15) !important;
+    transform: translateY(-1px);
+    color: #007bff !important;
+}
+
+select.btn.btn-secondary.btn-sm:focus {
+    border-color: #007bff !important;
+    outline: 0 !important;
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25) !important;
+    background-color: #ffffff !important;
+    transform: translateY(-1px);
+}
+
+/* Styles professionnels pour les boutons de pagination */
+.d-flex.justify-content-center .btn-outline-secondary {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-color: #dee2e6;
+    color: #6c757d;
+    background-color: #ffffff;
+    border-width: 1.5px;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    font-weight: 500;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    position: relative;
+    overflow: hidden;
+}
+
+.d-flex.justify-content-center .btn-outline-secondary::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.1), transparent);
+    transition: left 0.5s ease;
+}
+
+.d-flex.justify-content-center .btn-outline-secondary:hover:not(:disabled)::before {
+    left: 100%;
+}
+
+.d-flex.justify-content-center .btn-outline-secondary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%) !important;
+    border-color: #007bff !important;
+    color: #ffffff !important;
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.d-flex.justify-content-center .btn-outline-secondary:active:not(:disabled) {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.2);
+}
+
+.d-flex.justify-content-center .btn-outline-secondary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background-color: #f8f9fa;
+    border-color: #e9ecef;
+    transform: none;
+    box-shadow: none;
+}
+
+/* Styles professionnels pour la select box de pagination */
+.d-flex.justify-content-center .form-select {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1.5px solid #dee2e6;
+    border-radius: 8px;
+    padding: 0.5rem 2.5rem 0.5rem 0.75rem;
+    font-weight: 500;
+    color: #495057;
+    background-color: #ffffff;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M2 5l6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 16px 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+}
+
+.d-flex.justify-content-center .form-select:hover {
+    border-color: #007bff;
+    background-color: #f8f9ff;
+    box-shadow: 0 4px 8px rgba(0, 123, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+.d-flex.justify-content-center .form-select:focus {
+    border-color: #007bff;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25);
+    background-color: #ffffff;
+    transform: translateY(-1px);
+}
+
+/* Style pour le texte "Page x/y" */
+.d-flex.justify-content-center small.text-muted {
+    font-weight: 600;
+    color: #6c757d;
+    margin-left: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.d-flex.justify-content-center small.text-muted:hover {
+    background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 @keyframes fadeIn {
@@ -446,33 +1033,6 @@
     transform: scale(1.05);
 }
 
-.photo-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.photo-card:hover .photo-overlay {
-    opacity: 1;
-}
-
-.photo-overlay .btn {
-    background: rgba(255, 255, 255, 0.9);
-    border: none;
-    color: #333;
-    padding: 0.5rem 1rem;
-    border-radius: 20px;
-    font-weight: 600;
-    transition: all 0.3s ease;
-}
 
 /* Modal Transitions */
 .modal.fade .modal-dialog {
@@ -1217,4 +1777,338 @@
 
 .eye-button:hover i {
     color: white !important;
+}
+
+/* ===== SLIDESHOW MODAL STYLES ===== */
+
+/* White border around the slideshow modal */
+::ng-deep .modal.show .modal-dialog .modal-content:has(.slideshow-header),
+::ng-deep .modal.show .modal-dialog .modal-content:has(.slideshow-body),
+::ng-deep .modal.show:has(.slideshow-header) .modal-content,
+::ng-deep .modal.show:has(.slideshow-body) .modal-content,
+::ng-deep .modal-smooth-animation .modal-content:has(.slideshow-header),
+::ng-deep .modal-smooth-animation .modal-content:has(.slideshow-body) {
+    border: 4px solid white !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.slideshow-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+}
+
+.slideshow-header .modal-title {
+    color: white;
+    font-weight: 600;
+}
+
+.slideshow-header .modal-title i {
+    margin-right: 8px;
+}
+
+.slideshow-body {
+    padding: 0;
+    background: #000;
+    position: relative;
+    min-height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.slideshow-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* Fullscreen styles for slideshow-container */
+.slideshow-container:fullscreen,
+.slideshow-container:-webkit-full-screen,
+.slideshow-container:-moz-full-screen,
+.slideshow-container:-ms-fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #000 !important;
+    overflow: hidden !important;
+}
+
+/* Ensure parent modal body takes full size in fullscreen */
+:fullscreen .slideshow-body,
+:-webkit-full-screen .slideshow-body,
+:-moz-full-screen .slideshow-body,
+:-ms-fullscreen .slideshow-body {
+    width: 100vw !important;
+    height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.slideshow-container:fullscreen .slideshow-image-wrapper,
+.slideshow-container:-webkit-full-screen .slideshow-image-wrapper,
+.slideshow-container:-moz-full-screen .slideshow-image-wrapper,
+.slideshow-container:-ms-fullscreen .slideshow-image-wrapper {
+    width: 100vw !important;
+    height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+.slideshow-container:fullscreen .slideshow-image,
+.slideshow-container:-webkit-full-screen .slideshow-image,
+.slideshow-container:-moz-full-screen .slideshow-image,
+.slideshow-container:-ms-fullscreen .slideshow-image {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    object-fit: contain !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+}
+
+.slideshow-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* When image is in fullscreen, make wrapper take full screen too */
+.slideshow-image-wrapper:has(.fullscreen-image),
+:fullscreen .slideshow-image-wrapper,
+:-webkit-full-screen .slideshow-image-wrapper {
+    width: 100vw !important;
+    height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.slideshow-loading {
+    text-align: center;
+    color: white;
+    padding: 40px;
+}
+
+.slideshow-loading i {
+    color: #28a745;
+    margin-bottom: 20px;
+}
+
+.slideshow-loading p {
+    margin-top: 15px;
+    font-size: 1.2rem;
+}
+
+.slideshow-image {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Image in fullscreen mode - override all size constraints */
+.slideshow-image.fullscreen-image {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    object-fit: contain !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    z-index: 9998 !important;
+}
+
+/* Alternative: when container is fullscreen, force image size */
+.slideshow-container:fullscreen img.slideshow-image,
+.slideshow-container:-webkit-full-screen img.slideshow-image,
+.slideshow-container:-moz-full-screen img.slideshow-image,
+.slideshow-container:-ms-fullscreen img.slideshow-image {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    object-fit: contain !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+}
+
+/* Force image to fill screen in fullscreen mode */
+:fullscreen .slideshow-image,
+:-webkit-full-screen .slideshow-image,
+:-moz-full-screen .slideshow-image,
+:-ms-fullscreen .slideshow-image {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    object-fit: contain !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.slideshow-counter {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.slideshow-controls {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px;
+    pointer-events: none;
+}
+
+.slideshow-controls .btn {
+    pointer-events: all;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.slideshow-controls .btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.slideshow-controls .btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.slideshow-controls .btn i {
+    font-size: 1.2rem;
+}
+
+/* Force visibility of controls in fullscreen when paused */
+.slideshow-controls.always-visible .btn {
+    opacity: 1 !important;
+    background: rgba(255, 255, 255, 0.4) !important;
+    border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.slideshow-controls.always-visible .btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.slideshow-footer {
+    background: #2c3e50;
+    border-top: 1px solid #34495e;
+    padding: 15px;
+}
+
+/* Responsive adjustments for slideshow */
+@media (max-width: 768px) {
+    .slideshow-image-wrapper {
+        height: 50vh;
+    }
+    
+    .slideshow-controls .btn {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .slideshow-controls .btn i {
+        font-size: 1rem;
+    }
+    
+    .slideshow-counter {
+        top: 10px;
+        right: 10px;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
 }

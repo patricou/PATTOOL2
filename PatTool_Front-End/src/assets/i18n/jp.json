@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "フランス語",
+        "EN": "英語",
+        "ES": "スペイン語",
+        "DE": "ドイツ語",
+        "IT": "イタリア語",
+        "AR": "アラビア語",
+        "CN": "中国語",
+        "RU": "ロシア語",
+        "JP": "日本語",
+        "HE": "ヘブライ語",
+        "EL": "ギリシャ語",
+        "IN": "ヒンディー語"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "言語",
@@ -102,7 +116,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "個のコメントが完全に削除されます。",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "この操作は元に戻すことができません。",
         "DELETE_ALL_COMMENTARIES_CANCEL": "キャンセル",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "すべてのコメントを削除"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "すべてのコメントを削除",
+        "SELECT_PAGE": "ページを選択"
     },
     "EVENTCREATION": {
         "TITLE": "活動の作成",
@@ -319,7 +334,10 @@
         "LOADING": "読み込み中...",
         "IDONTLIKE": "嫌い",
         "ILIKE": "好き",
-        "DOWNLOAD_ALL": "すべてダウンロード"
+        "DOWNLOAD_ALL": "すべてダウンロード",
+        "CLEAR_FILTER": "フィルターをクリア",
+        "PREVIOUS_PAGE": "前のページ",
+        "NEXT_PAGE": "次のページ"
     },
     "RESULTS": {
         "TITLE": "一般的なディスカッション",

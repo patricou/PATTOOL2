@@ -1,4 +1,18 @@
 {
+    "LANGUAGE": {
+        "FR": "Французский",
+        "EN": "Английский",
+        "ES": "Испанский",
+        "DE": "Немецкий",
+        "IT": "Итальянский",
+        "AR": "Арабский",
+        "CN": "Китайский",
+        "RU": "Русский",
+        "JP": "Японский",
+        "HE": "Иврит",
+        "EL": "Греческий",
+        "IN": "Хинди"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Язык",
@@ -102,7 +116,8 @@
         "DELETE_ALL_COMMENTARIES_COUNT": "комментарий(и) будут удалены навсегда.",
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Это действие необратимо.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "Отмена",
-        "DELETE_ALL_COMMENTARIES_CONFIRM": "Удалить все комментарии"
+        "DELETE_ALL_COMMENTARIES_CONFIRM": "Удалить все комментарии",
+        "SELECT_PAGE": "Выбрать страницу"
     },
     "EVENTCREATION": {
         "TITLE": "Создание мероприятия",
@@ -319,7 +334,10 @@
         "LOADING": "Загрузка...",
         "IDONTLIKE": "Мне не нравится",
         "ILIKE": "Мне нравится",
-        "DOWNLOAD_ALL": "Скачать все"
+        "DOWNLOAD_ALL": "Скачать все",
+        "CLEAR_FILTER": "Очистить фильтр",
+        "PREVIOUS_PAGE": "Предыдущая страница",
+        "NEXT_PAGE": "Следующая страница"
     },
     "RESULTS": {
         "TITLE": "Общая дискуссия",

@@ -138,7 +138,9 @@
                 </a>
                 <ul class="dropdown-menu" 
                     [class.show]="showToolsDropdown" 
-                    aria-labelledby="toolsDropdown">
+                    aria-labelledby="toolsDropdown"
+                    (mouseenter)="showToolsDropdown = true"
+                    (mouseleave)="onToolsMenuLeave($event)">
                     <li><a class="dropdown-item" 
                            [routerLink]="['maps']" 
                            (click)="closeMenu()">
@@ -153,6 +155,38 @@
                            (click)="open(uploadfilecontent); closeMenu(); $event.preventDefault()">
                         <i class="fa fa-cloud-upload"></i> {{ "UPLOADFILE.MENU" | translate }}
                     </a></li>
+                    <li class="dropdown-submenu" 
+                        #languageSubmenuItem
+                        (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; positionLanguageSubmenu()"
+                        (mouseleave)="checkCloseLanguageSubmenu($event)">
+                        <a class="dropdown-item language-toggle" 
+                           href="#" 
+                           id="languageSubmenu"
+                           (click)="toggleLanguageSubmenuOnClick($event)">
+                            <i class="fa fa-language"></i> {{ 'MENU.LANG' | translate }}
+                        </a>
+                        <ul class="dropdown-menu language-submenu-list" 
+                            #languageSubmenu
+                            [class.show]="showLanguageSubmenu"
+                            [style.display]="showLanguageSubmenu ? 'block' : 'none'"
+                            [style.opacity]="showLanguageSubmenu ? '1' : '0'"
+                            [style.visibility]="showLanguageSubmenu ? 'visible' : 'hidden'"
+                            aria-labelledby="languageSubmenu"
+                            (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true"
+                            (mouseleave)="checkCloseLanguageSubmenu($event)">
+                            <li *ngFor="let lang of _translate.getLangs()">
+                                <a class="dropdown-item" 
+                                   (click)="_translate.use(lang); closeMenu()"
+                                   [class.active]="lang === _translate.currentLang">
+                                    <i class="fa language-check" [class.fa-check]="lang === _translate.currentLang" [class.fa-circle-o]="lang !== _translate.currentLang"></i>
+                                    {{ 'LANGUAGE.' + lang.toUpperCase() | translate }}
+                                    <span class="flag-wrapper">
+                                        <span class="fi fi-{{getCountryCode(lang)}}"></span>
+                                    </span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
                 </ul>
             </li>
 
@@ -176,22 +210,6 @@
         </ul>
     </div>
 </nav>
-
-<!-- Langage Selector -->
-<div class="pat-lang-selector" 
-     [style.right.%]="langSelectorRight" 
-     [style.top.%]="langSelectorTop"
-     (mousedown)="onLangSelectorMouseDown($event)">
-    <div class="btn-group-vertical btn-group-sm">
-        <button *ngFor="let lang of _translate.getLangs()" [value]="lang" (click)="_translate.use(lang)"
-            class="btn" 
-            [class.btn-primary]="lang === _translate.currentLang"
-            [class.btn-light]="lang !== _translate.currentLang"
-            [style.color]="lang === _translate.currentLang ? 'white' : 'black'">
-            {{ lang }}
-        </button>
-    </div>
-</div>
 
 <div class="pat-div"></div>
 <router-outlet></router-outlet>
