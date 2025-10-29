@@ -42,9 +42,9 @@ public class SecurityConfig {
                 // Allow public access to opcl endpoints
                 .requestMatchers("/api/opcl/**").permitAll()
                 // Allow public access to upload file
-                .requestMatchers("/uploadondisk").permitAll()
+                .requestMatchers("/uploadondisk/**").permitAll()
                 // Allow public access to upload in the DB
-                .requestMatchers("/uploadfile").permitAll()
+                .requestMatchers("/uploadfile/**").permitAll()
                 // to migrate fields photoUrls
                     .requestMatchers("/api/migration/**").permitAll()
                 // Allow public access to Swagger/OpenAPI
@@ -54,7 +54,7 @@ public class SecurityConfig {
                 // Deny access to .git directory (security)
                 .requestMatchers("/.git/**").denyAll()
                 // Deny access to PHP files (security - this is a Java app, not PHP)
-                .requestMatchers("/**/*.php", "/**/*.php/**").denyAll()
+                .requestMatchers("*.php").denyAll()
                 // Protect other API endpoints
                 .requestMatchers("/api/**").authenticated()
                 // Allow all other requests

@@ -351,7 +351,7 @@ export class AppComponent implements OnInit {
                 }
                 
                 // Calculate position relative to viewport
-                const left = parentRect.right + 5;
+                const left = parentRect.right;
                 const top = parentRect.top;
                 
                 // Apply all styles directly
