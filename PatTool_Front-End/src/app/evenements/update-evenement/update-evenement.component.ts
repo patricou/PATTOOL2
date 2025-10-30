@@ -216,6 +216,12 @@ export class UpdateEvenementComponent implements OnInit {
 			this.isAddingUrlEvent = false;
 		}
 	}
+
+	// Handle folder selection for PHOTOFROMFS (new link form)
+    
+
+	// Handle folder selection for PHOTOFROMFS (edit link form)
+    
 	
 	removeUrlEvent(index: number) {
 		if (index >= 0 && index < this.evenement.urlEvents.length) {

@@ -33,7 +33,7 @@ import java.util.stream.Stream;
 @RequestMapping("/api/fsphotos")
 public class DiskImageController {
 
-    @Value("${file.storage.base-path:r:/photo}")
+    @Value("${file.storage.base-path}")
     private String basePath;
 
     private static final Logger log = LoggerFactory.getLogger(DiskImageController.class);

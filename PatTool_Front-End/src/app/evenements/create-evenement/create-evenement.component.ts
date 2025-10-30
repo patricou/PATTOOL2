@@ -170,6 +170,9 @@ export class CreateEvenementComponent implements OnInit {
 			this.isAddingUrlEvent = false;
 		}
 	}
+
+	// Handle folder selection for PHOTOFROMFS
+    
 	
 	removeUrlEvent(index: number) {
 		if (index >= 0 && index < this.evenement.urlEvents.length) {
