@@ -1,5 +1,6 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
+import { TranslateService } from '@ngx-translate/core';
 
 // Removed ngx-mydatepicker imports - using native HTML date inputs
 import { Member } from '../../model/member';
@@ -33,6 +34,8 @@ export class CreateEvenementComponent implements OnInit {
 		{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION"},
 		{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER"},
 		{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
+		{id: "PHOTOFROMFS", label: "EVENTHOME.URL_TYPE_PHOTOFROMFS"},
+		{id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO"},
 		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
 	];
 
@@ -44,7 +47,8 @@ export class CreateEvenementComponent implements OnInit {
 
 	constructor(public _evenementsService: EvenementsService,
 		public _router: Router,
-		public _memberService: MembersService) {
+		public _memberService: MembersService,
+		private translate: TranslateService) {
 	};
 
 	ngOnInit() {
@@ -89,6 +93,13 @@ export class CreateEvenementComponent implements OnInit {
 	public diffColor: string = "#dcdcdc";
 	typeChange() {
 		this.typeColor = "rgb(70,74,76)";
+	}
+
+	// Sorted list of URL event types by translated label
+	public getSortedUrlEventTypes(): {id: string, label: string}[] {
+		return [...this.urlEventTypes].sort((a, b) =>
+			this.translate.instant(a.label).localeCompare(this.translate.instant(b.label))
+		);
 	}
 	diffChange() {
 		this.diffColor = "rgb(70,74,76)";

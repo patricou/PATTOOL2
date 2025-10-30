@@ -3,6 +3,7 @@ package com.pat.config;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
@@ -41,8 +42,10 @@ public class SecurityConfig {
                 .requestMatchers("/api/testarduino/**").permitAll()
                 // Allow public access to opcl endpoints
                 .requestMatchers("/api/opcl/**").permitAll()
-                // Allow public access to upload file
+                // Allow public access to legacy disk upload/listing (backward compatibility)
                 .requestMatchers("/uploadondisk/**").permitAll()
+                // Allow public access to filesystem photos API used by frontend
+                .requestMatchers("/api/fsphotos/**").permitAll()
                 // Allow public access to upload in the DB
                 .requestMatchers("/uploadfile/**").permitAll()
                 // to migrate fields photoUrls

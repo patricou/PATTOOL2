@@ -94,6 +94,8 @@
         "URL_TYPE_DOCUMENTATION": "文档",
         "URL_TYPE_OTHER": "其他",
         "URL_TYPE_PHOTOS": "照片",
+        "URL_TYPE_PHOTOFROMFS": "来自文件系统的照片",
+        "URL_TYPE_VIDEO": "视频",
         "URL_TYPE_WEBSITE": "网站",
         "BASIC_INFO": "基本信息",
         "REGISTRATION_DATES": "注册日期",
@@ -118,6 +120,13 @@
         "DELETE_ALL_COMMENTARIES_CANCEL": "取消",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "删除所有评论",
         "SELECT_PAGE": "选择页面"
+    },
+    "EVENTELEM": {
+        "PHOTOS_SELECTION": "照片选择",
+        "PHOTOS": "照片",
+        "MONGODB_PHOTOS_DESC": "MongoDB 中存储的照片幻灯片（已上传文件）。",
+        "PHOTOS_FROM_FS_HEADING": "来自文件系统的照片",
+        "OTHER_PHOTOS_LINKS": "其他照片链接（网页）"
     },
     "EVENTCREATION": {
         "TITLE": "创建活动",
@@ -253,6 +262,11 @@
         "NO_PHOTOS_AVAILABLE": "此活动没有可用照片。",
         "VIEW_JSON": "以JSON格式查看活动",
         "FORMAT_JSON": "JSON格式",
+        "PHOTOS_SELECTION": "照片选择",
+        "PHOTOS": "照片",
+        "MONGODB_PHOTOS_DESC": "MongoDB 中存储的照片幻灯片（已上传文件）。",
+        "PHOTOS_FROM_FS_HEADING": "来自文件系统的照片",
+        "OTHER_PHOTOS_LINKS": "其他照片链接（网页）",
         "CLICK_TO_VIEW": "点击查看图片",
         "CLICK_TO_OPEN_PDF": "点击打开PDF",
         "DELETE_FILE": "删除文件",

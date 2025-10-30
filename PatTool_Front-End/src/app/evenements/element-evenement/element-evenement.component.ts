@@ -7,7 +7,7 @@ import { Database, ref, push, remove, onValue, serverTimestamp } from '@angular/
 import { TranslateService } from '@ngx-translate/core';
 import * as JSZip from 'jszip';
 
-import { Observable, firstValueFrom } from 'rxjs';
+import { Observable, firstValueFrom, Subscription } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { UploadedFile } from '../../model/uploadedfile';
 import { Member } from '../../model/member';
@@ -57,9 +57,36 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	private lastKeyPressTime: number = 0;
 	private lastKeyCode: number = 0;
 
+	// Zoom state for image and slideshow
+	public imageZoom: number = 1;
+	public slideshowZoom: number = 1;
+	public imageTranslateX: number = 0;
+	public imageTranslateY: number = 0;
+	public slideshowTranslateX: number = 0;
+	public slideshowTranslateY: number = 0;
+	public isDraggingImage: boolean = false;
+	public isDraggingSlideshow: boolean = false;
+	private hasDraggedImage: boolean = false;
+	private hasDraggedSlideshow: boolean = false;
+	private dragStartX: number = 0;
+	private dragStartY: number = 0;
+	private dragOrigX: number = 0;
+	private dragOrigY: number = 0;
+
+	@ViewChild('imageContainer') imageContainerRef!: ElementRef;
+	@ViewChild('imageEl') imageElRef!: ElementRef<HTMLImageElement>;
+	@ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
+	@ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
+
+	// FS Photos download control
+	private fsDownloadsActive: boolean = false;
+	private fsActiveSubs: Subscription[] = [];
+	private fsQueue: string[] = [];
+
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
 	@ViewChild('slideshowModal') slideshowModal!: TemplateRef<any>;
+	@ViewChild('fsPhotosSelectorModal') fsPhotosSelectorModal!: TemplateRef<any>;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
@@ -105,6 +132,329 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.ratingConfig.max = 10;
 		this.ratingConfig.readonly = true;
 		this.nativeWindow = winRef.getNativeWindow();
+	}
+
+	// =========================
+	// Photo From FS integration
+	// =========================
+
+	public selectedFsLink: string = '';
+
+	public getPhotoFromFsLinks(): UrlEvent[] {
+		if (!this.evenement || !this.evenement.urlEvents) return [];
+		return this.evenement.urlEvents.filter(u => (u.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS');
+	}
+
+	public getPhotosUrlLinks(): UrlEvent[] {
+		if (!this.evenement || !this.evenement.urlEvents) return [];
+		return this.evenement.urlEvents.filter(u => (u.typeUrl || '').toUpperCase().trim() === 'PHOTOS');
+	}
+
+	public getPhotoFromFsCount(): number {
+		return this.getPhotoFromFsLinks().length;
+	}
+
+    public openFsPhotosSelector(includeUploadedChoice: boolean = false): void {
+        const fsLinks = this.getPhotoFromFsLinks();
+        const webLinks = this.getPhotosUrlLinks();
+        const hasAnyLinks = (fsLinks.length + webLinks.length) > 0;
+
+        if (!includeUploadedChoice && !hasAnyLinks) {
+            return;
+        }
+        if (!includeUploadedChoice && fsLinks.length === 1 && webLinks.length === 0) {
+            this.openFsPhotosDiaporama(fsLinks[0].link);
+            return;
+        }
+        // Default selection priority: uploaded (if requested and available) -> first FS link -> first web photos link
+        if (includeUploadedChoice && this.hasImageFiles()) {
+            this.selectedFsLink = '__UPLOADED__';
+        } else if (fsLinks.length > 0) {
+            this.selectedFsLink = fsLinks[0].link;
+        } else if (webLinks.length > 0) {
+            this.selectedFsLink = 'PHOTOS:' + webLinks[0].link;
+        }
+        if (!this.fsPhotosSelectorModal) return;
+        this.modalService.open(this.fsPhotosSelectorModal, { centered: true, size: 'md', windowClass: 'fs-selector-modal' });
+    }
+
+    public confirmFsPhotosSelection(modalRef?: any): void {
+		if (!this.selectedFsLink) return;
+		if (this.selectedFsLink === '__UPLOADED__') {
+            this.openSlideshow();
+		} else if (this.selectedFsLink.startsWith('PHOTOS:')) {
+			const url = this.selectedFsLink.substring('PHOTOS:'.length);
+			try { this.winRef.getNativeWindow().open(url, '_blank'); } catch {}
+		} else {
+            this.openFsPhotosDiaporama(this.selectedFsLink);
+        }
+		if (modalRef) { modalRef.close(); }
+	}
+
+	private openFsPhotosDiaporama(relativePath: string): void {
+		this.slideshowImages = [];
+		this.currentSlideshowIndex = 0;
+        // ensure slideshow starts paused
+        if (this.slideshowInterval) { clearInterval(this.slideshowInterval); this.slideshowInterval = null; }
+        this.isSlideshowActive = false;
+		this.fsDownloadsActive = true;
+		// cleanup any previous subscriptions
+		this.cancelFsDownloads();
+		this.fsDownloadsActive = true;
+        // First, list images
+		this._fileService.listImagesFromDisk(relativePath).subscribe({
+            next: (fileNames: string[]) => {
+                // Open the modal immediately (will show loader until images arrive)
+				const modalRef = this.modalService.open(this.slideshowModal, { size: 'xl', centered: true });
+
+                if (!fileNames || fileNames.length === 0) {
+                    return;
+                }
+				// Limit concurrent downloads for faster first paint
+				this.loadImagesWithConcurrency(relativePath, fileNames, 4);
+
+				// Cleanup and cancel downloads when modal closes
+				modalRef.result.finally(() => {
+					this.cancelFsDownloads();
+					try { this.slideshowImages.forEach(url => URL.revokeObjectURL(url)); } catch {}
+				});
+            },
+            error: () => {
+                // Open modal anyway to show empty state/error
+                this.modalService.open(this.slideshowModal, { size: 'xl', centered: true });
+            }
+        });
+	}
+
+	private loadImagesWithConcurrency(relativePath: string, fileNames: string[], concurrency: number): void {
+		this.fsQueue = [...fileNames];
+		let active = 0;
+
+		const next = () => {
+			if (!this.fsDownloadsActive) { return; }
+			while (this.fsDownloadsActive && active < concurrency && this.fsQueue.length > 0) {
+				const name = this.fsQueue.shift() as string;
+				active++;
+				const sub = this._fileService.getImageFromDisk(relativePath, name).subscribe({
+					next: (buffer: ArrayBuffer) => {
+						const blob = new Blob([buffer], { type: 'image/*' });
+						const url = URL.createObjectURL(blob);
+						this.slideshowImages.push(url);
+					},
+					error: () => {
+						// ignore failed image
+					},
+					complete: () => {
+						active--;
+						next();
+					}
+				});
+				this.fsActiveSubs.push(sub);
+			}
+		};
+
+		next();
+	}
+
+	private cancelFsDownloads(): void {
+		this.fsDownloadsActive = false;
+		try { this.fsActiveSubs.forEach(s => { if (s && !s.closed) { s.unsubscribe(); } }); } catch {}
+		this.fsActiveSubs = [];
+		this.fsQueue = [];
+	}
+
+	// Unified photos opener (uploaded photos or FS photos)
+	public openPhotos(): void {
+		const hasFs = this.getPhotoFromFsCount() > 0;
+		const hasPhotosWeb = this.getPhotosUrlLinks().length > 0;
+		const hasUploaded = this.hasImageFiles();
+
+		if ((hasFs || hasPhotosWeb) && hasUploaded) {
+			this.openFsPhotosSelector(true);
+			return;
+		}
+		if (hasFs || hasPhotosWeb) {
+			this.openFsPhotosSelector(false);
+			return;
+		}
+		if (hasUploaded) {
+			this.openSlideshow();
+		}
+	}
+
+	// =========================
+	// Zoom handlers
+	// =========================
+	public getMinImageZoom(): number {
+		try {
+			const container = this.imageContainerRef?.nativeElement as HTMLElement;
+			const imgEl = this.imageElRef?.nativeElement as HTMLImageElement;
+			if (!container || !imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return 0.5;
+			const cw = container.clientWidth || 1;
+			const ch = container.clientHeight || 1;
+			const iw = imgEl.naturalWidth;
+			const ih = imgEl.naturalHeight;
+			// Minimum zoom so image is not smaller than container in both dimensions
+			return Math.max(cw / iw, ch / ih);
+		} catch { return 0.5; }
+	}
+
+	public getMinSlideshowZoom(): number {
+		try {
+			const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+			const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
+			if (!container || !imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return 0.5;
+			const cw = container.clientWidth || 1;
+			const ch = container.clientHeight || 1;
+			const iw = imgEl.naturalWidth;
+			const ih = imgEl.naturalHeight;
+			return Math.max(cw / iw, ch / ih);
+		} catch { return 0.5; }
+	}
+
+	private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 5): number {
+		event.preventDefault();
+		const delta = Math.sign(event.deltaY);
+		const step = 0.1;
+		let next = current - delta * step; // wheel up -> zoom in
+		if (next < minZoom) next = minZoom;
+		if (next > maxZoom) next = maxZoom;
+		return parseFloat(next.toFixed(2));
+	}
+
+	public onWheelImage(event: WheelEvent): void {
+		const minZoom = this.getMinImageZoom();
+		this.imageZoom = this.applyWheelZoom(event, this.imageZoom, minZoom);
+		this.clampImageTranslation();
+	}
+
+	public onWheelSlideshow(event: WheelEvent): void {
+		const minZoom = this.getMinSlideshowZoom();
+		this.slideshowZoom = this.applyWheelZoom(event, this.slideshowZoom, minZoom);
+		this.clampSlideshowTranslation();
+	}
+
+	public resetImageZoom(): void { this.imageZoom = Math.max(1, this.getMinImageZoom()); this.imageTranslateX = 0; this.imageTranslateY = 0; }
+	private resetImageViewDeferred(): void {
+		setTimeout(() => {
+			this.imageTranslateX = 0;
+			this.imageTranslateY = 0;
+			this.imageZoom = Math.max(1, this.getMinImageZoom());
+		}, 0);
+	}
+	public zoomInImage(): void { this.imageZoom = Math.min(5, parseFloat((this.imageZoom + 0.1).toFixed(2))); }
+	public zoomOutImage(): void { this.imageZoom = Math.max(this.getMinImageZoom(), parseFloat((this.imageZoom - 0.1).toFixed(2))); this.clampImageTranslation(); }
+
+	public resetSlideshowZoom(): void { this.slideshowZoom = Math.max(1, this.getMinSlideshowZoom()); this.slideshowTranslateX = 0; this.slideshowTranslateY = 0; }
+	public zoomInSlideshow(): void { this.slideshowZoom = Math.min(5, parseFloat((this.slideshowZoom + 0.1).toFixed(2))); }
+	public zoomOutSlideshow(): void { this.slideshowZoom = Math.max(this.getMinSlideshowZoom(), parseFloat((this.slideshowZoom - 0.1).toFixed(2))); this.clampSlideshowTranslation(); }
+
+	// Drag handlers for Image modal
+	public onImageMouseDown(event: MouseEvent): void {
+		// Only allow drag when zoomed beyond min (image larger than container)
+		const canDrag = this.imageZoom > this.getMinImageZoom();
+		this.isDraggingImage = canDrag;
+		this.hasDraggedImage = false;
+		if (canDrag) { try { event.preventDefault(); event.stopPropagation(); } catch {} }
+		this.dragStartX = event.clientX;
+		this.dragStartY = event.clientY;
+		this.dragOrigX = this.imageTranslateX;
+		this.dragOrigY = this.imageTranslateY;
+	}
+
+	public onImageMouseMove(event: MouseEvent): void {
+		if (!this.isDraggingImage) return;
+		try { event.preventDefault(); event.stopPropagation(); } catch {}
+		const dx = event.clientX - this.dragStartX;
+		const dy = event.clientY - this.dragStartY;
+		this.imageTranslateX = this.dragOrigX + dx;
+		this.imageTranslateY = this.dragOrigY + dy;
+		if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedImage = true;
+		this.clampImageTranslation();
+	}
+
+	public onImageMouseUp(): void {
+		this.isDraggingImage = false;
+	}
+
+	private clampImageTranslation(): void {
+		try {
+			const container = this.imageContainerRef?.nativeElement as HTMLElement;
+			const imgEl = this.imageElRef?.nativeElement as HTMLImageElement;
+			if (!container || !imgEl) return;
+			const cw = container.clientWidth;
+			const ch = container.clientHeight;
+			const iw = imgEl.clientWidth * this.imageZoom;
+			const ih = imgEl.clientHeight * this.imageZoom;
+			const maxX = Math.max(0, (iw - cw) / 2);
+			const maxY = Math.max(0, (ih - ch) / 2);
+			if (this.imageTranslateX > maxX) this.imageTranslateX = maxX;
+			if (this.imageTranslateX < -maxX) this.imageTranslateX = -maxX;
+			if (this.imageTranslateY > maxY) this.imageTranslateY = maxY;
+			if (this.imageTranslateY < -maxY) this.imageTranslateY = -maxY;
+		} catch {}
+	}
+
+	// Drag handlers for Slideshow modal
+	public onSlideshowMouseDown(event: MouseEvent): void {
+		const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
+		this.isDraggingSlideshow = canDrag;
+		this.hasDraggedSlideshow = false;
+		if (canDrag) { try { event.preventDefault(); event.stopPropagation(); } catch {} }
+		this.dragStartX = event.clientX;
+		this.dragStartY = event.clientY;
+		this.dragOrigX = this.slideshowTranslateX;
+		this.dragOrigY = this.slideshowTranslateY;
+	}
+
+	public onSlideshowMouseMove(event: MouseEvent): void {
+		if (!this.isDraggingSlideshow) return;
+		try { event.preventDefault(); event.stopPropagation(); } catch {}
+		const dx = event.clientX - this.dragStartX;
+		const dy = event.clientY - this.dragStartY;
+		this.slideshowTranslateX = this.dragOrigX + dx;
+		this.slideshowTranslateY = this.dragOrigY + dy;
+		if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
+		this.clampSlideshowTranslation();
+	}
+
+	public onSlideshowMouseUp(): void {
+		this.isDraggingSlideshow = false;
+	}
+
+	public onSlideshowImageClick(): void {
+		// Ignore click if it was a drag
+		if (this.hasDraggedSlideshow) { this.hasDraggedSlideshow = false; return; }
+		this.toggleSlideshowWithMessage();
+	}
+
+	public onSlideshowClose(cRef: any): void {
+		try {
+			if (document.fullscreenElement) {
+				document.exitFullscreen().catch(() => {});
+			}
+		} catch {}
+		this.cancelFsDownloads();
+		try { if (typeof cRef === 'function') { cRef('Close click'); } } catch {}
+		try { this.modalService.dismissAll(); } catch {}
+	}
+
+	private clampSlideshowTranslation(): void {
+		try {
+			const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+			const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
+			if (!container || !imgEl) return;
+			const cw = container.clientWidth;
+			const ch = container.clientHeight;
+			const iw = imgEl.clientWidth * this.slideshowZoom;
+			const ih = imgEl.clientHeight * this.slideshowZoom;
+			const maxX = Math.max(0, (iw - cw) / 2);
+			const maxY = Math.max(0, (ih - ch) / 2);
+			if (this.slideshowTranslateX > maxX) this.slideshowTranslateX = maxX;
+			if (this.slideshowTranslateX < -maxX) this.slideshowTranslateX = -maxX;
+			if (this.slideshowTranslateY > maxY) this.slideshowTranslateY = maxY;
+			if (this.slideshowTranslateY < -maxY) this.slideshowTranslateY = -maxY;
+		} catch {}
 	}
 
 	ngOnInit() {
@@ -1164,6 +1514,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			animation: false,
 			windowClass: 'modal-smooth-animation'
 		});
+		this.resetImageViewDeferred();
 	}
 
 	// Check if file is an image based on extension
@@ -1266,6 +1617,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				animation: false,
 				windowClass: 'modal-smooth-animation'
 			});
+			this.resetImageViewDeferred();
 		}, (error) => {
 			console.error('Error loading file:', error);
 			alert('Erreur lors du chargement du fichier');
@@ -1532,12 +1884,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public nextImage(): void {
 		if (this.slideshowImages.length === 0) return;
 		this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
+		setTimeout(() => this.resetSlideshowZoom(), 0);
 	}
 
 	// Navigate to previous image
 	public previousImage(): void {
 		if (this.slideshowImages.length === 0) return;
 		this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
+		setTimeout(() => this.resetSlideshowZoom(), 0);
 	}
 
 	// Get current slideshow image URL

@@ -19,6 +19,25 @@ export class FileService {
 
     constructor(private _http: HttpClient, private _keycloakService: KeycloakService) {
     }
+
+    // List images from disk for a given relative path
+    listImagesFromDisk(relativePath: string): Observable<string[]> {
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers =>
+                this._http.get<string[]>(`${this.API_URL4FILEONDISK}/list?relativePath=${encodeURIComponent(relativePath)}`, { headers })
+            )
+        );
+    }
+
+    // Get an image binary from disk for given path and filename
+    getImageFromDisk(relativePath: string, fileName: string): Observable<ArrayBuffer> {
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers =>
+                this._http.get(`${this.API_URL4FILEONDISK}/image?relativePath=${encodeURIComponent(relativePath)}&fileName=${encodeURIComponent(fileName)}`,
+                    { headers, responseType: 'arraybuffer' })
+            )
+        );
+    }
     // Get the token for Keycloak Security
     getHeaderWithToken(): Observable<HttpHeaders> {
         return from(this._keycloakService.getToken()).pipe(

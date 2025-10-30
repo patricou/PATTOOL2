@@ -13,6 +13,13 @@
         "EL": "Греческий",
         "IN": "Хинди"
     },
+    "EVENTELEM": {
+        "PHOTOS_SELECTION": "Выбор фотографий",
+        "PHOTOS": "Фото",
+        "MONGODB_PHOTOS_DESC": "Слайд-шоу фотографий, хранящихся в MongoDB (загруженные файлы).",
+        "PHOTOS_FROM_FS_HEADING": "Фотографии из файловой системы",
+        "OTHER_PHOTOS_LINKS": "Другие фотоссылки (веб)"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Язык",
@@ -95,6 +102,8 @@
         "URL_TYPE_DOCUMENTATION": "Документация",
         "URL_TYPE_OTHER": "Другое",
         "URL_TYPE_PHOTOS": "Фото",
+        "URL_TYPE_PHOTOFROMFS": "Фото из файловой системы",
+        "URL_TYPE_VIDEO": "Видео",
         "URL_TYPE_WEBSITE": "Веб-сайт",
         "BASIC_INFO": "Основная информация",
         "REGISTRATION_DATES": "Даты регистрации",

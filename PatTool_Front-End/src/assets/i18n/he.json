@@ -94,6 +94,8 @@
         "URL_TYPE_DOCUMENTATION": "תיעוד",
         "URL_TYPE_OTHER": "אחר",
         "URL_TYPE_PHOTOS": "תמונות",
+        "URL_TYPE_PHOTOFROMFS": "תמונה ממערכת הקבצים",
+        "URL_TYPE_VIDEO": "וידאו",
         "URL_TYPE_WEBSITE": "אתר אינטרנט",
         "BASIC_INFO": "מידע בסיסי",
         "REGISTRATION_DATES": "תאריכי רישום",
@@ -201,6 +203,11 @@
         "DETAILDELCONF": "האם אתה בטוח שברצונך למחוק את הפעילות?"
     },
     "EVENTELEM": {
+        "PHOTOS_SELECTION": "בחירת תמונות",
+        "PHOTOS": "תמונות",
+        "MONGODB_PHOTOS_DESC": "מצגת תמונות המאוחסנות ב- MongoDB (קבצים שהועלו).",
+        "PHOTOS_FROM_FS_HEADING": "תמונות ממערכת הקבצים",
+        "OTHER_PHOTOS_LINKS": "קישורי תמונות נוספים (אינטרנט)",
         "AUTHOR": "מארגן",
         "REF": "הפניה",
         "BEGINDT": "תאריך/שעת התחלה",

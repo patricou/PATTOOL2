@@ -286,7 +286,7 @@
                                     </label>
                                     <select [(ngModel)]="newUrlEvent.typeUrl" name="typeUrl" class="form-control">
                                         <option value="">{{ "EVENTHOME.TYPE_URL" | translate }}</option>
-                                        <option *ngFor="let type of urlEventTypes" [value]="type.id">{{ type.label | translate }}</option>
+                                        <option *ngFor="let type of getSortedUrlEventTypes()" [value]="type.id">{{ type.label | translate }}</option>
                                     </select>
                                 </div>
                                 <div class="col-md-4">

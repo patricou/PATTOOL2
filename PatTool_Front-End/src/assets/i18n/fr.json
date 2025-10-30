@@ -85,6 +85,8 @@
         "URL_TYPE_DOCUMENTATION": "Documentation",
         "URL_TYPE_OTHER": "Autre",
         "URL_TYPE_PHOTOS": "Photos",
+        "URL_TYPE_PHOTOFROMFS": "Photo depuis le système de fichiers",
+        "URL_TYPE_VIDEO": "Vidéo",
         "URL_TYPE_WEBSITE": "Site Web",
         "BASIC_INFO": "Informations de base",
         "REGISTRATION_DATES": "Dates d'inscription",
@@ -110,6 +112,7 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Supprimer tous les commentaires",
         "SELECT_PAGE": "Sélectionner la page"
     },
+    
     "EVENTCREATION": {
         "TITLE": "Création d'une Activité",
         "EVENTAUTHORNAME": "Organisateur de l'Activité",
@@ -250,6 +253,11 @@
         "OPEN_PHOTO": "Ouvrir",
         "VIEW_JSON": "Voir l'événement au format JSON",
         "FORMAT_JSON": "Format JSON",
+        "PHOTOS_SELECTION": "Sélection de photos",
+        "PHOTOS": "Photos",
+        "MONGODB_PHOTOS_DESC": "Diaporama des photos stockées dans la base MongoDB (fichiers uploadés).",
+        "PHOTOS_FROM_FS_HEADING": "Photos depuis le système de fichiers",
+        "OTHER_PHOTOS_LINKS": "Autres liens photos (web)",
         "CLICK_TO_VIEW": "Cliquer pour voir l'image",
         "CLICK_TO_OPEN_PDF": "Cliquer pour ouvrir le PDF",
         "DELETE_FILE": "Supprimer le fichier",

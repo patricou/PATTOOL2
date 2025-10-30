@@ -13,6 +13,13 @@
         "EL": "यूनानी",
         "IN": "हिंदी"
     },
+    "EVENTELEM": {
+        "PHOTOS_SELECTION": "फोटो चयन",
+        "PHOTOS": "फ़ोटो",
+        "MONGODB_PHOTOS_DESC": "MongoDB में संग्रहीत फ़ोटो का स्लाइडशो (अपलोड की गई फ़ाइलें)।",
+        "PHOTOS_FROM_FS_HEADING": "फ़ाइल सिस्टम से फ़ोटो",
+        "OTHER_PHOTOS_LINKS": "अन्य फ़ोटो लिंक (वेब)"
+    },
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "भाषा",
@@ -85,6 +92,8 @@
         "URL_TYPE_DOCUMENTATION": "प्रलेखन",
         "URL_TYPE_OTHER": "अन्य",
         "URL_TYPE_PHOTOS": "फ़ोटो",
+        "URL_TYPE_PHOTOFROMFS": "फ़ाइल सिस्टम से फोटो",
+        "URL_TYPE_VIDEO": "वीडियो",
         "URL_TYPE_WEBSITE": "वेबसाइट",
         "BASIC_INFO": "मूल जानकारी",
         "REGISTRATION_DATES": "पंजीकरण दिनांक",

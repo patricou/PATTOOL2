@@ -3,6 +3,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { Evenement } from '../../model/evenement';
 import { EvenementsService } from '../../services/evenements.service';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateService } from '@ngx-translate/core';
 
 // Removed ngx-mydatepicker imports - using native HTML date inputs
 import { Member } from '../../model/member';
@@ -41,6 +42,8 @@ export class UpdateEvenementComponent implements OnInit {
 		{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION"},
 		{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER"},
 		{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
+		{id: "PHOTOFROMFS", label: "EVENTHOME.URL_TYPE_PHOTOFROMFS"},
+		{id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO"},
 		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
 	];
 	public user: Member = new Member("", "", "", "", "", [], "");
@@ -93,7 +96,8 @@ export class UpdateEvenementComponent implements OnInit {
 		private _router: Router,
 		private _memberService: MembersService,
 		private _fileService: FileService,
-		private modalService: NgbModal
+	private modalService: NgbModal,
+	private translate: TranslateService
 	) { }
 
 	ngOnInit() {
@@ -139,6 +143,13 @@ export class UpdateEvenementComponent implements OnInit {
 				this.closeInscriptionDateString = this.formatDateForInput(this.evenement.closeInscriptionDate);
 			}
 			)
+	}
+
+	// Sorted list of URL event types by translated label
+	public getSortedUrlEventTypes(): {id: string, label: string}[] {
+		return [...this.urlEventTypes].sort((a, b) =>
+			this.translate.instant(a.label).localeCompare(this.translate.instant(b.label))
+		);
 	}
 
 	private formatDateForInput(date: Date | string): string {

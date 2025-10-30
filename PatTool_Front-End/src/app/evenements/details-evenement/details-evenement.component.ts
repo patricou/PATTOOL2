@@ -463,6 +463,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       {id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
       {id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
       {id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
+      {id: "PHOTOFROMFS", label: "EVENTHOME.URL_TYPE_PHOTOFROMFS", aliases: ["PHOTO FS", "PHOTO FROM FS", "DISK PHOTO", "FICHIER"]},
+      {id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO", aliases: ["VIDEO", "VIDÉO", "YOUTUBE", "VIMEO"]},
       {id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
     ];
     
@@ -514,6 +516,16 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     if (normalizedType === 'PHOTOS' || normalizedType === 'PHOTO') {
       return 'fa fa-images';
     }
+
+    // Check for PHOTOFROMFS
+    if (normalizedType === 'PHOTOFROMFS') {
+      return 'fa fa-image';
+    }
+
+    // Check for VIDEO
+    if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'YOUTUBE' || normalizedType === 'VIMEO') {
+      return 'fa fa-video-camera';
+    }
     
     // Default
     return 'fa fa-folder';
@@ -544,6 +556,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       {id: "DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
       {id: "OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
       {id: "PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
+      {id: "PHOTOFROMFS", aliases: ["PHOTO FS", "PHOTO FROM FS", "DISK PHOTO", "FICHIER"]},
+      {id: "VIDEO", aliases: ["VIDEO", "VIDÉO", "YOUTUBE", "VIMEO"]},
       {id: "WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
     ];
     
@@ -575,7 +589,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // Get sorted type keys for consistent display order
   public getSortedTypeKeys(): string[] {
     const grouped = this.getGroupedUrlEvents();
-    const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'PHOTOS', 'Photos', 'OTHER'];
+    const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'VIDEO', 'PHOTOS', 'PHOTOFROMFS', 'Photos', 'OTHER'];
     return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
   }
 

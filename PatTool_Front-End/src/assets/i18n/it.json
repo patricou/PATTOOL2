@@ -95,6 +95,8 @@
         "URL_TYPE_DOCUMENTATION": "Documentazione",
         "URL_TYPE_OTHER": "Altro",
         "URL_TYPE_PHOTOS": "Foto",
+        "URL_TYPE_PHOTOFROMFS": "Foto dal file system",
+        "URL_TYPE_VIDEO": "Video",
         "URL_TYPE_WEBSITE": "Sito Web",
         "BASIC_INFO": "Informazioni di base",
         "REGISTRATION_DATES": "Date di registrazione",
@@ -118,6 +120,13 @@
         "DELETE_ALL_COMMENTARIES_CANCEL": "Annulla",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Elimina tutti i commenti",
         "SELECT_PAGE": "Seleziona pagina"
+    },
+    "EVENTELEM": {
+        "PHOTOS_SELECTION": "Selezione foto",
+        "PHOTOS": "Foto",
+        "MONGODB_PHOTOS_DESC": "Diaporama delle foto salvate in MongoDB (file caricati).",
+        "PHOTOS_FROM_FS_HEADING": "Foto dal file system",
+        "OTHER_PHOTOS_LINKS": "Altri link foto (web)"
     },
     "EVENTCREATION": {
         "TITLE": "Creazione di un'Attività",
@@ -253,6 +262,11 @@
         "NO_PHOTOS_AVAILABLE": "Nessuna foto disponibile per questo evento.",
         "VIEW_JSON": "Visualizza evento in formato JSON",
         "FORMAT_JSON": "Formato JSON",
+        "PHOTOS_SELECTION": "Selezione foto",
+        "PHOTOS": "Foto",
+        "MONGODB_PHOTOS_DESC": "Diaporama delle foto salvate in MongoDB (file caricati).",
+        "PHOTOS_FROM_FS_HEADING": "Foto dal file system",
+        "OTHER_PHOTOS_LINKS": "Altri link foto (web)",
         "CLICK_TO_VIEW": "Clicca per vedere l'immagine",
         "CLICK_TO_OPEN_PDF": "Clicca per aprire il PDF",
         "DELETE_FILE": "Elimina file",

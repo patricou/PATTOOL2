@@ -18,7 +18,7 @@ export const environment = {
     API_URL: "http://localhost:8000/api/",
     URL4PATGPT: "http://localhost:8000/",
     API_URL4FILE: "http://localhost:8000/uploadfile",
-    API_URL4FILEONDISK: "http://localhost:8000/uploadondisk",
+    API_URL4FILEONDISK: "http://localhost:8000/api/fsphotos",
     //fire base config
     firebase: {
         apiKey: "AIzaSyBJFAKMyDO_lmqBYUwW6CWjBIMTHyFGZKc",

@@ -94,6 +94,8 @@
         "URL_TYPE_DOCUMENTATION": "وثائق",
         "URL_TYPE_OTHER": "أخرى",
         "URL_TYPE_PHOTOS": "صور",
+        "URL_TYPE_PHOTOFROMFS": "صورة من نظام الملفات",
+        "URL_TYPE_VIDEO": "فيديو",
         "URL_TYPE_WEBSITE": "موقع ويب",
         "BASIC_INFO": "المعلومات الأساسية",
         "REGISTRATION_DATES": "تواريخ التسجيل",
@@ -118,6 +120,12 @@
         "DELETE_ALL_COMMENTARIES_CANCEL": "إلغاء",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "حذف جميع التعليقات",
         "SELECT_PAGE": "اختر الصفحة"
+    },
+    "EVENTELEM": {
+        "PHOTOS_SELECTION": "اختيار الصور",
+        "MONGODB_PHOTOS_DESC": "عرض شرائح للصور المخزنة في MongoDB (ملفات مرفوعة).",
+        "PHOTOS_FROM_FS_HEADING": "صور من نظام الملفات",
+        "OTHER_PHOTOS_LINKS": "روابط صور أخرى (ويب)"
     },
     "EVENTCREATION": {
         "TITLE": "إنشاء نشاط",
@@ -253,6 +261,10 @@
         "NO_PHOTOS_AVAILABLE": "لا توجد صور متاحة لهذا الحدث.",
         "VIEW_JSON": "عرض الحدث بتنسيق JSON",
         "FORMAT_JSON": "تنسيق JSON",
+        "PHOTOS_SELECTION": "اختيار الصور",
+        "MONGODB_PHOTOS_DESC": "عرض شرائح للصور المخزنة في MongoDB (ملفات مرفوعة).",
+        "PHOTOS_FROM_FS_HEADING": "صور من نظام الملفات",
+        "OTHER_PHOTOS_LINKS": "روابط صور أخرى (ويب)",
         "CLICK_TO_VIEW": "انقر لعرض الصورة",
         "CLICK_TO_OPEN_PDF": "انقر لفتح PDF",
         "DELETE_FILE": "حذف الملف",

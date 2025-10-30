@@ -94,6 +94,8 @@
         "URL_TYPE_DOCUMENTATION": "ドキュメント",
         "URL_TYPE_OTHER": "その他",
         "URL_TYPE_PHOTOS": "写真",
+        "URL_TYPE_PHOTOFROMFS": "ファイルシステムからの写真",
+        "URL_TYPE_VIDEO": "ビデオ",
         "URL_TYPE_WEBSITE": "ウェブサイト",
         "BASIC_INFO": "基本情報",
         "REGISTRATION_DATES": "登録日",
@@ -118,6 +120,13 @@
         "DELETE_ALL_COMMENTARIES_CANCEL": "キャンセル",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "すべてのコメントを削除",
         "SELECT_PAGE": "ページを選択"
+    },
+    "EVENTELEM": {
+        "PHOTOS_SELECTION": "写真の選択",
+        "PHOTOS": "写真",
+        "MONGODB_PHOTOS_DESC": "MongoDB に保存された写真のスライドショー（アップロード済みファイル）。",
+        "PHOTOS_FROM_FS_HEADING": "ファイルシステムからの写真",
+        "OTHER_PHOTOS_LINKS": "その他の写真リンク（Web）"
     },
     "EVENTCREATION": {
         "TITLE": "活動の作成",
@@ -253,6 +262,11 @@
         "NO_PHOTOS_AVAILABLE": "このイベントに利用可能な写真はありません。",
         "VIEW_JSON": "JSON形式でイベントを表示",
         "FORMAT_JSON": "JSON形式",
+        "PHOTOS_SELECTION": "写真の選択",
+        "PHOTOS": "写真",
+        "MONGODB_PHOTOS_DESC": "MongoDB に保存された写真のスライドショー（アップロード済みファイル）。",
+        "PHOTOS_FROM_FS_HEADING": "ファイルシステムからの写真",
+        "OTHER_PHOTOS_LINKS": "その他の写真リンク（Web）",
         "CLICK_TO_VIEW": "画像を表示するにはクリック",
         "CLICK_TO_OPEN_PDF": "PDFを開くにはクリック",
         "DELETE_FILE": "ファイルを削除",

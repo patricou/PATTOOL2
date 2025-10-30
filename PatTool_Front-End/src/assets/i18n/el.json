@@ -94,6 +94,8 @@
         "URL_TYPE_DOCUMENTATION": "Τεκμηρίωση",
         "URL_TYPE_OTHER": "Άλλο",
         "URL_TYPE_PHOTOS": "Φωτογραφίες",
+        "URL_TYPE_PHOTOFROMFS": "Φωτογραφία από το σύστημα αρχείων",
+        "URL_TYPE_VIDEO": "Βίντεο",
         "URL_TYPE_WEBSITE": "Ιστότοπος",
         "BASIC_INFO": "Βασικές πληροφορίες",
         "REGISTRATION_DATES": "Ημερομηνίες εγγραφής",
@@ -118,6 +120,12 @@
         "DELETE_ALL_COMMENTARIES_CANCEL": "Ακύρωση",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Διαγραφή όλων των σχολίων",
         "SELECT_PAGE": "Επιλογή σελίδας"
+    },
+    "EVENTELEM": {
+        "PHOTOS_SELECTION": "Επιλογή φωτογραφιών",
+        "MONGODB_PHOTOS_DESC": "Προβολή διαφανειών φωτογραφιών αποθηκευμένων στο MongoDB (ανεβασμένα αρχεία).",
+        "PHOTOS_FROM_FS_HEADING": "Φωτογραφίες από το σύστημα αρχείων",
+        "OTHER_PHOTOS_LINKS": "Άλλοι σύνδεσμοι φωτογραφιών (ιστός)"
     },
     "EVENTCREATION": {
         "TITLE": "Δημιουργία Δραστηριότητας",
@@ -252,6 +260,10 @@
         "NO_PHOTOS_AVAILABLE": "Δεν υπάρχουν διαθέσιμες φωτογραφίες για αυτό το γεγονός.",
         "VIEW_JSON": "Προβολή γεγονότος σε μορφή JSON",
         "FORMAT_JSON": "Μορφή JSON",
+        "PHOTOS_SELECTION": "Επιλογή φωτογραφιών",
+        "MONGODB_PHOTOS_DESC": "Προβολή διαφανειών φωτογραφιών αποθηκευμένων στο MongoDB (ανεβασμένα αρχεία).",
+        "PHOTOS_FROM_FS_HEADING": "Φωτογραφίες από το σύστημα αρχείων",
+        "OTHER_PHOTOS_LINKS": "Άλλοι σύνδεσμοι φωτογραφιών (ιστός)",
         "CLICK_TO_VIEW": "Κάντε κλικ για να δείτε την εικόνα",
         "CLICK_TO_OPEN_PDF": "Κάντε κλικ για να ανοίξετε το PDF",
         "DELETE_FILE": "Διαγραφή αρχείου",

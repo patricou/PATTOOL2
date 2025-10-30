@@ -91,6 +91,8 @@
         "URL_TYPE_DOCUMENTATION": "Documentation",
         "URL_TYPE_OTHER": "Other",
         "URL_TYPE_PHOTOS": "Photos",
+        "URL_TYPE_PHOTOFROMFS": "Photo from File System",
+        "URL_TYPE_VIDEO": "Video",
         "URL_TYPE_WEBSITE": "Website",
         "BASIC_INFO": "Basic Information",
         "REGISTRATION_DATES": "Registration Dates",
@@ -115,6 +117,13 @@
         "DELETE_ALL_COMMENTARIES_CANCEL": "Cancel",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Delete all comments",
         "SELECT_PAGE": "Select page"
+    },
+    "EVENTELEM": {
+        "PHOTOS_SELECTION": "Photos Selection",
+        "PHOTOS": "Photos",
+        "MONGODB_PHOTOS_DESC": "Slideshow of photos stored in MongoDB (uploaded files).",
+        "PHOTOS_FROM_FS_HEADING": "Photos from file system",
+        "OTHER_PHOTOS_LINKS": "Other photos links (web)"
     },
     "EVENTCREATION": {
         "TITLE": "Activity Creation",
@@ -258,6 +267,11 @@
         "NO_PHOTOS_AVAILABLE": "No photos available for this event.",
         "VIEW_JSON": "View event in JSON format",
         "FORMAT_JSON": "Format JSON",
+        "PHOTOS_SELECTION": "Photos Selection",
+        "PHOTOS": "Photos",
+        "MONGODB_PHOTOS_DESC": "Slideshow of photos stored in MongoDB (uploaded files).",
+        "PHOTOS_FROM_FS_HEADING": "Photos from file system",
+        "OTHER_PHOTOS_LINKS": "Other photos links (web)",
         "CLICK_TO_VIEW": "Click to view image",
         "CLICK_TO_OPEN_PDF": "Click to open PDF",
         "DELETE_FILE": "Delete file",
