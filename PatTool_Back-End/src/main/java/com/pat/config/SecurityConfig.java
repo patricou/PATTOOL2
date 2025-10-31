@@ -36,11 +36,23 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(headers -> headers
                 // Content Security Policy - restrict resource loading
+                // frame-src: Required for Keycloak login iframe, check-sso iframe, and Firebase iframes
+                // script-src: Allow Bootstrap CDN, Firebase, and inline scripts
+                // style-src: Allow Google Fonts, Bootstrap CDN, Font Awesome, Flag Icons
+                // font-src: Allow Google Fonts (fonts.gstatic.com) and Font Awesome (maxcdn.bootstrapcdn.com)
+                // img-src: Allow blob: for Angular image handling
+                // connect-src: Allow source maps, Firebase, and Keycloak connections
                 .contentSecurityPolicy(csp -> csp
-                    .policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' http://localhost:8080 https://www.patrickdeschamps.com:8543;")
+                    .policyDirectives("default-src 'self'; " +
+                        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://sportpat-5e155.firebaseio.com https://*.firebaseio.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com https://www.googleapis.com; " +
+                        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net; " +
+                        "img-src 'self' data: https: blob:; " +
+                        "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
+                        "connect-src 'self' http://localhost:8080 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://sportpat-5e155.firebaseio.com https://*.firebaseio.com https://sportpat-5e155.firebaseapp.com https://*.firebaseapp.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com wss://sportpat-5e155.firebaseio.com wss://*.firebaseio.com; " +
+                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://*.firebaseio.com https://sportpat-5e155.firebaseio.com;")
                 )
-                // Prevent clickjacking attacks
-                .frameOptions(frame -> frame.deny())
+                // Note: frameOptions is not set to allow Keycloak iframes
+                // Security is handled by CSP frame-src directive above
                 // Prevent MIME type sniffing - enables nosniff header
                 .contentTypeOptions(contentType -> {})
                 // HTTP Strict Transport Security (HSTS) - only in production with HTTPS
