@@ -53,6 +53,12 @@ export class KeycloakService {
 
   getToken(): Promise<string> {
     return new Promise<string>((resolve, reject) => {
+      // Check if Keycloak is initialized
+      if (!KeycloakService.auth.authz) {
+        reject('Keycloak not initialized');
+        return;
+      }
+      
       if (KeycloakService.auth.authz.token) {
         KeycloakService.auth.authz
           .updateToken(5)
@@ -61,10 +67,11 @@ export class KeycloakService {
           })
           .error(() => {
             console.log('Failed to refresh token');
-            window.location.href = document.baseURI;
+            // Don't redirect if token refresh fails - let the interceptor handle it
+            reject('Token refresh failed');
           });
       } else {
-        reject('Not loggen in');
+        reject('Not logged in');
       }
     });
   }

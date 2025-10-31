@@ -68,12 +68,34 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health").permitAll()
                 
                 // ============================================
+                // STATIC FILES - Allow access without authentication
+                // These files must be accessible for Angular to load and initialize Keycloak
+                // ============================================
+                // Root and index files
+                .requestMatchers("/", "/index.html", "/favicon.ico", "/robots.txt").permitAll()
+                // All assets directory
+                .requestMatchers("/assets/**").permitAll()
+                // JavaScript files (Angular bundles)
+                .requestMatchers("/*.js", "/*.js.map").permitAll()
+                // CSS files
+                .requestMatchers("/*.css", "/*.css.map").permitAll()
+                // Other static resources
+                .requestMatchers("/i18n/**", "/.well-known/**").permitAll()
+                // Angular routing paths (to be handled by WebConfig which forwards to index.html)
+                .requestMatchers("/even", "/neweven", "/updeven/**", "/details-evenement/**", 
+                                "/results", "/maps", "/links", "/links-admin", "/iot", "/patgpt").permitAll()
+                
+                // ============================================
                 // AUTHENTICATED ENDPOINTS - Require authentication
                 // ============================================
                 .requestMatchers("/api/**").authenticated()
+                .requestMatchers("/database/**").authenticated()
+                .requestMatchers("/uploadfile/**").authenticated()
+                .requestMatchers("/uploadondisk/**").authenticated()
                 
-                // All other requests (including uploadfile, uploadondisk, swagger, etc.) require authentication
-                .anyRequest().authenticated()
+                // All other requests - permit all (will be handled by Angular routing)
+                // Note: API endpoints above are protected, static files are permitted above
+                .anyRequest().permitAll()
             );
         
         return http.build();
