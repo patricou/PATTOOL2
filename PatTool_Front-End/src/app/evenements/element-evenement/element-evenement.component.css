@@ -194,7 +194,105 @@ hr {
 }
 
 .btn-sm {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    min-width: auto;
+}
+
+/* Responsive Design for Element Evenement */
+@media (max-width: 992px) {
+    .pat-card {
+        margin-bottom: 1rem;
+    }
+    
+    .card-title {
+        font-size: 1rem;
+    }
+    
+    .card-text {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .pat-card-footer {
+        padding: 0.5rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.25rem;
+        justify-content: center;
+    }
+    
+    .btn-sm {
+        font-size: 0.65rem;
+        padding: 0.2rem 0.4rem;
+        margin-bottom: 0.25rem;
+    }
+    
+    .btn-sm i {
+        font-size: 0.7rem;
+    }
+    
+    .card-title {
+        font-size: 0.95rem;
+    }
+    
+    .card-text {
+        font-size: 0.75rem;
+    }
+    
+    .card-block h5 {
+        font-size: 0.9rem;
+    }
+    
+    .card-block h4 {
+        font-size: 1rem;
+    }
+    
+    .file-actions {
+        flex-wrap: wrap;
+        gap: 2px;
+    }
+    
+    .file-actions .btn-sm {
+        padding: 0.15rem 0.3rem;
+        font-size: 0.6rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .pat-card-footer {
+        padding: 0.4rem;
+        gap: 0.2rem;
+    }
+    
+    .btn-sm {
+        font-size: 0.6rem;
+        padding: 0.15rem 0.35rem;
+        margin-bottom: 0.2rem;
+    }
+    
+    .btn-sm i {
+        font-size: 0.65rem;
+    }
+    
+    .card-title {
+        font-size: 0.9rem;
+    }
+    
+    .card-text {
+        font-size: 0.7rem;
+    }
+    
+    .file-name {
+        font-size: 0.75rem;
+    }
+    
+    .file-name .badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.5rem;
+        width: 120px;
+    }
 }
 
 /* Photos Gallery Styles */

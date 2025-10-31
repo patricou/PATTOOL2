@@ -71,8 +71,8 @@
                 </div>
                 <div class="card-content" *ngIf="isCategoryExpanded(i)">
                     <div class="links-list">
-                        <ng-container *ngFor="let u of urllinks">
-                            <div class="link-item" *ngIf="u.categoryLinkID === c.categoryLinkID && isVisible(u)">
+                        <ng-container *ngFor="let u of getCategoryLinks(c)">
+                            <div class="link-item">
                                 <div class="link-content">
                                     <div class="link-icon">
                                         <i class="fa fa-external-link"></i>

@@ -254,6 +254,19 @@
     z-index: 0;
 }
 
+/* Responsive grid breakpoints */
+@media (max-width: 1200px) {
+    .links-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 992px) {
+    .links-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
 /* Category Cards - Simplified like Events component */
 .category-card {
     background: white;
@@ -285,7 +298,6 @@
     background: white;
     opacity: 1;
     grid-column: 1 / -1;
-    grid-row: 1 / -1;
     min-height: 400px;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -316,6 +328,7 @@
 .card-content {
     padding: 15px;
     transition: all 0.3s ease;
+    overflow: visible;
 }
 
 .category-icon {
@@ -370,9 +383,17 @@
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+@media (max-width: 768px) {
+    .links-list {
+        grid-template-columns: 1fr;
+        padding: 0 10px;
+    }
+}
+
 .category-card.expanded .links-list {
     opacity: 1;
-    max-height: 1000px;
+    max-height: 5000px;
+    overflow-y: visible;
     padding: 20px;
 }
 
@@ -583,8 +604,40 @@ input:checked + .toggle-slider:before {
         gap: 20px;
     }
     
+    .search-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 15px;
+    }
+    
+    .search-input-wrapper {
+        max-width: 100%;
+    }
+    
+    .url-checkbox-container {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .url-checkbox-label {
+        width: 100%;
+        justify-content: center;
+    }
+    
     .card-header, .card-content {
         padding: 15px;
+    }
+    
+    .category-card.expanded .card-header {
+        padding: 20px 15px 15px;
+    }
+    
+    .category-card.expanded .card-content {
+        padding: 15px;
+    }
+    
+    .category-card.expanded .links-list {
+        padding: 15px 10px;
     }
     
     .link-content {
@@ -599,6 +652,21 @@ input:checked + .toggle-slider:before {
     
     .main-content {
         padding: 20px 10px;
+    }
+    
+    .suggestion-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    
+    .suggestion-category {
+        margin-left: 0;
+        margin-top: 4px;
+    }
+    
+    .suggestion-content {
+        width: 100%;
     }
 }
 
@@ -624,9 +692,71 @@ input:checked + .toggle-slider:before {
         border-radius: 12px;
     }
     
-    .link-item {
+    .category-card.expanded {
+        min-height: 300px;
+    }
+    
+    .card-header {
         padding: 12px;
-        border-radius: 10px;
+        gap: 8px;
+    }
+    
+    .category-icon {
+        width: 24px;
+        height: 24px;
+        font-size: 0.9rem;
+    }
+    
+    .category-title {
+        font-size: 1rem;
+    }
+    
+    .link-item {
+        padding: 10px;
+        border-radius: 8px;
+    }
+    
+    .link-icon {
+        width: 24px;
+        height: 24px;
+        font-size: 0.8rem;
+    }
+    
+    .link-name {
+        font-size: 0.85rem;
+    }
+    
+    .link-url {
+        font-size: 0.65rem;
+    }
+    
+    .link-author {
+        font-size: 0.65rem;
+    }
+    
+    .main-content {
+        padding: 15px 8px;
+    }
+    
+    .search-input {
+        padding: 10px 14px;
+        font-size: 0.9rem;
+    }
+    
+    .checkbox-text {
+        font-size: 0.85rem;
+    }
+    
+    .suggestion-name {
+        font-size: 0.85rem;
+    }
+    
+    .suggestion-description {
+        font-size: 0.75rem;
+    }
+    
+    .suggestion-url {
+        font-size: 0.7rem;
     }
 }
 

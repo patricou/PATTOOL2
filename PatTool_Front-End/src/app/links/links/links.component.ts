@@ -80,12 +80,21 @@ export class LinksComponent implements OnInit {
   }
 
   isVisible(u: urllink): boolean {
+    if (!u || !u.author) {
+      return false;
+    }
     let v = u.author.id === this.user.id || u.visibility === 'public';
     return v;
   }
 
   getCategoryLinks(category: Category): urllink[] {
-    return this.urllinks.filter(u => u.categoryLinkID === category.categoryLinkID && this.isVisible(u) && this.matchesSearchFilter(u));
+    const filtered = this.urllinks.filter(u => {
+      const categoryMatch = u.categoryLinkID === category.categoryLinkID;
+      const visible = this.isVisible(u);
+      const matchesSearch = this.matchesSearchFilter(u);
+      return categoryMatch && visible && matchesSearch;
+    });
+    return filtered;
   }
 
   isCategoryVisible(category: Category): boolean {

@@ -492,8 +492,13 @@
 }
 
 .preview-actions .btn {
-  padding: 8px 16px;
-  font-size: 0.9rem;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.pdf-actions .btn {
+  padding: 6px 12px;
+  font-size: 0.85rem;
 }
 
 /* Responsive Design */
@@ -762,14 +767,68 @@
 }
 
 .preview-actions .btn {
-  padding: 8px 16px;
-  font-size: 0.9rem;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.pdf-actions .btn {
+  padding: 6px 12px;
+  font-size: 0.85rem;
 }
 
 /* Responsive Design */
+@media (max-width: 992px) {
+  .description,
+  .photo-gallery,
+  .general-comments,
+  .links-section,
+  .pdf-documents {
+    padding: 20px;
+  }
+  
+  .description p {
+    font-size: 22px;
+  }
+  
+  .carousel-wrapper {
+    height: 350px;
+  }
+}
+
 @media (max-width: 768px) {
   .photo-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .description {
+    padding: 20px 15px;
+  }
+  
+  .description p {
+    font-size: 18px;
+  }
+  
+  .photo-gallery,
+  .general-comments,
+  .links-section,
+  .pdf-documents {
+    padding: 20px 15px;
+  }
+  
+  .carousel-wrapper {
+    height: 300px;
+  }
+  
+  .carousel-nav {
+    width: 40px;
+    height: 40px;
+    font-size: 14px;
+  }
+  
+  .carousel-autoplay-btn {
+    width: 35px;
+    height: 35px;
+    font-size: 12px;
   }
   
   .url-event-content {
@@ -780,6 +839,8 @@
   .url-link-btn {
     min-width: auto;
     width: 100%;
+    padding: 6px 10px;
+    font-size: 0.85rem;
   }
   
   .url-event-description {
@@ -812,6 +873,17 @@
     justify-content: center;
   }
   
+  .preview-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .preview-actions .btn {
+    width: 100%;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+  }
+  
   .pdf-item {
     flex-direction: column;
     align-items: flex-start;
@@ -822,9 +894,18 @@
     width: 100%;
   }
   
-  .preview-actions {
+  .pdf-actions {
     width: 100%;
     justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .pdf-actions .btn {
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    flex: 1;
+    min-width: 100px;
   }
   
   .comment-header {
@@ -837,18 +918,101 @@
     flex-direction: column;
     gap: 5px;
   }
+  
+  .general-comments h3,
+  .links-section h3,
+  .pdf-documents h3 {
+    font-size: 1.1rem;
+  }
+  
+  .comment {
+    padding: 15px;
+  }
+  
+  .comment-text {
+    font-size: 14px;
+  }
 }
 
 @media (max-width: 480px) {
   .description,
   .photo-gallery,
   .general-comments,
-  .links-section {
-    padding: 20px;
+  .links-section,
+  .pdf-documents {
+    padding: 15px 10px;
   }
   
+  .description p {
+    font-size: 16px;
+  }
   
   .photo-image {
     height: 200px;
+  }
+  
+  .carousel-wrapper {
+    height: 250px;
+  }
+  
+  .carousel-nav {
+    width: 35px;
+    height: 35px;
+    font-size: 12px;
+  }
+  
+  .carousel-prev {
+    left: 10px;
+  }
+  
+  .carousel-next {
+    right: 10px;
+  }
+  
+  .carousel-autoplay-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 10px;
+  }
+  
+  .general-comments h3,
+  .links-section h3,
+  .pdf-documents h3 {
+    font-size: 1rem;
+  }
+  
+  .url-type-title {
+    font-size: 1rem;
+  }
+  
+  .preview-title {
+    font-size: 1rem;
+  }
+  
+  .pdf-name {
+    font-size: 1rem;
+  }
+  
+  .preview-actions .btn,
+  .pdf-actions .btn {
+    padding: 5px 10px;
+    font-size: 0.75rem;
+  }
+  
+  .comment {
+    padding: 12px;
+  }
+  
+  .comment-header strong {
+    font-size: 14px;
+  }
+  
+  .comment-text {
+    font-size: 13px;
+  }
+  
+  .url-link-btn {
+    padding: 5px 8px;
+    font-size: 0.8rem;
   }
 }
