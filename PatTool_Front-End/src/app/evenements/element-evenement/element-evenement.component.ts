@@ -244,7 +244,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 						next: (buffer: ArrayBuffer) => {
 							const blob = new Blob([buffer], { type: 'image/*' });
 							const url = URL.createObjectURL(blob);
-							const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined };
+							const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined, blob: blob, fileName: fileName };
 							
 							// Add image dynamically to the already open slideshow
 							if (this.slideshowModalComponent) {
@@ -1934,7 +1934,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Prepare image sources for the slideshow component
 		const imageSources: SlideshowImageSource[] = imageFiles.map(file => ({
 			fileId: file.fieldId,
-			blobUrl: undefined
+			blobUrl: undefined,
+			fileName: file.fileName
 		}));
 
 		// Open the slideshow modal immediately - images will be loaded dynamically

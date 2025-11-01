@@ -15,6 +15,8 @@ export interface SlideshowImageSource {
   // Either provide a fileId to load from FileService, or a direct blob URL
   fileId?: string;
   blobUrl?: string;
+  blob?: Blob; // Optional: store the original blob to avoid CSP issues
+  fileName?: string; // Optional: file name for display in EXIF modal
 }
 
 @Component({
@@ -79,6 +81,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // EXIF data
   public exifData: Array<{label: string, value: string}> = [];
   public isLoadingExif: boolean = false;
+  public currentImageFileName: string = ''; // Current image file name for EXIF modal title
+  private exifDataCache: Map<string, Array<{label: string, value: string}>> = new Map(); // Cache EXIF data by image URL
+  private imageFileNames: Map<string, string> = new Map(); // Store file names by image URL
   
   constructor(
     private modalService: NgbModal,
@@ -107,6 +112,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     });
     this.slideshowImages = [];
     this.slideshowBlobs.clear();
+    this.exifDataCache.clear();
+    this.imageFileNames.clear();
+    this.currentImageFileName = '';
   }
   
   // Open the slideshow modal
@@ -129,8 +137,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Initialize slideshow state
     this.slideshowImages = [];
     this.slideshowBlobs.clear();
+    this.exifDataCache.clear();
+    this.imageFileNames.clear();
     this.currentSlideshowIndex = 0;
     this.isSlideshowActive = false;
+    this.currentImageFileName = '';
     this.resetSlideshowZoom();
     
     // Ensure ViewChild is available (use setTimeout to ensure it's initialized)
@@ -224,10 +235,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
               const objectUrl = URL.createObjectURL(blob);
               // Store the blob for later use (e.g., EXIF reading)
               this.slideshowBlobs.set(objectUrl, blob);
-              return objectUrl;
+              // Store file name if provided
+              if (imageSource.fileName) {
+                this.imageFileNames.set(objectUrl, imageSource.fileName);
+              }
+              return { objectUrl, blob };
             })
-          ).subscribe((objectUrl: string) => {
+          ).subscribe(({ objectUrl, blob }) => {
             this.slideshowImages.push(objectUrl);
+            // Pre-load EXIF data in background (non-blocking)
+            this.preloadExifData(objectUrl, blob).catch(() => {
+              // Silently fail if EXIF loading fails
+            });
             // Reset zoom when first image loads
             if (this.slideshowImages.length === 1) {
               setTimeout(() => this.resetSlideshowZoom(), 100);
@@ -242,6 +261,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.images.forEach((imageSource) => {
         if (imageSource.blobUrl) {
           this.slideshowImages.push(imageSource.blobUrl);
+          // If blob is provided, store it for EXIF reading
+          if (imageSource.blob) {
+            this.slideshowBlobs.set(imageSource.blobUrl, imageSource.blob);
+            // Pre-load EXIF data in background (non-blocking)
+            this.preloadExifData(imageSource.blobUrl, imageSource.blob).catch(() => {
+              // Silently fail if EXIF loading fails
+            });
+          }
+          // Store file name if provided
+          if (imageSource.fileName) {
+            this.imageFileNames.set(imageSource.blobUrl, imageSource.fileName);
+          }
         }
       });
       // Reset zoom when images are loaded
@@ -260,6 +291,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     newImages.forEach((imageSource) => {
       if (imageSource.blobUrl && !this.slideshowImages.includes(imageSource.blobUrl)) {
         this.slideshowImages.push(imageSource.blobUrl);
+        // If blob is provided, store it for EXIF reading
+        if (imageSource.blob) {
+          this.slideshowBlobs.set(imageSource.blobUrl, imageSource.blob);
+          // Pre-load EXIF data in background (non-blocking)
+          this.preloadExifData(imageSource.blobUrl, imageSource.blob).catch(() => {
+            // Silently fail if EXIF loading fails
+          });
+        }
+        // Store file name if provided
+        if (imageSource.fileName) {
+          this.imageFileNames.set(imageSource.blobUrl, imageSource.fileName);
+        }
       } else if (imageSource.fileId && this.loadFromFileService) {
         // Load via FileService if needed
         this.fileService.getFile(imageSource.fileId).pipe(
@@ -270,11 +313,19 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             const objectUrl = URL.createObjectURL(blob);
             // Store the blob for later use (e.g., EXIF reading)
             this.slideshowBlobs.set(objectUrl, blob);
-            return objectUrl;
+            // Store file name if provided
+            if (imageSource.fileName) {
+              this.imageFileNames.set(objectUrl, imageSource.fileName);
+            }
+            return { objectUrl, blob };
           })
-        ).subscribe((objectUrl: string) => {
+        ).subscribe(({ objectUrl, blob }) => {
           if (!this.slideshowImages.includes(objectUrl)) {
             this.slideshowImages.push(objectUrl);
+            // Pre-load EXIF data in background (non-blocking)
+            this.preloadExifData(objectUrl, blob).catch(() => {
+              // Silently fail if EXIF loading fails
+            });
           }
         }, (error) => {
           console.error('Error loading image for slideshow:', error);
@@ -731,6 +782,30 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       return;
     }
     
+    const currentImageUrl = this.getCurrentSlideshowImage();
+    if (!currentImageUrl) {
+      return;
+    }
+    
+    // Get current image file name for modal title
+    this.currentImageFileName = this.imageFileNames.get(currentImageUrl) || '';
+    
+    // Check if EXIF data is already cached
+    const cachedExifData = this.exifDataCache.get(currentImageUrl);
+    if (cachedExifData) {
+      // Use cached data immediately
+      this.exifData = cachedExifData;
+      this.isLoadingExif = false;
+      
+      // Open modal with cached data
+      const exifModalRef = this.modalService.open(this.exifModal, {
+        size: 'lg',
+        centered: true
+      });
+      return;
+    }
+    
+    // If not cached, load it
     this.isLoadingExif = true;
     this.exifData = [];
     
@@ -742,11 +817,30 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Load EXIF data
     this.loadExifData().then(() => {
+      // Cache the EXIF data for future use
+      if (this.exifData.length > 0) {
+        this.exifDataCache.set(currentImageUrl, [...this.exifData]);
+      }
       this.isLoadingExif = false;
     }).catch((error) => {
       console.error('Error loading EXIF data:', error);
       this.isLoadingExif = false;
     });
+  }
+  
+  // Pre-load EXIF data in background when image is loaded
+  private async preloadExifData(imageUrl: string, blob: Blob): Promise<void> {
+    // Check if already cached
+    if (this.exifDataCache.has(imageUrl)) {
+      return;
+    }
+    
+    try {
+      // Read EXIF from blob without UI blocking
+      await this.readExifFromBlob(blob, imageUrl);
+    } catch (error) {
+      // Silently fail - we'll try again when user requests EXIF info
+    }
   }
   
   private async loadExifData(): Promise<void> {
@@ -805,17 +899,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         // Read EXIF from blob
         await this.readExifFromBlob(blob);
       } else {
-        // If we don't have the blob, try to read EXIF from blob URL directly
-        if (currentImageUrl.startsWith('blob:')) {
-          await this.readExifFromBlobUrl(currentImageUrl);
-        } else if (imgEl && imgEl.src) {
+        // If we don't have the blob stored, we cannot read EXIF without violating CSP
+        // The blob should always be stored when images are added
+        // Only try reading from image element as last resort (for non-blob URLs)
+        if (!currentImageUrl.startsWith('blob:') && imgEl && imgEl.src) {
           await this.readExifFromImageElement(imgEl);
-        } else {
-          // Last resort: try reading from blob URL even if we don't have imgEl
-          if (currentImageUrl) {
-            await this.readExifFromBlobUrl(currentImageUrl);
-          }
         }
+        // For blob URLs without stored blob, we skip EXIF reading to avoid CSP violation
       }
       
     } catch (error) {
@@ -823,7 +913,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  private async readExifFromBlob(blob: Blob): Promise<void> {
+  private async readExifFromBlob(blob: Blob, imageUrl?: string): Promise<void> {
     return new Promise((resolve) => {
       // Create a temporary image element to use with EXIF.js
       const img = new Image();
@@ -834,8 +924,20 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           EXIF.getData(img as any, () => {
             try {
               const exifData = EXIF.getAllTags(img as any);
-              // Use the shared method to process EXIF data
-              this.processExifData(exifData);
+              
+              // Process EXIF data into display format
+              const processedData: Array<{label: string, value: string}> = [];
+              this.processExifDataIntoArray(exifData, processedData);
+              
+              // Cache the processed data if imageUrl is provided (for preloading)
+              if (imageUrl && processedData.length > 0) {
+                this.exifDataCache.set(imageUrl, processedData);
+              }
+              
+              // If called from loadExifData (user requested), update the UI
+              if (!imageUrl) {
+                this.exifData = processedData;
+              }
             } catch (error) {
               console.error('Error processing EXIF data:', error);
             }
@@ -861,10 +963,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Read EXIF from blob URL by creating a new image (avoids CSP violation)
+  // Note: This creates a new image element which may trigger CSP checks
+  // Should only be used as fallback when blob is not stored
   private async readExifFromBlobUrl(blobUrl: string): Promise<void> {
     return new Promise((resolve) => {
+      // Don't set crossOrigin as it may trigger CSP checks
       const img = new Image();
-      img.crossOrigin = 'anonymous';
       
       img.onload = () => {
         try {
@@ -910,7 +1014,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       
       // Create a new image with the same src for EXIF reading
       const img = new Image();
-      img.crossOrigin = 'anonymous';
       
       img.onload = () => {
         try {
@@ -953,21 +1056,29 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Process EXIF data and add to display array
+  // Process EXIF data and add to display array (for direct UI update)
   private processExifData(exifData: any): void {
+    if (!exifData) {
+      return;
+    }
+    this.processExifDataIntoArray(exifData, this.exifData);
+  }
+  
+  // Process EXIF data into a provided array (reusable for caching)
+  private processExifDataIntoArray(exifData: any, targetArray: Array<{label: string, value: string}>): void {
     if (!exifData) {
       return;
     }
     
     // Camera info
     if (exifData.Make) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_MAKE'),
         value: exifData.Make
       });
     }
     if (exifData.Model) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_MODEL'),
         value: exifData.Model
       });
@@ -975,13 +1086,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Date/Time
     if (exifData.DateTime) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_DATE_TIME'),
         value: exifData.DateTime
       });
     }
     if (exifData.DateTimeOriginal) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_DATE_TIME_ORIGINAL'),
         value: exifData.DateTimeOriginal
       });
@@ -989,25 +1100,25 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Camera settings
     if (exifData.ExposureTime) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_EXPOSURE_TIME'),
         value: `1/${Math.round(1 / exifData.ExposureTime)}s`
       });
     }
     if (exifData.FNumber) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_F_NUMBER'),
         value: `f/${exifData.FNumber}`
       });
     }
     if (exifData.ISOSpeedRatings) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_ISO'),
         value: `ISO ${exifData.ISOSpeedRatings}`
       });
     }
     if (exifData.FocalLength) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_FOCAL_LENGTH'),
         value: `${exifData.FocalLength} mm`
       });
@@ -1018,7 +1129,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const flashValue = exifData.Flash === 0 ? 
         this.translateService.instant('EVENTELEM.EXIF_FLASH_NO') : 
         this.translateService.instant('EVENTELEM.EXIF_FLASH_YES');
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_FLASH'),
         value: flashValue
       });
@@ -1026,7 +1137,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Software
     if (exifData.Software) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_SOFTWARE'),
         value: exifData.Software
       });
@@ -1034,7 +1145,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Orientation
     if (exifData.Orientation) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_ORIENTATION'),
         value: exifData.Orientation.toString()
       });
@@ -1044,7 +1155,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (exifData.GPSLatitude && exifData.GPSLongitude) {
       const lat = this.convertDMSToDD(exifData.GPSLatitude, exifData.GPSLatitudeRef);
       const lon = this.convertDMSToDD(exifData.GPSLongitude, exifData.GPSLongitudeRef);
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_GPS'),
         value: `${lat.toFixed(6)}, ${lon.toFixed(6)}`
       });
@@ -1052,13 +1163,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // EXIF dimensions (if different from image dimensions)
     if (exifData.PixelXDimension) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_PIXEL_WIDTH'),
         value: `${exifData.PixelXDimension} px`
       });
     }
     if (exifData.PixelYDimension) {
-      this.exifData.push({
+      targetArray.push({
         label: this.translateService.instant('EVENTELEM.EXIF_PIXEL_HEIGHT'),
         value: `${exifData.PixelYDimension} px`
       });
