@@ -130,8 +130,36 @@
             </div>
             <div class="url-card-body">
               <div class="url-event-content">
+                <!-- Photo From FS Content Display -->
+                <div class="fs-photos-content" *ngIf="urlEvent.typeUrl && (urlEvent.typeUrl.toUpperCase().trim() === 'PHOTOFROMFS')">
+                  <div class="row align-items-center mb-3">
+                    <div class="col">
+                      <h5 class="fs-photos-title mb-0" *ngIf="urlEvent.urlDescription">
+                        {{ urlEvent.urlDescription }}
+                      </h5>
+                      <h5 class="fs-photos-title mb-0" *ngIf="!urlEvent.urlDescription">
+                        {{ 'EVENTHOME.URL_TYPE_PHOTOFROMFS' | translate }}
+                      </h5>
+                    </div>
+                  </div>
+                  
+                  <div class="fs-photos-preview">
+                    <div class="preview-card">
+                      <div class="preview-info">
+                        <div class="preview-path">{{ urlEvent.link }}</div>
+                      </div>
+                      
+                      <div class="preview-actions">
+                        <button class="btn btn-primary" (click)="openFsPhotosDiaporama(urlEvent.link)">
+                          <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Website Content Display with Description on the side -->
-                <div class="website-content" *ngIf="urlEvent.link">
+                <div class="website-content" *ngIf="urlEvent.link && (!urlEvent.typeUrl || urlEvent.typeUrl.toUpperCase().trim() !== 'PHOTOFROMFS')">
                                     <div class="row align-items-center mb-3">
                     <!-- Website title / Description -->
                     <div class="col">
@@ -242,5 +270,85 @@
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-secondary" (click)="c()">{{ 'COMMUN.CLOSE' | translate }}</button>
+  </div>
+</ng-template>
+
+<!-- Slideshow Modal -->
+<ng-template #slideshowModal let-c="close" let-d="dismiss">
+  <div class="modal-header slideshow-header">
+    <h5 class="modal-title">
+      <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW_TITLE' | translate }} - {{ evenement.evenementName }}
+    </h5>
+    <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="onSlideshowClose(c)" aria-label="Close">
+      <i class="fa fa-times"></i>
+    </button>
+  </div>
+  <div class="modal-body slideshow-body">
+    <div class="slideshow-container">
+      <div class="slideshow-image-wrapper" #slideshowContainer
+           (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
+           (mouseup)="onSlideshowMouseUp()" (mouseleave)="onSlideshowMouseUp()" (document:mouseup)="onSlideshowMouseUp()"
+           (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
+           [style.cursor]="isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')" style="overflow:hidden; user-select: none;">
+        <img #slideshowImgEl *ngIf="slideshowImages.length > 0" 
+             [src]="getCurrentSlideshowImage()" 
+             alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
+             class="slideshow-image"
+             [style.transform]="'translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0) scale(' + slideshowZoom + ')'
+             "
+             style="transform-origin:center center;"
+             (wheel)="onWheelSlideshow($event)"
+             [class.fullscreen-image]="isFullscreen"
+             />
+        <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
+          <i class="fa fa-spinner fa-spin fa-3x"></i>
+          <p>{{ 'EVENTELEM.LOADING_IMAGES' | translate }}</p>
+        </div>
+        <div *ngIf="slideshowImages.length > 0" class="slideshow-counter">
+          {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
+        </div>
+      </div>
+      <div class="slideshow-controls" [class.always-visible]="isFullscreen && !isSlideshowActive">
+        <button class="btn btn-lg btn-outline-light slideshow-btn-prev" 
+                (click)="previousImage()"
+                [disabled]="slideshowImages.length <= 1">
+          <i class="fa fa-chevron-left"></i>
+        </button>
+        <button class="btn btn-lg btn-outline-light slideshow-btn-next" 
+                (click)="nextImage()"
+                [disabled]="slideshowImages.length <= 1">
+          <i class="fa fa-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer slideshow-footer">
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <button type="button" class="btn btn-secondary" 
+              (click)="toggleSlideshow()"
+              [disabled]="slideshowImages.length <= 1"
+              [ngbTooltip]="isSlideshowActive ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate)"
+              placement="top">
+        <i class="fa me-1" [ngClass]="isSlideshowActive ? 'fa-pause-circle-o' : 'fa-play-circle-o'"></i>
+        <span *ngIf="!isSlideshowActive">{{ 'EVENTELEM.PLAY' | translate }}</span>
+        <span *ngIf="isSlideshowActive">{{ 'EVENTELEM.PAUSE' | translate }}</span>
+      </button>
+      <div class="btn-group" role="group">
+        <button type="button" class="btn btn-outline-secondary" (click)="zoomOutSlideshow()"><i class="fa fa-search-minus"></i></button>
+        <button type="button" class="btn btn-outline-secondary" (click)="resetSlideshowZoom()"><i class="fa fa-refresh"></i></button>
+        <button type="button" class="btn btn-outline-secondary" (click)="zoomInSlideshow()"><i class="fa fa-search-plus"></i></button>
+      </div>
+      <button type="button" class="btn btn-secondary" 
+              (click)="toggleFullscreen()"
+              [ngbTooltip]="isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)"
+              placement="top">
+        <i [class.fa-arrows-alt]="!isFullscreen" [class.fa-compress]="isFullscreen" class="me-1"></i>
+        <span *ngIf="!isFullscreen">{{ 'EVENTELEM.FULLSCREEN' | translate }}</span>
+        <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span>
+      </button>
+      <button type="button" class="btn btn-secondary" (click)="onSlideshowClose(c)">
+        <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+      </button>
+    </div>
   </div>
 </ng-template>

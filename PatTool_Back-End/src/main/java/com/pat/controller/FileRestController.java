@@ -29,6 +29,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
@@ -293,7 +294,7 @@ public class FileRestController {
     }
 
     @RequestMapping( value = "/api/file/{fileId}", method = RequestMethod.GET )
-    public ResponseEntity< InputStreamResource> getFile(@PathVariable String fileId){
+    public ResponseEntity< InputStreamResource> getFile(@PathVariable String fileId, HttpServletRequest request, HttpServletResponse response){
         
         log.debug("Attempting to retrieve file with ID: " + fileId);
 
@@ -375,10 +376,36 @@ public class FileRestController {
                 
                 // No resizing - return original image as-is
                 
+                // Check if client connection is still open before returning response
+                // This helps prevent AsyncRequestNotUsableException when client closes connection
+                if (request != null && !response.isCommitted()) {
+                    try {
+                        // Check if output stream is available
+                        response.getOutputStream();
+                    } catch (IOException e) {
+                        // Connection closed by client - log at debug level and return null
+                        if (e.getMessage() != null && (e.getMessage().contains("Connection reset") || 
+                                                         e.getMessage().contains("Broken pipe"))) {
+                            log.debug("Client closed connection before file transfer completed for file: " + fileId);
+                            return null; // Connection already closed, can't send response
+                        }
+                        throw e; // Re-throw if it's a different IOException
+                    }
+                }
+                
                 return ResponseEntity.ok()
                         .headers(headers)
                         .body(new InputStreamResource(gridFsResource.getInputStream()));
             } catch (IOException e) {
+                // Handle connection reset gracefully - this is normal when client closes modal/slideshow
+                String errorMsg = e.getMessage();
+                if (errorMsg != null && (errorMsg.contains("Connection reset") || 
+                                         errorMsg.contains("Broken pipe") ||
+                                         errorMsg.contains("Connection closed"))) {
+                    log.debug("Client closed connection during file transfer for file: " + fileId);
+                    return null; // Connection already closed, can't send response
+                }
+                
                 log.debug("Error accessing file content: " + fileId, e);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new InputStreamResource(new java.io.ByteArrayInputStream("Error accessing file content".getBytes())));
@@ -391,6 +418,17 @@ public class FileRestController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new InputStreamResource(new java.io.ByteArrayInputStream(("GridFS error: " + e.getMessage()).getBytes())));
         } catch (Exception e) {
+            // Check if wrapped IOException is a connection reset
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException) {
+                String causeMsg = cause.getMessage();
+                if (causeMsg != null && (causeMsg.contains("Connection reset") || 
+                                         causeMsg.contains("Broken pipe"))) {
+                    log.debug("Client closed connection (wrapped IOException) for file: " + fileId);
+                    return null; // Connection already closed
+                }
+            }
+            
             log.debug("Error retrieving file: " + fileId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new InputStreamResource(new java.io.ByteArrayInputStream(("Error: " + e.getMessage()).getBytes())));

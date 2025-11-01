@@ -580,8 +580,10 @@
         <div class="slideshow-container">
             <div class="slideshow-image-wrapper" #slideshowContainer
                  (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
-                 (mouseup)="onSlideshowMouseUp()" (mouseleave)="onSlideshowMouseUp()" (document:mouseup)="onSlideshowMouseUp()" [style.cursor]="isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')" style="overflow:hidden; user-select: none;">
-                <img #slideshowImg *ngIf="slideshowImages.length > 0" 
+                 (mouseup)="onSlideshowMouseUp()" (mouseleave)="onSlideshowMouseUp()" (document:mouseup)="onSlideshowMouseUp()"
+                 (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
+                 [style.cursor]="isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')" style="overflow:hidden; user-select: none;">
+                <img #slideshowImgEl *ngIf="slideshowImages.length > 0" 
                      [src]="getCurrentSlideshowImage()" 
                      alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
                      class="slideshow-image"

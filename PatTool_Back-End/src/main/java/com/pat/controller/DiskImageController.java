@@ -47,10 +47,10 @@ public class DiskImageController {
     public List<String> listImages(@RequestParam("relativePath") String relativePath,
                                    @RequestParam(value = "limit", required = false) Optional<Integer> limit,
                                    @RequestParam(value = "sort", required = false) Optional<String> sort) throws IOException {
-        log.info("[FSPhotos][LIST] basePath='{}', relativePath='{}'", basePath, relativePath);
+        log.debug("[FSPhotos][LIST] basePath='{}', relativePath='{}'", basePath, relativePath);
         String sanitized = sanitizeRelativePath(relativePath);
         Path dir = Paths.get(basePath, sanitized).normalize();
-        log.info("[FSPhotos][LIST] sanitized='{}', resolvedDir='{}'", sanitized, dir);
+        log.debug("[FSPhotos][LIST] sanitized='{}', resolvedDir='{}'", sanitized, dir);
 
         if (!Files.exists(dir)) {
             log.warn("[FSPhotos][LIST] Directory does not exist: {}", dir);
@@ -88,7 +88,7 @@ public class DiskImageController {
              .map(Path::toString)
              .forEach(files::add);
 
-        log.info("[FSPhotos][LIST] imagesFoundTotal={}, returned={}, dir={}", paths.size(), files.size(), dir);
+        log.debug("[FSPhotos][LIST] imagesFoundTotal={}, returned={}, dir={}", paths.size(), files.size(), dir);
         return files;
     }
 
@@ -96,12 +96,12 @@ public class DiskImageController {
     @GetMapping("/image")
     public ResponseEntity<Resource> getImage(@RequestParam("relativePath") String relativePath,
                                              @RequestParam("fileName") String fileName) throws IOException {
-        log.info("[FSPhotos][IMAGE] basePath='{}', relativePath='{}', fileName='{}'", basePath, relativePath, fileName);
+        log.debug("[FSPhotos][IMAGE] basePath='{}', relativePath='{}', fileName='{}'", basePath, relativePath, fileName);
         String sanitizedRel = sanitizeRelativePath(relativePath);
         String sanitizedName = sanitizeFileName(fileName);
 
         Path file = Paths.get(basePath, sanitizedRel, sanitizedName).normalize();
-        log.info("[FSPhotos][IMAGE] sanitizedRel='{}', sanitizedName='{}', resolvedFile='{}'", sanitizedRel, sanitizedName, file);
+        log.debug("[FSPhotos][IMAGE] sanitizedRel='{}', sanitizedName='{}', resolvedFile='{}'", sanitizedRel, sanitizedName, file);
 
         if (!Files.exists(file) || !Files.isRegularFile(file)) {
             log.warn("[FSPhotos][IMAGE] File not found or not regular: {}", file);
@@ -112,7 +112,7 @@ public class DiskImageController {
         if (contentType == null) {
             contentType = "application/octet-stream";
         }
-        log.info("[FSPhotos][IMAGE] contentType='{}'", contentType);
+        log.debug("[FSPhotos][IMAGE] contentType='{}'", contentType);
 
         long lastModified = Files.getLastModifiedTime(file).toMillis();
         InputStream is = Files.newInputStream(file);

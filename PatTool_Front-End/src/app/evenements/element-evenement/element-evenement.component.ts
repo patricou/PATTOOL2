@@ -72,6 +72,17 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	private dragStartY: number = 0;
 	private dragOrigX: number = 0;
 	private dragOrigY: number = 0;
+	
+	// Touch state for mobile gestures
+	private touchStartDistance: number = 0;
+	private touchStartZoom: number = 1;
+	private lastTouchDistance: number = 0;
+	private touchStartX: number = 0;
+	private touchStartY: number = 0;
+	private isPinching: boolean = false;
+	private initialTouches: Touch[] = [];
+	private pinchStartTranslateX: number = 0;
+	private pinchStartTranslateY: number = 0;
 
 	@ViewChild('imageContainer') imageContainerRef!: ElementRef;
 	@ViewChild('imageEl') imageElRef!: ElementRef<HTMLImageElement>;
@@ -205,7 +216,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this._fileService.listImagesFromDisk(relativePath).subscribe({
             next: (fileNames: string[]) => {
                 // Open the modal immediately (will show loader until images arrive)
-				const modalRef = this.modalService.open(this.slideshowModal, { size: 'xl', centered: true });
+				const modalRef = this.modalService.open(this.slideshowModal, { size: 'xl', centered: true, windowClass: 'slideshow-modal-wide' });
 
                 if (!fileNames || fileNames.length === 0) {
                     return;
@@ -221,7 +232,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
             },
             error: () => {
                 // Open modal anyway to show empty state/error
-                this.modalService.open(this.slideshowModal, { size: 'xl', centered: true });
+                this.modalService.open(this.slideshowModal, { size: 'xl', centered: true, windowClass: 'slideshow-modal-wide' });
             }
         });
 	}
@@ -455,6 +466,152 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			if (this.slideshowTranslateY > maxY) this.slideshowTranslateY = maxY;
 			if (this.slideshowTranslateY < -maxY) this.slideshowTranslateY = -maxY;
 		} catch {}
+	}
+
+	// Helper function to calculate distance between two touches
+	private getTouchDistance(touch1: Touch, touch2: Touch): number {
+		const dx = touch1.clientX - touch2.clientX;
+		const dy = touch1.clientY - touch2.clientY;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
+
+	// Helper function to get center point between two touches
+	private getTouchCenter(touch1: Touch, touch2: Touch): { x: number; y: number } {
+		return {
+			x: (touch1.clientX + touch2.clientX) / 2,
+			y: (touch1.clientY + touch2.clientY) / 2
+		};
+	}
+
+	// Touch handlers for Slideshow modal - Mobile support
+	public onSlideshowTouchStart(event: TouchEvent): void {
+		if (event.touches.length === 1) {
+			// Single touch - start drag
+			const touch = event.touches[0];
+			const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
+			this.isDraggingSlideshow = canDrag;
+			this.hasDraggedSlideshow = false;
+			if (canDrag) {
+				try { event.preventDefault(); event.stopPropagation(); } catch {}
+			}
+			this.touchStartX = touch.clientX;
+			this.touchStartY = touch.clientY;
+			this.dragStartX = touch.clientX;
+			this.dragStartY = touch.clientY;
+			this.dragOrigX = this.slideshowTranslateX;
+			this.dragOrigY = this.slideshowTranslateY;
+			this.isPinching = false;
+		} else if (event.touches.length === 2) {
+			// Two touches - start pinch zoom
+			try { event.preventDefault(); event.stopPropagation(); } catch {}
+			this.isPinching = true;
+			this.isDraggingSlideshow = false;
+			const touch1 = event.touches[0];
+			const touch2 = event.touches[1];
+			this.touchStartDistance = this.getTouchDistance(touch1, touch2);
+			this.touchStartZoom = this.slideshowZoom;
+			this.lastTouchDistance = this.touchStartDistance;
+			this.initialTouches = [touch1, touch2];
+			this.pinchStartTranslateX = this.slideshowTranslateX;
+			this.pinchStartTranslateY = this.slideshowTranslateY;
+			
+			// Store the center point for zoom origin
+			const center = this.getTouchCenter(touch1, touch2);
+			const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+			if (container) {
+				const rect = container.getBoundingClientRect();
+				this.touchStartX = center.x - rect.left;
+				this.touchStartY = center.y - rect.top;
+			}
+		}
+	}
+
+	public onSlideshowTouchMove(event: TouchEvent): void {
+		if (event.touches.length === 1 && !this.isPinching) {
+			// Single touch - drag
+			if (!this.isDraggingSlideshow) return;
+			const touch = event.touches[0];
+			try { event.preventDefault(); event.stopPropagation(); } catch {}
+			const dx = touch.clientX - this.dragStartX;
+			const dy = touch.clientY - this.dragStartY;
+			this.slideshowTranslateX = this.dragOrigX + dx;
+			this.slideshowTranslateY = this.dragOrigY + dy;
+			if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
+			this.clampSlideshowTranslation();
+		} else if (event.touches.length === 2 && this.isPinching) {
+			// Two touches - pinch zoom
+			try { event.preventDefault(); event.stopPropagation(); } catch {}
+			const touch1 = event.touches[0];
+			const touch2 = event.touches[1];
+			const currentDistance = this.getTouchDistance(touch1, touch2);
+			
+			if (this.touchStartDistance > 0) {
+				// Calculate zoom factor based on distance change
+				const scale = currentDistance / this.touchStartDistance;
+				let newZoom = this.touchStartZoom * scale;
+				
+				// Apply min/max zoom constraints
+				const minZoom = this.getMinSlideshowZoom();
+				const maxZoom = 5;
+				newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+				
+				this.slideshowZoom = parseFloat(newZoom.toFixed(2));
+				
+				// Adjust translation to keep zoom centered on pinch point
+				if (this.slideshowZoom > minZoom) {
+					const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+					const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
+					if (container && imgEl) {
+						const rect = container.getBoundingClientRect();
+						const currentPinchCenterX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+						const currentPinchCenterY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+						
+						// Get initial pinch center point
+						const initialPinchCenterX = this.touchStartX;
+						const initialPinchCenterY = this.touchStartY;
+						
+						// Calculate zoom change factor
+						const zoomChange = this.slideshowZoom / this.touchStartZoom;
+						
+						// Calculate the new translation to zoom around the initial pinch point
+						// Formula: newTranslate = pinchCenter - (pinchCenter - oldTranslate) * zoomChange
+						this.slideshowTranslateX = initialPinchCenterX - (initialPinchCenterX - this.pinchStartTranslateX) * zoomChange;
+						this.slideshowTranslateY = initialPinchCenterY - (initialPinchCenterY - this.pinchStartTranslateY) * zoomChange;
+					}
+				}
+				
+				this.lastTouchDistance = currentDistance;
+				this.clampSlideshowTranslation();
+			}
+		}
+	}
+
+	public onSlideshowTouchEnd(event: TouchEvent): void {
+		if (event.touches.length === 0) {
+			// All touches ended
+			this.isDraggingSlideshow = false;
+			this.isPinching = false;
+			this.initialTouches = [];
+			this.touchStartDistance = 0;
+			this.lastTouchDistance = 0;
+			this.pinchStartTranslateX = 0;
+			this.pinchStartTranslateY = 0;
+		} else if (event.touches.length === 1 && this.isPinching) {
+			// One touch lifted during pinch - switch to drag mode
+			this.isPinching = false;
+			const touch = event.touches[0];
+			this.isDraggingSlideshow = this.slideshowZoom > this.getMinSlideshowZoom();
+			if (this.isDraggingSlideshow) {
+				this.touchStartX = touch.clientX;
+				this.touchStartY = touch.clientY;
+				this.dragStartX = touch.clientX;
+				this.dragStartY = touch.clientY;
+				this.dragOrigX = this.slideshowTranslateX;
+				this.dragOrigY = this.slideshowTranslateY;
+			}
+			this.pinchStartTranslateX = 0;
+			this.pinchStartTranslateY = 0;
+		}
 	}
 
 	ngOnInit() {
@@ -1733,7 +1890,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				centered: true,
 				backdrop: true,
 				keyboard: true,
-				windowClass: 'modal-smooth-animation'
+				windowClass: 'modal-smooth-animation slideshow-modal-wide'
 			});
 			
 			// Set flag that modal is open

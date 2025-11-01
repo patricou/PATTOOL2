@@ -1,5 +1,5 @@
 import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, OnDestroy, TemplateRef } from '@angular/core';
-import { Observable, fromEvent } from 'rxjs';
+import { Observable, fromEvent, Subscription } from 'rxjs';
 import { debounceTime, map } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgbModal, ModalDismissReasons } from '@ng-bootstrap/ng-bootstrap';
@@ -9,6 +9,7 @@ import { Database, ref, push, remove, onValue } from '@angular/fire/database';
 import { Evenement } from '../../model/evenement';
 import { MembersService } from '../../services/members.service';
 import { Member } from '../../model/member';
+import { UrlEvent } from '../../model/url-event';
 import { Router } from '@angular/router';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FileService } from '../../services/file.service';
@@ -38,6 +39,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public pages: number[] = [];
 	public visible: boolean = false;
 	public isCompactView: boolean = false;
+	public controlsCollapsed: boolean = false;
 	public thumbnailCache: Map<string, SafeUrl> = new Map();
 	public eventThumbnails: Map<string, SafeUrl> = new Map();
 	public nativeWindow: any;
@@ -60,6 +62,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 	@ViewChild('slideshowModal') slideshowModal!: TemplateRef<any>;
+	@ViewChild('fsPhotosSelectorModal') fsPhotosSelectorModal!: TemplateRef<any>;
+	@ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
+	@ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
@@ -77,6 +82,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	ngOnInit() {
 		this.user = this._memberService.getUser();
 		this.getEvents(this.dataFIlter);
+		
+		// Initialize controls collapsed state based on screen size
+		if (this.nativeWindow.innerWidth <= 767) {
+			this.controlsCollapsed = true;
+		}
 		
 		// Scroll to top when component loads
 		this.scrollToTop();
@@ -471,6 +481,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	// Méthodes pour la vue compacte
+	public toggleControlsCollapse(): void {
+		this.controlsCollapsed = !this.controlsCollapsed;
+	}
+
 	public toggleViewMode() {
 		this.isCompactView = !this.isCompactView;
 	}
@@ -681,6 +695,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	ngOnDestroy() {
+		this.stopSlideshow();
+		this.removeKeyboardListener();
+		this.cancelFsDownloads();
+		
 		// Nettoyer toutes les URLs blob pour éviter les fuites mémoire
 		this.eventThumbnails.forEach((safeUrl, eventId) => {
 			try {
@@ -698,6 +716,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		});
 		this.eventThumbnails.clear();
+		
+		// Clean up slideshow blob URLs
+		this.slideshowImages.forEach(url => {
+			if (url.startsWith('blob:')) {
+				URL.revokeObjectURL(url);
+			}
+		});
+		this.slideshowImages = [];
 	}
 	
 	// Scroll to top of the page
@@ -820,6 +846,37 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private lastKeyPressTime: number = 0;
 	private lastKeyCode: number = 0;
 	private selectedEventForSlideshow: Evenement | null = null;
+	
+	// Photo selection
+	public selectedFsLink: string = '';
+	public selectedEventForPhotosSelector: Evenement | null = null;
+
+	// FS Photos download control
+	private fsDownloadsActive: boolean = false;
+	private fsActiveSubs: Subscription[] = [];
+	private fsQueue: string[] = [];
+
+	// Zoom state for slideshow
+	public slideshowZoom: number = 1;
+	public slideshowTranslateX: number = 0;
+	public slideshowTranslateY: number = 0;
+	public isDraggingSlideshow: boolean = false;
+	private hasDraggedSlideshow: boolean = false;
+	private dragStartX: number = 0;
+	private dragStartY: number = 0;
+	private dragOrigX: number = 0;
+	private dragOrigY: number = 0;
+
+	// Touch state for mobile gestures
+	private touchStartDistance: number = 0;
+	private touchStartZoom: number = 1;
+	private lastTouchDistance: number = 0;
+	private touchStartX: number = 0;
+	private touchStartY: number = 0;
+	private isPinching: boolean = false;
+	private initialTouches: Touch[] = [];
+	private pinchStartTranslateX: number = 0;
+	private pinchStartTranslateY: number = 0;
 
 	// Check if file is an image based on extension
 	public isImageFile(fileName: string): boolean {
@@ -840,6 +897,164 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public getImageFilesCount(evenement: Evenement): number {
 		if (!evenement.fileUploadeds) return 0;
 		return evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName)).length;
+	}
+
+	// =========================
+	// Photo From FS integration
+	// =========================
+
+	public getPhotoFromFsLinks(evenement: Evenement): UrlEvent[] {
+		if (!evenement || !evenement.urlEvents) return [];
+		return evenement.urlEvents.filter(u => (u.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS');
+	}
+
+	public getPhotosUrlLinks(evenement: Evenement): UrlEvent[] {
+		if (!evenement || !evenement.urlEvents) return [];
+		return evenement.urlEvents.filter(u => (u.typeUrl || '').toUpperCase().trim() === 'PHOTOS');
+	}
+
+	public getPhotoFromFsCount(evenement: Evenement): number {
+		return this.getPhotoFromFsLinks(evenement).length;
+	}
+
+	public openFsPhotosSelector(evenement: Evenement, includeUploadedChoice: boolean = false): void {
+		this.selectedEventForPhotosSelector = evenement;
+		const fsLinks = this.getPhotoFromFsLinks(evenement);
+		const webLinks = this.getPhotosUrlLinks(evenement);
+		const hasAnyLinks = (fsLinks.length + webLinks.length) > 0;
+
+		if (!includeUploadedChoice && !hasAnyLinks) {
+			return;
+		}
+		if (!includeUploadedChoice && fsLinks.length === 1 && webLinks.length === 0) {
+			this.openFsPhotosDiaporama(evenement, fsLinks[0].link);
+			return;
+		}
+		// Default selection priority: uploaded (if requested and available) -> first FS link -> first web photos link
+		if (includeUploadedChoice && this.hasImageFiles(evenement)) {
+			this.selectedFsLink = '__UPLOADED__';
+		} else if (fsLinks.length > 0) {
+			this.selectedFsLink = fsLinks[0].link;
+		} else if (webLinks.length > 0) {
+			this.selectedFsLink = 'PHOTOS:' + webLinks[0].link;
+		}
+		if (!this.fsPhotosSelectorModal) return;
+		this.modalService.open(this.fsPhotosSelectorModal, { centered: true, size: 'md', windowClass: 'fs-selector-modal' });
+	}
+
+	public confirmFsPhotosSelection(modalRef?: any): void {
+		if (!this.selectedFsLink || !this.selectedEventForPhotosSelector) return;
+		if (this.selectedFsLink === '__UPLOADED__') {
+			this.openSlideshow(this.selectedEventForPhotosSelector);
+		} else if (this.selectedFsLink.startsWith('PHOTOS:')) {
+			const url = this.selectedFsLink.substring('PHOTOS:'.length);
+			try { this.winRef.getNativeWindow().open(url, '_blank'); } catch {}
+		} else {
+			this.openFsPhotosDiaporama(this.selectedEventForPhotosSelector, this.selectedFsLink);
+		}
+		if (modalRef) { modalRef.close(); }
+		this.selectedEventForPhotosSelector = null;
+	}
+
+	private openFsPhotosDiaporama(evenement: Evenement, relativePath: string): void {
+		this.selectedEventForSlideshow = evenement;
+		this.slideshowImages = [];
+		this.currentSlideshowIndex = 0;
+		// ensure slideshow starts paused
+		if (this.slideshowInterval) { clearInterval(this.slideshowInterval); this.slideshowInterval = null; }
+		this.isSlideshowActive = false;
+		this.fsDownloadsActive = true;
+		// cleanup any previous subscriptions
+		this.cancelFsDownloads();
+		this.fsDownloadsActive = true;
+		// First, list images
+		this._fileService.listImagesFromDisk(relativePath).subscribe({
+			next: (fileNames: string[]) => {
+				// Open the modal immediately (will show loader until images arrive)
+				const modalRef = this.modalService.open(this.slideshowModal, { size: 'xl', centered: true });
+
+				if (!fileNames || fileNames.length === 0) {
+					return;
+				}
+				// Limit concurrent downloads for faster first paint
+				this.loadImagesWithConcurrency(relativePath, fileNames, 4);
+
+				// Setup keyboard listener after modal is opened
+				setTimeout(() => {
+					this.setupKeyboardListener();
+				}, 0);
+
+				// Cleanup and cancel downloads when modal closes
+				modalRef.result.finally(() => {
+					this.cancelFsDownloads();
+					this.removeKeyboardListener();
+					try { this.slideshowImages.forEach(url => URL.revokeObjectURL(url)); } catch {}
+				});
+			},
+			error: () => {
+				// Open modal anyway to show empty state/error
+				this.modalService.open(this.slideshowModal, { size: 'xl', centered: true });
+				setTimeout(() => {
+					this.setupKeyboardListener();
+				}, 0);
+			}
+		});
+	}
+
+	private loadImagesWithConcurrency(relativePath: string, fileNames: string[], concurrency: number): void {
+		this.fsQueue = [...fileNames];
+		let active = 0;
+
+		const next = () => {
+			if (!this.fsDownloadsActive) { return; }
+			while (this.fsDownloadsActive && active < concurrency && this.fsQueue.length > 0) {
+				const name = this.fsQueue.shift() as string;
+				active++;
+				const sub = this._fileService.getImageFromDisk(relativePath, name).subscribe({
+					next: (buffer: ArrayBuffer) => {
+						const blob = new Blob([buffer], { type: 'image/*' });
+						const url = URL.createObjectURL(blob);
+						this.slideshowImages.push(url);
+					},
+					error: () => {
+						// ignore failed image
+					},
+					complete: () => {
+						active--;
+						next();
+					}
+				});
+				this.fsActiveSubs.push(sub);
+			}
+		};
+
+		next();
+	}
+
+	private cancelFsDownloads(): void {
+		this.fsDownloadsActive = false;
+		try { this.fsActiveSubs.forEach(s => { if (s && !s.closed) { s.unsubscribe(); } }); } catch {}
+		this.fsActiveSubs = [];
+		this.fsQueue = [];
+	}
+
+	// Unified photos opener (uploaded photos or FS photos)
+	public openPhotos(evenement: Evenement): void {
+		const hasFs = this.getPhotoFromFsCount(evenement) > 0;
+		const hasPhotosWeb = this.getPhotosUrlLinks(evenement).length > 0;
+		const hasUploaded = this.hasImageFiles(evenement);
+
+		if ((hasFs || hasPhotosWeb) && hasUploaded) {
+			this.openFsPhotosSelector(evenement, true);
+			return;
+		}
+		if (hasFs || hasPhotosWeb) {
+			this.openFsPhotosSelector(evenement, false);
+			return;
+		}
+		if (hasUploaded) {
+			this.openSlideshow(evenement);
+		}
 	}
 
 	// Listen to fullscreen events
@@ -871,6 +1086,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.slideshowImages = [];
 		this.currentSlideshowIndex = 0;
 		this.isSlideshowActive = false;
+		this.resetSlideshowZoom();
 		let isFirstImageLoaded = false;
 
 		// Open the modal first
@@ -925,6 +1141,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				if (!isFirstImageLoaded) {
 					isFirstImageLoaded = true;
 					this.isSlideshowActive = false; // Start paused
+					setTimeout(() => this.resetSlideshowZoom(), 100);
 				}
 			}, (error) => {
 				console.error('Error loading image for slideshow:', error);
@@ -1035,12 +1252,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public nextImage(): void {
 		if (this.slideshowImages.length === 0) return;
 		this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
+		setTimeout(() => this.resetSlideshowZoom(), 0);
 	}
 
 	// Navigate to previous image
 	public previousImage(): void {
 		if (this.slideshowImages.length === 0) return;
 		this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
+		setTimeout(() => this.resetSlideshowZoom(), 0);
 	}
 
 	// Get current slideshow image URL
@@ -1126,6 +1345,261 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Get event name for slideshow title
 	public getSlideshowEventName(): string {
 		return this.selectedEventForSlideshow ? this.selectedEventForSlideshow.evenementName : '';
+	}
+
+	// =========================
+	// Slideshow zoom and drag methods (same as element-evenement)
+	// =========================
+
+	public getMinSlideshowZoom(): number {
+		try {
+			const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+			const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
+			if (!container || !imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return 0.5;
+			const cw = container.clientWidth || 1;
+			const ch = container.clientHeight || 1;
+			const iw = imgEl.naturalWidth;
+			const ih = imgEl.naturalHeight;
+			return Math.max(cw / iw, ch / ih);
+		} catch { return 0.5; }
+	}
+
+	private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 5): number {
+		event.preventDefault();
+		const delta = Math.sign(event.deltaY);
+		const step = 0.1;
+		let next = current - delta * step; // wheel up -> zoom in
+		if (next < minZoom) next = minZoom;
+		if (next > maxZoom) next = maxZoom;
+		return parseFloat(next.toFixed(2));
+	}
+
+	public onWheelSlideshow(event: WheelEvent): void {
+		const minZoom = this.getMinSlideshowZoom();
+		this.slideshowZoom = this.applyWheelZoom(event, this.slideshowZoom, minZoom);
+		this.clampSlideshowTranslation();
+	}
+
+	public resetSlideshowZoom(): void { 
+		this.slideshowZoom = Math.max(1, this.getMinSlideshowZoom()); 
+		this.slideshowTranslateX = 0; 
+		this.slideshowTranslateY = 0; 
+	}
+
+	public zoomInSlideshow(): void { 
+		this.slideshowZoom = Math.min(5, parseFloat((this.slideshowZoom + 0.1).toFixed(2))); 
+	}
+
+	public zoomOutSlideshow(): void { 
+		this.slideshowZoom = Math.max(this.getMinSlideshowZoom(), parseFloat((this.slideshowZoom - 0.1).toFixed(2))); 
+		this.clampSlideshowTranslation(); 
+	}
+
+	// Drag handlers for Slideshow modal
+	public onSlideshowMouseDown(event: MouseEvent): void {
+		const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
+		this.isDraggingSlideshow = canDrag;
+		this.hasDraggedSlideshow = false;
+		if (canDrag) { try { event.preventDefault(); event.stopPropagation(); } catch {} }
+		this.dragStartX = event.clientX;
+		this.dragStartY = event.clientY;
+		this.dragOrigX = this.slideshowTranslateX;
+		this.dragOrigY = this.slideshowTranslateY;
+	}
+
+	public onSlideshowMouseMove(event: MouseEvent): void {
+		if (!this.isDraggingSlideshow) return;
+		try { event.preventDefault(); event.stopPropagation(); } catch {}
+		const dx = event.clientX - this.dragStartX;
+		const dy = event.clientY - this.dragStartY;
+		this.slideshowTranslateX = this.dragOrigX + dx;
+		this.slideshowTranslateY = this.dragOrigY + dy;
+		if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
+		this.clampSlideshowTranslation();
+	}
+
+	public onSlideshowMouseUp(): void {
+		this.isDraggingSlideshow = false;
+	}
+
+	public onSlideshowImageClick(): void {
+		// Ignore click if it was a drag
+		if (this.hasDraggedSlideshow) { this.hasDraggedSlideshow = false; return; }
+		this.toggleSlideshowWithMessage();
+	}
+
+	public onSlideshowClose(cRef: any): void {
+		try {
+			if (document.fullscreenElement) {
+				document.exitFullscreen().catch(() => {});
+			}
+		} catch {}
+		this.removeKeyboardListener();
+		try { if (typeof cRef === 'function') { cRef('Close click'); } } catch {}
+		try { this.modalService.dismissAll(); } catch {}
+	}
+
+	private clampSlideshowTranslation(): void {
+		try {
+			const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+			const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
+			if (!container || !imgEl) return;
+			const cw = container.clientWidth;
+			const ch = container.clientHeight;
+			const iw = imgEl.clientWidth * this.slideshowZoom;
+			const ih = imgEl.clientHeight * this.slideshowZoom;
+			const maxX = Math.max(0, (iw - cw) / 2);
+			const maxY = Math.max(0, (ih - ch) / 2);
+			if (this.slideshowTranslateX > maxX) this.slideshowTranslateX = maxX;
+			if (this.slideshowTranslateX < -maxX) this.slideshowTranslateX = -maxX;
+			if (this.slideshowTranslateY > maxY) this.slideshowTranslateY = maxY;
+			if (this.slideshowTranslateY < -maxY) this.slideshowTranslateY = -maxY;
+		} catch {}
+	}
+
+	// Helper function to calculate distance between two touches
+	private getTouchDistance(touch1: Touch, touch2: Touch): number {
+		const dx = touch1.clientX - touch2.clientX;
+		const dy = touch1.clientY - touch2.clientY;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
+
+	// Helper function to get center point between two touches
+	private getTouchCenter(touch1: Touch, touch2: Touch): { x: number; y: number } {
+		return {
+			x: (touch1.clientX + touch2.clientX) / 2,
+			y: (touch1.clientY + touch2.clientY) / 2
+		};
+	}
+
+	// Touch handlers for Slideshow modal - Mobile support
+	public onSlideshowTouchStart(event: TouchEvent): void {
+		if (event.touches.length === 1) {
+			// Single touch - start drag
+			const touch = event.touches[0];
+			const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
+			this.isDraggingSlideshow = canDrag;
+			this.hasDraggedSlideshow = false;
+			if (canDrag) {
+				try { event.preventDefault(); event.stopPropagation(); } catch {}
+			}
+			this.touchStartX = touch.clientX;
+			this.touchStartY = touch.clientY;
+			this.dragStartX = touch.clientX;
+			this.dragStartY = touch.clientY;
+			this.dragOrigX = this.slideshowTranslateX;
+			this.dragOrigY = this.slideshowTranslateY;
+			this.isPinching = false;
+		} else if (event.touches.length === 2) {
+			// Two touches - start pinch zoom
+			try { event.preventDefault(); event.stopPropagation(); } catch {}
+			this.isPinching = true;
+			this.isDraggingSlideshow = false;
+			const touch1 = event.touches[0];
+			const touch2 = event.touches[1];
+			this.touchStartDistance = this.getTouchDistance(touch1, touch2);
+			this.touchStartZoom = this.slideshowZoom;
+			this.lastTouchDistance = this.touchStartDistance;
+			this.initialTouches = [touch1, touch2];
+			this.pinchStartTranslateX = this.slideshowTranslateX;
+			this.pinchStartTranslateY = this.slideshowTranslateY;
+			
+			// Store the center point for zoom origin
+			const center = this.getTouchCenter(touch1, touch2);
+			const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+			if (container) {
+				const rect = container.getBoundingClientRect();
+				this.touchStartX = center.x - rect.left;
+				this.touchStartY = center.y - rect.top;
+			}
+		}
+	}
+
+	public onSlideshowTouchMove(event: TouchEvent): void {
+		if (event.touches.length === 1 && !this.isPinching) {
+			// Single touch - drag
+			if (!this.isDraggingSlideshow) return;
+			const touch = event.touches[0];
+			try { event.preventDefault(); event.stopPropagation(); } catch {}
+			const dx = touch.clientX - this.dragStartX;
+			const dy = touch.clientY - this.dragStartY;
+			this.slideshowTranslateX = this.dragOrigX + dx;
+			this.slideshowTranslateY = this.dragOrigY + dy;
+			if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
+			this.clampSlideshowTranslation();
+		} else if (event.touches.length === 2 && this.isPinching) {
+			// Two touches - pinch zoom
+			try { event.preventDefault(); event.stopPropagation(); } catch {}
+			const touch1 = event.touches[0];
+			const touch2 = event.touches[1];
+			const currentDistance = this.getTouchDistance(touch1, touch2);
+			
+			if (this.touchStartDistance > 0) {
+				// Calculate zoom factor based on distance change
+				const scale = currentDistance / this.touchStartDistance;
+				let newZoom = this.touchStartZoom * scale;
+				
+				// Apply min/max zoom constraints
+				const minZoom = this.getMinSlideshowZoom();
+				const maxZoom = 5;
+				newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+				
+				this.slideshowZoom = parseFloat(newZoom.toFixed(2));
+				
+				// Adjust translation to keep zoom centered on pinch point
+				if (this.slideshowZoom > minZoom) {
+					const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+					const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
+					if (container && imgEl) {
+						const rect = container.getBoundingClientRect();
+						const currentPinchCenterX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
+						const currentPinchCenterY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+						
+						// Get initial pinch center point
+						const initialPinchCenterX = this.touchStartX;
+						const initialPinchCenterY = this.touchStartY;
+						
+						// Calculate zoom change factor
+						const zoomChange = this.slideshowZoom / this.touchStartZoom;
+						
+						// Calculate the new translation to zoom around the initial pinch point
+						this.slideshowTranslateX = initialPinchCenterX - (initialPinchCenterX - this.pinchStartTranslateX) * zoomChange;
+						this.slideshowTranslateY = initialPinchCenterY - (initialPinchCenterY - this.pinchStartTranslateY) * zoomChange;
+					}
+				}
+				
+				this.lastTouchDistance = currentDistance;
+				this.clampSlideshowTranslation();
+			}
+		}
+	}
+
+	public onSlideshowTouchEnd(event: TouchEvent): void {
+		if (event.touches.length === 0) {
+			// All touches ended
+			this.isDraggingSlideshow = false;
+			this.isPinching = false;
+			this.initialTouches = [];
+			this.touchStartDistance = 0;
+			this.lastTouchDistance = 0;
+			this.pinchStartTranslateX = 0;
+			this.pinchStartTranslateY = 0;
+		} else if (event.touches.length === 1 && this.isPinching) {
+			// One touch lifted during pinch - switch to drag mode
+			this.isPinching = false;
+			const touch = event.touches[0];
+			this.isDraggingSlideshow = this.slideshowZoom > this.getMinSlideshowZoom();
+			if (this.isDraggingSlideshow) {
+				this.touchStartX = touch.clientX;
+				this.touchStartY = touch.clientY;
+				this.dragStartX = touch.clientX;
+				this.dragStartY = touch.clientY;
+				this.dragOrigX = this.slideshowTranslateX;
+				this.dragOrigY = this.slideshowTranslateY;
+			}
+			this.pinchStartTranslateX = 0;
+			this.pinchStartTranslateY = 0;
+		}
 	}
 	
 }

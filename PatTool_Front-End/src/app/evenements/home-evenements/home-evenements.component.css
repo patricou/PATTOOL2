@@ -126,6 +126,21 @@
     animation: fadeIn 0.8s ease-out;
 }
 
+/* Responsive container adjustments */
+@media (max-width: 768px) {
+    .container-fluid {
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+}
+
+@media (max-width: 576px) {
+    .container-fluid {
+        padding-left: 8px;
+        padding-right: 8px;
+    }
+}
+
 .pat-page-btn {
     margin-bottom: 3px;
     transition: all 0.3s ease;
@@ -148,6 +163,202 @@
     overflow-x: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+    position: relative;
+}
+
+/* Collapse button for mobile */
+.btn-collapse-controls {
+    display: none;
+    min-width: 32px;
+    height: 30px;
+    padding: 0.25rem;
+    border-radius: 6px;
+    flex-shrink: 0;
+    font-size: 0.875rem;
+}
+
+/* Header row for mobile - collapse button and last two buttons */
+.controls-header-row {
+    display: none;
+}
+
+@media (max-width: 767px) {
+    .controls-header-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        width: 100%;
+        margin-bottom: 0;
+        margin-top: 0;
+    }
+    
+    .controls-header-row .btn-collapse-controls {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        min-width: 32px;
+        height: 30px;
+        padding: 0.25rem;
+        font-size: 0.875rem;
+    }
+    
+    .controls-header-row .last-buttons-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+    
+    .controls-header-row .last-buttons-row .select-elements {
+        width: 90px !important;
+        min-width: 90px !important;
+        max-width: 90px !important;
+    }
+    
+    .controls-header-row .last-buttons-row .btn-toggle-view {
+        flex-shrink: 0;
+        width: auto !important;
+        min-width: 38px;
+        height: 38px;
+    }
+}
+
+/* Controls wrapper */
+.controls-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+    width: 100%;
+    transition: max-height 0.3s ease, opacity 0.3s ease;
+    overflow: visible;
+}
+
+/* Desktop - always visible */
+@media (min-width: 768px) {
+    .controls-wrapper {
+        overflow: visible !important;
+        max-height: none !important;
+        opacity: 1 !important;
+        padding: 0 !important;
+    }
+    
+    .controls-wrapper.collapsed {
+        max-height: none !important;
+        opacity: 1 !important;
+    }
+    
+    /* Search and filter row on desktop */
+    .search-filter-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    
+    .search-filter-row .search-input {
+        flex: 0 1 auto;
+        min-width: 200px;
+        max-width: 300px;
+    }
+    
+    .search-filter-row .btn-filter {
+        flex-shrink: 0;
+    }
+    
+    /* Last two buttons row on desktop */
+    .desktop-buttons-row {
+        display: flex !important;
+        gap: 0.5rem;
+        align-items: center;
+        flex-shrink: 0;
+    }
+    
+    .desktop-buttons-row .select-elements {
+        flex: 0 0 auto;
+        width: 90px;
+        min-width: 90px;
+        max-width: 90px;
+    }
+    
+    .desktop-buttons-row .btn-toggle-view {
+        flex-shrink: 0;
+    }
+}
+
+/* Hide desktop buttons on mobile */
+@media (max-width: 767px) {
+    .desktop-buttons-row {
+        display: none !important;
+    }
+}
+
+/* Collapsed state for mobile */
+@media (max-width: 767px) {
+    .controls-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.1rem;
+        padding: 0.1rem 0;
+        margin-bottom: 0.25rem;
+    }
+    
+    .controls-wrapper {
+        flex-direction: column;
+        gap: 0.25rem;
+        overflow: hidden;
+        transition: max-height 0.3s ease, opacity 0.3s ease, padding 0.3s ease;
+    }
+    
+    .controls-wrapper.collapsed {
+        max-height: 0 !important;
+        opacity: 0;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .controls-wrapper:not(.collapsed) {
+        max-height: 2000px;
+        opacity: 1;
+        padding: 0.1rem 0;
+    }
+    
+    .controls-wrapper > * {
+        width: 100%;
+    }
+    
+    /* Search and filter row - same line on mobile */
+    .search-filter-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        width: 100%;
+    }
+    
+    .search-filter-row .search-input {
+        flex: 1;
+        width: auto !important;
+        max-width: none !important;
+        min-width: 0;
+    }
+    
+    .search-filter-row .btn-filter {
+        flex-shrink: 0;
+        width: auto !important;
+        min-width: 38px;
+        height: 38px;
+    }
+    
+    .pagination-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 .controls-bar::-webkit-scrollbar {
@@ -470,6 +681,16 @@
     .pat-card {
         margin-bottom: 0.75rem;
     }
+    
+    .row {
+        margin-left: -5px;
+        margin-right: -5px;
+    }
+    
+    .row > [class*="col-"] {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
 }
 
 @media (max-width: 992px) {
@@ -500,6 +721,21 @@
         justify-content: flex-start;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+    }
+    
+    .row {
+        margin-left: -3px;
+        margin-right: -3px;
+    }
+    
+    .row > [class*="col-"] {
+        padding-left: 3px;
+        padding-right: 3px;
+    }
+    
+    .pat-card {
+        margin-top: 5px;
+        margin-bottom: 5px;
     }
     
     .search-input {
@@ -534,6 +770,10 @@
         min-height: 34px;
     }
     
+    .pat-card .card {
+        margin-bottom: 0.5rem;
+    }
+    
     .pat-card .card-footer {
         padding: 0.5rem;
         display: flex;
@@ -546,6 +786,7 @@
         font-size: 0.65rem;
         padding: 0.2rem 0.4rem;
         margin-bottom: 0.25rem;
+        flex: 0 0 auto;
     }
     
     .pat-card .card-footer .btn-sm i {
@@ -555,6 +796,7 @@
     .compact-card {
         padding: 0.6rem 0.6rem 0.6rem 1.5rem;
         gap: 0.5rem;
+        margin-bottom: 0.5rem;
     }
     
     .compact-thumbnail {
@@ -564,6 +806,7 @@
     
     .compact-title {
         font-size: 0.9rem;
+        line-height: 1.3;
     }
     
     .compact-author {
@@ -577,11 +820,13 @@
     .compact-actions {
         margin-right: 1.5rem;
         gap: 0.2rem;
+        flex-wrap: wrap;
     }
     
     .compact-actions .btn-sm {
         font-size: 0.6rem;
         padding: 0.15rem 0.3rem;
+        flex: 0 0 auto;
     }
     
     .status-badge .badge {
@@ -595,6 +840,21 @@
     .controls-bar {
         gap: 0.3rem;
         padding: 0.5rem 0;
+    }
+    
+    .row {
+        margin-left: -2px;
+        margin-right: -2px;
+    }
+    
+    .row > [class*="col-"] {
+        padding-left: 2px;
+        padding-right: 2px;
+    }
+    
+    .pat-card {
+        margin-top: 3px;
+        margin-bottom: 3px;
     }
     
     .search-input {
@@ -630,6 +890,11 @@
     
     .pagination-controls {
         gap: 0.25rem;
+        flex-wrap: wrap;
+    }
+    
+    .pat-card .card {
+        margin-bottom: 0.3rem;
     }
     
     .pat-card .card-footer {
@@ -641,6 +906,8 @@
         font-size: 0.6rem;
         padding: 0.15rem 0.35rem;
         margin-bottom: 0.2rem;
+        flex: 0 0 auto;
+        min-width: auto;
     }
     
     .pat-card .card-footer .btn-sm i {
@@ -650,6 +917,26 @@
     .compact-card {
         padding: 0.5rem 0.5rem 0.5rem 1.2rem;
         gap: 0.4rem;
+        margin-bottom: 0.4rem;
+        grid-template-columns: auto 1fr;
+    }
+    
+    .compact-image {
+        grid-row: 1;
+        grid-column: 1;
+    }
+    
+    .compact-content {
+        grid-row: 1;
+        grid-column: 2;
+    }
+    
+    .compact-actions {
+        grid-row: 2;
+        grid-column: 1 / -1;
+        margin-right: 0;
+        margin-top: 0.5rem;
+        justify-content: flex-start;
     }
     
     .compact-thumbnail {
@@ -659,24 +946,29 @@
     
     .compact-title {
         font-size: 0.85rem;
+        line-height: 1.2;
+        margin-bottom: 0.2rem;
     }
     
     .compact-author {
         font-size: 0.7rem;
+        margin-bottom: 0.2rem;
     }
     
     .compact-date {
         font-size: 0.75rem;
     }
     
-    .compact-actions {
-        margin-right: 1rem;
-        gap: 0.15rem;
-    }
-    
     .compact-actions .btn-sm {
         font-size: 0.55rem;
         padding: 0.1rem 0.25rem;
+        flex: 0 0 auto;
+    }
+    
+    .status-badge {
+        position: absolute;
+        top: 2px;
+        right: 2px;
     }
     
     .status-badge .badge {
@@ -687,6 +979,56 @@
     
     .status-badge .badge i {
         font-size: 0.4rem;
+    }
+}
+
+/* Very small screens */
+@media (max-width: 400px) {
+    .container-fluid {
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+    
+    .row {
+        margin-left: -1px;
+        margin-right: -1px;
+    }
+    
+    .row > [class*="col-"] {
+        padding-left: 1px;
+        padding-right: 1px;
+    }
+    
+    .pat-card {
+        margin-top: 2px;
+        margin-bottom: 2px;
+    }
+    
+    .compact-card {
+        padding: 0.4rem 0.4rem 0.4rem 1rem;
+        gap: 0.3rem;
+    }
+    
+    .compact-thumbnail {
+        width: 30px;
+        height: 30px;
+    }
+    
+    .compact-title {
+        font-size: 0.8rem;
+    }
+    
+    .compact-author {
+        font-size: 0.65rem;
+    }
+    
+    .compact-date {
+        font-size: 0.7rem;
+    }
+    
+    .compact-actions .btn-sm {
+        font-size: 0.5rem;
+        padding: 0.08rem 0.2rem;
     }
 }
 
@@ -942,11 +1284,24 @@ select.btn.btn-secondary.btn-sm:focus {
     gap: 0.5rem;
     animation: fadeIn 0.8s ease-out;
     overflow: visible;
+    width: 100%;
 }
 
 /* Assurer que les tooltips peuvent s'afficher */
 .compact-view * {
     overflow: visible !important;
+}
+
+@media (max-width: 768px) {
+    .compact-view {
+        gap: 0.4rem;
+    }
+}
+
+@media (max-width: 576px) {
+    .compact-view {
+        gap: 0.3rem;
+    }
 }
 
 .compact-card {
@@ -2245,25 +2600,147 @@ select.btn.btn-secondary.btn-sm:focus {
     padding: 15px;
 }
 
-/* Responsive adjustments for slideshow */
+/* ===== FS PHOTOS SELECTOR MODAL STYLES ===== */
+
+/* White border around the fs-selector modal */
+::ng-deep .fs-selector-modal .modal-content {
+    border: 4px solid white !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Responsive adjustments for slideshow - Mobile optimized */
 @media (max-width: 768px) {
+    /* Modal dialog adjustments - Full width on mobile for better usability */
+    ::ng-deep .modal.show:has(.slideshow-header) .modal-dialog,
+    ::ng-deep .modal.show:has(.slideshow-body) .modal-dialog,
+    ::ng-deep .slideshow-modal-wide .modal-dialog {
+        max-width: 98vw !important;
+        width: 98vw !important;
+        margin: 0.25rem auto !important;
+        display: flex !important;
+        align-items: center !important;
+        max-height: 98vh !important;
+    }
+    
+    ::ng-deep .modal.show:has(.slideshow-header) .modal-content,
+    ::ng-deep .modal.show:has(.slideshow-body) .modal-content,
+    ::ng-deep .slideshow-modal-wide .modal-content {
+        max-width: 98vw !important;
+        width: 98vw !important;
+        max-height: 98vh !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    
+    .slideshow-header {
+        padding: 10px 12px;
+        flex-shrink: 0;
+    }
+    
+    .slideshow-header .modal-title {
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: calc(100% - 50px);
+    }
+    
+    .slideshow-header .btn {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+        padding: 0;
+        flex-shrink: 0;
+    }
+    
+    .slideshow-body {
+        min-height: 60vh;
+        max-height: calc(98vh - 140px);
+        padding: 0;
+        flex: 1;
+        overflow: hidden;
+    }
+    
     .slideshow-image-wrapper {
-        height: 50vh;
+        height: 60vh;
+        max-height: calc(98vh - 140px);
+    }
+    
+    .slideshow-controls {
+        padding: 0 8px;
     }
     
     .slideshow-controls .btn {
-        width: 40px;
-        height: 40px;
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
     }
     
     .slideshow-controls .btn i {
-        font-size: 1rem;
+        font-size: 1.2rem;
     }
     
     .slideshow-counter {
-        top: 10px;
-        right: 10px;
-        padding: 6px 12px;
+        top: 8px;
+        right: 8px;
+        padding: 5px 10px;
+        font-size: 0.75rem;
+        background: rgba(0, 0, 0, 0.8);
+    }
+    
+    .slideshow-footer {
+        padding: 12px 8px;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        flex-shrink: 0;
+        background: #2c3e50;
+    }
+    
+    .slideshow-footer .d-flex {
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        justify-content: center;
+        width: 100%;
+    }
+    
+    .slideshow-footer .btn {
         font-size: 0.8rem;
+        padding: 0.5rem 0.8rem;
+        min-width: 44px;
+        min-height: 44px;
+        touch-action: manipulation;
+    }
+    
+    .slideshow-footer .btn-group {
+        flex-wrap: nowrap;
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .slideshow-footer .btn-group .btn {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.6rem;
+        min-width: 44px;
+        min-height: 44px;
+        flex: 1;
+    }
+    
+    .slideshow-footer .btn i {
+        font-size: 1rem;
+    }
+    
+    .slideshow-footer .btn span {
+        display: none; /* Hide text labels on mobile, keep icons only */
+    }
+    
+    /* Improve touch targets */
+    .slideshow-controls .btn:active {
+        transform: scale(0.95);
+        background: rgba(255, 255, 255, 0.4) !important;
+    }
+    
+    .slideshow-footer .btn:active {
+        transform: scale(0.95);
     }
 }

@@ -6,9 +6,11 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -64,6 +66,50 @@ public class GlobalExceptionHandler {
                 .body("Resource not found");
     }
 
+    /**
+     * Handle AsyncRequestNotUsableException - occurs when client closes connection
+     * during async request processing (e.g., closing photo slideshow)
+     */
+    @ExceptionHandler(AsyncRequestNotUsableException.class)
+    public ResponseEntity<Void> handleAsyncRequestNotUsableException(AsyncRequestNotUsableException exc) {
+        // This is a normal situation when client closes connection (e.g., closing modal/slideshow)
+        // Log at debug level to avoid noise in production logs
+        String message = exc.getMessage();
+        if (message != null && (message.contains("Connection reset") || 
+                                 message.contains("failed to write") ||
+                                 message.contains("Connection closed"))) {
+            log.debug("Client closed connection during async request (likely normal): {}", message);
+        } else {
+            log.debug("AsyncRequestNotUsableException: {}", message);
+        }
+        
+        // Return void response - connection is already closed
+        return null;
+    }
+    
+    /**
+     * Handle IOException related to connection reset - occurs when client closes connection
+     * during file streaming
+     */
+    @ExceptionHandler(IOException.class)
+    public ResponseEntity<Void> handleIOException(IOException exc) {
+        String message = exc.getMessage();
+        
+        // Check if this is a connection reset (client closed connection)
+        if (message != null && (message.contains("Connection reset by peer") ||
+                                 message.contains("Broken pipe") ||
+                                 message.contains("Connection closed"))) {
+            // This is normal when client closes connection (e.g., closing photo slideshow)
+            // Log at debug level to avoid noise in production logs
+            log.debug("Client closed connection during file transfer (likely normal): {}", message);
+            return null; // Connection already closed, return void
+        }
+        
+        // For other IOExceptions, log as error and handle normally
+        log.error("IO Exception occurred: {}", message, exc);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleGenericException(Exception exc) {
         // Check if this exception is related to missing static resources from scanners
@@ -76,6 +122,14 @@ public class GlobalExceptionHandler {
                 log.debug("Ignored scanner/bot static resource request: {}", message);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not found");
             }
+        }
+        
+        // Check if this is a connection reset wrapped in another exception
+        if (message != null && (message.contains("Connection reset") ||
+                                 message.contains("Broken pipe") ||
+                                 message.contains("AsyncRequestNotUsableException"))) {
+            log.debug("Client closed connection (likely normal): {}", message);
+            return null; // Connection already closed
         }
         
         log.error("Unexpected error occurred: {}", exc.getMessage(), exc);
