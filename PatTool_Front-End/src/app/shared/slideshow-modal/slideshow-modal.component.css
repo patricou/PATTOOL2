@@ -1,0 +1,622 @@
+/* Slideshow modal dialog - Proper sizing and centering */
+::ng-deep .modal.show:has(.slideshow-header) .modal-dialog,
+::ng-deep .modal.show:has(.slideshow-body) .modal-dialog,
+::ng-deep .modal.show .modal-dialog:has(.slideshow-header),
+::ng-deep .modal.show .modal-dialog:has(.slideshow-body),
+::ng-deep .modal-xl:has(.slideshow-header),
+::ng-deep .modal-xl:has(.slideshow-body),
+::ng-deep .modal.show .modal-xl.modal-dialog:has(.slideshow-header),
+::ng-deep .modal.show .modal-xl.modal-dialog:has(.slideshow-body) {
+    max-width: 65vw !important;
+    width: 65vw !important;
+    margin: 1.75rem auto !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: calc(100% - 3.5rem) !important;
+}
+
+/* Slideshow modal content - Proper sizing and centering */
+::ng-deep .modal.show:has(.slideshow-header) .modal-content,
+::ng-deep .modal.show:has(.slideshow-body) .modal-content,
+::ng-deep .modal.show .modal-content:has(.slideshow-header),
+::ng-deep .modal.show .modal-content:has(.slideshow-body),
+::ng-deep .modal-xl .modal-content:has(.slideshow-header),
+::ng-deep .modal-xl .modal-content:has(.slideshow-body),
+::ng-deep .modal.show .modal-xl .modal-content:has(.slideshow-header),
+::ng-deep .modal.show .modal-xl .modal-content:has(.slideshow-body) {
+    max-width: 65vw !important;
+    width: 65vw !important;
+    max-height: 90vh !important;
+    margin: 0 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    position: relative !important;
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Override Bootstrap modal-xl default max-width for slideshow modals */
+::ng-deep .modal.show .modal-xl.modal-dialog:has(.slideshow-header),
+::ng-deep .modal.show .modal-xl.modal-dialog:has(.slideshow-body) {
+    max-width: 65vw !important;
+    width: 65vw !important;
+}
+
+/* Force wider slideshow modal using custom windowClass */
+::ng-deep .slideshow-modal-wide .modal-dialog {
+    max-width: 65vw !important;
+    width: 65vw !important;
+}
+
+::ng-deep .slideshow-modal-wide .modal-content {
+    max-width: 65vw !important;
+    width: 65vw !important;
+}
+
+/* White border around the slideshow modal */
+::ng-deep .modal.show .modal-dialog .modal-content:has(.slideshow-header),
+::ng-deep .modal.show .modal-dialog .modal-content:has(.slideshow-body),
+::ng-deep .modal.show:has(.slideshow-header) .modal-content,
+::ng-deep .modal.show:has(.slideshow-body) .modal-content,
+::ng-deep .modal-smooth-animation .modal-content:has(.slideshow-header),
+::ng-deep .modal-smooth-animation .modal-content:has(.slideshow-body) {
+    border: 4px solid white !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.slideshow-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    position: relative;
+    z-index: 20000;
+    pointer-events: auto;
+}
+
+.slideshow-header .modal-title {
+    color: white;
+    font-weight: 600;
+}
+
+.slideshow-header .modal-title i {
+    margin-right: 8px;
+}
+
+.slideshow-body {
+    padding: 0;
+    background: #000 !important;
+    background-color: #000 !important;
+    position: relative;
+    z-index: 1;
+    min-height: 60vh;
+    max-height: 75vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex: 1;
+}
+
+/* Force black background for slideshow body in all contexts */
+::ng-deep .slideshow-body,
+::ng-deep .modal-content .slideshow-body,
+::ng-deep .modal.show .slideshow-body,
+::ng-deep .modal-smooth-animation .slideshow-body,
+::ng-deep .slideshow-modal-wide .slideshow-body {
+    background: #000 !important;
+    background-color: #000 !important;
+}
+
+.slideshow-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* Fullscreen styles for slideshow-container */
+.slideshow-container:fullscreen,
+.slideshow-container:-webkit-full-screen,
+.slideshow-container:-moz-full-screen,
+.slideshow-container:-ms-fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #000 !important;
+    overflow: hidden !important;
+}
+
+/* Ensure parent modal body takes full size in fullscreen */
+:fullscreen .slideshow-body,
+:-webkit-full-screen .slideshow-body,
+:-moz-full-screen .slideshow-body,
+:-ms-fullscreen .slideshow-body {
+    width: 100vw !important;
+    height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.slideshow-container:fullscreen .slideshow-image-wrapper,
+.slideshow-container:-webkit-full-screen .slideshow-image-wrapper,
+.slideshow-container:-moz-full-screen .slideshow-image-wrapper,
+.slideshow-container:-ms-fullscreen .slideshow-image-wrapper {
+    width: 100vw !important;
+    height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+}
+
+.slideshow-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 60vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y pinch-zoom;
+}
+
+/* When image is in fullscreen, make wrapper take full screen too */
+.slideshow-image-wrapper:has(.fullscreen-image),
+:fullscreen .slideshow-image-wrapper,
+:-webkit-full-screen .slideshow-image-wrapper {
+    width: 100vw !important;
+    height: 100vh !important;
+    min-width: 100vw !important;
+    min-height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.slideshow-loading {
+    text-align: center;
+    color: white;
+    padding: 40px;
+}
+
+.slideshow-loading i {
+    color: #28a745;
+    margin-bottom: 20px;
+}
+
+.slideshow-loading p {
+    margin-top: 15px;
+    font-size: 1.2rem;
+}
+
+.slideshow-image {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    animation: fadeIn 0.5s ease-in-out;
+    touch-action: pan-x pan-y pinch-zoom;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+/* Image in fullscreen mode */
+.slideshow-image.fullscreen-image {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    object-fit: contain !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+    z-index: 9998 !important;
+}
+
+/* Alternative: when container is fullscreen, force image size */
+.slideshow-container:fullscreen img.slideshow-image,
+.slideshow-container:-webkit-full-screen img.slideshow-image,
+.slideshow-container:-moz-full-screen img.slideshow-image,
+.slideshow-container:-ms-fullscreen img.slideshow-image {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    object-fit: contain !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+}
+
+/* Force image to fill screen in fullscreen mode */
+:fullscreen .slideshow-image,
+:-webkit-full-screen .slideshow-image,
+:-moz-full-screen .slideshow-image,
+:-ms-fullscreen .slideshow-image {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    object-fit: contain !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: block !important;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.slideshow-counter {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.slideshow-controls {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 20px;
+    pointer-events: none;
+}
+
+.slideshow-controls .btn {
+    pointer-events: all;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.slideshow-header .btn,
+.slideshow-header .btn i {
+    position: relative;
+    z-index: 20001;
+    pointer-events: auto;
+}
+
+.slideshow-controls .btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.slideshow-controls .btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.slideshow-controls .btn i {
+    font-size: 1.2rem;
+}
+
+/* Force visibility of controls in fullscreen when paused */
+.slideshow-controls.always-visible .btn {
+    opacity: 1 !important;
+    background: rgba(255, 255, 255, 0.4) !important;
+    border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.slideshow-controls.always-visible .btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.6) !important;
+    border-color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.slideshow-footer {
+    background: #2c3e50;
+    border-top: 1px solid #34495e;
+    padding: 15px;
+    position: relative;
+    z-index: 10001;
+}
+
+.slideshow-footer .d-flex {
+    gap: 0.5rem;
+}
+
+.slideshow-footer .btn {
+    white-space: nowrap;
+}
+
+.slideshow-footer .btn-group .btn {
+    padding: 0.375rem 0.75rem;
+}
+
+.slideshow-footer .btn i {
+    margin-right: 0.25rem;
+}
+
+.slideshow-controls .btn:active {
+    transform: scale(0.95);
+}
+
+.slideshow-footer .btn:active {
+    transform: scale(0.98);
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    .slideshow-header {
+        padding: 15px 20px;
+    }
+    
+    .slideshow-header .modal-title {
+        font-size: 1.1rem;
+    }
+    
+    .slideshow-body {
+        min-height: 55vh;
+    }
+    
+    .slideshow-image-wrapper {
+        height: 55vh;
+    }
+    
+    .slideshow-footer {
+        padding: 12px 15px;
+    }
+    
+    .slideshow-footer .btn {
+        font-size: 0.85rem;
+        padding: 0.4rem 0.7rem;
+    }
+    
+    .slideshow-controls .btn {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .slideshow-controls .btn i {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    /* Modal dialog adjustments - Full width on mobile */
+    ::ng-deep .modal.show:has(.slideshow-header) .modal-dialog,
+    ::ng-deep .modal.show:has(.slideshow-body) .modal-dialog,
+    ::ng-deep .modal.show .modal-dialog:has(.slideshow-header),
+    ::ng-deep .modal.show .modal-dialog:has(.slideshow-body),
+    ::ng-deep .modal-xl:has(.slideshow-header) .modal-dialog,
+    ::ng-deep .modal-xl:has(.slideshow-body) .modal-dialog,
+    ::ng-deep .modal.show .modal-xl.modal-dialog:has(.slideshow-header),
+    ::ng-deep .modal.show .modal-xl.modal-dialog:has(.slideshow-body),
+    ::ng-deep .slideshow-modal-wide .modal-dialog,
+    ::ng-deep .modal.show .slideshow-modal-wide .modal-dialog,
+    ::ng-deep .modal-xl.slideshow-modal-wide .modal-dialog {
+        max-width: 98vw !important;
+        width: 98vw !important;
+        margin: 0.25rem auto !important;
+        display: flex !important;
+        align-items: center !important;
+        max-height: 98vh !important;
+        min-height: auto !important;
+    }
+    
+    /* Modal content adjustments */
+    ::ng-deep .modal.show:has(.slideshow-header) .modal-content,
+    ::ng-deep .modal.show:has(.slideshow-body) .modal-content,
+    ::ng-deep .modal.show .modal-content:has(.slideshow-header),
+    ::ng-deep .modal.show .modal-content:has(.slideshow-body),
+    ::ng-deep .modal-xl .modal-content:has(.slideshow-header),
+    ::ng-deep .modal-xl .modal-content:has(.slideshow-body),
+    ::ng-deep .modal.show .modal-xl .modal-content:has(.slideshow-header),
+    ::ng-deep .modal.show .modal-xl .modal-content:has(.slideshow-body),
+    ::ng-deep .slideshow-modal-wide .modal-content,
+    ::ng-deep .modal.show .slideshow-modal-wide .modal-content,
+    ::ng-deep .modal-xl.slideshow-modal-wide .modal-content,
+    ::ng-deep .modal.show .modal-xl.modal-dialog .modal-content:has(.slideshow-header),
+    ::ng-deep .modal.show .modal-xl.modal-dialog .modal-content:has(.slideshow-body) {
+        max-width: 98vw !important;
+        width: 98vw !important;
+        max-height: 92vh !important;
+        height: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        position: relative !important;
+        margin: 0 auto !important;
+        overflow: hidden !important;
+    }
+    
+    .slideshow-header {
+        padding: 10px 12px;
+        flex-shrink: 0;
+    }
+    
+    .slideshow-header .modal-title {
+        font-size: 0.9rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: calc(100% - 50px);
+    }
+    
+    .slideshow-header .btn {
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
+        padding: 0;
+        flex-shrink: 0;
+    }
+    
+    .slideshow-body {
+        min-height: auto;
+        max-height: calc(92vh - 180px);
+        padding: 0;
+        flex: 1 1 auto;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .slideshow-image-wrapper {
+        height: auto;
+        min-height: 270px;
+        max-height: calc(92vh - 180px);
+        flex: 1 1 auto;
+    }
+    
+    .slideshow-controls {
+        padding: 0 8px;
+    }
+    
+    .slideshow-controls .btn {
+        width: 48px;
+        height: 48px;
+        min-width: 48px;
+    }
+    
+    .slideshow-controls .btn i {
+        font-size: 1rem;
+    }
+    
+    .slideshow-footer {
+        padding: 10px 12px;
+        flex-shrink: 0;
+    }
+    
+    .slideshow-footer .d-flex {
+        flex-wrap: wrap;
+        gap: 0.4rem;
+    }
+    
+    .slideshow-footer .btn {
+        font-size: 0.8rem;
+        padding: 0.35rem 0.6rem;
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+    
+    .slideshow-footer .btn span {
+        display: none;
+    }
+    
+    .slideshow-footer .btn i {
+        margin-right: 0;
+    }
+    
+    .slideshow-counter {
+        top: 10px;
+        right: 10px;
+        padding: 6px 12px;
+        font-size: 0.8rem;
+    }
+}
+
+/* EXIF Info Modal Styles */
+.exif-info-container {
+    max-height: 60vh;
+    overflow-y: auto;
+    padding: 10px;
+}
+
+.exif-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
+.exif-item:last-child {
+    border-bottom: none;
+}
+
+.exif-item strong {
+    color: #495057;
+    min-width: 200px;
+    margin-right: 15px;
+}
+
+.exif-item span {
+    color: #212529;
+    text-align: right;
+    word-break: break-word;
+    flex: 1;
+}
+
+@media (max-width: 768px) {
+    .exif-item {
+        flex-direction: column;
+    }
+    
+    .exif-item strong {
+        min-width: auto;
+        margin-right: 0;
+        margin-bottom: 5px;
+    }
+    
+    .exif-item span {
+        text-align: left;
+    }
+}
+

@@ -1,0 +1,68 @@
+/* Photos Selector Modal Styles */
+:host ::ng-deep .fs-selector-modal.modal-dialog,
+:host ::ng-deep .modal-dialog.fs-selector-modal,
+:host ::ng-deep .modal-dialog[data-fs-selector-modal="true"] {
+  max-width: 600px !important;
+  width: 600px !important;
+  min-width: 280px !important;
+  margin: 1.75rem auto !important;
+  padding: 0 !important;
+  box-sizing: border-box !important;
+  position: relative !important;
+}
+
+@media (max-width: 768px) {
+  :host ::ng-deep .fs-selector-modal.modal-dialog,
+  :host ::ng-deep .modal-dialog.fs-selector-modal,
+  :host ::ng-deep .modal-dialog[data-fs-selector-modal="true"] {
+    max-width: 95% !important;
+    width: 95% !important;
+    margin: 1rem auto !important;
+  }
+}
+
+.fs-selector-modal .modal-content {
+  border-radius: 8px;
+}
+
+.fs-selector-modal .modal-body {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.fs-selector-modal .list-group-item {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.fs-selector-modal .list-group-item:hover {
+  background-color: #f8f9fa;
+}
+
+.fs-selector-modal .form-check-input {
+  cursor: pointer;
+}
+
+.fs-selector-modal .badge {
+  font-size: 0.875rem;
+}
+
+.text-break {
+  word-break: break-word;
+}
+
+/* Header background color */
+.photos-selector-header {
+  background-color: #007bff !important;
+  color: white !important;
+  border-bottom: 1px solid #0056b3 !important;
+}
+
+.photos-selector-header .modal-title {
+  color: white !important;
+}
+
+.photos-selector-header .btn-close {
+  filter: invert(1) grayscale(100%) brightness(200%);
+}
+

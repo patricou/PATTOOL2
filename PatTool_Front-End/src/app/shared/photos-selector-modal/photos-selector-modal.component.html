@@ -1,0 +1,68 @@
+<ng-template #photosSelectorModal let-modal>
+  <div class="modal-header photos-selector-header">
+    <h5 class="modal-title">
+      <i class="fa fa-image"></i>
+      {{ 'EVENTELEM.PHOTOS_SELECTION' | translate }} - {{ evenement.evenementName }}
+    </h5>
+    <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
+  </div>
+  <div class="modal-body">
+    <!-- Uploaded photos section (MongoDB) -->
+    <div *ngIf="hasImageFiles()" class="mb-3 p-2 border rounded">
+      <div class="d-flex align-items-center">
+        <input class="form-check-input me-2" type="radio" name="fsLink" id="fsLinkUploaded" value="__UPLOADED__" [(ngModel)]="selectedFsLink">
+        <label class="form-check-label flex-grow-1" for="fsLinkUploaded">
+          <div class="d-flex align-items-center">
+            <span class="badge bg-primary me-2">{{ 'EVENTELEM.SLIDESHOW' | translate }}</span>
+            <strong class="me-2">{{ 'EVENTELEM.PHOTOS' | translate }}</strong>
+            <small class="text-muted">({{ getImageFilesCount() }})</small>
+          </div>
+          <small class="text-muted d-block mt-1">{{ 'EVENTELEM.MONGODB_PHOTOS_DESC' | translate }}</small>
+        </label>
+      </div>
+    </div>
+
+    <!-- Filesystem links list -->
+    <div class="mb-2" *ngIf="getPhotoFromFsLinks().length > 0">
+      <div class="mb-2"><strong>{{ 'EVENTELEM.PHOTOS_FROM_FS_HEADING' | translate }}</strong></div>
+      <div class="list-group">
+        <label class="list-group-item d-flex align-items-start" *ngFor="let link of getPhotoFromFsLinks(); let i = index">
+          <input class="form-check-input me-2 mt-1" type="radio" name="fsLink" [value]="link.link" [(ngModel)]="selectedFsLink">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center">
+              <span class="badge bg-secondary me-2">{{ i + 1 }}</span>
+              <span class="text-break">{{ link.link }}</span>
+            </div>
+            <small class="text-muted d-block" *ngIf="link.urlDescription">{{ link.urlDescription }}</small>
+          </div>
+        </label>
+      </div>
+    </div>
+
+    <!-- Other Photos links (type PHOTOS) -->
+    <div class="mb-2" *ngIf="getPhotosUrlLinks().length > 0">
+      <div class="mb-2"><strong>{{ 'EVENTELEM.OTHER_PHOTOS_LINKS' | translate }}</strong></div>
+      <div class="list-group">
+        <label class="list-group-item d-flex align-items-start" *ngFor="let link of getPhotosUrlLinks(); let j = index">
+          <input class="form-check-input me-2 mt-1" type="radio" name="fsLink" [value]="'PHOTOS:' + link.link" [(ngModel)]="selectedFsLink">
+          <div class="flex-grow-1">
+            <div class="d-flex align-items-center">
+              <span class="badge bg-info me-2">{{ j + 1 }}</span>
+              <span class="text-break">{{ link.link }}</span>
+            </div>
+            <small class="text-muted d-block" *ngIf="link.urlDescription">{{ link.urlDescription }}</small>
+          </div>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel')">
+      <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+    </button>
+    <button type="button" class="btn btn-primary" [disabled]="!selectedFsLink" (click)="confirmSelection(modal)">
+      <i class="fa fa-play"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
+    </button>
+  </div>
+</ng-template>
+

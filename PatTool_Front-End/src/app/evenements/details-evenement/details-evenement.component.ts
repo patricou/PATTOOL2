@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, ViewChild, TemplateRef, ElementRef } from '@angular/core';
+import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { TranslateService } from '@ngx-translate/core';
@@ -71,41 +72,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   private activeSubscriptions = new Set<Subscription>();
   
   @ViewChild('imageModal') imageModal!: TemplateRef<any>;
-  @ViewChild('slideshowModal') slideshowModal!: TemplateRef<any>;
-  @ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
-  @ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
+  @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
 
-  // Slideshow properties
-  public isSlideshowActive: boolean = false;
-  public currentSlideshowIndex: number = 0;
-  public slideshowImages: string[] = [];
-  public slideshowInterval: any;
-  private isSlideshowModalOpen: boolean = false;
-  private keyboardListener?: (event: KeyboardEvent) => void;
-  private lastKeyPressTime: number = 0;
-  private lastKeyCode: number = 0;
-
-  // Zoom state for slideshow
-  public slideshowZoom: number = 1;
-  public slideshowTranslateX: number = 0;
-  public slideshowTranslateY: number = 0;
-  public isDraggingSlideshow: boolean = false;
-  private hasDraggedSlideshow: boolean = false;
-  private dragStartX: number = 0;
-  private dragStartY: number = 0;
-  private dragOrigX: number = 0;
-  private dragOrigY: number = 0;
-
-  // Touch state for mobile gestures
-  private touchStartDistance: number = 0;
-  private touchStartZoom: number = 1;
-  private lastTouchDistance: number = 0;
-  private touchStartX: number = 0;
-  private touchStartY: number = 0;
-  private isPinching: boolean = false;
-  private initialTouches: Touch[] = [];
-  private pinchStartTranslateX: number = 0;
-  private pinchStartTranslateY: number = 0;
+  // Slideshow properties (now handled by SlideshowModalComponent - kept for backward compatibility but not used)
 
   // FS Photos download control
   private fsDownloadsActive: boolean = false;
@@ -132,9 +101,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopAutoPlay();
-    this.stopSlideshow();
     this.cancelFsDownloads();
-    this.removeKeyboardListener();
     
     // Cancel all active HTTP subscriptions to prevent backend errors when connection is closed
     this.activeSubscriptions.forEach(sub => {
@@ -152,14 +119,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       }
     });
     this.imageCache.clear();
-    
-    // Clean up slideshow blob URLs
-    this.slideshowImages.forEach(url => {
-      if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
-      }
-    });
-    this.slideshowImages = [];
   }
 
   private loadEventDetails(): void {
@@ -984,82 +943,70 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   }
 
   public openFsPhotosDiaporama(relativePath: string): void {
-    this.slideshowImages = [];
-    this.currentSlideshowIndex = 0;
-    // ensure slideshow starts paused
-    if (this.slideshowInterval) { clearInterval(this.slideshowInterval); this.slideshowInterval = null; }
-    this.isSlideshowActive = false;
-    this.fsDownloadsActive = true;
-    // cleanup any previous subscriptions
-    this.cancelFsDownloads();
-    this.fsDownloadsActive = true;
-    // First, list images
+    // Open slideshow modal immediately with empty array - images will be loaded dynamically
+    if (!this.slideshowModalComponent || !this.evenement) {
+      console.error('Slideshow modal component or event not available');
+      return;
+    }
+    
+    // Open modal immediately with empty array
+    this.slideshowModalComponent.open([], this.evenement.evenementName, false);
+    
+    // Then list and load images dynamically
     const subscription = this.fileService.listImagesFromDisk(relativePath).subscribe({
       next: (fileNames: string[]) => {
-        // Open the modal immediately (will show loader until images arrive)
-        const modalRef = this.modalService.open(this.slideshowModal, { size: 'xl', centered: true, windowClass: 'slideshow-modal-wide' });
-
         if (!fileNames || fileNames.length === 0) {
+          console.warn('No images found in path:', relativePath);
           return;
         }
-        // Limit concurrent downloads for faster first paint
-        this.loadImagesWithConcurrency(relativePath, fileNames, 4);
-
-        // Setup keyboard listener after modal is opened
-        setTimeout(() => {
-          this.setupKeyboardListener();
-        }, 0);
-
-        // Cleanup and cancel downloads when modal closes
-        modalRef.result.finally(() => {
-          this.cancelFsDownloads();
-          this.removeKeyboardListener();
-          try { this.slideshowImages.forEach(url => URL.revokeObjectURL(url)); } catch {}
-        });
+        
+        // Load images with concurrency and add them dynamically
+        const maxConcurrent = 4;
+        let active = 0;
+        const queue = [...fileNames];
+        
+        const loadNext = () => {
+          if (active >= maxConcurrent || queue.length === 0) {
+            return;
+          }
+          
+          const fileName = queue.shift() as string;
+          active++;
+          
+          const sub = this.fileService.getImageFromDisk(relativePath, fileName).subscribe({
+            next: (buffer: ArrayBuffer) => {
+              const blob = new Blob([buffer], { type: 'image/*' });
+              const url = URL.createObjectURL(blob);
+              const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined };
+              
+              // Add image dynamically to the already open slideshow
+              if (this.slideshowModalComponent) {
+                this.slideshowModalComponent.addImages([imageSource]);
+              }
+            },
+            error: (error) => {
+              console.error('Error loading image:', fileName, error);
+            },
+            complete: () => {
+              active--;
+              loadNext();
+            }
+          });
+          this.trackSubscription(sub);
+        };
+        
+        // Start loading images
+        for (let i = 0; i < maxConcurrent && queue.length > 0; i++) {
+          loadNext();
+        }
       },
-      error: () => {
-        // Open modal anyway to show empty state/error
-        const modalRef = this.modalService.open(this.slideshowModal, { size: 'xl', centered: true, windowClass: 'slideshow-modal-wide' });
-        setTimeout(() => {
-          this.setupKeyboardListener();
-        }, 0);
-        modalRef.result.finally(() => {
-          this.removeKeyboardListener();
-        });
+      error: (error) => {
+        console.error('Error listing images from disk:', error);
       }
     });
     this.trackSubscription(subscription);
   }
 
-  private loadImagesWithConcurrency(relativePath: string, fileNames: string[], concurrency: number): void {
-    this.fsQueue = [...fileNames];
-    let active = 0;
-
-    const next = () => {
-      if (!this.fsDownloadsActive) { return; }
-      while (this.fsDownloadsActive && active < concurrency && this.fsQueue.length > 0) {
-        const name = this.fsQueue.shift() as string;
-        active++;
-        const sub = this.fileService.getImageFromDisk(relativePath, name).subscribe({
-          next: (buffer: ArrayBuffer) => {
-            const blob = new Blob([buffer], { type: 'image/*' });
-            const url = URL.createObjectURL(blob);
-            this.slideshowImages.push(url);
-          },
-          error: () => {
-            // ignore failed image
-          },
-          complete: () => {
-            active--;
-            next();
-          }
-        });
-        this.fsActiveSubs.push(sub);
-      }
-    };
-
-    next();
-  }
 
   private cancelFsDownloads(): void {
     this.fsDownloadsActive = false;
@@ -1069,380 +1016,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   }
 
   // =========================
-  // Slideshow methods
+  // Slideshow methods (now handled by SlideshowModalComponent)
   // =========================
-
-  public getMinSlideshowZoom(): number {
-    try {
-      const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
-      const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
-      if (!container || !imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return 0.5;
-      const cw = container.clientWidth || 1;
-      const ch = container.clientHeight || 1;
-      const iw = imgEl.naturalWidth;
-      const ih = imgEl.naturalHeight;
-      return Math.max(cw / iw, ch / ih);
-    } catch { return 0.5; }
-  }
-
-  private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 5): number {
-    event.preventDefault();
-    const delta = Math.sign(event.deltaY);
-    const step = 0.1;
-    let next = current - delta * step; // wheel up -> zoom in
-    if (next < minZoom) next = minZoom;
-    if (next > maxZoom) next = maxZoom;
-    return parseFloat(next.toFixed(2));
-  }
-
-  public onWheelSlideshow(event: WheelEvent): void {
-    const minZoom = this.getMinSlideshowZoom();
-    this.slideshowZoom = this.applyWheelZoom(event, this.slideshowZoom, minZoom);
-    this.clampSlideshowTranslation();
-  }
-
-  public resetSlideshowZoom(): void { 
-    this.slideshowZoom = Math.max(1, this.getMinSlideshowZoom()); 
-    this.slideshowTranslateX = 0; 
-    this.slideshowTranslateY = 0; 
-  }
-
-  public zoomInSlideshow(): void { 
-    this.slideshowZoom = Math.min(5, parseFloat((this.slideshowZoom + 0.1).toFixed(2))); 
-  }
-
-  public zoomOutSlideshow(): void { 
-    this.slideshowZoom = Math.max(this.getMinSlideshowZoom(), parseFloat((this.slideshowZoom - 0.1).toFixed(2))); 
-    this.clampSlideshowTranslation(); 
-  }
-
-  // Drag handlers for Slideshow modal
-  public onSlideshowMouseDown(event: MouseEvent): void {
-    const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
-    this.isDraggingSlideshow = canDrag;
-    this.hasDraggedSlideshow = false;
-    if (canDrag) { try { event.preventDefault(); event.stopPropagation(); } catch {} }
-    this.dragStartX = event.clientX;
-    this.dragStartY = event.clientY;
-    this.dragOrigX = this.slideshowTranslateX;
-    this.dragOrigY = this.slideshowTranslateY;
-  }
-
-  public onSlideshowMouseMove(event: MouseEvent): void {
-    if (!this.isDraggingSlideshow) return;
-    try { event.preventDefault(); event.stopPropagation(); } catch {}
-    const dx = event.clientX - this.dragStartX;
-    const dy = event.clientY - this.dragStartY;
-    this.slideshowTranslateX = this.dragOrigX + dx;
-    this.slideshowTranslateY = this.dragOrigY + dy;
-    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
-    this.clampSlideshowTranslation();
-  }
-
-  public onSlideshowMouseUp(): void {
-    this.isDraggingSlideshow = false;
-  }
-
-  public onSlideshowClose(cRef: any): void {
-    try {
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
-      }
-    } catch {}
-    this.cancelFsDownloads();
-    this.removeKeyboardListener();
-    try { if (typeof cRef === 'function') { cRef('Close click'); } } catch {}
-    try { this.modalService.dismissAll(); } catch {}
-  }
-
-  private clampSlideshowTranslation(): void {
-    try {
-      const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
-      const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
-      if (!container || !imgEl) return;
-      const cw = container.clientWidth;
-      const ch = container.clientHeight;
-      const iw = imgEl.clientWidth * this.slideshowZoom;
-      const ih = imgEl.clientHeight * this.slideshowZoom;
-      const maxX = Math.max(0, (iw - cw) / 2);
-      const maxY = Math.max(0, (ih - ch) / 2);
-      if (this.slideshowTranslateX > maxX) this.slideshowTranslateX = maxX;
-      if (this.slideshowTranslateX < -maxX) this.slideshowTranslateX = -maxX;
-      if (this.slideshowTranslateY > maxY) this.slideshowTranslateY = maxY;
-      if (this.slideshowTranslateY < -maxY) this.slideshowTranslateY = -maxY;
-    } catch {}
-  }
-
-  // Helper function to calculate distance between two touches
-  private getTouchDistance(touch1: Touch, touch2: Touch): number {
-    const dx = touch1.clientX - touch2.clientX;
-    const dy = touch1.clientY - touch2.clientY;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
-  // Helper function to get center point between two touches
-  private getTouchCenter(touch1: Touch, touch2: Touch): { x: number; y: number } {
-    return {
-      x: (touch1.clientX + touch2.clientX) / 2,
-      y: (touch1.clientY + touch2.clientY) / 2
-    };
-  }
-
-  // Touch handlers for Slideshow modal - Mobile support
-  public onSlideshowTouchStart(event: TouchEvent): void {
-    if (event.touches.length === 1) {
-      // Single touch - start drag
-      const touch = event.touches[0];
-      const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
-      this.isDraggingSlideshow = canDrag;
-      this.hasDraggedSlideshow = false;
-      if (canDrag) {
-        try { event.preventDefault(); event.stopPropagation(); } catch {}
-      }
-      this.touchStartX = touch.clientX;
-      this.touchStartY = touch.clientY;
-      this.dragStartX = touch.clientX;
-      this.dragStartY = touch.clientY;
-      this.dragOrigX = this.slideshowTranslateX;
-      this.dragOrigY = this.slideshowTranslateY;
-      this.isPinching = false;
-    } else if (event.touches.length === 2) {
-      // Two touches - start pinch zoom
-      try { event.preventDefault(); event.stopPropagation(); } catch {}
-      this.isPinching = true;
-      this.isDraggingSlideshow = false;
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
-      this.touchStartDistance = this.getTouchDistance(touch1, touch2);
-      this.touchStartZoom = this.slideshowZoom;
-      this.lastTouchDistance = this.touchStartDistance;
-      this.initialTouches = [touch1, touch2];
-      this.pinchStartTranslateX = this.slideshowTranslateX;
-      this.pinchStartTranslateY = this.slideshowTranslateY;
-      
-      // Store the center point for zoom origin
-      const center = this.getTouchCenter(touch1, touch2);
-      const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        this.touchStartX = center.x - rect.left;
-        this.touchStartY = center.y - rect.top;
-      }
-    }
-  }
-
-  public onSlideshowTouchMove(event: TouchEvent): void {
-    if (event.touches.length === 1 && !this.isPinching) {
-      // Single touch - drag
-      if (!this.isDraggingSlideshow) return;
-      const touch = event.touches[0];
-      try { event.preventDefault(); event.stopPropagation(); } catch {}
-      const dx = touch.clientX - this.dragStartX;
-      const dy = touch.clientY - this.dragStartY;
-      this.slideshowTranslateX = this.dragOrigX + dx;
-      this.slideshowTranslateY = this.dragOrigY + dy;
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
-      this.clampSlideshowTranslation();
-    } else if (event.touches.length === 2 && this.isPinching) {
-      // Two touches - pinch zoom
-      try { event.preventDefault(); event.stopPropagation(); } catch {}
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
-      const currentDistance = this.getTouchDistance(touch1, touch2);
-      
-      if (this.touchStartDistance > 0) {
-        // Calculate zoom factor based on distance change
-        const scale = currentDistance / this.touchStartDistance;
-        let newZoom = this.touchStartZoom * scale;
-        
-        // Apply min/max zoom constraints
-        const minZoom = this.getMinSlideshowZoom();
-        const maxZoom = 5;
-        newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
-        
-        this.slideshowZoom = parseFloat(newZoom.toFixed(2));
-        
-        // Adjust translation to keep zoom centered on pinch point
-        if (this.slideshowZoom > minZoom) {
-          const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
-          const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
-          if (container && imgEl) {
-            const rect = container.getBoundingClientRect();
-            const currentPinchCenterX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
-            const currentPinchCenterY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
-            
-            // Get initial pinch center point
-            const initialPinchCenterX = this.touchStartX;
-            const initialPinchCenterY = this.touchStartY;
-            
-            // Calculate zoom change factor
-            const zoomChange = this.slideshowZoom / this.touchStartZoom;
-            
-            // Calculate the new translation to zoom around the initial pinch point
-            this.slideshowTranslateX = initialPinchCenterX - (initialPinchCenterX - this.pinchStartTranslateX) * zoomChange;
-            this.slideshowTranslateY = initialPinchCenterY - (initialPinchCenterY - this.pinchStartTranslateY) * zoomChange;
-          }
-        }
-        
-        this.lastTouchDistance = currentDistance;
-        this.clampSlideshowTranslation();
-      }
-    }
-  }
-
-  public onSlideshowTouchEnd(event: TouchEvent): void {
-    if (event.touches.length === 0) {
-      // All touches ended
-      this.isDraggingSlideshow = false;
-      this.isPinching = false;
-      this.initialTouches = [];
-      this.touchStartDistance = 0;
-      this.lastTouchDistance = 0;
-      this.pinchStartTranslateX = 0;
-      this.pinchStartTranslateY = 0;
-    } else if (event.touches.length === 1 && this.isPinching) {
-      // One touch lifted during pinch - switch to drag mode
-      this.isPinching = false;
-      const touch = event.touches[0];
-      this.isDraggingSlideshow = this.slideshowZoom > this.getMinSlideshowZoom();
-      if (this.isDraggingSlideshow) {
-        this.touchStartX = touch.clientX;
-        this.touchStartY = touch.clientY;
-        this.dragStartX = touch.clientX;
-        this.dragStartY = touch.clientY;
-        this.dragOrigX = this.slideshowTranslateX;
-        this.dragOrigY = this.slideshowTranslateY;
-      }
-      this.pinchStartTranslateX = 0;
-      this.pinchStartTranslateY = 0;
-    }
-  }
-
-  // Start automatic slideshow
-  public startSlideshow(): void {
-    // Change image every 3 seconds
-    this.slideshowInterval = setInterval(() => {
-      this.nextImage();
-    }, 3000);
-  }
-
-  // Stop slideshow
-  public stopSlideshow(): void {
-    if (this.slideshowInterval) {
-      clearInterval(this.slideshowInterval);
-      this.slideshowInterval = null;
-    }
-    this.isSlideshowActive = false;
-  }
-
-  // Setup keyboard listener for arrow keys navigation
-  private setupKeyboardListener(): void {
-    this.isSlideshowModalOpen = true;
-    this.keyboardListener = (event: KeyboardEvent) => {
-      // Only handle if modal is open
-      if (!this.isSlideshowModalOpen) {
-        return;
-      }
-      
-      // Check if target is not an input or textarea to avoid interfering with form inputs
-      const target = event.target as HTMLElement;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-        return;
-      }
-      
-      // Check if modal is open OR if we're in fullscreen mode
-      const modal = document.querySelector('.modal.show');
-      const isFullscreenActive = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
-        (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
-      
-      // Allow if modal is open OR if we're in fullscreen (modal might not have .show class in fullscreen)
-      if (!modal && !isFullscreenActive) {
-        return;
-      }
-      
-      // In fullscreen, we still want to handle the keys even if modal doesn't contain target
-      if (modal && !modal.contains(target) && !isFullscreenActive) {
-        return;
-      }
-      
-      const currentTime = Date.now();
-      const currentKeyCode = event.keyCode || (event.key === 'ArrowLeft' ? 37 : event.key === 'ArrowRight' ? 39 : 0);
-      
-      // Debounce: ignore if same key pressed within 100ms (to prevent double triggering)
-      if (currentKeyCode === this.lastKeyCode && currentTime - this.lastKeyPressTime < 100) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        return;
-      }
-      
-      if (event.key === 'ArrowLeft' || event.keyCode === 37) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        this.lastKeyPressTime = currentTime;
-        this.lastKeyCode = 37;
-        this.previousImage();
-      } else if (event.key === 'ArrowRight' || event.keyCode === 39) {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        this.lastKeyPressTime = currentTime;
-        this.lastKeyCode = 39;
-        this.nextImage();
-      }
-    };
-    
-    // Use capture phase with keydown only (to avoid double triggering)
-    window.addEventListener('keydown', this.keyboardListener, { capture: true, passive: false });
-    document.addEventListener('keydown', this.keyboardListener, { capture: true, passive: false });
-  }
-
-  // Remove keyboard listener
-  private removeKeyboardListener(): void {
-    this.isSlideshowModalOpen = false;
-    if (this.keyboardListener) {
-      window.removeEventListener('keydown', this.keyboardListener, { capture: true });
-      document.removeEventListener('keydown', this.keyboardListener, { capture: true });
-      this.keyboardListener = undefined;
-    }
-  }
-
-  // Navigate to next image
-  public nextImage(): void {
-    if (this.slideshowImages.length === 0) return;
-    this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
-    setTimeout(() => this.resetSlideshowZoom(), 0);
-  }
-
-  // Navigate to previous image
-  public previousImage(): void {
-    if (this.slideshowImages.length === 0) return;
-    this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
-    setTimeout(() => this.resetSlideshowZoom(), 0);
-  }
-
-  // Get current slideshow image URL
-  public getCurrentSlideshowImage(): string {
-    if (this.slideshowImages.length === 0 || this.currentSlideshowIndex >= this.slideshowImages.length) {
-      return '';
-    }
-    return this.slideshowImages[this.currentSlideshowIndex];
-  }
-
-  // Toggle slideshow play/pause
-  public toggleSlideshow(): void {
-    if (this.isSlideshowActive) {
-      // Just stop the interval, don't cleanup images
-      if (this.slideshowInterval) {
-        clearInterval(this.slideshowInterval);
-        this.slideshowInterval = null;
-      }
-      this.isSlideshowActive = false;
-    } else {
-      this.startSlideshow();
-      this.isSlideshowActive = true;
-    }
-  }
 
 }

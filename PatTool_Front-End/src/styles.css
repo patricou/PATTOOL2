@@ -1,5 +1,126 @@
 /* You can add global styles to this file, and also import other style files */
 
+/* Fix for view transitions warning: prevent overflow:visible on img, video, canvas */
+img, video, canvas {
+    overflow: hidden !important;
+    box-sizing: border-box;
+}
+
+/* Also fix for elements that might contain these media elements */
+[style*="overflow: visible"] img,
+[style*="overflow: visible"] video,
+[style*="overflow: visible"] canvas {
+    overflow: hidden !important;
+}
+
+/* Global style to ensure fs-selector-modal has consistent width everywhere */
+::ng-deep .fs-selector-modal.modal-dialog,
+::ng-deep .modal-dialog.fs-selector-modal,
+::ng-deep .modal.show .fs-selector-modal.modal-dialog,
+::ng-deep .modal.show .modal-dialog.fs-selector-modal,
+::ng-deep .modal-dialog[data-fs-selector-modal="true"] {
+    max-width: 600px !important;
+    width: 600px !important;
+    min-width: 280px !important;
+    margin: 1.75rem auto !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+}
+
+@media (max-width: 768px) {
+    ::ng-deep .fs-selector-modal.modal-dialog,
+    ::ng-deep .modal-dialog.fs-selector-modal,
+    ::ng-deep .modal.show .fs-selector-modal.modal-dialog,
+    ::ng-deep .modal.show .modal-dialog.fs-selector-modal,
+    ::ng-deep .modal-dialog[data-fs-selector-modal="true"] {
+        max-width: 95% !important;
+        width: 95% !important;
+        margin: 1rem auto !important;
+    }
+}
+
+/* Photos Selector Modal Header - Global styles to work everywhere */
+.fs-selector-modal .photos-selector-header,
+.fs-selector-modal .modal-header.photos-selector-header,
+.fs-selector-modal .modal-header {
+    background-color: #007bff !important;
+    color: white !important;
+    border-bottom: 1px solid #0056b3 !important;
+    padding: 1rem 1.25rem !important;
+    flex-wrap: wrap !important;
+}
+
+.fs-selector-modal .photos-selector-header .modal-title,
+.fs-selector-modal .modal-header.photos-selector-header .modal-title,
+.fs-selector-modal .modal-header .modal-title {
+    color: white !important;
+    font-size: 1.1rem !important;
+    word-break: break-word !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+}
+
+.fs-selector-modal .photos-selector-header .modal-title i,
+.fs-selector-modal .modal-header.photos-selector-header .modal-title i,
+.fs-selector-modal .modal-header .modal-title i {
+    margin-right: 0.5rem !important;
+}
+
+/* Custom close button - Round with white border and blue background */
+.fs-selector-modal .photos-selector-header .btn-close,
+.fs-selector-modal .modal-header.photos-selector-header .btn-close,
+.fs-selector-modal .modal-header .btn-close {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    border: 2px solid white !important;
+    background-color: #007bff !important;
+    opacity: 1 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    background-image: none !important;
+    background-size: 0 !important;
+}
+
+.fs-selector-modal .photos-selector-header .btn-close::before,
+.fs-selector-modal .modal-header.photos-selector-header .btn-close::before,
+.fs-selector-modal .modal-header .btn-close::before {
+    content: '×' !important;
+    font-size: 24px !important;
+    line-height: 1 !important;
+    color: white !important;
+    font-weight: bold !important;
+    display: block !important;
+    margin: 0 !important;
+}
+
+.fs-selector-modal .photos-selector-header .btn-close::after,
+.fs-selector-modal .modal-header.photos-selector-header .btn-close::after,
+.fs-selector-modal .modal-header .btn-close::after {
+    display: none !important;
+}
+
+.fs-selector-modal .photos-selector-header .btn-close:hover,
+.fs-selector-modal .modal-header.photos-selector-header .btn-close:hover,
+.fs-selector-modal .modal-header .btn-close:hover {
+    background-color: #0056b3 !important;
+    border-color: white !important;
+    transform: scale(1.1) !important;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.fs-selector-modal .photos-selector-header .btn-close:hover::before,
+.fs-selector-modal .modal-header.photos-selector-header .btn-close:hover::before,
+.fs-selector-modal .modal-header .btn-close:hover::before {
+    color: white !important;
+}
+
 /* Modal smooth animation */
 .modal-smooth-animation {
     animation: fadeIn 0.3s ease-out;

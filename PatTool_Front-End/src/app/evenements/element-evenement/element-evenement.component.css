@@ -302,7 +302,7 @@ hr {
 }
 
 /* Photos Modal Header */
-.modal-header {
+.modal-header:not(.slideshow-header) {
     background-color: #007bff;
     color: white;
     border-bottom: none;
@@ -475,7 +475,7 @@ hr {
 }
 
 /* Supprimer spécifiquement le fond blanc de Bootstrap */
-.modal-content {
+.modal-content:not(:has(.slideshow-body)) {
     background-color: transparent !important;
     background: transparent !important;
 }
@@ -983,7 +983,7 @@ hr {
     margin: 0;
 }
 
-::ng-deep .modal-smooth-animation .modal-header {
+::ng-deep .modal-smooth-animation .modal-header:not(.slideshow-header) {
     background: linear-gradient(135deg, #007bff 0%, #0056b3 50%, #004085 100%);
     border: none;
     padding: 25px 30px;
@@ -1011,7 +1011,7 @@ hr {
     z-index: 1;
 }
 
-::ng-deep .modal-smooth-animation .modal-body {
+::ng-deep .modal-smooth-animation .modal-body:not(.slideshow-body) {
     padding: 5px;
     background: transparent;
     display: flex;
@@ -1525,83 +1525,9 @@ hr {
 /* ===== FS PHOTOS SELECTOR MODAL - RESPONSIVE STYLES ===== */
 
 /* Modal dialog sizing */
-::ng-deep .fs-selector-modal.modal-dialog {
-    max-width: 500px !important;
-    width: auto !important;
-    min-width: 280px;
-    margin: 1.75rem 1rem !important;
-    padding: 0 !important;
-    box-sizing: border-box !important;
-    position: relative;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-}
+/* fs-selector-modal styles now handled globally in styles.css */
 
-/* Ensure modal-content doesn't overflow */
-::ng-deep .fs-selector-modal.modal-dialog .modal-content {
-    margin: 0 !important;
-}
-
-/* Modal header */
-::ng-deep .fs-selector-modal .modal-header {
-    padding: 1rem 1.25rem;
-    flex-wrap: wrap;
-}
-
-/* Custom close button - Round with white border */
-::ng-deep .fs-selector-modal .modal-header .btn-close {
-    width: 32px !important;
-    height: 32px !important;
-    border-radius: 50% !important;
-    border: 2px solid white !important;
-    background-color: white !important;
-    opacity: 1 !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-    background-image: none !important;
-    background-size: 0 !important;
-}
-
-::ng-deep .fs-selector-modal .modal-header .btn-close::before {
-    content: '×' !important;
-    font-size: 24px !important;
-    line-height: 1 !important;
-    color: #007bff !important;
-    font-weight: bold !important;
-    display: block !important;
-    margin: 0 !important;
-}
-
-::ng-deep .fs-selector-modal .modal-header .btn-close::after {
-    display: none !important;
-}
-
-::ng-deep .fs-selector-modal .modal-header .btn-close:hover {
-    background-color: #f8f9fa !important;
-    border-color: #007bff !important;
-    transform: scale(1.1) !important;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
-}
-
-::ng-deep .fs-selector-modal .modal-header .btn-close:hover::before {
-    color: #0056b3 !important;
-}
-
-::ng-deep .fs-selector-modal .modal-title {
-    font-size: 1.1rem;
-    word-break: break-word;
-    flex: 1;
-    min-width: 0;
-}
-
-::ng-deep .fs-selector-modal .modal-title i {
-    margin-right: 0.5rem;
-}
+/* Modal header - Styles now handled globally in styles.css */
 
 /* Modal body */
 ::ng-deep .fs-selector-modal .modal-body {
@@ -1942,44 +1868,7 @@ hr {
     }
 }
 
-.slideshow-header {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    color: white;
-    border: none;
-    position: relative;
-    z-index: 20000;
-    pointer-events: auto;
-}
-
-.slideshow-header .modal-title {
-    color: white;
-    font-weight: 600;
-}
-
-.slideshow-header .modal-title i {
-    margin-right: 8px;
-}
-
-.slideshow-body {
-    padding: 0;
-    background: #000;
-    position: relative;
-    z-index: 1;
-    min-height: 60vh;
-    max-height: 75vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-    flex: 1;
-    /* Prevent body scroll on mobile when modal is open */
-}
-
-.slideshow-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
+/* Slideshow styles are now in slideshow-modal.component.css - removed duplicate styles */
 
 /* Fullscreen styles for slideshow-container */
 .slideshow-container:fullscreen,
@@ -2224,12 +2113,7 @@ hr {
     border: 2px solid rgba(255, 255, 255, 0.3);
 }
 
-.slideshow-header .btn,
-.slideshow-header .btn i {
-    position: relative;
-    z-index: 20001;
-    pointer-events: auto;
-}
+/* Slideshow header button styles are in slideshow-modal.component.css */
 
 .slideshow-controls .btn:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.3);
@@ -2306,13 +2190,7 @@ hr {
 
 /* Responsive adjustments for slideshow */
 @media (max-width: 992px) {
-    .slideshow-header {
-        padding: 15px 20px;
-    }
-    
-    .slideshow-header .modal-title {
-        font-size: 1.1rem;
-    }
+    /* Slideshow header styles are in slideshow-modal.component.css */
     
     .slideshow-body {
         min-height: 55vh;
@@ -2389,26 +2267,7 @@ hr {
         overflow: hidden !important;
     }
     
-    .slideshow-header {
-        padding: 10px 12px;
-        flex-shrink: 0;
-    }
-    
-    .slideshow-header .modal-title {
-        font-size: 0.9rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: calc(100% - 50px);
-    }
-    
-    .slideshow-header .btn {
-        width: 36px;
-        height: 36px;
-        font-size: 0.9rem;
-        padding: 0;
-        flex-shrink: 0;
-    }
+    /* Slideshow header styles are in slideshow-modal.component.css */
     
     .slideshow-body {
         min-height: auto;
@@ -2563,20 +2422,7 @@ hr {
         position: relative !important;
     }
     
-    .slideshow-header {
-        padding: 10px 12px;
-        flex-shrink: 0;
-    }
-    
-    .slideshow-header .modal-title {
-        font-size: 0.9rem;
-    }
-    
-    .slideshow-header .btn {
-        width: 32px;
-        height: 32px;
-        font-size: 0.8rem;
-    }
+    /* Slideshow header styles are in slideshow-modal.component.css */
     
     .slideshow-body {
         min-height: auto;

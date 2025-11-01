@@ -2303,36 +2303,7 @@ select.btn.btn-secondary.btn-sm:focus {
     overflow: hidden;
 }
 
-.slideshow-header {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    color: white;
-    border: none;
-}
-
-.slideshow-header .modal-title {
-    color: white;
-    font-weight: 600;
-}
-
-.slideshow-header .modal-title i {
-    margin-right: 8px;
-}
-
-.slideshow-body {
-    padding: 0;
-    background: #000;
-    position: relative;
-    min-height: 60vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.slideshow-container {
-    position: relative;
-    width: 100%;
-    height: 100%;
-}
+/* Slideshow styles are now in slideshow-modal.component.css - removed duplicate styles */
 
 /* Fullscreen styles for slideshow-container */
 .slideshow-container:fullscreen,
@@ -2609,6 +2580,30 @@ select.btn.btn-secondary.btn-sm:focus {
     overflow: hidden;
 }
 
+/* Fixed width for fs-selector modal */
+::ng-deep .fs-selector-modal.modal-dialog {
+    max-width: 600px !important;
+    width: 600px !important;
+    min-width: 280px !important;
+    margin: 1.75rem auto !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    position: relative !important;
+}
+
+/* Ensure modal-content doesn't overflow */
+::ng-deep .fs-selector-modal.modal-dialog .modal-content {
+    margin: 0 !important;
+}
+
+@media (max-width: 768px) {
+    ::ng-deep .fs-selector-modal.modal-dialog {
+        max-width: 95% !important;
+        width: 95% !important;
+        margin: 1rem auto !important;
+    }
+}
+
 /* Responsive adjustments for slideshow - Mobile optimized */
 @media (max-width: 768px) {
     /* Modal dialog adjustments - Full width on mobile for better usability */
@@ -2633,26 +2628,7 @@ select.btn.btn-secondary.btn-sm:focus {
         flex-direction: column !important;
     }
     
-    .slideshow-header {
-        padding: 10px 12px;
-        flex-shrink: 0;
-    }
-    
-    .slideshow-header .modal-title {
-        font-size: 0.9rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: calc(100% - 50px);
-    }
-    
-    .slideshow-header .btn {
-        width: 36px;
-        height: 36px;
-        font-size: 0.9rem;
-        padding: 0;
-        flex-shrink: 0;
-    }
+    /* Slideshow header styles are in slideshow-modal.component.css */
     
     .slideshow-body {
         min-height: 60vh;

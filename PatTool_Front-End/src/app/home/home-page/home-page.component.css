@@ -23,6 +23,7 @@
     position: fixed;
     width: 100%;
     z-index: -2;
+    overflow: hidden;
 }
 
 .pat-display {
@@ -46,6 +47,7 @@
     width: 100vw;
     height: 100vh;
     object-fit: cover;
+    overflow: hidden;
 }
 
 .center-vertically {

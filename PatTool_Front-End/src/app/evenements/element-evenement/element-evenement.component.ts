@@ -1,4 +1,6 @@
 import { Component, OnInit, Input, Output, ViewChild, EventEmitter, AfterViewInit, TemplateRef, ElementRef } from '@angular/core';
+import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 // Removed ng2-file-upload - using native HTML file input
@@ -88,6 +90,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@ViewChild('imageEl') imageElRef!: ElementRef<HTMLImageElement>;
 	@ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
 	@ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
+	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
 
 	// FS Photos download control
 	private fsDownloadsActive: boolean = false;
@@ -96,8 +99,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
-	@ViewChild('slideshowModal') slideshowModal!: TemplateRef<any>;
-	@ViewChild('fsPhotosSelectorModal') fsPhotosSelectorModal!: TemplateRef<any>;
+	@ViewChild('photosSelectorModalComponent') photosSelectorModalComponent!: PhotosSelectorModalComponent;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
@@ -149,8 +151,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// Photo From FS integration
 	// =========================
 
-	public selectedFsLink: string = '';
-
 	public getPhotoFromFsLinks(): UrlEvent[] {
 		if (!this.evenement || !this.evenement.urlEvents) return [];
 		return this.evenement.urlEvents.filter(u => (u.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS');
@@ -165,6 +165,20 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return this.getPhotoFromFsLinks().length;
 	}
 
+	public getTotalPhotosCount(): number {
+		// Each photo source counts as 1, regardless of how many photos it contains
+		let count = 0;
+		// Photos uploadées: count as 1 if any exist
+		if (this.hasImageFiles()) {
+			count += 1;
+		}
+		// Each FS link counts as 1
+		count += this.getPhotoFromFsCount();
+		// Each web photo link counts as 1
+		count += this.getPhotosUrlLinks().length;
+		return count;
+	}
+
     public openFsPhotosSelector(includeUploadedChoice: boolean = false): void {
         const fsLinks = this.getPhotoFromFsLinks();
         const webLinks = this.getPhotosUrlLinks();
@@ -177,62 +191,83 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
             this.openFsPhotosDiaporama(fsLinks[0].link);
             return;
         }
-        // Default selection priority: uploaded (if requested and available) -> first FS link -> first web photos link
-        if (includeUploadedChoice && this.hasImageFiles()) {
-            this.selectedFsLink = '__UPLOADED__';
-        } else if (fsLinks.length > 0) {
-            this.selectedFsLink = fsLinks[0].link;
-        } else if (webLinks.length > 0) {
-            this.selectedFsLink = 'PHOTOS:' + webLinks[0].link;
+        
+        // Use the new photos selector modal component
+        if (this.photosSelectorModalComponent) {
+            this.photosSelectorModalComponent.evenement = this.evenement;
+            this.photosSelectorModalComponent.includeUploadedChoice = includeUploadedChoice;
+            this.photosSelectorModalComponent.open();
         }
-        if (!this.fsPhotosSelectorModal) return;
-        this.modalService.open(this.fsPhotosSelectorModal, { centered: true, size: 'md', windowClass: 'fs-selector-modal' });
     }
 
-    public confirmFsPhotosSelection(modalRef?: any): void {
-		if (!this.selectedFsLink) return;
-		if (this.selectedFsLink === '__UPLOADED__') {
+    public onPhotosSelectionConfirmed(result: PhotosSelectionResult): void {
+        if (result.type === 'uploaded') {
             this.openSlideshow();
-		} else if (this.selectedFsLink.startsWith('PHOTOS:')) {
-			const url = this.selectedFsLink.substring('PHOTOS:'.length);
-			try { this.winRef.getNativeWindow().open(url, '_blank'); } catch {}
-		} else {
-            this.openFsPhotosDiaporama(this.selectedFsLink);
+        } else if (result.type === 'web') {
+            try { this.winRef.getNativeWindow().open(result.value, '_blank'); } catch {}
+        } else if (result.type === 'fs') {
+            this.openFsPhotosDiaporama(result.value);
         }
-		if (modalRef) { modalRef.close(); }
-	}
+    }
 
 	private openFsPhotosDiaporama(relativePath: string): void {
-		this.slideshowImages = [];
-		this.currentSlideshowIndex = 0;
-        // ensure slideshow starts paused
-        if (this.slideshowInterval) { clearInterval(this.slideshowInterval); this.slideshowInterval = null; }
-        this.isSlideshowActive = false;
-		this.fsDownloadsActive = true;
-		// cleanup any previous subscriptions
-		this.cancelFsDownloads();
-		this.fsDownloadsActive = true;
-        // First, list images
+		// Open slideshow modal immediately with empty array - images will be loaded dynamically
+		if (!this.slideshowModalComponent || !this.evenement) {
+			console.error('Slideshow modal component or event not available');
+			return;
+		}
+		
+		// Open modal immediately with empty array
+		this.slideshowModalComponent.open([], this.evenement.evenementName, false);
+		
+		// Then list and load images dynamically
 		this._fileService.listImagesFromDisk(relativePath).subscribe({
             next: (fileNames: string[]) => {
-                // Open the modal immediately (will show loader until images arrive)
-				const modalRef = this.modalService.open(this.slideshowModal, { size: 'xl', centered: true, windowClass: 'slideshow-modal-wide' });
-
                 if (!fileNames || fileNames.length === 0) {
                     return;
                 }
-				// Limit concurrent downloads for faster first paint
-				this.loadImagesWithConcurrency(relativePath, fileNames, 4);
-
-				// Cleanup and cancel downloads when modal closes
-				modalRef.result.finally(() => {
-					this.cancelFsDownloads();
-					try { this.slideshowImages.forEach(url => URL.revokeObjectURL(url)); } catch {}
-				});
+				
+				// Load images with concurrency and add them dynamically
+				const maxConcurrent = 4;
+				let active = 0;
+				const queue = [...fileNames];
+				
+				const loadNext = () => {
+					if (active >= maxConcurrent || queue.length === 0) {
+						return;
+					}
+					
+					const fileName = queue.shift() as string;
+					active++;
+					
+					this._fileService.getImageFromDisk(relativePath, fileName).subscribe({
+						next: (buffer: ArrayBuffer) => {
+							const blob = new Blob([buffer], { type: 'image/*' });
+							const url = URL.createObjectURL(blob);
+							const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined };
+							
+							// Add image dynamically to the already open slideshow
+							if (this.slideshowModalComponent) {
+								this.slideshowModalComponent.addImages([imageSource]);
+							}
+						},
+						error: (error) => {
+							console.error('Error loading image:', fileName, error);
+						},
+						complete: () => {
+							active--;
+							loadNext();
+						}
+					});
+				};
+				
+				// Start loading images
+				for (let i = 0; i < maxConcurrent && queue.length > 0; i++) {
+					loadNext();
+				}
             },
-            error: () => {
-                // Open modal anyway to show empty state/error
-                this.modalService.open(this.slideshowModal, { size: 'xl', centered: true, windowClass: 'slideshow-modal-wide' });
+            error: (error) => {
+                console.error('Error listing images from disk:', error);
             }
         });
 	}
@@ -1024,12 +1059,26 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// check if urlEvents are available
 	public isUrlEventsAvailable(): boolean {
-		return this.evenement.urlEvents && this.evenement.urlEvents.length > 0;
+		if (!this.evenement.urlEvents || this.evenement.urlEvents.length === 0) {
+			return false;
+		}
+		// Exclude photo-related links (PHOTOS and PHOTOFROMFS)
+		return this.evenement.urlEvents.some(u => {
+			const type = (u.typeUrl || '').toUpperCase().trim();
+			return type !== 'PHOTOS' && type !== 'PHOTOFROMFS';
+		});
 	}
 
-	// get count of urlEvents
+	// get count of urlEvents (excluding photo-related links)
 	public getUrlEventsCount(): number {
-		return this.evenement.urlEvents ? this.evenement.urlEvents.length : 0;
+		if (!this.evenement.urlEvents) {
+			return 0;
+		}
+		// Exclude photo-related links (PHOTOS and PHOTOFROMFS)
+		return this.evenement.urlEvents.filter(u => {
+			const type = (u.typeUrl || '').toUpperCase().trim();
+			return type !== 'PHOTOS' && type !== 'PHOTOFROMFS';
+		}).length;
 	}
 
 	// open URLs modal
@@ -1421,7 +1470,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			return {};
 		}
 		
-		return this.evenement.urlEvents.reduce((groups: { [key: string]: any[] }, urlEvent) => {
+		// Filter out photo-related links (PHOTOS and PHOTOFROMFS)
+		const nonPhotoUrls = this.evenement.urlEvents.filter(u => {
+			const type = (u.typeUrl || '').toUpperCase().trim();
+			return type !== 'PHOTOS' && type !== 'PHOTOFROMFS';
+		});
+		
+		return nonPhotoUrls.reduce((groups: { [key: string]: any[] }, urlEvent) => {
 			// Normaliser le type pour le regroupement
 			const normalizedType = this.normalizeTypeForGrouping(urlEvent.typeUrl || 'OTHER');
 			if (!groups[normalizedType]) {
@@ -1868,7 +1923,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Open slideshow modal with all images from this card
 	public openSlideshow(): void {
-		this.setupFullscreenListener();
 		// Filter to get only image files
 		const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
 		
@@ -1877,68 +1931,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			return;
 		}
 
-		// Initialize slideshow state
-		this.slideshowImages = [];
-		this.currentSlideshowIndex = 0;
-		this.isSlideshowActive = false;
-		let isFirstImageLoaded = false;
+		// Prepare image sources for the slideshow component
+		const imageSources: SlideshowImageSource[] = imageFiles.map(file => ({
+			fileId: file.fieldId,
+			blobUrl: undefined
+		}));
 
-		// Open the modal first
-		if (this.slideshowModal) {
-			const modalRef = this.modalService.open(this.slideshowModal, { 
-				size: 'xl', 
-				centered: true,
-				backdrop: true,
-				keyboard: true,
-				windowClass: 'modal-smooth-animation slideshow-modal-wide'
-			});
-			
-			// Set flag that modal is open
-			this.isSlideshowModalOpen = true;
-			this.lastKeyPressTime = 0;
-			this.lastKeyCode = 0;
-			
-			// Setup keyboard listener after modal is opened
-			setTimeout(() => {
-				this.setupKeyboardListener();
-			}, 0);
-			
-			// Handle modal close event
-			modalRef.result.then(
-				(result) => {
-					this.isSlideshowModalOpen = false;
-					this.stopSlideshow();
-					this.removeKeyboardListener();
-				},
-				(reason) => {
-					this.isSlideshowModalOpen = false;
-					this.stopSlideshow();
-					this.removeKeyboardListener();
-				}
-			);
+		// Open the slideshow modal immediately - images will be loaded dynamically
+		if (this.slideshowModalComponent) {
+			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true);
 		}
-
-		// Load images one by one and start slideshow as soon as first image is loaded
-		// USE GETFILE for display (with image resizing)
-		imageFiles.forEach((file, index) => {
-			this._fileService.getFile(file.fieldId).pipe(
-				map((res: any) => {
-					const blob = new Blob([res], { type: 'application/octet-stream' });
-					return URL.createObjectURL(blob);
-				})
-			).subscribe((objectUrl: string) => {
-				// Add to slideshow images array
-				this.slideshowImages.push(objectUrl);
-				
-				// Initialize slideshow state when first image is loaded (don't start automatically)
-				if (!isFirstImageLoaded) {
-					isFirstImageLoaded = true;
-					this.isSlideshowActive = false; // Start paused
-				}
-			}, (error) => {
-				console.error('Error loading image for slideshow:', error);
-			});
-		});
 	}
 
 	// Start automatic slideshow

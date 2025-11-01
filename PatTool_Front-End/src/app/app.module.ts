@@ -37,6 +37,7 @@ import { PatgptModule } from './patgpt/patgpt.module';
 import { IothomeComponent } from './iothome/iothome.component';
 import { IotService } from './services/iot.service';
 import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-buttons.module';
+import { SlideshowModalModule } from './shared/slideshow-modal/slideshow-modal.module';
 import { LinksAdminModule } from './admin/links-admin/links-admin.module';
 import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
 
@@ -64,6 +65,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		LinksAdminModule,
 		PatgptModule,
 		NavigationButtonsModule,
+		SlideshowModalModule,
 		TranslateModule.forRoot({
 			loader: {
 				provide: TranslateLoader,

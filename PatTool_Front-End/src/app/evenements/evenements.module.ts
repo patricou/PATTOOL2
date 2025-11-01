@@ -22,6 +22,8 @@ import { UpdateEvenementComponent } from './update-evenement/update-evenement.co
 import { WindowRefService } from '../services/window-ref.service';
 import { CommonvaluesService } from '../services/commonvalues.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
+import { SlideshowModalModule } from '../shared/slideshow-modal/slideshow-modal.module';
+import { PhotosSelectorModalModule } from '../shared/photos-selector-modal/photos-selector-modal.module';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -44,7 +46,9 @@ export function HttpLoaderFactory(http: HttpClient) {
 		// NgxMyDatePickerModule, // Removed - incompatible with Angular Ivy
 		// FileUploadModule, // Removed - incompatible with Angular Ivy
 		NgbModule,
-		NavigationButtonsModule
+		NavigationButtonsModule,
+		SlideshowModalModule,
+		PhotosSelectorModalModule
 	],
 	declarations: [
 		HomeEvenementsComponent, CreateEvenementComponent, ElementEvenementComponent, UpdateEvenementComponent

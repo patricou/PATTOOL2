@@ -169,7 +169,7 @@
             placement="right"
             container="body"
             ngbTooltip="{{ 'EVENTELEM.SLIDESHOW' | translate }}">
-        <i class="fa fa-picture-o" aria-hidden="true"></i>
+        <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getTotalPhotosCount() }}
     </button>
     
     <!-- View Details Button -->
@@ -414,73 +414,8 @@
 </ng-template>
 
 <!-- FS Photos Selector Modal -->
-<ng-template #fsPhotosSelectorModal let-modal>
-    <div class="modal-header">
-        <h5 class="modal-title">
-            <i class="fa fa-image"></i>
-            {{ 'EVENTELEM.PHOTOS_SELECTION' | translate }} - {{ evenement.evenementName }}
-        </h5>
-        <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
-    </div>
-    <div class="modal-body">
-        <!-- Uploaded photos section (MongoDB) -->
-        <div *ngIf="hasImageFiles()" class="mb-3 p-2 border rounded">
-            <div class="d-flex align-items-center">
-                <input class="form-check-input me-2" type="radio" name="fsLink" id="fsLinkUploaded" value="__UPLOADED__" [(ngModel)]="selectedFsLink">
-                <label class="form-check-label flex-grow-1" for="fsLinkUploaded">
-                    <div class="d-flex align-items-center">
-                        <span class="badge bg-primary me-2">{{ 'EVENTELEM.SLIDESHOW' | translate }}</span>
-                        <strong class="me-2">{{ 'EVENTELEM.PHOTOS' | translate }}</strong>
-                        <small class="text-muted">({{ getImageFilesCount() }})</small>
-                    </div>
-                    <small class="text-muted d-block mt-1">{{ 'EVENTELEM.MONGODB_PHOTOS_DESC' | translate }}</small>
-                </label>
-            </div>
-        </div>
-
-        <!-- Filesystem links list -->
-        <div class="mb-2" *ngIf="getPhotoFromFsLinks().length > 0">
-            <div class="mb-2"><strong>{{ 'EVENTELEM.PHOTOS_FROM_FS_HEADING' | translate }}</strong></div>
-            <div class="list-group">
-                <label class="list-group-item d-flex align-items-start" *ngFor="let link of getPhotoFromFsLinks(); let i = index">
-                    <input class="form-check-input me-2 mt-1" type="radio" name="fsLink" [value]="link.link" [(ngModel)]="selectedFsLink">
-                    <div class="flex-grow-1">
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-secondary me-2">{{ i + 1 }}</span>
-                            <span class="text-break">{{ link.link }}</span>
-                        </div>
-                        <small class="text-muted d-block" *ngIf="link.urlDescription">{{ link.urlDescription }}</small>
-                    </div>
-                </label>
-            </div>
-        </div>
-
-        <!-- Other Photos links (type PHOTOS) -->
-        <div class="mb-2" *ngIf="getPhotosUrlLinks().length > 0">
-            <div class="mb-2"><strong>{{ 'EVENTELEM.OTHER_PHOTOS_LINKS' | translate }}</strong></div>
-            <div class="list-group">
-                <label class="list-group-item d-flex align-items-start" *ngFor="let link of getPhotosUrlLinks(); let j = index">
-                    <input class="form-check-input me-2 mt-1" type="radio" name="fsLink" [value]="'PHOTOS:' + link.link" [(ngModel)]="selectedFsLink">
-                    <div class="flex-grow-1">
-                        <div class="d-flex align-items-center">
-                            <span class="badge bg-info me-2">{{ j + 1 }}</span>
-                            <span class="text-break">{{ link.link }}</span>
-                        </div>
-                        <small class="text-muted d-block" *ngIf="link.urlDescription">{{ link.urlDescription }}</small>
-                    </div>
-                </label>
-            </div>
-        </div>
-    </div>
-    <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel')">
-            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
-        </button>
-        <button type="button" class="btn btn-primary" [disabled]="!selectedFsLink" (click)="confirmFsPhotosSelection(modal)">
-            <i class="fa fa-play"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
-        </button>
-    </div>
-</ng-template>
+<!-- Photos Selector Modal Component -->
+<app-photos-selector-modal #photosSelectorModalComponent (selectionConfirmed)="onPhotosSelectionConfirmed($event)"></app-photos-selector-modal>
 
 <!-- Image Modal for large display -->
 <ng-template #imageModal let-c="close" let-d="dismiss">
@@ -566,85 +501,9 @@
     </div>
 </ng-template>
 
-<!-- Slideshow Modal -->
-<ng-template #slideshowModal let-c="close" let-d="dismiss">
-    <div class="modal-header slideshow-header">
-        <h5 class="modal-title">
-            <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW_TITLE' | translate }} - {{ evenement.evenementName }}
-        </h5>
-        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="onSlideshowClose(c)" aria-label="Close">
-            <i class="fa fa-times"></i>
-        </button>
-    </div>
-    <div class="modal-body slideshow-body">
-        <div class="slideshow-container">
-            <div class="slideshow-image-wrapper" #slideshowContainer
-                 (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
-                 (mouseup)="onSlideshowMouseUp()" (mouseleave)="onSlideshowMouseUp()" (document:mouseup)="onSlideshowMouseUp()"
-                 (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
-                 [style.cursor]="isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')" style="overflow:hidden; user-select: none;">
-                <img #slideshowImgEl *ngIf="slideshowImages.length > 0" 
-                     [src]="getCurrentSlideshowImage()" 
-                     alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
-                     class="slideshow-image"
-                     [style.transform]="'translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0) scale(' + slideshowZoom + ')'
-                     "
-                     style="transform-origin:center center;"
-                     (wheel)="onWheelSlideshow($event)"
-                     [class.fullscreen-image]="isFullscreen"
-                     />
-                <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
-                    <i class="fa fa-spinner fa-spin fa-3x"></i>
-                    <p>{{ 'EVENTELEM.LOADING_IMAGES' | translate }}</p>
-                </div>
-                <div *ngIf="slideshowImages.length > 0" class="slideshow-counter">
-                    {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
-                </div>
-            </div>
-            <div class="slideshow-controls" [class.always-visible]="isFullscreen && !isSlideshowActive">
-                <button class="btn btn-lg btn-outline-light slideshow-btn-prev" 
-                        (click)="previousImage()"
-                        [disabled]="slideshowImages.length <= 1">
-                    <i class="fa fa-chevron-left"></i>
-                </button>
-                <button class="btn btn-lg btn-outline-light slideshow-btn-next" 
-                        (click)="nextImage()"
-                        [disabled]="slideshowImages.length <= 1">
-                    <i class="fa fa-chevron-right"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-    <div class="modal-footer slideshow-footer">
-        <div class="d-flex gap-2 align-items-center flex-wrap">
-            <button type="button" class="btn btn-secondary" 
-                    (click)="toggleSlideshow()"
-                    [disabled]="slideshowImages.length <= 1"
-                    [ngbTooltip]="isSlideshowActive ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate)"
-                    placement="top">
-                <i class="fa me-1" [ngClass]="isSlideshowActive ? 'fa-pause-circle-o' : 'fa-play-circle-o'"></i>
-                <span *ngIf="!isSlideshowActive">{{ 'EVENTELEM.PLAY' | translate }}</span>
-                <span *ngIf="isSlideshowActive">{{ 'EVENTELEM.PAUSE' | translate }}</span>
-            </button>
-            <div class="btn-group" role="group">
-                <button type="button" class="btn btn-outline-secondary" (click)="zoomOutSlideshow()"><i class="fa fa-search-minus"></i></button>
-                <button type="button" class="btn btn-outline-secondary" (click)="resetSlideshowZoom()"><i class="fa fa-refresh"></i></button>
-                <button type="button" class="btn btn-outline-secondary" (click)="zoomInSlideshow()"><i class="fa fa-search-plus"></i></button>
-            </div>
-            <button type="button" class="btn btn-secondary" 
-                    (click)="toggleFullscreen()"
-                    [ngbTooltip]="isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)"
-                    placement="top">
-                <i [class.fa-arrows-alt]="!isFullscreen" [class.fa-compress]="isFullscreen" class="me-1"></i>
-                <span *ngIf="!isFullscreen">{{ 'EVENTELEM.FULLSCREEN' | translate }}</span>
-                <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span>
-            </button>
-            <button type="button" class="btn btn-secondary" (click)="onSlideshowClose(c)">
-                <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
-            </button>
-        </div>
-    </div>
-</ng-template>
+<!-- Slideshow Modal Component -->
+<app-slideshow-modal #slideshowModalComponent></app-slideshow-modal>
+
 
 <!-- Upload Logs Modal -->
 <ng-template #uploadLogsModal let-modal>
