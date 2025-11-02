@@ -49,6 +49,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public selectedImageUrl: SafeUrl | string = '';
 	public selectedImageAlt: string = '';
 	public selectedUser: Member | null = null;
+	// Dominant color for title background
+	public titleBackgroundColor: string = 'rgba(255, 255, 255, 0.6)';
+	// Inverse color for title border
+	public titleBorderColor: string = 'rgba(0, 0, 0, 0.8)';
 	public isSlideshowActive: boolean = false;
 	public currentSlideshowIndex: number = 0;
 	public slideshowImages: string[] = [];
@@ -91,11 +95,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
 	@ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
+	@ViewChild('thumbnailImage', { static: false }) thumbnailImageRef!: ElementRef<HTMLImageElement>;
 
 	// FS Photos download control
 	private fsDownloadsActive: boolean = false;
 	private fsActiveSubs: Subscription[] = [];
 	private fsQueue: string[] = [];
+	
+	// FS Photos slideshow loading control
+	private fsSlideshowLoadingActive: boolean = false;
+	private fsSlideshowSubs: Subscription[] = [];
 
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
@@ -217,13 +226,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			return;
 		}
 		
+		// Reset slideshow loading state
+		this.fsSlideshowLoadingActive = true;
+		
 		// Open modal immediately with empty array
 		this.slideshowModalComponent.open([], this.evenement.evenementName, false);
 		
 		// Then list and load images dynamically
-		this._fileService.listImagesFromDisk(relativePath).subscribe({
+		const listSub = this._fileService.listImagesFromDisk(relativePath).subscribe({
             next: (fileNames: string[]) => {
-                if (!fileNames || fileNames.length === 0) {
+                if (!fileNames || fileNames.length === 0 || !this.fsSlideshowLoadingActive) {
                     return;
                 }
 				
@@ -233,21 +245,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				const queue = [...fileNames];
 				
 				const loadNext = () => {
-					if (active >= maxConcurrent || queue.length === 0) {
+					if (!this.fsSlideshowLoadingActive || active >= maxConcurrent || queue.length === 0) {
 						return;
 					}
 					
 					const fileName = queue.shift() as string;
 					active++;
 					
-					this._fileService.getImageFromDisk(relativePath, fileName).subscribe({
+					const imageSub = this._fileService.getImageFromDisk(relativePath, fileName).subscribe({
 						next: (buffer: ArrayBuffer) => {
+							if (!this.fsSlideshowLoadingActive) return;
+							
 							const blob = new Blob([buffer], { type: 'image/*' });
 							const url = URL.createObjectURL(blob);
 							const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined, blob: blob, fileName: fileName };
 							
 							// Add image dynamically to the already open slideshow
-							if (this.slideshowModalComponent) {
+							if (this.slideshowModalComponent && this.fsSlideshowLoadingActive) {
 								this.slideshowModalComponent.addImages([imageSource]);
 							}
 						},
@@ -256,13 +270,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 						},
 						complete: () => {
 							active--;
-							loadNext();
+							if (this.fsSlideshowLoadingActive) {
+								loadNext();
+							}
 						}
 					});
+					this.fsSlideshowSubs.push(imageSub);
 				};
 				
 				// Start loading images
-				for (let i = 0; i < maxConcurrent && queue.length > 0; i++) {
+				for (let i = 0; i < maxConcurrent && queue.length > 0 && this.fsSlideshowLoadingActive; i++) {
 					loadNext();
 				}
             },
@@ -270,6 +287,17 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
                 console.error('Error listing images from disk:', error);
             }
         });
+		this.fsSlideshowSubs.push(listSub);
+	}
+
+	public onSlideshowClosed(): void {
+		this.fsSlideshowLoadingActive = false;
+		this.fsSlideshowSubs.forEach(sub => {
+			if (sub && !sub.closed) {
+				sub.unsubscribe();
+			}
+		});
+		this.fsSlideshowSubs = [];
 	}
 
 	private loadImagesWithConcurrency(relativePath: string, fileNames: string[], concurrency: number): void {
@@ -1023,14 +1051,119 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 						})
 					).subscribe((safeUrl: SafeUrl) => {
 						this.thumbnailUrl = safeUrl;
+						// Detect dominant color after image loads
+						setTimeout(() => {
+							this.detectDominantColor();
+						}, 100);
 					});
 				}
 			}
 			)
-		};
+		} else {
+			// Reset to default color if no thumbnail
+			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
+			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
+		}
 	}
-	// not used
+
+	// Detect dominant color from the top portion of the thumbnail image
+	public detectDominantColor(): void {
+		// Wait a bit for the image to be in the DOM
+		setTimeout(() => {
+			if (!this.thumbnailImageRef || !this.thumbnailImageRef.nativeElement) {
+				return;
+			}
+
+			const img = this.thumbnailImageRef.nativeElement;
+			
+			// Check if image is loaded
+			if (!img.complete || img.naturalWidth === 0) {
+				// Wait for image to load
+				img.onload = () => {
+					this.processImageColor(img);
+				};
+				return;
+			}
+
+			this.processImageColor(img);
+		}, 200);
+	}
+
+	// Process image to extract dominant color from top portion
+	private processImageColor(img: HTMLImageElement): void {
+		try {
+			const canvas = document.createElement('canvas');
+			const ctx = canvas.getContext('2d');
+			
+			if (!ctx) {
+				return;
+			}
+
+			// Set canvas size to match image
+			canvas.width = img.naturalWidth || img.width;
+			canvas.height = img.naturalHeight || img.height;
+
+			// Draw image to canvas
+			ctx.drawImage(img, 0, 0);
+
+			// Sample the top portion of the image (top 30%)
+			const sampleHeight = Math.floor(canvas.height * 0.3);
+			const sampleWidth = canvas.width;
+
+			// Get image data from top portion
+			const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
+			const pixels = imageData.data;
+
+			// Calculate average color
+			let r = 0, g = 0, b = 0;
+			let pixelCount = 0;
+
+			// Sample every 10th pixel for performance
+			for (let i = 0; i < pixels.length; i += 40) { // RGBA = 4 bytes, skip 10 pixels
+				r += pixels[i];
+				g += pixels[i + 1];
+				b += pixels[i + 2];
+				pixelCount++;
+			}
+
+			if (pixelCount > 0) {
+				r = Math.floor(r / pixelCount);
+				g = Math.floor(g / pixelCount);
+				b = Math.floor(b / pixelCount);
+
+				// Use the dominant color with 60% opacity
+				this.titleBackgroundColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
+				
+				// Calculate brightness to determine if color is dark or light
+				// Using luminance formula: 0.299*R + 0.587*G + 0.114*B
+				const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
+				
+				// If color is dark (brightness < 128), use white for border and text
+				// If color is light (brightness >= 128), use black for border and text
+				if (brightness < 128) {
+					this.titleBorderColor = 'rgba(255, 255, 255, 0.9)';
+				} else {
+					this.titleBorderColor = 'rgba(0, 0, 0, 0.9)';
+				}
+			}
+		} catch (error) {
+			console.error('Error detecting dominant color:', error);
+			// Fallback to default color
+			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
+			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
+		}
+	}
+	// Detect color after view is initialized
 	ngAfterViewInit() {
+		// Try to detect color if image is already loaded
+		setTimeout(() => {
+			if (this.thumbnailImageRef && this.thumbnailImageRef.nativeElement) {
+				const img = this.thumbnailImageRef.nativeElement;
+				if (img.complete && img.naturalWidth > 0) {
+					this.detectDominantColor();
+				}
+			}
+		}, 300);
 	}
 	// delete a file uploaded linked to the evenement, update the evenement
 	delFile(fieldId: string) {
@@ -1114,7 +1247,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 	// add the user as member
 	public addMemberClick() {
-		this.addMember.emit(this.evenement);
+		// Show participants section when clicking add member
+		this.showParticipantsSection();
+		// Only add if not already a participant
+		if (!this.isParticipant()) {
+			this.addMember.emit(this.evenement);
+		}
 	};
 	// del the user as member
 	public delMemberClick() {
@@ -1155,6 +1293,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	public toggleParticipantsList(): void {
 		this.showParticipantsList = !this.showParticipantsList;
+	}
+	
+	// Show participants section (used when clicking add member button)
+	public showParticipantsSection(): void {
+		this.showParticipantsList = true;
 	}
 
 	public toggleFilesList(): void {
@@ -1421,6 +1564,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			// console.log('No thumbnail file found, using default image');
 			// Reset to default image if no thumbnail file exists
 			this.thumbnailUrl = "assets/images/images.jpg";
+			// Reset to default color
+			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
+			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
+			// Try to detect color from default image
+			setTimeout(() => {
+				this.detectDominantColor();
+			}, 100);
 		}
 		
 		// Emit an event to the parent component to update the event data

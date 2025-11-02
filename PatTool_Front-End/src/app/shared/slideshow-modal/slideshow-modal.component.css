@@ -576,15 +576,21 @@
 .exif-info-container {
     max-height: 60vh;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 10px;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    background-color: #f8f9fa;
 }
 
 .exif-item {
-    padding: 8px 12px;
+    padding: 10px 12px;
     border-bottom: 1px solid #e9ecef;
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
+    gap: 15px;
+    min-height: 40px;
 }
 
 .exif-item:last-child {
@@ -594,7 +600,11 @@
 .exif-item strong {
     color: #495057;
     min-width: 200px;
+    max-width: 250px;
     margin-right: 15px;
+    flex-shrink: 0;
+    font-weight: 600;
+    padding-right: 10px;
 }
 
 .exif-item span {
@@ -602,21 +612,36 @@
     text-align: right;
     word-break: break-word;
     flex: 1;
+    min-width: 0;
+    overflow-wrap: break-word;
 }
 
 @media (max-width: 768px) {
+    .exif-info-container {
+        max-height: 50vh;
+        padding: 8px;
+    }
+    
     .exif-item {
         flex-direction: column;
+        gap: 5px;
+        min-height: auto;
+        padding: 8px 10px;
     }
     
     .exif-item strong {
         min-width: auto;
+        max-width: none;
         margin-right: 0;
-        margin-bottom: 5px;
+        margin-bottom: 3px;
+        padding-right: 0;
+        font-weight: 600;
     }
     
     .exif-item span {
         text-align: left;
+        word-break: break-word;
+        overflow-wrap: break-word;
     }
 }
 

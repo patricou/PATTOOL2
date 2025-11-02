@@ -227,6 +227,7 @@
         "CHAT": "Discussione live",
         "IWTP": "Partecipo",
         "IDWTP": "Non partecipo più",
+        "PARTICIPATION": "Partecipazione",
         "UTE": "Modifica Attività",
         "DTE": "Elimina Attività",
         "DELETE_EVENT_CONFIRM_MESSAGE": "Sei sicuro di voler eliminare questa attività? Questa azione è irreversibile ed eliminerà permanentemente:",

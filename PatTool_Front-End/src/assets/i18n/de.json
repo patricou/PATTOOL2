@@ -226,6 +226,7 @@
         "CHAT": "Live-Chat",
         "IWTP": "Ich nehme teil",
         "IDWTP": "Ich nehme nicht mehr teil",
+        "PARTICIPATION": "Teilnahme",
         "UTE": "Veranstaltung ändern",
         "DTE": "Veranstaltung löschen",
         "DELETE_EVENT_CONFIRM_MESSAGE": "Möchten Sie diese Veranstaltung wirklich löschen? Diese Aktion ist unwiderruflich und wird dauerhaft löschen:",

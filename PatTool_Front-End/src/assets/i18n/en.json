@@ -231,6 +231,7 @@
         "CHAT": "Live Chat",
         "IWTP": "I participate",
         "IDWTP": "I don't participate",
+        "PARTICIPATION": "Participation",
         "UTE": "Update Event",
         "DTE": "Delete Event",
         "DELETE_EVENT_CONFIRM_MESSAGE": "Are you sure you want to delete this event? This action is irreversible and will permanently delete:",

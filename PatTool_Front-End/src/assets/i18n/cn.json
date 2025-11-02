@@ -227,6 +227,7 @@
         "CHAT": "实时讨论",
         "IWTP": "我参加",
         "IDWTP": "我不再参加",
+        "PARTICIPATION": "参与",
         "UTE": "修改活动",
         "DTE": "删除活动",
         "DELETE_EVENT_CONFIRM_MESSAGE": "您确定要删除此活动吗？此操作不可逆，将永久删除：",

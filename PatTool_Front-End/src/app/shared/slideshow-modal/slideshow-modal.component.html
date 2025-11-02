@@ -97,8 +97,9 @@
   </div>
   <div class="modal-body">
     <div *ngIf="exifData && exifData.length > 0" class="exif-info-container">
-      <div *ngFor="let item of exifData" class="exif-item mb-2">
-        <strong>{{ item.label }}:</strong> <span>{{ item.value }}</span>
+      <div *ngFor="let item of exifData" class="exif-item">
+        <strong>{{ item.label }}:</strong>
+        <span>{{ item.value }}</span>
       </div>
     </div>
     <div *ngIf="!exifData || exifData.length === 0" class="text-center text-muted">

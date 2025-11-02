@@ -218,6 +218,7 @@
         "CHAT": "Discussion live",
         "IWTP": "Je particpe",
         "IDWTP": "Je ne particpe plus",
+        "PARTICIPATION": "Participation",
         "UTE": "Modifier l'Activité",
         "DTE": "Supprimer l'Activité",
         "DELETE_EVENT_CONFIRM_MESSAGE": "Êtes-vous sûr de vouloir supprimer cet événement ? Cette action est irréversible et supprimera définitivement :",

@@ -1,11 +1,15 @@
 <!-- <div class="panel panel-default" [ngClass]="{'animated pulse':mouseOvered}" (mouseout)="mouseOvered=false" (mouseover)="mouseOvered=true" data-bs-hover-animate="pulse"> -->
 <!-- thw following line allows to have tooltips on button in footer !! -->
 <div style="position:relative;" (click)="openImageModal(getEventThumbnail(), evenement.evenementName)">
-    <img class="card-img img-fluid img-thumbnail mx-auto d-block clickable-image" 
+    <img #thumbnailImage class="card-img img-fluid img-thumbnail mx-auto d-block clickable-image" 
          [src]="thumbnailUrl" 
-         alt="Card image" />
+         alt="Card image" 
+         (load)="detectDominantColor()" />
     <div class="card-img-overlay">
-        <h4 class="card-title text-center pat-card"><b>{{evenement.evenementName}}</b></h4>
+        <h4 class="card-title text-center pat-card" 
+            [style.background-color]="titleBackgroundColor"
+            [style.border-color]="titleBorderColor"
+            [style.color]="titleBorderColor"><b>{{evenement.evenementName}}</b></h4>
         <!-- <br><small><i>{{ "EVENTELEM.REF" | translate }} : {{evenement.id}}</i></small></p> -->
     </div>
 </div>
@@ -27,7 +31,7 @@
             <span *ngSwitchCase="'Closed'" class="badge bg-danger me-2">{{"COMMUN.STATUSCLOSE" | translate }}</span>
             <span *ngSwitchCase="'Open'" class="badge bg-success me-2">{{"COMMUN.STATUSOPEN" | translate }}</span>
             <span *ngSwitchCase="'Cancel'" class="badge bg-warning me-2">{{"COMMUN.STATUSCANCEL" | translate }}</span>
-            <span [ngSwitch]="evenement.visibility" class="badge">
+            <span [ngSwitch]="evenement.visibility">
                 <span *ngSwitchCase="'public'" class="badge bg-success">{{"EVENTCREATION.PUBLIC" | translate }}</span>
                 <span *ngSwitchCase="'private'" class="badge bg-warning">{{"EVENTCREATION.PRIVATE" | translate }}</span>
                 <span *ngSwitchDefault class="badge bg-info">{{evenement.visibility}}</span>
@@ -86,7 +90,8 @@
                 </div>
                 <button class="btn btn-sm btn-success" 
                         *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0"
-                        (click)="downloadAllFiles()">
+                        (click)="downloadAllFiles()"
+                        style="padding: 0.15rem 0.3rem; font-size: 0.7rem;">
                     <i class="fa fa-download"></i> {{ 'COMMUN.DOWNLOAD_ALL' | translate }}
                 </button>
             </h5>
@@ -132,31 +137,55 @@
             </ul>
         </div>
     </div>
-    <div class="card-text" [hidden]="!isAnyParticpants()">
+    <div class="card-text" *ngIf="showParticipantsList">
         <hr>
-        <h5 class="pat-members">
-            <b> <span style="font-size: 0.85rem;">{{"EVENTELEM.MEMBERS" | translate }} ({{ evenement.members.length }})</span> : </b>
-            <button class="btn btn-sm btn-outline-primary ms-1" 
-                    style="padding: 0.1rem 0.25rem; font-size: 0.65rem;"
-                    (click)="toggleParticipantsList()"
-                    [title]="showParticipantsList ? ('EVENTELEM.HIDE_PARTICIPANTS' | translate) : ('EVENTELEM.SHOW_PARTICIPANTS' | translate)">
-                <i class="fa" [class.fa-plus]="!showParticipantsList" [class.fa-minus]="showParticipantsList"></i>
-            </button>
-        </h5>
-        <div *ngIf="showParticipantsList">
-            <div *ngFor="let member of evenement.members" class="d-flex align-items-center mb-1">
-                <small class="clickable-user flex-grow-1" 
-                       (click)="openUserModal(member)"
-                       title="Cliquer pour voir les détails du participant">
-                    {{member.firstName}} {{member.lastName}} / {{member.userName}}
-                </small>
-                <button class="btn btn-xs btn-outline-primary ms-2" 
-                        style="padding: 0.1rem 0.25rem; font-size: 0.6rem;"
-                        (click)="sendEmail(member.addressEmail); $event.stopPropagation()"
-                        title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
-                    <i class="fa fa-envelope"></i>
+        <h5 class="pat-members d-flex justify-content-between align-items-center">
+            <div>
+                <b> <span style="font-size: 0.85rem;">{{"EVENTELEM.MEMBERS" | translate }} ({{ evenement.members.length }})</span> : </b>
+                <button class="btn btn-sm btn-outline-secondary ms-1" 
+                        style="padding: 0.1rem 0.25rem; font-size: 0.65rem;"
+                        (click)="toggleParticipantsList()"
+                        [title]="('EVENTELEM.HIDE_PARTICIPANTS' | translate)">
+                    <i class="fa fa-times"></i>
                 </button>
             </div>
+            <div>
+                <button class="btn btn-sm btn-success ms-1" 
+                        style="padding: 0.1rem 0.4rem; font-size: 0.7rem;"
+                        *ngIf="!isParticipant()"
+                        (click)="addMemberClick()">
+                    <i class="fa fa-user-plus"></i> {{ 'EVENTELEM.IWTP' | translate }}
+                </button>
+                <button class="btn btn-sm btn-danger ms-1" 
+                        style="padding: 0.1rem 0.4rem; font-size: 0.7rem;"
+                        *ngIf="isParticipant()"
+                        (click)="delMemberClick()">
+                    <i class="fa fa-user-times"></i> {{ 'EVENTELEM.IDWTP' | translate }}
+                </button>
+            </div>
+        </h5>
+        <div class="participants-container mt-2">
+            <div *ngIf="evenement.members.length > 0; else noParticipantsTemplate" class="text-center">
+                <span *ngFor="let member of evenement.members; let last = last" class="badge participant-badge bg-primary me-1 mb-1">
+                    <i class="fa fa-user me-1"></i>
+                    <span class="clickable-user" 
+                          (click)="openUserModal(member)"
+                          title="Cliquer pour voir les détails du participant">
+                        {{member.firstName}} {{member.lastName}} / {{member.userName}}
+                    </span>
+                    <button class="btn btn-xs btn-outline-light ms-2" 
+                            style="padding: 0.05rem 0.15rem; font-size: 0.5rem; border: none;"
+                            (click)="sendEmail(member.addressEmail); $event.stopPropagation()"
+                            title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
+                        <i class="fa fa-envelope"></i>
+                    </button>
+                </span>
+            </div>
+            <ng-template #noParticipantsTemplate>
+                <div class="text-muted text-center py-2">
+                    <i class="fa fa-users"></i> Aucun participant pour le moment
+                </div>
+            </ng-template>
         </div>
     </div>
 </div>
@@ -193,10 +222,7 @@
     
     <a class="btn btn-sm btn-outline-info mb-1 me-1" (click)="open(content)"
         ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}" placement="top"><i class="fa fa-comments" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-info mb-1 me-1" [hidden]="!isParticipant()" (click)="delMemberClick()"
-        ngbTooltip=" {{ 'EVENTELEM.IDWTP' | translate }}" placement="top"><i class="fa fa-user" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-success mb-1 me-1" [hidden]="isParticipant()" (click)="addMemberClick()"
-        ngbTooltip=" {{ 'EVENTELEM.IWTP' | translate }}" placement="top"><i class="fa fa-user-o" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-success mb-1 me-1" (click)="addMemberClick()" ngbTooltip="{{ 'EVENTELEM.PARTICIPATION' | translate }}" placement="top"><i class="fa fa-user-o" aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-primary mb-1 me-1" [hidden]="!isAuthor()" (click)="changeStatusEvent(evenement.status)"
         ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" placement="top"><i class="fa fa-circle-o-notch"
             aria-hidden="true"></i></a>
@@ -502,7 +528,7 @@
 </ng-template>
 
 <!-- Slideshow Modal Component -->
-<app-slideshow-modal #slideshowModalComponent></app-slideshow-modal>
+<app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()"></app-slideshow-modal>
 
 
 <!-- Upload Logs Modal -->

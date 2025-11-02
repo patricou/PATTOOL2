@@ -691,3 +691,6 @@ Ce rapport identifie les problèmes de sécurité dans le front-end Angular. Les
 
 **Généré automatiquement - À réviser régulièrement**
 
+
+
+

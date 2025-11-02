@@ -2,8 +2,8 @@ import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Inp
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
-import { Observable, Subscription } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, Subscription, Subject } from 'rxjs';
+import { map, takeUntil } from 'rxjs/operators';
 declare var EXIF: {
   getData(img: any, callback: () => void): void;
   getAllTags(img: any): any;
@@ -73,10 +73,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private pinchStartTranslateX: number = 0;
   private pinchStartTranslateY: number = 0;
   
+  // Fullscreen listener handler (stored for cleanup)
+  private fullscreenChangeHandler?: () => void;
+  
   // FS Photos download control
   private fsDownloadsActive: boolean = false;
   private fsActiveSubs: Subscription[] = [];
   private fsQueue: string[] = [];
+  
+  // Image loading control
+  private imageLoadActive: boolean = true;
+  private imageLoadingSubs: Subscription[] = [];
+  private cancelImageLoadsSubject!: Subject<void>;
   
   // EXIF data
   public exifData: Array<{label: string, value: string}> = [];
@@ -100,21 +108,82 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   ngOnDestroy(): void {
+    this.cleanupAllMemory();
+  }
+  
+  // Centralized method to clean up all memory used by the slideshow
+  // This method is idempotent - safe to call multiple times
+  private cleanupAllMemory(): void {
+    // Stop slideshow and timers
     this.stopSlideshow();
-    this.cancelFsDownloads();
-    this.removeKeyboardListener();
     
-    // Clean up blob URLs
-    this.slideshowImages.forEach(url => {
-      if (url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
+    // Cancel all downloads
+    this.cancelFsDownloads();
+    
+    // Cancel all image loading subscriptions
+    this.cancelImageLoads();
+    
+    // Complete the cancel subject
+    if (this.cancelImageLoadsSubject) {
+      try {
+        this.cancelImageLoadsSubject.complete();
+      } catch (error) {
+        // Subject may already be completed
+      }
+    }
+    
+    // Remove all event listeners
+    this.removeKeyboardListener();
+    this.removeFullscreenListener();
+    
+    // Revoke all blob URLs to free memory (critical for memory cleanup)
+    // Make a copy of the array to avoid issues if it's modified during iteration
+    const urlsToRevoke = [...this.slideshowImages];
+    urlsToRevoke.forEach(url => {
+      try {
+        if (url && typeof url === 'string' && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      } catch (error) {
+        // Ignore errors when revoking URLs (may already be revoked)
+        // This can happen if cleanup is called multiple times
       }
     });
+    
+    // Clear all arrays and maps to release references
     this.slideshowImages = [];
     this.slideshowBlobs.clear();
     this.exifDataCache.clear();
     this.imageFileNames.clear();
+    this.exifData = [];
     this.currentImageFileName = '';
+    
+    // Reset all state variables
+    this.currentSlideshowIndex = 0;
+    this.isSlideshowActive = false;
+    this.resetSlideshowZoom();
+    this.isSlideshowModalOpen = false;
+    
+    // Note: Don't set modalRef to undefined here as it may still be in use
+    // It will be cleared when the modal actually closes
+  }
+  
+  // Cancel all image loading subscriptions
+  private cancelImageLoads(): void {
+    this.imageLoadActive = false;
+    
+    // Emit the cancel signal to stop all ongoing HTTP requests
+    if (this.cancelImageLoadsSubject) {
+      this.cancelImageLoadsSubject.next();
+    }
+    
+    // Unsubscribe from all subscriptions
+    this.imageLoadingSubs.forEach((s) => { 
+      if (s && !s.closed) { 
+        s.unsubscribe(); 
+      } 
+    }); 
+    this.imageLoadingSubs = [];
   }
   
   // Open the slideshow modal
@@ -143,6 +212,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.isSlideshowActive = false;
     this.currentImageFileName = '';
     this.resetSlideshowZoom();
+    this.imageLoadActive = true;
+    // Create a new cancel subject for this session
+    this.cancelImageLoadsSubject = new Subject<void>();
     
     // Ensure ViewChild is available (use setTimeout to ensure it's initialized)
     if (!this.slideshowModal) {
@@ -188,15 +260,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Handle modal close event
       this.modalRef.result.then(
         () => {
-          this.isSlideshowModalOpen = false;
-          this.stopSlideshow();
-          this.removeKeyboardListener();
+          this.cleanupAllMemory();
           this.closed.emit();
         },
         () => {
-          this.isSlideshowModalOpen = false;
-          this.stopSlideshow();
-          this.removeKeyboardListener();
+          this.cleanupAllMemory();
           this.closed.emit();
         }
       );
@@ -225,8 +293,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.loadFromFileService) {
       // Load images via FileService
       this.images.forEach((imageSource) => {
-        if (imageSource.fileId) {
-          this.fileService.getFile(imageSource.fileId).pipe(
+        if (imageSource.fileId && this.imageLoadActive) {
+          const subscription = this.fileService.getFile(imageSource.fileId).pipe(
+            takeUntil(this.cancelImageLoadsSubject),
             map((res: any) => {
               // Try to detect MIME type from fileId or use a default image type
               // This is important for EXIF.js to work correctly
@@ -242,6 +311,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
               return { objectUrl, blob };
             })
           ).subscribe(({ objectUrl, blob }) => {
+            if (!this.imageLoadActive) {
+              return;
+            }
             this.slideshowImages.push(objectUrl);
             // Pre-load EXIF data in background (non-blocking)
             this.preloadExifData(objectUrl, blob).catch(() => {
@@ -254,6 +326,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           }, (error) => {
             console.error('Error loading image for slideshow:', error);
           });
+          this.imageLoadingSubs.push(subscription);
         }
       });
     } else {
@@ -303,9 +376,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         if (imageSource.fileName) {
           this.imageFileNames.set(imageSource.blobUrl, imageSource.fileName);
         }
-      } else if (imageSource.fileId && this.loadFromFileService) {
+      } else if (imageSource.fileId && this.loadFromFileService && this.imageLoadActive) {
         // Load via FileService if needed
-        this.fileService.getFile(imageSource.fileId).pipe(
+        const subscription = this.fileService.getFile(imageSource.fileId).pipe(
+          takeUntil(this.cancelImageLoadsSubject),
           map((res: any) => {
             // Try to detect MIME type for better EXIF support
             const mimeType = this.detectImageMimeType(res);
@@ -320,6 +394,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             return { objectUrl, blob };
           })
         ).subscribe(({ objectUrl, blob }) => {
+          if (!this.imageLoadActive) {
+            return;
+          }
           if (!this.slideshowImages.includes(objectUrl)) {
             this.slideshowImages.push(objectUrl);
             // Pre-load EXIF data in background (non-blocking)
@@ -330,21 +407,36 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         }, (error) => {
           console.error('Error loading image for slideshow:', error);
         });
+        this.imageLoadingSubs.push(subscription);
       }
     });
   }
   
   // Setup fullscreen listener
   private setupFullscreenListener(): void {
-    const handleFullscreenChange = () => {
+    // Remove existing listener if any
+    this.removeFullscreenListener();
+    
+    this.fullscreenChangeHandler = () => {
       this.isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
         (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
     };
     
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    document.addEventListener('fullscreenchange', this.fullscreenChangeHandler);
+    document.addEventListener('webkitfullscreenchange', this.fullscreenChangeHandler);
+    document.addEventListener('mozfullscreenchange', this.fullscreenChangeHandler);
+    document.addEventListener('MSFullscreenChange', this.fullscreenChangeHandler);
+  }
+  
+  // Remove fullscreen listeners
+  private removeFullscreenListener(): void {
+    if (this.fullscreenChangeHandler) {
+      document.removeEventListener('fullscreenchange', this.fullscreenChangeHandler);
+      document.removeEventListener('webkitfullscreenchange', this.fullscreenChangeHandler);
+      document.removeEventListener('mozfullscreenchange', this.fullscreenChangeHandler);
+      document.removeEventListener('MSFullscreenChange', this.fullscreenChangeHandler);
+      this.fullscreenChangeHandler = undefined;
+    }
   }
   
   // Get minimum zoom level
@@ -758,13 +850,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         document.exitFullscreen().catch(() => {});
       }
     } catch {}
-    this.removeKeyboardListener();
-    this.cancelFsDownloads();
+    
+    // Close modal - this will trigger modalRef.result handlers which will cleanup memory
     if (this.modalRef) {
       this.modalRef.close();
     }
     try { if (typeof cRef === 'function') { cRef('Close click'); } } catch {}
     try { this.modalService.dismissAll(); } catch {}
+    
+    // Note: cleanupAllMemory() will be called automatically by modalRef.result handlers
+    // No need to call it here to avoid double cleanup
   }
   
   // FS Downloads cleanup
@@ -815,7 +910,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       centered: true
     });
     
-    // Load EXIF data
+    // Load EXIF data (will use stored blob, no network request)
     this.loadExifData().then(() => {
       // Cache the EXIF data for future use
       if (this.exifData.length > 0) {
@@ -830,8 +925,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Pre-load EXIF data in background when image is loaded
   private async preloadExifData(imageUrl: string, blob: Blob): Promise<void> {
-    // Check if already cached
-    if (this.exifDataCache.has(imageUrl)) {
+    // Check if already cached or loading is cancelled
+    if (!this.imageLoadActive || this.exifDataCache.has(imageUrl)) {
       return;
     }
     
@@ -849,6 +944,24 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       return;
     }
     
+    // Double-check cache (should not happen since showExifInfo checks first, but safety check)
+    const cachedExifData = this.exifDataCache.get(currentImageUrl);
+    if (cachedExifData) {
+      // Check if file size is already in cache
+      const hasFileSize = cachedExifData.some(item => 
+        item.label === this.translateService.instant('EVENTELEM.EXIF_FILE_SIZE')
+      );
+      
+      if (hasFileSize) {
+        // Cache is complete, use it
+        this.exifData = cachedExifData;
+        return;
+      } else {
+        // Cache exists but missing file size - we'll add it below
+        this.exifData = [...cachedExifData];
+      }
+    }
+    
     try {
       // Get image dimensions from the img element
       const imgEl = this.slideshowImgElRef?.nativeElement;
@@ -863,49 +976,104 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         });
       }
       
-      // Get blob from image without using fetch (to avoid CSP violation)
+      // Get blob from stored blobs (NO network request - we always store blobs when loading images)
       let blob: Blob | null = null;
-      if (currentImageUrl.startsWith('blob:')) {
-        // For blob URLs, get the stored blob (avoids CSP violation)
-        const storedBlob = this.slideshowBlobs.get(currentImageUrl);
-        if (storedBlob) {
-          blob = storedBlob;
-        } else {
-          // If blob not stored, we'll use the image element directly (no fetch/XHR needed)
-          // This avoids CSP violation because we're not making a network request
-          blob = null; // Will use image element directly
+      
+      // First, try to get stored blob (works for both blob URLs and could work for regular URLs if stored)
+      const storedBlob = this.slideshowBlobs.get(currentImageUrl);
+      if (storedBlob) {
+        blob = storedBlob;
+      } else if (currentImageUrl.startsWith('blob:')) {
+        // For blob URLs without stored blob, try to fetch the blob from the URL
+        // This is allowed for blob URLs and allows us to get the file size
+        try {
+          const response = await fetch(currentImageUrl);
+          blob = await response.blob();
+        } catch (error) {
+          console.warn('Blob URL found but could not fetch blob:', error);
+          blob = null;
         }
       } else {
-        // For regular URLs, we can fetch them (they're allowed by CSP)
+        // For regular URLs (HTTP/HTTPS), fetch if blob is not stored
+        // Only fetch as last resort (should rarely happen)
         try {
           const response = await fetch(currentImageUrl);
           blob = await response.blob();
         } catch (error) {
           console.error('Error fetching image:', error);
-          blob = null; // Fallback to using image element directly
+          blob = null;
         }
       }
       
       // Add file size and MIME type if we have the blob
       if (blob) {
-        this.exifData.push({
-          label: this.translateService.instant('EVENTELEM.EXIF_FILE_SIZE'),
-          value: this.formatFileSize(blob.size)
-        });
-        this.exifData.push({
-          label: this.translateService.instant('EVENTELEM.EXIF_MIME_TYPE'),
-          value: blob.type || 'image/jpeg'
-        });
-        // Read EXIF from blob
+        // Check if file size is already in exifData (from cache)
+        const hasFileSize = this.exifData.some(item => 
+          item.label === this.translateService.instant('EVENTELEM.EXIF_FILE_SIZE')
+        );
+        const hasMimeType = this.exifData.some(item => 
+          item.label === this.translateService.instant('EVENTELEM.EXIF_MIME_TYPE')
+        );
+        
+        if (!hasFileSize) {
+          this.exifData.push({
+            label: this.translateService.instant('EVENTELEM.EXIF_FILE_SIZE'),
+            value: this.formatFileSize(blob.size)
+          });
+        }
+        if (!hasMimeType) {
+          this.exifData.push({
+            label: this.translateService.instant('EVENTELEM.EXIF_MIME_TYPE'),
+            value: blob.type || 'image/jpeg'
+          });
+        }
+        // Read EXIF from blob (will add EXIF data, not duplicate file size/mime)
         await this.readExifFromBlob(blob);
+        
+        // Update cache with complete data including file size
+        if (currentImageUrl && this.exifData.length > 0) {
+          this.exifDataCache.set(currentImageUrl, [...this.exifData]);
+        }
       } else {
-        // If we don't have the blob stored, we cannot read EXIF without violating CSP
-        // The blob should always be stored when images are added
-        // Only try reading from image element as last resort (for non-blob URLs)
+        // If we don't have the blob, try to get file size from HEAD request for HTTP/HTTPS URLs
+        if (!currentImageUrl.startsWith('blob:')) {
+          const fileSizeLabel = this.translateService.instant('EVENTELEM.EXIF_FILE_SIZE');
+          const mimeTypeLabel = this.translateService.instant('EVENTELEM.EXIF_MIME_TYPE');
+          const hasFileSize = this.exifData.some(item => item.label === fileSizeLabel);
+          const hasMimeType = this.exifData.some(item => item.label === mimeTypeLabel);
+          
+          if (!hasFileSize || !hasMimeType) {
+            try {
+              const headResponse = await fetch(currentImageUrl, { method: 'HEAD' });
+              const contentLength = headResponse.headers.get('Content-Length');
+              if (contentLength && !hasFileSize) {
+                this.exifData.push({
+                  label: fileSizeLabel,
+                  value: this.formatFileSize(parseInt(contentLength, 10))
+                });
+              }
+              const contentType = headResponse.headers.get('Content-Type');
+              if (contentType && !hasMimeType) {
+                this.exifData.push({
+                  label: mimeTypeLabel,
+                  value: contentType
+                });
+              }
+              
+              // Update cache with complete data including file size
+              if (currentImageUrl && this.exifData.length > 0) {
+                this.exifDataCache.set(currentImageUrl, [...this.exifData]);
+              }
+            } catch (error) {
+              console.warn('Could not fetch file size from HEAD request:', error);
+            }
+          }
+        }
+        
+        // Try reading EXIF from image element as last resort (for non-blob URLs)
         if (!currentImageUrl.startsWith('blob:') && imgEl && imgEl.src) {
           await this.readExifFromImageElement(imgEl);
         }
-        // For blob URLs without stored blob, we skip EXIF reading to avoid CSP violation
       }
       
     } catch (error) {
@@ -915,50 +1083,86 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   private async readExifFromBlob(blob: Blob, imageUrl?: string): Promise<void> {
     return new Promise((resolve) => {
-      // Create a temporary image element to use with EXIF.js
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(blob);
+      // Use FileReader to read blob as data URL to avoid CSP violations
+      const reader = new FileReader();
       
-      img.onload = () => {
-        try {
-          EXIF.getData(img as any, () => {
-            try {
-              const exifData = EXIF.getAllTags(img as any);
-              
-              // Process EXIF data into display format
-              const processedData: Array<{label: string, value: string}> = [];
-              this.processExifDataIntoArray(exifData, processedData);
-              
-              // Cache the processed data if imageUrl is provided (for preloading)
-              if (imageUrl && processedData.length > 0) {
-                this.exifDataCache.set(imageUrl, processedData);
+      reader.onload = (e: any) => {
+        const dataUrl = e.target.result;
+        
+        // Create a temporary image element to use with EXIF.js
+        const img = new Image();
+        
+        img.onload = () => {
+          try {
+            EXIF.getData(img as any, () => {
+              try {
+                const exifData = EXIF.getAllTags(img as any);
+                
+                // Process EXIF data into display format
+                const processedData: Array<{label: string, value: string}> = [];
+                
+                // Always add file size and MIME type first (since we have the blob)
+                // But only if not already present in target array
+                const fileSizeLabel = this.translateService.instant('EVENTELEM.EXIF_FILE_SIZE');
+                const mimeTypeLabel = this.translateService.instant('EVENTELEM.EXIF_MIME_TYPE');
+                
+                // For caching (preloading): always add file size and MIME type
+                // For direct use (loadExifData): check if already present in this.exifData
+                const shouldAddFileSize = imageUrl || !this.exifData.some(item => item.label === fileSizeLabel);
+                const shouldAddMimeType = imageUrl || !this.exifData.some(item => item.label === mimeTypeLabel);
+                
+                if (shouldAddFileSize) {
+                  processedData.push({
+                    label: fileSizeLabel,
+                    value: this.formatFileSize(blob.size)
+                  });
+                }
+                if (shouldAddMimeType) {
+                  processedData.push({
+                    label: mimeTypeLabel,
+                    value: blob.type || 'image/jpeg'
+                  });
+                }
+                
+                // Then add EXIF metadata
+                this.processExifDataIntoArray(exifData, processedData);
+                
+                // Cache the processed data if imageUrl is provided (for preloading)
+                if (imageUrl && processedData.length > 0) {
+                  this.exifDataCache.set(imageUrl, processedData);
+                }
+                
+                // If called from loadExifData (user requested), add to existing data
+                if (!imageUrl) {
+                  this.exifData.push(...processedData);
+                }
+              } catch (error) {
+                console.error('Error processing EXIF data:', error);
               }
-              
-              // If called from loadExifData (user requested), update the UI
-              if (!imageUrl) {
-                this.exifData = processedData;
-              }
-            } catch (error) {
-              console.error('Error processing EXIF data:', error);
-            }
-            URL.revokeObjectURL(objectUrl);
+              resolve();
+            });
+          } catch (error) {
+            console.error('Error reading EXIF data:', error);
             resolve();
-          });
-        } catch (error) {
-          console.error('Error reading EXIF data:', error);
-          URL.revokeObjectURL(objectUrl);
+          }
+        };
+        
+        img.onerror = (error) => {
+          console.error('Error loading image from data URL:', error);
           resolve();
-        }
+        };
+        
+        // Set src after setting up event handlers
+        img.src = dataUrl;
       };
       
-      img.onerror = (error) => {
-        console.error('Error loading image from blob:', error);
-        URL.revokeObjectURL(objectUrl);
+      reader.onerror = (error) => {
+        console.error('Error reading blob:', error);
         resolve();
       };
       
-      // Set src after setting up event handlers
-      img.src = objectUrl;
+      // Read blob as data URL
+      reader.readAsDataURL(blob);
     });
   }
   
