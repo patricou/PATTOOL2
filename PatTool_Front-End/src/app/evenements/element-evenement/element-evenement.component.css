@@ -3,11 +3,13 @@
     display: flex !important;
     flex-direction: column !important;
     height: 100% !important;
+    /* Background color will be set dynamically via ngStyle */
 }
 
 :host .card-block {
     flex: 1 1 auto !important;
     padding: 7px;
+    /* Color will be set dynamically via [style.color] */
 }
 
 :host .card-footer {
@@ -135,31 +137,247 @@
     justify-content: center;
     padding: 0.5rem;
     top: 0;
+    pointer-events: none;
 }
 
 .card-img-overlay .card-title {
-    /* background-color will be set dynamically via [style.background-color] */
-    /* border-color will be set dynamically via [style.border-color] */
+    /* background will be set dynamically via [style.background] */
     padding: 0.4rem 0.8rem;
     border-radius: 0.25rem;
-    border: 2px solid;
+    border: none;
     margin: 0;
     width: auto;
     display: inline-block;
-    font-size: 0.9rem;
+    font-size: 1.08rem;
     font-weight: 700;
     text-decoration: underline;
 }
 
 .card-img-overlay .pat-card {
-    /* background-color will be set dynamically via [style.background-color] */
-    /* border-color will be set dynamically via [style.border-color] */
+    /* background will be set dynamically via [style.background] */
     padding: 0.4rem 0.8rem;
     border-radius: 0.25rem;
-    border: 2px solid;
-    font-size: 0.9rem;
+    border: none;
+    font-size: 1.08rem;
     font-weight: 700;
     text-decoration: underline;
+}
+
+/* Card wrapper with dynamic background */
+.card-wrapper {
+    width: 100%;
+    height: 100%;
+    border-radius: 0.25rem;
+    overflow: hidden;
+    /* Border color and style will be set dynamically via [style.border-*] */
+}
+
+/* Card image container */
+.card-image-container {
+    position: relative;
+}
+
+
+/* Card slideshow display */
+.card-slideshow-display {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* Photo counter in bottom left */
+.card-slideshow-counter {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    padding: 0.3rem 0.6rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.7rem;
+    z-index: 10;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.card-image-container:hover .card-slideshow-counter {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Image filename in bottom */
+.card-slideshow-filename {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.3rem 0.6rem;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 0.65rem;
+    z-index: 10;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    max-width: 80%;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.card-image-container:hover .card-slideshow-filename {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* RGB values in bottom right */
+.card-slideshow-rgb {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    padding: 0.3rem 0.6rem;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.65rem;
+    z-index: 10;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    font-family: 'Courier New', monospace;
+}
+
+.card-image-container:hover .card-slideshow-rgb {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Play button in title */
+.play-in-title-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 2px solid;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    border-radius: 50%;
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.card-image-container:hover .play-in-title-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.play-in-title-btn:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.play-in-title-btn i {
+    margin-left: 0.15rem; /* Center play icon */
+}
+
+/* Card slideshow control button (pause/play) */
+.card-slideshow-control-btn {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border: 2px solid;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    border-radius: 50%;
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.card-image-container:hover .card-slideshow-control-btn,
+.card-slideshow-control-btn:hover {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.card-slideshow-control-btn:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.card-slideshow-control-btn i {
+    margin-left: 0.15rem; /* Center play icon when shown */
+}
+
+/* Navigation buttons (prev/next) */
+.card-nav-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    border: 2px solid;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 0.5rem 0.75rem;
+    font-size: 1rem;
+    border-radius: 50%;
+    width: 3rem;
+    height: 3rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.card-image-container:hover .card-nav-btn,
+.card-nav-btn:hover {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.card-nav-btn:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+    transform: translateY(-50%) scale(1.1);
+}
+
+.card-nav-btn:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+/* Prev button on the left */
+.card-nav-left {
+    left: 20px;
+}
+
+/* Next button on the right */
+.card-nav-right {
+    right: 20px;
 }
 
 /* Responsive padding adjustments */
@@ -176,6 +394,6 @@
     .card-img-overlay .card-title,
     .card-img-overlay .pat-card {
         padding: 0.3rem 0.6rem;
-        font-size: 0.85rem;
+        font-size: 1.02rem;
     }
 }

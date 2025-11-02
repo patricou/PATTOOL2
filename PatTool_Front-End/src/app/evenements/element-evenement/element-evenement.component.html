@@ -1,28 +1,108 @@
 <!-- <div class="panel panel-default" [ngClass]="{'animated pulse':mouseOvered}" (mouseout)="mouseOvered=false" (mouseover)="mouseOvered=true" data-bs-hover-animate="pulse"> -->
 <!-- thw following line allows to have tooltips on button in footer !! -->
-<div style="position:relative;" (click)="openImageModal(getEventThumbnail(), evenement.evenementName)">
-    <img #thumbnailImage class="card-img img-fluid img-thumbnail mx-auto d-block clickable-image" 
+<div class="card-wrapper" 
+     [style.background]="descriptionBackgroundGradient">
+<div class="card-image-container" style="position:relative;">
+    <!-- Show slideshow if active, otherwise show thumbnail -->
+    <img *ngIf="!isCardSlideshowActive" 
+         #thumbnailImage 
+         class="card-img img-fluid img-thumbnail mx-auto d-block clickable-image" 
          [src]="thumbnailUrl" 
          alt="Card image" 
+         (click)="openImageModal(getEventThumbnail(), evenement.evenementName)"
          (load)="detectDominantColor()" />
+    
+    <!-- Card Slideshow -->
+    <div *ngIf="isCardSlideshowActive" class="card-slideshow-display">
+        <!-- Photo counter in bottom left -->
+        <div class="card-slideshow-counter"
+             [style.color]="titleBorderColor"
+             [style.background-color]="titleBackgroundColor">
+            {{ currentCardSlideIndex + 1 }} / {{ cardSlideImages.length }}
+        </div>
+        
+        <!-- Image name in bottom center -->
+        <div class="card-slideshow-filename"
+             [style.color]="titleBorderColor"
+             [style.background-color]="titleBackgroundColor">
+            {{ getCurrentCardSlideFileName() }}
+        </div>
+        
+        <!-- RGB values in bottom right -->
+        <div class="card-slideshow-rgb"
+             [style.color]="titleBorderColor"
+             [style.background-color]="titleBackgroundColor">
+            {{ calculatedRgbValues }}
+        </div>
+        
+        <img *ngIf="currentCardSlideImage" 
+             #cardSlideImage
+             class="card-img img-fluid img-thumbnail mx-auto d-block slideshow-image" 
+             [src]="currentCardSlideImage" 
+             alt="Slideshow image"
+             (load)="detectDominantColorFromSlideshow()" />
+        
+        <!-- Pause/Play toggle button - visible when playing -->
+        <button *ngIf="!cardSlideshowPaused" 
+                class="btn btn-sm btn-outline-light card-slideshow-control-btn"
+                [style.border-color]="titleBorderColor"
+                (click)="toggleCardSlideshowPause(); $event.stopPropagation()">
+            <i class="fa fa-pause"></i>
+        </button>
+        
+        <!-- Play button in center when paused -->
+        <button *ngIf="cardSlideshowPaused" 
+                class="btn btn-sm btn-outline-light card-slideshow-control-btn"
+                [style.border-color]="titleBorderColor"
+                (click)="toggleCardSlideshowPause(); $event.stopPropagation()">
+            <i class="fa fa-play"></i>
+        </button>
+        
+        <!-- Prev button on the left - always visible -->
+        <button class="btn btn-sm btn-outline-light card-nav-btn card-nav-left"
+                [style.border-color]="titleBorderColor"
+                (click)="previousCardSlide(); $event.stopPropagation()">
+            <i class="fa fa-chevron-left"></i>
+        </button>
+        
+        <!-- Next button on the right - always visible -->
+        <button class="btn btn-sm btn-outline-light card-nav-btn card-nav-right"
+                [style.border-color]="titleBorderColor"
+                (click)="nextCardSlide(); $event.stopPropagation()">
+            <i class="fa fa-chevron-right"></i>
+        </button>
+    </div>
+    
     <div class="card-img-overlay">
         <h4 class="card-title text-center pat-card" 
-            [style.background-color]="titleBackgroundColor"
-            [style.border-color]="titleBorderColor"
-            [style.color]="titleBorderColor"><b>{{evenement.evenementName}}</b></h4>
-        <!-- <br><small><i>{{ "EVENTELEM.REF" | translate }} : {{evenement.id}}</i></small></p> -->
+            [style.background]="titleBackgroundGradient"
+            [style.color]="titleBorderColor">
+            <b>{{evenement.evenementName}}</b>
+        </h4>
+        <!-- Play button in title to start slideshow -->
+        <button *ngIf="hasImageFiles() && !isCardSlideshowActive" 
+                class="btn btn-sm btn-outline-light play-in-title-btn"
+                [style.border-color]="titleBorderColor"
+                (click)="startCardSlideshow(); $event.stopPropagation()">
+            <i class="fa fa-play"></i>
+        </button>
     </div>
 </div>
-<div class="card-block pat-card-block">
+<div class="card-block pat-card-block" [style.color]="titleBorderColor">
     <div class="text-center">
         <span class="badge rounded-pill bg-danger" (click)="addRateMinus()" placement="left"
-            ngbTooltip="{{ 'COMMUN.IDONTLIKE' | translate }}"> {{evenement.ratingMinus || 0}}</span>
+            ngbTooltip="{{ 'COMMUN.IDONTLIKE' | translate }}"
+            (mouseleave)="onTooltipMouseLeave($event)"> {{evenement.ratingMinus || 0}}</span>
         <ngb-rating [(rate)]="currentRate">
         </ngb-rating>
         <span class="badge rounded-pill bg-success" (click)="addRatePlus()" placement="right"
-            ngbTooltip="{{ 'COMMUN.ILIKE' | translate }}">{{evenement.ratingPlus || 0}}</span>
+            ngbTooltip="{{ 'COMMUN.ILIKE' | translate }}"
+            (mouseleave)="onTooltipMouseLeave($event)">{{evenement.ratingPlus || 0}}</span>
     </div>
-    <div class="alert alert-warning small pat-alert">
+    <div class="alert alert-warning small pat-alert text-center"
+         [style.background]="descriptionBackgroundGradient"
+         [style.color]="titleBorderColor"
+         [style.border-color]="titleBorderColor">
         <!-- <b>  {{"EVENTELEM.DESC" | translate }} :</b> -->{{evenement.comments}}
     </div>
     <div class="card-text text-center" [ngSwitch]="evenement.status">
@@ -38,7 +118,7 @@
             </span>
         </b>
     </div>
-    <small class="mb-1"><i>{{"EVENTELEM.AUTHOR" | translate }} : {{ evenement.author.firstName }} {{
+    <small class="mb-1" [style.color]="titleBorderColor"><i>{{"EVENTELEM.AUTHOR" | translate }} : {{ evenement.author.firstName }} {{
             evenement.author.lastName }} / {{ evenement.author.userName }}</i></small>
     <div class="card-text" [ngSwitch]="+evenement.type">
         {{"EVENTELEM.TYPE" | translate }} :
@@ -104,10 +184,11 @@
                               [class.bg-info]="isImageFile(uploadedFile.fileName)"
                               [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
                               [title]="uploadedFile.fileName"
-                              ngbTooltip="{{uploadedFile.fileName}}" placement="top">
-                            {{uploadedFile.fileName}}
+                              ngbTooltip="{{uploadedFile.fileName}}" placement="top"
+                              (mouseleave)="onTooltipMouseLeave($event)">
+                            {{getTruncatedFileName(uploadedFile.fileName)}}
                         </span>
-                        <small class="text-muted ms-2 clickable-user" 
+                        <small class="text-muted ms-2 clickable-user" [style.color]="titleBorderColor" 
                                (click)="openUserModal(uploadedFile.uploaderMember)"
                                title="Cliquer pour voir les détails de l'utilisateur">
                             {{uploadedFile.uploaderMember.userName}}
@@ -118,18 +199,21 @@
                                 placement="left"
                                 ngbTooltip="{{ isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ('EVENTELEM.CLICK_TO_OPEN_PDF' | translate) }}"
                                 *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
-                                (click)="handleFileClick(uploadedFile)">
+                                (click)="handleFileClick(uploadedFile)"
+                                (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-eye" aria-hidden="true"></i>
                         </button>
                         <button class="btn btn-sm btn-primary me-2" placement="left"
                             ngbTooltip="{{ 'COMMUN.DOWNLOAD' | translate }}"
-                            (click)="openWindows(uploadedFile.fieldId, uploadedFile.fileName)">
+                            (click)="openWindows(uploadedFile.fieldId, uploadedFile.fileName)"
+                            (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-files-o" aria-hidden="true"></i>
                         </button>
                         <button class="btn btn-sm btn-danger" placement="left"
                             ngbTooltip="{{ 'EVENTELEM.DELETEFILE' | translate }}"
                             [disabled]="!isFileOwner(uploadedFile.uploaderMember)"
-                            (click)="delFile(uploadedFile.fieldId)">
+                            (click)="delFile(uploadedFile.fieldId)"
+                            (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-trash" aria-hidden="true"></i>
                         </button>
                     </div>
@@ -182,14 +266,14 @@
                 </span>
             </div>
             <ng-template #noParticipantsTemplate>
-                <div class="text-muted text-center py-2">
+                <div class="text-muted text-center py-2" [style.color]="titleBorderColor">
                     <i class="fa fa-users"></i> Aucun participant pour le moment
                 </div>
             </ng-template>
         </div>
     </div>
 </div>
-<div class="card-footer card-text text-center">
+<div class="card-footer card-text text-center" [style.color]="titleBorderColor">
     <!-- <iframe width="100%" height="250" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" sandbox="allow-forms allow-scripts allow-same-origin" [src]="safeUrlMap" allowfullscreen></iframe> -->
     <!-- Unified Photos Button (opens FS selector if present, else uploaded slideshow) -->
     <button class="btn btn-sm btn-outline-success mb-1 me-1" 
@@ -197,44 +281,52 @@
             (click)="openPhotos()"
             placement="right"
             container="body"
-            ngbTooltip="{{ 'EVENTELEM.SLIDESHOW' | translate }}">
+            ngbTooltip="{{ 'EVENTELEM.SLIDESHOW' | translate }}"
+            (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getTotalPhotosCount() }}
     </button>
     
     <!-- View Details Button -->
     <a class="btn btn-sm btn-outline-info mb-1 me-1 eye-button" [routerLink]="['/details-evenement', evenement.id]" placement="top"
-        ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}">
+        ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}"
+        (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-eye" aria-hidden="true"></i>
     </a>
     
     <!-- URLs Button -->
     <button class="btn btn-primary btn-sm mb-1 me-1" [hidden]="!isUrlEventsAvailable()" 
         (click)="openUrlsModal(urlsModal)" placement="top"
-        ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount() }})">
+        ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount() }})"
+        (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-link" aria-hidden="true"></i> {{ getUrlEventsCount() }}
     </button>
 
     <!-- Comments Button -->
     <button class="btn btn-sm comments-button mb-1 me-1" [hidden]="!hasComments()" (click)="openCommentsModal()" placement="top"
-        ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}">
+        ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}"
+        (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-comments" aria-hidden="true"></i> {{ getCommentsCount() }}
     </button>
     
     <a class="btn btn-sm btn-outline-info mb-1 me-1" (click)="open(content)"
-        ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}" placement="top"><i class="fa fa-comments" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-success mb-1 me-1" (click)="addMemberClick()" ngbTooltip="{{ 'EVENTELEM.PARTICIPATION' | translate }}" placement="top"><i class="fa fa-user-o" aria-hidden="true"></i></a>
+        ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}" placement="top"
+        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-comments" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-success mb-1 me-1" (click)="addMemberClick()" ngbTooltip="{{ 'EVENTELEM.PARTICIPATION' | translate }}" placement="top"
+        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-user-o" aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-primary mb-1 me-1" [hidden]="!isAuthor()" (click)="changeStatusEvent(evenement.status)"
-        ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" placement="top"><i class="fa fa-circle-o-notch"
+        ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" placement="top"
+        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-circle-o-notch"
             aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-warning mb-1 me-1" [routerLink]="['/updeven',evenement.id]"
-        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" placement="top"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-danger mb-1 me-1" [hidden]="!isAuthor()" (click)="deleteEvenement()" placement="top"
-        ngbTooltip="{{ 'EVENTELEM.DTE' | translate }}"><i class="fa fa-trash" aria-hidden="true"></i></a>
+        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" placement="top"
+        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-outline-primary mb-1 me-1" [hidden]="!isAnyFiles()" (click)="toogleFileListe()"
-        placement="top" ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"><i class="fa fa-download"
+        placement="top" ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"
+        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-download"
             aria-hidden="true"></i> {{ getFilesCount() }}</a>
 
-    <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}">
+    <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
+         (mouseleave)="onTooltipMouseLeave($event)">
         <label [for]="'file-upload-input-' + evenement.id" class="btn btn-sm btn-success mb-1">
             <i class="fa fa-upload" aria-hidden="true"></i>
         </label>
@@ -242,11 +334,7 @@
                accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;" />
     </div>
 
-    <!-- JSON View Button -->
-    <button class="btn btn-sm btn-secondary mb-1 me-1" (click)="openJsonModal()" placement="top"
-        ngbTooltip="{{ 'EVENTELEM.VIEW_JSON' | translate }}">
-        <i class="fa fa-code" aria-hidden="true"></i>
-    </button>
+</div>
 </div>
 
 
@@ -282,7 +370,8 @@
                                 <button *ngIf="item.user.userName == user.userName" 
                                         class="btn btn-sm btn-outline-danger message-delete" 
                                         (click)="deleteMessage(item)"
-                                        ngbTooltip="{{ 'EVENTELEM.DELMESCHAT' | translate }}">
+                                        ngbTooltip="{{ 'EVENTELEM.DELMESCHAT' | translate }}"
+                                        (mouseleave)="onTooltipMouseLeave($event)">
                                     <i class="fa fa-trash"></i>
                                 </button>
                             </div>

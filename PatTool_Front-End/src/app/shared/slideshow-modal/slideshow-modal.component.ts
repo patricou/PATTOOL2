@@ -454,10 +454,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Apply wheel zoom
-  private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 5): number {
+  private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 10): number {
     event.preventDefault();
-    const delta = Math.sign(event.deltaY);
-    const step = 0.1;
+    // Use actual deltaY value for linear zoom (normalized to reasonable scale)
+    const delta = event.deltaY / 50; // Normalize to make scroll speed reasonable (faster zoom)
+    const step = 0.08; // Step for faster zoom while maintaining linearity
     let next = current - delta * step; // wheel up -> zoom in
     if (next < minZoom) next = minZoom;
     if (next > maxZoom) next = maxZoom;
@@ -477,12 +478,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public zoomInSlideshow(): void { 
-    this.slideshowZoom = Math.min(5, parseFloat((this.slideshowZoom + 0.1).toFixed(2))); 
+    this.slideshowZoom = Math.min(10, parseFloat((this.slideshowZoom + 0.1).toFixed(2))); 
+    this.clampSlideshowTranslation();
   }
   
   public zoomOutSlideshow(): void { 
     this.slideshowZoom = Math.max(this.getMinSlideshowZoom(), parseFloat((this.slideshowZoom - 0.1).toFixed(2))); 
-    this.clampSlideshowTranslation(); 
+    this.clampSlideshowTranslation();
   }
   
   // Drag handlers
@@ -611,7 +613,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         let newZoom = this.touchStartZoom * scale;
         
         const minZoom = this.getMinSlideshowZoom();
-        const maxZoom = 5;
+        const maxZoom = 10;
         newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
         
         this.slideshowZoom = parseFloat(newZoom.toFixed(2));
@@ -746,13 +748,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public nextImage(): void {
     if (this.slideshowImages.length === 0) return;
     this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
-    setTimeout(() => this.resetSlideshowZoom(), 0);
+    setTimeout(() => {
+      this.resetSlideshowZoom();
+    }, 0);
   }
   
   public previousImage(): void {
     if (this.slideshowImages.length === 0) return;
     this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
-    setTimeout(() => this.resetSlideshowZoom(), 0);
+    setTimeout(() => {
+      this.resetSlideshowZoom();
+    }, 0);
   }
   
   public getCurrentSlideshowImage(): string {

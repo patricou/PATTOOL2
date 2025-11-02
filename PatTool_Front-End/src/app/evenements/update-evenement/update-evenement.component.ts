@@ -12,9 +12,10 @@ import { Commentary } from '../../model/commentary';
 import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
 import { UploadedFile } from '../../model/uploadedfile';
-import { Observable, from, of } from 'rxjs';
+import { Observable, from, of, Subscription } from 'rxjs';
 import { map, concatMap, catchError, finalize } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 
 @Component({
 	selector: 'update-evenement',
@@ -82,6 +83,13 @@ export class UpdateEvenementComponent implements OnInit {
     
     // Upload logs container reference
     @ViewChild('logContent') logContent: any;
+
+    // Slideshow modal component
+    @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
+
+    // FS Photos slideshow loading control
+    private fsSlideshowLoadingActive: boolean = false;
+    private fsSlideshowSubs: Subscription[] = [];
 
     // File upload properties
     public selectedFiles: File[] = [];
@@ -943,6 +951,96 @@ export class UpdateEvenementComponent implements OnInit {
 				this.reloadEvent();
 			}
 		);
+	}
+
+	// =========================
+	// Photo From FS integration
+	// =========================
+
+	public openFsPhotosDiaporama(relativePath: string): void {
+		// Open slideshow modal immediately with empty array - images will be loaded dynamically
+		if (!this.slideshowModalComponent || !this.evenement) {
+			console.error('Slideshow modal component or event not available');
+			return;
+		}
+		
+		// Reset slideshow loading state
+		this.fsSlideshowLoadingActive = true;
+		
+		// Open modal immediately with empty array
+		this.slideshowModalComponent.open([], this.evenement.evenementName, false);
+		
+		// Then list and load images dynamically
+		const listSub = this._fileService.listImagesFromDisk(relativePath).subscribe({
+			next: (fileNames: string[]) => {
+				if (!fileNames || fileNames.length === 0 || !this.fsSlideshowLoadingActive) {
+					return;
+				}
+				
+				// Load images with concurrency and add them dynamically
+				const maxConcurrent = 4;
+				let active = 0;
+				const queue = [...fileNames];
+				
+				const loadNext = () => {
+					if (!this.fsSlideshowLoadingActive || active >= maxConcurrent || queue.length === 0) {
+						return;
+					}
+					
+					const fileName = queue.shift() as string;
+					active++;
+					
+					const imageSub = this._fileService.getImageFromDisk(relativePath, fileName).subscribe({
+						next: (buffer: ArrayBuffer) => {
+							if (!this.fsSlideshowLoadingActive) return;
+							
+							const blob = new Blob([buffer], { type: 'image/*' });
+							const url = URL.createObjectURL(blob);
+							const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined, blob: blob, fileName: fileName };
+							
+							// Add image dynamically to the already open slideshow
+							if (this.slideshowModalComponent && this.fsSlideshowLoadingActive) {
+								this.slideshowModalComponent.addImages([imageSource]);
+							}
+						},
+						error: (error) => {
+							console.error('Error loading image:', fileName, error);
+						},
+						complete: () => {
+							active--;
+							if (this.fsSlideshowLoadingActive) {
+								loadNext();
+							}
+						}
+					});
+					this.fsSlideshowSubs.push(imageSub);
+				};
+				
+				// Start loading images
+				for (let i = 0; i < maxConcurrent && queue.length > 0 && this.fsSlideshowLoadingActive; i++) {
+					loadNext();
+				}
+			},
+			error: (error) => {
+				console.error('Error listing images from disk:', error);
+			}
+		});
+		this.fsSlideshowSubs.push(listSub);
+	}
+
+	public onSlideshowClosed(): void {
+		this.fsSlideshowLoadingActive = false;
+		this.fsSlideshowSubs.forEach(sub => {
+			if (sub && !sub.closed) {
+				sub.unsubscribe();
+			}
+		});
+		this.fsSlideshowSubs = [];
+	}
+
+	// Check if URL event is PHOTOFROMFS type
+	public isPhotoFromFs(urlEvent: UrlEvent): boolean {
+		return (urlEvent.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS';
 	}
 
 }

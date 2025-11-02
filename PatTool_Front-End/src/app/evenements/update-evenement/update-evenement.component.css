@@ -255,6 +255,33 @@
     transform: scale(1.05);
 }
 
+/* Style spécifique pour le bouton du diaporama */
+.url-event-actions .slideshow-btn {
+    border: 2px solid #28a745 !important;
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.url-event-actions .slideshow-btn:hover {
+    background-color: #28a745;
+    color: white;
+    border-color: #218838 !important;
+    transform: translateY(-1px) scale(1.05);
+    box-shadow: 0 2px 4px rgba(40, 167, 69, 0.3);
+}
+
+.url-event-actions .slideshow-btn:active {
+    transform: translateY(0) scale(1);
+    box-shadow: 0 1px 2px rgba(40, 167, 69, 0.3);
+}
+
+.url-event-actions .slideshow-btn i {
+    font-size: 0.9rem;
+    display: inline-block;
+    line-height: 1;
+}
+
 /* Modern Form Styles */
 .modern-form {
     background: transparent;

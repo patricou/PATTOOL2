@@ -32,8 +32,14 @@
         <div *ngIf="slideshowImages.length > 0" class="slideshow-counter">
           {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
         </div>
+        <button *ngIf="slideshowImages.length > 1" 
+                type="button" 
+                class="btn btn-lg btn-outline-light slideshow-btn-play-pause"
+                (click)="$event.stopPropagation(); toggleSlideshow()">
+          <i class="fa" [ngClass]="isSlideshowActive ? 'fa-pause' : 'fa-play'"></i>
+        </button>
       </div>
-      <div class="slideshow-controls" [class.always-visible]="isFullscreen && !isSlideshowActive">
+      <div class="slideshow-controls">
         <button class="btn btn-lg btn-outline-light slideshow-btn-prev" 
                 (click)="previousImage()"
                 [disabled]="slideshowImages.length <= 1">
@@ -49,19 +55,25 @@
   </div>
   <div class="modal-footer slideshow-footer">
     <div class="d-flex gap-2 align-items-center flex-wrap">
-      <button type="button" class="btn btn-secondary" 
-              (click)="toggleSlideshow()"
-              [disabled]="slideshowImages.length <= 1"
-              [ngbTooltip]="isSlideshowActive ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate)"
-              placement="top">
-        <i class="fa me-1" [ngClass]="isSlideshowActive ? 'fa-pause-circle-o' : 'fa-play-circle-o'"></i>
-        <span *ngIf="!isSlideshowActive">{{ 'EVENTELEM.PLAY' | translate }}</span>
-        <span *ngIf="isSlideshowActive">{{ 'EVENTELEM.PAUSE' | translate }}</span>
-      </button>
       <div class="btn-group" role="group">
-        <button type="button" class="btn btn-outline-secondary" (click)="zoomOutSlideshow()"><i class="fa fa-search-minus"></i></button>
-        <button type="button" class="btn btn-outline-secondary" (click)="resetSlideshowZoom()"><i class="fa fa-refresh"></i></button>
-        <button type="button" class="btn btn-outline-secondary" (click)="zoomInSlideshow()"><i class="fa fa-search-plus"></i></button>
+        <button type="button" class="btn btn-outline-secondary" 
+                (click)="zoomOutSlideshow()"
+                [ngbTooltip]="'EVENTELEM.ZOOM_OUT' | translate"
+                placement="top">
+          <i class="fa fa-search-minus"></i>
+        </button>
+        <button type="button" class="btn btn-outline-secondary" 
+                (click)="resetSlideshowZoom()"
+                [ngbTooltip]="'EVENTELEM.ZOOM_RESET' | translate"
+                placement="top">
+          <i class="fa fa-refresh"></i>
+        </button>
+        <button type="button" class="btn btn-outline-secondary" 
+                (click)="zoomInSlideshow()"
+                [ngbTooltip]="'EVENTELEM.ZOOM_IN' | translate"
+                placement="top">
+          <i class="fa fa-search-plus"></i>
+        </button>
       </div>
       <button type="button" class="btn btn-secondary" 
               (click)="toggleFullscreen()"

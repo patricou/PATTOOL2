@@ -110,7 +110,8 @@
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Cette action est irréversible.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "Annuler",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Supprimer tous les commentaires",
-        "SELECT_PAGE": "Sélectionner la page"
+        "SELECT_PAGE": "Sélectionner la page",
+        "EDIT_LINK": "Modifier le lien"
     },
     
     "EVENTCREATION": {
@@ -330,7 +331,10 @@
         "EXIF_ORIENTATION": "Orientation",
         "EXIF_GPS": "GPS",
         "EXIF_PIXEL_WIDTH": "Largeur (pixels)",
-        "EXIF_PIXEL_HEIGHT": "Hauteur (pixels)"
+        "EXIF_PIXEL_HEIGHT": "Hauteur (pixels)",
+        "ZOOM_IN": "Zoomer",
+        "ZOOM_OUT": "Dézoomer",
+        "ZOOM_RESET": "Réinitialiser le zoom"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Démarrer le défilement automatique",

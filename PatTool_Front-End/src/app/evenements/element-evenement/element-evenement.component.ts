@@ -4,7 +4,7 @@ import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../share
 import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 // Removed ng2-file-upload - using native HTML file input
-import { NgbModal, ModalDismissReasons, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModal, ModalDismissReasons, NgbRatingConfig, NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
 import { Database, ref, push, remove, onValue, serverTimestamp } from '@angular/fire/database';
 import { TranslateService } from '@ngx-translate/core';
 import * as JSZip from 'jszip';
@@ -51,12 +51,30 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public selectedUser: Member | null = null;
 	// Dominant color for title background
 	public titleBackgroundColor: string = 'rgba(255, 255, 255, 0.6)';
+	// Gradient for title background (same method as description)
+	public titleBackgroundGradient: string = 'linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(225, 225, 225, 0.6) 100%)';
 	// Inverse color for title border
 	public titleBorderColor: string = 'rgba(0, 0, 0, 0.8)';
+	// Average color for description background (pure color from photo)
+	public descriptionBackgroundColor: string = 'rgba(255, 255, 255, 1)';
+	// Gradient for description background
+	public descriptionBackgroundGradient: string = 'linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(225, 225, 225, 1) 100%)';
+	// RGB values of calculated color
+	public calculatedRgbValues: string = 'RGB(255, 255, 255)';
 	public isSlideshowActive: boolean = false;
 	public currentSlideshowIndex: number = 0;
 	public slideshowImages: string[] = [];
 	public slideshowInterval: any;
+	
+	// Card slideshow state
+	public isCardSlideshowActive: boolean = false;
+	public cardSlideshowPaused: boolean = false;
+	public cardSlideImages: string[] = [];
+	public cardSlideFileNames: string[] = [];
+	public currentCardSlideIndex: number = 0;
+	public currentCardSlideImage: string = '';
+	private cardSlideshowInterval: any;
+	private cardSlideshowSubscriptions: Subscription[] = [];
 	public isFullscreen: boolean = false;
 	private keyboardListener?: (event: KeyboardEvent) => void;
 	private isSlideshowModalOpen: boolean = false;
@@ -96,6 +114,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
 	@ViewChild('thumbnailImage', { static: false }) thumbnailImageRef!: ElementRef<HTMLImageElement>;
+	@ViewChild('cardSlideImage', { static: false }) cardSlideImageRef!: ElementRef<HTMLImageElement>;
 
 	// FS Photos download control
 	private fsDownloadsActive: boolean = false;
@@ -189,6 +208,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
     public openFsPhotosSelector(includeUploadedChoice: boolean = false): void {
+        this.forceCloseTooltips();
         const fsLinks = this.getPhotoFromFsLinks();
         const webLinks = this.getPhotosUrlLinks();
         const hasAnyLinks = (fsLinks.length + webLinks.length) > 0;
@@ -220,6 +240,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
     }
 
 	private openFsPhotosDiaporama(relativePath: string): void {
+		this.forceCloseTooltips();
 		// Open slideshow modal immediately with empty array - images will be loaded dynamically
 		if (!this.slideshowModalComponent || !this.evenement) {
 			console.error('Slideshow modal component or event not available');
@@ -339,6 +360,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Unified photos opener (uploaded photos or FS photos)
 	public openPhotos(): void {
+		this.forceCloseTooltips();
 		const hasFs = this.getPhotoFromFsCount() > 0;
 		const hasPhotosWeb = this.getPhotosUrlLinks().length > 0;
 		const hasUploaded = this.hasImageFiles();
@@ -388,8 +410,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 5): number {
 		event.preventDefault();
-		const delta = Math.sign(event.deltaY);
-		const step = 0.1;
+		// Use actual deltaY value for linear zoom (normalized to reasonable scale)
+		const delta = event.deltaY / 50; // Normalize to make scroll speed reasonable (faster zoom)
+		const step = 0.08; // Step for faster zoom while maintaining linearity
 		let next = current - delta * step; // wheel up -> zoom in
 		if (next < minZoom) next = minZoom;
 		if (next > maxZoom) next = maxZoom;
@@ -719,6 +742,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		
 		// Initialize commentaries if not present
 		this.initializeCommentaries();
+		
+		// Setup tooltip auto-close on modal open
+		this.setupTooltipAutoClose();
 	}
 	
 	public onFileSelected(event: any): void {
@@ -1062,7 +1088,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		} else {
 			// Reset to default color if no thumbnail
 			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
+			this.titleBackgroundGradient = 'linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(225, 225, 225, 0.6) 100%)';
 			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
+			this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
+			this.descriptionBackgroundGradient = 'linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(225, 225, 225, 1) 100%)';
+			this.calculatedRgbValues = 'RGB(255, 255, 255)';
 		}
 	}
 
@@ -1088,6 +1118,30 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.processImageColor(img);
 		}, 200);
 	}
+
+	// Detect dominant color from the current slideshow image
+	public detectDominantColorFromSlideshow(): void {
+		// Wait a bit for the image to be in the DOM
+		setTimeout(() => {
+			if (!this.cardSlideImageRef || !this.cardSlideImageRef.nativeElement) {
+				return;
+			}
+
+			const img = this.cardSlideImageRef.nativeElement;
+			
+			// Check if image is loaded
+			if (!img.complete || img.naturalWidth === 0) {
+				// Wait for image to load
+				img.onload = () => {
+					this.processImageColor(img);
+				};
+				return;
+			}
+
+			this.processImageColor(img);
+		}, 200);
+	}
+	
 
 	// Process image to extract dominant color from top portion
 	private processImageColor(img: HTMLImageElement): void {
@@ -1131,20 +1185,47 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				g = Math.floor(g / pixelCount);
 				b = Math.floor(b / pixelCount);
 
-				// Use the dominant color with 60% opacity
+				// Store RGB values as string
+				this.calculatedRgbValues = `RGB(${r}, ${g}, ${b})`;
+
+				// Use the dominant color with 60% opacity for background
 				this.titleBackgroundColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
 				
-				// Calculate brightness to determine if color is dark or light
+				// Calculate a darker version for title gradient (increased gradient intensity)
+				const darkerR = Math.max(0, r - 60);
+				const darkerG = Math.max(0, g - 60);
+				const darkerB = Math.max(0, b - 60);
+				this.titleBackgroundGradient = `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.6) 0%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 0.6) 100%)`;
+				
+				// Store the average color for description background (pure color, full opacity)
+				this.descriptionBackgroundColor = `rgba(${r}, ${g}, ${b}, 1)`;
+				
+				// Calculate a darker version for description gradient (increased gradient intensity)
+				this.descriptionBackgroundGradient = `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 1) 0%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 1) 100%)`;
+				
+				// Calculate brightness to determine base color for text and border
 				// Using luminance formula: 0.299*R + 0.587*G + 0.114*B
 				const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
 				
-				// If color is dark (brightness < 128), use white for border and text
-				// If color is light (brightness >= 128), use black for border and text
+				// Start with white or black as base, then tint with the average color
+				// Mix 82% base color (white/black) with 18% average color for a subtle tint
+				let tintR: number, tintG: number, tintB: number;
+				
 				if (brightness < 128) {
-					this.titleBorderColor = 'rgba(255, 255, 255, 0.9)';
+					// Dark image: use white as base, tinted with average color
+					tintR = Math.floor(255 * 0.82 + r * 0.18);
+					tintG = Math.floor(255 * 0.82 + g * 0.18);
+					tintB = Math.floor(255 * 0.82 + b * 0.18);
 				} else {
-					this.titleBorderColor = 'rgba(0, 0, 0, 0.9)';
+					// Light image: use black as base, tinted with average color
+					tintR = Math.floor(0 * 0.82 + r * 0.18);
+					tintG = Math.floor(0 * 0.82 + g * 0.18);
+					tintB = Math.floor(0 * 0.82 + b * 0.18);
 				}
+				
+				// Use the lightly tinted color for border and text
+				this.titleBorderColor = `rgba(${tintR}, ${tintG}, ${tintB}, 0.95)`;
+				
 			}
 		} catch (error) {
 			console.error('Error detecting dominant color:', error);
@@ -1164,6 +1245,62 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				}
 			}
 		}, 300);
+	}
+	
+	// Setup automatic tooltip closing when modals or overlays appear
+	private setupTooltipAutoClose(): void {
+		// Use MutationObserver to detect when modals are added to DOM
+		const observer = new MutationObserver((mutations) => {
+			mutations.forEach((mutation) => {
+				mutation.addedNodes.forEach((node) => {
+					if (node.nodeType === 1) { // Element node
+						const element = node as HTMLElement;
+						// Check if it's a modal or modal backdrop
+						if (element.classList && (
+							element.classList.contains('modal') ||
+							element.classList.contains('modal-backdrop') ||
+							element.querySelector && element.querySelector('.modal')
+						)) {
+							// Close all tooltips when modal appears
+							setTimeout(() => this.forceCloseTooltips(), 0);
+						}
+					}
+				});
+			});
+		});
+		
+		// Observe body for modal additions
+		observer.observe(document.body, {
+			childList: true,
+			subtree: true
+		});
+		
+		// Also listen for modal show events using DOM events
+		document.addEventListener('show.bs.modal', () => {
+			this.forceCloseTooltips();
+		}, true);
+		
+		document.addEventListener('shown.bs.modal', () => {
+			this.forceCloseTooltips();
+		}, true);
+		
+		// Listen for any click events that might open modals or overlays
+		document.addEventListener('click', (event: MouseEvent) => {
+			const target = event.target as HTMLElement;
+			// Check if click is on a button that might open a modal
+			if (target && (
+				target.closest('button') ||
+				target.closest('a') ||
+				target.closest('[ngbTooltip]')
+			)) {
+				// Small delay to let modal start opening
+				setTimeout(() => {
+					if (document.querySelector('.modal.show') || document.querySelector('.modal-backdrop')) {
+						this.forceCloseTooltips();
+					}
+				}, 10);
+			}
+		}, true);
 	}
 	// delete a file uploaded linked to the evenement, update the evenement
 	delFile(fieldId: string) {
@@ -1216,6 +1353,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// open URLs modal
 	public openUrlsModal(content: any) {
+		this.forceCloseTooltips();
 		this.modalService.open(content, { size: 'lg', centered: true });
 	}
 	// call the modal window for del confirmation
@@ -1325,6 +1463,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public closeResult: string = "";
 
 	public open(content: any) {
+		this.forceCloseTooltips();
 		this.modalService.open(content).result.then((result) => {
 			this.closeResult = `Closed with: ${result}`;
 		}, (reason) => {
@@ -1354,6 +1493,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// Open JSON modal
 	public openJsonModal() {
 		console.log("Opening JSON modal for event:", this.evenement.evenementName);
+		this.forceCloseTooltips();
 		
 		if (this.jsonModal) {
 			this.modalService.open(this.jsonModal, { size: 'lg' }).result.then((result) => {
@@ -1566,7 +1706,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.thumbnailUrl = "assets/images/images.jpg";
 			// Reset to default color
 			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
+			this.titleBackgroundGradient = 'linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(225, 225, 225, 0.6) 100%)';
 			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
+			this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
+			this.descriptionBackgroundGradient = 'linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(225, 225, 225, 1) 100%)';
+			this.calculatedRgbValues = 'RGB(255, 255, 255)';
 			// Try to detect color from default image
 			setTimeout(() => {
 				this.detectDominantColor();
@@ -1860,6 +2004,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Open image modal for large display
 	openImageModal(imageUrl: any, imageAlt: string): void {
+		this.forceCloseTooltips();
 		// Keep the original SafeUrl or string (same as home-evenements)
 		this.selectedImageUrl = imageUrl;
 		this.selectedImageAlt = imageAlt;
@@ -1953,8 +2098,27 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return imageTypes.includes(file.type.toLowerCase());
 	}
 
+	// Truncate file name to 15 characters for display
+	public getTruncatedFileName(fileName: string, maxLength: number = 15): string {
+		if (!fileName) return '';
+		if (fileName.length <= maxLength) return fileName;
+		// Keep extension if possible
+		const lastDotIndex = fileName.lastIndexOf('.');
+		if (lastDotIndex > 0) {
+			const nameWithoutExt = fileName.substring(0, lastDotIndex);
+			const extension = fileName.substring(lastDotIndex);
+			// If extension is short enough, keep it
+			if (extension.length < maxLength - 3) {
+				const truncatedName = nameWithoutExt.substring(0, maxLength - extension.length - 3) + '...';
+				return truncatedName + extension;
+			}
+		}
+		return fileName.substring(0, maxLength - 3) + '...';
+	}
+
 	// Open file image in modal - USE GETFILE for display (with resizing)
 	openFileImageModal(fileId: string, fileName: string): void {
+		this.forceCloseTooltips();
 		// Use getFile for display (with image resizing)
 		this._fileService.getFile(fileId).pipe(
 			map((res: any) => {
@@ -1987,6 +2151,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 	
 	ngOnDestroy() {
+		// Stop card slideshow if active
+		this.stopCardSlideshow();
+		
 		// Nettoyer les URLs blob pour éviter les fuites mémoire
 		if (this.thumbnailUrl && typeof this.thumbnailUrl === 'object' && 'changingThisBreaksApplicationSecurity' in this.thumbnailUrl) {
 			try {
@@ -2026,6 +2193,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	public openCommentsModal(): void {
+		this.forceCloseTooltips();
 		this.modalService.open(this.commentsModal, { 
 			size: 'lg',
 			backdrop: true,
@@ -2040,6 +2208,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	public openUserModal(user: Member): void {
+		this.forceCloseTooltips();
 		this.selectedUser = user;
 		if (!this.userModal) {
 			return;
@@ -2073,6 +2242,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Open slideshow modal with all images from this card
 	public openSlideshow(): void {
+		this.forceCloseTooltips();
 		// Filter to get only image files
 		const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
 		
@@ -2117,6 +2287,153 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			}
 		});
 		this.slideshowImages = [];
+	}
+
+	// ============ CARD SLIDESHOW METHODS ============
+	
+	// Start card slideshow
+	public startCardSlideshow(): void {
+		// Filter to get only image files
+		const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
+		
+		if (imageFiles.length === 0) {
+			alert('Aucune image trouvée dans cet événement.');
+			return;
+		}
+		
+		// Cancel any existing subscriptions
+		this.cancelCardSlideshowSubscriptions();
+		
+		// Load all images from DB
+		const maxConcurrent = 4;
+		let active = 0;
+		const queue = [...imageFiles];
+		
+		const loadNext = () => {
+			if (active >= maxConcurrent || queue.length === 0) {
+				return;
+			}
+			
+			const file = queue.shift() as UploadedFile;
+			active++;
+			
+			if (file.fieldId) {
+				const sub = this._fileService.getFile(file.fieldId).subscribe({
+					next: (buffer: ArrayBuffer) => {
+						const blob = new Blob([buffer], { type: 'image/*' });
+						const url = URL.createObjectURL(blob);
+						this.cardSlideImages.push(url);
+						this.cardSlideFileNames.push(file.fileName);
+						
+					// Display first image immediately and start autoplay
+					if (this.cardSlideImages.length === 1) {
+						this.currentCardSlideImage = url;
+						this.isCardSlideshowActive = true;
+						this.cardSlideshowPaused = false; // Start playing
+						this.startCardAutoplay(); // Start autoplay immediately
+					}
+					},
+					error: (error) => {
+						console.error('Error loading image:', file.fileName, error);
+					},
+					complete: () => {
+						active--;
+						if (queue.length > 0) {
+							loadNext();
+						}
+					}
+				});
+				this.cardSlideshowSubscriptions.push(sub);
+			}
+		};
+		
+		for (let i = 0; i < maxConcurrent && queue.length > 0; i++) {
+			loadNext();
+		}
+	}
+	
+	// Start autoplay for card slideshow
+	private startCardAutoplay(): void {
+		this.cardSlideshowPaused = false;
+		this.cardSlideshowInterval = setInterval(() => {
+			this.nextCardSlide();
+		}, 3000);
+	}
+	
+	// Toggle pause/play for card slideshow
+	public toggleCardSlideshowPause(): void {
+		this.cardSlideshowPaused = !this.cardSlideshowPaused;
+		
+		if (this.cardSlideshowPaused) {
+			// Pause
+			if (this.cardSlideshowInterval) {
+				clearInterval(this.cardSlideshowInterval);
+				this.cardSlideshowInterval = null;
+			}
+		} else {
+			// Resume
+			this.startCardAutoplay();
+		}
+	}
+	
+	// Stop card slideshow
+	public stopCardSlideshow(): void {
+		this.cancelCardSlideshowSubscriptions();
+		
+		if (this.cardSlideshowInterval) {
+			clearInterval(this.cardSlideshowInterval);
+			this.cardSlideshowInterval = null;
+		}
+		
+		this.isCardSlideshowActive = false;
+		this.cardSlideshowPaused = false;
+		this.currentCardSlideIndex = 0;
+		this.currentCardSlideImage = '';
+		
+		// Cleanup blob URLs
+		this.cardSlideImages.forEach(url => {
+			if (url.startsWith('blob:')) {
+				URL.revokeObjectURL(url);
+			}
+		});
+		this.cardSlideImages = [];
+		this.cardSlideFileNames = [];
+	}
+
+	// Get current slide file name
+	public getCurrentCardSlideFileName(): string {
+		if (this.currentCardSlideIndex >= 0 && this.currentCardSlideIndex < this.cardSlideFileNames.length) {
+			return this.cardSlideFileNames[this.currentCardSlideIndex];
+		}
+		return '';
+	}
+	
+	// Go to next card slide
+	public nextCardSlide(): void {
+		if (this.cardSlideImages.length === 0) return;
+		this.currentCardSlideIndex = (this.currentCardSlideIndex + 1) % this.cardSlideImages.length;
+		this.currentCardSlideImage = this.cardSlideImages[this.currentCardSlideIndex];
+		// Recalculate color from new image after a short delay to ensure image is loaded
+		setTimeout(() => {
+			this.detectDominantColorFromSlideshow();
+		}, 100);
+	}
+	
+	// Go to previous card slide
+	public previousCardSlide(): void {
+		if (this.cardSlideImages.length === 0) return;
+		this.currentCardSlideIndex = (this.currentCardSlideIndex - 1 + this.cardSlideImages.length) % this.cardSlideImages.length;
+		this.currentCardSlideImage = this.cardSlideImages[this.currentCardSlideIndex];
+		// Recalculate color from new image after a short delay to ensure image is loaded
+		setTimeout(() => {
+			this.detectDominantColorFromSlideshow();
+		}, 100);
+	}
+	
+	// Cancel all card slideshow subscriptions
+	private cancelCardSlideshowSubscriptions(): void {
+		this.cardSlideshowSubscriptions.forEach(sub => sub.unsubscribe());
+		this.cardSlideshowSubscriptions = [];
 	}
 
 	// Setup keyboard listener for arrow keys navigation
@@ -2284,5 +2601,67 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				(document as any).msExitFullscreen();
 			}
 		}
+	}
+
+	// Force close all tooltips when mouse leaves an element
+	public forceCloseTooltips(): void {
+		try {
+			// Find all tooltip elements in the DOM (NgBootstrap creates .tooltip elements)
+			const tooltipElements = document.querySelectorAll('.tooltip');
+			tooltipElements.forEach((tooltip: any) => {
+				if (tooltip && tooltip.parentNode) {
+					// Hide the tooltip first
+					if (tooltip.style) {
+						tooltip.style.display = 'none';
+						tooltip.style.visibility = 'hidden';
+						tooltip.style.opacity = '0';
+					}
+					// Remove classes that indicate tooltip is open
+					tooltip.classList.remove('show', 'bs-tooltip-auto', 'bs-tooltip-top', 'bs-tooltip-bottom', 
+						'bs-tooltip-left', 'bs-tooltip-right', 'fade', 'in');
+					// Remove from DOM after hiding
+					setTimeout(() => {
+						if (tooltip.parentNode) {
+							tooltip.parentNode.removeChild(tooltip);
+						}
+					}, 100);
+				}
+			});
+			
+			// Remove tooltip-related classes from body
+			document.body.classList.remove('tooltip-open', 'tooltip-shown');
+			
+			// Remove any tooltip backdrop elements
+			const tooltipBackdrops = document.querySelectorAll('.tooltip-backdrop');
+			tooltipBackdrops.forEach((backdrop: any) => {
+				if (backdrop && backdrop.parentNode) {
+					backdrop.parentNode.removeChild(backdrop);
+				}
+			});
+			
+			// Also remove tooltip arrow elements
+			const tooltipArrows = document.querySelectorAll('.tooltip-arrow');
+			tooltipArrows.forEach((arrow: any) => {
+				if (arrow && arrow.parentNode) {
+					arrow.parentNode.removeChild(arrow);
+				}
+			});
+			
+			// Dispatch a custom event to close any programmatic tooltips
+			const closeEvent = new Event('tooltip-close', { bubbles: true, cancelable: true });
+			document.dispatchEvent(closeEvent);
+		} catch (error) {
+			// Silently fail if there's an error closing tooltips
+			console.warn('Error closing tooltips:', error);
+		}
+	}
+
+	// Handle mouse leave on elements with tooltips
+	public onTooltipMouseLeave(event: MouseEvent): void {
+		// Force close tooltips immediately when mouse leaves
+		// Use requestAnimationFrame to ensure it happens after NgBootstrap's own handlers
+		requestAnimationFrame(() => {
+			this.forceCloseTooltips();
+		});
 	}
 }

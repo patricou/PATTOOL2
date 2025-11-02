@@ -1,17 +1,19 @@
 import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, OnDestroy, TemplateRef } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
-import { Observable, fromEvent, Subscription } from 'rxjs';
+import { Observable, fromEvent, Subscription, firstValueFrom } from 'rxjs';
 import { debounceTime, map } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgbModal, ModalDismissReasons } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import { Database, ref, push, remove, onValue } from '@angular/fire/database';
+import * as JSZip from 'jszip';
 
 import { Evenement } from '../../model/evenement';
 import { MembersService } from '../../services/members.service';
 import { Member } from '../../model/member';
 import { UrlEvent } from '../../model/url-event';
+import { UploadedFile } from '../../model/uploadedfile';
 import { Router } from '@angular/router';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FileService } from '../../services/file.service';
@@ -53,6 +55,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public selectedUser: Member | null = null;
 	public msgVal: string = '';
 	public items: Observable<any> = new Observable();
+	public selectedFiles: File[] = [];
+	public API_URL4FILE: string = environment.API_URL4FILE;
+	// Upload logs
+	public uploadLogs: string[] = [];
+	public isUploading: boolean = false;
 	@ViewChild('searchterm')
 	public searchterm!: ElementRef;
 	@ViewChild('photosModal') photosModal!: TemplateRef<any>;
@@ -62,6 +69,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('jsonModal') jsonModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
+	@ViewChild('filesModal') filesModal!: TemplateRef<any>;
+	@ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
+	@ViewChild('logContent') logContent: any;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 	@ViewChild('photosSelectorModalComponent') photosSelectorModalComponent!: PhotosSelectorModalComponent;
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
@@ -257,8 +267,20 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	public toggleFileList(evenement: Evenement) {
-		// Cette méthode pourrait être implémentée si nécessaire
-		console.log('Toggle file list for event:', evenement.evenementName);
+		this.selectedEvent = evenement;
+		this.selectedEventName = evenement.evenementName;
+		
+		this.modalService.open(this.filesModal, { 
+			size: 'lg',
+			backdrop: true,
+			keyboard: true,
+			animation: true,
+			centered: true
+		}).result.then((result) => {
+			console.log('Files modal closed with:', result);
+		}, (reason) => {
+			console.log('Files modal dismissed:', reason);
+		});
 	}
 
 	public openPhotosModal(evenement: Evenement) {
@@ -1058,4 +1080,518 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Slideshow methods (now handled by SlideshowModalComponent)
 	// =========================
 	
+	// =========================
+	// File Management Methods
+	// =========================
+	
+	// Get the file url with the bearer token for authentication
+	public getFileBlobUrl(fileId: string): Observable<any> {
+		return this._fileService.getFile(fileId).pipe(
+			map((res: any) => {
+				let blob = new Blob([res], { type: 'application/octet-stream' });
+				return blob;
+			})
+		);
+	}
+	
+	// Open window when click on download button
+	public openWindows(fileId: string, fileName: string) {
+		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
+			//IE11 & Edge
+			if ((navigator as any).msSaveBlob) {
+				(navigator as any).msSaveBlob(blob, fileName);
+			} else {
+				let natw = this.nativeWindow;
+				//In FF link must be added to DOM to be clicked
+				let link = natw.document.createElement('a');
+				let objectUrl = natw.URL.createObjectURL(blob);
+				link.href = objectUrl;
+				// this method allow to give a name to the file
+				link.setAttribute('download', fileName);
+				natw.document.body.appendChild(link);
+				link.click();
+				// remove the 				
+				setTimeout(function () {
+					natw.document.body.removeChild(link);
+					natw.URL.revokeObjectURL(objectUrl);
+				}, 5000);
+			}
+		});
+	}
+	
+	// Delete a file uploaded linked to the evenement
+	public delFile(fieldId: string) {
+		if (confirm("Are you sure you want to delete the file ? ")) {
+			if (!this.selectedEvent || !this.selectedEvent.fileUploadeds) {
+				return;
+			}
+			
+			// Find the file being deleted
+			const fileToDelete = this.selectedEvent.fileUploadeds.find(fileUploaded => fileUploaded.fieldId === fieldId);
+			
+			if (fileToDelete) {
+				// Remove the file from the list
+				this.selectedEvent.fileUploadeds = this.selectedEvent.fileUploadeds.filter(fileUploaded => !(fileUploaded.fieldId == fieldId));
+				this.updateFileUploadedInEvent(this.selectedEvent);
+				// Refresh the events list
+				this.getEvents(this.dataFIlter);
+			}
+		}
+	}
+	
+	// Check if user is file owner
+	public isFileOwner(member: Member): boolean {
+		return this.user.id == member.id;
+	}
+	
+	// Check if file is a PDF based on extension
+	public isPdfFile(fileName: string): boolean {
+		if (!fileName) return false;
+		const lowerFileName = fileName.toLowerCase();
+		return lowerFileName.endsWith('.pdf');
+	}
+	
+	// Handle file click based on file type
+	public handleFileClick(uploadedFile: any): void {
+		if (this.isImageFile(uploadedFile.fileName)) {
+			this.openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName);
+		} else if (this.isPdfFile(uploadedFile.fileName)) {
+			this.openPdfFile(uploadedFile.fieldId, uploadedFile.fileName);
+		}
+	}
+	
+	// Open PDF file in new tab
+	public openPdfFile(fileId: string, fileName: string): void {
+		console.log('Opening PDF file:', fileName, 'with ID:', fileId);
+		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
+			console.log('Blob received:', blob);
+			
+			// Create a new blob with proper MIME type for PDF
+			const pdfBlob = new Blob([blob], { type: 'application/pdf' });
+			
+			// Create object URL for the blob
+			const objectUrl = URL.createObjectURL(pdfBlob);
+			console.log('Object URL created:', objectUrl);
+			
+			// Open PDF in new tab with optimized parameters
+			const newWindow = window.open(objectUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
+			
+			// Focus the new window
+			if (newWindow) {
+				newWindow.focus();
+			}
+			
+			// Clean up the URL after a delay to allow the browser to load it
+			setTimeout(() => {
+				URL.revokeObjectURL(objectUrl);
+			}, 10000);
+		}, (error) => {
+			console.error('Error loading PDF file:', error);
+			alert('Erreur lors du chargement du fichier PDF');
+		});
+	}
+	
+	// Open file image in modal
+	public openFileImageModal(fileId: string, fileName: string): void {
+		// Use getFile for display (with image resizing)
+		this._fileService.getFile(fileId).pipe(
+			map((res: any) => {
+				let blob = new Blob([res], { type: 'application/octet-stream' });
+				return URL.createObjectURL(blob);
+			})
+		).subscribe((objectUrl: string) => {
+			// Set the image URL and alt text
+			this.selectedImageUrl = objectUrl;
+			this.selectedImageAlt = fileName;
+			
+			if (!this.imageModal) {
+				return;
+			}
+			
+			// Open the modal
+			this.modalService.open(this.imageModal, { 
+				size: 'xl', 
+				centered: true,
+				backdrop: true,
+				keyboard: true,
+				animation: false,
+				windowClass: 'modal-smooth-animation'
+			});
+		}, (error) => {
+			console.error('Error loading file:', error);
+			alert('Erreur lors du chargement du fichier');
+		});
+	}
+	
+	// Truncate file name to 15 characters for display
+	public getTruncatedFileName(fileName: string, maxLength: number = 15): string {
+		if (!fileName) return '';
+		if (fileName.length <= maxLength) return fileName;
+		// Keep extension if possible
+		const lastDotIndex = fileName.lastIndexOf('.');
+		if (lastDotIndex > 0) {
+			const nameWithoutExt = fileName.substring(0, lastDotIndex);
+			const extension = fileName.substring(lastDotIndex);
+			// If extension is short enough, keep it
+			if (extension.length < maxLength - 3) {
+				const truncatedName = nameWithoutExt.substring(0, maxLength - extension.length - 3) + '...';
+				return truncatedName + extension;
+			}
+		}
+		return fileName.substring(0, maxLength - 3) + '...';
+	}
+	
+	// Get appropriate tooltip for file
+	public getFileTooltip(fileName: string): string | null {
+		if (this.isImageFile(fileName)) {
+			return this.translateService.instant('EVENTELEM.CLICK_TO_VIEW');
+		} else if (this.isPdfFile(fileName)) {
+			return this.translateService.instant('EVENTELEM.CLICK_TO_OPEN_PDF');
+		}
+		return null;
+	}
+	
+	// Download all files from the event as a single ZIP file
+	public async downloadAllFilesForEvent(evenement: Evenement): Promise<void> {
+		if (!evenement.fileUploadeds || evenement.fileUploadeds.length === 0) {
+			alert('Aucun fichier à télécharger');
+			return;
+		}
+
+		// Show loading message
+		const loadingMessage = `Téléchargement de ${evenement.fileUploadeds.length} fichier(s)...`;
+		
+		console.log('Starting download of all files:', evenement.fileUploadeds.length);
+		
+		try {
+			// Create a new ZIP file
+			const zip = new JSZip();
+			let successCount = 0;
+			
+			// Download all files and add them to the ZIP
+			const downloadPromises = evenement.fileUploadeds.map(async (file) => {
+				try {
+					console.log(`Fetching file: ${file.fileName}`);
+					const blob = await firstValueFrom(this.getFileBlobUrl(file.fieldId));
+					zip.file(file.fileName, blob);
+					successCount++;
+					console.log(`Added to ZIP: ${file.fileName} (${successCount}/${evenement.fileUploadeds.length})`);
+				} catch (error) {
+					console.error(`Error fetching file ${file.fileName}:`, error);
+				}
+			});
+			
+			// Wait for all files to be added to the ZIP
+			await Promise.all(downloadPromises);
+			
+			if (successCount === 0) {
+				alert('Aucun fichier n\'a pu être téléchargé');
+				return;
+			}
+			
+			// Generate the ZIP file
+			console.log('Generating ZIP file...');
+			const zipBlob = await zip.generateAsync({ type: 'blob' });
+			
+			// Create a download link and trigger download
+			const zipFileName = `${evenement.evenementName}_files_${new Date().getTime()}.zip`;
+			const url = window.URL.createObjectURL(zipBlob);
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = zipFileName;
+			document.body.appendChild(link);
+			link.click();
+			document.body.removeChild(link);
+			window.URL.revokeObjectURL(url);
+			
+			console.log(`ZIP file downloaded successfully with ${successCount} file(s)`);
+		} catch (error) {
+			console.error('Error creating ZIP file:', error);
+			alert('Erreur lors de la création du fichier ZIP');
+		}
+	}
+	
+	// =========================
+	// File Upload Methods
+	// =========================
+	
+	public onFileSelected(event: any, evenement: Evenement): void {
+		const files: FileList = event.target.files;
+		if (files && files.length > 0) {
+			this.selectedFiles = Array.from(files);
+			this.uploadFiles(evenement);
+		}
+	}
+
+	private uploadFiles(evenement: Evenement): void {
+		if (this.selectedFiles.length === 0) {
+			console.log('No files to upload');
+			return;
+		}
+
+		this.isUploading = true;
+		this.uploadLogs = [];
+		
+		// Open upload logs modal
+		let modalRef: any;
+		if (this.uploadLogsModal) {
+			modalRef = this.modalService.open(this.uploadLogsModal, {
+				centered: true,
+				backdrop: 'static',
+				keyboard: false
+			});
+		}
+		
+		// Generate session ID
+		const sessionId = this.generateSessionId();
+		
+		// Initialize logs
+		this.addLog(`📤 Starting upload of ${this.selectedFiles.length} file(s)...`);
+
+		// Check if any of the selected files are images
+		const imageFiles = this.selectedFiles.filter(file => this.isImageFileByMimeType(file));
+		
+		// Only ask for thumbnail if there's exactly ONE file selected
+		if (imageFiles.length > 0 && this.selectedFiles.length === 1) {
+			// Ask user if they want to use the image as activity thumbnail
+			const imageFile = imageFiles[0]; // Use first image file
+			const useAsThumbnail = confirm(`Voulez-vous utiliser "${imageFile.name}" comme image de cette activité ?`);
+			
+			if (useAsThumbnail) {
+				// Modify the filename to add "thumbnail" in the middle
+				const modifiedFileName = this.addThumbnailToFileName(imageFile.name);
+				
+				// Create a new File object with the modified name
+				const modifiedFile = new File([imageFile], modifiedFileName, { type: imageFile.type });
+				
+				// Replace the original file in the array
+				const fileIndex = this.selectedFiles.indexOf(imageFile);
+				this.selectedFiles[fileIndex] = modifiedFile;
+			}
+		}
+
+		const formData = new FormData();
+		for (let file of this.selectedFiles) {
+			formData.append('file', file, file.name);
+		}
+		
+		// Add sessionId to FormData
+		if (sessionId) {
+			formData.append('sessionId', sessionId);
+		}
+
+		// Build the correct upload URL with user ID and event ID
+		const uploadUrl = `${this.API_URL4FILE}/${this.user.id}/${evenement.id}`;
+
+		// Start polling for server logs
+		let lastLogCount = 0;
+		const pollInterval = setInterval(() => {
+			this._fileService.getUploadLogs(sessionId).subscribe(
+				(serverLogs: string[]) => {
+					if (serverLogs.length > lastLogCount) {
+						// New logs available
+						for (let i = lastLogCount; i < serverLogs.length; i++) {
+							this.addLog(serverLogs[i]);
+						}
+						lastLogCount = serverLogs.length;
+					}
+				},
+				(error: any) => {
+					console.error('Error fetching logs:', error);
+				}
+			);
+		}, 500); // Poll every 500ms
+
+		this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId)
+			.subscribe({
+				next: (response: any) => {
+					// Wait a bit for final logs
+					setTimeout(() => {
+						clearInterval(pollInterval);
+						
+						const fileCount = Array.isArray(response) ? response.length : 1;
+						this.addLog(`✅ Upload successful! ${fileCount} file(s) processed`);
+						
+						// The response should contain the uploaded file information directly
+						this.handleUploadResponse(response, evenement);
+						
+						// Clear selected files
+						this.selectedFiles = [];
+						// Reset file input for this specific event
+						const fileInput = document.querySelector(`input[id="file-upload-input-${evenement.id}"]`) as HTMLInputElement;
+						if (fileInput) {
+							fileInput.value = '';
+						}
+						
+						setTimeout(() => {
+							this.isUploading = false;
+							alert('Files uploaded successfully!');
+							// Close modal automatically after alert
+							if (modalRef) {
+								modalRef.close();
+							}
+							// Refresh the events list
+							this.getEvents(this.dataFIlter);
+						}, 1000);
+					}, 500);
+				},
+				error: (error: any) => {
+					clearInterval(pollInterval);
+					console.error('File upload error:', error);
+					this.addLog(`❌ Upload error`);
+					
+					setTimeout(() => {
+						this.isUploading = false;
+						
+						let errorMessage = "Error uploading files.";
+						
+						if (error.status === 0) {
+							errorMessage = "Unable to connect to server. Please check that the backend service is running.";
+						} else if (error.status === 401) {
+							errorMessage = "Authentication failed. Please log in again.";
+						} else if (error.status === 403) {
+							errorMessage = "Access denied. You don't have permission to upload files.";
+						} else if (error.status >= 500) {
+							errorMessage = "Server error. Please try again later.";
+						} else if (error.error && error.error.message) {
+							errorMessage = error.error.message;
+						}
+						
+						alert(errorMessage);
+						// Close modal automatically after error alert
+						if (modalRef) {
+							modalRef.close();
+						}
+					}, 1000);
+				}
+			});
+	}
+
+	private addLog(message: string): void {
+		this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+		
+		// Auto-scroll to top to show latest log
+		setTimeout(() => {
+			if (this.logContent && this.logContent.nativeElement) {
+				const container = this.logContent.nativeElement;
+				container.scrollTop = 0;
+			}
+		}, 0);
+	}
+
+	private generateSessionId(): string {
+		return 'upload-' + Date.now() + '-' + Math.random().toString(36).substring(7);
+	}
+
+	private handleUploadResponse(response: any, evenement: Evenement): void {
+		try {
+			// The response from database upload should contain the uploaded file information
+			if (response && Array.isArray(response)) {
+				// Response is directly an array of uploaded files
+				this.addUploadedFilesToEvent(response, evenement);
+			} else if (response && (response.uploadedFiles || response.files)) {
+				// Response contains uploaded files in a property
+				const uploadedFiles = response.uploadedFiles || response.files;
+				this.addUploadedFilesToEvent(uploadedFiles, evenement);
+			} else if (response && response.fieldId) {
+				// Response is a single uploaded file object
+				this.addUploadedFilesToEvent([response], evenement);
+			} else {
+				// Fallback: create uploaded file entries based on selected files
+				console.log('No file information in response, creating entries from selected files');
+				this.createUploadedFileEntries(evenement);
+			}
+		} catch (error) {
+			console.error('Error processing upload response:', error);
+			// Fallback: create uploaded file entries based on selected files
+			this.createUploadedFileEntries(evenement);
+		}
+	}
+
+	private addUploadedFilesToEvent(uploadedFilesData: any[], evenement: Evenement): void {
+		let hasThumbnailFile = false;
+		
+		for (let fileData of uploadedFilesData) {
+			const uploadedFile = new UploadedFile(
+				fileData.fieldId || fileData.id || this.generateFileId(),
+				fileData.fileName || fileData.name,
+				fileData.fileType || fileData.type || 'unknown',
+				this.user
+			);
+			
+			// Check if this file contains "thumbnail" in its name
+			if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
+				hasThumbnailFile = true;
+			}
+			
+			// Add to event's file list if not already present
+			if (!evenement.fileUploadeds) {
+				evenement.fileUploadeds = [];
+			}
+			const existingFile = evenement.fileUploadeds.find(f => f.fieldId === uploadedFile.fieldId);
+			if (!existingFile) {
+				evenement.fileUploadeds.push(uploadedFile);
+			}
+		}
+		
+		// Update the event in database
+		this.updateFileUploadedInEvent(evenement);
+	}
+
+	private createUploadedFileEntries(evenement: Evenement): void {
+		const newUploadedFiles: any[] = [];
+		
+		for (let file of this.selectedFiles) {
+			const uploadedFile = new UploadedFile(
+				this.generateFileId(),
+				file.name,
+				file.type || 'unknown',
+				this.user
+			);
+			
+			if (!evenement.fileUploadeds) {
+				evenement.fileUploadeds = [];
+			}
+			const existingFile = evenement.fileUploadeds.find(f => f.fileName === uploadedFile.fileName);
+			if (!existingFile) {
+				evenement.fileUploadeds.push(uploadedFile);
+				newUploadedFiles.push(uploadedFile);
+			}
+		}
+		
+		// Update the event in database
+		this.updateFileUploadedInEvent(evenement);
+	}
+
+	private generateFileId(): string {
+		return 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+	}
+
+	// Check if a File object is an image based on MIME type
+	private isImageFileByMimeType(file: File): boolean {
+		const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
+		return imageTypes.includes(file.type.toLowerCase());
+	}
+
+	// Add "thumbnail" to the middle of the filename
+	private addThumbnailToFileName(originalName: string): string {
+		const lastDotIndex = originalName.lastIndexOf('.');
+		
+		if (lastDotIndex === -1) {
+			// No extension found, just add thumbnail at the end
+			return originalName + '_thumbnail';
+		}
+		
+		const nameWithoutExtension = originalName.substring(0, lastDotIndex);
+		const extension = originalName.substring(lastDotIndex);
+		
+		// Add thumbnail in the middle of the name
+		const middleIndex = Math.floor(nameWithoutExtension.length / 2);
+		const modifiedName = nameWithoutExtension.substring(0, middleIndex) + 
+							 'thumbnail' + 
+							 nameWithoutExtension.substring(middleIndex) + 
+							 extension;
+		
+		return modifiedName;
+	}
 }

@@ -224,6 +224,22 @@
                     <i class="fa fa-download"></i> {{ getFilesCount(evenement) }}
                 </button>
 
+                <!-- File Upload Button -->
+                <div class="file-upload-wrapper me-1" placement="top" 
+                     ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
+                     (click)="$event.stopPropagation()">
+                    <label [for]="'file-upload-input-' + evenement.id" class="btn btn-sm btn-success mb-1">
+                        <i class="fa fa-upload" aria-hidden="true"></i>
+                    </label>
+                    <input type="file" 
+                           [id]="'file-upload-input-' + evenement.id" 
+                           #fileInput 
+                           (change)="onFileSelected($event, evenement)" 
+                           multiple 
+                           accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" 
+                           style="display: none;" />
+                </div>
+
                 <!-- View Details Button -->
                 <a class="btn btn-sm btn-outline-info me-1 eye-button" 
                     [routerLink]="['/details-evenement', evenement.id]" 
@@ -527,3 +543,106 @@
 
 <!-- Slideshow Modal Component -->
 <app-slideshow-modal #slideshowModalComponent></app-slideshow-modal>
+
+<!-- Upload Logs Modal -->
+<ng-template #uploadLogsModal let-modal>
+    <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">
+            <i class="fa fa-upload me-2"></i>
+            Upload Progress
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+        <div class="upload-logs-content">
+            <div class="log-content" #logContent>
+                <div class="log-entry" *ngFor="let log of uploadLogs">
+                    {{ log }}
+                </div>
+                <div *ngIf="uploadLogs.length === 0" class="text-center text-muted">
+                    Waiting for upload to start...
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')" [disabled]="isUploading">
+            Close
+        </button>
+    </div>
+</ng-template>
+
+<!-- Files Management Modal -->
+<ng-template #filesModal let-c="close" let-d="dismiss">
+    <div class="modal-header">
+        <h5 class="modal-title">
+            <i class="fa fa-files-o"></i> {{ 'EVENTELEM.FILES' | translate }} - {{ selectedEventName }}
+        </h5>
+        <button type="button" class="btn-close" aria-label="Close" (click)="d('Cross click')"></button>
+    </div>
+    <div class="modal-body">
+        <div *ngIf="selectedEvent && selectedEvent.fileUploadeds && selectedEvent.fileUploadeds.length > 0; else noFilesTemplate">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="mb-0">
+                    <span style="font-size: 0.85rem;">{{ 'EVENTELEM.FILES' | translate }} ({{ selectedEvent.fileUploadeds.length }})</span>
+                </h6>
+                <button class="btn btn-sm btn-success" 
+                        (click)="downloadAllFilesForEvent(selectedEvent)"
+                        style="padding: 0.15rem 0.3rem; font-size: 0.7rem;">
+                    <i class="fa fa-download"></i> {{ 'COMMUN.DOWNLOAD_ALL' | translate }}
+                </button>
+            </div>
+            <ul class="list-group">
+                <li class="list-group-item d-flex justify-content-between align-items-center"
+                    *ngFor="let uploadedFile of selectedEvent.fileUploadeds">
+                    <span class="file-name">
+                        <span class="badge" 
+                              [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
+                              [class.bg-info]="isImageFile(uploadedFile.fileName)"
+                              [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
+                              [title]="uploadedFile.fileName"
+                              ngbTooltip="{{uploadedFile.fileName}}" placement="top">
+                            {{getTruncatedFileName(uploadedFile.fileName)}}
+                        </span>
+                        <small class="text-muted ms-2 clickable-user" 
+                               (click)="openUserModal(uploadedFile.uploaderMember)"
+                               title="Cliquer pour voir les détails de l'utilisateur">
+                            {{uploadedFile.uploaderMember.userName}}
+                        </small>
+                    </span>
+                    <div class="file-actions">
+                        <button class="btn btn-sm btn-outline-primary me-2" 
+                                placement="left"
+                                [ngbTooltip]="getFileTooltip(uploadedFile.fileName)"
+                                *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
+                                (click)="handleFileClick(uploadedFile)">
+                            <i class="fa fa-eye" aria-hidden="true"></i>
+                        </button>
+                        <button class="btn btn-sm btn-primary me-2" placement="left"
+                            ngbTooltip="{{ 'COMMUN.DOWNLOAD' | translate }}"
+                            (click)="openWindows(uploadedFile.fieldId, uploadedFile.fileName)">
+                            <i class="fa fa-files-o" aria-hidden="true"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" placement="left"
+                            ngbTooltip="{{ 'EVENTELEM.DELETEFILE' | translate }}"
+                            [disabled]="!isFileOwner(uploadedFile.uploaderMember)"
+                            (click)="delFile(uploadedFile.fieldId)">
+                            <i class="fa fa-trash" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </li>
+            </ul>
+        </div>
+        <ng-template #noFilesTemplate>
+            <div class="text-center text-muted py-4">
+                <i class="fa fa-files-o fa-3x mb-3"></i>
+                <p>{{ 'EVENTHOME.NO_FILES_ADDED' | translate }}</p>
+            </div>
+        </ng-template>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+        </button>
+    </div>
+</ng-template>

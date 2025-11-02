@@ -97,6 +97,7 @@
     justify-content: center;
     overflow: hidden;
     flex: 1;
+    height: 100%;
 }
 
 /* Force black background for slideshow body in all contexts */
@@ -114,6 +115,8 @@
     width: 100%;
     height: 100%;
 }
+
+/* Les boutons sont masqués par défaut et ne s'affichent que lorsqu'on survole directement leur zone */
 
 /* Fullscreen styles for slideshow-container */
 .slideshow-container:fullscreen,
@@ -184,6 +187,9 @@
     overflow: hidden;
     -webkit-overflow-scrolling: touch;
     touch-action: pan-x pan-y pinch-zoom;
+    margin: 0 auto;
+    will-change: transform;
+    transform-style: preserve-3d;
 }
 
 /* When image is in fullscreen, make wrapper take full screen too */
@@ -229,6 +235,11 @@
     touch-action: pan-x pan-y pinch-zoom;
     -webkit-user-select: none;
     user-select: none;
+    margin: auto;
+    display: block;
+    will-change: transform;
+    transform-style: preserve-3d;
+    backface-visibility: hidden;
 }
 
 /* Image in fullscreen mode */
@@ -310,6 +321,72 @@
     border-radius: 20px;
     font-weight: 600;
     font-size: 0.9rem;
+    z-index: 1000;
+}
+
+.slideshow-btn-play-pause {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.5);
+    z-index: 10001;
+    pointer-events: auto;
+    opacity: 0 !important;
+    visibility: visible !important; /* visible pour permettre le hover */
+}
+
+/* Afficher le bouton play/pause uniquement au survol direct */
+.slideshow-btn-play-pause:hover {
+    opacity: 1 !important;
+    background: rgba(0, 0, 0, 0.8);
+    transform: translate(-50%, -50%) scale(1.1);
+    border-color: rgba(255, 255, 255, 0.8);
+}
+
+.slideshow-btn-play-pause i {
+    font-size: 1.2rem;
+    color: white;
+    margin-left: 3px; /* Ajustement pour centrer l'icône play */
+}
+
+.slideshow-btn-play-pause:active {
+    transform: translate(-50%, -50%) scale(0.95);
+}
+
+/* En plein écran, s'assurer que le bouton est bien visible et au-dessus de tout */
+:fullscreen .slideshow-btn-play-pause,
+:-webkit-full-screen .slideshow-btn-play-pause,
+:-moz-full-screen .slideshow-btn-play-pause,
+:-ms-fullscreen .slideshow-btn-play-pause,
+.slideshow-container:fullscreen .slideshow-btn-play-pause,
+.slideshow-container:-webkit-full-screen .slideshow-btn-play-pause,
+.slideshow-container:-moz-full-screen .slideshow-btn-play-pause,
+.slideshow-container:-ms-fullscreen .slideshow-btn-play-pause {
+    z-index: 99999 !important;
+    position: fixed !important;
+    pointer-events: auto !important;
+}
+
+:fullscreen .slideshow-btn-play-pause:hover,
+:-webkit-full-screen .slideshow-btn-play-pause:hover,
+:-moz-full-screen .slideshow-btn-play-pause:hover,
+:-ms-fullscreen .slideshow-btn-play-pause:hover,
+.slideshow-container:fullscreen .slideshow-btn-play-pause:hover,
+.slideshow-container:-webkit-full-screen .slideshow-btn-play-pause:hover,
+.slideshow-container:-moz-full-screen .slideshow-btn-play-pause:hover,
+.slideshow-container:-ms-fullscreen .slideshow-btn-play-pause:hover {
+    opacity: 1 !important;
+    visibility: visible !important;
 }
 
 .slideshow-controls {
@@ -321,6 +398,14 @@
     justify-content: space-between;
     padding: 0 20px;
     pointer-events: none;
+    opacity: 0 !important;
+    visibility: visible !important; /* visible pour permettre le hover */
+    transition: opacity 0.3s ease;
+}
+
+/* Afficher les contrôles uniquement au survol direct */
+.slideshow-controls:hover {
+    opacity: 1 !important;
 }
 
 .slideshow-controls .btn {
@@ -335,6 +420,67 @@
     backdrop-filter: blur(10px);
     transition: all 0.3s ease;
     border: 2px solid rgba(255, 255, 255, 0.3);
+    opacity: 0 !important;
+}
+
+/* Afficher chaque bouton au survol */
+.slideshow-controls:hover .btn,
+.slideshow-controls .btn:hover {
+    opacity: 1 !important;
+}
+
+/* En plein écran, s'assurer que les boutons précédent/suivant sont bien visibles et au-dessus de tout */
+:fullscreen .slideshow-controls,
+:-webkit-full-screen .slideshow-controls,
+:-moz-full-screen .slideshow-controls,
+:-ms-fullscreen .slideshow-controls,
+.slideshow-container:fullscreen .slideshow-controls,
+.slideshow-container:-webkit-full-screen .slideshow-controls,
+.slideshow-container:-moz-full-screen .slideshow-controls,
+.slideshow-container:-ms-fullscreen .slideshow-controls {
+    z-index: 99999 !important;
+    position: fixed !important;
+}
+
+:fullscreen .slideshow-controls:hover,
+:-webkit-full-screen .slideshow-controls:hover,
+:-moz-full-screen .slideshow-controls:hover,
+:-ms-fullscreen .slideshow-controls:hover,
+.slideshow-container:fullscreen .slideshow-controls:hover,
+.slideshow-container:-webkit-full-screen .slideshow-controls:hover,
+.slideshow-container:-moz-full-screen .slideshow-controls:hover,
+.slideshow-container:-ms-fullscreen .slideshow-controls:hover {
+    opacity: 1 !important;
+}
+
+:fullscreen .slideshow-controls .btn,
+:-webkit-full-screen .slideshow-controls .btn,
+:-moz-full-screen .slideshow-controls .btn,
+:-ms-fullscreen .slideshow-controls .btn,
+.slideshow-container:fullscreen .slideshow-controls .btn,
+.slideshow-container:-webkit-full-screen .slideshow-controls .btn,
+.slideshow-container:-moz-full-screen .slideshow-controls .btn,
+.slideshow-container:-ms-fullscreen .slideshow-controls .btn {
+    z-index: 100000 !important;
+}
+
+:fullscreen .slideshow-controls:hover .btn,
+:-webkit-full-screen .slideshow-controls:hover .btn,
+:-moz-full-screen .slideshow-controls:hover .btn,
+:-ms-fullscreen .slideshow-controls:hover .btn,
+.slideshow-container:fullscreen .slideshow-controls:hover .btn,
+.slideshow-container:-webkit-full-screen .slideshow-controls:hover .btn,
+.slideshow-container:-moz-full-screen .slideshow-controls:hover .btn,
+.slideshow-container:-ms-fullscreen .slideshow-controls:hover .btn,
+:fullscreen .slideshow-controls .btn:hover,
+:-webkit-full-screen .slideshow-controls .btn:hover,
+:-moz-full-screen .slideshow-controls .btn:hover,
+:-ms-fullscreen .slideshow-controls .btn:hover,
+.slideshow-container:fullscreen .slideshow-controls .btn:hover,
+.slideshow-container:-webkit-full-screen .slideshow-controls .btn:hover,
+.slideshow-container:-moz-full-screen .slideshow-controls .btn:hover,
+.slideshow-container:-ms-fullscreen .slideshow-controls .btn:hover {
+    opacity: 1 !important;
 }
 
 .slideshow-header .btn,
@@ -359,17 +505,7 @@
     font-size: 1.2rem;
 }
 
-/* Force visibility of controls in fullscreen when paused */
-.slideshow-controls.always-visible .btn {
-    opacity: 1 !important;
-    background: rgba(255, 255, 255, 0.4) !important;
-    border-color: rgba(255, 255, 255, 0.6) !important;
-}
-
-.slideshow-controls.always-visible .btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.6) !important;
-    border-color: rgba(255, 255, 255, 0.8) !important;
-}
+/* Les boutons sont masqués par défaut même en plein écran et s'affichent uniquement au survol */
 
 .slideshow-footer {
     background: #2c3e50;
@@ -441,6 +577,13 @@
 }
 
 @media (max-width: 768px) {
+    /* Centrer la modal verticalement sur mobile */
+    ::ng-deep .modal.show {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
     /* Modal dialog adjustments - Full width on mobile */
     ::ng-deep .modal.show:has(.slideshow-header) .modal-dialog,
     ::ng-deep .modal.show:has(.slideshow-body) .modal-dialog,
@@ -455,11 +598,14 @@
     ::ng-deep .modal-xl.slideshow-modal-wide .modal-dialog {
         max-width: 98vw !important;
         width: 98vw !important;
-        margin: 0.25rem auto !important;
+        margin: auto !important;
         display: flex !important;
         align-items: center !important;
+        justify-content: center !important;
         max-height: 98vh !important;
-        min-height: auto !important;
+        min-height: 98vh !important;
+        height: 98vh !important;
+        vertical-align: middle !important;
     }
     
     /* Modal content adjustments */
@@ -478,8 +624,8 @@
     ::ng-deep .modal.show .modal-xl.modal-dialog .modal-content:has(.slideshow-body) {
         max-width: 98vw !important;
         width: 98vw !important;
-        max-height: 92vh !important;
-        height: auto !important;
+        max-height: 98vh !important;
+        height: 98vh !important;
         display: flex !important;
         flex-direction: column !important;
         position: relative !important;
@@ -509,20 +655,49 @@
     }
     
     .slideshow-body {
-        min-height: auto;
-        max-height: calc(92vh - 180px);
-        padding: 0;
-        flex: 1 1 auto;
-        overflow: hidden;
-        display: flex;
-        flex-direction: column;
+        min-height: 0 !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        padding: 0 !important;
+        flex: 1 1 0 !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    
+    .slideshow-container {
+        width: 100% !important;
+        height: 100% !important;
+        min-height: 0 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        position: relative !important;
     }
     
     .slideshow-image-wrapper {
-        height: auto;
-        min-height: 270px;
-        max-height: calc(92vh - 180px);
-        flex: 1 1 auto;
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: 100% !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 !important;
+        position: relative !important;
+    }
+    
+    .slideshow-image {
+        max-width: 100% !important;
+        max-height: 100% !important;
+        width: auto !important;
+        height: auto !important;
+        object-fit: contain !important;
+        margin: auto !important;
+        display: block !important;
     }
     
     .slideshow-controls {
@@ -569,6 +744,15 @@
         right: 10px;
         padding: 6px 12px;
         font-size: 0.8rem;
+    }
+    
+    .slideshow-btn-play-pause {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .slideshow-btn-play-pause i {
+        font-size: 1.1rem;
     }
 }
 

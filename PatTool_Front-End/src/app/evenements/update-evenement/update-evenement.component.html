@@ -343,7 +343,17 @@
                                             <!-- Display Mode -->
                                             <div class="url-event-content" *ngIf="editingIndex !== getActualIndex(urlEvent)">
                                                 <div class="url-event-link">
-                                                    <a [href]="urlEvent.link" target="_blank" class="btn btn-outline-primary btn-sm url-link-button">
+                                                    <!-- Pour les liens PHOTOFROMFS, ouvrir le diaporama au lieu du lien -->
+                                                    <button *ngIf="isPhotoFromFs(urlEvent)" 
+                                                            type="button"
+                                                            class="btn btn-outline-primary btn-sm url-link-button"
+                                                            (click)="openFsPhotosDiaporama(urlEvent.link)">
+                                                        <i class="fa fa-images"></i> {{ urlEvent.link }}
+                                                    </button>
+                                                    <a *ngIf="!isPhotoFromFs(urlEvent)"
+                                                       [href]="urlEvent.link" 
+                                                       target="_blank" 
+                                                       class="btn btn-outline-primary btn-sm url-link-button">
                                                         <i class="fa fa-external-link"></i> {{ urlEvent.link }}
                                                     </a>
                                                 </div>
@@ -354,7 +364,16 @@
                                                 </div>
                                                 <div class="url-event-meta">
                                                     <small class="text-muted">
-                                                        <i class="fa fa-tag"></i> {{ getUrlTypeLabel(urlEvent.typeUrl) | translate }} | 
+                                                        <i class="fa fa-tag"></i> 
+                                                        <span *ngIf="!isPhotoFromFs(urlEvent)">{{ getUrlTypeLabel(urlEvent.typeUrl) | translate }}</span>
+                                                        <span *ngIf="isPhotoFromFs(urlEvent)" 
+                                                              class="clickable-badge" 
+                                                              (click)="openFsPhotosDiaporama(urlEvent.link)"
+                                                              title="{{ 'EVENTELEM.SLIDESHOW' | translate }}"
+                                                              style="cursor: pointer; text-decoration: underline;">
+                                                            {{ getUrlTypeLabel(urlEvent.typeUrl) | translate }}
+                                                        </span>
+                                                         | 
                                                         <i class="fa fa-user"></i> {{ urlEvent.owner }} | 
                                                         <i class="fa fa-calendar"></i> {{ urlEvent.dateCreation | date:'short' }}
                                                     </small>
@@ -392,11 +411,13 @@
                                                     </div>
                                                     <div class="col-md-2 d-flex align-items-end justify-content-end">
                                                         <button type="button" class="btn btn-success btn-sm me-1" 
-                                                                (click)="saveUrlEventEdit(getActualIndex(urlEvent))" title="Sauvegarder">
+                                                                (click)="saveUrlEventEdit(getActualIndex(urlEvent))" 
+                                                                [title]="'EVENTHOME.SAVE_URL_EVENT' | translate">
                                                             <i class="fa fa-check"></i>
                                                         </button>
                                                         <button type="button" class="btn btn-secondary btn-sm" 
-                                                                (click)="cancelUrlEventEdit()" title="Annuler">
+                                                                (click)="cancelUrlEventEdit()" 
+                                                                [title]="'EVENTHOME.CANCEL_URL_EVENT' | translate">
                                                             <i class="fa fa-times"></i>
                                                         </button>
                                                     </div>
@@ -415,15 +436,23 @@
                                             </div>
                                             
                                             <div class="url-event-actions" *ngIf="editingIndex !== getActualIndex(urlEvent)">
+                                                <!-- Bouton pour ouvrir le diaporama des photos FS -->
+                                                <button type="button" 
+                                                        class="btn btn-outline-success btn-sm me-1 slideshow-btn" 
+                                                        *ngIf="isPhotoFromFs(urlEvent)"
+                                                        (click)="openFsPhotosDiaporama(urlEvent.link)"
+                                                        title="{{ 'EVENTELEM.SLIDESHOW' | translate }}">
+                                                    <i class="fa fa-film" aria-hidden="true"></i>
+                                                </button>
                                                 <button type="button" class="btn btn-outline-primary btn-sm me-1" 
                                                         (click)="startEditUrlEvent(getActualIndex(urlEvent))"
-                                                        title="Modifier ce lien"
+                                                        title="{{ 'EVENTHOME.EDIT_LINK' | translate }}"
                                                         [disabled]="!canEditUrlEvent(urlEvent)">
                                                     <i class="fa fa-edit"></i>
                                                 </button>
                                                 <button type="button" class="btn btn-outline-danger btn-sm" 
                                                         (click)="removeUrlEvent(getActualIndex(urlEvent))"
-                                                        title="Supprimer ce lien"
+                                                        title="{{ 'EVENTHOME.REMOVE_URL_EVENT' | translate }}"
                                                         [disabled]="!canDeleteUrlEvent(urlEvent)">
                                                     <i class="fa fa-trash"></i>
                                                 </button>
@@ -525,11 +554,13 @@
                                         <div class="row mt-2">
                                             <div class="col-12 d-flex justify-content-end">
                                                 <button type="button" class="btn btn-success btn-sm me-1" 
-                                                        (click)="saveCommentaryEdit(i)" title="Sauvegarder">
+                                                        (click)="saveCommentaryEdit(i)" 
+                                                        [title]="'EVENTHOME.SAVE_COMMENTARY' | translate">
                                                     <i class="fa fa-check"></i>
                                                 </button>
                                                 <button type="button" class="btn btn-secondary btn-sm" 
-                                                        (click)="cancelCommentaryEdit()" title="Annuler">
+                                                        (click)="cancelCommentaryEdit()" 
+                                                        [title]="'EVENTHOME.CANCEL_COMMENTARY' | translate">
                                                     <i class="fa fa-times"></i>
                                                 </button>
                                             </div>
@@ -539,13 +570,13 @@
                                     <div class="commentary-actions" *ngIf="editingCommentaryIndex !== i">
                                         <button type="button" class="btn btn-outline-primary btn-sm me-1" 
                                                 (click)="startEditCommentary(i)"
-                                                title="Modifier ce commentaire"
+                                                [title]="'EVENTHOME.EDIT_LINK' | translate"
                                                 [disabled]="!canEditCommentary(commentary)">
                                             <i class="fa fa-edit"></i>
                                         </button>
                                         <button type="button" class="btn btn-outline-danger btn-sm" 
                                                 (click)="deleteCommentary(i)"
-                                                title="Supprimer ce commentaire"
+                                                [title]="'EVENTHOME.REMOVE_URL_EVENT' | translate"
                                                 [disabled]="!canDeleteCommentary(commentary)">
                                             <i class="fa fa-trash"></i>
                                         </button>
@@ -934,6 +965,9 @@
             </button>
         </div>
     </ng-template>
+
+    <!-- Slideshow Modal Component -->
+    <app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()"></app-slideshow-modal>
 
     <!-- Upload Logs Modal -->
     <ng-template #uploadLogsModal let-modal>
