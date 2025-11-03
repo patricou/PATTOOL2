@@ -28,6 +28,15 @@ img, video, canvas {
     position: relative !important;
 }
 
+/* Global style for upload-logs-modal with white border */
+::ng-deep .upload-logs-modal.modal-dialog .modal-content,
+::ng-deep .modal-dialog.upload-logs-modal .modal-content,
+::ng-deep .modal.show .upload-logs-modal.modal-dialog .modal-content,
+::ng-deep .modal.show .modal-dialog.upload-logs-modal .modal-content {
+    border: 3px solid #ffffff !important;
+    border-radius: 0.5rem !important;
+}
+
 @media (max-width: 768px) {
     ::ng-deep .fs-selector-modal.modal-dialog,
     ::ng-deep .modal-dialog.fs-selector-modal,

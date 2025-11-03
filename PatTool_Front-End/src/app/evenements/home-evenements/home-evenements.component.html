@@ -556,7 +556,10 @@
     <div class="modal-body">
         <div class="upload-logs-content">
             <div class="log-content" #logContent>
-                <div class="log-entry" *ngFor="let log of uploadLogs">
+                <div class="log-entry" 
+                     *ngFor="let log of uploadLogs"
+                     [class.log-success]="log.startsWith('SUCCESS:')"
+                     [class.log-error]="log.startsWith('ERROR:')">
                     {{ log }}
                 </div>
                 <div *ngIf="uploadLogs.length === 0" class="text-center text-muted">
@@ -615,7 +618,7 @@
                                 placement="left"
                                 [ngbTooltip]="getFileTooltip(uploadedFile.fileName)"
                                 *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
-                                (click)="handleFileClick(uploadedFile)">
+                                (click)="handleFileClick(uploadedFile, selectedEventName)">
                             <i class="fa fa-eye" aria-hidden="true"></i>
                         </button>
                         <button class="btn btn-sm btn-primary me-2" placement="left"

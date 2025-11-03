@@ -2742,3 +2742,35 @@ select.btn.btn-secondary.btn-sm:focus {
         transform: scale(0.95);
     }
 }
+
+/* Upload logs modal styles */
+.upload-logs-content {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.log-content {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+
+.log-entry {
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 0.15rem;
+    border-left: 3px solid transparent;
+    border-radius: 0.25rem;
+    background-color: #f8f9fa;
+    line-height: 1.3;
+}
+
+.log-entry.log-success {
+    background-color: #d4edda;
+    border-left-color: #28a745;
+    color: #155724;
+}
+
+.log-entry.log-error {
+    background-color: #f8d7da;
+    border-left-color: #dc3545;
+    color: #721c24;
+}

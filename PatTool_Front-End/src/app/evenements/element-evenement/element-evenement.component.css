@@ -57,67 +57,170 @@
     text-decoration: underline;
 }
 
-/* Aligner tous les boutons du footer sur une seule ligne */
+/* Aligner tous les boutons du footer sur une seule ligne - FORCER ALIGNEMENT EN BAS */
 .card-footer {
     display: flex !important;
+    flex-direction: row !important;
     flex-wrap: wrap !important;
     justify-content: center !important;
-    align-items: center !important;
+    align-items: flex-end !important;
+    align-content: flex-end !important;
     gap: 0.25rem !important;
     padding: 0.5rem !important;
+    min-height: 47px !important;
+    box-sizing: border-box !important;
 }
 
-/* Style du bouton commentaire */
-.comments-button {
-    background: #e91e63 !important;
-    border-color: #e91e63 !important;
+/* Supprimer TOUTES les marges du footer */
+.card-footer .mb-1 {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}
+
+.card-footer > * {
+    margin-bottom: 0 !important;
+    /* margin-top sera géré par margin-top: auto pour l'alignement */
+}
+
+.card-footer .file-upload-wrapper label,
+.card-footer .file-upload-wrapper input {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}
+
+/* Forcer TOUS les boutons à avoir exactement la même hauteur et être alignés en bas */
+.card-footer .btn,
+.card-footer a.btn,
+.card-footer button.btn,
+.card-footer a.btn-sm,
+.card-footer button.btn-sm,
+.card-footer .file-upload-wrapper {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+    align-self: flex-end !important;
+}
+
+.card-footer .btn,
+.card-footer a.btn,
+.card-footer button.btn,
+.card-footer a.btn-sm,
+.card-footer button.btn-sm {
+    height: 31px !important;
+    min-height: 31px !important;
+    max-height: 31px !important;
+    line-height: 31px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    box-sizing: border-box !important;
+    font-size: 0.875rem !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+    vertical-align: bottom !important;
+}
+
+.card-footer .btn i,
+.card-footer a.btn i,
+.card-footer button.btn i,
+.card-footer a.btn-sm i,
+.card-footer button.btn-sm i {
+    line-height: 31px !important;
+    vertical-align: middle !important;
+}
+
+.card-footer .file-upload-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    align-self: flex-end !important;
+    height: 31px !important;
+    min-height: 31px !important;
+    max-height: 31px !important;
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}
+
+.card-footer .file-upload-wrapper label.btn {
+    height: 31px !important;
+    min-height: 31px !important;
+    max-height: 31px !important;
+    line-height: 31px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0.25rem 0.5rem !important;
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+    box-sizing: border-box !important;
+    align-self: flex-end !important;
+}
+
+/* Style du bouton commentaire - utiliser le gradient calculé avec bordure de la couleur de la fonte */
+.card-footer .comments-button {
+    /* background sera défini dynamiquement via [style.background] */
+    /* border-color sera défini dynamiquement via [style.border-color] */
     color: white !important;
     transition: all 0.3s ease;
+    border-width: 1px !important;
 }
 
-.comments-button:hover {
-    background: #c2185b !important;
-    border-color: #c2185b !important;
+.card-footer .comments-button:hover {
+    opacity: 0.9 !important;
+    /* border-color reste celui défini dynamiquement */
 }
 
 .comments-button i {
     font-size: inherit;
 }
 
-/* Boutons outline - changer fond blanc en couleur appropriée */
+/* Boutons outline - utiliser le gradient calculé avec bordures blanches */
 .card-footer .btn-outline-success {
-    background-color: #28a745 !important;
-    border-color: #28a745 !important;
+    /* background sera défini dynamiquement via [style.background] */
+    /* border-color sera défini dynamiquement via [style.border-color] */
     color: white !important;
 }
 
 .card-footer .btn-outline-success:hover {
-    background-color: #218838 !important;
-    border-color: #1e7e34 !important;
+    opacity: 0.9 !important;
 }
 
 .card-footer .btn-outline-info,
 .card-footer .eye-button {
-    background-color: #17a2b8 !important;
-    border-color: #17a2b8 !important;
+    /* background sera défini dynamiquement via [style.background] */
+    /* border-color sera défini dynamiquement via [style.border-color] */
     color: white !important;
 }
 
 .card-footer .btn-outline-info:hover,
 .card-footer .eye-button:hover {
-    background-color: #138496 !important;
-    border-color: #117a8b !important;
+    opacity: 0.9 !important;
 }
 
 .card-footer .btn-outline-primary {
-    background-color: #007bff !important;
-    border-color: #007bff !important;
+    /* background sera défini dynamiquement via [style.background] */
+    /* border-color sera défini dynamiquement via [style.border-color] */
     color: white !important;
 }
 
 .card-footer .btn-outline-primary:hover {
-    background-color: #0056b3 !important;
-    border-color: #004085 !important;
+    opacity: 0.9 !important;
+}
+
+/* Tous les autres boutons */
+.card-footer .btn-primary,
+.card-footer .btn-success,
+.card-footer .btn-warning {
+    /* background sera défini dynamiquement via [style.background] */
+    /* border-color sera défini dynamiquement via [style.border-color] */
+    color: white !important;
+}
+
+.card-footer .btn-primary:hover,
+.card-footer .btn-success:hover,
+.card-footer .btn-warning:hover {
+    opacity: 0.9 !important;
 }
 
 /* Hover effects pour tous les boutons */
@@ -175,6 +278,12 @@
 /* Card image container */
 .card-image-container {
     position: relative;
+    padding: 4px;
+}
+
+/* Padding autour des images dans le container */
+.card-image-container img {
+    padding: 4px;
 }
 
 
@@ -380,6 +489,61 @@
     right: 20px;
 }
 
+/* Upload logs modal styles */
+.upload-logs-content {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.log-content {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+
+.log-entry {
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 0.15rem;
+    border-left: 3px solid transparent;
+    border-radius: 0.25rem;
+    background-color: #f8f9fa;
+    line-height: 1.3;
+}
+
+.log-entry.log-success {
+    background-color: #d4edda;
+    border-left-color: #28a745;
+    color: #155724;
+}
+
+.log-entry.log-error {
+    background-color: #f8d7da;
+    border-left-color: #dc3545;
+    color: #721c24;
+}
+
+/* Style pour le bouton +/- de gestion des fichiers - utilise la couleur du texte */
+.card-block .card-text h5 .btn-outline-primary[title*="files list"],
+.card-block .card-text h5 .btn-outline-primary[title*="liste des fichiers"],
+.card-block .card-text h5 .d-flex .btn-outline-primary {
+    /* La couleur sera héritée du parent via [style.color] dans le HTML */
+    border-color: currentColor !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    opacity: 1 !important;
+}
+
+.card-block .card-text h5 .btn-outline-primary[title*="files list"]:hover,
+.card-block .card-text h5 .btn-outline-primary[title*="liste des fichiers"]:hover,
+.card-block .card-text h5 .d-flex .btn-outline-primary:hover {
+    background-color: rgba(0, 0, 0, 0.15) !important;
+    border-color: currentColor !important;
+}
+
+.card-block .card-text h5 .btn-outline-primary[title*="files list"] i,
+.card-block .card-text h5 .btn-outline-primary[title*="liste des fichiers"] i,
+.card-block .card-text h5 .d-flex .btn-outline-primary i {
+    color: inherit !important;
+}
+
 /* Responsive padding adjustments */
 @media (max-width: 768px) {
     .card-block {
@@ -389,6 +553,7 @@
     .card-footer {
         padding: 0.3rem !important;
         gap: 0.15rem !important;
+        min-height: 47px !important;
     }
     
     .card-img-overlay .card-title,

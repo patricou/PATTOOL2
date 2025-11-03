@@ -15,7 +15,8 @@ export class FileService {
     private API_URL: string = environment.API_URL;
     private API_URL4FILE: string = environment.API_URL4FILE;
     private API_URL4FILEONDISK: string = environment.API_URL4FILEONDISK;
-    private user : Member = new Member("", "", "", "", "", [], "");
+    private API_URL4UPLOADFILEONDISK: string = environment.API_URL4UPLOADFILEONDISK;
+    private user: Member = new Member("", "", "", "", "", [], "");
 
     constructor(private _http: HttpClient, private _keycloakService: KeycloakService) {
     }
@@ -64,7 +65,7 @@ export class FileService {
         this.user = user;
         // console.log("Upload URL:", this.API_URL4FILE);
         // console.log("User info:", JSON.stringify(user));
-        
+
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 // console.log("Request headers:", headers);
@@ -77,16 +78,16 @@ export class FileService {
     // NOTE: sessionId should already be added to FormData by the caller to avoid duplication
     postFileToUrl(formData: FormData, user: Member, url: string, sessionId?: string): Observable<any> {
         this.user = user;
-        
+
         // NOTE: Do NOT add sessionId here - it should already be in FormData from the caller
         // Adding it here causes duplication when the caller also adds it
-        
+
         // console.log("Upload URL:", url);
         // console.log("User info:", JSON.stringify(user));
         if (sessionId) {
             // console.log("Session ID:", sessionId);
         }
-        
+
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 // console.log("Request headers:", headers);
@@ -94,7 +95,7 @@ export class FileService {
             })
         );
     }
-    
+
     // Get upload logs (polling endpoint)
     getUploadLogs(sessionId: string): Observable<string[]> {
         return this.getHeaderWithToken().pipe(
@@ -109,11 +110,11 @@ export class FileService {
         this.user = user;
         // console.log("Upload URL:", this.API_URL4FILEONDISK);
         // console.log("User info:", JSON.stringify(user));
-        
+
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 // console.log("Request headers:", headers);
-                return this._http.post(this.API_URL4FILEONDISK, formData, { headers: headers, responseType: 'text' });
+                return this._http.post(this.API_URL4UPLOADFILEONDISK, formData, { headers: headers, responseType: 'text' });
             })
         );
     }

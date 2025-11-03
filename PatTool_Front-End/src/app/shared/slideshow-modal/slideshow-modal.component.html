@@ -12,7 +12,7 @@
     <div class="slideshow-container">
       <div class="slideshow-image-wrapper" #slideshowContainer
            (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
-           (mouseup)="onSlideshowMouseUp()" (mouseleave)="onSlideshowMouseUp()" (document:mouseup)="onSlideshowMouseUp()"
+           (mouseup)="onSlideshowMouseUp()" (mouseenter)="onSlideshowMouseEnter($event)" (mouseleave)="onSlideshowMouseLeave()" (document:mouseup)="onSlideshowMouseUp()"
            (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
            [style.cursor]="isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')" style="overflow:hidden; user-select: none;">
         <img #slideshowImgEl *ngIf="slideshowImages.length > 0" 
@@ -23,6 +23,7 @@
              style="transform-origin:center center;"
              (wheel)="onWheelSlideshow($event)"
              (click)="onSlideshowImageClick()"
+             (mousemove)="onSlideshowMouseMove($event)"
              [class.fullscreen-image]="isFullscreen"
              />
         <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
@@ -32,12 +33,13 @@
         <div *ngIf="slideshowImages.length > 0" class="slideshow-counter">
           {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
         </div>
-        <button *ngIf="slideshowImages.length > 1" 
-                type="button" 
-                class="btn btn-lg btn-outline-light slideshow-btn-play-pause"
-                (click)="$event.stopPropagation(); toggleSlideshow()">
-          <i class="fa" [ngClass]="isSlideshowActive ? 'fa-pause' : 'fa-play'"></i>
-        </button>
+        <div *ngIf="slideshowImages.length > 0" class="slideshow-zoom-info">
+          <div class="zoom-value">{{ (slideshowZoom * 100).toFixed(0) }}%</div>
+          <div class="cursor-position">{{ cursorX }}, {{ cursorY }}</div>
+          <div *ngIf="hasSavedPosition" class="saved-position">
+            Point enregistré: {{ savedCursorX }}, {{ savedCursorY }}
+          </div>
+        </div>
       </div>
       <div class="slideshow-controls">
         <button class="btn btn-lg btn-outline-light slideshow-btn-prev" 
@@ -82,6 +84,14 @@
         <i [class.fa-arrows-alt]="!isFullscreen" [class.fa-compress]="isFullscreen" class="me-1"></i>
         <span *ngIf="!isFullscreen">{{ 'EVENTELEM.FULLSCREEN' | translate }}</span>
         <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span>
+      </button>
+      <button *ngIf="slideshowImages.length > 1" 
+              type="button" class="btn btn-secondary" 
+              (click)="toggleSlideshow()"
+              [ngbTooltip]="isSlideshowActive ? ('EVENTELEM.PAUSE_SLIDESHOW' | translate) : ('EVENTELEM.PLAY_SLIDESHOW' | translate)"
+              placement="top">
+        <i class="fa me-1" [ngClass]="isSlideshowActive ? 'fa-pause' : 'fa-play'"></i>
+        <span>{{ isSlideshowActive ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate) }}</span>
       </button>
       <button type="button" class="btn btn-info" 
               (click)="showExifInfo()"

@@ -46,8 +46,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public nativeWindow: any;
 	// Thumbnail image
 	public thumbnailUrl: any = "assets/images/images.jpg";
-	public selectedImageUrl: SafeUrl | string = '';
-	public selectedImageAlt: string = '';
 	public selectedUser: Member | null = null;
 	// Dominant color for title background
 	public titleBackgroundColor: string = 'rgba(255, 255, 255, 0.6)';
@@ -61,6 +59,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public descriptionBackgroundGradient: string = 'linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(225, 225, 225, 1) 100%)';
 	// RGB values of calculated color
 	public calculatedRgbValues: string = 'RGB(255, 255, 255)';
+	// Dominant color RGB values for gradient calculations
+	public dominantR: number = 128;
+	public dominantG: number = 128;
+	public dominantB: number = 128;
+	// Gradient for button backgrounds based on dominant color
+	public buttonGradient: string = 'linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 100%)';
 	public isSlideshowActive: boolean = false;
 	public currentSlideshowIndex: number = 0;
 	public slideshowImages: string[] = [];
@@ -81,16 +85,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	private lastKeyPressTime: number = 0;
 	private lastKeyCode: number = 0;
 
-	// Zoom state for image and slideshow
-	public imageZoom: number = 1;
+	// Zoom state for slideshow
 	public slideshowZoom: number = 1;
-	public imageTranslateX: number = 0;
-	public imageTranslateY: number = 0;
 	public slideshowTranslateX: number = 0;
 	public slideshowTranslateY: number = 0;
-	public isDraggingImage: boolean = false;
 	public isDraggingSlideshow: boolean = false;
-	private hasDraggedImage: boolean = false;
 	private hasDraggedSlideshow: boolean = false;
 	private dragStartX: number = 0;
 	private dragStartY: number = 0;
@@ -108,8 +107,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	private pinchStartTranslateX: number = 0;
 	private pinchStartTranslateY: number = 0;
 
-	@ViewChild('imageContainer') imageContainerRef!: ElementRef;
-	@ViewChild('imageEl') imageElRef!: ElementRef<HTMLImageElement>;
 	@ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
 	@ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
@@ -129,7 +126,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public jsonModal!: TemplateRef<any>;
 	@ViewChild('photosSelectorModalComponent') photosSelectorModalComponent!: PhotosSelectorModalComponent;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
-	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 	@ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
@@ -379,21 +375,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	// =========================
-	// Zoom handlers
+	// Zoom handlers (slideshow only)
 	// =========================
-	public getMinImageZoom(): number {
-		try {
-			const container = this.imageContainerRef?.nativeElement as HTMLElement;
-			const imgEl = this.imageElRef?.nativeElement as HTMLImageElement;
-			if (!container || !imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return 0.5;
-			const cw = container.clientWidth || 1;
-			const ch = container.clientHeight || 1;
-			const iw = imgEl.naturalWidth;
-			const ih = imgEl.naturalHeight;
-			// Minimum zoom so image is not smaller than container in both dimensions
-			return Math.max(cw / iw, ch / ih);
-		} catch { return 0.5; }
-	}
 
 	public getMinSlideshowZoom(): number {
 		try {
@@ -419,78 +402,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return parseFloat(next.toFixed(2));
 	}
 
-	public onWheelImage(event: WheelEvent): void {
-		const minZoom = this.getMinImageZoom();
-		this.imageZoom = this.applyWheelZoom(event, this.imageZoom, minZoom);
-		this.clampImageTranslation();
-	}
-
 	public onWheelSlideshow(event: WheelEvent): void {
 		const minZoom = this.getMinSlideshowZoom();
 		this.slideshowZoom = this.applyWheelZoom(event, this.slideshowZoom, minZoom);
 		this.clampSlideshowTranslation();
 	}
 
-	public resetImageZoom(): void { this.imageZoom = Math.max(1, this.getMinImageZoom()); this.imageTranslateX = 0; this.imageTranslateY = 0; }
-	private resetImageViewDeferred(): void {
-		setTimeout(() => {
-			this.imageTranslateX = 0;
-			this.imageTranslateY = 0;
-			this.imageZoom = Math.max(1, this.getMinImageZoom());
-		}, 0);
-	}
-	public zoomInImage(): void { this.imageZoom = Math.min(5, parseFloat((this.imageZoom + 0.1).toFixed(2))); }
-	public zoomOutImage(): void { this.imageZoom = Math.max(this.getMinImageZoom(), parseFloat((this.imageZoom - 0.1).toFixed(2))); this.clampImageTranslation(); }
-
 	public resetSlideshowZoom(): void { this.slideshowZoom = Math.max(1, this.getMinSlideshowZoom()); this.slideshowTranslateX = 0; this.slideshowTranslateY = 0; }
 	public zoomInSlideshow(): void { this.slideshowZoom = Math.min(5, parseFloat((this.slideshowZoom + 0.1).toFixed(2))); }
 	public zoomOutSlideshow(): void { this.slideshowZoom = Math.max(this.getMinSlideshowZoom(), parseFloat((this.slideshowZoom - 0.1).toFixed(2))); this.clampSlideshowTranslation(); }
-
-	// Drag handlers for Image modal
-	public onImageMouseDown(event: MouseEvent): void {
-		// Only allow drag when zoomed beyond min (image larger than container)
-		const canDrag = this.imageZoom > this.getMinImageZoom();
-		this.isDraggingImage = canDrag;
-		this.hasDraggedImage = false;
-		if (canDrag) { try { event.preventDefault(); event.stopPropagation(); } catch {} }
-		this.dragStartX = event.clientX;
-		this.dragStartY = event.clientY;
-		this.dragOrigX = this.imageTranslateX;
-		this.dragOrigY = this.imageTranslateY;
-	}
-
-	public onImageMouseMove(event: MouseEvent): void {
-		if (!this.isDraggingImage) return;
-		try { event.preventDefault(); event.stopPropagation(); } catch {}
-		const dx = event.clientX - this.dragStartX;
-		const dy = event.clientY - this.dragStartY;
-		this.imageTranslateX = this.dragOrigX + dx;
-		this.imageTranslateY = this.dragOrigY + dy;
-		if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedImage = true;
-		this.clampImageTranslation();
-	}
-
-	public onImageMouseUp(): void {
-		this.isDraggingImage = false;
-	}
-
-	private clampImageTranslation(): void {
-		try {
-			const container = this.imageContainerRef?.nativeElement as HTMLElement;
-			const imgEl = this.imageElRef?.nativeElement as HTMLImageElement;
-			if (!container || !imgEl) return;
-			const cw = container.clientWidth;
-			const ch = container.clientHeight;
-			const iw = imgEl.clientWidth * this.imageZoom;
-			const ih = imgEl.clientHeight * this.imageZoom;
-			const maxX = Math.max(0, (iw - cw) / 2);
-			const maxY = Math.max(0, (ih - ch) / 2);
-			if (this.imageTranslateX > maxX) this.imageTranslateX = maxX;
-			if (this.imageTranslateX < -maxX) this.imageTranslateX = -maxX;
-			if (this.imageTranslateY > maxY) this.imageTranslateY = maxY;
-			if (this.imageTranslateY < -maxY) this.imageTranslateY = -maxY;
-		} catch {}
-	}
 
 	// Drag handlers for Slideshow modal
 	public onSlideshowMouseDown(event: MouseEvent): void {
@@ -770,7 +690,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			modalRef = this.modalService.open(this.uploadLogsModal, {
 				centered: true,
 				backdrop: 'static',
-				keyboard: false
+				keyboard: false,
+				size: 'xl',
+				windowClass: 'upload-logs-modal'
 			});
 		}
 		
@@ -844,7 +766,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 							clearInterval(pollInterval);
 							
 							const fileCount = Array.isArray(response) ? response.length : 1;
-							this.addLog(`✅ Upload successful! ${fileCount} file(s) processed`);
+							this.addSuccessLog(`✅ Upload successful! ${fileCount} file(s) processed`);
 							
 							// The response should contain the uploaded file information directly
 							this.handleUploadResponse(response);
@@ -859,41 +781,33 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 							
 						setTimeout(() => {
 							this.isUploading = false;
-							alert('Files uploaded successfully!');
-							// Close modal automatically after alert
-							if (modalRef) {
-								modalRef.close();
-							}
+							// Don't close modal automatically, let user close it manually
 						}, 1000);
 						}, 500);
 				},
 				error: (error: any) => {
 					clearInterval(pollInterval);
 					console.error('File upload error:', error);
-					this.addLog(`❌ Upload error`);
+					
+					let errorMessage = "Error uploading files.";
+					
+					if (error.status === 0) {
+						errorMessage = "Unable to connect to server. Please check that the backend service is running.";
+					} else if (error.status === 401) {
+						errorMessage = "Authentication failed. Please log in again.";
+					} else if (error.status === 403) {
+						errorMessage = "Access denied. You don't have permission to upload files.";
+					} else if (error.status >= 500) {
+						errorMessage = "Server error. Please try again later.";
+					} else if (error.error && error.error.message) {
+						errorMessage = error.error.message;
+					}
+					
+					this.addErrorLog(`❌ Upload error: ${errorMessage}`);
 					
 					setTimeout(() => {
 						this.isUploading = false;
-						
-						let errorMessage = "Error uploading files.";
-						
-						if (error.status === 0) {
-							errorMessage = "Unable to connect to server. Please check that the backend service is running.";
-						} else if (error.status === 401) {
-							errorMessage = "Authentication failed. Please log in again.";
-						} else if (error.status === 403) {
-							errorMessage = "Access denied. You don't have permission to upload files.";
-						} else if (error.status >= 500) {
-							errorMessage = "Server error. Please try again later.";
-						} else if (error.error && error.error.message) {
-							errorMessage = error.error.message;
-						}
-						
-						alert(errorMessage);
-						// Close modal automatically after error alert
-						if (modalRef) {
-							modalRef.close();
-						}
+						// Don't close modal automatically, let user close it manually
 					}, 1000);
 				}
 			});
@@ -901,6 +815,30 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	private addLog(message: string): void {
 		this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+		
+		// Auto-scroll to top to show latest log
+		setTimeout(() => {
+			if (this.logContent && this.logContent.nativeElement) {
+				const container = this.logContent.nativeElement;
+				container.scrollTop = 0;
+			}
+		}, 0);
+	}
+
+	private addSuccessLog(message: string): void {
+		this.uploadLogs.unshift(`SUCCESS: [${new Date().toLocaleTimeString()}] ${message}`);
+		
+		// Auto-scroll to top to show latest log
+		setTimeout(() => {
+			if (this.logContent && this.logContent.nativeElement) {
+				const container = this.logContent.nativeElement;
+				container.scrollTop = 0;
+			}
+		}, 0);
+	}
+
+	private addErrorLog(message: string): void {
+		this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
 		
 		// Auto-scroll to top to show latest log
 		setTimeout(() => {
@@ -1093,6 +1031,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
 			this.descriptionBackgroundGradient = 'linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(225, 225, 225, 1) 100%)';
 			this.calculatedRgbValues = 'RGB(255, 255, 255)';
+			this.dominantR = 128;
+			this.dominantG = 128;
+			this.dominantB = 128;
+			this.buttonGradient = 'linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 100%)';
 		}
 	}
 
@@ -1184,6 +1126,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				r = Math.floor(r / pixelCount);
 				g = Math.floor(g / pixelCount);
 				b = Math.floor(b / pixelCount);
+				
+				// Store RGB values for gradient calculations
+				this.dominantR = r;
+				this.dominantG = g;
+				this.dominantB = b;
 
 				// Store RGB values as string
 				this.calculatedRgbValues = `RGB(${r}, ${g}, ${b})`;
@@ -1226,13 +1173,43 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				// Use the lightly tinted color for border and text
 				this.titleBorderColor = `rgba(${tintR}, ${tintG}, ${tintB}, 0.95)`;
 				
+				// Calculate button gradient based on dominant color
+				this.calculateButtonGradient(r, g, b);
+				
 			}
 		} catch (error) {
 			console.error('Error detecting dominant color:', error);
 			// Fallback to default color
 			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
 			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
+			this.dominantR = 128;
+			this.dominantG = 128;
+			this.dominantB = 128;
+			this.buttonGradient = 'linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 100%)';
 		}
+	}
+	
+	// Calculate button gradient based on dominant color
+	private calculateButtonGradient(r: number, g: number, b: number): void {
+		// This is now a generic method - individual gradients are calculated per button
+		// Keeping for backward compatibility
+		this.buttonGradient = this.getButtonGradientForType('default', r, g, b);
+	}
+	
+	// Get gradient for a specific button type - basé uniquement sur la couleur calculée
+	public getButtonGradientForType(buttonType: string, r: number, g: number, b: number): string {
+		// Dégradé uniforme pour tous les boutons, basé uniquement sur la couleur calculée de l'image
+		// Lighter version for start, darker for end
+		const lighterR = Math.min(255, r + 50);
+		const lighterG = Math.min(255, g + 50);
+		const lighterB = Math.min(255, b + 50);
+		
+		const darkerR = Math.max(0, r - 60);
+		const darkerG = Math.max(0, g - 60);
+		const darkerB = Math.max(0, b - 60);
+		
+		// Use high opacity for stronger gradients
+		return `linear-gradient(135deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 1) 0%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 1) 100%)`;
 	}
 	// Detect color after view is initialized
 	ngAfterViewInit() {
@@ -2002,28 +1979,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return this.thumbnailUrl;
 	}
 
-	// Open image modal for large display
-	openImageModal(imageUrl: any, imageAlt: string): void {
-		this.forceCloseTooltips();
-		// Keep the original SafeUrl or string (same as home-evenements)
-		this.selectedImageUrl = imageUrl;
-		this.selectedImageAlt = imageAlt;
-		
-		if (!this.imageModal) {
-			return;
-		}
-		
-		this.modalService.open(this.imageModal, { 
-			size: 'xl', 
-			centered: true,
-			backdrop: true,
-			keyboard: true,
-			animation: false,
-			windowClass: 'modal-smooth-animation'
-		});
-		this.resetImageViewDeferred();
-	}
-
 	// Check if file is an image based on extension
 	public isImageFile(fileName: string): boolean {
 		if (!fileName) return false;
@@ -2045,7 +2000,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// Handle file click based on file type
 	public handleFileClick(uploadedFile: UploadedFile): void {
 		if (this.isImageFile(uploadedFile.fileName)) {
-			this.openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName);
+			this.openSingleImageInSlideshow(uploadedFile.fieldId, uploadedFile.fileName);
 		} else if (this.isPdfFile(uploadedFile.fileName)) {
 			this.openPdfFile(uploadedFile.fieldId, uploadedFile.fileName);
 		}
@@ -2116,39 +2071,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return fileName.substring(0, maxLength - 3) + '...';
 	}
 
-	// Open file image in modal - USE GETFILE for display (with resizing)
-	openFileImageModal(fileId: string, fileName: string): void {
-		this.forceCloseTooltips();
-		// Use getFile for display (with image resizing)
-		this._fileService.getFile(fileId).pipe(
-			map((res: any) => {
-				let blob = new Blob([res], { type: 'application/octet-stream' });
-				return URL.createObjectURL(blob);
-			})
-		).subscribe((objectUrl: string) => {
-			// Set the image URL and alt text
-			this.selectedImageUrl = objectUrl;
-			this.selectedImageAlt = fileName;
-			
-			if (!this.imageModal) {
-				return;
-			}
-			
-			// Open the modal
-			this.modalService.open(this.imageModal, { 
-				size: 'xl', 
-				centered: true,
-				backdrop: true,
-				keyboard: true,
-				animation: false,
-				windowClass: 'modal-smooth-animation'
-			});
-			this.resetImageViewDeferred();
-		}, (error) => {
-			console.error('Error loading file:', error);
-			alert('Erreur lors du chargement du fichier');
-		});
-	}
 	
 	ngOnDestroy() {
 		// Stop card slideshow if active
@@ -2261,6 +2183,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Open the slideshow modal immediately - images will be loaded dynamically
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true);
+		}
+	}
+
+	// Open a single image in slideshow modal
+	public openSingleImageInSlideshow(fileId: string, fileName: string): void {
+		this.forceCloseTooltips();
+		
+		// Prepare image source for the clicked image
+		const imageSource: SlideshowImageSource = {
+			fileId: fileId,
+			blobUrl: undefined,
+			fileName: fileName
+		};
+
+		// Open the slideshow modal with just this one image
+		if (this.slideshowModalComponent) {
+			this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true);
 		}
 	}
 

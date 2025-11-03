@@ -673,6 +673,14 @@ body > .tooltip {
     position: relative !important;
 }
 
+/* Override for upload-logs-modal with white border */
+.upload-logs-modal .modal-content,
+.modal-dialog.upload-logs-modal .modal-content,
+.modal.show .upload-logs-modal .modal-content {
+    border: 3px solid #ffffff !important;
+    border-radius: 0.5rem !important;
+}
+
 .modal-content::after {
     content: '';
     position: absolute;

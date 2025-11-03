@@ -69,6 +69,7 @@
             <img [src]="photoItem.imageUrl" 
                  [alt]="photoItem.file.fileName" 
                  class="carousel-image"
+                 (click)="openSingleImageInSlideshow(photoItem.file.fieldId, photoItem.file.fileName)"
                  (error)="onImageError($event)">
           </div>
         </div>

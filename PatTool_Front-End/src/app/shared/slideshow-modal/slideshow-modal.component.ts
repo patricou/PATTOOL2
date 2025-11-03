@@ -56,6 +56,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public slideshowTranslateX: number = 0;
   public slideshowTranslateY: number = 0;
   public isDraggingSlideshow: boolean = false;
+  
+  // Cursor position for display
+  public cursorX: number = 0;
+  public cursorY: number = 0;
+  
+  // Saved cursor position (when clicking on image)
+  public savedCursorX: number = 0;
+  public savedCursorY: number = 0;
+  public hasSavedPosition: boolean = false;
+  
   private hasDraggedSlideshow: boolean = false;
   private dragStartX: number = 0;
   private dragStartY: number = 0;
@@ -212,6 +222,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.isSlideshowActive = false;
     this.currentImageFileName = '';
     this.resetSlideshowZoom();
+    this.hasSavedPosition = false;
     this.imageLoadActive = true;
     // Create a new cancel subject for this session
     this.cancelImageLoadsSubject = new Subject<void>();
@@ -439,26 +450,28 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Get minimum zoom level
+  // Get minimum zoom level - ensures image never becomes smaller than its container
   public getMinSlideshowZoom(): number {
     try {
       const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
       const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
-      if (!container || !imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return 0.5;
+      if (!container || !imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return 1;
       const cw = container.clientWidth || 1;
       const ch = container.clientHeight || 1;
       const iw = imgEl.naturalWidth;
       const ih = imgEl.naturalHeight;
-      return Math.max(cw / iw, ch / ih);
-    } catch { return 0.5; }
+      // Calculate zoom needed to fill container, but never less than 1 (image original size)
+      const fillZoom = Math.max(cw / iw, ch / ih);
+      return Math.max(1, fillZoom);
+    } catch { return 1; }
   }
   
   // Apply wheel zoom
-  private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 10): number {
+  private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 100): number {
     event.preventDefault();
     // Use actual deltaY value for linear zoom (normalized to reasonable scale)
-    const delta = event.deltaY / 50; // Normalize to make scroll speed reasonable (faster zoom)
-    const step = 0.08; // Step for faster zoom while maintaining linearity
+    const delta = event.deltaY / 20; // Normalize to make scroll speed very fast (reduced from 30 to 20)
+    const step = 0.25; // Step for very fast zoom while maintaining linearity (increased from 0.15 to 0.25)
     let next = current - delta * step; // wheel up -> zoom in
     if (next < minZoom) next = minZoom;
     if (next > maxZoom) next = maxZoom;
@@ -467,7 +480,26 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   public onWheelSlideshow(event: WheelEvent): void {
     const minZoom = this.getMinSlideshowZoom();
+    const previousZoom = this.slideshowZoom;
+    const oldZoom = this.slideshowZoom;
     this.slideshowZoom = this.applyWheelZoom(event, this.slideshowZoom, minZoom);
+    
+    // Si on dézoome (wheel down = deltaY > 0), recentrer l'image si au minimum
+    // event.deltaY > 0 signifie qu'on scroll vers le bas = dézoom
+    if (event.deltaY > 0) {
+      // Recentrer si on atteint le zoom minimum
+      if (this.slideshowZoom <= minZoom) {
+        this.slideshowTranslateX = 0;
+        this.slideshowTranslateY = 0;
+      } else if (this.hasSavedPosition && this.slideshowZoom < previousZoom) {
+        // If zooming out and there's a saved position, zoom on that point
+        this.zoomOnPoint(this.slideshowZoom, this.savedCursorX, this.savedCursorY, oldZoom);
+      }
+    } else if (this.hasSavedPosition && this.slideshowZoom > previousZoom) {
+      // If zooming in and there's a saved position, zoom on that point
+      this.zoomOnPoint(this.slideshowZoom, this.savedCursorX, this.savedCursorY, oldZoom);
+    }
+    
     this.clampSlideshowTranslation();
   }
   
@@ -477,13 +509,106 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.slideshowTranslateY = 0; 
   }
   
+  // Helper function to center image on the saved point (container coordinates)
+  private centerOnRecalculatedPoint(): void {
+    if (!this.hasSavedPosition) {
+      return;
+    }
+    
+    // Try multiple ways to get the container
+    let container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+    if (!container) {
+      container = document.querySelector('.slideshow-image-wrapper') as HTMLElement;
+    }
+    if (!container) {
+      const modalBody = document.querySelector('.slideshow-body');
+      if (modalBody) {
+        container = modalBody.querySelector('.slideshow-image-wrapper') as HTMLElement;
+      }
+    }
+    
+    if (!container) return;
+    
+    try {
+      const rect = container.getBoundingClientRect();
+      if (!rect || rect.width === 0 || rect.height === 0) return;
+      
+      const containerCenterX = rect.width / 2;
+      const containerCenterY = rect.height / 2;
+      
+      // Convert saved point (container coordinates) to relative to center
+      const pointRelativeToCenterX = this.savedCursorX - containerCenterX;
+      const pointRelativeToCenterY = this.savedCursorY - containerCenterY;
+      
+      // Find what image point corresponds to the saved container point
+      const imagePointX = (pointRelativeToCenterX - this.slideshowTranslateX) / this.slideshowZoom;
+      const imagePointY = (pointRelativeToCenterY - this.slideshowTranslateY) / this.slideshowZoom;
+      
+      // Center on that image point: translate = -imagePoint * zoom
+      this.slideshowTranslateX = -imagePointX * this.slideshowZoom;
+      this.slideshowTranslateY = -imagePointY * this.slideshowZoom;
+      
+      this.clampSlideshowTranslation();
+    } catch (error) {
+      console.warn('Error centering on saved point:', error);
+    }
+  }
+  
+  // Helper function to zoom on a specific point
+  private zoomOnPoint(newZoom: number, pointX: number, pointY: number, oldZoom: number): void {
+    const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    const containerCenterX = rect.width / 2;
+    const containerCenterY = rect.height / 2;
+    
+    // pointX and pointY are in container coordinates (relative to top-left corner)
+    // Convert to relative to center
+    const pointRelativeToCenterX = pointX - containerCenterX;
+    const pointRelativeToCenterY = pointY - containerCenterY;
+    
+    // Find the corresponding point in the original image space
+    // With transform-origin center: containerPoint = center + translate + imagePoint * zoom
+    // So: imagePoint = (containerPoint - center - translate) / zoom
+    const imagePointX = (pointRelativeToCenterX - this.slideshowTranslateX) / oldZoom;
+    const imagePointY = (pointRelativeToCenterY - this.slideshowTranslateY) / oldZoom;
+    
+    // After zoom, we want this point to stay at the same container position
+    // containerPoint = center + newTranslate + imagePoint * newZoom
+    // So: newTranslate = containerPoint - center - imagePoint * newZoom
+    // Since containerPoint - center = pointRelativeToCenterX
+    this.slideshowTranslateX = pointRelativeToCenterX - imagePointX * newZoom;
+    this.slideshowTranslateY = pointRelativeToCenterY - imagePointY * newZoom;
+  }
+  
   public zoomInSlideshow(): void { 
-    this.slideshowZoom = Math.min(10, parseFloat((this.slideshowZoom + 0.1).toFixed(2))); 
+    const oldZoom = this.slideshowZoom;
+    this.slideshowZoom = Math.min(100, parseFloat((this.slideshowZoom + 0.5).toFixed(2))); 
+    
+    // If there's a saved position, zoom on that point
+    if (this.hasSavedPosition) {
+      this.zoomOnPoint(this.slideshowZoom, this.savedCursorX, this.savedCursorY, oldZoom);
+    }
+    
     this.clampSlideshowTranslation();
   }
   
   public zoomOutSlideshow(): void { 
-    this.slideshowZoom = Math.max(this.getMinSlideshowZoom(), parseFloat((this.slideshowZoom - 0.1).toFixed(2))); 
+    const previousZoom = this.slideshowZoom;
+    const minZoom = this.getMinSlideshowZoom();
+    const oldZoom = this.slideshowZoom;
+    this.slideshowZoom = Math.max(minZoom, parseFloat((this.slideshowZoom - 0.5).toFixed(2))); 
+    
+    // Si on atteint le zoom minimum, recentrer l'image
+    if (this.slideshowZoom <= minZoom) {
+      this.slideshowTranslateX = 0;
+      this.slideshowTranslateY = 0;
+    } else if (this.hasSavedPosition && this.slideshowZoom > minZoom) {
+      // If there's a saved position, zoom on that point
+      this.zoomOnPoint(this.slideshowZoom, this.savedCursorX, this.savedCursorY, oldZoom);
+    }
+    
     this.clampSlideshowTranslation();
   }
   
@@ -500,6 +625,39 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public onSlideshowMouseMove(event: MouseEvent): void {
+    // Always update cursor position relative to the container (not the image)
+    if (event) {
+      try {
+        // Always use the container reference, not currentTarget (which might be the image)
+        const container = this.slideshowContainerRef?.nativeElement;
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          if (rect && rect.width > 0 && rect.height > 0) {
+            const x = event.clientX - rect.left;
+            const y = event.clientY - rect.top;
+            this.cursorX = Math.max(0, Math.round(x));
+            this.cursorY = Math.max(0, Math.round(y));
+          } else {
+            // Fallback: if rect is not valid, try direct calculation
+            this.cursorX = Math.round(event.clientX);
+            this.cursorY = Math.round(event.clientY);
+          }
+        } else {
+          // If container not found, try to get it from the event target's parent
+          const target = event.target as HTMLElement;
+          if (target && target.parentElement) {
+            const parentRect = target.parentElement.getBoundingClientRect();
+            if (parentRect) {
+              this.cursorX = Math.max(0, Math.round(event.clientX - parentRect.left));
+              this.cursorY = Math.max(0, Math.round(event.clientY - parentRect.top));
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('Error calculating cursor position:', error);
+      }
+    }
+    
     if (!this.isDraggingSlideshow) return;
     try { event.preventDefault(); event.stopPropagation(); } catch {}
     const dx = event.clientX - this.dragStartX;
@@ -510,14 +668,40 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.clampSlideshowTranslation();
   }
   
+  public onSlideshowMouseEnter(event: MouseEvent): void {
+    // Update cursor position when mouse enters
+    if (event) {
+      this.onSlideshowMouseMove(event);
+    }
+  }
+  
   public onSlideshowMouseUp(): void {
     this.isDraggingSlideshow = false;
   }
   
+  public onSlideshowMouseLeave(): void {
+    this.isDraggingSlideshow = false;
+    // Keep cursor position visible when mouse leaves
+  }
+  
   public onSlideshowImageClick(): void {
     // Ignore click if it was a drag
-    if (this.hasDraggedSlideshow) { this.hasDraggedSlideshow = false; return; }
-    this.toggleSlideshowWithMessage();
+    if (this.hasDraggedSlideshow) { 
+      this.hasDraggedSlideshow = false; 
+      return; 
+    }
+    
+    // Save current cursor position
+    this.savedCursorX = this.cursorX;
+    this.savedCursorY = this.cursorY;
+    this.hasSavedPosition = true;
+    
+    // Center the image on the saved point when clicking
+    setTimeout(() => {
+      this.centerOnRecalculatedPoint();
+    }, 0);
+    
+    // Don't toggle slideshow on image click
   }
   
   private clampSlideshowTranslation(): void {
@@ -613,12 +797,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         let newZoom = this.touchStartZoom * scale;
         
         const minZoom = this.getMinSlideshowZoom();
-        const maxZoom = 10;
+        const maxZoom = 100;
         newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
         
+        const previousZoom = this.slideshowZoom;
         this.slideshowZoom = parseFloat(newZoom.toFixed(2));
         
-        if (this.slideshowZoom > minZoom) {
+        // Si on atteint le zoom minimum, recentrer l'image
+        if (this.slideshowZoom <= minZoom) {
+          this.slideshowTranslateX = 0;
+          this.slideshowTranslateY = 0;
+        } else if (this.slideshowZoom > minZoom) {
           const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
           const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
           if (container && imgEl) {
@@ -747,17 +936,45 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Navigation
   public nextImage(): void {
     if (this.slideshowImages.length === 0) return;
+    const currentZoom = this.slideshowZoom;
+    const currentTranslateX = this.slideshowTranslateX;
+    const currentTranslateY = this.slideshowTranslateY;
     this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
+    // Reset saved position when changing image
+    this.hasSavedPosition = false;
     setTimeout(() => {
-      this.resetSlideshowZoom();
+      // Si le slideshow est en lecture automatique, conserver le zoom
+      if (this.isSlideshowActive) {
+        this.slideshowZoom = currentZoom;
+        this.slideshowTranslateX = currentTranslateX;
+        this.slideshowTranslateY = currentTranslateY;
+        this.clampSlideshowTranslation();
+      } else {
+        // Sinon, réinitialiser le zoom lors de la navigation manuelle
+        this.resetSlideshowZoom();
+      }
     }, 0);
   }
   
   public previousImage(): void {
     if (this.slideshowImages.length === 0) return;
+    const currentZoom = this.slideshowZoom;
+    const currentTranslateX = this.slideshowTranslateX;
+    const currentTranslateY = this.slideshowTranslateY;
     this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
+    // Reset saved position when changing image
+    this.hasSavedPosition = false;
     setTimeout(() => {
-      this.resetSlideshowZoom();
+      // Si le slideshow est en lecture automatique, conserver le zoom
+      if (this.isSlideshowActive) {
+        this.slideshowZoom = currentZoom;
+        this.slideshowTranslateX = currentTranslateX;
+        this.slideshowTranslateY = currentTranslateY;
+        this.clampSlideshowTranslation();
+      } else {
+        // Sinon, réinitialiser le zoom lors de la navigation manuelle
+        this.resetSlideshowZoom();
+      }
     }, 0);
   }
   

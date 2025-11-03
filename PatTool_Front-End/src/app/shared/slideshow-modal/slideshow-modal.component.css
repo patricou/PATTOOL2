@@ -257,7 +257,7 @@
     margin: 0 !important;
     padding: 0 !important;
     display: block !important;
-    z-index: 9998 !important;
+    z-index: 1 !important;
 }
 
 /* Alternative: when container is fullscreen, force image size */
@@ -315,7 +315,7 @@
     position: absolute;
     top: 20px;
     right: 20px;
-    background: rgba(0, 0, 0, 0.7);
+    background: rgba(0, 0, 0, 0.2);
     color: white;
     padding: 8px 16px;
     border-radius: 20px;
@@ -324,70 +324,105 @@
     z-index: 1000;
 }
 
-.slideshow-btn-play-pause {
+.slideshow-zoom-info {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: rgba(0, 0, 0, 0.6);
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    z-index: 10001;
-    pointer-events: auto;
-    opacity: 0 !important;
-    visibility: visible !important; /* visible pour permettre le hover */
-}
-
-/* Afficher le bouton play/pause uniquement au survol direct */
-.slideshow-btn-play-pause:hover {
-    opacity: 1 !important;
-    background: rgba(0, 0, 0, 0.8);
-    transform: translate(-50%, -50%) scale(1.1);
-    border-color: rgba(255, 255, 255, 0.8);
-}
-
-.slideshow-btn-play-pause i {
-    font-size: 1.2rem;
+    top: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.2);
     color: white;
-    margin-left: 3px; /* Ajustement pour centrer l'icône play */
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 0.9rem;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
-.slideshow-btn-play-pause:active {
-    transform: translate(-50%, -50%) scale(0.95);
+.slideshow-zoom-info .zoom-value {
+    font-size: 0.95rem;
+    font-weight: 700;
 }
 
-/* En plein écran, s'assurer que le bouton est bien visible et au-dessus de tout */
-:fullscreen .slideshow-btn-play-pause,
-:-webkit-full-screen .slideshow-btn-play-pause,
-:-moz-full-screen .slideshow-btn-play-pause,
-:-ms-fullscreen .slideshow-btn-play-pause,
-.slideshow-container:fullscreen .slideshow-btn-play-pause,
-.slideshow-container:-webkit-full-screen .slideshow-btn-play-pause,
-.slideshow-container:-moz-full-screen .slideshow-btn-play-pause,
-.slideshow-container:-ms-fullscreen .slideshow-btn-play-pause {
-    z-index: 99999 !important;
+.slideshow-zoom-info .cursor-position {
+    font-size: 0.8rem;
+    font-weight: 500;
+    opacity: 0.9;
+}
+
+.slideshow-zoom-info .saved-position {
+    font-size: 0.8rem;
+    font-weight: 600;
+    opacity: 1;
+    color: #4CAF50;
+    margin-top: 2px;
+    padding-top: 4px;
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.slideshow-zoom-info .saved-position .recalculated-position {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #81C784;
+    opacity: 0.9;
+}
+
+/* Ensure counter and zoom info are visible in fullscreen - must be above image */
+:fullscreen .slideshow-counter,
+:-webkit-full-screen .slideshow-counter,
+:-moz-full-screen .slideshow-counter,
+:-ms-fullscreen .slideshow-counter,
+.slideshow-container:fullscreen .slideshow-counter,
+.slideshow-container:-webkit-full-screen .slideshow-counter,
+.slideshow-container:-moz-full-screen .slideshow-counter,
+.slideshow-container:-ms-fullscreen .slideshow-counter {
     position: fixed !important;
-    pointer-events: auto !important;
+    top: 20px !important;
+    right: 20px !important;
+    z-index: 999999 !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+    pointer-events: none !important;
 }
 
-:fullscreen .slideshow-btn-play-pause:hover,
-:-webkit-full-screen .slideshow-btn-play-pause:hover,
-:-moz-full-screen .slideshow-btn-play-pause:hover,
-:-ms-fullscreen .slideshow-btn-play-pause:hover,
-.slideshow-container:fullscreen .slideshow-btn-play-pause:hover,
-.slideshow-container:-webkit-full-screen .slideshow-btn-play-pause:hover,
-.slideshow-container:-moz-full-screen .slideshow-btn-play-pause:hover,
-.slideshow-container:-ms-fullscreen .slideshow-btn-play-pause:hover {
-    opacity: 1 !important;
-    visibility: visible !important;
+:fullscreen .slideshow-zoom-info,
+:-webkit-full-screen .slideshow-zoom-info,
+:-moz-full-screen .slideshow-zoom-info,
+:-ms-fullscreen .slideshow-zoom-info,
+.slideshow-container:fullscreen .slideshow-zoom-info,
+.slideshow-container:-webkit-full-screen .slideshow-zoom-info,
+.slideshow-container:-moz-full-screen .slideshow-zoom-info,
+.slideshow-container:-ms-fullscreen .slideshow-zoom-info {
+    position: fixed !important;
+    top: 20px !important;
+    left: 20px !important;
+    z-index: 999999 !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+    pointer-events: none !important;
 }
+
+/* Reduce image z-index in fullscreen to ensure info stays on top */
+.slideshow-image.fullscreen-image {
+    z-index: 1 !important;
+}
+
+:fullscreen .slideshow-image,
+:-webkit-full-screen .slideshow-image,
+:-moz-full-screen .slideshow-image,
+:-ms-fullscreen .slideshow-image {
+    z-index: 1 !important;
+}
+
+.slideshow-container:fullscreen img.slideshow-image,
+.slideshow-container:-webkit-full-screen img.slideshow-image,
+.slideshow-container:-moz-full-screen img.slideshow-image,
+.slideshow-container:-ms-fullscreen img.slideshow-image {
+    z-index: 1 !important;
+}
+
 
 .slideshow-controls {
     position: absolute;
@@ -521,6 +556,35 @@
 
 .slideshow-footer .btn {
     white-space: nowrap;
+    background: transparent !important;
+    background-color: transparent !important;
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    transition: all 0.3s ease;
+}
+
+.slideshow-footer .btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1) !important;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.5) !important;
+    color: rgba(255, 255, 255, 1) !important;
+}
+
+.slideshow-footer .btn.btn-info {
+    border-color: rgba(66, 165, 245, 0.5) !important;
+    color: rgba(66, 165, 245, 0.9) !important;
+}
+
+.slideshow-footer .btn.btn-info:hover:not(:disabled) {
+    background: rgba(66, 165, 245, 0.2) !important;
+    background-color: rgba(66, 165, 245, 0.2) !important;
+    border-color: rgba(66, 165, 245, 0.8) !important;
+    color: rgba(66, 165, 245, 1) !important;
+}
+
+.slideshow-footer .btn:disabled {
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
 }
 
 .slideshow-footer .btn-group .btn {
@@ -744,15 +808,6 @@
         right: 10px;
         padding: 6px 12px;
         font-size: 0.8rem;
-    }
-    
-    .slideshow-btn-play-pause {
-        width: 45px;
-        height: 45px;
-    }
-    
-    .slideshow-btn-play-pause i {
-        font-size: 1.1rem;
     }
 }
 

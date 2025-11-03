@@ -1076,6 +1076,24 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 	}
 
+	// Open a single image in slideshow modal
+	public openSingleImageInSlideshow(fileId: string, fileName: string, eventName: string = ''): void {
+		if (!this.slideshowModalComponent) {
+			console.error('Slideshow modal component not available');
+			return;
+		}
+		
+		// Prepare image source for the clicked image
+		const imageSource: SlideshowImageSource = {
+			fileId: fileId,
+			blobUrl: undefined,
+			fileName: fileName
+		};
+
+		// Open the slideshow modal with just this one image
+		this.slideshowModalComponent.open([imageSource], eventName, true);
+	}
+
 	// =========================
 	// Slideshow methods (now handled by SlideshowModalComponent)
 	// =========================
@@ -1152,9 +1170,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 	
 	// Handle file click based on file type
-	public handleFileClick(uploadedFile: any): void {
+	public handleFileClick(uploadedFile: any, eventName: string = ''): void {
 		if (this.isImageFile(uploadedFile.fileName)) {
-			this.openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName);
+			this.openSingleImageInSlideshow(uploadedFile.fieldId, uploadedFile.fileName, eventName);
 		} else if (this.isPdfFile(uploadedFile.fileName)) {
 			this.openPdfFile(uploadedFile.fieldId, uploadedFile.fileName);
 		}
@@ -1338,7 +1356,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			modalRef = this.modalService.open(this.uploadLogsModal, {
 				centered: true,
 				backdrop: 'static',
-				keyboard: false
+				keyboard: false,
+				size: 'xl',
+				windowClass: 'upload-logs-modal'
 			});
 		}
 		
@@ -1410,7 +1430,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						clearInterval(pollInterval);
 						
 						const fileCount = Array.isArray(response) ? response.length : 1;
-						this.addLog(`✅ Upload successful! ${fileCount} file(s) processed`);
+						this.addSuccessLog(`✅ Upload successful! ${fileCount} file(s) processed`);
 						
 						// The response should contain the uploaded file information directly
 						this.handleUploadResponse(response, evenement);
@@ -1425,11 +1445,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						
 						setTimeout(() => {
 							this.isUploading = false;
-							alert('Files uploaded successfully!');
-							// Close modal automatically after alert
-							if (modalRef) {
-								modalRef.close();
-							}
+							// Don't close modal automatically, let user close it manually
 							// Refresh the events list
 							this.getEvents(this.dataFIlter);
 						}, 1000);
@@ -1438,30 +1454,26 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				error: (error: any) => {
 					clearInterval(pollInterval);
 					console.error('File upload error:', error);
-					this.addLog(`❌ Upload error`);
+					
+					let errorMessage = "Error uploading files.";
+					
+					if (error.status === 0) {
+						errorMessage = "Unable to connect to server. Please check that the backend service is running.";
+					} else if (error.status === 401) {
+						errorMessage = "Authentication failed. Please log in again.";
+					} else if (error.status === 403) {
+						errorMessage = "Access denied. You don't have permission to upload files.";
+					} else if (error.status >= 500) {
+						errorMessage = "Server error. Please try again later.";
+					} else if (error.error && error.error.message) {
+						errorMessage = error.error.message;
+					}
+					
+					this.addErrorLog(`❌ Upload error: ${errorMessage}`);
 					
 					setTimeout(() => {
 						this.isUploading = false;
-						
-						let errorMessage = "Error uploading files.";
-						
-						if (error.status === 0) {
-							errorMessage = "Unable to connect to server. Please check that the backend service is running.";
-						} else if (error.status === 401) {
-							errorMessage = "Authentication failed. Please log in again.";
-						} else if (error.status === 403) {
-							errorMessage = "Access denied. You don't have permission to upload files.";
-						} else if (error.status >= 500) {
-							errorMessage = "Server error. Please try again later.";
-						} else if (error.error && error.error.message) {
-							errorMessage = error.error.message;
-						}
-						
-						alert(errorMessage);
-						// Close modal automatically after error alert
-						if (modalRef) {
-							modalRef.close();
-						}
+						// Don't close modal automatically, let user close it manually
 					}, 1000);
 				}
 			});
@@ -1469,6 +1481,30 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	private addLog(message: string): void {
 		this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+		
+		// Auto-scroll to top to show latest log
+		setTimeout(() => {
+			if (this.logContent && this.logContent.nativeElement) {
+				const container = this.logContent.nativeElement;
+				container.scrollTop = 0;
+			}
+		}, 0);
+	}
+
+	private addSuccessLog(message: string): void {
+		this.uploadLogs.unshift(`SUCCESS: [${new Date().toLocaleTimeString()}] ${message}`);
+		
+		// Auto-scroll to top to show latest log
+		setTimeout(() => {
+			if (this.logContent && this.logContent.nativeElement) {
+				const container = this.logContent.nativeElement;
+				container.scrollTop = 0;
+			}
+		}, 0);
+	}
+
+	private addErrorLog(message: string): void {
+		this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
 		
 		// Auto-scroll to top to show latest log
 		setTimeout(() => {

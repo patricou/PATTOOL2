@@ -6,10 +6,9 @@
     <!-- Show slideshow if active, otherwise show thumbnail -->
     <img *ngIf="!isCardSlideshowActive" 
          #thumbnailImage 
-         class="card-img img-fluid img-thumbnail mx-auto d-block clickable-image" 
+         class="card-img img-fluid img-thumbnail mx-auto d-block" 
          [src]="thumbnailUrl" 
          alt="Card image" 
-         (click)="openImageModal(getEventThumbnail(), evenement.evenementName)"
          (load)="detectDominantColor()" />
     
     <!-- Card Slideshow -->
@@ -163,6 +162,7 @@
                     <b> <span style="font-size: 0.85rem;">{{"EVENTELEM.FILES" | translate }} ({{ evenement.fileUploadeds.length }})</span> : </b>
                     <button class="btn btn-sm btn-outline-primary ms-1" 
                             style="padding: 0.1rem 0.25rem; font-size: 0.65rem;"
+                            [style.color]="titleBorderColor"
                             (click)="toggleFilesList()"
                             [title]="showFilesList ? ('Hide files list' | translate) : ('Show files list' | translate)">
                         <i class="fa" [class.fa-plus]="!showFilesList" [class.fa-minus]="showFilesList"></i>
@@ -278,6 +278,8 @@
     <!-- Unified Photos Button (opens FS selector if present, else uploaded slideshow) -->
     <button class="btn btn-sm btn-outline-success mb-1 me-1" 
             [hidden]="!(hasImageFiles() || getPhotoFromFsCount() > 0)" 
+            [style.background]="getButtonGradientForType('photos', dominantR, dominantG, dominantB)"
+            [style.border-color]="'white'"
             (click)="openPhotos()"
             placement="right"
             container="body"
@@ -287,47 +289,86 @@
     </button>
     
     <!-- View Details Button -->
-    <a class="btn btn-sm btn-outline-info mb-1 me-1 eye-button" [routerLink]="['/details-evenement', evenement.id]" placement="top"
-        ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}"
-        (mouseleave)="onTooltipMouseLeave($event)">
+    <a class="btn btn-sm btn-outline-info mb-1 me-1 eye-button" 
+       [routerLink]="['/details-evenement', evenement.id]" 
+       [style.background]="getButtonGradientForType('details', dominantR, dominantG, dominantB)"
+       [style.border-color]="'white'"
+       placement="top"
+       ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}"
+       (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-eye" aria-hidden="true"></i>
     </a>
     
     <!-- URLs Button -->
-    <button class="btn btn-primary btn-sm mb-1 me-1" [hidden]="!isUrlEventsAvailable()" 
-        (click)="openUrlsModal(urlsModal)" placement="top"
-        ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount() }})"
-        (mouseleave)="onTooltipMouseLeave($event)">
+    <button class="btn btn-primary btn-sm mb-1 me-1" 
+            [hidden]="!isUrlEventsAvailable()" 
+            [style.background]="getButtonGradientForType('urls', dominantR, dominantG, dominantB)"
+            [style.border-color]="'white'"
+            (click)="openUrlsModal(urlsModal)" 
+            placement="top"
+            ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount() }})"
+            (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-link" aria-hidden="true"></i> {{ getUrlEventsCount() }}
     </button>
 
     <!-- Comments Button -->
-    <button class="btn btn-sm comments-button mb-1 me-1" [hidden]="!hasComments()" (click)="openCommentsModal()" placement="top"
-        ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}"
-        (mouseleave)="onTooltipMouseLeave($event)">
+    <button *ngIf="hasComments()" 
+            class="btn btn-sm comments-button mb-1 me-1" 
+            [style.background]="getButtonGradientForType('comments', dominantR, dominantG, dominantB)"
+            [style.border-color]="'white'"
+            (click)="openCommentsModal()" 
+            placement="top"
+            ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}"
+            (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-comments" aria-hidden="true"></i> {{ getCommentsCount() }}
     </button>
     
-    <a class="btn btn-sm btn-outline-info mb-1 me-1" (click)="open(content)"
-        ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}" placement="top"
-        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-comments" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-success mb-1 me-1" (click)="addMemberClick()" ngbTooltip="{{ 'EVENTELEM.PARTICIPATION' | translate }}" placement="top"
-        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-user-o" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-primary mb-1 me-1" [hidden]="!isAuthor()" (click)="changeStatusEvent(evenement.status)"
-        ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" placement="top"
-        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-circle-o-notch"
+    <a class="btn btn-sm btn-outline-info mb-1 me-1" 
+       [style.background]="getButtonGradientForType('chat', dominantR, dominantG, dominantB)"
+       [style.border-color]="'white'"
+       (click)="open(content)"
+       ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}" 
+       placement="top"
+       (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-comments" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-success mb-1 me-1" 
+       [style.background]="getButtonGradientForType('participation', dominantR, dominantG, dominantB)"
+       [style.border-color]="'white'"
+       (click)="addMemberClick()" 
+       ngbTooltip="{{ 'EVENTELEM.PARTICIPATION' | translate }}" 
+       placement="top"
+       (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-user-o" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-primary mb-1 me-1" 
+       [hidden]="!isAuthor()" 
+       [style.background]="getButtonGradientForType('status', dominantR, dominantG, dominantB)"
+       [style.border-color]="'white'"
+       (click)="changeStatusEvent(evenement.status)"
+       ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" 
+       placement="top"
+       (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-circle-o-notch"
             aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-warning mb-1 me-1" [routerLink]="['/updeven',evenement.id]"
-        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" placement="top"
-        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-outline-primary mb-1 me-1" [hidden]="!isAnyFiles()" (click)="toogleFileListe()"
-        placement="top" ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"
-        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-download"
+    <a class="btn btn-sm btn-warning mb-1 me-1" 
+       [style.background]="getButtonGradientForType('edit', dominantR, dominantG, dominantB)"
+       [style.border-color]="'white'"
+       [routerLink]="['/updeven',evenement.id]"
+       ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" 
+       placement="top"
+       (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
+    <a class="btn btn-sm btn-outline-primary mb-1 me-1" 
+       [hidden]="!isAnyFiles()" 
+       [style.background]="getButtonGradientForType('download', dominantR, dominantG, dominantB)"
+       [style.border-color]="'white'"
+       (click)="toogleFileListe()"
+       placement="top" 
+       ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"
+       (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-download"
             aria-hidden="true"></i> {{ getFilesCount() }}</a>
 
     <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
          (mouseleave)="onTooltipMouseLeave($event)">
-        <label [for]="'file-upload-input-' + evenement.id" class="btn btn-sm btn-success mb-1">
+        <label [for]="'file-upload-input-' + evenement.id" 
+               class="btn btn-sm btn-success mb-1"
+               [style.background]="getButtonGradientForType('upload', dominantR, dominantG, dominantB)"
+               [style.border-color]="'white'">
             <i class="fa fa-upload" aria-hidden="true"></i>
         </label>
         <input type="file" [id]="'file-upload-input-' + evenement.id" #fileInput (change)="onFileSelected($event)" multiple 
@@ -532,34 +573,6 @@
 <!-- Photos Selector Modal Component -->
 <app-photos-selector-modal #photosSelectorModalComponent (selectionConfirmed)="onPhotosSelectionConfirmed($event)"></app-photos-selector-modal>
 
-<!-- Image Modal for large display -->
-<ng-template #imageModal let-c="close" let-d="dismiss">
-    <div class="modal-header">
-        <h5 class="modal-title">{{ selectedImageAlt }}</h5>
-        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="onSlideshowClose(c)" aria-label="Close">
-            <i class="fa fa-times"></i>
-        </button>
-    </div>
-    <div class="modal-body text-center" #imageContainer [style.cursor]="isDraggingImage ? 'grabbing' : (imageZoom > getMinImageZoom() ? 'grab' : 'default')" style="overflow:hidden; user-select: none;"
-         (mousedown)="onImageMouseDown($event)" (mousemove)="onImageMouseMove($event)"
-         (mouseup)="onImageMouseUp()" (mouseleave)="onImageMouseUp()" (document:mouseup)="onImageMouseUp()">
-        <img #imageEl [src]="selectedImageUrl" [alt]="selectedImageAlt"
-             class="img-fluid modal-image"
-             [style.transform]="'translate3d(' + imageTranslateX + 'px,' + imageTranslateY + 'px,0) scale(' + imageZoom + ')'
-             "
-             style="transform-origin:center center; user-select:none;"
-             (wheel)="onWheelImage($event)" draggable="false" />
-    </div>
-    <div class="modal-footer d-flex justify-content-between align-items-center">
-        <div class="btn-group" role="group">
-            <button type="button" class="btn btn-outline-secondary" (click)="zoomOutImage()"><i class="fa fa-search-minus"></i></button>
-            <button type="button" class="btn btn-outline-secondary" (click)="resetImageZoom()"><i class="fa fa-refresh"></i></button>
-            <button type="button" class="btn btn-outline-secondary" (click)="zoomInImage()"><i class="fa fa-search-plus"></i></button>
-        </div>
-        <button type="button" class="btn btn-secondary" (click)="c()">Close</button>
-    </div>
-</ng-template>
-
 <!-- User Details Modal -->
 <ng-template #userModal let-modal>
     <div class="modal-header">
@@ -632,7 +645,10 @@
     <div class="modal-body">
         <div class="upload-logs-content">
             <div class="log-content" #logContent>
-                <div class="log-entry" *ngFor="let log of uploadLogs">
+                <div class="log-entry" 
+                     *ngFor="let log of uploadLogs"
+                     [class.log-success]="log.startsWith('SUCCESS:')"
+                     [class.log-error]="log.startsWith('ERROR:')">
                     {{ log }}
                 </div>
                 <div *ngIf="uploadLogs.length === 0" class="text-center text-muted">

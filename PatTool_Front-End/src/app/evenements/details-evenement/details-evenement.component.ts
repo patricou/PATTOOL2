@@ -426,7 +426,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // Handle file click based on file type
   public handleFileClick(uploadedFile: UploadedFile): void {
     if (this.isImageFile(uploadedFile.fileName)) {
-      this.openImageModal(uploadedFile.fieldId, uploadedFile.fileName);
+      this.openSingleImageInSlideshow(uploadedFile.fieldId, uploadedFile.fileName);
     } else if (this.isPdfFile(uploadedFile.fileName)) {
       this.openPdfFile(uploadedFile.fieldId, uploadedFile.fileName);
     } else {
@@ -940,6 +940,24 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   public getPhotoFromFsLinks(): UrlEvent[] {
     if (!this.evenement || !this.evenement.urlEvents) return [];
     return this.evenement.urlEvents.filter(u => (u.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS');
+  }
+
+  // Open a single image in slideshow modal
+  public openSingleImageInSlideshow(fileId: string, fileName: string): void {
+    if (!this.slideshowModalComponent || !this.evenement) {
+      console.error('Slideshow modal component or event not available');
+      return;
+    }
+    
+    // Prepare image source for the clicked image
+    const imageSource: SlideshowImageSource = {
+      fileId: fileId,
+      blobUrl: undefined,
+      fileName: fileName
+    };
+
+    // Open the slideshow modal with just this one image
+    this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true);
   }
 
   public openFsPhotosDiaporama(relativePath: string): void {
