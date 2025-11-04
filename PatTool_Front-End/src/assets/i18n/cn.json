@@ -347,7 +347,18 @@
         "EXIF_ORIENTATION": "方向",
         "EXIF_GPS": "GPS",
         "EXIF_PIXEL_WIDTH": "宽度（像素）",
-        "EXIF_PIXEL_HEIGHT": "高度（像素）"
+        "EXIF_PIXEL_HEIGHT": "高度（像素）",
+        "ZOOM_IN": "放大",
+        "ZOOM_OUT": "缩小",
+        "ZOOM_RESET": "重置缩放",
+        "SHARE": "分享",
+        "SHARE_IMAGE_TOOLTIP": "分享图片（WhatsApp 等）",
+        "INFO_PANEL_ACTIVE": "信息面板已激活",
+        "SHOW_INFO_PANEL": "显示信息面板",
+        "HIDE_INFO_PANEL": "隐藏信息面板",
+        "SHOW_INFO": "显示信息",
+        "HIDE_INFO": "隐藏信息",
+        "RESET_ZOOM_HINT": "R/Home: 重置缩放"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "开始自动滚动",

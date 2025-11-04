@@ -331,7 +331,18 @@
         "EXIF_ORIENTATION": "अभिविन्यास",
         "EXIF_GPS": "GPS",
         "EXIF_PIXEL_WIDTH": "चौड़ाई (पिक्सेल)",
-        "EXIF_PIXEL_HEIGHT": "ऊंचाई (पिक्सेल)"
+        "EXIF_PIXEL_HEIGHT": "ऊंचाई (पिक्सेल)",
+        "ZOOM_IN": "ज़ूम इन",
+        "ZOOM_OUT": "ज़ूम आउट",
+        "ZOOM_RESET": "ज़ूम रीसेट करें",
+        "SHARE": "साझा करें",
+        "SHARE_IMAGE_TOOLTIP": "छवि साझा करें (WhatsApp आदि)",
+        "INFO_PANEL_ACTIVE": "जानकारी पैनल सक्रिय",
+        "SHOW_INFO_PANEL": "जानकारी पैनल दिखाएं",
+        "HIDE_INFO_PANEL": "जानकारी पैनल छुपाएं",
+        "SHOW_INFO": "जानकारी दिखाएं",
+        "HIDE_INFO": "जानकारी छुपाएं",
+        "RESET_ZOOM_HINT": "R/Home: ज़ूम रीसेट करें"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "स्वचालित स्क्रॉल शुरू करें",

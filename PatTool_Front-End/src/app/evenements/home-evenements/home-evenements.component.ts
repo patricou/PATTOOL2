@@ -270,6 +270,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.selectedEvent = evenement;
 		this.selectedEventName = evenement.evenementName;
 		
+		// Load thumbnails when modal opens
+		this.loadFileThumbnails(evenement);
+		
 		this.modalService.open(this.filesModal, { 
 			size: 'lg',
 			backdrop: true,
@@ -281,6 +284,54 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}, (reason) => {
 			console.log('Files modal dismissed:', reason);
 		});
+	}
+	
+	// Load thumbnails for all image files
+	private loadFileThumbnails(evenement: Evenement): void {
+		if (!evenement.fileUploadeds || evenement.fileUploadeds.length === 0) {
+			return;
+		}
+		
+		// Filter image files and load their thumbnails
+		const imageFiles = evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
+		
+		imageFiles.forEach(file => {
+			// Skip if already cached or loading
+			if (this.fileThumbnailsCache.has(file.fieldId) || this.fileThumbnailsLoading.has(file.fieldId)) {
+				return;
+			}
+			
+			// Mark as loading
+			this.fileThumbnailsLoading.add(file.fieldId);
+			
+			// Load the file and create thumbnail URL
+			this._fileService.getFile(file.fieldId).pipe(
+				map((res: any) => {
+					const blob = new Blob([res], { type: 'application/octet-stream' });
+					const objectUrl = this.nativeWindow.URL.createObjectURL(blob);
+					return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+				})
+			).subscribe({
+				next: (safeUrl: SafeUrl) => {
+					this.fileThumbnailsCache.set(file.fieldId, safeUrl);
+					this.fileThumbnailsLoading.delete(file.fieldId);
+				},
+				error: (error) => {
+					console.error('Error loading thumbnail for file:', file.fileName, error);
+					this.fileThumbnailsLoading.delete(file.fieldId);
+				}
+			});
+		});
+	}
+	
+	// Get thumbnail URL for a file (returns cached value or null)
+	public getFileThumbnail(fileId: string): SafeUrl | null {
+		return this.fileThumbnailsCache.get(fileId) || null;
+	}
+	
+	// Check if thumbnail is loading
+	public isThumbnailLoading(fileId: string): boolean {
+		return this.fileThumbnailsLoading.has(fileId);
 	}
 
 	public openPhotosModal(evenement: Evenement) {
@@ -756,6 +807,22 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		});
 		this.eventThumbnails.clear();
+		
+		// Clean up file thumbnails cache
+		this.fileThumbnailsCache.forEach((safeUrl) => {
+			try {
+				if (safeUrl && typeof safeUrl === 'object' && 'changingThisBreaksApplicationSecurity' in safeUrl) {
+					const url = safeUrl['changingThisBreaksApplicationSecurity'];
+					if (url && typeof url === 'string' && url.startsWith('blob:')) {
+						this.nativeWindow.URL.revokeObjectURL(url);
+					}
+				}
+			} catch (error) {
+				console.warn('Error cleaning up file thumbnail blob URL:', error);
+			}
+		});
+		this.fileThumbnailsCache.clear();
+		this.fileThumbnailsLoading.clear();
 	}
 	
 	// Scroll to top of the page
@@ -874,6 +941,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private fsDownloadsActive: boolean = false;
 	private fsActiveSubs: Subscription[] = [];
 	private fsQueue: string[] = [];
+	
+	// File thumbnails cache
+	private fileThumbnailsCache: Map<string, SafeUrl> = new Map();
+	private fileThumbnailsLoading: Set<string> = new Set();
 
 	// Check if file is an image based on extension
 	public isImageFile(fileName: string): boolean {

@@ -1863,7 +1863,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.modalRef.close();
     }
     try { if (typeof cRef === 'function') { cRef('Close click'); } } catch {}
-    try { this.modalService.dismissAll(); } catch {}
+    // Don't use dismissAll() as it closes all modals including parent modals (like files modal)
+    // The modalRef.close() above is sufficient to close only this slideshow modal
     
     // Note: cleanupAllMemory() will be called automatically by modalRef.result handlers
     // No need to call it here to avoid double cleanup

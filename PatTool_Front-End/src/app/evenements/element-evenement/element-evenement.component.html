@@ -178,14 +178,32 @@
             <ul class="list-group" *ngIf="showFilesList">
                 <li class="list-group-item d-flex justify-content-between align-items-center"
                     *ngFor="let uploadedFile of evenement.fileUploadeds ">
-                    <span class="file-name">
+                    <span class="file-name d-flex align-items-center">
+                        <!-- Thumbnail for image files -->
+                        <img *ngIf="isImageFile(uploadedFile.fileName) && getFileThumbnail(uploadedFile.fieldId)" 
+                             [src]="getFileThumbnail(uploadedFile.fieldId)" 
+                             class="file-thumbnail me-2"
+                             [class.file-thumbnail-clickable]="isImageFile(uploadedFile.fileName)"
+                             [alt]="uploadedFile.fileName"
+                             (click)="isImageFile(uploadedFile.fileName) && handleFileClick(uploadedFile)"
+                             (error)="hideImageOnError($event)"
+                             [style.cursor]="isImageFile(uploadedFile.fileName) ? 'pointer' : 'default'"
+                             [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ''" />
+                        <!-- Loading indicator for image thumbnails -->
+                        <span *ngIf="isImageFile(uploadedFile.fileName) && isThumbnailLoading(uploadedFile.fieldId) && !getFileThumbnail(uploadedFile.fieldId)"
+                              class="file-thumbnail-loading me-2">
+                            <i class="fa fa-spinner fa-spin"></i>
+                        </span>
                         <span class="badge" 
                               [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
                               [class.bg-info]="isImageFile(uploadedFile.fileName)"
                               [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
+                              [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
                               [title]="uploadedFile.fileName"
                               ngbTooltip="{{uploadedFile.fileName}}" placement="top"
-                              (mouseleave)="onTooltipMouseLeave($event)">
+                              (mouseleave)="onTooltipMouseLeave($event)"
+                              (click)="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)) && handleFileClick(uploadedFile)"
+                              [style.cursor]="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
                             {{getTruncatedFileName(uploadedFile.fileName)}}
                         </span>
                         <small class="text-muted ms-2 clickable-user" [style.color]="titleBorderColor" 

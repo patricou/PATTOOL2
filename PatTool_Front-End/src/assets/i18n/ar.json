@@ -345,7 +345,18 @@
         "EXIF_ORIENTATION": "الاتجاه",
         "EXIF_GPS": "GPS",
         "EXIF_PIXEL_WIDTH": "العرض (بكسل)",
-        "EXIF_PIXEL_HEIGHT": "الارتفاع (بكسل)"
+        "EXIF_PIXEL_HEIGHT": "الارتفاع (بكسل)",
+        "ZOOM_IN": "تكبير",
+        "ZOOM_OUT": "تصغير",
+        "ZOOM_RESET": "إعادة تعيين التكبير",
+        "SHARE": "مشاركة",
+        "SHARE_IMAGE_TOOLTIP": "مشاركة الصورة (واتساب، إلخ)",
+        "INFO_PANEL_ACTIVE": "لوحة المعلومات نشطة",
+        "SHOW_INFO_PANEL": "إظهار لوحة المعلومات",
+        "HIDE_INFO_PANEL": "إخفاء لوحة المعلومات",
+        "SHOW_INFO": "إظهار المعلومات",
+        "HIDE_INFO": "إخفاء المعلومات",
+        "RESET_ZOOM_HINT": "R/Home: إعادة تعيين التكبير"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "بدء التمرير التلقائي",

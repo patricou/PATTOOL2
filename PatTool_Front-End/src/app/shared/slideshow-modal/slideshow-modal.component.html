@@ -39,7 +39,7 @@
           {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
         </div>
         <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="slideshow-zoom-info">
-          <div class="zoom-value">{{ (slideshowZoom * 100).toFixed(0) }}%</div>
+          <div class="zoom-value"><strong>Zoom:</strong> {{ (slideshowZoom * 100).toFixed(0) }}%</div>
           <div class="info-line">Min Zoom: {{ (minZoom * 100).toFixed(0) }}%</div>
           <div class="info-line">Mouse: {{ cursorX }}, {{ cursorY }}</div>
           <div class="info-line">Container: {{ containerWidth }} × {{ containerHeight }}</div>
@@ -57,9 +57,9 @@
           
           <!-- EXIF Info Section -->
           <div class="exif-section" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 8px; margin-top: 8px;">
-            <div class="exif-title" style="font-weight: bold; margin-bottom: 6px;">EXIF Information:</div>
+            <div class="exif-title" style="font-weight: bold; margin-bottom: 6px;">{{ 'EVENTELEM.EXIF_INFO' | translate }}:</div>
             <div *ngIf="isLoadingExif" class="exif-loading" style="text-align: center; padding: 8px;">
-              <i class="fa fa-spinner fa-spin"></i> Loading...
+              <i class="fa fa-spinner fa-spin"></i> {{ 'EVENTELEM.LOADING_EXIF' | translate }}
             </div>
             <div *ngIf="!isLoadingExif && exifData && exifData.length > 0" class="exif-data">
               <div *ngFor="let item of exifData" class="exif-item" style="margin-bottom: 4px; font-size: 0.9em;">
@@ -82,8 +82,8 @@
         
         <!-- Indicateur en bas à gauche quand le panneau d'info est visible -->
         <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="info-panel-indicator">
-          <i class="fa fa-info-circle"></i> Info Panel Active
-          <span *ngIf="isFullscreen" class="fullscreen-hint">R/Home: Reset Zoom</span>
+          <i class="fa fa-info-circle"></i> {{ 'EVENTELEM.INFO_PANEL_ACTIVE' | translate }}
+          <span *ngIf="isFullscreen" class="fullscreen-hint">{{ 'EVENTELEM.RESET_ZOOM_HINT' | translate }}</span>
         </div>
       </div>
       <div class="slideshow-controls">
@@ -141,10 +141,10 @@
       <button type="button" class="btn btn-success" 
               (click)="shareImage()"
               [disabled]="slideshowImages.length === 0"
-              [ngbTooltip]="'Partager l\'image (WhatsApp, etc.)'"
+              [ngbTooltip]="'EVENTELEM.SHARE_IMAGE_TOOLTIP' | translate"
               placement="top">
         <i class="fa fa-share-alt me-1"></i>
-        <span>Partager</span>
+        <span>{{ 'EVENTELEM.SHARE' | translate }}</span>
       </button>
       <button type="button" class="btn btn-info" 
               (click)="showExifInfo()"
@@ -157,10 +157,10 @@
       <button type="button" class="btn btn-secondary" 
               (click)="toggleInfoPanel()"
               [disabled]="slideshowImages.length === 0"
-              [ngbTooltip]="showInfoPanel ? 'Hide Info Panel' : 'Show Info Panel'"
+              [ngbTooltip]="showInfoPanel ? ('EVENTELEM.HIDE_INFO_PANEL' | translate) : ('EVENTELEM.SHOW_INFO_PANEL' | translate)"
               placement="top">
         <i class="fa me-1" [ngClass]="showInfoPanel ? 'fa-eye-slash' : 'fa-eye'"></i>
-        <span>{{ showInfoPanel ? 'Hide Info' : 'Show Info' }}</span>
+        <span>{{ showInfoPanel ? ('EVENTELEM.HIDE_INFO' | translate) : ('EVENTELEM.SHOW_INFO' | translate) }}</span>
       </button>
       <button type="button" class="btn btn-secondary" (click)="onSlideshowClose(c)">
         <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}

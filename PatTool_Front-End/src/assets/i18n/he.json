@@ -340,7 +340,18 @@
         "EXIF_ORIENTATION": "כיוון",
         "EXIF_GPS": "GPS",
         "EXIF_PIXEL_WIDTH": "רוחב (פיקסלים)",
-        "EXIF_PIXEL_HEIGHT": "גובה (פיקסלים)"
+        "EXIF_PIXEL_HEIGHT": "גובה (פיקסלים)",
+        "ZOOM_IN": "הגדל",
+        "ZOOM_OUT": "הקטן",
+        "ZOOM_RESET": "איפוס זום",
+        "SHARE": "שתף",
+        "SHARE_IMAGE_TOOLTIP": "שתף תמונה (WhatsApp וכו')",
+        "INFO_PANEL_ACTIVE": "לוח מידע פעיל",
+        "SHOW_INFO_PANEL": "הצג לוח מידע",
+        "HIDE_INFO_PANEL": "הסתר לוח מידע",
+        "SHOW_INFO": "הצג מידע",
+        "HIDE_INFO": "הסתר מידע",
+        "RESET_ZOOM_HINT": "R/Home: איפוס זום"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "התחל גלילה אוטומטית",

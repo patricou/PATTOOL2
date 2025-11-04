@@ -544,6 +544,53 @@
     color: inherit !important;
 }
 
+/* File thumbnail styles */
+.file-thumbnail {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+.file-thumbnail-clickable {
+    cursor: pointer;
+}
+
+.file-thumbnail-clickable:hover {
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    border-color: rgba(0, 0, 0, 0.3);
+}
+
+.file-thumbnail-loading {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    flex-shrink: 0;
+}
+
+.file-thumbnail-loading i {
+    font-size: 1rem;
+}
+
+/* Badge clickable styles */
+.badge-clickable {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.badge-clickable:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    opacity: 0.9;
+}
+
 /* Responsive padding adjustments */
 @media (max-width: 768px) {
     .card-block {
@@ -560,5 +607,11 @@
     .card-img-overlay .pat-card {
         padding: 0.3rem 0.6rem;
         font-size: 1.02rem;
+    }
+    
+    .file-thumbnail,
+    .file-thumbnail-loading {
+        width: 32px;
+        height: 32px;
     }
 }

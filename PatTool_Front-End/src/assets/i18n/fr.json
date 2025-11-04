@@ -334,7 +334,15 @@
         "EXIF_PIXEL_HEIGHT": "Hauteur (pixels)",
         "ZOOM_IN": "Zoomer",
         "ZOOM_OUT": "Dézoomer",
-        "ZOOM_RESET": "Réinitialiser le zoom"
+        "ZOOM_RESET": "Réinitialiser le zoom",
+        "SHARE": "Partager",
+        "SHARE_IMAGE_TOOLTIP": "Partager l'image (WhatsApp, etc.)",
+        "INFO_PANEL_ACTIVE": "Panneau d'info actif",
+        "SHOW_INFO_PANEL": "Afficher le panneau d'info",
+        "HIDE_INFO_PANEL": "Masquer le panneau d'info",
+        "SHOW_INFO": "Afficher Info",
+        "HIDE_INFO": "Masquer Info",
+        "RESET_ZOOM_HINT": "R/Home: Réinitialiser le zoom"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Démarrer le défilement automatique",

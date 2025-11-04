@@ -342,7 +342,18 @@
         "EXIF_ORIENTATION": "Ориентация",
         "EXIF_GPS": "GPS",
         "EXIF_PIXEL_WIDTH": "Ширина (пиксели)",
-        "EXIF_PIXEL_HEIGHT": "Высота (пиксели)"
+        "EXIF_PIXEL_HEIGHT": "Высота (пиксели)",
+        "ZOOM_IN": "Увеличить",
+        "ZOOM_OUT": "Уменьшить",
+        "ZOOM_RESET": "Сбросить масштаб",
+        "SHARE": "Поделиться",
+        "SHARE_IMAGE_TOOLTIP": "Поделиться изображением (WhatsApp и т.д.)",
+        "INFO_PANEL_ACTIVE": "Панель информации активна",
+        "SHOW_INFO_PANEL": "Показать панель информации",
+        "HIDE_INFO_PANEL": "Скрыть панель информации",
+        "SHOW_INFO": "Показать информацию",
+        "HIDE_INFO": "Скрыть информацию",
+        "RESET_ZOOM_HINT": "R/Home: Сбросить масштаб"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Запустить автоматическую прокрутку",

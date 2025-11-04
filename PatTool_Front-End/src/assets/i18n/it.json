@@ -347,7 +347,18 @@
         "EXIF_ORIENTATION": "Orientamento",
         "EXIF_GPS": "GPS",
         "EXIF_PIXEL_WIDTH": "Larghezza (pixel)",
-        "EXIF_PIXEL_HEIGHT": "Altezza (pixel)"
+        "EXIF_PIXEL_HEIGHT": "Altezza (pixel)",
+        "ZOOM_IN": "Ingrandisci",
+        "ZOOM_OUT": "Riduci",
+        "ZOOM_RESET": "Reimposta zoom",
+        "SHARE": "Condividi",
+        "SHARE_IMAGE_TOOLTIP": "Condividi immagine (WhatsApp, ecc.)",
+        "INFO_PANEL_ACTIVE": "Pannello informazioni attivo",
+        "SHOW_INFO_PANEL": "Mostra pannello informazioni",
+        "HIDE_INFO_PANEL": "Nascondi pannello informazioni",
+        "SHOW_INFO": "Mostra Info",
+        "HIDE_INFO": "Nascondi Info",
+        "RESET_ZOOM_HINT": "R/Home: Reimposta zoom"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Avvia scorrimento automatico",

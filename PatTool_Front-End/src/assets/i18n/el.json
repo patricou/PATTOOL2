@@ -344,7 +344,18 @@
         "EXIF_ORIENTATION": "Προσανατολισμός",
         "EXIF_GPS": "GPS",
         "EXIF_PIXEL_WIDTH": "Πλάτος (pixel)",
-        "EXIF_PIXEL_HEIGHT": "Ύψος (pixel)"
+        "EXIF_PIXEL_HEIGHT": "Ύψος (pixel)",
+        "ZOOM_IN": "Μεγέθυνση",
+        "ZOOM_OUT": "Σμίκρυνση",
+        "ZOOM_RESET": "Επαναφορά μεγέθυνσης",
+        "SHARE": "Κοινοποίηση",
+        "SHARE_IMAGE_TOOLTIP": "Κοινοποίηση εικόνας (WhatsApp κ.λπ.)",
+        "INFO_PANEL_ACTIVE": "Πίνακας πληροφοριών ενεργός",
+        "SHOW_INFO_PANEL": "Εμφάνιση πίνακα πληροφοριών",
+        "HIDE_INFO_PANEL": "Απόκρυψη πίνακα πληροφοριών",
+        "SHOW_INFO": "Εμφάνιση πληροφοριών",
+        "HIDE_INFO": "Απόκρυψη πληροφοριών",
+        "RESET_ZOOM_HINT": "R/Home: Επαναφορά μεγέθυνσης"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Ξεκινήστε αυτόματη κύλιση",

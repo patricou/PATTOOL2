@@ -347,7 +347,18 @@
         "EXIF_ORIENTATION": "向き",
         "EXIF_GPS": "GPS",
         "EXIF_PIXEL_WIDTH": "幅（ピクセル）",
-        "EXIF_PIXEL_HEIGHT": "高さ（ピクセル）"
+        "EXIF_PIXEL_HEIGHT": "高さ（ピクセル）",
+        "ZOOM_IN": "ズームイン",
+        "ZOOM_OUT": "ズームアウト",
+        "ZOOM_RESET": "ズームリセット",
+        "SHARE": "共有",
+        "SHARE_IMAGE_TOOLTIP": "画像を共有（WhatsAppなど）",
+        "INFO_PANEL_ACTIVE": "情報パネルがアクティブ",
+        "SHOW_INFO_PANEL": "情報パネルを表示",
+        "HIDE_INFO_PANEL": "情報パネルを非表示",
+        "SHOW_INFO": "情報を表示",
+        "HIDE_INFO": "情報を非表示",
+        "RESET_ZOOM_HINT": "R/Home: ズームリセット"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "自動スクロールを開始",
