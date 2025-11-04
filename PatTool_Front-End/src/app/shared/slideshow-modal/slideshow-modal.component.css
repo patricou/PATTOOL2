@@ -345,10 +345,14 @@
     font-weight: 700;
 }
 
-.slideshow-zoom-info .cursor-position {
-    font-size: 0.8rem;
+.slideshow-zoom-info .cursor-position,
+.slideshow-zoom-info .container-dimensions,
+.slideshow-zoom-info .info-line {
+    font-size: 0.75rem;
     font-weight: 500;
-    opacity: 0.9;
+    opacity: 0.85;
+    margin-top: 2px;
+    line-height: 1.3;
 }
 
 .slideshow-zoom-info .saved-position {
@@ -369,6 +373,121 @@
     font-weight: 500;
     color: #81C784;
     opacity: 0.9;
+}
+
+.slideshow-zoom-info .exif-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.3);
+    padding-top: 8px;
+    margin-top: 8px;
+}
+
+.slideshow-zoom-info .exif-title {
+    font-weight: bold;
+    margin-bottom: 6px;
+    font-size: 0.85rem;
+}
+
+.slideshow-zoom-info .exif-loading {
+    text-align: center;
+    padding: 8px;
+    font-size: 0.75rem;
+    opacity: 0.8;
+}
+
+.slideshow-zoom-info .exif-data {
+    max-height: 200px;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.slideshow-zoom-info .exif-item {
+    margin-bottom: 4px;
+    font-size: 0.85rem;
+    line-height: 1.3;
+    opacity: 0.9;
+}
+
+.slideshow-zoom-info .exif-empty {
+    text-align: center;
+    padding: 8px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.75rem;
+    opacity: 0.7;
+}
+
+/* Indicateur en bas à droite quand le panneau d'info est visible */
+.info-panel-indicator {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 400;
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.info-panel-indicator i {
+    font-size: 0.75rem;
+    color: rgba(76, 175, 80, 0.8);
+}
+
+.info-panel-indicator .fullscreen-hint {
+    margin-left: 6px;
+    padding-left: 6px;
+    border-left: 1px solid rgba(255, 255, 255, 0.2);
+    font-size: 0.65rem;
+    opacity: 0.8;
+    color: rgba(129, 199, 132, 0.8);
+}
+
+/* En plein écran, s'assurer que l'indicateur est visible */
+:fullscreen .info-panel-indicator,
+:-webkit-full-screen .info-panel-indicator,
+:-moz-full-screen .info-panel-indicator,
+:-ms-fullscreen .info-panel-indicator,
+.slideshow-container:fullscreen .info-panel-indicator,
+.slideshow-container:-webkit-full-screen .info-panel-indicator,
+.slideshow-container:-moz-full-screen .info-panel-indicator,
+.slideshow-container:-ms-fullscreen .info-panel-indicator {
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    z-index: 999999 !important;
+    pointer-events: none !important;
+}
+
+/* Rectangle de sélection (clic droit) */
+.selection-rectangle {
+    position: absolute;
+    border: 2px dashed #4CAF50;
+    background: rgba(76, 175, 80, 0.15);
+    pointer-events: none;
+    z-index: 10000 !important;
+    box-sizing: border-box;
+    outline: 1px solid rgba(76, 175, 80, 0.5);
+    top: 0;
+    left: 0;
+}
+
+/* En plein écran, s'assurer que le rectangle est visible */
+:fullscreen .selection-rectangle,
+:-webkit-full-screen .selection-rectangle,
+:-moz-full-screen .selection-rectangle,
+:-ms-fullscreen .selection-rectangle,
+.slideshow-container:fullscreen .selection-rectangle,
+.slideshow-container:-webkit-full-screen .selection-rectangle,
+.slideshow-container:-moz-full-screen .selection-rectangle,
+.slideshow-container:-ms-fullscreen .selection-rectangle {
+    position: fixed !important;
+    z-index: 999999 !important;
 }
 
 /* Ensure counter and zoom info are visible in fullscreen - must be above image */

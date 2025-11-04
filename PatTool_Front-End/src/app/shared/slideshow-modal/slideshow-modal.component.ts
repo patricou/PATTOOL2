@@ -1,9 +1,11 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil } from 'rxjs/operators';
+// Note: panzoom library is available but we'll keep using custom implementation for now
+// import panzoom from 'panzoom';
 declare var EXIF: {
   getData(img: any, callback: () => void): void;
   getAllTags(img: any): any;
@@ -61,16 +63,60 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public cursorX: number = 0;
   public cursorY: number = 0;
   
+  // Container dimensions for display
+  public containerWidth: number = 0;
+  public containerHeight: number = 0;
+  
+  // Image dimensions for display
+  public imageNaturalWidth: number = 0;
+  public imageNaturalHeight: number = 0;
+  public imageDisplayWidth: number = 0;
+  public imageDisplayHeight: number = 0;
+  public imageZoomedWidth: number = 0;
+  public imageZoomedHeight: number = 0;
+  public minZoom: number = 1;
+  public translateX: number = 0;
+  public translateY: number = 0;
+  
+  // Visible portion of image (what part of original image is displayed)
+  public visibleImageOriginX: number = 0;
+  public visibleImageOriginY: number = 0;
+  public visibleImageWidth: number = 0;
+  public visibleImageHeight: number = 0;
+  
   // Saved cursor position (when clicking on image)
   public savedCursorX: number = 0;
   public savedCursorY: number = 0;
   public hasSavedPosition: boolean = false;
+  
+  // Info panel visibility
+  public showInfoPanel: boolean = false;
   
   private hasDraggedSlideshow: boolean = false;
   private dragStartX: number = 0;
   private dragStartY: number = 0;
   private dragOrigX: number = 0;
   private dragOrigY: number = 0;
+  
+  // Rectangle selection for right-click zoom
+  public isSelectingRectangle: boolean = false;
+  public selectionRectX: number = 0;
+  public selectionRectY: number = 0;
+  public selectionRectWidth: number = 0;
+  public selectionRectHeight: number = 0;
+  private selectionStartX: number = 0;
+  private selectionStartY: number = 0;
+  private selectionMouseMoveHandler?: (event: MouseEvent) => void;
+  private selectionMouseUpHandler?: (event: MouseEvent) => void;
+  
+  // Getters pour le template (assurer une taille minimale pour l'affichage)
+  public get displaySelectionWidth(): number {
+    return Math.max(1, this.selectionRectWidth);
+  }
+  
+  public get displaySelectionHeight(): number {
+    return Math.max(1, this.selectionRectHeight);
+  }
   
   // Touch state for mobile gestures
   private touchStartDistance: number = 0;
@@ -85,6 +131,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Fullscreen listener handler (stored for cleanup)
   private fullscreenChangeHandler?: () => void;
+  
+  // Track if we want to prevent fullscreen exit (when Escape is pressed to reset zoom)
+  private preventFullscreenExit: boolean = false;
+  
+  // Fullscreen element escape handler (to prevent fullscreen exit)
+  private fullscreenEscapeHandler?: (event: KeyboardEvent) => void;
+  
+  // Resize listener handler (stored for cleanup)
+  private resizeHandler?: () => void;
   
   // FS Photos download control
   private fsDownloadsActive: boolean = false;
@@ -104,6 +159,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private imageFileNames: Map<string, string> = new Map(); // Store file names by image URL
   
   constructor(
+    private cdr: ChangeDetectorRef,
     private modalService: NgbModal,
     private translateService: TranslateService,
     private fileService: FileService
@@ -124,6 +180,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Centralized method to clean up all memory used by the slideshow
   // This method is idempotent - safe to call multiple times
   private cleanupAllMemory(): void {
+    // Remove selection listeners
+    this.removeSelectionListeners();
     // Stop slideshow and timers
     this.stopSlideshow();
     
@@ -145,6 +203,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Remove all event listeners
     this.removeKeyboardListener();
     this.removeFullscreenListener();
+    this.removeResizeListener();
     
     // Revoke all blob URLs to free memory (critical for memory cleanup)
     // Make a copy of the array to avoid issues if it's modified during iteration
@@ -164,8 +223,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.slideshowImages = [];
     this.slideshowBlobs.clear();
     this.exifDataCache.clear();
-    this.imageFileNames.clear();
+    
+    // Reset info panel state
+    this.showInfoPanel = false;
     this.exifData = [];
+    this.isLoadingExif = false;
+    this.imageFileNames.clear();
     this.currentImageFileName = '';
     
     // Reset all state variables
@@ -266,6 +329,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Setup keyboard listener after modal is opened
       setTimeout(() => {
         this.setupKeyboardListener();
+        this.setupResizeListener();
+        this.updateContainerDimensions();
       }, 100);
       
       // Handle modal close event
@@ -332,7 +397,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             });
             // Reset zoom when first image loads
             if (this.slideshowImages.length === 1) {
-              setTimeout(() => this.resetSlideshowZoom(), 100);
+              setTimeout(() => {
+                this.resetSlideshowZoom();
+                this.updateContainerDimensions();
+                // Try multiple times to get dimensions
+                setTimeout(() => {
+                  this.updateImageDimensions();
+                  this.updateContainerDimensions();
+                }, 200);
+              }, 100);
             }
           }, (error) => {
             console.error('Error loading image for slideshow:', error);
@@ -361,7 +434,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       });
       // Reset zoom when images are loaded
       if (this.slideshowImages.length > 0) {
-        setTimeout(() => this.resetSlideshowZoom(), 100);
+        setTimeout(() => {
+          this.resetSlideshowZoom();
+          this.updateContainerDimensions();
+          // Try multiple times to get dimensions
+          setTimeout(() => {
+            this.updateImageDimensions();
+            this.updateContainerDimensions();
+          }, 200);
+        }, 100);
       }
     }
   }
@@ -429,14 +510,347 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.removeFullscreenListener();
     
     this.fullscreenChangeHandler = () => {
+      const wasFullscreen = this.isFullscreen;
       this.isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
         (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
+      
+      // Si on était en plein écran et qu'on vient de sortir, et qu'on veut empêcher la sortie
+      // alors on rétablit le plein écran immédiatement
+      if (wasFullscreen && !this.isFullscreen && this.preventFullscreenExit) {
+        this.preventFullscreenExit = false;
+        // Rétablir le plein écran immédiatement avec requestAnimationFrame pour plus de réactivité
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            const container = this.slideshowContainerRef?.nativeElement as HTMLElement ||
+                             document.querySelector('.slideshow-image-wrapper') as HTMLElement;
+            if (container && !this.isFullscreen) {
+              try {
+                if (container.requestFullscreen) {
+                  container.requestFullscreen().catch(() => {});
+                } else if ((container as any).webkitRequestFullscreen) {
+                  (container as any).webkitRequestFullscreen();
+                } else if ((container as any).mozRequestFullScreen) {
+                  (container as any).mozRequestFullScreen();
+                } else if ((container as any).msRequestFullscreen) {
+                  (container as any).msRequestFullscreen();
+                }
+              } catch (error) {
+                console.warn('Error restoring fullscreen:', error);
+              }
+            }
+          });
+        });
+      } else {
+        // Update container dimensions when fullscreen changes
+        this.updateContainerDimensions();
+      }
+      
+      // Ajouter/retirer le listener Escape sur l'élément en plein écran
+      this.setupFullscreenEscapeHandler();
     };
+    
+    // Setup fullscreen escape handler on the fullscreen element
+    this.setupFullscreenEscapeHandler();
     
     document.addEventListener('fullscreenchange', this.fullscreenChangeHandler);
     document.addEventListener('webkitfullscreenchange', this.fullscreenChangeHandler);
     document.addEventListener('mozfullscreenchange', this.fullscreenChangeHandler);
     document.addEventListener('MSFullscreenChange', this.fullscreenChangeHandler);
+  }
+  
+  // Update container dimensions (called when container size changes)
+  private updateContainerDimensions(): void {
+    try {
+      const container = this.slideshowContainerRef?.nativeElement;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        if (rect && rect.width > 0 && rect.height > 0) {
+          this.containerWidth = Math.round(rect.width);
+          this.containerHeight = Math.round(rect.height);
+          
+          // Also update image dimensions and other info
+          this.updateImageDimensions();
+        }
+      }
+    } catch (error) {
+      // Silently ignore errors
+    }
+  }
+  
+  // Handle image load event
+  public onImageLoad(): void {
+    // Update dimensions when image loads
+    setTimeout(() => {
+      this.updateImageDimensions();
+      this.updateContainerDimensions();
+    }, 100);
+  }
+  
+  // Update all image-related dimensions for display
+  private updateImageDimensions(): void {
+    try {
+      // Check if modal is open first
+      if (!this.isSlideshowModalOpen || !this.modalRef) {
+        // Modal not open, don't try to update dimensions
+        return;
+      }
+      
+      // Try to get elements - use ViewChild if available, otherwise query DOM directly
+      let imgEl: HTMLImageElement | null = null;
+      let container: HTMLElement | null = null;
+      
+      if (this.slideshowImgElRef?.nativeElement) {
+        imgEl = this.slideshowImgElRef.nativeElement as HTMLImageElement;
+      } else {
+        // Fallback: query DOM directly
+        imgEl = document.querySelector('.slideshow-image') as HTMLImageElement;
+      }
+      
+      if (this.slideshowContainerRef?.nativeElement) {
+        container = this.slideshowContainerRef.nativeElement as HTMLElement;
+      } else {
+        // Fallback: query DOM directly
+        container = document.querySelector('.slideshow-image-wrapper') as HTMLElement;
+      }
+      
+      if (!imgEl || !container) {
+        this.resetAllDimensions();
+        return;
+      }
+      
+      // Get natural dimensions (original image size)
+      const naturalW = imgEl.naturalWidth || 0;
+      const naturalH = imgEl.naturalHeight || 0;
+      
+      if (naturalW === 0 || naturalH === 0) {
+        // Image not loaded yet, try again later
+        setTimeout(() => this.updateImageDimensions(), 100);
+        return;
+      }
+      
+      this.imageNaturalWidth = naturalW;
+      this.imageNaturalHeight = naturalH;
+      
+      // Get container dimensions
+      const containerRect = container.getBoundingClientRect();
+      const containerW = containerRect.width || 1;
+      const containerH = containerRect.height || 1;
+      
+      // Calculate how the image is fitted to container (before zoom)
+      // Image is fitted to fill container while maintaining aspect ratio
+      const containerAspect = containerW / containerH;
+      const imageAspect = naturalW / naturalH;
+      
+      let baseDisplayW: number;
+      let baseDisplayH: number;
+      
+      if (imageAspect > containerAspect) {
+        // Image is wider - fit to width
+        baseDisplayW = containerW;
+        baseDisplayH = containerW / imageAspect;
+      } else {
+        // Image is taller - fit to height
+        baseDisplayH = containerH;
+        baseDisplayW = containerH * imageAspect;
+      }
+      
+      this.imageDisplayWidth = Math.round(baseDisplayW);
+      this.imageDisplayHeight = Math.round(baseDisplayH);
+      
+      // Get zoomed size
+      this.imageZoomedWidth = Math.round(baseDisplayW * this.slideshowZoom);
+      this.imageZoomedHeight = Math.round(baseDisplayH * this.slideshowZoom);
+      
+      // Update min zoom
+      this.minZoom = this.getMinSlideshowZoom();
+      
+      // Update translation values
+      this.translateX = Math.round(this.slideshowTranslateX);
+      this.translateY = Math.round(this.slideshowTranslateY);
+      
+      // Calculate visible portion of image (what part of original image is displayed)
+      this.calculateVisibleImagePortion();
+    } catch (error) {
+      console.warn('Error updating image dimensions:', error);
+      this.resetAllDimensions();
+    }
+  }
+  
+  // Reset all dimension values to 0
+  private resetAllDimensions(): void {
+    this.imageNaturalWidth = 0;
+    this.imageNaturalHeight = 0;
+    this.imageDisplayWidth = 0;
+    this.imageDisplayHeight = 0;
+    this.imageZoomedWidth = 0;
+    this.imageZoomedHeight = 0;
+    this.visibleImageOriginX = 0;
+    this.visibleImageOriginY = 0;
+    this.visibleImageWidth = 0;
+    this.visibleImageHeight = 0;
+  }
+  
+  // Calculate what portion of the original image is currently visible
+  private calculateVisibleImagePortion(): void {
+    try {
+      // Try to get elements - use ViewChild if available, otherwise query DOM directly
+      let imgEl: HTMLImageElement | null = null;
+      let container: HTMLElement | null = null;
+      
+      if (this.slideshowImgElRef?.nativeElement) {
+        imgEl = this.slideshowImgElRef.nativeElement as HTMLImageElement;
+      } else {
+        // Fallback: query DOM directly
+        imgEl = document.querySelector('.slideshow-image') as HTMLImageElement;
+      }
+      
+      if (this.slideshowContainerRef?.nativeElement) {
+        container = this.slideshowContainerRef.nativeElement as HTMLElement;
+      } else {
+        // Fallback: query DOM directly
+        container = document.querySelector('.slideshow-image-wrapper') as HTMLElement;
+      }
+      
+      if (!container || !imgEl) {
+        this.visibleImageOriginX = 0;
+        this.visibleImageOriginY = 0;
+        this.visibleImageWidth = 0;
+        this.visibleImageHeight = 0;
+        return;
+      }
+      
+      // Get natural image dimensions (original image size)
+      const naturalW = imgEl.naturalWidth || 0;
+      const naturalH = imgEl.naturalHeight || 0;
+      
+      if (naturalW === 0 || naturalH === 0) {
+        this.visibleImageOriginX = 0;
+        this.visibleImageOriginY = 0;
+        this.visibleImageWidth = 0;
+        this.visibleImageHeight = 0;
+        return;
+      }
+      
+      // Get container dimensions
+      const containerRect = container.getBoundingClientRect();
+      const containerW = containerRect.width || 1;
+      const containerH = containerRect.height || 1;
+      
+      // Use the calculated display dimensions from updateImageDimensions
+      const imgBaseW = this.imageDisplayWidth || 1;
+      const imgBaseH = this.imageDisplayHeight || 1;
+      
+      // Scale factor from natural to display size
+      const scaleX = imgBaseW / naturalW;
+      const scaleY = imgBaseH / naturalH;
+      
+      // Container center
+      const containerCenterX = containerW / 2;
+      const containerCenterY = containerH / 2;
+      
+      // Visible area in container is (0,0) to (containerW, containerH)
+      // In zoomed image coordinates (relative to image center):
+      const visibleLeftZoomed = -containerCenterX - this.slideshowTranslateX;
+      const visibleTopZoomed = -containerCenterY - this.slideshowTranslateY;
+      const visibleRightZoomed = containerCenterX - this.slideshowTranslateX;
+      const visibleBottomZoomed = containerCenterY - this.slideshowTranslateY;
+      
+      // Convert to display coordinates (divide by zoom)
+      const imgDisplayCenterX = imgBaseW / 2;
+      const imgDisplayCenterY = imgBaseH / 2;
+      
+      const originXDisplay = imgDisplayCenterX + (visibleLeftZoomed / this.slideshowZoom);
+      const originYDisplay = imgDisplayCenterY + (visibleTopZoomed / this.slideshowZoom);
+      const visibleWDisplay = (visibleRightZoomed - visibleLeftZoomed) / this.slideshowZoom;
+      const visibleHDisplay = (visibleBottomZoomed - visibleTopZoomed) / this.slideshowZoom;
+      
+      // Convert from display coordinates to natural image coordinates
+      const originX = originXDisplay / scaleX;
+      const originY = originYDisplay / scaleY;
+      const visibleW = visibleWDisplay / scaleX;
+      const visibleH = visibleHDisplay / scaleY;
+      
+      // Clamp to natural image bounds
+      this.visibleImageOriginX = Math.max(0, Math.min(naturalW, Math.round(originX)));
+      this.visibleImageOriginY = Math.max(0, Math.min(naturalH, Math.round(originY)));
+      this.visibleImageWidth = Math.max(0, Math.min(naturalW - this.visibleImageOriginX, Math.round(visibleW)));
+      this.visibleImageHeight = Math.max(0, Math.min(naturalH - this.visibleImageOriginY, Math.round(visibleH)));
+    } catch (error) {
+      console.warn('Error calculating visible image portion:', error);
+      this.visibleImageOriginX = 0;
+      this.visibleImageOriginY = 0;
+      this.visibleImageWidth = 0;
+      this.visibleImageHeight = 0;
+    }
+  }
+  
+  // Setup resize listener
+  private setupResizeListener(): void {
+    // Remove existing listener if any
+    this.removeResizeListener();
+    
+    this.resizeHandler = () => {
+      this.updateContainerDimensions();
+    };
+    
+    window.addEventListener('resize', this.resizeHandler);
+  }
+  
+  // Remove resize listener
+  private removeResizeListener(): void {
+    if (this.resizeHandler) {
+      window.removeEventListener('resize', this.resizeHandler);
+      this.resizeHandler = undefined;
+    }
+  }
+  
+  // Setup escape handler on fullscreen element
+  private setupFullscreenEscapeHandler(): void {
+    // Remove existing handler first
+    this.removeFullscreenEscapeHandler();
+    
+    if (!this.isFullscreen) {
+      return;
+    }
+    
+    // Get the fullscreen element
+    const fullscreenElement = document.fullscreenElement || 
+                              (document as any).webkitFullscreenElement || 
+                              (document as any).mozFullScreenElement || 
+                              (document as any).msFullscreenElement;
+    
+    if (!fullscreenElement) {
+      return;
+    }
+    
+    // Add escape handler directly on the fullscreen element
+    this.fullscreenEscapeHandler = (event: KeyboardEvent) => {
+      if ((event.key === 'Escape' || event.keyCode === 27)) {
+        // Marquer qu'on veut empêcher la sortie et réinitialiser le zoom
+        this.preventFullscreenExit = true;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.resetSlideshowZoom();
+      }
+    };
+    
+    fullscreenElement.addEventListener('keydown', this.fullscreenEscapeHandler, { capture: true, passive: false });
+  }
+  
+  // Remove fullscreen escape handler
+  private removeFullscreenEscapeHandler(): void {
+    if (this.fullscreenEscapeHandler) {
+      const fullscreenElement = document.fullscreenElement || 
+                                (document as any).webkitFullscreenElement || 
+                                (document as any).mozFullScreenElement || 
+                                (document as any).msFullscreenElement;
+      
+      if (fullscreenElement) {
+        fullscreenElement.removeEventListener('keydown', this.fullscreenEscapeHandler, { capture: true });
+      }
+      this.fullscreenEscapeHandler = undefined;
+    }
   }
   
   // Remove fullscreen listeners
@@ -448,30 +862,87 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       document.removeEventListener('MSFullscreenChange', this.fullscreenChangeHandler);
       this.fullscreenChangeHandler = undefined;
     }
+    this.removeFullscreenEscapeHandler();
   }
   
   // Get minimum zoom level - ensures image never becomes smaller than its container
+  // Always uses visible container dimensions (works in both windowed and fullscreen modes)
+  // Zoom is calculated based on visible container viewport, not full image
   public getMinSlideshowZoom(): number {
     try {
       const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
       const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
       if (!container || !imgEl || !imgEl.naturalWidth || !imgEl.naturalHeight) return 1;
-      const cw = container.clientWidth || 1;
-      const ch = container.clientHeight || 1;
-      const iw = imgEl.naturalWidth;
-      const ih = imgEl.naturalHeight;
-      // Calculate zoom needed to fill container, but never less than 1 (image original size)
-      const fillZoom = Math.max(cw / iw, ch / ih);
+      
+      // Use getBoundingClientRect() to get the actual visible dimensions of the container
+      // This ensures we always use the visible window dimensions, not fullscreen dimensions
+      const containerRect = container.getBoundingClientRect();
+      const cw = containerRect.width || container.clientWidth || 1;
+      const ch = containerRect.height || container.clientHeight || 1;
+      
+      // Get the image's base display size (before any zoom transform)
+      // This is what's currently visible in the container viewport
+      const imgBaseWidth = imgEl.clientWidth || imgEl.naturalWidth || 1;
+      const imgBaseHeight = imgEl.clientHeight || imgEl.naturalHeight || 1;
+      
+      // Calculate zoom needed so the visible portion of the image fits the container
+      // Zoom is relative to what's visible in the container, not the full image
+      const fillZoom = Math.max(cw / imgBaseWidth, ch / imgBaseHeight);
       return Math.max(1, fillZoom);
     } catch { return 1; }
   }
   
-  // Apply wheel zoom
+  // Get the visible image area in the container (what portion of image is currently visible)
+  private getVisibleImageArea(): { width: number; height: number; offsetX: number; offsetY: number } {
+    try {
+      const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+      const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
+      if (!container || !imgEl) {
+        return { width: 0, height: 0, offsetX: 0, offsetY: 0 };
+      }
+      
+      const containerRect = container.getBoundingClientRect();
+      const imgRect = imgEl.getBoundingClientRect();
+      
+      // Calculate what portion of the image is visible in the container
+      const visibleWidth = Math.min(containerRect.width, imgRect.width);
+      const visibleHeight = Math.min(containerRect.height, imgRect.height);
+      
+      // Calculate offset (how much of image is outside container)
+      const offsetX = Math.max(0, (imgRect.width - containerRect.width) / 2);
+      const offsetY = Math.max(0, (imgRect.height - containerRect.height) / 2);
+      
+      return {
+        width: visibleWidth,
+        height: visibleHeight,
+        offsetX: offsetX,
+        offsetY: offsetY
+      };
+    } catch {
+      return { width: 0, height: 0, offsetX: 0, offsetY: 0 };
+    }
+  }
+  
+  // Apply wheel zoom with dynamic step based on current zoom level
+  // Small step for small zoom, large step for large zoom
   private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 100): number {
     event.preventDefault();
     // Use actual deltaY value for linear zoom (normalized to reasonable scale)
-    const delta = event.deltaY / 20; // Normalize to make scroll speed very fast (reduced from 30 to 20)
-    const step = 0.25; // Step for very fast zoom while maintaining linearity (increased from 0.15 to 0.25)
+    const delta = event.deltaY / 20; // Normalize to make scroll speed reasonable
+    
+    // Dynamic step: proportionnel au niveau de zoom actuel
+    // Plus le zoom est élevé, plus le pas est grand (plus rapide)
+    // Formule: step = baseStep * (1 + current * multiplier)
+    // Cela donne: petit pas à zoom faible, grand pas à zoom élevé
+    const baseStep = 0.1; // Pas de base modéré pour petit zoom
+    const multiplier = 0.2; // Multiplicateur augmenté pour progression plus rapide dès le début
+    const dynamicStep = baseStep * (1 + current * multiplier);
+    
+    // Limiter le pas entre minStep et maxStep pour éviter des valeurs trop extrêmes
+    const minStep = 0.1; // Pas minimum modéré pour petit zoom
+    const maxStep = 5.0; // Augmenté encore plus pour permettre des pas très grands à zoom très élevé
+    const step = Math.max(minStep, Math.min(maxStep, dynamicStep));
+    
     let next = current - delta * step; // wheel up -> zoom in
     if (next < minZoom) next = minZoom;
     if (next > maxZoom) next = maxZoom;
@@ -480,33 +951,36 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   public onWheelSlideshow(event: WheelEvent): void {
     const minZoom = this.getMinSlideshowZoom();
-    const previousZoom = this.slideshowZoom;
     const oldZoom = this.slideshowZoom;
     this.slideshowZoom = this.applyWheelZoom(event, this.slideshowZoom, minZoom);
     
-    // Si on dézoome (wheel down = deltaY > 0), recentrer l'image si au minimum
-    // event.deltaY > 0 signifie qu'on scroll vers le bas = dézoom
-    if (event.deltaY > 0) {
-      // Recentrer si on atteint le zoom minimum
-      if (this.slideshowZoom <= minZoom) {
-        this.slideshowTranslateX = 0;
-        this.slideshowTranslateY = 0;
-      } else if (this.hasSavedPosition && this.slideshowZoom < previousZoom) {
-        // If zooming out and there's a saved position, zoom on that point
-        this.zoomOnPoint(this.slideshowZoom, this.savedCursorX, this.savedCursorY, oldZoom);
-      }
-    } else if (this.hasSavedPosition && this.slideshowZoom > previousZoom) {
-      // If zooming in and there's a saved position, zoom on that point
-      this.zoomOnPoint(this.slideshowZoom, this.savedCursorX, this.savedCursorY, oldZoom);
+    // Always zoom on the center of the visible image
+    if (this.slideshowZoom <= minZoom) {
+      // Reset to center if at minimum zoom
+      this.slideshowTranslateX = 0;
+      this.slideshowTranslateY = 0;
+    } else {
+      // Zoom on center
+      this.zoomOnCenter(this.slideshowZoom, oldZoom);
     }
     
     this.clampSlideshowTranslation();
+    // Recalculate image dimensions after zoom change - use setTimeout to ensure DOM is updated
+    setTimeout(() => {
+      this.updateImageDimensions();
+      this.updateContainerDimensions();
+    }, 0);
   }
   
   public resetSlideshowZoom(): void { 
     this.slideshowZoom = Math.max(1, this.getMinSlideshowZoom()); 
     this.slideshowTranslateX = 0; 
-    this.slideshowTranslateY = 0; 
+    this.slideshowTranslateY = 0;
+    // Recalculate dimensions when resetting zoom - use setTimeout to ensure DOM is updated
+    setTimeout(() => {
+      this.updateImageDimensions();
+      this.updateContainerDimensions();
+    }, 0);
   }
   
   // Helper function to center image on the saved point (container coordinates)
@@ -554,48 +1028,72 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  // Helper function to zoom on a specific point
+  // Helper function to zoom on a specific point (always centers on container center)
+  // Always uses visible container dimensions (works in both windowed and fullscreen modes)
   private zoomOnPoint(newZoom: number, pointX: number, pointY: number, oldZoom: number): void {
-    const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+    const container = this.slideshowContainerRef?.nativeElement as HTMLElement ||
+                     document.querySelector('.slideshow-image-wrapper') as HTMLElement;
     if (!container) return;
     
+    // Use getBoundingClientRect() to get the actual visible dimensions of the container
     const rect = container.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return;
+    
     const containerCenterX = rect.width / 2;
     const containerCenterY = rect.height / 2;
     
-    // pointX and pointY are in container coordinates (relative to top-left corner)
-    // Convert to relative to center
-    const pointRelativeToCenterX = pointX - containerCenterX;
-    const pointRelativeToCenterY = pointY - containerCenterY;
+    // For zooming on center: pointX and pointY should be container center
+    // But we accept them as parameters for flexibility
+    const zoomPointX = pointX;
+    const zoomPointY = pointY;
     
-    // Find the corresponding point in the original image space
+    // Convert zoom point to relative to container center
+    const pointRelativeToCenterX = zoomPointX - containerCenterX;
+    const pointRelativeToCenterY = zoomPointY - containerCenterY;
+    
+    // Find the image point that corresponds to this container point at old zoom
     // With transform-origin center: containerPoint = center + translate + imagePoint * zoom
     // So: imagePoint = (containerPoint - center - translate) / zoom
     const imagePointX = (pointRelativeToCenterX - this.slideshowTranslateX) / oldZoom;
     const imagePointY = (pointRelativeToCenterY - this.slideshowTranslateY) / oldZoom;
     
-    // After zoom, we want this point to stay at the same container position
-    // containerPoint = center + newTranslate + imagePoint * newZoom
-    // So: newTranslate = containerPoint - center - imagePoint * newZoom
-    // Since containerPoint - center = pointRelativeToCenterX
+    // After zoom, we want this image point to stay at the same container position
+    // newTranslate = pointRelativeToCenter - imagePoint * newZoom
     this.slideshowTranslateX = pointRelativeToCenterX - imagePointX * newZoom;
     this.slideshowTranslateY = pointRelativeToCenterY - imagePointY * newZoom;
+  }
+  
+  // Helper to zoom on container center (always centers on visible center)
+  private zoomOnCenter(newZoom: number, oldZoom: number): void {
+    const container = this.slideshowContainerRef?.nativeElement as HTMLElement ||
+                     document.querySelector('.slideshow-image-wrapper') as HTMLElement;
+    if (!container) return;
+    
+    const rect = container.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return;
+    
+    const containerCenterX = rect.width / 2;
+    const containerCenterY = rect.height / 2;
+    
+    this.zoomOnPoint(newZoom, containerCenterX, containerCenterY, oldZoom);
   }
   
   public zoomInSlideshow(): void { 
     const oldZoom = this.slideshowZoom;
     this.slideshowZoom = Math.min(100, parseFloat((this.slideshowZoom + 0.5).toFixed(2))); 
     
-    // If there's a saved position, zoom on that point
-    if (this.hasSavedPosition) {
-      this.zoomOnPoint(this.slideshowZoom, this.savedCursorX, this.savedCursorY, oldZoom);
-    }
+    // Always zoom on the center of the visible image
+    this.zoomOnCenter(this.slideshowZoom, oldZoom);
     
     this.clampSlideshowTranslation();
+    // Recalculate image dimensions after zoom change - use setTimeout to ensure DOM is updated
+    setTimeout(() => {
+      this.updateImageDimensions();
+      this.updateContainerDimensions();
+    }, 0);
   }
   
   public zoomOutSlideshow(): void { 
-    const previousZoom = this.slideshowZoom;
     const minZoom = this.getMinSlideshowZoom();
     const oldZoom = this.slideshowZoom;
     this.slideshowZoom = Math.max(minZoom, parseFloat((this.slideshowZoom - 0.5).toFixed(2))); 
@@ -604,16 +1102,46 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.slideshowZoom <= minZoom) {
       this.slideshowTranslateX = 0;
       this.slideshowTranslateY = 0;
-    } else if (this.hasSavedPosition && this.slideshowZoom > minZoom) {
-      // If there's a saved position, zoom on that point
-      this.zoomOnPoint(this.slideshowZoom, this.savedCursorX, this.savedCursorY, oldZoom);
+    } else {
+      // Always zoom on the center of the visible image
+      this.zoomOnCenter(this.slideshowZoom, oldZoom);
     }
     
     this.clampSlideshowTranslation();
+    // Recalculate image dimensions after zoom change - use setTimeout to ensure DOM is updated
+    setTimeout(() => {
+      this.updateImageDimensions();
+      this.updateContainerDimensions();
+    }, 0);
   }
   
   // Drag handlers
   public onSlideshowMouseDown(event: MouseEvent): void {
+    // Clic droit : démarrer la sélection rectangulaire
+    if (event.button === 2) {
+      event.preventDefault(); // Empêcher le menu contextuel
+      event.stopPropagation();
+      // Utiliser le container pour avoir les coordonnées correctes
+      const container = this.slideshowContainerRef?.nativeElement as HTMLElement ||
+                       document.querySelector('.slideshow-image-wrapper') as HTMLElement;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        // Calculer les coordonnées par rapport au container
+        this.selectionStartX = event.clientX - rect.left;
+        this.selectionStartY = event.clientY - rect.top;
+        this.isSelectingRectangle = true;
+        this.selectionRectX = this.selectionStartX;
+        this.selectionRectY = this.selectionStartY;
+        this.selectionRectWidth = 0;
+        this.selectionRectHeight = 0;
+        
+        // Ajouter des listeners globaux pour capturer le mousemove et mouseup même si la souris sort du container
+        this.setupSelectionListeners();
+      }
+      return;
+    }
+    
+    // Clic gauche : drag normal
     const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
     this.isDraggingSlideshow = canDrag;
     this.hasDraggedSlideshow = false;
@@ -637,6 +1165,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             const y = event.clientY - rect.top;
             this.cursorX = Math.max(0, Math.round(x));
             this.cursorY = Math.max(0, Math.round(y));
+            // Update container dimensions
+            this.containerWidth = Math.round(rect.width);
+            this.containerHeight = Math.round(rect.height);
+            
+            // Update image dimensions
+            this.updateImageDimensions();
           } else {
             // Fallback: if rect is not valid, try direct calculation
             this.cursorX = Math.round(event.clientX);
@@ -650,12 +1184,38 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             if (parentRect) {
               this.cursorX = Math.max(0, Math.round(event.clientX - parentRect.left));
               this.cursorY = Math.max(0, Math.round(event.clientY - parentRect.top));
+              this.containerWidth = Math.round(parentRect.width);
+              this.containerHeight = Math.round(parentRect.height);
             }
           }
         }
       } catch (error) {
         console.warn('Error calculating cursor position:', error);
       }
+    }
+    
+    // Gérer le dessin du rectangle de sélection (clic droit)
+    if (this.isSelectingRectangle) {
+      event.preventDefault();
+      event.stopPropagation();
+      // Utiliser le même container que dans onSlideshowMouseDown
+      const container = this.slideshowContainerRef?.nativeElement as HTMLElement ||
+                       document.querySelector('.slideshow-image-wrapper') as HTMLElement;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const currentX = event.clientX - rect.left;
+        const currentY = event.clientY - rect.top;
+        
+        // Calculer les coordonnées du rectangle (peut aller dans n'importe quelle direction)
+        this.selectionRectX = Math.min(this.selectionStartX, currentX);
+        this.selectionRectY = Math.min(this.selectionStartY, currentY);
+        this.selectionRectWidth = Math.abs(currentX - this.selectionStartX);
+        this.selectionRectHeight = Math.abs(currentY - this.selectionStartY);
+        
+        // Force change detection
+        this.cdr.detectChanges();
+      }
+      return;
     }
     
     if (!this.isDraggingSlideshow) return;
@@ -666,6 +1226,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.slideshowTranslateY = this.dragOrigY + dy;
     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
     this.clampSlideshowTranslation();
+    // Recalculate visible portion after dragging
+    setTimeout(() => {
+      this.calculateVisibleImagePortion();
+    }, 0);
   }
   
   public onSlideshowMouseEnter(event: MouseEvent): void {
@@ -675,13 +1239,136 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  public onSlideshowMouseUp(): void {
+  // Setup global listeners for rectangle selection (so it works even if mouse leaves container)
+  private setupSelectionListeners(): void {
+    // Remove existing listeners if any
+    this.removeSelectionListeners();
+    
+    this.selectionMouseMoveHandler = (event: MouseEvent) => {
+      if (this.isSelectingRectangle) {
+        this.onSlideshowMouseMove(event);
+      }
+    };
+    
+    this.selectionMouseUpHandler = (event: MouseEvent) => {
+      if (this.isSelectingRectangle) {
+        this.onSlideshowMouseUp(event);
+        this.removeSelectionListeners();
+      }
+    };
+    
+    // Add listeners to document to capture events even if mouse leaves container
+    document.addEventListener('mousemove', this.selectionMouseMoveHandler, true);
+    document.addEventListener('mouseup', this.selectionMouseUpHandler, true);
+  }
+  
+  // Remove global listeners for rectangle selection
+  private removeSelectionListeners(): void {
+    if (this.selectionMouseMoveHandler) {
+      document.removeEventListener('mousemove', this.selectionMouseMoveHandler, true);
+      this.selectionMouseMoveHandler = undefined;
+    }
+    if (this.selectionMouseUpHandler) {
+      document.removeEventListener('mouseup', this.selectionMouseUpHandler, true);
+      this.selectionMouseUpHandler = undefined;
+    }
+  }
+  
+  public onSlideshowMouseUp(event?: MouseEvent): void {
+    // Si on était en train de sélectionner un rectangle (clic droit)
+    if (this.isSelectingRectangle) {
+      // Toujours traiter le mouseup si on était en train de sélectionner
+      // (peu importe le bouton, car on a commencé avec le bouton droit)
+      this.isSelectingRectangle = false;
+      this.removeSelectionListeners();
+      
+      // Vérifier que le rectangle a une taille minimale
+      if (this.selectionRectWidth > 10 && this.selectionRectHeight > 10) {
+        // Zoomer sur la zone sélectionnée
+        this.zoomOnSelectionRect();
+      }
+      
+      // Réinitialiser le rectangle
+      this.selectionRectWidth = 0;
+      this.selectionRectHeight = 0;
+      return;
+    }
+    
     this.isDraggingSlideshow = false;
   }
   
   public onSlideshowMouseLeave(): void {
-    this.isDraggingSlideshow = false;
+    // Ne pas annuler la sélection si la souris sort du container
+    // (les listeners globaux continueront de capturer les événements)
+    // Seulement annuler si on n'est pas en train de sélectionner
+    if (!this.isSelectingRectangle) {
+      this.isDraggingSlideshow = false;
+    }
     // Keep cursor position visible when mouse leaves
+  }
+  
+  // Zoomer sur la zone rectangulaire sélectionnée
+  private zoomOnSelectionRect(): void {
+    try {
+      const container = this.slideshowContainerRef?.nativeElement as HTMLElement ||
+                       document.querySelector('.slideshow-image-wrapper') as HTMLElement;
+      
+      if (!container) {
+        console.warn('zoomOnSelectionRect: container not found');
+        return;
+      }
+      
+      const containerRect = container.getBoundingClientRect();
+      const containerW = containerRect.width || 1;
+      const containerH = containerRect.height || 1;
+      
+      // Vérifier que le rectangle a une taille valide
+      if (this.selectionRectWidth <= 0 || this.selectionRectHeight <= 0) {
+        console.warn('zoomOnSelectionRect: invalid selection rect size');
+        return;
+      }
+      
+      // Centre du rectangle de sélection dans le container (en coordonnées du container)
+      const selectionCenterX = this.selectionRectX + this.selectionRectWidth / 2;
+      const selectionCenterY = this.selectionRectY + this.selectionRectHeight / 2;
+      
+      // Calculer le zoom nécessaire pour que la zone sélectionnée remplisse le container
+      // Le rectangle représente une portion du container, on veut zoomer pour qu'il remplisse tout le container
+      const zoomRatioX = containerW / this.selectionRectWidth;
+      const zoomRatioY = containerH / this.selectionRectHeight;
+      // Prendre le ratio minimum pour garder les proportions
+      const zoomMultiplier = Math.min(zoomRatioX, zoomRatioY);
+      
+      // Calculer le nouveau zoom en multipliant le zoom actuel
+      const oldZoom = this.slideshowZoom;
+      const newZoom = oldZoom * zoomMultiplier;
+      
+      // Limiter le zoom minimum et maximum
+      const minZoom = this.getMinSlideshowZoom();
+      const maxZoom = 100;
+      const clampedZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+      
+      // Utiliser zoomOnPoint pour zoomer sur le centre du rectangle de sélection
+      // Cela va automatiquement ajuster le translate pour garder le point de zoom au même endroit
+      this.zoomOnPoint(clampedZoom, selectionCenterX, selectionCenterY, oldZoom);
+      
+      // Appliquer le zoom
+      this.slideshowZoom = clampedZoom;
+      
+      // Clamp translation pour s'assurer que l'image reste dans les limites
+      this.clampSlideshowTranslation();
+      
+      // Force change detection
+      this.cdr.detectChanges();
+      
+      // Update dimensions
+      setTimeout(() => {
+        this.updateImageDimensions();
+        this.updateContainerDimensions();
+      }, 0);
+    } catch (error) {
+      console.warn('Error zooming on selection rect:', error);
+    }
   }
   
   public onSlideshowImageClick(): void {
@@ -709,17 +1396,37 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
       const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
       if (!container || !imgEl) return;
-      const cw = container.clientWidth;
-      const ch = container.clientHeight;
-      const iw = imgEl.clientWidth * this.slideshowZoom;
-      const ih = imgEl.clientHeight * this.slideshowZoom;
+      
+      // Use getBoundingClientRect() to get the actual visible dimensions of the container
+      // This ensures we always use the visible window dimensions, not fullscreen dimensions
+      const containerRect = container.getBoundingClientRect();
+      const cw = containerRect.width || container.clientWidth || 1;
+      const ch = containerRect.height || container.clientHeight || 1;
+      
+      // Get the image's base display size (before zoom transform)
+      // This represents what's visible in the container viewport
+      const imgBaseWidth = imgEl.clientWidth || 1;
+      const imgBaseHeight = imgEl.clientHeight || 1;
+      
+      // Calculate zoomed size based on visible area in container
+      const iw = imgBaseWidth * this.slideshowZoom;
+      const ih = imgBaseHeight * this.slideshowZoom;
       const maxX = Math.max(0, (iw - cw) / 2);
       const maxY = Math.max(0, (ih - ch) / 2);
       if (this.slideshowTranslateX > maxX) this.slideshowTranslateX = maxX;
       if (this.slideshowTranslateX < -maxX) this.slideshowTranslateX = -maxX;
       if (this.slideshowTranslateY > maxY) this.slideshowTranslateY = maxY;
       if (this.slideshowTranslateY < -maxY) this.slideshowTranslateY = -maxY;
-    } catch {}
+      
+      // Update image dimensions display
+      this.updateImageDimensions();
+    } catch (error) {
+      // Try to update dimensions even on error
+      this.updateImageDimensions();
+    }
+    
+    // Always recalculate visible portion when translation changes
+    this.calculateVisibleImagePortion();
   }
   
   // Touch handlers
@@ -803,6 +1510,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         const previousZoom = this.slideshowZoom;
         this.slideshowZoom = parseFloat(newZoom.toFixed(2));
         
+        // Recalculate image dimensions immediately after zoom change
+        this.updateImageDimensions();
+        this.updateContainerDimensions();
+        
         // Si on atteint le zoom minimum, recentrer l'image
         if (this.slideshowZoom <= minZoom) {
           this.slideshowTranslateX = 0;
@@ -827,6 +1538,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         
         this.lastTouchDistance = currentDistance;
         this.clampSlideshowTranslation();
+        // Recalculate again after clamping
+        this.updateImageDimensions();
       }
     }
   }
@@ -863,6 +1576,27 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.removeKeyboardListener();
     
     this.keyboardListener = (event: KeyboardEvent) => {
+      // Vérifier d'abord si on est en plein écran et que Escape est pressé
+      // Il faut le faire AVANT toutes les autres vérifications pour empêcher la propagation
+      const isFullscreenActive = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
+        (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
+      
+      // R ou Home : réinitialiser le zoom (fonctionne en mode fenêtre ET en plein écran)
+      if (event.key === 'r' || event.key === 'R' || event.keyCode === 82 || event.key === 'Home' || event.keyCode === 36) {
+        // R ou Home : réinitialiser le zoom
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.resetSlideshowZoom();
+        return;
+      }
+      
+      if ((event.key === 'Escape' || event.keyCode === 27) && isFullscreenActive) {
+        // En plein écran : Escape ferme le plein écran (comportement standard)
+        // On ne fait rien ici, on laisse le navigateur gérer
+        return;
+      }
+      
       // Only handle if our modal is open
       if (!this.isSlideshowModalOpen || !this.modalRef) {
         return;
@@ -876,8 +1610,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       
       // Check if our specific modal is open by checking for slideshow-header class
       const modalElement = document.querySelector('.modal.show');
-      const isFullscreenActive = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
-        (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
       
       // Verify this is our slideshow modal by checking for slideshow-header class
       const isOurModal = modalElement && modalElement.querySelector('.slideshow-header') !== null;
@@ -917,18 +1649,38 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 39;
         this.nextImage();
+      } else if (event.key === 'Escape' || event.keyCode === 27) {
+        // En mode fenêtre : Escape réinitialise le zoom
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.resetSlideshowZoom();
+      } else if (event.key === 'r' || event.key === 'R' || event.keyCode === 82 || event.key === 'Home' || event.keyCode === 36) {
+        // R ou Home : réinitialiser le zoom (fonctionne aussi en mode fenêtre)
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.resetSlideshowZoom();
       }
     };
     
     // Use capture phase with keydown only (to avoid double triggering)
+    // Capture phase avec highest priority to intercept Escape before browser default behavior
     window.addEventListener('keydown', this.keyboardListener, { capture: true, passive: false });
     document.addEventListener('keydown', this.keyboardListener, { capture: true, passive: false });
+    // Also listen on document.body with highest priority
+    if (document.body) {
+      document.body.addEventListener('keydown', this.keyboardListener, { capture: true, passive: false });
+    }
   }
   
   private removeKeyboardListener(): void {
     if (this.keyboardListener) {
       window.removeEventListener('keydown', this.keyboardListener, { capture: true });
       document.removeEventListener('keydown', this.keyboardListener, { capture: true });
+      if (document.body) {
+        document.body.removeEventListener('keydown', this.keyboardListener, { capture: true });
+      }
       this.keyboardListener = undefined;
     }
   }
@@ -952,11 +1704,27 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       } else {
         // Sinon, réinitialiser le zoom lors de la navigation manuelle
         this.resetSlideshowZoom();
+        this.updateImageDimensions();
       }
-    }, 0);
-  }
+        // Wait for image to load after src change - try multiple times
+        setTimeout(() => {
+          this.updateImageDimensions();
+          // Try again after a longer delay in case image is still loading
+          setTimeout(() => {
+            this.updateImageDimensions();
+          }, 200);
+        }, 100);
+        
+        // If info panel is visible, reload EXIF data for new image
+        if (this.showInfoPanel) {
+          setTimeout(() => {
+            this.loadExifDataForInfoPanel();
+          }, 100);
+        }
+      }, 0);
+    }
   
-  public previousImage(): void {
+    public previousImage(): void {
     if (this.slideshowImages.length === 0) return;
     const currentZoom = this.slideshowZoom;
     const currentTranslateX = this.slideshowTranslateX;
@@ -974,6 +1742,22 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       } else {
         // Sinon, réinitialiser le zoom lors de la navigation manuelle
         this.resetSlideshowZoom();
+        this.updateImageDimensions();
+      }
+      // Wait for image to load after src change - try multiple times
+      setTimeout(() => {
+        this.updateImageDimensions();
+        // Try again after a longer delay in case image is still loading
+        setTimeout(() => {
+          this.updateImageDimensions();
+        }, 200);
+      }, 100);
+      
+      // If info panel is visible, reload EXIF data for new image
+      if (this.showInfoPanel) {
+        setTimeout(() => {
+          this.loadExifDataForInfoPanel();
+        }, 100);
       }
     }, 0);
   }
@@ -1144,6 +1928,156 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       console.error('Error loading EXIF data:', error);
       this.isLoadingExif = false;
     });
+  }
+  
+  // Toggle info panel visibility
+  public toggleInfoPanel(): void {
+    this.showInfoPanel = !this.showInfoPanel;
+    
+    // If showing the panel, load EXIF data if not already cached
+    if (this.showInfoPanel) {
+      this.loadExifDataForInfoPanel();
+    }
+  }
+  
+  // Share image via Web Share API (WhatsApp, etc.)
+  public async shareImage(): Promise<void> {
+    try {
+      const currentImageUrl = this.getCurrentSlideshowImage();
+      if (!currentImageUrl) {
+        console.warn('No image to share');
+        return;
+      }
+      
+      // Check if Web Share API is available
+      if (navigator.share && navigator.canShare) {
+        // Get the blob for the current image
+        let blob = this.slideshowBlobs.get(currentImageUrl);
+        
+        // If blob is not in cache, fetch it
+        if (!blob) {
+          try {
+            const response = await fetch(currentImageUrl);
+            blob = await response.blob();
+            // Cache it for future use
+            if (blob) {
+              this.slideshowBlobs.set(currentImageUrl, blob);
+            }
+          } catch (error) {
+            console.error('Error fetching image for share:', error);
+            // Fallback to download
+            this.downloadImage();
+            return;
+          }
+        }
+        
+        if (!blob) {
+          console.warn('Could not get image blob for sharing');
+          // Fallback to download
+          this.downloadImage();
+          return;
+        }
+        
+        // Get file name if available
+        const fileName = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
+        
+        // Create a File object from the blob
+        const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+        
+        // Check if we can share files
+        const shareData: any = {
+          title: 'Partager une image',
+          text: 'Partager cette image',
+          files: [file]
+        };
+        
+        if (navigator.canShare(shareData)) {
+          // Share the file
+          await navigator.share(shareData);
+        } else {
+          // Fallback: share URL if files are not supported
+          shareData.url = currentImageUrl;
+          delete shareData.files;
+          if (navigator.canShare(shareData)) {
+            await navigator.share(shareData);
+          } else {
+            // Final fallback: download
+            this.downloadImage();
+          }
+        }
+      } else {
+        // Web Share API not available, fallback to download
+        this.downloadImage();
+      }
+    } catch (error: any) {
+      // User cancelled or error occurred
+      if (error.name !== 'AbortError') {
+        console.error('Error sharing image:', error);
+        // Fallback to download on error
+        this.downloadImage();
+      }
+    }
+  }
+  
+  // Download image as fallback when share is not available
+  private downloadImage(): void {
+    try {
+      const currentImageUrl = this.getCurrentSlideshowImage();
+      if (!currentImageUrl) {
+        return;
+      }
+      
+      // Get blob from cache or fetch it
+      let blob = this.slideshowBlobs.get(currentImageUrl);
+      
+      if (blob) {
+        // Use cached blob
+        const fileName = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        // Revoke the URL after a delay to allow download to start
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      } else {
+        // Fallback: open in new tab or download via link
+        const link = document.createElement('a');
+        link.href = currentImageUrl;
+        link.download = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error('Error downloading image:', error);
+    }
+  }
+  
+  // Load EXIF data for info panel (used when panel is shown or image changes)
+  private loadExifDataForInfoPanel(): void {
+    const currentImageUrl = this.getCurrentSlideshowImage();
+    if (currentImageUrl) {
+      const cachedExifData = this.exifDataCache.get(currentImageUrl);
+      if (cachedExifData) {
+        // Use cached data
+        this.exifData = cachedExifData;
+        this.isLoadingExif = false;
+      } else {
+        // Load EXIF data
+        this.isLoadingExif = true;
+        this.exifData = [];
+        this.loadExifData().then(() => {
+          this.isLoadingExif = false;
+        }).catch((error) => {
+          console.error('Error loading EXIF data:', error);
+          this.isLoadingExif = false;
+        });
+      }
+    }
   }
   
   // Pre-load EXIF data in background when image is loaded

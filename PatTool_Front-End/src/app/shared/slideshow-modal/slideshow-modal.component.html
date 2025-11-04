@@ -12,9 +12,10 @@
     <div class="slideshow-container">
       <div class="slideshow-image-wrapper" #slideshowContainer
            (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
-           (mouseup)="onSlideshowMouseUp()" (mouseenter)="onSlideshowMouseEnter($event)" (mouseleave)="onSlideshowMouseLeave()" (document:mouseup)="onSlideshowMouseUp()"
+           (mouseup)="onSlideshowMouseUp($event)" (mouseenter)="onSlideshowMouseEnter($event)" (mouseleave)="onSlideshowMouseLeave()" (document:mouseup)="onSlideshowMouseUp($event)"
+           (contextmenu)="$event.preventDefault()"
            (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
-           [style.cursor]="isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')" style="overflow:hidden; user-select: none;">
+           [style.cursor]="isSelectingRectangle ? 'crosshair' : (isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default'))" style="overflow:hidden; user-select: none;">
         <img #slideshowImgEl *ngIf="slideshowImages.length > 0" 
              [src]="getCurrentSlideshowImage()" 
              alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
@@ -23,7 +24,11 @@
              style="transform-origin:center center;"
              (wheel)="onWheelSlideshow($event)"
              (click)="onSlideshowImageClick()"
+             (mousedown)="onSlideshowMouseDown($event)"
              (mousemove)="onSlideshowMouseMove($event)"
+             (mouseup)="onSlideshowMouseUp($event)"
+             (contextmenu)="$event.preventDefault()"
+             (load)="onImageLoad()"
              [class.fullscreen-image]="isFullscreen"
              />
         <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
@@ -33,12 +38,52 @@
         <div *ngIf="slideshowImages.length > 0" class="slideshow-counter">
           {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
         </div>
-        <div *ngIf="slideshowImages.length > 0" class="slideshow-zoom-info">
+        <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="slideshow-zoom-info">
           <div class="zoom-value">{{ (slideshowZoom * 100).toFixed(0) }}%</div>
-          <div class="cursor-position">{{ cursorX }}, {{ cursorY }}</div>
-          <div *ngIf="hasSavedPosition" class="saved-position">
-            Point enregistré: {{ savedCursorX }}, {{ savedCursorY }}
+          <div class="info-line">Min Zoom: {{ (minZoom * 100).toFixed(0) }}%</div>
+          <div class="info-line">Mouse: {{ cursorX }}, {{ cursorY }}</div>
+          <div class="info-line">Container: {{ containerWidth }} × {{ containerHeight }}</div>
+          <div class="info-line">Img Natural: {{ imageNaturalWidth }} × {{ imageNaturalHeight }}</div>
+          <div class="info-line">Img Display: {{ imageDisplayWidth }} × {{ imageDisplayHeight }}</div>
+          <div class="info-line">Img Zoomed: {{ imageZoomedWidth }} × {{ imageZoomedHeight }}</div>
+          <div class="info-line">Translate: {{ translateX }}, {{ translateY }}</div>
+          <div class="info-line" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 4px; margin-top: 4px;">
+            <div>Visible Origin: {{ visibleImageOriginX }}, {{ visibleImageOriginY }}</div>
+            <div>Visible Size: {{ visibleImageWidth }} × {{ visibleImageHeight }}</div>
           </div>
+          <div *ngIf="hasSavedPosition" class="saved-position">
+            Saved: {{ savedCursorX }}, {{ savedCursorY }}
+          </div>
+          
+          <!-- EXIF Info Section -->
+          <div class="exif-section" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 8px; margin-top: 8px;">
+            <div class="exif-title" style="font-weight: bold; margin-bottom: 6px;">EXIF Information:</div>
+            <div *ngIf="isLoadingExif" class="exif-loading" style="text-align: center; padding: 8px;">
+              <i class="fa fa-spinner fa-spin"></i> Loading...
+            </div>
+            <div *ngIf="!isLoadingExif && exifData && exifData.length > 0" class="exif-data">
+              <div *ngFor="let item of exifData" class="exif-item" style="margin-bottom: 4px; font-size: 0.9em;">
+                <strong>{{ item.label }}:</strong> {{ item.value }}
+              </div>
+            </div>
+            <div *ngIf="!isLoadingExif && (!exifData || exifData.length === 0)" class="exif-empty" style="text-align: center; padding: 8px; color: rgba(255, 255, 255, 0.6);">
+              <i class="fa fa-exclamation-triangle"></i> No EXIF data available
+            </div>
+          </div>
+        </div>
+        <!-- Rectangle de sélection (clic droit) -->
+        <div *ngIf="isSelectingRectangle" 
+             class="selection-rectangle"
+             [style.left.px]="selectionRectX"
+             [style.top.px]="selectionRectY"
+             [style.width.px]="displaySelectionWidth"
+             [style.height.px]="displaySelectionHeight">
+        </div>
+        
+        <!-- Indicateur en bas à gauche quand le panneau d'info est visible -->
+        <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="info-panel-indicator">
+          <i class="fa fa-info-circle"></i> Info Panel Active
+          <span *ngIf="isFullscreen" class="fullscreen-hint">R/Home: Reset Zoom</span>
         </div>
       </div>
       <div class="slideshow-controls">
@@ -93,6 +138,14 @@
         <i class="fa me-1" [ngClass]="isSlideshowActive ? 'fa-pause' : 'fa-play'"></i>
         <span>{{ isSlideshowActive ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate) }}</span>
       </button>
+      <button type="button" class="btn btn-success" 
+              (click)="shareImage()"
+              [disabled]="slideshowImages.length === 0"
+              [ngbTooltip]="'Partager l\'image (WhatsApp, etc.)'"
+              placement="top">
+        <i class="fa fa-share-alt me-1"></i>
+        <span>Partager</span>
+      </button>
       <button type="button" class="btn btn-info" 
               (click)="showExifInfo()"
               [disabled]="slideshowImages.length === 0"
@@ -100,6 +153,14 @@
               placement="top">
         <i class="fa fa-info-circle me-1"></i>
         <span>{{ 'EVENTELEM.EXIF' | translate }}</span>
+      </button>
+      <button type="button" class="btn btn-secondary" 
+              (click)="toggleInfoPanel()"
+              [disabled]="slideshowImages.length === 0"
+              [ngbTooltip]="showInfoPanel ? 'Hide Info Panel' : 'Show Info Panel'"
+              placement="top">
+        <i class="fa me-1" [ngClass]="showInfoPanel ? 'fa-eye-slash' : 'fa-eye'"></i>
+        <span>{{ showInfoPanel ? 'Hide Info' : 'Show Info' }}</span>
       </button>
       <button type="button" class="btn btn-secondary" (click)="onSlideshowClose(c)">
         <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
