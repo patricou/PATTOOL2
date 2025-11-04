@@ -464,7 +464,11 @@
         "SECURITY_FRAMEWORK": "Πλαίσιο Ασφαλείας",
         "SPRING_SECURITY_DESC": "Ενσωμάτωση Spring Security",
         "SSL_CERTIFICATE": "Πιστοποιητικό SSL",
-        "SSL_DESC": "Ασφαλής επικοινωνία με SSL GoDaddy"
+        "SSL_DESC": "Ασφαλής επικοινωνία με SSL GoDaddy",
+        "EXCEPTION_REPORT_TITLE": "Αναφορά Εξαιρέσεων και Συνδέσεων",
+        "EXCEPTION_REPORT_DESC": "Αποστολή αναφοράς όλων των παρακολουθούμενων συνδέσεων χρηστών και εξαιρέσεων με διευθύνσεις IP από τις τελευταίες 24 ώρες",
+        "SEND_REPORT": "Αποστολή Αναφοράς",
+        "SENDING": "Αποστολή..."
     },
     "LINKSADMIN": {
         "TITLE": "Διαχείριση Συνδέσμων",

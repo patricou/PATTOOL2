@@ -461,7 +461,11 @@
         "SECURITY_FRAMEWORK": "Sicherheits-Framework",
         "SPRING_SECURITY_DESC": "Spring Security-Integration",
         "SSL_CERTIFICATE": "SSL-Zertifikat",
-        "SSL_DESC": "Sichere Kommunikation mit GoDaddy SSL"
+        "SSL_DESC": "Sichere Kommunikation mit GoDaddy SSL",
+        "EXCEPTION_REPORT_TITLE": "Ausnahme- und Verbindungsbericht",
+        "EXCEPTION_REPORT_DESC": "Einen Bericht aller verfolgten Benutzerverbindungen und Ausnahmen mit IP-Adressen der letzten 24 Stunden senden",
+        "SEND_REPORT": "Bericht Senden",
+        "SENDING": "Wird gesendet..."
     },
     "LINKSADMIN": {
         "TITLE": "Verwaltung von Links",

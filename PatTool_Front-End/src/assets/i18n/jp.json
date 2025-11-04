@@ -467,7 +467,11 @@
         "SECURITY_FRAMEWORK": "セキュリティフレームワーク",
         "SPRING_SECURITY_DESC": "Spring Security統合",
         "SSL_CERTIFICATE": "SSL証明書",
-        "SSL_DESC": "GoDaddy SSLによる安全な通信"
+        "SSL_DESC": "GoDaddy SSLによる安全な通信",
+        "EXCEPTION_REPORT_TITLE": "例外と接続レポート",
+        "EXCEPTION_REPORT_DESC": "過去24時間のIPアドレス付きで追跡されたすべてのユーザー接続と例外のレポートを送信",
+        "SEND_REPORT": "レポートを送信",
+        "SENDING": "送信中..."
     },
     "LINKSADMIN": {
         "TITLE": "リンク管理",

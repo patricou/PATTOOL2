@@ -450,7 +450,11 @@
         "SECURITY_FRAMEWORK": "Framework de Sécurité",
         "SPRING_SECURITY_DESC": "Intégration Spring Security",
         "SSL_CERTIFICATE": "Certificat SSL",
-        "SSL_DESC": "Communication sécurisée avec SSL GoDaddy"
+        "SSL_DESC": "Communication sécurisée avec SSL GoDaddy",
+        "EXCEPTION_REPORT_TITLE": "Rapport d'Exceptions et de Connexions",
+        "EXCEPTION_REPORT_DESC": "Envoyer un rapport de toutes les connexions utilisateur et exceptions suivies avec les adresses IP des dernières 24 heures",
+        "SEND_REPORT": "Envoyer le Rapport",
+        "SENDING": "Envoi en cours..."
     },
     "LINKS": {
         "TITLE": "Liens",

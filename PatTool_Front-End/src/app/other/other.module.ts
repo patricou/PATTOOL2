@@ -6,6 +6,8 @@ import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
+import { ExceptionReportService } from '../services/exception-report.service';
+import { KeycloakService } from '../keycloak/keycloak.service';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -27,6 +29,10 @@ export function HttpLoaderFactory(http: HttpClient) {
     NavigationButtonsModule
   ],
   declarations: [AboutComponent],
-  exports: [AboutComponent]
+  exports: [AboutComponent],
+  providers: [
+    ExceptionReportService,
+    KeycloakService
+  ]
 })
 export class MapsModule { }

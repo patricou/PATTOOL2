@@ -462,7 +462,11 @@
         "SECURITY_FRAMEWORK": "Фреймворк безопасности",
         "SPRING_SECURITY_DESC": "Интеграция Spring Security",
         "SSL_CERTIFICATE": "SSL-сертификат",
-        "SSL_DESC": "Безопасная связь с SSL GoDaddy"
+        "SSL_DESC": "Безопасная связь с SSL GoDaddy",
+        "EXCEPTION_REPORT_TITLE": "Отчет об исключениях и подключениях",
+        "EXCEPTION_REPORT_DESC": "Отправить отчет обо всех отслеживаемых подключениях пользователей и исключениях с IP-адресами за последние 24 часа",
+        "SEND_REPORT": "Отправить Отчет",
+        "SENDING": "Отправка..."
     },
     "LINKSADMIN": {
         "TITLE": "Управление ссылками",

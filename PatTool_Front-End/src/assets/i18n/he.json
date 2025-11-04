@@ -460,7 +460,11 @@
         "SECURITY_FRAMEWORK": "מסגרת אבטחה",
         "SPRING_SECURITY_DESC": "אינטגרציה של Spring Security",
         "SSL_CERTIFICATE": "תעודת SSL",
-        "SSL_DESC": "תקשורת מאובטחת עם SSL GoDaddy"
+        "SSL_DESC": "תקשורת מאובטחת עם SSL GoDaddy",
+        "EXCEPTION_REPORT_TITLE": "דוח חריגות וחיבורים",
+        "EXCEPTION_REPORT_DESC": "שלח דוח על כל חיבורי המשתמשים והחריגות המעקב עם כתובות IP מ-24 השעות האחרונות",
+        "SEND_REPORT": "שלח דוח",
+        "SENDING": "שולח..."
     },
     "LINKSADMIN": {
         "TITLE": "ניהול קישורים",

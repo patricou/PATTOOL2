@@ -1,7 +1,9 @@
 package com.pat.config;
 
+import com.pat.service.ExceptionTrackingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
@@ -12,6 +14,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Arrays;
 import java.util.List;
 
@@ -23,6 +27,9 @@ import java.util.List;
 public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    
+    @Autowired
+    private ExceptionTrackingService exceptionTrackingService;
     
     // Common paths that bots/scanners probe - don't log errors for these
     private static final List<String> IGNORED_PATTERNS = Arrays.asList(
@@ -70,6 +77,17 @@ public class GlobalExceptionHandler {
     public ResponseEntity<String> handleMaxSizeException(MaxUploadSizeExceededException exc, HttpServletRequest request) {
         String clientIp = getClientIpAddress(request);
         log.error("File upload size exceeded from IP [{}]: {}", clientIp, exc.getMessage());
+        
+        // Track exception
+        String stackTrace = getStackTrace(exc);
+        exceptionTrackingService.addException(
+            clientIp,
+            exc.getClass().getSimpleName(),
+            exc.getMessage(),
+            request.getRequestURI(),
+            request.getMethod(),
+            stackTrace
+        );
         
         String errorMessage = "File size exceeds the maximum allowed limit. " +
                              "Maximum file size: 100MB, Maximum request size: 350MB. " +
@@ -140,6 +158,10 @@ public class GlobalExceptionHandler {
         
         // For other IOExceptions, log as error and handle normally
         log.error("IO Exception occurred from IP [{}]: {}", clientIp, message, exc);
+        
+        // Track exception if it's a real error (not connection reset)
+        trackIOException(exc, request, clientIp);
+        
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
 
@@ -168,7 +190,49 @@ public class GlobalExceptionHandler {
         
         log.error("Unexpected error occurred from IP [{}]: {}", clientIp, exc.getMessage(), exc);
         
+        // Track exception
+        String stackTrace = getStackTrace(exc);
+        exceptionTrackingService.addException(
+            clientIp,
+            exc.getClass().getName(),
+            exc.getMessage(),
+            request != null ? request.getRequestURI() : "unknown",
+            request != null ? request.getMethod() : "unknown",
+            stackTrace
+        );
+        
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body("An unexpected error occurred. Please try again later.");
+    }
+
+    /**
+     * Handle IOException - track if it's a real error (not connection reset)
+     */
+    private void trackIOException(IOException exc, HttpServletRequest request, String clientIp) {
+        String message = exc.getMessage();
+        
+        // Only track if it's NOT a connection reset (which is normal)
+        if (message != null && !message.contains("Connection reset by peer") &&
+            !message.contains("Broken pipe") && !message.contains("Connection closed")) {
+            String stackTrace = getStackTrace(exc);
+            exceptionTrackingService.addException(
+                clientIp,
+                exc.getClass().getName(),
+                exc.getMessage(),
+                request != null ? request.getRequestURI() : "unknown",
+                request != null ? request.getMethod() : "unknown",
+                stackTrace
+            );
+        }
+    }
+
+    /**
+     * Convert exception stack trace to string
+     */
+    private String getStackTrace(Throwable exc) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        exc.printStackTrace(pw);
+        return sw.toString();
     }
 }

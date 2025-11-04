@@ -450,7 +450,11 @@
         "SECURITY_FRAMEWORK": "सुरक्षा फ्रेमवर्क",
         "SPRING_SECURITY_DESC": "Spring Security एकीकरण",
         "SSL_CERTIFICATE": "SSL प्रमाणपत्र",
-        "SSL_DESC": "GoDaddy SSL के साथ सुरक्षित संचार"
+        "SSL_DESC": "GoDaddy SSL के साथ सुरक्षित संचार",
+        "EXCEPTION_REPORT_TITLE": "अपवाद और कनेक्शन रिपोर्ट",
+        "EXCEPTION_REPORT_DESC": "पिछले 24 घंटों के IP पतों के साथ सभी ट्रैक किए गए उपयोगकर्ता कनेक्शन और अपवादों की रिपोर्ट भेजें",
+        "SEND_REPORT": "रिपोर्ट भेजें",
+        "SENDING": "भेज रहा है..."
     },
     "LINKS": {
         "TITLE": "लिंक",
