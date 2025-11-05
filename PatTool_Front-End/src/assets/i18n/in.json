@@ -301,6 +301,7 @@
 		"EXIT_FULLSCREEN": "पूर्ण स्क्रीन से बाहर निकलें",
 		"SLIDESHOW_PAUSED": "स्लाइडशो रोका गया",
 		"SLIDESHOW_PLAYING": "स्लाइडशो चल रहा है",
+		"CARD_COLOR": "कार्ड का रंग",
 		        "PLAY": "चलाएं",
         "PAUSE": "रोकें",
         "LOADING_IMAGES": "छवियाँ लोड हो रही हैं...",
@@ -342,6 +343,8 @@
         "HIDE_INFO_PANEL": "जानकारी पैनल छुपाएं",
         "SHOW_INFO": "जानकारी दिखाएं",
         "HIDE_INFO": "जानकारी छुपाएं",
+        "SHOW_THUMBNAILS": "थंबनेल दिखाएं",
+        "HIDE_THUMBNAILS": "थंबनेल छुपाएं",
         "RESET_ZOOM_HINT": "R/Home: ज़ूम रीसेट करें",
         "GRID": "ग्रिड (G)",
         "SHORTCUTS_TITLE": "कीबोर्ड शॉर्टकट:",
@@ -350,7 +353,9 @@
         "SHORTCUT_INFO_PANEL": "I : इस पैनल को दिखाएं/छुपाएं",
         "SHORTCUT_FULLSCREEN": "P : फ़ुलस्क्रीन टॉगल करें",
         "SHORTCUT_RESET_ZOOM": "R : ज़ूम रीसेट करें",
-        "SHORTCUT_RESET_ZOOM_ESC": "Escape : ज़ूम रीसेट करें"
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : ज़ूम रीसेट करें",
+        "SHORTCUT_GRID": "G : ग्रिड दिखाएं/छुपाएं",
+        "SHORTCUT_THUMBNAILS": "T : थंबनेल दिखाएं/छुपाएं"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "स्वचालित स्क्रॉल शुरू करें",

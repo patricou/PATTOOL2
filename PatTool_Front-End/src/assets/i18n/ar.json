@@ -315,6 +315,7 @@
 		"EXIT_FULLSCREEN": "الخروج من ملء الشاشة",
 		"SLIDESHOW_PAUSED": "عرض شرائح متوقف",
 		"SLIDESHOW_PLAYING": "عرض شرائح يعمل",
+		"CARD_COLOR": "لون البطاقة",
 		        "PLAY": "تشغيل",
         "PAUSE": "إيقاف",
         "LOADING_IMAGES": "تحميل الصور...",
@@ -356,6 +357,8 @@
         "HIDE_INFO_PANEL": "إخفاء لوحة المعلومات",
         "SHOW_INFO": "إظهار المعلومات",
         "HIDE_INFO": "إخفاء المعلومات",
+        "SHOW_THUMBNAILS": "إظهار الصور المصغرة",
+        "HIDE_THUMBNAILS": "إخفاء الصور المصغرة",
         "RESET_ZOOM_HINT": "R/Home: إعادة تعيين التكبير",
         "GRID": "شبكة (G)",
         "SHORTCUTS_TITLE": "اختصارات لوحة المفاتيح:",
@@ -364,7 +367,9 @@
         "SHORTCUT_INFO_PANEL": "I : إظهار/إخفاء هذه اللوحة",
         "SHORTCUT_FULLSCREEN": "P : تبديل وضع ملء الشاشة",
         "SHORTCUT_RESET_ZOOM": "R : إعادة تعيين التكبير",
-        "SHORTCUT_RESET_ZOOM_ESC": "Escape : إعادة تعيين التكبير"
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : إعادة تعيين التكبير",
+        "SHORTCUT_GRID": "G : إظهار/إخفاء الشبكة",
+        "SHORTCUT_THUMBNAILS": "T : إظهار/إخفاء الصور المصغرة"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "بدء التمرير التلقائي",

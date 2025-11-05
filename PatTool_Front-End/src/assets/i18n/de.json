@@ -311,6 +311,7 @@
 		"EXIT_FULLSCREEN": "Vollbild verlassen",
 		"SLIDESHOW_PAUSED": "Diashow pausiert",
 		"SLIDESHOW_PLAYING": "Diashow läuft",
+		"CARD_COLOR": "Kartenfarbe",
 		        "PLAY": "Abspielen",
         "PAUSE": "Pausieren",
         "LOADING_IMAGES": "Bilder werden geladen...",
@@ -352,6 +353,8 @@
         "HIDE_INFO_PANEL": "Info-Panel ausblenden",
         "SHOW_INFO": "Info anzeigen",
         "HIDE_INFO": "Info ausblenden",
+        "SHOW_THUMBNAILS": "Miniaturansichten anzeigen",
+        "HIDE_THUMBNAILS": "Miniaturansichten ausblenden",
         "RESET_ZOOM_HINT": "R/Home: Zoom zurücksetzen",
         "GRID": "Raster (G)",
         "SHORTCUTS_TITLE": "Tastenkürzel:",
@@ -360,7 +363,9 @@
         "SHORTCUT_INFO_PANEL": "I : Dieses Panel anzeigen/ausblenden",
         "SHORTCUT_FULLSCREEN": "P : Vollbild ein/aus",
         "SHORTCUT_RESET_ZOOM": "R : Zoom zurücksetzen",
-        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Zoom zurücksetzen"
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Zoom zurücksetzen",
+        "SHORTCUT_GRID": "G : Raster ein/ausblenden",
+        "SHORTCUT_THUMBNAILS": "T : Miniaturansichten ein/ausblenden"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Automatisches Scrollen starten",

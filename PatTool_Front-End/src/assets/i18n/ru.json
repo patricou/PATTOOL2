@@ -312,6 +312,7 @@
 		"EXIT_FULLSCREEN": "Выйти из полноэкранного режима",
 		"SLIDESHOW_PAUSED": "Слайд-шоу на паузе",
 		"SLIDESHOW_PLAYING": "Слайд-шоу воспроизводится",
+		"CARD_COLOR": "Цвет карточки",
 		        "PLAY": "Воспроизвести",
         "PAUSE": "Пауза",
         "LOADING_IMAGES": "Загрузка изображений...",
@@ -353,6 +354,8 @@
         "HIDE_INFO_PANEL": "Скрыть панель информации",
         "SHOW_INFO": "Показать информацию",
         "HIDE_INFO": "Скрыть информацию",
+        "SHOW_THUMBNAILS": "Показать миниатюры",
+        "HIDE_THUMBNAILS": "Скрыть миниатюры",
         "RESET_ZOOM_HINT": "R/Home: Сбросить масштаб",
         "GRID": "Сетка (G)",
         "SHORTCUTS_TITLE": "Горячие клавиши:",
@@ -361,7 +364,9 @@
         "SHORTCUT_INFO_PANEL": "I : Показать/Скрыть эту панель",
         "SHORTCUT_FULLSCREEN": "P : Переключить полноэкранный режим",
         "SHORTCUT_RESET_ZOOM": "R : Сбросить масштаб",
-        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Сбросить масштаб"
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Сбросить масштаб",
+        "SHORTCUT_GRID": "G : Показать/скрыть сетку",
+        "SHORTCUT_THUMBNAILS": "T : Показать/скрыть миниатюры"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Запустить автоматическую прокрутку",

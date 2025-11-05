@@ -357,8 +357,8 @@
     </a>
     
     <!-- URLs Button -->
-    <button class="btn btn-primary btn-sm mb-1 me-1" 
-            [hidden]="!isUrlEventsAvailable()" 
+    <button *ngIf="getUrlEventsCount() > 0"
+            class="btn btn-primary btn-sm mb-1 me-1" 
             [style.background]="getButtonGradientForType('urls', dominantR, dominantG, dominantB)"
             [style.border-color]="'white'"
             (click)="openUrlsModal(urlsModal)" 
@@ -431,6 +431,18 @@
         <input type="file" [id]="'file-upload-input-' + evenement.id" #fileInput (change)="onFileSelected($event)" multiple 
                accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;" />
     </div>
+
+    <!-- Color calculation mode toggle button -->
+    <button *ngIf="thumbnailUrl && thumbnailUrl !== 'assets/images/images.jpg'"
+            class="btn btn-sm btn-outline-secondary mb-1 me-1"
+            [style.background]="getButtonGradientForType('color', dominantR, dominantG, dominantB)"
+            [style.border-color]="'white'"
+            (click)="toggleColorCalculationMode()"
+            placement="top"
+            ngbTooltip="{{ 'EVENTELEM.CARD_COLOR' | translate }}"
+            (mouseleave)="onTooltipMouseLeave($event)">
+        <i class="fa" [class.fa-image]="useFullImageForColor" [class.fa-crop]="!useFullImageForColor"></i>
+    </button>
 
 </div>
 </div>

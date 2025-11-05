@@ -89,6 +89,8 @@
             <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_FULLSCREEN' | translate }}</div>
             <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM' | translate }}</div>
             <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM_ESC' | translate }}</div>
+            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_GRID' | translate }}</div>
+            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_THUMBNAILS' | translate }}</div>
           </div>
         </div>
         <!-- Rectangle de sélection (clic droit) -->
@@ -112,6 +114,33 @@
                 [disabled]="slideshowImages.length <= 1">
           <i class="fa fa-chevron-right"></i>
         </button>
+      </div>
+      <!-- Thumbnails strip - moved inside slideshow-container to be visible in fullscreen -->
+      <div *ngIf="slideshowImages.length > 0 && showThumbnails" 
+           class="thumbnails-strip" 
+           [class.thumbnails-fullscreen]="isFullscreen"
+           [ngStyle]="isFullscreen ? getThumbnailsFullscreenStyle() : null"
+           #thumbnailsStrip
+           (wheel)="onThumbnailsWheel($event)">
+        <div class="thumbnails-container">
+          <div *ngFor="let image of slideshowImages; let i = index" 
+               class="thumbnail-item"
+               [class.active]="isCurrentThumbnail(i)"
+               (click)="onThumbnailClick(i)">
+            <div *ngIf="getThumbnailUrl(i)" class="thumbnail-image-wrapper">
+              <img [src]="getThumbnailUrl(i)" 
+                   [alt]="'Thumbnail ' + (i + 1)"
+                   class="thumbnail-image"
+                   (error)="onThumbnailError($event)">
+            </div>
+            <div *ngIf="!getThumbnailUrl(i) && !isThumbnailLoading(i)" class="thumbnail-placeholder">
+              <i class="fa fa-image"></i>
+            </div>
+            <div *ngIf="!getThumbnailUrl(i) && isThumbnailLoading(i)" class="thumbnail-loading">
+              <i class="fa fa-spinner fa-spin"></i>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -166,6 +195,12 @@
               [disabled]="slideshowImages.length === 0">
         <i class="fa fa-th me-1"></i>
         <span>{{ 'EVENTELEM.GRID' | translate }}</span>
+      </button>
+      <button type="button" class="btn btn-secondary" 
+              (click)="toggleThumbnails()"
+              [disabled]="slideshowImages.length === 0">
+        <i class="fa me-1" [ngClass]="showThumbnails ? 'fa-eye-slash' : 'fa-eye'"></i>
+        <span>{{ showThumbnails ? ('EVENTELEM.HIDE_THUMBNAILS' | translate) : ('EVENTELEM.SHOW_THUMBNAILS' | translate) }}</span> <span class="ms-1">(T)</span>
       </button>
       <button type="button" class="btn btn-secondary" (click)="onSlideshowClose(c)">
         <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}

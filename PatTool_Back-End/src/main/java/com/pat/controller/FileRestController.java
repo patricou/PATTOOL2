@@ -20,10 +20,12 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.data.mongodb.gridfs.GridFsResource;
 import org.bson.types.ObjectId;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import java.util.concurrent.TimeUnit;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -429,6 +431,134 @@ public class FileRestController {
             }
             
             log.debug("Error retrieving file: " + fileId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new InputStreamResource(new java.io.ByteArrayInputStream(("Error: " + e.getMessage()).getBytes())));
+        }
+    }
+
+    /**
+     * Get thumbnail for an image file
+     * Returns a resized version (max 200x200) of the image while maintaining aspect ratio
+     */
+    @RequestMapping(value = "/api/file/thumbnail/{fileId}", method = RequestMethod.GET)
+    public ResponseEntity<InputStreamResource> getThumbnail(@PathVariable String fileId, HttpServletRequest request, HttpServletResponse response) {
+        
+        log.debug("Attempting to retrieve thumbnail for file ID: " + fileId);
+
+        try {
+            // Check if GridFsTemplate is available
+            if (gridFsTemplate == null) {
+                log.debug("GridFsTemplate is null - MongoDB GridFS not properly configured");
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                    .body(new InputStreamResource(new java.io.ByteArrayInputStream("GridFS not configured".getBytes())));
+            }
+
+            // Convert string ID to ObjectId for validation
+            ObjectId objectId;
+            try {
+                objectId = new ObjectId(fileId);
+            } catch (IllegalArgumentException e) {
+                log.debug("Invalid ObjectId format: " + fileId, e);
+                return ResponseEntity.badRequest()
+                    .body(new InputStreamResource(new java.io.ByteArrayInputStream("Invalid file ID format".getBytes())));
+            }
+            
+            // Try to find the file by ObjectId using findOne
+            GridFSFile gridFsFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(objectId)));
+            
+            if (gridFsFile == null) {
+                log.debug("File not found: " + fileId);
+                return ResponseEntity.notFound().build();
+            }
+            
+            // Get the resource from the found file
+            GridFsResource gridFsResource = gridFsTemplate.getResource(gridFsFile);
+
+            // Determine content type
+            String contentType;
+            try {
+                contentType = gridFsResource.getContentType();
+                if (contentType == null || contentType.isEmpty()) {
+                    String filename = gridFsResource.getFilename();
+                    contentType = getContentTypeFromFilename(filename);
+                    log.debug("No content type found for file: " + fileId + ", determined from filename: " + contentType);
+                }
+            } catch (com.mongodb.MongoGridFSException e) {
+                String filename = gridFsResource.getFilename();
+                contentType = getContentTypeFromFilename(filename);
+                log.debug("No content type metadata for file: " + fileId + " (" + filename + "), determined type: " + contentType);
+            } catch (Exception e) {
+                log.debug("Error getting content type for file: " + fileId + ", using fallback", e);
+                contentType = "application/octet-stream";
+            }
+            
+            // Check if it's an image
+            if (!isImageType(contentType)) {
+                log.debug("File is not an image: " + fileId + " (contentType: " + contentType + ")");
+                return ResponseEntity.badRequest()
+                    .body(new InputStreamResource(new java.io.ByteArrayInputStream("File is not an image".getBytes())));
+            }
+            
+            // Read the image
+            BufferedImage originalImage;
+            byte[] originalFileBytes;
+            try {
+                // Read all bytes from input stream
+                ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+                byte[] data = new byte[8192];
+                int nRead;
+                java.io.InputStream inputStream = gridFsResource.getInputStream();
+                while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
+                    buffer.write(data, 0, nRead);
+                }
+                originalFileBytes = buffer.toByteArray();
+                originalImage = ImageIO.read(new ByteArrayInputStream(originalFileBytes));
+                
+                if (originalImage == null) {
+                    log.debug("Could not read image from file: " + fileId);
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(new InputStreamResource(new java.io.ByteArrayInputStream("Could not read image".getBytes())));
+                }
+            } catch (IOException e) {
+                log.debug("Error reading image file: " + fileId, e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new InputStreamResource(new java.io.ByteArrayInputStream("Error reading image".getBytes())));
+            }
+            
+            // Apply EXIF orientation
+            BufferedImage imageWithOrientation = applyOrientation(originalImage, originalFileBytes);
+            
+            // Create thumbnail (max 200x200, maintaining aspect ratio)
+            BufferedImage thumbnail = createThumbnail(imageWithOrientation, 200, 200);
+            
+            // Convert thumbnail to byte array
+            byte[] thumbnailBytes;
+            try {
+                thumbnailBytes = imageToByteArray(thumbnail, contentType);
+            } catch (IOException e) {
+                log.debug("Error converting thumbnail to bytes: " + fileId, e);
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new InputStreamResource(new java.io.ByteArrayInputStream("Error creating thumbnail".getBytes())));
+            }
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(contentType));
+            headers.set("Content-Length", Long.toString(thumbnailBytes.length));
+            headers.setCacheControl(CacheControl.maxAge(3600, TimeUnit.SECONDS).cachePublic().getHeaderValue());
+            
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(new InputStreamResource(new ByteArrayInputStream(thumbnailBytes)));
+                    
+        } catch (IllegalStateException e) {
+            log.debug("File does not exist: " + fileId + " - " + e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (com.mongodb.MongoGridFSException e) {
+            log.debug("GridFS error for file: " + fileId + " - " + e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(new InputStreamResource(new java.io.ByteArrayInputStream(("GridFS error: " + e.getMessage()).getBytes())));
+        } catch (Exception e) {
+            log.debug("Error retrieving thumbnail: " + fileId, e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new InputStreamResource(new java.io.ByteArrayInputStream(("Error: " + e.getMessage()).getBytes())));
         }
@@ -1082,6 +1212,107 @@ public class FileRestController {
             javax.imageio.stream.ImageOutputStream imageOutputStream = ImageIO.createImageOutputStream(outputStream);
             writer.setOutput(imageOutputStream);
             writer.write(null, new javax.imageio.IIOImage(image, null, null), params);
+            writer.dispose();
+        } else {
+            ImageIO.write(image, format, outputStream);
+        }
+        
+        return outputStream.toByteArray();
+    }
+
+    /**
+     * Create a thumbnail from an image while maintaining aspect ratio
+     * @param originalImage The original image
+     * @param maxWidth Maximum width for the thumbnail
+     * @param maxHeight Maximum height for the thumbnail
+     * @return The thumbnail image
+     */
+    private BufferedImage createThumbnail(BufferedImage originalImage, int maxWidth, int maxHeight) {
+        int originalWidth = originalImage.getWidth();
+        int originalHeight = originalImage.getHeight();
+        
+        // Calculate new dimensions maintaining aspect ratio
+        double aspectRatio = (double) originalWidth / originalHeight;
+        int newWidth, newHeight;
+        
+        if (originalWidth > originalHeight) {
+            // Landscape or square
+            newWidth = Math.min(originalWidth, maxWidth);
+            newHeight = (int) (newWidth / aspectRatio);
+            if (newHeight > maxHeight) {
+                newHeight = maxHeight;
+                newWidth = (int) (newHeight * aspectRatio);
+            }
+        } else {
+            // Portrait
+            newHeight = Math.min(originalHeight, maxHeight);
+            newWidth = (int) (newHeight * aspectRatio);
+            if (newWidth > maxWidth) {
+                newWidth = maxWidth;
+                newHeight = (int) (newWidth / aspectRatio);
+            }
+        }
+        
+        // If image is already smaller than thumbnail size, return original
+        if (originalWidth <= maxWidth && originalHeight <= maxHeight) {
+            return originalImage;
+        }
+        
+        // Create resized image
+        BufferedImage thumbnail = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = thumbnail.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.drawImage(originalImage, 0, 0, newWidth, newHeight, null);
+        g.dispose();
+        
+        return thumbnail;
+    }
+
+    /**
+     * Convert BufferedImage to byte array
+     * @param image The image to convert
+     * @param contentType The content type (determines format)
+     * @return The image as byte array
+     * @throws IOException If conversion fails
+     */
+    private byte[] imageToByteArray(BufferedImage image, String contentType) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        
+        String format = "jpeg"; // Default format
+        if (contentType != null) {
+            if (contentType.contains("png")) {
+                format = "png";
+            } else if (contentType.contains("gif")) {
+                format = "gif";
+            } else if (contentType.contains("bmp")) {
+                format = "bmp";
+            } else if (contentType.contains("webp")) {
+                format = "webp";
+            }
+        }
+        
+        if (format.equals("jpeg")) {
+            // Convert to RGB if needed for JPEG
+            BufferedImage rgbImage;
+            if (image.getType() == BufferedImage.TYPE_INT_RGB || image.getType() == BufferedImage.TYPE_INT_ARGB) {
+                rgbImage = image;
+            } else {
+                rgbImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+                Graphics2D g = rgbImage.createGraphics();
+                g.drawImage(image, 0, 0, null);
+                g.dispose();
+            }
+            
+            javax.imageio.ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
+            javax.imageio.plugins.jpeg.JPEGImageWriteParam params = new javax.imageio.plugins.jpeg.JPEGImageWriteParam(null);
+            params.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
+            params.setCompressionQuality(0.7f); // Optimized quality for thumbnails (smaller file size, faster loading)
+            params.setOptimizeHuffmanTables(true); // Enable Huffman optimization for better compression
+            javax.imageio.stream.ImageOutputStream imageOutputStream = ImageIO.createImageOutputStream(outputStream);
+            writer.setOutput(imageOutputStream);
+            writer.write(null, new javax.imageio.IIOImage(rgbImage, null, null), params);
             writer.dispose();
         } else {
             ImageIO.write(image, format, outputStream);

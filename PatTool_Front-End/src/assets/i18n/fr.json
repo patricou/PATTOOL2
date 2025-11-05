@@ -301,6 +301,7 @@
 		"EXIT_FULLSCREEN": "Quitter le plein écran",
 		"SLIDESHOW_PAUSED": "Diaporama en pause",
 		"SLIDESHOW_PLAYING": "Diaporama en lecture",
+		"CARD_COLOR": "Couleur de la carte",
 		"PLAY": "Lecture",
         "PAUSE": "Pause",
         "LOADING_IMAGES": "Chargement des images...",
@@ -342,6 +343,8 @@
         "HIDE_INFO_PANEL": "Masquer le panneau d'info",
         "SHOW_INFO": "Afficher Info",
         "HIDE_INFO": "Masquer Info",
+        "SHOW_THUMBNAILS": "Afficher miniatures",
+        "HIDE_THUMBNAILS": "Masquer miniatures",
         "RESET_ZOOM_HINT": "R/Home: Réinitialiser le zoom",
         "GRID": "Grille (G)",
         "SHORTCUTS_TITLE": "Raccourcis:",
@@ -350,7 +353,9 @@
         "SHORTCUT_INFO_PANEL": "I : Afficher/masquer ce panneau",
         "SHORTCUT_FULLSCREEN": "P : Activer/désactiver le plein écran",
         "SHORTCUT_RESET_ZOOM": "R : Réinitialiser le zoom",
-        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Réinitialiser le zoom"
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Réinitialiser le zoom",
+        "SHORTCUT_GRID": "G : Afficher/masquer la grille",
+        "SHORTCUT_THUMBNAILS": "T : Afficher/masquer les miniatures"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Démarrer le défilement automatique",

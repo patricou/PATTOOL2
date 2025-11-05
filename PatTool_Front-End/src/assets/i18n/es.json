@@ -317,6 +317,7 @@
 		"EXIT_FULLSCREEN": "Salir de pantalla completa",
 		"SLIDESHOW_PAUSED": "Presentación en pausa",
 		"SLIDESHOW_PLAYING": "Presentación en reproducción",
+		"CARD_COLOR": "Color de la tarjeta",
 		        "PLAY": "Reproducir",
         "PAUSE": "Pausa",
         "LOADING_IMAGES": "Cargando imágenes...",
@@ -358,6 +359,8 @@
         "HIDE_INFO_PANEL": "Ocultar panel de información",
         "SHOW_INFO": "Mostrar Info",
         "HIDE_INFO": "Ocultar Info",
+        "SHOW_THUMBNAILS": "Mostrar miniaturas",
+        "HIDE_THUMBNAILS": "Ocultar miniaturas",
         "RESET_ZOOM_HINT": "R/Home: Restablecer zoom",
         "GRID": "Cuadrícula (G)",
         "SHORTCUTS_TITLE": "Atajos de teclado:",
@@ -366,7 +369,9 @@
         "SHORTCUT_INFO_PANEL": "I : Mostrar/ocultar este panel",
         "SHORTCUT_FULLSCREEN": "P : Activar/desactivar pantalla completa",
         "SHORTCUT_RESET_ZOOM": "R : Restablecer zoom",
-        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Restablecer zoom"
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Restablecer zoom",
+        "SHORTCUT_GRID": "G : Mostrar/ocultar cuadrícula",
+        "SHORTCUT_THUMBNAILS": "T : Mostrar/ocultar miniaturas"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Iniciar desplazamiento automático",

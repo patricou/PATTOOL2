@@ -314,6 +314,7 @@
 		"EXIT_FULLSCREEN": "Έξοδος από πλήρη οθόνη",
 		"SLIDESHOW_PAUSED": "Παρουσίαση σε παύση",
 		"SLIDESHOW_PLAYING": "Παρουσίαση αναπαράγεται",
+		"CARD_COLOR": "Χρώμα της κάρτας",
 		        "PLAY": "Αναπαραγωγή",
         "PAUSE": "Παύση",
         "LOADING_IMAGES": "Φόρτωση εικόνων...",
@@ -355,6 +356,8 @@
         "HIDE_INFO_PANEL": "Απόκρυψη πίνακα πληροφοριών",
         "SHOW_INFO": "Εμφάνιση πληροφοριών",
         "HIDE_INFO": "Απόκρυψη πληροφοριών",
+        "SHOW_THUMBNAILS": "Εμφάνιση μικρογραφιών",
+        "HIDE_THUMBNAILS": "Απόκρυψη μικρογραφιών",
         "RESET_ZOOM_HINT": "R/Home: Επαναφορά μεγέθυνσης",
         "GRID": "Πλέγμα (G)",
         "SHORTCUTS_TITLE": "Συντομεύσεις πληκτρολογίου:",
@@ -363,7 +366,9 @@
         "SHORTCUT_INFO_PANEL": "I : Εμφάνιση/Απόκρυψη αυτού του πίνακα",
         "SHORTCUT_FULLSCREEN": "P : Εναλλαγή πλήρους οθόνης",
         "SHORTCUT_RESET_ZOOM": "R : Επαναφορά μεγέθυνσης",
-        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Επαναφορά μεγέθυνσης"
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Επαναφορά μεγέθυνσης",
+        "SHORTCUT_GRID": "G : Εμφάνιση/Απόκρυψη πλέγματος",
+        "SHORTCUT_THUMBNAILS": "T : Εμφάνιση/Απόκρυψη μικρογραφιών"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Ξεκινήστε αυτόματη κύλιση",

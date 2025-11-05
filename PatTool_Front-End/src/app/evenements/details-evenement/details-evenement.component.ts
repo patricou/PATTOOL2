@@ -995,7 +995,13 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
             next: (buffer: ArrayBuffer) => {
               const blob = new Blob([buffer], { type: 'image/*' });
               const url = URL.createObjectURL(blob);
-              const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined, blob: blob, fileName: fileName };
+              const imageSource: SlideshowImageSource = { 
+                blobUrl: url, 
+                fileId: undefined, 
+                blob: blob, 
+                fileName: fileName,
+                relativePath: relativePath 
+              };
               
               // Add image dynamically to the already open slideshow
               if (this.slideshowModalComponent) {

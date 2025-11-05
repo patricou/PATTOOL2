@@ -19,6 +19,8 @@ export interface SlideshowImageSource {
   blobUrl?: string;
   blob?: Blob; // Optional: store the original blob to avoid CSP issues
   fileName?: string; // Optional: file name for display in EXIF modal
+  // For filesystem images
+  relativePath?: string; // Optional: relative path for filesystem images
 }
 
 @Component({
@@ -37,6 +39,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   @ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
   @ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
   @ViewChild('exifModal') exifModal!: TemplateRef<any>;
+  @ViewChild('thumbnailsStrip') thumbnailsStripRef!: ElementRef<HTMLElement>;
   
   // Slideshow state
   public slideshowImages: string[] = [];
@@ -94,6 +97,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Grid overlay visibility
   public showGrid: boolean = false;
+  
+  // Thumbnails strip visibility
+  public showThumbnails: boolean = true;
   
   private hasDraggedSlideshow: boolean = false;
   private dragStartX: number = 0;
@@ -161,6 +167,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private exifDataCache: Map<string, Array<{label: string, value: string}>> = new Map(); // Cache EXIF data by image URL
   private imageFileNames: Map<string, string> = new Map(); // Store file names by image URL
   
+  // Thumbnails
+  public thumbnails: string[] = []; // Array of thumbnail blob URLs, indexed by slideshowImages index
+  public isLoadingThumbnails: boolean = false;
+  private loadingThumbnailImageIndices: Set<number> = new Set(); // Track which image indices are currently loading (by this.images index)
+  private thumbnailBlobs: Map<string, Blob> = new Map(); // Store thumbnail blobs by thumbnail URL
+  private thumbnailLoadingSubs: Subscription[] = [];
+  private imageUrlToThumbnailIndex: Map<string, number> = new Map(); // Map image URL to its index in this.images
+  private slideshowIndexToImageIndex: Map<number, number> = new Map(); // Map slideshowImages index to this.images index
+  private thumbnailLoadQueue: number[] = []; // Queue of image indices waiting to load thumbnails
+  private maxConcurrentThumbnailLoads: number = 5; // Maximum concurrent thumbnail requests
+  private currentThumbnailLoads: number = 0; // Current number of active thumbnail loads
+  
   constructor(
     private cdr: ChangeDetectorRef,
     private modalService: NgbModal,
@@ -183,6 +201,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Centralized method to clean up all memory used by the slideshow
   // This method is idempotent - safe to call multiple times
   private cleanupAllMemory(): void {
+    // Remove fullscreen class from body
+    document.body.classList.remove('slideshow-fullscreen-active');
+    
     // Remove selection listeners
     this.removeSelectionListeners();
     // Stop slideshow and timers
@@ -193,6 +214,29 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Cancel all image loading subscriptions
     this.cancelImageLoads();
+    
+    // Cancel all thumbnail loading subscriptions
+    this.thumbnailLoadingSubs.forEach(sub => {
+      try {
+        sub.unsubscribe();
+      } catch (error) {
+        // Ignore errors
+      }
+    });
+    this.thumbnailLoadingSubs = [];
+    
+    // Clean up thumbnail blob URLs
+    this.thumbnailBlobs.forEach((blob, url) => {
+      try {
+        if (url && typeof url === 'string' && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      } catch (error) {
+        // Ignore errors
+      }
+    });
+    this.thumbnailBlobs.clear();
+    this.thumbnails = [];
     
     // Complete the cancel subject
     if (this.cancelImageLoadsSubject) {
@@ -226,9 +270,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.slideshowImages = [];
     this.slideshowBlobs.clear();
     this.exifDataCache.clear();
+    this.imageUrlToThumbnailIndex.clear();
+    this.slideshowIndexToImageIndex.clear();
     
     // Reset info panel state
     this.showInfoPanel = false;
+    this.showThumbnails = true;
     this.exifData = [];
     this.isLoadingExif = false;
     this.imageFileNames.clear();
@@ -334,6 +381,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.setupKeyboardListener();
         this.setupResizeListener();
         this.updateContainerDimensions();
+        // Center the active thumbnail after modal is fully rendered (multiple attempts to ensure it works)
+        setTimeout(() => {
+          this.scrollToActiveThumbnail();
+        }, 300);
+        setTimeout(() => {
+          this.scrollToActiveThumbnail();
+        }, 600);
       }, 100);
       
       // Handle modal close event
@@ -350,6 +404,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       
       // Load images (will be empty array if loading dynamically)
       if (images.length > 0) {
+        // Load thumbnails FIRST, immediately and in parallel (don't wait for main images)
+        this.loadThumbnails();
+        // Then load main images (will be loaded in parallel with thumbnails)
         this.loadImages();
       }
     } catch (error) {
@@ -393,7 +450,24 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             if (!this.imageLoadActive) {
               return;
             }
+            const slideshowIndex = this.slideshowImages.length;
             this.slideshowImages.push(objectUrl);
+            // Map slideshowImages index to this.images index
+            const imageIndex = this.images.findIndex(img => img && img.fileId === imageSource.fileId);
+            if (imageIndex >= 0) {
+              this.slideshowIndexToImageIndex.set(slideshowIndex, imageIndex);
+              this.imageUrlToThumbnailIndex.set(objectUrl, imageIndex);
+              // Thumbnail should already be loading (started in loadThumbnails), but ensure it's loaded if not started
+              // Add to queue if not already loading or loaded
+              if (!this.loadingThumbnailImageIndices.has(imageIndex) && !this.thumbnails[imageIndex]) {
+                // Add to queue if not already there
+                if (!this.thumbnailLoadQueue.includes(imageIndex)) {
+                  // Prioritize recently loaded images
+                  this.thumbnailLoadQueue.unshift(imageIndex);
+                }
+                this.processThumbnailQueue();
+              }
+            }
             // Pre-load EXIF data in background (non-blocking)
             this.preloadExifData(objectUrl, blob).catch(() => {
               // Silently fail if EXIF loading fails
@@ -417,10 +491,84 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         }
       });
     } else {
-      // Use provided blob URLs directly
-      this.images.forEach((imageSource) => {
-        if (imageSource.blobUrl) {
+      // Use provided blob URLs directly OR load from filesystem
+      this.images.forEach((imageSource, imageIndex) => {
+        // Load from filesystem if relativePath and fileName are provided
+        if (imageSource.relativePath && imageSource.fileName && !imageSource.blobUrl) {
+          if (this.imageLoadActive) {
+            const subscription = this.fileService.getImageFromDisk(imageSource.relativePath, imageSource.fileName).pipe(
+              takeUntil(this.cancelImageLoadsSubject),
+              map((res: ArrayBuffer) => {
+                // Try to detect MIME type from fileName
+                const mimeType = this.detectImageMimeTypeFromFileName(imageSource.fileName || 'image.jpg');
+                const blob = new Blob([res], { type: mimeType });
+                const objectUrl = URL.createObjectURL(blob);
+                // Store the blob for later use (e.g., EXIF reading)
+                this.slideshowBlobs.set(objectUrl, blob);
+                // Store file name if provided
+                if (imageSource.fileName) {
+                  this.imageFileNames.set(objectUrl, imageSource.fileName);
+                }
+                return { objectUrl, blob };
+              })
+            ).subscribe(({ objectUrl, blob }) => {
+              if (!this.imageLoadActive) {
+                return;
+              }
+              const slideshowIndex = this.slideshowImages.length;
+              this.slideshowImages.push(objectUrl);
+              // Map slideshowImages index to this.images index
+              this.slideshowIndexToImageIndex.set(slideshowIndex, imageIndex);
+              this.imageUrlToThumbnailIndex.set(objectUrl, imageIndex);
+              // Thumbnail should already be loading (started in loadThumbnails), but ensure it's loaded if not started
+              // Add to queue if not already loading or loaded
+              if (!this.loadingThumbnailImageIndices.has(imageIndex) && !this.thumbnails[imageIndex]) {
+                // Add to queue if not already there
+                if (!this.thumbnailLoadQueue.includes(imageIndex)) {
+                  // Prioritize recently loaded images
+                  this.thumbnailLoadQueue.unshift(imageIndex);
+                }
+                this.processThumbnailQueue();
+              }
+              // Pre-load EXIF data in background (non-blocking)
+              this.preloadExifData(objectUrl, blob).catch(() => {
+                // Silently fail if EXIF loading fails
+              });
+              // Reset zoom when first image loads
+              if (this.slideshowImages.length === 1) {
+                setTimeout(() => {
+                  this.resetSlideshowZoom();
+                  this.updateContainerDimensions();
+                  // Try multiple times to get dimensions
+                  setTimeout(() => {
+                    this.updateImageDimensions();
+                    this.updateContainerDimensions();
+                  }, 200);
+                }, 100);
+              }
+            }, (error) => {
+              console.error('Error loading image from disk for slideshow:', error);
+            });
+            this.imageLoadingSubs.push(subscription);
+          }
+        }
+        // Use provided blob URLs directly
+        else if (imageSource.blobUrl) {
+          const slideshowIndex = this.slideshowImages.length;
           this.slideshowImages.push(imageSource.blobUrl);
+          // Map slideshowImages index to this.images index
+          this.slideshowIndexToImageIndex.set(slideshowIndex, imageIndex);
+          this.imageUrlToThumbnailIndex.set(imageSource.blobUrl, imageIndex);
+          // Thumbnail should already be loading (started in loadThumbnails), but ensure it's loaded if not started
+          // Add to queue if not already loading or loaded
+          if (!this.loadingThumbnailImageIndices.has(imageIndex) && !this.thumbnails[imageIndex]) {
+            // Add to queue if not already there
+            if (!this.thumbnailLoadQueue.includes(imageIndex)) {
+              // Prioritize recently loaded images
+              this.thumbnailLoadQueue.unshift(imageIndex);
+            }
+            this.processThumbnailQueue();
+          }
           // If blob is provided, store it for EXIF reading
           if (imageSource.blob) {
             this.slideshowBlobs.set(imageSource.blobUrl, imageSource.blob);
@@ -456,9 +604,28 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       return;
     }
     
+    const addedCount = this.slideshowImages.length;
+    
     newImages.forEach((imageSource) => {
       if (imageSource.blobUrl && !this.slideshowImages.includes(imageSource.blobUrl)) {
+        const slideshowIndex = this.slideshowImages.length;
         this.slideshowImages.push(imageSource.blobUrl);
+        // Store the original imageSource for thumbnail loading
+        const imageIndex = this.images.length;
+        this.images.push(imageSource);
+        // Map slideshowImages index to this.images index
+        this.slideshowIndexToImageIndex.set(slideshowIndex, imageIndex);
+        this.imageUrlToThumbnailIndex.set(imageSource.blobUrl, imageIndex);
+        // Thumbnail should already be loading (started in loadThumbnails), but ensure it's loaded if not started
+        // Add to queue if not already loading or loaded
+        if (!this.loadingThumbnailImageIndices.has(imageIndex) && !this.thumbnails[imageIndex]) {
+          // Add to queue if not already there
+          if (!this.thumbnailLoadQueue.includes(imageIndex)) {
+            // Prioritize recently loaded images
+            this.thumbnailLoadQueue.unshift(imageIndex);
+          }
+          this.processThumbnailQueue();
+        }
         // If blob is provided, store it for EXIF reading
         if (imageSource.blob) {
           this.slideshowBlobs.set(imageSource.blobUrl, imageSource.blob);
@@ -493,7 +660,24 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             return;
           }
           if (!this.slideshowImages.includes(objectUrl)) {
+            const slideshowIndex = this.slideshowImages.length;
             this.slideshowImages.push(objectUrl);
+            // Map slideshowImages index to this.images index
+            const imageIndex = this.images.findIndex(img => img && img.fileId === imageSource.fileId);
+            if (imageIndex >= 0) {
+              this.slideshowIndexToImageIndex.set(slideshowIndex, imageIndex);
+              this.imageUrlToThumbnailIndex.set(objectUrl, imageIndex);
+              // Thumbnail should already be loading (started in loadThumbnails), but ensure it's loaded if not started
+              // Add to queue if not already loading or loaded
+              if (!this.loadingThumbnailImageIndices.has(imageIndex) && !this.thumbnails[imageIndex]) {
+                // Add to queue if not already there
+                if (!this.thumbnailLoadQueue.includes(imageIndex)) {
+                  // Prioritize recently loaded images
+                  this.thumbnailLoadQueue.unshift(imageIndex);
+                }
+                this.processThumbnailQueue();
+              }
+            }
             // Pre-load EXIF data in background (non-blocking)
             this.preloadExifData(objectUrl, blob).catch(() => {
               // Silently fail if EXIF loading fails
@@ -507,6 +691,90 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     });
   }
   
+  // Load thumbnails for newly added images (starting from startIndex in slideshowImages)
+  private loadThumbnailsForNewImages(startSlideshowIndex: number): void {
+    if (!this.images || startSlideshowIndex >= this.slideshowImages.length) {
+      return;
+    }
+    
+    // Load thumbnails for each new image added to slideshowImages
+    for (let slideshowIndex = startSlideshowIndex; slideshowIndex < this.slideshowImages.length; slideshowIndex++) {
+      const imageIndex = this.slideshowIndexToImageIndex.get(slideshowIndex);
+      if (imageIndex === undefined || imageIndex < 0 || imageIndex >= this.images.length) {
+        continue;
+      }
+      
+      const imageSource = this.images[imageIndex];
+      if (!imageSource) continue;
+      
+      // Ensure thumbnails array is large enough
+      while (this.thumbnails.length <= imageIndex) {
+        this.thumbnails.push('');
+      }
+      
+      // Load thumbnail from MongoDB if fileId is available
+      if (imageSource.fileId && this.loadFromFileService) {
+        // Mark this thumbnail as loading
+        this.loadingThumbnailImageIndices.add(imageIndex);
+        this.cdr.detectChanges();
+        
+        const subscription = this.fileService.getThumbnail(imageSource.fileId).pipe(
+          map((res: ArrayBuffer) => {
+            const blob = new Blob([res], { type: 'image/jpeg' });
+            const objectUrl = URL.createObjectURL(blob);
+            this.thumbnailBlobs.set(objectUrl, blob);
+            return { imageIndex, url: objectUrl };
+          })
+        ).subscribe(
+          ({ imageIndex, url }) => {
+            this.thumbnails[imageIndex] = url;
+            this.loadingThumbnailImageIndices.delete(imageIndex);
+            this.cdr.detectChanges();
+          },
+          (error) => {
+            console.error('Error loading thumbnail:', error);
+            this.thumbnails[imageIndex] = '';
+            this.loadingThumbnailImageIndices.delete(imageIndex);
+            this.cdr.detectChanges();
+          }
+        );
+        this.thumbnailLoadingSubs.push(subscription);
+      }
+      // Load thumbnail from filesystem if relativePath and fileName are available
+      else if (imageSource.relativePath && imageSource.fileName) {
+        // Mark this thumbnail as loading
+        this.loadingThumbnailImageIndices.add(imageIndex);
+        this.cdr.detectChanges();
+        
+        const subscription = this.fileService.getThumbnailFromDisk(imageSource.relativePath, imageSource.fileName).pipe(
+          map((res: ArrayBuffer) => {
+            const blob = new Blob([res], { type: 'image/jpeg' });
+            const objectUrl = URL.createObjectURL(blob);
+            this.thumbnailBlobs.set(objectUrl, blob);
+            return { imageIndex, url: objectUrl };
+          })
+        ).subscribe(
+          ({ imageIndex, url }) => {
+            this.thumbnails[imageIndex] = url;
+            this.loadingThumbnailImageIndices.delete(imageIndex);
+            this.cdr.detectChanges();
+          },
+          (error) => {
+            console.error('Error loading thumbnail from disk:', error);
+            this.thumbnails[imageIndex] = '';
+            this.loadingThumbnailImageIndices.delete(imageIndex);
+            this.cdr.detectChanges();
+          }
+        );
+        this.thumbnailLoadingSubs.push(subscription);
+      }
+      // For blob URLs without relativePath/fileName, we can't get thumbnails
+      else if (imageSource.blobUrl && !imageSource.relativePath && !imageSource.fileName) {
+        this.thumbnails[imageIndex] = '';
+      }
+    }
+  }
+  
   // Setup fullscreen listener
   private setupFullscreenListener(): void {
     // Remove existing listener if any
@@ -516,6 +784,46 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const wasFullscreen = this.isFullscreen;
       this.isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
         (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
+      
+      // Add/remove fullscreen class to body for CSS targeting
+      if (this.isFullscreen) {
+        document.body.classList.add('slideshow-fullscreen-active');
+        // Force thumbnails to be visible in fullscreen
+        setTimeout(() => {
+          const thumbnailsStrip = document.querySelector('.thumbnails-strip') as HTMLElement;
+          if (thumbnailsStrip && this.showThumbnails) {
+            thumbnailsStrip.style.display = 'block';
+            thumbnailsStrip.style.visibility = 'visible';
+            thumbnailsStrip.style.opacity = '1';
+            thumbnailsStrip.style.position = 'fixed';
+            thumbnailsStrip.style.bottom = '70px';
+            thumbnailsStrip.style.left = '0';
+            thumbnailsStrip.style.right = '0';
+            thumbnailsStrip.style.width = '100vw';
+            thumbnailsStrip.style.maxWidth = '100vw';
+            thumbnailsStrip.style.zIndex = '999999'; // Higher than footer (999999) and other elements
+            thumbnailsStrip.style.background = 'rgba(0, 0, 0, 0.9)';
+            thumbnailsStrip.style.pointerEvents = 'auto';
+          }
+        }, 100);
+      } else {
+        document.body.classList.remove('slideshow-fullscreen-active');
+        // Reset thumbnails styles when exiting fullscreen
+        setTimeout(() => {
+          const thumbnailsStrip = document.querySelector('.thumbnails-strip') as HTMLElement;
+          if (thumbnailsStrip) {
+            thumbnailsStrip.style.position = '';
+            thumbnailsStrip.style.bottom = '';
+            thumbnailsStrip.style.left = '';
+            thumbnailsStrip.style.right = '';
+            thumbnailsStrip.style.width = '';
+            thumbnailsStrip.style.maxWidth = '';
+            thumbnailsStrip.style.zIndex = '';
+            thumbnailsStrip.style.background = '';
+            thumbnailsStrip.style.pointerEvents = '';
+          }
+        }, 100);
+      }
       
       // Si on était en plein écran et qu'on vient de sortir, et qu'on veut empêcher la sortie
       // alors on rétablit le plein écran immédiatement
@@ -1688,6 +1996,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 71;
         this.toggleGrid();
+      } else if (event.key === 't' || event.key === 'T' || event.keyCode === 84) {
+        // T : afficher/masquer les thumbnails
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 84;
+        this.toggleThumbnails();
       } else if (event.key === 'Escape' || event.keyCode === 27) {
         // En mode fenêtre : Escape réinitialise le zoom
         event.preventDefault();
@@ -1733,6 +2049,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
     // Reset saved position when changing image
     this.hasSavedPosition = false;
+    // Scroll to center active thumbnail (with delay to ensure DOM update)
+    setTimeout(() => {
+      this.scrollToActiveThumbnail();
+    }, 50);
     setTimeout(() => {
       // Si le slideshow est en lecture automatique, conserver le zoom
       if (this.isSlideshowActive) {
@@ -1771,6 +2091,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
     // Reset saved position when changing image
     this.hasSavedPosition = false;
+    // Scroll to center active thumbnail (with delay to ensure DOM update)
+    setTimeout(() => {
+      this.scrollToActiveThumbnail();
+    }, 50);
     setTimeout(() => {
       // Si le slideshow est en lecture automatique, conserver le zoom
       if (this.isSlideshowActive) {
@@ -1905,6 +2229,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
     } catch {}
     
+    // Remove fullscreen class from body
+    document.body.classList.remove('slideshow-fullscreen-active');
+    
     // Close modal - this will trigger modalRef.result handlers which will cleanup memory
     if (this.modalRef) {
       this.modalRef.close();
@@ -1988,8 +2315,37 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  public toggleThumbnails(): void {
+    this.showThumbnails = !this.showThumbnails;
+    
+    // Scroll to active thumbnail when showing thumbnails again
+    // Styles are now handled by [ngStyle] binding, so they apply immediately on render
+    if (this.showThumbnails) {
+      setTimeout(() => {
+        this.scrollToActiveThumbnail();
+      }, 100);
+    }
+  }
+  
   public toggleGrid(): void {
     this.showGrid = !this.showGrid;
+  }
+  
+  // Get inline styles for thumbnails in fullscreen mode
+  public getThumbnailsFullscreenStyle(): { [key: string]: string } {
+    return {
+      'position': 'fixed',
+      'top': 'auto',
+      'bottom': '70px',
+      'left': '0',
+      'right': '0',
+      'width': '100vw',
+      'max-width': '100vw',
+      'z-index': '999999',
+      'background': 'rgba(0, 0, 0, 0.9)',
+      'pointer-events': 'auto',
+      'max-height': '120px'
+    };
   }
   
   // Share image via Web Share API (WhatsApp, etc.)
@@ -2703,7 +3059,374 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   }
   
+  // Process thumbnail load queue (loads up to maxConcurrentThumbnailLoads at a time)
+  private processThumbnailQueue(): void {
+    while (this.currentThumbnailLoads < this.maxConcurrentThumbnailLoads && this.thumbnailLoadQueue.length > 0) {
+      const imageIndex = this.thumbnailLoadQueue.shift();
+      if (imageIndex !== undefined) {
+        const imageSource = this.images[imageIndex];
+        if (imageSource) {
+          this.currentThumbnailLoads++;
+          this.loadThumbnailForImage(imageIndex, imageSource);
+        }
+      }
+    }
+  }
+  
+  // Load thumbnail for a single image (called immediately when image is loaded)
+  private loadThumbnailForImage(imageIndex: number, imageSource: SlideshowImageSource): void {
+    if (!imageSource || imageIndex < 0) {
+      this.currentThumbnailLoads--;
+      this.processThumbnailQueue();
+      return;
+    }
+    
+    // Ensure thumbnails array is large enough
+    while (this.thumbnails.length <= imageIndex) {
+      this.thumbnails.push('');
+    }
+    
+    // Skip if thumbnail already loaded
+    if (this.thumbnails[imageIndex]) {
+      this.currentThumbnailLoads--;
+      this.processThumbnailQueue();
+      return;
+    }
+    
+    // Skip if already loading
+    if (this.loadingThumbnailImageIndices.has(imageIndex)) {
+      this.currentThumbnailLoads--;
+      this.processThumbnailQueue();
+      return;
+    }
+    
+    this.isLoadingThumbnails = true;
+    
+    // Helper function to complete thumbnail load
+    const completeLoad = (thumbnailUrl: string | null, error: boolean = false) => {
+      this.currentThumbnailLoads--;
+      if (thumbnailUrl) {
+        this.thumbnails[imageIndex] = thumbnailUrl;
+      } else {
+        this.thumbnails[imageIndex] = '';
+      }
+      this.loadingThumbnailImageIndices.delete(imageIndex);
+      this.cdr.detectChanges();
+      // Process next in queue
+      this.processThumbnailQueue();
+    };
+    
+    // Load thumbnail from MongoDB if fileId is available
+    if (imageSource.fileId && this.loadFromFileService) {
+      // Mark this thumbnail as loading (by image index)
+      this.loadingThumbnailImageIndices.add(imageIndex);
+      this.cdr.detectChanges();
+      
+      const subscription = this.fileService.getThumbnail(imageSource.fileId).pipe(
+        map((res: ArrayBuffer) => {
+          const blob = new Blob([res], { type: 'image/jpeg' });
+          const objectUrl = URL.createObjectURL(blob);
+          this.thumbnailBlobs.set(objectUrl, blob);
+          return objectUrl;
+        })
+      ).subscribe(
+        (thumbnailUrl: string) => {
+          completeLoad(thumbnailUrl);
+        },
+        (error) => {
+          console.error('Error loading thumbnail:', error);
+          completeLoad(null, true);
+        }
+      );
+      this.thumbnailLoadingSubs.push(subscription);
+    }
+    // Load thumbnail from filesystem if relativePath and fileName are available
+    else if (imageSource.relativePath && imageSource.fileName) {
+      // Mark this thumbnail as loading (by image index)
+      this.loadingThumbnailImageIndices.add(imageIndex);
+      this.cdr.detectChanges();
+      
+      const subscription = this.fileService.getThumbnailFromDisk(imageSource.relativePath, imageSource.fileName).pipe(
+        map((res: ArrayBuffer) => {
+          const blob = new Blob([res], { type: 'image/jpeg' });
+          const objectUrl = URL.createObjectURL(blob);
+          this.thumbnailBlobs.set(objectUrl, blob);
+          return objectUrl;
+        })
+      ).subscribe(
+        (thumbnailUrl: string) => {
+          completeLoad(thumbnailUrl);
+        },
+        (error) => {
+          console.error('Error loading thumbnail from disk:', error);
+          completeLoad(null, true);
+        }
+      );
+      this.thumbnailLoadingSubs.push(subscription);
+    }
+    // For blob URLs, we can't easily get thumbnails, so we'll use a placeholder
+    else if (imageSource.blobUrl) {
+      // For now, use empty string - could potentially create a thumbnail from the blob
+      this.thumbnails[imageIndex] = '';
+      completeLoad(null);
+    } else {
+      completeLoad(null);
+    }
+  }
+  
+  // Load thumbnails for all images (fallback method for blob URLs loaded directly)
+  private loadThumbnails(): void {
+    if (!this.images || this.images.length === 0) {
+      return;
+    }
+    
+    this.isLoadingThumbnails = true;
+    this.loadingThumbnailImageIndices.clear();
+    this.thumbnailLoadQueue = [];
+    this.currentThumbnailLoads = 0;
+    
+    // Initialize thumbnails array to match images length
+    this.thumbnails = new Array(this.images.length).fill(''); 
+    
+    // Add all thumbnails to queue (prioritize visible ones first)
+    this.images.forEach((imageSource, imageIndex) => {
+      if (!imageSource) return;
+      
+      // Skip if already loaded
+      if (this.thumbnails[imageIndex]) {
+        return;
+      }
+      
+      // Add to queue (prioritize first 10 images)
+      if (imageIndex < 10) {
+        this.thumbnailLoadQueue.unshift(imageIndex); // Add to front
+      } else {
+        this.thumbnailLoadQueue.push(imageIndex); // Add to end
+      }
+    });
+    
+    // Start processing queue
+    this.processThumbnailQueue();
+    
+    // Mark global loading as complete after a short delay (fallback)
+    setTimeout(() => {
+      if (this.loadingThumbnailImageIndices.size === 0 && this.currentThumbnailLoads === 0) {
+        this.isLoadingThumbnails = false;
+      }
+    }, 1000);
+  }
+  
+  // Check if a specific thumbnail is loading (by slideshow index)
+  public isThumbnailLoading(slideshowIndex: number): boolean {
+    // Convert slideshow index to image index
+    const imageIndex = this.slideshowIndexToImageIndex.get(slideshowIndex);
+    if (imageIndex === undefined) {
+      return false;
+    }
+    // Check if this image index is loading
+    return this.loadingThumbnailImageIndices.has(imageIndex);
+  }
+  
+  // Handle thumbnail click - change to that image
+  public onThumbnailClick(index: number): void {
+    if (index >= 0 && index < this.slideshowImages.length) {
+      this.currentSlideshowIndex = index;
+      // Scroll to center active thumbnail (with delay to ensure DOM update)
+      setTimeout(() => {
+        this.scrollToActiveThumbnail();
+      }, 50);
+      this.resetSlideshowZoom();
+      this.updateContainerDimensions();
+      setTimeout(() => {
+        this.updateImageDimensions();
+        this.updateContainerDimensions();
+      }, 100);
+    }
+  }
+  
+  // Handle mouse wheel on thumbnails strip to scroll horizontally
+  public onThumbnailsWheel(event: WheelEvent): void {
+    // Prevent default vertical scroll
+    event.preventDefault();
+    event.stopPropagation();
+    
+    // Get the thumbnails strip container
+    let scrollableContainer: HTMLElement | null = null;
+    
+    if (this.thumbnailsStripRef && this.thumbnailsStripRef.nativeElement) {
+      scrollableContainer = this.thumbnailsStripRef.nativeElement;
+    } else {
+      // Fallback: query DOM directly
+      scrollableContainer = document.querySelector('.thumbnails-strip') as HTMLElement;
+    }
+    
+    if (!scrollableContainer) {
+      return;
+    }
+    
+    // Get current scroll position
+    const currentScroll = scrollableContainer.scrollLeft;
+    
+    // Calculate scroll delta (use deltaY for vertical wheel, deltaX for horizontal wheel)
+    // Use deltaY for vertical wheel movement, convert to horizontal scroll
+    const scrollDelta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
+    
+    // Adjust scroll speed based on delta mode
+    // deltaMode: 0 = pixels, 1 = lines, 2 = pages
+    let scrollAmount = 0;
+    if (event.deltaMode === 0) {
+      // Pixels mode - use delta directly (deltaY is already in pixels)
+      scrollAmount = scrollDelta;
+    } else if (event.deltaMode === 1) {
+      // Lines mode - convert to pixels (typically ~20px per line)
+      scrollAmount = scrollDelta * 20;
+    } else {
+      // Pages mode - use container width
+      scrollAmount = scrollDelta > 0 ? scrollableContainer.clientWidth * 0.8 : -scrollableContainer.clientWidth * 0.8;
+    }
+    
+    // Calculate new scroll position
+    const newScroll = currentScroll - scrollAmount; // Negative because we want to scroll in opposite direction of wheel
+    
+    // Clamp scroll position to valid range
+    const maxScroll = scrollableContainer.scrollWidth - scrollableContainer.clientWidth;
+    const clampedScroll = Math.max(0, Math.min(newScroll, maxScroll));
+    
+    // Apply scroll with smooth behavior
+    scrollableContainer.scrollTo({
+      left: clampedScroll,
+      behavior: 'auto' // Use 'auto' for instant scroll on wheel, not 'smooth'
+    });
+  }
+  
+  // Scroll thumbnail container to center the active thumbnail
+  private scrollToActiveThumbnail(): void {
+    // Use setTimeout to ensure DOM is updated and ViewChild is available
+    setTimeout(() => {
+      // Try ViewChild first, then fallback to DOM query
+      let scrollableContainer: HTMLElement | null = null;
+      let thumbnailsContainer: HTMLElement | null = null;
+      
+      if (this.thumbnailsStripRef && this.thumbnailsStripRef.nativeElement) {
+        scrollableContainer = this.thumbnailsStripRef.nativeElement;
+        thumbnailsContainer = scrollableContainer.querySelector('.thumbnails-container');
+      } else {
+        // Fallback: query DOM directly
+        const thumbnailsStrip = document.querySelector('.thumbnails-strip') as HTMLElement;
+        if (thumbnailsStrip) {
+          scrollableContainer = thumbnailsStrip;
+          thumbnailsContainer = thumbnailsStrip.querySelector('.thumbnails-container') as HTMLElement;
+        }
+      }
+      
+      if (!scrollableContainer || !thumbnailsContainer) {
+        // Retry after a longer delay if container not found
+        setTimeout(() => this.scrollToActiveThumbnail(), 100);
+        return;
+      }
+      
+      const thumbnailItems = thumbnailsContainer.querySelectorAll('.thumbnail-item');
+      
+      if (thumbnailItems.length === 0 || this.currentSlideshowIndex < 0 || this.currentSlideshowIndex >= thumbnailItems.length) {
+        return;
+      }
+      
+      const activeThumbnail = thumbnailItems[this.currentSlideshowIndex] as HTMLElement;
+      if (!activeThumbnail) {
+        return;
+      }
+      
+      // Get scrollable container dimensions (the one with overflow-x: auto)
+      const scrollableWidth = scrollableContainer.clientWidth;
+      const scrollableScrollWidth = scrollableContainer.scrollWidth;
+      
+      // Get thumbnail position - offsetLeft is relative to thumbnails-container
+      // But we need position relative to scrollable container (thumbnails-strip)
+      // Get the position of thumbnails-container relative to scrollable container
+      const containerRect = scrollableContainer.getBoundingClientRect();
+      const thumbnailsContainerRect = thumbnailsContainer.getBoundingClientRect();
+      const activeThumbnailRect = activeThumbnail.getBoundingClientRect();
+      
+      // Calculate thumbnail position relative to scrollable container
+      const thumbnailLeftRelativeToScrollable = activeThumbnailRect.left - containerRect.left + scrollableContainer.scrollLeft;
+      const thumbnailWidth = activeThumbnail.offsetWidth;
+      
+      // Calculate scroll position to center the active thumbnail
+      // Center = thumbnail center - scrollable container center
+      const thumbnailCenter = thumbnailLeftRelativeToScrollable + (thumbnailWidth / 2);
+      const scrollableCenter = scrollableWidth / 2;
+      const scrollLeft = thumbnailCenter - scrollableCenter;
+      
+      // Clamp scroll position to valid range
+      const maxScroll = Math.max(0, scrollableScrollWidth - scrollableWidth);
+      const clampedScroll = Math.max(0, Math.min(scrollLeft, maxScroll));
+      
+      // Only scroll if content is wider than container
+      if (scrollableScrollWidth > scrollableWidth) {
+        // Smooth scroll to center (scroll on the scrollable container, not the inner container)
+        // Use both scrollTo and scrollLeft for better browser compatibility
+        if (scrollableContainer.scrollTo) {
+          scrollableContainer.scrollTo({
+            left: clampedScroll,
+            behavior: 'smooth'
+          });
+        } else {
+          // Fallback for older browsers
+          scrollableContainer.scrollLeft = clampedScroll;
+        }
+      }
+    }, 100); // Delay to ensure DOM is updated
+  }
+  
+  // Get thumbnail URL for an index (index is in slideshowImages array)
+  public getThumbnailUrl(slideshowIndex: number): string {
+    // Get the corresponding image index in this.images
+    const imageIndex = this.slideshowIndexToImageIndex.get(slideshowIndex);
+    if (imageIndex !== undefined && imageIndex >= 0 && imageIndex < this.thumbnails.length && this.thumbnails[imageIndex]) {
+      return this.thumbnails[imageIndex];
+    }
+    return ''; // Return empty string if no thumbnail
+  }
+  
+  // Check if thumbnail is current image
+  public isCurrentThumbnail(index: number): boolean {
+    return index === this.currentSlideshowIndex;
+  }
+  
+  // Handle thumbnail image error
+  public onThumbnailError(event: Event): void {
+    const target = event.target as HTMLElement;
+    if (target) {
+      target.style.display = 'none';
+    }
+  }
+
   // Detect image MIME type from ArrayBuffer data
+  private detectImageMimeTypeFromFileName(fileName: string): string {
+    if (!fileName) {
+      return 'image/jpeg';
+    }
+    
+    const ext = fileName.toLowerCase().split('.').pop();
+    switch (ext) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'gif':
+        return 'image/gif';
+      case 'webp':
+        return 'image/webp';
+      case 'bmp':
+        return 'image/bmp';
+      case 'svg':
+        return 'image/svg+xml';
+      default:
+        return 'image/jpeg';
+    }
+  }
+  
   private detectImageMimeType(data: ArrayBuffer | Blob | any): string {
     // If it's already a Blob with a type, use it
     if (data instanceof Blob && data.type && data.type.startsWith('image/')) {

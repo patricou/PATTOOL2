@@ -63,6 +63,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public dominantR: number = 128;
 	public dominantG: number = 128;
 	public dominantB: number = 128;
+	// Color calculation mode: true = full image, false = top 30%
+	public useFullImageForColor: boolean = false;
 	// Gradient for button backgrounds based on dominant color
 	public buttonGradient: string = 'linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 100%)';
 	public isSlideshowActive: boolean = false;
@@ -279,7 +281,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 							
 							const blob = new Blob([buffer], { type: 'image/*' });
 							const url = URL.createObjectURL(blob);
-							const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined, blob: blob, fileName: fileName };
+							const imageSource: SlideshowImageSource = { 
+								blobUrl: url, 
+								fileId: undefined, 
+								blob: blob, 
+								fileName: fileName,
+								relativePath: relativePath 
+							};
 							
 							// Add image dynamically to the already open slideshow
 							if (this.slideshowModalComponent && this.fsSlideshowLoadingActive) {
@@ -1089,7 +1097,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 	
 
-	// Process image to extract dominant color from top portion
+	// Process image to extract dominant color from top portion or full image
 	private processImageColor(img: HTMLImageElement): void {
 		try {
 			const canvas = document.createElement('canvas');
@@ -1106,12 +1114,24 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			// Draw image to canvas
 			ctx.drawImage(img, 0, 0);
 
-			// Sample the top portion of the image (top 30%)
-			const sampleHeight = Math.floor(canvas.height * 0.3);
-			const sampleWidth = canvas.width;
+			// Determine sample area based on mode
+			let sampleHeight: number;
+			let sampleWidth: number;
+			let startX: number = 0;
+			let startY: number = 0;
 
-			// Get image data from top portion
-			const imageData = ctx.getImageData(0, 0, sampleWidth, sampleHeight);
+			if (this.useFullImageForColor) {
+				// Sample the full image
+				sampleHeight = canvas.height;
+				sampleWidth = canvas.width;
+			} else {
+				// Sample the top portion of the image (top 30%)
+				sampleHeight = Math.floor(canvas.height * 0.3);
+				sampleWidth = canvas.width;
+			}
+
+			// Get image data from selected portion
+			const imageData = ctx.getImageData(startX, startY, sampleWidth, sampleHeight);
 			const pixels = imageData.data;
 
 			// Calculate average color
@@ -2653,6 +2673,44 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				(document as any).msExitFullscreen();
 			}
 		}
+	}
+
+	// Toggle color calculation mode (full image vs top 30%)
+	public toggleColorCalculationMode(): void {
+		this.useFullImageForColor = !this.useFullImageForColor;
+		
+		// Force immediate recalculation with new mode
+		// Use a small delay to ensure the mode change is processed
+		setTimeout(() => {
+			// Recalculate color for thumbnail image
+			if (this.thumbnailImageRef && this.thumbnailImageRef.nativeElement) {
+				const img = this.thumbnailImageRef.nativeElement;
+				// Check if image is loaded
+				if (img.complete && img.naturalWidth > 0) {
+					// Force recalculation immediately using the existing method
+					this.processImageColor(img);
+				} else {
+					// Wait for image to load then recalculate
+					img.onload = () => {
+						this.processImageColor(img);
+					};
+				}
+			}
+			
+			// Also recalculate if slideshow is active
+			if (this.isCardSlideshowActive && this.cardSlideImageRef && this.cardSlideImageRef.nativeElement) {
+				const img = this.cardSlideImageRef.nativeElement;
+				if (img.complete && img.naturalWidth > 0) {
+					// Force recalculation immediately using the existing method
+					this.processImageColor(img);
+				} else {
+					// Wait for image to load then recalculate
+					img.onload = () => {
+						this.processImageColor(img);
+					};
+				}
+			}
+		}, 50);
 	}
 
 	// Force close all tooltips when mouse leaves an element

@@ -317,6 +317,7 @@
 		"EXIT_FULLSCREEN": "フルスクリーンを終了",
 		"SLIDESHOW_PAUSED": "スライドショー一時停止",
 		"SLIDESHOW_PLAYING": "スライドショー再生中",
+		"CARD_COLOR": "カードの色",
 		        "PLAY": "再生",
         "PAUSE": "一時停止",
         "LOADING_IMAGES": "画像を読み込み中...",
@@ -358,6 +359,8 @@
         "HIDE_INFO_PANEL": "情報パネルを非表示",
         "SHOW_INFO": "情報を表示",
         "HIDE_INFO": "情報を非表示",
+        "SHOW_THUMBNAILS": "サムネイルを表示",
+        "HIDE_THUMBNAILS": "サムネイルを非表示",
         "RESET_ZOOM_HINT": "R/Home: ズームリセット",
         "GRID": "グリッド (G)",
         "SHORTCUTS_TITLE": "ショートカット:",
@@ -366,7 +369,9 @@
         "SHORTCUT_INFO_PANEL": "I : このパネルを表示/非表示",
         "SHORTCUT_FULLSCREEN": "P : フルスクリーン切り替え",
         "SHORTCUT_RESET_ZOOM": "R : ズームリセット",
-        "SHORTCUT_RESET_ZOOM_ESC": "Escape : ズームリセット"
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : ズームリセット",
+        "SHORTCUT_GRID": "G : グリッド表示/非表示",
+        "SHORTCUT_THUMBNAILS": "T : サムネイル表示/非表示"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "自動スクロールを開始",

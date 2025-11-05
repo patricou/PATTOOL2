@@ -185,8 +185,8 @@
 }
 
 .card-footer .comments-button:hover {
-    opacity: 0.9 !important;
-    /* border-color reste celui défini dynamiquement */
+    filter: invert(1) !important;
+    transition: filter 0.3s ease !important;
 }
 
 .comments-button i {
@@ -201,7 +201,8 @@
 }
 
 .card-footer .btn-outline-success:hover {
-    opacity: 0.9 !important;
+    filter: invert(1) !important;
+    transition: filter 0.3s ease !important;
 }
 
 .card-footer .btn-outline-info,
@@ -213,7 +214,8 @@
 
 .card-footer .btn-outline-info:hover,
 .card-footer .eye-button:hover {
-    opacity: 0.9 !important;
+    filter: invert(1) !important;
+    transition: filter 0.3s ease !important;
 }
 
 .card-footer .btn-outline-primary {
@@ -223,7 +225,19 @@
 }
 
 .card-footer .btn-outline-primary:hover {
-    opacity: 0.9 !important;
+    filter: invert(1) !important;
+    transition: filter 0.3s ease !important;
+}
+
+.card-footer .btn-outline-secondary {
+    /* background sera défini dynamiquement via [style.background] */
+    /* border-color sera défini dynamiquement via [style.border-color] */
+    color: white !important;
+}
+
+.card-footer .btn-outline-secondary:hover {
+    filter: invert(1) !important;
+    transition: filter 0.3s ease !important;
 }
 
 /* Tous les autres boutons */
@@ -238,13 +252,16 @@
 .card-footer .btn-primary:hover,
 .card-footer .btn-success:hover,
 .card-footer .btn-warning:hover {
-    opacity: 0.9 !important;
+    filter: invert(1) !important;
+    transition: filter 0.3s ease !important;
 }
 
 /* Hover effects pour tous les boutons */
 .card-footer .btn:hover {
+    filter: invert(1) !important;
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: filter 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease !important;
 }
 
 .card-footer .btn:active {
@@ -416,6 +433,7 @@
 .play-in-title-btn i {
     margin-left: 0.15rem; /* Center play icon */
 }
+
 
 /* Card slideshow control button (pause/play) */
 .card-slideshow-control-btn {

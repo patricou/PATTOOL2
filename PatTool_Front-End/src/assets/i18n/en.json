@@ -315,6 +315,7 @@
 		"EXIT_FULLSCREEN": "Exit fullscreen",
 		"SLIDESHOW_PAUSED": "Slideshow paused",
 		"SLIDESHOW_PLAYING": "Slideshow playing",
+		"CARD_COLOR": "Card color",
 		        "PLAY": "Play",
         "PAUSE": "Pause",
         "LOADING_IMAGES": "Loading images...",
@@ -356,6 +357,8 @@
         "HIDE_INFO_PANEL": "Hide Info Panel",
         "SHOW_INFO": "Show Info",
         "HIDE_INFO": "Hide Info",
+        "SHOW_THUMBNAILS": "Show thumbnails",
+        "HIDE_THUMBNAILS": "Hide thumbnails",
         "RESET_ZOOM_HINT": "R/Home: Reset Zoom",
         "GRID": "Grid (G)",
         "SHORTCUTS_TITLE": "Keyboard Shortcuts:",
@@ -364,7 +367,9 @@
         "SHORTCUT_INFO_PANEL": "I : Show/Hide this panel",
         "SHORTCUT_FULLSCREEN": "P : Toggle fullscreen",
         "SHORTCUT_RESET_ZOOM": "R : Reset zoom",
-        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Reset zoom"
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Reset zoom",
+        "SHORTCUT_GRID": "G : Show/Hide grid",
+        "SHORTCUT_THUMBNAILS": "T : Show/Hide thumbnails"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Start auto-scroll",

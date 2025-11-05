@@ -317,6 +317,7 @@
 		"EXIT_FULLSCREEN": "退出全屏",
 		"SLIDESHOW_PAUSED": "幻灯片已暂停",
 		"SLIDESHOW_PLAYING": "幻灯片播放中",
+		"CARD_COLOR": "卡片颜色",
 		        "PLAY": "播放",
         "PAUSE": "暂停",
         "LOADING_IMAGES": "加载图片中...",
@@ -358,6 +359,8 @@
         "HIDE_INFO_PANEL": "隐藏信息面板",
         "SHOW_INFO": "显示信息",
         "HIDE_INFO": "隐藏信息",
+        "SHOW_THUMBNAILS": "显示缩略图",
+        "HIDE_THUMBNAILS": "隐藏缩略图",
         "RESET_ZOOM_HINT": "R/Home: 重置缩放",
         "GRID": "网格 (G)",
         "SHORTCUTS_TITLE": "键盘快捷键:",
@@ -366,7 +369,9 @@
         "SHORTCUT_INFO_PANEL": "I : 显示/隐藏此面板",
         "SHORTCUT_FULLSCREEN": "P : 切换全屏",
         "SHORTCUT_RESET_ZOOM": "R : 重置缩放",
-        "SHORTCUT_RESET_ZOOM_ESC": "Escape : 重置缩放"
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : 重置缩放",
+        "SHORTCUT_GRID": "G : 显示/隐藏网格",
+        "SHORTCUT_THUMBNAILS": "T : 显示/隐藏缩略图"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "开始自动滚动",
