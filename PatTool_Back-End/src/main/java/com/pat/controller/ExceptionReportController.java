@@ -25,9 +25,14 @@ public class ExceptionReportController {
     @PostMapping("/exception-report/send")
     public ResponseEntity<String> sendExceptionReport() {
         try {
-            log.info("Manual exception report trigger requested");
-            exceptionReportScheduler.sendExceptionReportNow();
-            return ResponseEntity.ok("Exception report sent successfully");
+            log.debug("Manual exception report trigger requested");
+            boolean emailSent = exceptionReportScheduler.sendExceptionReportNow();
+            
+            if (emailSent) {
+                return ResponseEntity.ok("Exception report sent successfully");
+            } else {
+                return ResponseEntity.ok("No exceptions or connections to report in the last 24 hours. Email not sent.");
+            }
         } catch (Exception e) {
             log.error("Error sending exception report: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

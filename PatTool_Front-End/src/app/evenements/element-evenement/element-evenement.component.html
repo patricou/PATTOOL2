@@ -89,14 +89,24 @@
 </div>
 <div class="card-block pat-card-block" [style.color]="titleBorderColor">
     <div class="text-center">
-        <span class="badge rounded-pill bg-danger" (click)="addRateMinus()" placement="left"
-            ngbTooltip="{{ 'COMMUN.IDONTLIKE' | translate }}"
-            (mouseleave)="onTooltipMouseLeave($event)"> {{evenement.ratingMinus || 0}}</span>
+        <span class="badge rounded-pill rating-badge" 
+              (click)="addRateMinus()" 
+              placement="left"
+              [style.background]="getRatingBadgeGradient()"
+              [style.border-color]="'white'"
+              [style.color]="'white'"
+              ngbTooltip="{{ 'COMMUN.IDONTLIKE' | translate }}"
+              (mouseleave)="onTooltipMouseLeave($event)"> {{evenement.ratingMinus || 0}}</span>
         <ngb-rating [(rate)]="currentRate">
         </ngb-rating>
-        <span class="badge rounded-pill bg-success" (click)="addRatePlus()" placement="right"
-            ngbTooltip="{{ 'COMMUN.ILIKE' | translate }}"
-            (mouseleave)="onTooltipMouseLeave($event)">{{evenement.ratingPlus || 0}}</span>
+        <span class="badge rounded-pill rating-badge" 
+              (click)="addRatePlus()" 
+              placement="right"
+              [style.background]="getRatingBadgeGradient()"
+              [style.border-color]="'white'"
+              [style.color]="'white'"
+              ngbTooltip="{{ 'COMMUN.ILIKE' | translate }}"
+              (mouseleave)="onTooltipMouseLeave($event)">{{evenement.ratingPlus || 0}}</span>
     </div>
     <div class="alert alert-warning small pat-alert text-center"
          [style.background]="descriptionBackgroundGradient"
@@ -107,13 +117,37 @@
     <div class="card-text text-center" [ngSwitch]="evenement.status">
         <!--{{"EVENTELEM.STATUS" | translate }} :-->
         <b>
-            <span *ngSwitchCase="'Closed'" class="badge bg-danger me-2">{{"COMMUN.STATUSCLOSE" | translate }}</span>
-            <span *ngSwitchCase="'Open'" class="badge bg-success me-2">{{"COMMUN.STATUSOPEN" | translate }}</span>
-            <span *ngSwitchCase="'Cancel'" class="badge bg-warning me-2">{{"COMMUN.STATUSCANCEL" | translate }}</span>
+            <span *ngSwitchCase="'Closed'" 
+                  class="badge status-badge me-2"
+                  [style.background]="getStatusBadgeGradient()"
+                  [style.border-color]="'white'"
+                  [style.color]="'white'">{{"COMMUN.STATUSCLOSE" | translate }}</span>
+            <span *ngSwitchCase="'Open'" 
+                  class="badge status-badge me-2"
+                  [style.background]="getStatusBadgeGradient()"
+                  [style.border-color]="'white'"
+                  [style.color]="'white'">{{"COMMUN.STATUSOPEN" | translate }}</span>
+            <span *ngSwitchCase="'Cancel'" 
+                  class="badge status-badge me-2"
+                  [style.background]="getStatusBadgeGradient()"
+                  [style.border-color]="'white'"
+                  [style.color]="'white'">{{"COMMUN.STATUSCANCEL" | translate }}</span>
             <span [ngSwitch]="evenement.visibility">
-                <span *ngSwitchCase="'public'" class="badge bg-success">{{"EVENTCREATION.PUBLIC" | translate }}</span>
-                <span *ngSwitchCase="'private'" class="badge bg-warning">{{"EVENTCREATION.PRIVATE" | translate }}</span>
-                <span *ngSwitchDefault class="badge bg-info">{{evenement.visibility}}</span>
+                <span *ngSwitchCase="'public'" 
+                      class="badge visibility-badge"
+                      [style.background]="getVisibilityBadgeGradient()"
+                      [style.border-color]="'white'"
+                      [style.color]="'white'">{{"EVENTCREATION.PUBLIC" | translate }}</span>
+                <span *ngSwitchCase="'private'" 
+                      class="badge visibility-badge"
+                      [style.background]="getVisibilityBadgeGradient()"
+                      [style.border-color]="'white'"
+                      [style.color]="'white'">{{"EVENTCREATION.PRIVATE" | translate }}</span>
+                <span *ngSwitchDefault 
+                      class="badge visibility-badge"
+                      [style.background]="getVisibilityBadgeGradient()"
+                      [style.border-color]="'white'"
+                      [style.color]="'white'">{{evenement.visibility}}</span>
             </span>
         </b>
     </div>
@@ -168,14 +202,19 @@
                         <i class="fa" [class.fa-plus]="!showFilesList" [class.fa-minus]="showFilesList"></i>
                     </button>
                 </div>
-                <button class="btn btn-sm btn-success" 
+                <button class="btn btn-sm btn-success download-all-btn" 
                         *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0"
                         (click)="downloadAllFiles()"
+                        [style.background]="getDownloadAllButtonGradient()"
+                        [style.border-color]="'white'"
+                        [style.color]="'white'"
                         style="padding: 0.15rem 0.3rem; font-size: 0.7rem;">
                     <i class="fa fa-download"></i> {{ 'COMMUN.DOWNLOAD_ALL' | translate }}
                 </button>
             </h5>
-            <ul class="list-group" *ngIf="showFilesList">
+            <ul class="list-group files-list" 
+                *ngIf="showFilesList"
+                [style.background]="getFilesListGradient()">
                 <li class="list-group-item d-flex justify-content-between align-items-center"
                     *ngFor="let uploadedFile of evenement.fileUploadeds ">
                     <span class="file-name d-flex align-items-center">

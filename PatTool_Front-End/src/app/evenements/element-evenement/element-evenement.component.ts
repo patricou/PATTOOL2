@@ -1212,8 +1212,49 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		const darkerG = Math.max(0, g - 60);
 		const darkerB = Math.max(0, b - 60);
 		
-		// Use high opacity for stronger gradients
-		return `linear-gradient(135deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 1) 0%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 1) 100%)`;
+		// Use high opacity for stronger gradients - direction inversée (315deg au lieu de 135deg)
+		return `linear-gradient(315deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 1) 0%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 1) 100%)`;
+	}
+	
+	// Get strong gradient for files list - dégradé fort basé sur la couleur calculée
+	public getFilesListGradient(): string {
+		// Créer un dégradé très contrasté avec la couleur dominante
+		const r = this.dominantR;
+		const g = this.dominantG;
+		const b = this.dominantB;
+		
+		// Version très claire pour le début
+		const lighterR = Math.min(255, r + 80);
+		const lighterG = Math.min(255, g + 80);
+		const lighterB = Math.min(255, b + 80);
+		
+		// Version très foncée pour la fin
+		const darkerR = Math.max(0, r - 100);
+		const darkerG = Math.max(0, g - 100);
+		const darkerB = Math.max(0, b - 100);
+		
+		// Dégradé fort avec opacité maximale - direction inversée (315deg au lieu de 135deg)
+		return `linear-gradient(315deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.95) 0%, rgba(${r}, ${g}, ${b}, 0.95) 50%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 0.95) 100%)`;
+	}
+	
+	// Get gradient for status badges - basé sur la couleur calculée
+	public getStatusBadgeGradient(): string {
+		return this.getButtonGradientForType('status', this.dominantR, this.dominantG, this.dominantB);
+	}
+	
+	// Get gradient for visibility badges - basé sur la couleur calculée
+	public getVisibilityBadgeGradient(): string {
+		return this.getButtonGradientForType('visibility', this.dominantR, this.dominantG, this.dominantB);
+	}
+	
+	// Get gradient for download all button - basé sur la couleur calculée
+	public getDownloadAllButtonGradient(): string {
+		return this.getButtonGradientForType('download', this.dominantR, this.dominantG, this.dominantB);
+	}
+	
+	// Get gradient for rating badges - basé sur la couleur calculée
+	public getRatingBadgeGradient(): string {
+		return this.getButtonGradientForType('rating', this.dominantR, this.dominantG, this.dominantB);
 	}
 	// Detect color after view is initialized
 	ngAfterViewInit() {

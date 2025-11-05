@@ -3,6 +3,7 @@ package com.pat.controller;
 import com.pat.repo.domain.Member;
 import com.pat.repo.MembersRepository;
 import com.pat.service.ExceptionTrackingService;
+import com.pat.service.IpGeolocationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,6 +13,9 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -33,6 +37,9 @@ public class MemberRestController {
     @Autowired
     private ExceptionTrackingService exceptionTrackingService;
 
+    @Autowired
+    private IpGeolocationService ipGeolocationService;
+
     @RequestMapping(method = RequestMethod.GET)
     public List<Member> getListMembers(){
         return membersRepository.findAll();
@@ -46,15 +53,15 @@ public class MemberRestController {
     )
     @ResponseBody
     public Member getMemberbyUserNameAndRetrieveId(@RequestBody Member member, HttpServletRequest request){
-        log.info("=== USER CONNECTION REQUEST ===");
-        log.info("Member Received - Username: {}, KeycloakId: {}", member.getUserName(), member.getKeycloakId());
+        log.debug("=== USER CONNECTION REQUEST ===");
+        log.debug("Member Received - Username: {}, KeycloakId: {}", member.getUserName(), member.getKeycloakId());
         member.setId(null);
         // retrieve Mlab Id by userName ( would have been better by keycloakId )
         Member memberWithId = membersRepository.findByUserName(member.getUserName());
-        log.info("User lookup result: {}", memberWithId != null ? "FOUND (existing user)" : "NOT FOUND (new user)");
+        log.debug("User lookup result: {}", memberWithId != null ? "FOUND (existing user)" : "NOT FOUND (new user)");
         // Update the ID
         if (memberWithId != null ) {
-            log.info("Existing user found - Member ID: {}", memberWithId.getId());
+            log.debug("Existing user found - Member ID: {}", memberWithId.getId());
             member.setId(memberWithId.getId());
 
             String ipAddress = request.getHeader("X-Forwarded-For");
@@ -64,78 +71,19 @@ public class MemberRestController {
 
             String subject = "Connection User " + member.getUserName() + " ( "+ member.getFirstName()+ " "+member.getLastName() +" )";
             
-            // Build comprehensive email body with all user information
-            StringBuilder bodyBuilder = new StringBuilder();
-            bodyBuilder.append("========================================\n");
-            bodyBuilder.append("USER CONNECTION NOTIFICATION\n");
-            bodyBuilder.append("========================================\n\n");
-            
-            // User Information
-            bodyBuilder.append("--- USER INFORMATION ---\n");
-            bodyBuilder.append("ID: ").append(member.getId() != null ? member.getId() : "N/A").append("\n");
-            bodyBuilder.append("Username: ").append(member.getUserName() != null ? member.getUserName() : "N/A").append("\n");
-            bodyBuilder.append("First Name: ").append(member.getFirstName() != null ? member.getFirstName() : "N/A").append("\n");
-            bodyBuilder.append("Last Name: ").append(member.getLastName() != null ? member.getLastName() : "N/A").append("\n");
-            bodyBuilder.append("Email: ").append(member.getAddressEmail() != null ? member.getAddressEmail() : "N/A").append("\n");
-            bodyBuilder.append("Keycloak ID: ").append(member.getKeycloakId() != null ? member.getKeycloakId() : "N/A").append("\n");
-            if (member.getRoles() != null && !member.getRoles().isEmpty()) {
-                bodyBuilder.append("Roles: ").append(member.getRoles()).append("\n");
-            }
-            bodyBuilder.append("\n");
-            
-            // Connection Information
-            bodyBuilder.append("--- CONNECTION INFORMATION ---\n");
-            bodyBuilder.append("Timestamp: ").append(java.time.LocalDateTime.now()).append("\n");
-            bodyBuilder.append("Server IP: ").append(getIp()).append("\n");
-            bodyBuilder.append("Client IP: ").append(ipAddress).append("\n");
-            bodyBuilder.append("Request Method: ").append(request.getMethod()).append("\n");
-            bodyBuilder.append("Request URI: ").append(request.getRequestURI()).append("\n");
-            bodyBuilder.append("Request URL: ").append(request.getRequestURL().toString()).append("\n");
-            bodyBuilder.append("Query String: ").append(request.getQueryString() != null ? request.getQueryString() : "N/A").append("\n");
-            bodyBuilder.append("Protocol: ").append(request.getProtocol()).append("\n");
-            bodyBuilder.append("Scheme: ").append(request.getScheme()).append("\n");
-            bodyBuilder.append("Server Name: ").append(request.getServerName()).append("\n");
-            bodyBuilder.append("Server Port: ").append(request.getServerPort()).append("\n");
-            bodyBuilder.append("Remote Host: ").append(request.getRemoteHost()).append("\n");
-            bodyBuilder.append("Remote Port: ").append(request.getRemotePort()).append("\n");
-            bodyBuilder.append("\n");
-            
-            // Request Headers
-            bodyBuilder.append("--- REQUEST HEADERS ---\n");
-            Enumeration<String> headerNames = request.getHeaderNames();
-            while (headerNames.hasMoreElements()) {
-                String headerName = headerNames.nextElement();
-                String headerValue = request.getHeader(headerName);
-                // Skip sensitive authorization header
-                if (!"authorization".equalsIgnoreCase(headerName)) {
-                    bodyBuilder.append(headerName).append(": ").append(headerValue).append("\n");
-                }
-            }
-            bodyBuilder.append("\n");
-            
-            // User-Agent Information
             String userAgent = request.getHeader("User-Agent");
-            if (userAgent != null) {
-                bodyBuilder.append("--- BROWSER/CLIENT INFORMATION ---\n");
-                bodyBuilder.append("User-Agent: ").append(userAgent).append("\n");
-                bodyBuilder.append("\n");
-            }
-            
-            // Referer Information
             String referer = request.getHeader("Referer");
-            if (referer != null) {
-                bodyBuilder.append("--- REFERRER INFORMATION ---\n");
-                bodyBuilder.append("Referer: ").append(referer).append("\n");
-                bodyBuilder.append("\n");
+            String body = generateConnectionEmailHtml(member, request, ipAddress, false);
+            
+            // Check if IP should be excluded from email notifications (client or server IP)
+            if (!shouldExcludeEmail(ipAddress)) {
+                // Send email for all users (including patricou)
+                log.debug("Attempting to send connection email for user: {}", member.getUserName());
+                mailController.sendMail(subject, body, true); // true = HTML format
+                log.debug("Connection notification - Subject: '{}' From IP: {}", subject, getIp());
+            } else {
+                log.debug("Email notification skipped - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
             }
-            
-            bodyBuilder.append("========================================\n");
-            String body = bodyBuilder.toString();
-            
-            // Send email for all users (including patricou)
-            log.info("Attempting to send connection email for user: {}", member.getUserName());
-            mailController.sendMail(subject, body);
-            log.info("Connection notification - Subject: '{}' From IP: {}", subject, getIp());
             
             // Track connection for periodic reporting
             String rolesStr = (member.getRoles() != null && !member.getRoles().isEmpty()) ? member.getRoles().toString() : null;
@@ -156,7 +104,7 @@ public class MemberRestController {
             );
         } else {
             // New user - still send email notification
-            log.info("New user connection detected - Username: {}", member.getUserName());
+            log.debug("New user connection detected - Username: {}", member.getUserName());
             
             String ipAddress = request.getHeader("X-Forwarded-For");
             if (ipAddress == null) {
@@ -165,77 +113,19 @@ public class MemberRestController {
 
             String subject = "NEW USER Connection " + member.getUserName() + " ( "+ member.getFirstName()+ " "+member.getLastName() +" )";
             
-            // Build comprehensive email body with all user information
-            StringBuilder bodyBuilder = new StringBuilder();
-            bodyBuilder.append("========================================\n");
-            bodyBuilder.append("NEW USER CONNECTION NOTIFICATION\n");
-            bodyBuilder.append("========================================\n\n");
-            
-            // User Information
-            bodyBuilder.append("--- USER INFORMATION (NEW USER) ---\n");
-            bodyBuilder.append("Username: ").append(member.getUserName() != null ? member.getUserName() : "N/A").append("\n");
-            bodyBuilder.append("First Name: ").append(member.getFirstName() != null ? member.getFirstName() : "N/A").append("\n");
-            bodyBuilder.append("Last Name: ").append(member.getLastName() != null ? member.getLastName() : "N/A").append("\n");
-            bodyBuilder.append("Email: ").append(member.getAddressEmail() != null ? member.getAddressEmail() : "N/A").append("\n");
-            bodyBuilder.append("Keycloak ID: ").append(member.getKeycloakId() != null ? member.getKeycloakId() : "N/A").append("\n");
-            if (member.getRoles() != null && !member.getRoles().isEmpty()) {
-                bodyBuilder.append("Roles: ").append(member.getRoles()).append("\n");
-            }
-            bodyBuilder.append("\n");
-            
-            // Connection Information
-            bodyBuilder.append("--- CONNECTION INFORMATION ---\n");
-            bodyBuilder.append("Timestamp: ").append(java.time.LocalDateTime.now()).append("\n");
-            bodyBuilder.append("Server IP: ").append(getIp()).append("\n");
-            bodyBuilder.append("Client IP: ").append(ipAddress).append("\n");
-            bodyBuilder.append("Request Method: ").append(request.getMethod()).append("\n");
-            bodyBuilder.append("Request URI: ").append(request.getRequestURI()).append("\n");
-            bodyBuilder.append("Request URL: ").append(request.getRequestURL().toString()).append("\n");
-            bodyBuilder.append("Query String: ").append(request.getQueryString() != null ? request.getQueryString() : "N/A").append("\n");
-            bodyBuilder.append("Protocol: ").append(request.getProtocol()).append("\n");
-            bodyBuilder.append("Scheme: ").append(request.getScheme()).append("\n");
-            bodyBuilder.append("Server Name: ").append(request.getServerName()).append("\n");
-            bodyBuilder.append("Server Port: ").append(request.getServerPort()).append("\n");
-            bodyBuilder.append("Remote Host: ").append(request.getRemoteHost()).append("\n");
-            bodyBuilder.append("Remote Port: ").append(request.getRemotePort()).append("\n");
-            bodyBuilder.append("\n");
-            
-            // Request Headers
-            bodyBuilder.append("--- REQUEST HEADERS ---\n");
-            Enumeration<String> headerNames = request.getHeaderNames();
-            while (headerNames.hasMoreElements()) {
-                String headerName = headerNames.nextElement();
-                String headerValue = request.getHeader(headerName);
-                // Skip sensitive authorization header
-                if (!"authorization".equalsIgnoreCase(headerName)) {
-                    bodyBuilder.append(headerName).append(": ").append(headerValue).append("\n");
-                }
-            }
-            bodyBuilder.append("\n");
-            
-            // User-Agent Information
             String userAgent = request.getHeader("User-Agent");
-            if (userAgent != null) {
-                bodyBuilder.append("--- BROWSER/CLIENT INFORMATION ---\n");
-                bodyBuilder.append("User-Agent: ").append(userAgent).append("\n");
-                bodyBuilder.append("\n");
-            }
-            
-            // Referer Information
             String referer = request.getHeader("Referer");
-            if (referer != null) {
-                bodyBuilder.append("--- REFERRER INFORMATION ---\n");
-                bodyBuilder.append("Referer: ").append(referer).append("\n");
-                bodyBuilder.append("\n");
+            String body = generateConnectionEmailHtml(member, request, ipAddress, true);
+            
+            // Check if IP should be excluded from email notifications (client or server IP)
+            if (!shouldExcludeEmail(ipAddress)) {
+                // Send email for all users including new users (including patricou)
+                log.debug("Attempting to send NEW USER connection email for: {}", member.getUserName());
+                mailController.sendMail(subject, body, true); // true = HTML format
+                log.debug("NEW USER connection notification - Subject: '{}' From IP: {}", subject, getIp());
+            } else {
+                log.debug("Email notification skipped for NEW USER - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
             }
-            
-            bodyBuilder.append("========================================\n");
-            String body = bodyBuilder.toString();
-            
-            // Send email for all users including new users (including patricou)
-            log.info("Attempting to send NEW USER connection email for: {}", member.getUserName());
-            mailController.sendMail(subject, body);
-            log.info("NEW USER connection notification - Subject: '{}' From IP: {}", subject, getIp());
             
             // Track connection for periodic reporting
             String rolesStr = (member.getRoles() != null && !member.getRoles().isEmpty()) ? member.getRoles().toString() : null;
@@ -257,10 +147,10 @@ public class MemberRestController {
         }
 
         // Save the member in Mlab ( if modif ( like email or... ) ( userName is unqiue )
-        log.info("Saving member to database...");
+        log.debug("Saving member to database...");
         Member newMember = membersRepository.save(member);
-        log.info("Member saved - ID: {}", newMember.getId());
-        log.info("=== END USER CONNECTION REQUEST ===\n");
+        log.debug("Member saved - ID: {}", newMember.getId());
+        log.debug("=== END USER CONNECTION REQUEST ===\n");
         return newMember;
     }
 
@@ -270,7 +160,7 @@ public class MemberRestController {
             produces = { "application/json"}
             )
     public Member getMember(@PathVariable String id) {
-        log.info("Get Member : " +  id );
+        log.debug("Get Member : " +  id );
         return membersRepository.findById(id).orElse(null);
     }
 
@@ -282,6 +172,191 @@ public class MemberRestController {
             return "UnknownHostException.";
 
         }
+    }
+
+    /**
+     * Generate HTML email body for user connection notifications
+     */
+    private String generateConnectionEmailHtml(Member member, HttpServletRequest request, String ipAddress, boolean isNewUser) {
+        StringBuilder bodyBuilder = new StringBuilder();
+        bodyBuilder.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
+        bodyBuilder.append("<style>");
+        bodyBuilder.append("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 15px; line-height: 1.8; color: #2c3e50; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 20px; }");
+        bodyBuilder.append(".container { max-width: 800px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }");
+        bodyBuilder.append(".header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 25px; text-align: center; border-bottom: 4px solid #1e7e34; }");
+        bodyBuilder.append(".header-new { background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white; padding: 25px; text-align: center; border-bottom: 4px solid #ff8c00; }");
+        bodyBuilder.append(".header h1 { margin: 0; font-size: 24px; font-weight: 700; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); letter-spacing: 1px; }");
+        bodyBuilder.append(".header-icon { font-size: 32px; margin-bottom: 10px; }");
+        bodyBuilder.append(".section { background: white; margin: 20px; padding: 0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; border: 2px solid #e0e0e0; }");
+        bodyBuilder.append(".section-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; font-weight: 700; font-size: 16px; border-bottom: 3px solid #5568d3; display: flex; align-items: center; gap: 10px; }");
+        bodyBuilder.append(".section-content { padding: 20px; background: #fafafa; }");
+        bodyBuilder.append(".info-item { margin: 12px 0; padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #667eea; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; }");
+        bodyBuilder.append(".label { font-weight: 700; color: #495057; min-width: 140px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }");
+        bodyBuilder.append(".value { color: #212529; font-weight: 500; flex: 1; font-size: 15px; }");
+        bodyBuilder.append(".new-user-badge { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: #000; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; margin-left: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }");
+        bodyBuilder.append(".ip-highlight { color: #007bff; font-weight: bold !important; font-size: 16px; background: #e7f3ff; padding: 4px 8px; border-radius: 4px; display: inline-block; }");
+        bodyBuilder.append(".domain-highlight { color: #28a745; font-weight: bold !important; font-size: 15px; background: #d4edda; padding: 4px 8px; border-radius: 4px; display: inline-block; }");
+        bodyBuilder.append(".location-highlight { color: #dc3545; font-weight: bold !important; font-size: 15px; background: #f8d7da; padding: 4px 8px; border-radius: 4px; display: inline-block; }");
+        bodyBuilder.append(".separator { height: 3px; background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%); margin: 20px 0; border-radius: 2px; }");
+        bodyBuilder.append(".icon { font-size: 20px; margin-right: 8px; }");
+        bodyBuilder.append("</style></head><body>");
+        bodyBuilder.append("<div class='container'>");
+        
+        // Header
+        if (isNewUser) {
+            bodyBuilder.append("<div class='header-new'>");
+            bodyBuilder.append("<div class='header-icon'>🆕</div>");
+            bodyBuilder.append("<h1>NEW USER CONNECTION</h1>");
+            bodyBuilder.append("</div>");
+        } else {
+            bodyBuilder.append("<div class='header'>");
+            bodyBuilder.append("<div class='header-icon'>👤</div>");
+            bodyBuilder.append("<h1>USER CONNECTION</h1>");
+            bodyBuilder.append("</div>");
+        }
+        
+        // User Information Section
+        bodyBuilder.append("<div class='section'>");
+        bodyBuilder.append("<div class='section-header'><span class='icon'>" + (isNewUser ? "🆕" : "👤") + "</span>USER INFORMATION" + (isNewUser ? " <span class='new-user-badge'>NEW</span>" : "") + "</div>");
+        bodyBuilder.append("<div class='section-content'>");
+        if (member.getId() != null && !isNewUser) {
+            bodyBuilder.append("<div class='info-item'><span class='label'>🆔 ID:</span> <span class='value'>").append(escapeHtml(member.getId())).append("</span></div>");
+        }
+        bodyBuilder.append("<div class='info-item'><span class='label'>👤 Username:</span> <span class='value'>").append(escapeHtml(member.getUserName() != null ? member.getUserName() : "N/A")).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>📝 First Name:</span> <span class='value'>").append(escapeHtml(member.getFirstName() != null ? member.getFirstName() : "N/A")).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>📝 Last Name:</span> <span class='value'>").append(escapeHtml(member.getLastName() != null ? member.getLastName() : "N/A")).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>📧 Email:</span> <span class='value'>").append(escapeHtml(member.getAddressEmail() != null ? member.getAddressEmail() : "N/A")).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🔑 Keycloak ID:</span> <span class='value'>").append(escapeHtml(member.getKeycloakId() != null ? member.getKeycloakId() : "N/A")).append("</span></div>");
+        if (member.getRoles() != null && !member.getRoles().isEmpty()) {
+            bodyBuilder.append("<div class='info-item'><span class='label'>🎭 Roles:</span> <span class='value'>").append(escapeHtml(member.getRoles())).append("</span></div>");
+        }
+        bodyBuilder.append("</div></div>");
+        
+        bodyBuilder.append("<div class='separator'></div>");
+        
+        // Connection Information Section
+        bodyBuilder.append("<div class='section'>");
+        bodyBuilder.append("<div class='section-header'><span class='icon'>🌐</span>CONNECTION INFORMATION</div>");
+        bodyBuilder.append("<div class='section-content'>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🕐 Timestamp:</span> <span class='value'>").append(escapeHtml(formatDateTime(LocalDateTime.now()))).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🖥️ <strong>Server IP:</strong></span> <span class='value'><span class='ip-highlight'>").append(escapeHtml(getIp())).append("</span></span></div>");
+        
+        // Get IP geolocation information
+        IpGeolocationService.IPInfo ipInfo = ipGeolocationService.getCompleteIpInfo(ipAddress);
+        bodyBuilder.append("<div class='info-item'><span class='label'>📍 <strong>Client IP:</strong></span> <span class='value'><span class='ip-highlight'>").append(escapeHtml(ipAddress)).append("</span></span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🌍 <strong>Domain Name:</strong></span> <span class='value'><span class='domain-highlight'>").append(escapeHtml(ipInfo.getDomainName() != null && !ipInfo.getDomainName().isEmpty() ? ipInfo.getDomainName() : "N/A")).append("</span></span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🗺️ <strong>Location:</strong></span> <span class='value'><span class='location-highlight'>").append(escapeHtml(ipInfo.getLocation())).append("</span></span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>⚡ Request Method:</span> <span class='value'>").append(escapeHtml(request.getMethod())).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🔗 Request URI:</span> <span class='value'>").append(escapeHtml(request.getRequestURI())).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🔗 Request URL:</span> <span class='value'>").append(escapeHtml(request.getRequestURL().toString())).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>❓ Query String:</span> <span class='value'>").append(escapeHtml(request.getQueryString() != null ? request.getQueryString() : "N/A")).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🔒 Protocol:</span> <span class='value'>").append(escapeHtml(request.getProtocol())).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🌐 Scheme:</span> <span class='value'>").append(escapeHtml(request.getScheme())).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🖥️ Server Name:</span> <span class='value'>").append(escapeHtml(request.getServerName())).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🔌 Server Port:</span> <span class='value'>").append(request.getServerPort()).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🏠 Remote Host:</span> <span class='value'>").append(escapeHtml(request.getRemoteHost())).append("</span></div>");
+        bodyBuilder.append("<div class='info-item'><span class='label'>🔌 Remote Port:</span> <span class='value'>").append(request.getRemotePort()).append("</span></div>");
+        bodyBuilder.append("</div></div>");
+        
+        bodyBuilder.append("<div class='separator'></div>");
+        
+        // Request Headers Section
+        bodyBuilder.append("<div class='section'>");
+        bodyBuilder.append("<div class='section-header'><span class='icon'>📋</span>REQUEST HEADERS</div>");
+        bodyBuilder.append("<div class='section-content'>");
+        Enumeration<String> headerNames = request.getHeaderNames();
+        while (headerNames.hasMoreElements()) {
+            String headerName = headerNames.nextElement();
+            String headerValue = request.getHeader(headerName);
+            if (!"authorization".equalsIgnoreCase(headerName)) {
+                bodyBuilder.append("<div class='info-item'><span class='label'>📄 ").append(escapeHtml(headerName)).append(":</span> <span class='value'>").append(escapeHtml(headerValue)).append("</span></div>");
+            }
+        }
+        bodyBuilder.append("</div></div>");
+        
+        // User-Agent Information
+        String userAgent = request.getHeader("User-Agent");
+        if (userAgent != null) {
+            bodyBuilder.append("<div class='separator'></div>");
+            bodyBuilder.append("<div class='section'>");
+            bodyBuilder.append("<div class='section-header'><span class='icon'>🌐</span>BROWSER/CLIENT INFORMATION</div>");
+            bodyBuilder.append("<div class='section-content'>");
+            bodyBuilder.append("<div class='info-item'><span class='label'>🌐 User-Agent:</span> <span class='value'>").append(escapeHtml(userAgent)).append("</span></div>");
+            bodyBuilder.append("</div></div>");
+        }
+        
+        // Referer Information
+        String referer = request.getHeader("Referer");
+        if (referer != null) {
+            bodyBuilder.append("<div class='separator'></div>");
+            bodyBuilder.append("<div class='section'>");
+            bodyBuilder.append("<div class='section-header'><span class='icon'>🔗</span>REFERRER INFORMATION</div>");
+            bodyBuilder.append("<div class='section-content'>");
+            bodyBuilder.append("<div class='info-item'><span class='label'>🔗 Referer:</span> <span class='value'>").append(escapeHtml(referer)).append("</span></div>");
+            bodyBuilder.append("</div></div>");
+        }
+        
+        bodyBuilder.append("</div></body></html>");
+        return bodyBuilder.toString();
+    }
+
+    /**
+     * Format date and time as dd-MM-yyyy hh:mm:ss + zone
+     */
+    private String formatDateTime(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return "N/A";
+        }
+        ZoneId zoneId = ZoneId.systemDefault();
+        String zone = zoneId.toString();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
+        return dateTime.format(formatter) + " +" + zone;
+    }
+
+    /**
+     * Escape HTML special characters
+     */
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;")
+                   .replace("\"", "&quot;")
+                   .replace("'", "&#39;");
+    }
+
+    /**
+     * Check if USER CONNECTION email should be excluded based on client IP or server IP
+     * NOTE: This method is ONLY used for user connection emails, NOT for exception reports
+     * Exception reports are sent independently and are not affected by this check
+     * @param clientIpAddress The client IP address to check (may contain multiple IPs separated by commas)
+     * @return true if email should be excluded, false otherwise
+     */
+    private boolean shouldExcludeEmail(String clientIpAddress) {
+        // Check server IP first
+        String serverIp = getIp();
+        if ("192.168.1.33".equals(serverIp)) {
+            return true; // Exclude connection emails only, not reports
+        }
+        
+        // Check client IP
+        if (clientIpAddress == null || clientIpAddress.isEmpty()) {
+            return false;
+        }
+        
+        // Handle X-Forwarded-For which may contain multiple IPs separated by commas
+        String[] ips = clientIpAddress.split(",");
+        for (String ip : ips) {
+            String trimmedIp = ip.trim();
+            // Check if this IP should be excluded
+            if ("192.168.1.33".equals(trimmedIp)) {
+                return true; // Exclude connection emails only, not reports
+            }
+        }
+        
+        return false;
     }
 
 }

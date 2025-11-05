@@ -226,10 +226,129 @@ export class UpdateEvenementComponent implements OnInit {
 	}
 
 	// Handle folder selection for PHOTOFROMFS (new link form)
-    
+	@ViewChild('directoryInput') directoryInput!: any;
+	
+	async selectDirectory() {
+		// Try to use File System Access API if available (modern browsers)
+		if ('showDirectoryPicker' in window) {
+			try {
+				const directoryHandle = await (window as any).showDirectoryPicker();
+				const dirName = directoryHandle.name;
+				// Get the full path by reading a dummy file from the directory
+				// Note: We can't get the full OS path directly, but we can use the directory name
+				// For now, we'll use the directory name as the path
+				this.newUrlEvent.link = dirName;
+			} catch (error: any) {
+				// User cancelled or error occurred, fall back to webkitdirectory
+				if (error.name !== 'AbortError') {
+					console.error('Error selecting directory:', error);
+				}
+				// Fall back to webkitdirectory method
+				if (this.directoryInput && this.directoryInput.nativeElement) {
+					this.directoryInput.nativeElement.click();
+				}
+			}
+		} else {
+			// Fall back to webkitdirectory for older browsers
+			if (this.directoryInput && this.directoryInput.nativeElement) {
+				this.directoryInput.nativeElement.click();
+			}
+		}
+	}
+	
+	onDirectorySelected(event: any) {
+		const files = event.target.files;
+		if (files && files.length > 0) {
+			// Get the directory path from the first file
+			const firstFile = files[0];
+			let directoryPath = '';
+			
+			// Try to get the full path (works in some browsers)
+			const filePath = (firstFile as any).path || '';
+			if (filePath) {
+				// Remove drive letter (e.g., "C:\") from Windows paths
+				const pathWithoutDrive = filePath.replace(/^[A-Za-z]:[\\/]/, '');
+				// Get directory path (remove filename)
+				const pathParts = pathWithoutDrive.split(/[\\/]/);
+				if (pathParts.length > 1) {
+					directoryPath = pathParts.slice(0, -1).join('/');
+				}
+			} else if (firstFile.webkitRelativePath) {
+				// Fallback to webkitRelativePath
+				const pathParts = firstFile.webkitRelativePath.split('/');
+				if (pathParts.length > 1) {
+					directoryPath = pathParts.slice(0, -1).join('/');
+				}
+			}
+			
+			// Clean up the path: replace backslashes with forward slashes
+			directoryPath = directoryPath.replace(/\\/g, '/');
+			this.newUrlEvent.link = directoryPath;
+		}
+		// Reset the input so the same directory can be selected again
+		event.target.value = '';
+	}
 
 	// Handle folder selection for PHOTOFROMFS (edit link form)
-    
+	@ViewChild('editDirectoryInput') editDirectoryInput!: any;
+	
+	async selectDirectoryForEdit() {
+		// Try to use File System Access API if available (modern browsers)
+		if ('showDirectoryPicker' in window) {
+			try {
+				const directoryHandle = await (window as any).showDirectoryPicker();
+				const dirName = directoryHandle.name;
+				this.editingUrlEvent.link = dirName;
+			} catch (error: any) {
+				// User cancelled or error occurred, fall back to webkitdirectory
+				if (error.name !== 'AbortError') {
+					console.error('Error selecting directory:', error);
+				}
+				// Fall back to webkitdirectory method
+				if (this.editDirectoryInput && this.editDirectoryInput.nativeElement) {
+					this.editDirectoryInput.nativeElement.click();
+				}
+			}
+		} else {
+			// Fall back to webkitdirectory for older browsers
+			if (this.editDirectoryInput && this.editDirectoryInput.nativeElement) {
+				this.editDirectoryInput.nativeElement.click();
+			}
+		}
+	}
+	
+	onDirectorySelectedForEdit(event: any) {
+		const files = event.target.files;
+		if (files && files.length > 0) {
+			// Get the directory path from the first file
+			const firstFile = files[0];
+			let directoryPath = '';
+			
+			// Try to get the full path (works in some browsers)
+			const filePath = (firstFile as any).path || '';
+			if (filePath) {
+				// Remove drive letter (e.g., "C:\") from Windows paths
+				const pathWithoutDrive = filePath.replace(/^[A-Za-z]:[\\/]/, '');
+				// Get directory path (remove filename)
+				const pathParts = pathWithoutDrive.split(/[\\/]/);
+				if (pathParts.length > 1) {
+					directoryPath = pathParts.slice(0, -1).join('/');
+				}
+			} else if (firstFile.webkitRelativePath) {
+				// Fallback to webkitRelativePath
+				const pathParts = firstFile.webkitRelativePath.split('/');
+				if (pathParts.length > 1) {
+					directoryPath = pathParts.slice(0, -1).join('/');
+				}
+			}
+			
+			// Clean up the path: replace backslashes with forward slashes
+			directoryPath = directoryPath.replace(/\\/g, '/');
+			this.editingUrlEvent.link = directoryPath;
+		}
+		event.target.value = '';
+	}
+	
 	
 	removeUrlEvent(index: number) {
 		if (index >= 0 && index < this.evenement.urlEvents.length) {

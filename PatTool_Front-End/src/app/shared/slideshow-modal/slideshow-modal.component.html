@@ -21,7 +21,7 @@
              alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
              class="slideshow-image"
              [style.transform]="'translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0) scale(' + slideshowZoom + ')'"
-             style="transform-origin:center center;"
+             style="transform-origin:center center; position: relative;"
              (wheel)="onWheelSlideshow($event)"
              (click)="onSlideshowImageClick()"
              (mousedown)="onSlideshowMouseDown($event)"
@@ -31,6 +31,11 @@
              (load)="onImageLoad()"
              [class.fullscreen-image]="isFullscreen"
              />
+        <!-- Grid Overlay - follows image transform -->
+        <div *ngIf="showGrid && slideshowImages.length > 0" 
+             class="slideshow-grid-overlay"
+             [style.transform]="'translate(-50%, -50%) translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0) scale(' + slideshowZoom + ')'"
+             style="transform-origin:center center;"></div>
         <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
           <i class="fa fa-spinner fa-spin fa-3x"></i>
           <p>{{ 'EVENTELEM.LOADING_IMAGES' | translate }}</p>
@@ -39,14 +44,14 @@
           {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
         </div>
         <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="slideshow-zoom-info">
-          <div class="zoom-value"><strong>Zoom:</strong> {{ (slideshowZoom * 100).toFixed(0) }}%</div>
+          <div *ngIf="getCurrentImageFileName()" class="info-line" style="font-weight: bold; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.3);">
+            <strong>Fichier:</strong> {{ getCurrentImageFileName() }}
+          </div>
+          <div class="info-line">Zoom: {{ (slideshowZoom * 100).toFixed(0) }}%</div>
           <div class="info-line">Min Zoom: {{ (minZoom * 100).toFixed(0) }}%</div>
           <div class="info-line">Mouse: {{ cursorX }}, {{ cursorY }}</div>
           <div class="info-line">Container: {{ containerWidth }} × {{ containerHeight }}</div>
-          <div class="info-line">Img Natural: {{ imageNaturalWidth }} × {{ imageNaturalHeight }}</div>
-          <div class="info-line">Img Display: {{ imageDisplayWidth }} × {{ imageDisplayHeight }}</div>
           <div class="info-line">Img Zoomed: {{ imageZoomedWidth }} × {{ imageZoomedHeight }}</div>
-          <div class="info-line">Translate: {{ translateX }}, {{ translateY }}</div>
           <div class="info-line" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 4px; margin-top: 4px;">
             <div>Visible Origin: {{ visibleImageOriginX }}, {{ visibleImageOriginY }}</div>
             <div>Visible Size: {{ visibleImageWidth }} × {{ visibleImageHeight }}</div>
@@ -71,6 +76,21 @@
             </div>
           </div>
         </div>
+        
+        <!-- Keyboard Shortcuts Section - Positioned bottom right -->
+        <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="shortcuts-section">
+          <div class="shortcuts-title">
+            <i class="fa fa-info-circle"></i> {{ 'EVENTELEM.SHORTCUTS_TITLE' | translate }}
+          </div>
+          <div class="shortcuts-list">
+            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_PREV_NEXT' | translate }}</div>
+            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_SLIDESHOW' | translate }}</div>
+            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_INFO_PANEL' | translate }}</div>
+            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_FULLSCREEN' | translate }}</div>
+            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM' | translate }}</div>
+            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM_ESC' | translate }}</div>
+          </div>
+        </div>
         <!-- Rectangle de sélection (clic droit) -->
         <div *ngIf="isSelectingRectangle" 
              class="selection-rectangle"
@@ -80,11 +100,6 @@
              [style.height.px]="displaySelectionHeight">
         </div>
         
-        <!-- Indicateur en bas à gauche quand le panneau d'info est visible -->
-        <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="info-panel-indicator">
-          <i class="fa fa-info-circle"></i> {{ 'EVENTELEM.INFO_PANEL_ACTIVE' | translate }}
-          <span *ngIf="isFullscreen" class="fullscreen-hint">{{ 'EVENTELEM.RESET_ZOOM_HINT' | translate }}</span>
-        </div>
       </div>
       <div class="slideshow-controls">
         <button class="btn btn-lg btn-outline-light slideshow-btn-prev" 
@@ -104,63 +119,53 @@
     <div class="d-flex gap-2 align-items-center flex-wrap">
       <div class="btn-group" role="group">
         <button type="button" class="btn btn-outline-secondary" 
-                (click)="zoomOutSlideshow()"
-                [ngbTooltip]="'EVENTELEM.ZOOM_OUT' | translate"
-                placement="top">
+                (click)="zoomOutSlideshow()">
           <i class="fa fa-search-minus"></i>
         </button>
         <button type="button" class="btn btn-outline-secondary" 
-                (click)="resetSlideshowZoom()"
-                [ngbTooltip]="'EVENTELEM.ZOOM_RESET' | translate"
-                placement="top">
-          <i class="fa fa-refresh"></i>
+                (click)="resetSlideshowZoom()">
+          <i class="fa fa-refresh"></i> <span class="ms-1">(R)</span>
         </button>
         <button type="button" class="btn btn-outline-secondary" 
-                (click)="zoomInSlideshow()"
-                [ngbTooltip]="'EVENTELEM.ZOOM_IN' | translate"
-                placement="top">
+                (click)="zoomInSlideshow()">
           <i class="fa fa-search-plus"></i>
         </button>
       </div>
       <button type="button" class="btn btn-secondary" 
-              (click)="toggleFullscreen()"
-              [ngbTooltip]="isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)"
-              placement="top">
+              (click)="toggleFullscreen()">
         <i [class.fa-arrows-alt]="!isFullscreen" [class.fa-compress]="isFullscreen" class="me-1"></i>
         <span *ngIf="!isFullscreen">{{ 'EVENTELEM.FULLSCREEN' | translate }}</span>
-        <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span>
+        <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span> <span class="ms-1">(P)</span>
       </button>
       <button *ngIf="slideshowImages.length > 1" 
               type="button" class="btn btn-secondary" 
-              (click)="toggleSlideshow()"
-              [ngbTooltip]="isSlideshowActive ? ('EVENTELEM.PAUSE_SLIDESHOW' | translate) : ('EVENTELEM.PLAY_SLIDESHOW' | translate)"
-              placement="top">
+              (click)="toggleSlideshow()">
         <i class="fa me-1" [ngClass]="isSlideshowActive ? 'fa-pause' : 'fa-play'"></i>
-        <span>{{ isSlideshowActive ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate) }}</span>
+        <span>{{ isSlideshowActive ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate) }}</span> <span class="ms-1">(S)</span>
       </button>
       <button type="button" class="btn btn-success" 
               (click)="shareImage()"
-              [disabled]="slideshowImages.length === 0"
-              [ngbTooltip]="'EVENTELEM.SHARE_IMAGE_TOOLTIP' | translate"
-              placement="top">
+              [disabled]="slideshowImages.length === 0">
         <i class="fa fa-share-alt me-1"></i>
         <span>{{ 'EVENTELEM.SHARE' | translate }}</span>
       </button>
       <button type="button" class="btn btn-info" 
               (click)="showExifInfo()"
-              [disabled]="slideshowImages.length === 0"
-              [ngbTooltip]="'EVENTELEM.SHOW_EXIF_INFO' | translate"
-              placement="top">
+              [disabled]="slideshowImages.length === 0">
         <i class="fa fa-info-circle me-1"></i>
         <span>{{ 'EVENTELEM.EXIF' | translate }}</span>
       </button>
       <button type="button" class="btn btn-secondary" 
               (click)="toggleInfoPanel()"
-              [disabled]="slideshowImages.length === 0"
-              [ngbTooltip]="showInfoPanel ? ('EVENTELEM.HIDE_INFO_PANEL' | translate) : ('EVENTELEM.SHOW_INFO_PANEL' | translate)"
-              placement="top">
+              [disabled]="slideshowImages.length === 0">
         <i class="fa me-1" [ngClass]="showInfoPanel ? 'fa-eye-slash' : 'fa-eye'"></i>
-        <span>{{ showInfoPanel ? ('EVENTELEM.HIDE_INFO' | translate) : ('EVENTELEM.SHOW_INFO' | translate) }}</span>
+        <span>{{ showInfoPanel ? ('EVENTELEM.HIDE_INFO' | translate) : ('EVENTELEM.SHOW_INFO' | translate) }}</span> <span class="ms-1">(I)</span>
+      </button>
+      <button type="button" class="btn btn-secondary" 
+              (click)="toggleGrid()"
+              [disabled]="slideshowImages.length === 0">
+        <i class="fa fa-th me-1"></i>
+        <span>{{ 'EVENTELEM.GRID' | translate }}</span>
       </button>
       <button type="button" class="btn btn-secondary" (click)="onSlideshowClose(c)">
         <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}

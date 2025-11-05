@@ -358,7 +358,15 @@
         "HIDE_INFO_PANEL": "Nascondi pannello informazioni",
         "SHOW_INFO": "Mostra Info",
         "HIDE_INFO": "Nascondi Info",
-        "RESET_ZOOM_HINT": "R/Home: Reimposta zoom"
+        "RESET_ZOOM_HINT": "R/Home: Reimposta zoom",
+        "GRID": "Griglia (G)",
+        "SHORTCUTS_TITLE": "Scorciatoie:",
+        "SHORTCUT_PREV_NEXT": "← / → : Immagine precedente/successiva",
+        "SHORTCUT_SLIDESHOW": "S : Avvia/ferma presentazione",
+        "SHORTCUT_INFO_PANEL": "I : Mostra/nascondi questo pannello",
+        "SHORTCUT_FULLSCREEN": "P : Attiva/disattiva schermo intero",
+        "SHORTCUT_RESET_ZOOM": "R : Reimposta zoom",
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Reimposta zoom"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Avvia scorrimento automatico",

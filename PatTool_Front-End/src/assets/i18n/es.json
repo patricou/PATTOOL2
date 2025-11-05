@@ -358,7 +358,15 @@
         "HIDE_INFO_PANEL": "Ocultar panel de información",
         "SHOW_INFO": "Mostrar Info",
         "HIDE_INFO": "Ocultar Info",
-        "RESET_ZOOM_HINT": "R/Home: Restablecer zoom"
+        "RESET_ZOOM_HINT": "R/Home: Restablecer zoom",
+        "GRID": "Cuadrícula (G)",
+        "SHORTCUTS_TITLE": "Atajos de teclado:",
+        "SHORTCUT_PREV_NEXT": "← / → : Imagen anterior/siguiente",
+        "SHORTCUT_SLIDESHOW": "S : Iniciar/detener presentación",
+        "SHORTCUT_INFO_PANEL": "I : Mostrar/ocultar este panel",
+        "SHORTCUT_FULLSCREEN": "P : Activar/desactivar pantalla completa",
+        "SHORTCUT_RESET_ZOOM": "R : Restablecer zoom",
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Restablecer zoom"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Iniciar desplazamiento automático",

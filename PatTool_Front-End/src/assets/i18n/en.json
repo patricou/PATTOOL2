@@ -356,7 +356,15 @@
         "HIDE_INFO_PANEL": "Hide Info Panel",
         "SHOW_INFO": "Show Info",
         "HIDE_INFO": "Hide Info",
-        "RESET_ZOOM_HINT": "R/Home: Reset Zoom"
+        "RESET_ZOOM_HINT": "R/Home: Reset Zoom",
+        "GRID": "Grid (G)",
+        "SHORTCUTS_TITLE": "Keyboard Shortcuts:",
+        "SHORTCUT_PREV_NEXT": "← / → : Previous/Next image",
+        "SHORTCUT_SLIDESHOW": "S : Start/Stop slideshow",
+        "SHORTCUT_INFO_PANEL": "I : Show/Hide this panel",
+        "SHORTCUT_FULLSCREEN": "P : Toggle fullscreen",
+        "SHORTCUT_RESET_ZOOM": "R : Reset zoom",
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Reset zoom"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Start auto-scroll",

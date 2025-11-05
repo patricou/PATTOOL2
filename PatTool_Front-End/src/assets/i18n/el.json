@@ -355,7 +355,15 @@
         "HIDE_INFO_PANEL": "Απόκρυψη πίνακα πληροφοριών",
         "SHOW_INFO": "Εμφάνιση πληροφοριών",
         "HIDE_INFO": "Απόκρυψη πληροφοριών",
-        "RESET_ZOOM_HINT": "R/Home: Επαναφορά μεγέθυνσης"
+        "RESET_ZOOM_HINT": "R/Home: Επαναφορά μεγέθυνσης",
+        "GRID": "Πλέγμα (G)",
+        "SHORTCUTS_TITLE": "Συντομεύσεις πληκτρολογίου:",
+        "SHORTCUT_PREV_NEXT": "← / → : Προηγούμενη/Επόμενη εικόνα",
+        "SHORTCUT_SLIDESHOW": "S : Έναρξη/Διακοπή παρουσίασης",
+        "SHORTCUT_INFO_PANEL": "I : Εμφάνιση/Απόκρυψη αυτού του πίνακα",
+        "SHORTCUT_FULLSCREEN": "P : Εναλλαγή πλήρους οθόνης",
+        "SHORTCUT_RESET_ZOOM": "R : Επαναφορά μεγέθυνσης",
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Επαναφορά μεγέθυνσης"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Ξεκινήστε αυτόματη κύλιση",

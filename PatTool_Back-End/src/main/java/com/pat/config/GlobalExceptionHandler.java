@@ -76,7 +76,9 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<String> handleMaxSizeException(MaxUploadSizeExceededException exc, HttpServletRequest request) {
         String clientIp = getClientIpAddress(request);
-        log.error("File upload size exceeded from IP [{}]: {}", clientIp, exc.getMessage());
+        String logMessage = "File upload size exceeded from IP [" + clientIp + "]: " + exc.getMessage();
+        log.error(logMessage);
+        exceptionTrackingService.addLog(clientIp, logMessage);
         
         // Track exception
         String stackTrace = getStackTrace(exc);
@@ -86,7 +88,8 @@ public class GlobalExceptionHandler {
             exc.getMessage(),
             request.getRequestURI(),
             request.getMethod(),
-            stackTrace
+            stackTrace,
+            logMessage
         );
         
         String errorMessage = "File size exceeds the maximum allowed limit. " +
@@ -108,9 +111,24 @@ public class GlobalExceptionHandler {
         
         if (shouldIgnore) {
             // Log at info level for scanner/bot requests
-            log.info("Ignored scanner/bot request from IP [{}]: {}", clientIp, resourcePath);
+            String logMessage = "Ignored scanner/bot request from IP [" + clientIp + "]: " + resourcePath;
+            log.info(logMessage);
+            exceptionTrackingService.addLog(clientIp, logMessage);
         } else {
-            log.warn("Static resource not found from IP [{}]: {}", clientIp, resourcePath);
+            String logMessage = "Static resource not found from IP [" + clientIp + "]: " + resourcePath;
+            log.warn(logMessage);
+            
+            // Track exception for reporting (no need to track as log since it's already an exception)
+            String stackTrace = getStackTrace(exc);
+            exceptionTrackingService.addException(
+                clientIp,
+                exc.getClass().getSimpleName(),
+                "Static resource not found: " + resourcePath,
+                request != null ? request.getRequestURI() : resourcePath,
+                request != null ? request.getMethod() : "GET",
+                stackTrace,
+                logMessage
+            );
         }
         
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -126,13 +144,17 @@ public class GlobalExceptionHandler {
         // This is a normal situation when client closes connection (e.g., closing modal/slideshow)
         String clientIp = getClientIpAddress(request);
         String message = exc.getMessage();
+        String logMessage;
         if (message != null && (message.contains("Connection reset") || 
                                  message.contains("failed to write") ||
                                  message.contains("Connection closed"))) {
-            log.info("Client closed connection during async request (likely normal) from IP [{}]: {}", clientIp, message);
+            logMessage = "Client closed connection during async request (likely normal) from IP [" + clientIp + "]: " + message;
+            log.info(logMessage);
         } else {
-            log.info("AsyncRequestNotUsableException from IP [{}]: {}", clientIp, message);
+            logMessage = "AsyncRequestNotUsableException from IP [" + clientIp + "]: " + message;
+            log.info(logMessage);
         }
+        exceptionTrackingService.addLog(clientIp, logMessage);
         
         // Return void response - connection is already closed
         return null;
@@ -152,15 +174,19 @@ public class GlobalExceptionHandler {
                                  message.contains("Broken pipe") ||
                                  message.contains("Connection closed"))) {
             // This is normal when client closes connection (e.g., closing photo slideshow)
-            log.info("Client closed connection during file transfer (likely normal) from IP [{}]: {}", clientIp, message);
+            String logMessage = "Client closed connection during file transfer (likely normal) from IP [" + clientIp + "]: " + message;
+            log.info(logMessage);
+            exceptionTrackingService.addLog(clientIp, logMessage);
             return null; // Connection already closed, return void
         }
         
         // For other IOExceptions, log as error and handle normally
-        log.error("IO Exception occurred from IP [{}]: {}", clientIp, message, exc);
+        String logMessage = "IO Exception occurred from IP [" + clientIp + "]: " + message;
+        log.error(logMessage, exc);
+        exceptionTrackingService.addLog(clientIp, logMessage);
         
         // Track exception if it's a real error (not connection reset)
-        trackIOException(exc, request, clientIp);
+        trackIOException(exc, request, clientIp, logMessage);
         
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
     }
@@ -175,7 +201,9 @@ public class GlobalExceptionHandler {
                 .anyMatch(pattern -> message.contains(pattern));
             
             if (shouldIgnore) {
-                log.info("Ignored scanner/bot static resource request from IP [{}]: {}", clientIp, message);
+                String logMessage = "Ignored scanner/bot static resource request from IP [" + clientIp + "]: " + message;
+                log.info(logMessage);
+                exceptionTrackingService.addLog(clientIp, logMessage);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not found");
             }
         }
@@ -184,11 +212,15 @@ public class GlobalExceptionHandler {
         if (message != null && (message.contains("Connection reset") ||
                                  message.contains("Broken pipe") ||
                                  message.contains("AsyncRequestNotUsableException"))) {
-            log.info("Client closed connection (likely normal) from IP [{}]: {}", clientIp, message);
+            String logMessage = "Client closed connection (likely normal) from IP [" + clientIp + "]: " + message;
+            log.info(logMessage);
+            exceptionTrackingService.addLog(clientIp, logMessage);
             return null; // Connection already closed
         }
         
-        log.error("Unexpected error occurred from IP [{}]: {}", clientIp, exc.getMessage(), exc);
+        String logMessage = "Unexpected error occurred from IP [" + clientIp + "]: " + exc.getMessage();
+        log.error(logMessage, exc);
+        exceptionTrackingService.addLog(clientIp, logMessage);
         
         // Track exception
         String stackTrace = getStackTrace(exc);
@@ -198,7 +230,8 @@ public class GlobalExceptionHandler {
             exc.getMessage(),
             request != null ? request.getRequestURI() : "unknown",
             request != null ? request.getMethod() : "unknown",
-            stackTrace
+            stackTrace,
+            logMessage
         );
         
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -208,7 +241,7 @@ public class GlobalExceptionHandler {
     /**
      * Handle IOException - track if it's a real error (not connection reset)
      */
-    private void trackIOException(IOException exc, HttpServletRequest request, String clientIp) {
+    private void trackIOException(IOException exc, HttpServletRequest request, String clientIp, String logMessage) {
         String message = exc.getMessage();
         
         // Only track if it's NOT a connection reset (which is normal)
@@ -221,7 +254,8 @@ public class GlobalExceptionHandler {
                 exc.getMessage(),
                 request != null ? request.getRequestURI() : "unknown",
                 request != null ? request.getMethod() : "unknown",
-                stackTrace
+                stackTrace,
+                logMessage
             );
         }
     }

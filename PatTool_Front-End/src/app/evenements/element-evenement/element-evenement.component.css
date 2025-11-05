@@ -3,17 +3,32 @@
     display: flex !important;
     flex-direction: column !important;
     height: 100% !important;
+    min-height: 100% !important;
     /* Background color will be set dynamically via ngStyle */
+}
+
+.card-wrapper {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    width: 100%;
+    border-radius: 0.25rem;
+    overflow: hidden;
+    /* Border color and style will be set dynamically via [style.border-*] */
 }
 
 :host .card-block {
     flex: 1 1 auto !important;
     padding: 7px;
     /* Color will be set dynamically via [style.color] */
+    display: flex !important;
+    flex-direction: column !important;
 }
 
 :host .card-footer {
     margin-top: auto !important;
+    flex-shrink: 0 !important;
 }
 
 /* Uniformiser la taille des badges de statut et visibilité */
@@ -69,6 +84,9 @@
     padding: 0.5rem !important;
     min-height: 47px !important;
     box-sizing: border-box !important;
+    /* Forcer le footer à rester en bas */
+    margin-top: auto !important;
+    flex-shrink: 0 !important;
 }
 
 /* Supprimer TOUTES les marges du footer */
@@ -266,14 +284,7 @@
     text-decoration: underline;
 }
 
-/* Card wrapper with dynamic background */
-.card-wrapper {
-    width: 100%;
-    height: 100%;
-    border-radius: 0.25rem;
-    overflow: hidden;
-    /* Border color and style will be set dynamically via [style.border-*] */
-}
+/* Card wrapper styles merged above */
 
 /* Card image container */
 .card-image-container {
@@ -589,6 +600,65 @@
     transform: translateY(-1px);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     opacity: 0.9;
+}
+
+/* Badges avec gradient basé sur la couleur calculée */
+.status-badge,
+.visibility-badge,
+.rating-badge {
+    border: 1px solid white !important;
+    transition: all 0.3s ease !important;
+    font-weight: 600 !important;
+}
+
+.status-badge:hover,
+.visibility-badge:hover,
+.rating-badge:hover {
+    opacity: 0.9 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+.download-all-btn {
+    border: 1px solid white !important;
+    transition: all 0.3s ease !important;
+    font-weight: 600 !important;
+}
+
+.download-all-btn:hover {
+    opacity: 0.9 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Files list with gradient background */
+.files-list {
+    border-radius: 0.5rem !important;
+    overflow: hidden !important;
+    padding: 0.5rem !important;
+    margin-top: 0.5rem !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.files-list .list-group-item {
+    background-color: rgba(255, 255, 255, 0.6) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
+    border-radius: 0.35rem !important;
+    margin-bottom: 0.5rem !important;
+    padding: 0.75rem !important;
+    transition: all 0.3s ease !important;
+    backdrop-filter: blur(5px) !important;
+}
+
+.files-list .list-group-item:last-child {
+    margin-bottom: 0 !important;
+}
+
+.files-list .list-group-item:hover {
+    background-color: rgba(255, 255, 255, 0.8) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
 }
 
 /* Responsive padding adjustments */

@@ -342,7 +342,15 @@
         "HIDE_INFO_PANEL": "जानकारी पैनल छुपाएं",
         "SHOW_INFO": "जानकारी दिखाएं",
         "HIDE_INFO": "जानकारी छुपाएं",
-        "RESET_ZOOM_HINT": "R/Home: ज़ूम रीसेट करें"
+        "RESET_ZOOM_HINT": "R/Home: ज़ूम रीसेट करें",
+        "GRID": "ग्रिड (G)",
+        "SHORTCUTS_TITLE": "कीबोर्ड शॉर्टकट:",
+        "SHORTCUT_PREV_NEXT": "← / → : पिछली/अगली छवि",
+        "SHORTCUT_SLIDESHOW": "S : स्लाइडशो शुरू/रोकें",
+        "SHORTCUT_INFO_PANEL": "I : इस पैनल को दिखाएं/छुपाएं",
+        "SHORTCUT_FULLSCREEN": "P : फ़ुलस्क्रीन टॉगल करें",
+        "SHORTCUT_RESET_ZOOM": "R : ज़ूम रीसेट करें",
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : ज़ूम रीसेट करें"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "स्वचालित स्क्रॉल शुरू करें",

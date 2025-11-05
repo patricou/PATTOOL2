@@ -219,16 +219,16 @@
                             <p>{{ 'ABOUT.EXCEPTION_REPORT_DESC' | translate }}</p>
                             <button 
                                 type="button" 
-                                class="btn btn-primary btn-sm mt-2"
+                                class="btn btn-primary btn-xs mt-2"
                                 (click)="sendExceptionReport()"
                                 [disabled]="isSendingReport">
                                 <i class="fa" [ngClass]="{'fa-spinner fa-spin': isSendingReport, 'fa-envelope': !isSendingReport}"></i>
                                 {{ isSendingReport ? ('ABOUT.SENDING' | translate) : ('ABOUT.SEND_REPORT' | translate) }}
                             </button>
-                            <div *ngIf="reportMessage" class="alert alert-success mt-2 mb-0" role="alert">
+                            <div *ngIf="reportMessage" class="alert alert-success alert-xs mt-2 mb-0" role="alert">
                                 <i class="fa fa-check-circle"></i> {{ reportMessage }}
                             </div>
-                            <div *ngIf="reportError" class="alert alert-danger mt-2 mb-0" role="alert">
+                            <div *ngIf="reportError" class="alert alert-danger alert-xs mt-2 mb-0" role="alert">
                                 <i class="fa fa-exclamation-circle"></i> {{ reportError }}
                             </div>
                         </div>

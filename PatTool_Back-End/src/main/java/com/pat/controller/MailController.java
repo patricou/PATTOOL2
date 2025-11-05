@@ -27,17 +27,23 @@ public class MailController {
 
     // Internal method for sending emails (called from other controllers)
     public String sendMail(String subject, String body){
-        log.info("=== MAIL SENDING ATTEMPT ===");
-        log.info("Subject: {}", subject);
-        log.info("To: {}", mailSentTo);
-        log.info("From: {}", mailSentFrom);
-        log.info("Mail enabled (app.sendmail): {}", sendmail);
+        return sendMail(subject, body, false);
+    }
+
+    // Internal method for sending HTML emails (called from other controllers)
+    public String sendMail(String subject, String body, boolean isHtml){
+        log.debug("=== MAIL SENDING ATTEMPT ===");
+        log.debug("Subject: {}", subject);
+        log.debug("To: {}", mailSentTo);
+        log.debug("From: {}", mailSentFrom);
+        log.debug("Mail enabled (app.sendmail): {}", sendmail);
+        log.debug("HTML format: {}", isHtml);
         
         try {
             if (sendmail) {
-                log.info("Sending mail to {}...", mailSentTo);
-                smtpMailSender.sendMail(mailSentFrom, mailSentTo, subject, body);
-                log.info("✓ Mail sent successfully to {} - Subject: '{}'", mailSentTo, subject);
+                log.debug("Sending mail to {}...", mailSentTo);
+                smtpMailSender.sendMail(mailSentFrom, mailSentTo, subject, body, isHtml);
+                log.debug("✓ Mail sent successfully to {} - Subject: '{}'", mailSentTo, subject);
             } else {
                 log.warn("✗ Mail sending skipped - app.sendmail is set to false");
             }
@@ -47,7 +53,7 @@ public class MailController {
             e.printStackTrace();
         }
         
-        log.info("=== END MAIL SENDING ATTEMPT ===\n");
+        log.debug("=== END MAIL SENDING ATTEMPT ===\n");
         return null;
     };
     
@@ -58,18 +64,18 @@ public class MailController {
     };
 
     public String sendMailWithAttachement(String subject, String body, String attachement){
-        log.info("=== MAIL SENDING ATTEMPT (WITH ATTACHMENT) ===");
-        log.info("Subject: {}", subject);
-        log.info("To: {}", mailSentTo);
-        log.info("From: {}", mailSentFrom);
-        log.info("Attachment: {}", attachement);
-        log.info("Mail enabled (app.sendmail): {}", sendmail);
+        log.debug("=== MAIL SENDING ATTEMPT (WITH ATTACHMENT) ===");
+        log.debug("Subject: {}", subject);
+        log.debug("To: {}", mailSentTo);
+        log.debug("From: {}", mailSentFrom);
+        log.debug("Attachment: {}", attachement);
+        log.debug("Mail enabled (app.sendmail): {}", sendmail);
         
         try {
             if (sendmail) {
-                log.info("Sending mail with attachment to {}...", mailSentTo);
+                log.debug("Sending mail with attachment to {}...", mailSentTo);
                 smtpMailSender.sendMail(mailSentFrom, mailSentTo, subject, body, attachement);
-                log.info("✓ Mail with attachment sent successfully to {} - Subject: '{}' - Attachment: '{}'", 
+                log.debug("✓ Mail with attachment sent successfully to {} - Subject: '{}' - Attachment: '{}'", 
                         mailSentTo, subject, attachement);
             } else {
                 log.warn("✗ Mail sending skipped - app.sendmail is set to false");
@@ -80,7 +86,7 @@ public class MailController {
             e.printStackTrace();
         }
         
-        log.info("=== END MAIL SENDING ATTEMPT (WITH ATTACHMENT) ===\n");
+        log.debug("=== END MAIL SENDING ATTEMPT (WITH ATTACHMENT) ===\n");
         return null;
     };
 }

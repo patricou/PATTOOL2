@@ -358,7 +358,15 @@
         "HIDE_INFO_PANEL": "隐藏信息面板",
         "SHOW_INFO": "显示信息",
         "HIDE_INFO": "隐藏信息",
-        "RESET_ZOOM_HINT": "R/Home: 重置缩放"
+        "RESET_ZOOM_HINT": "R/Home: 重置缩放",
+        "GRID": "网格 (G)",
+        "SHORTCUTS_TITLE": "键盘快捷键:",
+        "SHORTCUT_PREV_NEXT": "← / → : 上一张/下一张图片",
+        "SHORTCUT_SLIDESHOW": "S : 开始/停止幻灯片",
+        "SHORTCUT_INFO_PANEL": "I : 显示/隐藏此面板",
+        "SHORTCUT_FULLSCREEN": "P : 切换全屏",
+        "SHORTCUT_RESET_ZOOM": "R : 重置缩放",
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : 重置缩放"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "开始自动滚动",

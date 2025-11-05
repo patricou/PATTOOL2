@@ -192,6 +192,29 @@
     transform-style: preserve-3d;
 }
 
+/* Grid Overlay - follows image transform, positioned over image */
+.slideshow-grid-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin: auto;
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.25) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.25) 1px, transparent 1px);
+    background-size: 50px 50px;
+    opacity: 0.8;
+    box-sizing: border-box;
+    transform-origin: center center;
+    /* Start with translate(-50%, -50%) for centering, then the dynamic transform will override */
+    transform: translate(-50%, -50%);
+}
+
 /* When image is in fullscreen, make wrapper take full screen too */
 .slideshow-image-wrapper:has(.fullscreen-image),
 :fullscreen .slideshow-image-wrapper,
@@ -341,8 +364,10 @@
 }
 
 .slideshow-zoom-info .zoom-value {
-    font-size: 0.95rem;
-    font-weight: 700;
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0.85;
+    line-height: 1.3;
 }
 
 .slideshow-zoom-info .cursor-position,
@@ -433,6 +458,78 @@
     backdrop-filter: blur(5px);
     border: 1px solid rgba(255, 255, 255, 0.15);
 }
+
+/* Keyboard Shortcuts Section - Positioned bottom right of info panel */
+.shortcuts-section {
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    z-index: 1002;
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    min-width: 200px;
+    max-width: 280px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.shortcuts-section .shortcuts-title {
+    font-weight: bold;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.95);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    padding-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.shortcuts-section .shortcuts-title i {
+    font-size: 0.85rem;
+    color: rgba(76, 175, 80, 0.9);
+}
+
+.shortcuts-section .shortcuts-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.shortcuts-section .shortcut-item {
+    font-size: 0.75rem;
+    line-height: 1.4;
+    opacity: 0.9;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.shortcuts-section .shortcut-item strong {
+    color: rgba(76, 175, 80, 1);
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+/* Ensure shortcuts are visible in fullscreen */
+:fullscreen .shortcuts-section,
+:-webkit-full-screen .shortcuts-section,
+:-moz-full-screen .shortcuts-section,
+:-ms-fullscreen .shortcuts-section,
+.slideshow-container:fullscreen .shortcuts-section,
+.slideshow-container:-webkit-full-screen .shortcuts-section,
+.slideshow-container:-moz-full-screen .shortcuts-section,
+.slideshow-container:-ms-fullscreen .shortcuts-section {
+    position: fixed !important;
+    bottom: 20px !important;
+    right: 20px !important;
+    z-index: 999999 !important;
+    pointer-events: none !important;
+}
+
 
 .info-panel-indicator i {
     font-size: 0.75rem;

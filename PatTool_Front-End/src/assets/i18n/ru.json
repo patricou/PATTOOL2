@@ -353,7 +353,15 @@
         "HIDE_INFO_PANEL": "Скрыть панель информации",
         "SHOW_INFO": "Показать информацию",
         "HIDE_INFO": "Скрыть информацию",
-        "RESET_ZOOM_HINT": "R/Home: Сбросить масштаб"
+        "RESET_ZOOM_HINT": "R/Home: Сбросить масштаб",
+        "GRID": "Сетка (G)",
+        "SHORTCUTS_TITLE": "Горячие клавиши:",
+        "SHORTCUT_PREV_NEXT": "← / → : Предыдущее/Следующее изображение",
+        "SHORTCUT_SLIDESHOW": "S : Запустить/Остановить слайд-шоу",
+        "SHORTCUT_INFO_PANEL": "I : Показать/Скрыть эту панель",
+        "SHORTCUT_FULLSCREEN": "P : Переключить полноэкранный режим",
+        "SHORTCUT_RESET_ZOOM": "R : Сбросить масштаб",
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Сбросить масштаб"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Запустить автоматическую прокрутку",

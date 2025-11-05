@@ -1,5 +1,7 @@
 package com.pat.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.InputStreamResource;
@@ -22,11 +24,18 @@ import java.io.InputStream;
 @Component
 public class SmtpMailSender {
 
+    private static final Logger log = LoggerFactory.getLogger(SmtpMailSender.class);
+
     @Autowired
     private JavaMailSender javaMailSender;
 
     @Async
     public void sendMail(String from,String to, String subject, String body){
+        sendMail(from, to, subject, body, false);
+    }
+
+    @Async
+    public void sendMail(String from,String to, String subject, String body, boolean isHtml){
         MimeMessage mail = javaMailSender.createMimeMessage();
         try {
             MimeMessageHelper helper = new MimeMessageHelper(mail, true);
@@ -34,12 +43,20 @@ public class SmtpMailSender {
             helper.setReplyTo(from);
             helper.setFrom(from);
             helper.setSubject(subject);
-            helper.setText(body);
+            helper.setText(body, isHtml);
+            
+            log.debug("Sending email via SMTP - To: {}, Subject: {}, HTML: {}", to, subject, isHtml);
+            javaMailSender.send(mail);
+            log.debug("Email sent successfully to {}", to);
         } catch (MessagingException e) {
+            log.error("MessagingException while sending email to {}: {}", to, e.getMessage(), e);
             e.printStackTrace();
-        } finally {}
-        javaMailSender.send(mail);
-        //return helper;
+            throw new RuntimeException("Failed to send email: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("Exception while sending email to {}: {}", to, e.getMessage(), e);
+            e.printStackTrace();
+            throw new RuntimeException("Failed to send email: " + e.getMessage(), e);
+        }
     }
     @Async
     public void sendMail(String from,String to, String subject, String body, String attachement){

@@ -28,11 +28,23 @@ public class ExceptionTrackingService {
     // Key: IP address, Value: List of connection details
     private final Map<String, List<ConnectionInfo>> connectionMap = new ConcurrentHashMap<>();
 
+    // Thread-safe map to store log messages with IP addresses
+    // Key: IP address, Value: List of log messages
+    private final Map<String, List<LogInfo>> logMap = new ConcurrentHashMap<>();
+
     /**
      * Store exception information with IP address
      */
     public void addException(String ipAddress, String exceptionType, String message, 
                             String requestUri, String requestMethod, String stackTrace) {
+        addException(ipAddress, exceptionType, message, requestUri, requestMethod, stackTrace, null);
+    }
+
+    /**
+     * Store exception information with IP address and log message
+     */
+    public void addException(String ipAddress, String exceptionType, String message, 
+                            String requestUri, String requestMethod, String stackTrace, String logMessage) {
         if (ipAddress == null) {
             ipAddress = "unknown";
         }
@@ -43,7 +55,8 @@ public class ExceptionTrackingService {
             message,
             requestUri,
             requestMethod,
-            stackTrace
+            stackTrace,
+            logMessage
         );
 
         exceptionMap.computeIfAbsent(ipAddress, k -> Collections.synchronizedList(new ArrayList<>()))
@@ -86,6 +99,47 @@ public class ExceptionTrackingService {
     }
 
     /**
+     * Store log message with IP address
+     */
+    public void addLog(String ipAddress, String logMessage) {
+        if (ipAddress == null || ipAddress.equals("unknown")) {
+            return; // Don't track logs without valid IP
+        }
+
+        LogInfo logInfo = new LogInfo(
+            LocalDateTime.now(),
+            logMessage
+        );
+
+        logMap.computeIfAbsent(ipAddress, k -> Collections.synchronizedList(new ArrayList<>()))
+              .add(logInfo);
+
+        log.debug("Log tracked for IP {}: {}", ipAddress, logMessage);
+    }
+
+    /**
+     * Get logs from the last N hours without clearing
+     * @param hours Number of hours to look back
+     * @return Map of IP addresses to their log lists
+     */
+    public Map<String, List<LogInfo>> getLogsFromLastHours(int hours) {
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(hours);
+        Map<String, List<LogInfo>> snapshot = new ConcurrentHashMap<>();
+        
+        for (Map.Entry<String, List<LogInfo>> entry : logMap.entrySet()) {
+            List<LogInfo> filtered = entry.getValue().stream()
+                .filter(info -> info.getTimestamp().isAfter(cutoff))
+                .collect(Collectors.toList());
+            
+            if (!filtered.isEmpty()) {
+                snapshot.put(entry.getKey(), filtered);
+            }
+        }
+        
+        return snapshot;
+    }
+
+    /**
      * Get all tracked exceptions and clear the map
      * @return Map of IP addresses to their exception lists
      */
@@ -100,7 +154,7 @@ public class ExceptionTrackingService {
         // Clear the original map
         exceptionMap.clear();
         
-        log.info("Retrieved {} IP addresses with exceptions, map cleared", snapshot.size());
+        log.debug("Retrieved {} IP addresses with exceptions, map cleared", snapshot.size());
         return snapshot;
     }
 
@@ -119,7 +173,7 @@ public class ExceptionTrackingService {
         // Clear the original map
         connectionMap.clear();
         
-        log.info("Retrieved {} IP addresses with connections, map cleared", snapshot.size());
+        log.debug("Retrieved {} IP addresses with connections, map cleared", snapshot.size());
         return snapshot;
     }
 
@@ -217,15 +271,22 @@ public class ExceptionTrackingService {
         private final String requestUri;
         private final String requestMethod;
         private final String stackTrace;
+        private final String logMessage;
 
         public ExceptionInfo(LocalDateTime timestamp, String exceptionType, String message,
                            String requestUri, String requestMethod, String stackTrace) {
+            this(timestamp, exceptionType, message, requestUri, requestMethod, stackTrace, null);
+        }
+
+        public ExceptionInfo(LocalDateTime timestamp, String exceptionType, String message,
+                           String requestUri, String requestMethod, String stackTrace, String logMessage) {
             this.timestamp = timestamp;
             this.exceptionType = exceptionType;
             this.message = message;
             this.requestUri = requestUri;
             this.requestMethod = requestMethod;
             this.stackTrace = stackTrace;
+            this.logMessage = logMessage;
         }
 
         public LocalDateTime getTimestamp() {
@@ -250,6 +311,10 @@ public class ExceptionTrackingService {
 
         public String getStackTrace() {
             return stackTrace;
+        }
+
+        public String getLogMessage() {
+            return logMessage;
         }
     }
 
@@ -340,6 +405,27 @@ public class ExceptionTrackingService {
 
         public boolean isNewUser() {
             return isNewUser;
+        }
+    }
+
+    /**
+     * Inner class to store log message information
+     */
+    public static class LogInfo {
+        private final LocalDateTime timestamp;
+        private final String logMessage;
+
+        public LogInfo(LocalDateTime timestamp, String logMessage) {
+            this.timestamp = timestamp;
+            this.logMessage = logMessage;
+        }
+
+        public LocalDateTime getTimestamp() {
+            return timestamp;
+        }
+
+        public String getLogMessage() {
+            return logMessage;
         }
     }
 }

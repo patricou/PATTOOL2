@@ -342,7 +342,15 @@
         "HIDE_INFO_PANEL": "Masquer le panneau d'info",
         "SHOW_INFO": "Afficher Info",
         "HIDE_INFO": "Masquer Info",
-        "RESET_ZOOM_HINT": "R/Home: Réinitialiser le zoom"
+        "RESET_ZOOM_HINT": "R/Home: Réinitialiser le zoom",
+        "GRID": "Grille (G)",
+        "SHORTCUTS_TITLE": "Raccourcis:",
+        "SHORTCUT_PREV_NEXT": "← / → : Image précédente/suivante",
+        "SHORTCUT_SLIDESHOW": "S : Démarrer/arrêter le slideshow",
+        "SHORTCUT_INFO_PANEL": "I : Afficher/masquer ce panneau",
+        "SHORTCUT_FULLSCREEN": "P : Activer/désactiver le plein écran",
+        "SHORTCUT_RESET_ZOOM": "R : Réinitialiser le zoom",
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : Réinitialiser le zoom"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Démarrer le défilement automatique",

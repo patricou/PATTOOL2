@@ -364,3 +364,23 @@
         justify-content: center;
     }
 }
+
+/* Exception Report Button and Messages - Smaller Size */
+.btn-xs {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    border-radius: 0.25rem;
+}
+
+.alert-xs {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.7rem;
+    line-height: 1.2;
+    margin-bottom: 0.25rem;
+}
+
+.alert-xs .fa {
+    font-size: 0.7rem;
+    margin-right: 0.25rem;
+}

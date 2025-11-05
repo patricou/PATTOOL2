@@ -92,6 +92,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Info panel visibility
   public showInfoPanel: boolean = false;
   
+  // Grid overlay visibility
+  public showGrid: boolean = false;
+  
   private hasDraggedSlideshow: boolean = false;
   private dragStartX: number = 0;
   private dragStartY: number = 0;
@@ -1627,14 +1630,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const currentTime = Date.now();
       const currentKeyCode = event.keyCode || (event.key === 'ArrowLeft' ? 37 : event.key === 'ArrowRight' ? 39 : 0);
       
-      // Debounce: ignore if same key pressed within 100ms (to prevent double triggering)
-      if (currentKeyCode === this.lastKeyCode && currentTime - this.lastKeyPressTime < 100) {
+      // Debounce: ignore if same key pressed within 50ms (to prevent double triggering)
+      // Reduced from 100ms to allow faster navigation
+      if (currentKeyCode === this.lastKeyCode && currentTime - this.lastKeyPressTime < 50) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
         return;
       }
       
+      // Handle arrow keys for navigation
       if (event.key === 'ArrowLeft' || event.keyCode === 37) {
         event.preventDefault();
         event.stopPropagation();
@@ -1642,6 +1647,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 37;
         this.previousImage();
+        return; // Exit early after handling
       } else if (event.key === 'ArrowRight' || event.keyCode === 39) {
         event.preventDefault();
         event.stopPropagation();
@@ -1649,6 +1655,39 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 39;
         this.nextImage();
+        return; // Exit early after handling
+      } else if (event.key === 's' || event.key === 'S' || event.keyCode === 83) {
+        // S : démarrer/arrêter le slideshow
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 83;
+        this.toggleSlideshowWithMessage();
+      } else if (event.key === 'i' || event.key === 'I' || event.keyCode === 73) {
+        // I : afficher/masquer le panneau d'informations
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 73;
+        this.toggleInfoPanel();
+      } else if (event.key === 'p' || event.key === 'P' || event.keyCode === 80) {
+        // P : activer/désactiver le plein écran
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 80;
+        this.toggleFullscreen();
+      } else if (event.key === 'g' || event.key === 'G' || event.keyCode === 71) {
+        // G : afficher/masquer la grille
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 71;
+        this.toggleGrid();
       } else if (event.key === 'Escape' || event.keyCode === 27) {
         // En mode fenêtre : Escape réinitialise le zoom
         event.preventDefault();
@@ -1767,6 +1806,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       return '';
     }
     return this.slideshowImages[this.currentSlideshowIndex];
+  }
+  
+  public getCurrentImageFileName(): string {
+    const currentImageUrl = this.getCurrentSlideshowImage();
+    if (!currentImageUrl) {
+      return '';
+    }
+    return this.imageFileNames.get(currentImageUrl) || '';
   }
   
   // Slideshow controls
@@ -1941,6 +1988,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  public toggleGrid(): void {
+    this.showGrid = !this.showGrid;
+  }
+  
   // Share image via Web Share API (WhatsApp, etc.)
   public async shareImage(): Promise<void> {
     try {
@@ -1951,77 +2002,159 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
       
       // Check if Web Share API is available
-      if (navigator.share && navigator.canShare) {
-        // Get the blob for the current image
-        let blob = this.slideshowBlobs.get(currentImageUrl);
-        
-        // If blob is not in cache, fetch it
-        if (!blob) {
-          try {
-            const response = await fetch(currentImageUrl);
-            blob = await response.blob();
-            // Cache it for future use
-            if (blob) {
-              this.slideshowBlobs.set(currentImageUrl, blob);
-            }
-          } catch (error) {
-            console.error('Error fetching image for share:', error);
-            // Fallback to download
-            this.downloadImage();
-            return;
+      // On desktop (PC), Web Share API is usually not available, so we download directly
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      
+      if (!navigator.share) {
+        // Web Share API not available (typically on desktop)
+        // Always download on desktop
+        this.downloadImage();
+        return;
+      }
+      
+      // Get the blob for the current image
+      let blob = this.slideshowBlobs.get(currentImageUrl);
+      
+      // If blob is not in cache, fetch it
+      if (!blob) {
+        try {
+          const response = await fetch(currentImageUrl);
+          blob = await response.blob();
+          // Cache it for future use
+          if (blob) {
+            this.slideshowBlobs.set(currentImageUrl, blob);
           }
-        }
-        
-        if (!blob) {
-          console.warn('Could not get image blob for sharing');
+        } catch (error) {
+          console.error('Error fetching image for share:', error);
           // Fallback to download
           this.downloadImage();
           return;
         }
-        
-        // Get file name if available
-        const fileName = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
-        
-        // Create a File object from the blob
-        const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
-        
-        // Check if we can share files
-        const shareData: any = {
-          title: 'Partager une image',
-          text: 'Partager cette image',
-          files: [file]
-        };
-        
-        if (navigator.canShare(shareData)) {
-          // Share the file
-          await navigator.share(shareData);
+      }
+      
+      if (!blob) {
+        console.warn('Could not get image blob for sharing');
+        // Fallback to download
+        this.downloadImage();
+        return;
+      }
+      
+      // Get file name if available
+      const fileName = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
+      
+      // Ensure proper MIME type - detect if not set or incorrect
+      let mimeType = blob.type || 'image/jpeg';
+      if (!mimeType.startsWith('image/')) {
+        // Try to detect from file extension or default to jpeg
+        const ext = fileName.toLowerCase().split('.').pop();
+        if (ext === 'png') {
+          mimeType = 'image/png';
+        } else if (ext === 'gif') {
+          mimeType = 'image/gif';
+        } else if (ext === 'webp') {
+          mimeType = 'image/webp';
         } else {
-          // Fallback: share URL if files are not supported
-          shareData.url = currentImageUrl;
-          delete shareData.files;
-          if (navigator.canShare(shareData)) {
-            await navigator.share(shareData);
-          } else {
-            // Final fallback: download
-            this.downloadImage();
+          mimeType = 'image/jpeg';
+        }
+      }
+      
+      // Create a new Blob with the correct MIME type if needed
+      if (blob.type !== mimeType) {
+        blob = new Blob([blob], { type: mimeType });
+      }
+      
+      // Create a File object from the blob with proper MIME type
+      const file = new File([blob], fileName, { type: mimeType });
+      
+      // Prepare share data with file
+      const shareData: any = {
+        title: 'Partager une image',
+        text: 'Partager cette image',
+        files: [file]
+      };
+      
+      // Try to share files (Web Share API Level 2)
+      // On mobile devices, file sharing should be supported even if canShare returns false
+      // So we'll try to share directly on mobile, and only check canShare as a safety check
+      // isMobile is already declared at the beginning of the function
+      
+      // On mobile, always try to share files first (even if canShare says no)
+      // Desktop browsers need canShare check
+      if (isMobile || (navigator.canShare && navigator.canShare(shareData))) {
+        try {
+          // Share the file - this should show native share dialog on mobile
+          await navigator.share(shareData);
+          return; // Success, exit early
+        } catch (shareError: any) {
+          // If sharing fails with AbortError (user cancelled), don't show download
+          if (shareError.name === 'AbortError') {
+            return;
+          }
+          // For other errors, continue to URL sharing fallback
+          // Only log non-mobile errors to avoid console spam
+          if (!isMobile) {
+            console.warn('File sharing failed, trying URL fallback:', shareError);
           }
         }
+      }
+      
+      // If file sharing is not supported, try URL sharing as fallback
+      // But only if we can create a data URL (for blob URLs)
+      if (currentImageUrl.startsWith('blob:')) {
+        try {
+          // Convert blob to data URL for sharing
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+          
+          const urlShareData = {
+            title: 'Partager une image',
+            text: 'Partager cette image',
+            url: dataUrl
+          };
+          
+          if (!navigator.canShare || navigator.canShare(urlShareData)) {
+            await navigator.share(urlShareData);
+            return; // Success
+          }
+        } catch (error) {
+          console.warn('Could not convert blob to data URL for sharing:', error);
+        }
       } else {
-        // Web Share API not available, fallback to download
-        this.downloadImage();
+        // For non-blob URLs, try sharing the URL directly
+        const urlShareData = {
+          title: 'Partager une image',
+          text: 'Partager cette image',
+          url: currentImageUrl
+        };
+        
+        if (!navigator.canShare || navigator.canShare(urlShareData)) {
+          await navigator.share(urlShareData);
+          return; // Success
+        }
       }
+      
+      // If all sharing methods fail, fallback to download
+      this.downloadImage();
+      
     } catch (error: any) {
-      // User cancelled or error occurred
-      if (error.name !== 'AbortError') {
-        console.error('Error sharing image:', error);
-        // Fallback to download on error
-        this.downloadImage();
+      // User cancelled sharing (AbortError) - don't show download dialog
+      if (error.name === 'AbortError') {
+        // User cancelled, do nothing
+        return;
       }
+      
+      // Other errors - log and fallback to download
+      console.error('Error sharing image:', error);
+      this.downloadImage();
     }
   }
   
   // Download image as fallback when share is not available
-  private downloadImage(): void {
+  private async downloadImage(): Promise<void> {
     try {
       const currentImageUrl = this.getCurrentSlideshowImage();
       if (!currentImageUrl) {
@@ -2031,27 +2164,42 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Get blob from cache or fetch it
       let blob = this.slideshowBlobs.get(currentImageUrl);
       
+      // If blob is not in cache, fetch it
+      if (!blob) {
+        try {
+          const response = await fetch(currentImageUrl);
+          blob = await response.blob();
+          // Cache it for future use
+          if (blob) {
+            this.slideshowBlobs.set(currentImageUrl, blob);
+          }
+        } catch (error) {
+          console.error('Error fetching image for download:', error);
+          // Fallback: try to download directly via link (may open in new tab)
+          const link = document.createElement('a');
+          link.href = currentImageUrl;
+          link.download = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          return;
+        }
+      }
+      
       if (blob) {
-        // Use cached blob
+        // Use blob to create download link
         const fileName = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
         link.download = fileName;
+        link.style.display = 'none'; // Hide the link
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         // Revoke the URL after a delay to allow download to start
         setTimeout(() => URL.revokeObjectURL(url), 100);
-      } else {
-        // Fallback: open in new tab or download via link
-        const link = document.createElement('a');
-        link.href = currentImageUrl;
-        link.download = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
       }
     } catch (error) {
       console.error('Error downloading image:', error);

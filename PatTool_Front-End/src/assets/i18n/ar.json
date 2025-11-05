@@ -356,7 +356,15 @@
         "HIDE_INFO_PANEL": "إخفاء لوحة المعلومات",
         "SHOW_INFO": "إظهار المعلومات",
         "HIDE_INFO": "إخفاء المعلومات",
-        "RESET_ZOOM_HINT": "R/Home: إعادة تعيين التكبير"
+        "RESET_ZOOM_HINT": "R/Home: إعادة تعيين التكبير",
+        "GRID": "شبكة (G)",
+        "SHORTCUTS_TITLE": "اختصارات لوحة المفاتيح:",
+        "SHORTCUT_PREV_NEXT": "← / → : الصورة السابقة/التالي",
+        "SHORTCUT_SLIDESHOW": "S : بدء/إيقاف عرض الشرائح",
+        "SHORTCUT_INFO_PANEL": "I : إظهار/إخفاء هذه اللوحة",
+        "SHORTCUT_FULLSCREEN": "P : تبديل وضع ملء الشاشة",
+        "SHORTCUT_RESET_ZOOM": "R : إعادة تعيين التكبير",
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : إعادة تعيين التكبير"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "بدء التمرير التلقائي",

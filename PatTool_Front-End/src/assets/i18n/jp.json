@@ -358,7 +358,15 @@
         "HIDE_INFO_PANEL": "情報パネルを非表示",
         "SHOW_INFO": "情報を表示",
         "HIDE_INFO": "情報を非表示",
-        "RESET_ZOOM_HINT": "R/Home: ズームリセット"
+        "RESET_ZOOM_HINT": "R/Home: ズームリセット",
+        "GRID": "グリッド (G)",
+        "SHORTCUTS_TITLE": "ショートカット:",
+        "SHORTCUT_PREV_NEXT": "← / → : 前/次の画像",
+        "SHORTCUT_SLIDESHOW": "S : スライドショー開始/停止",
+        "SHORTCUT_INFO_PANEL": "I : このパネルを表示/非表示",
+        "SHORTCUT_FULLSCREEN": "P : フルスクリーン切り替え",
+        "SHORTCUT_RESET_ZOOM": "R : ズームリセット",
+        "SHORTCUT_RESET_ZOOM_ESC": "Escape : ズームリセット"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "自動スクロールを開始",
