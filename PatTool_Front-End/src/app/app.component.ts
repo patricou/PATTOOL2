@@ -102,7 +102,7 @@ export class AppComponent implements OnInit {
     public open(content: any) {
         this.resultSaveOndisk = "";
 
-        this.modalService.open(content).result.then((result) => {
+        this.modalService.open(content, { backdrop: 'static', keyboard: false }).result.then((result) => {
             this.closeResult = `Closed with: ${result}`;
         }, (reason) => {
             this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;

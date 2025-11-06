@@ -40,24 +40,6 @@ export class FileService {
         );
     }
 
-    // Get thumbnail from MongoDB (by fileId)
-    getThumbnail(fileId: string): Observable<ArrayBuffer> {
-        return this.getHeaderWithToken().pipe(
-            switchMap(headers =>
-                this._http.get(`${this.API_URL}file/thumbnail/${fileId}`, { headers, responseType: 'arraybuffer' })
-            )
-        );
-    }
-
-    // Get thumbnail from filesystem (by relativePath and fileName)
-    getThumbnailFromDisk(relativePath: string, fileName: string): Observable<ArrayBuffer> {
-        return this.getHeaderWithToken().pipe(
-            switchMap(headers =>
-                this._http.get(`${this.API_URL4FILEONDISK}/thumbnail?relativePath=${encodeURIComponent(relativePath)}&fileName=${encodeURIComponent(fileName)}`,
-                    { headers, responseType: 'arraybuffer' })
-            )
-        );
-    }
     // Get the token for Keycloak Security
     getHeaderWithToken(): Observable<HttpHeaders> {
         return from(this._keycloakService.getToken()).pipe(

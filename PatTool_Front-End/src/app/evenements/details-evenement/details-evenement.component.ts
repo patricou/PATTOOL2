@@ -449,8 +449,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           this.modalService.open(this.imageModal, { 
             size: 'xl', 
             centered: true,
-            backdrop: true,
-            keyboard: true,
+            backdrop: 'static',
+            keyboard: false,
             animation: true,
             windowClass: 'modal-image-fullscreen'
           }).result.then(

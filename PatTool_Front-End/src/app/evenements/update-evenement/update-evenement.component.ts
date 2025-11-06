@@ -257,36 +257,17 @@ export class UpdateEvenementComponent implements OnInit {
 	}
 	
 	onDirectorySelected(event: any) {
-		const files = event.target.files;
-		if (files && files.length > 0) {
-			// Get the directory path from the first file
-			const firstFile = files[0];
-			let directoryPath = '';
-			
-			// Try to get the full path (works in some browsers)
-			const filePath = (firstFile as any).path || '';
-			if (filePath) {
-				// Remove drive letter (e.g., "C:\") from Windows paths
-				const pathWithoutDrive = filePath.replace(/^[A-Za-z]:[\\/]/, '');
-				// Get directory path (remove filename)
-				const pathParts = pathWithoutDrive.split(/[\\/]/);
-				if (pathParts.length > 1) {
-					directoryPath = pathParts.slice(0, -1).join('/');
-				}
-			} else if (firstFile.webkitRelativePath) {
-				// Fallback to webkitRelativePath
-				const pathParts = firstFile.webkitRelativePath.split('/');
-				if (pathParts.length > 1) {
-					directoryPath = pathParts.slice(0, -1).join('/');
-				}
-			}
-			
-			// Clean up the path: replace backslashes with forward slashes
-			directoryPath = directoryPath.replace(/\\/g, '/');
+		const files: FileList = event?.target?.files;
+		const directoryPath = this.resolveDirectoryPathFromSelection(files);
+
+		if (directoryPath) {
 			this.newUrlEvent.link = directoryPath;
 		}
+
 		// Reset the input so the same directory can be selected again
-		event.target.value = '';
+		if (event?.target) {
+			event.target.value = '';
+		}
 	}
 
 	// Handle folder selection for PHOTOFROMFS (edit link form)
@@ -318,35 +299,16 @@ export class UpdateEvenementComponent implements OnInit {
 	}
 	
 	onDirectorySelectedForEdit(event: any) {
-		const files = event.target.files;
-		if (files && files.length > 0) {
-			// Get the directory path from the first file
-			const firstFile = files[0];
-			let directoryPath = '';
-			
-			// Try to get the full path (works in some browsers)
-			const filePath = (firstFile as any).path || '';
-			if (filePath) {
-				// Remove drive letter (e.g., "C:\") from Windows paths
-				const pathWithoutDrive = filePath.replace(/^[A-Za-z]:[\\/]/, '');
-				// Get directory path (remove filename)
-				const pathParts = pathWithoutDrive.split(/[\\/]/);
-				if (pathParts.length > 1) {
-					directoryPath = pathParts.slice(0, -1).join('/');
-				}
-			} else if (firstFile.webkitRelativePath) {
-				// Fallback to webkitRelativePath
-				const pathParts = firstFile.webkitRelativePath.split('/');
-				if (pathParts.length > 1) {
-					directoryPath = pathParts.slice(0, -1).join('/');
-				}
-			}
-			
-			// Clean up the path: replace backslashes with forward slashes
-			directoryPath = directoryPath.replace(/\\/g, '/');
+		const files: FileList = event?.target?.files;
+		const directoryPath = this.resolveDirectoryPathFromSelection(files);
+
+		if (directoryPath) {
 			this.editingUrlEvent.link = directoryPath;
 		}
-		event.target.value = '';
+
+		if (event?.target) {
+			event.target.value = '';
+		}
 	}
 	
 	
@@ -615,11 +577,10 @@ export class UpdateEvenementComponent implements OnInit {
         }
 
         this.modalService.open(this.userModal, {
-            size: 'md',
             centered: true,
-            backdrop: true,
-            keyboard: true,
-            animation: true
+            size: 'lg',
+            backdrop: 'static',
+            keyboard: false
         });
     }
 
@@ -634,13 +595,11 @@ export class UpdateEvenementComponent implements OnInit {
 			}
 
 			this.modalService.open(this.imageModal, {
-				size: 'xl',
 				centered: true,
-				backdrop: true,
-				keyboard: true,
-				animation: false,
-				windowClass: 'modal-smooth-animation',
-				backdropClass: 'modal-backdrop'
+				size: 'xl',
+				backdrop: 'static',
+				keyboard: false,
+				windowClass: 'modal-smooth-animation'
 			});
 		}, (error) => {
 			console.error('Error loading file:', error);
@@ -759,7 +718,9 @@ export class UpdateEvenementComponent implements OnInit {
 			modalRef = this.modalService.open(this.uploadLogsModal, {
 				centered: true,
 				backdrop: 'static',
-				keyboard: false
+				keyboard: false,
+				size: 'xl',
+				windowClass: 'upload-logs-modal'
 			});
 		}
 		
@@ -927,6 +888,191 @@ export class UpdateEvenementComponent implements OnInit {
 		return 'upload-' + Date.now() + '-' + Math.random().toString(36).substring(7);
 	}
 
+	private resolveDirectoryPathFromSelection(files: FileList | null | undefined): string {
+		if (!files || files.length === 0) {
+			return '';
+		}
+
+		const fullPath = this.extractFullPathFromFiles(files);
+		if (fullPath) {
+			return fullPath;
+		}
+
+		const relativePath = this.extractRelativeDirectoryFromFiles(files);
+		return this.finalizePath(relativePath);
+	}
+
+	private extractFullPathFromFiles(files: FileList): string {
+		const fileArray = Array.from(files) as any[];
+
+		if (fileArray.length === 0) {
+			return '';
+		}
+
+		const candidates = fileArray.filter(file => !!(file?.path || file?.mozFullPath));
+		if (candidates.length === 0) {
+			return '';
+		}
+
+		const firstFile = candidates[0];
+		const rawFilePath: string = firstFile.path || firstFile.mozFullPath;
+		if (!rawFilePath) {
+			return '';
+		}
+
+		const normalizedFilePath = this.normalizePath(rawFilePath);
+		const relativePaths = this.getRelativePaths(fileArray);
+		const relativeDirectory = this.getRelativeDirectoryPrefix(relativePaths);
+		const firstRelative = this.normalizePath(firstFile.webkitRelativePath || firstFile.name || '');
+
+		let basePath = this.stripSuffix(normalizedFilePath, firstRelative);
+		if (!basePath) {
+			basePath = this.stripFilenameFromPath(normalizedFilePath);
+		}
+
+		if (relativeDirectory) {
+			const combined = this.joinPaths(basePath, relativeDirectory);
+			return this.finalizePath(combined);
+		}
+
+		return this.finalizePath(basePath);
+	}
+
+	private getRelativePaths(files: any[]): string[] {
+		return files
+			.map(file => this.normalizePath(file?.webkitRelativePath || file?.relativePath || file?.name || ''))
+			.filter(path => !!path);
+	}
+
+	private getRelativeDirectoryPrefix(paths: string[]): string {
+		if (paths.length === 0) {
+			return '';
+		}
+
+		const splitPaths = paths.map(path => path.split('/').filter(segment => segment.length > 0));
+		const firstPathParts = splitPaths[0];
+		let minLength = firstPathParts.length;
+
+		for (let i = 1; i < splitPaths.length; i++) {
+			minLength = Math.min(minLength, splitPaths[i].length);
+		}
+
+		const commonParts: string[] = [];
+
+		for (let i = 0; i < minLength; i++) {
+			const segment = firstPathParts[i];
+			const allMatch = splitPaths.every(parts => parts[i] === segment);
+			if (allMatch) {
+				commonParts.push(segment);
+			} else {
+				break;
+			}
+		}
+
+		// Avoid returning the filename when only one file is present
+		if (commonParts.length === firstPathParts.length) {
+			commonParts.pop();
+		}
+
+		return commonParts.join('/');
+	}
+
+	private extractRelativeDirectoryFromFiles(files: FileList): string {
+		const relativePaths = this.getRelativePaths(Array.from(files) as any[]);
+		const relativeDirectory = this.getRelativeDirectoryPrefix(relativePaths);
+		return this.normalizePath(relativeDirectory);
+	}
+
+	private stripFilenameFromPath(pathWithFile: string): string {
+		if (!pathWithFile) {
+			return '';
+		}
+
+		const normalized = this.normalizePath(pathWithFile);
+		const lastSlash = normalized.lastIndexOf('/');
+
+		if (lastSlash === -1) {
+			return normalized;
+		}
+
+		return normalized.substring(0, lastSlash);
+	}
+
+	private stripSuffix(value: string, suffix: string): string {
+		if (!value || !suffix) {
+			return value;
+		}
+
+		if (!value.endsWith(suffix)) {
+			return value;
+		}
+
+		return value.substring(0, value.length - suffix.length);
+	}
+
+	private normalizePath(path: string): string {
+		if (!path) {
+			return '';
+		}
+
+		const isUnc = path.startsWith('\\\\') || path.startsWith('//');
+		let normalized = path.replace(/\\/g, '/');
+
+		if (isUnc) {
+			normalized = '//' + normalized.replace(/^\/+/, '');
+		} else {
+			normalized = normalized.replace(/\/{2,}/g, '/');
+		}
+
+		return normalized;
+	}
+
+	private joinPaths(base: string, relative: string): string {
+		const normalizedBase = this.normalizePath(base).replace(/\/+$/, '');
+		const normalizedRelative = this.normalizePath(relative).replace(/^\/+/, '');
+
+		if (!normalizedRelative) {
+			return normalizedBase;
+		}
+
+		if (!normalizedBase) {
+			return normalizedRelative;
+		}
+
+		if (normalizedBase.endsWith(':')) {
+			return `${normalizedBase}/${normalizedRelative}`;
+		}
+
+		return `${normalizedBase}/${normalizedRelative}`;
+	}
+
+	private finalizePath(path: string): string {
+		if (!path) {
+			return '';
+		}
+
+		const normalized = this.normalizePath(path);
+
+		if (this.isWindowsPlatform()) {
+			if (normalized.startsWith('//')) {
+				return '\\\\' + normalized.substring(2).replace(/\//g, '\\');
+			}
+
+			return normalized.replace(/\//g, '\\');
+		}
+
+		return normalized;
+	}
+
+	private isWindowsPlatform(): boolean {
+		if (typeof navigator === 'undefined' || !navigator) {
+			return false;
+		}
+
+		const platform = (navigator as any).userAgentData?.platform || navigator.platform || '';
+		return platform.toLowerCase().includes('win');
+	}
+
 	// Add "thumbnail" to the middle of the filename
 	private addThumbnailToFileName(originalName: string): string {
 		const lastDotIndex = originalName.lastIndexOf('.');
@@ -957,11 +1103,16 @@ export class UpdateEvenementComponent implements OnInit {
 		}
 
 		this.modalService.open(this.confirmDeleteAllModal, {
-			size: 'md',
 			centered: true,
-			backdrop: true,
-			keyboard: true,
-			animation: true
+			size: 'md',
+			backdrop: 'static',
+			keyboard: false
+		}).result.then((result) => {
+			if (result === 'confirm') {
+				this.deleteAllFiles();
+			}
+		}, (reason) => {
+			// User cancelled
 		});
 	}
 
@@ -998,11 +1149,16 @@ export class UpdateEvenementComponent implements OnInit {
 		}
 
 		this.modalService.open(this.confirmDeleteAllLinksModal, {
-			size: 'md',
 			centered: true,
-			backdrop: true,
-			keyboard: true,
-			animation: true
+			size: 'md',
+			backdrop: 'static',
+			keyboard: false
+		}).result.then((result) => {
+			if (result === 'confirm') {
+				this.deleteAllLinks();
+			}
+		}, (reason) => {
+			// User cancelled
 		});
 	}
 
@@ -1039,11 +1195,16 @@ export class UpdateEvenementComponent implements OnInit {
 		}
 
 		this.modalService.open(this.confirmDeleteAllCommentariesModal, {
-			size: 'md',
 			centered: true,
-			backdrop: true,
-			keyboard: true,
-			animation: true
+			size: 'md',
+			backdrop: 'static',
+			keyboard: false
+		}).result.then((result) => {
+			if (result === 'confirm') {
+				this.deleteAllCommentaries();
+			}
+		}, (reason) => {
+			// User cancelled
 		});
 	}
 

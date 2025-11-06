@@ -77,22 +77,6 @@
           </div>
         </div>
         
-        <!-- Keyboard Shortcuts Section - Positioned bottom right -->
-        <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="shortcuts-section">
-          <div class="shortcuts-title">
-            <i class="fa fa-info-circle"></i> {{ 'EVENTELEM.SHORTCUTS_TITLE' | translate }}
-          </div>
-          <div class="shortcuts-list">
-            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_PREV_NEXT' | translate }}</div>
-            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_SLIDESHOW' | translate }}</div>
-            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_INFO_PANEL' | translate }}</div>
-            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_FULLSCREEN' | translate }}</div>
-            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM' | translate }}</div>
-            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM_ESC' | translate }}</div>
-            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_GRID' | translate }}</div>
-            <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_THUMBNAILS' | translate }}</div>
-          </div>
-        </div>
         <!-- Rectangle de sélection (clic droit) -->
         <div *ngIf="isSelectingRectangle" 
              class="selection-rectangle"
@@ -114,6 +98,22 @@
                 [disabled]="slideshowImages.length <= 1">
           <i class="fa fa-chevron-right"></i>
         </button>
+      </div>
+      <!-- Keyboard Shortcuts Section - Moved outside slideshow-image-wrapper to be at same level as thumbnails -->
+      <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="shortcuts-section">
+        <div class="shortcuts-title">
+          <i class="fa fa-info-circle"></i> {{ 'EVENTELEM.SHORTCUTS_TITLE' | translate }}
+        </div>
+        <div class="shortcuts-list">
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_PREV_NEXT' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_SLIDESHOW' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_INFO_PANEL' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_FULLSCREEN' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM_ESC' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_GRID' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_THUMBNAILS' | translate }}</div>
+        </div>
       </div>
       <!-- Thumbnails strip - moved inside slideshow-container to be visible in fullscreen -->
       <div *ngIf="slideshowImages.length > 0 && showThumbnails" 

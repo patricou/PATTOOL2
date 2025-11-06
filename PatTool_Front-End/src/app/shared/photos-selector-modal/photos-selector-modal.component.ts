@@ -54,7 +54,9 @@ export class PhotosSelectorModalComponent implements OnInit {
     this.modalRef = this.modalService.open(this.photosSelectorModal, {
       centered: true,
       size: 'lg',
-      windowClass: 'fs-selector-modal'
+      windowClass: 'fs-selector-modal',
+      backdrop: 'static',
+      keyboard: false
     });
 
     // Apply fixed width after modal is opened (multiple attempts to ensure it's applied)

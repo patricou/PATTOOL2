@@ -275,8 +275,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		this.modalService.open(this.filesModal, { 
 			size: 'lg',
-			backdrop: true,
-			keyboard: true,
+			backdrop: 'static',
+			keyboard: false,
 			animation: true,
 			centered: true
 		}).result.then((result) => {
@@ -377,8 +377,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		this.modalService.open(this.urlsModal, { 
 			size: 'lg',
-			backdrop: true,
-			keyboard: true,
+			backdrop: 'static',
+			keyboard: false,
 			animation: true,
 			centered: true
 		}).result.then((result) => {
@@ -739,7 +739,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public closeResult: string = "";
 
 	public open(content: any) {
-		this.modalService.open(content).result.then((result) => {
+		this.modalService.open(content, { backdrop: 'static', keyboard: false }).result.then((result) => {
 			this.closeResult = `Closed with: ${result}`;
 		}, (reason) => {
 			this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;
@@ -842,8 +842,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.modalService.open(this.imageModal, { 
 			size: 'lg', 
 			centered: true,
-			backdrop: true,
-			keyboard: true,
+			backdrop: 'static',
+			keyboard: false,
 			animation: false,
 			windowClass: 'modal-smooth-animation'
 		});
@@ -855,8 +855,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		this.modalService.open(this.jsonModal, { 
 			size: 'lg',
-			backdrop: true,
-			keyboard: true,
+			backdrop: 'static',
+			keyboard: false,
 			animation: true,
 			centered: true
 		}).result.then((result) => {
@@ -904,8 +904,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		this.modalService.open(this.commentsModal, { 
 			size: 'lg',
-			backdrop: true,
-			keyboard: true,
+			backdrop: 'static',
+			keyboard: false,
 			animation: true,
 			centered: true
 		}).result.then((result) => {
@@ -924,8 +924,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.modalService.open(this.userModal, {
 			size: 'md',
 			centered: true,
-			backdrop: true,
-			keyboard: true,
+			backdrop: 'static',
+			keyboard: false,
 			animation: true
 		});
 	}
@@ -1305,10 +1305,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			
 			// Open the modal
 			this.modalService.open(this.imageModal, { 
-				size: 'xl', 
+				size: 'lg', 
 				centered: true,
-				backdrop: true,
-				keyboard: true,
+				backdrop: 'static',
+				keyboard: false,
 				animation: false,
 				windowClass: 'modal-smooth-animation'
 			});

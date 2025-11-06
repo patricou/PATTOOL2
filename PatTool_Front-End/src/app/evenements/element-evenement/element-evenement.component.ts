@@ -1396,7 +1396,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// open URLs modal
 	public openUrlsModal(content: any) {
 		this.forceCloseTooltips();
-		this.modalService.open(content, { size: 'lg', centered: true });
+		this.modalService.open(content, { size: 'lg', centered: true, backdrop: 'static', keyboard: false });
 	}
 	// call the modal window for del confirmation
 	public deleteEvenement() {
@@ -1558,7 +1558,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	public open(content: any) {
 		this.forceCloseTooltips();
-		this.modalService.open(content).result.then((result) => {
+		this.modalService.open(content, { size: 'lg', centered: true, backdrop: 'static', keyboard: false }).result.then((result) => {
 			this.closeResult = `Closed with: ${result}`;
 		}, (reason) => {
 			this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;
@@ -1590,7 +1590,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.forceCloseTooltips();
 		
 		if (this.jsonModal) {
-			this.modalService.open(this.jsonModal, { size: 'lg' }).result.then((result) => {
+			this.modalService.open(this.jsonModal, { size: 'lg', backdrop: 'static', keyboard: false }).result.then((result) => {
 				this.closeResult = `JSON modal closed with: ${result}`;
 			}, (reason) => {
 				this.closeResult = `JSON modal dismissed ${this.getDismissReason(reason)}`;
@@ -2251,8 +2251,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.forceCloseTooltips();
 		this.modalService.open(this.commentsModal, { 
 			size: 'lg',
-			backdrop: true,
-			keyboard: true,
+			backdrop: 'static',
+			keyboard: false,
 			animation: true,
 			centered: true
 		}).result.then((result) => {
@@ -2272,8 +2272,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.modalService.open(this.userModal, {
 			size: 'md',
 			centered: true,
-			backdrop: true,
-			keyboard: true,
+			backdrop: 'static',
+			keyboard: false,
 			animation: true
 		});
 	}
