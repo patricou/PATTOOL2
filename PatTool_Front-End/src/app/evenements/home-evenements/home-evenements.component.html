@@ -9,17 +9,18 @@
                 <!-- Mobile collapse button -->
                 <!-- Header row with collapse button and last two buttons on same line -->
                 <div class="controls-header-row d-md-none">
-                    <button class="btn btn-sm btn-outline-secondary btn-collapse-controls" 
-                            (click)="toggleControlsCollapse()"
-                            type="button"
-                            ngbTooltip="{{ controlsCollapsed ? ('COMMUN.SHOW_CONTROLS' | translate) : ('COMMUN.HIDE_CONTROLS' | translate) }}"
-                            placement="bottom" container="body">
-                        <i class="fa" [class.fa-chevron-down]="controlsCollapsed" [class.fa-chevron-up]="!controlsCollapsed"></i>
+                    <button class="btn btn-sm btn-outline-secondary btn-collapse-controls"
+                        (click)="toggleControlsCollapse()" type="button"
+                        ngbTooltip="{{ controlsCollapsed ? ('COMMUN.SHOW_CONTROLS' | translate) : ('COMMUN.HIDE_CONTROLS' | translate) }}"
+                        placement="bottom" container="body">
+                        <i class="fa" [class.fa-chevron-down]="controlsCollapsed"
+                            [class.fa-chevron-up]="!controlsCollapsed"></i>
                     </button>
                     <!-- Last two buttons on same line - aligned to the right of collapse button -->
                     <div class="last-buttons-row" [hidden]="totalPages == 0">
                         <select class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
-                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}" placement="bottom" container="body">
+                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
+                            placement="bottom" container="body">
                             <option value="1">1</option>
                             <option value="2">2</option>
                             <option value="3">3</option>
@@ -32,51 +33,48 @@
                             <option value="100">100</option>
                         </select>
                         <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
-                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom" container="body">
+                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom"
+                            container="body">
                             <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
                         </button>
                     </div>
                 </div>
-                
+
                 <!-- Controls wrapper - collapsed on mobile by default -->
                 <div class="controls-wrapper" [class.collapsed]="controlsCollapsed">
                     <!-- Search and filter on same line -->
                     <div class="search-filter-row">
                         <input type="text" id="message" [value]="dataFIlter" #searchterm
                             placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" class="form-control search-input" />
-                        <button class="btn btn-sm btn-secondary btn-filter" (click)="clearFilter()"
-                            type="button" ngbTooltip="{{ 'COMMUN.CLEAR_FILTER' | translate }}" placement="bottom" container="body">X</button>
+                        <button class="btn btn-sm btn-secondary btn-filter" (click)="clearFilter()" type="button"
+                            ngbTooltip="{{ 'COMMUN.CLEAR_FILTER' | translate }}" placement="bottom"
+                            container="body">X</button>
                     </div>
                     <div class="pagination-controls" [hidden]="totalPages == 0">
-                        <button class="btn btn-sm btn-outline-secondary btn-pagination" 
-                                (click)="changePreviousPage()" 
-                                [disabled]="pageNumber === 0"
-                                aria-label="Previous"
-                                ngbTooltip="{{ 'COMMUN.PREVIOUS_PAGE' | translate }}" 
-                                placement="bottom" container="body">
+                        <button class="btn btn-sm btn-outline-secondary btn-pagination" (click)="changePreviousPage()"
+                            [disabled]="pageNumber === 0" aria-label="Previous"
+                            ngbTooltip="{{ 'COMMUN.PREVIOUS_PAGE' | translate }}" placement="bottom" container="body">
                             <span aria-hidden="true">&laquo;</span>
                         </button>
-                        <select class="form-select form-select-sm select-page" 
-                                [(ngModel)]="pageNumber" 
-                                (change)="changePage(pageNumber)"
-                                ngbTooltip="{{ 'EVENTHOME.SELECT_PAGE' | translate }}" 
-                                placement="bottom" container="body">
-                            <option *ngFor="let p of pages" [value]="p">{{ 'EVENTHOME.PAGE' | translate }} {{p + 1}}</option>
+                        <select class="form-select form-select-sm select-page" [(ngModel)]="pageNumber"
+                            (change)="changePage(pageNumber)" ngbTooltip="{{ 'EVENTHOME.SELECT_PAGE' | translate }}"
+                            placement="bottom" container="body">
+                            <option *ngFor="let p of pages" [value]="p">{{ 'EVENTHOME.PAGE' | translate }} {{p + 1}}
+                            </option>
                         </select>
-                        <button class="btn btn-sm btn-outline-secondary btn-pagination" 
-                                (click)="changeNextPage()" 
-                                [disabled]="pageNumber >= totalPages - 1"
-                                aria-label="Next"
-                                ngbTooltip="{{ 'COMMUN.NEXT_PAGE' | translate }}" 
-                                placement="bottom" container="body">
+                        <button class="btn btn-sm btn-outline-secondary btn-pagination" (click)="changeNextPage()"
+                            [disabled]="pageNumber >= totalPages - 1" aria-label="Next"
+                            ngbTooltip="{{ 'COMMUN.NEXT_PAGE' | translate }}" placement="bottom" container="body">
                             <span aria-hidden="true">&raquo;</span>
                         </button>
-                        <small class="text-muted page-indicator">{{ 'EVENTHOME.PAGE' | translate }} {{pageNumber+1}}/{{totalPages}}</small>
+                        <small class="text-muted page-indicator">{{ 'EVENTHOME.PAGE' | translate }}
+                            {{pageNumber+1}}/{{totalPages}}</small>
                     </div>
                     <!-- Last two buttons on same line - visible on desktop -->
                     <div class="last-buttons-row desktop-buttons-row" [hidden]="totalPages == 0">
                         <select class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
-                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}" placement="bottom" container="body">
+                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
+                            placement="bottom" container="body">
                             <option value="1">1</option>
                             <option value="2">2</option>
                             <option value="3">3</option>
@@ -89,7 +87,8 @@
                             <option value="100">100</option>
                         </select>
                         <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
-                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom" container="body">
+                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom"
+                            container="body">
                             <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
                         </button>
                     </div>
@@ -140,10 +139,11 @@
             <div class="compact-content">
                 <div class="compact-title">{{ evenement.evenementName }}</div>
                 <div class="compact-author">
-                    <small class="text-muted clickable-user" 
-                           (click)="openUserModal(evenement.author); $event.stopPropagation()"
-                           title="Cliquer pour voir les détails de l'organisateur">
-                        <i class="fa fa-user"></i> {{ evenement.author.firstName }} {{ evenement.author.lastName }} / {{ evenement.author.userName }}
+                    <small class="text-muted clickable-user"
+                        (click)="openUserModal(evenement.author); $event.stopPropagation()"
+                        title="Cliquer pour voir les détails de l'organisateur">
+                        <i class="fa fa-user"></i> {{ evenement.author.firstName }} {{ evenement.author.lastName }} / {{
+                        evenement.author.userName }}
                     </small>
                 </div>
                 <div class="compact-date" [innerHTML]="formatEventDate(evenement.beginEventDate)"></div>
@@ -151,11 +151,10 @@
             <div class="compact-actions">
 
                 <!-- Slideshow Button -->
-                <button class="btn btn-sm btn-outline-primary me-1" 
-                        [hidden]="!hasImageFiles(evenement) && getPhotoFromFsCount(evenement) === 0 && getPhotosUrlLinks(evenement).length === 0"
-                        (click)="openPhotos(evenement); $event.stopPropagation()"
-                        ngbTooltip="{{ 'EVENTELEM.SLIDESHOW' | translate }}" 
-                        placement="top">
+                <button class="btn btn-sm btn-outline-primary me-1"
+                    [hidden]="!hasImageFiles(evenement) && getPhotoFromFsCount(evenement) === 0 && getPhotosUrlLinks(evenement).length === 0"
+                    (click)="openPhotos(evenement); $event.stopPropagation()"
+                    ngbTooltip="{{ 'EVENTELEM.SLIDESHOW' | translate }}" placement="top">
                     <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getTotalPhotosCount(evenement) }}
                 </button>
 
@@ -166,13 +165,12 @@
                     <i class="fa fa-link" aria-hidden="true"></i> {{ getUrlEventsCount(evenement) }}
                 </button>
 
-       <!-- Comments Button -->
-       <button class="btn btn-sm comments-button me-1"
-           [hidden]="!hasComments(evenement)"
-           (click)="openCommentsModal(evenement); $event.stopPropagation()"
-           ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}" placement="top">
-           <i class="fa fa-comments"></i> {{ getCommentsCount(evenement) }}
-       </button>
+                <!-- Comments Button -->
+                <button class="btn btn-sm comments-button me-1" [hidden]="!hasComments(evenement)"
+                    (click)="openCommentsModal(evenement); $event.stopPropagation()"
+                    ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}" placement="top">
+                    <i class="fa fa-comments"></i> {{ getCommentsCount(evenement) }}
+                </button>
 
                 <!-- Chat Button -->
                 <a class="btn btn-sm btn-outline-info me-1" (click)="openChatModal(evenement); $event.stopPropagation()"
@@ -200,11 +198,8 @@
                 </a>
 
                 <!-- Edit Button -->
-                <a class="btn btn-sm btn-warning me-1" 
-                    [routerLink]="['/updeven', evenement.id]" 
-                    ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" 
-                    placement="top"
-                    (click)="$event.stopPropagation()">
+                <a class="btn btn-sm btn-warning me-1" [routerLink]="['/updeven', evenement.id]"
+                    ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" placement="top" (click)="$event.stopPropagation()">
                     <i class="fa fa-pencil-square-o" aria-hidden="true"></i>
                 </a>
 
@@ -216,35 +211,27 @@
                 </a>
 
                 <!-- Files Management Button -->
-                <button class="btn btn-sm btn-outline-primary me-1" 
-                    [hidden]="!isAnyFiles(evenement)"
+                <button class="btn btn-sm btn-outline-primary me-1" [hidden]="!isAnyFiles(evenement)"
                     (click)="toggleFileList(evenement); $event.stopPropagation()"
-                    ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD' | translate }}" 
-                    placement="top">
+                    ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD' | translate }}" placement="top">
                     <i class="fa fa-download"></i> {{ getFilesCount(evenement) }}
                 </button>
 
                 <!-- File Upload Button -->
-                <div class="file-upload-wrapper me-1" placement="top" 
-                     ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
-                     (click)="$event.stopPropagation()">
+                <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
+                    (click)="$event.stopPropagation()">
                     <label [for]="'file-upload-input-' + evenement.id" class="btn btn-sm btn-success mb-1">
                         <i class="fa fa-upload" aria-hidden="true"></i>
                     </label>
-                    <input type="file" 
-                           [id]="'file-upload-input-' + evenement.id" 
-                           #fileInput 
-                           (change)="onFileSelected($event, evenement)" 
-                           multiple 
-                           accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" 
-                           style="display: none;" />
+                    <input type="file" [id]="'file-upload-input-' + evenement.id" #fileInput
+                        (change)="onFileSelected($event, evenement)" multiple
+                        accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;" />
                 </div>
 
                 <!-- View Details Button -->
-                <a class="btn btn-sm btn-outline-info me-1 eye-button" 
-                    [routerLink]="['/details-evenement', evenement.id]" 
-                    ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}" 
-                    placement="top"
+                <a class="btn btn-sm btn-outline-info me-1 eye-button"
+                    [routerLink]="['/details-evenement', evenement.id]"
+                    ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}" placement="top"
                     (click)="$event.stopPropagation()">
                     <i class="fa fa-eye"></i>
                 </a>
@@ -255,6 +242,101 @@
                     ngbTooltip="{{ 'EVENTHOME.SHOW_JSON' | translate }}" placement="top">
                     <i class="fa fa-code"></i>
                 </button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-sm-12">
+            <div class="controls-bar">
+                <!-- Mobile collapse button -->
+                <!-- Header row with collapse button and last two buttons on same line -->
+                <div class="controls-header-row d-md-none">
+                    <button class="btn btn-sm btn-outline-secondary btn-collapse-controls"
+                        (click)="toggleControlsCollapse()" type="button"
+                        ngbTooltip="{{ controlsCollapsed ? ('COMMUN.SHOW_CONTROLS' | translate) : ('COMMUN.HIDE_CONTROLS' | translate) }}"
+                        placement="bottom" container="body">
+                        <i class="fa" [class.fa-chevron-down]="controlsCollapsed"
+                            [class.fa-chevron-up]="!controlsCollapsed"></i>
+                    </button>
+                    <!-- Last two buttons on same line - aligned to the right of collapse button -->
+                    <div class="last-buttons-row" [hidden]="totalPages == 0">
+                        <select class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
+                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
+                            placement="bottom" container="body">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="6">6</option>
+                            <option value="9">9</option>
+                            <option value="12">12</option>
+                            <option value="15">15</option>
+                            <option value="21">21</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
+                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom"
+                            container="body">
+                            <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Controls wrapper - collapsed on mobile by default -->
+                <div class="controls-wrapper" [class.collapsed]="controlsCollapsed">
+                    <!-- Search and filter on same line -->
+                    <div class="search-filter-row">
+                        <input type="text" id="message" [value]="dataFIlter" #searchterm
+                            placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" class="form-control search-input" />
+                        <button class="btn btn-sm btn-secondary btn-filter" (click)="clearFilter()" type="button"
+                            ngbTooltip="{{ 'COMMUN.CLEAR_FILTER' | translate }}" placement="bottom"
+                            container="body">X</button>
+                    </div>
+                    <div class="pagination-controls" [hidden]="totalPages == 0">
+                        <button class="btn btn-sm btn-outline-secondary btn-pagination" (click)="changePreviousPage()"
+                            [disabled]="pageNumber === 0" aria-label="Previous"
+                            ngbTooltip="{{ 'COMMUN.PREVIOUS_PAGE' | translate }}" placement="bottom" container="body">
+                            <span aria-hidden="true">&laquo;</span>
+                        </button>
+                        <select class="form-select form-select-sm select-page" [(ngModel)]="pageNumber"
+                            (change)="changePage(pageNumber)" ngbTooltip="{{ 'EVENTHOME.SELECT_PAGE' | translate }}"
+                            placement="bottom" container="body">
+                            <option *ngFor="let p of pages" [value]="p">{{ 'EVENTHOME.PAGE' | translate }} {{p + 1}}
+                            </option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-secondary btn-pagination" (click)="changeNextPage()"
+                            [disabled]="pageNumber >= totalPages - 1" aria-label="Next"
+                            ngbTooltip="{{ 'COMMUN.NEXT_PAGE' | translate }}" placement="bottom" container="body">
+                            <span aria-hidden="true">&raquo;</span>
+                        </button>
+                        <small class="text-muted page-indicator">{{ 'EVENTHOME.PAGE' | translate }}
+                            {{pageNumber+1}}/{{totalPages}}</small>
+                    </div>
+                    <!-- Last two buttons on same line - visible on desktop -->
+                    <div class="last-buttons-row desktop-buttons-row" [hidden]="totalPages == 0">
+                        <select class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
+                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
+                            placement="bottom" container="body">
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="6">6</option>
+                            <option value="9">9</option>
+                            <option value="12">12</option>
+                            <option value="15">15</option>
+                            <option value="21">21</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
+                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom"
+                            container="body">
+                            <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -464,9 +546,9 @@
                     <p><strong>{{ 'EVENTELEM.LAST_NAME' | translate }}:</strong> {{ selectedUser.lastName }}</p>
                     <p><strong>{{ 'EVENTELEM.USERNAME' | translate }}:</strong> {{ selectedUser.userName }}</p>
                     <p><strong>{{ 'EVENTELEM.EMAIL' | translate }}:</strong> {{ selectedUser.addressEmail }}
-                        <button class="btn btn-sm btn-outline-primary ms-2" 
-                                (click)="sendEmail(selectedUser.addressEmail)"
-                                title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
+                        <button class="btn btn-sm btn-outline-primary ms-2"
+                            (click)="sendEmail(selectedUser.addressEmail)"
+                            title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
                             <i class="fa fa-envelope"></i>
                         </button>
                     </p>
@@ -539,7 +621,8 @@
 </ng-template>
 
 <!-- Photos Selector Modal Component -->
-<app-photos-selector-modal #photosSelectorModalComponent (selectionConfirmed)="onPhotosSelectionConfirmed($event)"></app-photos-selector-modal>
+<app-photos-selector-modal #photosSelectorModalComponent
+    (selectionConfirmed)="onPhotosSelectionConfirmed($event)"></app-photos-selector-modal>
 
 <!-- Slideshow Modal Component -->
 <app-slideshow-modal #slideshowModalComponent></app-slideshow-modal>
@@ -551,15 +634,14 @@
             <i class="fa fa-upload me-2"></i>
             Upload Progress
         </h5>
-        <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')" aria-label="Close"></button>
+        <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')"
+            aria-label="Close"></button>
     </div>
     <div class="modal-body">
         <div class="upload-logs-content">
             <div class="log-content" #logContent>
-                <div class="log-entry" 
-                     *ngFor="let log of uploadLogs"
-                     [class.log-success]="log.startsWith('SUCCESS:')"
-                     [class.log-error]="log.startsWith('ERROR:')">
+                <div class="log-entry" *ngFor="let log of uploadLogs" [class.log-success]="log.startsWith('SUCCESS:')"
+                    [class.log-error]="log.startsWith('ERROR:')">
                     {{ log }}
                 </div>
                 <div *ngIf="uploadLogs.length === 0" class="text-center text-muted">
@@ -569,7 +651,8 @@
         </div>
     </div>
     <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')" [disabled]="isUploading">
+        <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')"
+            [disabled]="isUploading">
             Close
         </button>
     </div>
@@ -584,14 +667,15 @@
         <button type="button" class="btn-close" aria-label="Close" (click)="d('Cross click')"></button>
     </div>
     <div class="modal-body">
-        <div *ngIf="selectedEvent && selectedEvent.fileUploadeds && selectedEvent.fileUploadeds.length > 0; else noFilesTemplate">
+        <div
+            *ngIf="selectedEvent && selectedEvent.fileUploadeds && selectedEvent.fileUploadeds.length > 0; else noFilesTemplate">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h6 class="mb-0">
-                    <span style="font-size: 0.85rem;">{{ 'EVENTELEM.FILES' | translate }} ({{ selectedEvent.fileUploadeds.length }})</span>
+                    <span style="font-size: 0.85rem;">{{ 'EVENTELEM.FILES' | translate }} ({{
+                        selectedEvent.fileUploadeds.length }})</span>
                 </h6>
-                <button class="btn btn-sm btn-success" 
-                        (click)="downloadAllFilesForEvent(selectedEvent)"
-                        style="padding: 0.15rem 0.3rem; font-size: 0.7rem;">
+                <button class="btn btn-sm btn-success" (click)="downloadAllFilesForEvent(selectedEvent)"
+                    style="padding: 0.15rem 0.3rem; font-size: 0.7rem;">
                     <i class="fa fa-download"></i> {{ 'COMMUN.DOWNLOAD_ALL' | translate }}
                 </button>
             </div>
@@ -600,43 +684,41 @@
                     *ngFor="let uploadedFile of selectedEvent.fileUploadeds">
                     <span class="file-name d-flex align-items-center">
                         <!-- Thumbnail for image files -->
-                        <img *ngIf="isImageFile(uploadedFile.fileName) && getFileThumbnail(uploadedFile.fieldId)" 
-                             [src]="getFileThumbnail(uploadedFile.fieldId)" 
-                             class="file-thumbnail me-2"
-                             [class.file-thumbnail-clickable]="isImageFile(uploadedFile.fileName)"
-                             [alt]="uploadedFile.fileName"
-                             (click)="isImageFile(uploadedFile.fileName) && handleFileClick(uploadedFile, selectedEventName)"
-                             (error)="hideImageOnError($event)"
-                             [style.cursor]="isImageFile(uploadedFile.fileName) ? 'pointer' : 'default'"
-                             [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ''" />
+                        <img *ngIf="isImageFile(uploadedFile.fileName) && getFileThumbnail(uploadedFile.fieldId)"
+                            [src]="getFileThumbnail(uploadedFile.fieldId)" class="file-thumbnail me-2"
+                            [class.file-thumbnail-clickable]="isImageFile(uploadedFile.fileName)"
+                            [alt]="uploadedFile.fileName"
+                            (click)="isImageFile(uploadedFile.fileName) && handleFileClick(uploadedFile, selectedEventName)"
+                            (error)="hideImageOnError($event)"
+                            [style.cursor]="isImageFile(uploadedFile.fileName) ? 'pointer' : 'default'"
+                            [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ''" />
                         <!-- Loading indicator for image thumbnails -->
-                        <span *ngIf="isImageFile(uploadedFile.fileName) && isThumbnailLoading(uploadedFile.fieldId) && !getFileThumbnail(uploadedFile.fieldId)"
-                              class="file-thumbnail-loading me-2">
+                        <span
+                            *ngIf="isImageFile(uploadedFile.fileName) && isThumbnailLoading(uploadedFile.fieldId) && !getFileThumbnail(uploadedFile.fieldId)"
+                            class="file-thumbnail-loading me-2">
                             <i class="fa fa-spinner fa-spin"></i>
                         </span>
-                        <span class="badge" 
-                              [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
-                              [class.bg-info]="isImageFile(uploadedFile.fileName)"
-                              [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
-                              [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
-                              [title]="uploadedFile.fileName"
-                              ngbTooltip="{{uploadedFile.fileName}}" placement="top"
-                              (click)="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)) && handleFileClick(uploadedFile, selectedEventName)"
-                              [style.cursor]="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
+                        <span class="badge"
+                            [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
+                            [class.bg-info]="isImageFile(uploadedFile.fileName)"
+                            [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
+                            [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
+                            [title]="uploadedFile.fileName" ngbTooltip="{{uploadedFile.fileName}}" placement="top"
+                            (click)="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)) && handleFileClick(uploadedFile, selectedEventName)"
+                            [style.cursor]="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
                             {{getTruncatedFileName(uploadedFile.fileName)}}
                         </span>
-                        <small class="text-muted ms-2 clickable-user" 
-                               (click)="openUserModal(uploadedFile.uploaderMember)"
-                               title="Cliquer pour voir les détails de l'utilisateur">
+                        <small class="text-muted ms-2 clickable-user"
+                            (click)="openUserModal(uploadedFile.uploaderMember)"
+                            title="Cliquer pour voir les détails de l'utilisateur">
                             {{uploadedFile.uploaderMember.userName}}
                         </small>
                     </span>
                     <div class="file-actions">
-                        <button class="btn btn-sm btn-outline-primary me-2" 
-                                placement="left"
-                                [ngbTooltip]="getFileTooltip(uploadedFile.fileName)"
-                                *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
-                                (click)="handleFileClick(uploadedFile, selectedEventName)">
+                        <button class="btn btn-sm btn-outline-primary me-2" placement="left"
+                            [ngbTooltip]="getFileTooltip(uploadedFile.fileName)"
+                            *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
+                            (click)="handleFileClick(uploadedFile, selectedEventName)">
                             <i class="fa fa-eye" aria-hidden="true"></i>
                         </button>
                         <button class="btn btn-sm btn-primary me-2" placement="left"

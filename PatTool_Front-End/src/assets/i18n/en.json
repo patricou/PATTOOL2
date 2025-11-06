@@ -310,6 +310,7 @@
 		"DELETE_ALL_FILES_CANCEL": "Cancel",
 		"DELETE_ALL_FILES_CONFIRM": "Delete all files",
 		"SLIDESHOW": "Photo slideshow",
+        "SET_AS_CARD_IMAGE": "Use as card image",
 		"SLIDESHOW_TITLE": "Slideshow",
 		"FULLSCREEN": "Fullscreen",
 		"EXIT_FULLSCREEN": "Exit fullscreen",

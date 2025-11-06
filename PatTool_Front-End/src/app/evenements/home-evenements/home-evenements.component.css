@@ -29,9 +29,34 @@
     transition: all 0.3s ease;
     border: 1px solid #dee2e6;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    cursor: pointer;
     position: relative;
     overflow: visible;
+    background:
+        linear-gradient(130deg, rgba(250, 250, 250, 0.9) 0%, rgba(210, 210, 210, 0.65) 42%, rgba(230, 230, 230, 0.8) 100%),
+        repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.55) 0px, rgba(255, 255, 255, 0.55) 4px, rgba(150, 150, 150, 0.38) 4px, rgba(150, 150, 150, 0.38) 8px),
+        radial-gradient(circle at 25% 20%, rgba(255, 255, 255, 0.75), transparent 58%),
+        radial-gradient(circle at 75% 0%, rgba(255, 255, 255, 0.55), transparent 52%),
+        radial-gradient(circle at 50% 120%, rgba(0, 0, 0, 0.35), transparent 70%),
+        linear-gradient(0deg, rgba(255, 255, 255, 0.2) 0%, rgba(0, 0, 0, 0.18) 100%);
+    background-blend-mode: screen, overlay, lighten, lighten, screen, soft-light;
+    backdrop-filter: blur(4px);
+    border-radius: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.45);
+}
+
+.pat-card .card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    border-radius: 0;
+    border-radius: inherit;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow:
+        inset 1px 1px 2px rgba(255, 255, 255, 0.7),
+        inset -1px -1px 2px rgba(60, 60, 60, 0.35),
+        0 18px 40px rgba(0, 0, 0, 0.22);
+    pointer-events: none;
 }
 
 .pat-card .card::before {
@@ -41,49 +66,50 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(45deg, rgba(0, 123, 255, 0.1), rgba(0, 123, 255, 0.05));
-    opacity: 0;
-    transition: opacity 0.3s ease;
+    background: linear-gradient(120deg, rgba(255, 255, 255, 0.25), rgba(160, 160, 160, 0.12));
+    opacity: 0.15;
+    transition: opacity 0.3s ease, transform 0.3s ease;
     z-index: 1;
     pointer-events: none;
 }
 
 .pat-card .card:hover {
-    transform: scale(1.02);
+    transform: scale(1.025);
     box-shadow: 
-        0 15px 30px rgba(0, 0, 0, 0.25),
-        0 0 0 2px rgba(0, 123, 255, 0.8),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    z-index: 10;
-    border: 2px solid rgba(0, 123, 255, 0.8) !important;
+        0 26px 48px rgba(0, 0, 0, 0.34),
+        inset 0 5px 8px rgba(255, 255, 255, 0.35),
+        inset 0 -8px 12px rgba(0, 0, 0, 0.32);
+    z-index: 12;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
 }
 
 .pat-card .card:hover::before {
-    opacity: 1;
+    opacity: 0.45;
+    transform: translateY(-4px);
 }
 
 /* Styles pour contourner les conteneurs Bootstrap */
 .card-group .pat-card .card:hover {
-    transform: scale(1.02) !important;
+    transform: scale(1.025) !important;
     box-shadow: 
-        0 15px 30px rgba(0, 0, 0, 0.25),
-        0 0 0 2px rgba(0, 123, 255, 0.8),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-    z-index: 10 !important;
-    border: 2px solid rgba(0, 123, 255, 0.8) !important;
+        0 26px 48px rgba(0, 0, 0, 0.34),
+        inset 0 5px 8px rgba(255, 255, 255, 0.35),
+        inset 0 -8px 12px rgba(0, 0, 0, 0.32) !important;
+    z-index: 12 !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
 }
 
 .col-xl-3 .pat-card .card:hover,
 .col-lg-4 .pat-card .card:hover,
 .col-md-6 .pat-card .card:hover,
 .col-sm-12 .pat-card .card:hover {
-    transform: scale(1.02) !important;
+    transform: scale(1.025) !important;
     box-shadow: 
-        0 15px 30px rgba(0, 0, 0, 0.25),
-        0 0 0 2px rgba(0, 123, 255, 0.8),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
-    z-index: 10 !important;
-    border: 2px solid rgba(0, 123, 255, 0.8) !important;
+        0 26px 48px rgba(0, 0, 0, 0.34),
+        inset 0 5px 8px rgba(255, 255, 255, 0.35),
+        inset 0 -8px 12px rgba(0, 0, 0, 0.32) !important;
+    z-index: 12 !important;
+    border: 1px solid rgba(255, 255, 255, 0.4) !important;
 }
 
 /* Animation pour l'apparition des cartes */

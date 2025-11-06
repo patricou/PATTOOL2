@@ -1219,6 +1219,29 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Keeping for backward compatibility
 		this.buttonGradient = this.getButtonGradientForType('default', r, g, b);
 	}
+
+	public getPhotoFrameStyles(): { [key: string]: string } {
+		const r = this.dominantR;
+		const g = this.dominantG;
+		const b = this.dominantB;
+
+		const lighterR = Math.min(255, r + 40);
+		const lighterG = Math.min(255, g + 40);
+		const lighterB = Math.min(255, b + 40);
+
+		const borderR = Math.max(0, r - 90);
+		const borderG = Math.max(0, g - 90);
+		const borderB = Math.max(0, b - 90);
+
+		return {
+			position: 'relative',
+			border: 'none',
+			background: `linear-gradient(135deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.35), rgba(${r}, ${g}, ${b}, 0.45))`,
+			borderRadius: '8px',
+			padding: '2px 4px',
+			boxShadow: 'none'
+		};
+	}
 	
 	// Get gradient for a specific button type - basé uniquement sur la couleur calculée
 	public getButtonGradientForType(buttonType: string, r: number, g: number, b: number): string {
@@ -1262,6 +1285,40 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return this.getButtonGradientForType('status', this.dominantR, this.dominantG, this.dominantB);
 	}
 	
+	// Gradient prononcé pour les boutons d’action de fichiers
+	public getFileActionButtonGradient(): string {
+		const r = this.dominantR;
+		const g = this.dominantG;
+		const b = this.dominantB;
+
+		const lighterR = Math.min(255, r + 90);
+		const lighterG = Math.min(255, g + 90);
+		const lighterB = Math.min(255, b + 90);
+
+		const darkerR = Math.max(0, r - 120);
+		const darkerG = Math.max(0, g - 120);
+		const darkerB = Math.max(0, b - 120);
+
+		return `linear-gradient(315deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.98) 0%, rgba(${r}, ${g}, ${b}, 0.98) 50%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 0.98) 100%)`;
+	}
+
+	// Gradient prononcé pour les badges de fichiers
+	public getFileBadgeGradient(): string {
+		const r = this.dominantR;
+		const g = this.dominantG;
+		const b = this.dominantB;
+
+		const lighterR = Math.min(255, r + 70);
+		const lighterG = Math.min(255, g + 70);
+		const lighterB = Math.min(255, b + 70);
+
+		const darkerR = Math.max(0, r - 100);
+		const darkerG = Math.max(0, g - 100);
+		const darkerB = Math.max(0, b - 100);
+
+		return `linear-gradient(315deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.95) 0%, rgba(${r}, ${g}, ${b}, 0.95) 50%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 0.95) 100%)`;
+	}
+
 	// Get gradient for visibility badges - basé sur la couleur calculée
 	public getVisibilityBadgeGradient(): string {
 		return this.getButtonGradientForType('visibility', this.dominantR, this.dominantG, this.dominantB);
@@ -1779,6 +1836,96 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 							 extension;
 		
 		return modifiedName;
+	}
+
+	private ensureThumbnailInFileName(fileName: string): string {
+		if (!fileName) {
+			return fileName;
+		}
+		if (fileName.toLowerCase().includes('thumbnail')) {
+			return fileName;
+		}
+		return this.addThumbnailToFileName(fileName);
+	}
+
+	private stripThumbnailFromFileName(fileName: string): string {
+		if (!fileName) {
+			return fileName;
+		}
+
+		const lastDotIndex = fileName.lastIndexOf('.');
+		const extension = lastDotIndex >= 0 ? fileName.substring(lastDotIndex) : '';
+		const baseName = lastDotIndex >= 0 ? fileName.substring(0, lastDotIndex) : fileName;
+
+		let sanitizedBase = baseName.replace(/thumbnail/gi, '');
+
+		// Clean up duplicate separators or trailing separators left by removal
+		sanitizedBase = sanitizedBase
+			.replace(/\s{2,}/g, ' ')
+			.replace(/__+/g, '_')
+			.replace(/--+/g, '-')
+			.replace(/[_\-\s]+\./g, '.')
+			.replace(/(^[\s._-]+|[\s._-]+$)/g, '');
+
+		if (!sanitizedBase) {
+			sanitizedBase = 'file';
+		}
+
+		return sanitizedBase + extension;
+	}
+
+	private removeThumbnailFromOtherFiles(excludedFieldId: string): boolean {
+		if (!this.evenement || !this.evenement.fileUploadeds) {
+			return false;
+		}
+
+		let modified = false;
+		this.evenement.fileUploadeds.forEach(file => {
+			if (
+				file.fieldId !== excludedFieldId &&
+				file.fileName &&
+				file.fileName.toLowerCase().includes('thumbnail')
+			) {
+				const newName = this.stripThumbnailFromFileName(file.fileName);
+				if (newName !== file.fileName) {
+					file.fileName = newName;
+					modified = true;
+				}
+			}
+		});
+		return modified;
+	}
+
+	public setFileAsThumbnail(uploadedFile: UploadedFile): void {
+		if (
+			!uploadedFile ||
+			!this.evenement ||
+			!this.evenement.fileUploadeds ||
+			!this.isImageFile(uploadedFile.fileName)
+		) {
+			return;
+		}
+
+		let hasChanges = false;
+
+		const updatedName = this.ensureThumbnailInFileName(uploadedFile.fileName);
+		if (updatedName !== uploadedFile.fileName) {
+			uploadedFile.fileName = updatedName;
+			hasChanges = true;
+		}
+
+		if (this.removeThumbnailFromOtherFiles(uploadedFile.fieldId)) {
+			hasChanges = true;
+		}
+
+		if (hasChanges) {
+			this.reloadEventCard();
+		}
+	}
+
+	public isThumbnailFile(uploadedFile: UploadedFile | null | undefined): boolean {
+		const name = uploadedFile && uploadedFile.fileName ? uploadedFile.fileName.toLowerCase() : '';
+		return name.includes('thumbnail');
 	}
 
 	// Reload the event card thumbnail when a thumbnail file is uploaded/deleted

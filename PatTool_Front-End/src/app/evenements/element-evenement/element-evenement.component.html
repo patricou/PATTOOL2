@@ -2,7 +2,7 @@
 <!-- thw following line allows to have tooltips on button in footer !! -->
 <div class="card-wrapper" 
      [style.background]="descriptionBackgroundGradient">
-<div class="card-image-container" style="position:relative;">
+<div class="card-image-container" [ngStyle]="getPhotoFrameStyles()">
     <!-- Show slideshow if active, otherwise show thumbnail -->
     <img *ngIf="!isCardSlideshowActive" 
          #thumbnailImage 
@@ -88,7 +88,13 @@
     </div>
 </div>
 <div class="card-block pat-card-block" [style.color]="titleBorderColor">
-    <div class="text-center">
+    <div class="alert alert-warning small pat-alert text-center"
+         [style.background]="descriptionBackgroundGradient"
+         [style.color]="titleBorderColor"
+         [style.border-color]="titleBorderColor">
+        <!-- <b>  {{"EVENTELEM.DESC" | translate }} :</b> -->{{evenement.comments}}
+    </div>
+    <div class="text-center mt-2">
         <span class="badge rounded-pill rating-badge" 
               (click)="addRateMinus()" 
               placement="left"
@@ -107,12 +113,6 @@
               [style.color]="'white'"
               ngbTooltip="{{ 'COMMUN.ILIKE' | translate }}"
               (mouseleave)="onTooltipMouseLeave($event)">{{evenement.ratingPlus || 0}}</span>
-    </div>
-    <div class="alert alert-warning small pat-alert text-center"
-         [style.background]="descriptionBackgroundGradient"
-         [style.color]="titleBorderColor"
-         [style.border-color]="titleBorderColor">
-        <!-- <b>  {{"EVENTELEM.DESC" | translate }} :</b> -->{{evenement.comments}}
     </div>
     <div class="card-text text-center" [ngSwitch]="evenement.status">
         <!--{{"EVENTELEM.STATUS" | translate }} :-->
@@ -238,6 +238,9 @@
                               [class.bg-info]="isImageFile(uploadedFile.fileName)"
                               [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
                               [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
+                              [style.background]="getFileBadgeGradient()"
+                              [style.border-color]="'white'"
+                              [style.color]="'white'"
                               [title]="uploadedFile.fileName"
                               ngbTooltip="{{uploadedFile.fileName}}" placement="top"
                               (mouseleave)="onTooltipMouseLeave($event)"
@@ -252,17 +255,23 @@
                         </small>
                     </span>
                     <div class="file-actions">
-                        <button class="btn btn-sm btn-outline-primary me-2" 
-                                placement="left"
-                                ngbTooltip="{{ isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ('EVENTELEM.CLICK_TO_OPEN_PDF' | translate) }}"
-                                *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
-                                (click)="handleFileClick(uploadedFile)"
+                        <button class="btn btn-sm btn-warning me-2"
+                                *ngIf="isImageFile(uploadedFile.fileName)"
+                                [disabled]="isThumbnailFile(uploadedFile)"
+                                ngbTooltip="{{ 'EVENTELEM.SET_AS_CARD_IMAGE' | translate }}"
+                                (click)="setFileAsThumbnail(uploadedFile)"
+                                [style.background]="getFileActionButtonGradient()"
+                                [style.border-color]="'white'"
+                                [style.color]="'white'"
                                 (mouseleave)="onTooltipMouseLeave($event)">
-                            <i class="fa fa-eye" aria-hidden="true"></i>
+                            <i class="fa fa-star" aria-hidden="true"></i>
                         </button>
                         <button class="btn btn-sm btn-primary me-2" placement="left"
                             ngbTooltip="{{ 'COMMUN.DOWNLOAD' | translate }}"
                             (click)="openWindows(uploadedFile.fieldId, uploadedFile.fileName)"
+                            [style.background]="getFileActionButtonGradient()"
+                            [style.border-color]="'white'"
+                            [style.color]="'white'"
                             (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-files-o" aria-hidden="true"></i>
                         </button>
@@ -270,6 +279,9 @@
                             ngbTooltip="{{ 'EVENTELEM.DELETEFILE' | translate }}"
                             [disabled]="!isFileOwner(uploadedFile.uploaderMember)"
                             (click)="delFile(uploadedFile.fieldId)"
+                            [style.background]="getFileActionButtonGradient()"
+                            [style.border-color]="'white'"
+                            [style.color]="'white'"
                             (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-trash" aria-hidden="true"></i>
                         </button>
