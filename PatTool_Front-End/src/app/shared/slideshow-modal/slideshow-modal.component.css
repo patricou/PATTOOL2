@@ -393,6 +393,10 @@
     gap: 2px;
 }
 
+.slideshow-zoom-info .info-file-name .file-name {
+    font-weight: 700;
+}
+
 .slideshow-zoom-info .saved-position .recalculated-position {
     font-size: 0.8rem;
     font-weight: 500;

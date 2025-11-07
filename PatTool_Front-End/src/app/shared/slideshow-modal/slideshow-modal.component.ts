@@ -100,6 +100,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Thumbnails strip visibility
   public showThumbnails: boolean = true;
+  private userToggledThumbnails: boolean = false;
   
   private hasDraggedSlideshow: boolean = false;
   private dragStartX: number = 0;
@@ -292,6 +293,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Reset info panel state
     this.showInfoPanel = false;
     this.showThumbnails = true;
+    this.userToggledThumbnails = false;
     this.exifData = [];
     this.isLoadingExif = false;
     this.imageFileNames.clear();
@@ -358,6 +360,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.currentImageFileName = '';
     this.resetSlideshowZoom();
     this.hasSavedPosition = false;
+    this.showThumbnails = images.length > 1;
+    this.userToggledThumbnails = false;
     this.imageLoadActive = true;
     // Initialize queues
     this.imageLoadQueue = [];
@@ -533,9 +537,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
               const blob = new Blob([res], { type: mimeType });
               const objectUrl = URL.createObjectURL(blob);
               this.slideshowBlobs.set(objectUrl, blob);
-              if (imageSource.fileName) {
-                this.imageFileNames.set(objectUrl, imageSource.fileName);
-              }
+              this.assignImageFileName(imageIndex, objectUrl);
               // Cache the image
               if (cacheKey) {
                 this.imageCache.set(cacheKey, { objectUrl, blob });
@@ -579,9 +581,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
               const blob = new Blob([res], { type: mimeType });
               const objectUrl = URL.createObjectURL(blob);
               this.slideshowBlobs.set(objectUrl, blob);
-              if (imageSource.fileName) {
-                this.imageFileNames.set(objectUrl, imageSource.fileName);
-              }
+              this.assignImageFileName(imageIndex, objectUrl);
               // Cache the image
               if (cacheKey) {
                 this.imageCache.set(cacheKey, { objectUrl, blob });
@@ -629,6 +629,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             // (it was already incremented before startRequest)
             if (imageSource.blob) {
               this.slideshowBlobs.set(imageSource.blobUrl, imageSource.blob);
+              this.assignImageFileName(imageIndex, imageSource.blobUrl);
               // Cache the image
               if (cacheKey) {
                 this.imageCache.set(cacheKey, { objectUrl: imageSource.blobUrl, blob: imageSource.blob });
@@ -662,6 +663,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private handleImageLoaded(objectUrl: string, blob: Blob | null, imageIndex: number): void {
     const slideshowIndex = this.slideshowImages.length;
     this.slideshowImages.push(objectUrl);
+
+    this.assignImageFileName(imageIndex, objectUrl);
     
     // Map slideshowImages index to this.images index
     this.slideshowIndexToImageIndex.set(slideshowIndex, imageIndex);
@@ -679,6 +682,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         // Silently fail if EXIF loading fails
       });
     }
+
+    if (this.slideshowImages.length > 1 && !this.showThumbnails && !this.userToggledThumbnails) {
+      this.showThumbnails = true;
+    }
     
     // Reset zoom when first image loads
     if (this.slideshowImages.length === 1) {
@@ -693,6 +700,50 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     
     this.cdr.detectChanges();
+  }
+
+  private assignImageFileName(imageIndex: number, objectUrl: string): void {
+    if (!objectUrl) {
+      return;
+    }
+
+    const existingName = this.imageFileNames.get(objectUrl);
+    if (existingName && existingName.length > 0) {
+      return;
+    }
+
+    const imageSource = this.images[imageIndex];
+    if (!imageSource) {
+      return;
+    }
+
+    let fileName = imageSource.fileName;
+
+    if (!fileName && imageSource.relativePath) {
+      const pathSegments = imageSource.relativePath.split(/[\\\/]/).filter(segment => !!segment);
+      if (pathSegments.length > 0) {
+        fileName = pathSegments[pathSegments.length - 1];
+      }
+    }
+
+    if (!fileName && imageSource.blobUrl) {
+      try {
+        const url = new URL(imageSource.blobUrl);
+        fileName = url.pathname.split('/').pop() || '';
+      } catch (_) {
+        // Ignore invalid URL parsing for blob URLs
+      }
+    }
+
+    if (!fileName && imageSource.fileId) {
+      fileName = imageSource.fileId;
+    }
+
+    if (!fileName || fileName.trim().length === 0) {
+      fileName = 'image.jpg';
+    }
+
+    this.imageFileNames.set(objectUrl, fileName);
   }
   
   // Handle cached image loaded - reuse cached image for multiple indices
@@ -2569,6 +2620,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public toggleThumbnails(): void {
+    if (this.slideshowImages.length <= 1) {
+      return;
+    }
+    this.userToggledThumbnails = true;
     this.showThumbnails = !this.showThumbnails;
     
     // Scroll to active thumbnail when showing thumbnails again
@@ -3332,6 +3387,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       setTimeout(() => {
         this.updateImageDimensions();
         this.updateContainerDimensions();
+        if (this.showInfoPanel) {
+          // Delay EXIF reload slightly to allow the new image to render
+          setTimeout(() => this.loadExifDataForInfoPanel(), 50);
+        }
       }, 100);
     }
   }

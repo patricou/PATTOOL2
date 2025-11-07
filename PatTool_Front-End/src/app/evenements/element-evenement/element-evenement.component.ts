@@ -49,14 +49,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public selectedUser: Member | null = null;
 	// Dominant color for title background
 	public titleBackgroundColor: string = 'rgba(255, 255, 255, 0.6)';
-	// Gradient for title background (same method as description)
-	public titleBackgroundGradient: string = 'linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(225, 225, 225, 0.6) 100%)';
 	// Inverse color for title border
 	public titleBorderColor: string = 'rgba(0, 0, 0, 0.8)';
 	// Average color for description background (pure color from photo)
 	public descriptionBackgroundColor: string = 'rgba(255, 255, 255, 1)';
-	// Gradient for description background
-	public descriptionBackgroundGradient: string = 'linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(225, 225, 225, 1) 100%)';
 	// RGB values of calculated color
 	public calculatedRgbValues: string = 'RGB(255, 255, 255)';
 	// Dominant color RGB values for gradient calculations
@@ -65,8 +61,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public dominantB: number = 128;
 	// Color calculation mode: true = full image, false = top 30%
 	public useFullImageForColor: boolean = false;
-	// Gradient for button backgrounds based on dominant color
-	public buttonGradient: string = 'linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 100%)';
+
 	public isSlideshowActive: boolean = false;
 	public currentSlideshowIndex: number = 0;
 	public slideshowImages: string[] = [];
@@ -1038,15 +1033,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		} else {
 			// Reset to default color if no thumbnail
 			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
-			this.titleBackgroundGradient = 'linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(225, 225, 225, 0.6) 100%)';
 			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
 			this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
-			this.descriptionBackgroundGradient = 'linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(225, 225, 225, 1) 100%)';
 			this.calculatedRgbValues = 'RGB(255, 255, 255)';
 			this.dominantR = 128;
 			this.dominantG = 128;
 			this.dominantB = 128;
-			this.buttonGradient = 'linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 100%)';
 		}
 	}
 
@@ -1162,17 +1154,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				// Use the dominant color with 60% opacity for background
 				this.titleBackgroundColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
 				
-				// Calculate a darker version for title gradient (increased gradient intensity)
-				const darkerR = Math.max(0, r - 60);
-				const darkerG = Math.max(0, g - 60);
-				const darkerB = Math.max(0, b - 60);
-				this.titleBackgroundGradient = `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 0.6) 0%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 0.6) 100%)`;
-				
 				// Store the average color for description background (pure color, full opacity)
 				this.descriptionBackgroundColor = `rgba(${r}, ${g}, ${b}, 1)`;
-				
-				// Calculate a darker version for description gradient (increased gradient intensity)
-				this.descriptionBackgroundGradient = `linear-gradient(135deg, rgba(${r}, ${g}, ${b}, 1) 0%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 1) 100%)`;
 				
 				// Calculate brightness to determine base color for text and border
 				// Using luminance formula: 0.299*R + 0.587*G + 0.114*B
@@ -1197,87 +1180,71 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				// Use the lightly tinted color for border and text
 				this.titleBorderColor = `rgba(${tintR}, ${tintG}, ${tintB}, 0.95)`;
 				
-				// Calculate button gradient based on dominant color
-				this.calculateButtonGradient(r, g, b);
-				
 			}
 		} catch (error) {
 			console.error('Error detecting dominant color:', error);
 			// Fallback to default color
 			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
+			this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
 			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
 			this.dominantR = 128;
 			this.dominantG = 128;
 			this.dominantB = 128;
-			this.buttonGradient = 'linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.6) 100%)';
 		}
 	}
-	
-	// Calculate button gradient based on dominant color
-	private calculateButtonGradient(r: number, g: number, b: number): void {
-		// This is now a generic method - individual gradients are calculated per button
-		// Keeping for backward compatibility
-		this.buttonGradient = this.getButtonGradientForType('default', r, g, b);
+
+	private buildColorString(r: number, g: number, b: number, alpha: number = 1): string {
+		const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
+		const clampedAlpha = Math.max(0, Math.min(1, alpha));
+		return `rgba(${clamp(r)}, ${clamp(g)}, ${clamp(b)}, ${clampedAlpha})`;
+	}
+
+	private getSolidColor(alpha: number = 1): string {
+		return this.buildColorString(this.dominantR, this.dominantG, this.dominantB, alpha);
 	}
 
 	public getPhotoFrameStyles(): { [key: string]: string } {
-		const r = this.dominantR;
-		const g = this.dominantG;
-		const b = this.dominantB;
-
-		const lighterR = Math.min(255, r + 40);
-		const lighterG = Math.min(255, g + 40);
-		const lighterB = Math.min(255, b + 40);
-
-		const borderR = Math.max(0, r - 90);
-		const borderG = Math.max(0, g - 90);
-		const borderB = Math.max(0, b - 90);
-
 		return {
 			position: 'relative',
 			border: 'none',
-			background: `linear-gradient(135deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.35), rgba(${r}, ${g}, ${b}, 0.45))`,
+			backgroundColor: this.getSolidColor(0.35),
 			borderRadius: '8px',
 			padding: '2px 4px',
 			boxShadow: 'none'
 		};
 	}
 	
-	// Get gradient for a specific button type - basé uniquement sur la couleur calculée
-	public getButtonGradientForType(buttonType: string, r: number, g: number, b: number): string {
-		// Dégradé uniforme pour tous les boutons, basé uniquement sur la couleur calculée de l'image
-		// Lighter version for start, darker for end
-		const lighterR = Math.min(255, r + 50);
-		const lighterG = Math.min(255, g + 50);
-		const lighterB = Math.min(255, b + 50);
-		
-		const darkerR = Math.max(0, r - 60);
-		const darkerG = Math.max(0, g - 60);
-		const darkerB = Math.max(0, b - 60);
-		
-		// Use high opacity for stronger gradients - direction inversée (315deg au lieu de 135deg)
-		return `linear-gradient(315deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 1) 0%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 1) 100%)`;
+	// Get color for a specific button type - basé uniquement sur la couleur calculée
+	public getButtonGradientForType(_buttonType: string, r: number, g: number, b: number): string {
+		return this.buildColorString(r, g, b, 0.85);
 	}
 	
-	// Get strong gradient for files list - dégradé fort basé sur la couleur calculée
+	// Solid color for files list - basé sur la couleur calculée
 	public getFilesListGradient(): string {
-		// Créer un dégradé très contrasté avec la couleur dominante
+		return this.getSolidColor(0.1);
+	}
+
+	private adjustColorComponent(value: number, delta: number): number {
+		return Math.max(0, Math.min(255, Math.round(value + delta)));
+	}
+
+	public getCardBackgroundGradient(): string {
 		const r = this.dominantR;
 		const g = this.dominantG;
 		const b = this.dominantB;
-		
-		// Version très claire pour le début
-		const lighterR = Math.min(255, r + 80);
-		const lighterG = Math.min(255, g + 80);
-		const lighterB = Math.min(255, b + 80);
-		
-		// Version très foncée pour la fin
-		const darkerR = Math.max(0, r - 100);
-		const darkerG = Math.max(0, g - 100);
-		const darkerB = Math.max(0, b - 100);
-		
-		// Dégradé fort avec opacité maximale - direction inversée (315deg au lieu de 135deg)
-		return `linear-gradient(315deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.95) 0%, rgba(${r}, ${g}, ${b}, 0.95) 50%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 0.95) 100%)`;
+
+		const lightR = this.adjustColorComponent(r, 110);
+		const lightG = this.adjustColorComponent(g, 110);
+		const lightB = this.adjustColorComponent(b, 110);
+
+		const darkR = this.adjustColorComponent(r, -120);
+		const darkG = this.adjustColorComponent(g, -120);
+		const darkB = this.adjustColorComponent(b, -120);
+
+		const startColor = `rgba(${lightR}, ${lightG}, ${lightB}, 0.9)`;
+		const endColor = `rgba(${darkR}, ${darkG}, ${darkB}, 0.95)`;
+
+		return `linear-gradient(155deg, ${startColor}, ${endColor})`;
 	}
 	
 	// Get gradient for status badges - basé sur la couleur calculée
@@ -1285,38 +1252,57 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return this.getButtonGradientForType('status', this.dominantR, this.dominantG, this.dominantB);
 	}
 	
-	// Gradient prononcé pour les boutons d’action de fichiers
+	// Couleur pour les boutons d’action de fichiers
 	public getFileActionButtonGradient(): string {
-		const r = this.dominantR;
-		const g = this.dominantG;
-		const b = this.dominantB;
-
-		const lighterR = Math.min(255, r + 90);
-		const lighterG = Math.min(255, g + 90);
-		const lighterB = Math.min(255, b + 90);
-
-		const darkerR = Math.max(0, r - 120);
-		const darkerG = Math.max(0, g - 120);
-		const darkerB = Math.max(0, b - 120);
-
-		return `linear-gradient(315deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.98) 0%, rgba(${r}, ${g}, ${b}, 0.98) 50%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 0.98) 100%)`;
+		return this.getSolidColor(0.9);
 	}
 
-	// Gradient prononcé pour les badges de fichiers
-	public getFileBadgeGradient(): string {
-		const r = this.dominantR;
-		const g = this.dominantG;
-		const b = this.dominantB;
+	private getFileTypeKey(fileName: string): 'image' | 'pdf' | 'other' {
+		if (this.isImageFile(fileName)) {
+			return 'image';
+		}
+		if (this.isPdfFile(fileName)) {
+			return 'pdf';
+		}
+		return 'other';
+	}
 
-		const lighterR = Math.min(255, r + 70);
-		const lighterG = Math.min(255, g + 70);
-		const lighterB = Math.min(255, b + 70);
+	private getFileBadgeColorComponents(fileName: string): { r: number; g: number; b: number } {
+		const typeKey = this.getFileTypeKey(fileName);
+		let r = this.dominantR;
+		let g = this.dominantG;
+		let b = this.dominantB;
 
-		const darkerR = Math.max(0, r - 100);
-		const darkerG = Math.max(0, g - 100);
-		const darkerB = Math.max(0, b - 100);
+		switch (typeKey) {
+			case 'image':
+				r = this.adjustColorComponent(r, 45);
+				g = this.adjustColorComponent(g, 45);
+				b = this.adjustColorComponent(b, 45);
+				break;
+			case 'pdf':
+				r = this.adjustColorComponent(r, -50);
+				g = this.adjustColorComponent(g, -50);
+				b = this.adjustColorComponent(b, -50);
+				break;
+			default:
+				r = this.adjustColorComponent(r, 10);
+				g = this.adjustColorComponent(g, 10);
+				b = this.adjustColorComponent(b, 10);
+		}
 
-		return `linear-gradient(315deg, rgba(${lighterR}, ${lighterG}, ${lighterB}, 0.95) 0%, rgba(${r}, ${g}, ${b}, 0.95) 50%, rgba(${darkerR}, ${darkerG}, ${darkerB}, 0.95) 100%)`;
+		return { r, g, b };
+	}
+
+	// Couleur pour les badges de fichiers en fonction du type
+	public getFileBadgeColor(fileName: string): string {
+		const { r, g, b } = this.getFileBadgeColorComponents(fileName);
+		return this.buildColorString(r, g, b, 0.88);
+	}
+
+	public getFileBadgeTextColor(fileName: string): string {
+		const { r, g, b } = this.getFileBadgeColorComponents(fileName);
+		const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+		return brightness > 160 ? 'rgba(0, 0, 0, 0.85)' : 'white';
 	}
 
 	// Get gradient for visibility badges - basé sur la couleur calculée
@@ -1947,10 +1933,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.thumbnailUrl = "assets/images/images.jpg";
 			// Reset to default color
 			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
-			this.titleBackgroundGradient = 'linear-gradient(135deg, rgba(255, 255, 255, 0.6) 0%, rgba(225, 225, 225, 0.6) 100%)';
 			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
 			this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
-			this.descriptionBackgroundGradient = 'linear-gradient(135deg, rgba(255, 255, 255, 1) 0%, rgba(225, 225, 225, 1) 100%)';
 			this.calculatedRgbValues = 'RGB(255, 255, 255)';
 			// Try to detect color from default image
 			setTimeout(() => {
@@ -2922,3 +2906,4 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		});
 	}
 }
+

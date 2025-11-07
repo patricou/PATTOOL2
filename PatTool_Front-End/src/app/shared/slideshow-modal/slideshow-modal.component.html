@@ -44,21 +44,10 @@
           {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
         </div>
         <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="slideshow-zoom-info">
-          <div *ngIf="getCurrentImageFileName()" class="info-line" style="font-weight: bold; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.3);">
-            <strong>Fichier:</strong> {{ getCurrentImageFileName() }}
+          <div *ngIf="getCurrentImageFileName()" class="info-line info-file-name" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.3);">
+            <span class="file-name">{{ getCurrentImageFileName() }}</span>
           </div>
           <div class="info-line">Zoom: {{ (slideshowZoom * 100).toFixed(0) }}%</div>
-          <div class="info-line">Min Zoom: {{ (minZoom * 100).toFixed(0) }}%</div>
-          <div class="info-line">Mouse: {{ cursorX }}, {{ cursorY }}</div>
-          <div class="info-line">Container: {{ containerWidth }} × {{ containerHeight }}</div>
-          <div class="info-line">Img Zoomed: {{ imageZoomedWidth }} × {{ imageZoomedHeight }}</div>
-          <div class="info-line" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 4px; margin-top: 4px;">
-            <div>Visible Origin: {{ visibleImageOriginX }}, {{ visibleImageOriginY }}</div>
-            <div>Visible Size: {{ visibleImageWidth }} × {{ visibleImageHeight }}</div>
-          </div>
-          <div *ngIf="hasSavedPosition" class="saved-position">
-            Saved: {{ savedCursorX }}, {{ savedCursorY }}
-          </div>
           
           <!-- EXIF Info Section -->
           <div class="exif-section" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 8px; margin-top: 8px;">
@@ -198,7 +187,7 @@
       </button>
       <button type="button" class="btn btn-secondary" 
               (click)="toggleThumbnails()"
-              [disabled]="slideshowImages.length === 0">
+              [disabled]="slideshowImages.length <= 1">
         <i class="fa me-1" [ngClass]="showThumbnails ? 'fa-eye-slash' : 'fa-eye'"></i>
         <span>{{ showThumbnails ? ('EVENTELEM.HIDE_THUMBNAILS' | translate) : ('EVENTELEM.SHOW_THUMBNAILS' | translate) }}</span> <span class="ms-1">(T)</span>
       </button>

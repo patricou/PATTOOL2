@@ -1,7 +1,7 @@
 <!-- <div class="panel panel-default" [ngClass]="{'animated pulse':mouseOvered}" (mouseout)="mouseOvered=false" (mouseover)="mouseOvered=true" data-bs-hover-animate="pulse"> -->
 <!-- thw following line allows to have tooltips on button in footer !! -->
 <div class="card-wrapper" 
-     [style.background]="descriptionBackgroundGradient">
+     [style.background]="getCardBackgroundGradient()">
 <div class="card-image-container" [ngStyle]="getPhotoFrameStyles()">
     <!-- Show slideshow if active, otherwise show thumbnail -->
     <img *ngIf="!isCardSlideshowActive" 
@@ -74,7 +74,7 @@
     
     <div class="card-img-overlay">
         <h4 class="card-title text-center pat-card" 
-            [style.background]="titleBackgroundGradient"
+            [style.background-color]="titleBackgroundColor"
             [style.color]="titleBorderColor">
             <b>{{evenement.evenementName}}</b>
         </h4>
@@ -89,7 +89,7 @@
 </div>
 <div class="card-block pat-card-block" [style.color]="titleBorderColor">
     <div class="alert alert-warning small pat-alert text-center"
-         [style.background]="descriptionBackgroundGradient"
+         [style.background-color]="descriptionBackgroundColor"
          [style.color]="titleBorderColor"
          [style.border-color]="titleBorderColor">
         <!-- <b>  {{"EVENTELEM.DESC" | translate }} :</b> -->{{evenement.comments}}
@@ -98,7 +98,7 @@
         <span class="badge rounded-pill rating-badge" 
               (click)="addRateMinus()" 
               placement="left"
-              [style.background]="getRatingBadgeGradient()"
+              [style.background-color]="getRatingBadgeGradient()"
               [style.border-color]="'white'"
               [style.color]="'white'"
               ngbTooltip="{{ 'COMMUN.IDONTLIKE' | translate }}"
@@ -108,7 +108,7 @@
         <span class="badge rounded-pill rating-badge" 
               (click)="addRatePlus()" 
               placement="right"
-              [style.background]="getRatingBadgeGradient()"
+              [style.background-color]="getRatingBadgeGradient()"
               [style.border-color]="'white'"
               [style.color]="'white'"
               ngbTooltip="{{ 'COMMUN.ILIKE' | translate }}"
@@ -119,33 +119,33 @@
         <b>
             <span *ngSwitchCase="'Closed'" 
                   class="badge status-badge me-2"
-                  [style.background]="getStatusBadgeGradient()"
+                  [style.background-color]="getStatusBadgeGradient()"
                   [style.border-color]="'white'"
                   [style.color]="'white'">{{"COMMUN.STATUSCLOSE" | translate }}</span>
             <span *ngSwitchCase="'Open'" 
                   class="badge status-badge me-2"
-                  [style.background]="getStatusBadgeGradient()"
+                  [style.background-color]="getStatusBadgeGradient()"
                   [style.border-color]="'white'"
                   [style.color]="'white'">{{"COMMUN.STATUSOPEN" | translate }}</span>
             <span *ngSwitchCase="'Cancel'" 
                   class="badge status-badge me-2"
-                  [style.background]="getStatusBadgeGradient()"
+                  [style.background-color]="getStatusBadgeGradient()"
                   [style.border-color]="'white'"
                   [style.color]="'white'">{{"COMMUN.STATUSCANCEL" | translate }}</span>
             <span [ngSwitch]="evenement.visibility">
                 <span *ngSwitchCase="'public'" 
                       class="badge visibility-badge"
-                      [style.background]="getVisibilityBadgeGradient()"
+                      [style.background-color]="getVisibilityBadgeGradient()"
                       [style.border-color]="'white'"
                       [style.color]="'white'">{{"EVENTCREATION.PUBLIC" | translate }}</span>
                 <span *ngSwitchCase="'private'" 
                       class="badge visibility-badge"
-                      [style.background]="getVisibilityBadgeGradient()"
+                      [style.background-color]="getVisibilityBadgeGradient()"
                       [style.border-color]="'white'"
                       [style.color]="'white'">{{"EVENTCREATION.PRIVATE" | translate }}</span>
                 <span *ngSwitchDefault 
                       class="badge visibility-badge"
-                      [style.background]="getVisibilityBadgeGradient()"
+                      [style.background-color]="getVisibilityBadgeGradient()"
                       [style.border-color]="'white'"
                       [style.color]="'white'">{{evenement.visibility}}</span>
             </span>
@@ -205,7 +205,7 @@
                 <button class="btn btn-sm btn-success download-all-btn" 
                         *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0"
                         (click)="downloadAllFiles()"
-                        [style.background]="getDownloadAllButtonGradient()"
+                        [style.background-color]="getDownloadAllButtonGradient()"
                         [style.border-color]="'white'"
                         [style.color]="'white'"
                         style="padding: 0.15rem 0.3rem; font-size: 0.7rem;">
@@ -214,7 +214,7 @@
             </h5>
             <ul class="list-group files-list" 
                 *ngIf="showFilesList"
-                [style.background]="getFilesListGradient()">
+                [style.background-color]="getFilesListGradient()">
                 <li class="list-group-item d-flex justify-content-between align-items-center"
                     *ngFor="let uploadedFile of evenement.fileUploadeds ">
                     <span class="file-name d-flex align-items-center">
@@ -233,14 +233,11 @@
                               class="file-thumbnail-loading me-2">
                             <i class="fa fa-spinner fa-spin"></i>
                         </span>
-                        <span class="badge" 
-                              [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
-                              [class.bg-info]="isImageFile(uploadedFile.fileName)"
-                              [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
+                        <span class="badge"
                               [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
-                              [style.background]="getFileBadgeGradient()"
+                              [style.background-color]="getFileBadgeColor(uploadedFile.fileName)"
                               [style.border-color]="'white'"
-                              [style.color]="'white'"
+                              [style.color]="getFileBadgeTextColor(uploadedFile.fileName)"
                               [title]="uploadedFile.fileName"
                               ngbTooltip="{{uploadedFile.fileName}}" placement="top"
                               (mouseleave)="onTooltipMouseLeave($event)"
@@ -260,16 +257,26 @@
                                 [disabled]="isThumbnailFile(uploadedFile)"
                                 ngbTooltip="{{ 'EVENTELEM.SET_AS_CARD_IMAGE' | translate }}"
                                 (click)="setFileAsThumbnail(uploadedFile)"
-                                [style.background]="getFileActionButtonGradient()"
+                                [style.background-color]="getFileActionButtonGradient()"
                                 [style.border-color]="'white'"
                                 [style.color]="'white'"
                                 (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-star" aria-hidden="true"></i>
                         </button>
+                        <button class="btn btn-sm btn-primary me-2"
+                                *ngIf="isPdfFile(uploadedFile.fileName)"
+                                ngbTooltip="{{ 'EVENTELEM.CLICK_TO_OPEN_PDF' | translate }}"
+                                (click)="openPdfFile(uploadedFile.fieldId, uploadedFile.fileName)"
+                                [style.background-color]="getFileActionButtonGradient()"
+                                [style.border-color]="'white'"
+                                [style.color]="'white'"
+                                (mouseleave)="onTooltipMouseLeave($event)">
+                            <i class="fa fa-eye" aria-hidden="true"></i>
+                        </button>
                         <button class="btn btn-sm btn-primary me-2" placement="left"
                             ngbTooltip="{{ 'COMMUN.DOWNLOAD' | translate }}"
                             (click)="openWindows(uploadedFile.fieldId, uploadedFile.fileName)"
-                            [style.background]="getFileActionButtonGradient()"
+                            [style.background-color]="getFileActionButtonGradient()"
                             [style.border-color]="'white'"
                             [style.color]="'white'"
                             (mouseleave)="onTooltipMouseLeave($event)">
@@ -279,7 +286,7 @@
                             ngbTooltip="{{ 'EVENTELEM.DELETEFILE' | translate }}"
                             [disabled]="!isFileOwner(uploadedFile.uploaderMember)"
                             (click)="delFile(uploadedFile.fieldId)"
-                            [style.background]="getFileActionButtonGradient()"
+                            [style.background-color]="getFileActionButtonGradient()"
                             [style.border-color]="'white'"
                             [style.color]="'white'"
                             (mouseleave)="onTooltipMouseLeave($event)">
@@ -347,7 +354,7 @@
     <!-- Unified Photos Button (opens FS selector if present, else uploaded slideshow) -->
     <button class="btn btn-sm btn-outline-success mb-1 me-1" 
             [hidden]="!(hasImageFiles() || getPhotoFromFsCount() > 0)" 
-            [style.background]="getButtonGradientForType('photos', dominantR, dominantG, dominantB)"
+            [style.background-color]="getButtonGradientForType('photos', dominantR, dominantG, dominantB)"
             [style.border-color]="'white'"
             (click)="openPhotos()"
             placement="right"
@@ -360,7 +367,7 @@
     <!-- View Details Button -->
     <a class="btn btn-sm btn-outline-info mb-1 me-1 eye-button" 
        [routerLink]="['/details-evenement', evenement.id]" 
-       [style.background]="getButtonGradientForType('details', dominantR, dominantG, dominantB)"
+       [style.background-color]="getButtonGradientForType('details', dominantR, dominantG, dominantB)"
        [style.border-color]="'white'"
        placement="top"
        ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}"
@@ -371,7 +378,7 @@
     <!-- URLs Button -->
     <button *ngIf="getUrlEventsCount() > 0"
             class="btn btn-primary btn-sm mb-1 me-1" 
-            [style.background]="getButtonGradientForType('urls', dominantR, dominantG, dominantB)"
+            [style.background-color]="getButtonGradientForType('urls', dominantR, dominantG, dominantB)"
             [style.border-color]="'white'"
             (click)="openUrlsModal(urlsModal)" 
             placement="top"
@@ -383,7 +390,7 @@
     <!-- Comments Button -->
     <button *ngIf="hasComments()" 
             class="btn btn-sm comments-button mb-1 me-1" 
-            [style.background]="getButtonGradientForType('comments', dominantR, dominantG, dominantB)"
+            [style.background-color]="getButtonGradientForType('comments', dominantR, dominantG, dominantB)"
             [style.border-color]="'white'"
             (click)="openCommentsModal()" 
             placement="top"
@@ -393,14 +400,14 @@
     </button>
     
     <a class="btn btn-sm btn-outline-info mb-1 me-1" 
-       [style.background]="getButtonGradientForType('chat', dominantR, dominantG, dominantB)"
+       [style.background-color]="getButtonGradientForType('chat', dominantR, dominantG, dominantB)"
        [style.border-color]="'white'"
        (click)="open(content)"
        ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}" 
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-comments" aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-success mb-1 me-1" 
-       [style.background]="getButtonGradientForType('participation', dominantR, dominantG, dominantB)"
+       [style.background-color]="getButtonGradientForType('participation', dominantR, dominantG, dominantB)"
        [style.border-color]="'white'"
        (click)="addMemberClick()" 
        ngbTooltip="{{ 'EVENTELEM.PARTICIPATION' | translate }}" 
@@ -408,7 +415,7 @@
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-user-o" aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-primary mb-1 me-1" 
        [hidden]="!isAuthor()" 
-       [style.background]="getButtonGradientForType('status', dominantR, dominantG, dominantB)"
+       [style.background-color]="getButtonGradientForType('status', dominantR, dominantG, dominantB)"
        [style.border-color]="'white'"
        (click)="changeStatusEvent(evenement.status)"
        ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" 
@@ -416,7 +423,7 @@
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-circle-o-notch"
             aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-warning mb-1 me-1" 
-       [style.background]="getButtonGradientForType('edit', dominantR, dominantG, dominantB)"
+       [style.background-color]="getButtonGradientForType('edit', dominantR, dominantG, dominantB)"
        [style.border-color]="'white'"
        [routerLink]="['/updeven',evenement.id]"
        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" 
@@ -424,7 +431,7 @@
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-outline-primary mb-1 me-1" 
        [hidden]="!isAnyFiles()" 
-       [style.background]="getButtonGradientForType('download', dominantR, dominantG, dominantB)"
+       [style.background-color]="getButtonGradientForType('download', dominantR, dominantG, dominantB)"
        [style.border-color]="'white'"
        (click)="toogleFileListe()"
        placement="top" 
@@ -436,7 +443,7 @@
          (mouseleave)="onTooltipMouseLeave($event)">
         <label [for]="'file-upload-input-' + evenement.id" 
                class="btn btn-sm btn-success mb-1"
-               [style.background]="getButtonGradientForType('upload', dominantR, dominantG, dominantB)"
+               [style.background-color]="getButtonGradientForType('upload', dominantR, dominantG, dominantB)"
                [style.border-color]="'white'">
             <i class="fa fa-upload" aria-hidden="true"></i>
         </label>
@@ -447,7 +454,7 @@
     <!-- Color calculation mode toggle button -->
     <button *ngIf="thumbnailUrl && thumbnailUrl !== 'assets/images/images.jpg'"
             class="btn btn-sm btn-outline-secondary mb-1 me-1"
-            [style.background]="getButtonGradientForType('color', dominantR, dominantG, dominantB)"
+            [style.background-color]="getButtonGradientForType('color', dominantR, dominantG, dominantB)"
             [style.border-color]="'white'"
             (click)="toggleColorCalculationMode()"
             placement="top"
