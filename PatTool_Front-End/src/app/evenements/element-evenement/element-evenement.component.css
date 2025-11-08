@@ -96,6 +96,22 @@
 		inset 0 -10px 22px rgba(0, 0, 0, 0.32),
 		inset 0 0 24px rgba(255, 255, 255, 0.12);
 	transition: none;
+	font-family: 'Poppins', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+	font-weight: 600;
+	letter-spacing: 0.015em;
+	text-shadow:
+		0 1px 1px rgba(255, 255, 255, 0.55),
+		0 3px 8px rgba(0, 0, 0, 0.25);
+}
+
+.pat-alert::before {
+	content: "";
+	position: absolute;
+	inset: 2px;
+	border-radius: inherit;
+	border: 1px solid rgba(255, 255, 255, 0.45);
+	background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0));
+	pointer-events: none;
 }
 
 /* Styles pour les badges de participants */
@@ -259,7 +275,7 @@
     align-items: flex-start;
     justify-content: center;
     padding: 0.5rem;
-    top: 3px;
+    top: 4px;
     pointer-events: none;
 }
 

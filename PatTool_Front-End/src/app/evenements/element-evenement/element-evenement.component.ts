@@ -4,8 +4,7 @@ import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../share
 import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 // Removed ng2-file-upload - using native HTML file input
-import { NgbModal, ModalDismissReasons, NgbRatingConfig, NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
-import { Database, ref, push, remove, onValue, serverTimestamp } from '@angular/fire/database';
+import { NgbModal, NgbRatingConfig, NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import * as JSZip from 'jszip';
 
@@ -31,9 +30,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public selectedFiles: File[] = [];
 	public API_URL: string = environment.API_URL;
 	public API_URL4FILE: string = environment.API_URL4FILE;
-	// For firebase items
-	public items: Observable<any[]> = new Observable();
-	public msgVal: string = '';
 	public showParticipantsList: boolean = false;
 	public showFilesList: boolean = false;
 	// Upload logs
@@ -110,11 +106,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@ViewChild('thumbnailImage', { static: false }) thumbnailImageRef!: ElementRef<HTMLImageElement>;
 	@ViewChild('cardSlideImage', { static: false }) cardSlideImageRef!: ElementRef<HTMLImageElement>;
 
-	// FS Photos download control
-	private fsDownloadsActive: boolean = false;
-	private fsActiveSubs: Subscription[] = [];
-	private fsQueue: string[] = [];
-	
 	// FS Photos slideshow loading control
 	private fsSlideshowLoadingActive: boolean = false;
 	private fsSlideshowSubs: Subscription[] = [];
@@ -139,12 +130,26 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	private tooltipShownListener?: () => void;
 	private tooltipDocClickListener?: (event: MouseEvent) => void;
 
+	private eventTypeLabels: { [key: string]: string } = {
+		'11': 'EVENTCREATION.TYPE.DOCUMENTS',
+		'12': 'EVENTCREATION.TYPE.FICHE',
+		'3': 'EVENTCREATION.TYPE.RUN',
+		'6': 'EVENTCREATION.TYPE.PARTY',
+		'4': 'EVENTCREATION.TYPE.WALK',
+		'10': 'EVENTCREATION.TYPE.PHOTOS',
+		'9': 'EVENTCREATION.TYPE.RANDO',
+		'2': 'EVENTCREATION.TYPE.SKI',
+		'7': 'EVENTCREATION.TYPE.VACATION',
+		'5': 'EVENTCREATION.TYPE.BIKE',
+		'8': 'EVENTCREATION.TYPE.TRAVEL',
+		'1': 'EVENTCREATION.TYPE.VTT'
+	};
+
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
 	@ViewChild('photosSelectorModalComponent') photosSelectorModalComponent!: PhotosSelectorModalComponent;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
-	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 	@ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
 	@ViewChild('logContent') logContent: any;
 
@@ -176,7 +181,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		private sanitizer: DomSanitizer,
 		private _router: Router,
 		private modalService: NgbModal,
-		private database: Database,
 		private ratingConfig: NgbRatingConfig,
 		private _fileService: FileService,
 		private winRef: WindowRefService,
@@ -340,43 +344,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.fsSlideshowSubs = [];
 	}
 
-	private loadImagesWithConcurrency(relativePath: string, fileNames: string[], concurrency: number): void {
-		this.fsQueue = [...fileNames];
-		let active = 0;
-
-		const next = () => {
-			if (!this.fsDownloadsActive) { return; }
-			while (this.fsDownloadsActive && active < concurrency && this.fsQueue.length > 0) {
-				const name = this.fsQueue.shift() as string;
-				active++;
-				const sub = this._fileService.getImageFromDisk(relativePath, name).subscribe({
-					next: (buffer: ArrayBuffer) => {
-						const blob = new Blob([buffer], { type: 'image/*' });
-						const url = URL.createObjectURL(blob);
-						this.slideshowImages.push(url);
-					},
-					error: () => {
-						// ignore failed image
-					},
-					complete: () => {
-						active--;
-						next();
-					}
-				});
-				this.fsActiveSubs.push(sub);
-			}
-		};
-
-		next();
-	}
-
-	private cancelFsDownloads(): void {
-		this.fsDownloadsActive = false;
-		try { this.fsActiveSubs.forEach(s => { if (s && !s.closed) { s.unsubscribe(); } }); } catch {}
-		this.fsActiveSubs = [];
-		this.fsQueue = [];
-	}
-
 	// Unified photos opener (uploaded photos or FS photos)
 	public openPhotos(): void {
 		this.forceCloseTooltips();
@@ -466,17 +433,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Ignore click if it was a drag
 		if (this.hasDraggedSlideshow) { this.hasDraggedSlideshow = false; return; }
 		this.toggleSlideshowWithMessage();
-	}
-
-	public onSlideshowClose(cRef: any): void {
-		try {
-			if (document.fullscreenElement) {
-				document.exitFullscreen().catch(() => {});
-			}
-		} catch {}
-		this.cancelFsDownloads();
-		try { if (typeof cRef === 'function') { cRef('Close click'); } } catch {}
-		try { this.modalService.dismissAll(); } catch {}
 	}
 
 	private clampSlideshowTranslation(): void {
@@ -655,31 +611,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		
 		
 		// sanitize the photoUrl
-		
-		// for the firebase : create a reference with evenement.id as name 
-		const messagesRef = ref(this.database, this.evenement.id);
-		this.items = new Observable(observer => {
-			const unsubscribe = onValue(messagesRef, (snapshot) => {
-				const messages: any[] = [];
-				snapshot.forEach((childSnapshot) => {
-					messages.push({
-						id: childSnapshot.key,
-						...childSnapshot.val()
-					});
-				});
-				// Trier les messages par date/heure (plus récents en premier)
-				messages.sort((a, b) => {
-					// Utiliser la propriété 'priority' qui est définie comme 0 - Date.now()
-					// Plus la valeur est négative, plus le message est récent
-					return a.priority - b.priority;
-				});
-				observer.next(messages);
-			}, (error) => {
-				observer.error(error);
-			});
-			
-			return () => unsubscribe();
-		});
 		// Call Thumbnail Image function
 		this.setThumbnailImage();
 		
@@ -1275,8 +1206,26 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return this.filesListGradientCache;
 	}
 
+	public getEventTypeLabel(type: string | number): string {
+		const key = String(type);
+		const labelKey = this.eventTypeLabels[key];
+		return labelKey ? this.translateService.instant(labelKey) : key;
+	}
+
 	private adjustColorComponent(value: number, delta: number): number {
 		return Math.max(0, Math.min(255, Math.round(value + delta)));
+	}
+
+	private getAdjustedDominantColor(delta: number): { r: number; g: number; b: number } {
+		return {
+			r: this.adjustColorComponent(this.dominantR, delta),
+			g: this.adjustColorComponent(this.dominantG, delta),
+			b: this.adjustColorComponent(this.dominantB, delta)
+		};
+	}
+
+	private getColorBrightness(r: number, g: number, b: number): number {
+		return 0.299 * r + 0.587 * g + 0.114 * b;
 	}
 
 	public getCardBackgroundGradient(): string {
@@ -1380,6 +1329,59 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.fileBadgeTextColorCache.set(cacheKey, cached);
 		}
 		return cached;
+	}
+
+	public getParticipantButtonStyles(isRemove: boolean): { [key: string]: string } {
+		return {
+			'background-color': this.getParticipantButtonBackground(isRemove),
+			'border-color': this.getParticipantButtonBorder(isRemove),
+			'border-width': '2px',
+			'border-style': 'solid',
+			'color': this.getParticipantButtonTextColor(isRemove)
+		};
+	}
+
+	private getParticipantButtonBackground(isRemove: boolean): string {
+		const delta = isRemove ? -70 : 55;
+		const { r, g, b } = this.getAdjustedDominantColor(delta);
+		return this.buildColorString(r, g, b, 0.92);
+	}
+
+	private getParticipantButtonBorder(isRemove: boolean): string {
+		const delta = isRemove ? -40 : 75;
+		const { r, g, b } = this.getAdjustedDominantColor(delta);
+		return this.buildColorString(r, g, b, 1);
+	}
+
+	private getParticipantButtonTextColor(isRemove: boolean): string {
+		const delta = isRemove ? -70 : 55;
+		const { r, g, b } = this.getAdjustedDominantColor(delta);
+		return this.getColorBrightness(r, g, b) > 160 ? 'rgba(0, 0, 0, 0.85)' : 'white';
+	}
+
+	public getParticipantBadgeStyles(): { [key: string]: string } {
+		return {
+			'background-color': this.getParticipantBadgeColor(),
+			'border-color': this.getParticipantBadgeBorderColor(),
+			'border-width': '2px',
+			'border-style': 'solid',
+			'color': this.getParticipantBadgeTextColor()
+		};
+	}
+
+	private getParticipantBadgeColor(): string {
+		const { r, g, b } = this.getAdjustedDominantColor(35);
+		return this.buildColorString(r, g, b, 0.9);
+	}
+
+	private getParticipantBadgeBorderColor(): string {
+		const { r, g, b } = this.getAdjustedDominantColor(55);
+		return this.buildColorString(r, g, b, 1);
+	}
+
+	private getParticipantBadgeTextColor(): string {
+		const { r, g, b } = this.getAdjustedDominantColor(35);
+		return this.getColorBrightness(r, g, b) > 160 ? 'rgba(0, 0, 0, 0.85)' : 'white';
 	}
 
 	// Get gradient for visibility badges - basé sur la couleur calculée
@@ -1689,16 +1691,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		b = this.user.id == member.id
 		return b;
 	}
-	// for modal chat
-	public closeResult: string = "";
-
 	public open(content: any) {
 		this.forceCloseTooltips();
-		this.modalService.open(content, { size: 'lg', centered: true, backdrop: 'static', keyboard: false }).result.then((result) => {
-			this.closeResult = `Closed with: ${result}`;
-		}, (reason) => {
-			this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;
-		});
+		this.modalService.open(content, { size: 'lg', centered: true, backdrop: 'static', keyboard: false });
 	}
 
 	// Open photos modal from parent component
@@ -1726,11 +1721,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.forceCloseTooltips();
 		
 		if (this.jsonModal) {
-			this.modalService.open(this.jsonModal, { size: 'lg', backdrop: 'static', keyboard: false }).result.then((result) => {
-				this.closeResult = `JSON modal closed with: ${result}`;
-			}, (reason) => {
-				this.closeResult = `JSON modal dismissed ${this.getDismissReason(reason)}`;
-			});
+			this.modalService.open(this.jsonModal, { size: 'lg', backdrop: 'static', keyboard: false });
 		} else {
 			console.error('JSON modal template not found');
 		}
@@ -1741,45 +1732,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return JSON.stringify(this.evenement, null, 2);
 	}
 
-	public getDismissReason(reason: any): string {
-		if (reason === ModalDismissReasons.ESC) {
-			return 'by pressing ESC';
-		} else if (reason === ModalDismissReasons.BACKDROP_CLICK) {
-			return 'by clicking on a backdrop';
-		} else {
-			return `with: ${reason}`;
-		}
-	}
-
-	async Send() {     
-		const messagesRef = ref(this.database, this.evenement.id);
-		await push(messagesRef, {
-			'message': this.msgVal,
-			'date': new Date().toISOString(),
-			'user': {
-				firstName: this.user.firstName,
-				lastName: this.user.lastName,
-				userName: this.user.userName
-			},
-			'priority': 0 - Date.now()
-		});
-		this.msgVal = '';
-		// Faire défiler vers le bas après l'envoi
-		setTimeout(() => this.scrollToBottom(), 100);
-	}
-
-	private scrollToBottom(): void {
-		if (this.chatMessagesContainer) {
-			const element = this.chatMessagesContainer.nativeElement;
-			element.scrollTop = element.scrollHeight;
-		}
-	}
-
-
-	public async deleteMessage(item: any) {
-		const messageRef = ref(this.database, this.evenement.id + '/' + item.id);
-		await remove(messageRef);
-	}
 	// for file list toogle
 	public tfl: boolean = true;
 	public toogleFileListe() {
@@ -2047,6 +1999,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		const urlEventTypes = [
 			{id: "MAP", label: "EVENTHOME.URL_TYPE_CARTE", aliases: ["CARTE", "CARTA", "KARTE", "MAPA", "地图", "خريطة"]},
 			{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
+			{id: "FICHE", label: "EVENTHOME.URL_TYPE_FICHE", aliases: ["FICHE", "SHEET", "FICHA", "BLATT", "シート", "表格", "نشرة"]},
 			{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
 			{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
 			{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
@@ -2107,6 +2060,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		const urlEventTypes = [
 			{id: "MAP", aliases: ["CARTE", "CARTA", "KARTE", "MAPA", "地图", "خريطة"]},
 			{id: "DOCUMENTATION", aliases: ["DOC", "DOCUMENT", "DOCS", "文档", "وثائق"]},
+			{id: "FICHE", aliases: ["FICHE", "SHEET", "FICHA", "BLATT", "シート", "表格", "نشرة"]},
 			{id: "OTHER", aliases: ["AUTRE", "OTRO", "ANDERE", "其他", "أخرى"]},
 			{id: "PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
 			{id: "WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
@@ -2140,7 +2094,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// Get sorted type keys for consistent display order
 	public getSortedTypeKeys(): string[] {
 		const grouped = this.getGroupedUrlEvents();
-		const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'PHOTOS', 'Photos', 'OTHER'];
+		const typeOrder = ['MAP', 'DOCUMENTATION', 'FICHE', 'WEBSITE', 'PHOTOS', 'Photos', 'OTHER'];
 		return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
 	}
 

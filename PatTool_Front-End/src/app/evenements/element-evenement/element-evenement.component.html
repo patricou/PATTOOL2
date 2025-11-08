@@ -156,19 +156,8 @@
     </small>
     <div class="card-info-box" [style.background-color]="getSolidColor(0.22)" [style.border-color]="getSolidColor(0.35)">
         <ul class="card-info-list">
-            <li class="card-info-item" [ngSwitch]="+evenement.type">
-                {{"EVENTELEM.TYPE" | translate }} :
-                <span *ngSwitchCase="11">{{"EVENTCREATION.TYPE.DOCUMENTS" | translate }}</span>
-                <span *ngSwitchCase="3">{{"EVENTCREATION.TYPE.RUN" | translate }}</span>
-                <span *ngSwitchCase="6">{{"EVENTCREATION.TYPE.PARTY" | translate }}</span>
-                <span *ngSwitchCase="4">{{"EVENTCREATION.TYPE.WALK" | translate }}</span>
-                <span *ngSwitchCase="10">{{"EVENTCREATION.TYPE.PHOTOS" | translate }}</span>
-                <span *ngSwitchCase="9">{{"EVENTCREATION.TYPE.RANDO" | translate }}</span>
-                <span *ngSwitchCase="2">{{"EVENTCREATION.TYPE.SKI" | translate }}</span>
-                <span *ngSwitchCase="7">{{"EVENTCREATION.TYPE.VACATION" | translate }}</span>
-                <span *ngSwitchCase="5">{{"EVENTCREATION.TYPE.BIKE" | translate }}</span>
-                <span *ngSwitchCase="8">{{"EVENTCREATION.TYPE.TRAVEL" | translate }}</span>
-                <span *ngSwitchCase="1">{{"EVENTCREATION.TYPE.VTT" | translate }}</span>
+            <li class="card-info-item">
+                {{"EVENTELEM.TYPE" | translate }} : {{ getEventTypeLabel(evenement.type) }}
             </li>
             <li class="card-info-item" [ngSwitch]="+evenement.diffculty">
                 {{"EVENTELEM.DIFF" | translate }} :
@@ -310,15 +299,19 @@
                 </button>
             </div>
             <div>
-                <button class="btn btn-sm btn-success ms-1" 
+                <button class="btn btn-sm participation-button ms-1" 
                         style="padding: 0.1rem 0.4rem; font-size: 0.7rem;"
                         *ngIf="!isParticipant()"
+                        type="button"
+                        [ngStyle]="getParticipantButtonStyles(false)"
                         (click)="addMemberClick()">
                     <i class="fa fa-user-plus"></i> {{ 'EVENTELEM.IWTP' | translate }}
                 </button>
-                <button class="btn btn-sm btn-danger ms-1" 
+                <button class="btn btn-sm participation-button ms-1" 
                         style="padding: 0.1rem 0.4rem; font-size: 0.7rem;"
                         *ngIf="isParticipant()"
+                        type="button"
+                        [ngStyle]="getParticipantButtonStyles(true)"
                         (click)="delMemberClick()">
                     <i class="fa fa-user-times"></i> {{ 'EVENTELEM.IDWTP' | translate }}
                 </button>
@@ -326,7 +319,8 @@
         </h5>
         <div class="participants-container mt-2">
             <div *ngIf="evenement.members.length > 0; else noParticipantsTemplate" class="text-center">
-                <span *ngFor="let member of evenement.members; let last = last" class="badge participant-badge bg-primary me-1 mb-1">
+                <span *ngFor="let member of evenement.members; let last = last" class="badge participant-badge me-1 mb-1"
+                      [ngStyle]="getParticipantBadgeStyles()">
                     <i class="fa fa-user me-1"></i>
                     <span class="clickable-user" 
                           (click)="openUserModal(member)"
@@ -399,13 +393,6 @@
         <i class="fa fa-comments" aria-hidden="true"></i> {{ getCommentsCount() }}
     </button>
     
-    <a class="btn btn-sm btn-outline-info mb-1 me-1" 
-       [style.background-color]="getButtonGradientForType('chat', dominantR, dominantG, dominantB)"
-       [style.border-color]="'white'"
-       (click)="open(content)"
-       ngbTooltip=" {{ 'EVENTELEM.CHAT' | translate }}" 
-       placement="top"
-       (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-comments" aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-success mb-1 me-1" 
        [style.background-color]="getButtonGradientForType('participation', dominantR, dominantG, dominantB)"
        [style.border-color]="'white'"
@@ -467,82 +454,15 @@
 </div>
 
 
-<!-- Modal window for live chat - Design moderne -->
-<ng-template #content let-c="close" let-d="dismiss">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content chat-modal">
-            <!-- Header moderne -->
-            <div class="modal-header chat-header">
-                <div class="d-flex align-items-center">
-                    <div class="chat-avatar me-3">
-                        <i class="fa fa-comments"></i>
-                    </div>
-                    <div>
-                        <h5 class="modal-title mb-0">{{evenement.evenementName}}</h5>
-                        <small class="text-muted">{{"EVENTELEM.LIVECHAT" | translate }}</small>
-                    </div>
-                </div>
-                <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="d('Cross click')"></button>
-            </div>
-            
-            <!-- Messages Container -->
-            <div class="modal-body chat-body p-0">
-                <div class="chat-messages" #chatMessagesContainer>
-                    <div *ngFor="let item of items | async" class="message-item" [class.own-message]="item.user.userName == user.userName">
-                        <div class="message-avatar">
-                            <i class="fa fa-user"></i>
-                        </div>
-                        <div class="message-content">
-                            <div class="message-header">
-                                <span class="message-author">{{item.user.userName}}</span>
-                                <span class="message-time">{{item.date | date:'short'}} {{item.date | date:'shortTime'}}</span>
-                                <button *ngIf="item.user.userName == user.userName" 
-                                        class="btn btn-sm btn-outline-danger message-delete" 
-                                        (click)="deleteMessage(item)"
-                                        ngbTooltip="{{ 'EVENTELEM.DELMESCHAT' | translate }}"
-                                        (mouseleave)="onTooltipMouseLeave($event)">
-                                    <i class="fa fa-trash"></i>
-                                </button>
-                            </div>
-                            <div class="message-text">{{item.message}}</div>
-                        </div>
-                    </div>
-                    <div *ngIf="!(items | async)?.length" class="no-messages text-center py-4">
-                        <i class="fa fa-comment-o fa-3x text-muted mb-3"></i>
-                        <p class="text-muted">{{ 'EVENTELEM.NO_MESSAGES_YET' | translate }}</p>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Input moderne -->
-            <div class="modal-footer chat-footer">
-                <div class="input-group">
-                    <input [(ngModel)]="msgVal" 
-                           type="text" 
-                           class="form-control chat-input" 
-                           placeholder="{{ 'RESULTS.MESSAGEPLHD' | translate }}" 
-                           (keyup.enter)="Send()" 
-                           autofocus />
-                    <button class="btn btn-primary chat-send-btn" 
-                            type="button" 
-                            (click)="Send()"
-                            [disabled]="!msgVal.trim()">
-                        <i class="fa fa-paper-plane"></i>
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</ng-template>
-
-
 <!-- Comments Modal -->
 <ng-template #commentsModal let-c="close" let-d="dismiss">
-    <div class="modal-header selector-header">
-        <h5 class="modal-title">
+    <div class="modal-header bg-primary text-white selector-header border border-2 border-white rounded-top">
+        <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
             <i class="fa fa-comments"></i> {{ 'EVENTHOME.COMMENTARIES' | translate }} - {{ evenement.evenementName }}
         </h5>
-        <button type="button" class="btn-close" aria-label="Close" (click)="c()"></button>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white" (click)="c('Close click')" aria-label="Close">
+            <i class="fa fa-times"></i>
+        </button>
     </div>
     <div class="modal-body selector-body">
         <div *ngIf="hasComments(); else noCommentsTemplate">
@@ -593,11 +513,13 @@
 
 <!-- URLs Modal -->
 <ng-template #urlsModal let-c="close" let-d="dismiss">
-    <div class="modal-header">
-        <h5 class="modal-title">
+    <div class="modal-header bg-primary text-white border border-2 border-white rounded-top">
+        <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
             <i class="fa fa-link"></i> {{ 'EVENTELEM.URLS' | translate }} - {{ evenement.evenementName }}
         </h5>
-        <button type="button" class="btn-close" aria-label="Close" (click)="d('Cross click')"></button>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white" (click)="d('Cross click')" aria-label="Close">
+            <i class="fa fa-times"></i>
+        </button>
     </div>
     <div class="modal-body">
         <div *ngIf="isUrlEventsAvailable(); else noUrlsTemplate">

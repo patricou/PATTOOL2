@@ -106,18 +106,10 @@
                                     </label>
                                     <select id="typeV" [style.color]="typeColor" #typeV="ngModel" [(ngModel)]="evenement.type"
                                         name="type" class="form-control" required [disabled]="!canEditEventFields()">
-                                        <option value="" disabled selected>{{"EVENTCREATION.EVENTTYPEPLHD" | translate }}</option>
-                                        <option value="11">{{"EVENTCREATION.TYPE.DOCUMENTS" | translate }}</option>
-                                        <option value="3">{{"EVENTCREATION.TYPE.RUN" | translate }}</option>
-                                        <option value="6">{{"EVENTCREATION.TYPE.PARTY" | translate }}</option>
-                                        <option value="4">{{"EVENTCREATION.TYPE.WALK" | translate }}</option>
-                                        <option value="10">{{"EVENTCREATION.TYPE.PHOTOS" | translate }}</option>
-                                        <option value="9">{{"EVENTCREATION.TYPE.RANDO" | translate }}</option>
-                                        <option value="2">{{"EVENTCREATION.TYPE.SKI" | translate }}</option>
-                                        <option value="7">{{"EVENTCREATION.TYPE.VACATION" | translate }}</option>
-                                        <option value="5">{{"EVENTCREATION.TYPE.BIKE" | translate }}</option>
-                                        <option value="8">{{"EVENTCREATION.TYPE.TRAVEL" | translate }}</option>
-                                        <option value="1">{{"EVENTCREATION.TYPE.VTT" | translate }}</option>
+                                        <option value="" disabled>{{"EVENTCREATION.EVENTTYPEPLHD" | translate }}</option>
+                                        <option *ngFor="let type of getSortedEventTypes()" [value]="type.value">
+                                            {{ type.label | translate }}
+                                        </option>
                                     </select>
                                     <div class="error-message" [hidden]="!typeV.invalid || !f.submitted">
                                         <i class="fa fa-exclamation-triangle"></i>

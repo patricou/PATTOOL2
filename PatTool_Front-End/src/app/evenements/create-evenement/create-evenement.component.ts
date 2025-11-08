@@ -32,11 +32,27 @@ export class CreateEvenementComponent implements OnInit {
 	public urlEventTypes: {id: string, label: string}[] = [
 		{id: "MAP", label: "EVENTHOME.URL_TYPE_CARTE"},
 		{id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION"},
+		{id: "FICHE", label: "EVENTHOME.URL_TYPE_FICHE"},
 		{id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER"},
 		{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
 		{id: "PHOTOFROMFS", label: "EVENTHOME.URL_TYPE_PHOTOFROMFS"},
 		{id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO"},
 		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
+	];
+
+	public eventTypes: {value: string, label: string}[] = [
+		{ value: "11", label: "EVENTCREATION.TYPE.DOCUMENTS" },
+		{ value: "12", label: "EVENTCREATION.TYPE.FICHE" },
+		{ value: "3", label: "EVENTCREATION.TYPE.RUN" },
+		{ value: "6", label: "EVENTCREATION.TYPE.PARTY" },
+		{ value: "4", label: "EVENTCREATION.TYPE.WALK" },
+		{ value: "10", label: "EVENTCREATION.TYPE.PHOTOS" },
+		{ value: "9", label: "EVENTCREATION.TYPE.RANDO" },
+		{ value: "2", label: "EVENTCREATION.TYPE.SKI" },
+		{ value: "7", label: "EVENTCREATION.TYPE.VACATION" },
+		{ value: "5", label: "EVENTCREATION.TYPE.BIKE" },
+		{ value: "8", label: "EVENTCREATION.TYPE.TRAVEL" },
+		{ value: "1", label: "EVENTCREATION.TYPE.VTT" }
 	];
 
 	// Commentary management
@@ -98,6 +114,12 @@ export class CreateEvenementComponent implements OnInit {
 	// Sorted list of URL event types by translated label
 	public getSortedUrlEventTypes(): {id: string, label: string}[] {
 		return [...this.urlEventTypes].sort((a, b) =>
+			this.translate.instant(a.label).localeCompare(this.translate.instant(b.label))
+		);
+	}
+
+	public getSortedEventTypes(): {value: string, label: string}[] {
+		return [...this.eventTypes].sort((a, b) =>
 			this.translate.instant(a.label).localeCompare(this.translate.instant(b.label))
 		);
 	}
