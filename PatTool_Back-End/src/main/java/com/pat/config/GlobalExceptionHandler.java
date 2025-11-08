@@ -1,6 +1,13 @@
 package com.pat.config;
 
 import com.pat.service.ExceptionTrackingService;
+import jakarta.servlet.http.HttpServletRequest;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.util.Arrays;
+import java.util.List;
+import org.apache.catalina.connector.ClientAbortException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,13 +18,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.context.request.async.AsyncRequestNotUsableException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
-
-import jakarta.servlet.http.HttpServletRequest;
-import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.StringWriter;
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Global exception handler for the application
@@ -164,8 +164,23 @@ public class GlobalExceptionHandler {
      * Handle IOException related to connection reset - occurs when client closes connection
      * during file streaming
      */
+    @ExceptionHandler(ClientAbortException.class)
+    public ResponseEntity<Void> handleClientAbortException(ClientAbortException exc, HttpServletRequest request) {
+        String clientIp = getClientIpAddress(request);
+        String message = exc.getMessage();
+        String logMessage = "Client aborted connection (likely normal) from IP [" + clientIp + "]"
+            + (message != null ? ": " + message : "");
+        log.info(logMessage);
+        exceptionTrackingService.addLog(clientIp, logMessage);
+        return null;
+    }
+
     @ExceptionHandler(IOException.class)
     public ResponseEntity<Void> handleIOException(IOException exc, HttpServletRequest request) {
+        if (exc instanceof ClientAbortException clientAbortException) {
+            return handleClientAbortException(clientAbortException, request);
+        }
+
         String clientIp = getClientIpAddress(request);
         String message = exc.getMessage();
         
@@ -218,6 +233,14 @@ public class GlobalExceptionHandler {
             return null; // Connection already closed
         }
         
+        if (hasClientAbortCause(exc)) {
+            String logMessage = "Client aborted connection (wrapped exception) from IP [" + clientIp + "]: "
+                + (message != null ? message : exc.getClass().getSimpleName());
+            log.info(logMessage);
+            exceptionTrackingService.addLog(clientIp, logMessage);
+            return null;
+        }
+
         String logMessage = "Unexpected error occurred from IP [" + clientIp + "]: " + exc.getMessage();
         log.error(logMessage, exc);
         exceptionTrackingService.addLog(clientIp, logMessage);
@@ -268,5 +291,16 @@ public class GlobalExceptionHandler {
         PrintWriter pw = new PrintWriter(sw);
         exc.printStackTrace(pw);
         return sw.toString();
+    }
+
+    private boolean hasClientAbortCause(Throwable exc) {
+        Throwable current = exc;
+        while (current != null) {
+            if (current instanceof ClientAbortException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

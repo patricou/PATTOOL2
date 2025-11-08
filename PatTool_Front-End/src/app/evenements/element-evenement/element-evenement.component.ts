@@ -119,6 +119,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	private fileBadgeTextColorCache: Map<string, string> = new Map();
 	private fileBadgeComponentsCache: Map<string, { r: number; g: number; b: number }> = new Map();
 	private photoFrameStylesCache: { [key: string]: string } | null = null;
+	private photoImageStylesCache: { [key: string]: string } | null = null;
+	private photoBorderColorCache: string | null = null;
 	private cardBackgroundGradientCache: string | null = null;
 	private filesListGradientCache: string | null = null;
 	private statusBadgeGradientCache: string | null = null;
@@ -1044,6 +1046,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.fileBadgeTextColorCache.clear();
 		this.fileBadgeComponentsCache.clear();
 		this.photoFrameStylesCache = null;
+		this.photoImageStylesCache = null;
+		this.photoBorderColorCache = null;
 		this.cardBackgroundGradientCache = null;
 		this.filesListGradientCache = null;
 		this.statusBadgeGradientCache = null;
@@ -1177,14 +1181,36 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		if (!this.photoFrameStylesCache) {
 			this.photoFrameStylesCache = {
 				position: 'relative',
-				border: 'none',
 				backgroundColor: this.getSolidColor(0.35),
 				borderRadius: '8px',
 				padding: '7px 7px 0 7px',
-				boxShadow: 'none'
+				boxShadow: 'none',
+				boxSizing: 'border-box'
 			};
 		}
 		return this.photoFrameStylesCache;
+	}
+
+	private getPhotoBorderColor(): string {
+		if (!this.photoBorderColorCache) {
+			const { r, g, b } = this.getAdjustedDominantColor(-45);
+			this.photoBorderColorCache = this.buildColorString(r, g, b, 0.9);
+		}
+		return this.photoBorderColorCache;
+	}
+
+	public getPhotoImageStyles(): { [key: string]: string } {
+		if (!this.photoImageStylesCache) {
+			const borderColor = this.getPhotoBorderColor();
+			this.photoImageStylesCache = {
+				border: `6px solid ${borderColor}`,
+				borderRadius: 'inherit',
+				backgroundColor: 'transparent',
+				padding: '0',
+				boxSizing: 'border-box'
+			};
+		}
+		return this.photoImageStylesCache;
 	}
 	
 	// Get color for a specific button type - basé uniquement sur la couleur calculée
@@ -2441,6 +2467,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.fileBadgeTextColorCache.clear();
 		this.fileBadgeComponentsCache.clear();
 		this.photoFrameStylesCache = null;
+		this.photoImageStylesCache = null;
+		this.photoBorderColorCache = null;
 		this.cardBackgroundGradientCache = null;
 		this.filesListGradientCache = null;
 		this.statusBadgeGradientCache = null;

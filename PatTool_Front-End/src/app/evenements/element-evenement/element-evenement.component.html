@@ -6,9 +6,10 @@
     <!-- Show slideshow if active, otherwise show thumbnail -->
     <img *ngIf="!isCardSlideshowActive" 
          #thumbnailImage 
-         class="card-img img-fluid img-thumbnail mx-auto d-block" 
+         class="card-img img-fluid mx-auto d-block" 
          [src]="thumbnailUrl" 
          alt="Card image" 
+         [ngStyle]="getPhotoImageStyles()"
          (load)="detectDominantColor()" />
     
     <!-- Card Slideshow -->
@@ -36,9 +37,10 @@
         
         <img *ngIf="currentCardSlideImage" 
              #cardSlideImage
-             class="card-img img-fluid img-thumbnail mx-auto d-block slideshow-image" 
+             class="card-img img-fluid mx-auto d-block slideshow-image" 
              [src]="currentCardSlideImage" 
              alt="Slideshow image"
+             [ngStyle]="getPhotoImageStyles()"
              (load)="detectDominantColorFromSlideshow()" />
         
         <!-- Pause/Play toggle button - visible when playing -->
