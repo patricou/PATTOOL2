@@ -401,6 +401,8 @@
         "ILIKE": "我喜欢",
         "DOWNLOAD_ALL": "全部下载",
         "CLEAR_FILTER": "清除筛选",
+        "SHOW_CONTROLS": "显示控件",
+        "HIDE_CONTROLS": "隐藏控件",
         "PREVIOUS_PAGE": "上一页",
         "NEXT_PAGE": "下一页"
     },

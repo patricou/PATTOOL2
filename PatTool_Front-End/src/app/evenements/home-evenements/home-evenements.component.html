@@ -11,7 +11,7 @@
                 <div class="controls-header-row d-md-none">
                     <button class="btn btn-sm btn-outline-secondary btn-collapse-controls"
                         (click)="toggleControlsCollapse()" type="button"
-                        ngbTooltip="{{ controlsCollapsed ? ('COMMUN.SHOW_CONTROLS' | translate) : ('COMMUN.HIDE_CONTROLS' | translate) }}"
+                        [ngbTooltip]="isMobile ? null : (controlsCollapsed ? ('COMMUN.SHOW_CONTROLS' | translate) : ('COMMUN.HIDE_CONTROLS' | translate))"
                         placement="bottom" container="body">
                         <i class="fa" [class.fa-chevron-down]="controlsCollapsed"
                             [class.fa-chevron-up]="!controlsCollapsed"></i>
@@ -19,7 +19,7 @@
                     <!-- Last two buttons on same line - aligned to the right of collapse button -->
                     <div class="last-buttons-row" [hidden]="totalPages == 0">
                         <select class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
-                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
+                            (change)="changeFiltre()" [ngbTooltip]="isMobile ? null : ('COMMUN.EVENTBYPAGE' | translate)"
                             placement="bottom" container="body">
                             <option value="1">1</option>
                             <option value="2">2</option>
@@ -33,7 +33,7 @@
                             <option value="100">100</option>
                         </select>
                         <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
-                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom"
+                            [ngbTooltip]="isMobile ? null : ('EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate)" placement="bottom"
                             container="body">
                             <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
                         </button>
@@ -47,24 +47,26 @@
                         <input type="text" id="message" [value]="dataFIlter" #searchterm
                             placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" class="form-control search-input" />
                         <button class="btn btn-sm btn-secondary btn-filter" (click)="clearFilter()" type="button"
-                            ngbTooltip="{{ 'COMMUN.CLEAR_FILTER' | translate }}" placement="bottom"
+                            [ngbTooltip]="isMobile ? null : ('COMMUN.CLEAR_FILTER' | translate)" placement="bottom"
                             container="body">X</button>
                     </div>
                     <div class="pagination-controls" [hidden]="totalPages == 0">
                         <button class="btn btn-sm btn-outline-secondary btn-pagination" (click)="changePreviousPage()"
                             [disabled]="pageNumber === 0" aria-label="Previous"
-                            ngbTooltip="{{ 'COMMUN.PREVIOUS_PAGE' | translate }}" placement="bottom" container="body">
+                            [ngbTooltip]="isMobile ? null : ('COMMUN.PREVIOUS_PAGE' | translate)" placement="bottom"
+                            container="body">
                             <span aria-hidden="true">&laquo;</span>
                         </button>
                         <select class="form-select form-select-sm select-page" [(ngModel)]="pageNumber"
-                            (change)="changePage(pageNumber)" ngbTooltip="{{ 'EVENTHOME.SELECT_PAGE' | translate }}"
+                            (change)="changePage(pageNumber)" [ngbTooltip]="isMobile ? null : ('EVENTHOME.SELECT_PAGE' | translate)"
                             placement="bottom" container="body">
                             <option *ngFor="let p of pages" [value]="p">{{ 'EVENTHOME.PAGE' | translate }} {{p + 1}}
                             </option>
                         </select>
                         <button class="btn btn-sm btn-outline-secondary btn-pagination" (click)="changeNextPage()"
                             [disabled]="pageNumber >= totalPages - 1" aria-label="Next"
-                            ngbTooltip="{{ 'COMMUN.NEXT_PAGE' | translate }}" placement="bottom" container="body">
+                            [ngbTooltip]="isMobile ? null : ('COMMUN.NEXT_PAGE' | translate)" placement="bottom"
+                            container="body">
                             <span aria-hidden="true">&raquo;</span>
                         </button>
                         <small class="text-muted page-indicator">{{ 'EVENTHOME.PAGE' | translate }}
@@ -73,7 +75,7 @@
                     <!-- Last two buttons on same line - visible on desktop -->
                     <div class="last-buttons-row desktop-buttons-row" [hidden]="totalPages == 0">
                         <select class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
-                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
+                            (change)="changeFiltre()" [ngbTooltip]="isMobile ? null : ('COMMUN.EVENTBYPAGE' | translate)"
                             placement="bottom" container="body">
                             <option value="1">1</option>
                             <option value="2">2</option>
@@ -87,7 +89,7 @@
                             <option value="100">100</option>
                         </select>
                         <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
-                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom"
+                            [ngbTooltip]="isMobile ? null : ('EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate)" placement="bottom"
                             container="body">
                             <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
                         </button>

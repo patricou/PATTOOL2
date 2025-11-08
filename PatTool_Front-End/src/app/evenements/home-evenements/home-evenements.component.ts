@@ -44,6 +44,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public visible: boolean = false;
 	public isCompactView: boolean = false;
 	public controlsCollapsed: boolean = false;
+	public isMobile: boolean = false;
 	public thumbnailCache: Map<string, SafeUrl> = new Map();
 	public eventThumbnails: Map<string, SafeUrl> = new Map();
 	public nativeWindow: any;
@@ -93,13 +94,28 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.user = this._memberService.getUser();
 		this.getEvents(this.dataFIlter);
 		
+		this.updateResponsiveState(this.nativeWindow.innerWidth);
 		// Initialize controls collapsed state based on screen size
-		if (this.nativeWindow.innerWidth <= 767) {
+		if (this.isMobile) {
 			this.controlsCollapsed = true;
 		}
 		
 		// Scroll to top when component loads
 		this.scrollToTop();
+	}
+
+	@HostListener('window:resize', ['$event'])
+	onWindowResize(event: UIEvent): void {
+		const width = (event.target as Window)?.innerWidth ?? this.nativeWindow.innerWidth;
+		this.updateResponsiveState(width);
+	}
+
+	private updateResponsiveState(width: number): void {
+		const wasMobile = this.isMobile;
+		this.isMobile = width <= 767;
+		if (wasMobile && !this.isMobile && this.controlsCollapsed) {
+			this.controlsCollapsed = false;
+		}
 	}
 
 	ngAfterViewInit() {

@@ -401,6 +401,8 @@
         "ILIKE": "Me gusta",
         "DOWNLOAD_ALL": "Descargar Todo",
         "CLEAR_FILTER": "Limpiar filtro",
+        "SHOW_CONTROLS": "Mostrar controles",
+        "HIDE_CONTROLS": "Ocultar controles",
         "PREVIOUS_PAGE": "Página anterior",
         "NEXT_PAGE": "Página siguiente"
     },

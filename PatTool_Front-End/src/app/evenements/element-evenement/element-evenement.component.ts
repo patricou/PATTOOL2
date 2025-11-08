@@ -2319,6 +2319,26 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return fileName.substring(0, maxLength - 3) + '...';
 	}
 
+	// Truncate URL for display while keeping start and end visible
+	public getTruncatedUrl(link: string, maxLength: number = 30): string {
+		if (!link) return '';
+		if (link.length <= maxLength) return link;
+
+		const ellipsis = '...';
+		const available = maxLength - ellipsis.length;
+
+		if (available <= 0) {
+			return ellipsis;
+		}
+
+		const startLength = Math.ceil(available / 2);
+		const endLength = Math.floor(available / 2);
+
+		const start = link.substring(0, startLength);
+		const end = link.substring(link.length - endLength);
+		return `${start}${ellipsis}${end}`;
+	}
+
 	
 	ngOnDestroy() {
 		// Stop card slideshow if active

@@ -51,9 +51,16 @@ export function HttpLoaderFactory(http: HttpClient) {
 		PhotosSelectorModalModule
 	],
 	declarations: [
-		HomeEvenementsComponent, CreateEvenementComponent, ElementEvenementComponent, UpdateEvenementComponent
+		HomeEvenementsComponent,
+		CreateEvenementComponent,
+		ElementEvenementComponent,
+		UpdateEvenementComponent
 	],
-	exports: [HomeEvenementsComponent, CreateEvenementComponent, ElementEvenementComponent, UpdateEvenementComponent
+	exports: [
+		HomeEvenementsComponent,
+		CreateEvenementComponent,
+		ElementEvenementComponent,
+		UpdateEvenementComponent
 	],
 	providers: [
 		EvenementsService,

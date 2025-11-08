@@ -399,6 +399,8 @@
         "ILIKE": "يعجبني",
         "DOWNLOAD_ALL": "تحميل الكل",
         "CLEAR_FILTER": "مسح الفلتر",
+        "SHOW_CONTROLS": "إظهار عناصر التحكم",
+        "HIDE_CONTROLS": "إخفاء عناصر التحكم",
         "PREVIOUS_PAGE": "الصفحة السابقة",
         "NEXT_PAGE": "الصفحة التالية"
     },

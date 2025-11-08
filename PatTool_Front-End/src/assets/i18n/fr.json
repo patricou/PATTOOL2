@@ -385,6 +385,8 @@
         "ILIKE": "J'aime",
         "DOWNLOAD_ALL": "Tout télécharger",
         "CLEAR_FILTER": "Effacer le filtre",
+        "SHOW_CONTROLS": "Afficher les contrôles",
+        "HIDE_CONTROLS": "Masquer les contrôles",
         "PREVIOUS_PAGE": "Page précédente",
         "NEXT_PAGE": "Page suivante"
     },

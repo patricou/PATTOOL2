@@ -395,6 +395,8 @@
         "ILIKE": "Gefällt mir",
         "DOWNLOAD_ALL": "Alle herunterladen",
         "CLEAR_FILTER": "Filter löschen",
+        "SHOW_CONTROLS": "Steuerelemente anzeigen",
+        "HIDE_CONTROLS": "Steuerelemente ausblenden",
         "PREVIOUS_PAGE": "Vorherige Seite",
         "NEXT_PAGE": "Nächste Seite"
     },

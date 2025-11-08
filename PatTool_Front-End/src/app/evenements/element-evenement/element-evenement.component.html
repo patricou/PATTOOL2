@@ -628,8 +628,11 @@
                                 <div class="card-body">
                                     <div class="url-event-content d-flex align-items-start gap-3">
                                         <div class="url-event-link">
-                                            <a [href]="urlEvent.link" target="_blank" class="btn btn-outline-primary btn-sm">
-                                                <i class="fa fa-external-link"></i> {{ urlEvent.link }}
+                                            <a [href]="urlEvent.link"
+                                               target="_blank"
+                                               class="btn btn-outline-primary btn-sm"
+                                               [title]="urlEvent.link">
+                                                <i class="fa fa-external-link"></i> {{ getTruncatedUrl(urlEvent.link) }}
                                             </a>
                                         </div>
                                         <div class="url-event-description flex-grow-1" *ngIf="urlEvent.urlDescription">

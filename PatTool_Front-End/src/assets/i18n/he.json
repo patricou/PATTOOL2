@@ -394,6 +394,8 @@
         "ILIKE": "אני אוהב",
         "DOWNLOAD_ALL": "הורד הכל",
         "CLEAR_FILTER": "נקה מסנן",
+        "SHOW_CONTROLS": "הצג פקדים",
+        "HIDE_CONTROLS": "הסתר פקדים",
         "PREVIOUS_PAGE": "עמוד קודם",
         "NEXT_PAGE": "עמוד הבא"
     },

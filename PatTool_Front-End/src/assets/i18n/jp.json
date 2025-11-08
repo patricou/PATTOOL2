@@ -401,6 +401,8 @@
         "ILIKE": "好き",
         "DOWNLOAD_ALL": "すべてダウンロード",
         "CLEAR_FILTER": "フィルターをクリア",
+        "SHOW_CONTROLS": "コントロールを表示",
+        "HIDE_CONTROLS": "コントロールを非表示",
         "PREVIOUS_PAGE": "前のページ",
         "NEXT_PAGE": "次のページ"
     },
