@@ -223,6 +223,7 @@
         "MAP": "Karte anzeigen",
         "URLS": "Links",
         "PHOTOSURL": "Fotos anzeigen",
+        "OWNER_LABEL": "Eigentümer",
         "CHAT": "Live-Chat",
         "IWTP": "Ich nehme teil",
         "IDWTP": "Ich nehme nicht mehr teil",
@@ -479,9 +480,13 @@
         "SSL_CERTIFICATE": "SSL-Zertifikat",
         "SSL_DESC": "Sichere Kommunikation mit GoDaddy SSL",
         "EXCEPTION_REPORT_TITLE": "Ausnahme- und Verbindungsbericht",
-        "EXCEPTION_REPORT_DESC": "Einen Bericht aller verfolgten Benutzerverbindungen und Ausnahmen mit IP-Adressen der letzten 24 Stunden senden",
-        "SEND_REPORT": "Bericht Senden",
-        "SENDING": "Wird gesendet..."
+        "EXCEPTION_REPORT_DESC": "Einen Bericht aller verfolgten Benutzerverbindungen und Ausnahmen mit IP-Adressen der letzten 7 Tage senden",
+        "SEND_REPORT": "Bericht senden",
+        "SENDING": "Wird gesendet...",
+        "VIEW_REPORT": "Bericht anzeigen",
+        "LOADING": "Wird geladen...",
+        "REPORT_OVERLAY_TITLE": "Ausnahme- und Verbindungsbericht (letzte 7 Tage)",
+        "CLOSE_OVERLAY": "Vorschau schließen"
     },
     "LINKSADMIN": {
         "TITLE": "Verwaltung von Links",

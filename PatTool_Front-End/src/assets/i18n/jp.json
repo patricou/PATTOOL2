@@ -299,6 +299,7 @@
 		"CLEAR_ALL": "すべてクリア",
         "LINKS": "リンク",
         "OWNER": "所有者",
+        "OWNER_LABEL": "所有者",
         "DESCRIPTION": "説明",
         "DATE_CREATION": "作成日",
         "OPEN_LINK": "リンクを開く",
@@ -485,9 +486,13 @@
         "SSL_CERTIFICATE": "SSL証明書",
         "SSL_DESC": "GoDaddy SSLによる安全な通信",
         "EXCEPTION_REPORT_TITLE": "例外と接続レポート",
-        "EXCEPTION_REPORT_DESC": "過去24時間のIPアドレス付きで追跡されたすべてのユーザー接続と例外のレポートを送信",
+        "EXCEPTION_REPORT_DESC": "過去7日間に追跡されたすべてのユーザー接続と例外をIPアドレス付きで送信",
         "SEND_REPORT": "レポートを送信",
-        "SENDING": "送信中..."
+        "SENDING": "送信中...",
+        "VIEW_REPORT": "レポートを表示",
+        "LOADING": "読み込み中...",
+        "REPORT_OVERLAY_TITLE": "例外と接続レポート（過去7日間）",
+        "CLOSE_OVERLAY": "プレビューを閉じる"
     },
     "LINKSADMIN": {
         "TITLE": "リンク管理",

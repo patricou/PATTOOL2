@@ -216,6 +216,7 @@
         "URLS": "लिंक",
         "PHOTOSURL": "तस्वीरें देखें",
         "OWNER": "मालिक",
+        "OWNER_LABEL": "मालिक",
         "DESCRIPTION": "विवरण",
         "DATE_CREATION": "निर्माण दिनांक",
         "OPEN_LINK": "लिंक खोलें",
@@ -468,9 +469,13 @@
         "SSL_CERTIFICATE": "SSL प्रमाणपत्र",
         "SSL_DESC": "GoDaddy SSL के साथ सुरक्षित संचार",
         "EXCEPTION_REPORT_TITLE": "अपवाद और कनेक्शन रिपोर्ट",
-        "EXCEPTION_REPORT_DESC": "पिछले 24 घंटों के IP पतों के साथ सभी ट्रैक किए गए उपयोगकर्ता कनेक्शन और अपवादों की रिपोर्ट भेजें",
+        "EXCEPTION_REPORT_DESC": "पिछले 7 दिनों में ट्रैक किए गए सभी उपयोगकर्ता कनेक्शन और अपवादों की रिपोर्ट IP पतों सहित भेजें",
         "SEND_REPORT": "रिपोर्ट भेजें",
-        "SENDING": "भेज रहा है..."
+        "SENDING": "भेज रहा है...",
+        "VIEW_REPORT": "रिपोर्ट देखें",
+        "LOADING": "लोड हो रहा है...",
+        "REPORT_OVERLAY_TITLE": "अपवाद और कनेक्शन रिपोर्ट (पिछले 7 दिन)",
+        "CLOSE_OVERLAY": "पूर्वावलोकन बंद करें"
     },
     "LINKS": {
         "TITLE": "लिंक",

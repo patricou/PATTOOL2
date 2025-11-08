@@ -42,4 +42,18 @@ export class ExceptionReportService {
             )
         );
     }
+
+    /**
+     * Retrieve the latest exception report preview (HTML)
+     */
+    getExceptionReportPreview(): Observable<string> {
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers =>
+                this._http.get<string>(
+                    `${this.API_URL}exception-report/preview`,
+                    { headers, responseType: 'text' as 'json' }
+                )
+            )
+        );
+    }
 }

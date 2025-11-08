@@ -223,6 +223,7 @@
         "PHOTOSURL": "See Pictures",
         "LINKS": "Links",
         "OWNER": "Owner",
+        "OWNER_LABEL": "Owner",
         "DESCRIPTION": "Description",
         "DATE_CREATION": "Creation Date",
         "OPEN_LINK": "Open Link",
@@ -482,9 +483,13 @@
         "SSL_CERTIFICATE": "SSL Certificate",
         "SSL_DESC": "Secure communication with GoDaddy SSL",
         "EXCEPTION_REPORT_TITLE": "Exception & Connection Report",
-        "EXCEPTION_REPORT_DESC": "Send a report of all tracked user connections and exceptions with IP addresses from the last 24 hours",
+        "EXCEPTION_REPORT_DESC": "Send a report of all tracked user connections and exceptions with IP addresses from the last 7 days",
         "SEND_REPORT": "Send Report",
-        "SENDING": "Sending..."
+        "SENDING": "Sending...",
+        "VIEW_REPORT": "View Report",
+        "LOADING": "Loading...",
+        "REPORT_OVERLAY_TITLE": "Exception & Connection report (last 7 days)",
+        "CLOSE_OVERLAY": "Close preview"
     },
     "LINKS": {
         "TITLE": "Links",

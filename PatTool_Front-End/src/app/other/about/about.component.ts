@@ -1,5 +1,5 @@
-import { Component, OnInit } from '@angular/core';
-import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { Component, HostListener, OnInit } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { ExceptionReportService } from '../../services/exception-report.service';
 
 @Component({
@@ -12,8 +12,15 @@ export class AboutComponent implements OnInit {
   isSendingReport: boolean = false;
   reportMessage: string = '';
   reportError: string = '';
+  isLoadingPreview: boolean = false;
+  previewError: string = '';
+  reportHtml: SafeHtml | null = null;
+  isPreviewVisible: boolean = false;
 
-  constructor(private exceptionReportService: ExceptionReportService) {
+  constructor(
+    private exceptionReportService: ExceptionReportService,
+    private sanitizer: DomSanitizer
+  ) {
   }
 
   ngOnInit() {
@@ -24,6 +31,7 @@ export class AboutComponent implements OnInit {
     this.isSendingReport = true;
     this.reportMessage = '';
     this.reportError = '';
+    this.previewError = '';
 
     this.exceptionReportService.sendExceptionReport().subscribe({
       next: (response) => {
@@ -38,6 +46,31 @@ export class AboutComponent implements OnInit {
         console.error('Error sending exception report:', error);
       }
     });
+  }
+
+  viewExceptionReport() {
+    this.isLoadingPreview = true;
+    this.previewError = '';
+    this.reportHtml = null;
+    this.isPreviewVisible = false;
+
+    this.exceptionReportService.getExceptionReportPreview().subscribe({
+      next: (html) => {
+        this.isLoadingPreview = false;
+        this.reportHtml = this.sanitizer.bypassSecurityTrustHtml(html);
+        this.isPreviewVisible = true;
+      },
+      error: (error) => {
+        this.isLoadingPreview = false;
+        this.previewError = error.error || error.message || 'Error retrieving exception report';
+        console.error('Error retrieving exception report preview:', error);
+        this.isPreviewVisible = false;
+      }
+    });
+  }
+
+  closePreview(): void {
+    this.isPreviewVisible = false;
   }
 
 }

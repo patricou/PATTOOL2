@@ -217,24 +217,63 @@
                         <div class="tech-info">
                             <h4>{{ 'ABOUT.EXCEPTION_REPORT_TITLE' | translate }}</h4>
                             <p>{{ 'ABOUT.EXCEPTION_REPORT_DESC' | translate }}</p>
-                            <button 
-                                type="button" 
-                                class="btn btn-primary btn-xs mt-2"
-                                (click)="sendExceptionReport()"
-                                [disabled]="isSendingReport">
-                                <i class="fa" [ngClass]="{'fa-spinner fa-spin': isSendingReport, 'fa-envelope': !isSendingReport}"></i>
-                                {{ isSendingReport ? ('ABOUT.SENDING' | translate) : ('ABOUT.SEND_REPORT' | translate) }}
-                            </button>
+                            <div class="report-actions">
+                                <button 
+                                    type="button" 
+                                    class="btn btn-primary btn-xs"
+                                    (click)="sendExceptionReport()"
+                                    [disabled]="isSendingReport">
+                                    <i class="fa" [ngClass]="{'fa-spinner fa-spin': isSendingReport, 'fa-envelope': !isSendingReport}"></i>
+                                    {{ isSendingReport ? ('ABOUT.SENDING' | translate) : ('ABOUT.SEND_REPORT' | translate) }}
+                                </button>
+                                <button
+                                    type="button"
+                                    class="btn btn-outline-primary btn-xs"
+                                    (click)="viewExceptionReport()"
+                                    [disabled]="isLoadingPreview">
+                                    <i class="fa" [ngClass]="{'fa-spinner fa-spin': isLoadingPreview, 'fa-eye': !isLoadingPreview}"></i>
+                                    {{ isLoadingPreview ? ('ABOUT.LOADING' | translate) : ('ABOUT.VIEW_REPORT' | translate) }}
+                                </button>
+                            </div>
                             <div *ngIf="reportMessage" class="alert alert-success alert-xs mt-2 mb-0" role="alert">
                                 <i class="fa fa-check-circle"></i> {{ reportMessage }}
                             </div>
                             <div *ngIf="reportError" class="alert alert-danger alert-xs mt-2 mb-0" role="alert">
                                 <i class="fa fa-exclamation-circle"></i> {{ reportError }}
                             </div>
+                            <div *ngIf="previewError" class="alert alert-warning alert-xs mt-2 mb-0" role="alert">
+                                <i class="fa fa-exclamation-triangle"></i> {{ previewError }}
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+</div>
+
+<div class="report-overlay" *ngIf="isPreviewVisible">
+    <div class="report-overlay-backdrop"></div>
+    <div class="report-overlay-panel">
+        <div class="report-overlay-header">
+            <div class="report-overlay-title">
+                <i class="fa fa-file-text-o"></i>
+                {{ 'ABOUT.REPORT_OVERLAY_TITLE' | translate }}
+            </div>
+            <div class="report-overlay-actions">
+                <button type="button"
+                        class="btn btn-sm btn-success report-overlay-send"
+                        (click)="sendExceptionReport()"
+                        [disabled]="isSendingReport">
+                    <i class="fa"
+                       [ngClass]="{'fa-spinner fa-spin': isSendingReport, 'fa-paper-plane': !isSendingReport}"></i>
+                    {{ isSendingReport ? ('ABOUT.SENDING' | translate) : ('ABOUT.SEND_REPORT' | translate) }}
+                </button>
+                <button type="button" class="btn btn-sm btn-light report-overlay-close" (click)="closePreview()">
+                    <i class="fa fa-times"></i>
+                    {{ 'ABOUT.CLOSE_OVERLAY' | translate }}
+                </button>
+            </div>
+        </div>
+        <div class="report-overlay-body" [innerHTML]="reportHtml"></div>
     </div>
 </div>

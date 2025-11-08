@@ -1,10 +1,10 @@
 import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, OnDestroy, TemplateRef } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
-import { Observable, fromEvent, Subscription, firstValueFrom } from 'rxjs';
+import { Observable, fromEvent, firstValueFrom } from 'rxjs';
 import { debounceTime, map } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { NgbModal, ModalDismissReasons } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import { Database, ref, push, remove, onValue } from '@angular/fire/database';
 import * as JSZip from 'jszip';
@@ -41,11 +41,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public elementsByPage: number = this._commonValuesService.getElementsByPage();
 	public dataFIlter: string = this._commonValuesService.getDataFilter();
 	public pages: number[] = [];
-	public visible: boolean = false;
 	public isCompactView: boolean = false;
 	public controlsCollapsed: boolean = false;
 	public isMobile: boolean = false;
-	public thumbnailCache: Map<string, SafeUrl> = new Map();
 	public eventThumbnails: Map<string, SafeUrl> = new Map();
 	public nativeWindow: any;
 	public selectedEventPhotos: string[] = [];
@@ -581,14 +579,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 	}
 
-	public checkVisibility(evenement: Evenement) {
-		console.log(evenement.evenementName + " --> visibility : " + evenement.visibility);
-		console.log(evenement.evenementName + " --> Author : " + JSON.stringify(evenement.author.id));
-		console.log(evenement.evenementName + " --> Current user : " + this.user.id);
-		console.log("visibility = " + (evenement.visibility === null || evenement.visibility === 'public') || (evenement.visibility === 'private' && evenement.author.id === this.user.id));
-		this.visible = (evenement.visibility === null || evenement.visibility === 'public') || (evenement.visibility === 'private' && evenement.author.id === this.user.id);
-	}
-
 	// Méthodes pour la vue compacte
 	public toggleControlsCollapse(): void {
 		this.controlsCollapsed = !this.controlsCollapsed;
@@ -747,29 +737,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			return () => unsubscribe();
 		});
 		
-		// Utiliser la même méthode que element-evenement
-		this.open(this.chatModal);
-	}
-
-	// Méthode identique à celle d'element-evenement
-	public closeResult: string = "";
-
-	public open(content: any) {
-		this.modalService.open(content, { backdrop: 'static', keyboard: false }).result.then((result) => {
-			this.closeResult = `Closed with: ${result}`;
-		}, (reason) => {
-			this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;
-		});
-	}
-
-	private getDismissReason(reason: any): string {
-		if (reason === ModalDismissReasons.ESC) {
-			return 'by pressing ESC';
-		} else if (reason === ModalDismissReasons.BACKDROP_CLICK) {
-			return 'by clicking on a backdrop';
-		} else {
-			return `with: ${reason}`;
-		}
+		// Utiliser la même configuration que dans element-evenement
+		this.modalService.open(this.chatModal, { backdrop: 'static', keyboard: false });
 	}
 
 	public async Send() {
@@ -804,8 +773,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	ngOnDestroy() {
-		this.cancelFsDownloads();
-		
 		// Nettoyer toutes les URLs blob pour éviter les fuites mémoire
 		this.eventThumbnails.forEach((safeUrl, eventId) => {
 			try {
@@ -953,11 +920,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Photo selection - now handled by PhotosSelectorModalComponent
 	private currentEventForPhotosSelector: Evenement | null = null;
 
-	// FS Photos download control
-	private fsDownloadsActive: boolean = false;
-	private fsActiveSubs: Subscription[] = [];
-	private fsQueue: string[] = [];
-	
 	// File thumbnails cache
 	private fileThumbnailsCache: Map<string, SafeUrl> = new Map();
 	private fileThumbnailsLoading: Set<string> = new Set();
@@ -1118,15 +1080,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		});
 	}
-
-
-	private cancelFsDownloads(): void {
-		this.fsDownloadsActive = false;
-		try { this.fsActiveSubs.forEach(s => { if (s && !s.closed) { s.unsubscribe(); } }); } catch {}
-		this.fsActiveSubs = [];
-		this.fsQueue = [];
-	}
-
 	// Unified photos opener (uploaded photos or FS photos)
 	public openPhotos(evenement: Evenement): void {
 		const hasFs = this.getPhotoFromFsCount(evenement) > 0;

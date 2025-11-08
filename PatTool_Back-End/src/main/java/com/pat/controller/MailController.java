@@ -41,9 +41,12 @@ public class MailController {
         
         try {
             if (sendmail) {
-                log.debug("Sending mail to {}...", mailSentTo);
-                smtpMailSender.sendMail(mailSentFrom, mailSentTo, subject, body, isHtml);
-                log.debug("✓ Mail sent successfully to {} - Subject: '{}'", mailSentTo, subject);
+                String[] recipients = parseRecipients(mailSentTo);
+                log.debug("Sending mail to {} recipient(s)...", recipients.length);
+                for (String recipient : recipients) {
+                    smtpMailSender.sendMail(mailSentFrom, recipient, subject, body, isHtml);
+                    log.debug("✓ Mail sent successfully to {} - Subject: '{}'", recipient, subject);
+                }
             } else {
                 log.warn("✗ Mail sending skipped - app.sendmail is set to false");
             }
@@ -73,10 +76,13 @@ public class MailController {
         
         try {
             if (sendmail) {
-                log.debug("Sending mail with attachment to {}...", mailSentTo);
-                smtpMailSender.sendMail(mailSentFrom, mailSentTo, subject, body, attachement);
-                log.debug("✓ Mail with attachment sent successfully to {} - Subject: '{}' - Attachment: '{}'", 
-                        mailSentTo, subject, attachement);
+                String[] recipients = parseRecipients(mailSentTo);
+                log.debug("Sending mail with attachment to {} recipient(s)...", recipients.length);
+                for (String recipient : recipients) {
+                    smtpMailSender.sendMail(mailSentFrom, recipient, subject, body, attachement);
+                    log.debug("✓ Mail with attachment sent successfully to {} - Subject: '{}' - Attachment: '{}'", 
+                            recipient, subject, attachement);
+                }
             } else {
                 log.warn("✗ Mail sending skipped - app.sendmail is set to false");
             }
@@ -89,4 +95,11 @@ public class MailController {
         log.debug("=== END MAIL SENDING ATTEMPT (WITH ATTACHMENT) ===\n");
         return null;
     };
+
+    private String[] parseRecipients(String recipients) {
+        if (recipients == null || recipients.trim().isEmpty()) {
+            return new String[0];
+        }
+        return recipients.split("\\s*,\\s*");
+    }
 }

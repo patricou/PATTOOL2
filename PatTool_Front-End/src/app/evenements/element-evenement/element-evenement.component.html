@@ -151,43 +151,43 @@
             </span>
         </b>
     </div>
-    <small class="mb-1" [style.color]="titleBorderColor"><i>{{"EVENTELEM.AUTHOR" | translate }} : {{ evenement.author.firstName }} {{
-            evenement.author.lastName }} / {{ evenement.author.userName }}</i></small>
-    <div class="card-text" [ngSwitch]="+evenement.type">
-        {{"EVENTELEM.TYPE" | translate }} :
-        <span *ngSwitchCase="11">{{"EVENTCREATION.TYPE.DOCUMENTS" | translate }}</span>
-        <span *ngSwitchCase="3">{{"EVENTCREATION.TYPE.RUN" | translate }}</span>
-        <span *ngSwitchCase="6">{{"EVENTCREATION.TYPE.PARTY" | translate }}</span>
-        <span *ngSwitchCase="4">{{"EVENTCREATION.TYPE.WALK" | translate }}</span>
-        <span *ngSwitchCase="10">{{"EVENTCREATION.TYPE.PHOTOS" | translate }}</span>
-        <span *ngSwitchCase="9">{{"EVENTCREATION.TYPE.RANDO" | translate }}</span>
-        <span *ngSwitchCase="2">{{"EVENTCREATION.TYPE.SKI" | translate }}</span>
-        <span *ngSwitchCase="7">{{"EVENTCREATION.TYPE.VACATION" | translate }}</span>
-        <span *ngSwitchCase="5">{{"EVENTCREATION.TYPE.BIKE" | translate }}</span>
-        <span *ngSwitchCase="8">{{"EVENTCREATION.TYPE.TRAVEL" | translate }}</span>
-        <span *ngSwitchCase="1">{{"EVENTCREATION.TYPE.VTT" | translate }}</span>
+    <small class="mb-2 proprietaire-line text-center" [style.color]="titleBorderColor">
+        <i>{{ "EVENTELEM.OWNER_LABEL" | translate }} : {{ evenement.author.firstName }} {{ evenement.author.lastName }} / {{ evenement.author.userName }}</i>
+    </small>
+    <div class="card-info-box" [style.background-color]="getSolidColor(0.22)" [style.border-color]="getSolidColor(0.35)">
+        <ul class="card-info-list">
+            <li class="card-info-item" [ngSwitch]="+evenement.type">
+                {{"EVENTELEM.TYPE" | translate }} :
+                <span *ngSwitchCase="11">{{"EVENTCREATION.TYPE.DOCUMENTS" | translate }}</span>
+                <span *ngSwitchCase="3">{{"EVENTCREATION.TYPE.RUN" | translate }}</span>
+                <span *ngSwitchCase="6">{{"EVENTCREATION.TYPE.PARTY" | translate }}</span>
+                <span *ngSwitchCase="4">{{"EVENTCREATION.TYPE.WALK" | translate }}</span>
+                <span *ngSwitchCase="10">{{"EVENTCREATION.TYPE.PHOTOS" | translate }}</span>
+                <span *ngSwitchCase="9">{{"EVENTCREATION.TYPE.RANDO" | translate }}</span>
+                <span *ngSwitchCase="2">{{"EVENTCREATION.TYPE.SKI" | translate }}</span>
+                <span *ngSwitchCase="7">{{"EVENTCREATION.TYPE.VACATION" | translate }}</span>
+                <span *ngSwitchCase="5">{{"EVENTCREATION.TYPE.BIKE" | translate }}</span>
+                <span *ngSwitchCase="8">{{"EVENTCREATION.TYPE.TRAVEL" | translate }}</span>
+                <span *ngSwitchCase="1">{{"EVENTCREATION.TYPE.VTT" | translate }}</span>
+            </li>
+            <li class="card-info-item" [ngSwitch]="+evenement.diffculty">
+                {{"EVENTELEM.DIFF" | translate }} :
+                <span *ngSwitchCase="0">{{"EVENTCREATION.DIFF.NA" | translate }}</span>
+                <span *ngSwitchCase="1">{{"EVENTCREATION.DIFF.0" | translate }}</span>
+                <span *ngSwitchCase="2">{{"EVENTCREATION.DIFF.1" | translate }}</span>
+                <span *ngSwitchCase="3">{{"EVENTCREATION.DIFF.2" | translate }}</span>
+                <span *ngSwitchCase="4">{{"EVENTCREATION.DIFF.3" | translate }}</span>
+                <span *ngSwitchCase="5">{{"EVENTCREATION.DIFF.4" | translate }}</span>
+                <span *ngSwitchDefault>{{"EVENTCREATION.DIFF.NA" | translate }}</span>
+            </li>
+            <li class="card-info-item">
+                {{"EVENTELEM.STARTLOCATION" | translate }} : {{evenement.startLocation}}
+            </li>
+            <li class="card-info-item">
+                {{"EVENTELEM.BEGINDT" | translate }} : {{formatEventDateTime(evenement.beginEventDate, evenement.startHour)}}
+            </li>
+        </ul>
     </div>
-    <div class="card-text" [ngSwitch]="+evenement.diffculty">
-        {{"EVENTELEM.DIFF" | translate }} :
-        <span *ngSwitchCase="0">{{"EVENTCREATION.DIFF.NA" | translate }}</span>
-        <span *ngSwitchCase="1">{{"EVENTCREATION.DIFF.0" | translate }}</span>
-        <span *ngSwitchCase="2">{{"EVENTCREATION.DIFF.1" | translate }}</span>
-        <span *ngSwitchCase="3">{{"EVENTCREATION.DIFF.2" | translate }}</span>
-        <span *ngSwitchCase="4">{{"EVENTCREATION.DIFF.3" | translate }}</span>
-        <span *ngSwitchCase="5">{{"EVENTCREATION.DIFF.4" | translate }}</span>
-        <span *ngSwitchDefault>{{"EVENTCREATION.DIFF.NA" | translate }}</span>
-    </div>
-    <div class="card-text">
-        {{"EVENTELEM.STARTLOCATION" | translate }} : {{evenement.startLocation}}
-    </div>
-    <div class="card-text">
-        {{"EVENTELEM.BEGINDT" | translate }} : {{formatEventDateTime(evenement.beginEventDate, evenement.startHour)}}
-    </div>
-    <!--    
-    <div class="card-text">
-        {{"EVENTELEM.DURATION" | translate }} : {{evenement.durationEstimation }}
-    </div>
-    -->
     <div [hidden]="tfl">
         <div class="card-text">
             <hr>

@@ -122,6 +122,22 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// File thumbnails cache
 	private fileThumbnailsCache: Map<string, SafeUrl> = new Map();
 	private fileThumbnailsLoading: Set<string> = new Set();
+	private solidColorCache: Map<number, string> = new Map();
+	private buttonGradientCache: Map<string, string> = new Map();
+	private fileBadgeColorCache: Map<string, string> = new Map();
+	private fileBadgeTextColorCache: Map<string, string> = new Map();
+	private fileBadgeComponentsCache: Map<string, { r: number; g: number; b: number }> = new Map();
+	private photoFrameStylesCache: { [key: string]: string } | null = null;
+	private cardBackgroundGradientCache: string | null = null;
+	private filesListGradientCache: string | null = null;
+	private statusBadgeGradientCache: string | null = null;
+	private visibilityBadgeGradientCache: string | null = null;
+	private downloadAllButtonGradientCache: string | null = null;
+	private ratingBadgeGradientCache: string | null = null;
+	private tooltipMutationObserver?: MutationObserver;
+	private tooltipShowListener?: () => void;
+	private tooltipShownListener?: () => void;
+	private tooltipDocClickListener?: (event: MouseEvent) => void;
 
 	@ViewChild('jsonModal')
 	public jsonModal!: TemplateRef<any>;
@@ -1039,6 +1055,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.dominantR = 128;
 			this.dominantG = 128;
 			this.dominantB = 128;
+			this.invalidateColorCaches();
 		}
 	}
 
@@ -1088,6 +1105,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		}, 200);
 	}
 	
+
+	private invalidateColorCaches(): void {
+		this.solidColorCache.clear();
+		this.buttonGradientCache.clear();
+		this.fileBadgeColorCache.clear();
+		this.fileBadgeTextColorCache.clear();
+		this.fileBadgeComponentsCache.clear();
+		this.photoFrameStylesCache = null;
+		this.cardBackgroundGradientCache = null;
+		this.filesListGradientCache = null;
+		this.statusBadgeGradientCache = null;
+		this.visibilityBadgeGradientCache = null;
+		this.downloadAllButtonGradientCache = null;
+		this.ratingBadgeGradientCache = null;
+	}
 
 	// Process image to extract dominant color from top portion or full image
 	private processImageColor(img: HTMLImageElement): void {
@@ -1181,6 +1213,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				this.titleBorderColor = `rgba(${tintR}, ${tintG}, ${tintB}, 0.95)`;
 				
 			}
+			this.invalidateColorCaches();
 		} catch (error) {
 			console.error('Error detecting dominant color:', error);
 			// Fallback to default color
@@ -1190,6 +1223,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.dominantR = 128;
 			this.dominantG = 128;
 			this.dominantB = 128;
+			this.invalidateColorCaches();
 		}
 	}
 
@@ -1199,29 +1233,46 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return `rgba(${clamp(r)}, ${clamp(g)}, ${clamp(b)}, ${clampedAlpha})`;
 	}
 
-	private getSolidColor(alpha: number = 1): string {
-		return this.buildColorString(this.dominantR, this.dominantG, this.dominantB, alpha);
+	public getSolidColor(alpha: number = 1): string {
+		const normalizedAlpha = Number.isFinite(alpha) ? alpha : 1;
+		const key = Math.max(0, Math.min(1, Math.round(normalizedAlpha * 1000) / 1000));
+		if (!this.solidColorCache.has(key)) {
+			this.solidColorCache.set(key, this.buildColorString(this.dominantR, this.dominantG, this.dominantB, key));
+		}
+		return this.solidColorCache.get(key) as string;
 	}
 
 	public getPhotoFrameStyles(): { [key: string]: string } {
-		return {
-			position: 'relative',
-			border: 'none',
-			backgroundColor: this.getSolidColor(0.35),
-			borderRadius: '8px',
-			padding: '2px 4px',
-			boxShadow: 'none'
-		};
+		if (!this.photoFrameStylesCache) {
+			this.photoFrameStylesCache = {
+				position: 'relative',
+				border: 'none',
+				backgroundColor: this.getSolidColor(0.35),
+				borderRadius: '8px',
+				padding: '7px 7px 0 7px',
+				boxShadow: 'none'
+			};
+		}
+		return this.photoFrameStylesCache;
 	}
 	
 	// Get color for a specific button type - basé uniquement sur la couleur calculée
 	public getButtonGradientForType(_buttonType: string, r: number, g: number, b: number): string {
-		return this.buildColorString(r, g, b, 0.85);
+		const cacheKey = `${_buttonType}|${r}|${g}|${b}`;
+		let cached = this.buttonGradientCache.get(cacheKey);
+		if (!cached) {
+			cached = this.buildColorString(r, g, b, 0.85);
+			this.buttonGradientCache.set(cacheKey, cached);
+		}
+		return cached;
 	}
 	
 	// Solid color for files list - basé sur la couleur calculée
 	public getFilesListGradient(): string {
-		return this.getSolidColor(0.1);
+		if (!this.filesListGradientCache) {
+			this.filesListGradientCache = this.getSolidColor(0.1);
+		}
+		return this.filesListGradientCache;
 	}
 
 	private adjustColorComponent(value: number, delta: number): number {
@@ -1229,27 +1280,33 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	public getCardBackgroundGradient(): string {
-		const r = this.dominantR;
-		const g = this.dominantG;
-		const b = this.dominantB;
+		if (!this.cardBackgroundGradientCache) {
+			const r = this.dominantR;
+			const g = this.dominantG;
+			const b = this.dominantB;
 
-		const lightR = this.adjustColorComponent(r, 110);
-		const lightG = this.adjustColorComponent(g, 110);
-		const lightB = this.adjustColorComponent(b, 110);
+			const lightR = this.adjustColorComponent(r, 110);
+			const lightG = this.adjustColorComponent(g, 110);
+			const lightB = this.adjustColorComponent(b, 110);
 
-		const darkR = this.adjustColorComponent(r, -120);
-		const darkG = this.adjustColorComponent(g, -120);
-		const darkB = this.adjustColorComponent(b, -120);
+			const darkR = this.adjustColorComponent(r, -120);
+			const darkG = this.adjustColorComponent(g, -120);
+			const darkB = this.adjustColorComponent(b, -120);
 
-		const startColor = `rgba(${lightR}, ${lightG}, ${lightB}, 0.9)`;
-		const endColor = `rgba(${darkR}, ${darkG}, ${darkB}, 0.95)`;
+			const startColor = `rgba(${lightR}, ${lightG}, ${lightB}, 0.9)`;
+			const endColor = `rgba(${darkR}, ${darkG}, ${darkB}, 0.95)`;
 
-		return `linear-gradient(155deg, ${startColor}, ${endColor})`;
+			this.cardBackgroundGradientCache = `linear-gradient(155deg, ${startColor}, ${endColor})`;
+		}
+		return this.cardBackgroundGradientCache;
 	}
 	
 	// Get gradient for status badges - basé sur la couleur calculée
 	public getStatusBadgeGradient(): string {
-		return this.getButtonGradientForType('status', this.dominantR, this.dominantG, this.dominantB);
+		if (!this.statusBadgeGradientCache) {
+			this.statusBadgeGradientCache = this.getButtonGradientForType('status', this.dominantR, this.dominantG, this.dominantB);
+		}
+		return this.statusBadgeGradientCache;
 	}
 	
 	// Couleur pour les boutons d’action de fichiers
@@ -1268,6 +1325,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 
 	private getFileBadgeColorComponents(fileName: string): { r: number; g: number; b: number } {
+		const cacheKey = fileName || '';
+		const existing = this.fileBadgeComponentsCache.get(cacheKey);
+		if (existing) {
+			return existing;
+		}
+
 		const typeKey = this.getFileTypeKey(fileName);
 		let r = this.dominantR;
 		let g = this.dominantG;
@@ -1290,34 +1353,57 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				b = this.adjustColorComponent(b, 10);
 		}
 
-		return { r, g, b };
+		const components = { r, g, b };
+		this.fileBadgeComponentsCache.set(cacheKey, components);
+		return components;
 	}
 
 	// Couleur pour les badges de fichiers en fonction du type
 	public getFileBadgeColor(fileName: string): string {
-		const { r, g, b } = this.getFileBadgeColorComponents(fileName);
-		return this.buildColorString(r, g, b, 0.88);
+		const cacheKey = fileName || '';
+		let cached = this.fileBadgeColorCache.get(cacheKey);
+		if (!cached) {
+			const { r, g, b } = this.getFileBadgeColorComponents(fileName);
+			cached = this.buildColorString(r, g, b, 0.88);
+			this.fileBadgeColorCache.set(cacheKey, cached);
+		}
+		return cached;
 	}
 
 	public getFileBadgeTextColor(fileName: string): string {
-		const { r, g, b } = this.getFileBadgeColorComponents(fileName);
-		const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-		return brightness > 160 ? 'rgba(0, 0, 0, 0.85)' : 'white';
+		const cacheKey = fileName || '';
+		let cached = this.fileBadgeTextColorCache.get(cacheKey);
+		if (!cached) {
+			const { r, g, b } = this.getFileBadgeColorComponents(fileName);
+			const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
+			cached = brightness > 160 ? 'rgba(0, 0, 0, 0.85)' : 'white';
+			this.fileBadgeTextColorCache.set(cacheKey, cached);
+		}
+		return cached;
 	}
 
 	// Get gradient for visibility badges - basé sur la couleur calculée
 	public getVisibilityBadgeGradient(): string {
-		return this.getButtonGradientForType('visibility', this.dominantR, this.dominantG, this.dominantB);
+		if (!this.visibilityBadgeGradientCache) {
+			this.visibilityBadgeGradientCache = this.getButtonGradientForType('visibility', this.dominantR, this.dominantG, this.dominantB);
+		}
+		return this.visibilityBadgeGradientCache;
 	}
 	
 	// Get gradient for download all button - basé sur la couleur calculée
 	public getDownloadAllButtonGradient(): string {
-		return this.getButtonGradientForType('download', this.dominantR, this.dominantG, this.dominantB);
+		if (!this.downloadAllButtonGradientCache) {
+			this.downloadAllButtonGradientCache = this.getButtonGradientForType('download', this.dominantR, this.dominantG, this.dominantB);
+		}
+		return this.downloadAllButtonGradientCache;
 	}
 	
 	// Get gradient for rating badges - basé sur la couleur calculée
 	public getRatingBadgeGradient(): string {
-		return this.getButtonGradientForType('rating', this.dominantR, this.dominantG, this.dominantB);
+		if (!this.ratingBadgeGradientCache) {
+			this.ratingBadgeGradientCache = this.getButtonGradientForType('rating', this.dominantR, this.dominantG, this.dominantB);
+		}
+		return this.ratingBadgeGradientCache;
 	}
 	// Detect color after view is initialized
 	ngAfterViewInit() {
@@ -1334,8 +1420,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	
 	// Setup automatic tooltip closing when modals or overlays appear
 	private setupTooltipAutoClose(): void {
+		if (this.tooltipMutationObserver) {
+			return;
+		}
+
 		// Use MutationObserver to detect when modals are added to DOM
-		const observer = new MutationObserver((mutations) => {
+		this.tooltipMutationObserver = new MutationObserver((mutations) => {
 			mutations.forEach((mutation) => {
 				mutation.addedNodes.forEach((node) => {
 					if (node.nodeType === 1) { // Element node
@@ -1355,22 +1445,24 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		});
 		
 		// Observe body for modal additions
-		observer.observe(document.body, {
+		this.tooltipMutationObserver.observe(document.body, {
 			childList: true,
 			subtree: true
 		});
 		
 		// Also listen for modal show events using DOM events
-		document.addEventListener('show.bs.modal', () => {
+		this.tooltipShowListener = () => {
 			this.forceCloseTooltips();
-		}, true);
+		};
+		document.addEventListener('show.bs.modal', this.tooltipShowListener, true);
 		
-		document.addEventListener('shown.bs.modal', () => {
+		this.tooltipShownListener = () => {
 			this.forceCloseTooltips();
-		}, true);
+		};
+		document.addEventListener('shown.bs.modal', this.tooltipShownListener, true);
 		
 		// Listen for any click events that might open modals or overlays
-		document.addEventListener('click', (event: MouseEvent) => {
+		this.tooltipDocClickListener = (event: MouseEvent) => {
 			const target = event.target as HTMLElement;
 			// Check if click is on a button that might open a modal
 			if (target && (
@@ -1385,7 +1477,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 					}
 				}, 10);
 			}
-		}, true);
+		};
+		document.addEventListener('click', this.tooltipDocClickListener, true);
 	}
 	// delete a file uploaded linked to the evenement, update the evenement
 	delFile(fieldId: string) {
@@ -1940,6 +2033,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			setTimeout(() => {
 				this.detectDominantColor();
 			}, 100);
+			this.invalidateColorCaches();
 		}
 		
 		// Emit an event to the parent component to update the event data
@@ -2371,6 +2465,35 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		});
 		this.fileThumbnailsCache.clear();
 		this.fileThumbnailsLoading.clear();
+
+		if (this.tooltipMutationObserver) {
+			this.tooltipMutationObserver.disconnect();
+			this.tooltipMutationObserver = undefined;
+		}
+		if (this.tooltipShowListener) {
+			document.removeEventListener('show.bs.modal', this.tooltipShowListener, true);
+			this.tooltipShowListener = undefined;
+		}
+		if (this.tooltipShownListener) {
+			document.removeEventListener('shown.bs.modal', this.tooltipShownListener, true);
+			this.tooltipShownListener = undefined;
+		}
+		if (this.tooltipDocClickListener) {
+			document.removeEventListener('click', this.tooltipDocClickListener, true);
+			this.tooltipDocClickListener = undefined;
+		}
+		this.buttonGradientCache.clear();
+		this.fileBadgeColorCache.clear();
+		this.fileBadgeTextColorCache.clear();
+		this.fileBadgeComponentsCache.clear();
+		this.photoFrameStylesCache = null;
+		this.cardBackgroundGradientCache = null;
+		this.filesListGradientCache = null;
+		this.statusBadgeGradientCache = null;
+		this.visibilityBadgeGradientCache = null;
+		this.downloadAllButtonGradientCache = null;
+		this.ratingBadgeGradientCache = null;
+		this.solidColorCache.clear();
 	}
 
 	public hasComments(): boolean {

@@ -299,6 +299,7 @@
 		"CLEAR_ALL": "Cancella tutto",
         "LINKS": "Collegamenti",
         "OWNER": "Proprietario",
+        "OWNER_LABEL": "Proprietario",
         "DESCRIPTION": "Descrizione",
         "DATE_CREATION": "Data di creazione",
         "OPEN_LINK": "Apri collegamento",
@@ -484,10 +485,14 @@
         "SPRING_SECURITY_DESC": "Integrazione Spring Security",
         "SSL_CERTIFICATE": "Certificato SSL",
         "SSL_DESC": "Comunicazione sicura con SSL GoDaddy",
-        "EXCEPTION_REPORT_TITLE": "Rapporto Eccezioni e Connessioni",
-        "EXCEPTION_REPORT_DESC": "Invia un rapporto di tutte le connessioni utente e eccezioni tracciate con indirizzi IP delle ultime 24 ore",
-        "SEND_REPORT": "Invia Rapporto",
-        "SENDING": "Invio in corso..."
+        "EXCEPTION_REPORT_TITLE": "Rapporto eccezioni e connessioni",
+        "EXCEPTION_REPORT_DESC": "Invia un rapporto di tutte le connessioni utente e delle eccezioni tracciate con indirizzi IP degli ultimi 7 giorni",
+        "SEND_REPORT": "Invia rapporto",
+        "SENDING": "Invio in corso...",
+        "VIEW_REPORT": "Mostra rapporto",
+        "LOADING": "Caricamento...",
+        "REPORT_OVERLAY_TITLE": "Rapporto di eccezioni e connessioni (ultimi 7 giorni)",
+        "CLOSE_OVERLAY": "Chiudi anteprima"
     },
     "LINKSADMIN": {
         "TITLE": "Amministrazione dei Collegamenti",

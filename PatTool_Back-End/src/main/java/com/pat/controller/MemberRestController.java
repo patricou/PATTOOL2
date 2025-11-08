@@ -7,6 +7,7 @@ import com.pat.service.IpGeolocationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -39,6 +40,9 @@ public class MemberRestController {
 
     @Autowired
     private IpGeolocationService ipGeolocationService;
+
+    @Value("${app.connection.email.enabled:false}")
+    private boolean connectionEmailEnabled;
 
     @RequestMapping(method = RequestMethod.GET)
     public List<Member> getListMembers(){
@@ -76,13 +80,17 @@ public class MemberRestController {
             String body = generateConnectionEmailHtml(member, request, ipAddress, false);
             
             // Check if IP should be excluded from email notifications (client or server IP)
-            if (!shouldExcludeEmail(ipAddress)) {
-                // Send email for all users (including patricou)
-                log.debug("Attempting to send connection email for user: {}", member.getUserName());
-                mailController.sendMail(subject, body, true); // true = HTML format
-                log.debug("Connection notification - Subject: '{}' From IP: {}", subject, getIp());
+            if (connectionEmailEnabled) {
+                if (!shouldExcludeEmail(ipAddress)) {
+                    // Send email for all users (including patricou)
+                    log.debug("Attempting to send connection email for user: {}", member.getUserName());
+                    mailController.sendMail(subject, body, true); // true = HTML format
+                    log.debug("Connection notification - Subject: '{}' From IP: {}", subject, getIp());
+                } else {
+                    log.debug("Email notification skipped - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
+                }
             } else {
-                log.debug("Email notification skipped - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
+                log.debug("Connection email disabled via configuration - skipping send for user: {}", member.getUserName());
             }
             
             // Track connection for periodic reporting
@@ -118,13 +126,17 @@ public class MemberRestController {
             String body = generateConnectionEmailHtml(member, request, ipAddress, true);
             
             // Check if IP should be excluded from email notifications (client or server IP)
-            if (!shouldExcludeEmail(ipAddress)) {
-                // Send email for all users including new users (including patricou)
-                log.debug("Attempting to send NEW USER connection email for: {}", member.getUserName());
-                mailController.sendMail(subject, body, true); // true = HTML format
-                log.debug("NEW USER connection notification - Subject: '{}' From IP: {}", subject, getIp());
+            if (connectionEmailEnabled) {
+                if (!shouldExcludeEmail(ipAddress)) {
+                    // Send email for all users including new users (including patricou)
+                    log.debug("Attempting to send NEW USER connection email for: {}", member.getUserName());
+                    mailController.sendMail(subject, body, true); // true = HTML format
+                    log.debug("NEW USER connection notification - Subject: '{}' From IP: {}", subject, getIp());
+                } else {
+                    log.debug("Email notification skipped for NEW USER - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
+                }
             } else {
-                log.debug("Email notification skipped for NEW USER - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
+                log.debug("Connection email disabled via configuration - skipping NEW USER notification for: {}", member.getUserName());
             }
             
             // Track connection for periodic reporting

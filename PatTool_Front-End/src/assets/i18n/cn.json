@@ -299,6 +299,7 @@
 		"CLEAR_ALL": "清除全部",
         "LINKS": "链接",
         "OWNER": "所有者",
+        "OWNER_LABEL": "所有者",
         "DESCRIPTION": "描述",
         "DATE_CREATION": "创建日期",
         "OPEN_LINK": "打开链接",
@@ -485,9 +486,13 @@
         "SSL_CERTIFICATE": "SSL证书",
         "SSL_DESC": "使用GoDaddy SSL的安全通信",
         "EXCEPTION_REPORT_TITLE": "异常和连接报告",
-        "EXCEPTION_REPORT_DESC": "发送过去24小时内所有已跟踪的用户连接和异常以及IP地址的报告",
+        "EXCEPTION_REPORT_DESC": "发送过去7天内所有已跟踪的用户连接和异常以及IP地址的报告",
         "SEND_REPORT": "发送报告",
-        "SENDING": "发送中..."
+        "SENDING": "发送中...",
+        "VIEW_REPORT": "查看报告",
+        "LOADING": "加载中...",
+        "REPORT_OVERLAY_TITLE": "异常和连接报告（最近7天）",
+        "CLOSE_OVERLAY": "关闭预览"
     },
     "LINKSADMIN": {
         "TITLE": "链接管理",

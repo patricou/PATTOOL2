@@ -18,13 +18,14 @@
                     </button>
                     <!-- Last two buttons on same line - aligned to the right of collapse button -->
                     <div class="last-buttons-row" [hidden]="totalPages == 0">
-                        <select class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
+                        <select class="form-select form-select-sm select-elements" [(ngModel)]="elementsByPage"
                             (change)="changeFiltre()" [ngbTooltip]="isMobile ? null : ('COMMUN.EVENTBYPAGE' | translate)"
                             placement="bottom" container="body">
                             <option value="1">1</option>
                             <option value="2">2</option>
                             <option value="3">3</option>
                             <option value="6">6</option>
+							<option value="8">8</option>
                             <option value="9">9</option>
                             <option value="12">12</option>
                             <option value="15">15</option>
@@ -74,13 +75,14 @@
                     </div>
                     <!-- Last two buttons on same line - visible on desktop -->
                     <div class="last-buttons-row desktop-buttons-row" [hidden]="totalPages == 0">
-                        <select class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
+                        <select class="form-select form-select-sm select-elements" [(ngModel)]="elementsByPage"
                             (change)="changeFiltre()" [ngbTooltip]="isMobile ? null : ('COMMUN.EVENTBYPAGE' | translate)"
                             placement="bottom" container="body">
                             <option value="1">1</option>
                             <option value="2">2</option>
                             <option value="3">3</option>
                             <option value="6">6</option>
+							<option value="8">8</option>
                             <option value="9">9</option>
                             <option value="12">12</option>
                             <option value="15">15</option>
@@ -264,7 +266,7 @@
                     </button>
                     <!-- Last two buttons on same line - aligned to the right of collapse button -->
                     <div class="last-buttons-row" [hidden]="totalPages == 0">
-                        <select class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
+                        <select class="form-select form-select-sm select-elements" [(ngModel)]="elementsByPage"
                             (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
                             placement="bottom" container="body">
                             <option value="1">1</option>
@@ -318,7 +320,7 @@
                     </div>
                     <!-- Last two buttons on same line - visible on desktop -->
                     <div class="last-buttons-row desktop-buttons-row" [hidden]="totalPages == 0">
-                        <select class="btn btn-secondary btn-sm select-elements" [(ngModel)]="elementsByPage"
+                        <select class="form-select form-select-sm select-elements" [(ngModel)]="elementsByPage"
                             (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
                             placement="bottom" container="body">
                             <option value="1">1</option>

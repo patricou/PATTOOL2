@@ -212,6 +212,7 @@
         "PHOTOSURL": "Voir les photos",
         "LINKS": "Liens",
         "OWNER": "Propriétaire",
+        "OWNER_LABEL": "Propriétaire",
         "DESCRIPTION": "Description",
         "DATE_CREATION": "Date de création",
         "OPEN_LINK": "Ouvrir le lien",
@@ -468,9 +469,13 @@
         "SSL_CERTIFICATE": "Certificat SSL",
         "SSL_DESC": "Communication sécurisée avec SSL GoDaddy",
         "EXCEPTION_REPORT_TITLE": "Rapport d'Exceptions et de Connexions",
-        "EXCEPTION_REPORT_DESC": "Envoyer un rapport de toutes les connexions utilisateur et exceptions suivies avec les adresses IP des dernières 24 heures",
+        "EXCEPTION_REPORT_DESC": "Envoyer un rapport de toutes les connexions utilisateur et exceptions suivies avec les adresses IP des 7 derniers jours",
         "SEND_REPORT": "Envoyer le Rapport",
-        "SENDING": "Envoi en cours..."
+        "SENDING": "Envoi en cours...",
+        "VIEW_REPORT": "Afficher le rapport",
+        "LOADING": "Chargement...",
+        "REPORT_OVERLAY_TITLE": "Rapport d'exceptions et de connexions (7 derniers jours)",
+        "CLOSE_OVERLAY": "Fermer l'aperçu"
     },
     "LINKS": {
         "TITLE": "Liens",

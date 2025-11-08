@@ -297,6 +297,7 @@
 		"CLEAR_ALL": "مسح الكل",
         "LINKS": "الروابط",
         "OWNER": "المالك",
+        "OWNER_LABEL": "المالك",
         "DESCRIPTION": "الوصف",
         "DATE_CREATION": "تاريخ الإنشاء",
         "OPEN_LINK": "فتح الرابط",
@@ -483,9 +484,13 @@
         "SSL_CERTIFICATE": "شهادة SSL",
         "SSL_DESC": "اتصال آمن مع SSL GoDaddy",
         "EXCEPTION_REPORT_TITLE": "تقرير الاستثناءات والاتصالات",
-        "EXCEPTION_REPORT_DESC": "إرسال تقرير عن جميع اتصالات المستخدمين والاستثناءات المتتبعة مع عناوين IP من آخر 24 ساعة",
+        "EXCEPTION_REPORT_DESC": "إرسال تقرير عن جميع اتصالات المستخدمين والاستثناءات المتتبعة مع عناوين IP من آخر 7 أيام",
         "SEND_REPORT": "إرسال التقرير",
-        "SENDING": "جاري الإرسال..."
+        "SENDING": "جاري الإرسال...",
+        "VIEW_REPORT": "عرض التقرير",
+        "LOADING": "جارٍ التحميل...",
+        "REPORT_OVERLAY_TITLE": "تقرير الاستثناءات والاتصالات (آخر 7 أيام)",
+        "CLOSE_OVERLAY": "إغلاق المعاينة"
     },
     "LINKSADMIN": {
         "TITLE": "إدارة الروابط",
