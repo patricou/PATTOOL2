@@ -139,15 +139,187 @@
     font-size: 0.75rem;
 }
 
+.report-control-panel {
+    margin-top: 12px;
+    padding: 16px;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(13, 110, 253, 0.12), rgba(111, 66, 193, 0.18));
+    border: 1px solid rgba(13, 110, 253, 0.15);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+}
+
+.report-control-title {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
+.report-control-icon {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+    background: rgba(13, 110, 253, 0.16);
+    color: #0d6efd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 12px 24px rgba(13, 110, 253, 0.18);
+    font-size: 1.15rem;
+}
+
+.report-control-text h5 {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #12263f;
+    letter-spacing: 0.01em;
+}
+
+.report-control-text p {
+    margin: 4px 0 0;
+    color: #495057;
+    font-size: 0.78rem;
+    max-width: 420px;
+    line-height: 1.35;
+}
+
 .report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.report-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.78rem;
+    letter-spacing: 0.01em;
+    padding: 0.5rem 1.15rem;
+    transition: transform 0.18s ease, background 0.18s ease;
+    border-width: 1px;
+    text-transform: none;
+}
+
+.report-btn i {
+    font-size: 0.85rem;
+}
+
+.report-btn span {
+    display: inline-block;
+}
+
+.report-btn:disabled {
+    cursor: not-allowed;
+}
+
+.report-btn:focus-visible {
+    outline: 2px solid rgba(13, 110, 253, 0.35);
+    outline-offset: 2px;
+}
+
+.report-btn-primary {
+    color: #ffffff;
+    background: linear-gradient(135deg, #0d6efd, #6f42c1);
+    border-color: transparent;
+}
+
+.report-btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.report-btn-primary:disabled {
+    opacity: 0.85;
+}
+
+.report-btn-secondary {
+    color: #0d6efd;
+    background: rgba(13, 110, 253, 0.12);
+    border-color: rgba(13, 110, 253, 0.25);
+}
+
+.report-btn-secondary:hover:not(:disabled) {
+    background: rgba(13, 110, 253, 0.2);
+    transform: translateY(-1px);
+}
+
+.report-btn-secondary:disabled {
+    opacity: 0.85;
+}
+
+.report-btn-warning {
+    color: #5c3d00;
+    background: #ffc107;
+    border-color: #ffcd39;
+}
+
+.report-btn-warning:hover:not(:disabled) {
+    background: #ffcd39;
+    transform: translateY(-1px);
+}
+
+.report-btn-warning:disabled {
+    opacity: 0.88;
+}
+
+.report-feedback {
+    margin-top: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.report-feedback .alert {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 8px;
+    padding: 0.55rem 0.75rem;
+    border-radius: 10px;
 }
 
-.report-actions .btn {
-    margin-top: 0;
+.report-feedback .alert i {
+    font-size: 0.85rem;
+}
+
+@media (max-width: 576px) {
+    .report-control-panel {
+        padding: 14px;
+    }
+
+    .report-control-title {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .report-control-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+        box-shadow: 0 10px 20px rgba(13, 110, 253, 0.18);
+    }
+
+    .report-control-text h5 {
+        font-size: 0.9rem;
+    }
+
+    .report-control-text p {
+        font-size: 0.72rem;
+    }
+
+    .report-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .report-btn {
+        width: 100%;
+        justify-content: center;
+    }
 }
 
 .report-overlay {
@@ -225,18 +397,8 @@
     gap: 0.5rem;
 }
 
-.report-overlay-send {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-weight: 600;
-    box-shadow: 0 4px 10px rgba(25, 135, 84, 0.35);
-}
-
 .report-overlay-send:disabled {
-    opacity: 0.8;
-    cursor: not-allowed;
-    box-shadow: none;
+    opacity: 0.85;
 }
 
 .report-overlay-body {

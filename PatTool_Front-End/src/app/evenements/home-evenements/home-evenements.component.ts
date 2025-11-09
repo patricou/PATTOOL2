@@ -21,6 +21,11 @@ import { CommonvaluesService } from '../../services/commonvalues.service';
 import { EvenementsService } from '../../services/evenements.service';
 import { environment } from '../../../environments/environment';
 
+interface EventColorUpdate {
+	eventId: string;
+	color: { r: number; g: number; b: number };
+}
+
 export enum KEY_CODE {
 	RIGHT_ARROW = 39,
 	LEFT_ARROW = 37
@@ -40,6 +45,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public pageNumber: number = this._commonValuesService.getPageNumber();
 	public elementsByPage: number = this._commonValuesService.getElementsByPage();
 	public dataFIlter: string = this._commonValuesService.getDataFilter();
+	public filteredTotal: number = 0;
+	public averageColor!: string;
+	public averageTextColor!: string;
+	public averageBorderColor!: string;
 	public pages: number[] = [];
 	public isCompactView: boolean = false;
 	public controlsCollapsed: boolean = false;
@@ -59,6 +68,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Upload logs
 	public uploadLogs: string[] = [];
 	public isUploading: boolean = false;
+	private readonly defaultAverageColor: string = 'rgba(73, 80, 87, 0.12)';
+	private readonly defaultAverageTextColor: string = '#343a40';
+	private readonly defaultAverageBorderColor: string = 'rgba(52, 58, 64, 0.65)';
+	private eventColors: Map<string, { r: number; g: number; b: number }> = new Map();
+	public titleOnlyView: boolean = false;
 	@ViewChild('searchterm')
 	public searchterm!: ElementRef;
 	@ViewChild('photosModal') photosModal!: TemplateRef<any>;
@@ -86,6 +100,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		private translateService: TranslateService,
 		private database: Database) {
 		this.nativeWindow = winRef.getNativeWindow();
+		this.averageColor = this.defaultAverageColor;
+		this.averageTextColor = this.defaultAverageTextColor;
+		this.averageBorderColor = this.defaultAverageBorderColor;
 	}
 
 	ngOnInit() {
@@ -164,8 +181,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				.getEvents(searchString, this.pageNumber, this.elementsByPage, this.user.id)
 				.subscribe((res: any) => {
 					this.evenements = res.content;
+					this.resetColorAggregation();
 					this.totalElements = res.page.totalElements;
 					this.totalPages = res.page.totalPages;
+					this.filteredTotal = res.page?.totalElements ?? (res.content?.length || 0);
 					this.pageNumber = res.page.number;
 					this._commonValuesService.setPageNumber(this.pageNumber);
 					this.pages = Array.from(Array(this.totalPages), (x, i) => i);
@@ -174,6 +193,76 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				);
 		});
 	};
+
+	public onEventColorUpdate(update: EventColorUpdate): void {
+		if (!update || !update.eventId) {
+			return;
+		}
+		if (!this.isEventVisible(update.eventId)) {
+			return;
+		}
+		this.eventColors.set(update.eventId, update.color);
+		this.updateAverageColor();
+	}
+
+	private resetColorAggregation(): void {
+		this.eventColors.clear();
+		this.updateAverageColor();
+	}
+
+	private isEventVisible(eventId: string): boolean {
+		return this.evenements?.some(evenement => this.getEventKey(evenement) === eventId) ?? false;
+	}
+
+	private getEventKey(evenement: Evenement | null | undefined): string {
+		if (!evenement) {
+			return '';
+		}
+		return evenement.id || evenement.evenementName || '';
+	}
+
+	private updateAverageColor(): void {
+		if (this.eventColors.size === 0) {
+			this.averageColor = this.defaultAverageColor;
+			this.averageTextColor = this.defaultAverageTextColor;
+			this.averageBorderColor = this.defaultAverageBorderColor;
+			return;
+		}
+
+		let totalR = 0;
+		let totalG = 0;
+		let totalB = 0;
+
+		this.eventColors.forEach(({ r, g, b }) => {
+			totalR += r;
+			totalG += g;
+			totalB += b;
+		});
+
+		const count = this.eventColors.size;
+		const avgR = Math.round(totalR / count);
+		const avgG = Math.round(totalG / count);
+		const avgB = Math.round(totalB / count);
+
+		this.averageColor = this.buildRgba(avgR, avgG, avgB, 0.24);
+
+		this.averageTextColor = this.buildDarkerShade(avgR, avgG, avgB, 0.55, 0.92);
+		this.averageBorderColor = this.buildDarkerShade(avgR, avgG, avgB, 0.45, 0.95);
+	}
+
+	private buildRgba(r: number, g: number, b: number, alpha: number = 1): string {
+		const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value ?? 0)));
+		const clampedAlpha = Math.max(0, Math.min(1, alpha));
+		return `rgba(${clamp(r)}, ${clamp(g)}, ${clamp(b)}, ${clampedAlpha})`;
+	}
+
+	private buildDarkerShade(r: number, g: number, b: number, factor: number, alpha: number = 1): string {
+		const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value ?? 0)));
+		const clampedFactor = Math.max(0, Math.min(1, factor));
+		const clampedAlpha = Math.max(0, Math.min(1, alpha));
+		const darken = (channel: number) => clamp(channel * clampedFactor);
+		return `rgba(${darken(r)}, ${darken(g)}, ${darken(b)}, ${clampedAlpha})`;
+	}
 
 	public addMemberInEvent(evenement: Evenement) {
 		//console.log("addMemberInEvent " + JSON.stringify(evenement));
@@ -986,7 +1075,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			return;
 		}
 		if (!includeUploadedChoice && fsLinks.length === 1 && webLinks.length === 0) {
-			this.openFsPhotosDiaporama(evenement, fsLinks[0].link);
+			this.openFsPhotosDiaporama(evenement, fsLinks[0].link, true);
 			return;
 		}
 		
@@ -1009,11 +1098,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		} else if (result.type === 'web') {
 			try { this.winRef.getNativeWindow().open(result.value, '_blank'); } catch {}
 		} else if (result.type === 'fs') {
-			this.openFsPhotosDiaporama(evenement, result.value);
+			this.openFsPhotosDiaporama(evenement, result.value, result.compressFs !== false);
 		}
 	}
 
-	private openFsPhotosDiaporama(evenement: Evenement, relativePath: string): void {
+	private openFsPhotosDiaporama(evenement: Evenement, relativePath: string, compress: boolean = true): void {
 		// Open slideshow modal immediately with empty array - images will be loaded dynamically
 		if (!this.slideshowModalComponent) {
 			console.error('Slideshow modal component not available');
@@ -1043,7 +1132,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					const fileName = queue.shift() as string;
 					active++;
 					
-					this._fileService.getImageFromDisk(relativePath, fileName).subscribe({
+				this._fileService.getImageFromDisk(relativePath, fileName, compress).subscribe({
 						next: (buffer: ArrayBuffer) => {
 							const blob = new Blob([buffer], { type: 'image/*' });
 							const url = URL.createObjectURL(blob);
@@ -1052,7 +1141,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 								fileId: undefined, 
 								blob: blob, 
 								fileName: fileName,
-								relativePath: relativePath 
+							relativePath: relativePath,
+							compressFs: compress
 							};
 							
 							// Add image dynamically to the already open slideshow

@@ -45,10 +45,7 @@ public class EvenementRestController {
 
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "beginEventDate"));
 
-        Page<Evenement> evenements = evenementsRepository.findByEvenementNameLikeIgnoreCaseAndAuthor_idOrEvenementNameLikeIgnoreCaseAndVisibility(pageable, evenementName, userId,evenementName,"public" );;
-
-
-        return evenements;
+        return evenementsRepository.searchByFilter(evenementName, userId, pageable);
     }
 
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)

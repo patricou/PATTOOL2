@@ -94,9 +94,9 @@
          [style.background-color]="descriptionBackgroundColor"
          [style.color]="titleBorderColor"
          [style.border-color]="titleBorderColor">
-        <!-- <b>  {{"EVENTELEM.DESC" | translate }} :</b> -->{{evenement.comments}}
+        {{evenement.comments}}
     </div>
-    <div class="text-center mt-2">
+    <div class="text-center mt-2" *ngIf="!titleOnly">
         <span class="badge rounded-pill rating-badge" 
               (click)="addRateMinus()" 
               placement="left"
@@ -116,7 +116,7 @@
               ngbTooltip="{{ 'COMMUN.ILIKE' | translate }}"
               (mouseleave)="onTooltipMouseLeave($event)">{{evenement.ratingPlus || 0}}</span>
     </div>
-    <div class="card-text text-center" [ngSwitch]="evenement.status">
+    <div class="card-text text-center" [ngSwitch]="evenement.status" *ngIf="!titleOnly">
         <!--{{"EVENTELEM.STATUS" | translate }} :-->
         <b>
             <span *ngSwitchCase="'Closed'" 
@@ -153,10 +153,10 @@
             </span>
         </b>
     </div>
-    <small class="mb-2 proprietaire-line text-center" [style.color]="titleBorderColor">
+    <small class="mb-2 proprietaire-line text-center" [style.color]="titleBorderColor" *ngIf="!titleOnly">
         <i>{{ "EVENTELEM.OWNER_LABEL" | translate }} : {{ evenement.author.firstName }} {{ evenement.author.lastName }} / {{ evenement.author.userName }}</i>
     </small>
-    <div class="card-info-box" [style.background-color]="getSolidColor(0.22)" [style.border-color]="getSolidColor(0.35)">
+    <div class="card-info-box" [style.background-color]="getSolidColor(0.22)" [style.border-color]="getSolidColor(0.35)" *ngIf="!titleOnly">
         <ul class="card-info-list">
             <li class="card-info-item">
                 {{"EVENTELEM.TYPE" | translate }} : {{ getEventTypeLabel(evenement.type) }}
@@ -179,7 +179,7 @@
             </li>
         </ul>
     </div>
-    <div [hidden]="tfl">
+    <div [hidden]="tfl" *ngIf="!titleOnly">
         <div class="card-text">
             <hr>
             <h5 class="d-flex justify-content-between align-items-center">
@@ -288,7 +288,7 @@
             </ul>
         </div>
     </div>
-    <div class="card-text" *ngIf="showParticipantsList">
+    <div class="card-text" *ngIf="showParticipantsList && !titleOnly">
         <hr>
         <h5 class="pat-members d-flex justify-content-between align-items-center">
             <div>
@@ -345,9 +345,9 @@
         </div>
     </div>
 </div>
+
+<ng-container *ngIf="!titleOnly">
 <div class="card-footer card-text text-center" [style.color]="titleBorderColor">
-    <!-- <iframe width="100%" height="250" frameborder="0" scrolling="no" marginheight="0" marginwidth="0" sandbox="allow-forms allow-scripts allow-same-origin" [src]="safeUrlMap" allowfullscreen></iframe> -->
-    <!-- Unified Photos Button (opens FS selector if present, else uploaded slideshow) -->
     <button class="btn btn-sm btn-outline-success mb-1 me-1" 
             [hidden]="!(hasImageFiles() || getPhotoFromFsCount() > 0)" 
             [style.background-color]="getButtonGradientForType('photos', dominantR, dominantG, dominantB)"
@@ -360,7 +360,6 @@
         <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getTotalPhotosCount() }}
     </button>
     
-    <!-- View Details Button -->
     <a class="btn btn-sm btn-outline-info mb-1 me-1 eye-button" 
        [routerLink]="['/details-evenement', evenement.id]" 
        [style.background-color]="getButtonGradientForType('details', dominantR, dominantG, dominantB)"
@@ -371,7 +370,6 @@
         <i class="fa fa-eye" aria-hidden="true"></i>
     </a>
     
-    <!-- URLs Button -->
     <button *ngIf="getUrlEventsCount() > 0"
             class="btn btn-primary btn-sm mb-1 me-1" 
             [style.background-color]="getButtonGradientForType('urls', dominantR, dominantG, dominantB)"
@@ -383,7 +381,6 @@
         <i class="fa fa-link" aria-hidden="true"></i> {{ getUrlEventsCount() }}
     </button>
 
-    <!-- Comments Button -->
     <button *ngIf="hasComments()" 
             class="btn btn-sm comments-button mb-1 me-1" 
             [style.background-color]="getButtonGradientForType('comments', dominantR, dominantG, dominantB)"
@@ -440,7 +437,6 @@
                accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar" style="display: none;" />
     </div>
 
-    <!-- Color calculation mode toggle button -->
     <button *ngIf="thumbnailUrl && thumbnailUrl !== 'assets/images/images.jpg'"
             class="btn btn-sm btn-outline-secondary mb-1 me-1"
             [style.background-color]="getButtonGradientForType('color', dominantR, dominantG, dominantB)"
@@ -451,10 +447,8 @@
             (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa" [class.fa-image]="useFullImageForColor" [class.fa-crop]="!useFullImageForColor"></i>
     </button>
-
 </div>
-</div>
-
+</ng-container>
 
 <!-- Comments Modal -->
 <ng-template #commentsModal let-c="close" let-d="dismiss">

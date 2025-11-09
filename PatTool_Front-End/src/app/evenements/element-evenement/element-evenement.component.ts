@@ -161,6 +161,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@Input()
 	user: Member = new Member("", "", "", "", "", [], "");
 
+	@Input()
+	titleOnly: boolean = false;
+
 	@Output()
 	addMember: EventEmitter<Evenement> = new EventEmitter<Evenement>();
 
@@ -179,6 +182,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@Output()
 	openPhotosModal: EventEmitter<Evenement> = new EventEmitter<Evenement>();
 
+	@Output()
+	colorComputed: EventEmitter<{ eventId: string; color: { r: number; g: number; b: number } }> = new EventEmitter();
+
 	constructor(
 		private sanitizer: DomSanitizer,
 		private _router: Router,
@@ -193,6 +199,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.ratingConfig.readonly = true;
 		this.nativeWindow = winRef.getNativeWindow();
 	}
+
+	private static readonly thumbnailCache: Map<string, {
+		thumbnailUrl: SafeUrl | string;
+		dominant: { r: number; g: number; b: number };
+		titleBackground: string;
+		titleBorder: string;
+		descriptionBackground: string;
+		signature: string;
+	}> = new Map();
 
 	// =========================
 	// Photo From FS integration
@@ -236,7 +251,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
             return;
         }
         if (!includeUploadedChoice && fsLinks.length === 1 && webLinks.length === 0) {
-            this.openFsPhotosDiaporama(fsLinks[0].link);
+            this.openFsPhotosDiaporama(fsLinks[0].link, true);
             return;
         }
         
@@ -254,11 +269,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
         } else if (result.type === 'web') {
             try { this.winRef.getNativeWindow().open(result.value, '_blank'); } catch {}
         } else if (result.type === 'fs') {
-            this.openFsPhotosDiaporama(result.value);
+            this.openFsPhotosDiaporama(result.value, result.compressFs !== false);
         }
     }
 
-	private openFsPhotosDiaporama(relativePath: string): void {
+    private openFsPhotosDiaporama(relativePath: string, compress: boolean = true): void {
 		this.forceCloseTooltips();
 		// Open slideshow modal immediately with empty array - images will be loaded dynamically
 		if (!this.slideshowModalComponent || !this.evenement) {
@@ -273,7 +288,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.slideshowModalComponent.open([], this.evenement.evenementName, false);
 		
 		// Then list and load images dynamically
-		const listSub = this._fileService.listImagesFromDisk(relativePath).subscribe({
+        const listSub = this._fileService.listImagesFromDisk(relativePath).subscribe({
             next: (fileNames: string[]) => {
                 if (!fileNames || fileNames.length === 0 || !this.fsSlideshowLoadingActive) {
                     return;
@@ -292,7 +307,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 					const fileName = queue.shift() as string;
 					active++;
 					
-					const imageSub = this._fileService.getImageFromDisk(relativePath, fileName).subscribe({
+                    const imageSub = this._fileService.getImageFromDisk(relativePath, fileName, compress).subscribe({
 						next: (buffer: ArrayBuffer) => {
 							if (!this.fsSlideshowLoadingActive) return;
 							
@@ -303,7 +318,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 								fileId: undefined, 
 								blob: blob, 
 								fileName: fileName,
-								relativePath: relativePath 
+                                relativePath: relativePath,
+                                compressFs: compress
 							};
 							
 							// Add image dynamically to the already open slideshow
@@ -614,7 +630,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		
 		// sanitize the photoUrl
 		// Call Thumbnail Image function
-		this.setThumbnailImage();
+		if (!this.applyCachedStyles(this.getThumbnailSignature())) {
+			this.setThumbnailImage();
+		}
 		
 		// Initialize commentaries if not present
 		this.initializeCommentaries();
@@ -959,6 +977,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 	// Set image thumbnail - USE GETFILE for display (with resizing)
 	public setThumbnailImage() {
+		const signature = this.getThumbnailSignature();
+		if (this.applyCachedStyles(signature)) {
+			return;
+		}
+
 		if (this.evenement.fileUploadeds.length != 0) {
 			this.evenement.fileUploadeds.map(fileUploaded => {
 				if (fileUploaded.fileName.indexOf('thumbnail') !== -1) {
@@ -989,6 +1012,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.dominantG = 128;
 			this.dominantB = 128;
 			this.invalidateColorCaches();
+			this.emitDominantColor();
+			this.cacheCurrentStyles(signature);
 		}
 	}
 
@@ -1038,6 +1063,24 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		}, 200);
 	}
 	
+	private emitDominantColor(): void {
+		const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value ?? 0)));
+		const eventKey = this.evenement ? (this.evenement.id || this.evenement.evenementName || '') : '';
+
+		if (!eventKey) {
+			return;
+		}
+
+		this.colorComputed.emit({
+			eventId: eventKey,
+			color: {
+				r: clamp(this.dominantR),
+				g: clamp(this.dominantG),
+				b: clamp(this.dominantB)
+			}
+		});
+	}
+
 
 	private invalidateColorCaches(): void {
 		this.solidColorCache.clear();
@@ -1121,13 +1164,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				// Use the dominant color with 60% opacity for background
 				this.titleBackgroundColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
 				
-				// Store the average color for description background (pure color, full opacity)
-				this.descriptionBackgroundColor = `rgba(${r}, ${g}, ${b}, 1)`;
-				
 				// Calculate brightness to determine base color for text and border
 				// Using luminance formula: 0.299*R + 0.587*G + 0.114*B
 				const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
 				
+				const bgAlpha = brightness > 150 ? 0.72 : 0.68;
+				this.descriptionBackgroundColor = this.buildColorString(
+					this.adjustColorComponent(r, -22),
+					this.adjustColorComponent(g, -22),
+					this.adjustColorComponent(b, -22),
+					bgAlpha
+				);
+
 				// Start with white or black as base, then tint with the average color
 				// Mix 82% base color (white/black) with 18% average color for a subtle tint
 				let tintR: number, tintG: number, tintB: number;
@@ -1149,6 +1197,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				
 			}
 			this.invalidateColorCaches();
+			this.emitDominantColor();
+			this.cacheCurrentStyles(this.getThumbnailSignature());
 		} catch (error) {
 			console.error('Error detecting dominant color:', error);
 			// Fallback to default color
@@ -1159,6 +1209,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			this.dominantG = 128;
 			this.dominantB = 128;
 			this.invalidateColorCaches();
+			this.emitDominantColor();
+			this.cacheCurrentStyles();
 		}
 	}
 
@@ -1166,6 +1218,63 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
 		const clampedAlpha = Math.max(0, Math.min(1, alpha));
 		return `rgba(${clamp(r)}, ${clamp(g)}, ${clamp(b)}, ${clampedAlpha})`;
+	}
+
+	private getCacheKey(): string | null {
+		if (!this.evenement) {
+			return null;
+		}
+		return this.evenement.id || this.evenement.evenementName || null;
+	}
+	
+	private getThumbnailSignature(): string {
+		if (!this.evenement || !this.evenement.fileUploadeds) {
+			return 'no-thumbnail';
+		}
+		const thumbnailFile = this.evenement.fileUploadeds.find(file => file.fileName && file.fileName.indexOf('thumbnail') !== -1);
+		return thumbnailFile ? thumbnailFile.fieldId : 'no-thumbnail';
+	}
+
+	private applyCachedStyles(expectedSignature?: string): boolean {
+		const cacheKey = this.getCacheKey();
+		if (!cacheKey) {
+			return false;
+		}
+		const cached = ElementEvenementComponent.thumbnailCache.get(cacheKey);
+		if (!cached) {
+			return false;
+		}
+
+		if (expectedSignature && cached.signature !== expectedSignature) {
+			return false;
+		}
+
+		this.thumbnailUrl = cached.thumbnailUrl;
+		this.dominantR = cached.dominant.r;
+		this.dominantG = cached.dominant.g;
+		this.dominantB = cached.dominant.b;
+		this.calculatedRgbValues = `RGB(${this.dominantR}, ${this.dominantG}, ${this.dominantB})`;
+		this.titleBackgroundColor = cached.titleBackground;
+		this.titleBorderColor = cached.titleBorder;
+		this.descriptionBackgroundColor = cached.descriptionBackground;
+		this.invalidateColorCaches();
+		this.emitDominantColor();
+		return true;
+	}
+
+	private cacheCurrentStyles(signature?: string): void {
+		const cacheKey = this.getCacheKey();
+		if (!cacheKey) {
+			return;
+		}
+		ElementEvenementComponent.thumbnailCache.set(cacheKey, {
+			thumbnailUrl: this.thumbnailUrl,
+			dominant: { r: this.dominantR, g: this.dominantG, b: this.dominantB },
+			titleBackground: this.titleBackgroundColor,
+			titleBorder: this.titleBorderColor,
+			descriptionBackground: this.descriptionBackgroundColor,
+			signature: signature ?? this.getThumbnailSignature()
+		});
 	}
 
 	public getSolidColor(alpha: number = 1): string {

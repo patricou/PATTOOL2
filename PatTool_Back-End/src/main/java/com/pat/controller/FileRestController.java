@@ -10,6 +10,7 @@ import com.pat.repo.domain.FileUploaded;
 import com.pat.repo.domain.Member;
 import com.pat.repo.EvenementsRepository;
 import com.pat.repo.MembersRepository;
+import com.pat.service.ImageCompressionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,10 +31,8 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import javax.imageio.ImageIO;
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -44,15 +43,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import com.drew.imaging.ImageMetadataReader;
-import com.drew.imaging.ImageProcessingException;
-import com.drew.metadata.Metadata;
-import com.drew.metadata.MetadataException;
-import com.drew.metadata.exif.ExifIFD0Directory;
 
 
 
@@ -77,6 +70,8 @@ public class FileRestController {
     private GridFsTemplate gridFsTemplate;
     @Autowired
     private MailController mailController;
+    @Autowired
+    private ImageCompressionService imageCompressionService;
 
     private static final Logger log = LoggerFactory.getLogger(FileRestController.class);
     
@@ -460,7 +455,7 @@ public class FileRestController {
                         byte[] fileBytesToWrite;
                         
                         // Check if file is an image and if it needs compression
-                        if (isImageType(contentType) && fileSize > maxSizeInBytes) {
+                        if (imageCompressionService.isImageType(contentType) && fileSize > maxSizeInBytes) {
                             log.debug("Image too large for disk upload: {} bytes, compressing...", fileSize);
                             
                             try {
@@ -471,14 +466,14 @@ public class FileRestController {
                                 BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
                                 if (originalImage != null) {
                                     // Compress the image
-                                    byte[] compressedBytes = resizeImageIfNeeded(
+                                    byte[] compressedBytes = imageCompressionService.resizeImageIfNeeded(
                                         file.getOriginalFilename(), 
                                         originalImage, 
                                         contentType, 
                                         fileSize, 
                                         maxSizeInBytes,
                                         fileBytes,
-                                        null // No sessionId for disk uploads
+                                        null
                                     );
                                     fileBytesToWrite = compressedBytes;
                                     log.debug("Image compressed from {} to {} bytes", fileSize, compressedBytes.length);
@@ -517,8 +512,7 @@ public class FileRestController {
                         body = body + "\n\nHeader : ";
 
                         Enumeration<String> headerNames = request.getHeaderNames();
-                        Map<String, String> headers = new HashMap<>();
-
+                        
                         while (headerNames.hasMoreElements()) {
                             String headerName = headerNames.nextElement();
                             String headerValue = request.getHeader(headerName);
@@ -571,9 +565,6 @@ public class FileRestController {
             addUploadLog(finalSessionId, String.format("📤 Processing %d file(s)", files.length));
         }
         
-        // Use finalSessionId throughout the rest of the method
-        sessionId = finalSessionId;
-
         List<FileUploaded> uploadedFiles = new ArrayList<>();
         
         try {
@@ -615,9 +606,9 @@ public class FileRestController {
                 java.io.InputStream inputStream;
                 
                 // Check if file is an image and if it needs compression
-                if (isImageType(contentType) && fileSize > maxSizeInBytes) {
-                    if (sessionId != null) {
-                        addUploadLog(sessionId, String.format("⚙️ Image too large (%d KB > %d KB) - Compression in progress...", 
+                if (imageCompressionService.isImageType(contentType) && fileSize > maxSizeInBytes) {
+                    if (finalSessionId != null) {
+                        addUploadLog(finalSessionId, String.format("⚙️ Image too large (%d KB > %d KB) - Compression in progress...", 
                             fileSize / 1024, maxSizeInBytes / 1024));
                     }
                     
@@ -628,26 +619,26 @@ public class FileRestController {
                         // Read the image from bytes
                         BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
                         if (originalImage != null) {
-                            if (sessionId != null) {
-                                addUploadLog(sessionId, String.format("🖼️ Starting image compression for: %s", 
+                            if (finalSessionId != null) {
+                                addUploadLog(finalSessionId, String.format("🖼️ Starting image compression for: %s", 
                                     filedata.getOriginalFilename()));
                             }
                             
                             // Compress the image
-                            byte[] compressedBytes = resizeImageIfNeeded(
+                            byte[] compressedBytes = imageCompressionService.resizeImageIfNeeded(
                                 filedata.getOriginalFilename(), 
                                 originalImage, 
                                 contentType, 
                                 fileSize, 
                                 maxSizeInBytes,
                                 fileBytes,
-                                sessionId
+                                finalSessionId != null ? message -> addUploadLog(finalSessionId, message) : null
                             );
                             
                             // Create input stream from compressed bytes
                             inputStream = new ByteArrayInputStream(compressedBytes);
-                            if (sessionId != null) {
-                                addUploadLog(sessionId, String.format("✅ Compression completed: %d KB → %d KB", 
+                            if (finalSessionId != null) {
+                                addUploadLog(finalSessionId, String.format("✅ Compression completed: %d KB → %d KB", 
                                     fileSize / 1024, compressedBytes.length / 1024));
                             }
                             log.debug("Image compressed from {} to {} bytes", fileSize, compressedBytes.length);
@@ -657,16 +648,16 @@ public class FileRestController {
                             log.debug("Could not read image with ImageIO, using original");
                         }
                     } catch (Exception e) {
-                        if (sessionId != null) {
-                            addUploadLog(sessionId, "⚠️ Compression error, using original file");
+                        if (finalSessionId != null) {
+                            addUploadLog(finalSessionId, "⚠️ Compression error, using original file");
                         }
                         log.debug("Error compressing image: {}, using original", e.getMessage());
                         inputStream = new ByteArrayInputStream(filedata.getBytes());
                     }
                 } else {
                     // Use original file
-                    if (sessionId != null && isImageType(contentType)) {
-                        addUploadLog(sessionId, String.format("✓ Image OK, no compression needed (%d KB)", fileSize / 1024));
+                    if (finalSessionId != null && imageCompressionService.isImageType(contentType)) {
+                        addUploadLog(finalSessionId, String.format("✓ Image OK, no compression needed (%d KB)", fileSize / 1024));
                     }
                     inputStream = filedata.getInputStream();
                 }
@@ -801,290 +792,6 @@ public class FileRestController {
         } else {
             return "application/octet-stream";
         }
-    }
-
-    /**
-     * Check if content type is an image
-     */
-    private boolean isImageType(String contentType) {
-        if (contentType == null) {
-            return false;
-        }
-        return contentType.startsWith("image/");
-    }
-
-    /**
-     * Apply EXIF orientation to image if needed
-     */
-    private BufferedImage applyOrientation(BufferedImage image, byte[] fileBytes) {
-        try {
-            Metadata metadata = ImageMetadataReader.readMetadata(new ByteArrayInputStream(fileBytes));
-            ExifIFD0Directory exifIFD0Directory = metadata.getFirstDirectoryOfType(ExifIFD0Directory.class);
-            
-            if (exifIFD0Directory != null && exifIFD0Directory.containsTag(ExifIFD0Directory.TAG_ORIENTATION)) {
-                int orientation = exifIFD0Directory.getInt(ExifIFD0Directory.TAG_ORIENTATION);
-                log.debug("Image EXIF orientation: {}", orientation);
-                
-                // Apply rotation based on EXIF orientation
-                switch (orientation) {
-                    case 3: // 180 degrees
-                        return rotateImage(image, 180);
-                    case 6: // 90 degrees CW
-                        return rotateImage(image, 90);
-                    case 8: // 90 degrees CCW
-                        return rotateImage(image, -90);
-                    case 2: // Flip horizontal
-                    case 4: // Flip vertical
-                    case 5: // Flip horizontal + 90 CW
-                    case 7: // Flip horizontal + 90 CCW
-                        log.debug("Flip operations not fully supported, returning as-is");
-                        break;
-                    default:
-                        log.debug("No rotation needed (orientation: {})", orientation);
-                        break;
-                }
-            }
-        } catch (ImageProcessingException | MetadataException | IOException e) {
-            log.debug("Could not read EXIF metadata: {}", e.getMessage());
-        }
-        
-        return image;
-    }
-    
-    /**
-     * Rotate image by specified angle
-     */
-    private BufferedImage rotateImage(BufferedImage image, double angle) {
-        int width = image.getWidth();
-        int height = image.getHeight();
-        int type = image.getType();
-        
-        // Calculate new dimensions for rotation
-        double radians = Math.toRadians(angle);
-        double cos = Math.abs(Math.cos(radians));
-        double sin = Math.abs(Math.sin(radians));
-        int newWidth = (int) Math.round(width * cos + height * sin);
-        int newHeight = (int) Math.round(height * cos + width * sin);
-        
-        BufferedImage rotated = new BufferedImage(newWidth, newHeight, type);
-        Graphics2D g = rotated.createGraphics();
-        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        
-        // Translate and rotate
-        int offsetX = (newWidth - width) / 2;
-        int offsetY = (newHeight - height) / 2;
-        g.translate(offsetX, offsetY);
-        g.rotate(radians, width / 2.0, height / 2.0);
-        g.drawImage(image, 0, 0, null);
-        g.dispose();
-        
-        log.debug("Rotated image by {} degrees", angle);
-        return rotated;
-    }
-
-    /**
-     * Compress and resize image to MEET max size requirement
-     * Aggressively reduces size until absolutely under limit
-     */
-    private byte[] resizeImageIfNeeded(String filename, BufferedImage originalImage, String contentType, long originalSize, long maxSize, byte[] originalFileBytes, String sessionId) throws IOException {
-        int originalWidth = originalImage.getWidth();
-        int originalHeight = originalImage.getHeight();
-        if (sessionId != null) {
-            addUploadLog(sessionId, String.format("📏 Original image: %dx%d, %d KB", 
-                originalWidth, originalHeight, originalSize / 1024));
-        }
-        
-        // Apply EXIF orientation
-        BufferedImage imageWithOrientation = applyOrientation(originalImage, originalFileBytes);
-        
-        // Convert to RGB
-        BufferedImage imageToCompress;
-        if (imageWithOrientation.getType() == BufferedImage.TYPE_INT_RGB || 
-            imageWithOrientation.getType() == BufferedImage.TYPE_INT_ARGB) {
-            imageToCompress = imageWithOrientation;
-        } else {
-            int width = imageWithOrientation.getWidth();
-            int height = imageWithOrientation.getHeight();
-            imageToCompress = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-            Graphics2D g = imageToCompress.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.drawImage(imageWithOrientation, 0, 0, null);
-            g.dispose();
-        }
-        
-        String format = contentType.contains("png") ? "png" : "jpeg";
-        
-        // Try minimal compression first
-        byte[] result = compressWithQuality(imageToCompress, format, 0.5f);
-        
-        if (sessionId != null) {
-            addUploadLog(sessionId, String.format("📊 Size after compression: %d KB", result.length / 1024));
-        }
-        
-        // If already under limit, return
-        if (result.length <= maxSize) {
-            if (sessionId != null) {
-                addUploadLog(sessionId, String.format("✅ Final size: %d KB (no resize needed)", 
-                    result.length / 1024));
-            }
-            return result;
-        }
-        
-        // Need to resize - calculate aggressive reduction
-        // IMPORTANT: Use dimensions from imageToCompress (after EXIF orientation), not originalImage
-        int imageToCompressWidth = imageToCompress.getWidth();
-        int imageToCompressHeight = imageToCompress.getHeight();
-        
-        if (sessionId != null) {
-            addUploadLog(sessionId, String.format("📐 Starting resize: %dx%d, current size: %d KB", 
-                imageToCompressWidth, imageToCompressHeight, result.length / 1024));
-        }
-        
-        // Calculate aspect ratio to maintain proportions
-        double aspectRatio = (double) imageToCompressWidth / imageToCompressHeight;
-        
-        int currentWidth = imageToCompressWidth;
-        int currentHeight = imageToCompressHeight;
-        int attempt = 0;
-        
-        // Keep resizing until we get under maxSize (GUARANTEED to finish under limit)
-        while (result.length > maxSize && attempt < 10) {
-            attempt++;
-            
-            // Calculate scaling factor based on current size vs max
-            double sizeRatio = (double) maxSize / result.length;
-            double scaleFactor = Math.sqrt(sizeRatio) * 0.8; // 0.8 for very aggressive reduction
-            
-            // Apply scale factor while maintaining aspect ratio
-            currentWidth = (int) (currentWidth * scaleFactor);
-            currentHeight = (int) (currentHeight * scaleFactor);
-            
-            // Ensure we maintain the aspect ratio by recalculating if needed
-            double currentAspectRatio = (double) currentWidth / currentHeight;
-            if (Math.abs(currentAspectRatio - aspectRatio) > 0.01) {
-                // Recalculate to maintain exact aspect ratio
-                if (currentAspectRatio > aspectRatio) {
-                    // Width is too large, adjust based on height
-                    currentWidth = (int) (currentHeight * aspectRatio);
-                } else {
-                    // Height is too large, adjust based on width
-                    currentHeight = (int) (currentWidth / aspectRatio);
-                }
-            }
-            
-            // Minimum size check - maintain aspect ratio
-            if (currentWidth < 150 || currentHeight < 150) {
-                if (aspectRatio >= 1.0) {
-                    // Landscape or square
-                    currentWidth = Math.max(150, currentWidth);
-                    currentHeight = (int) (currentWidth / aspectRatio);
-                } else {
-                    // Portrait
-                    currentHeight = Math.max(150, currentHeight);
-                    currentWidth = (int) (currentHeight * aspectRatio);
-                }
-            }
-            
-            if (sessionId != null && attempt == 1) {
-                addUploadLog(sessionId, String.format("🔄 Resizing to %dx%d", 
-                    currentWidth, currentHeight));
-            }
-            
-            // Resize
-            BufferedImage resizedImage = new BufferedImage(currentWidth, currentHeight, BufferedImage.TYPE_INT_RGB);
-            Graphics2D g = resizedImage.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.drawImage(imageToCompress, 0, 0, currentWidth, currentHeight, null);
-            g.dispose();
-            
-            // Try different quality levels in sequence
-            float[] qualities = {0.4f, 0.3f, 0.2f};
-            
-            for (float quality : qualities) {
-                result = compressWithQuality(resizedImage, format, quality);
-                
-                if (sessionId != null && result.length <= maxSize) {
-                    addUploadLog(sessionId, String.format("📊 Size after resize %dx%d: %d KB", 
-                        currentWidth, currentHeight, result.length / 1024));
-                }
-                
-                if (result.length <= maxSize) {
-                    if (sessionId != null) {
-                        addUploadLog(sessionId, String.format("✅ Final size: %d KB (%dx%d)", 
-                            result.length / 1024, currentWidth, currentHeight));
-                    }
-                    return result;
-                }
-            }
-            
-            imageToCompress = resizedImage;
-        }
-        
-        // Final attempt - if still over limit, use minimal quality
-        if (result.length > maxSize) {
-            float quality = 0.15f;
-            result = compressWithQuality(imageToCompress, format, quality);
-            
-            // If STILL over limit, we need to reduce dimensions even more
-            // Maintain aspect ratio during reduction
-            while (result.length > maxSize && currentWidth > 100 && currentHeight > 100) {
-                double reductionFactor = 0.9;
-                currentWidth = (int) (currentWidth * reductionFactor);
-                currentHeight = (int) (currentHeight * reductionFactor);
-                
-                // Ensure aspect ratio is maintained
-                double currentAspectRatio = (double) currentWidth / currentHeight;
-                if (Math.abs(currentAspectRatio - aspectRatio) > 0.01) {
-                    if (currentAspectRatio > aspectRatio) {
-                        currentWidth = (int) (currentHeight * aspectRatio);
-                    } else {
-                        currentHeight = (int) (currentWidth / aspectRatio);
-                    }
-                }
-                
-                BufferedImage finalResize = new BufferedImage(currentWidth, currentHeight, BufferedImage.TYPE_INT_RGB);
-                Graphics2D g = finalResize.createGraphics();
-                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                g.drawImage(imageToCompress, 0, 0, currentWidth, currentHeight, null);
-                g.dispose();
-                
-                result = compressWithQuality(finalResize, format, quality);
-            }
-        }
-        
-        if (sessionId != null) {
-            addUploadLog(sessionId, String.format("✅ Final size: %d KB (%dx%d)", 
-                result.length / 1024, currentWidth, currentHeight));
-        }
-        
-        return result;
-    }
-    
-    /**
-     * Compress image with specific quality
-     */
-    private byte[] compressWithQuality(BufferedImage image, String format, float quality) throws IOException {
-        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        
-        if (format.equals("jpeg")) {
-            javax.imageio.ImageWriter writer = ImageIO.getImageWritersByFormatName("jpeg").next();
-            javax.imageio.plugins.jpeg.JPEGImageWriteParam params = new javax.imageio.plugins.jpeg.JPEGImageWriteParam(null);
-            params.setCompressionMode(javax.imageio.ImageWriteParam.MODE_EXPLICIT);
-            params.setCompressionQuality(quality);
-            
-            javax.imageio.stream.ImageOutputStream imageOutputStream = ImageIO.createImageOutputStream(outputStream);
-            writer.setOutput(imageOutputStream);
-            writer.write(null, new javax.imageio.IIOImage(image, null, null), params);
-            writer.dispose();
-        } else {
-            ImageIO.write(image, format, outputStream);
-        }
-        
-        return outputStream.toByteArray();
     }
 
 }

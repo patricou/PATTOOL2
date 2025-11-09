@@ -960,7 +960,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true);
   }
 
-  public openFsPhotosDiaporama(relativePath: string): void {
+  public openFsPhotosDiaporama(relativePath: string, compress: boolean = true): void {
     // Open slideshow modal immediately with empty array - images will be loaded dynamically
     if (!this.slideshowModalComponent || !this.evenement) {
       console.error('Slideshow modal component or event not available');
@@ -991,7 +991,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           const fileName = queue.shift() as string;
           active++;
           
-          const sub = this.fileService.getImageFromDisk(relativePath, fileName).subscribe({
+          const sub = this.fileService.getImageFromDisk(relativePath, fileName, compress).subscribe({
             next: (buffer: ArrayBuffer) => {
               const blob = new Blob([buffer], { type: 'image/*' });
               const url = URL.createObjectURL(blob);
@@ -1000,7 +1000,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
                 fileId: undefined, 
                 blob: blob, 
                 fileName: fileName,
-                relativePath: relativePath 
+                relativePath: relativePath,
+                compressFs: compress
               };
               
               // Add image dynamically to the already open slideshow

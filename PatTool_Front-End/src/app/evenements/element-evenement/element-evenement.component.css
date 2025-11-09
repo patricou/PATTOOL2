@@ -83,25 +83,30 @@
 
 /* Réduire le padding de l'alerte description */
 .pat-alert {
-	padding: 0.35rem 0.5rem !important;
+	padding: 0.55rem 0.85rem !important;
 	margin-top: 0.5rem !important;
 	margin-bottom: 0 !important;
-	border-radius: 0.5rem !important;
+	border-radius: 0.65rem !important;
 	position: relative;
 	border: 1px solid transparent;
 	background-clip: padding-box;
 	box-shadow:
-		0 10px 22px rgba(0, 0, 0, 0.28),
-		inset 0 8px 18px rgba(255, 255, 255, 0.28),
-		inset 0 -10px 22px rgba(0, 0, 0, 0.32),
-		inset 0 0 24px rgba(255, 255, 255, 0.12);
+		0 18px 28px rgba(15, 23, 42, 0.28),
+		inset 0 12px 22px rgba(255, 255, 255, 0.32),
+		inset 0 -14px 24px rgba(15, 23, 42, 0.35),
+		inset 0 0 28px rgba(255, 255, 255, 0.16);
 	transition: none;
 	font-family: 'Poppins', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
 	font-weight: 600;
-	letter-spacing: 0.015em;
+	font-size: 1.02rem !important;
+	letter-spacing: 0.0125em;
 	text-shadow:
-		0 1px 1px rgba(255, 255, 255, 0.55),
-		0 3px 8px rgba(0, 0, 0, 0.25);
+		0 1px 2px rgba(0, 0, 0, 0.35);
+	backdrop-filter: blur(0px);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-transform: capitalize;
 }
 
 .pat-alert::before {
@@ -109,8 +114,10 @@
 	position: absolute;
 	inset: 2px;
 	border-radius: inherit;
-	border: 1px solid rgba(255, 255, 255, 0.45);
-	background: linear-gradient(145deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0));
+	border: 1px solid rgba(255, 255, 255, 0.22);
+	background:
+		linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0)),
+		radial-gradient(circle at top, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0));
 	pointer-events: none;
 }
 

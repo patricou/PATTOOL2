@@ -73,4 +73,23 @@ export class AboutComponent implements OnInit {
     this.isPreviewVisible = false;
   }
 
+  refreshReport(): void {
+    this.isLoadingPreview = true;
+    this.previewError = '';
+    this.isPreviewVisible = true;
+
+    this.exceptionReportService.getExceptionReportPreview().subscribe({
+      next: (html) => {
+        this.isLoadingPreview = false;
+        this.reportHtml = this.sanitizer.bypassSecurityTrustHtml(html);
+        this.isPreviewVisible = true;
+      },
+      error: (error) => {
+        this.isLoadingPreview = false;
+        this.previewError = error.error || error.message || 'Error retrieving exception report';
+        console.error('Error refreshing exception report preview:', error);
+      }
+    });
+  }
+
 }

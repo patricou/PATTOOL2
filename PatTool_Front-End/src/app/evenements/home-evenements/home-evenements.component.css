@@ -1,3 +1,8 @@
+.results-counter {
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: #495057;
+}
 .pat-jumbotron-element {
     padding-top: 25px;
     padding-bottom: 5px;
@@ -13,6 +18,32 @@
 .jumbotron {
     border-bottom: none !important;
     border: none !important;
+}
+
+.results-counter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #343a40;
+    background-color: rgba(73, 80, 87, 0.12);
+    border: 1px solid transparent;
+    transition: background-color 0.35s ease, color 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
+    align-self: center;
+    margin: 0.15rem 0;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.25);
+}
+
+.results-counter .count-value {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.results-counter .count-label {
+    font-weight: 500;
 }
 
 .pat-card {
@@ -395,6 +426,11 @@
 
 /* Collapsed state for mobile */
 @media (max-width: 767px) {
+    .results-counter {
+        align-self: stretch;
+        justify-content: center;
+    }
+
     .controls-bar {
         flex-direction: column;
         align-items: stretch;
@@ -2912,4 +2948,184 @@
         width: 32px;
         height: 32px;
     }
+}
+
+.compact-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.4rem;
+    margin-left: 0.25rem;
+    position: relative;
+}
+
+.compact-toggle-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.compact-toggle-label {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 54px;
+    height: 26px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.18), inset 0 -2px 6px rgba(255, 255, 255, 0.25);
+}
+
+.compact-toggle-label .toggle-track {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(145deg, rgba(248, 250, 252, 0.9), rgba(226, 232, 240, 0.65));
+    transition: background 0.3s ease, border 0.3s ease;
+    border: 1px solid rgba(15, 23, 42, 0.15);
+}
+
+.compact-toggle-label .toggle-thumb {
+    position: absolute;
+    top: 3px;
+    left: 4px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(37, 99, 235, 0.75);
+    transition: transform 0.28s ease, background 0.3s ease, color 0.3s ease;
+    font-size: 0.65rem;
+}
+
+.compact-toggle-input:checked + .compact-toggle-label .toggle-track {
+    background: linear-gradient(145deg, rgba(37, 99, 235, 0.8), rgba(59, 130, 246, 0.9));
+    border-color: rgba(15, 23, 42, 0.25);
+}
+
+.compact-toggle-input:checked + .compact-toggle-label .toggle-thumb {
+    transform: translateX(22px);
+    background: rgba(248, 250, 252, 0.95);
+    color: rgba(15, 23, 42, 0.75);
+    box-shadow: 0 6px 12px rgba(15, 23, 42, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.compact-toggle-input:focus-visible + .compact-toggle-label {
+    box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.25);
+}
+
+.visually-hidden {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.compact-toggle-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.25rem;
+    margin-left: 0.3rem;
+}
+
+.compact-toggle-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.18rem;
+    margin-left: 0.22rem;
+}
+
+.compact-toggle-label {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 24px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.18), inset 0 -2px 6px rgba(255, 255, 255, 0.25);
+}
+
+.search-filter-row {
+    display: flex;
+    gap: 0.28rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.compact-toggle-wrapper {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 0.1rem;
+    margin-left: 0.12rem;
+}
+
+.compact-toggle-label {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 22px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    box-shadow: inset 0 2px 4px rgba(15, 23, 42, 0.18), inset 0 -2px 6px rgba(255, 255, 255, 0.25);
+}
+
+.search-filter-row {
+    display: flex;
+    gap: 0.18rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.bottom-compact-toggle {
+    margin: 1.2rem 0 0.6rem;
+}
+
+.bottom-compact-toggle .compact-toggle-wrapper {
+    margin-left: 0;
+    margin-right: 0;
+}
+
+.bottom-elements-selector {
+    margin: 1.4rem 0 1rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.65rem;
+}
+
+.bottom-elements-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.bottom-elements-select {
+    width: auto;
+    min-width: 90px;
+    max-width: 110px;
+}
+
+.search-filter-row .select-elements {
+    width: auto;
+    min-width: 90px;
 }

@@ -13,7 +13,7 @@ import java.util.List;
  * Created by patricou on 4/20/2017.
  */
 @RepositoryRestResource(collectionResourceRel = "evenements", path = "evenements")
-public interface EvenementsRepository extends PagingAndSortingRepository<Evenement, String> , MongoRepository<Evenement,String> {
+public interface EvenementsRepository extends PagingAndSortingRepository<Evenement, String> , MongoRepository<Evenement,String>, EvenementsRepositoryCustom {
 
     Page<Evenement> findByEvenementNameLikeIgnoreCaseAndAuthor_idOrEvenementNameLikeIgnoreCaseAndVisibility(Pageable pageable, String eventName1, String AuthorId,String eventName2, String visibility );
 

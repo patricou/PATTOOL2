@@ -7,6 +7,7 @@ import { UrlEvent } from '../../model/url-event';
 export interface PhotosSelectionResult {
   type: 'uploaded' | 'fs' | 'web';
   value: string; // For 'fs' and 'web', this is the link/path
+  compressFs?: boolean; // Applicable when type === 'fs'
 }
 
 @Component({
@@ -24,6 +25,7 @@ export class PhotosSelectorModalComponent implements OnInit {
   @ViewChild('photosSelectorModal') photosSelectorModal!: TemplateRef<any>;
   
   public selectedFsLink: string = '';
+  public fsCompressionEnabled: boolean = true;
   private modalRef?: NgbModalRef;
 
   constructor(
@@ -44,6 +46,7 @@ export class PhotosSelectorModalComponent implements OnInit {
 
     // Reset selection
     this.selectedFsLink = '';
+    this.fsCompressionEnabled = true;
     this.initializeDefaultSelection();
 
     if (!this.photosSelectorModal) {
@@ -131,7 +134,7 @@ export class PhotosSelectorModalComponent implements OnInit {
       const url = this.selectedFsLink.substring('PHOTOS:'.length);
       result = { type: 'web', value: url };
     } else {
-      result = { type: 'fs', value: this.selectedFsLink };
+      result = { type: 'fs', value: this.selectedFsLink, compressFs: this.fsCompressionEnabled };
     }
 
     this.selectionConfirmed.emit(result);

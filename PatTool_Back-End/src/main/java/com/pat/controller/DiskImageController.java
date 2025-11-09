@@ -1,8 +1,11 @@
 package com.pat.controller;
 
+import com.pat.service.ImageCompressionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
@@ -14,6 +17,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -34,6 +40,12 @@ public class DiskImageController {
 
     @Value("${file.storage.base-path}")
     private String basePath;
+
+    @Value("${app.imagemaxsizekb:500}")
+    private int imageMaxSizeKb;
+
+    @Autowired
+    private ImageCompressionService imageCompressionService;
 
     private static final Logger log = LoggerFactory.getLogger(DiskImageController.class);
 
@@ -94,8 +106,9 @@ public class DiskImageController {
     // Use query parameters to avoid invalid pattern with ** in the middle
     @GetMapping("/image")
     public ResponseEntity<Resource> getImage(@RequestParam("relativePath") String relativePath,
-                                             @RequestParam("fileName") String fileName) throws IOException {
-        log.debug("[FSPhotos][IMAGE] basePath='{}', relativePath='{}', fileName='{}'", basePath, relativePath, fileName);
+                                             @RequestParam("fileName") String fileName,
+                                             @RequestParam(value = "compress", defaultValue = "false") boolean compress) throws IOException {
+        log.debug("[FSPhotos][IMAGE] basePath='{}', relativePath='{}', fileName='{}', compress={}", basePath, relativePath, fileName, compress);
         String sanitizedRel = sanitizeRelativePath(relativePath);
         String sanitizedName = sanitizeFileName(fileName);
 
@@ -114,6 +127,44 @@ public class DiskImageController {
         log.debug("[FSPhotos][IMAGE] contentType='{}'", contentType);
 
         long lastModified = Files.getLastModifiedTime(file).toMillis();
+
+        if (compress && imageCompressionService.isImageType(contentType)) {
+            long maxSizeInBytes = imageMaxSizeKb * 1024L;
+            long originalSize = Files.size(file);
+
+            if (originalSize > maxSizeInBytes) {
+                byte[] fileBytes = Files.readAllBytes(file);
+                BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
+
+                if (originalImage != null) {
+                    try {
+                        byte[] compressedBytes = imageCompressionService.resizeImageIfNeeded(
+                            sanitizedName,
+                            originalImage,
+                            contentType,
+                            originalSize,
+                            maxSizeInBytes,
+                            fileBytes,
+                            message -> log.debug("[FSPhotos][IMAGE][compress] {}", message)
+                        );
+
+                        ByteArrayResource resource = new ByteArrayResource(compressedBytes);
+                        return ResponseEntity.ok()
+                                .lastModified(lastModified)
+                                .cacheControl(CacheControl.maxAge(3600, TimeUnit.SECONDS).cachePublic())
+                                .contentType(MediaType.parseMediaType(contentType))
+                                .contentLength(compressedBytes.length)
+                                .header("X-Pat-Compression", "applied")
+                                .body(resource);
+                    } catch (Exception e) {
+                        log.debug("[FSPhotos][IMAGE] Compression failed, falling back to original. Reason: {}", e.getMessage());
+                    }
+                } else {
+                    log.debug("[FSPhotos][IMAGE] Could not decode image for compression, serving original");
+                }
+            }
+        }
+
         InputStream is = Files.newInputStream(file);
         return ResponseEntity.ok()
                 .lastModified(lastModified)
@@ -144,5 +195,3 @@ public class DiskImageController {
         return name;
     }
 }
-
-

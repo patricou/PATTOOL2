@@ -1258,7 +1258,7 @@ export class UpdateEvenementComponent implements OnInit {
 	// Photo From FS integration
 	// =========================
 
-	public openFsPhotosDiaporama(relativePath: string): void {
+	public openFsPhotosDiaporama(relativePath: string, compress: boolean = true): void {
 		// Open slideshow modal immediately with empty array - images will be loaded dynamically
 		if (!this.slideshowModalComponent || !this.evenement) {
 			console.error('Slideshow modal component or event not available');
@@ -1291,13 +1291,13 @@ export class UpdateEvenementComponent implements OnInit {
 					const fileName = queue.shift() as string;
 					active++;
 					
-					const imageSub = this._fileService.getImageFromDisk(relativePath, fileName).subscribe({
+					const imageSub = this._fileService.getImageFromDisk(relativePath, fileName, compress).subscribe({
 						next: (buffer: ArrayBuffer) => {
 							if (!this.fsSlideshowLoadingActive) return;
 							
 							const blob = new Blob([buffer], { type: 'image/*' });
 							const url = URL.createObjectURL(blob);
-							const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined, blob: blob, fileName: fileName };
+							const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined, blob: blob, fileName: fileName, relativePath: relativePath, compressFs: compress };
 							
 							// Add image dynamically to the already open slideshow
 							if (this.slideshowModalComponent && this.fsSlideshowLoadingActive) {

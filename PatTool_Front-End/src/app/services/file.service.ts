@@ -31,10 +31,10 @@ export class FileService {
     }
 
     // Get an image binary from disk for given path and filename
-    getImageFromDisk(relativePath: string, fileName: string): Observable<ArrayBuffer> {
+    getImageFromDisk(relativePath: string, fileName: string, compress: boolean = false): Observable<ArrayBuffer> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers =>
-                this._http.get(`${this.API_URL4FILEONDISK}/image?relativePath=${encodeURIComponent(relativePath)}&fileName=${encodeURIComponent(fileName)}`,
+                this._http.get(`${this.API_URL4FILEONDISK}/image?relativePath=${encodeURIComponent(relativePath)}&fileName=${encodeURIComponent(fileName)}${compress ? '&compress=true' : ''}`,
                     { headers, responseType: 'arraybuffer' })
             )
         );

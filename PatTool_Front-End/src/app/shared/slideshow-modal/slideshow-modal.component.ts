@@ -21,6 +21,7 @@ export interface SlideshowImageSource {
   fileName?: string; // Optional: file name for display in EXIF modal
   // For filesystem images
   relativePath?: string; // Optional: relative path for filesystem images
+  compressFs?: boolean; // Optional: whether filesystem images were requested with compression
 }
 
 @Component({
@@ -479,7 +480,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (imageSource.fileId) {
       return `fileId:${imageSource.fileId}`;
     } else if (imageSource.relativePath && imageSource.fileName) {
-      return `disk:${imageSource.relativePath}/${imageSource.fileName}`;
+      const compressKey = imageSource.compressFs ? ':compressed' : '';
+      return `disk:${imageSource.relativePath}/${imageSource.fileName}${compressKey}`;
     } else if (imageSource.blobUrl) {
       return `blob:${imageSource.blobUrl}`;
     }
@@ -574,7 +576,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           this.imageLoadingSubs.push(subscription);
         } else if (imageSource.relativePath && imageSource.fileName && !imageSource.blobUrl) {
           // Load from filesystem
-          const subscription = this.fileService.getImageFromDisk(imageSource.relativePath, imageSource.fileName).pipe(
+          const subscription = this.fileService.getImageFromDisk(imageSource.relativePath, imageSource.fileName, !!imageSource.compressFs).pipe(
             takeUntil(this.cancelImageLoadsSubject),
             map((res: ArrayBuffer) => {
               const mimeType = this.detectImageMimeTypeFromFileName(imageSource.fileName || 'image.jpg');
