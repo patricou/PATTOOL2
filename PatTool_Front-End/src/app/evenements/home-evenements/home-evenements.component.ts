@@ -49,6 +49,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public averageColor!: string;
 	public averageTextColor!: string;
 	public averageBorderColor!: string;
+	public averageGradient!: string;
 	public pages: number[] = [];
 	public isCompactView: boolean = false;
 	public controlsCollapsed: boolean = false;
@@ -103,6 +104,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.averageColor = this.defaultAverageColor;
 		this.averageTextColor = this.defaultAverageTextColor;
 		this.averageBorderColor = this.defaultAverageBorderColor;
+		this.averageGradient = this.buildGradientFromColor(this.defaultAverageColor);
 	}
 
 	ngOnInit() {
@@ -226,6 +228,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.averageColor = this.defaultAverageColor;
 			this.averageTextColor = this.defaultAverageTextColor;
 			this.averageBorderColor = this.defaultAverageBorderColor;
+			this.averageGradient = this.buildGradientFromColor(this.defaultAverageColor);
 			return;
 		}
 
@@ -244,10 +247,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const avgG = Math.round(totalG / count);
 		const avgB = Math.round(totalB / count);
 
-		this.averageColor = this.buildRgba(avgR, avgG, avgB, 0.24);
+		const baseColor = this.buildRgba(avgR, avgG, avgB, 0.24);
+		this.averageColor = baseColor;
 
 		this.averageTextColor = this.buildDarkerShade(avgR, avgG, avgB, 0.55, 0.92);
 		this.averageBorderColor = this.buildDarkerShade(avgR, avgG, avgB, 0.45, 0.95);
+		this.averageGradient = this.buildGradientFromColor(baseColor);
 	}
 
 	private buildRgba(r: number, g: number, b: number, alpha: number = 1): string {
@@ -262,6 +267,36 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const clampedAlpha = Math.max(0, Math.min(1, alpha));
 		const darken = (channel: number) => clamp(channel * clampedFactor);
 		return `rgba(${darken(r)}, ${darken(g)}, ${darken(b)}, ${clampedAlpha})`;
+	}
+
+	private buildGradientFromColor(baseRgba: string): string {
+		if (!baseRgba) {
+			return this.defaultAverageColor;
+		}
+		const rgbaMatch = baseRgba.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([0-9.]+)\)/);
+		if (!rgbaMatch) {
+			return baseRgba;
+		}
+		const [, rStr, gStr, bStr, aStr] = rgbaMatch;
+		const r = parseInt(rStr, 10);
+		const g = parseInt(gStr, 10);
+		const b = parseInt(bStr, 10);
+		const a = parseFloat(aStr);
+
+		const lighter = this.buildRgba(
+			Math.min(255, Math.round(r + (255 - r) * 0.35)),
+			Math.min(255, Math.round(g + (255 - g) * 0.35)),
+			Math.min(255, Math.round(b + (255 - b) * 0.35)),
+			Math.max(0, Math.min(1, a + (1 - a) * 0.15))
+		);
+		const darker = this.buildRgba(
+			Math.max(0, Math.round(r * 0.85)),
+			Math.max(0, Math.round(g * 0.85)),
+			Math.max(0, Math.round(b * 0.85)),
+			Math.max(0, Math.min(1, a * 0.9))
+		);
+
+		return `linear-gradient(165deg, ${lighter} 0%, ${baseRgba} 35%, ${darker} 100%)`;
 	}
 
 	public addMemberInEvent(evenement: Evenement) {

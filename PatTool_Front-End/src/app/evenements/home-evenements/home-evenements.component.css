@@ -3,6 +3,12 @@
 	font-weight: 600;
 	color: #495057;
 }
+.home-evenements-wrapper {
+    min-height: 100%;
+    width: 100%;
+    transition: background 0.35s ease;
+    background-image: none;
+}
 .pat-jumbotron-element {
     padding-top: 25px;
     padding-bottom: 5px;

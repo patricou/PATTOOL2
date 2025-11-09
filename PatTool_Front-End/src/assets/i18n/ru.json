@@ -18,6 +18,7 @@
         "PHOTOS": "Фото",
         "MONGODB_PHOTOS_DESC": "Слайд-шоу фотографий, хранящихся в MongoDB (загруженные файлы).",
         "PHOTOS_FROM_FS_HEADING": "Фотографии из файловой системы",
+        "FS_COMPRESSION_LABEL": "Сжимать изображения перед отображением (рекомендуется)",
         "OTHER_PHOTOS_LINKS": "Другие фотоссылки (веб)"
     },
     "MENU": {
@@ -373,7 +374,11 @@
         "SHORTCUT_RESET_ZOOM": "R : Сбросить масштаб",
         "SHORTCUT_RESET_ZOOM_ESC": "Escape : Сбросить масштаб",
         "SHORTCUT_GRID": "G : Показать/скрыть сетку",
-        "SHORTCUT_THUMBNAILS": "T : Показать/скрыть миниатюры"
+        "SHORTCUT_THUMBNAILS": "T : Показать/скрыть миниатюры",
+        "SHORTCUT_LOCATION_TOGGLE": "E : Переключить вид карта/фото",
+        "SEE_LOCATION": "Показать местоположение",
+        "SEE_PHOTO": "Показать фото",
+        "MAP_LOADING": "Загрузка карты..."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Запустить автоматическую прокрутку",

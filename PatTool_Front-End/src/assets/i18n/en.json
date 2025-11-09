@@ -376,7 +376,11 @@
         "SHORTCUT_RESET_ZOOM": "R : Reset zoom",
         "SHORTCUT_RESET_ZOOM_ESC": "Escape : Reset zoom",
         "SHORTCUT_GRID": "G : Show/Hide grid",
-        "SHORTCUT_THUMBNAILS": "T : Show/Hide thumbnails"
+        "SHORTCUT_THUMBNAILS": "T : Show/Hide thumbnails",
+        "SHORTCUT_LOCATION_TOGGLE": "E : Toggle map/photo view",
+        "SEE_LOCATION": "See location",
+        "SEE_PHOTO": "See photo",
+        "MAP_LOADING": "Loading map..."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Start auto-scroll",

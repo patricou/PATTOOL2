@@ -130,6 +130,7 @@
         "PHOTOS_SELECTION": "Επιλογή φωτογραφιών",
         "MONGODB_PHOTOS_DESC": "Προβολή διαφανειών φωτογραφιών αποθηκευμένων στο MongoDB (ανεβασμένα αρχεία).",
         "PHOTOS_FROM_FS_HEADING": "Φωτογραφίες από το σύστημα αρχείων",
+        "FS_COMPRESSION_LABEL": "Συμπίεση εικόνων πριν την εμφάνιση (συνιστάται)",
         "OTHER_PHOTOS_LINKS": "Άλλοι σύνδεσμοι φωτογραφιών (ιστός)"
     },
     "EVENTCREATION": {
@@ -270,6 +271,7 @@
         "PHOTOS_SELECTION": "Επιλογή φωτογραφιών",
         "MONGODB_PHOTOS_DESC": "Προβολή διαφανειών φωτογραφιών αποθηκευμένων στο MongoDB (ανεβασμένα αρχεία).",
         "PHOTOS_FROM_FS_HEADING": "Φωτογραφίες από το σύστημα αρχείων",
+        "FS_COMPRESSION_LABEL": "Συμπίεση εικόνων πριν την εμφάνιση (συνιστάται)",
         "OTHER_PHOTOS_LINKS": "Άλλοι σύνδεσμοι φωτογραφιών (ιστός)",
         "CLICK_TO_VIEW": "Κάντε κλικ για να δείτε την εικόνα",
         "CLICK_TO_OPEN_PDF": "Κάντε κλικ για να ανοίξετε το PDF",
@@ -376,7 +378,11 @@
         "SHORTCUT_RESET_ZOOM": "R : Επαναφορά μεγέθυνσης",
         "SHORTCUT_RESET_ZOOM_ESC": "Escape : Επαναφορά μεγέθυνσης",
         "SHORTCUT_GRID": "G : Εμφάνιση/Απόκρυψη πλέγματος",
-        "SHORTCUT_THUMBNAILS": "T : Εμφάνιση/Απόκρυψη μικρογραφιών"
+        "SHORTCUT_THUMBNAILS": "T : Εμφάνιση/Απόκρυψη μικρογραφιών",
+        "SHORTCUT_LOCATION_TOGGLE": "E : Εναλλαγή χάρτη/φωτογραφίας",
+        "SEE_LOCATION": "Προβολή τοποθεσίας",
+        "SEE_PHOTO": "Προβολή φωτογραφίας",
+        "MAP_LOADING": "Φόρτωση χάρτη..."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Ξεκινήστε αυτόματη κύλιση",

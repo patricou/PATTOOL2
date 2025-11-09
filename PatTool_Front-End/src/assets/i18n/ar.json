@@ -270,6 +270,7 @@
         "PHOTOS_SELECTION": "اختيار الصور",
         "MONGODB_PHOTOS_DESC": "عرض شرائح للصور المخزنة في MongoDB (ملفات مرفوعة).",
         "PHOTOS_FROM_FS_HEADING": "صور من نظام الملفات",
+        "FS_COMPRESSION_LABEL": "ضغط الصور قبل العرض (موصى به)",
         "OTHER_PHOTOS_LINKS": "روابط صور أخرى (ويب)",
         "CLICK_TO_VIEW": "انقر لعرض الصورة",
         "CLICK_TO_OPEN_PDF": "انقر لفتح PDF",
@@ -376,7 +377,11 @@
         "SHORTCUT_RESET_ZOOM": "R : إعادة تعيين التكبير",
         "SHORTCUT_RESET_ZOOM_ESC": "Escape : إعادة تعيين التكبير",
         "SHORTCUT_GRID": "G : إظهار/إخفاء الشبكة",
-        "SHORTCUT_THUMBNAILS": "T : إظهار/إخفاء الصور المصغرة"
+        "SHORTCUT_THUMBNAILS": "T : إظهار/إخفاء الصور المصغرة",
+        "SHORTCUT_LOCATION_TOGGLE": "E : تبديل عرض الخريطة/الصورة",
+        "SEE_LOCATION": "عرض الموقع",
+        "SEE_PHOTO": "عرض الصورة",
+        "MAP_LOADING": "جارٍ تحميل الخريطة..."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "بدء التمرير التلقائي",

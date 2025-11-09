@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
@@ -193,11 +194,19 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private thumbnailGenerationActive: boolean = true; // Control thumbnail generation independently
   private thumbnailGenerationInterval?: any; // Interval for independent thumbnail generation process
   
+  // Map view state
+  public showMapView: boolean = false;
+  public currentImageLocation: { lat: number; lng: number } | null = null;
+  public currentMapUrl: SafeResourceUrl | null = null;
+  private imageLocations: Map<string, { lat: number; lng: number }> = new Map();
+  private mapUrlCache: Map<string, SafeResourceUrl> = new Map();
+  
   constructor(
     private cdr: ChangeDetectorRef,
     private modalService: NgbModal,
     private translateService: TranslateService,
-    private fileService: FileService
+    private fileService: FileService,
+    private sanitizer: DomSanitizer
   ) {}
   
   ngOnInit(): void {
@@ -290,6 +299,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.slideshowIndexToImageIndex.clear();
     this.imageCache.clear();
     this.loadingImageKeys.clear();
+    this.imageLocations.clear();
+    this.mapUrlCache.clear();
+    this.currentImageLocation = null;
+    this.currentMapUrl = null;
+    this.showMapView = false;
     
     // Reset info panel state
     this.showInfoPanel = false;
@@ -361,6 +375,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.currentImageFileName = '';
     this.resetSlideshowZoom();
     this.hasSavedPosition = false;
+    this.showMapView = false;
+    this.currentImageLocation = null;
+    this.currentMapUrl = null;
     this.showThumbnails = images.length > 1;
     this.userToggledThumbnails = false;
     this.imageLoadActive = true;
@@ -376,6 +393,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.imageCache.clear();
     this.loadingImageKeys.clear();
     this.pendingImageLoads.clear();
+    this.imageLocations.clear();
+    this.mapUrlCache.clear();
     // Create a new cancel subject for this session
     this.cancelImageLoadsSubject = new Subject<void>();
     
@@ -1158,6 +1177,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Update all image-related dimensions for display
   private updateImageDimensions(): void {
     try {
+      if (this.showMapView) {
+        this.resetAllDimensions();
+        return;
+      }
+      
       // Check if modal is open first
       if (!this.isSlideshowModalOpen || !this.modalRef) {
         // Modal not open, don't try to update dimensions
@@ -1261,6 +1285,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Calculate what portion of the original image is currently visible
   private calculateVisibleImagePortion(): void {
     try {
+      if (this.showMapView) {
+        this.visibleImageOriginX = 0;
+        this.visibleImageOriginY = 0;
+        this.visibleImageWidth = 0;
+        this.visibleImageHeight = 0;
+        return;
+      }
+      
       // Try to get elements - use ViewChild if available, otherwise query DOM directly
       let imgEl: HTMLImageElement | null = null;
       let container: HTMLElement | null = null;
@@ -1516,6 +1548,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public onWheelSlideshow(event: WheelEvent): void {
+    if (this.showMapView) {
+      return;
+    }
     const minZoom = this.getMinSlideshowZoom();
     const oldZoom = this.slideshowZoom;
     this.slideshowZoom = this.applyWheelZoom(event, this.slideshowZoom, minZoom);
@@ -1707,6 +1742,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Drag handlers
   public onSlideshowMouseDown(event: MouseEvent): void {
+    if (this.showMapView) {
+      return;
+    }
     // Clic droit : démarrer la sélection rectangulaire
     if (event.button === 2) {
       event.preventDefault(); // Empêcher le menu contextuel
@@ -1743,6 +1781,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public onSlideshowMouseMove(event: MouseEvent): void {
+    if (this.showMapView) {
+      return;
+    }
     // Always update cursor position relative to the container (not the image)
     if (event) {
       try {
@@ -1822,6 +1863,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public onSlideshowMouseEnter(event: MouseEvent): void {
+    if (this.showMapView) {
+      return;
+    }
     // Update cursor position when mouse enters
     if (event) {
       this.onSlideshowMouseMove(event);
@@ -1864,6 +1908,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public onSlideshowMouseUp(event?: MouseEvent): void {
+    if (this.showMapView && !this.isSelectingRectangle) {
+      return;
+    }
     // Si on était en train de sélectionner un rectangle (clic droit)
     if (this.isSelectingRectangle) {
       // Toujours traiter le mouseup si on était en train de sélectionner
@@ -1887,6 +1934,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public onSlideshowMouseLeave(): void {
+    if (this.showMapView) {
+      return;
+    }
     // Ne pas annuler la sélection si la souris sort du container
     // (les listeners globaux continueront de capturer les événements)
     // Seulement annuler si on n'est pas en train de sélectionner
@@ -2050,6 +2100,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public onSlideshowTouchStart(event: TouchEvent): void {
+    if (this.showMapView) {
+      return;
+    }
     if (event.touches.length === 1) {
       const touch = event.touches[0];
       const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
@@ -2089,6 +2142,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public onSlideshowTouchMove(event: TouchEvent): void {
+    if (this.showMapView) {
+      return;
+    }
     if (event.touches.length === 1 && !this.isPinching) {
       if (!this.isDraggingSlideshow) return;
       const touch = event.touches[0];
@@ -2151,6 +2207,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public onSlideshowTouchEnd(event: TouchEvent): void {
+    if (this.showMapView) {
+      return;
+    }
     if (event.touches.length === 0) {
       this.isDraggingSlideshow = false;
       this.isPinching = false;
@@ -2302,6 +2361,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 84;
         this.toggleThumbnails();
+      } else if (event.key === 'e' || event.key === 'E' || event.keyCode === 69) {
+        if (!this.currentImageLocation) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 69;
+        this.toggleMapView();
       } else if (event.key === 'Escape' || event.keyCode === 27) {
         // En mode fenêtre : Escape réinitialise le zoom
         event.preventDefault();
@@ -2345,6 +2414,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const currentTranslateX = this.slideshowTranslateX;
     const currentTranslateY = this.slideshowTranslateY;
     this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
+    this.updateCurrentImageLocation();
     // Reset saved position when changing image
     this.hasSavedPosition = false;
     // Scroll to center active thumbnail (with delay to ensure DOM update)
@@ -2387,6 +2457,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const currentTranslateX = this.slideshowTranslateX;
     const currentTranslateY = this.slideshowTranslateY;
     this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
+    this.updateCurrentImageLocation();
     // Reset saved position when changing image
     this.hasSavedPosition = false;
     // Scroll to center active thumbnail (with delay to ensure DOM update)
@@ -2618,6 +2689,41 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // If showing the panel, load EXIF data if not already cached
     if (this.showInfoPanel) {
       this.loadExifDataForInfoPanel();
+    }
+  }
+  
+  public toggleMapView(): void {
+    if (!this.currentImageLocation) {
+      this.showMapView = false;
+      return;
+    }
+    
+    this.showMapView = !this.showMapView;
+    
+    if (this.showMapView) {
+      this.isSelectingRectangle = false;
+      this.isDraggingSlideshow = false;
+      this.removeSelectionListeners();
+      if (this.currentImageLocation && !this.currentMapUrl) {
+        const currentImageUrl = this.getCurrentSlideshowImage();
+        if (currentImageUrl) {
+          if (!this.mapUrlCache.has(currentImageUrl)) {
+            this.mapUrlCache.set(
+              currentImageUrl,
+              this.buildMapUrl(this.currentImageLocation.lat, this.currentImageLocation.lng)
+            );
+          }
+          this.currentMapUrl = this.mapUrlCache.get(currentImageUrl) || null;
+        } else {
+          this.currentMapUrl = this.buildMapUrl(this.currentImageLocation.lat, this.currentImageLocation.lng);
+        }
+      }
+      this.resetAllDimensions();
+    } else {
+      setTimeout(() => {
+        this.updateImageDimensions();
+        this.updateContainerDimensions();
+      }, 0);
     }
   }
   
@@ -3093,7 +3199,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
                 }
                 
                 // Then add EXIF metadata
-                this.processExifDataIntoArray(exifData, processedData);
+                this.processExifDataIntoArray(exifData, processedData, imageUrl);
                 
                 // Cache the processed data if imageUrl is provided (for preloading)
                 if (imageUrl && processedData.length > 0) {
@@ -3233,14 +3339,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (!exifData) {
       return;
     }
-    this.processExifDataIntoArray(exifData, this.exifData);
+    const currentImageUrl = this.getCurrentSlideshowImage();
+    this.processExifDataIntoArray(exifData, this.exifData, currentImageUrl || undefined);
   }
   
   // Process EXIF data into a provided array (reusable for caching)
-  private processExifDataIntoArray(exifData: any, targetArray: Array<{label: string, value: string}>): void {
+  private processExifDataIntoArray(exifData: any, targetArray: Array<{label: string, value: string}>, imageUrl?: string): void {
     if (!exifData) {
       return;
     }
+    
+    const imageUrlToUse = imageUrl || this.getCurrentSlideshowImage();
     
     // Camera info
     if (exifData.Make) {
@@ -3324,13 +3433,22 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     
     // GPS Info
-    if (exifData.GPSLatitude && exifData.GPSLongitude) {
+    if (Array.isArray(exifData.GPSLatitude) && Array.isArray(exifData.GPSLongitude)) {
       const lat = this.convertDMSToDD(exifData.GPSLatitude, exifData.GPSLatitudeRef);
       const lon = this.convertDMSToDD(exifData.GPSLongitude, exifData.GPSLongitudeRef);
-      targetArray.push({
-        label: this.translateService.instant('EVENTELEM.EXIF_GPS'),
-        value: `${lat.toFixed(6)}, ${lon.toFixed(6)}`
-      });
+      const gpsLabel = this.translateService.instant('EVENTELEM.EXIF_GPS');
+      const gpsValue = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+      
+      if (!targetArray.some(item => item.label === gpsLabel)) {
+        targetArray.push({
+          label: gpsLabel,
+          value: gpsValue
+        });
+      }
+      
+      if (imageUrlToUse) {
+        this.setImageLocation(imageUrlToUse, lat, lon);
+      }
     }
     
     // EXIF dimensions (if different from image dimensions)
@@ -3347,6 +3465,51 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       });
     }
     
+  }
+  
+  private setImageLocation(imageUrl: string, lat: number, lng: number): void {
+    if (!imageUrl) {
+      return;
+    }
+    
+    const location = { lat, lng };
+    this.imageLocations.set(imageUrl, location);
+    
+    if (!this.mapUrlCache.has(imageUrl)) {
+      this.mapUrlCache.set(imageUrl, this.buildMapUrl(lat, lng));
+    }
+    
+    const currentImageUrl = this.getCurrentSlideshowImage();
+    if (currentImageUrl && currentImageUrl === imageUrl) {
+      this.currentImageLocation = { ...location };
+      this.currentMapUrl = this.mapUrlCache.get(imageUrl) || null;
+      if (this.showMapView) {
+        this.cdr.detectChanges();
+      }
+    }
+  }
+  
+  private buildMapUrl(lat: number, lng: number, zoom: number = 15): SafeResourceUrl {
+    const url = `https://www.google.com/maps?q=${lat},${lng}&z=${zoom}&output=embed`;
+    return this.sanitizer.bypassSecurityTrustResourceUrl(url);
+  }
+  
+  private updateCurrentImageLocation(): void {
+    const currentImageUrl = this.getCurrentSlideshowImage();
+    if (currentImageUrl && this.imageLocations.has(currentImageUrl)) {
+      const location = this.imageLocations.get(currentImageUrl)!;
+      this.currentImageLocation = { ...location };
+      if (!this.mapUrlCache.has(currentImageUrl)) {
+        this.mapUrlCache.set(currentImageUrl, this.buildMapUrl(location.lat, location.lng));
+      }
+      this.currentMapUrl = this.mapUrlCache.get(currentImageUrl) || null;
+    } else {
+      this.currentImageLocation = null;
+      this.currentMapUrl = null;
+      if (this.showMapView) {
+        this.showMapView = false;
+      }
+    }
   }
   
   private convertDMSToDD(dms: number[], ref: string): number {
@@ -3380,6 +3543,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public onThumbnailClick(index: number): void {
     if (index >= 0 && index < this.slideshowImages.length) {
       this.currentSlideshowIndex = index;
+      this.updateCurrentImageLocation();
       // Scroll to center active thumbnail (with delay to ensure DOM update)
       setTimeout(() => {
         this.scrollToActiveThumbnail();

@@ -18,6 +18,7 @@
         "PHOTOS": "फ़ोटो",
         "MONGODB_PHOTOS_DESC": "MongoDB में संग्रहीत फ़ोटो का स्लाइडशो (अपलोड की गई फ़ाइलें)।",
         "PHOTOS_FROM_FS_HEADING": "फ़ाइल सिस्टम से फ़ोटो",
+        "FS_COMPRESSION_LABEL": "प्रदर्शन से पहले छवियों को संपीड़ित करें (अनुशंसित)",
         "OTHER_PHOTOS_LINKS": "अन्य फ़ोटो लिंक (वेब)"
     },
     "MENU": {
@@ -362,7 +363,11 @@
         "SHORTCUT_RESET_ZOOM": "R : ज़ूम रीसेट करें",
         "SHORTCUT_RESET_ZOOM_ESC": "Escape : ज़ूम रीसेट करें",
         "SHORTCUT_GRID": "G : ग्रिड दिखाएं/छुपाएं",
-        "SHORTCUT_THUMBNAILS": "T : थंबनेल दिखाएं/छुपाएं"
+        "SHORTCUT_THUMBNAILS": "T : थंबनेल दिखाएं/छुपाएं",
+        "SHORTCUT_LOCATION_TOGGLE": "E : मानचित्र/फोटो दृश्य बदलें",
+        "SEE_LOCATION": "स्थान देखें",
+        "SEE_PHOTO": "फ़ोटो देखें",
+        "MAP_LOADING": "मानचित्र लोड हो रहा है..."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "स्वचालित स्क्रॉल शुरू करें",

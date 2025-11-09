@@ -272,6 +272,7 @@
         "PHOTOS": "照片",
         "MONGODB_PHOTOS_DESC": "MongoDB 中存储的照片幻灯片（已上传文件）。",
         "PHOTOS_FROM_FS_HEADING": "来自文件系统的照片",
+        "FS_COMPRESSION_LABEL": "在显示前压缩图像（推荐）",
         "OTHER_PHOTOS_LINKS": "其他照片链接（网页）",
         "CLICK_TO_VIEW": "点击查看图片",
         "CLICK_TO_OPEN_PDF": "点击打开PDF",
@@ -378,7 +379,11 @@
         "SHORTCUT_RESET_ZOOM": "R : 重置缩放",
         "SHORTCUT_RESET_ZOOM_ESC": "Escape : 重置缩放",
         "SHORTCUT_GRID": "G : 显示/隐藏网格",
-        "SHORTCUT_THUMBNAILS": "T : 显示/隐藏缩略图"
+        "SHORTCUT_THUMBNAILS": "T : 显示/隐藏缩略图",
+        "SHORTCUT_LOCATION_TOGGLE": "E : 切换地图/照片视图",
+        "SEE_LOCATION": "查看位置",
+        "SEE_PHOTO": "查看照片",
+        "MAP_LOADING": "正在加载地图..."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "开始自动滚动",

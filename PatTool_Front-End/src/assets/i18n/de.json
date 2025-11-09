@@ -272,6 +272,7 @@
         "PHOTOS": "Fotos",
         "MONGODB_PHOTOS_DESC": "Diashow der in MongoDB gespeicherten Fotos (hochgeladene Dateien).",
         "PHOTOS_FROM_FS_HEADING": "Fotos aus dem Dateisystem",
+        "FS_COMPRESSION_LABEL": "Bilder vor dem Anzeigen komprimieren (empfohlen)",
         "OTHER_PHOTOS_LINKS": "Weitere Fotolinks (Web)",
         "CLICK_TO_VIEW": "Klicken zum Anzeigen des Bildes",
         "CLICK_TO_OPEN_PDF": "Klicken zum Öffnen der PDF",
@@ -372,7 +373,11 @@
         "SHORTCUT_RESET_ZOOM": "R : Zoom zurücksetzen",
         "SHORTCUT_RESET_ZOOM_ESC": "Escape : Zoom zurücksetzen",
         "SHORTCUT_GRID": "G : Raster ein/ausblenden",
-        "SHORTCUT_THUMBNAILS": "T : Miniaturansichten ein/ausblenden"
+        "SHORTCUT_THUMBNAILS": "T : Miniaturansichten ein/ausblenden",
+        "SHORTCUT_LOCATION_TOGGLE": "E : Karten-/Fotoansicht wechseln",
+        "SEE_LOCATION": "Ort anzeigen",
+        "SEE_PHOTO": "Foto anzeigen",
+        "MAP_LOADING": "Karte wird geladen..."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Automatisches Scrollen starten",

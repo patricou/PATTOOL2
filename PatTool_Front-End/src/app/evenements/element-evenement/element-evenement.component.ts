@@ -2524,6 +2524,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	
 	ngOnDestroy() {
+		// Remove cached thumbnail entry so that revoked blob URLs aren't reused
+		const cacheKey = this.getCacheKey();
+		if (cacheKey) {
+			const cached = ElementEvenementComponent.thumbnailCache.get(cacheKey);
+			if (cached && cached.thumbnailUrl === this.thumbnailUrl) {
+				ElementEvenementComponent.thumbnailCache.delete(cacheKey);
+			}
+		}
 		// Stop card slideshow if active
 		this.stopCardSlideshow();
 		

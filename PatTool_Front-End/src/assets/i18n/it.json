@@ -130,6 +130,7 @@
         "PHOTOS": "Foto",
         "MONGODB_PHOTOS_DESC": "Diaporama delle foto salvate in MongoDB (file caricati).",
         "PHOTOS_FROM_FS_HEADING": "Foto dal file system",
+        "FS_COMPRESSION_LABEL": "Comprimi le immagini prima della visualizzazione (consigliato)",
         "OTHER_PHOTOS_LINKS": "Altri link foto (web)"
     },
     "EVENTCREATION": {
@@ -272,6 +273,7 @@
         "PHOTOS": "Foto",
         "MONGODB_PHOTOS_DESC": "Diaporama delle foto salvate in MongoDB (file caricati).",
         "PHOTOS_FROM_FS_HEADING": "Foto dal file system",
+        "FS_COMPRESSION_LABEL": "Comprimi le immagini prima della visualizzazione (consigliato)",
         "OTHER_PHOTOS_LINKS": "Altri link foto (web)",
         "CLICK_TO_VIEW": "Clicca per vedere l'immagine",
         "CLICK_TO_OPEN_PDF": "Clicca per aprire il PDF",
@@ -378,7 +380,11 @@
         "SHORTCUT_RESET_ZOOM": "R : Reimposta zoom",
         "SHORTCUT_RESET_ZOOM_ESC": "Escape : Reimposta zoom",
         "SHORTCUT_GRID": "G : Mostra/nascondi griglia",
-        "SHORTCUT_THUMBNAILS": "T : Mostra/nascondi miniature"
+        "SHORTCUT_THUMBNAILS": "T : Mostra/nascondi miniature",
+        "SHORTCUT_LOCATION_TOGGLE": "E : Passa vista mappa/foto",
+        "SEE_LOCATION": "Vedi posizione",
+        "SEE_PHOTO": "Vedi foto",
+        "MAP_LOADING": "Caricamento mappa..."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Avvia scorrimento automatico",

@@ -14,9 +14,18 @@
            (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
            (mouseup)="onSlideshowMouseUp($event)" (mouseenter)="onSlideshowMouseEnter($event)" (mouseleave)="onSlideshowMouseLeave()" (document:mouseup)="onSlideshowMouseUp($event)"
            (contextmenu)="$event.preventDefault()"
-           (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
-           [style.cursor]="isSelectingRectangle ? 'crosshair' : (isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default'))" style="overflow:hidden; user-select: none;">
-        <img #slideshowImgEl *ngIf="slideshowImages.length > 0" 
+          (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
+           [style.cursor]="showMapView ? 'default' : (isSelectingRectangle ? 'crosshair' : (isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')))" style="overflow:hidden; user-select: none;">
+        <div *ngIf="slideshowImages.length > 0 && showMapView && currentMapUrl" class="slideshow-map-container">
+          <iframe [src]="currentMapUrl" frameborder="0" allowfullscreen loading="lazy"></iframe>
+        </div>
+        <div *ngIf="slideshowImages.length > 0 && showMapView && !currentMapUrl" class="slideshow-map-container map-loading-message">
+          <div class="map-loading-content">
+            <i class="fa fa-spinner fa-spin"></i>
+            <span>{{ 'EVENTELEM.MAP_LOADING' | translate }}</span>
+          </div>
+        </div>
+        <img #slideshowImgEl *ngIf="slideshowImages.length > 0 && (!showMapView || !currentMapUrl)" 
              [src]="getCurrentSlideshowImage()" 
              alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
              class="slideshow-image"
@@ -32,7 +41,7 @@
              [class.fullscreen-image]="isFullscreen"
              />
         <!-- Grid Overlay - follows image transform -->
-        <div *ngIf="showGrid && slideshowImages.length > 0" 
+        <div *ngIf="showGrid && slideshowImages.length > 0 && (!showMapView || !currentMapUrl)" 
              class="slideshow-grid-overlay"
              [style.transform]="'translate(-50%, -50%) translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0) scale(' + slideshowZoom + ')'"
              style="transform-origin:center center;"></div>
@@ -67,7 +76,7 @@
         </div>
         
         <!-- Rectangle de sélection (clic droit) -->
-        <div *ngIf="isSelectingRectangle" 
+        <div *ngIf="isSelectingRectangle && (!showMapView || !currentMapUrl)" 
              class="selection-rectangle"
              [style.left.px]="selectionRectX"
              [style.top.px]="selectionRectY"
@@ -102,6 +111,7 @@
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM_ESC' | translate }}</div>
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_GRID' | translate }}</div>
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_THUMBNAILS' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_LOCATION_TOGGLE' | translate }}</div>
         </div>
       </div>
       <!-- Thumbnails strip - moved inside slideshow-container to be visible in fullscreen -->
@@ -178,6 +188,12 @@
               [disabled]="slideshowImages.length === 0">
         <i class="fa me-1" [ngClass]="showInfoPanel ? 'fa-eye-slash' : 'fa-eye'"></i>
         <span>{{ showInfoPanel ? ('EVENTELEM.HIDE_INFO' | translate) : ('EVENTELEM.SHOW_INFO' | translate) }}</span> <span class="ms-1">(I)</span>
+      </button>
+      <button type="button" class="btn btn-secondary" 
+              *ngIf="currentImageLocation"
+              (click)="toggleMapView()">
+        <i class="fa me-1" [ngClass]="showMapView ? 'fa-picture-o' : 'fa-map-marker'"></i>
+        <span>{{ showMapView ? ('EVENTELEM.SEE_PHOTO' | translate) : ('EVENTELEM.SEE_LOCATION' | translate) }}</span> <span class="ms-1">(E)</span>
       </button>
       <button type="button" class="btn btn-secondary" 
               (click)="toggleGrid()"

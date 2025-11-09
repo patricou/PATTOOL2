@@ -363,7 +363,11 @@
         "SHORTCUT_RESET_ZOOM": "R : Réinitialiser le zoom",
         "SHORTCUT_RESET_ZOOM_ESC": "Escape : Réinitialiser le zoom",
         "SHORTCUT_GRID": "G : Afficher/masquer la grille",
-        "SHORTCUT_THUMBNAILS": "T : Afficher/masquer les miniatures"
+        "SHORTCUT_THUMBNAILS": "T : Afficher/masquer les miniatures",
+        "SHORTCUT_LOCATION_TOGGLE": "E : Basculer carte/photo",
+        "SEE_LOCATION": "Voir emplacement",
+        "SEE_PHOTO": "Voir photo",
+        "MAP_LOADING": "Chargement de la carte..."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Démarrer le défilement automatique",
