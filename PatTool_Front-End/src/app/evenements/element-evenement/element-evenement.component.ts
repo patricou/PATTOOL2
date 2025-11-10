@@ -17,7 +17,7 @@ import { UrlEvent } from '../../model/url-event';
 import { Commentary } from '../../model/commentary';
 import { environment } from '../../../environments/environment';
 import { WindowRefService } from '../../services/window-ref.service';
-import { FileService } from '../../services/file.service';
+import { FileService, ImageDownloadResult } from '../../services/file.service';
 
 @Component({
 	selector: 'element-evenement',
@@ -295,7 +295,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
                 }
 				
 				// Load images with concurrency and add them dynamically
-				const maxConcurrent = 4;
+				const maxConcurrent = 12;
 				let active = 0;
 				const queue = [...fileNames];
 				
@@ -307,19 +307,25 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 					const fileName = queue.shift() as string;
 					active++;
 					
-                    const imageSub = this._fileService.getImageFromDisk(relativePath, fileName, compress).subscribe({
-						next: (buffer: ArrayBuffer) => {
+                    const imageSub = this._fileService.getImageFromDiskWithMetadata(relativePath, fileName, compress).subscribe({
+						next: (result: ImageDownloadResult) => {
 							if (!this.fsSlideshowLoadingActive) return;
 							
-							const blob = new Blob([buffer], { type: 'image/*' });
+							const blob = new Blob([result.buffer], { type: 'image/*' });
 							const url = URL.createObjectURL(blob);
+                            const patMetadata = result.metadata ? {
+                                originalSizeBytes: result.metadata.originalSizeBytes,
+                                originalSizeKilobytes: result.metadata.originalSizeKilobytes,
+                                rawHeaderValue: result.metadata.rawHeaderValue
+                            } : undefined;
 							const imageSource: SlideshowImageSource = { 
 								blobUrl: url, 
 								fileId: undefined, 
 								blob: blob, 
 								fileName: fileName,
                                 relativePath: relativePath,
-                                compressFs: compress
+                                compressFs: compress,
+                                patMetadata: patMetadata
 							};
 							
 							// Add image dynamically to the already open slideshow

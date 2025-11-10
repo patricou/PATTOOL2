@@ -32,6 +32,7 @@ import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @RestController
@@ -131,6 +132,7 @@ public class DiskImageController {
         if (compress && imageCompressionService.isImageType(contentType)) {
             long maxSizeInBytes = imageMaxSizeKb * 1024L;
             long originalSize = Files.size(file);
+            String cacheKey = String.format("%s|%s|%d|%d", sanitizedRel, sanitizedName, lastModified, maxSizeInBytes);
 
             if (originalSize > maxSizeInBytes) {
                 byte[] fileBytes = Files.readAllBytes(file);
@@ -138,7 +140,8 @@ public class DiskImageController {
 
                 if (originalImage != null) {
                     try {
-                        byte[] compressedBytes = imageCompressionService.resizeImageIfNeeded(
+                        ImageCompressionService.CompressionResult compressionResult = imageCompressionService.resizeImageIfNeeded(
+                            cacheKey,
                             sanitizedName,
                             originalImage,
                             contentType,
@@ -148,14 +151,27 @@ public class DiskImageController {
                             message -> log.debug("[FSPhotos][IMAGE][compress] {}", message)
                         );
 
+                        byte[] compressedBytes = compressionResult.getData();
                         ByteArrayResource resource = new ByteArrayResource(compressedBytes);
-                        return ResponseEntity.ok()
+                        ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
                                 .lastModified(lastModified)
                                 .cacheControl(CacheControl.maxAge(3600, TimeUnit.SECONDS).cachePublic())
                                 .contentType(MediaType.parseMediaType(contentType))
-                                .contentLength(compressedBytes.length)
+                                .contentLength(compressionResult.getCompressedSize())
                                 .header("X-Pat-Compression", "applied")
-                                .body(resource);
+                                .header("X-Pat-Image-Size-Before", Long.toString(compressionResult.getOriginalSize()))
+                                .header("X-Pat-Image-Size-After", Long.toString(compressionResult.getCompressedSize()));
+
+                        if (!compressionResult.getExifMetadata().isEmpty()) {
+                            String exifSummary = compressionResult.getExifMetadata()
+                                .entrySet()
+                                .stream()
+                                .map(entry -> entry.getKey() + "=" + entry.getValue())
+                                .collect(Collectors.joining("; "));
+                            builder = builder.header("X-Pat-Exif", exifSummary);
+                        }
+
+                        return builder.body(resource);
                     } catch (Exception e) {
                         log.debug("[FSPhotos][IMAGE] Compression failed, falling back to original. Reason: {}", e.getMessage());
                     }

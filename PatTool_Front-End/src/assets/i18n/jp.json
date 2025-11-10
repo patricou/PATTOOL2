@@ -342,6 +342,7 @@
         "EXIF_WIDTH": "幅",
         "EXIF_HEIGHT": "高さ",
         "EXIF_FILE_SIZE": "ファイルサイズ",
+        "EXIF_ORIGINAL_FILE_SIZE": "元のサイズ（圧縮前）",
         "EXIF_MIME_TYPE": "MIMEタイプ",
         "EXIF_MAKE": "メーカー",
         "EXIF_MODEL": "モデル",

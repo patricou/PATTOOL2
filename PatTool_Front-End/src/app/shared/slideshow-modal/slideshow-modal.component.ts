@@ -1,10 +1,11 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import { HttpHeaders } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
 import { Observable, Subscription, Subject } from 'rxjs';
-import { map, takeUntil } from 'rxjs/operators';
+import { map, takeUntil, finalize } from 'rxjs/operators';
 // Note: panzoom library is available but we'll keep using custom implementation for now
 // import panzoom from 'panzoom';
 declare var EXIF: {
@@ -23,6 +24,13 @@ export interface SlideshowImageSource {
   // For filesystem images
   relativePath?: string; // Optional: relative path for filesystem images
   compressFs?: boolean; // Optional: whether filesystem images were requested with compression
+  patMetadata?: PatMetadata;
+}
+
+interface PatMetadata {
+  originalSizeBytes?: number;
+  originalSizeKilobytes?: number;
+  rawHeaderValue?: string;
 }
 
 @Component({
@@ -168,8 +176,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private cancelImageLoadsSubject!: Subject<void>;
   private imageLoadQueue: Array<{imageSource: SlideshowImageSource, imageIndex: number, priority: number}> = []; // Queue for image loading
   private activeImageLoads: number = 0; // Number of images currently being loaded
-  private maxConcurrentImageLoads: number = 12; // Maximum concurrent image loads (increased for faster loading)
-  private imageCache: Map<string, {objectUrl: string, blob: Blob}> = new Map(); // Cache to avoid loading same image multiple times (key: fileId or relativePath+fileName)
+  private maxConcurrentImageLoads: number = 48 ; // Maximum concurrent image loads (increased for faster loading)
+  private imageCache: Map<string, {objectUrl: string, blob: Blob, metadata?: PatMetadata}> = new Map(); // Cache to avoid loading same image multiple times (key: fileId or relativePath+fileName)
   private loadingImageKeys: Set<string> = new Set(); // Track which image keys are currently loading
   private pendingImageLoads: Map<string, number[]> = new Map(); // Track pending image indices waiting for same image to load (key -> array of imageIndex)
   
@@ -179,6 +187,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public currentImageFileName: string = ''; // Current image file name for EXIF modal title
   private exifDataCache: Map<string, Array<{label: string, value: string}>> = new Map(); // Cache EXIF data by image URL
   private imageFileNames: Map<string, string> = new Map(); // Store file names by image URL
+  private imagePatMetadata: Map<string, PatMetadata> = new Map();
   
   // Thumbnails
   public thumbnails: string[] = []; // Array of thumbnail blob URLs, indexed by slideshowImages index
@@ -200,6 +209,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public currentMapUrl: SafeResourceUrl | null = null;
   private imageLocations: Map<string, { lat: number; lng: number }> = new Map();
   private mapUrlCache: Map<string, SafeResourceUrl> = new Map();
+
+  // Filesystem image variants tracking
+  private filesystemImageVariants: Map<number, {
+    compressedUrl?: string;
+    originalUrl?: string;
+    compressedMetadata?: PatMetadata;
+    originalMetadata?: PatMetadata;
+    currentVariant: 'compressed' | 'original';
+  }> = new Map();
+  private filesystemVariantLoading: Set<number> = new Set();
   
   constructor(
     private cdr: ChangeDetectorRef,
@@ -290,6 +309,23 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         // This can happen if cleanup is called multiple times
       }
     });
+    // Revoke additional filesystem variant URLs not currently in slideshowImages
+    this.filesystemImageVariants.forEach(variants => {
+      if (variants.compressedUrl) {
+        try {
+          if (variants.compressedUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(variants.compressedUrl);
+          }
+        } catch {}
+      }
+      if (variants.originalUrl) {
+        try {
+          if (variants.originalUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(variants.originalUrl);
+          }
+        } catch {}
+      }
+    });
     
     // Clear all arrays and maps to release references
     this.slideshowImages = [];
@@ -299,8 +335,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.slideshowIndexToImageIndex.clear();
     this.imageCache.clear();
     this.loadingImageKeys.clear();
+    this.imagePatMetadata.clear();
     this.imageLocations.clear();
     this.mapUrlCache.clear();
+    this.filesystemVariantLoading.clear();
+    this.filesystemImageVariants.clear();
     this.currentImageLocation = null;
     this.currentMapUrl = null;
     this.showMapView = false;
@@ -395,6 +434,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.pendingImageLoads.clear();
     this.imageLocations.clear();
     this.mapUrlCache.clear();
+    this.filesystemVariantLoading.clear();
+    this.filesystemImageVariants.clear();
     // Create a new cancel subject for this session
     this.cancelImageLoadsSubject = new Subject<void>();
     
@@ -506,6 +547,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     return null;
   }
+
+  private getFilesystemCacheKey(relativePath: string, fileName: string, compress: boolean): string {
+    const compressKey = compress ? ':compressed' : '';
+    return `disk:${relativePath}/${fileName}${compressKey}`;
+  }
   
   // Process image load queue with parallel execution
   private processImageLoadQueue(): void {
@@ -522,7 +568,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Check if image is already cached
       if (cacheKey && this.imageCache.has(cacheKey)) {
         const cached = this.imageCache.get(cacheKey)!;
-        this.handleImageLoaded(cached.objectUrl, cached.blob, imageIndex);
+        this.handleImageLoaded(cached.objectUrl, cached.blob, imageIndex, cached.metadata);
         // Process next in queue (no need to increment activeImageLoads for cached images)
         this.processImageLoadQueue();
         continue;
@@ -551,32 +597,36 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const startRequest = () => {
         if (this.loadFromFileService && imageSource.fileId) {
           // Load from MongoDB via FileService
-          const subscription = this.fileService.getFile(imageSource.fileId).pipe(
+          const subscription = this.fileService.getFileWithMetadata(imageSource.fileId).pipe(
             takeUntil(this.cancelImageLoadsSubject),
-            map((res: any) => {
-              const mimeType = this.detectImageMimeType(res);
-              const blob = new Blob([res], { type: mimeType });
+            map((res) => {
+              const mimeType = this.detectImageMimeType(res.buffer);
+              const blob = new Blob([res.buffer], { type: mimeType });
               const objectUrl = URL.createObjectURL(blob);
               this.slideshowBlobs.set(objectUrl, blob);
               this.assignImageFileName(imageIndex, objectUrl);
+              const metadata = res.metadata ?? this.parsePatMetadataFromHeaders(res.headers);
+              if (metadata) {
+                imageSource.patMetadata = metadata;
+              }
               // Cache the image
               if (cacheKey) {
-                this.imageCache.set(cacheKey, { objectUrl, blob });
+                this.imageCache.set(cacheKey, { objectUrl, blob, metadata });
                 this.loadingImageKeys.delete(cacheKey);
               }
-              return { objectUrl, blob, imageIndex, cacheKey };
+              return { objectUrl, blob, imageIndex, cacheKey, metadata };
             })
           ).subscribe(
-            ({ objectUrl, blob, imageIndex, cacheKey }) => {
+            ({ objectUrl, blob, imageIndex, cacheKey, metadata }) => {
               if (!this.imageLoadActive) {
                 this.activeImageLoads--;
                 return;
               }
               // Handle cached image (will also handle pending indices)
               if (cacheKey) {
-                this.handleCachedImageLoaded(cacheKey, objectUrl, blob, imageIndex);
+                this.handleCachedImageLoaded(cacheKey, objectUrl, blob, imageIndex, metadata);
               } else {
-                this.handleImageLoaded(objectUrl, blob, imageIndex);
+                this.handleImageLoaded(objectUrl, blob, imageIndex, metadata);
               }
               this.activeImageLoads--;
               // Process next in queue immediately
@@ -595,32 +645,36 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           this.imageLoadingSubs.push(subscription);
         } else if (imageSource.relativePath && imageSource.fileName && !imageSource.blobUrl) {
           // Load from filesystem
-          const subscription = this.fileService.getImageFromDisk(imageSource.relativePath, imageSource.fileName, !!imageSource.compressFs).pipe(
+          const subscription = this.fileService.getImageFromDiskWithMetadata(imageSource.relativePath, imageSource.fileName, !!imageSource.compressFs).pipe(
             takeUntil(this.cancelImageLoadsSubject),
-            map((res: ArrayBuffer) => {
+            map((res) => {
               const mimeType = this.detectImageMimeTypeFromFileName(imageSource.fileName || 'image.jpg');
-              const blob = new Blob([res], { type: mimeType });
+              const blob = new Blob([res.buffer], { type: mimeType });
               const objectUrl = URL.createObjectURL(blob);
               this.slideshowBlobs.set(objectUrl, blob);
               this.assignImageFileName(imageIndex, objectUrl);
+              const metadata = res.metadata ?? this.parsePatMetadataFromHeaders(res.headers);
+              if (metadata) {
+                imageSource.patMetadata = metadata;
+              }
               // Cache the image
               if (cacheKey) {
-                this.imageCache.set(cacheKey, { objectUrl, blob });
+                this.imageCache.set(cacheKey, { objectUrl, blob, metadata });
                 this.loadingImageKeys.delete(cacheKey);
               }
-              return { objectUrl, blob, imageIndex, cacheKey };
+              return { objectUrl, blob, imageIndex, cacheKey, metadata };
             })
           ).subscribe(
-            ({ objectUrl, blob, imageIndex, cacheKey }) => {
+            ({ objectUrl, blob, imageIndex, cacheKey, metadata }) => {
               if (!this.imageLoadActive) {
                 this.activeImageLoads--;
                 return;
               }
               // Handle cached image (will also handle pending indices)
               if (cacheKey) {
-                this.handleCachedImageLoaded(cacheKey, objectUrl, blob, imageIndex);
+                this.handleCachedImageLoaded(cacheKey, objectUrl, blob, imageIndex, metadata);
               } else {
-                this.handleImageLoaded(objectUrl, blob, imageIndex);
+                this.handleImageLoaded(objectUrl, blob, imageIndex, metadata);
               }
               this.activeImageLoads--;
               // Process next in queue immediately
@@ -642,7 +696,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           // Check if already cached
           if (cacheKey && this.imageCache.has(cacheKey)) {
             const cached = this.imageCache.get(cacheKey)!;
-            this.handleCachedImageLoaded(cacheKey, cached.objectUrl, cached.blob, imageIndex);
+            this.handleCachedImageLoaded(cacheKey, cached.objectUrl, cached.blob, imageIndex, cached.metadata);
             // Process next in queue (no need to increment activeImageLoads for cached images)
             this.processImageLoadQueue();
           } else {
@@ -651,15 +705,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             if (imageSource.blob) {
               this.slideshowBlobs.set(imageSource.blobUrl, imageSource.blob);
               this.assignImageFileName(imageIndex, imageSource.blobUrl);
+              if (imageSource.patMetadata) {
+                this.imagePatMetadata.set(imageSource.blobUrl, imageSource.patMetadata);
+              }
               // Cache the image
               if (cacheKey) {
-                this.imageCache.set(cacheKey, { objectUrl: imageSource.blobUrl, blob: imageSource.blob });
+                this.imageCache.set(cacheKey, { objectUrl: imageSource.blobUrl, blob: imageSource.blob, metadata: imageSource.patMetadata });
               }
             }
             if (cacheKey) {
               this.loadingImageKeys.delete(cacheKey);
             }
-            this.handleImageLoaded(imageSource.blobUrl, imageSource.blob || null, imageIndex);
+            this.handleImageLoaded(imageSource.blobUrl, imageSource.blob || null, imageIndex, imageSource.patMetadata);
             // Decrement counter since blob URL is instant
             this.activeImageLoads--;
             // Process next in queue
@@ -681,11 +738,47 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Handle image loaded - add to slideshow (thumbnail generation is decoupled)
-  private handleImageLoaded(objectUrl: string, blob: Blob | null, imageIndex: number): void {
+  private handleImageLoaded(objectUrl: string, blob: Blob | null, imageIndex: number, metadata?: PatMetadata): void {
     const slideshowIndex = this.slideshowImages.length;
     this.slideshowImages.push(objectUrl);
 
     this.assignImageFileName(imageIndex, objectUrl);
+
+    const imageSource = this.images[imageIndex];
+    const effectiveMetadata = metadata ?? imageSource?.patMetadata;
+
+    if (imageSource && imageSource.relativePath && imageSource.fileName) {
+      const variantType: 'compressed' | 'original' = imageSource.compressFs === false ? 'original' : 'compressed';
+      let variants = this.filesystemImageVariants.get(imageIndex);
+      if (!variants) {
+        variants = { currentVariant: variantType };
+        this.filesystemImageVariants.set(imageIndex, variants);
+      }
+      if (variantType === 'original') {
+        variants.originalUrl = objectUrl;
+        if (effectiveMetadata) {
+          variants.originalMetadata = effectiveMetadata;
+        }
+      } else {
+        variants.compressedUrl = objectUrl;
+        if (effectiveMetadata) {
+          variants.compressedMetadata = effectiveMetadata;
+        }
+      }
+      if (!variants.currentVariant) {
+        variants.currentVariant = variantType;
+      }
+      if (this.filesystemVariantLoading.has(imageIndex)) {
+        this.filesystemVariantLoading.delete(imageIndex);
+      }
+    } else {
+      this.filesystemImageVariants.delete(imageIndex);
+      this.filesystemVariantLoading.delete(imageIndex);
+    }
+
+    if (effectiveMetadata) {
+      this.imagePatMetadata.set(objectUrl, effectiveMetadata);
+    }
     
     // Map slideshowImages index to this.images index
     this.slideshowIndexToImageIndex.set(slideshowIndex, imageIndex);
@@ -768,15 +861,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Handle cached image loaded - reuse cached image for multiple indices
-  private handleCachedImageLoaded(cacheKey: string, objectUrl: string, blob: Blob, imageIndex: number): void {
+  private handleCachedImageLoaded(cacheKey: string, objectUrl: string, blob: Blob, imageIndex: number, metadata?: PatMetadata): void {
     // Handle the main image index
-    this.handleImageLoaded(objectUrl, blob, imageIndex);
+    this.handleImageLoaded(objectUrl, blob, imageIndex, metadata);
     
     // Handle all pending image indices waiting for this same image
     const pendingIndices = this.pendingImageLoads.get(cacheKey);
     if (pendingIndices && pendingIndices.length > 0) {
       pendingIndices.forEach(pendingIndex => {
-        this.handleImageLoaded(objectUrl, blob, pendingIndex);
+        this.handleImageLoaded(objectUrl, blob, pendingIndex, metadata);
       });
       this.pendingImageLoads.delete(cacheKey);
     }
@@ -804,7 +897,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.queueImageLoad(imageSource, imageIndex, priority);
       } else if (imageSource.blobUrl) {
         // For blob URLs, handle immediately (no network request needed)
-        this.handleImageLoaded(imageSource.blobUrl, imageSource.blob || null, imageIndex);
+        this.handleImageLoaded(imageSource.blobUrl, imageSource.blob || null, imageIndex, imageSource.patMetadata);
       }
     });
     
@@ -838,7 +931,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         if (imageSource.blob) {
           this.slideshowBlobs.set(imageSource.blobUrl, imageSource.blob);
         }
-        this.handleImageLoaded(imageSource.blobUrl, imageSource.blob || null, imageIndex);
+        this.handleImageLoaded(imageSource.blobUrl, imageSource.blob || null, imageIndex, imageSource.patMetadata);
       } else if (imageSource.fileId && this.loadFromFileService && this.imageLoadActive) {
         // Queue for loading via FileService
         const priority = imageIndex + 1000; // Lower priority for dynamically added images
@@ -2099,17 +2192,21 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     };
   }
   
-  public onSlideshowTouchStart(event: TouchEvent): void {
+  public onSlideshowTouchStart(event: TouchEvent | Event): void {
     if (this.showMapView) {
       return;
     }
-    if (event.touches.length === 1) {
-      const touch = event.touches[0];
+    const touchEvent = event as TouchEvent;
+    if (!touchEvent || typeof touchEvent.touches === 'undefined') {
+      return;
+    }
+    if (touchEvent.touches.length === 1) {
+      const touch = touchEvent.touches[0];
       const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
       this.isDraggingSlideshow = canDrag;
       this.hasDraggedSlideshow = false;
       if (canDrag) {
-        try { event.preventDefault(); event.stopPropagation(); } catch {}
+        try { touchEvent.preventDefault(); touchEvent.stopPropagation(); } catch {}
       }
       this.touchStartX = touch.clientX;
       this.touchStartY = touch.clientY;
@@ -2118,12 +2215,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.dragOrigX = this.slideshowTranslateX;
       this.dragOrigY = this.slideshowTranslateY;
       this.isPinching = false;
-    } else if (event.touches.length === 2) {
-      try { event.preventDefault(); event.stopPropagation(); } catch {}
+    } else if (touchEvent.touches.length === 2) {
+      try { touchEvent.preventDefault(); touchEvent.stopPropagation(); } catch {}
       this.isPinching = true;
       this.isDraggingSlideshow = false;
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
+      const touch1 = touchEvent.touches[0];
+      const touch2 = touchEvent.touches[1];
       this.touchStartDistance = this.getTouchDistance(touch1, touch2);
       this.touchStartZoom = this.slideshowZoom;
       this.lastTouchDistance = this.touchStartDistance;
@@ -2141,24 +2238,28 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  public onSlideshowTouchMove(event: TouchEvent): void {
+  public onSlideshowTouchMove(event: TouchEvent | Event): void {
     if (this.showMapView) {
       return;
     }
-    if (event.touches.length === 1 && !this.isPinching) {
+    const touchEvent = event as TouchEvent;
+    if (!touchEvent || typeof touchEvent.touches === 'undefined') {
+      return;
+    }
+    if (touchEvent.touches.length === 1 && !this.isPinching) {
       if (!this.isDraggingSlideshow) return;
-      const touch = event.touches[0];
-      try { event.preventDefault(); event.stopPropagation(); } catch {}
+      const touch = touchEvent.touches[0];
+      try { touchEvent.preventDefault(); touchEvent.stopPropagation(); } catch {}
       const dx = touch.clientX - this.dragStartX;
       const dy = touch.clientY - this.dragStartY;
       this.slideshowTranslateX = this.dragOrigX + dx;
       this.slideshowTranslateY = this.dragOrigY + dy;
       if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
       this.clampSlideshowTranslation();
-    } else if (event.touches.length === 2 && this.isPinching) {
-      try { event.preventDefault(); event.stopPropagation(); } catch {}
-      const touch1 = event.touches[0];
-      const touch2 = event.touches[1];
+    } else if (touchEvent.touches.length === 2 && this.isPinching) {
+      try { touchEvent.preventDefault(); touchEvent.stopPropagation(); } catch {}
+      const touch1 = touchEvent.touches[0];
+      const touch2 = touchEvent.touches[1];
       const currentDistance = this.getTouchDistance(touch1, touch2);
       
       if (this.touchStartDistance > 0) {
@@ -2206,11 +2307,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  public onSlideshowTouchEnd(event: TouchEvent): void {
+  public onSlideshowTouchEnd(event: TouchEvent | Event): void {
     if (this.showMapView) {
       return;
     }
-    if (event.touches.length === 0) {
+    const touchEvent = event as TouchEvent;
+    if (!touchEvent || typeof touchEvent.touches === 'undefined') {
+      return;
+    }
+    if (touchEvent.touches.length === 0) {
       this.isDraggingSlideshow = false;
       this.isPinching = false;
       this.initialTouches = [];
@@ -2218,9 +2323,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.lastTouchDistance = 0;
       this.pinchStartTranslateX = 0;
       this.pinchStartTranslateY = 0;
-    } else if (event.touches.length === 1 && this.isPinching) {
+    } else if (touchEvent.touches.length === 1 && this.isPinching) {
       this.isPinching = false;
-      const touch = event.touches[0];
+      const touch = touchEvent.touches[0];
       this.isDraggingSlideshow = this.slideshowZoom > this.getMinSlideshowZoom();
       if (this.isDraggingSlideshow) {
         this.touchStartX = touch.clientX;
@@ -2371,6 +2476,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 69;
         this.toggleMapView();
+      } else if (event.key === 'o' || event.key === 'O' || event.keyCode === 79) {
+        if (!this.shouldShowFilesystemToggleButton() || this.isFilesystemToggleDisabled()) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 79;
+        this.toggleFilesystemImageQuality();
       } else if (event.key === 'Escape' || event.keyCode === 27) {
         // En mode fenêtre : Escape réinitialise le zoom
         event.preventDefault();
@@ -2507,6 +2622,168 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       return '';
     }
     return this.imageFileNames.get(currentImageUrl) || '';
+  }
+
+  public shouldShowFilesystemToggleButton(): boolean {
+    const imageIndex = this.slideshowIndexToImageIndex.get(this.currentSlideshowIndex);
+    if (imageIndex === undefined) {
+      return false;
+    }
+    const imageSource = this.images[imageIndex];
+    return !!(imageSource && imageSource.relativePath && imageSource.fileName);
+  }
+
+  public isCurrentFilesystemVariantLoading(): boolean {
+    const imageIndex = this.slideshowIndexToImageIndex.get(this.currentSlideshowIndex);
+    if (imageIndex === undefined) {
+      return false;
+    }
+    return this.filesystemVariantLoading.has(imageIndex);
+  }
+
+  public isFilesystemToggleDisabled(): boolean {
+    const imageIndex = this.slideshowIndexToImageIndex.get(this.currentSlideshowIndex);
+    if (imageIndex === undefined) {
+      return false;
+    }
+    const imageSource = this.images[imageIndex];
+    if (!imageSource || !imageSource.relativePath || !imageSource.fileName) {
+      return true;
+    }
+    return this.filesystemVariantLoading.has(imageIndex);
+  }
+
+  public getFilesystemToggleLabelKey(): string {
+    const imageIndex = this.slideshowIndexToImageIndex.get(this.currentSlideshowIndex);
+    if (imageIndex === undefined) {
+      return 'EVENTELEM.ORIGINAL_PHOTO';
+    }
+    const variants = this.filesystemImageVariants.get(imageIndex);
+    const isCurrentlyOriginal = variants
+      ? variants.currentVariant === 'original'
+      : this.images[imageIndex]?.compressFs === false;
+    return isCurrentlyOriginal ? 'EVENTELEM.COMPRESSED_PHOTO' : 'EVENTELEM.ORIGINAL_PHOTO';
+  }
+
+  public toggleFilesystemImageQuality(): void {
+    const imageIndex = this.slideshowIndexToImageIndex.get(this.currentSlideshowIndex);
+    if (imageIndex === undefined) {
+      return;
+    }
+
+    const imageSource = this.images[imageIndex];
+    if (!imageSource || !imageSource.relativePath || !imageSource.fileName) {
+      return;
+    }
+
+    let variants = this.filesystemImageVariants.get(imageIndex);
+    if (!variants) {
+      const initialVariant: 'compressed' | 'original' = imageSource.compressFs === false ? 'original' : 'compressed';
+      variants = { currentVariant: initialVariant };
+      this.filesystemImageVariants.set(imageIndex, variants);
+    }
+
+    const currentVariant = variants.currentVariant ?? (imageSource.compressFs === false ? 'original' : 'compressed');
+    const targetVariant: 'compressed' | 'original' = currentVariant === 'original' ? 'compressed' : 'original';
+
+    if (this.filesystemVariantLoading.has(imageIndex)) {
+      return;
+    }
+
+    const previousZoom = this.slideshowZoom;
+    const previousTranslateX = this.slideshowTranslateX;
+    const previousTranslateY = this.slideshowTranslateY;
+
+    if (targetVariant === 'original' && variants.originalUrl) {
+      this.applyFilesystemVariant(
+        variants.originalUrl,
+        this.slideshowBlobs.get(variants.originalUrl) || null,
+        imageIndex,
+        imageSource,
+        previousZoom,
+        previousTranslateX,
+        previousTranslateY,
+        variants.originalMetadata,
+        targetVariant
+      );
+      return;
+    }
+
+    if (targetVariant === 'compressed' && variants.compressedUrl) {
+      this.applyFilesystemVariant(
+        variants.compressedUrl,
+        this.slideshowBlobs.get(variants.compressedUrl) || null,
+        imageIndex,
+        imageSource,
+        previousZoom,
+        previousTranslateX,
+        previousTranslateY,
+        variants.compressedMetadata,
+        targetVariant
+      );
+      return;
+    }
+
+    const compressFlag = targetVariant === 'compressed';
+    this.filesystemVariantLoading.add(imageIndex);
+    this.cdr.detectChanges();
+
+    const request$ = this.fileService.getImageFromDiskWithMetadata(
+      imageSource.relativePath,
+      imageSource.fileName,
+      compressFlag
+    ).pipe(
+      takeUntil(this.cancelImageLoadsSubject),
+      map((res) => {
+        const mimeType = this.detectImageMimeTypeFromFileName(imageSource.fileName || 'image.jpg');
+        const blob = new Blob([res.buffer], { type: mimeType });
+        const objectUrl = URL.createObjectURL(blob);
+        this.slideshowBlobs.set(objectUrl, blob);
+        const metadata = res.metadata ?? this.parsePatMetadataFromHeaders(res.headers);
+        const cacheKey = this.getFilesystemCacheKey(imageSource.relativePath!, imageSource.fileName!, compressFlag);
+        if (cacheKey) {
+          this.imageCache.set(cacheKey, { objectUrl, blob, metadata });
+          this.loadingImageKeys.delete(cacheKey);
+        }
+        return { objectUrl, blob, metadata };
+      }),
+      finalize(() => {
+        this.filesystemVariantLoading.delete(imageIndex);
+        this.cdr.detectChanges();
+      })
+    );
+
+    const subscription = request$.subscribe({
+      next: ({ objectUrl, blob, metadata }) => {
+        if (targetVariant === 'original') {
+          variants!.originalUrl = objectUrl;
+          if (metadata) {
+            variants!.originalMetadata = metadata;
+          }
+        } else {
+          variants!.compressedUrl = objectUrl;
+          if (metadata) {
+            variants!.compressedMetadata = metadata;
+          }
+        }
+        this.applyFilesystemVariant(
+          objectUrl,
+          blob,
+          imageIndex,
+          imageSource,
+          previousZoom,
+          previousTranslateX,
+          previousTranslateY,
+          metadata,
+          targetVariant
+        );
+      },
+      error: (error) => {
+        console.error('Error loading filesystem image variant:', error);
+      }
+    });
+
+    this.imageLoadingSubs.push(subscription);
   }
   
   // Slideshow controls
@@ -2647,13 +2924,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Use cached data immediately
       this.exifData = cachedExifData;
       this.isLoadingExif = false;
+      this.logExifDataForCurrentImage('show-exif-cache');
       
       // Open modal with cached data
       const exifModalRef = this.modalService.open(this.exifModal, {
         size: 'lg',
         centered: true,
         backdrop: 'static',
-        keyboard: false
+        keyboard: false,
+        windowClass: 'exif-modal-tall'
       });
       return;
     }
@@ -2667,7 +2946,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       size: 'lg',
       centered: true,
       backdrop: 'static',
-      keyboard: false
+      keyboard: false,
+      windowClass: 'exif-modal-tall'
     });
     
     // Load EXIF data (will use stored blob, no network request)
@@ -2677,6 +2957,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.exifDataCache.set(currentImageUrl, [...this.exifData]);
       }
       this.isLoadingExif = false;
+      this.logExifDataForCurrentImage('show-exif-loaded');
     }).catch((error) => {
       this.isLoadingExif = false;
     });
@@ -2762,6 +3043,100 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       'pointer-events': 'auto',
       'max-height': '120px'
     };
+  }
+
+  private applyFilesystemVariant(
+    newUrl: string,
+    blob: Blob | null,
+    imageIndex: number,
+    imageSource: SlideshowImageSource,
+    previousZoom: number,
+    previousTranslateX: number,
+    previousTranslateY: number,
+    metadata: PatMetadata | undefined,
+    variant: 'compressed' | 'original'
+  ): void {
+    if (!newUrl) {
+      return;
+    }
+
+    const currentUrl = this.slideshowImages[this.currentSlideshowIndex];
+    if (!currentUrl) {
+      return;
+    }
+
+    if (blob) {
+      this.slideshowBlobs.set(newUrl, blob);
+    }
+
+    const fileName = this.imageFileNames.get(currentUrl) || imageSource?.fileName || '';
+
+    if (currentUrl !== newUrl) {
+      this.slideshowImages[this.currentSlideshowIndex] = newUrl;
+    }
+
+    if (fileName) {
+      this.imageFileNames.set(newUrl, fileName);
+    }
+
+    this.imageUrlToThumbnailIndex.set(newUrl, imageIndex);
+    this.slideshowIndexToImageIndex.set(this.currentSlideshowIndex, imageIndex);
+    this.currentImageFileName = fileName || '';
+
+    const metadataToStore = metadata ?? imageSource?.patMetadata;
+    if (metadataToStore) {
+      this.imagePatMetadata.set(newUrl, metadataToStore);
+      if (imageSource) {
+        imageSource.patMetadata = metadataToStore;
+      }
+    }
+
+    let variants = this.filesystemImageVariants.get(imageIndex);
+    if (!variants && imageSource && imageSource.relativePath && imageSource.fileName) {
+      variants = { currentVariant: variant };
+      this.filesystemImageVariants.set(imageIndex, variants);
+    }
+    if (variants) {
+      variants.currentVariant = variant;
+      if (variant === 'original') {
+        variants.originalUrl = newUrl;
+        if (metadataToStore) {
+          variants.originalMetadata = metadataToStore;
+        }
+      } else {
+        variants.compressedUrl = newUrl;
+        if (metadataToStore) {
+          variants.compressedMetadata = metadataToStore;
+        }
+      }
+    }
+
+    if (currentUrl !== newUrl) {
+      if (this.imageLocations.has(currentUrl)) {
+        const location = this.imageLocations.get(currentUrl)!;
+        this.imageLocations.set(newUrl, { ...location });
+      }
+      if (this.mapUrlCache.has(currentUrl)) {
+        this.mapUrlCache.set(newUrl, this.mapUrlCache.get(currentUrl)!);
+      }
+    }
+
+    this.updateCurrentImageLocation();
+
+    this.slideshowZoom = previousZoom;
+    this.slideshowTranslateX = previousTranslateX;
+    this.slideshowTranslateY = previousTranslateY;
+    this.clampSlideshowTranslation();
+
+    if (imageSource) {
+      imageSource.compressFs = variant === 'compressed';
+    }
+
+    if (this.showInfoPanel) {
+      setTimeout(() => this.loadExifDataForInfoPanel(), 100);
+    }
+
+    this.cdr.detectChanges();
   }
   
   // Share image via Web Share API (WhatsApp, etc.)
@@ -2983,12 +3358,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         // Use cached data
         this.exifData = cachedExifData;
         this.isLoadingExif = false;
+        this.logExifDataForCurrentImage('info-panel-cache');
       } else {
         // Load EXIF data
         this.isLoadingExif = true;
         this.exifData = [];
         this.loadExifData().then(() => {
           this.isLoadingExif = false;
+          this.logExifDataForCurrentImage('info-panel-loaded');
         }).catch((error) => {
           console.error('Error loading EXIF data:', error);
           this.isLoadingExif = false;
@@ -3029,6 +3406,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (hasFileSize) {
         // Cache is complete, use it
         this.exifData = cachedExifData;
+        this.logExifDataForCurrentImage('load-exif-cache');
         return;
       } else {
         // Cache exists but missing file size - we'll add it below
@@ -3152,6 +3530,57 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       
     } catch (error) {
       console.error('Error loading EXIF data:', error);
+    }
+
+    this.logExifDataForCurrentImage('load-exif-complete');
+  }
+
+  private logExifDataForCurrentImage(context: string): void {
+    if (typeof console === 'undefined' || !console) {
+      return;
+    }
+
+    const currentImageUrl = this.getCurrentSlideshowImage();
+    if (!currentImageUrl) {
+      return;
+    }
+
+    const fileName =
+      this.currentImageFileName ||
+      this.imageFileNames.get(currentImageUrl) ||
+      'image.jpg';
+
+    const summary = {
+      context,
+      fileName,
+      imageUrl: currentImageUrl,
+      exifItemCount: this.exifData?.length || 0
+    };
+
+    if (typeof console.log === 'function') {
+      console.log('[Slideshow EXIF]', summary);
+    }
+
+    if (this.exifData && this.exifData.length > 0) {
+      if (typeof console.table === 'function') {
+        console.table(
+          this.exifData.map(item => ({
+            label: item.label,
+            value: item.value
+          }))
+        );
+      } else if (typeof console.log === 'function') {
+        this.exifData.forEach(item => {
+          console.log(`${item.label}:`, item.value);
+        });
+      }
+    } else if (typeof console.log === 'function') {
+      console.log('No EXIF data available for this image.');
+    }
+
+    const metadata = this.imagePatMetadata.get(currentImageUrl);
+    if (metadata && typeof console.log === 'function') {
+      console.log('PAT metadata:', metadata);
     }
   }
   
@@ -3464,6 +3893,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         value: `${exifData.PixelYDimension} px`
       });
     }
+
+    const patOriginalSize = this.getOriginalSizeFromPatMetadata(exifData.UserComment, imageUrlToUse);
+    if (patOriginalSize) {
+      const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
+      if (!targetArray.some(item => item.label === originalSizeLabel)) {
+        targetArray.push({
+          label: originalSizeLabel,
+          value: patOriginalSize
+        });
+      }
+    }
     
   }
   
@@ -3526,6 +3966,149 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  private parsePatMetadataFromHeaders(headers: HttpHeaders | null | undefined): PatMetadata | undefined {
+    if (!headers) {
+      return undefined;
+    }
+
+    const metadata: PatMetadata = {};
+
+    const originalSizeHeader = headers.get('X-Pat-Image-Size-Before');
+    if (originalSizeHeader) {
+      const parsed = parseInt(originalSizeHeader, 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        metadata.originalSizeBytes = parsed;
+        metadata.originalSizeKilobytes = Math.max(1, Math.round(parsed / 1024));
+      }
+    }
+
+    const patHeader = headers.get('X-Pat-Exif');
+    if (patHeader) {
+      const values = this.extractPatValuesFromString(patHeader);
+      if (values.bytes) {
+        metadata.originalSizeBytes = values.bytes;
+      }
+      if (values.kb) {
+        metadata.originalSizeKilobytes = values.kb;
+      }
+      metadata.rawHeaderValue = patHeader;
+    }
+
+    if (metadata.originalSizeBytes || metadata.originalSizeKilobytes) {
+      return metadata;
+    }
+    return undefined;
+  }
+
+  private extractPatValuesFromString(source: string): { bytes?: number; kb?: number } {
+    if (!source) {
+      return {};
+    }
+    const result: { bytes?: number; kb?: number } = {};
+    const bytesMatch = source.match(/PatOriginalFileSizeBytes=(\d+)/i);
+    const kbMatch = source.match(/PatOriginalFileSizeKB=(\d+)/i);
+
+    if (bytesMatch) {
+      const parsed = parseInt(bytesMatch[1], 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        result.bytes = parsed;
+      }
+    }
+    if (kbMatch) {
+      const parsed = parseInt(kbMatch[1], 10);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        result.kb = parsed;
+      }
+    }
+    return result;
+  }
+
+  private formatPatMetadata(metadata?: PatMetadata): string | null {
+    if (!metadata) {
+      return null;
+    }
+
+    const bytesValue = metadata.originalSizeBytes || (metadata.originalSizeKilobytes ? metadata.originalSizeKilobytes * 1024 : undefined);
+    if (!bytesValue || !Number.isFinite(bytesValue) || bytesValue <= 0) {
+      return null;
+    }
+
+    const locale = this.translateService?.currentLang || undefined;
+    const readableSize = this.formatFileSize(bytesValue);
+    const details: string[] = [`${bytesValue.toLocaleString(locale as string | undefined)} B`];
+
+    if (metadata.originalSizeKilobytes && Number.isFinite(metadata.originalSizeKilobytes) && metadata.originalSizeKilobytes > 0) {
+      details.push(`${metadata.originalSizeKilobytes.toLocaleString(locale as string | undefined)} KB`);
+    }
+
+    return `${readableSize} (${details.join(' · ')})`;
+  }
+
+  private getOriginalSizeFromPatMetadata(userComment: any, imageUrl?: string): string | null {
+    const normalizedComment = this.normalizeUserComment(userComment);
+    if (normalizedComment) {
+      const values = this.extractPatValuesFromString(normalizedComment);
+      let bytesValue = values.bytes;
+      if ((!bytesValue || bytesValue <= 0) && values.kb && values.kb > 0) {
+        bytesValue = values.kb * 1024;
+      }
+      if (bytesValue && bytesValue > 0) {
+        return this.formatPatMetadata({ originalSizeBytes: bytesValue, originalSizeKilobytes: values.kb });
+      }
+    }
+
+    if (imageUrl) {
+      const storedMetadata = this.imagePatMetadata.get(imageUrl);
+      const formatted = this.formatPatMetadata(storedMetadata);
+      if (formatted) {
+        return formatted;
+      }
+    }
+
+    return null;
+  }
+
+  private normalizeUserComment(userComment: any): string | null {
+    if (!userComment) {
+      return null;
+    }
+
+    let rawValue: string | null = null;
+
+    if (typeof userComment === 'string') {
+      rawValue = userComment;
+    } else if (Array.isArray(userComment)) {
+      try {
+        rawValue = String.fromCharCode(...userComment);
+      } catch {
+        rawValue = null;
+      }
+    } else if (userComment instanceof Uint8Array) {
+      try {
+        rawValue = new TextDecoder('utf-8').decode(userComment);
+      } catch {
+        rawValue = null;
+      }
+    } else if (typeof userComment === 'object' && userComment !== null && typeof userComment.toString === 'function') {
+      rawValue = userComment.toString();
+    }
+
+    if (!rawValue) {
+      return null;
+    }
+
+    rawValue = rawValue.replace(/\u0000/g, '').trim();
+
+    if (rawValue.startsWith('ASCII')) {
+      rawValue = rawValue.substring(5).replace(/^\u0000+/, '');
+    } else if (rawValue.startsWith('UNICODE')) {
+      rawValue = rawValue.substring(7).replace(/^\u0000+/, '');
+    }
+
+    rawValue = rawValue.trim();
+    return rawValue.length > 0 ? rawValue : null;
   }
   
   // Check if a specific thumbnail is loading (by slideshow index)

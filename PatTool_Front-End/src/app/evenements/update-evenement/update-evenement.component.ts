@@ -10,7 +10,7 @@ import { Member } from '../../model/member';
 import { UrlEvent } from '../../model/url-event';
 import { Commentary } from '../../model/commentary';
 import { MembersService } from '../../services/members.service';
-import { FileService } from '../../services/file.service';
+import { FileService, ImageDownloadResult } from '../../services/file.service';
 import { UploadedFile } from '../../model/uploadedfile';
 import { Observable, from, of, Subscription } from 'rxjs';
 import { map, concatMap, catchError, finalize } from 'rxjs/operators';
@@ -1279,7 +1279,7 @@ export class UpdateEvenementComponent implements OnInit {
 				}
 				
 				// Load images with concurrency and add them dynamically
-				const maxConcurrent = 4;
+				const maxConcurrent = 12;
 				let active = 0;
 				const queue = [...fileNames];
 				
@@ -1291,13 +1291,18 @@ export class UpdateEvenementComponent implements OnInit {
 					const fileName = queue.shift() as string;
 					active++;
 					
-					const imageSub = this._fileService.getImageFromDisk(relativePath, fileName, compress).subscribe({
-						next: (buffer: ArrayBuffer) => {
+					const imageSub = this._fileService.getImageFromDiskWithMetadata(relativePath, fileName, compress).subscribe({
+						next: (result: ImageDownloadResult) => {
 							if (!this.fsSlideshowLoadingActive) return;
 							
-							const blob = new Blob([buffer], { type: 'image/*' });
+							const blob = new Blob([result.buffer], { type: 'image/*' });
 							const url = URL.createObjectURL(blob);
-							const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined, blob: blob, fileName: fileName, relativePath: relativePath, compressFs: compress };
+              const patMetadata = result.metadata ? {
+                originalSizeBytes: result.metadata.originalSizeBytes,
+                originalSizeKilobytes: result.metadata.originalSizeKilobytes,
+                rawHeaderValue: result.metadata.rawHeaderValue
+              } : undefined;
+							const imageSource: SlideshowImageSource = { blobUrl: url, fileId: undefined, blob: blob, fileName: fileName, relativePath: relativePath, compressFs: compress, patMetadata: patMetadata };
 							
 							// Add image dynamically to the already open slideshow
 							if (this.slideshowModalComponent && this.fsSlideshowLoadingActive) {

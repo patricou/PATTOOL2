@@ -9,6 +9,18 @@ import { KeycloakService } from '../keycloak/keycloak.service';
 import { Member } from '../model/member';
 
 
+export interface PatOriginalSizeMetadata {
+    originalSizeBytes?: number;
+    originalSizeKilobytes?: number;
+    rawHeaderValue?: string;
+}
+
+export interface ImageDownloadResult {
+    buffer: ArrayBuffer;
+    headers: HttpHeaders;
+    metadata?: PatOriginalSizeMetadata;
+}
+
 @Injectable()
 export class FileService {
 
@@ -40,6 +52,20 @@ export class FileService {
         );
     }
 
+    getImageFromDiskWithMetadata(relativePath: string, fileName: string, compress: boolean = false): Observable<ImageDownloadResult> {
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers =>
+                this._http.get(`${this.API_URL4FILEONDISK}/image?relativePath=${encodeURIComponent(relativePath)}&fileName=${encodeURIComponent(fileName)}${compress ? '&compress=true' : ''}`,
+                    { headers, responseType: 'arraybuffer', observe: 'response' })
+            ),
+            map((response: HttpResponse<ArrayBuffer>) => ({
+                buffer: response.body || new ArrayBuffer(0),
+                headers: response.headers,
+                metadata: this.extractPatMetadata(response.headers)
+            }))
+        );
+    }
+
     // Get the token for Keycloak Security
     getHeaderWithToken(): Observable<HttpHeaders> {
         return from(this._keycloakService.getToken()).pipe(
@@ -59,6 +85,61 @@ export class FileService {
                 this._http.get(this.API_URL + "file/" + fileId, { headers: headers, responseType: 'arraybuffer' })
             )
         );
+    }
+
+    getFileWithMetadata(fileId: string): Observable<ImageDownloadResult> {
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers =>
+                this._http.get(this.API_URL + "file/" + fileId, { headers: headers, responseType: 'arraybuffer', observe: 'response' })
+            ),
+            map((response: HttpResponse<ArrayBuffer>) => ({
+                buffer: response.body || new ArrayBuffer(0),
+                headers: response.headers,
+                metadata: this.extractPatMetadata(response.headers)
+            }))
+        );
+    }
+
+    private extractPatMetadata(headers: HttpHeaders | null | undefined): PatOriginalSizeMetadata | undefined {
+        if (!headers) {
+            return undefined;
+        }
+
+        const metadata: PatOriginalSizeMetadata = {};
+
+        const originalSizeHeader = headers.get('X-Pat-Image-Size-Before');
+        if (originalSizeHeader) {
+            const parsed = parseInt(originalSizeHeader, 10);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                metadata.originalSizeBytes = parsed;
+                metadata.originalSizeKilobytes = Math.max(1, Math.round(parsed / 1024));
+            }
+        }
+
+        const patHeader = headers.get('X-Pat-Exif');
+        if (patHeader) {
+            metadata.rawHeaderValue = patHeader;
+            const bytesMatch = patHeader.match(/PatOriginalFileSizeBytes=(\d+)/i);
+            if (bytesMatch) {
+                const parsed = parseInt(bytesMatch[1], 10);
+                if (Number.isFinite(parsed) && parsed > 0) {
+                    metadata.originalSizeBytes = parsed;
+                }
+            }
+            const kbMatch = patHeader.match(/PatOriginalFileSizeKB=(\d+)/i);
+            if (kbMatch) {
+                const parsed = parseInt(kbMatch[1], 10);
+                if (Number.isFinite(parsed) && parsed > 0) {
+                    metadata.originalSizeKilobytes = parsed;
+                }
+            }
+        }
+
+        if (metadata.originalSizeBytes || metadata.originalSizeKilobytes) {
+            return metadata;
+        }
+
+        return undefined;
     }
 
     // POST file to database    

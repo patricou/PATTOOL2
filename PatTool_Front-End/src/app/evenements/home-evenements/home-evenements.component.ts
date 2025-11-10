@@ -1154,50 +1154,17 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					return;
 				}
 				
-				// Load images with concurrency and add them dynamically
-				const maxConcurrent = 4;
-				let active = 0;
-				const queue = [...fileNames];
-				
-				const loadNext = () => {
-					if (active >= maxConcurrent || queue.length === 0) {
-						return;
-					}
-					
-					const fileName = queue.shift() as string;
-					active++;
-					
-				this._fileService.getImageFromDisk(relativePath, fileName, compress).subscribe({
-						next: (buffer: ArrayBuffer) => {
-							const blob = new Blob([buffer], { type: 'image/*' });
-							const url = URL.createObjectURL(blob);
-							const imageSource: SlideshowImageSource = { 
-								blobUrl: url, 
-								fileId: undefined, 
-								blob: blob, 
-								fileName: fileName,
-							relativePath: relativePath,
-							compressFs: compress
-							};
-							
-							// Add image dynamically to the already open slideshow
-							if (this.slideshowModalComponent) {
-								this.slideshowModalComponent.addImages([imageSource]);
-							}
-						},
-						error: (error) => {
-							console.error('Error loading image:', fileName, error);
-						},
-						complete: () => {
-							active--;
-							loadNext();
-						}
-					});
-				};
-				
-				// Start loading images
-				for (let i = 0; i < maxConcurrent && queue.length > 0; i++) {
-					loadNext();
+				// Delegate loading to the slideshow component queue (higher concurrency, built-in caching)
+				const imageSources: SlideshowImageSource[] = fileNames.map((fileName: string) => ({
+					fileId: undefined,
+					blobUrl: undefined,
+					fileName,
+					relativePath,
+					compressFs: compress
+				}));
+
+				if (this.slideshowModalComponent && imageSources.length > 0) {
+					this.slideshowModalComponent.addImages(imageSources);
 				}
 			},
 			error: (error) => {

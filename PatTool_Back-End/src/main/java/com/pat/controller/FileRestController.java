@@ -466,7 +466,7 @@ public class FileRestController {
                                 BufferedImage originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
                                 if (originalImage != null) {
                                     // Compress the image
-                                    byte[] compressedBytes = imageCompressionService.resizeImageIfNeeded(
+                                    ImageCompressionService.CompressionResult compressionResult = imageCompressionService.resizeImageIfNeeded(
                                         file.getOriginalFilename(), 
                                         originalImage, 
                                         contentType, 
@@ -475,8 +475,9 @@ public class FileRestController {
                                         fileBytes,
                                         null
                                     );
+                                    byte[] compressedBytes = compressionResult.getData();
                                     fileBytesToWrite = compressedBytes;
-                                    log.debug("Image compressed from {} to {} bytes", fileSize, compressedBytes.length);
+                                    log.debug("Image compressed from {} to {} bytes", fileSize, compressionResult.getCompressedSize());
                                 } else {
                                     // ImageIO couldn't read it, use original bytes
                                     fileBytesToWrite = fileBytes;
@@ -625,7 +626,7 @@ public class FileRestController {
                             }
                             
                             // Compress the image
-                            byte[] compressedBytes = imageCompressionService.resizeImageIfNeeded(
+                            ImageCompressionService.CompressionResult compressionResult = imageCompressionService.resizeImageIfNeeded(
                                 filedata.getOriginalFilename(), 
                                 originalImage, 
                                 contentType, 
@@ -636,12 +637,13 @@ public class FileRestController {
                             );
                             
                             // Create input stream from compressed bytes
+                            byte[] compressedBytes = compressionResult.getData();
                             inputStream = new ByteArrayInputStream(compressedBytes);
                             if (finalSessionId != null) {
                                 addUploadLog(finalSessionId, String.format("✅ Compression completed: %d KB → %d KB", 
-                                    fileSize / 1024, compressedBytes.length / 1024));
+                                    fileSize / 1024, compressionResult.getCompressedSize() / 1024));
                             }
-                            log.debug("Image compressed from {} to {} bytes", fileSize, compressedBytes.length);
+                            log.debug("Image compressed from {} to {} bytes", fileSize, compressionResult.getCompressedSize());
                         } else {
                             // ImageIO couldn't read it, use original bytes
                             inputStream = new ByteArrayInputStream(fileBytes);

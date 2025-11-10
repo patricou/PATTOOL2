@@ -335,6 +335,7 @@
         "EXIF_WIDTH": "Ширина",
         "EXIF_HEIGHT": "Высота",
         "EXIF_FILE_SIZE": "Размер файла",
+        "EXIF_ORIGINAL_FILE_SIZE": "Исходный размер (до сжатия)",
         "EXIF_MIME_TYPE": "Тип MIME",
         "EXIF_MAKE": "Производитель",
         "EXIF_MODEL": "Модель",

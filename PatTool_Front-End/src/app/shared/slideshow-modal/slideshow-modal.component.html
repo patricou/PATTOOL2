@@ -14,7 +14,7 @@
            (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
            (mouseup)="onSlideshowMouseUp($event)" (mouseenter)="onSlideshowMouseEnter($event)" (mouseleave)="onSlideshowMouseLeave()" (document:mouseup)="onSlideshowMouseUp($event)"
            (contextmenu)="$event.preventDefault()"
-          (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
+          (touchstart.passive)="onSlideshowTouchStart($event)" (touchmove.passive)="onSlideshowTouchMove($event)" (touchend.passive)="onSlideshowTouchEnd($event)"
            [style.cursor]="showMapView ? 'default' : (isSelectingRectangle ? 'crosshair' : (isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')))" style="overflow:hidden; user-select: none;">
         <div *ngIf="slideshowImages.length > 0 && showMapView && currentMapUrl" class="slideshow-map-container">
           <iframe [src]="currentMapUrl" frameborder="0" allowfullscreen loading="lazy"></iframe>
@@ -110,6 +110,7 @@
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM' | translate }}</div>
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_RESET_ZOOM_ESC' | translate }}</div>
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_GRID' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_ORIGINAL_PHOTO' | translate }}</div>
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_THUMBNAILS' | translate }}</div>
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_LOCATION_TOGGLE' | translate }}</div>
         </div>
@@ -182,6 +183,13 @@
               [disabled]="slideshowImages.length === 0">
         <i class="fa fa-info-circle me-1"></i>
         <span>{{ 'EVENTELEM.EXIF' | translate }}</span>
+      </button>
+      <button type="button" class="btn btn-secondary" 
+              *ngIf="shouldShowFilesystemToggleButton()"
+              (click)="toggleFilesystemImageQuality()"
+              [disabled]="isFilesystemToggleDisabled()">
+        <i class="fa me-1" [ngClass]="isCurrentFilesystemVariantLoading() ? 'fa-spinner fa-spin' : 'fa-file-image-o'"></i>
+        <span>{{ getFilesystemToggleLabelKey() | translate }}</span> <span class="ms-1">(O)</span>
       </button>
       <button type="button" class="btn btn-secondary" 
               (click)="toggleInfoPanel()"

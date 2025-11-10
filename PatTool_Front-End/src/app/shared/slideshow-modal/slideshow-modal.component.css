@@ -1237,13 +1237,27 @@ body.slideshow-fullscreen-active .slideshow-footer {
 
 /* EXIF Info Modal Styles */
 .exif-info-container {
-    max-height: 60vh;
+    max-height: 75vh;
     overflow-y: auto;
     overflow-x: hidden;
     padding: 10px;
     border: 1px solid #dee2e6;
     border-radius: 4px;
     background-color: #f8f9fa;
+}
+
+::ng-deep .exif-modal-tall .modal-dialog {
+    max-width: 70vw !important;
+    width: 70vw !important;
+}
+
+::ng-deep .exif-modal-tall .modal-content {
+    max-height: 90vh !important;
+}
+
+::ng-deep .exif-modal-tall .modal-body {
+    max-height: 80vh !important;
+    overflow-y: auto !important;
 }
 
 .exif-item {
@@ -1281,7 +1295,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
 
 @media (max-width: 768px) {
     .exif-info-container {
-        max-height: 50vh;
+        max-height: 60vh;
         padding: 8px;
     }
     
