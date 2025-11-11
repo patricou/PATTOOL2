@@ -141,7 +141,7 @@ public class ImageCompressionService {
 
         boolean permitAcquired = false;
         try {
-            log.info("Image compression requested for '{}'. Available permits before acquire: {}", filename, compressionSemaphore.availablePermits());
+            log.debug("Image compression requested for '{}'. Available permits before acquire: {}", filename, compressionSemaphore.availablePermits());
             compressionSemaphore.acquire();
             permitAcquired = true;
             log.debug("Compression permit granted for '{}'. Remaining permits: {}", filename, compressionSemaphore.availablePermits());

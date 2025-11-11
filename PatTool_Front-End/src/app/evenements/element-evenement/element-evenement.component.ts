@@ -1,6 +1,7 @@
 import { Component, OnInit, Input, Output, ViewChild, EventEmitter, AfterViewInit, TemplateRef, ElementRef } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
+import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 // Removed ng2-file-upload - using native HTML file input
@@ -103,6 +104,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
 	@ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
+	@ViewChild('traceViewerModalComponent') traceViewerModalComponent!: TraceViewerModalComponent;
 	@ViewChild('thumbnailImage', { static: false }) thumbnailImageRef!: ElementRef<HTMLImageElement>;
 	@ViewChild('cardSlideImage', { static: false }) cardSlideImageRef!: ElementRef<HTMLImageElement>;
 
@@ -2434,12 +2436,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return lowerFileName.endsWith('.pdf');
 	}
 
+	// Check if file is a GPS track (GPX, KML, GeoJSON, TCX)
+	public isTrackFile(fileName: string): boolean {
+		if (!fileName) return false;
+
+		const trackExtensions = ['.gpx', '.kml', '.geojson', '.tcx'];
+		const lowerFileName = fileName.toLowerCase();
+		return trackExtensions.some(ext => lowerFileName.endsWith(ext));
+	}
+
 	// Handle file click based on file type
 	public handleFileClick(uploadedFile: UploadedFile): void {
 		if (this.isImageFile(uploadedFile.fileName)) {
 			this.openSingleImageInSlideshow(uploadedFile.fieldId, uploadedFile.fileName);
 		} else if (this.isPdfFile(uploadedFile.fileName)) {
 			this.openPdfFile(uploadedFile.fieldId, uploadedFile.fileName);
+		} else if (this.isTrackFile(uploadedFile.fileName)) {
+			this.openTrackFile(uploadedFile);
 		}
 	}
 
@@ -2449,8 +2462,24 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			return this.translateService.instant('EVENTELEM.CLICK_TO_VIEW');
 		} else if (this.isPdfFile(fileName)) {
 			return this.translateService.instant('EVENTELEM.CLICK_TO_OPEN_PDF');
+		} else if (this.isTrackFile(fileName)) {
+			return this.translateService.instant('EVENTELEM.VIEW_TRACK');
 		}
 		return null;
+	}
+
+	public openTrackFile(uploadedFile: UploadedFile): void {
+		if (!uploadedFile || !uploadedFile.fieldId) {
+			return;
+		}
+
+		this.forceCloseTooltips();
+
+		if (this.traceViewerModalComponent) {
+			this.traceViewerModalComponent.openFromFile(uploadedFile.fieldId, uploadedFile.fileName);
+		} else {
+			console.warn('Track viewer modal component is not available');
+		}
 	}
 
 	// Open PDF file in new tab

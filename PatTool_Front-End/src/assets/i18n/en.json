@@ -384,7 +384,22 @@
         "SHORTCUT_LOCATION_TOGGLE": "E : Toggle map/photo view",
         "SEE_LOCATION": "See location",
         "SEE_PHOTO": "See photo",
-        "MAP_LOADING": "Loading map..."
+        "MAP_LOADING": "Loading map...",
+        "VIEW_TRACK": "View track",
+        "TRACK_VIEWER_TITLE": "GPS Track - {{ fileName }}",
+        "TRACK_LOADING": "Loading track...",
+        "TRACK_LOAD_ERROR": "Unable to load the GPS track.",
+        "TRACK_NO_POINTS": "No points were found in this file. Please verify the GPX/KML/GeoJSON contains coordinates.",
+        "TRACK_POINTS": "{{ count }} point(s)",
+        "TRACK_DISTANCE": "{{ km }} km",
+        "TRACK_START": "Start",
+        "TRACK_END": "Finish",
+        "TRACK_NO_SOURCE": "No track source provided.",
+        "TRACK_BASEMAP": "Basemap",
+        "TRACK_RECENTER": "Recenter track (R)",
+        "TRACK_INFO_TITLE": "Track information",
+        "TRACK_INFO_DESC": "Choose a basemap, then close this panel with the cross.",
+        "TRACK_INFO_SHORTCUT": "Press R to recenter the map on the track."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Start auto-scroll",

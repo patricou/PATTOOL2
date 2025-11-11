@@ -380,7 +380,22 @@
         "SHORTCUT_LOCATION_TOGGLE": "E : החלף בין מפה לתמונה",
         "SEE_LOCATION": "הצג מיקום",
         "SEE_PHOTO": "הצג תמונה",
-        "MAP_LOADING": "מטעין מפה..."
+        "MAP_LOADING": "מטעין מפה...",
+        "VIEW_TRACK": "הצג מסלול",
+        "TRACK_VIEWER_TITLE": "מסלול GPS - {{ fileName }}",
+        "TRACK_LOADING": "טוען את המסלול...",
+        "TRACK_LOAD_ERROR": "לא ניתן לטעון את מסלול ה-GPS.",
+        "TRACK_NO_POINTS": "לא נמצאו נקודות בקובץ זה. ודא שקובץ GPX/KML/GeoJSON מכיל נקודות ציון.",
+        "TRACK_POINTS": "{{ count }} נקודות",
+        "TRACK_DISTANCE": "{{ km }} ק\"מ",
+        "TRACK_START": "התחלה",
+        "TRACK_END": "סיום",
+        "TRACK_NO_SOURCE": "אין מקור למסלול.",
+        "TRACK_BASEMAP": "מפת בסיס",
+        "TRACK_RECENTER": "מרכז את המסלול (R)",
+        "TRACK_INFO_TITLE": "מידע",
+        "TRACK_INFO_DESC": "בחר מפת בסיס ולאחר מכן סגור את החלון בעזרת ה-X.",
+        "TRACK_INFO_SHORTCUT": "לחץ R כדי למרכז מחדש את המפה על המסלול."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "התחל גלילה אוטומטית",

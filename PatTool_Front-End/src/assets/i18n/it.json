@@ -388,7 +388,22 @@
         "SHORTCUT_LOCATION_TOGGLE": "E : Passa vista mappa/foto",
         "SEE_LOCATION": "Vedi posizione",
         "SEE_PHOTO": "Vedi foto",
-        "MAP_LOADING": "Caricamento mappa..."
+        "MAP_LOADING": "Caricamento mappa...",
+        "VIEW_TRACK": "Mostra traccia",
+        "TRACK_VIEWER_TITLE": "Traccia GPS - {{ fileName }}",
+        "TRACK_LOADING": "Caricamento traccia...",
+        "TRACK_LOAD_ERROR": "Impossibile caricare la traccia GPS.",
+        "TRACK_NO_POINTS": "Non sono stati trovati punti in questo file. Assicurati che il file GPX/KML/GeoJSON contenga coordinate.",
+        "TRACK_POINTS": "{{ count }} punto/i",
+        "TRACK_DISTANCE": "{{ km }} km",
+        "TRACK_START": "Partenza",
+        "TRACK_END": "Arrivo",
+        "TRACK_NO_SOURCE": "Nessuna sorgente traccia disponibile.",
+        "TRACK_BASEMAP": "Mappa di base",
+        "TRACK_RECENTER": "Riposiziona il tracciato (R)",
+        "TRACK_INFO_TITLE": "Informazioni",
+        "TRACK_INFO_DESC": "Scegli una mappa di base e chiudi questa finestra con la X.",
+        "TRACK_INFO_SHORTCUT": "Premi R per recentrare la mappa sul tracciato."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Avvia scorrimento automatico",

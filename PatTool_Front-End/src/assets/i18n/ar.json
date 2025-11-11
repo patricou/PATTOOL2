@@ -385,7 +385,22 @@
         "SHORTCUT_LOCATION_TOGGLE": "E : تبديل عرض الخريطة/الصورة",
         "SEE_LOCATION": "عرض الموقع",
         "SEE_PHOTO": "عرض الصورة",
-        "MAP_LOADING": "جارٍ تحميل الخريطة..."
+        "MAP_LOADING": "جارٍ تحميل الخريطة...",
+        "VIEW_TRACK": "عرض المسار",
+        "TRACK_VIEWER_TITLE": "مسار GPS - {{ fileName }}",
+        "TRACK_LOADING": "جارٍ تحميل المسار...",
+        "TRACK_LOAD_ERROR": "تعذّر تحميل مسار GPS.",
+        "TRACK_NO_POINTS": "لم يتم العثور على أي نقاط في هذا الملف. يرجى التأكد أن ملف GPX/KML/GeoJSON يحتوي على إحداثيات.",
+        "TRACK_POINTS": "{{ count }} نقطة",
+        "TRACK_DISTANCE": "{{ km }} كم",
+        "TRACK_START": "البداية",
+        "TRACK_END": "النهاية",
+        "TRACK_NO_SOURCE": "لا توجد مصدر للمسار.",
+        "TRACK_BASEMAP": "خريطة الأساس",
+        "TRACK_RECENTER": "إعادة تمركز المسار (R)",
+        "TRACK_INFO_TITLE": "معلومات",
+        "TRACK_INFO_DESC": "اختر خريطة أساس ثم أغلق هذه النافذة بعلامة ×.",
+        "TRACK_INFO_SHORTCUT": "اضغط R لإعادة تمركز الخريطة على المسار."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "بدء التمرير التلقائي",

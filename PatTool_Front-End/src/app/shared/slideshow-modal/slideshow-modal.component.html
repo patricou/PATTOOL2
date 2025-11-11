@@ -40,6 +40,12 @@
              (load)="onImageLoad()"
              [class.fullscreen-image]="isFullscreen"
              />
+        <div *ngIf="slideshowImages.length > 0 && isCurrentFilesystemVariantLoading()"
+             class="slideshow-filesystem-loading">
+          <div class="slideshow-filesystem-loading-content">
+            <i class="fa fa-spinner fa-spin"></i>
+          </div>
+        </div>
         <!-- Grid Overlay - follows image transform -->
         <div *ngIf="showGrid && slideshowImages.length > 0 && (!showMapView || !currentMapUrl)" 
              class="slideshow-grid-overlay"

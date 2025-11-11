@@ -379,7 +379,22 @@
         "SHORTCUT_LOCATION_TOGGLE": "E : Переключить вид карта/фото",
         "SEE_LOCATION": "Показать местоположение",
         "SEE_PHOTO": "Показать фото",
-        "MAP_LOADING": "Загрузка карты..."
+        "MAP_LOADING": "Загрузка карты...",
+        "VIEW_TRACK": "Показать трек",
+        "TRACK_VIEWER_TITLE": "GPS-трек - {{ fileName }}",
+        "TRACK_LOADING": "Загрузка трека...",
+        "TRACK_LOAD_ERROR": "Не удалось загрузить GPS-трек.",
+        "TRACK_NO_POINTS": "В этом файле не найдено точек. Убедитесь, что файл GPX/KML/GeoJSON содержит координаты.",
+        "TRACK_POINTS": "{{ count }} точек",
+        "TRACK_DISTANCE": "{{ km }} км",
+        "TRACK_START": "Старт",
+        "TRACK_END": "Финиш",
+        "TRACK_NO_SOURCE": "Источник трека отсутствует.",
+        "TRACK_BASEMAP": "Базовая карта",
+        "TRACK_RECENTER": "Центрировать трек (R)",
+        "TRACK_INFO_TITLE": "Информация",
+        "TRACK_INFO_DESC": "Выберите базовую карту и закройте это окно крестиком.",
+        "TRACK_INFO_SHORTCUT": "Нажмите R, чтобы центрировать карту на треке."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Запустить автоматическую прокрутку",

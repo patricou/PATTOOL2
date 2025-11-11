@@ -24,6 +24,7 @@ import { CommonvaluesService } from '../services/commonvalues.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from '../shared/slideshow-modal/slideshow-modal.module';
 import { PhotosSelectorModalModule } from '../shared/photos-selector-modal/photos-selector-modal.module';
+import { TraceViewerModalModule } from '../shared/trace-viewer-modal/trace-viewer-modal.module';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -48,7 +49,8 @@ export function HttpLoaderFactory(http: HttpClient) {
 		NgbModule,
 		NavigationButtonsModule,
 		SlideshowModalModule,
-		PhotosSelectorModalModule
+		PhotosSelectorModalModule,
+		TraceViewerModalModule
 	],
 	declarations: [
 		HomeEvenementsComponent,

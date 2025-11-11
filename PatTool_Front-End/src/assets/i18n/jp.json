@@ -386,7 +386,22 @@
         "SHORTCUT_LOCATION_TOGGLE": "E : マップ/写真表示を切り替え",
         "SEE_LOCATION": "位置を見る",
         "SEE_PHOTO": "写真を見る",
-        "MAP_LOADING": "マップを読み込み中..."
+        "MAP_LOADING": "マップを読み込み中...",
+        "VIEW_TRACK": "トラックを表示",
+        "TRACK_VIEWER_TITLE": "GPS トラック - {{ fileName }}",
+        "TRACK_LOADING": "トラックを読み込み中...",
+        "TRACK_LOAD_ERROR": "GPS トラックを読み込めませんでした。",
+        "TRACK_NO_POINTS": "このファイルにはポイントがありません。GPX/KML/GeoJSON ファイルに座標が含まれているか確認してください。",
+        "TRACK_POINTS": "{{ count }} 個のポイント",
+        "TRACK_DISTANCE": "{{ km }} km",
+        "TRACK_START": "スタート",
+        "TRACK_END": "ゴール",
+        "TRACK_NO_SOURCE": "利用可能なトラックソースがありません。",
+        "TRACK_BASEMAP": "ベースマップ",
+        "TRACK_RECENTER": "トラックを再中心表示 (R)",
+        "TRACK_INFO_TITLE": "情報",
+        "TRACK_INFO_DESC": "ベースマップを選択し、右上の×でこのパネルを閉じてください。",
+        "TRACK_INFO_SHORTCUT": "R を押すと地図がトラックの中心に戻ります。"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "自動スクロールを開始",

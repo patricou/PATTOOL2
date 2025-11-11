@@ -46,8 +46,6 @@ export class KeycloakService {
     console.log('*** LOGOUT');
     KeycloakService.auth.authz.logout();
     KeycloakService.auth.loggedIn = false;
-    //KeycloakService.auth.authz = null;
-
     window.location.href = KeycloakService.auth.logoutUrl;
   }
 

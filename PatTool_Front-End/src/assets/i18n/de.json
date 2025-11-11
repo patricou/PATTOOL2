@@ -381,7 +381,22 @@
         "SHORTCUT_LOCATION_TOGGLE": "E : Karten-/Fotoansicht wechseln",
         "SEE_LOCATION": "Ort anzeigen",
         "SEE_PHOTO": "Foto anzeigen",
-        "MAP_LOADING": "Karte wird geladen..."
+        "MAP_LOADING": "Karte wird geladen...",
+        "VIEW_TRACK": "Strecke anzeigen",
+        "TRACK_VIEWER_TITLE": "GPS-Track - {{ fileName }}",
+        "TRACK_LOADING": "Track wird geladen...",
+        "TRACK_LOAD_ERROR": "GPS-Track konnte nicht geladen werden.",
+        "TRACK_NO_POINTS": "In dieser Datei wurden keine Punkte gefunden. Bitte prüfen Sie, ob die GPX/KML/GeoJSON-Datei Koordinaten enthält.",
+        "TRACK_POINTS": "{{ count }} Punkt(e)",
+        "TRACK_DISTANCE": "{{ km }} km",
+        "TRACK_START": "Start",
+        "TRACK_END": "Ziel",
+        "TRACK_NO_SOURCE": "Keine Track-Quelle vorhanden.",
+        "TRACK_BASEMAP": "Grundkarte",
+        "TRACK_RECENTER": "Strecke zentrieren (R)",
+        "TRACK_INFO_TITLE": "Informationen",
+        "TRACK_INFO_DESC": "Wählen Sie eine Grundkarte und schließen Sie dieses Fenster mit dem Kreuz.",
+        "TRACK_INFO_SHORTCUT": "Drücken Sie R, um die Karte auf die Strecke zu zentrieren."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Automatisches Scrollen starten",

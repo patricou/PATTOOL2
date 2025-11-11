@@ -371,7 +371,22 @@
         "SHORTCUT_LOCATION_TOGGLE": "E : मानचित्र/फोटो दृश्य बदलें",
         "SEE_LOCATION": "स्थान देखें",
         "SEE_PHOTO": "फ़ोटो देखें",
-        "MAP_LOADING": "मानचित्र लोड हो रहा है..."
+        "MAP_LOADING": "मानचित्र लोड हो रहा है...",
+        "VIEW_TRACK": "ट्रैक देखें",
+        "TRACK_VIEWER_TITLE": "GPS ट्रैक - {{ fileName }}",
+        "TRACK_LOADING": "ट्रैक लोड हो रहा है...",
+        "TRACK_LOAD_ERROR": "GPS ट्रैक लोड नहीं हो सका।",
+        "TRACK_NO_POINTS": "इस फ़ाइल में कोई बिंदु नहीं मिला। कृपया सुनिश्चित करें कि GPX/KML/GeoJSON फ़ाइल में निर्देशांक हों।",
+        "TRACK_POINTS": "{{ count }} बिंदु",
+        "TRACK_DISTANCE": "{{ km }} किमी",
+        "TRACK_START": "प्रारंभ",
+        "TRACK_END": "समाप्ति",
+        "TRACK_NO_SOURCE": "कोई ट्रैक स्रोत उपलब्ध नहीं है।",
+        "TRACK_BASEMAP": "बेसमैप",
+        "TRACK_RECENTER": "ट्रैक को पुनः केंद्रित करें (R)",
+        "TRACK_INFO_TITLE": "जानकारी",
+        "TRACK_INFO_DESC": "एक बेसमैप चुनें और इस विंडो को क्रॉस से बंद करें।",
+        "TRACK_INFO_SHORTCUT": "R दबाएं ताकि मानचित्र ट्रैक पर पुनः केंद्रित हो जाए।"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "स्वचालित स्क्रॉल शुरू करें",

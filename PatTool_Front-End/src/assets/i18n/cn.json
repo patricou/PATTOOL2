@@ -387,7 +387,22 @@
         "SHORTCUT_LOCATION_TOGGLE": "E : 切换地图/照片视图",
         "SEE_LOCATION": "查看位置",
         "SEE_PHOTO": "查看照片",
-        "MAP_LOADING": "正在加载地图..."
+        "MAP_LOADING": "正在加载地图...",
+        "VIEW_TRACK": "查看轨迹",
+        "TRACK_VIEWER_TITLE": "GPS 轨迹 - {{ fileName }}",
+        "TRACK_LOADING": "轨迹加载中...",
+        "TRACK_LOAD_ERROR": "无法加载 GPS 轨迹。",
+        "TRACK_NO_POINTS": "在该文件中未找到任何点。请确认 GPX/KML/GeoJSON 文件包含坐标。",
+        "TRACK_POINTS": "{{ count }} 个点",
+        "TRACK_DISTANCE": "{{ km }} 公里",
+        "TRACK_START": "起点",
+        "TRACK_END": "终点",
+        "TRACK_NO_SOURCE": "没有可用的轨迹来源。",
+        "TRACK_BASEMAP": "底图",
+        "TRACK_RECENTER": "重新居中轨迹 (R)",
+        "TRACK_INFO_TITLE": "信息",
+        "TRACK_INFO_DESC": "选择一个底图，然后通过右上角的叉号关闭此窗口。",
+        "TRACK_INFO_SHORTCUT": "按 R 键可将地图重新居中到轨迹上。"
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "开始自动滚动",

@@ -386,7 +386,22 @@
         "SHORTCUT_LOCATION_TOGGLE": "E : Εναλλαγή χάρτη/φωτογραφίας",
         "SEE_LOCATION": "Προβολή τοποθεσίας",
         "SEE_PHOTO": "Προβολή φωτογραφίας",
-        "MAP_LOADING": "Φόρτωση χάρτη..."
+        "MAP_LOADING": "Φόρτωση χάρτη...",
+        "VIEW_TRACK": "Προβολή διαδρομής",
+        "TRACK_VIEWER_TITLE": "Διαδρομή GPS - {{ fileName }}",
+        "TRACK_LOADING": "Φόρτωση διαδρομής...",
+        "TRACK_LOAD_ERROR": "Αδύνατη η φόρτωση της διαδρομής GPS.",
+        "TRACK_NO_POINTS": "Δεν βρέθηκαν σημεία σε αυτό το αρχείο. Βεβαιωθείτε ότι το GPX/KML/GeoJSON περιέχει συντεταγμένες.",
+        "TRACK_POINTS": "{{ count }} σημείο/α",
+        "TRACK_DISTANCE": "{{ km }} χλμ",
+        "TRACK_START": "Έναρξη",
+        "TRACK_END": "Τερματισμός",
+        "TRACK_NO_SOURCE": "Δεν υπάρχει διαθέσιμη πηγή διαδρομής.",
+        "TRACK_BASEMAP": "Βασικός χάρτης",
+        "TRACK_RECENTER": "Επανακεντρισμός διαδρομής (R)",
+        "TRACK_INFO_TITLE": "Πληροφορίες",
+        "TRACK_INFO_DESC": "Επιλέξτε έναν βασικό χάρτη και κλείστε αυτό το παράθυρο με το Χ.",
+        "TRACK_INFO_SHORTCUT": "Πατήστε R για να επανακεντρώσετε τον χάρτη στη διαδρομή."
     },
     "CAROUSEL": {
         "START_AUTOPLAY": "Ξεκινήστε αυτόματη κύλιση",

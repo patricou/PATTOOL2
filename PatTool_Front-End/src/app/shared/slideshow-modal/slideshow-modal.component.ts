@@ -219,6 +219,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     currentVariant: 'compressed' | 'original';
   }> = new Map();
   private filesystemVariantLoading: Set<number> = new Set();
+  private filesystemOriginalPrefetching: Set<number> = new Set();
   
   constructor(
     private cdr: ChangeDetectorRef,
@@ -339,6 +340,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.imageLocations.clear();
     this.mapUrlCache.clear();
     this.filesystemVariantLoading.clear();
+    this.filesystemOriginalPrefetching.clear();
     this.filesystemImageVariants.clear();
     this.currentImageLocation = null;
     this.currentMapUrl = null;
@@ -3111,6 +3113,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
     }
 
+    if (variant === 'compressed') {
+      this.prefetchFilesystemOriginalVariant(imageIndex, imageSource, variants);
+    }
+
     if (currentUrl !== newUrl) {
       if (this.imageLocations.has(currentUrl)) {
         const location = this.imageLocations.get(currentUrl)!;
@@ -3137,6 +3143,100 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
 
     this.cdr.detectChanges();
+  }
+
+  private prefetchFilesystemOriginalVariant(
+    imageIndex: number,
+    imageSource: SlideshowImageSource,
+    variants?: {
+      compressedUrl?: string;
+      originalUrl?: string;
+      compressedMetadata?: PatMetadata;
+      originalMetadata?: PatMetadata;
+      currentVariant: 'compressed' | 'original';
+    }
+  ): void {
+    if (!imageSource || !imageSource.relativePath || !imageSource.fileName) {
+      return;
+    }
+
+    if (imageSource.compressFs === false) {
+      return;
+    }
+
+    const existingVariants = variants ?? this.filesystemImageVariants.get(imageIndex);
+    if (existingVariants && existingVariants.originalUrl) {
+      return;
+    }
+
+    if (this.filesystemOriginalPrefetching.has(imageIndex)) {
+      return;
+    }
+
+    const originalCacheKey = this.getFilesystemCacheKey(imageSource.relativePath, imageSource.fileName, false);
+    if (originalCacheKey && this.imageCache.has(originalCacheKey)) {
+      const cached = this.imageCache.get(originalCacheKey)!;
+      let variantsToUpdate = existingVariants;
+      if (!variantsToUpdate) {
+        variantsToUpdate = { currentVariant: 'compressed' };
+        this.filesystemImageVariants.set(imageIndex, variantsToUpdate);
+      }
+      variantsToUpdate.originalUrl = cached.objectUrl;
+      if (cached.metadata) {
+        variantsToUpdate.originalMetadata = cached.metadata;
+      }
+      if (cached.blob) {
+        this.slideshowBlobs.set(cached.objectUrl, cached.blob);
+      }
+      return;
+    }
+
+    if (!this.cancelImageLoadsSubject) {
+      this.cancelImageLoadsSubject = new Subject<void>();
+    }
+
+    this.filesystemOriginalPrefetching.add(imageIndex);
+
+    const request$ = this.fileService.getImageFromDiskWithMetadata(
+      imageSource.relativePath,
+      imageSource.fileName,
+      false
+    ).pipe(
+      takeUntil(this.cancelImageLoadsSubject),
+      map((res) => {
+        const mimeType = this.detectImageMimeTypeFromFileName(imageSource.fileName || 'image.jpg');
+        const blob = new Blob([res.buffer], { type: mimeType });
+        const objectUrl = URL.createObjectURL(blob);
+        const metadata = res.metadata ?? this.parsePatMetadataFromHeaders(res.headers);
+        return { objectUrl, blob, metadata };
+      }),
+      finalize(() => {
+        this.filesystemOriginalPrefetching.delete(imageIndex);
+      })
+    );
+
+    const subscription = request$.subscribe({
+      next: ({ objectUrl, blob, metadata }) => {
+        let variantsToUpdate = variants ?? this.filesystemImageVariants.get(imageIndex);
+        if (!variantsToUpdate) {
+          variantsToUpdate = { currentVariant: 'compressed' };
+          this.filesystemImageVariants.set(imageIndex, variantsToUpdate);
+        }
+        variantsToUpdate.originalUrl = objectUrl;
+        if (metadata) {
+          variantsToUpdate.originalMetadata = metadata;
+        }
+        this.slideshowBlobs.set(objectUrl, blob);
+        if (originalCacheKey) {
+          this.imageCache.set(originalCacheKey, { objectUrl, blob, metadata });
+        }
+      },
+      error: (error) => {
+        console.error('Error prefetching original filesystem image:', error);
+      }
+    });
+
+    this.imageLoadingSubs.push(subscription);
   }
   
   // Share image via Web Share API (WhatsApp, etc.)

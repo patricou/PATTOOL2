@@ -1,0 +1,120 @@
+<ng-template #traceViewerModal let-modal>
+  <div class="modal-header slideshow-header">
+    <h5 class="modal-title">
+      <i class="fa fa-map-signs me-2" aria-hidden="true"></i>
+      {{ 'EVENTELEM.TRACK_VIEWER_TITLE' | translate:{ fileName: trackFileName } }}
+    </h5>
+    <button type="button"
+            class="btn btn-outline-light btn-sm rounded-circle ms-auto"
+            (click)="close()"
+            aria-label="Close">
+      <i class="fa fa-times"></i>
+    </button>
+  </div>
+
+  <div class="modal-body slideshow-body">
+    <div class="trace-viewer-body" [class.fullscreen]="isFullscreen">
+      <div *ngIf="hasError" class="alert alert-danger d-flex align-items-center mb-3" role="alert">
+        <i class="fa fa-exclamation-triangle me-2" aria-hidden="true"></i>
+        <span>{{ errorMessage }}</span>
+      </div>
+
+      <div class="map-wrapper">
+        <div #mapContainer id="trace-viewer-map-container" class="map-container" aria-label="Track map"></div>
+
+        <div *ngIf="isLoading" class="loading-overlay">
+          <div class="spinner-border text-light" role="status" aria-hidden="true"></div>
+          <span class="ms-2">{{ 'EVENTELEM.TRACK_LOADING' | translate }}</span>
+        </div>
+
+        <div *ngIf="isFullscreen" class="fullscreen-selector">
+          <label class="small mb-1">{{ 'EVENTELEM.TRACK_BASEMAP' | translate }}</label>
+          <select class="form-select form-select-sm"
+                  [ngModel]="selectedBaseLayerId"
+                  (ngModelChange)="onBaseLayerChange($event)">
+            <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.label }}</option>
+          </select>
+          <button type="button"
+                  class="btn btn-outline-light btn-sm mt-2 w-100"
+                  (click)="recenterOnTrack()">
+            <i class="fa fa-crosshairs me-1"></i> {{ 'EVENTELEM.TRACK_RECENTER' | translate }}
+          </button>
+        </div>
+
+        <button *ngIf="isFullscreen"
+                class="btn btn-outline-light fullscreen-info-btn"
+                type="button"
+                (click)="toggleFullscreenInfo()">
+          <i class="fa fa-info"></i>
+          <span class="ms-2">{{ 'EVENTELEM.TRACK_BASEMAP' | translate }}</span>
+        </button>
+
+        <div *ngIf="isFullscreen && isFullscreenInfoVisible" class="fullscreen-info-panel">
+          <div class="info-header d-flex justify-content-between align-items-center mb-2">
+            <h6 class="mb-0"><i class="fa fa-info-circle me-2"></i>{{ 'EVENTELEM.TRACK_INFO_TITLE' | translate }}</h6>
+            <button type="button" class="btn btn-sm btn-outline-light" (click)="toggleFullscreenInfo()">
+              <i class="fa fa-times"></i>
+            </button>
+          </div>
+          <div class="info-body">
+            <p class="small mb-3">{{ 'EVENTELEM.TRACK_INFO_DESC' | translate }}</p>
+            <p class="small mb-3">{{ 'EVENTELEM.TRACK_INFO_SHORTCUT' | translate }}</p>
+            <div class="mb-2 text-uppercase fw-bold small">{{ 'EVENTELEM.TRACK_BASEMAP' | translate }}</div>
+            <button type="button"
+                    class="btn btn-outline-light w-100 mb-2"
+                    *ngFor="let layer of availableBaseLayers"
+                    [class.active]="layer.id === selectedBaseLayerId"
+                    (click)="onBaseLayerChange(layer.id)">
+              {{ layer.label }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-footer slideshow-footer">
+    <div class="trace-stats" *ngIf="availableBaseLayers.length > 0 && !isFullscreen">
+      <label for="trace-base-layer" class="form-label mb-0">{{ 'EVENTELEM.TRACK_BASEMAP' | translate }}</label>
+      <select id="trace-base-layer" class="form-select form-select-sm"
+              [ngModel]="selectedBaseLayerId"
+              (ngModelChange)="onBaseLayerChange($event)">
+        <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.label }}</option>
+      </select>
+    </div>
+
+    <div class="trace-stats" *ngIf="trackStats && !hasError">
+      <span>
+        <i class="fa fa-map-marker me-1" aria-hidden="true"></i>
+        {{ 'EVENTELEM.TRACK_POINTS' | translate:{ count: trackStats.points } }}
+      </span>
+      <span *ngIf="trackStats.distanceKm !== null">
+        <i class="fa fa-arrows-h me-1" aria-hidden="true"></i>
+        {{ 'EVENTELEM.TRACK_DISTANCE' | translate:{ km: trackStats.distanceKm } }}
+      </span>
+    </div>
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <button type="button"
+              class="btn btn-outline-light"
+              *ngIf="!isFullscreen"
+              (click)="recenterOnTrack()">
+        <i class="fa fa-crosshairs me-1"></i> {{ 'EVENTELEM.TRACK_RECENTER' | translate }}
+      </button>
+      <button type="button"
+              class="btn btn-secondary"
+              (click)="toggleFullscreen()">
+        <i class="fa" [ngClass]="isFullscreen ? 'fa-compress' : 'fa-arrows-alt'"></i>
+        <span class="ms-1">
+          {{ isFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate) }}
+        </span>
+      </button>
+      <button type="button"
+              class="btn btn-secondary"
+              (click)="close()">
+        <i class="fa fa-times me-1" aria-hidden="true"></i>
+        {{ 'COMMUN.CLOSE' | translate }}
+      </button>
+    </div>
+  </div>
+</ng-template>
+

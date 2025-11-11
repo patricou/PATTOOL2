@@ -225,15 +225,15 @@
                             <i class="fa fa-spinner fa-spin"></i>
                         </span>
                         <span class="badge"
-                              [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
+                              [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)"
                               [style.background-color]="getFileBadgeColor(uploadedFile.fileName)"
                               [style.border-color]="'white'"
                               [style.color]="getFileBadgeTextColor(uploadedFile.fileName)"
                               [title]="uploadedFile.fileName"
                               ngbTooltip="{{uploadedFile.fileName}}" placement="top"
                               (mouseleave)="onTooltipMouseLeave($event)"
-                              (click)="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)) && handleFileClick(uploadedFile)"
-                              [style.cursor]="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
+                              (click)="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) && handleFileClick(uploadedFile)"
+                              [style.cursor]="(isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
                             {{getTruncatedFileName(uploadedFile.fileName)}}
                         </span>
                         <small class="text-muted ms-2 clickable-user" [style.color]="titleBorderColor" 
@@ -253,6 +253,16 @@
                                 [style.color]="'white'"
                                 (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-star" aria-hidden="true"></i>
+                        </button>
+                        <button class="btn btn-sm btn-info me-2"
+                                *ngIf="isTrackFile(uploadedFile.fileName)"
+                                ngbTooltip="{{ 'EVENTELEM.VIEW_TRACK' | translate }}"
+                                (click)="openTrackFile(uploadedFile)"
+                                [style.background-color]="getFileActionButtonGradient()"
+                                [style.border-color]="'white'"
+                                [style.color]="'white'"
+                                (mouseleave)="onTooltipMouseLeave($event)">
+                            <i class="fa fa-eye" aria-hidden="true"></i>
                         </button>
                         <button class="btn btn-sm btn-primary me-2"
                                 *ngIf="isPdfFile(uploadedFile.fileName)"
@@ -640,6 +650,9 @@
 
 <!-- Slideshow Modal Component -->
 <app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()"></app-slideshow-modal>
+
+<!-- Trace Viewer Modal Component -->
+<app-trace-viewer-modal #traceViewerModalComponent></app-trace-viewer-modal>
 
 
 <!-- Upload Logs Modal -->
