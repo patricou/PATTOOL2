@@ -20,6 +20,7 @@ export const environment = {
     API_URL4FILE: "http://localhost:8000/uploadfile",
     API_URL4FILEONDISK: "http://localhost:8000/api/fsphotos",
     API_URL4UPLOADFILEONDISK: "http://localhost:8000/uploadondisk",
+    IGN_API_KEY: "toto",
     //fire base config
     firebase: {
         apiKey: "AIzaSyBJFAKMyDO_lmqBYUwW6CWjBIMTHyFGZKc",

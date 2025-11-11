@@ -3,6 +3,7 @@ import { DOCUMENT } from '@angular/common';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
+import { environment } from '../../../environments/environment';
 import { Subject } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
 import * as L from 'leaflet';
@@ -783,11 +784,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxZoom: 18,
 				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 			}),
-			'ign-plan': L.tileLayer('https://data.geopf.fr/xyz/planignv2/{z}/{x}/{y}.png?apikey=YOUR_IGN_API_KEY', {
+			'ign-plan': L.tileLayer(`https://data.geopf.fr/xyz/planignv2/{z}/{x}/{y}.png?apikey=${environment.IGN_API_KEY}`, {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
 			}),
-			'ign-ortho': L.tileLayer('https://data.geopf.fr/xyz/ortho/{z}/{x}/{y}.jpg?apikey=YOUR_IGN_API_KEY', {
+			'ign-ortho': L.tileLayer(`https://data.geopf.fr/xyz/ortho/{z}/{x}/{y}.jpg?apikey=${environment.IGN_API_KEY}`, {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
 			})
