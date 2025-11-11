@@ -12,6 +12,7 @@ interface TraceViewerSource {
 	fileId?: string;
 	blob?: Blob;
 	fileName: string;
+	location?: { lat: number; lng: number; label?: string };
 }
 
 interface TraceStatistics {
@@ -40,6 +41,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private map?: L.Map;
 	private overlayLayer?: L.LayerGroup;
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
+	private pendingLocation: { lat: number; lng: number; label?: string } | null = null;
 
 	private static leafletIconsConfigured = false;
 	private fullscreenChangeHandler?: () => void;
@@ -165,6 +167,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.open({ blob, fileName });
 	}
 
+	public openAtLocation(lat: number, lng: number, label?: string): void {
+		if (Number.isNaN(lat) || Number.isNaN(lng)) {
+			return;
+		}
+
+		const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+		const fileName = label && label.trim().length > 0 ? label : fallback;
+
+		this.open({
+			fileName,
+			location: { lat, lng, label }
+		});
+	}
+
 	public close(): void {
 		if (this.modalRef) {
 			this.modalRef.close();
@@ -182,6 +198,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			wrapper.requestFullscreen().then(() => {
 				this.map?.invalidateSize();
 				this.tryRenderPendingTrack();
+				this.tryRenderPendingLocation();
 			}).catch(() => {});
 		}
 	}
@@ -190,6 +207,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.resetState();
 		this.trackFileName = source.fileName;
 		this.initializeBaseLayers();
+		this.pendingLocation = source.location ?? null;
+		if (this.pendingLocation) {
+			this.pendingTrackPoints = null;
+			this.trackStats = null;
+		}
 
 		this.modalRef = this.modalService.open(this.traceViewerModal, {
 			size: 'xl',
@@ -215,10 +237,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.subscribeToModalVisibility();
 		this.registerFullscreenListener();
 
+		if (this.pendingLocation) {
+			this.scheduleMapInitialization();
+		}
+
 		if (source.blob) {
 			this.readFromBlob(source.blob, source.fileName);
 		} else if (source.fileId) {
 			this.loadFromFileId(source.fileId, source.fileName);
+		} else if (source.location) {
+			this.ensureMapInitialization();
+			this.tryRenderPendingLocation();
 		} else {
 			this.setError(this.translate('EVENTELEM.TRACK_NO_SOURCE'));
 		}
@@ -251,10 +280,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.initializeMap();
 		this.ensureMapInitialization();
 		this.tryRenderPendingTrack();
+		this.tryRenderPendingLocation();
 
 		setTimeout(() => {
 			this.map?.invalidateSize();
 			this.tryRenderPendingTrack();
+			this.tryRenderPendingLocation();
 		}, 120);
 	}
 
@@ -265,6 +296,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.initializeMap();
 				this.ensureMapInitialization();
 				this.tryRenderPendingTrack();
+				this.tryRenderPendingLocation();
 			}, delay);
 		};
 
@@ -301,7 +333,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const invalidate = () => {
 			this.tryRenderPendingTrack();
-			setTimeout(() => this.map?.invalidateSize(), 100);
+			this.tryRenderPendingLocation();
+			setTimeout(() => {
+				this.map?.invalidateSize();
+				this.tryRenderPendingTrack();
+				this.tryRenderPendingLocation();
+			}, 100);
 		};
 
 		this.map.whenReady(() => {
@@ -417,6 +454,40 @@ export class TraceViewerModalComponent implements OnDestroy {
 			points: points.length,
 			distanceKm: this.computeDistance(points)
 		};
+		this.cdr.detectChanges();
+	}
+
+	private tryRenderPendingLocation(): void {
+		if (!this.map || !this.overlayLayer || !this.pendingLocation) {
+			return;
+		}
+
+		const { lat, lng, label } = this.pendingLocation;
+		this.pendingLocation = null;
+
+		this.overlayLayer.clearLayers();
+
+		const marker = L.marker([lat, lng]);
+		if (label && label.trim().length > 0) {
+			marker.bindPopup(label);
+		}
+		marker.addTo(this.overlayLayer);
+
+		this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
+		this.map.setView([lat, lng], 14);
+		this.map.invalidateSize();
+
+		if (label && label.trim().length > 0) {
+			setTimeout(() => {
+				try {
+					marker.openPopup();
+				} catch {
+					// Ignore popup errors
+				}
+			}, 150);
+		}
+
+		this.trackStats = null;
 		this.cdr.detectChanges();
 	}
 
@@ -584,6 +655,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.isLoading = false;
 		this.trackStats = null;
 		this.pendingTrackPoints = null;
+		this.pendingLocation = null;
 		this.destroyMap();
 		this.cdr.detectChanges();
 	}
@@ -596,6 +668,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.overlayLayer = undefined;
 		this.pendingTrackPoints = null;
+		this.pendingLocation = null;
 	}
 
 	private translate(key: string, params?: Record<string, any>): string {
@@ -691,6 +764,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			setTimeout(() => {
 				this.map?.invalidateSize();
 				this.tryRenderPendingTrack();
+				this.tryRenderPendingLocation();
 			}, 0);
 		};
 

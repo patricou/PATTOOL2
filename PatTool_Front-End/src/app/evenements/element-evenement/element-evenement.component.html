@@ -649,7 +649,7 @@
 </ng-template>
 
 <!-- Slideshow Modal Component -->
-<app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()"></app-slideshow-modal>
+<app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()" (openLocationInTrace)="onSlideshowLocationInTrace($event)"></app-slideshow-modal>
 
 <!-- Trace Viewer Modal Component -->
 <app-trace-viewer-modal #traceViewerModalComponent></app-trace-viewer-modal>

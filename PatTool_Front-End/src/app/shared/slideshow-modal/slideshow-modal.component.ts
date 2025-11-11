@@ -27,6 +27,12 @@ export interface SlideshowImageSource {
   patMetadata?: PatMetadata;
 }
 
+export interface SlideshowLocationEvent {
+  lat: number;
+  lng: number;
+  label?: string;
+}
+
 interface PatMetadata {
   originalSizeBytes?: number;
   originalSizeKilobytes?: number;
@@ -44,6 +50,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   @Input() loadFromFileService: boolean = false; // If true, use fileId to load images via FileService
   
   @Output() closed = new EventEmitter<void>();
+  @Output() openLocationInTrace = new EventEmitter<SlideshowLocationEvent>();
   
   @ViewChild('slideshowModal') slideshowModal!: TemplateRef<any>;
   @ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
@@ -209,6 +216,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public currentMapUrl: SafeResourceUrl | null = null;
   private imageLocations: Map<string, { lat: number; lng: number }> = new Map();
   private mapUrlCache: Map<string, SafeResourceUrl> = new Map();
+  public locationViewMode: 'google' | 'trace' = 'google';
 
   // Filesystem image variants tracking
   private filesystemImageVariants: Map<number, {
@@ -419,6 +427,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.showMapView = false;
     this.currentImageLocation = null;
     this.currentMapUrl = null;
+    this.locationViewMode = 'google';
     this.showThumbnails = images.length > 1;
     this.userToggledThumbnails = false;
     this.imageLoadActive = true;
@@ -2477,7 +2486,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         event.stopImmediatePropagation();
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 69;
-        this.toggleMapView();
+      this.handleLocationAction();
       } else if (event.key === 'o' || event.key === 'O' || event.keyCode === 79) {
         if (!this.shouldShowFilesystemToggleButton() || this.isFilesystemToggleDisabled()) {
           return;
@@ -2975,6 +2984,62 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  public getLocationButtonLabel(): string {
+    if (this.locationViewMode === 'trace') {
+      return this.translateService.instant('EVENTELEM.OPEN_TRACE_VIEWER');
+    }
+    return this.showMapView
+      ? this.translateService.instant('EVENTELEM.SEE_PHOTO')
+      : this.translateService.instant('EVENTELEM.SEE_LOCATION');
+  }
+
+  public getLocationButtonIconClass(): string {
+    if (this.locationViewMode === 'trace') {
+      return 'fa-map-signs';
+    }
+    return this.showMapView ? 'fa-picture-o' : 'fa-map-marker';
+  }
+
+  public setLocationViewMode(mode: 'google' | 'trace'): void {
+    if (this.locationViewMode === mode) {
+      return;
+    }
+    this.locationViewMode = mode;
+    if (mode === 'trace' && this.showMapView) {
+      this.showMapView = false;
+      setTimeout(() => {
+        this.updateImageDimensions();
+        this.updateContainerDimensions();
+      }, 0);
+    }
+  }
+
+  public handleLocationAction(): void {
+    if (!this.currentImageLocation) {
+      return;
+    }
+    if (this.locationViewMode === 'trace') {
+      this.emitTraceViewerLocation();
+      return;
+    }
+    this.toggleMapView();
+  }
+
+  private emitTraceViewerLocation(): void {
+    if (!this.currentImageLocation) {
+      return;
+    }
+    const fileName = this.getCurrentImageFileName();
+    const label = fileName && fileName.trim().length > 0
+      ? fileName
+      : this.translateService.instant('EVENTELEM.SEE_LOCATION');
+    this.openLocationInTrace.emit({
+      lat: this.currentImageLocation.lat,
+      lng: this.currentImageLocation.lng,
+      label
+    });
+  }
+
   public toggleMapView(): void {
     if (!this.currentImageLocation) {
       this.showMapView = false;

@@ -1,5 +1,5 @@
 import { Component, OnInit, Input, Output, ViewChild, EventEmitter, AfterViewInit, TemplateRef, ElementRef } from '@angular/core';
-import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
@@ -368,6 +368,28 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			}
 		});
 		this.fsSlideshowSubs = [];
+	}
+
+	public onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
+		if (!event || typeof event.lat !== 'number' || typeof event.lng !== 'number') {
+			return;
+		}
+
+		const labelParts: string[] = [];
+		if (this.evenement?.evenementName) {
+			labelParts.push(this.evenement.evenementName);
+		}
+		if (event.label) {
+			labelParts.push(event.label);
+		}
+
+		const label = labelParts.length > 0
+			? labelParts.join(' • ')
+			: this.translateService.instant('EVENTELEM.SEE_LOCATION');
+
+		if (this.traceViewerModalComponent) {
+			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label);
+		}
 	}
 
 	// Unified photos opener (uploaded photos or FS photos)

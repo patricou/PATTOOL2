@@ -2,12 +2,67 @@
 	display: block;
 }
 
+/* Align trace viewer modal sizing with slideshow modal */
+::ng-deep .modal.show:has(.trace-viewer-body) .modal-dialog,
+::ng-deep .modal.show .modal-dialog:has(.trace-viewer-body),
+::ng-deep .modal.show .modal-xl.modal-dialog:has(.trace-viewer-body),
+::ng-deep .slideshow-modal-wide .modal-dialog,
+::ng-deep .modal.show .slideshow-modal-wide .modal-dialog {
+	max-width: 65vw !important;
+	width: 65vw !important;
+	margin: 1.75rem auto !important;
+	display: flex !important;
+	align-items: center !important;
+	justify-content: center !important;
+	min-height: calc(100% - 3.5rem) !important;
+}
+
+::ng-deep .modal.show:has(.trace-viewer-body) .modal-content,
+::ng-deep .modal.show .modal-content:has(.trace-viewer-body),
+::ng-deep .modal.show .modal-xl .modal-content:has(.trace-viewer-body),
+::ng-deep .slideshow-modal-wide .modal-content,
+::ng-deep .modal.show .slideshow-modal-wide .modal-content {
+	max-width: 65vw !important;
+	width: 65vw !important;
+	max-height: 90vh !important;
+	margin: 0 auto !important;
+	display: flex !important;
+	flex-direction: column !important;
+	position: relative !important;
+}
+
+@media (max-width: 768px) {
+	::ng-deep .modal.show:has(.trace-viewer-body) .modal-dialog,
+	::ng-deep .modal.show .modal-dialog:has(.trace-viewer-body),
+	::ng-deep .modal.show .modal-xl.modal-dialog:has(.trace-viewer-body),
+	::ng-deep .slideshow-modal-wide .modal-dialog,
+	::ng-deep .modal.show .slideshow-modal-wide .modal-dialog {
+		max-width: 98vw !important;
+		width: 98vw !important;
+		max-height: 98vh !important;
+		min-height: 98vh !important;
+		height: 98vh !important;
+	}
+
+	::ng-deep .modal.show:has(.trace-viewer-body) .modal-content,
+	::ng-deep .modal.show .modal-content:has(.trace-viewer-body),
+	::ng-deep .modal.show .modal-xl .modal-content:has(.trace-viewer-body),
+	::ng-deep .slideshow-modal-wide .modal-content,
+	::ng-deep .modal.show .slideshow-modal-wide .modal-content {
+		max-width: 98vw !important;
+		width: 98vw !important;
+		max-height: 98vh !important;
+		height: 98vh !important;
+	}
+}
+
 .trace-viewer-body {
 	display: flex;
 	flex-direction: column;
 	width: 100%;
 	height: 100%;
 	flex: 1;
+	min-height: 60vh;
 }
 
 .trace-viewer-body.fullscreen .map-wrapper {
@@ -31,13 +86,54 @@
 }
 
 .slideshow-footer {
-	background: #0b0d11;
-	border: none;
+	background: #2c3e50;
+	border-top: 1px solid #34495e;
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
 	flex-wrap: wrap;
 	gap: 1rem;
+}
+
+.slideshow-footer .btn {
+	white-space: nowrap;
+	background: rgba(40, 167, 69, 0.3) !important;
+	background-color: transparent !important;
+	border-color: rgba(255, 255, 255, 0.3) !important;
+	color: rgba(255, 255, 255, 0.9) !important;
+	transition: all 0.3s ease;
+	font-size: 0.85rem;
+	padding: 0.35rem 0.65rem;
+	line-height: 1.3;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	text-align: center;
+}
+
+.slideshow-footer .btn:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.1) !important;
+	background-color: rgba(255, 255, 255, 0.1) !important;
+	border-color: rgba(255, 255, 255, 0.5) !important;
+	color: rgba(255, 255, 255, 1) !important;
+}
+
+.slideshow-footer .btn:disabled {
+	opacity: 0.4 !important;
+	cursor: not-allowed !important;
+}
+
+.slideshow-footer .btn i {
+	margin-right: 0.2rem;
+	font-size: 0.9rem;
+	display: inline-flex;
+	align-items: center;
+}
+
+.slideshow-footer .btn span {
+	font-size: 0.85rem;
+	display: inline-flex;
+	align-items: center;
 }
 
 .map-wrapper {

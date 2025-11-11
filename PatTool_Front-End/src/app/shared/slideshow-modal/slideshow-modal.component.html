@@ -203,12 +203,26 @@
         <i class="fa me-1" [ngClass]="showInfoPanel ? 'fa-eye-slash' : 'fa-eye'"></i>
         <span>{{ showInfoPanel ? ('EVENTELEM.HIDE_INFO' | translate) : ('EVENTELEM.SHOW_INFO' | translate) }}</span> <span class="ms-1">(I)</span>
       </button>
-      <button type="button" class="btn btn-secondary" 
-              *ngIf="currentImageLocation"
-              (click)="toggleMapView()">
-        <i class="fa me-1" [ngClass]="showMapView ? 'fa-picture-o' : 'fa-map-marker'"></i>
-        <span>{{ showMapView ? ('EVENTELEM.SEE_PHOTO' | translate) : ('EVENTELEM.SEE_LOCATION' | translate) }}</span> <span class="ms-1">(E)</span>
-      </button>
+      <div class="btn-group"
+           *ngIf="currentImageLocation"
+           ngbDropdown>
+        <button type="button" class="btn btn-secondary" (click)="handleLocationAction()">
+          <i class="fa me-1" [ngClass]="getLocationButtonIconClass()"></i>
+          <span>{{ getLocationButtonLabel() }}</span>
+          <span *ngIf="locationViewMode === 'google'" class="ms-1">(E)</span>
+        </button>
+        <button type="button" class="btn btn-secondary dropdown-toggle dropdown-toggle-split" ngbDropdownToggle>
+          <span class="visually-hidden">{{ 'COMMUN.OPTIONS' | translate }}</span>
+        </button>
+        <div ngbDropdownMenu>
+          <button type="button" class="dropdown-item" [class.active]="locationViewMode === 'google'" (click)="setLocationViewMode('google')">
+            <i class="fa fa-map-marker me-2"></i>{{ 'EVENTELEM.LOCATION_VIEW_GOOGLE' | translate }}
+          </button>
+          <button type="button" class="dropdown-item" [class.active]="locationViewMode === 'trace'" (click)="setLocationViewMode('trace')">
+            <i class="fa fa-map-signs me-2"></i>{{ 'EVENTELEM.LOCATION_VIEW_TRACE' | translate }}
+          </button>
+        </div>
+      </div>
       <button type="button" class="btn btn-secondary" 
               (click)="toggleGrid()"
               [disabled]="slideshowImages.length === 0">

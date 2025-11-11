@@ -209,6 +209,7 @@
     border-width: 1px !important;
     border-style: solid !important;
     vertical-align: bottom !important;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .card-footer .btn i,
@@ -218,6 +219,7 @@
 .card-footer button.btn-sm i {
     line-height: 31px !important;
     vertical-align: middle !important;
+    transition: color 0.2s ease, transform 0.15s ease;
 }
 
 .card-footer .file-upload-wrapper {
@@ -273,7 +275,26 @@
     /* border-color sera défini dynamiquement via [style.border-color] */
     color: white !important;
     box-shadow: none !important;
-    transition: none !important;
+}
+
+.card-footer .btn:hover,
+.card-footer a.btn:hover,
+.card-footer button.btn:hover,
+.card-footer a.btn-sm:hover,
+.card-footer button.btn-sm:hover {
+    border-color: #000 !important;
+    color: #000 !important;
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15) !important;
+}
+
+.card-footer .btn:hover i,
+.card-footer a.btn:hover i,
+.card-footer button.btn:hover i,
+.card-footer a.btn-sm:hover i,
+.card-footer button.btn-sm:hover i {
+    color: #000 !important;
 }
 
 /* Style pour le titre sur l'image avec fond blanc transparent */
