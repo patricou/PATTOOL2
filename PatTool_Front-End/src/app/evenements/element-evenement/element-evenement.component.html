@@ -652,7 +652,7 @@
 <app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()" (openLocationInTrace)="onSlideshowLocationInTrace($event)"></app-slideshow-modal>
 
 <!-- Trace Viewer Modal Component -->
-<app-trace-viewer-modal #traceViewerModalComponent></app-trace-viewer-modal>
+<app-trace-viewer-modal #traceViewerModalComponent (closed)="onTraceViewerClosed()"></app-trace-viewer-modal>
 
 
 <!-- Upload Logs Modal -->

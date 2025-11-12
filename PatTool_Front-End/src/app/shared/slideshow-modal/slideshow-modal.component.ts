@@ -217,6 +217,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private imageLocations: Map<string, { lat: number; lng: number }> = new Map();
   private mapUrlCache: Map<string, SafeResourceUrl> = new Map();
   public locationViewMode: 'google' | 'trace' = 'google';
+  private traceViewerOpen: boolean = false;
 
   // Filesystem image variants tracking
   private filesystemImageVariants: Map<number, {
@@ -2478,6 +2479,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyCode = 84;
         this.toggleThumbnails();
       } else if (event.key === 'e' || event.key === 'E' || event.keyCode === 69) {
+        if (this.traceViewerOpen) {
+          return;
+        }
         if (!this.currentImageLocation) {
           return;
         }
@@ -2498,6 +2502,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyCode = 79;
         this.toggleFilesystemImageQuality();
       } else if (event.key === 'Escape' || event.keyCode === 27) {
+        if (this.traceViewerOpen) {
+          return;
+        }
         // En mode fenêtre : Escape réinitialise le zoom
         event.preventDefault();
         event.stopPropagation();
@@ -3073,6 +3080,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.updateContainerDimensions();
       }, 0);
     }
+  }
+
+  public setTraceViewerOpen(isOpen: boolean): void {
+    this.traceViewerOpen = isOpen;
   }
   
   public toggleThumbnails(): void {

@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, HostListener, Inject, OnDestroy, TemplateRef, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
@@ -28,6 +28,7 @@ interface TraceStatistics {
 export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('traceViewerModal') traceViewerModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
+	@Output() closed = new EventEmitter<void>();
 
 	public isLoading = false;
 	public hasError = false;
@@ -76,6 +77,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.rightClickDraggingDisabled = true;
 		}
 	};
+	private escapeKeydownListener?: (event: KeyboardEvent) => void;
+	private hasEmittedClosed: boolean = false;
 	private handleMapMouseMove = (event: L.LeafletMouseEvent) => {
 		if (!this.map || !this.rightMouseZoomActive || !this.rightMouseStartLatLng || !this.rightMouseRectangle) {
 			return;
@@ -136,15 +139,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cleanupRightClickZoom();
 	}
 
-	@HostListener('window:keydown.escape')
-	onEscape(): void {
-		if (this.document.fullscreenElement) {
-			this.document.exitFullscreen().catch(() => {});
-			return;
-		}
-		if (this.modalRef) {
-			this.close();
-		}
+	@HostListener('window:keydown.escape', ['$event'])
+	onEscape(event: KeyboardEvent): void {
+		event.preventDefault();
+		this.close();
 	}
 
 	@HostListener('window:keydown', ['$event'])
@@ -153,7 +151,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		if (event.key.toLowerCase() === 'r') {
+		const key = event.key.toLowerCase();
+		if (key === 'r') {
 			event.preventDefault();
 			this.recenterOnTrack();
 		}
@@ -182,9 +181,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public close(): void {
-		if (this.modalRef) {
-			this.modalRef.close();
+		if (this.document.fullscreenElement) {
+			const exitResult = this.document.exitFullscreen();
+			if (exitResult && typeof exitResult.then === 'function') {
+				exitResult.finally(() => this.closeModalInstance());
+			} else {
+				this.closeModalInstance();
+			}
+			return;
 		}
+		this.closeModalInstance();
 	}
 
 	public toggleFullscreen(): void {
@@ -221,21 +227,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 			windowClass: 'slideshow-modal-wide modal-smooth-animation',
 			modalDialogClass: 'modal-xl'
 		});
+		this.hasEmittedClosed = false;
 
 		const finalizeModal = () => {
-			this.isFullscreen = false;
-			this.destroyMap();
-			this.cleanupFullscreenListener();
-			if (this.document.fullscreenElement) {
-				this.document.exitFullscreen().catch(() => {});
-			}
-			this.modalRef = undefined;
+			this.resetModalState();
 		};
 
 		this.modalRef.closed.pipe(take(1)).subscribe(() => finalizeModal());
 		this.modalRef.dismissed.pipe(take(1)).subscribe(() => finalizeModal());
 		this.subscribeToModalVisibility();
 		this.registerFullscreenListener();
+		this.registerEscapeKeydownListener();
 
 		if (this.pendingLocation) {
 			this.scheduleMapInitialization();
@@ -955,6 +957,69 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.map.off('contextmenu', this.handleMapContextMenu);
 		const container = this.map.getContainer();
 		container.removeEventListener('contextmenu', this.preventContextMenu);
+	}
+
+	private closeModalInstance(): void {
+		const ref = this.modalRef;
+		if (ref) {
+			try {
+				ref.dismiss('manual-close');
+			} catch {
+				try {
+					ref.close('manual-close');
+				} catch {
+					this.modalService.dismissAll('manual-close');
+				}
+			}
+		} else {
+			this.modalService.dismissAll('manual-close');
+		}
+
+		this.resetModalState();
+	}
+
+	private registerEscapeKeydownListener(): void {
+		if (this.escapeKeydownListener) {
+			return;
+		}
+
+		this.escapeKeydownListener = (event: KeyboardEvent) => {
+			if (!this.modalRef) {
+				return;
+			}
+			const key = event.key?.toLowerCase?.() ?? '';
+			if (key === 'escape' || key === 'esc') {
+				event.preventDefault();
+				event.stopPropagation();
+				event.stopImmediatePropagation?.();
+				this.close();
+			}
+		};
+
+		this.document.addEventListener('keydown', this.escapeKeydownListener, true);
+	}
+
+	private removeEscapeKeydownListener(): void {
+		if (this.escapeKeydownListener) {
+			this.document.removeEventListener('keydown', this.escapeKeydownListener, true);
+			this.escapeKeydownListener = undefined;
+		}
+	}
+
+	private resetModalState(): void {
+		this.removeEscapeKeydownListener();
+		this.isFullscreen = false;
+		this.isFullscreenInfoVisible = false;
+		this.destroyMap();
+		this.cleanupFullscreenListener();
+		if (this.document.fullscreenElement) {
+			this.document.exitFullscreen().catch(() => {});
+		}
+		this.modalRef = undefined;
+		if (!this.hasEmittedClosed) {
+			this.hasEmittedClosed = true;
+			this.closed.emit();
+		}
 	}
 }
 

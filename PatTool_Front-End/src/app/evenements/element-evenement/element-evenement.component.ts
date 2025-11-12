@@ -368,6 +368,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			}
 		});
 		this.fsSlideshowSubs = [];
+		if (this.slideshowModalComponent) {
+			this.slideshowModalComponent.setTraceViewerOpen(false);
+		}
 	}
 
 	public onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
@@ -387,8 +390,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			? labelParts.join(' • ')
 			: this.translateService.instant('EVENTELEM.SEE_LOCATION');
 
+		if (this.slideshowModalComponent) {
+			this.slideshowModalComponent.setTraceViewerOpen(true);
+		}
+
 		if (this.traceViewerModalComponent) {
 			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label);
+		}
+	}
+
+	public onTraceViewerClosed(): void {
+		if (this.slideshowModalComponent) {
+			this.slideshowModalComponent.setTraceViewerOpen(false);
 		}
 	}
 
