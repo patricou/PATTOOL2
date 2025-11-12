@@ -358,10 +358,9 @@
 
 <ng-container *ngIf="!titleOnly">
 <div class="card-footer card-text text-center" [style.color]="titleBorderColor">
-    <button class="btn btn-sm btn-outline-success mb-1 me-1" 
+    <button class="btn btn-sm btn-outline-success mb-1 me-1 dynamic-footer-btn" 
             [hidden]="!(hasImageFiles() || getPhotoFromFsCount() > 0)" 
-            [style.background-color]="getButtonGradientForType('photos', dominantR, dominantG, dominantB)"
-            [style.border-color]="'white'"
+            [ngStyle]="getFooterButtonStyles('photos')"
             (click)="openPhotos()"
             placement="right"
             container="body"
@@ -370,10 +369,9 @@
         <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getTotalPhotosCount() }}
     </button>
     
-    <a class="btn btn-sm btn-outline-info mb-1 me-1 eye-button" 
+    <a class="btn btn-sm btn-outline-info mb-1 me-1 eye-button dynamic-footer-btn" 
        [routerLink]="['/details-evenement', evenement.id]" 
-       [style.background-color]="getButtonGradientForType('details', dominantR, dominantG, dominantB)"
-       [style.border-color]="'white'"
+       [ngStyle]="getFooterButtonStyles('details')"
        placement="top"
        ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}"
        (mouseleave)="onTooltipMouseLeave($event)">
@@ -381,9 +379,8 @@
     </a>
     
     <button *ngIf="getUrlEventsCount() > 0"
-            class="btn btn-primary btn-sm mb-1 me-1" 
-            [style.background-color]="getButtonGradientForType('urls', dominantR, dominantG, dominantB)"
-            [style.border-color]="'white'"
+            class="btn btn-primary btn-sm mb-1 me-1 dynamic-footer-btn" 
+            [ngStyle]="getFooterButtonStyles('urls')"
             (click)="openUrlsModal(urlsModal)" 
             placement="top"
             ngbTooltip="{{ 'EVENTELEM.URLS' | translate }} ({{ getUrlEventsCount() }})"
@@ -392,9 +389,8 @@
     </button>
 
     <button *ngIf="hasComments()" 
-            class="btn btn-sm comments-button mb-1 me-1" 
-            [style.background-color]="getButtonGradientForType('comments', dominantR, dominantG, dominantB)"
-            [style.border-color]="'white'"
+            class="btn btn-sm comments-button mb-1 me-1 dynamic-footer-btn" 
+            [ngStyle]="getFooterButtonStyles('comments')"
             (click)="openCommentsModal()" 
             placement="top"
             ngbTooltip="{{ 'EVENTHOME.COMMENTARIES' | translate }}"
@@ -402,33 +398,29 @@
         <i class="fa fa-comments" aria-hidden="true"></i> {{ getCommentsCount() }}
     </button>
     
-    <a class="btn btn-sm btn-success mb-1 me-1" 
-       [style.background-color]="getButtonGradientForType('participation', dominantR, dominantG, dominantB)"
-       [style.border-color]="'white'"
+    <a class="btn btn-sm btn-success mb-1 me-1 dynamic-footer-btn" 
+       [ngStyle]="getFooterButtonStyles('participation')"
        (click)="addMemberClick()" 
        ngbTooltip="{{ 'EVENTELEM.PARTICIPATION' | translate }}" 
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-user-o" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-primary mb-1 me-1" 
+    <a class="btn btn-sm btn-primary mb-1 me-1 dynamic-footer-btn" 
        [hidden]="!isAuthor()" 
-       [style.background-color]="getButtonGradientForType('status', dominantR, dominantG, dominantB)"
-       [style.border-color]="'white'"
+       [ngStyle]="getFooterButtonStyles('status')"
        (click)="changeStatusEvent(evenement.status)"
        ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" 
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-circle-o-notch"
             aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-warning mb-1 me-1" 
-       [style.background-color]="getButtonGradientForType('edit', dominantR, dominantG, dominantB)"
-       [style.border-color]="'white'"
+    <a class="btn btn-sm btn-warning mb-1 me-1 dynamic-footer-btn" 
+       [ngStyle]="getFooterButtonStyles('edit')"
        [routerLink]="['/updeven',evenement.id]"
        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" 
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-outline-primary mb-1 me-1" 
+    <a class="btn btn-sm btn-outline-primary mb-1 me-1 dynamic-footer-btn" 
        [hidden]="!isAnyFiles()" 
-       [style.background-color]="getButtonGradientForType('download', dominantR, dominantG, dominantB)"
-       [style.border-color]="'white'"
+       [ngStyle]="getFooterButtonStyles('download')"
        (click)="toogleFileListe()"
        placement="top" 
        ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"
@@ -438,9 +430,8 @@
     <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
          (mouseleave)="onTooltipMouseLeave($event)">
         <label [for]="'file-upload-input-' + evenement.id" 
-               class="btn btn-sm btn-success mb-1"
-               [style.background-color]="getButtonGradientForType('upload', dominantR, dominantG, dominantB)"
-               [style.border-color]="'white'">
+               class="btn btn-sm btn-success mb-1 dynamic-footer-btn"
+               [ngStyle]="getFooterButtonStyles('upload')">
             <i class="fa fa-upload" aria-hidden="true"></i>
         </label>
         <input type="file" [id]="'file-upload-input-' + evenement.id" #fileInput (change)="onFileSelected($event)" multiple 
@@ -448,9 +439,8 @@
     </div>
 
     <button *ngIf="thumbnailUrl && thumbnailUrl !== 'assets/images/images.jpg'"
-            class="btn btn-sm btn-outline-secondary mb-1 me-1"
-            [style.background-color]="getButtonGradientForType('color', dominantR, dominantG, dominantB)"
-            [style.border-color]="'white'"
+            class="btn btn-sm btn-outline-secondary mb-1 me-1 dynamic-footer-btn"
+            [ngStyle]="getFooterButtonStyles('color')"
             (click)="toggleColorCalculationMode()"
             placement="top"
             ngbTooltip="{{ 'EVENTELEM.CARD_COLOR' | translate }}"

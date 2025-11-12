@@ -17,24 +17,7 @@
                         <i class="fa" [class.fa-chevron-down]="controlsCollapsed"
                             [class.fa-chevron-up]="!controlsCollapsed"></i>
                     </button>
-                    <!-- Last two buttons on same line - aligned to the right of collapse button -->
-                    <div class="last-buttons-row" [hidden]="totalPages == 0">
-                        <select class="form-select form-select-sm select-elements" [(ngModel)]="elementsByPage"
-                            (change)="changeFiltre()"
-                            [ngbTooltip]="isMobile ? null : ('COMMUN.EVENTBYPAGE' | translate)" placement="bottom"
-                            container="body">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="6">6</option>
-                            <option value="8">8</option>
-                            <option value="9">9</option>
-                            <option value="12">12</option>
-                            <option value="15">15</option>
-                            <option value="21">21</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
+                    <div class="last-buttons-row">
                         <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
                             [ngbTooltip]="isMobile ? null : ('EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate)"
                             placement="bottom" container="body">
@@ -58,40 +41,7 @@
                         <span class="count-value">{{ filteredTotal }}</span>
                         <span class="count-label">{{ 'EVENTHOME.EVENTS_FOUND' | translate }}</span>
                     </div>
-                    <div class="pagination-controls" [hidden]="totalPages == 0">
-                        <button class="btn btn-sm btn-outline-secondary btn-pagination" (click)="changePreviousPage()"
-                            [disabled]="pageNumber === 0" aria-label="Previous"
-                            ngbTooltip="{{ 'COMMUN.PREVIOUS_PAGE' | translate }}" placement="bottom" container="body">
-                            <span aria-hidden="true">&laquo;</span>
-                        </button>
-                        <select class="form-select form-select-sm select-page" [(ngModel)]="pageNumber"
-                            (change)="changePage(pageNumber)" ngbTooltip="{{ 'EVENTHOME.SELECT_PAGE' | translate }}"
-                            placement="bottom" container="body">
-                            <option *ngFor="let p of pages" [value]="p">{{ 'EVENTHOME.PAGE' | translate }} {{p + 1}}
-                            </option>
-                        </select>
-                        <button class="btn btn-sm btn-outline-secondary btn-pagination" (click)="changeNextPage()"
-                            [disabled]="pageNumber >= totalPages - 1" aria-label="Next"
-                            ngbTooltip="{{ 'COMMUN.NEXT_PAGE' | translate }}" placement="bottom" container="body">
-                            <span aria-hidden="true">&raquo;</span>
-                        </button>
-                        <select class="form-select form-select-sm select-elements" [(ngModel)]="elementsByPage"
-                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
-                            placement="bottom" container="body">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="6">6</option>
-                            <option value="8">8</option>
-                            <option value="9">9</option>
-                            <option value="12">12</option>
-                            <option value="15">15</option>
-                            <option value="21">21</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                        <small class="text-muted page-indicator">{{ 'EVENTHOME.PAGE' | translate }}
-                            {{pageNumber+1}}/{{totalPages}}</small>
+                    <div class="view-controls">
                         <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
                             ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom"
                             container="body">
@@ -122,7 +72,7 @@
 <div class="container-fluid">
     <!-- Vue normale (cartes complètes) -->
     <div class="row" *ngIf="!isCompactView">
-        <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12 card-group pat-card" *ngFor="let evenement of evenements">
+        <div class="col-xl-3 col-lg-4 col-md-6 col-sm-12 card-group pat-card" *ngFor="let evenement of evenements; trackBy: trackEvent">
             <element-evenement class="card" [user]="user" [evenement]="evenement" [titleOnly]="titleOnlyView"
                 (updateFileUploaded)="updateFileUploadedInEvent($event)" (addMember)="addMemberInEvent($event)"
                 (delMember)="delMemberInEvent($event)" (updateEvenement)="updEvent($event)"
@@ -133,7 +83,7 @@
 
     <!-- Vue compacte (liste) -->
     <div class="compact-view" *ngIf="isCompactView">
-        <div class="compact-card" *ngFor="let evenement of evenements" (click)="openEventDetails(evenement)">
+        <div class="compact-card" *ngFor="let evenement of evenements; trackBy: trackEvent" (click)="openEventDetails(evenement)">
             <div class="compact-image">
                 <img [src]="getEventThumbnail(evenement)" [alt]="evenement.evenementName"
                     class="compact-thumbnail clickable-image" (error)="onImageError($event)"
@@ -269,126 +219,13 @@
         </div>
     </div>
 </div>
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-sm-12">
-            <div class="controls-bar">
-                <!-- Mobile collapse button -->
-                <!-- Header row with collapse button and last two buttons on same line -->
-                <div class="controls-header-row d-md-none">
-                    <button class="btn btn-sm btn-outline-secondary btn-collapse-controls"
-                        (click)="toggleControlsCollapse()" type="button"
-                        ngbTooltip="{{ controlsCollapsed ? ('COMMUN.SHOW_CONTROLS' | translate) : ('COMMUN.HIDE_CONTROLS' | translate) }}"
-                        placement="bottom" container="body">
-                        <i class="fa" [class.fa-chevron-down]="controlsCollapsed"
-                            [class.fa-chevron-up]="!controlsCollapsed"></i>
-                    </button>
-                    <!-- Last two buttons on same line - aligned to the right of collapse button -->
-                    <div class="last-buttons-row" [hidden]="totalPages == 0">
-                        <select class="form-select form-select-sm select-elements" [(ngModel)]="elementsByPage"
-                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
-                            placement="bottom" container="body">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="6">6</option>
-                            <option value="8">8</option>
-                            <option value="9">9</option>
-                            <option value="12">12</option>
-                            <option value="15">15</option>
-                            <option value="21">21</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                        <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
-                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom"
-                            container="body">
-                            <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
-                        </button>
-                        <div class="form-check form-switch compact-toggle"
-                            [ngStyle]="{'background-color': averageColor, 'border-color': averageBorderColor}">
-                            <input class="form-check-input" type="checkbox" id="titleOnlyToggle"
-                                [(ngModel)]="titleOnlyView">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Controls wrapper - collapsed on mobile by default -->
-                <div class="controls-wrapper" [class.collapsed]="controlsCollapsed">
-                    <!-- Search and filter on same line -->
-                    <div class="search-filter-row">
-                        <input type="text" id="message" [value]="dataFIlter" #searchterm
-                            placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" class="form-control search-input" />
-                        <button class="btn btn-sm btn-secondary btn-filter" (click)="clearFilter()" type="button"
-                            ngbTooltip="{{ 'COMMUN.CLEAR_FILTER' | translate }}" placement="bottom"
-                            container="body">X</button>
-                    </div>
-                    <div class="results-counter"
-                        [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
-                        <span class="count-value">{{ filteredTotal }}</span>
-                        <span class="count-label">{{ 'EVENTHOME.EVENTS_FOUND' | translate }}</span>
-                    </div>
-                    <div class="pagination-controls" [hidden]="totalPages == 0">
-                        <button class="btn btn-sm btn-outline-secondary btn-pagination" (click)="changePreviousPage()"
-                            [disabled]="pageNumber === 0" aria-label="Previous"
-                            ngbTooltip="{{ 'COMMUN.PREVIOUS_PAGE' | translate }}" placement="bottom" container="body">
-                            <span aria-hidden="true">&laquo;</span>
-                        </button>
-                        <select class="form-select form-select-sm select-page" [(ngModel)]="pageNumber"
-                            (change)="changePage(pageNumber)" ngbTooltip="{{ 'EVENTHOME.SELECT_PAGE' | translate }}"
-                            placement="bottom" container="body">
-                            <option *ngFor="let p of pages" [value]="p">{{ 'EVENTHOME.PAGE' | translate }} {{p + 1}}
-                            </option>
-                        </select>
-                        <button class="btn btn-sm btn-outline-secondary btn-pagination" (click)="changeNextPage()"
-                            [disabled]="pageNumber >= totalPages - 1" aria-label="Next"
-                            ngbTooltip="{{ 'COMMUN.NEXT_PAGE' | translate }}" placement="bottom" container="body">
-                            <span aria-hidden="true">&raquo;</span>
-                        </button>
-                        <select class="form-select form-select-sm select-elements" [(ngModel)]="elementsByPage"
-                            (change)="changeFiltre()" ngbTooltip="{{ 'COMMUN.EVENTBYPAGE' | translate }}"
-                            placement="bottom" container="body">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="6">6</option>
-                            <option value="8">8</option>
-                            <option value="9">9</option>
-                            <option value="12">12</option>
-                            <option value="15">15</option>
-                            <option value="21">21</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                        <small class="text-muted page-indicator">{{ 'EVENTHOME.PAGE' | translate }}
-                            {{pageNumber+1}}/{{totalPages}}</small>
-                        <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
-                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom"
-                            container="body">
-                            <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
-                        </button>
-                        <span class="compact-toggle-wrapper"
-                            ngbTooltip="{{ titleOnlyView ? ('EVENTHOME.TITLE_ONLY_COMPLET' | translate) : ('EVENTHOME.TITLE_ONLY_HINT' | translate) }}"
-                            placement="bottom" container="body">
-                            <div class="compact-toggle">
-                                <input class="compact-toggle-input" type="checkbox" id="titleOnlyToggle"
-                                    [(ngModel)]="titleOnlyView">
-                                <label class="compact-toggle-label" for="titleOnlyToggle">
-                                    <span class="toggle-track"></span>
-                                    <span class="toggle-thumb">
-                                        <i class="fa" [class.fa-align-justify]="!titleOnlyView"
-                                            [class.fa-align-center]="titleOnlyView"></i>
-                                    </span>
-                                </label>
-                                <span class="visually-hidden">{{ 'EVENTHOME.TITLE_ONLY_HINT' | translate }}</span>
-                            </div>
-                        </span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="loading-indicator text-center my-3" *ngIf="isLoadingNextPage">
+    <i class="fa fa-spinner fa-spin"></i>
 </div>
+<div class="text-center text-muted my-3" *ngIf="!isLoadingNextPage && evenements.length === 0">
+    <small>{{ 'EVENTHOME.EVENTS_FOUND' | translate }}: 0</small>
+</div>
+<div #infiniteScrollAnchor class="infinite-scroll-anchor" aria-hidden="true"></div>
 
 <!-- Photos Modal -->
 <ng-template #photosModal let-c="close" let-d="dismiss">

@@ -1,7 +1,7 @@
 import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, OnDestroy, TemplateRef } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
-import { Observable, fromEvent, firstValueFrom } from 'rxjs';
+import { Observable, Subscription, fromEvent, firstValueFrom } from 'rxjs';
 import { debounceTime, map } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
@@ -26,11 +26,6 @@ interface EventColorUpdate {
 	color: { r: number; g: number; b: number };
 }
 
-export enum KEY_CODE {
-	RIGHT_ARROW = 39,
-	LEFT_ARROW = 37
-}
-
 @Component({
 	selector: 'home-evenements',
 	templateUrl: './home-evenements.component.html',
@@ -40,8 +35,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	public evenements: Evenement[] = [];
 	public user: Member = new Member("", "", "", "", "", [], "");
-	public totalElements: number = 0;
-	public totalPages: number = 0;
 	public pageNumber: number = this._commonValuesService.getPageNumber();
 	public elementsByPage: number = this._commonValuesService.getElementsByPage();
 	public dataFIlter: string = this._commonValuesService.getDataFilter();
@@ -50,7 +43,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public averageTextColor!: string;
 	public averageBorderColor!: string;
 	public averageGradient!: string;
-	public pages: number[] = [];
 	public isCompactView: boolean = false;
 	public controlsCollapsed: boolean = false;
 	public isMobile: boolean = false;
@@ -69,6 +61,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Upload logs
 	public uploadLogs: string[] = [];
 	public isUploading: boolean = false;
+	public isLoadingNextPage: boolean = false;
+	public hasMoreEvents: boolean = true;
 	private readonly defaultAverageColor: string = 'rgba(73, 80, 87, 0.12)';
 	private readonly defaultAverageTextColor: string = '#343a40';
 	private readonly defaultAverageBorderColor: string = 'rgba(52, 58, 64, 0.65)';
@@ -89,6 +83,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 	@ViewChild('photosSelectorModalComponent') photosSelectorModalComponent!: PhotosSelectorModalComponent;
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
+	@ViewChild('infiniteScrollAnchor') infiniteScrollAnchor?: ElementRef<HTMLDivElement>;
+	private eventsSubscription?: Subscription;
+	private intersectionObserver?: IntersectionObserver;
+	private feedRequestToken = 0;
+	private prefetchTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	private readonly prefetchThresholdMultiplier = 2;
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
@@ -109,7 +109,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	ngOnInit() {
 		this.user = this._memberService.getUser();
-		this.getEvents(this.dataFIlter);
+		this.resetAndLoadEvents();
 		
 		this.updateResponsiveState(this.nativeWindow.innerWidth);
 		// Initialize controls collapsed state based on screen size
@@ -146,11 +146,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				this._commonValuesService.setPageNumber(this.pageNumber);
 				this.dataFIlter = data.target.value;
 				this._commonValuesService.setDataFilter(this.dataFIlter);
-				this.getEvents(this.dataFIlter);
+				this.resetAndLoadEvents();
 			}),
 			((err: any) => console.error(err)),
 			() => console.log('complete')
 		)
+		this.setupInfiniteScrollObserver();
 	}
 
 	private waitForNonEmptyValue(): Promise<void> {
@@ -168,33 +169,167 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		});
 	}
 
-	// Get the evenements list with pagination
-	public getEvents(data: any) {
-		let searchString: string = "*";
-		if (data !== "")
-			searchString = data == "" ? "*" : data;
+	private resetAndLoadEvents(): void {
+		this.feedRequestToken++;
+		this.eventsSubscription?.unsubscribe();
+		this.isLoadingNextPage = false;
+		this.hasMoreEvents = true;
+		if (this.prefetchTimeoutId) {
+			clearTimeout(this.prefetchTimeoutId);
+			this.prefetchTimeoutId = null;
+		}
+		this.pageNumber = 0;
+		this._commonValuesService.setPageNumber(this.pageNumber);
+		this._commonValuesService.setElementsByPage(this.elementsByPage);
+		this.evenements = [];
+		this.filteredTotal = 0;
+		this.resetColorAggregation();
+		if (this.infiniteScrollAnchor?.nativeElement) {
+			this.setupInfiniteScrollObserver();
+		}
+		this.loadNextPage();
+	}
+
+	private loadNextPage(): void {
+		if (this.isLoadingNextPage || !this.hasMoreEvents) {
+			return;
+		}
+
+		if (this.prefetchTimeoutId) {
+			clearTimeout(this.prefetchTimeoutId);
+			this.prefetchTimeoutId = null;
+		}
+
+		const requestToken = this.feedRequestToken;
+		const pageToLoad = this.pageNumber;
+		const rawFilter = (this.dataFIlter ?? "").trim();
+		const searchString = rawFilter === "" ? "*" : rawFilter;
+
+		this.isLoadingNextPage = true;
 
 		this.waitForNonEmptyValue().then(() => {
-			let now = new Date();
+			if (requestToken !== this.feedRequestToken) {
+				return;
+			}
+			this.eventsSubscription?.unsubscribe();
+			const subscription = this._evenementsService
+				.getEvents(searchString, pageToLoad, this.elementsByPage, this.user.id)
+				.subscribe({
+					next: (res: any) => {
+						if (requestToken !== this.feedRequestToken) {
+							return;
+						}
+						const newEvents: Evenement[] = res?.content ?? [];
 
-			// console.log("4|------------------> This.user.id is no more null ( from HomeEvenementsComponent ) :", this.user.id + " at " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
+						if (pageToLoad === 0) {
+							this.evenements = newEvents;
+						} else {
+							this.evenements = [...this.evenements, ...newEvents];
+						}
 
-			this._evenementsService
-				.getEvents(searchString, this.pageNumber, this.elementsByPage, this.user.id)
-				.subscribe((res: any) => {
-					this.evenements = res.content;
-					this.resetColorAggregation();
-					this.totalElements = res.page.totalElements;
-					this.totalPages = res.page.totalPages;
-					this.filteredTotal = res.page?.totalElements ?? (res.content?.length || 0);
-					this.pageNumber = res.page.number;
-					this._commonValuesService.setPageNumber(this.pageNumber);
-					this.pages = Array.from(Array(this.totalPages), (x, i) => i);
-				},
-					(err: any) => alert("Error when getting Events " + JSON.stringify(this.user))
-				);
+						this.filteredTotal = res?.page?.totalElements ?? this.evenements.length;
+						const currentPageFromResponse = res?.page?.number ?? pageToLoad;
+						const totalPages = res?.page?.totalPages ?? null;
+
+						this.pageNumber = currentPageFromResponse + 1;
+						this._commonValuesService.setPageNumber(currentPageFromResponse);
+
+						if (newEvents.length === 0) {
+							this.hasMoreEvents = false;
+						} else if (totalPages !== null) {
+							this.hasMoreEvents = this.pageNumber < totalPages;
+						} else {
+							this.hasMoreEvents = newEvents.length === this.elementsByPage;
+						}
+
+						if (!this.hasMoreEvents) {
+							this.disconnectInfiniteScrollObserver();
+						}
+
+						this.isLoadingNextPage = false;
+						this.schedulePrefetchIfNeeded();
+						this.tryLoadNextIfAnchorVisible();
+					},
+					error: (err: any) => {
+						if (requestToken !== this.feedRequestToken) {
+							return;
+						}
+						console.error("Error when getting Events", err);
+						this.isLoadingNextPage = false;
+						this.hasMoreEvents = false;
+					}
+				});
+			this.eventsSubscription = subscription;
+		}).catch((err) => {
+			console.error("Error while waiting for user value", err);
+			this.isLoadingNextPage = false;
+			this.hasMoreEvents = false;
 		});
-	};
+	}
+
+	private setupInfiniteScrollObserver(): void {
+		if (!this.infiniteScrollAnchor) {
+			return;
+		}
+
+		this.disconnectInfiniteScrollObserver();
+
+		this.intersectionObserver = new IntersectionObserver((entries) => {
+			entries.forEach(entry => {
+				if (entry.isIntersecting) {
+					this.loadNextPage();
+				}
+			});
+		}, {
+			root: null,
+			rootMargin: '0px 0px 45% 0px',
+			threshold: 0
+		});
+
+		this.intersectionObserver.observe(this.infiniteScrollAnchor.nativeElement);
+	}
+
+	private disconnectInfiniteScrollObserver(): void {
+		if (this.intersectionObserver) {
+			this.intersectionObserver.disconnect();
+			this.intersectionObserver = undefined;
+		}
+	}
+
+	private schedulePrefetchIfNeeded(): void {
+		if (!this.hasMoreEvents || this.isLoadingNextPage) {
+			return;
+		}
+
+		const target = this.prefetchThresholdMultiplier * this.elementsByPage;
+		if (this.evenements.length >= target) {
+			return;
+		}
+
+		if (this.prefetchTimeoutId) {
+			return;
+		}
+
+		this.prefetchTimeoutId = setTimeout(() => {
+			this.prefetchTimeoutId = null;
+			this.loadNextPage();
+		}, 0);
+	}
+
+	private tryLoadNextIfAnchorVisible(): void {
+		if (!this.hasMoreEvents || this.isLoadingNextPage || !this.infiniteScrollAnchor?.nativeElement) {
+			return;
+		}
+
+		requestAnimationFrame(() => {
+			if (!this.hasMoreEvents || this.isLoadingNextPage || !this.infiniteScrollAnchor?.nativeElement) {
+				return;
+			}
+			if (this.infiniteScrollAnchor.nativeElement.getBoundingClientRect().top <= (this.nativeWindow?.innerHeight ?? document.documentElement.clientHeight ?? 0)) {
+				this.loadNextPage();
+			}
+		});
+	}
 
 	public onEventColorUpdate(update: EventColorUpdate): void {
 		if (!update || !update.eventId) {
@@ -222,6 +357,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 		return evenement.id || evenement.evenementName || '';
 	}
+
+	public trackEvent = (index: number, evenement: Evenement): string => {
+		const key = this.getEventKey(evenement);
+		return key !== '' ? key : index.toString();
+	};
 
 	private updateAverageColor(): void {
 		if (this.eventColors.size === 0) {
@@ -336,7 +476,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this._evenementsService.delEvenement(evenement.id)
 			.subscribe(
 				(res: any) => {  //  update evenements for screen update			
-					this.getEvents(this.dataFIlter);
+					this.resetAndLoadEvents();
 				},
 				(err: any) => {
 					console.log("Del evenement error : " + err);
@@ -635,72 +775,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			.subscribe((resp: any) => // console.log("Delete file OK "),
 				(err: any) => alert("Delete File Error : " + err));
 	}
-	// Pagination functions
-	public changePage(page: number | string) {
-		// Convert to number if it's a string (from select box)
-		const pageNum = typeof page === 'string' ? parseInt(page, 10) : page;
-		this.pageNumber = pageNum;
-		this._commonValuesService.setPageNumber(this.pageNumber);
-		this.getEvents(this.dataFIlter);
-		this.scrollToTop();
-	}
-	public changePreviousPage() {
-		if (this.pageNumber > 0) {
-			this.pageNumber = this.pageNumber - 1;
-			this._commonValuesService.setPageNumber(this.pageNumber);
-			this.getEvents(this.dataFIlter);
-			this.scrollToTop();
-		}
-	}
-	public changeNextPage() {
-		if (this.pageNumber < this.totalPages - 1) {
-			this.pageNumber = this.pageNumber + 1;
-			this._commonValuesService.setPageNumber(this.pageNumber);
-			this.getEvents(this.dataFIlter);
-			this.scrollToTop();
-		}
-	}
-	public changeFiltre() {
-		this.pageNumber = 0;
-		this._commonValuesService.setPageNumber(this.pageNumber);
-		this._commonValuesService.setElementsByPage(this.elementsByPage);
-		this.getEvents(this.dataFIlter);
-		this.scrollToTop();
-	}
-
 	public clearFilter() {
 		this.dataFIlter = "";
-		this.changeFiltre();
-	}
-
-	// Allow to use arrow for pagination
-	@HostListener('window:keyup', ['$event'])
-	keyEvent(event: KeyboardEvent) {
-		// Don't handle arrow keys if a modal is open
-		const modal = document.querySelector('.modal.show');
-		if (modal) {
-			return;
-		}
-		
-		// Don't handle arrow keys if we're in fullscreen mode (slideshow fullscreen)
-		const isFullscreenActive = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
-			(document as any).mozFullScreenElement || (document as any).msFullscreenElement);
-		if (isFullscreenActive) {
-			return;
-		}
-		
-		// Check if target is an input or textarea
-		const target = event.target as HTMLElement;
-		if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
-			return;
-		}
-		
-		if (event.keyCode === KEY_CODE.RIGHT_ARROW) {
-			this.changeNextPage();
-		}
-		if (event.keyCode === KEY_CODE.LEFT_ARROW) {
-			this.changePreviousPage();
-		}
+		this._commonValuesService.setDataFilter(this.dataFIlter);
+		this.resetAndLoadEvents();
+		this.scrollToTop();
 	}
 
 	// Méthodes pour la vue compacte
@@ -897,6 +976,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	ngOnDestroy() {
+		this.eventsSubscription?.unsubscribe();
+		this.disconnectInfiniteScrollObserver();
+		if (this.prefetchTimeoutId) {
+			clearTimeout(this.prefetchTimeoutId);
+			this.prefetchTimeoutId = null;
+		}
 		// Nettoyer toutes les URLs blob pour éviter les fuites mémoire
 		this.eventThumbnails.forEach((safeUrl, eventId) => {
 			try {
@@ -1290,7 +1375,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				this.selectedEvent.fileUploadeds = this.selectedEvent.fileUploadeds.filter(fileUploaded => !(fileUploaded.fieldId == fieldId));
 				this.updateFileUploadedInEvent(this.selectedEvent);
 				// Refresh the events list
-				this.getEvents(this.dataFIlter);
+				this.resetAndLoadEvents();
 			}
 		}
 	}
@@ -1585,7 +1670,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							this.isUploading = false;
 							// Don't close modal automatically, let user close it manually
 							// Refresh the events list
-							this.getEvents(this.dataFIlter);
+							this.resetAndLoadEvents();
 						}, 1000);
 					}, 500);
 				},

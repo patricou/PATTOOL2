@@ -210,6 +210,8 @@
     border-style: solid !important;
     vertical-align: bottom !important;
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    color: inherit;
+    box-shadow: none !important;
 }
 
 .card-footer .btn i,
@@ -220,6 +222,7 @@
     line-height: 31px !important;
     vertical-align: middle !important;
     transition: color 0.2s ease, transform 0.15s ease;
+    color: inherit !important;
 }
 
 .card-footer .file-upload-wrapper {
@@ -249,52 +252,34 @@
 }
 
 /* Style du bouton commentaire - utiliser le gradient calculé avec bordure de la couleur de la fonte */
-.card-footer .comments-button {
-    /* background sera défini dynamiquement via [style.background] */
-    /* border-color sera défini dynamiquement via [style.border-color] */
-    color: white !important;
-    border-width: 1px !important;
-}
-
+/*.card-footer .comments-button maintained via dynamic styles */
 .comments-button i {
     font-size: inherit;
 }
 
 /* Boutons du footer avec styles simplifiés */
-.card-footer .btn,
-.card-footer a.btn,
-.card-footer .btn-outline-success,
-.card-footer .btn-outline-info,
-.card-footer .eye-button,
-.card-footer .btn-outline-primary,
-.card-footer .btn-outline-secondary,
-.card-footer .btn-primary,
-.card-footer .btn-success,
-.card-footer .btn-warning {
-    /* background sera défini dynamiquement via [style.background] */
-    /* border-color sera défini dynamiquement via [style.border-color] */
-    color: white !important;
+.card-footer .dynamic-footer-btn {
+    background-color: var(--btn-bg, inherit) !important;
+    color: var(--btn-color, inherit) !important;
+    border-color: var(--btn-border-color, currentColor) !important;
+    filter: brightness(1);
     box-shadow: none !important;
 }
 
-.card-footer .btn:hover,
-.card-footer a.btn:hover,
-.card-footer button.btn:hover,
-.card-footer a.btn-sm:hover,
-.card-footer button.btn-sm:hover {
-    border-color: #000 !important;
-    color: #000 !important;
-    background-color: rgba(0, 0, 0, 0.05) !important;
-    transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15) !important;
+.card-footer .dynamic-footer-btn:hover,
+.card-footer .dynamic-footer-btn:focus {
+    filter: brightness(var(--btn-hover-brightness, 0.9));
+    transform: translateY(-2px) scale(1.02);
+    box-shadow:
+        0 5px 16px var(--btn-shadow-color, rgba(15, 23, 42, 0.28)) !important;
 }
 
-.card-footer .btn:hover i,
-.card-footer a.btn:hover i,
-.card-footer button.btn:hover i,
-.card-footer a.btn-sm:hover i,
-.card-footer button.btn-sm:hover i {
-    color: #000 !important;
+.card-footer .dynamic-footer-btn:active {
+    filter: brightness(var(--btn-active-brightness, 0.82));
+    transform: translateY(1px) scale(0.995);
+    box-shadow:
+        inset 0 2px 6px rgba(15, 23, 42, 0.25),
+        0 1px 3px var(--btn-shadow-color, rgba(15, 23, 42, 0.24)) !important;
 }
 
 /* Style pour le titre sur l'image avec fond blanc transparent */

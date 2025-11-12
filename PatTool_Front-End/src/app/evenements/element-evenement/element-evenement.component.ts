@@ -129,6 +129,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	private visibilityBadgeGradientCache: string | null = null;
 	private downloadAllButtonGradientCache: string | null = null;
 	private ratingBadgeGradientCache: string | null = null;
+	private footerButtonStylesCache: Map<string, { [key: string]: string }> = new Map();
 	private tooltipMutationObserver?: MutationObserver;
 	private tooltipShowListener?: () => void;
 	private tooltipShownListener?: () => void;
@@ -1140,6 +1141,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.visibilityBadgeGradientCache = null;
 		this.downloadAllButtonGradientCache = null;
 		this.ratingBadgeGradientCache = null;
+		this.footerButtonStylesCache.clear();
 	}
 
 	// Process image to extract dominant color from top portion or full image
@@ -1373,6 +1375,48 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			cached = this.buildColorString(r, g, b, 0.85);
 			this.buttonGradientCache.set(cacheKey, cached);
 		}
+		return cached;
+	}
+
+	private buildAdjustedColor(delta: number, alpha: number = 1): string {
+		return this.buildColorString(
+			this.adjustColorComponent(this.dominantR, delta),
+			this.adjustColorComponent(this.dominantG, delta),
+			this.adjustColorComponent(this.dominantB, delta),
+			alpha
+		);
+	}
+
+	public getFooterButtonStyles(buttonType: string): { [key: string]: string } {
+		const cacheKey = `${buttonType}|${this.dominantR}|${this.dominantG}|${this.dominantB}`;
+		let cached = this.footerButtonStylesCache.get(cacheKey);
+
+		if (!cached) {
+			const baseColor = this.getButtonGradientForType(buttonType, this.dominantR, this.dominantG, this.dominantB);
+			const brightness = this.getColorBrightness(this.dominantR, this.dominantG, this.dominantB);
+			const isBright = brightness > 175;
+
+			const textColor = isBright ? '#020617' : '#fdfcff';
+			const borderColor = this.buildAdjustedColor(isBright ? -145 : 140, 0.97);
+			const hoverBrightness = isBright ? 0.82 : 1.24;
+			const activeBrightness = isBright ? 0.78 : 1.32;
+			const shadowColor = isBright ? 'rgba(15, 23, 42, 0.32)' : 'rgba(15, 23, 42, 0.42)';
+
+			cached = {
+				'background-color': baseColor,
+				'color': textColor,
+				'border-color': borderColor,
+				'--btn-bg': baseColor,
+				'--btn-color': textColor,
+				'--btn-border-color': borderColor,
+				'--btn-hover-brightness': hoverBrightness.toString(),
+				'--btn-active-brightness': activeBrightness.toString(),
+				'--btn-shadow-color': shadowColor
+			};
+
+			this.footerButtonStylesCache.set(cacheKey, cached);
+		}
+
 		return cached;
 	}
 	
