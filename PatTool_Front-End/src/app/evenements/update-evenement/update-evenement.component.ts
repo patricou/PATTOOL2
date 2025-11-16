@@ -230,12 +230,21 @@ export class UpdateEvenementComponent implements OnInit {
 	addUrlEvent() {
 		if (this.newUrlEvent.link && this.newUrlEvent.link.trim() !== '' && 
 			this.newUrlEvent.typeUrl && this.newUrlEvent.typeUrl.trim() !== '') {
+			
+			let linkValue = this.newUrlEvent.link.trim();
+			
+			// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
+			const typeUrl = this.newUrlEvent.typeUrl.trim().toUpperCase();
+			if (typeUrl === 'PHOTOFROMFS') {
+				linkValue = this.addYearPrefixIfNeeded(linkValue);
+			}
+			
 			// Create a new UrlEvent instance to avoid reference issues
 			const urlEvent = new UrlEvent(
 				this.newUrlEvent.typeUrl.trim(),
 				new Date(), // Always use current date for creation
 				this.user.userName, // Use userName as owner
-				this.newUrlEvent.link.trim(),
+				linkValue,
 				this.newUrlEvent.urlDescription.trim()
 			);
 			this.evenement.urlEvents.push(urlEvent);
@@ -258,7 +267,12 @@ export class UpdateEvenementComponent implements OnInit {
 				// Get the full path by reading a dummy file from the directory
 				// Note: We can't get the full OS path directly, but we can use the directory name
 				// For now, we'll use the directory name as the path
-				this.newUrlEvent.link = dirName;
+				// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
+				if (this.newUrlEvent.typeUrl && this.newUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS') {
+					this.newUrlEvent.link = this.addYearPrefixIfNeeded(dirName);
+				} else {
+					this.newUrlEvent.link = dirName;
+				}
 			} catch (error: any) {
 				// User cancelled or error occurred, fall back to webkitdirectory
 				if (error.name !== 'AbortError') {
@@ -282,7 +296,12 @@ export class UpdateEvenementComponent implements OnInit {
 		const directoryPath = this.resolveDirectoryPathFromSelection(files);
 
 		if (directoryPath) {
-			this.newUrlEvent.link = directoryPath;
+			// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
+			if (this.newUrlEvent.typeUrl && this.newUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS') {
+				this.newUrlEvent.link = this.addYearPrefixIfNeeded(directoryPath);
+			} else {
+				this.newUrlEvent.link = directoryPath;
+			}
 		}
 
 		// Reset the input so the same directory can be selected again
@@ -300,7 +319,12 @@ export class UpdateEvenementComponent implements OnInit {
 			try {
 				const directoryHandle = await (window as any).showDirectoryPicker();
 				const dirName = directoryHandle.name;
-				this.editingUrlEvent.link = dirName;
+				// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
+				if (this.editingUrlEvent.typeUrl && this.editingUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS') {
+					this.editingUrlEvent.link = this.addYearPrefixIfNeeded(dirName);
+				} else {
+					this.editingUrlEvent.link = dirName;
+				}
 			} catch (error: any) {
 				// User cancelled or error occurred, fall back to webkitdirectory
 				if (error.name !== 'AbortError') {
@@ -324,7 +348,12 @@ export class UpdateEvenementComponent implements OnInit {
 		const directoryPath = this.resolveDirectoryPathFromSelection(files);
 
 		if (directoryPath) {
-			this.editingUrlEvent.link = directoryPath;
+			// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
+			if (this.editingUrlEvent.typeUrl && this.editingUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS') {
+				this.editingUrlEvent.link = this.addYearPrefixIfNeeded(directoryPath);
+			} else {
+				this.editingUrlEvent.link = directoryPath;
+			}
 		}
 
 		if (event?.target) {
@@ -370,9 +399,17 @@ export class UpdateEvenementComponent implements OnInit {
 		if (this.editingUrlEvent.link && this.editingUrlEvent.link.trim() !== '' && 
 			this.editingUrlEvent.typeUrl && this.editingUrlEvent.typeUrl.trim() !== '') {
 			
+			let linkValue = this.editingUrlEvent.link.trim();
+			
+			// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
+			const typeUrl = this.editingUrlEvent.typeUrl.trim().toUpperCase();
+			if (typeUrl === 'PHOTOFROMFS') {
+				linkValue = this.addYearPrefixIfNeeded(linkValue);
+			}
+			
 			// Update the original urlEvent with edited values
 			this.evenement.urlEvents[index].typeUrl = this.editingUrlEvent.typeUrl.trim();
-			this.evenement.urlEvents[index].link = this.editingUrlEvent.link.trim();
+			this.evenement.urlEvents[index].link = linkValue;
 			this.evenement.urlEvents[index].urlDescription = this.editingUrlEvent.urlDescription.trim();
 			// Keep original owner and dateCreation
 			
@@ -381,9 +418,135 @@ export class UpdateEvenementComponent implements OnInit {
 		}
 	}
 	
+	// Helper method to check if first 4 chars are a valid year and add prefix if needed
+	private addYearPrefixIfNeeded(link: string): string {
+		if (!link) {
+			return link;
+		}
+		
+		// Trim and normalize the link first
+		const trimmedLink = link.trim();
+		
+		if (trimmedLink.length < 4) {
+			return trimmedLink;
+		}
+		
+		const firstFourChars = trimmedLink.substring(0, 4);
+		
+		// Check if first 4 characters are digits (YYYY format)
+		const isYearFormat = /^\d{4}$/.test(firstFourChars);
+		
+		if (isYearFormat) {
+			const year = parseInt(firstFourChars, 10);
+			// Validate it's a reasonable year (1900-2100)
+			if (year >= 1900 && year <= 2100) {
+				// Check if it's not already prefixed with the year
+				// Check for both '/' and '\' separators and also check if it's already duplicated
+				const yearWithSlash = firstFourChars + '/';
+				const yearWithBackslash = firstFourChars + '\\';
+				const doubleYear = firstFourChars + '/' + firstFourChars;
+				
+				const alreadyHasSlash = trimmedLink.startsWith(yearWithSlash);
+				const alreadyHasBackslash = trimmedLink.startsWith(yearWithBackslash);
+				const alreadyDouble = trimmedLink.startsWith(doubleYear);
+				
+				if (!alreadyHasSlash && !alreadyHasBackslash && !alreadyDouble) {
+					// Add the year at the start with a "/" between
+					return firstFourChars + '/' + trimmedLink;
+				}
+			}
+		}
+		
+		return trimmedLink;
+	}
+	
 	cancelUrlEventEdit() {
 		this.editingUrlEvent = new UrlEvent("", new Date(), "", "", "");
 		this.editingIndex = -1;
+	}
+	
+	// Handle real-time link input changes for PHOTOFROMFS type
+	onLinkInputChange(value: string) {
+		// Check if this is a PHOTOFROMFS type
+		const currentTypeUrl = this.editingUrlEvent?.typeUrl;
+		const isPhotoFromFs = currentTypeUrl && 
+		                      currentTypeUrl.trim().toUpperCase() === 'PHOTOFROMFS';
+		
+		// Update the link value first
+		if (this.editingUrlEvent) {
+			this.editingUrlEvent.link = value;
+		}
+		
+		// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY) and add prefix if needed
+		if (isPhotoFromFs && value && value.length >= 4) {
+			const processedLink = this.addYearPrefixIfNeeded(value);
+			
+			// Only update if the processed link is different to avoid cursor jumping
+			if (processedLink !== value && this.editingUrlEvent) {
+				// Use setTimeout to update after the input event completes
+				setTimeout(() => {
+					if (this.editingUrlEvent) {
+						this.editingUrlEvent.link = processedLink;
+					}
+				}, 0);
+			}
+		}
+	}
+	
+	// Handle link blur event
+	onLinkBlur() {
+		// Check if this is a PHOTOFROMFS type
+		const isPhotoFromFs = this.editingUrlEvent?.typeUrl && 
+		                      this.editingUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS';
+		
+		if (isPhotoFromFs && this.editingUrlEvent?.link) {
+			const processedLink = this.addYearPrefixIfNeeded(this.editingUrlEvent.link);
+			if (processedLink !== this.editingUrlEvent.link) {
+				this.editingUrlEvent.link = processedLink;
+			}
+		}
+	}
+	
+	// Handle real-time link input changes for NEW PHOTOFROMFS type
+	onNewLinkInputChange(value: string) {
+		// Check if this is a PHOTOFROMFS type
+		const currentTypeUrl = this.newUrlEvent?.typeUrl;
+		const isPhotoFromFs = currentTypeUrl && 
+		                      currentTypeUrl.trim().toUpperCase() === 'PHOTOFROMFS';
+		
+		// Update the link value first
+		if (this.newUrlEvent) {
+			this.newUrlEvent.link = value;
+		}
+		
+		// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY) and add prefix if needed
+		if (isPhotoFromFs && value && value.length >= 4) {
+			const processedLink = this.addYearPrefixIfNeeded(value);
+			
+			// Only update if the processed link is different to avoid cursor jumping
+			if (processedLink !== value && this.newUrlEvent) {
+				// Use setTimeout to update after the input event completes
+				setTimeout(() => {
+					if (this.newUrlEvent) {
+						this.newUrlEvent.link = processedLink;
+					}
+				}, 0);
+			}
+		}
+	}
+	
+	// Handle new link blur event
+	onNewLinkBlur() {
+		// Check if this is a PHOTOFROMFS type
+		const isPhotoFromFs = this.newUrlEvent?.typeUrl && 
+		                      this.newUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS';
+		
+		if (isPhotoFromFs && this.newUrlEvent?.link) {
+			const processedLink = this.addYearPrefixIfNeeded(this.newUrlEvent.link);
+			if (processedLink !== this.newUrlEvent.link) {
+				this.newUrlEvent.link = processedLink;
+			}
+		}
 	}
 	
 	// Helper method to get the actual index in the full urlEvents array

@@ -744,21 +744,157 @@ The architecture allows parent components to easily integrate image viewing func
 
 ---
 
-## Appendix: Key Methods Reference
+## Appendix: Complete Public Methods Reference
 
-| Method | Location | Purpose |
-|--------|----------|---------|
-| `open()` | 407 | Opens slideshow with images |
-| `loadImages()` | 895 | Initiates image loading |
-| `queueImageLoad()` | 538 | Queues image for loading |
-| `processImageLoadQueue()` | 573 | Processes loading queue |
-| `handleImageLoaded()` | 757 | Processes loaded image |
-| `getImageCacheKey()` | 555 | Generates cache key |
-| `toggleFilesystemImageQuality()` | 2746 | Toggles compressed/original |
-| `cleanupAllMemory()` | 259 | Cleans up resources |
+This section provides a comprehensive reference of all public methods available in the `SlideshowModalComponent`.
+
+### Image Loading & Management
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `open()` | `open(images: SlideshowImageSource[], eventName: string = '', loadFromFileService: boolean = false, retryCount: number = 0): void` | Opens the slideshow modal with the provided images. Initializes all state, opens the modal, and starts loading images. Supports retry logic if modal template is not ready. | ~418 |
+| `addImages()` | `addImages(newImages: SlideshowImageSource[]): void` | Dynamically adds new images to an already open slideshow. Useful for progressive loading. Images are queued with lower priority than initial images. | ~945 |
+| `getCurrentSlideshowImage()` | `getCurrentSlideshowImage(): string` | Returns the blob URL of the currently displayed image. Returns empty string if no images are loaded. | ~2701 |
+| `getCurrentImageFileName()` | `getCurrentImageFileName(): string` | Returns the file name of the currently displayed image. Used for EXIF modal title and location labels. | ~2708 |
+| `onImageLoad()` | `onImageLoad(): void` | Called when the current image finishes loading. Updates dimensions, background color, and other display properties. | ~1289 |
+
+### Navigation
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `nextImage()` | `nextImage(): void` | Navigates to the next image in the slideshow. Preserves zoom/pan state if slideshow is auto-playing, otherwise resets zoom. | ~2615 |
+| `previousImage()` | `previousImage(): void` | Navigates to the previous image in the slideshow. Preserves zoom/pan state if slideshow is auto-playing, otherwise resets zoom. | ~2658 |
+
+### Zoom & Pan Controls
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `getMinSlideshowZoom()` | `getMinSlideshowZoom(): number` | Calculates and returns the minimum zoom level that ensures the image fills the container. Always uses visible container dimensions. | ~1645 |
+| `onWheelSlideshow()` | `onWheelSlideshow(event: WheelEvent): void` | Handles mouse wheel events for zooming. Uses dynamic step size based on current zoom level. Zooms on the center of the visible image. | ~1726 |
+| `resetSlideshowZoom()` | `resetSlideshowZoom(): void` | Resets zoom to minimum level and centers the image. Called when navigating between images (unless slideshow is auto-playing). | ~1752 |
+| `zoomInSlideshow()` | `zoomInSlideshow(): void` | Increases zoom level by a fixed step. Zooms on the center of the visible image. | ~1857 |
+| `zoomOutSlideshow()` | `zoomOutSlideshow(): void` | Decreases zoom level by a fixed step. Zooms on the center of the visible image. | ~1872 |
+
+### Mouse & Touch Events
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `onSlideshowMouseDown()` | `onSlideshowMouseDown(event: MouseEvent): void` | Handles mouse down events for dragging and rectangle selection. Initiates drag operation or selection mode. | ~1920 |
+| `onSlideshowMouseMove()` | `onSlideshowMouseMove(event: MouseEvent): void` | Handles mouse move events during dragging or selection. Updates pan position or selection rectangle. | ~1959 |
+| `onSlideshowMouseUp()` | `onSlideshowMouseUp(event?: MouseEvent): void` | Handles mouse up events. Completes drag operation or applies zoom to selected rectangle. | ~2086 |
+| `onSlideshowMouseEnter()` | `onSlideshowMouseEnter(event: MouseEvent): void` | Handles mouse enter events. Updates cursor position display. | ~2041 |
+| `onSlideshowMouseLeave()` | `onSlideshowMouseLeave(): void` | Handles mouse leave events. Resets cursor position display. | ~2112 |
+| `onSlideshowImageClick()` | `onSlideshowImageClick(): void` | Handles clicks on the image. Used for toggling info panel or other interactions. | ~2186 |
+| `onSlideshowTouchStart()` | `onSlideshowTouchStart(event: TouchEvent \| Event): void` | Handles touch start events for mobile devices. Supports pinch-to-zoom and pan gestures. | ~2278 |
+| `onSlideshowTouchMove()` | `onSlideshowTouchMove(event: TouchEvent \| Event): void` | Handles touch move events during gestures. Updates zoom and pan based on touch positions. | ~2324 |
+| `onSlideshowTouchEnd()` | `onSlideshowTouchEnd(event: TouchEvent \| Event): void` | Handles touch end events. Completes gesture operations. | ~2393 |
+
+### Filesystem Image Variants
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `shouldShowFilesystemToggleButton()` | `shouldShowFilesystemToggleButton(): boolean` | Determines if the O button (compressed/original toggle) should be displayed. Returns true only for filesystem images. | ~2716 |
+| `isCurrentFilesystemVariantLoading()` | `isCurrentFilesystemVariantLoading(): boolean` | Checks if the current image's variant (compressed/original) is currently being loaded. | ~2725 |
+| `isFilesystemToggleDisabled()` | `isFilesystemToggleDisabled(): boolean` | Determines if the filesystem toggle button should be disabled (e.g., during loading). | ~2733 |
+| `getFilesystemToggleLabelKey()` | `getFilesystemToggleLabelKey(): string` | Returns the translation key for the toggle button label. Indicates which variant will be shown when clicked. | ~2745 |
+| `toggleFilesystemImageQuality()` | `toggleFilesystemImageQuality(): void` | Toggles between compressed and original versions of the current filesystem image. Uses cached variant if available, otherwise loads it. | ~2757 |
+
+### Slideshow Controls
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `startSlideshow()` | `startSlideshow(): void` | Starts automatic slideshow playback. Advances to next image every 3 seconds. Preserves zoom/pan state during playback. | ~2879 |
+| `stopSlideshow()` | `stopSlideshow(): void` | Stops automatic slideshow playback. Clears the interval timer. | ~2890 |
+| `toggleSlideshow()` | `toggleSlideshow(): void` | Toggles slideshow playback on/off. | ~2898 |
+| `toggleSlideshowWithMessage()` | `toggleSlideshowWithMessage(): void` | Toggles slideshow playback and displays a translated message indicating the new state. | ~2906 |
+
+### Fullscreen
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `toggleFullscreen()` | `toggleFullscreen(): void` | Toggles fullscreen mode for the slideshow container. Uses browser-specific fullscreen APIs with fallbacks. | ~2930 |
+
+### Modal & Cleanup
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `onSlideshowClose()` | `onSlideshowClose(cRef?: any): void` | Closes the slideshow modal. Exits fullscreen if active, removes keyboard listeners, and triggers cleanup. | ~2966 |
+
+### EXIF & Information
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `showExifInfo()` | `showExifInfo(): void` | Opens the EXIF information modal for the current image. Uses cached EXIF data if available, otherwise loads it. | ~2997 |
+| `toggleInfoPanel()` | `toggleInfoPanel(): void` | Toggles the side info panel visibility. Automatically loads EXIF data when panel is shown. | ~3057 |
+
+### Location & Map View
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `getLocationButtonLabel()` | `getLocationButtonLabel(): string` | Returns the translated label for the location button based on current view mode and state. | ~3066 |
+| `getLocationButtonIconClass()` | `getLocationButtonIconClass(): string` | Returns the Font Awesome icon class for the location button based on current view mode. | ~3075 |
+| `setLocationViewMode()` | `setLocationViewMode(mode: 'google' \| 'trace'): void` | Sets the location view mode to either 'google' (embedded map) or 'trace' (external trace viewer). | ~3082 |
+| `handleLocationAction()` | `handleLocationAction(): void` | Handles location button click. Either toggles map view (google mode) or emits trace viewer event (trace mode). | ~3096 |
+| `toggleMapView()` | `toggleMapView(): void` | Toggles between image view and embedded Google Maps view. Builds map URL if not cached. | ~3122 |
+| `setTraceViewerOpen()` | `setTraceViewerOpen(isOpen: boolean): void` | Sets the trace viewer open state. Used to track if external trace viewer is active. | ~3157 |
+
+### Thumbnails
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `toggleThumbnails()` | `toggleThumbnails(): void` | Toggles the thumbnail strip visibility. Automatically scrolls to active thumbnail when shown. | ~3161 |
+| `isThumbnailLoading()` | `isThumbnailLoading(slideshowIndex: number): boolean` | Checks if a specific thumbnail (by slideshow index) is currently being generated. | ~4438 |
+| `onThumbnailClick()` | `onThumbnailClick(index: number): void` | Handles thumbnail click. Navigates to the selected image and resets zoom. | ~4449 |
+| `onThumbnailsWheel()` | `onThumbnailsWheel(event: WheelEvent): void` | Handles mouse wheel events on the thumbnail strip. Scrolls thumbnails horizontally. | ~4471 |
+| `getThumbnailUrl()` | `getThumbnailUrl(slideshowIndex: number): string` | Returns the blob URL for a thumbnail at the specified slideshow index. Returns empty string if not available. | ~4605 |
+| `isCurrentThumbnail()` | `isCurrentThumbnail(index: number): boolean` | Checks if the thumbnail at the given index corresponds to the currently displayed image. | ~4615 |
+| `onThumbnailError()` | `onThumbnailError(event: Event): void` | Handles thumbnail image load errors. Hides the failed thumbnail element. | ~4620 |
+
+### Grid View
+
+| Method | Signature | Purpose | Location |
+|--------|-----------|---------|----------|
+| `toggleGrid()` | `toggleGrid(): void` | Toggles the grid overlay display. Used for alignment and measurement purposes. | ~3177 |
+| `getThumbnailsFullscreenStyle()` | `getThumbnailsFullscreenStyle(): { [key: string]: string }` | Returns inline styles for the thumbnail strip when in fullscreen mode. Positions thumbnails at bottom of screen. | ~3182 |
 
 ---
 
-*Document Version: 1.0*  
-*Last Updated: 2024*
+### Private Methods (Internal Use)
+
+The following private methods are used internally but are important for understanding the component architecture:
+
+| Method | Purpose | Location |
+|--------|---------|----------|
+| `loadImages()` | Initiates image loading for all provided images | ~906 |
+| `queueImageLoad()` | Queues an image for parallel loading | ~549 |
+| `processImageLoadQueue()` | Processes the image loading queue with up to 48 concurrent loads | ~584 |
+| `handleImageLoaded()` | Processes a successfully loaded image and adds it to the slideshow | ~768 |
+| `getImageCacheKey()` | Generates a unique cache key for an image source | ~566 |
+| `getFilesystemCacheKey()` | Generates a cache key for filesystem images (includes compression flag) | ~578 |
+| `cleanupAllMemory()` | Cleans up all blob URLs, caches, and subscriptions | ~260 |
+| `cancelImageLoads()` | Cancels all active image loading operations | ~400 |
+| `updateImageDimensions()` | Updates display dimensions after zoom or image change | ~1354 |
+| `updateContainerDimensions()` | Updates container dimensions for display | ~1270 |
+| `updateAverageBackgroundColor()` | Calculates and sets the background color based on image | ~1299 |
+| `clampSlideshowTranslation()` | Ensures pan position stays within valid bounds | ~2226 |
+| `loadExifData()` | Loads EXIF data from the current image blob | ~3620 |
+| `loadExifDataForInfoPanel()` | Loads EXIF data for the side info panel | ~3620 |
+| `processExifData()` | Processes raw EXIF data into displayable format | ~4072 |
+| `setImageLocation()` | Extracts and stores GPS coordinates from EXIF data | ~4233 |
+| `updateCurrentImageLocation()` | Updates the current image's location for map view | ~4260 |
+| `buildMapUrl()` | Builds a sanitized Google Maps embed URL | ~4255 |
+| `generateThumbnailFromBlob()` | Generates a thumbnail from a blob using canvas | ~1111 |
+| `queueThumbnailGeneration()` | Queues a thumbnail for background generation | ~975 |
+| `processThumbnailGenerationQueue()` | Processes thumbnail generation queue (up to 8 concurrent) | ~1046 |
+| `scrollToActiveThumbnail()` | Scrolls thumbnail strip to center the active thumbnail | ~4526 |
+| `setupKeyboardListener()` | Sets up keyboard event listeners for navigation and controls | ~2427 |
+| `removeKeyboardListener()` | Removes keyboard event listeners | ~2603 |
+| `setupFullscreenListener()` | Sets up fullscreen change event listeners | ~1175 |
+| `setupResizeListener()` | Sets up window resize event listeners | ~1563 |
+
+---
+
+*Document Version: 2.0*  
+*Last Updated: 2024*  
+*Methods documented: 49 public methods + 25 key private methods*
 

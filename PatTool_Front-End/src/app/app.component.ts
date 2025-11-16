@@ -205,6 +205,9 @@ export class AppComponent implements OnInit {
             formData.append('files', file, file.name);
         }
         
+        // Set allowOriginal=true to prevent photo compression when uploading from menu
+        formData.append('allowOriginal', 'true');
+        
         // Debug: Log FormData contents
         console.log("FormData entries:");
         for (let pair of (formData as any).entries()) {

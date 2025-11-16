@@ -1,4 +1,5 @@
-import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, ViewChildren, QueryList, OnDestroy, TemplateRef } from '@angular/core';
+import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, ViewChildren, QueryList, OnDestroy, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom } from 'rxjs';
@@ -29,11 +30,12 @@ interface EventColorUpdate {
 @Component({
 	selector: 'home-evenements',
 	templateUrl: './home-evenements.component.html',
-	styleUrls: ['./home-evenements.component.css']
+	styleUrls: ['./home-evenements.component.css'],
 })
 export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy {
 
 	public evenements: Evenement[] = [];
+	public cardsReady: boolean = false;
 	public user: Member = new Member("", "", "", "", "", [], "");
 	public pageNumber: number = this._commonValuesService.getPageNumber();
 	public elementsByPage: number = this._commonValuesService.getElementsByPage();
@@ -70,6 +72,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public titleOnlyView: boolean = false;
 	@ViewChildren('searchterm')
 	public searchterms!: QueryList<ElementRef>;
+	@ViewChildren('patCard') patCards!: QueryList<ElementRef>;
 	@ViewChild('photosModal') photosModal!: TemplateRef<any>;
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('urlsModal') urlsModal!: TemplateRef<any>;
@@ -84,12 +87,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('photosSelectorModalComponent') photosSelectorModalComponent!: PhotosSelectorModalComponent;
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
 	@ViewChild('infiniteScrollAnchor') infiniteScrollAnchor?: ElementRef<HTMLDivElement>;
+	@ViewChild('cardsContainer', { static: false }) cardsContainer?: ElementRef<HTMLDivElement>;
 	private eventsSubscription?: Subscription;
 	private searchSubscriptions: Subscription[] = [];
 	private intersectionObserver?: IntersectionObserver;
 	private feedRequestToken = 0;
 	private prefetchTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	private readonly prefetchThresholdMultiplier = 2;
+	private updateAverageColorTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	private lastAverageRgb: { r: number; g: number; b: number } | null = null;
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
@@ -100,7 +106,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		private winRef: WindowRefService,
 		private modalService: NgbModal,
 		private translateService: TranslateService,
-		private database: Database) {
+		private database: Database,
+		private cdr: ChangeDetectorRef) {
 		this.nativeWindow = winRef.getNativeWindow();
 		this.averageColor = this.defaultAverageColor;
 		this.averageTextColor = this.defaultAverageTextColor;
@@ -110,6 +117,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	ngOnInit() {
 		this.user = this._memberService.getUser();
+		this.cardsReady = false;
 		this.resetAndLoadEvents();
 		
 		this.updateResponsiveState(this.nativeWindow.innerWidth);
@@ -144,6 +152,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		});
 		this.setupSearchInputs();
 		this.setupInfiniteScrollObserver();
+		
+		// Écouter les changements des cards pour déclencher l'animation
+		this.patCards.changes.subscribe(() => {
+			if (this.patCards.length > 0 && !this.cardsReady) {
+				setTimeout(() => {
+					this.cardsReady = true;
+					this.cdr.markForCheck();
+				}, 50);
+			}
+		});
 	}
 
 	private setupSearchInputs(): void {
@@ -239,33 +257,52 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						}
 						const newEvents: Evenement[] = res?.content ?? [];
 
-						if (pageToLoad === 0) {
-							this.evenements = newEvents;
+					this.isLoadingNextPage = false;
+					this.cardsReady = false;
+					
+					if (pageToLoad === 0) {
+						this.evenements = newEvents;
+					} else {
+						this.evenements = [...this.evenements, ...newEvents];
+					}
+					
+					// Forcer la détection de changements
+					this.cdr.detectChanges();
+					
+					// Attendre que les cards soient vraiment dans le DOM
+					setTimeout(() => {
+						if (this.patCards && this.patCards.length > 0) {
+							this.cardsReady = true;
+							this.cdr.markForCheck();
 						} else {
-							this.evenements = [...this.evenements, ...newEvents];
+							// Si pas encore de cards, réessayer
+							setTimeout(() => {
+								this.cardsReady = true;
+								this.cdr.markForCheck();
+							}, 100);
 						}
+					}, 150);
 
-						this.filteredTotal = res?.page?.totalElements ?? this.evenements.length;
-						const currentPageFromResponse = res?.page?.number ?? pageToLoad;
-						const totalPages = res?.page?.totalPages ?? null;
+					this.filteredTotal = res?.page?.totalElements ?? this.evenements.length;
+					const currentPageFromResponse = res?.page?.number ?? pageToLoad;
+					const totalPages = res?.page?.totalPages ?? null;
 
-						this.pageNumber = currentPageFromResponse + 1;
-						this._commonValuesService.setPageNumber(currentPageFromResponse);
+					this.pageNumber = currentPageFromResponse + 1;
+					this._commonValuesService.setPageNumber(currentPageFromResponse);
 
-						if (newEvents.length === 0) {
-							this.hasMoreEvents = false;
-						} else if (totalPages !== null) {
-							this.hasMoreEvents = this.pageNumber < totalPages;
-						} else {
-							this.hasMoreEvents = newEvents.length === this.elementsByPage;
-						}
+					if (newEvents.length === 0) {
+						this.hasMoreEvents = false;
+					} else if (totalPages !== null) {
+						this.hasMoreEvents = this.pageNumber < totalPages;
+					} else {
+						this.hasMoreEvents = newEvents.length === this.elementsByPage;
+					}
 
-						if (!this.hasMoreEvents) {
-							this.disconnectInfiniteScrollObserver();
-						}
-
-						this.isLoadingNextPage = false;
-						this.schedulePrefetchIfNeeded();
+					if (!this.hasMoreEvents) {
+						this.disconnectInfiniteScrollObserver();
+					}
+					
+					this.schedulePrefetchIfNeeded();
 						this.tryLoadNextIfAnchorVisible();
 					},
 					error: (err: any) => {
@@ -357,11 +394,25 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			return;
 		}
 		this.eventColors.set(update.eventId, update.color);
-		this.updateAverageColor();
+		
+		// Débouncer les appels pour éviter les changements multiples
+		if (this.updateAverageColorTimeoutId) {
+			clearTimeout(this.updateAverageColorTimeoutId);
+		}
+		this.updateAverageColorTimeoutId = setTimeout(() => {
+			this.updateAverageColor();
+			this.updateAverageColorTimeoutId = null;
+		}, 50);
 	}
 
 	private resetColorAggregation(): void {
 		this.eventColors.clear();
+		this.lastAverageRgb = null;
+		// Annuler le timeout en cours s'il existe
+		if (this.updateAverageColorTimeoutId) {
+			clearTimeout(this.updateAverageColorTimeoutId);
+			this.updateAverageColorTimeoutId = null;
+		}
 		this.updateAverageColor();
 	}
 
@@ -383,10 +434,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	private updateAverageColor(): void {
 		if (this.eventColors.size === 0) {
-			this.averageColor = this.defaultAverageColor;
-			this.averageTextColor = this.defaultAverageTextColor;
-			this.averageBorderColor = this.defaultAverageBorderColor;
-			this.averageGradient = this.buildGradientFromColor(this.defaultAverageColor);
+			// Ne mettre à jour que si nécessaire
+			if (this.lastAverageRgb !== null) {
+				this.lastAverageRgb = null;
+				const newGradient = this.buildGradientFromColor(this.defaultAverageColor);
+				this.averageColor = this.defaultAverageColor;
+				this.averageTextColor = this.defaultAverageTextColor;
+				this.averageBorderColor = this.defaultAverageBorderColor;
+				this.averageGradient = newGradient;
+				this.cdr.markForCheck();
+			}
 			return;
 		}
 
@@ -405,12 +462,28 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const avgG = Math.round(totalG / count);
 		const avgB = Math.round(totalB / count);
 
-		const baseColor = this.buildRgba(avgR, avgG, avgB, 0.24);
-		this.averageColor = baseColor;
+		// Ne mettre à jour que si les valeurs RGB moyennes ont vraiment changé
+		if (this.lastAverageRgb && 
+			this.lastAverageRgb.r === avgR && 
+			this.lastAverageRgb.g === avgG && 
+			this.lastAverageRgb.b === avgB) {
+			return; // Pas de changement, ne pas mettre à jour
+		}
 
-		this.averageTextColor = this.buildDarkerShade(avgR, avgG, avgB, 0.55, 0.92);
-		this.averageBorderColor = this.buildDarkerShade(avgR, avgG, avgB, 0.45, 0.95);
-		this.averageGradient = this.buildGradientFromColor(baseColor);
+		this.lastAverageRgb = { r: avgR, g: avgG, b: avgB };
+
+		const baseColor = this.buildRgba(avgR, avgG, avgB, 0.24);
+		const newGradient = this.buildGradientFromColor(baseColor);
+		const newTextColor = this.buildDarkerShade(avgR, avgG, avgB, 0.55, 0.92);
+		const newBorderColor = this.buildDarkerShade(avgR, avgG, avgB, 0.45, 0.95);
+
+		this.averageColor = baseColor;
+		this.averageTextColor = newTextColor;
+		this.averageBorderColor = newBorderColor;
+		this.averageGradient = newGradient;
+		
+		// Utiliser markForCheck au lieu de detectChanges pour éviter l'erreur
+		this.cdr.markForCheck();
 	}
 
 	private buildRgba(r: number, g: number, b: number, alpha: number = 1): string {

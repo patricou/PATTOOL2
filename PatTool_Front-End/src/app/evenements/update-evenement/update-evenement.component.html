@@ -276,7 +276,9 @@
                                     </label>
                                     <div class="input-group">
                                         <input [(ngModel)]="newUrlEvent.link" name="link" type="text" 
-                                               placeholder="https://example.com" class="form-control form-control-sm">
+                                               placeholder="https://example.com" class="form-control form-control-sm"
+                                               (input)="onNewLinkInputChange($any($event.target).value)"
+                                               (blur)="onNewLinkBlur()">
                                         <button *ngIf="newUrlEvent.typeUrl === 'PHOTOFROMFS'" 
                                                 type="button" 
                                                 class="btn btn-outline-primary btn-sm" 
@@ -402,7 +404,9 @@
                                                         </label>
                                                         <div class="input-group">
                                                             <input [(ngModel)]="editingUrlEvent.link" name="editLink" type="text" 
-                                                                   placeholder="https://example.com" class="form-control form-control-sm">
+                                                                   placeholder="https://example.com" class="form-control form-control-sm"
+                                                                   (input)="onLinkInputChange($any($event.target).value)"
+                                                                   (blur)="onLinkBlur()">
                                                             <button *ngIf="editingUrlEvent.typeUrl === 'PHOTOFROMFS'" 
                                                                     type="button" 
                                                                     class="btn btn-outline-primary btn-sm" 
