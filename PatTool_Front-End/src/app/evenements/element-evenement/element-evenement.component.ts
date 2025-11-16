@@ -212,6 +212,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		signature: string;
 	}> = new Map();
 
+	// Static cache for blob URLs to prevent them from being revoked
+	// This ensures blob URLs remain valid across component destruction/recreation
+	private static readonly blobUrlCache: Map<string, SafeUrl> = new Map();
+
 	// =========================
 	// Photo From FS integration
 	// =========================
@@ -674,6 +678,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		
 		// sanitize the photoUrl
 		// Call Thumbnail Image function
+		// Use cache if available (now handles blob URLs correctly)
 		if (!this.applyCachedStyles(this.getThumbnailSignature())) {
 			this.setThumbnailImage();
 		}
@@ -1029,20 +1034,33 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		if (this.evenement.fileUploadeds.length != 0) {
 			this.evenement.fileUploadeds.map(fileUploaded => {
 				if (fileUploaded.fileName.indexOf('thumbnail') !== -1) {
-					// Use getFile for display (with image resizing)
-					this._fileService.getFile(fileUploaded.fieldId).pipe(
-						map((res: any) => {
-							let blob = new Blob([res], { type: 'application/octet-stream' });
-							let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
-							return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
-						})
-					).subscribe((safeUrl: SafeUrl) => {
-						this.thumbnailUrl = safeUrl;
+					// Check if we have a cached blob URL for this file
+					const cachedBlobUrl = ElementEvenementComponent.blobUrlCache.get(fileUploaded.fieldId);
+					if (cachedBlobUrl) {
+						// Reuse cached blob URL
+						this.thumbnailUrl = cachedBlobUrl;
 						// Detect dominant color after image loads
 						setTimeout(() => {
 							this.detectDominantColor();
 						}, 100);
-					});
+					} else {
+						// Load and cache the blob URL
+						this._fileService.getFile(fileUploaded.fieldId).pipe(
+							map((res: any) => {
+								let blob = new Blob([res], { type: 'application/octet-stream' });
+								let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
+								return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+							})
+						).subscribe((safeUrl: SafeUrl) => {
+							// Cache the blob URL so it persists across component destruction
+							ElementEvenementComponent.blobUrlCache.set(fileUploaded.fieldId, safeUrl);
+							this.thumbnailUrl = safeUrl;
+							// Detect dominant color after image loads
+							setTimeout(() => {
+								this.detectDominantColor();
+							}, 100);
+						});
+					}
 				}
 			}
 			)
@@ -1292,6 +1310,38 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 		if (expectedSignature && cached.signature !== expectedSignature) {
 			return false;
+		}
+
+		// For blob URLs, verify they're still in the persistent cache
+		if (cached.thumbnailUrl && typeof cached.thumbnailUrl === 'object' && 
+			'changingThisBreaksApplicationSecurity' in cached.thumbnailUrl) {
+			const url = cached.thumbnailUrl['changingThisBreaksApplicationSecurity'];
+			if (url && typeof url === 'string' && url.startsWith('blob:')) {
+				// Check if this blob URL is still in our persistent cache
+				// Find the fileId that corresponds to this blob URL
+				const thumbnailFile = this.evenement.fileUploadeds?.find(file => 
+					file.fileName && file.fileName.indexOf('thumbnail') !== -1
+				);
+				if (thumbnailFile) {
+					const cachedBlobUrl = ElementEvenementComponent.blobUrlCache.get(thumbnailFile.fieldId);
+					if (cachedBlobUrl && cachedBlobUrl === cached.thumbnailUrl) {
+						// Blob URL is still in cache, use it
+						this.thumbnailUrl = cachedBlobUrl;
+						this.dominantR = cached.dominant.r;
+						this.dominantG = cached.dominant.g;
+						this.dominantB = cached.dominant.b;
+						this.calculatedRgbValues = `RGB(${this.dominantR}, ${this.dominantG}, ${this.dominantB})`;
+						this.titleBackgroundColor = cached.titleBackground;
+						this.titleBorderColor = cached.titleBorder;
+						this.descriptionBackgroundColor = cached.descriptionBackground;
+						this.invalidateColorCaches();
+						this.emitDominantColor();
+						return true;
+					}
+				}
+				// Blob URL not in persistent cache, don't use cached styles
+				return false;
+			}
 		}
 
 		this.thumbnailUrl = cached.thumbnailUrl;
@@ -2638,23 +2688,30 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	
 	ngOnDestroy() {
-		// Remove cached thumbnail entry so that revoked blob URLs aren't reused
-		const cacheKey = this.getCacheKey();
-		if (cacheKey) {
-			const cached = ElementEvenementComponent.thumbnailCache.get(cacheKey);
-			if (cached && cached.thumbnailUrl === this.thumbnailUrl) {
-				ElementEvenementComponent.thumbnailCache.delete(cacheKey);
-			}
-		}
 		// Stop card slideshow if active
 		this.stopCardSlideshow();
 		
-		// Nettoyer les URLs blob pour éviter les fuites mémoire
+		// Don't revoke blob URLs if they're in the persistent cache
+		// This allows them to be reused when components are recreated
 		if (this.thumbnailUrl && typeof this.thumbnailUrl === 'object' && 'changingThisBreaksApplicationSecurity' in this.thumbnailUrl) {
 			try {
 				const url = this.thumbnailUrl['changingThisBreaksApplicationSecurity'];
 				if (url && typeof url === 'string' && url.startsWith('blob:')) {
-					this.nativeWindow.URL.revokeObjectURL(url);
+					// Check if this blob URL is in the persistent cache
+					const thumbnailFile = this.evenement.fileUploadeds?.find(file => 
+						file.fileName && file.fileName.indexOf('thumbnail') !== -1
+					);
+					if (thumbnailFile) {
+						const cachedBlobUrl = ElementEvenementComponent.blobUrlCache.get(thumbnailFile.fieldId);
+						// Only revoke if it's not in the persistent cache
+						if (cachedBlobUrl !== this.thumbnailUrl) {
+							this.nativeWindow.URL.revokeObjectURL(url);
+						}
+						// If it is in cache, keep it for reuse
+					} else {
+						// No thumbnail file found, safe to revoke
+						this.nativeWindow.URL.revokeObjectURL(url);
+					}
 				}
 			} catch (error) {
 				console.warn('Error cleaning up blob URL:', error);

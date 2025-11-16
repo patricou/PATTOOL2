@@ -16,6 +16,8 @@
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Idioma",
+        "DOCUMENTATION": "Documentación",
+        "SLIDESHOW_DOCUMENTATION": "Documentación del Carrusel",
         "EVENTS": "Actividades",
         "EVENTSLIST": "Lista de actividades",
         "EVENTSCREATION": "Crear actividad",

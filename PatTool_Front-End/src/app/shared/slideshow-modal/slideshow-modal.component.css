@@ -186,10 +186,25 @@
     justify-content: center;
     overflow: hidden;
     -webkit-overflow-scrolling: touch;
-    touch-action: pan-x pan-y pinch-zoom;
+	touch-action: none;
     margin: 0 auto;
     will-change: transform;
     transform-style: preserve-3d;
+}
+
+/* Blurred background using current image - sits behind the main image */
+.slideshow-bg-blur {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+	filter: blur(30px) brightness(0.7);
+	transform: scale(1.1); /* prevent edges showing after blur */
+	z-index: 0;
 }
 
 /* Grid Overlay - follows image transform, positioned over image */
@@ -459,6 +474,11 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+	/* Take half of the viewport height in all modes */
+	height: 50vh;
+	max-height: 50vh;
+	overflow: auto; /* allow panel itself to scroll if needed */
+	box-sizing: border-box;
 }
 
 .slideshow-zoom-info .zoom-value {
@@ -503,6 +523,14 @@
 }
 
 .slideshow-zoom-info .exif-section {
+	flex: 1 1 auto;
+	min-height: 0; /* allow child to shrink in flex column */
+	display: flex;
+	flex-direction: column;
+	overflow: hidden; /* delegate scrolling to exif-data */
+}
+
+.slideshow-zoom-info .exif-section {
     border-top: 1px solid rgba(255, 255, 255, 0.3);
     padding-top: 8px;
     margin-top: 8px;
@@ -522,9 +550,11 @@
 }
 
 .slideshow-zoom-info .exif-data {
-    max-height: 200px;
-    overflow-y: auto;
-    overflow-x: hidden;
+	flex: 1 1 auto; /* take remaining space within exif-section */
+	min-height: 0; /* allow to shrink for proper scroll */
+	overflow-y: auto;
+	overflow-x: hidden;
+	-webkit-overflow-scrolling: touch;
 }
 
 .slideshow-zoom-info .exif-item {
@@ -1304,7 +1334,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
 }
 
 .exif-item strong {
-    color: #495057;
+    color: #000000; /* label in black */
     min-width: 200px;
     max-width: 250px;
     margin-right: 15px;
@@ -1314,7 +1344,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
 }
 
 .exif-item span {
-    color: #212529;
+    color: #ffffff; /* value in white */
     text-align: right;
     word-break: break-word;
     flex: 1;

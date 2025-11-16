@@ -66,6 +66,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public slideshowInterval: any;
   public isFullscreen: boolean = false;
   private modalRef?: NgbModalRef;
+  private exifModalRef?: NgbModalRef;
   
   // Keyboard listener
   private keyboardListener?: (event: KeyboardEvent) => void;
@@ -111,6 +112,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Info panel visibility
   public showInfoPanel: boolean = false;
+  
+  // Background color derived from current image average color
+  public slideshowBackgroundColor: string = 'black';
+  public slideshowBackgroundImageUrl: string = '';
   
   // Grid overlay visibility
   public showGrid: boolean = false;
@@ -299,6 +304,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       } catch (error) {
         // Subject may already be completed
       }
+    }
+    
+    // Close EXIF modal if open
+    if (this.exifModalRef) {
+      try {
+        this.exifModalRef.close();
+      } catch (e) {
+        // Ignore errors when closing
+      }
+      this.exifModalRef = undefined;
     }
     
     // Remove all event listeners
@@ -1276,7 +1291,63 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     setTimeout(() => {
       this.updateImageDimensions();
       this.updateContainerDimensions();
+      this.updateAverageBackgroundColor();
+      this.slideshowBackgroundImageUrl = this.getCurrentSlideshowImage();
     }, 100);
+  }
+
+  private updateAverageBackgroundColor(): void {
+    try {
+      if (this.showMapView) {
+        // If showing map view, keep default/darker background
+        this.slideshowBackgroundColor = 'black';
+        return;
+      }
+      const imgEl = this.slideshowImgElRef?.nativeElement;
+      if (!imgEl || !imgEl.complete || imgEl.naturalWidth === 0 || imgEl.naturalHeight === 0) {
+        return;
+      }
+      // Preserve aspect ratio; scale longest side to target
+      const targetMax = 100;
+      const iw = imgEl.naturalWidth;
+      const ih = imgEl.naturalHeight;
+      const scale = Math.min(targetMax / Math.max(iw, ih), 1);
+      const tw = Math.max(1, Math.round(iw * scale));
+      const th = Math.max(1, Math.round(ih * scale));
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      if (!ctx) {
+        return;
+      }
+      canvas.width = tw;
+      canvas.height = th;
+      ctx.drawImage(imgEl, 0, 0, tw, th);
+      const imageData = ctx.getImageData(0, 0, tw, th);
+      const data = imageData.data;
+      let r = 0, g = 0, b = 0, count = 0;
+      // Sample every pixel (tw*th <= 10k when targetMax=100), still cheap
+      for (let i = 0; i < data.length; i += 4) {
+        const alpha = data[i + 3];
+        // Skip nearly transparent pixels to avoid background bleed
+        if (alpha < 250) continue;
+        r += data[i];
+        g += data[i + 1];
+        b += data[i + 2];
+        count++;
+      }
+      if (count > 0) {
+        const avgR = Math.round(r / count);
+        const avgG = Math.round(g / count);
+        const avgB = Math.round(b / count);
+        this.slideshowBackgroundColor = `rgb(${avgR}, ${avgG}, ${avgB})`;
+      } else {
+        this.slideshowBackgroundColor = 'black';
+      }
+    } catch {
+      // In case of CORS-tainted canvas or other errors, fallback gracefully to transparent
+      // so the blurred image background (if any) can show through.
+      this.slideshowBackgroundColor = 'transparent';
+    }
   }
   
   // Update all image-related dimensions for display
@@ -2797,7 +2868,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         );
       },
       error: (error) => {
-        console.error('Error loading filesystem image variant:', error);
       }
     });
 
@@ -2941,11 +3011,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (cachedExifData) {
       // Use cached data immediately
       this.exifData = cachedExifData;
+      this.sortExifDataForDisplay();
       this.isLoadingExif = false;
       this.logExifDataForCurrentImage('show-exif-cache');
       
       // Open modal with cached data
-      const exifModalRef = this.modalService.open(this.exifModal, {
+      this.exifModalRef = this.modalService.open(this.exifModal, {
         size: 'lg',
         centered: true,
         backdrop: 'static',
@@ -2960,7 +3031,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.exifData = [];
     
     // Open modal immediately
-    const exifModalRef = this.modalService.open(this.exifModal, {
+    this.exifModalRef = this.modalService.open(this.exifModal, {
       size: 'lg',
       centered: true,
       backdrop: 'static',
@@ -3306,9 +3377,27 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         if (originalCacheKey) {
           this.imageCache.set(originalCacheKey, { objectUrl, blob, metadata });
         }
+        // If the currently displayed image corresponds to this imageIndex and we are still on compressed,
+        // automatically switch to the original variant once it is available.
+        const currentMappedIndex = this.slideshowIndexToImageIndex.get(this.currentSlideshowIndex);
+        if (currentMappedIndex === imageIndex && variantsToUpdate.currentVariant === 'compressed') {
+          const previousZoom = this.slideshowZoom;
+          const previousTranslateX = this.slideshowTranslateX;
+          const previousTranslateY = this.slideshowTranslateY;
+          this.applyFilesystemVariant(
+            objectUrl,
+            blob,
+            imageIndex,
+            imageSource,
+            previousZoom,
+            previousTranslateX,
+            previousTranslateY,
+            metadata,
+            'original'
+          );
+        }
       },
       error: (error) => {
-        console.error('Error prefetching original filesystem image:', error);
       }
     });
 
@@ -3440,7 +3529,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             return; // Success
           }
         } catch (error) {
-          console.warn('Could not convert blob to data URL for sharing:', error);
         }
       } else {
         // For non-blob URLs, try sharing the URL directly
@@ -3466,8 +3554,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         return;
       }
       
-      // Other errors - log and fallback to download
-      console.error('Error sharing image:', error);
+      // Other errors - fallback to download
       this.downloadImage();
     }
   }
@@ -3493,7 +3580,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             this.slideshowBlobs.set(currentImageUrl, blob);
           }
         } catch (error) {
-          console.error('Error fetching image for download:', error);
           // Fallback: try to download directly via link (may open in new tab)
           const link = document.createElement('a');
           link.href = currentImageUrl;
@@ -3521,7 +3607,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         setTimeout(() => URL.revokeObjectURL(url), 100);
       }
     } catch (error) {
-      console.error('Error downloading image:', error);
     }
   }
   
@@ -3533,6 +3618,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (cachedExifData) {
         // Use cached data
         this.exifData = cachedExifData;
+        this.sortExifDataForDisplay();
         this.isLoadingExif = false;
         this.logExifDataForCurrentImage('info-panel-cache');
       } else {
@@ -3543,7 +3629,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           this.isLoadingExif = false;
           this.logExifDataForCurrentImage('info-panel-loaded');
         }).catch((error) => {
-          console.error('Error loading EXIF data:', error);
           this.isLoadingExif = false;
         });
       }
@@ -3612,25 +3697,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (storedBlob) {
         blob = storedBlob;
       } else if (currentImageUrl.startsWith('blob:')) {
-        // For blob URLs without stored blob, try to fetch the blob from the URL
-        // This is allowed for blob URLs and allows us to get the file size
-        try {
-          const response = await fetch(currentImageUrl);
-          blob = await response.blob();
-        } catch (error) {
-          console.warn('Blob URL found but could not fetch blob:', error);
-          blob = null;
-        }
+        // Do not fetch blob: URLs again — this would create a duplicate blob request in DevTools.
+        // If the blob wasn't stored, we skip size/mime enrichment rather than re-downloading it.
+        blob = null;
       } else {
-        // For regular URLs (HTTP/HTTPS), fetch if blob is not stored
-        // Only fetch as last resort (should rarely happen)
-        try {
-          const response = await fetch(currentImageUrl);
-          blob = await response.blob();
-        } catch (error) {
-          console.error('Error fetching image:', error);
-          blob = null;
-        }
+        // For http(s) URLs, avoid downloading the body here; we'll try a HEAD below for size/mime.
+        blob = null;
       }
       
       // Add file size and MIME type if we have the blob
@@ -3657,6 +3729,22 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         }
         // Read EXIF from blob (will add EXIF data, not duplicate file size/mime)
         await this.readExifFromBlob(blob);
+        
+        // Ensure "original size before compression" is shown if available via backend metadata
+        const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
+        if (!this.exifData.some(item => item.label === originalSizeLabel)) {
+          const meta = this.imagePatMetadata.get(currentImageUrl);
+          const formatted = this.formatPatMetadata(meta);
+          if (formatted) {
+            this.exifData.push({
+              label: originalSizeLabel,
+              value: formatted
+            });
+          }
+        }
+        
+        // Sort EXIF entries for consistent display
+        this.sortExifDataForDisplay();
         
         // Update cache with complete data including file size
         if (currentImageUrl && this.exifData.length > 0) {
@@ -3693,7 +3781,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
                 this.exifDataCache.set(currentImageUrl, [...this.exifData]);
               }
             } catch (error) {
-              console.warn('Could not fetch file size from HEAD request:', error);
             }
           }
         }
@@ -3702,13 +3789,46 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         if (!currentImageUrl.startsWith('blob:') && imgEl && imgEl.src) {
           await this.readExifFromImageElement(imgEl);
         }
+        
+        // Sort EXIF entries for consistent display
+        this.sortExifDataForDisplay();
       }
       
     } catch (error) {
-      console.error('Error loading EXIF data:', error);
     }
 
     this.logExifDataForCurrentImage('load-exif-complete');
+  }
+
+  // Keep EXIF entries sorted by label for better readability
+  private sortExifDataForDisplay(): void {
+    if (Array.isArray(this.exifData)) {
+      const fileSizeLabel = this.translateService.instant('EVENTELEM.EXIF_FILE_SIZE');
+      const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
+      
+      const weightOf = (label: string): number => {
+        if (label === fileSizeLabel) return 10;            // 1) Current file size
+        if (label === originalSizeLabel) return 11;        // 2) Original size before compression (immediately after)
+        return 100;                                        // Others come after, alphabetically
+      };
+      
+      this.exifData.sort((a, b) => {
+        const la = (a?.label || '').toString();
+        const lb = (b?.label || '').toString();
+        const wa = weightOf(la);
+        const wb = weightOf(lb);
+        if (wa !== wb) return wa - wb;
+        return la.localeCompare(lb);
+      });
+      
+      // Hard position guarantee: ensure "Original size" is immediately after "File size"
+      const idxFile = this.exifData.findIndex(it => (it?.label || '') === fileSizeLabel);
+      const idxOriginal = this.exifData.findIndex(it => (it?.label || '') === originalSizeLabel);
+      if (idxFile !== -1 && idxOriginal !== -1 && idxOriginal !== idxFile + 1) {
+        const [originalItem] = this.exifData.splice(idxOriginal, 1);
+        this.exifData.splice(idxFile + 1, 0, originalItem);
+      }
+    }
   }
 
   private logExifDataForCurrentImage(context: string): void {
@@ -3733,31 +3853,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       exifItemCount: this.exifData?.length || 0
     };
 
-    if (typeof console.log === 'function') {
-      console.log('[Slideshow EXIF]', summary);
-    }
-
-    if (this.exifData && this.exifData.length > 0) {
-      if (typeof console.table === 'function') {
-        console.table(
-          this.exifData.map(item => ({
-            label: item.label,
-            value: item.value
-          }))
-        );
-      } else if (typeof console.log === 'function') {
-        this.exifData.forEach(item => {
-          console.log(`${item.label}:`, item.value);
-        });
-      }
-    } else if (typeof console.log === 'function') {
-      console.log('No EXIF data available for this image.');
-    }
-
-    const metadata = this.imagePatMetadata.get(currentImageUrl);
-    if (metadata && typeof console.log === 'function') {
-      console.log('PAT metadata:', metadata);
-    }
   }
   
   private async readExifFromBlob(blob: Blob, imageUrl?: string): Promise<void> {
@@ -3816,18 +3911,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
                   this.exifData.push(...processedData);
                 }
               } catch (error) {
-                console.error('Error processing EXIF data:', error);
               }
               resolve();
             });
           } catch (error) {
-            console.error('Error reading EXIF data:', error);
             resolve();
           }
         };
         
         img.onerror = (error) => {
-          console.error('Error loading image from data URL:', error);
           resolve();
         };
         
@@ -3836,7 +3928,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       };
       
       reader.onerror = (error) => {
-        console.error('Error reading blob:', error);
         resolve();
       };
       
@@ -3860,18 +3951,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
               const exifData = EXIF.getAllTags(img as any);
               this.processExifData(exifData);
             } catch (error) {
-              console.error('Error processing EXIF data:', error);
             }
             resolve();
           });
         } catch (error) {
-          console.error('Error reading EXIF data from blob URL:', error);
           resolve();
         }
       };
       
       img.onerror = (error) => {
-        console.error('Error loading image from blob URL for EXIF reading:', error);
         resolve();
       };
       
@@ -3905,12 +3993,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
               const exifData = EXIF.getAllTags(img as any);
               this.processExifData(exifData);
             } catch (error) {
-              console.error('Error processing EXIF data:', error);
             }
             resolve();
           });
         } catch (error) {
-          console.error('Error reading EXIF data from image element:', error);
           resolve();
         }
       };
@@ -3931,11 +4017,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           const exifData = EXIF.getAllTags(imgEl as any);
           this.processExifData(exifData);
         } catch (error) {
-          console.error('Error processing EXIF data:', error);
         }
       });
     } catch (error) {
-      console.error('Error reading EXIF data from image element:', error);
     }
   }
   
@@ -4070,15 +4154,33 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       });
     }
 
-    const patOriginalSize = this.getOriginalSizeFromPatMetadata(exifData.UserComment, imageUrlToUse);
-    if (patOriginalSize) {
-      const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
-      if (!targetArray.some(item => item.label === originalSizeLabel)) {
-        targetArray.push({
-          label: originalSizeLabel,
-          value: patOriginalSize
-        });
+    // Original size (before compression) - multiple fallbacks:
+    // 1) PAT values embedded in EXIF UserComment (backend may inject)
+    // 2) Metadata captured from response headers for the current URL
+    // 3) Filesystem variants cache: if current image is a compressed filesystem variant,
+    //    read size from the stored original variant metadata
+    const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
+    let originalSizeValue = this.getOriginalSizeFromPatMetadata(exifData.UserComment, imageUrlToUse);
+    
+    if (!originalSizeValue && imageUrlToUse) {
+      // Try reading from filesystem variants cache (covers compressed photos)
+      const imageIndex = this.imageUrlToThumbnailIndex.get(imageUrlToUse);
+      if (imageIndex !== undefined) {
+        const variants = this.filesystemImageVariants.get(imageIndex);
+        if (variants && variants.originalMetadata) {
+          const formatted = this.formatPatMetadata(variants.originalMetadata);
+          if (formatted) {
+            originalSizeValue = formatted;
+          }
+        }
       }
+    }
+    
+    if (originalSizeValue && !targetArray.some(item => item.label === originalSizeLabel)) {
+      targetArray.push({
+        label: originalSizeLabel,
+        value: originalSizeValue
+      });
     }
     
   }

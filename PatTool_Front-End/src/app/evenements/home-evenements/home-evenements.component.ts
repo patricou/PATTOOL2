@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, OnDestroy, TemplateRef } from '@angular/core';
+import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, ViewChildren, QueryList, OnDestroy, TemplateRef } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom } from 'rxjs';
@@ -68,8 +68,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private readonly defaultAverageBorderColor: string = 'rgba(52, 58, 64, 0.65)';
 	private eventColors: Map<string, { r: number; g: number; b: number }> = new Map();
 	public titleOnlyView: boolean = false;
-	@ViewChild('searchterm')
-	public searchterm!: ElementRef;
+	@ViewChildren('searchterm')
+	public searchterms!: QueryList<ElementRef>;
 	@ViewChild('photosModal') photosModal!: TemplateRef<any>;
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('urlsModal') urlsModal!: TemplateRef<any>;
@@ -85,6 +85,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
 	@ViewChild('infiniteScrollAnchor') infiniteScrollAnchor?: ElementRef<HTMLDivElement>;
 	private eventsSubscription?: Subscription;
+	private searchSubscriptions: Subscription[] = [];
 	private intersectionObserver?: IntersectionObserver;
 	private feedRequestToken = 0;
 	private prefetchTimeoutId: ReturnType<typeof setTimeout> | null = null;
@@ -137,21 +138,38 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	ngAfterViewInit() {
 		// used to not have to press enter when filter
-		const eventObservable = fromEvent(this.searchterm.nativeElement, 'input')
-			.pipe(debounceTime(700));
-
-		eventObservable.subscribe(
-			((data: any) => {
-				this.pageNumber = 0;
-				this._commonValuesService.setPageNumber(this.pageNumber);
-				this.dataFIlter = data.target.value;
-				this._commonValuesService.setDataFilter(this.dataFIlter);
-				this.resetAndLoadEvents();
-			}),
-			((err: any) => console.error(err)),
-			() => console.log('complete')
-		)
+		// Listen to both mobile and desktop inputs
+		this.searchterms.changes.subscribe(() => {
+			this.setupSearchInputs();
+		});
+		this.setupSearchInputs();
 		this.setupInfiniteScrollObserver();
+	}
+
+	private setupSearchInputs(): void {
+		// Unsubscribe from previous subscriptions
+		this.searchSubscriptions.forEach(sub => sub.unsubscribe());
+		this.searchSubscriptions = [];
+
+		this.searchterms.forEach((searchtermRef: ElementRef) => {
+			if (searchtermRef && searchtermRef.nativeElement) {
+				const eventObservable = fromEvent(searchtermRef.nativeElement, 'input')
+					.pipe(debounceTime(700));
+
+				const subscription = eventObservable.subscribe(
+					((data: any) => {
+						this.pageNumber = 0;
+						this._commonValuesService.setPageNumber(this.pageNumber);
+						this.dataFIlter = data.target.value;
+						this._commonValuesService.setDataFilter(this.dataFIlter);
+						this.resetAndLoadEvents();
+					}),
+					((err: any) => console.error(err)),
+					() => console.log('complete')
+				);
+				this.searchSubscriptions.push(subscription);
+			}
+		});
 	}
 
 	private waitForNonEmptyValue(): Promise<void> {
@@ -789,6 +807,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	public toggleViewMode() {
 		this.isCompactView = !this.isCompactView;
+		// No need to clear cache - blob URLs are now persisted in static cache
+		// The cache will be used automatically when components are recreated
 	}
 
 
@@ -977,6 +997,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	ngOnDestroy() {
 		this.eventsSubscription?.unsubscribe();
+		this.searchSubscriptions.forEach(sub => sub.unsubscribe());
+		this.searchSubscriptions = [];
 		this.disconnectInfiniteScrollObserver();
 		if (this.prefetchTimeoutId) {
 			clearTimeout(this.prefetchTimeoutId);

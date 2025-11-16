@@ -16,6 +16,8 @@
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "言語",
+        "DOCUMENTATION": "ドキュメント",
+        "SLIDESHOW_DOCUMENTATION": "スライドショー ドキュメント",
         "EVENTS": "活動",
         "EVENTSLIST": "活動リスト",
         "EVENTSCREATION": "活動の作成",

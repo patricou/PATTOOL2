@@ -16,6 +16,8 @@
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Γλώσσα",
+        "DOCUMENTATION": "Τεκμηρίωση",
+        "SLIDESHOW_DOCUMENTATION": "Τεκμηρίωση Παρουσίασης",
         "EVENTS": "Δραστηριότητες",
         "EVENTSLIST": "Λίστα Δραστηριοτήτων",
         "EVENTSCREATION": "Δημιουργία Δραστηριότητας",

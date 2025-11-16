@@ -26,6 +26,7 @@ export class AppComponent implements OnInit {
     public showToolsDropdown: boolean = false;
     public showLinksDropdown: boolean = false;
     public showLanguageSubmenu: boolean = false;
+    public showDocumentationSubmenu: boolean = false;
     public isDragOver: boolean = false;
     
     // Drag functionality for language selector
@@ -290,6 +291,7 @@ export class AppComponent implements OnInit {
         this.showLinksDropdown = false; // Close other dropdown
         if (!this.showToolsDropdown) {
             this.showLanguageSubmenu = false; // Close language submenu when tools dropdown closes
+            this.showDocumentationSubmenu = false; // Close documentation submenu when tools dropdown closes
         }
     }
 
@@ -297,9 +299,12 @@ export class AppComponent implements OnInit {
         const relatedTarget = event.relatedTarget as HTMLElement;
         const isOverLanguageSubmenu = relatedTarget?.closest('.language-submenu-list') || 
                                       relatedTarget?.closest('.dropdown-submenu');
-        if (!isOverLanguageSubmenu) {
+        const isOverDocumentationSubmenu = relatedTarget?.closest('.documentation-submenu-list') || 
+                                           relatedTarget?.closest('.dropdown-submenu');
+        if (!isOverLanguageSubmenu && !isOverDocumentationSubmenu) {
             this.showToolsDropdown = false;
             this.showLanguageSubmenu = false;
+            this.showDocumentationSubmenu = false;
         }
     }
 
@@ -308,7 +313,9 @@ export class AppComponent implements OnInit {
         event.stopPropagation();
         this.showToolsDropdown = true;
         this.showLanguageSubmenu = !this.showLanguageSubmenu;
+        // Close Documentation submenu when Language submenu opens
         if (this.showLanguageSubmenu) {
+            this.showDocumentationSubmenu = false;
             this.positionLanguageSubmenu();
         }
     }
@@ -317,18 +324,112 @@ export class AppComponent implements OnInit {
         setTimeout(() => {
             const relatedTarget = event.relatedTarget as HTMLElement;
             const isOverLanguage = relatedTarget?.closest('.language-submenu-list') || 
-                                  relatedTarget?.closest('.dropdown-submenu') ||
                                   relatedTarget?.id === 'languageSubmenu';
+            const isOverLanguageSubmenu = relatedTarget?.closest('#languageSubmenu')?.closest('.dropdown-submenu');
             const isOverTools = relatedTarget?.closest('#toolsDropdown') ||
                                relatedTarget?.closest('[aria-labelledby="toolsDropdown"]');
-            if (!isOverLanguage && !isOverTools) {
+            // Check if moving to Documentation submenu
+            const isOverDocumentation = relatedTarget?.closest('.documentation-submenu-list') ||
+                                       relatedTarget?.id === 'documentationSubmenu';
+            if (!isOverLanguage && !isOverLanguageSubmenu && !isOverTools && !isOverDocumentation) {
                 this.showLanguageSubmenu = false;
             }
         }, 100);
     }
 
+    toggleDocumentationSubmenuOnClick(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.showToolsDropdown = true;
+        this.showDocumentationSubmenu = !this.showDocumentationSubmenu;
+        // Close Language submenu when Documentation submenu opens
+        if (this.showDocumentationSubmenu) {
+            this.showLanguageSubmenu = false;
+            this.positionDocumentationSubmenu();
+        }
+    }
+
+    checkCloseDocumentationSubmenu(event: MouseEvent): void {
+        setTimeout(() => {
+            const relatedTarget = event.relatedTarget as HTMLElement;
+            const isOverDocumentation = relatedTarget?.closest('.documentation-submenu-list') || 
+                                       relatedTarget?.id === 'documentationSubmenu';
+            const isOverDocumentationSubmenu = relatedTarget?.closest('#documentationSubmenu')?.closest('.dropdown-submenu');
+            const isOverTools = relatedTarget?.closest('#toolsDropdown') ||
+                               relatedTarget?.closest('[aria-labelledby="toolsDropdown"]');
+            // Check if moving to Language submenu
+            const isOverLanguage = relatedTarget?.closest('.language-submenu-list') ||
+                                  relatedTarget?.id === 'languageSubmenu';
+            if (!isOverDocumentation && !isOverDocumentationSubmenu && !isOverTools && !isOverLanguage) {
+                this.showDocumentationSubmenu = false;
+            }
+        }, 100);
+    }
+
+    positionDocumentationSubmenu(): void {
+        setTimeout(() => {
+            // Close Language submenu when positioning Documentation submenu
+            this.showLanguageSubmenu = false;
+            
+            const submenuElement = document.querySelector('.documentation-submenu-list') as HTMLElement;
+            const parentItem = document.querySelector('#documentationSubmenu')?.closest('.dropdown-submenu') as HTMLElement;
+            
+            if (submenuElement && parentItem) {
+                const parentRect = parentItem.getBoundingClientRect();
+                
+                // Check if parent is visible
+                const parentComputed = window.getComputedStyle(parentItem);
+                const toolsMenu = document.querySelector('[aria-labelledby="toolsDropdown"]') as HTMLElement;
+                const toolsComputed = toolsMenu ? window.getComputedStyle(toolsMenu) : null;
+                
+                // Ensure Tools menu is visible
+                if (toolsMenu && !toolsComputed?.display || toolsComputed?.display === 'none') {
+                    toolsMenu.style.display = 'block';
+                }
+                
+                // Move submenu to body to avoid parent overflow issues
+                if (submenuElement.parentElement?.tagName !== 'BODY') {
+                    document.body.appendChild(submenuElement);
+                }
+                
+                // Calculate position relative to viewport
+                const left = parentRect.right;
+                const top = parentRect.top;
+                
+                // Apply all styles directly with proper background
+                submenuElement.style.cssText = `
+                    position: fixed !important;
+                    left: ${left}px !important;
+                    top: ${top}px !important;
+                    z-index: 99999 !important;
+                    display: block !important;
+                    visibility: visible !important;
+                    opacity: 1 !important;
+                    pointer-events: auto !important;
+                    margin: 0 !important;
+                    padding: 4px 0 !important;
+                    transform: none !important;
+                    width: auto !important;
+                    height: auto !important;
+                    background: rgba(30, 30, 46, 0.95) !important;
+                    backdrop-filter: blur(10px);
+                    border: 2px solid white !important;
+                `;
+                
+                // Force class
+                submenuElement.classList.add('show');
+                
+                // Mark as visible
+                submenuElement.setAttribute('data-visible', 'true');
+            }
+        }, 10);
+    }
+
     positionLanguageSubmenu(): void {
         setTimeout(() => {
+            // Close Documentation submenu when positioning Language submenu
+            this.showDocumentationSubmenu = false;
+            
             const submenuElement = document.querySelector('.language-submenu-list') as HTMLElement;
             const parentItem = document.querySelector('#languageSubmenu')?.closest('.dropdown-submenu') as HTMLElement;
             
@@ -354,7 +455,7 @@ export class AppComponent implements OnInit {
                 const left = parentRect.right;
                 const top = parentRect.top;
                 
-                // Apply all styles directly
+                // Apply all styles directly with proper background
                 submenuElement.style.cssText = `
                     position: fixed !important;
                     left: ${left}px !important;
@@ -365,10 +466,13 @@ export class AppComponent implements OnInit {
                     opacity: 1 !important;
                     pointer-events: auto !important;
                     margin: 0 !important;
-                    padding: 0 !important;
+                    padding: 4px 0 !important;
                     transform: none !important;
                     width: auto !important;
                     height: auto !important;
+                    background: rgba(30, 30, 46, 0.95) !important;
+                    backdrop-filter: blur(10px);
+                    border: 2px solid white !important;
                 `;
                 
                 // Force class
@@ -406,6 +510,7 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = false;
         this.showLinksDropdown = false;
         this.showLanguageSubmenu = false;
+        this.showDocumentationSubmenu = false;
     }
 
     closeDropdowns(): void {
@@ -414,6 +519,7 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = false;
         this.showLinksDropdown = false;
         this.showLanguageSubmenu = false;
+        this.showDocumentationSubmenu = false;
     }
 
     closeMenu(): void {
@@ -424,6 +530,12 @@ export class AppComponent implements OnInit {
     closeMenuOnly(): void {
         this.isMenuCollapsed = true;
         this.closeDropdowns();
+    }
+
+    openSlideshowDocumentation(): void {
+        // Open the slideshow documentation HTML file in a new window
+        const docUrl = '/assets/SLIDESHOW_DOCUMENTATION.html';
+        window.open(docUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
     }
 
     @HostListener('document:click', ['$event'])
@@ -437,11 +549,12 @@ export class AppComponent implements OnInit {
         const isToolsDropdown = target.closest('#toolsDropdown') || target.closest('[aria-labelledby="toolsDropdown"]');
         const isAISubmenu = target.closest('.ai-submenu-list') || target.closest('[aria-labelledby="aiSubmenu"]');
         const isLanguageSubmenu = target.closest('.language-submenu-list') || target.closest('[aria-labelledby="languageSubmenu"]');
+        const isDocumentationSubmenu = target.closest('.documentation-submenu-list') || target.closest('[aria-labelledby="documentationSubmenu"]');
         const isNavbar = target.closest('.navbar');
         const isDropdownItem = target.closest('.dropdown-item');
         
         // If click is outside all dropdowns, navbar, and dropdown items, close them
-        if (!isEventsDropdown && !isIADropdown && !isToolsDropdown && !isLinksDropdown && !isAISubmenu && !isLanguageSubmenu && !isNavbar && !isDropdownItem) {
+        if (!isEventsDropdown && !isIADropdown && !isToolsDropdown && !isLinksDropdown && !isAISubmenu && !isLanguageSubmenu && !isDocumentationSubmenu && !isNavbar && !isDropdownItem) {
             this.closeDropdowns();
         }
     }

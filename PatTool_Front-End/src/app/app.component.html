@@ -156,8 +156,35 @@
                         <i class="fa fa-cloud-upload"></i> {{ "UPLOADFILE.MENU" | translate }}
                     </a></li>
                     <li class="dropdown-submenu" 
+                        #documentationSubmenuItem
+                        (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false; positionDocumentationSubmenu()"
+                        (mouseleave)="checkCloseDocumentationSubmenu($event)">
+                        <a class="dropdown-item documentation-toggle" 
+                           href="#" 
+                           id="documentationSubmenu"
+                           (click)="toggleDocumentationSubmenuOnClick($event)">
+                            <i class="fa fa-book"></i> {{ 'MENU.DOCUMENTATION' | translate }}
+                        </a>
+                        <ul class="dropdown-menu documentation-submenu-list" 
+                            #documentationSubmenu
+                            [class.show]="showDocumentationSubmenu"
+                            [style.display]="showDocumentationSubmenu ? 'block' : 'none'"
+                            [style.opacity]="showDocumentationSubmenu ? '1' : '0'"
+                            [style.visibility]="showDocumentationSubmenu ? 'visible' : 'hidden'"
+                            aria-labelledby="documentationSubmenu"
+                            (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false"
+                            (mouseleave)="checkCloseDocumentationSubmenu($event)">
+                            <li>
+                                <a class="dropdown-item" 
+                                   (click)="openSlideshowDocumentation(); showDocumentationSubmenu = false; closeMenu(); $event.preventDefault()">
+                                    <i class="fa fa-picture-o"></i> {{ 'MENU.SLIDESHOW_DOCUMENTATION' | translate }}
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li class="dropdown-submenu" 
                         #languageSubmenuItem
-                        (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; positionLanguageSubmenu()"
+                        (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; showDocumentationSubmenu = false; positionLanguageSubmenu()"
                         (mouseleave)="checkCloseLanguageSubmenu($event)">
                         <a class="dropdown-item language-toggle" 
                            href="#" 
@@ -172,7 +199,7 @@
                             [style.opacity]="showLanguageSubmenu ? '1' : '0'"
                             [style.visibility]="showLanguageSubmenu ? 'visible' : 'hidden'"
                             aria-labelledby="languageSubmenu"
-                            (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true"
+                            (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; showDocumentationSubmenu = false"
                             (mouseleave)="checkCloseLanguageSubmenu($event)">
                             <li *ngFor="let lang of _translate.getLangs()">
                                 <a class="dropdown-item" 

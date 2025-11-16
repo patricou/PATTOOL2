@@ -16,6 +16,8 @@
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "اللغة",
+        "DOCUMENTATION": "التوثيق",
+        "SLIDESHOW_DOCUMENTATION": "توثيق العرض التقديمي",
         "EVENTS": "الأنشطة",
         "EVENTSLIST": "قائمة الأنشطة",
         "EVENTSCREATION": "إنشاء نشاط",

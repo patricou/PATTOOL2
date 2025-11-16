@@ -24,6 +24,8 @@
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Язык",
+        "DOCUMENTATION": "Документация",
+        "SLIDESHOW_DOCUMENTATION": "Документация слайд-шоу",
         "EVENTS": "Мероприятия",
         "EVENTSLIST": "Список мероприятий",
         "EVENTSCREATION": "Создание мероприятия",

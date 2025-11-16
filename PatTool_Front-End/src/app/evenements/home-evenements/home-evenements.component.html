@@ -7,62 +7,132 @@
     <div class="row">
         <div class="col-sm-12">
             <div class="controls-bar">
-                <!-- Mobile collapse button -->
-                <!-- Header row with collapse button and last two buttons on same line -->
-                <div class="controls-header-row d-md-none">
-                    <button class="btn btn-sm btn-outline-secondary btn-collapse-controls"
-                        (click)="toggleControlsCollapse()" type="button"
-                        [ngbTooltip]="isMobile ? null : (controlsCollapsed ? ('COMMUN.SHOW_CONTROLS' | translate) : ('COMMUN.HIDE_CONTROLS' | translate))"
-                        placement="bottom" container="body">
-                        <i class="fa" [class.fa-chevron-down]="controlsCollapsed"
-                            [class.fa-chevron-up]="!controlsCollapsed"></i>
-                    </button>
-                    <div class="last-buttons-row">
-                        <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
-                            [ngbTooltip]="isMobile ? null : ('EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate)"
-                            placement="bottom" container="body">
-                            <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
-                        </button>
+                <!-- Mobile: Filter, Counter and Cards/List button on same line -->
+                <div class="mobile-filter-only d-md-none">
+                    <div class="filter-section-mobile">
+                        <div class="mobile-controls-row">
+                            <div class="filter-input-container">
+                                <i class="fa fa-search search-icon"></i>
+                                <input type="text" id="message" [value]="dataFIlter" #searchterm
+                                    placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" 
+                                    class="filter-input" />
+                                <button class="filter-clear-btn" 
+                                    (click)="clearFilter()" 
+                                    type="button"
+                                    [ngbTooltip]="('COMMUN.CLEAR_FILTER' | translate)" 
+                                    placement="bottom"
+                                    container="body"
+                                    [class.disabled]="!dataFIlter || dataFIlter.trim() === ''">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="mobile-quick-actions">
+                                <div class="mobile-results-badge"
+                                    [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
+                                    <span class="count-value">{{ filteredTotal }}</span>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary btn-toggle-view-mobile" (click)="toggleViewMode()"
+                                    [ngbTooltip]="('EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate)"
+                                    placement="bottom" container="body">
+                                    <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Controls wrapper - collapsed on mobile by default -->
-                <div class="controls-wrapper" [class.collapsed]="controlsCollapsed">
-                    <!-- Search and filter on same line -->
-                    <div class="search-filter-row">
-                        <input type="text" id="message" [value]="dataFIlter" #searchterm
-                            placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" class="form-control search-input" />
-                        <button class="btn btn-sm btn-secondary btn-filter" (click)="clearFilter()" type="button"
-                            [ngbTooltip]="isMobile ? null : ('COMMUN.CLEAR_FILTER' | translate)" placement="bottom"
-                            container="body">X</button>
-                    </div>
-                    <div class="results-counter"
-                        [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
-                        <span class="count-value">{{ filteredTotal }}</span>
-                        <span class="count-label">{{ 'EVENTHOME.EVENTS_FOUND' | translate }}</span>
-                    </div>
-                    <div class="view-controls">
-                        <button class="btn btn-sm btn-outline-primary btn-toggle-view" (click)="toggleViewMode()"
-                            ngbTooltip="{{ 'EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate }}" placement="bottom"
-                            container="body">
-                            <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
-                        </button>
-                        <span class="compact-toggle-wrapper"
-                            ngbTooltip="{{ titleOnlyView ? ('EVENTHOME.TITLE_ONLY_COMPLET' | translate) : ('EVENTHOME.TITLE_ONLY_HINT' | translate) }}"
-                            placement="bottom" container="body">
-                            <div class="compact-toggle">
-                                <input class="compact-toggle-input" type="checkbox" id="titleOnlyToggle"
-                                    [(ngModel)]="titleOnlyView">
-                                <label class="compact-toggle-label" for="titleOnlyToggle">
-                                    <span class="toggle-track"></span>
-                                    <span class="toggle-thumb">
-                                        <i class="fa" [class.fa-align-justify]="!titleOnlyView"
-                                            [class.fa-align-center]="titleOnlyView"></i>
-                                    </span>
-                                </label>
-                                <span class="visually-hidden">{{ 'EVENTHOME.TITLE_ONLY_HINT' | translate }}</span>
+                <!-- Desktop: Full controls -->
+                <div class="desktop-controls d-none d-md-flex">
+                    <!-- Filter Section -->
+                    <div class="filter-section">
+                        <div class="filter-header">
+                            <i class="fa fa-filter"></i>
+                            <span class="filter-label">{{ 'EVENTHOME.EVENTFILTRE' | translate }}</span>
+                        </div>
+                        <div class="search-filter-row">
+                            <div class="filter-input-container-desktop">
+                                <i class="fa fa-search search-icon"></i>
+                                <input type="text" [value]="dataFIlter" #searchterm
+                                    placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" 
+                                    class="filter-input" />
+                                <button class="filter-clear-btn" 
+                                    (click)="clearFilter()" 
+                                    type="button"
+                                    [ngbTooltip]="('COMMUN.CLEAR_FILTER' | translate)" 
+                                    placement="bottom"
+                                    container="body"
+                                    [class.disabled]="!dataFIlter || dataFIlter.trim() === ''">
+                                    <i class="fa fa-times"></i>
+                                </button>
                             </div>
-                        </span>
+                        </div>
+                    </div>
+
+                    <!-- Results Counter Section -->
+                    <div class="results-section">
+                        <div class="results-counter"
+                            [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
+                            <div class="results-icon">
+                                <i class="fa fa-list-alt"></i>
+                            </div>
+                            <div class="results-content">
+                                <span class="count-value">{{ filteredTotal }}</span>
+                                <span class="count-label">{{ 'EVENTHOME.EVENTS_FOUND' | translate }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- View Controls Section -->
+                    <div class="view-controls-section">
+                        <div class="view-controls-header">
+                            <i class="fa fa-eye"></i>
+                            <span class="view-label">{{ 'EVENTHOME.VIEW_OPTIONS' | translate }}</span>
+                        </div>
+                        <div class="view-controls">
+                            <!-- Cards/List Toggle Button -->
+                            <div class="view-toggle-group">
+                                <button class="btn btn-view-toggle" 
+                                    [class.active]="!isCompactView"
+                                    (click)="isCompactView = false"
+                                    ngbTooltip="{{ 'EVENTHOME.VIEW_CARDS' | translate }}" 
+                                    placement="bottom" container="body">
+                                    <i class="fa fa-th-large"></i>
+                                    <span class="view-toggle-label">{{ 'EVENTHOME.VIEW_CARDS' | translate }}</span>
+                                </button>
+                                <button class="btn btn-view-toggle" 
+                                    [class.active]="isCompactView"
+                                    (click)="isCompactView = true"
+                                    ngbTooltip="{{ 'EVENTHOME.VIEW_LIST' | translate }}" 
+                                    placement="bottom" container="body">
+                                    <i class="fa fa-list"></i>
+                                    <span class="view-toggle-label">{{ 'EVENTHOME.VIEW_LIST' | translate }}</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Compact View Selector -->
+                            <div class="compact-view-selector">
+                                <label class="compact-view-label" for="titleOnlyToggle">
+                                    <i class="fa fa-compress"></i>
+                                    <span>{{ 'EVENTHOME.COMPACT_VIEW' | translate }}</span>
+                                </label>
+                                <div class="compact-toggle-wrapper"
+                                    ngbTooltip="{{ titleOnlyView ? ('EVENTHOME.TITLE_ONLY_COMPLET' | translate) : ('EVENTHOME.TITLE_ONLY_HINT' | translate) }}"
+                                    placement="bottom" container="body">
+                                    <div class="compact-toggle">
+                                        <input class="compact-toggle-input" type="checkbox" id="titleOnlyToggle"
+                                            [(ngModel)]="titleOnlyView">
+                                        <label class="compact-toggle-label" for="titleOnlyToggle">
+                                            <span class="toggle-track"></span>
+                                            <span class="toggle-thumb">
+                                                <i class="fa" [class.fa-align-justify]="!titleOnlyView"
+                                                    [class.fa-align-center]="titleOnlyView"></i>
+                                            </span>
+                                        </label>
+                                        <span class="visually-hidden">{{ 'EVENTHOME.TITLE_ONLY_HINT' | translate }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>

@@ -14,8 +14,12 @@
            (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
            (mouseup)="onSlideshowMouseUp($event)" (mouseenter)="onSlideshowMouseEnter($event)" (mouseleave)="onSlideshowMouseLeave()" (document:mouseup)="onSlideshowMouseUp($event)"
            (contextmenu)="$event.preventDefault()"
-          (touchstart.passive)="onSlideshowTouchStart($event)" (touchmove.passive)="onSlideshowTouchMove($event)" (touchend.passive)="onSlideshowTouchEnd($event)"
+          (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
+           [style.backgroundColor]="slideshowBackgroundColor"
            [style.cursor]="showMapView ? 'default' : (isSelectingRectangle ? 'crosshair' : (isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')))" style="overflow:hidden; user-select: none;">
+        <!-- Blurred image fallback background (for cross-origin where average color can't be computed) -->
+        <div class="slideshow-bg-blur" *ngIf="slideshowImages.length > 0 && (!showMapView || !currentMapUrl)"
+             [style.backgroundImage]="'url(' + getCurrentSlideshowImage() + ')'"></div>
         <div *ngIf="slideshowImages.length > 0 && showMapView && currentMapUrl" class="slideshow-map-container">
           <iframe [src]="currentMapUrl" frameborder="0" allowfullscreen loading="lazy"></iframe>
         </div>
@@ -28,14 +32,12 @@
         <img #slideshowImgEl *ngIf="slideshowImages.length > 0 && (!showMapView || !currentMapUrl)" 
              [src]="getCurrentSlideshowImage()" 
              alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
+             crossorigin="anonymous"
              class="slideshow-image"
              [style.transform]="'translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0) scale(' + slideshowZoom + ')'"
              style="transform-origin:center center; position: relative;"
              (wheel)="onWheelSlideshow($event)"
              (click)="onSlideshowImageClick()"
-             (mousedown)="onSlideshowMouseDown($event)"
-             (mousemove)="onSlideshowMouseMove($event)"
-             (mouseup)="onSlideshowMouseUp($event)"
              (contextmenu)="$event.preventDefault()"
              (load)="onImageLoad()"
              [class.fullscreen-image]="isFullscreen"

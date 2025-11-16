@@ -160,7 +160,9 @@ public class DiskImageController {
                                 .contentLength(compressionResult.getCompressedSize())
                                 .header("X-Pat-Compression", "applied")
                                 .header("X-Pat-Image-Size-Before", Long.toString(compressionResult.getOriginalSize()))
-                                .header("X-Pat-Image-Size-After", Long.toString(compressionResult.getCompressedSize()));
+                                .header("X-Pat-Image-Size-After", Long.toString(compressionResult.getCompressedSize()))
+                                // Ensure the browser can read our custom headers
+                                .header("Access-Control-Expose-Headers", "X-Pat-Compression, X-Pat-Image-Size-Before, X-Pat-Image-Size-After, X-Pat-Exif");
 
                         if (!compressionResult.getExifMetadata().isEmpty()) {
                             String exifSummary = compressionResult.getExifMetadata()
@@ -182,10 +184,18 @@ public class DiskImageController {
         }
 
         InputStream is = Files.newInputStream(file);
+        long originalSize = Files.size(file);
+        String exifHeader = "PatOriginalFileSizeBytes=" + originalSize + "; PatOriginalFileSizeKB=" + Math.max(1, originalSize / 1024) + "";
         return ResponseEntity.ok()
                 .lastModified(lastModified)
                 .cacheControl(CacheControl.maxAge(3600, TimeUnit.SECONDS).cachePublic())
                 .contentType(MediaType.parseMediaType(contentType))
+                // Provide size metadata even when no compression is applied
+                .header("X-Pat-Compression", "none")
+                .header("X-Pat-Image-Size-Before", Long.toString(originalSize))
+                .header("X-Pat-Exif", exifHeader)
+                // Ensure the browser can read our custom headers
+                .header("Access-Control-Expose-Headers", "X-Pat-Compression, X-Pat-Image-Size-Before, X-Pat-Image-Size-After, X-Pat-Exif")
                 .body(new InputStreamResource(is));
     }
 

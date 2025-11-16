@@ -35,12 +35,32 @@ public class SmtpMailSender {
         for (String recipient : recipients) {
             MimeMessage mail = javaMailSender.createMimeMessage();
             try {
-                MimeMessageHelper helper = new MimeMessageHelper(mail, true);
+                MimeMessageHelper helper = new MimeMessageHelper(mail, true, "UTF-8");
                 helper.setTo(recipient);
                 helper.setReplyTo(from);
                 helper.setFrom(from);
                 helper.setSubject(subject);
-                helper.setText(body, isHtml);
+                
+                if (isHtml) {
+                    // For HTML emails, set both HTML and plain text versions to avoid spam filters
+                    String plainText = htmlToPlainText(body);
+                    helper.setText(plainText, body);
+                } else {
+                    helper.setText(body, false);
+                }
+                
+                // Add anti-spam headers
+                mail.setHeader("X-Mailer", "PatTool Application");
+                mail.setHeader("X-Priority", "3"); // Normal priority
+                mail.setHeader("X-MSMail-Priority", "Normal");
+                mail.setHeader("Importance", "Normal");
+                mail.setHeader("Precedence", "bulk");
+                mail.setHeader("Auto-Submitted", "auto-generated");
+                
+                // Add Message-ID for better deliverability
+                if (mail.getMessageID() == null) {
+                    mail.setHeader("Message-ID", generateMessageId());
+                }
                 
                 log.debug("Sending email via SMTP - To: {}, Subject: {}, HTML: {}", recipient, subject, isHtml);
                 javaMailSender.send(mail);
@@ -53,6 +73,44 @@ public class SmtpMailSender {
                 throw new RuntimeException("Failed to send email: " + e.getMessage(), e);
             }
         }
+    }
+    
+    /**
+     * Convert HTML to plain text for email clients that don't support HTML
+     * This helps avoid spam filters by providing a text alternative
+     */
+    private String htmlToPlainText(String html) {
+        if (html == null) {
+            return "";
+        }
+        // Simple HTML to text conversion
+        String text = html
+                .replaceAll("<style[^>]*>.*?</style>", "") // Remove style tags
+                .replaceAll("<script[^>]*>.*?</script>", "") // Remove script tags
+                .replaceAll("<[^>]+>", " ") // Remove all HTML tags
+                .replaceAll("&nbsp;", " ")
+                .replaceAll("&amp;", "&")
+                .replaceAll("&lt;", "<")
+                .replaceAll("&gt;", ">")
+                .replaceAll("&quot;", "\"")
+                .replaceAll("&#39;", "'")
+                .replaceAll("\\s+", " ") // Multiple spaces to single space
+                .trim();
+        
+        // Limit length to avoid issues
+        if (text.length() > 50000) {
+            text = text.substring(0, 50000) + "... [Content truncated]";
+        }
+        
+        return text.isEmpty() ? "Exception & Connection Report (HTML email - please enable HTML to view)" : text;
+    }
+    
+    /**
+     * Generate a unique Message-ID for better email deliverability
+     */
+    private String generateMessageId() {
+        return "<" + System.currentTimeMillis() + "." + 
+               System.nanoTime() + "@pattool>";
     }
     @Async
     public void sendMail(String from,String to, String subject, String body, String attachement){

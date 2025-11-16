@@ -190,6 +190,96 @@
     visibility: visible !important;
 }
 
+/* Custom Documentation submenu styling */
+.documentation-submenu-list {
+    position: fixed !important;
+    margin-top: 0 !important;
+    margin-left: 0 !important;
+    border-radius: 8px;
+    display: none !important;
+    z-index: 99999 !important;
+    min-width: 220px !important;
+    max-width: 280px !important;
+    max-height: 85vh !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    background: rgba(30, 30, 46, 0.95) !important;
+    backdrop-filter: blur(10px);
+    border: 2px solid white !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3) !important;
+    list-style: none !important;
+    padding: 4px 0 !important;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    clip: unset !important;
+    clip-path: none !important;
+}
+
+.documentation-submenu-list.show,
+.documentation-submenu-list[style*="display: block"],
+.documentation-submenu-list[style*="display:block"],
+.documentation-submenu-list[style*="display: block !important"],
+.documentation-submenu-list[style*="display:block !important"] {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+}
+
+/* Ensure documentation submenu stays open on hover */
+.dropdown-submenu:hover .documentation-submenu-list,
+.dropdown-submenu .documentation-submenu-list.show {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
+.dropdown-menu .documentation-submenu-list.show,
+.dropdown-menu.show .documentation-submenu-list.show {
+    display: block !important;
+}
+
+.documentation-submenu-list li {
+    margin: 0;
+    padding: 0;
+}
+
+.documentation-submenu-list .dropdown-item {
+    color: rgba(255, 255, 255, 0.9) !important;
+    padding: 10px 16px;
+    transition: all 0.3s ease;
+    display: block;
+    text-decoration: none;
+}
+
+.documentation-submenu-list .dropdown-item i {
+    margin-right: 8px;
+    width: 16px;
+    text-align: center;
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 14px !important;
+}
+
+.documentation-submenu-list .dropdown-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: white !important;
+    transform: translateX(5px);
+}
+
+.documentation-submenu-list .dropdown-item:hover i {
+    color: white !important;
+}
+
+.documentation-submenu-list[style*="block"] {
+    display: block !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+}
+
 /* Custom Language submenu styling */
 .language-submenu-list {
     position: fixed !important;

@@ -1,0 +1,1762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slideshow Documentation - PatTool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary-color: #64748b;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --bg-color: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 3rem 2rem;
+            margin: -2rem -2rem 3rem -2rem;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.125rem;
+            opacity: 0.9;
+        }
+
+        /* Navigation */
+        .nav {
+            background: white;
+            padding: 1.5rem 2rem;
+            margin: -2rem -2rem 2rem -2rem;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .nav ul {
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+
+        .nav a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+            padding: 0.5rem 0;
+            border-bottom: 2px solid transparent;
+        }
+
+        .nav a:hover {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        /* Sections */
+        .section {
+            background: white;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .section h2 {
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 3px solid var(--primary-color);
+        }
+
+        .section h3 {
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .section h4 {
+            font-size: 1.25rem;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-title::before {
+            content: "📄";
+            font-size: 1.5rem;
+        }
+
+        /* Code Blocks */
+        pre {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1rem 0;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem;
+            line-height: 1.6;
+        }
+
+        .code-inline {
+            background: var(--bg-tertiary);
+            color: var(--primary-color);
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            background: white;
+            box-shadow: var(--shadow);
+        }
+
+        th {
+            background: var(--primary-color);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 0.75rem 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .badge-success {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .badge-warning {
+            background: var(--warning-color);
+            color: white;
+        }
+
+        /* Flow Diagram */
+        .flow-diagram {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            margin: 1.5rem 0;
+            border: 2px dashed var(--border-color);
+        }
+
+        .flow-step {
+            background: white;
+            padding: 1rem 1.5rem;
+            margin: 0.75rem 0;
+            border-left: 4px solid var(--primary-color);
+            border-radius: 0.25rem;
+            box-shadow: var(--shadow);
+        }
+
+        .flow-step::before {
+            content: "→";
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        .flow-step:first-child::before {
+            content: "▶";
+        }
+
+        /* Sequence Diagram */
+        .sequence-diagram {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            margin: 2rem 0;
+            border: 3px solid var(--primary-color);
+            overflow-x: auto;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .sequence-lane {
+            display: flex;
+            margin: 1rem 0;
+            min-width: 900px;
+            align-items: center;
+            position: relative;
+        }
+
+        .sequence-lane::after {
+            content: "→";
+            position: absolute;
+            right: -30px;
+            color: var(--primary-color);
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .sequence-lane:last-child::after {
+            display: none;
+        }
+
+        .sequence-actor {
+            min-width: 180px;
+            font-weight: 600;
+            color: white;
+            background: var(--primary-color);
+            padding: 0.75rem 1rem;
+            text-align: center;
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow);
+            margin-right: 1rem;
+            border: 2px solid var(--primary-dark);
+        }
+
+        .sequence-call {
+            flex: 1;
+            padding: 1rem 1.5rem;
+            margin-left: 1rem;
+            background: white;
+            border-left: 5px solid var(--success-color);
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow);
+            position: relative;
+            font-size: 0.95rem;
+        }
+
+        .sequence-call::before {
+            content: "→";
+            color: var(--success-color);
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-right: 0.75rem;
+        }
+
+        .sequence-call.cache-hit {
+            border-left-color: var(--warning-color);
+            background: #fef3c7;
+        }
+
+        .sequence-call.cache-hit::before {
+            content: "✓";
+            color: var(--warning-color);
+            font-size: 1.3rem;
+        }
+
+        .sequence-call.http {
+            border-left-color: var(--primary-color);
+            background: #dbeafe;
+        }
+
+        .sequence-call.http::before {
+            content: "🌐";
+            margin-right: 0.75rem;
+            font-size: 1.2rem;
+        }
+
+        .sequence-call.internal {
+            border-left-color: var(--secondary-color);
+        }
+
+        .sequence-call.internal::before {
+            content: "⚙";
+            margin-right: 0.75rem;
+            font-size: 1.2rem;
+        }
+
+        .sequence-group {
+            margin: 2rem 0;
+            padding: 1.5rem;
+            border: 3px solid var(--primary-color);
+            border-radius: 0.5rem;
+            background: rgba(37, 99, 235, 0.05);
+            position: relative;
+        }
+
+        .sequence-group::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 5px;
+            height: 100%;
+            background: var(--primary-color);
+            border-radius: 0.5rem 0 0 0.5rem;
+        }
+
+        .sequence-group-title {
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            font-size: 1.2rem;
+            padding: 0.75rem 1rem;
+            background: white;
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow);
+            display: inline-block;
+        }
+
+        /* Flowchart Boxes */
+        .flowchart-container {
+            background: var(--bg-secondary);
+            padding: 2rem;
+            border-radius: 0.5rem;
+            margin: 2rem 0;
+            border: 3px solid var(--primary-color);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .flowchart-box {
+            background: white;
+            border: 3px solid var(--primary-color);
+            border-radius: 0.5rem;
+            padding: 1.25rem 1.5rem;
+            margin: 1rem auto;
+            max-width: 700px;
+            box-shadow: var(--shadow);
+            position: relative;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .flowchart-box.http {
+            border-color: var(--primary-color);
+            background: #dbeafe;
+        }
+
+        .flowchart-box.cache {
+            border-color: var(--warning-color);
+            background: #fef3c7;
+        }
+
+        .flowchart-box.process {
+            border-color: var(--success-color);
+            background: #d1fae5;
+        }
+
+        .flowchart-box.decision {
+            border-color: var(--secondary-color);
+            background: #f1f5f9;
+            border-radius: 50px;
+            width: 200px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin: 1.5rem auto;
+        }
+
+        .flowchart-arrow {
+            text-align: center;
+            color: var(--primary-color);
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+
+        .flowchart-label {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            font-style: italic;
+            margin: 0.25rem 0;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .feature-box {
+            background: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            border-left: 4px solid var(--success-color);
+        }
+
+        .feature-box h4 {
+            color: var(--success-color);
+            margin-top: 0;
+            margin-bottom: 0.75rem;
+        }
+
+        /* Alert Boxes */
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            margin: 1rem 0;
+            border-left: 4px solid;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            border-color: var(--primary-color);
+            color: #1e40af;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            border-color: var(--success-color);
+            color: #065f46;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            border-color: var(--warning-color);
+            color: #92400e;
+        }
+
+        /* Icons */
+        .icon {
+            display: inline-block;
+            width: 1.5rem;
+            height: 1.5rem;
+            margin-right: 0.5rem;
+            vertical-align: middle;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .header {
+                padding: 2rem 1rem;
+                margin: -1rem -1rem 2rem -1rem;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .section {
+                padding: 1.5rem;
+            }
+
+            .nav ul {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--secondary-color);
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary-color);
+        }
+
+        /* Print Styles */
+        @media print {
+            .nav {
+                display: none;
+            }
+            .section {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📸 Slideshow Documentation</h1>
+            <p>Complete Technical Reference for Image Loading and Display System</p>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="nav">
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#architecture">Architecture</a></li>
+                <li><a href="#image-types">Image Types</a></li>
+                <li><a href="#loading-pipeline">Loading Pipeline</a></li>
+                <li><a href="#caching">Caching</a></li>
+                <li><a href="#integration">Integration</a></li>
+                <li><a href="#features">Features</a></li>
+                <li><a href="#api">API Reference</a></li>
+            </ul>
+        </nav>
+
+        <!-- Section 1: Overview -->
+        <section id="overview" class="section">
+            <h2>1. Overview</h2>
+            <p>The slideshow component is a sophisticated Angular-based image viewer that provides a flexible, high-performance system for displaying images from multiple sources. It supports parallel loading, intelligent caching, and seamless integration with various frontend components.</p>
+            
+            <div class="alert alert-info">
+                <strong>Key Capabilities:</strong> The slideshow supports MongoDB-stored images, filesystem images (with compression), and pre-loaded blob images, all with automatic caching and parallel loading capabilities.
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-box">
+                    <h4>Multi-Source Support</h4>
+                    <p>Load images from MongoDB, filesystem, or pre-loaded blobs seamlessly.</p>
+                </div>
+                <div class="feature-box">
+                    <h4>Intelligent Caching</h4>
+                    <p>Advanced caching system prevents redundant network requests and improves performance.</p>
+                </div>
+                <div class="feature-box">
+                    <h4>Parallel Loading</h4>
+                    <p>Load up to 48 images simultaneously for faster initialization.</p>
+                </div>
+                <div class="feature-box">
+                    <h4>Compression Toggle</h4>
+                    <p>Switch between compressed and original image quality on-the-fly.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: Architecture -->
+        <section id="architecture" class="section">
+            <h2>2. Architecture</h2>
+            
+            <h3>2.1 Component Structure</h3>
+            <div class="card">
+                <div class="card-title">SlideshowModalComponent</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Property</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code class="code-inline">selector</code></td>
+                            <td>string</td>
+                            <td><code class="code-inline">app-slideshow-modal</code></td>
+                        </tr>
+                        <tr>
+                            <td><code class="code-inline">images</code></td>
+                            <td>SlideshowImageSource[]</td>
+                            <td>Array of image sources to display</td>
+                        </tr>
+                        <tr>
+                            <td><code class="code-inline">eventName</code></td>
+                            <td>string</td>
+                            <td>Name of the event for display purposes</td>
+                        </tr>
+                        <tr>
+                            <td><code class="code-inline">loadFromFileService</code></td>
+                            <td>boolean</td>
+                            <td>Flag to use FileService for MongoDB images</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>2.2 Image Source Interface</h3>
+            <pre><code>export interface SlideshowImageSource {
+  fileId?: string;              // MongoDB file ID (for database-stored images)
+  blobUrl?: string;             // Direct blob URL (for pre-loaded images)
+  blob?: Blob;                  // Blob object (for CSP-safe image handling)
+  fileName?: string;            // Display name for EXIF modal
+  relativePath?: string;        // Filesystem relative path
+  compressFs?: boolean;         // Compression flag for filesystem images
+  patMetadata?: PatMetadata;    // Image metadata (size, EXIF info)
+}</code></pre>
+        </section>
+
+        <!-- Section 3: Image Types -->
+        <section id="image-types" class="section">
+            <h2>3. Image Source Types</h2>
+            <p>The slideshow supports three distinct image source types, each optimized for different use cases:</p>
+
+            <h3>3.1 Type 1: MongoDB File Service Images</h3>
+            <div class="card">
+                <div class="card-title">MongoDB GridFS Images</div>
+                <p><strong>When to use:</strong> Images stored in MongoDB GridFS, typically uploaded event photos.</p>
+                
+                <h4>Loading Flow:</h4>
+                <div class="flow-diagram">
+                    <div class="flow-step">Parent Component creates SlideshowImageSource with <code class="code-inline">fileId</code></div>
+                    <div class="flow-step">FileService.getFileWithMetadata(fileId) called</div>
+                    <div class="flow-step">HTTP GET request to <code class="code-inline">/api/file/{fileId}</code></div>
+                    <div class="flow-step">Backend retrieves from GridFS MongoDB</div>
+                    <div class="flow-step">ArrayBuffer response received</div>
+                    <div class="flow-step">Blob created and Object URL generated</div>
+                    <div class="flow-step">Image displayed in slideshow</div>
+                </div>
+
+                <h4>Example Usage:</h4>
+                <pre><code>const imageSources: SlideshowImageSource[] = imageFiles.map(file => ({
+  fileId: file.fieldId,      // MongoDB file ID
+  blobUrl: undefined,
+  fileName: file.fileName
+}));
+
+slideshowModalComponent.open(
+  imageSources, 
+  eventName, 
+  true  // loadFromFileService = true
+);</code></pre>
+            </div>
+
+            <h3>3.2 Type 2: Filesystem Images</h3>
+            <div class="card">
+                <div class="card-title">Server Filesystem Images</div>
+                <p><strong>When to use:</strong> Images stored on the server's filesystem, with support for compressed and original variants.</p>
+                
+                <h4>Loading Flow:</h4>
+                <div class="flow-diagram">
+                    <div class="flow-step">Parent Component creates SlideshowImageSource with <code class="code-inline">relativePath</code> and <code class="code-inline">fileName</code></div>
+                    <div class="flow-step">FileService.getImageFromDiskWithMetadata() called with compression flag</div>
+                    <div class="flow-step">HTTP GET request to <code class="code-inline">/api/fileondisk/image?relativePath=...&fileName=...&compress=...</code></div>
+                    <div class="flow-step">Backend reads from filesystem</div>
+                    <div class="flow-step">ArrayBuffer response received</div>
+                    <div class="flow-step">Blob created and Object URL generated</div>
+                    <div class="flow-step">Image displayed in slideshow</div>
+                </div>
+
+                <h4>Example Usage:</h4>
+                <pre><code>const imageSource: SlideshowImageSource = {
+  blobUrl: url,
+  fileId: undefined,
+  blob: blob,
+  fileName: fileName,
+  relativePath: relativePath,
+  compressFs: true,        // true = compressed, false = original
+  patMetadata: patMetadata
+};</code></pre>
+
+                <div class="alert alert-success">
+                    <strong>Special Feature:</strong> Filesystem images support the O button toggle to switch between compressed and original quality without re-fetching if already cached.
+                </div>
+            </div>
+
+            <h3>3.3 Type 3: Pre-loaded Blob Images</h3>
+            <div class="card">
+                <div class="card-title">In-Memory Blob Images</div>
+                <p><strong>When to use:</strong> Images already loaded in memory as Blobs, providing instant display with no network request.</p>
+                
+                <h4>Loading Flow:</h4>
+                <div class="flow-diagram">
+                    <div class="flow-step">Parent Component creates SlideshowImageSource with <code class="code-inline">blobUrl</code> and <code class="code-inline">blob</code></div>
+                    <div class="flow-step">Direct Object URL used (instant, no network request)</div>
+                    <div class="flow-step">Image displayed in slideshow immediately</div>
+                </div>
+
+                <h4>Example Usage:</h4>
+                <pre><code>const blob = new Blob([imageData], { type: 'image/jpeg' });
+const objectUrl = URL.createObjectURL(blob);
+
+const imageSource: SlideshowImageSource = {
+  blobUrl: objectUrl,      // Already created blob URL
+  blob: blobObject,        // Blob object
+  fileName: 'photo.jpg'
+};
+
+slideshowModalComponent.open([imageSource], eventName, false);</code></pre>
+            </div>
+        </section>
+
+        <!-- Section 4: Loading Pipeline -->
+        <section id="loading-pipeline" class="section">
+            <h2>4. Loading Pipeline</h2>
+            
+            <h3>4.1 Frontend Call Sequence - Displaying One Image</h3>
+            <p>This diagram shows all frontend method calls and interactions when displaying a single image in the slideshow:</p>
+            
+            <div class="flowchart-container">
+                <h4 style="text-align: center; color: var(--primary-color); margin-bottom: 2rem;">📊 Complete Frontend Call Flow - Displaying One Image</h4>
+                
+                <div class="flowchart-box">
+                    <strong style="color: var(--primary-color);">1. Parent Component</strong><br>
+                    <code>slideshowModalComponent.open(images[], eventName, loadFromFileService)</code>
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong style="color: var(--success-color);">2. SlideshowModal.open()</strong><br>
+                    Stores images, initializes state, clears caches, opens modal
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong style="color: var(--success-color);">3. loadImages()</strong><br>
+                    Iterates through all images and queues them for loading
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong style="color: var(--success-color);">4. queueImageLoad(imageSource, imageIndex, priority)</strong><br>
+                    Adds image to priority queue, sorts by priority
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong style="color: var(--success-color);">5. processImageLoadQueue()</strong><br>
+                    Processes queue (max 48 concurrent), checks if slot available
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong style="color: var(--success-color);">6. getImageCacheKey(imageSource)</strong><br>
+                    Generates cache key: <code>fileId:xxx</code> | <code>disk:path/file:compressed</code> | <code>blob:url</code>
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box decision">
+                    <strong>Cache Hit?</strong><br>
+                    <small>imageCache.has(cacheKey)</small>
+                </div>
+                
+                <div style="display: flex; justify-content: space-around; margin: 1rem 0;">
+                    <div style="flex: 1; text-align: center;">
+                        <div class="flowchart-label" style="color: var(--warning-color);">YES (Cached)</div>
+                        <div class="flowchart-arrow">➡</div>
+                        <div class="flowchart-box cache" style="max-width: 300px;">
+                            <strong>Use Cached Image</strong><br>
+                            <code>handleCachedImageLoaded(cacheKey, ...)</code>
+                        </div>
+                        <div class="flowchart-arrow">⬇</div>
+                    </div>
+                    <div style="flex: 1; text-align: center;">
+                        <div class="flowchart-label" style="color: var(--primary-color);">NO (Not Cached)</div>
+                        <div class="flowchart-arrow">➡</div>
+                    </div>
+                </div>
+                
+                <div class="flowchart-box decision">
+                    <strong>Source Type?</strong><br>
+                    <small>Check imageSource type</small>
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin: 1rem 0;">
+                    <div>
+                        <div class="flowchart-box http" style="max-width: 100%;">
+                            <strong>MongoDB</strong><br>
+                            <code>FileService.getFileWithMetadata(fileId)</code>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flowchart-box http" style="max-width: 100%;">
+                            <strong>Filesystem</strong><br>
+                            <code>FileService.getImageFromDiskWithMetadata(path, fileName, compress)</code>
+                        </div>
+                    </div>
+                    <div>
+                        <div class="flowchart-box process" style="max-width: 100%;">
+                            <strong>Blob URL</strong><br>
+                            <code>Use provided blob directly</code>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box http">
+                    <strong>7. HTTP GET Request</strong><br>
+                    <code>/api/file/{fileId}</code> OR <code>/api/fileondisk/image?relativePath=...&fileName=...&compress=...</code>
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box http">
+                    <strong>8. Backend Response</strong><br>
+                    ArrayBuffer + Headers (X-Pat-Image-Size-Before, X-Pat-Exif)
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>9. detectImageMimeType(buffer)</strong><br>
+                    OR detectImageMimeTypeFromFileName(fileName)
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>10. new Blob([buffer], { type: mimeType })</strong><br>
+                    Creates Blob object from ArrayBuffer
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>11. URL.createObjectURL(blob)</strong><br>
+                    Creates object URL for the blob
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>12. parsePatMetadataFromHeaders(headers)</strong><br>
+                    Extracts metadata: originalSizeBytes, originalSizeKilobytes
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box cache">
+                    <strong>13. imageCache.set(cacheKey, {objectUrl, blob, metadata})</strong><br>
+                    Stores in cache for future use
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>14. slideshowBlobs.set(objectUrl, blob)</strong><br>
+                    Stores blob reference for memory management
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>15. handleImageLoaded(objectUrl, blob, imageIndex, metadata)</strong><br>
+                    Main handler for loaded image
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>16. slideshowImages.push(objectUrl)</strong><br>
+                    Adds image URL to display array
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>17. assignImageFileName(imageIndex, objectUrl)</strong><br>
+                    Stores filename for EXIF modal display
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box decision">
+                    <strong>Filesystem Image?</strong><br>
+                    <small>relativePath && fileName exist?</small>
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>18. filesystemImageVariants.set(imageIndex, variants)</strong><br>
+                    Stores compressed/original URLs and metadata separately
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>19. slideshowIndexToImageIndex.set(slideshowIndex, imageIndex)</strong><br>
+                    Maps slideshow display index to source image index
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>20. thumbnailBlobStorage.set(imageIndex, blob)</strong><br>
+                    Stores blob for thumbnail generation (decoupled process)
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>21. preloadExifData(objectUrl, blob)</strong><br>
+                    Background EXIF data loading (non-blocking)
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>22. cdr.detectChanges()</strong><br>
+                    Triggers Angular change detection to update view
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>23. Angular Template Binding Update</strong><br>
+                    Updates <code>[src]="getCurrentSlideshowImage()"</code> in HTML
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>24. Browser Image Element Load</strong><br>
+                    Browser loads image from object URL, triggers (load) event
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box process">
+                    <strong>25. onImageLoad()</strong><br>
+                    Handles image load event, updates dimensions, background color
+                </div>
+                
+                <div class="flowchart-arrow">⬇</div>
+                
+                <div class="flowchart-box" style="background: var(--success-color); color: white; border-color: var(--success-color);">
+                    <strong style="font-size: 1.2rem;">✅ IMAGE DISPLAYED</strong>
+                </div>
+            </div>
+            
+            <div class="sequence-diagram">
+                <div class="sequence-group">
+                    <div class="sequence-group-title">📥 Initialization Phase</div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">Parent Component</div>
+                        <div class="sequence-call internal">
+                            <strong>open(images[], eventName, loadFromFileService)</strong><br>
+                            <small>Passes array of SlideshowImageSource objects</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>open() method</strong><br>
+                            <small>Stores images, initializes state, clears caches, opens modal</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>loadImages()</strong><br>
+                            <small>Iterates through all images and queues them for loading</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sequence-group">
+                    <div class="sequence-group-title">🔄 Queue Processing Phase (Per Image)</div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>queueImageLoad(imageSource, imageIndex, priority)</strong><br>
+                            <small>Adds image to priority queue, sorts by priority</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>processImageLoadQueue()</strong><br>
+                            <small>Processes queue (max 48 concurrent), checks if slot available</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>getImageCacheKey(imageSource)</strong><br>
+                            <small>Generates cache key: fileId:xxx | disk:path/file:compressed | blob:url</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call cache-hit">
+                            <strong>imageCache.has(cacheKey)</strong><br>
+                            <small>Check if image already cached</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sequence-group">
+                    <div class="sequence-group-title">📡 Network Request Phase (If Not Cached)</div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>Check source type</strong><br>
+                            <small>Determines: fileId? filesystem? blobUrl?</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>FileService.getFileWithMetadata(fileId)</strong><br>
+                            <small>OR FileService.getImageFromDiskWithMetadata(path, fileName, compress)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">FileService</div>
+                        <div class="sequence-call http">
+                            <strong>HTTP GET Request</strong><br>
+                            <small>/api/file/{fileId} OR /api/fileondisk/image?relativePath=...&fileName=...&compress=...</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">Backend API</div>
+                        <div class="sequence-call http">
+                            <strong>Response: ArrayBuffer + Headers</strong><br>
+                            <small>Returns image data and metadata (X-Pat-Image-Size-Before, X-Pat-Exif)</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sequence-group">
+                    <div class="sequence-group-title">💾 Processing & Caching Phase</div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>detectImageMimeType(buffer)</strong><br>
+                            <small>OR detectImageMimeTypeFromFileName(fileName)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>new Blob([buffer], { type: mimeType })</strong><br>
+                            <small>Creates Blob object from ArrayBuffer</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>URL.createObjectURL(blob)</strong><br>
+                            <small>Creates object URL for the blob</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>parsePatMetadataFromHeaders(headers)</strong><br>
+                            <small>Extracts metadata: originalSizeBytes, originalSizeKilobytes</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>imageCache.set(cacheKey, {objectUrl, blob, metadata})</strong><br>
+                            <small>Stores in cache for future use</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>slideshowBlobs.set(objectUrl, blob)</strong><br>
+                            <small>Stores blob reference for memory management</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sequence-group">
+                    <div class="sequence-group-title">🖼️ Display & Variant Management Phase</div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>handleImageLoaded(objectUrl, blob, imageIndex, metadata)</strong><br>
+                            <small>Main handler for loaded image</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>slideshowImages.push(objectUrl)</strong><br>
+                            <small>Adds image URL to display array</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>assignImageFileName(imageIndex, objectUrl)</strong><br>
+                            <small>Stores filename for EXIF modal display</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>Check if filesystem image</strong><br>
+                            <small>If relativePath && fileName exist</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>filesystemImageVariants.set(imageIndex, variants)</strong><br>
+                            <small>Stores compressed/original URLs and metadata separately</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>slideshowIndexToImageIndex.set(slideshowIndex, imageIndex)</strong><br>
+                            <small>Maps slideshow display index to source image index</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>thumbnailBlobStorage.set(imageIndex, blob)</strong><br>
+                            <small>Stores blob for thumbnail generation (decoupled process)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>preloadExifData(objectUrl, blob)</strong><br>
+                            <small>Background EXIF data loading (non-blocking)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>cdr.detectChanges()</strong><br>
+                            <small>Triggers Angular change detection to update view</small>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="sequence-group">
+                    <div class="sequence-group-title">🎨 UI Update Phase</div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">Angular</div>
+                        <div class="sequence-call internal">
+                            <strong>Template Binding Update</strong><br>
+                            <small>Updates [src]="getCurrentSlideshowImage()" in HTML</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">Browser</div>
+                        <div class="sequence-call internal">
+                            <strong>Image Element Load</strong><br>
+                            <small>Browser loads image from object URL, triggers (load) event</small>
+                        </div>
+                    </div>
+                    
+                    <div class="sequence-lane">
+                        <div class="sequence-actor">SlideshowModal</div>
+                        <div class="sequence-call internal">
+                            <strong>onImageLoad()</strong><br>
+                            <small>Handles image load event, updates dimensions, background color</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Key Points:</strong>
+                <ul style="margin-top: 0.5rem;">
+                    <li><strong>Cache Check First:</strong> Always checks cache before making network request</li>
+                    <li><strong>Parallel Processing:</strong> Up to 48 images can be processed simultaneously</li>
+                    <li><strong>Variant Tracking:</strong> Filesystem images track compressed/original separately</li>
+                    <li><strong>Memory Management:</strong> All blob URLs are tracked for proper cleanup</li>
+                    <li><strong>Non-Blocking:</strong> EXIF and thumbnail generation happen in background</li>
+                </ul>
+            </div>
+            
+            <h3>4.2 Complete Loading Sequence</h3>
+            <div class="flow-diagram">
+                <div class="flow-step"><strong>Step 1:</strong> Parent component calls <code class="code-inline">open()</code> with image sources array</div>
+                <div class="flow-step"><strong>Step 2:</strong> Slideshow initializes state, clears caches, opens modal</div>
+                <div class="flow-step"><strong>Step 3:</strong> <code class="code-inline">loadImages()</code> queues all images for loading</div>
+                <div class="flow-step"><strong>Step 4:</strong> <code class="code-inline">queueImageLoad()</code> adds each image to priority queue</div>
+                <div class="flow-step"><strong>Step 5:</strong> <code class="code-inline">processImageLoadQueue()</code> processes queue in parallel (up to 48 concurrent)</div>
+                <div class="flow-step"><strong>Step 6:</strong> For each image:
+                    <ul style="margin-top: 0.5rem;">
+                        <li>Check cache - if found, use cached version</li>
+                        <li>Check loading state - if loading, wait for completion</li>
+                        <li>Load via FileService based on source type</li>
+                        <li>Create Blob and Object URL</li>
+                        <li>Cache image for future use</li>
+                    </ul>
+                </div>
+                <div class="flow-step"><strong>Step 7:</strong> <code class="code-inline">handleImageLoaded()</code> adds image to slideshow display</div>
+                <div class="flow-step"><strong>Step 8:</strong> Images appear in slideshow as they load (progressive display)</div>
+            </div>
+
+            <h3>4.2 Parallel Loading</h3>
+            <div class="card">
+                <div class="card-title">Performance Optimization</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Value</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Max Concurrent Loads</td>
+                            <td>48</td>
+                            <td>Maximum number of images loading simultaneously</td>
+                        </tr>
+                        <tr>
+                            <td>Priority Queue</td>
+                            <td>Yes</td>
+                            <td>Images loaded in order (first images first)</td>
+                        </tr>
+                        <tr>
+                            <td>Pending Request Handling</td>
+                            <td>Yes</td>
+                            <td>Multiple components can wait for same image</td>
+                        </tr>
+                        <tr>
+                            <td>Cache Integration</td>
+                            <td>Yes</td>
+                            <td>Cached images bypass network requests</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>4.3 Loading States</h3>
+            <pre><code>private activeImageLoads: number = 0;              // Currently loading
+private loadingImageKeys: Set&lt;string&gt; = new Set(); // Keys being loaded
+private pendingImageLoads: Map&lt;string, number[]&gt;;  // Waiting for same image</code></pre>
+        </section>
+
+        <!-- Section 5: Caching Mechanism -->
+        <section id="caching" class="section">
+            <h2>5. Caching Mechanism</h2>
+            
+            <h3>5.1 Multi-Level Cache Structure</h3>
+            <div class="card">
+                <div class="card-title">Cache Layers</div>
+                <pre><code>// Primary cache: Stores blob, URL, and metadata
+private imageCache: Map&lt;string, {
+  objectUrl: string;
+  blob: Blob;
+  metadata?: PatMetadata;
+}&gt; = new Map();
+
+// Filesystem variants cache: Tracks compressed/original separately
+private filesystemImageVariants: Map&lt;number, {
+  compressedUrl?: string;
+  originalUrl?: string;
+  compressedMetadata?: PatMetadata;
+  originalMetadata?: PatMetadata;
+  currentVariant: 'compressed' | 'original';
+}&gt; = new Map();
+
+// Blob storage: For thumbnail generation
+private slideshowBlobs: Map&lt;string, Blob&gt; = new Map();</code></pre>
+            </div>
+
+            <h3>5.2 Cache Key Generation</h3>
+            <p>Different cache keys are generated based on image source type:</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Source Type</th>
+                        <th>Cache Key Format</th>
+                        <th>Example</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>MongoDB (<code class="code-inline">fileId</code>)</td>
+                        <td><code class="code-inline">fileId:{fileId}</code></td>
+                        <td><code class="code-inline">fileId:507f1f77bcf86cd799439011</code></td>
+                    </tr>
+                    <tr>
+                        <td>Filesystem Compressed</td>
+                        <td><code class="code-inline">disk:{path}/{file}:compressed</code></td>
+                        <td><code class="code-inline">disk:2024/12_25_from_uploaded/photo.jpg:compressed</code></td>
+                    </tr>
+                    <tr>
+                        <td>Filesystem Original</td>
+                        <td><code class="code-inline">disk:{path}/{file}</code></td>
+                        <td><code class="code-inline">disk:2024/12_25_from_uploaded/photo.jpg</code></td>
+                    </tr>
+                    <tr>
+                        <td>Blob URL</td>
+                        <td><code class="code-inline">blob:{blobUrl}</code></td>
+                        <td><code class="code-inline">blob:blob:http://localhost:4200/abc123...</code></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>5.3 Cache Benefits</h3>
+            <div class="features-grid">
+                <div class="feature-box">
+                    <h4>🚀 Performance</h4>
+                    <p>Avoids redundant network requests for same images</p>
+                </div>
+                <div class="feature-box">
+                    <h4>🔄 Variant Support</h4>
+                    <p>Compressed and original versions cached independently</p>
+                </div>
+                <div class="feature-box">
+                    <h4>⚡ Fast Switching</h4>
+                    <p>O button toggle uses cached variant instantly</p>
+                </div>
+                <div class="feature-box">
+                    <h4>💾 Memory Efficient</h4>
+                    <p>Proper blob URL management prevents memory leaks</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 6: Integration -->
+        <section id="integration" class="section">
+            <h2>6. Parent Component Integration</h2>
+            
+            <h3>6.1 Component Declaration</h3>
+            <p>Add the slideshow modal to your component template:</p>
+            <pre><code>&lt;app-slideshow-modal 
+  #slideshowModalComponent 
+  (closed)="onSlideshowClosed()" 
+  (openLocationInTrace)="onSlideshowLocationInTrace($event)"&gt;
+&lt;/app-slideshow-modal&gt;</code></pre>
+
+            <h3>6.2 Component Reference</h3>
+            <p>Get reference in your TypeScript component:</p>
+            <pre><code>@ViewChild('slideshowModalComponent') 
+slideshowModalComponent!: SlideshowModalComponent;</code></pre>
+
+            <h3>6.3 Opening the Slideshow</h3>
+            
+            <h4>Example 1: MongoDB Images (Most Common)</h4>
+            <pre><code>public openSlideshow(): void {
+  const imageFiles = this.evenement.fileUploadeds.filter(
+    file => this.isImageFile(file.fileName)
+  );
+  
+  const imageSources: SlideshowImageSource[] = imageFiles.map(file => ({
+    fileId: file.fieldId,        // MongoDB ID
+    blobUrl: undefined,
+    fileName: file.fileName
+  }));
+  
+  this.slideshowModalComponent.open(
+    imageSources, 
+    this.evenement.evenementName, 
+    true  // loadFromFileService = true
+  );
+}</code></pre>
+
+            <h4>Example 2: Filesystem Images</h4>
+            <pre><code>public openSlideshow(evenement: Evenement): void {
+  const fileNames = this.getFileSystemImageFiles(evenement);
+  
+  const imageSources: SlideshowImageSource[] = fileNames.map((fileName: string) => ({
+    relativePath: '2024/12_25_from_uploaded',
+    fileName: fileName,
+    compressFs: true  // Start with compressed
+  }));
+  
+  this.slideshowModalComponent.open(
+    imageSources, 
+    evenement.evenementName, 
+    false  // loadFromFileService = false
+  );
+}</code></pre>
+
+            <h4>Example 3: Pre-loaded Blobs</h4>
+            <pre><code>const blob = new Blob([imageData], { type: 'image/jpeg' });
+const objectUrl = URL.createObjectURL(blob);
+
+const imageSource: SlideshowImageSource = {
+  blobUrl: objectUrl,
+  blob: blob,
+  fileName: 'photo.jpg',
+  relativePath: relativePath,
+  compressFs: compress,
+  patMetadata: metadata
+};
+
+this.slideshowModalComponent.open([imageSource], eventName, false);</code></pre>
+        </section>
+
+        <!-- Section 7: Features -->
+        <section id="features" class="section">
+            <h2>7. Special Features</h2>
+            
+            <h3>7.1 O Button - Compression Toggle</h3>
+            <div class="card">
+                <div class="card-title">Quality Toggle Feature</div>
+                <p>The O button allows users to switch between compressed and original image quality on-the-fly. If the variant is already cached, the switch is instantaneous.</p>
+                
+                <div class="alert alert-info">
+                    <strong>How it works:</strong>
+                    <ol>
+                        <li>User clicks O button to toggle quality</li>
+                        <li>Component checks if target variant is cached</li>
+                        <li>If cached: Instant switch using cached variant</li>
+                        <li>If not cached: Fetches variant from server and caches it</li>
+                        <li>Both variants remain cached for fast future switching</li>
+                    </ol>
+                </div>
+            </div>
+
+            <h3>7.2 EXIF Data Loading</h3>
+            <ul>
+                <li>Pre-loaded in background for current image</li>
+                <li>Cached per image URL for instant access</li>
+                <li>Available immediately when user clicks info button</li>
+                <li>Includes metadata such as original file size, camera settings, location data</li>
+            </ul>
+
+            <h3>7.3 Thumbnail Generation</h3>
+            <ul>
+                <li>Automatic generation from loaded images</li>
+                <li>Independent queue system (decoupled from main loading)</li>
+                <li>Processes up to 8 thumbnails concurrently</li>
+                <li>Displayed in thumbnail strip at bottom of slideshow</li>
+            </ul>
+
+            <h3>7.4 Memory Management</h3>
+            <div class="card">
+                <div class="card-title">Automatic Cleanup</div>
+                <p>All blob URLs are properly managed and revoked when:</p>
+                <ul>
+                    <li>Modal is closed</li>
+                    <li>Component is destroyed</li>
+                    <li>Images are replaced</li>
+                </ul>
+                <pre><code>// Automatic cleanup on close
+private cleanupAllMemory(): void {
+  this.imageCache.clear();
+  this.filesystemImageVariants.clear();
+  this.slideshowBlobs.clear();
+  
+  // Revoke all blob URLs
+  this.slideshowImages.forEach(url => {
+    if (url.startsWith('blob:')) {
+      URL.revokeObjectURL(url);  // Free memory
+    }
+  });
+}</code></pre>
+            </div>
+        </section>
+
+        <!-- Section 8: API Reference -->
+        <section id="api" class="section">
+            <h2>8. API Reference</h2>
+            
+            <h3>8.1 File Service Methods</h3>
+            
+            <h4>MongoDB Images</h4>
+            <div class="card">
+                <div class="card-title">getFileWithMetadata()</div>
+                <table>
+                    <tr>
+                        <th>Method</th>
+                        <td><code class="code-inline">getFileWithMetadata(fileId: string)</code></td>
+                    </tr>
+                    <tr>
+                        <th>Backend Endpoint</th>
+                        <td><code class="code-inline">GET /api/file/{fileId}</code></td>
+                    </tr>
+                    <tr>
+                        <th>Returns</th>
+                        <td>
+                            <pre style="margin: 0;"><code>{
+  buffer: ArrayBuffer;
+  headers: HttpHeaders;
+  metadata?: PatMetadata;
+}</code></pre>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+
+            <h4>Filesystem Images</h4>
+            <div class="card">
+                <div class="card-title">getImageFromDiskWithMetadata()</div>
+                <table>
+                    <tr>
+                        <th>Method</th>
+                        <td><code class="code-inline">getImageFromDiskWithMetadata(relativePath: string, fileName: string, compress: boolean)</code></td>
+                    </tr>
+                    <tr>
+                        <th>Backend Endpoint</th>
+                        <td><code class="code-inline">GET /api/fileondisk/image?relativePath=...&fileName=...&compress=...</code></td>
+                    </tr>
+                    <tr>
+                        <th>Parameters</th>
+                        <td>
+                            <ul>
+                                <li><code class="code-inline">compress=true</code>: Returns compressed version</li>
+                                <li><code class="code-inline">compress=false</code>: Returns original version</li>
+                            </ul>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th>Returns</th>
+                        <td>Same structure as MongoDB method</td>
+                    </tr>
+                </table>
+            </div>
+
+            <h3>8.2 Key Methods</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Method</th>
+                        <th>Purpose</th>
+                        <th>Location</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><code class="code-inline">open()</code></td>
+                        <td>Opens slideshow with images</td>
+                        <td>Line 407</td>
+                    </tr>
+                    <tr>
+                        <td><code class="code-inline">loadImages()</code></td>
+                        <td>Initiates image loading</td>
+                        <td>Line 895</td>
+                    </tr>
+                    <tr>
+                        <td><code class="code-inline">queueImageLoad()</code></td>
+                        <td>Queues image for loading</td>
+                        <td>Line 538</td>
+                    </tr>
+                    <tr>
+                        <td><code class="code-inline">processImageLoadQueue()</code></td>
+                        <td>Processes loading queue</td>
+                        <td>Line 573</td>
+                    </tr>
+                    <tr>
+                        <td><code class="code-inline">handleImageLoaded()</code></td>
+                        <td>Processes loaded image</td>
+                        <td>Line 757</td>
+                    </tr>
+                    <tr>
+                        <td><code class="code-inline">getImageCacheKey()</code></td>
+                        <td>Generates cache key</td>
+                        <td>Line 555</td>
+                    </tr>
+                    <tr>
+                        <td><code class="code-inline">toggleFilesystemImageQuality()</code></td>
+                        <td>Toggles compressed/original</td>
+                        <td>Line 2746</td>
+                    </tr>
+                    <tr>
+                        <td><code class="code-inline">cleanupAllMemory()</code></td>
+                        <td>Cleans up resources</td>
+                        <td>Line 259</td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- Section 9: Best Practices -->
+        <section class="section">
+            <h2>9. Best Practices</h2>
+            
+            <h3>9.1 Providing Images</h3>
+            <div class="alert alert-success">
+                <ul>
+                    <li><strong>Always provide <code class="code-inline">fileName</code></strong> for EXIF display</li>
+                    <li><strong>Set <code class="code-inline">loadFromFileService=true</code></strong> for MongoDB images</li>
+                    <li><strong>Set <code class="code-inline">compressFs</code> appropriately</strong> for filesystem images</li>
+                    <li><strong>Include <code class="code-inline">patMetadata</code></strong> if available for better info display</li>
+                </ul>
+            </div>
+
+            <h3>9.2 Memory Management</h3>
+            <div class="alert alert-warning">
+                <ul>
+                    <li><strong>Cleanup blob URLs</strong> if you create them manually</li>
+                    <li><strong>Don't hold references</strong> to slideshow images after close</li>
+                    <li><strong>Use provided blob</strong> when available (avoids duplication)</li>
+                </ul>
+            </div>
+
+            <h3>9.3 Performance</h3>
+            <div class="alert alert-info">
+                <ul>
+                    <li><strong>Limit initial image count</strong> (slideshow loads all images)</li>
+                    <li><strong>Use compressed versions</strong> by default for filesystem images</li>
+                    <li><strong>Pre-load images as blobs</strong> when possible for instant display</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer style="text-align: center; padding: 2rem; color: var(--text-secondary); border-top: 1px solid var(--border-color); margin-top: 3rem;">
+            <p><strong>Slideshow Documentation v1.0</strong></p>
+            <p>PatTool - Professional Image Viewing System</p>
+            <p style="margin-top: 0.5rem; font-size: 0.875rem;">Last Updated: 2024</p>
+        </footer>
+    </div>
+
+    <script>
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('.nav a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Highlight current section in navigation
+        const sections = document.querySelectorAll('.section');
+        const navLinks = document.querySelectorAll('.nav a');
+
+        window.addEventListener('scroll', () => {
+            let current = '';
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.clientHeight;
+                if (pageYOffset >= sectionTop - 200) {
+                    current = section.getAttribute('id');
+                }
+            });
+
+            navLinks.forEach(link => {
+                link.style.color = '';
+                link.style.borderBottomColor = 'transparent';
+                if (link.getAttribute('href') === `#${current}`) {
+                    link.style.color = 'var(--primary-color)';
+                    link.style.borderBottomColor = 'var(--primary-color)';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+

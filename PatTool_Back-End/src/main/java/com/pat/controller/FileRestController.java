@@ -366,6 +366,20 @@ public class FileRestController {
                 }
                 
                 // No resizing - return original image as-is
+                // Enrich response with size/EXIF headers (consumed by the front-end)
+                long originalSizeForHeader = contentLength > 0 ? contentLength : -1;
+                if (originalSizeForHeader <= 0) {
+                    try {
+                        originalSizeForHeader = gridFsResource.contentLength();
+                    } catch (Exception ignore) { }
+                }
+                if (originalSizeForHeader > 0) {
+                    headers.set("X-Pat-Image-Size-Before", Long.toString(originalSizeForHeader));
+                    long kb = Math.max(1, originalSizeForHeader / 1024);
+                    headers.set("X-Pat-Exif", "PatOriginalFileSizeBytes=" + originalSizeForHeader + "; PatOriginalFileSizeKB=" + kb);
+                }
+                // Make sure custom headers are readable by browsers (CORS)
+                headers.set("Access-Control-Expose-Headers", "X-Pat-Compression, X-Pat-Image-Size-Before, X-Pat-Image-Size-After, X-Pat-Exif");
                 
                 // Check if client connection is still open before returning response
                 // This helps prevent AsyncRequestNotUsableException when client closes connection
@@ -428,7 +442,9 @@ public class FileRestController {
 
 
     @PostMapping({"/uploadondisk", "/uploadondisk/"})
-    public ResponseEntity<String> handleFileUpload(@RequestParam("files") MultipartFile[] files, HttpServletRequest request) {
+    public ResponseEntity<String> handleFileUpload(@RequestParam("files") MultipartFile[] files, 
+                                                   @RequestParam(value = "allowOriginal", required = false, defaultValue = "false") boolean allowOriginal,
+                                                   HttpServletRequest request) {
 
         LocalDate date = LocalDate.now();
 
@@ -454,9 +470,10 @@ public class FileRestController {
                         
                         byte[] fileBytesToWrite;
                         
-                        // Check if file is an image and if it needs compression
-                        if (imageCompressionService.isImageType(contentType) && fileSize > maxSizeInBytes) {
-                            log.debug("Image too large for disk upload: {} bytes, compressing...", fileSize);
+                        // ALWAYS compress images unless allowOriginal is explicitly set to true (O button upload)
+                        // This ensures non-compressed photos can only be uploaded via the O button path
+                        if (imageCompressionService.isImageType(contentType) && !allowOriginal) {
+                            log.debug("Image detected for disk upload: {} bytes, compressing... (allowOriginal={})", fileSize, allowOriginal);
                             
                             try {
                                 // Read entire file into byte array
@@ -487,8 +504,12 @@ public class FileRestController {
                                 log.debug("Error compressing image: {}, using original", e.getMessage());
                                 fileBytesToWrite = file.getBytes();
                             }
+                        } else if (imageCompressionService.isImageType(contentType) && allowOriginal) {
+                            // O button upload path: allow non-compressed upload
+                            log.debug("O button upload: Allowing original quality image upload ({} bytes)", fileSize);
+                            fileBytesToWrite = file.getBytes();
                         } else {
-                            // Use original file
+                            // Non-image file: use original
                             fileBytesToWrite = file.getBytes();
                         }
 
@@ -549,6 +570,7 @@ public class FileRestController {
     // Important note : the name associate with RequestParam is 'file' --> seen in the browser network request.
     public ResponseEntity<List<FileUploaded>> postFile(@RequestParam("file") MultipartFile[] files, 
                                                         @RequestParam(value = "sessionId", required = false) String sessionId,
+                                                        @RequestParam(value = "allowOriginal", required = false, defaultValue = "false") boolean allowOriginal,
                                                         @PathVariable String userId, 
                                                         @PathVariable String evenementid  ){
         // Clean sessionId if it contains duplicates (comma-separated)
@@ -606,11 +628,12 @@ public class FileRestController {
                 
                 java.io.InputStream inputStream;
                 
-                // Check if file is an image and if it needs compression
-                if (imageCompressionService.isImageType(contentType) && fileSize > maxSizeInBytes) {
+                // ALWAYS compress images unless allowOriginal is explicitly set to true (O button upload)
+                // This ensures non-compressed photos can only be uploaded via the O button path
+                if (imageCompressionService.isImageType(contentType) && !allowOriginal) {
                     if (finalSessionId != null) {
-                        addUploadLog(finalSessionId, String.format("⚙️ Image too large (%d KB > %d KB) - Compression in progress...", 
-                            fileSize / 1024, maxSizeInBytes / 1024));
+                        addUploadLog(finalSessionId, String.format("⚙️ Image detected (%d KB) - Compression in progress... (allowOriginal=%s)", 
+                            fileSize / 1024, allowOriginal));
                     }
                     
                     try {
@@ -656,8 +679,15 @@ public class FileRestController {
                         log.debug("Error compressing image: {}, using original", e.getMessage());
                         inputStream = new ByteArrayInputStream(filedata.getBytes());
                     }
+                } else if (imageCompressionService.isImageType(contentType) && allowOriginal) {
+                    // O button upload path: allow non-compressed upload
+                    if (finalSessionId != null) {
+                        addUploadLog(finalSessionId, String.format("✓ O button upload: Allowing original quality image (%d KB)", fileSize / 1024));
+                    }
+                    log.debug("O button upload: Allowing original quality image upload ({} bytes)", fileSize);
+                    inputStream = filedata.getInputStream();
                 } else {
-                    // Use original file
+                    // Non-image file: use original
                     if (finalSessionId != null && imageCompressionService.isImageType(contentType)) {
                         addUploadLog(finalSessionId, String.format("✓ Image OK, no compression needed (%d KB)", fileSize / 1024));
                     }

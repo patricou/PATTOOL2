@@ -16,6 +16,8 @@
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "Lingua",
+        "DOCUMENTATION": "Documentazione",
+        "SLIDESHOW_DOCUMENTATION": "Documentazione della Presentazione",
         "EVENTS": "Attività",
         "EVENTSLIST": "Elenco delle Attività",
         "EVENTSCREATION": "Creazione di un'Attività",

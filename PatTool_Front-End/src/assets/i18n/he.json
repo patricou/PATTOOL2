@@ -16,6 +16,8 @@
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "שפה",
+        "DOCUMENTATION": "תיעוד",
+        "SLIDESHOW_DOCUMENTATION": "תיעוד מצגת שקופיות",
         "EVENTS": "פעילויות",
         "EVENTSLIST": "רשימת פעילויות",
         "EVENTSCREATION": "יצירת פעילות",

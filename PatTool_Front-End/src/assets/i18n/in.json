@@ -24,6 +24,8 @@
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "भाषा",
+        "DOCUMENTATION": "प्रलेखन",
+        "SLIDESHOW_DOCUMENTATION": "स्लाइडशो प्रलेखन",
         "EVENTS": "गतिविधियाँ",
         "EVENTSLIST": "गतिविधियों की सूची",
         "EVENTSCREATION": "गतिविधि बनाएं",

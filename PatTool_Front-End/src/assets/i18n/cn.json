@@ -16,6 +16,8 @@
     "MENU": {
         "BRAND": "PATTOOL",
         "LANG": "语言",
+        "DOCUMENTATION": "文档",
+        "SLIDESHOW_DOCUMENTATION": "幻灯片文档",
         "EVENTS": "活动",
         "EVENTSLIST": "活动列表",
         "EVENTSCREATION": "创建活动",
