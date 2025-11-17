@@ -65,9 +65,6 @@
     </div>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel')">
-      <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
-    </button>
     <a *ngIf="isAuthor() && evenement?.id" 
        class="btn btn-warning me-2" 
        [routerLink]="['/updeven', evenement.id]"
@@ -77,6 +74,9 @@
     </a>
     <button type="button" class="btn btn-primary" [disabled]="!selectedFsLink" (click)="confirmSelection(modal)">
       <i class="fa fa-play"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
+    </button>
+    <button type="button" class="btn btn-secondary ms-auto" (click)="modal.dismiss('Cancel')">
+      <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
     </button>
   </div>
 </ng-template>

@@ -55,7 +55,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   @ViewChild('slideshowModal') slideshowModal!: TemplateRef<any>;
   @ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
   @ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
-  @ViewChild('exifModal') exifModal!: TemplateRef<any>;
   @ViewChild('thumbnailsStrip') thumbnailsStripRef!: ElementRef<HTMLElement>;
   
   // Slideshow state
@@ -66,7 +65,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public slideshowInterval: any;
   public isFullscreen: boolean = false;
   private modalRef?: NgbModalRef;
-  private exifModalRef?: NgbModalRef;
   
   // Keyboard listener
   private keyboardListener?: (event: KeyboardEvent) => void;
@@ -304,16 +302,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       } catch (error) {
         // Subject may already be completed
       }
-    }
-    
-    // Close EXIF modal if open
-    if (this.exifModalRef) {
-      try {
-        this.exifModalRef.close();
-      } catch (e) {
-        // Ignore errors when closing
-      }
-      this.exifModalRef = undefined;
     }
     
     // Remove all event listeners
@@ -2998,66 +2986,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.fsQueue = [];
   }
   
-  // EXIF Info methods
-  public showExifInfo(): void {
-    if (!this.exifModal) {
-      return;
-    }
-    
-    const currentImageUrl = this.getCurrentSlideshowImage();
-    if (!currentImageUrl) {
-      return;
-    }
-    
-    // Get current image file name for modal title
-    this.currentImageFileName = this.imageFileNames.get(currentImageUrl) || '';
-    
-    // Check if EXIF data is already cached
-    const cachedExifData = this.exifDataCache.get(currentImageUrl);
-    if (cachedExifData) {
-      // Use cached data immediately
-      this.exifData = cachedExifData;
-      this.sortExifDataForDisplay();
-      this.isLoadingExif = false;
-      this.logExifDataForCurrentImage('show-exif-cache');
-      
-      // Open modal with cached data
-      this.exifModalRef = this.modalService.open(this.exifModal, {
-        size: 'lg',
-        centered: true,
-        backdrop: 'static',
-        keyboard: false,
-        windowClass: 'exif-modal-tall'
-      });
-      return;
-    }
-    
-    // If not cached, load it
-    this.isLoadingExif = true;
-    this.exifData = [];
-    
-    // Open modal immediately
-    this.exifModalRef = this.modalService.open(this.exifModal, {
-      size: 'lg',
-      centered: true,
-      backdrop: 'static',
-      keyboard: false,
-      windowClass: 'exif-modal-tall'
-    });
-    
-    // Load EXIF data (will use stored blob, no network request)
-    this.loadExifData().then(() => {
-      // Cache the EXIF data for future use
-      if (this.exifData.length > 0) {
-        this.exifDataCache.set(currentImageUrl, [...this.exifData]);
-      }
-      this.isLoadingExif = false;
-      this.logExifDataForCurrentImage('show-exif-loaded');
-    }).catch((error) => {
-      this.isLoadingExif = false;
-    });
-  }
-  
   // Toggle info panel visibility
   public toggleInfoPanel(): void {
     this.showInfoPanel = !this.showInfoPanel;
@@ -3662,7 +3590,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       return;
     }
     
-    // Double-check cache (should not happen since showExifInfo checks first, but safety check)
+    // Double-check cache (safety check)
     const cachedExifData = this.exifDataCache.get(currentImageUrl);
     if (cachedExifData) {
       // Check if file size is already in cache

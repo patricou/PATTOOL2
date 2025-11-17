@@ -187,10 +187,10 @@
         <span>{{ 'EVENTELEM.SHARE' | translate }}</span>
       </button>
       <button type="button" class="btn btn-info" 
-              (click)="showExifInfo()"
+              (click)="toggleInfoPanel()"
               [disabled]="slideshowImages.length === 0">
         <i class="fa fa-info-circle me-1"></i>
-        <span>{{ 'EVENTELEM.EXIF' | translate }}</span>
+        <span>{{ 'EVENTELEM.EXIF' | translate }}</span> <span class="ms-1">(I)</span>
       </button>
       <button type="button" class="btn btn-secondary" 
               *ngIf="shouldShowFilesystemToggleButton()"
@@ -198,12 +198,6 @@
               [disabled]="isFilesystemToggleDisabled()">
         <i class="fa me-1" [ngClass]="isCurrentFilesystemVariantLoading() ? 'fa-spinner fa-spin' : 'fa-file-image-o'"></i>
         <span>{{ getFilesystemToggleLabelKey() | translate }}</span> <span class="ms-1">(O)</span>
-      </button>
-      <button type="button" class="btn btn-secondary" 
-              (click)="toggleInfoPanel()"
-              [disabled]="slideshowImages.length === 0">
-        <i class="fa me-1" [ngClass]="showInfoPanel ? 'fa-eye-slash' : 'fa-eye'"></i>
-        <span>{{ showInfoPanel ? ('EVENTELEM.HIDE_INFO' | translate) : ('EVENTELEM.SHOW_INFO' | translate) }}</span> <span class="ms-1">(I)</span>
       </button>
       <div class="btn-group"
            *ngIf="currentImageLocation"
@@ -237,42 +231,10 @@
         <i class="fa me-1" [ngClass]="showThumbnails ? 'fa-eye-slash' : 'fa-eye'"></i>
         <span>{{ showThumbnails ? ('EVENTELEM.HIDE_THUMBNAILS' | translate) : ('EVENTELEM.SHOW_THUMBNAILS' | translate) }}</span> <span class="ms-1">(T)</span>
       </button>
-      <button type="button" class="btn btn-secondary" (click)="onSlideshowClose(c)">
+      <button type="button" class="btn btn-secondary ms-auto" (click)="onSlideshowClose(c)">
         <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
       </button>
     </div>
-  </div>
-</ng-template>
-
-<!-- EXIF Info Modal -->
-<ng-template #exifModal let-modal>
-  <div class="modal-header">
-    <h5 class="modal-title">
-      <i class="fa fa-info-circle"></i> {{ 'EVENTELEM.EXIF_INFO' | translate }}
-      <small *ngIf="currentImageFileName" class="text-muted ms-2">- {{ currentImageFileName }}</small>
-    </h5>
-    <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
-  </div>
-  <div class="modal-body">
-    <div *ngIf="exifData && exifData.length > 0" class="exif-info-container">
-      <div *ngFor="let item of exifData" class="exif-item">
-        <strong>{{ item.label }}:</strong>
-        <span>{{ item.value }}</span>
-      </div>
-    </div>
-    <div *ngIf="!exifData || exifData.length === 0" class="text-center text-muted">
-      <i class="fa fa-exclamation-triangle fa-2x mb-3"></i>
-      <p>{{ 'EVENTELEM.NO_EXIF_DATA' | translate }}</p>
-    </div>
-    <div *ngIf="isLoadingExif" class="text-center">
-      <i class="fa fa-spinner fa-spin fa-2x mb-3"></i>
-      <p>{{ 'EVENTELEM.LOADING_EXIF' | translate }}</p>
-    </div>
-  </div>
-  <div class="modal-footer">
-    <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Close')">
-      <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
-    </button>
   </div>
 </ng-template>
 
