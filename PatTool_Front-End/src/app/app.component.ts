@@ -1162,7 +1162,13 @@ export class AppComponent implements OnInit {
                 const maxAttempts = 10;
                 const isJPEG = file.type === 'image/jpeg' || file.type === 'image/jpg' || file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
                 
-                const processBlobWithEXIF = (blob: Blob, q: number, callback: (finalBlob: Blob) => void): void => {
+                // Modern browsers automatically apply EXIF orientation when loading images into <img> elements
+                // So img.width and img.height already reflect the correct orientation
+                // We should always use these displayed dimensions and never apply manual transformations
+                const displayedW = img.width;
+                const displayedH = img.height;
+                
+                const processBlobWithEXIF = (blob: Blob, q: number, orientationToReset: number, callback: (finalBlob: Blob) => void): void => {
                     if (isJPEG && exifData) {
                         try {
                             // Convert blob to binary string
@@ -1170,8 +1176,16 @@ export class AppComponent implements OnInit {
                             blobReader.onload = (blobEvent: any) => {
                                 try {
                                     const binaryString = blobEvent.target.result;
+                                    
+                                    // Create a copy of EXIF data and reset orientation to 1
+                                    // (the browser has already applied the orientation when loading the image)
+                                    const modifiedExifData = JSON.parse(JSON.stringify(exifData));
+                                    if (modifiedExifData['0th'] && orientationToReset !== 1) {
+                                        modifiedExifData['0th'][piexif.ImageIFD.Orientation] = 1;
+                                    }
+                                    
                                     // Insert EXIF data into compressed image
-                                    const exifString = piexif.dump(exifData);
+                                    const exifString = piexif.dump(modifiedExifData);
                                     const newBinaryString = piexif.insert(exifString, binaryString);
                                     
                                     // Convert binary string back to blob
@@ -1181,7 +1195,7 @@ export class AppComponent implements OnInit {
                                     }
                                     const finalBlob = new Blob([byteArray], { type: file.type });
                                     
-                                    console.log('EXIF data injected into compressed image');
+                                    console.log('EXIF data injected into compressed image (orientation reset to 1)');
                                     callback(finalBlob);
                                 } catch (exifInsertError) {
                                     console.log('Error inserting EXIF data, using compressed image without EXIF:', exifInsertError);
@@ -1211,26 +1225,40 @@ export class AppComponent implements OnInit {
                         return;
                     }
                     
-                    // Calculate dimensions - maintain aspect ratio
-                    let width = img.width;
-                    let height = img.height;
+                    // Get EXIF orientation for metadata reset (default to 1 if not available)
+                    let orientation = 1;
+                    if (exifData && exifData['0th'] && exifData['0th'][piexif.ImageIFD.Orientation]) {
+                        orientation = exifData['0th'][piexif.ImageIFD.Orientation];
+                    }
+                    
+                    // Modern browsers automatically apply EXIF orientation when loading images
+                    // So img.width and img.height already reflect the correct orientation
+                    // We simply use these dimensions without any manual transformations
+                    const sourceWidth = displayedW;
+                    const sourceHeight = displayedH;
+                    
                     const maxDimension = 1920; // Max width or height
                     
-                    if (width > maxDimension || height > maxDimension) {
-                        if (width > height) {
-                            height = (height / width) * maxDimension;
-                            width = maxDimension;
+                    // Calculate resized dimensions maintaining aspect ratio
+                    let finalWidth = sourceWidth;
+                    let finalHeight = sourceHeight;
+                    if (sourceWidth > maxDimension || sourceHeight > maxDimension) {
+                        if (sourceWidth > sourceHeight) {
+                            finalHeight = (sourceHeight / sourceWidth) * maxDimension;
+                            finalWidth = maxDimension;
                         } else {
-                            width = (width / height) * maxDimension;
-                            height = maxDimension;
+                            finalWidth = (sourceWidth / sourceHeight) * maxDimension;
+                            finalHeight = maxDimension;
                         }
                     }
                     
-                    canvas.width = width;
-                    canvas.height = height;
+                    // Set canvas dimensions to final output dimensions
+                    canvas.width = finalWidth;
+                    canvas.height = finalHeight;
                     
-                    // Draw image on canvas
-                    ctx.drawImage(img, 0, 0, width, height);
+                    // Clear canvas and draw the image (already correctly oriented by the browser)
+                    ctx.clearRect(0, 0, finalWidth, finalHeight);
+                    ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
                     
                     // Convert to blob
                     canvas.toBlob((blob) => {
@@ -1240,7 +1268,7 @@ export class AppComponent implements OnInit {
                         }
                         
                         // Process blob with EXIF injection if needed
-                        processBlobWithEXIF(blob, q, (finalBlob) => {
+                        processBlobWithEXIF(blob, q, orientation, (finalBlob) => {
                             attempts++;
                             
                             // If we're close enough to target size or reached max attempts, use this
