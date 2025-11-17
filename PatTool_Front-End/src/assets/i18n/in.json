@@ -202,7 +202,8 @@
     },
     "EVENTUPDT": {
         "TITLE": "गतिविधि अपडेट",
-        "SUBMIT": "सबमिट करें"
+        "SUBMIT": "सबमिट करें",
+        "UNSAVED_CHANGES_CONFIRM": "आपके पास बचाए गए परिवर्तन हैं। क्या आप वाकई इस पृष्ठ को छोड़ना चाहते हैं?"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "गतिविधि हटाने की पुष्टि :",
@@ -459,7 +460,42 @@
         "SELECT_FILES": "फ़ाइलें ब्राउज़ करें",
         "SELECTED_FILES": "चयनित फ़ाइलें",
         "UPLOADING": "अपलोड हो रहा है",
-        "CLEAR": "सभी साफ़ करें"
+        "CLEAR": "सभी साफ़ करें",
+        "COMPRESS_IMAGES": "छवियों को संपीड़ित करें (~300KB)",
+        "COMPRESS_IMAGES_DESC": "छवियों को भेजने से पहले लगभग 300KB तक संपीड़ित किया जाएगा (केवल छवियां)",
+        "COMPRESSING": "संपीड़न हो रहा है...",
+        "COMPRESSING_IMAGE": "छवि {{current}}/{{total}} को संपीड़ित कर रहे हैं: {{fileName}}",
+        "COMPRESSED_IMAGE": "<strong>{{fileName}}</strong> संपीड़ित: {{originalSize}} → {{compressedSize}} ({{reduction}}% कमी)",
+        "COMPRESSION_ERROR": "<strong>{{fileName}}</strong> को संपीड़ित करने में त्रुटि। मूल फ़ाइल का उपयोग किया जाएगा।",
+        "COMPRESSION_COMPLETE": "संपीड़न पूर्ण: {{count}} छवि/छवियां संपीड़ित",
+        "UPLOADING_FILE": "फ़ाइल {{current}}/{{total}}: {{fileName}}",
+        "UPLOAD_SUCCESS_ALL": "सभी फ़ाइलें सफलतापूर्वक अपलोड की गईं ({{count}} फ़ाइल/फ़ाइलें)",
+        "UPLOAD_PARTIAL": "आंशिक अपलोड: {{success}} सफल, {{failed}} विफल",
+        "UPLOAD_FAILED_ALL": "सभी फ़ाइलें अपलोड करने में विफल ({{count}} फ़ाइल/फ़ाइलें)",
+        "DURATION_MIN_SEC": "अवधि: {{minutes}} मिन {{seconds}} सेकंड",
+        "DURATION_SEC": "अवधि: {{seconds}} सेकंड"
+    },
+    "SHAREFILE": {
+        "MENU": "फ़ाइलें साझा करें",
+        "TITLE": "फ़ाइलें साझा करें",
+        "DROPZONE_TITLE": "फ़ाइलें यहाँ खींचें और छोड़ें",
+        "DROPZONE_SUBTITLE": "या ब्राउज़ करने के लिए क्लिक करें",
+        "SELECT_FILES": "फ़ाइलें ब्राउज़ करें",
+        "SELECTED_FILES": "चयनित फ़ाइलें",
+        "SHARING": "साझा कर रहे हैं",
+        "CLEAR": "सभी साफ़ करें",
+        "BUTTONSUBMIT": "साझा करें",
+        "COMPRESS_IMAGES": "छवियों को संपीड़ित करें (~300KB)",
+        "COMPRESS_IMAGES_DESC": "छवियों को साझा करने से पहले लगभग 300KB तक संपीड़ित किया जाएगा (केवल छवियां)",
+        "COMPRESSING": "संपीड़न...",
+        "SHARE_TITLE": "फ़ाइल साझाकरण",
+        "SHARE_TEXT": "{{count}} फ़ाइल/फ़ाइलें साझा कर रहे हैं",
+        "SHARE_SUCCESS": "{{count}} फ़ाइल/फ़ाइलें सफलतापूर्वक साझा की गईं",
+        "SHARE_CANCELLED": "साझाकरण रद्द किया गया",
+        "SHARE_ERROR": "साझा करने में त्रुटि",
+        "EMAIL_SUBJECT": "{{count}} फ़ाइल/फ़ाइलें साझा करें",
+        "EMAIL_BODY": "साझा करने के लिए फ़ाइलें: {{files}}",
+        "EMAIL_OPENED": "ईमेल क्लाइंट खोला गया"
     },
     "PATGPT": {
         "TITLE": "PatGPT",

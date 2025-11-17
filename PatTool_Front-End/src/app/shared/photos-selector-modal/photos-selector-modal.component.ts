@@ -1,7 +1,9 @@
 import { Component, OnInit, Input, Output, EventEmitter, ViewChild, TemplateRef } from '@angular/core';
+import { Router } from '@angular/router';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import { Evenement } from '../../model/evenement';
+import { Member } from '../../model/member';
 import { UrlEvent } from '../../model/url-event';
 
 export interface PhotosSelectionResult {
@@ -18,6 +20,7 @@ export interface PhotosSelectionResult {
 export class PhotosSelectorModalComponent implements OnInit {
   @Input() evenement!: Evenement;
   @Input() includeUploadedChoice: boolean = false;
+  @Input() user!: Member;
   
   @Output() selectionConfirmed = new EventEmitter<PhotosSelectionResult>();
   @Output() closed = new EventEmitter<void>();
@@ -30,7 +33,8 @@ export class PhotosSelectorModalComponent implements OnInit {
 
   constructor(
     private modalService: NgbModal,
-    private translateService: TranslateService
+    private translateService: TranslateService,
+    private router: Router
   ) {}
 
   ngOnInit(): void {
@@ -190,6 +194,11 @@ export class PhotosSelectorModalComponent implements OnInit {
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif'];
     const lowerFileName = fileName.toLowerCase();
     return imageExtensions.some(ext => lowerFileName.endsWith(ext));
+  }
+
+  public isAuthor(): boolean {
+    if (!this.evenement || !this.user) return false;
+    return this.evenement.author.userName.toLowerCase() === this.user.userName.toLowerCase();
   }
 }
 

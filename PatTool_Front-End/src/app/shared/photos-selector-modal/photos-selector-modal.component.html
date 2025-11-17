@@ -68,6 +68,13 @@
     <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel')">
       <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
     </button>
+    <a *ngIf="isAuthor() && evenement?.id" 
+       class="btn btn-warning me-2" 
+       [routerLink]="['/updeven', evenement.id]"
+       (click)="modal.close('Edit')">
+      <i class="fa fa-pencil-square-o me-1"></i>
+      <span>{{ 'EVENTELEM.UTE' | translate }}</span>
+    </a>
     <button type="button" class="btn btn-primary" [disabled]="!selectedFsLink" (click)="confirmSelection(modal)">
       <i class="fa fa-play"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
     </button>

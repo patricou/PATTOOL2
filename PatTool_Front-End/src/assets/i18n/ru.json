@@ -211,7 +211,8 @@
     },
     "EVENTUPDT": {
         "TITLE": "Изменение мероприятия",
-        "SUBMIT": "Изменить"
+        "SUBMIT": "Изменить",
+        "UNSAVED_CHANGES_CONFIRM": "У вас есть несохраненные изменения. Вы уверены, что хотите покинуть эту страницу?"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "Подтверждение удаления мероприятия:",
@@ -471,7 +472,42 @@
         "SELECTED_FILES": "Выбранные файлы",
         "UPLOADING": "Загрузка",
         "CLEAR": "Очистить все",
-        "REMOVE_FILE": "Удалить файл"
+        "REMOVE_FILE": "Удалить файл",
+        "COMPRESS_IMAGES": "Сжать изображения (~300KB)",
+        "COMPRESS_IMAGES_DESC": "Изображения будут сжаты до примерно 300KB перед отправкой (только изображения)",
+        "COMPRESSING": "Сжатие...",
+        "COMPRESSING_IMAGE": "Сжатие изображения {{current}}/{{total}}: {{fileName}}",
+        "COMPRESSED_IMAGE": "<strong>{{fileName}}</strong> сжато: {{originalSize}} → {{compressedSize}} (уменьшение на {{reduction}}%)",
+        "COMPRESSION_ERROR": "Ошибка при сжатии <strong>{{fileName}}</strong>. Будет использован исходный файл.",
+        "COMPRESSION_COMPLETE": "Сжатие завершено: {{count}} изображение(й) сжато",
+        "UPLOADING_FILE": "Файл {{current}}/{{total}}: {{fileName}}",
+        "UPLOAD_SUCCESS_ALL": "Все файлы успешно загружены ({{count}} файл(ов))",
+        "UPLOAD_PARTIAL": "Частичная загрузка: {{success}} успешно, {{failed}} не удалось",
+        "UPLOAD_FAILED_ALL": "Не удалось загрузить все файлы ({{count}} файл(ов))",
+        "DURATION_MIN_SEC": "Время: {{minutes}} мин {{seconds}} сек",
+        "DURATION_SEC": "Время: {{seconds}} сек"
+    },
+    "SHAREFILE": {
+        "MENU": "Поделиться файлами",
+        "TITLE": "Поделиться файлами",
+        "DROPZONE_TITLE": "Перетащите файлы сюда",
+        "DROPZONE_SUBTITLE": "или нажмите для просмотра",
+        "SELECT_FILES": "Просмотреть файлы",
+        "SELECTED_FILES": "Выбранные файлы",
+        "SHARING": "Поделиться",
+        "CLEAR": "Очистить все",
+        "BUTTONSUBMIT": "Поделиться",
+        "COMPRESS_IMAGES": "Сжать изображения (~300KB)",
+        "COMPRESS_IMAGES_DESC": "Изображения будут сжаты до примерно 300KB перед отправкой (только изображения)",
+        "COMPRESSING": "Сжатие...",
+        "SHARE_TITLE": "Поделиться файлами",
+        "SHARE_TEXT": "Поделиться {{count}} файлом(ами)",
+        "SHARE_SUCCESS": "{{count}} файл(ов) успешно отправлено",
+        "SHARE_CANCELLED": "Поделиться отменено",
+        "SHARE_ERROR": "Ошибка при отправке",
+        "EMAIL_SUBJECT": "Поделиться {{count}} файлом(ами)",
+        "EMAIL_BODY": "Файлы для отправки: {{files}}",
+        "EMAIL_OPENED": "Почтовый клиент открыт"
     },
     "PATGPT": {
         "TITLE": "PatGPT",

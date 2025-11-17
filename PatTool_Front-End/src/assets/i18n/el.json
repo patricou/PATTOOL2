@@ -210,7 +210,8 @@
     },
     "EVENTUPDT": {
         "TITLE": "Τροποποίηση Δραστηριότητας",
-        "SUBMIT": "Τροποποίηση"
+        "SUBMIT": "Τροποποίηση",
+        "UNSAVED_CHANGES_CONFIRM": "Έχετε μη αποθηκευμένες αλλαγές. Είστε σίγουροι ότι θέλετε να φύγετε από αυτή τη σελίδα;"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "Επιβεβαίωση διαγραφής της Δραστηριότητας:",
@@ -475,7 +476,42 @@
         "SELECTED_FILES": "Επιλεγμένα αρχεία",
         "UPLOADING": "Ανέβασμα",
         "CLEAR": "Εκκαθάριση όλων",
-        "REMOVE_FILE": "Αφαίρεση αρχείου"
+        "REMOVE_FILE": "Αφαίρεση αρχείου",
+        "COMPRESS_IMAGES": "Συμπίεση εικόνων (~300KB)",
+        "COMPRESS_IMAGES_DESC": "Οι εικόνες θα συμπιεστούν σε περίπου 300KB πριν την αποστολή (μόνο εικόνες)",
+        "COMPRESSING": "Συμπίεση...",
+        "COMPRESSING_IMAGE": "Συμπίεση εικόνας {{current}}/{{total}}: {{fileName}}",
+        "COMPRESSED_IMAGE": "<strong>{{fileName}}</strong> συμπιεσμένο: {{originalSize}} → {{compressedSize}} (μείωση {{reduction}}%)",
+        "COMPRESSION_ERROR": "Σφάλμα στη συμπίεση του <strong>{{fileName}}</strong>. Θα χρησιμοποιηθεί το αρχικό αρχείο.",
+        "COMPRESSION_COMPLETE": "Η συμπίεση ολοκληρώθηκε: {{count}} εικόνα/ες συμπιέστηκαν",
+        "UPLOADING_FILE": "Αρχείο {{current}}/{{total}}: {{fileName}}",
+        "UPLOAD_SUCCESS_ALL": "Όλα τα αρχεία ανέβηκαν με επιτυχία ({{count}} αρχείο/α)",
+        "UPLOAD_PARTIAL": "Μερική ανέβασμα: {{success}} επιτυχημένα, {{failed}} απέτυχαν",
+        "UPLOAD_FAILED_ALL": "Όλα τα αρχεία απέτυχαν να ανέβουν ({{count}} αρχείο/α)",
+        "DURATION_MIN_SEC": "Διάρκεια: {{minutes}} λεπ {{seconds}} δευτ",
+        "DURATION_SEC": "Διάρκεια: {{seconds}} δευτ"
+    },
+    "SHAREFILE": {
+        "MENU": "Κοινοποίηση αρχείων",
+        "TITLE": "Κοινοποίηση Αρχείων",
+        "DROPZONE_TITLE": "Σύρετε και αφήστε τα αρχεία εδώ",
+        "DROPZONE_SUBTITLE": "ή κάντε κλικ για περιήγηση",
+        "SELECT_FILES": "Περιήγηση αρχείων",
+        "SELECTED_FILES": "Επιλεγμένα αρχεία",
+        "SHARING": "Κοινοποίηση",
+        "CLEAR": "Καθαρισμός όλων",
+        "BUTTONSUBMIT": "Κοινοποίηση",
+        "COMPRESS_IMAGES": "Συμπίεση εικόνων (~300KB)",
+        "COMPRESS_IMAGES_DESC": "Οι εικόνες θα συμπιεστούν σε περίπου 300KB πριν από την κοινοποίηση (μόνο εικόνες)",
+        "COMPRESSING": "Συμπίεση...",
+        "SHARE_TITLE": "Κοινοποίηση αρχείων",
+        "SHARE_TEXT": "Κοινοποίηση {{count}} αρχείου/ων",
+        "SHARE_SUCCESS": "{{count}} αρχείο/α κοινοποιήθηκε/αν με επιτυχία",
+        "SHARE_CANCELLED": "Η κοινοποίηση ακυρώθηκε",
+        "SHARE_ERROR": "Σφάλμα κατά την κοινοποίηση",
+        "EMAIL_SUBJECT": "Κοινοποίηση {{count}} αρχείου/ων",
+        "EMAIL_BODY": "Αρχεία προς κοινοποίηση: {{files}}",
+        "EMAIL_OPENED": "Άνοιξε το πρόγραμμα email"
     },
     "PATGPT": {
         "TITLE": "PatGPT",

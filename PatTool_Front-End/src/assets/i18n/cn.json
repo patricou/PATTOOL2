@@ -210,7 +210,8 @@
     },
     "EVENTUPDT": {
         "TITLE": "修改活动",
-        "SUBMIT": "修改"
+        "SUBMIT": "修改",
+        "UNSAVED_CHANGES_CONFIRM": "您有未保存的更改。您确定要离开此页面吗？"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "确认删除活动：",
@@ -476,7 +477,42 @@
         "SELECTED_FILES": "已选择的文件",
         "UPLOADING": "上传中",
         "CLEAR": "清除全部",
-        "REMOVE_FILE": "删除文件"
+        "REMOVE_FILE": "删除文件",
+        "COMPRESS_IMAGES": "压缩图片 (~300KB)",
+        "COMPRESS_IMAGES_DESC": "图片将在发送前压缩至约300KB（仅限图片）",
+        "COMPRESSING": "压缩中...",
+        "COMPRESSING_IMAGE": "正在压缩图片 {{current}}/{{total}}: {{fileName}}",
+        "COMPRESSED_IMAGE": "<strong>{{fileName}}</strong> 已压缩: {{originalSize}} → {{compressedSize}} (减少 {{reduction}}%)",
+        "COMPRESSION_ERROR": "压缩 <strong>{{fileName}}</strong> 时出错。将使用原始文件。",
+        "COMPRESSION_COMPLETE": "压缩完成: {{count}} 张图片已压缩",
+        "UPLOADING_FILE": "文件 {{current}}/{{total}}: {{fileName}}",
+        "UPLOAD_SUCCESS_ALL": "所有文件上传成功 ({{count}} 个文件)",
+        "UPLOAD_PARTIAL": "部分上传: {{success}} 成功，{{failed}} 失败",
+        "UPLOAD_FAILED_ALL": "所有文件上传失败 ({{count}} 个文件)",
+        "DURATION_MIN_SEC": "耗时: {{minutes}} 分 {{seconds}} 秒",
+        "DURATION_SEC": "耗时: {{seconds}} 秒"
+    },
+    "SHAREFILE": {
+        "MENU": "分享文件",
+        "TITLE": "分享文件",
+        "DROPZONE_TITLE": "将文件拖放到此处",
+        "DROPZONE_SUBTITLE": "或点击浏览",
+        "SELECT_FILES": "浏览文件",
+        "SELECTED_FILES": "已选文件",
+        "SHARING": "正在分享",
+        "CLEAR": "清除全部",
+        "BUTTONSUBMIT": "分享",
+        "COMPRESS_IMAGES": "压缩图片 (~300KB)",
+        "COMPRESS_IMAGES_DESC": "图片将在分享前压缩至约300KB（仅限图片）",
+        "COMPRESSING": "正在压缩...",
+        "SHARE_TITLE": "文件分享",
+        "SHARE_TEXT": "分享 {{count}} 个文件",
+        "SHARE_SUCCESS": "成功分享 {{count}} 个文件",
+        "SHARE_CANCELLED": "分享已取消",
+        "SHARE_ERROR": "分享时出错",
+        "EMAIL_SUBJECT": "分享 {{count}} 个文件",
+        "EMAIL_BODY": "要分享的文件: {{files}}",
+        "EMAIL_OPENED": "已打开邮件客户端"
     },
     "PATGPT": {
         "TITLE": "PatGPT",

@@ -1,5 +1,5 @@
-import { Component, OnInit, ViewChild, TemplateRef } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { Component, OnInit, ViewChild, TemplateRef, HostListener } from '@angular/core';
+import { ActivatedRoute, Router, CanDeactivate } from '@angular/router';
 import { Evenement } from '../../model/evenement';
 import { EvenementsService } from '../../services/evenements.service';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
@@ -22,9 +22,11 @@ import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slid
 	templateUrl: './update-evenement.component.html',
 	styleUrls: ['./update-evenement.component.css']
 })
-export class UpdateEvenementComponent implements OnInit {
+export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEvenementComponent> {
 
 	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "Nouvel Evenement !!", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], []);
+	private originalEvenement: Evenement | null = null;
+	public hasUnsavedChanges: boolean = false;
 	// Removed ngx-mydatepicker options - using native HTML date inputs
 	// Using native HTML date inputs instead of ngx-mydatepicker
 	public author: string = "";
@@ -141,6 +143,10 @@ export class UpdateEvenementComponent implements OnInit {
 			(evenement => {
 				//console.log("EVenement : " + JSON.stringify(evenement));
 				this.evenement = evenement;
+				// Save original state for comparison
+				this.originalEvenement = JSON.parse(JSON.stringify(evenement));
+				this.hasUnsavedChanges = false;
+				
 				this.author = evenement.author.firstName + " " + evenement.author.lastName + " / " + evenement.author.userName;
 				
 				// Initialize urlEvents if not present
@@ -599,7 +605,15 @@ export class UpdateEvenementComponent implements OnInit {
 		
 		// note  : it is perhaps bad but  fields eventname, map and comment are passed through 2 ways binding.    
 		//console.log("Result : "+ JSON.stringify(this.evenement) + " " + isValid);
-		this._evenementsService.putEvenement(this.evenement).subscribe(res => this._router.navigate(['even']), err => alert("Error when updating the Event" + err));
+		this._evenementsService.putEvenement(this.evenement).subscribe(
+			res => {
+				// Mark as saved before navigation
+				this.hasUnsavedChanges = false;
+				this.originalEvenement = JSON.parse(JSON.stringify(this.evenement));
+				this._router.navigate(['even']);
+			}, 
+			err => alert("Error when updating the Event" + err)
+		);
 	}
 
 	// Commentary management methods
@@ -1510,6 +1524,47 @@ export class UpdateEvenementComponent implements OnInit {
 	// Check if URL event is PHOTOFROMFS type
 	public isPhotoFromFs(urlEvent: UrlEvent): boolean {
 		return (urlEvent.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS';
+	}
+
+	// Check if there are unsaved changes
+	private checkForUnsavedChanges(): boolean {
+		if (!this.originalEvenement) {
+			return false;
+		}
+
+		// Create a copy of current event for comparison (excluding dates which are Date objects)
+		const currentEventCopy = JSON.parse(JSON.stringify(this.evenement));
+		const originalEventCopy = JSON.parse(JSON.stringify(this.originalEvenement));
+
+		// Compare the two objects
+		return JSON.stringify(currentEventCopy) !== JSON.stringify(originalEventCopy);
+	}
+
+	// Update hasUnsavedChanges flag
+	private updateUnsavedChangesFlag(): void {
+		this.hasUnsavedChanges = this.checkForUnsavedChanges();
+	}
+
+	// CanDeactivate guard implementation
+	canDeactivate(): Observable<boolean> | Promise<boolean> | boolean {
+		this.updateUnsavedChangesFlag();
+		
+		if (this.hasUnsavedChanges) {
+			const message = this.translate.instant('EVENTUPDT.UNSAVED_CHANGES_CONFIRM') || 
+				'Vous avez des modifications non sauvegardées. Êtes-vous sûr de vouloir quitter cette page ?';
+			return confirm(message);
+		}
+		return true;
+	}
+
+	// HostListener for browser beforeunload event (closing tab/window)
+	@HostListener('window:beforeunload', ['$event'])
+	onBeforeUnload(event: BeforeUnloadEvent): void {
+		this.updateUnsavedChangesFlag();
+		if (this.hasUnsavedChanges) {
+			event.preventDefault();
+			event.returnValue = '';
+		}
 	}
 
 }

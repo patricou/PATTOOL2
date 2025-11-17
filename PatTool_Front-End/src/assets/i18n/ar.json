@@ -209,7 +209,8 @@
     },
     "EVENTUPDT": {
         "TITLE": "تعديل النشاط",
-        "SUBMIT": "تعديل"
+        "SUBMIT": "تعديل",
+        "UNSAVED_CHANGES_CONFIRM": "لديك تغييرات غير محفوظة. هل أنت متأكد أنك تريد مغادرة هذه الصفحة؟"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "تأكيد حذف النشاط :",
@@ -474,7 +475,42 @@
         "SELECTED_FILES": "الملفات المحددة",
         "UPLOADING": "جاري الرفع",
         "CLEAR": "مسح الكل",
-        "REMOVE_FILE": "إزالة الملف"
+        "REMOVE_FILE": "إزالة الملف",
+        "COMPRESS_IMAGES": "ضغط الصور (~300KB)",
+        "COMPRESS_IMAGES_DESC": "سيتم ضغط الصور إلى حوالي 300KB قبل الإرسال (الصور فقط)",
+        "COMPRESSING": "جاري الضغط...",
+        "COMPRESSING_IMAGE": "ضغط الصورة {{current}}/{{total}}: {{fileName}}",
+        "COMPRESSED_IMAGE": "<strong>{{fileName}}</strong> مضغوط: {{originalSize}} → {{compressedSize}} (تقليل {{reduction}}%)",
+        "COMPRESSION_ERROR": "خطأ في ضغط <strong>{{fileName}}</strong>. سيتم استخدام الملف الأصلي.",
+        "COMPRESSION_COMPLETE": "اكتمل الضغط: {{count}} صورة مضغوطة",
+        "UPLOADING_FILE": "الملف {{current}}/{{total}}: {{fileName}}",
+        "UPLOAD_SUCCESS_ALL": "تم رفع جميع الملفات بنجاح ({{count}} ملف)",
+        "UPLOAD_PARTIAL": "رفع جزئي: {{success}} نجح، {{failed}} فشل",
+        "UPLOAD_FAILED_ALL": "فشل رفع جميع الملفات ({{count}} ملف)",
+        "DURATION_MIN_SEC": "المدة: {{minutes}} د {{seconds}} ث",
+        "DURATION_SEC": "المدة: {{seconds}} ث"
+    },
+    "SHAREFILE": {
+        "MENU": "مشاركة الملفات",
+        "TITLE": "مشاركة الملفات",
+        "DROPZONE_TITLE": "اسحب وأفلت الملفات هنا",
+        "DROPZONE_SUBTITLE": "أو انقر للتصفح",
+        "SELECT_FILES": "تصفح الملفات",
+        "SELECTED_FILES": "الملفات المحددة",
+        "SHARING": "جاري المشاركة",
+        "CLEAR": "مسح الكل",
+        "BUTTONSUBMIT": "مشاركة",
+        "COMPRESS_IMAGES": "ضغط الصور (~300KB)",
+        "COMPRESS_IMAGES_DESC": "سيتم ضغط الصور إلى حوالي 300KB قبل المشاركة (الصور فقط)",
+        "COMPRESSING": "جاري الضغط...",
+        "SHARE_TITLE": "مشاركة الملفات",
+        "SHARE_TEXT": "مشاركة {{count}} ملف",
+        "SHARE_SUCCESS": "تم مشاركة {{count}} ملف بنجاح",
+        "SHARE_CANCELLED": "تم إلغاء المشاركة",
+        "SHARE_ERROR": "خطأ في المشاركة",
+        "EMAIL_SUBJECT": "مشاركة {{count}} ملف",
+        "EMAIL_BODY": "الملفات للمشاركة: {{files}}",
+        "EMAIL_OPENED": "تم فتح عميل البريد الإلكتروني"
     },
     "PATGPT": {
         "TITLE": "PatGPT",

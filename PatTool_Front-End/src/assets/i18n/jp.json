@@ -212,7 +212,8 @@
     },
     "EVENTUPDT": {
         "TITLE": "活動の変更",
-        "SUBMIT": "変更"
+        "SUBMIT": "変更",
+        "UNSAVED_CHANGES_CONFIRM": "保存されていない変更があります。このページを離れてもよろしいですか？"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "活動の削除の確認：",
@@ -478,7 +479,42 @@
         "SELECTED_FILES": "選択されたファイル",
         "UPLOADING": "アップロード中",
         "CLEAR": "すべてクリア",
-        "REMOVE_FILE": "ファイルを削除"
+        "REMOVE_FILE": "ファイルを削除",
+        "COMPRESS_IMAGES": "画像を圧縮 (~300KB)",
+        "COMPRESS_IMAGES_DESC": "画像は送信前に約300KBに圧縮されます（画像のみ）",
+        "COMPRESSING": "圧縮中...",
+        "COMPRESSING_IMAGE": "画像 {{current}}/{{total}} を圧縮中: {{fileName}}",
+        "COMPRESSED_IMAGE": "<strong>{{fileName}}</strong> 圧縮済み: {{originalSize}} → {{compressedSize}} ({{reduction}}%削減)",
+        "COMPRESSION_ERROR": "<strong>{{fileName}}</strong> の圧縮中にエラーが発生しました。元のファイルが使用されます。",
+        "COMPRESSION_COMPLETE": "圧縮完了: {{count}} 枚の画像を圧縮しました",
+        "UPLOADING_FILE": "ファイル {{current}}/{{total}}: {{fileName}}",
+        "UPLOAD_SUCCESS_ALL": "すべてのファイルが正常にアップロードされました ({{count}} ファイル)",
+        "UPLOAD_PARTIAL": "部分的なアップロード: {{success}} 成功、{{failed}} 失敗",
+        "UPLOAD_FAILED_ALL": "すべてのファイルのアップロードに失敗しました ({{count}} ファイル)",
+        "DURATION_MIN_SEC": "所要時間: {{minutes}} 分 {{seconds}} 秒",
+        "DURATION_SEC": "所要時間: {{seconds}} 秒"
+    },
+    "SHAREFILE": {
+        "MENU": "ファイルを共有",
+        "TITLE": "ファイルを共有",
+        "DROPZONE_TITLE": "ファイルをここにドラッグ＆ドロップ",
+        "DROPZONE_SUBTITLE": "またはクリックして参照",
+        "SELECT_FILES": "ファイルを参照",
+        "SELECTED_FILES": "選択されたファイル",
+        "SHARING": "共有中",
+        "CLEAR": "すべてクリア",
+        "BUTTONSUBMIT": "共有",
+        "COMPRESS_IMAGES": "画像を圧縮 (~300KB)",
+        "COMPRESS_IMAGES_DESC": "画像は共有前に約300KBに圧縮されます（画像のみ）",
+        "COMPRESSING": "圧縮中...",
+        "SHARE_TITLE": "ファイル共有",
+        "SHARE_TEXT": "{{count}} ファイルを共有",
+        "SHARE_SUCCESS": "{{count}} ファイルが正常に共有されました",
+        "SHARE_CANCELLED": "共有がキャンセルされました",
+        "SHARE_ERROR": "共有エラー",
+        "EMAIL_SUBJECT": "{{count}} ファイルを共有",
+        "EMAIL_BODY": "共有するファイル: {{files}}",
+        "EMAIL_OPENED": "メールクライアントが開かれました"
     },
     "PATGPT": {
         "TITLE": "PatGPT",

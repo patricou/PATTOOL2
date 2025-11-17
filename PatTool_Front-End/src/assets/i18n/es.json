@@ -210,7 +210,8 @@
     },
     "EVENTUPDT": {
         "TITLE": "Actualización de actividad",
-        "SUBMIT": "Enviar"
+        "SUBMIT": "Enviar",
+        "UNSAVED_CHANGES_CONFIRM": "Tiene cambios sin guardar. ¿Está seguro de que desea salir de esta página?"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "Confirmación de eliminación de actividad:",
@@ -477,7 +478,42 @@
         "SELECTED_FILES": "Archivos seleccionados",
         "UPLOADING": "Subiendo",
         "CLEAR": "Limpiar todo",
-        "REMOVE_FILE": "Eliminar archivo"
+        "REMOVE_FILE": "Eliminar archivo",
+        "COMPRESS_IMAGES": "Comprimir imágenes (~300KB)",
+        "COMPRESS_IMAGES_DESC": "Las imágenes se comprimirán a aproximadamente 300KB antes del envío (solo imágenes)",
+        "COMPRESSING": "Comprimiendo...",
+        "COMPRESSING_IMAGE": "Comprimiendo imagen {{current}}/{{total}}: {{fileName}}",
+        "COMPRESSED_IMAGE": "<strong>{{fileName}}</strong> comprimido: {{originalSize}} → {{compressedSize}} (reducción del {{reduction}}%)",
+        "COMPRESSION_ERROR": "Error al comprimir <strong>{{fileName}}</strong>. Se usará el archivo original.",
+        "COMPRESSION_COMPLETE": "Compresión completada: {{count}} imagen(es) comprimida(s)",
+        "UPLOADING_FILE": "Archivo {{current}}/{{total}}: {{fileName}}",
+        "UPLOAD_SUCCESS_ALL": "Todos los archivos se subieron correctamente ({{count}} archivo(s))",
+        "UPLOAD_PARTIAL": "Carga parcial: {{success}} exitoso(s), {{failed}} fallido(s)",
+        "UPLOAD_FAILED_ALL": "Todos los archivos fallaron al subir ({{count}} archivo(s))",
+        "DURATION_MIN_SEC": "Duración: {{minutes}} min {{seconds}} s",
+        "DURATION_SEC": "Duración: {{seconds}} s"
+    },
+    "SHAREFILE": {
+        "MENU": "Compartir archivos",
+        "TITLE": "Compartir Archivos",
+        "DROPZONE_TITLE": "Arrastre y suelte los archivos aquí",
+        "DROPZONE_SUBTITLE": "o haga clic para explorar",
+        "SELECT_FILES": "Explorar archivos",
+        "SELECTED_FILES": "Archivos seleccionados",
+        "SHARING": "Compartiendo",
+        "CLEAR": "Limpiar todo",
+        "BUTTONSUBMIT": "Compartir",
+        "COMPRESS_IMAGES": "Comprimir imágenes (~300KB)",
+        "COMPRESS_IMAGES_DESC": "Las imágenes se comprimirán a aproximadamente 300KB antes de compartir (solo imágenes)",
+        "COMPRESSING": "Comprimiendo...",
+        "SHARE_TITLE": "Compartir archivos",
+        "SHARE_TEXT": "Compartiendo {{count}} archivo(s)",
+        "SHARE_SUCCESS": "{{count}} archivo(s) compartido(s) con éxito",
+        "SHARE_CANCELLED": "Compartir cancelado",
+        "SHARE_ERROR": "Error al compartir",
+        "EMAIL_SUBJECT": "Compartir {{count}} archivo(s)",
+        "EMAIL_BODY": "Archivos para compartir: {{files}}",
+        "EMAIL_OPENED": "Cliente de correo abierto"
     },
     "PATGPT": {
         "TITLE": "PatGPT",

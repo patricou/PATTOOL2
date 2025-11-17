@@ -203,7 +203,8 @@
     },
     "EVENTUPDT": {
         "TITLE": "שינוי הפעילות",
-        "SUBMIT": "שנה"
+        "SUBMIT": "שנה",
+        "UNSAVED_CHANGES_CONFIRM": "יש לך שינויים שלא נשמרו. האם אתה בטוח שברצונך לעזוב את הדף הזה?"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "אישור מחיקת הפעילות:",
@@ -469,7 +470,42 @@
         "SELECTED_FILES": "קבצים נבחרים",
         "UPLOADING": "מעלה",
         "CLEAR": "נקה הכל",
-        "REMOVE_FILE": "הסר קובץ"
+        "REMOVE_FILE": "הסר קובץ",
+        "COMPRESS_IMAGES": "כווץ תמונות (~300KB)",
+        "COMPRESS_IMAGES_DESC": "התמונות יידחסו לכ-300KB לפני השליחה (תמונות בלבד)",
+        "COMPRESSING": "דחיסה...",
+        "COMPRESSING_IMAGE": "דחיסת תמונה {{current}}/{{total}}: {{fileName}}",
+        "COMPRESSED_IMAGE": "<strong>{{fileName}}</strong> נדחס: {{originalSize}} → {{compressedSize}} (הקטנה של {{reduction}}%)",
+        "COMPRESSION_ERROR": "שגיאה בדחיסת <strong>{{fileName}}</strong>. הקובץ המקורי ישמש.",
+        "COMPRESSION_COMPLETE": "דחיסה הושלמה: {{count}} תמונה/ות נדחסו",
+        "UPLOADING_FILE": "קובץ {{current}}/{{total}}: {{fileName}}",
+        "UPLOAD_SUCCESS_ALL": "כל הקבצים הועלו בהצלחה ({{count}} קובץ/ים)",
+        "UPLOAD_PARTIAL": "העלאה חלקית: {{success}} הצליחו, {{failed}} נכשלו",
+        "UPLOAD_FAILED_ALL": "כל הקבצים נכשלו בהעלאה ({{count}} קובץ/ים)",
+        "DURATION_MIN_SEC": "משך זמן: {{minutes}} דק' {{seconds}} ש'",
+        "DURATION_SEC": "משך זמן: {{seconds}} ש'"
+    },
+    "SHAREFILE": {
+        "MENU": "שתף קבצים",
+        "TITLE": "שתף קבצים",
+        "DROPZONE_TITLE": "גרור ושחרר קבצים כאן",
+        "DROPZONE_SUBTITLE": "או לחץ לדפדוף",
+        "SELECT_FILES": "דפדף קבצים",
+        "SELECTED_FILES": "קבצים נבחרים",
+        "SHARING": "משתף",
+        "CLEAR": "נקה הכל",
+        "BUTTONSUBMIT": "שתף",
+        "COMPRESS_IMAGES": "דחיסת תמונות (~300KB)",
+        "COMPRESS_IMAGES_DESC": "תמונות יידחסו לכ-300KB לפני השיתוף (תמונות בלבד)",
+        "COMPRESSING": "דחיסה...",
+        "SHARE_TITLE": "שיתוף קבצים",
+        "SHARE_TEXT": "שיתוף {{count}} קובץ/ים",
+        "SHARE_SUCCESS": "{{count}} קובץ/ים שותף בהצלחה",
+        "SHARE_CANCELLED": "שיתוף בוטל",
+        "SHARE_ERROR": "שגיאה בשיתוף",
+        "EMAIL_SUBJECT": "שיתוף {{count}} קובץ/ים",
+        "EMAIL_BODY": "קבצים לשיתוף: {{files}}",
+        "EMAIL_OPENED": "לקוח דוא\"ל נפתח"
     },
     "PATGPT": {
         "TITLE": "PatGPT",

@@ -8,6 +8,7 @@ import { MembersService } from './services/members.service';
 import { CommonvaluesService } from './services/commonvalues.service';
 import { environment } from '../environments/environment';
 import { FileService } from './services/file.service';
+import * as piexif from 'piexifjs';
 
 @Component({
     selector: 'app-root',
@@ -18,6 +19,7 @@ export class AppComponent implements OnInit {
 
     public user: Member = new Member("", "", "", "", "", [], "");
     public selectedFiles: File[] = [];
+    public fileInfoMap: Map<string, { originalSize: number; compressedSize?: number; isCompressed: boolean }> = new Map();
     public resultSaveOndisk: string = "";
     public isMenuCollapsed = true;
     public isLoading: boolean = false;
@@ -28,6 +30,23 @@ export class AppComponent implements OnInit {
     public showLanguageSubmenu: boolean = false;
     public showDocumentationSubmenu: boolean = false;
     public isDragOver: boolean = false;
+    public compressImages: boolean = true; // Toggle for image compression (enabled by default)
+    public isCompressing: boolean = false; // Track if compression is in progress
+    public compressionStatus: string = ""; // Status message for compression
+    public compressionProgress: { current: number; total: number; fileName: string } | null = null; // Compression progress
+    public uploadProgress: { current: number; total: number; fileName: string } | null = null; // Upload progress
+    public uploadResults: { success: number; failed: number; errors: string[] } = { success: 0, failed: 0, errors: [] }; // Upload results
+    public filePreviewUrls: Map<string, string> = new Map(); // Store preview URLs for images
+    
+    // Share files properties
+    public shareFiles: File[] = []; // Files to share
+    public shareFilePreviewUrls: Map<string, string> = new Map(); // Store preview URLs for share images
+    public shareFileInfoMap: Map<string, { originalSize: number; compressedSize?: number; isCompressed: boolean }> = new Map(); // Share file info
+    public isSharing: boolean = false; // Track if sharing is in progress
+    public shareStatus: string = ""; // Share status message
+    public compressShareImages: boolean = true; // Toggle for image compression when sharing (enabled by default)
+    public isCompressingShare: boolean = false; // Track if compression is in progress for sharing
+    public shareCompressionProgress: { current: number; total: number; fileName: string } | null = null; // Share compression progress
     
     // Drag functionality for language selector
     public isDragging: boolean = false;
@@ -127,6 +146,21 @@ export class AppComponent implements OnInit {
     onFilesSelected(event: any) {
         this.resultSaveOndisk = "";
         this.selectedFiles = Array.from(event.target.files);
+        // Initialize file info map with original sizes
+        this.fileInfoMap.clear();
+        // Create preview URLs for images
+        this.filePreviewUrls.clear();
+        this.selectedFiles.forEach(file => {
+            this.fileInfoMap.set(file.name, {
+                originalSize: file.size,
+                isCompressed: false
+            });
+            // Create preview URL for images
+            if (this.isImageFile(file)) {
+                const previewUrl = URL.createObjectURL(file);
+                this.filePreviewUrls.set(file.name, previewUrl);
+            }
+        });
     }
 
     formatFileSize(bytes: number): string {
@@ -138,16 +172,340 @@ export class AppComponent implements OnInit {
     }
 
     removeFile(index: number): void {
+        // Revoke preview URL if it exists
+        const file = this.selectedFiles[index];
+        if (file && this.filePreviewUrls.has(file.name)) {
+            URL.revokeObjectURL(this.filePreviewUrls.get(file.name)!);
+            this.filePreviewUrls.delete(file.name);
+        }
         if (this.selectedFiles && this.selectedFiles.length > index) {
+            const fileToRemove = this.selectedFiles[index];
             const newFiles = Array.from(this.selectedFiles);
             newFiles.splice(index, 1);
             this.selectedFiles = newFiles;
+            // Remove from file info map
+            this.fileInfoMap.delete(fileToRemove.name);
         }
+    }
+    
+    getFileDisplaySize(file: File): string {
+        const fileInfo = this.fileInfoMap.get(file.name);
+        if (fileInfo && fileInfo.isCompressed && fileInfo.compressedSize !== undefined) {
+            return this.formatFileSize(fileInfo.compressedSize);
+        }
+        return this.formatFileSize(file.size);
+    }
+    
+    getFileOriginalSize(file: File): string | null {
+        const fileInfo = this.fileInfoMap.get(file.name);
+        if (fileInfo && fileInfo.isCompressed && fileInfo.compressedSize !== undefined) {
+            return this.formatFileSize(fileInfo.originalSize);
+        }
+        return null;
+    }
+    
+    isFileCompressed(file: File): boolean {
+        const fileInfo = this.fileInfoMap.get(file.name);
+        return fileInfo?.isCompressed === true;
     }
 
     clearFiles(): void {
+        // Revoke preview URLs to free memory
+        this.filePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+        this.filePreviewUrls.clear();
         this.selectedFiles = [];
+        this.fileInfoMap.clear();
         this.resultSaveOndisk = "";
+        this.isCompressing = false;
+        this.compressionStatus = "";
+        this.compressionProgress = null;
+        this.uploadProgress = null;
+    }
+    
+    getFilePreviewUrl(file: File): string | null {
+        return this.filePreviewUrls.get(file.name) || null;
+    }
+    
+    hideImagePreview(event: Event): void {
+        const target = event.target as HTMLImageElement;
+        if (target) {
+            target.style.display = 'none';
+        }
+    }
+
+    // Share files functionality
+    onShareFilesSelected(event: any): void {
+        this.shareFiles = Array.from(event.target.files);
+        this.shareStatus = "";
+        // Initialize file info map
+        this.shareFileInfoMap.clear();
+        // Create preview URLs for images
+        this.shareFilePreviewUrls.clear();
+        this.shareFiles.forEach(file => {
+            this.shareFileInfoMap.set(file.name, {
+                originalSize: file.size,
+                isCompressed: false
+            });
+            // Create preview URL for images
+            if (this.isImageFile(file)) {
+                const previewUrl = URL.createObjectURL(file);
+                this.shareFilePreviewUrls.set(file.name, previewUrl);
+            }
+        });
+    }
+
+    onShareFileSelectClick(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        const fileInput = document.getElementById('shareFileInput') as HTMLInputElement;
+        if (fileInput) {
+            fileInput.click();
+        }
+    }
+
+    onShareDragOver(event: DragEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        event.dataTransfer!.dropEffect = 'copy';
+        this.isDragOver = true;
+    }
+
+    onShareDragLeave(event: DragEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.isDragOver = false;
+    }
+
+    onShareFileDrop(event: DragEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.isDragOver = false;
+
+        const files = event.dataTransfer?.files;
+        if (files && files.length > 0) {
+            this.shareFiles = Array.from(files);
+            this.shareStatus = "";
+            // Initialize file info map
+            this.shareFileInfoMap.clear();
+            // Create preview URLs for images
+            this.shareFilePreviewUrls.clear();
+            this.shareFiles.forEach(file => {
+                this.shareFileInfoMap.set(file.name, {
+                    originalSize: file.size,
+                    isCompressed: false
+                });
+                // Create preview URL for images
+                if (this.isImageFile(file)) {
+                    const previewUrl = URL.createObjectURL(file);
+                    this.shareFilePreviewUrls.set(file.name, previewUrl);
+                }
+            });
+            // Clear the data transfer to prevent any further processing
+            event.dataTransfer!.clearData();
+        }
+    }
+
+    removeShareFile(index: number): void {
+        // Revoke preview URL if it exists
+        const file = this.shareFiles[index];
+        if (file && this.shareFilePreviewUrls.has(file.name)) {
+            URL.revokeObjectURL(this.shareFilePreviewUrls.get(file.name)!);
+            this.shareFilePreviewUrls.delete(file.name);
+        }
+        if (this.shareFiles && this.shareFiles.length > index) {
+            const fileToRemove = this.shareFiles[index];
+            const newFiles = Array.from(this.shareFiles);
+            newFiles.splice(index, 1);
+            this.shareFiles = newFiles;
+            // Remove from file info map
+            this.shareFileInfoMap.delete(fileToRemove.name);
+        }
+    }
+
+    clearShareFiles(): void {
+        // Revoke preview URLs to free memory
+        this.shareFilePreviewUrls.forEach(url => URL.revokeObjectURL(url));
+        this.shareFilePreviewUrls.clear();
+        this.shareFiles = [];
+        this.shareFileInfoMap.clear();
+        this.shareStatus = "";
+        this.isSharing = false;
+        this.isCompressingShare = false;
+        this.shareCompressionProgress = null;
+    }
+    
+    getShareFileDisplaySize(file: File): string {
+        const fileInfo = this.shareFileInfoMap.get(file.name);
+        if (fileInfo && fileInfo.isCompressed && fileInfo.compressedSize) {
+            return this.formatFileSize(fileInfo.compressedSize);
+        }
+        return this.formatFileSize(file.size);
+    }
+    
+    getShareFileOriginalSize(file: File): string | null {
+        const fileInfo = this.shareFileInfoMap.get(file.name);
+        if (fileInfo && fileInfo.isCompressed && fileInfo.originalSize) {
+            return this.formatFileSize(fileInfo.originalSize);
+        }
+        return null;
+    }
+    
+    isShareFileCompressed(file: File): boolean {
+        const fileInfo = this.shareFileInfoMap.get(file.name);
+        return fileInfo?.isCompressed === true;
+    }
+    
+    getShareFilePreviewUrl(file: File): string | null {
+        return this.shareFilePreviewUrls.get(file.name) || null;
+    }
+
+    async onShareSubmit(): Promise<void> {
+        this.isSharing = false;
+        this.isCompressingShare = false;
+        this.shareStatus = "";
+        this.shareCompressionProgress = null;
+
+        if (this.shareFiles.length === 0) {
+            console.log('No files selected for sharing.');
+            return;
+        }
+
+        const totalFiles = this.shareFiles.length;
+        const BATCH_SIZE = 10; // Process 10 files in parallel
+        let compressionCount = 0;
+        let activeCompressions = 0;
+
+        const updateShareCompressionProgress = () => {
+            compressionCount++;
+            activeCompressions--;
+            if (activeCompressions > 0) {
+                this.isCompressingShare = true;
+                this.shareCompressionProgress = {
+                    current: compressionCount,
+                    total: totalFiles,
+                    fileName: ''
+                };
+            } else {
+                this.isCompressingShare = false;
+                this.shareCompressionProgress = null;
+            }
+        };
+
+        // Process files: compress images if needed
+        const processShareFile = async (file: File, index: number): Promise<File> => {
+            let fileToShare = file;
+            
+            // Compress if needed
+            if (this.compressShareImages && this.isImageFile(file) && file.size > 300 * 1024) {
+                activeCompressions++;
+                this.isCompressingShare = true;
+                this.shareCompressionProgress = {
+                    current: compressionCount,
+                    total: totalFiles,
+                    fileName: ''
+                };
+                
+                try {
+                    fileToShare = await this.compressImageToTargetSize(file, 300 * 1024);
+                    console.log("Share image compressed:", file.name, "Original:", this.formatFileSize(file.size), "Compressed:", this.formatFileSize(fileToShare.size));
+                    
+                    // Update file info map
+                    const fileInfo = this.shareFileInfoMap.get(file.name);
+                    if (fileInfo) {
+                        fileInfo.compressedSize = fileToShare.size;
+                        fileInfo.isCompressed = true;
+                        // Update the file in shareFiles array
+                        const fileIndex = this.shareFiles.findIndex(f => f.name === file.name);
+                        if (fileIndex !== -1) {
+                            this.shareFiles[fileIndex] = fileToShare;
+                        }
+                    }
+                    
+                    updateShareCompressionProgress();
+                } catch (error) {
+                    console.error("Error compressing share image:", file.name, error);
+                    // Use original file if compression fails
+                    fileToShare = file;
+                    updateShareCompressionProgress();
+                }
+            }
+            
+            return fileToShare;
+        };
+
+        try {
+            // Compress files in parallel batches
+            for (let i = 0; i < this.shareFiles.length; i += BATCH_SIZE) {
+                const batch = this.shareFiles.slice(i, i + BATCH_SIZE);
+                const batchPromises = batch.map((file, batchIndex) => 
+                    processShareFile(file, i + batchIndex)
+                );
+                await Promise.all(batchPromises);
+            }
+
+            // All compression done, now share
+            this.isSharing = true;
+            const filesToShare: File[] = Array.from(this.shareFiles);
+
+            // Check if Web Share API is available
+            if (navigator.share && navigator.canShare) {
+                // Check if we can share files
+                const shareData: any = {
+                    title: this._translate.instant('SHAREFILE.SHARE_TITLE'),
+                    text: this._translate.instant('SHAREFILE.SHARE_TEXT', { count: filesToShare.length }),
+                    files: filesToShare
+                };
+
+                if (navigator.canShare(shareData)) {
+                    // Share files using Web Share API
+                    await navigator.share(shareData);
+                    this.shareStatus = this._translate.instant('SHAREFILE.SHARE_SUCCESS', { count: filesToShare.length });
+                    
+                    // Clear files after successful share
+                    setTimeout(() => {
+                        this.clearShareFiles();
+                    }, 100);
+                } else {
+                    // Fallback: share via email
+                    await this.shareViaEmail(filesToShare);
+                }
+            } else {
+                // Web Share API not available, use email fallback
+                await this.shareViaEmail(filesToShare);
+            }
+        } catch (error: any) {
+            console.error('Share error:', error);
+            if (error.name === 'AbortError') {
+                // User cancelled the share
+                this.shareStatus = this._translate.instant('SHAREFILE.SHARE_CANCELLED');
+            } else {
+                // Try email fallback
+                try {
+                    await this.shareViaEmail(this.shareFiles);
+                } catch (emailError) {
+                    this.shareStatus = this._translate.instant('SHAREFILE.SHARE_ERROR');
+                }
+            }
+        } finally {
+            this.isSharing = false;
+            this.isCompressingShare = false;
+        }
+    }
+
+    private async shareViaEmail(files: File[]): Promise<void> {
+        // Create mailto link with file information
+        const fileNames = files.map(f => f.name).join(', ');
+        const subject = encodeURIComponent(this._translate.instant('SHAREFILE.EMAIL_SUBJECT', { count: files.length }));
+        const body = encodeURIComponent(this._translate.instant('SHAREFILE.EMAIL_BODY', { files: fileNames }));
+        const mailtoLink = `mailto:?subject=${subject}&body=${body}`;
+        
+        window.open(mailtoLink, '_blank');
+        this.shareStatus = this._translate.instant('SHAREFILE.EMAIL_OPENED');
+        
+        // Clear files after opening email
+        setTimeout(() => {
+            this.clearShareFiles();
+        }, 100);
     }
 
     // Drag and Drop functionality
@@ -173,6 +531,21 @@ export class AppComponent implements OnInit {
         if (files && files.length > 0) {
             this.selectedFiles = Array.from(files);
             this.resultSaveOndisk = "";
+            // Initialize file info map with original sizes
+            this.fileInfoMap.clear();
+            // Create preview URLs for images
+            this.filePreviewUrls.clear();
+            this.selectedFiles.forEach(file => {
+                this.fileInfoMap.set(file.name, {
+                    originalSize: file.size,
+                    isCompressed: false
+                });
+                // Create preview URL for images
+                if (this.isImageFile(file)) {
+                    const previewUrl = URL.createObjectURL(file);
+                    this.filePreviewUrls.set(file.name, previewUrl);
+                }
+            });
             // Clear the data transfer to prevent any further processing
             event.dataTransfer!.clearData();
         }
@@ -188,74 +561,218 @@ export class AppComponent implements OnInit {
         }
     }
 
-    onSubmit() {
+    async onSubmit() {
 
         this.isLoading = true;
-        this.resultSaveOndisk = ""
-
+        this.resultSaveOndisk = "";
+        this.isCompressing = false;
+        this.compressionStatus = "";
+        this.compressionProgress = null;
+        this.uploadProgress = null;
+        this.uploadResults = { success: 0, failed: 0, errors: [] };
 
         if (this.selectedFiles.length === 0) {
-            console.log('Aucun fichier sélectionné.');
+            console.log('No files selected.');
+            this.isLoading = false;
             return;
         };
 
-        const formData = new FormData();
-        for (let file of this.selectedFiles) {
-            console.log("File to upload:", file.name, "Size:", file.size, "Type:", file.type);
-            formData.append('files', file, file.name);
-        }
+        const startTime = Date.now();
+        const totalFiles = this.selectedFiles.length;
+        const BATCH_SIZE = 10; // Process 10 files in parallel
         
-        // Set allowOriginal=true to prevent photo compression when uploading from menu
-        formData.append('allowOriginal', 'true');
+        // Initialize upload progress
+        this.uploadProgress = {
+            current: 0,
+            total: totalFiles,
+            fileName: totalFiles > 0 ? this.selectedFiles[0].name : ''
+        };
+
+        // Track processing progress
+        let compressionCount = 0;
+        let uploadCount = 0;
+        let activeCompressions = 0;
+        let activeUploads = 0;
         
-        // Debug: Log FormData contents
-        console.log("FormData entries:");
-        for (let pair of (formData as any).entries()) {
-            console.log(pair[0] + ': ' + pair[1]);
-        }
+        const updateCompressionProgress = () => {
+            compressionCount++;
+            activeCompressions--;
+            if (activeCompressions > 0) {
+                this.isCompressing = true;
+                this.compressionProgress = {
+                    current: compressionCount,
+                    total: totalFiles,
+                    fileName: ''
+                };
+            } else {
+                this.isCompressing = false;
+                this.compressionProgress = null;
+            }
+        };
+        
+        const updateUploadProgress = () => {
+            uploadCount++;
+            activeUploads--;
+            this.uploadProgress = {
+                current: uploadCount,
+                total: totalFiles,
+                fileName: ''
+            };
+        };
 
-
-        this._fileService.postFileOnDisk(formData, this.user)
-            .subscribe({
-                next: (response: any) => {
-                    console.log('|--> Upload successful : ', response);
-                    this.isLoading = false;
-                    this.resultSaveOndisk = response || "Upload OK.";
-                },
-                error: (error: any) => {
-                    console.error('|--> Upload error details:');
-                    console.error('Full error object:', error);
-                    console.error('Error status:', error.status);
-                    console.error('Error statusText:', error.statusText);
-                    console.error('Error message:', error.message);
-                    console.error('Error error:', error.error);
+        // Process files in parallel batches: compress then upload immediately
+        const processFile = async (file: File, index: number): Promise<void> => {
+            let fileToUpload = file;
+            
+            // Compress if needed
+            if (this.compressImages && this.isImageFile(file) && file.size > 300 * 1024) {
+                activeCompressions++;
+                this.isCompressing = true;
+                this.compressionProgress = {
+                    current: compressionCount,
+                    total: totalFiles,
+                    fileName: ''
+                };
+                
+                try {
+                    fileToUpload = await this.compressImageToTargetSize(file, 300 * 1024);
+                    const sizeReduction = ((1 - fileToUpload.size / file.size) * 100).toFixed(1);
+                    console.log("Image compressed:", file.name, "Original:", this.formatFileSize(file.size), "Compressed:", this.formatFileSize(fileToUpload.size));
                     
-                    this.isLoading = false;
-                    
-                    // Extract meaningful error message
-                    let errorMessage = "Issue to Upload File(s).";
-                    
-                    if (error.status === 0) {
-                        errorMessage = "Cannot connect to server. Please check if the backend service is running on localhost:8000";
-                    } else if (error.status === 401) {
-                        errorMessage = "Authentication failed. Please log in again.";
-                    } else if (error.status === 403) {
-                        errorMessage = "Access forbidden. You don't have permission to upload files.";
-                    } else if (error.status === 404) {
-                        errorMessage = "Upload endpoint not found. Please check the server configuration.";
-                    } else if (error.status >= 500) {
-                        errorMessage = "Server error. Please try again later.";
-                    } else if (error.error && error.error.message) {
-                        errorMessage = error.error.message;
-                    } else if (error.message) {
-                        errorMessage = error.message;
-                    } else if (error.status) {
-                        errorMessage = `HTTP Error ${error.status}: ${error.statusText || 'Unknown error'}`;
+                    // Update file info map
+                    const fileInfo = this.fileInfoMap.get(file.name);
+                    if (fileInfo) {
+                        fileInfo.compressedSize = fileToUpload.size;
+                        fileInfo.isCompressed = true;
+                        const fileIndex = this.selectedFiles.findIndex(f => f.name === file.name);
+                        if (fileIndex !== -1) {
+                            this.selectedFiles[fileIndex] = fileToUpload;
+                        }
                     }
                     
-                    this.resultSaveOndisk = errorMessage;
+                    // Update compression progress after compression completes
+                    updateCompressionProgress();
+                } catch (error) {
+                    console.error("Error compressing image:", file.name, error);
+                    // Use original file if compression fails
+                    fileToUpload = file;
+                    updateCompressionProgress();
                 }
+            }
+            
+            // Upload immediately after compression (or directly if no compression needed)
+            activeUploads++;
+            this.uploadProgress = {
+                current: uploadCount,
+                total: totalFiles,
+                fileName: ''
+            };
+            
+            const uploadFormData = new FormData();
+            uploadFormData.append('files', fileToUpload, fileToUpload.name);
+            uploadFormData.append('allowOriginal', 'true');
+            
+            return new Promise<void>((resolve) => {
+                this._fileService.postFileOnDisk(uploadFormData, this.user)
+                    .subscribe({
+                        next: (response: any) => {
+                            console.log('|--> Upload successful for:', fileToUpload.name, response);
+                            this.uploadResults.success++;
+                            updateUploadProgress();
+                            resolve();
+                        },
+                        error: (error: any) => {
+                            console.error('|--> Upload error for:', fileToUpload.name, error);
+                            this.uploadResults.failed++;
+                            const errorMsg = error.error || error.message || "Upload failed";
+                            this.uploadResults.errors.push(`${fileToUpload.name}: ${errorMsg}`);
+                            updateUploadProgress();
+                            resolve(); // Continue with other files even if one fails
+                        }
+                    });
             });
+        };
+
+        // Process files in batches of 10 - compression and upload happen in parallel
+        try {
+            for (let i = 0; i < this.selectedFiles.length; i += BATCH_SIZE) {
+                const batch = this.selectedFiles.slice(i, i + BATCH_SIZE);
+                // Start all files in the batch simultaneously
+                // Each file will compress (if needed) then upload immediately
+                // This allows compression and upload to overlap across different files
+                const batchPromises = batch.map((file, batchIndex) => 
+                    processFile(file, i + batchIndex)
+                );
+                
+                // Wait for all files in batch to complete (both compression and upload)
+                await Promise.all(batchPromises);
+            }
+            
+            // All files processed
+            const endTime = Date.now();
+            const duration = ((endTime - startTime) / 1000).toFixed(2); // Duration in seconds
+            const durationMinutes = Math.floor((endTime - startTime) / 60000);
+            const durationSeconds = (((endTime - startTime) % 60000) / 1000).toFixed(1);
+            
+            this.isCompressing = false;
+            this.isLoading = false;
+            this.uploadProgress = null;
+            
+            // Set final result message
+            let resultMessage = '';
+            if (this.uploadResults.failed === 0) {
+                resultMessage = this._translate.instant('UPLOADFILE.UPLOAD_SUCCESS_ALL', {
+                    count: this.uploadResults.success
+                });
+            } else if (this.uploadResults.success > 0) {
+                resultMessage = this._translate.instant('UPLOADFILE.UPLOAD_PARTIAL', {
+                    success: this.uploadResults.success,
+                    failed: this.uploadResults.failed
+                });
+            } else {
+                resultMessage = this._translate.instant('UPLOADFILE.UPLOAD_FAILED_ALL', {
+                    count: this.uploadResults.failed
+                });
+            }
+            
+            // Add duration
+            if (durationMinutes > 0) {
+                resultMessage += ' - ' + this._translate.instant('UPLOADFILE.DURATION_MIN_SEC', {
+                    minutes: durationMinutes,
+                    seconds: durationSeconds
+                });
+            } else {
+                resultMessage += ' - ' + this._translate.instant('UPLOADFILE.DURATION_SEC', {
+                    seconds: durationSeconds
+                });
+            }
+            
+            this.resultSaveOndisk = resultMessage;
+            
+            // Add error details if any
+            if (this.uploadResults.errors.length > 0) {
+                this.resultSaveOndisk += "\n" + this.uploadResults.errors.join("\n");
+            }
+            
+            // Clear selected files when status appears
+            setTimeout(() => {
+                this.selectedFiles = [];
+                this.fileInfoMap.clear();
+            }, 100);
+            
+        } catch (error) {
+            console.error('Error processing files:', error);
+            this.isLoading = false;
+            this.isCompressing = false;
+            this.uploadProgress = null;
+            this.resultSaveOndisk = "Error processing files: " + (error as Error).message;
+            
+            // Clear selected files when error status appears
+            setTimeout(() => {
+                this.selectedFiles = [];
+                this.fileInfoMap.clear();
+            }, 100);
+        }
     }
 
     toggleEventsDropdown(event: Event): void {
@@ -581,6 +1098,213 @@ export class AppComponent implements OnInit {
     @HostListener('document:mouseup', ['$event'])
     onDocumentMouseUp(event: MouseEvent): void {
         this.isDragging = false;
+    }
+
+    // Check if file is an image
+    isImageFile(file: File): boolean {
+        return file.type.startsWith('image/');
+    }
+
+    // Compress image to target size (in bytes)
+    async compressImageToTargetSize(file: File, targetSizeBytes: number): Promise<File> {
+        return new Promise((resolve, reject) => {
+            // Check if file is JPEG (EXIF is mainly in JPEG files)
+            const isJPEG = file.type === 'image/jpeg' || file.type === 'image/jpg' || file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
+            
+            // Extract EXIF data if JPEG
+            let exifData: any = null;
+            if (isJPEG) {
+                const exifReader = new FileReader();
+                exifReader.onload = (exifEvent: any) => {
+                    try {
+                        const exifString = exifEvent.target.result;
+                        exifData = piexif.load(exifString);
+                        console.log('EXIF data extracted:', exifData ? 'Yes' : 'No');
+                    } catch (exifError) {
+                        console.log('No EXIF data found or error reading EXIF:', exifError);
+                        exifData = null;
+                    }
+                    
+                    // Now proceed with image compression
+                    this.performImageCompression(file, targetSizeBytes, exifData, resolve, reject);
+                };
+                exifReader.onerror = () => {
+                    console.log('Error reading file for EXIF, proceeding without EXIF');
+                    this.performImageCompression(file, targetSizeBytes, null, resolve, reject);
+                };
+                exifReader.readAsBinaryString(file);
+            } else {
+                // Not a JPEG, proceed without EXIF
+                this.performImageCompression(file, targetSizeBytes, null, resolve, reject);
+            }
+        });
+    }
+    
+    private performImageCompression(
+        file: File, 
+        targetSizeBytes: number, 
+        exifData: any, 
+        resolve: (file: File) => void, 
+        reject: (error: Error) => void
+    ): void {
+        const reader = new FileReader();
+        
+        reader.onload = (e: any) => {
+            const img = new Image();
+            
+            img.onload = () => {
+                // Start with high quality and reduce until we reach target size
+                let quality = 0.9;
+                let minQuality = 0.1;
+                let maxQuality = 0.95;
+                let bestBlob: Blob | null = null;
+                let attempts = 0;
+                const maxAttempts = 10;
+                const isJPEG = file.type === 'image/jpeg' || file.type === 'image/jpg' || file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
+                
+                const processBlobWithEXIF = (blob: Blob, q: number, callback: (finalBlob: Blob) => void): void => {
+                    if (isJPEG && exifData) {
+                        try {
+                            // Convert blob to binary string
+                            const blobReader = new FileReader();
+                            blobReader.onload = (blobEvent: any) => {
+                                try {
+                                    const binaryString = blobEvent.target.result;
+                                    // Insert EXIF data into compressed image
+                                    const exifString = piexif.dump(exifData);
+                                    const newBinaryString = piexif.insert(exifString, binaryString);
+                                    
+                                    // Convert binary string back to blob
+                                    const byteArray = new Uint8Array(newBinaryString.length);
+                                    for (let i = 0; i < newBinaryString.length; i++) {
+                                        byteArray[i] = newBinaryString.charCodeAt(i);
+                                    }
+                                    const finalBlob = new Blob([byteArray], { type: file.type });
+                                    
+                                    console.log('EXIF data injected into compressed image');
+                                    callback(finalBlob);
+                                } catch (exifInsertError) {
+                                    console.log('Error inserting EXIF data, using compressed image without EXIF:', exifInsertError);
+                                    callback(blob);
+                                }
+                            };
+                            blobReader.onerror = () => {
+                                console.log('Error reading blob for EXIF injection, using compressed image without EXIF');
+                                callback(blob);
+                            };
+                            blobReader.readAsBinaryString(blob);
+                        } catch (exifError) {
+                            console.log('Error processing EXIF, using compressed image without EXIF:', exifError);
+                            callback(blob);
+                        }
+                    } else {
+                        callback(blob);
+                    }
+                };
+                
+                const tryCompress = (q: number): void => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    if (!ctx) {
+                        reject(new Error('Could not get canvas context'));
+                        return;
+                    }
+                    
+                    // Calculate dimensions - maintain aspect ratio
+                    let width = img.width;
+                    let height = img.height;
+                    const maxDimension = 1920; // Max width or height
+                    
+                    if (width > maxDimension || height > maxDimension) {
+                        if (width > height) {
+                            height = (height / width) * maxDimension;
+                            width = maxDimension;
+                        } else {
+                            width = (width / height) * maxDimension;
+                            height = maxDimension;
+                        }
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    // Draw image on canvas
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Convert to blob
+                    canvas.toBlob((blob) => {
+                        if (!blob) {
+                            reject(new Error('Failed to create blob'));
+                            return;
+                        }
+                        
+                        // Process blob with EXIF injection if needed
+                        processBlobWithEXIF(blob, q, (finalBlob) => {
+                            attempts++;
+                            
+                            // If we're close enough to target size or reached max attempts, use this
+                            if (finalBlob.size <= targetSizeBytes * 1.1 || attempts >= maxAttempts) {
+                                // Convert blob to File
+                                const compressedFile = new File([finalBlob], file.name, {
+                                    type: file.type,
+                                    lastModified: Date.now()
+                                });
+                                resolve(compressedFile);
+                                return;
+                            }
+                            
+                            // If still too large, reduce quality
+                            if (finalBlob.size > targetSizeBytes) {
+                                bestBlob = finalBlob; // Keep track of best (smallest) blob that's still too large
+                                maxQuality = q; // Current quality is too high, reduce max
+                                const newQuality = (q + minQuality) / 2; // Try lower quality
+                                if (Math.abs(newQuality - q) < 0.01 || newQuality <= minQuality) {
+                                    // Quality difference too small or reached minimum, use best blob or current
+                                    const finalBlobToUse = bestBlob && bestBlob.size < finalBlob.size ? bestBlob : finalBlob;
+                                    const compressedFile = new File([finalBlobToUse], file.name, {
+                                        type: file.type,
+                                        lastModified: Date.now()
+                                    });
+                                    resolve(compressedFile);
+                                    return;
+                                }
+                                tryCompress(newQuality);
+                            } else {
+                                // Too small, we can increase quality
+                                minQuality = q; // Current quality works, we can try higher
+                                const newQuality = (q + maxQuality) / 2; // Try higher quality
+                                if (Math.abs(newQuality - q) < 0.01 || newQuality >= maxQuality) {
+                                    // Quality difference too small or reached maximum, use current blob
+                                    const compressedFile = new File([finalBlob], file.name, {
+                                        type: file.type,
+                                        lastModified: Date.now()
+                                    });
+                                    resolve(compressedFile);
+                                    return;
+                                }
+                                tryCompress(newQuality);
+                            }
+                        });
+                    }, file.type, q);
+                };
+                
+                // Start compression
+                tryCompress(quality);
+            };
+            
+            img.onerror = () => {
+                reject(new Error('Failed to load image'));
+            };
+            
+            img.src = e.target.result;
+        };
+        
+        reader.onerror = () => {
+            reject(new Error('Failed to read file'));
+        };
+        
+        reader.readAsDataURL(file);
     }
 
 }

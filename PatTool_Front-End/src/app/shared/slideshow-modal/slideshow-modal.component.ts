@@ -2366,19 +2366,25 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           this.slideshowTranslateY = 0;
         } else if (this.slideshowZoom > minZoom) {
           const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
-          const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
-          if (container && imgEl) {
+          if (container) {
             const rect = container.getBoundingClientRect();
-            const currentPinchCenterX = (touch1.clientX + touch2.clientX) / 2 - rect.left;
-            const currentPinchCenterY = (touch1.clientY + touch2.clientY) / 2 - rect.top;
+            const containerCenterX = rect.width / 2;
+            const containerCenterY = rect.height / 2;
             
-            const initialPinchCenterX = this.touchStartX;
-            const initialPinchCenterY = this.touchStartY;
+            // Get initial pinch center relative to container center (where pinch started)
+            // This is the point we want to keep fixed during zoom
+            const initialPinchCenterXRelative = this.touchStartX - containerCenterX;
+            const initialPinchCenterYRelative = this.touchStartY - containerCenterY;
             
-            const zoomChange = this.slideshowZoom / this.touchStartZoom;
+            // Use the same logic as zoomOnPoint: find the image point at old zoom, then apply new zoom
+            // At old zoom: imagePoint = (containerPoint - center - translate) / zoom
+            const imagePointX = (initialPinchCenterXRelative - this.pinchStartTranslateX) / this.touchStartZoom;
+            const imagePointY = (initialPinchCenterYRelative - this.pinchStartTranslateY) / this.touchStartZoom;
             
-            this.slideshowTranslateX = initialPinchCenterX - (initialPinchCenterX - this.pinchStartTranslateX) * zoomChange;
-            this.slideshowTranslateY = initialPinchCenterY - (initialPinchCenterY - this.pinchStartTranslateY) * zoomChange;
+            // After zoom, we want this image point to stay at the same container position
+            // newTranslate = pointRelativeToCenter - imagePoint * newZoom
+            this.slideshowTranslateX = initialPinchCenterXRelative - imagePointX * this.slideshowZoom;
+            this.slideshowTranslateY = initialPinchCenterYRelative - imagePointY * this.slideshowZoom;
           }
         }
         

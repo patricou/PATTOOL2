@@ -40,6 +40,7 @@ import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-
 import { SlideshowModalModule } from './shared/slideshow-modal/slideshow-modal.module';
 import { LinksAdminModule } from './admin/links-admin/links-admin.module';
 import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
+import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -77,7 +78,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{ path: '', component: HomePageComponent },
 			{ path: 'even', component: HomeEvenementsComponent },
 			{ path: 'neweven', component: CreateEvenementComponent },
-			{ path: 'updeven/:id', component: UpdateEvenementComponent },
+			{ path: 'updeven/:id', component: UpdateEvenementComponent, canDeactivate: [UnsavedChangesGuard] },
 			{ path: 'details-evenement/:id', component: DetailsEvenementComponent },
 			{ path: 'results', component: ChatComponent },
 			{ path: 'maps', component: AboutComponent },

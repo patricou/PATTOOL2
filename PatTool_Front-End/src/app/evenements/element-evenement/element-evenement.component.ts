@@ -266,6 +266,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
         if (this.photosSelectorModalComponent) {
             this.photosSelectorModalComponent.evenement = this.evenement;
             this.photosSelectorModalComponent.includeUploadedChoice = includeUploadedChoice;
+            this.photosSelectorModalComponent.user = this.user;
             this.photosSelectorModalComponent.open();
         }
     }

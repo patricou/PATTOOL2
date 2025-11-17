@@ -155,6 +155,10 @@
                            (click)="open(uploadfilecontent); closeMenu(); $event.preventDefault()">
                         <i class="fa fa-cloud-upload"></i> {{ "UPLOADFILE.MENU" | translate }}
                     </a></li>
+                    <li [hidden]="!isAuthenticated()"><a class="dropdown-item" 
+                           (click)="open(sharefilecontent); closeMenu(); $event.preventDefault()">
+                        <i class="fa fa-share-alt"></i> {{ "SHAREFILE.MENU" | translate }}
+                    </a></li>
                     <li class="dropdown-submenu" 
                         #documentationSubmenuItem
                         (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false; positionDocumentationSubmenu()"
@@ -364,31 +368,70 @@
                     </div>
                 </div>
                 
+                <!-- Image Compression Toggle -->
+                <div class="compression-toggle-container mb-3">
+                    <div class="form-check form-switch compression-switch-wrapper">
+                        <input class="form-check-input compression-switch" type="checkbox" id="compressImagesToggle" 
+                               [(ngModel)]="compressImages" name="compressImages">
+                        <label class="form-check-label compression-label" for="compressImagesToggle">
+                            <i class="fa fa-image compression-icon"></i> 
+                            <span class="compression-text">{{"UPLOADFILE.COMPRESS_IMAGES" | translate}}</span>
+                        </label>
+                    </div>
+                    <small class="compression-desc d-block mt-2">
+                        {{"UPLOADFILE.COMPRESS_IMAGES_DESC" | translate}}
+                    </small>
+                </div>
+
                 <!-- Selected Files Display -->
                 <div *ngIf="selectedFiles && selectedFiles.length > 0" class="selected-files">
-                    <h6 class="files-title">
-                        <i class="fa fa-files-o"></i> {{"UPLOADFILE.SELECTED_FILES" | translate}} ({{selectedFiles.length}})
-                    </h6>
-                    
                     <!-- Dropdown for file list -->
                     <div class="dropdown">
-                        <button class="btn btn-outline-secondary dropdown-toggle w-100" 
+                        <button class="btn btn-outline-primary dropdown-toggle w-100 file-selector-btn" 
                                 type="button" 
                                 id="filesDropdown" 
                                 data-bs-toggle="dropdown" 
                                 aria-expanded="false">
-                            <i class="fa fa-list"></i> {{"UPLOADFILE.SELECTED_FILES" | translate}} ({{selectedFiles.length}})
+                            <i class="fa fa-folder-open me-2"></i> 
+                            <span class="file-selector-text">{{"UPLOADFILE.SELECTED_FILES" | translate}}</span>
+                            <span class="badge bg-primary ms-2">{{selectedFiles.length}}</span>
                         </button>
-                        <ul class="dropdown-menu w-100" aria-labelledby="filesDropdown">
-                            <li *ngFor="let file of selectedFiles; let i = index" class="dropdown-item file-dropdown-item">
-                                <div class="file-info-dropdown">
-                                    <div class="file-details">
-                                        <i class="fa fa-file file-icon"></i>
-                                        <span class="file-name">{{file.name}}</span>
-                                        <small class="file-size">({{formatFileSize(file.size)}})</small>
+                        <ul class="dropdown-menu w-100 file-list-dropdown" aria-labelledby="filesDropdown">
+                            <li *ngFor="let file of selectedFiles; let i = index" class="file-list-item">
+                                <div class="file-item-container">
+                                    <div class="file-item-icon" *ngIf="!isImageFile(file)">
+                                        <i class="fa" 
+                                           [class.fa-file]="!isFileCompressed(file)"
+                                           [class.fa-file-image-o]="isFileCompressed(file)"
+                                           [class.text-primary]="isFileCompressed(file)"
+                                           [class.text-secondary]="!isFileCompressed(file)"></i>
+                                    </div>
+                                    <div class="file-item-preview" *ngIf="isImageFile(file) && getFilePreviewUrl(file)">
+                                        <img [src]="getFilePreviewUrl(file)" 
+                                             [alt]="file.name"
+                                             class="file-preview-image"
+                                             (error)="hideImagePreview($event)">
+                                    </div>
+                                    <div class="file-item-info">
+                                        <div class="file-item-name">{{file.name}}</div>
+                                        <div class="file-item-size">
+                                            <span *ngIf="isFileCompressed(file) && getFileOriginalSize(file)" 
+                                                  class="file-size-original">
+                                                {{getFileOriginalSize(file)}}
+                                            </span>
+                                            <span class="file-size-current" 
+                                                  [class.text-success]="isFileCompressed(file)"
+                                                  [class.font-weight-bold]="isFileCompressed(file)">
+                                                {{getFileDisplaySize(file)}}
+                                            </span>
+                                            <span *ngIf="isFileCompressed(file)" 
+                                                  class="compression-badge">
+                                                <i class="fa fa-compress"></i>
+                                            </span>
+                                        </div>
                                     </div>
                                     <button type="button" 
-                                            class="btn btn-sm btn-outline-danger remove-file-btn-small" 
+                                            class="file-remove-btn" 
                                             (click)="removeFile(i); $event.stopPropagation()"
                                             title="Remove file">
                                         <i class="fa fa-times"></i>
@@ -399,24 +442,64 @@
                     </div>
                 </div>
 
-                <!-- Upload Progress -->
-                <div *ngIf="isLoading" class="upload-progress">
-                    <div class="progress-container">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">{{"UPLOADFILE.UPLOADING" | translate}}</span>
+                <!-- Unified Status Container -->
+                <div *ngIf="isCompressing || compressionStatus || isLoading || resultSaveOndisk" 
+                     class="unified-status-container mb-3"
+                     [class.status-compressing]="isCompressing"
+                     [class.status-compression-complete]="!isCompressing && compressionStatus && !isLoading && !resultSaveOndisk"
+                     [class.status-uploading]="isLoading && !isCompressing"
+                     [class.status-success]="resultSaveOndisk && (resultSaveOndisk.includes('OK') || resultSaveOndisk.includes('successful') || resultSaveOndisk.includes('succès') || resultSaveOndisk.includes('réussi') || resultSaveOndisk.includes('téléchargés'))"
+                     [class.status-error]="resultSaveOndisk && (resultSaveOndisk.includes('Error') || resultSaveOndisk.includes('Issue') || resultSaveOndisk.includes('Erreur') || resultSaveOndisk.includes('échoué') || resultSaveOndisk.includes('échec') || resultSaveOndisk.includes('failed'))">
+                    <div class="unified-status-content">
+                        <!-- Compression in Progress -->
+                        <div *ngIf="isCompressing && compressionProgress" class="d-flex align-items-center mb-2">
+                            <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                                <span class="visually-hidden">Compressing...</span>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="status-text">
+                                    <i class="fa fa-compress me-1"></i>
+                                    <strong>{{"UPLOADFILE.COMPRESSING" | translate}}</strong>
+                                    <span class="ms-2">
+                                        <strong>{{compressionProgress.current}} / {{compressionProgress.total}}</strong>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
-                        <p class="upload-text">{{"UPLOADFILE.UPLOADING" | translate}}...</p>
+                        
+                        <!-- Upload in Progress -->
+                        <div *ngIf="isLoading && uploadProgress" class="d-flex align-items-center">
+                            <div class="spinner-border text-primary me-2" role="status">
+                                <span class="visually-hidden">{{"UPLOADFILE.UPLOADING" | translate}}</span>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="status-text">
+                                    <i class="fa fa-cloud-upload me-1"></i>
+                                    <strong>{{"UPLOADFILE.UPLOADING" | translate}}...</strong>
+                                    <span class="ms-2">
+                                        <strong>{{uploadProgress.current}} / {{uploadProgress.total}}</strong>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Compression Complete (only when no upload is happening) -->
+                        <div *ngIf="!isCompressing && compressionStatus && !isLoading && !resultSaveOndisk" class="status-message">
+                            <i class="fa fa-check-circle text-success me-1"></i>
+                            <span [innerHTML]="compressionStatus"></span>
+                        </div>
+                        
+                        <!-- Upload Result -->
+                        <div *ngIf="resultSaveOndisk" class="status-message">
+                            <i class="fa" 
+                               [class.fa-check-circle]="resultSaveOndisk.includes('OK') || resultSaveOndisk.includes('successful')"
+                               [class.fa-exclamation-circle]="resultSaveOndisk.includes('Error') || resultSaveOndisk.includes('Issue')"
+                               [class.text-success]="resultSaveOndisk.includes('OK') || resultSaveOndisk.includes('successful')"
+                               [class.text-danger]="resultSaveOndisk.includes('Error') || resultSaveOndisk.includes('Issue')"
+                               class="me-1"></i>
+                            <span>{{resultSaveOndisk}}</span>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Result Message -->
-                <div *ngIf="resultSaveOndisk" class="upload-result" 
-                     [class.success]="resultSaveOndisk.includes('OK') || resultSaveOndisk.includes('successful')"
-                     [class.error]="resultSaveOndisk.includes('Error') || resultSaveOndisk.includes('Issue')">
-                    <i class="fa" 
-                       [class.fa-check-circle]="resultSaveOndisk.includes('OK') || resultSaveOndisk.includes('successful')"
-                       [class.fa-exclamation-circle]="resultSaveOndisk.includes('Error') || resultSaveOndisk.includes('Issue')"></i>
-                    {{resultSaveOndisk}}
                 </div>
 
                 <!-- Action Buttons -->
@@ -428,6 +511,177 @@
                     <button type="button" class="btn btn-outline-secondary clear-btn" 
                             (click)="clearFiles()" [disabled]="isLoading">
                         <i class="fa fa-trash"></i> {{"UPLOADFILE.CLEAR" | translate}}
+                    </button>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer pat-modal-footer">
+            <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+                <i class="fa fa-times"></i> {{"COMMUN.CLOSE" | translate}}
+            </button>
+        </div>
+    </div>
+</ng-template>
+
+<!-- Modal window for Share files -->
+<ng-template #sharefilecontent let-c="close" let-d="dismiss">
+    <div class="modal-content pat-upload-modal">
+        <div class="modal-header pat-modal-header">
+            <div class="modal-title-container">
+                <i class="fa fa-share-alt modal-icon"></i>
+                <h6 class="modal-title pat-modal-title">{{"SHAREFILE.TITLE" | translate}}</h6>
+            </div>
+        </div>
+        <div class="modal-body pat-modal-body">
+            <form (ngSubmit)="onShareSubmit()" enctype="multipart/form-data" class="upload-form">
+                <!-- File Drop Zone -->
+                <div class="file-drop-zone" 
+                     [class.has-files]="shareFiles && shareFiles.length > 0"
+                     [class.dragover]="isDragOver"
+                     (dragover)="onShareDragOver($event)"
+                     (dragleave)="onShareDragLeave($event)"
+                     (drop)="onShareFileDrop($event)">
+                    <div class="drop-zone-content">
+                        <i class="fa fa-share-alt drop-zone-icon"></i>
+                        <h6 class="drop-zone-title">{{"SHAREFILE.DROPZONE_TITLE" | translate}}</h6>
+                        <p class="drop-zone-subtitle">{{"SHAREFILE.DROPZONE_SUBTITLE" | translate}}</p>
+                        <input type="file" name="shareFiles" multiple (change)="onShareFilesSelected($event)" 
+                               class="file-input" id="shareFileInput" />
+                        <label for="shareFileInput" class="btn btn-outline-primary btn-lg file-select-btn" (click)="onShareFileSelectClick($event)">
+                            <i class="fa fa-folder-open"></i> {{"SHAREFILE.SELECT_FILES" | translate}}
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Image Compression Toggle -->
+                <div class="compression-toggle-container mb-3">
+                    <div class="form-check form-switch compression-switch-wrapper">
+                        <input class="form-check-input compression-switch" type="checkbox" id="compressShareImagesToggle" 
+                               [(ngModel)]="compressShareImages" name="compressShareImages">
+                        <label class="form-check-label compression-label" for="compressShareImagesToggle">
+                            <i class="fa fa-image compression-icon"></i> 
+                            <span class="compression-text">{{"SHAREFILE.COMPRESS_IMAGES" | translate}}</span>
+                        </label>
+                    </div>
+                    <small class="compression-desc d-block mt-2">
+                        {{"SHAREFILE.COMPRESS_IMAGES_DESC" | translate}}
+                    </small>
+                </div>
+
+                <!-- Selected Files Display -->
+                <div *ngIf="shareFiles && shareFiles.length > 0" class="selected-files">
+                    <!-- Dropdown for file list -->
+                    <div class="dropdown">
+                        <button class="btn btn-outline-primary dropdown-toggle w-100 file-selector-btn" 
+                                type="button" 
+                                id="shareFilesDropdown" 
+                                data-bs-toggle="dropdown" 
+                                aria-expanded="false">
+                            <i class="fa fa-folder-open me-2"></i> 
+                            <span class="file-selector-text">{{"SHAREFILE.SELECTED_FILES" | translate}}</span>
+                            <span class="badge bg-primary ms-2">{{shareFiles.length}}</span>
+                        </button>
+                        <ul class="dropdown-menu w-100 file-list-dropdown" aria-labelledby="shareFilesDropdown">
+                            <li *ngFor="let file of shareFiles; let i = index" class="file-list-item">
+                                <div class="file-item-container">
+                                    <div class="file-item-icon" *ngIf="!isImageFile(file)">
+                                        <i class="fa fa-file text-secondary"></i>
+                                    </div>
+                                    <div class="file-item-preview" *ngIf="isImageFile(file) && getShareFilePreviewUrl(file)">
+                                        <img [src]="getShareFilePreviewUrl(file)" 
+                                             [alt]="file.name"
+                                             class="file-preview-image"
+                                             (error)="hideImagePreview($event)">
+                                    </div>
+                                    <div class="file-item-info">
+                                        <div class="file-item-name">{{file.name}}</div>
+                                        <div class="file-item-size">
+                                            <span *ngIf="isShareFileCompressed(file) && getShareFileOriginalSize(file)" 
+                                                  class="file-size-original">
+                                                {{getShareFileOriginalSize(file)}}
+                                            </span>
+                                            <span class="file-size-current" 
+                                                  [class.text-success]="isShareFileCompressed(file)"
+                                                  [class.font-weight-bold]="isShareFileCompressed(file)">
+                                                {{getShareFileDisplaySize(file)}}
+                                            </span>
+                                            <span *ngIf="isShareFileCompressed(file)" 
+                                                  class="compression-badge">
+                                                <i class="fa fa-compress"></i>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button type="button" 
+                                            class="file-remove-btn" 
+                                            (click)="removeShareFile(i); $event.stopPropagation()"
+                                            title="Remove file">
+                                        <i class="fa fa-times"></i>
+                                    </button>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Share Status Container -->
+                <div *ngIf="isCompressingShare || isSharing || shareStatus" 
+                     class="unified-status-container mb-3"
+                     [class.status-compressing]="isCompressingShare"
+                     [class.status-uploading]="isSharing && !isCompressingShare"
+                     [class.status-success]="shareStatus && (shareStatus.includes('OK') || shareStatus.includes('successful') || shareStatus.includes('succès') || shareStatus.includes('réussi') || shareStatus.includes('partagé'))"
+                     [class.status-error]="shareStatus && (shareStatus.includes('Error') || shareStatus.includes('Issue') || shareStatus.includes('Erreur') || shareStatus.includes('échoué') || shareStatus.includes('échec') || shareStatus.includes('failed'))">
+                    <div class="unified-status-content">
+                        <!-- Compression in Progress -->
+                        <div *ngIf="isCompressingShare && shareCompressionProgress" class="d-flex align-items-center mb-2">
+                            <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                                <span class="visually-hidden">Compressing...</span>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="status-text">
+                                    <i class="fa fa-compress me-1"></i>
+                                    <strong>{{"SHAREFILE.COMPRESSING" | translate}}</strong>
+                                    <span class="ms-2">
+                                        <strong>{{shareCompressionProgress.current}} / {{shareCompressionProgress.total}}</strong>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sharing in Progress -->
+                        <div *ngIf="isSharing && !isCompressingShare" class="d-flex align-items-center">
+                            <div class="spinner-border text-primary me-2" role="status">
+                                <span class="visually-hidden">{{"SHAREFILE.SHARING" | translate}}</span>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="status-text">
+                                    <i class="fa fa-share-alt me-1"></i>
+                                    <strong>{{"SHAREFILE.SHARING" | translate}}...</strong>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Share Result -->
+                        <div *ngIf="shareStatus" class="status-message">
+                            <i class="fa" 
+                               [class.fa-check-circle]="shareStatus.includes('OK') || shareStatus.includes('successful') || shareStatus.includes('succès') || shareStatus.includes('réussi') || shareStatus.includes('partagé')"
+                               [class.fa-exclamation-circle]="shareStatus.includes('Error') || shareStatus.includes('Issue') || shareStatus.includes('Erreur') || shareStatus.includes('échoué') || shareStatus.includes('échec') || shareStatus.includes('failed')"
+                               [class.text-success]="shareStatus.includes('OK') || shareStatus.includes('successful') || shareStatus.includes('succès') || shareStatus.includes('réussi') || shareStatus.includes('partagé')"
+                               [class.text-danger]="shareStatus.includes('Error') || shareStatus.includes('Issue') || shareStatus.includes('Erreur') || shareStatus.includes('échoué') || shareStatus.includes('échec') || shareStatus.includes('failed')"
+                               class="me-1"></i>
+                            <span>{{shareStatus}}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary upload-btn" 
+                            [disabled]="!shareFiles || shareFiles.length === 0 || isSharing">
+                        <i class="fa fa-share-alt"></i> {{"SHAREFILE.BUTTONSUBMIT" | translate}}
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary clear-btn" 
+                            (click)="clearShareFiles()" [disabled]="isSharing">
+                        <i class="fa fa-trash"></i> {{"SHAREFILE.CLEAR" | translate}}
                     </button>
                 </div>
             </form>

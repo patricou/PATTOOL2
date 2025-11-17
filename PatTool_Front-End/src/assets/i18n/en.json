@@ -210,7 +210,8 @@
     },
     "EVENTUPDT": {
         "TITLE": "Activity Update",
-        "SUBMIT": "Submit"
+        "SUBMIT": "Submit",
+        "UNSAVED_CHANGES_CONFIRM": "You have unsaved changes. Are you sure you want to leave this page?"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "Activity deletion Confirmation :",
@@ -477,7 +478,42 @@
         "SELECT_FILES": "Browse Files",
         "SELECTED_FILES": "Selected Files",
         "UPLOADING": "Uploading",
-        "CLEAR": "Clear All"
+        "CLEAR": "Clear All",
+        "COMPRESS_IMAGES": "Compress images (~300KB)",
+        "COMPRESS_IMAGES_DESC": "Images will be compressed to approximately 300KB before sending (images only)",
+        "COMPRESSING": "Compressing...",
+        "COMPRESSING_IMAGE": "Compressing image {{current}}/{{total}}: {{fileName}}",
+        "COMPRESSED_IMAGE": "<strong>{{fileName}}</strong> compressed: {{originalSize}} → {{compressedSize}} ({{reduction}}% reduction)",
+        "COMPRESSION_ERROR": "Error compressing <strong>{{fileName}}</strong>. Original file will be used.",
+        "COMPRESSION_COMPLETE": "Compression complete: {{count}} image(s) compressed",
+        "UPLOADING_FILE": "File {{current}}/{{total}}: {{fileName}}",
+        "UPLOAD_SUCCESS_ALL": "All files uploaded successfully ({{count}} file(s))",
+        "UPLOAD_PARTIAL": "Partial upload: {{success}} succeeded, {{failed}} failed",
+        "UPLOAD_FAILED_ALL": "All files failed to upload ({{count}} file(s))",
+        "DURATION_MIN_SEC": "Duration: {{minutes}} min {{seconds}} s",
+        "DURATION_SEC": "Duration: {{seconds}} s"
+    },
+    "SHAREFILE": {
+        "MENU": "Share files",
+        "TITLE": "Share Files",
+        "DROPZONE_TITLE": "Drag and drop files here",
+        "DROPZONE_SUBTITLE": "or click to browse",
+        "SELECT_FILES": "Browse files",
+        "SELECTED_FILES": "Selected files",
+        "SHARING": "Sharing",
+        "CLEAR": "Clear all",
+        "BUTTONSUBMIT": "Share",
+        "COMPRESS_IMAGES": "Compress images (~300KB)",
+        "COMPRESS_IMAGES_DESC": "Images will be compressed to approximately 300KB before sharing (images only)",
+        "COMPRESSING": "Compressing...",
+        "SHARE_TITLE": "File sharing",
+        "SHARE_TEXT": "Sharing {{count}} file(s)",
+        "SHARE_SUCCESS": "{{count}} file(s) shared successfully",
+        "SHARE_CANCELLED": "Share cancelled",
+        "SHARE_ERROR": "Error sharing files",
+        "EMAIL_SUBJECT": "Sharing {{count}} file(s)",
+        "EMAIL_BODY": "Files to share: {{files}}",
+        "EMAIL_OPENED": "Email client opened"
     },
     "PATGPT": {
         "TITLE": "PatGPT",
