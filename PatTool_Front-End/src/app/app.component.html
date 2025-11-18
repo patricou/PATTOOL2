@@ -342,6 +342,9 @@
 <ng-template #uploadfilecontent let-c="close" let-d="dismiss">
     <div class="modal-content pat-upload-modal">
         <div class="modal-header pat-modal-header">
+            <button type="button" class="btn btn-outline-light btn-sm rounded-circle modal-close-btn-left" (click)="c('Close click')" aria-label="Close">
+                <i class="fa fa-times"></i>
+            </button>
             <div class="modal-title-container">
                 <i class="fa fa-cloud-upload modal-icon"></i>
                 <h6 class="modal-title pat-modal-title">{{"UPLOADFILE.TITLE" | translate}}</h6>
@@ -527,6 +530,9 @@
 <ng-template #sharefilecontent let-c="close" let-d="dismiss">
     <div class="modal-content pat-upload-modal">
         <div class="modal-header pat-modal-header">
+            <button type="button" class="btn btn-outline-light btn-sm rounded-circle modal-close-btn-left" (click)="c('Close click')" aria-label="Close">
+                <i class="fa fa-times"></i>
+            </button>
             <div class="modal-title-container">
                 <i class="fa fa-share-alt modal-icon"></i>
                 <h6 class="modal-title pat-modal-title">{{"SHAREFILE.TITLE" | translate}}</h6>

@@ -43,93 +43,74 @@
 
                 <!-- Desktop: Full controls -->
                 <div class="desktop-controls d-none d-md-flex">
-                    <!-- Filter Section -->
-                    <div class="filter-section">
-                        <div class="filter-header">
-                            <i class="fa fa-filter"></i>
-                            <span class="filter-label">{{ 'EVENTHOME.EVENTFILTRE' | translate }}</span>
-                        </div>
-                        <div class="search-filter-row">
-                            <div class="filter-input-container-desktop">
-                                <i class="fa fa-search search-icon"></i>
-                                <input type="text" [value]="dataFIlter" #searchterm
-                                    placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" 
-                                    class="filter-input" />
-                                <button class="filter-clear-btn" 
-                                    (click)="clearFilter()" 
-                                    type="button"
-                                    [ngbTooltip]="('COMMUN.CLEAR_FILTER' | translate)" 
-                                    placement="bottom"
-                                    container="body"
-                                    [class.disabled]="!dataFIlter || dataFIlter.trim() === ''">
-                                    <i class="fa fa-times"></i>
-                                </button>
-                            </div>
+                    <!-- Results Counter Section -->
+                    <div class="results-section-redesigned">
+                        <div class="results-counter-redesigned"
+                            [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
+                            <i class="fa fa-list-alt results-icon-redesigned"></i>
+                            <span class="count-value-redesigned">{{ filteredTotal }}</span>
                         </div>
                     </div>
 
-                    <!-- Results Counter Section -->
-                    <div class="results-section">
-                        <div class="results-counter"
-                            [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
-                            <div class="results-icon">
-                                <i class="fa fa-list-alt"></i>
-                            </div>
-                            <div class="results-content">
-                                <span class="count-value">{{ filteredTotal }}</span>
-                                <span class="count-label">{{ 'EVENTHOME.EVENTS_FOUND' | translate }}</span>
-                            </div>
+                    <!-- Filter Section -->
+                    <div class="filter-section-redesigned">
+                        <div class="filter-input-container-desktop">
+                            <i class="fa fa-search search-icon"></i>
+                            <input type="text" [value]="dataFIlter" #searchterm
+                                placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" 
+                                class="filter-input" />
+                            <button class="filter-clear-btn" 
+                                (click)="clearFilter()" 
+                                type="button"
+                                [ngbTooltip]="('COMMUN.CLEAR_FILTER' | translate)" 
+                                placement="bottom"
+                                container="body"
+                                [class.disabled]="!dataFIlter || dataFIlter.trim() === ''">
+                                <i class="fa fa-times"></i>
+                            </button>
                         </div>
                     </div>
 
                     <!-- View Controls Section -->
-                    <div class="view-controls-section">
-                        <div class="view-controls-header">
-                            <i class="fa fa-eye"></i>
-                            <span class="view-label">{{ 'EVENTHOME.VIEW_OPTIONS' | translate }}</span>
+                    <div class="view-controls-section-redesigned">
+                        <!-- Cards/List Toggle Button -->
+                        <div class="view-toggle-group-redesigned">
+                            <button class="btn btn-view-toggle-redesigned" 
+                                [class.active]="!isCompactView"
+                                (click)="isCompactView = false"
+                                ngbTooltip="{{ 'EVENTHOME.VIEW_CARDS' | translate }}" 
+                                placement="bottom" container="body">
+                                <i class="fa fa-th-large"></i>
+                            </button>
+                            <button class="btn btn-view-toggle-redesigned" 
+                                [class.active]="isCompactView"
+                                (click)="isCompactView = true"
+                                ngbTooltip="{{ 'EVENTHOME.VIEW_LIST' | translate }}" 
+                                placement="bottom" container="body">
+                                <i class="fa fa-list"></i>
+                            </button>
                         </div>
-                        <div class="view-controls">
-                            <!-- Cards/List Toggle Button -->
-                            <div class="view-toggle-group">
-                                <button class="btn btn-view-toggle" 
-                                    [class.active]="!isCompactView"
-                                    (click)="isCompactView = false"
-                                    ngbTooltip="{{ 'EVENTHOME.VIEW_CARDS' | translate }}" 
-                                    placement="bottom" container="body">
-                                    <i class="fa fa-th-large"></i>
-                                    <span class="view-toggle-label">{{ 'EVENTHOME.VIEW_CARDS' | translate }}</span>
-                                </button>
-                                <button class="btn btn-view-toggle" 
-                                    [class.active]="isCompactView"
-                                    (click)="isCompactView = true"
-                                    ngbTooltip="{{ 'EVENTHOME.VIEW_LIST' | translate }}" 
-                                    placement="bottom" container="body">
-                                    <i class="fa fa-list"></i>
-                                    <span class="view-toggle-label">{{ 'EVENTHOME.VIEW_LIST' | translate }}</span>
-                                </button>
-                            </div>
-                            
-                            <!-- Compact View Selector -->
-                            <div class="compact-view-selector">
-                                <label class="compact-view-label" for="titleOnlyToggle">
-                                    <i class="fa fa-compress"></i>
-                                    <span>{{ 'EVENTHOME.COMPACT_VIEW' | translate }}</span>
-                                </label>
-                                <div class="compact-toggle-wrapper"
-                                    ngbTooltip="{{ titleOnlyView ? ('EVENTHOME.TITLE_ONLY_COMPLET' | translate) : ('EVENTHOME.TITLE_ONLY_HINT' | translate) }}"
-                                    placement="bottom" container="body">
-                                    <div class="compact-toggle">
-                                        <input class="compact-toggle-input" type="checkbox" id="titleOnlyToggle"
-                                            [(ngModel)]="titleOnlyView">
-                                        <label class="compact-toggle-label" for="titleOnlyToggle">
-                                            <span class="toggle-track"></span>
-                                            <span class="toggle-thumb">
-                                                <i class="fa" [class.fa-align-justify]="!titleOnlyView"
-                                                    [class.fa-align-center]="titleOnlyView"></i>
-                                            </span>
-                                        </label>
-                                        <span class="visually-hidden">{{ 'EVENTHOME.TITLE_ONLY_HINT' | translate }}</span>
-                                    </div>
+                        
+                        <!-- Compact View Selector -->
+                        <div class="compact-view-selector-redesigned">
+                            <span class="compact-view-label-redesigned">
+                                <i class="fa fa-compress"></i>
+                                <span>{{ 'EVENTHOME.COMPACT_VIEW' | translate }}</span>
+                            </span>
+                            <div class="compact-toggle-wrapper-redesigned"
+                                ngbTooltip="{{ titleOnlyView ? ('EVENTHOME.TITLE_ONLY_COMPLET' | translate) : ('EVENTHOME.TITLE_ONLY_HINT' | translate) }}"
+                                placement="bottom" container="body">
+                                <div class="compact-toggle">
+                                    <input class="compact-toggle-input" type="checkbox" id="titleOnlyToggle"
+                                        [(ngModel)]="titleOnlyView">
+                                    <label class="compact-toggle-label" for="titleOnlyToggle">
+                                        <span class="toggle-track"></span>
+                                        <span class="toggle-thumb">
+                                            <i class="fa" [class.fa-align-justify]="!titleOnlyView"
+                                                [class.fa-align-center]="titleOnlyView"></i>
+                                        </span>
+                                    </label>
+                                    <span class="visually-hidden">{{ 'EVENTHOME.TITLE_ONLY_HINT' | translate }}</span>
                                 </div>
                             </div>
                         </div>

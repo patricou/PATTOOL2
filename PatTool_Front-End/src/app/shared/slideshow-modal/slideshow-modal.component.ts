@@ -1799,32 +1799,40 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
                      document.querySelector('.slideshow-image-wrapper') as HTMLElement;
     if (!container) return;
     
-    // Use getBoundingClientRect() to get the actual visible dimensions of the container
-    const rect = container.getBoundingClientRect();
-    if (!rect || rect.width === 0 || rect.height === 0) return;
+    // Get the image element to find its actual position
+    const imgElement = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
+    if (!imgElement) return;
     
-    const containerCenterX = rect.width / 2;
-    const containerCenterY = rect.height / 2;
+    // Get container and image bounding rects
+    const containerRect = container.getBoundingClientRect();
+    if (!containerRect || containerRect.width === 0 || containerRect.height === 0) return;
     
-    // For zooming on center: pointX and pointY should be container center
-    // But we accept them as parameters for flexibility
-    const zoomPointX = pointX;
-    const zoomPointY = pointY;
+    const imgRect = imgElement.getBoundingClientRect();
+    if (!imgRect || imgRect.width === 0 || imgRect.height === 0) return;
     
-    // Convert zoom point to relative to container center
-    const pointRelativeToCenterX = zoomPointX - containerCenterX;
-    const pointRelativeToCenterY = zoomPointY - containerCenterY;
+    // pointX and pointY are in container coordinates (relative to container's top-left)
+    // Convert to viewport coordinates
+    const viewportX = containerRect.left + pointX;
+    const viewportY = containerRect.top + pointY;
     
-    // Find the image point that corresponds to this container point at old zoom
-    // With transform-origin center: containerPoint = center + translate + imagePoint * zoom
-    // So: imagePoint = (containerPoint - center - translate) / zoom
-    const imagePointX = (pointRelativeToCenterX - this.slideshowTranslateX) / oldZoom;
-    const imagePointY = (pointRelativeToCenterY - this.slideshowTranslateY) / oldZoom;
+    // Find the image's center in viewport coordinates
+    const imgCenterViewportX = imgRect.left + imgRect.width / 2;
+    const imgCenterViewportY = imgRect.top + imgRect.height / 2;
     
-    // After zoom, we want this image point to stay at the same container position
-    // newTranslate = pointRelativeToCenter - imagePoint * newZoom
-    this.slideshowTranslateX = pointRelativeToCenterX - imagePointX * newZoom;
-    this.slideshowTranslateY = pointRelativeToCenterY - imagePointY * newZoom;
+    // Calculate the pinch point relative to the image's center (in viewport coords)
+    const pinchRelativeToImgCenterX = viewportX - imgCenterViewportX;
+    const pinchRelativeToImgCenterY = viewportY - imgCenterViewportY;
+    
+    // At oldZoom, what point on the image (in image-space) was at this location?
+    // The image is scaled from its center, so: imagePoint = (pinchRelative - translate) / oldZoom
+    const imagePointX = (pinchRelativeToImgCenterX - this.slideshowTranslateX) / oldZoom;
+    const imagePointY = (pinchRelativeToImgCenterY - this.slideshowTranslateY) / oldZoom;
+    
+    // After zooming to newZoom, we want this same image point to stay at the same viewport location
+    // So: pinchRelative = newTranslate + imagePoint * newZoom
+    // Therefore: newTranslate = pinchRelative - imagePoint * newZoom
+    this.slideshowTranslateX = pinchRelativeToImgCenterX - imagePointX * newZoom;
+    this.slideshowTranslateY = pinchRelativeToImgCenterY - imagePointY * newZoom;
   }
   
   // Helper to zoom on container center (always centers on visible center)
@@ -2257,6 +2265,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   private getTouchCenter(touch1: Touch, touch2: Touch): { x: number; y: number } {
+    // Use clientX/clientY (viewport coordinates) for consistency
+    // getBoundingClientRect() also uses viewport coordinates, so this ensures consistency
+    // This is the most reliable approach for modal-based UI where scroll is typically disabled
     return {
       x: (touch1.clientX + touch2.clientX) / 2,
       y: (touch1.clientY + touch2.clientY) / 2
@@ -2299,12 +2310,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.pinchStartTranslateX = this.slideshowTranslateX;
       this.pinchStartTranslateY = this.slideshowTranslateY;
       
-      const center = this.getTouchCenter(touch1, touch2);
+      // Calculate the initial pinch center (where the pinch started)
+      // This will be the fixed zoom point throughout the entire pinch gesture
+      const initialCenter = this.getTouchCenter(touch1, touch2);
       const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
       if (container) {
         const rect = container.getBoundingClientRect();
-        this.touchStartX = center.x - rect.left;
-        this.touchStartY = center.y - rect.top;
+        // Both getTouchCenter and getBoundingClientRect use viewport coordinates
+        // So we can directly subtract to get container-relative coordinates
+        this.touchStartX = initialCenter.x - rect.left;
+        this.touchStartY = initialCenter.y - rect.top;
       }
     }
   }
@@ -2342,13 +2357,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
         
         const previousZoom = this.slideshowZoom;
-        const previousTranslateX = this.slideshowTranslateX;
-        const previousTranslateY = this.slideshowTranslateY;
         this.slideshowZoom = parseFloat(newZoom.toFixed(2));
-        
-        // Recalculate image dimensions immediately after zoom change
-        this.updateImageDimensions();
-        this.updateContainerDimensions();
         
         // Si on atteint le zoom minimum, recentrer l'image
         if (this.slideshowZoom <= minZoom) {
@@ -2357,31 +2366,38 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         } else if (this.slideshowZoom > minZoom) {
           const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
           if (container) {
+            // Get fresh bounding rect to ensure we have current position
             const rect = container.getBoundingClientRect();
-            const containerCenterX = rect.width / 2;
-            const containerCenterY = rect.height / 2;
+            if (!rect || rect.width === 0 || rect.height === 0) {
+              return;
+            }
             
-            // Calculate the CURRENT center of the two fingers
-            const currentPinchCenter = this.getTouchCenter(touch1, touch2);
-            const currentPinchCenterXRelative = (currentPinchCenter.x - rect.left) - containerCenterX;
-            const currentPinchCenterYRelative = (currentPinchCenter.y - rect.top) - containerCenterY;
+            // Use the ORIGINAL pinch center (where pinch started) as the fixed zoom point
+            // touchStartX and touchStartY are stored in container-relative coordinates from touchStart
+            // Since the container (modal) shouldn't move during a pinch, these values should be correct
+            let zoomPointX = this.touchStartX;
+            let zoomPointY = this.touchStartY;
             
-            // Find the image point that corresponds to the current pinch center at the OLD zoom
-            // At old zoom: imagePoint = (containerPoint - center - translate) / zoom
-            const imagePointX = (currentPinchCenterXRelative - previousTranslateX) / previousZoom;
-            const imagePointY = (currentPinchCenterYRelative - previousTranslateY) / previousZoom;
+            // Safety check: if stored values seem invalid, recalculate from current touches
+            if (zoomPointX < 0 || zoomPointY < 0 || isNaN(zoomPointX) || isNaN(zoomPointY)) {
+              const currentPinchCenter = this.getTouchCenter(touch1, touch2);
+              zoomPointX = currentPinchCenter.x - rect.left;
+              zoomPointY = currentPinchCenter.y - rect.top;
+            }
             
-            // After zoom, we want this image point to stay at the same container position (current pinch center)
-            // newTranslate = pointRelativeToCenter - imagePoint * newZoom
-            this.slideshowTranslateX = currentPinchCenterXRelative - imagePointX * this.slideshowZoom;
-            this.slideshowTranslateY = currentPinchCenterYRelative - imagePointY * this.slideshowZoom;
+            // Call zoomOnPoint BEFORE updating dimensions
+            // It expects: newZoom, pointX (container-relative), pointY (container-relative), oldZoom
+            // It will calculate the new translate values to keep the point under fingers fixed
+            this.zoomOnPoint(this.slideshowZoom, zoomPointX, zoomPointY, previousZoom);
           }
         }
         
+        // Update dimensions after zoom calculation
+        this.updateImageDimensions();
+        this.updateContainerDimensions();
+        
         this.lastTouchDistance = currentDistance;
         this.clampSlideshowTranslation();
-        // Recalculate again after clamping
-        this.updateImageDimensions();
       }
     }
   }

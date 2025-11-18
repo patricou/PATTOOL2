@@ -209,39 +209,39 @@
     height: 1px;
 }
 
-/* Animation pour les cards - Approche simple et fiable */
+/* Animation pour les cards - Disabled */
 .cards-container:not(.cards-animated) .pat-card {
-    opacity: 0 !important;
-    transform: translateY(50px) !important;
+    opacity: 1 !important;
+    transform: none !important;
 }
 
-.cards-container .pat-card {
+/* .cards-container .pat-card {
     transition: opacity 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), 
                 transform 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
-}
+} */
 
 .cards-container.cards-animated .pat-card {
     opacity: 1 !important;
-    transform: translateY(0) !important;
+    transform: none !important;
 }
 
-/* Délais progressifs pour effet cascade */
-.cards-container.cards-animated .pat-card:nth-child(1) { transition-delay: 0.05s; }
-.cards-container.cards-animated .pat-card:nth-child(2) { transition-delay: 0.1s; }
-.cards-container.cards-animated .pat-card:nth-child(3) { transition-delay: 0.15s; }
-.cards-container.cards-animated .pat-card:nth-child(4) { transition-delay: 0.2s; }
-.cards-container.cards-animated .pat-card:nth-child(5) { transition-delay: 0.25s; }
-.cards-container.cards-animated .pat-card:nth-child(6) { transition-delay: 0.3s; }
-.cards-container.cards-animated .pat-card:nth-child(7) { transition-delay: 0.35s; }
-.cards-container.cards-animated .pat-card:nth-child(8) { transition-delay: 0.4s; }
-.cards-container.cards-animated .pat-card:nth-child(9) { transition-delay: 0.45s; }
-.cards-container.cards-animated .pat-card:nth-child(10) { transition-delay: 0.5s; }
-.cards-container.cards-animated .pat-card:nth-child(11) { transition-delay: 0.55s; }
-.cards-container.cards-animated .pat-card:nth-child(12) { transition-delay: 0.6s; }
-.cards-container.cards-animated .pat-card:nth-child(13) { transition-delay: 0.65s; }
-.cards-container.cards-animated .pat-card:nth-child(14) { transition-delay: 0.7s; }
-.cards-container.cards-animated .pat-card:nth-child(15) { transition-delay: 0.75s; }
-.cards-container.cards-animated .pat-card:nth-child(n+16) { transition-delay: 0.8s; }
+/* Délais progressifs pour effet cascade - Disabled */
+/* .cards-container.cards-animated .pat-card:nth-child(1) { transition-delay: 0.05s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(2) { transition-delay: 0.1s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(3) { transition-delay: 0.15s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(4) { transition-delay: 0.2s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(5) { transition-delay: 0.25s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(6) { transition-delay: 0.3s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(7) { transition-delay: 0.35s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(8) { transition-delay: 0.4s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(9) { transition-delay: 0.45s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(10) { transition-delay: 0.5s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(11) { transition-delay: 0.55s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(12) { transition-delay: 0.6s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(13) { transition-delay: 0.65s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(14) { transition-delay: 0.7s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(15) { transition-delay: 0.75s; } */
+/* .cards-container.cards-animated .pat-card:nth-child(n+16) { transition-delay: 0.8s; } */
 
 .pat-card {
     margin: 0 0 1.25rem;
@@ -269,7 +269,7 @@
         radial-gradient(90% 150% at 80% -10%, rgba(59, 130, 246, 0.14), transparent),
         linear-gradient(115deg, rgba(59, 130, 246, 0.12), transparent 55%);
     opacity: 0;
-    transition: opacity 0.35s ease;
+    /* transition: opacity 0.35s ease; */
     z-index: 1;
     pointer-events: none;
 }
@@ -281,7 +281,7 @@
     border-radius: inherit;
     border: 1px solid rgba(59, 130, 246, 0.2);
     opacity: 0;
-    transition: opacity 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+    /* transition: opacity 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease; */
     z-index: 2;
     pointer-events: none;
 }
@@ -525,9 +525,256 @@
         display: flex;
         flex-direction: row;
         align-items: center;
+        justify-content: space-between;
         gap: 0.75rem;
         width: 100%;
     }
+}
+
+/* ===== REDESIGNED DESKTOP CONTROLS - Single Line Layout ===== */
+.filter-section-redesigned {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.filter-section-redesigned .filter-input-container-desktop {
+    width: 100%;
+    max-width: 450px;
+    min-width: 320px;
+    margin: 0 auto;
+    height: 36px;
+}
+
+.filter-section-redesigned .filter-input-container-desktop .filter-input {
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.5;
+    padding: 0 40px 0 36px;
+}
+
+.filter-section-redesigned .filter-input-container-desktop .search-icon {
+    left: 12px;
+    font-size: 0.85rem;
+}
+
+.filter-section-redesigned .filter-input-container-desktop .filter-clear-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 0.8rem;
+}
+
+.results-section-redesigned {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+}
+
+.results-counter-redesigned {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.2;
+    border: 1px solid;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    min-height: 28px;
+}
+
+.results-counter-redesigned:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.results-icon-redesigned {
+    font-size: 0.7rem;
+    opacity: 0.9;
+    line-height: 1;
+}
+
+.count-value-redesigned {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.75rem;
+    line-height: 1.2;
+}
+
+.view-controls-section-redesigned {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.view-toggle-group-redesigned {
+    display: flex;
+    gap: 0.2rem;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 0.2rem;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.btn-view-toggle-redesigned {
+    min-width: 40px;
+    height: 32px;
+    padding: 0.3rem 0.5rem;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.btn-view-toggle-redesigned:hover {
+    background: rgba(255, 255, 255, 0.7);
+    color: #334155;
+}
+
+.btn-view-toggle-redesigned.active {
+    background: #ffffff;
+    color: #007bff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    font-weight: 600;
+}
+
+.btn-view-toggle-redesigned i {
+    font-size: 0.8rem;
+    line-height: 1;
+}
+
+.compact-view-selector-redesigned {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0.4rem;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 6px;
+    border: 1px solid rgba(15, 23, 42, 0.1);
+    transition: all 0.3s ease;
+}
+
+.compact-view-selector-redesigned:hover {
+    background: rgba(255, 255, 255, 0.95);
+    border-color: rgba(15, 23, 42, 0.15);
+}
+
+.compact-view-label-redesigned {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    font-weight: 500;
+    line-height: 1.2;
+    color: #495057;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.compact-view-label-redesigned i {
+    color: #007bff;
+    font-size: 0.7rem;
+    line-height: 1;
+}
+
+.compact-toggle-wrapper-redesigned {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 0.2rem;
+}
+
+/* Redesigned compact toggle for the new selector */
+.compact-view-selector-redesigned .compact-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin: 0;
+}
+
+.compact-view-selector-redesigned .compact-toggle-input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.compact-view-selector-redesigned .compact-toggle-label {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 22px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.15);
+}
+
+.compact-view-selector-redesigned .compact-toggle-label .toggle-track {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(145deg, #e2e8f0, #cbd5e1);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.compact-view-selector-redesigned .compact-toggle-label .toggle-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(15, 23, 42, 0.2), 0 1px 2px rgba(15, 23, 42, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), background 0.25s ease;
+    font-size: 0.6rem;
+}
+
+.compact-view-selector-redesigned .compact-toggle-input:checked + .compact-toggle-label .toggle-track {
+    background: linear-gradient(145deg, #3b82f6, #2563eb);
+    border-color: rgba(37, 99, 235, 0.3);
+}
+
+.compact-view-selector-redesigned .compact-toggle-input:checked + .compact-toggle-label .toggle-thumb {
+    transform: translateX(20px);
+    background: #ffffff;
+    color: #2563eb;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3), 0 1px 3px rgba(37, 99, 235, 0.2);
+}
+
+.compact-view-selector-redesigned .compact-toggle-input:focus-visible + .compact-toggle-label {
+    outline: 2px solid rgba(59, 130, 246, 0.5);
+    outline-offset: 2px;
+}
+
+.compact-view-selector-redesigned .compact-toggle-label:hover .toggle-track {
+    background: linear-gradient(145deg, #cbd5e1, #94a3b8);
+}
+
+.compact-view-selector-redesigned .compact-toggle-input:checked + .compact-toggle-label:hover .toggle-track {
+    background: linear-gradient(145deg, #2563eb, #1d4ed8);
 }
 
 /* ===== MOBILE: Filter Only View ===== */
@@ -1978,11 +2225,11 @@
     border: 1px solid #e9ecef;
     border-radius: 12px;
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
-    transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, outline 0.35s ease;
+    /* transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease, outline 0.35s ease; */
     cursor: pointer;
-    opacity: 0;
-    transform: translateX(-20px);
-    animation: slideInLeft 0.5s ease-out forwards;
+    opacity: 1;
+    transform: none;
+    /* animation: slideInLeft 0.5s ease-out forwards; */
     gap: 1rem;
     position: relative;
     overflow: visible;
@@ -1997,7 +2244,7 @@
     bottom: 0;
     background: linear-gradient(45deg, rgba(0, 123, 255, 0.1), rgba(0, 123, 255, 0.05));
     opacity: 0;
-    transition: opacity 0.3s ease;
+    /* transition: opacity 0.3s ease; */
     z-index: 1;
     pointer-events: none;
 }
@@ -2009,7 +2256,7 @@
     border-radius: inherit;
     border: 1px solid rgba(59, 130, 246, 0.25);
     opacity: 0;
-    transition: opacity 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+    /* transition: opacity 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease; */
     z-index: 2;
     pointer-events: none;
 }
@@ -2160,27 +2407,27 @@
     }
 }
 
-/* Délai progressif pour les cartes compactes */
-.compact-card:nth-child(1) { animation-delay: 0.1s; }
-.compact-card:nth-child(2) { animation-delay: 0.15s; }
-.compact-card:nth-child(3) { animation-delay: 0.2s; }
-.compact-card:nth-child(4) { animation-delay: 0.25s; }
-.compact-card:nth-child(5) { animation-delay: 0.3s; }
-.compact-card:nth-child(6) { animation-delay: 0.35s; }
-.compact-card:nth-child(7) { animation-delay: 0.4s; }
-.compact-card:nth-child(8) { animation-delay: 0.45s; }
-.compact-card:nth-child(9) { animation-delay: 0.5s; }
-.compact-card:nth-child(10) { animation-delay: 0.55s; }
-.compact-card:nth-child(11) { animation-delay: 0.6s; }
-.compact-card:nth-child(12) { animation-delay: 0.65s; }
-.compact-card:nth-child(13) { animation-delay: 0.7s; }
-.compact-card:nth-child(14) { animation-delay: 0.75s; }
-.compact-card:nth-child(15) { animation-delay: 0.8s; }
-.compact-card:nth-child(16) { animation-delay: 0.85s; }
-.compact-card:nth-child(17) { animation-delay: 0.9s; }
-.compact-card:nth-child(18) { animation-delay: 0.95s; }
-.compact-card:nth-child(19) { animation-delay: 1.0s; }
-.compact-card:nth-child(20) { animation-delay: 1.05s; }
+/* Délai progressif pour les cartes compactes - Disabled */
+/* .compact-card:nth-child(1) { animation-delay: 0.1s; } */
+/* .compact-card:nth-child(2) { animation-delay: 0.15s; } */
+/* .compact-card:nth-child(3) { animation-delay: 0.2s; } */
+/* .compact-card:nth-child(4) { animation-delay: 0.25s; } */
+/* .compact-card:nth-child(5) { animation-delay: 0.3s; } */
+/* .compact-card:nth-child(6) { animation-delay: 0.35s; } */
+/* .compact-card:nth-child(7) { animation-delay: 0.4s; } */
+/* .compact-card:nth-child(8) { animation-delay: 0.45s; } */
+/* .compact-card:nth-child(9) { animation-delay: 0.5s; } */
+/* .compact-card:nth-child(10) { animation-delay: 0.55s; } */
+/* .compact-card:nth-child(11) { animation-delay: 0.6s; } */
+/* .compact-card:nth-child(12) { animation-delay: 0.65s; } */
+/* .compact-card:nth-child(13) { animation-delay: 0.7s; } */
+/* .compact-card:nth-child(14) { animation-delay: 0.75s; } */
+/* .compact-card:nth-child(15) { animation-delay: 0.8s; } */
+/* .compact-card:nth-child(16) { animation-delay: 0.85s; } */
+/* .compact-card:nth-child(17) { animation-delay: 0.9s; } */
+/* .compact-card:nth-child(18) { animation-delay: 0.95s; } */
+/* .compact-card:nth-child(19) { animation-delay: 1.0s; } */
+/* .compact-card:nth-child(20) { animation-delay: 1.05s; } */
 
 /* Photos Gallery Styles */
 .photos-gallery {

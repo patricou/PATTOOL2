@@ -362,9 +362,9 @@
             [hidden]="!(hasImageFiles() || getPhotoFromFsCount() > 0)" 
             [ngStyle]="getFooterButtonStyles('photos')"
             (click)="openPhotos()"
-            placement="right"
+            placement="top"
             container="body"
-            ngbTooltip="{{ 'EVENTELEM.SLIDESHOW' | translate }}"
+            ngbTooltip="{{ 'EVENTELEM.SLIDESHOW_TITLE' | translate }}"
             (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getTotalPhotosCount() }}
     </button>
