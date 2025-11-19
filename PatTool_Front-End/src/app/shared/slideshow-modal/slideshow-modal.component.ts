@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef, ChangeDetectorRef, NgZone } from '@angular/core';
 import { HttpHeaders } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
@@ -140,16 +140,30 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public selectionRectHeight: number = 0;
   private selectionStartX: number = 0;
   private selectionStartY: number = 0;
+  
+  // Coordonnées des doigts pour affichage debug mobile
+  public touch1X: number = 0;
+  public touch1Y: number = 0;
+  public touch2X: number = 0;
+  public touch2Y: number = 0;
+  public showTouchCoordinates: boolean = false;
+  
+  // Debug mode
+  public showDebug: boolean = false;
   private selectionMouseMoveHandler?: (event: MouseEvent) => void;
   private selectionMouseUpHandler?: (event: MouseEvent) => void;
   
   // Getters pour le template (assurer une taille minimale pour l'affichage)
   public get displaySelectionWidth(): number {
-    return Math.max(1, this.selectionRectWidth);
+    // S'assurer qu'on retourne toujours une valeur valide et visible
+    const width = Math.max(50, this.selectionRectWidth);
+    return isNaN(width) || width <= 0 ? 100 : width;
   }
   
   public get displaySelectionHeight(): number {
-    return Math.max(1, this.selectionRectHeight);
+    // S'assurer qu'on retourne toujours une valeur valide et visible
+    const height = Math.max(50, this.selectionRectHeight);
+    return isNaN(height) || height <= 0 ? 100 : height;
   }
   
   // Touch state for mobile gestures
@@ -235,6 +249,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   constructor(
     private cdr: ChangeDetectorRef,
+    private ngZone: NgZone,
     private modalService: NgbModal,
     private translateService: TranslateService,
     private fileService: FileService,
@@ -495,6 +510,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.setupKeyboardListener();
         this.setupResizeListener();
         this.updateContainerDimensions();
+        
+        // Fix accessibility: Remove focus from elements outside modal that have aria-hidden
+        // This prevents the "Blocked aria-hidden on an element because its descendant retained focus" error
+        this.fixFocusManagement();
+        
         // Center the active thumbnail after modal is fully rendered (multiple attempts to ensure it works)
         setTimeout(() => {
           this.scrollToActiveThumbnail();
@@ -1237,8 +1257,44 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           });
         });
       } else {
+        // Calculer le point de l'image qui est actuellement au centre AVANT le changement
+        const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+        if (!container || this.slideshowZoom <= 1) {
+          this.updateContainerDimensions();
+          return;
+        }
+        
+        const oldRect = container.getBoundingClientRect();
+        const oldCenterX = oldRect.width / 2;
+        const oldCenterY = oldRect.height / 2;
+        const oldZoom = this.slideshowZoom;
+        
+        // Calculer le point de l'image qui est au centre actuellement
+        // En utilisant la même logique que zoomOnPoint
+        const pointRelativeToCenterX = oldCenterX - oldCenterX; // = 0 (point au centre)
+        const pointRelativeToCenterY = oldCenterY - oldCenterY; // = 0 (point au centre)
+        const imagePointX = (pointRelativeToCenterX - this.slideshowTranslateX) / oldZoom;
+        const imagePointY = (pointRelativeToCenterY - this.slideshowTranslateY) / oldZoom;
+        
         // Update container dimensions when fullscreen changes
         this.updateContainerDimensions();
+        
+        // Après le changement, utiliser zoomOnPoint pour maintenir le même point au nouveau centre
+        setTimeout(() => {
+          if (container && this.slideshowZoom > 1) {
+            const newRect = container.getBoundingClientRect();
+            const newCenterX = newRect.width / 2;
+            const newCenterY = newRect.height / 2;
+            
+            // Utiliser zoomOnPoint pour maintenir le même point de l'image au nouveau centre
+            // On passe le même zoom avant et après pour maintenir le point
+            this.zoomOnPoint(oldZoom, newCenterX, newCenterY, oldZoom);
+            
+            // Clamper la translation si nécessaire
+            this.clampSlideshowTranslation();
+            this.cdr.detectChanges();
+          }
+        }, 150);
       }
       
       // Ajouter/retirer le listener Escape sur l'élément en plein écran
@@ -1254,6 +1310,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     document.addEventListener('MSFullscreenChange', this.fullscreenChangeHandler);
   }
   
+  // Recalculer la translation pour maintenir le point central visible au même endroit
   // Update container dimensions (called when container size changes)
   private updateContainerDimensions(): void {
     try {
@@ -1567,6 +1624,59 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  // Fix focus management to prevent accessibility issues
+  // When modal opens, Bootstrap sets aria-hidden on app-root, but elements outside modal may retain focus
+  private fixFocusManagement(): void {
+    try {
+      const activeElement = document.activeElement as HTMLElement;
+      if (!activeElement) {
+        return;
+      }
+      
+      // Check if the active element is inside an element with aria-hidden="true"
+      let currentElement: HTMLElement | null = activeElement;
+      let hasAriaHidden = false;
+      
+      while (currentElement && currentElement !== document.body) {
+        const ariaHidden = currentElement.getAttribute('aria-hidden');
+        if (ariaHidden === 'true') {
+          hasAriaHidden = true;
+          break;
+        }
+        currentElement = currentElement.parentElement;
+      }
+      
+      // If the focused element is inside an aria-hidden element, remove focus
+      if (hasAriaHidden) {
+        // Blur the element to remove focus
+        if (activeElement && typeof (activeElement as any).blur === 'function') {
+          (activeElement as any).blur();
+        }
+        
+        // Move focus to the modal's close button or first focusable element in modal
+        setTimeout(() => {
+          const modalElement = document.querySelector('.modal.show .slideshow-header button[aria-label="Close"]') as HTMLElement;
+          if (modalElement) {
+            modalElement.focus();
+          } else {
+            // Fallback: find first focusable element in modal
+            const modal = document.querySelector('.modal.show');
+            if (modal) {
+              const focusableElements = modal.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+              );
+              if (focusableElements.length > 0) {
+                (focusableElements[0] as HTMLElement).focus();
+              }
+            }
+          }
+        }, 0);
+      }
+    } catch (error) {
+      // Ignore errors in focus management
+    }
+  }
+  
   // Setup escape handler on fullscreen element
   private setupFullscreenEscapeHandler(): void {
     // Remove existing handler first
@@ -1799,40 +1909,32 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
                      document.querySelector('.slideshow-image-wrapper') as HTMLElement;
     if (!container) return;
     
-    // Get the image element to find its actual position
-    const imgElement = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
-    if (!imgElement) return;
+    // Use getBoundingClientRect() to get the actual visible dimensions of the container
+    const rect = container.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return;
     
-    // Get container and image bounding rects
-    const containerRect = container.getBoundingClientRect();
-    if (!containerRect || containerRect.width === 0 || containerRect.height === 0) return;
+    const containerCenterX = rect.width / 2;
+    const containerCenterY = rect.height / 2;
     
-    const imgRect = imgElement.getBoundingClientRect();
-    if (!imgRect || imgRect.width === 0 || imgRect.height === 0) return;
+    // For zooming on center: pointX and pointY should be container center
+    // But we accept them as parameters for flexibility
+    const zoomPointX = pointX;
+    const zoomPointY = pointY;
     
-    // pointX and pointY are in container coordinates (relative to container's top-left)
-    // Convert to viewport coordinates
-    const viewportX = containerRect.left + pointX;
-    const viewportY = containerRect.top + pointY;
+    // Convert zoom point to relative to container center
+    const pointRelativeToCenterX = zoomPointX - containerCenterX;
+    const pointRelativeToCenterY = zoomPointY - containerCenterY;
     
-    // Find the image's center in viewport coordinates
-    const imgCenterViewportX = imgRect.left + imgRect.width / 2;
-    const imgCenterViewportY = imgRect.top + imgRect.height / 2;
+    // Find the image point that corresponds to this container point at old zoom
+    // With transform-origin center: containerPoint = center + translate + imagePoint * zoom
+    // So: imagePoint = (containerPoint - center - translate) / zoom
+    const imagePointX = (pointRelativeToCenterX - this.slideshowTranslateX) / oldZoom;
+    const imagePointY = (pointRelativeToCenterY - this.slideshowTranslateY) / oldZoom;
     
-    // Calculate the pinch point relative to the image's center (in viewport coords)
-    const pinchRelativeToImgCenterX = viewportX - imgCenterViewportX;
-    const pinchRelativeToImgCenterY = viewportY - imgCenterViewportY;
-    
-    // At oldZoom, what point on the image (in image-space) was at this location?
-    // The image is scaled from its center, so: imagePoint = (pinchRelative - translate) / oldZoom
-    const imagePointX = (pinchRelativeToImgCenterX - this.slideshowTranslateX) / oldZoom;
-    const imagePointY = (pinchRelativeToImgCenterY - this.slideshowTranslateY) / oldZoom;
-    
-    // After zooming to newZoom, we want this same image point to stay at the same viewport location
-    // So: pinchRelative = newTranslate + imagePoint * newZoom
-    // Therefore: newTranslate = pinchRelative - imagePoint * newZoom
-    this.slideshowTranslateX = pinchRelativeToImgCenterX - imagePointX * newZoom;
-    this.slideshowTranslateY = pinchRelativeToImgCenterY - imagePointY * newZoom;
+    // After zoom, we want this image point to stay at the same container position
+    // newTranslate = pointRelativeToCenter - imagePoint * newZoom
+    this.slideshowTranslateX = pointRelativeToCenterX - imagePointX * newZoom;
+    this.slideshowTranslateY = pointRelativeToCenterY - imagePointY * newZoom;
   }
   
   // Helper to zoom on container center (always centers on visible center)
@@ -2298,29 +2400,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.dragOrigY = this.slideshowTranslateY;
       this.isPinching = false;
     } else if (touchEvent.touches.length === 2) {
-      try { touchEvent.preventDefault(); touchEvent.stopPropagation(); } catch {}
+      // Initialiser le pinch zoom
       this.isPinching = true;
       this.isDraggingSlideshow = false;
+      try { touchEvent.preventDefault(); touchEvent.stopPropagation(); } catch {}
+      
       const touch1 = touchEvent.touches[0];
       const touch2 = touchEvent.touches[1];
+      
+      // Sauvegarder la distance initiale et le zoom de départ
       this.touchStartDistance = this.getTouchDistance(touch1, touch2);
       this.touchStartZoom = this.slideshowZoom;
-      this.lastTouchDistance = this.touchStartDistance;
       this.initialTouches = [touch1, touch2];
-      this.pinchStartTranslateX = this.slideshowTranslateX;
-      this.pinchStartTranslateY = this.slideshowTranslateY;
-      
-      // Calculate the initial pinch center (where the pinch started)
-      // This will be the fixed zoom point throughout the entire pinch gesture
-      const initialCenter = this.getTouchCenter(touch1, touch2);
-      const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        // Both getTouchCenter and getBoundingClientRect use viewport coordinates
-        // So we can directly subtract to get container-relative coordinates
-        this.touchStartX = initialCenter.x - rect.left;
-        this.touchStartY = initialCenter.y - rect.top;
-      }
     }
   }
   
@@ -2342,63 +2433,52 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.slideshowTranslateY = this.dragOrigY + dy;
       if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
       this.clampSlideshowTranslation();
-    } else if (touchEvent.touches.length === 2 && this.isPinching) {
+    } else if (touchEvent.touches.length === 2) {
+      // Zoom pinch avec deux doigts
+      this.isDraggingSlideshow = false;
       try { touchEvent.preventDefault(); touchEvent.stopPropagation(); } catch {}
+      
       const touch1 = touchEvent.touches[0];
       const touch2 = touchEvent.touches[1];
       const currentDistance = this.getTouchDistance(touch1, touch2);
       
-      if (this.touchStartDistance > 0) {
-        const scale = currentDistance / this.touchStartDistance;
-        let newZoom = this.touchStartZoom * scale;
+      // Si c'est le début du pinch, initialiser
+      if (this.touchStartDistance === 0) {
+        this.touchStartDistance = currentDistance;
+        this.touchStartZoom = this.slideshowZoom;
+      }
+      
+      // Calculer le nouveau zoom basé sur le ratio de distance
+      if (this.touchStartDistance > 0 && currentDistance > 0) {
+        const zoomRatio = currentDistance / this.touchStartDistance;
+        let newZoom = this.touchStartZoom * zoomRatio;
         
         const minZoom = this.getMinSlideshowZoom();
         const maxZoom = 100;
         newZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
         
-        const previousZoom = this.slideshowZoom;
-        this.slideshowZoom = parseFloat(newZoom.toFixed(2));
+        // Zoomer sur le centre de l'image visible (comme sur PC)
+        const oldZoom = this.slideshowZoom;
+        this.slideshowZoom = newZoom;
         
-        // Si on atteint le zoom minimum, recentrer l'image
         if (this.slideshowZoom <= minZoom) {
+          // Reset to center if at minimum zoom
           this.slideshowTranslateX = 0;
           this.slideshowTranslateY = 0;
-        } else if (this.slideshowZoom > minZoom) {
-          const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
-          if (container) {
-            // Get fresh bounding rect to ensure we have current position
-            const rect = container.getBoundingClientRect();
-            if (!rect || rect.width === 0 || rect.height === 0) {
-              return;
-            }
-            
-            // Use the ORIGINAL pinch center (where pinch started) as the fixed zoom point
-            // touchStartX and touchStartY are stored in container-relative coordinates from touchStart
-            // Since the container (modal) shouldn't move during a pinch, these values should be correct
-            let zoomPointX = this.touchStartX;
-            let zoomPointY = this.touchStartY;
-            
-            // Safety check: if stored values seem invalid, recalculate from current touches
-            if (zoomPointX < 0 || zoomPointY < 0 || isNaN(zoomPointX) || isNaN(zoomPointY)) {
-              const currentPinchCenter = this.getTouchCenter(touch1, touch2);
-              zoomPointX = currentPinchCenter.x - rect.left;
-              zoomPointY = currentPinchCenter.y - rect.top;
-            }
-            
-            // Call zoomOnPoint BEFORE updating dimensions
-            // It expects: newZoom, pointX (container-relative), pointY (container-relative), oldZoom
-            // It will calculate the new translate values to keep the point under fingers fixed
-            this.zoomOnPoint(this.slideshowZoom, zoomPointX, zoomPointY, previousZoom);
-          }
+        } else {
+          // Zoom on center (comme onWheelSlideshow)
+          this.zoomOnCenter(this.slideshowZoom, oldZoom);
         }
         
-        // Update dimensions after zoom calculation
-        this.updateImageDimensions();
-        this.updateContainerDimensions();
-        
-        this.lastTouchDistance = currentDistance;
+        // Clamp translation to ensure image stays within bounds
         this.clampSlideshowTranslation();
+        
+        // Update display
+        this.ngZone.run(() => {
+          this.cdr.detectChanges();
+        });
       }
+      this.lastTouchDistance = currentDistance;
     }
   }
   
@@ -2411,6 +2491,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       return;
     }
     if (touchEvent.touches.length === 0) {
+      // Cacher les coordonnées
+      this.ngZone.run(() => {
+        this.showTouchCoordinates = false;
+        this.touch1X = 0;
+        this.touch1Y = 0;
+        this.touch2X = 0;
+        this.touch2Y = 0;
+        this.cdr.detectChanges();
+      });
+      
       this.isDraggingSlideshow = false;
       this.isPinching = false;
       this.initialTouches = [];
@@ -2418,7 +2508,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.lastTouchDistance = 0;
       this.pinchStartTranslateX = 0;
       this.pinchStartTranslateY = 0;
-    } else if (touchEvent.touches.length === 1 && this.isPinching) {
+    } else if (touchEvent.touches.length === 1) {
+      // Un doigt reste
+      
       this.isPinching = false;
       const touch = touchEvent.touches[0];
       this.isDraggingSlideshow = this.slideshowZoom > this.getMinSlideshowZoom();
@@ -2537,6 +2629,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 73;
         this.toggleInfoPanel();
+      } else if (event.key === 'd' || event.key === 'D' || event.keyCode === 68) {
+        // D : activer/désactiver le mode debug
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 68;
+        this.toggleDebug();
+        return;
       } else if (event.key === 'p' || event.key === 'P' || event.keyCode === 80) {
         // P : activer/désactiver le plein écran
         event.preventDefault();
@@ -3014,6 +3115,84 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  // Check if device is mobile
+  public isMobileDevice(): boolean {
+    if (typeof window === 'undefined') return false;
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           (window.innerWidth <= 768);
+  }
+  
+  public toggleDebug(): void {
+    this.showDebug = !this.showDebug;
+    if (this.showDebug) {
+      // Force update of dimensions when debug is enabled
+      this.updateContainerDimensions();
+      this.updateImageDimensions();
+    }
+  }
+  
+  // Debug helper functions
+  public getImageCenterX(): number {
+    // With transform-origin center, the center of the container is (0,0) in transform coordinates
+    // The point of the image that is at the center of the visible area
+    // Formula: imagePoint = (containerCenter - translate) / zoom
+    // But since containerCenter = 0 in transform coordinates, it's: imagePoint = -translate / zoom
+    // This gives us the image point in image coordinates (relative to image center)
+    // To get it in container coordinates, we need to account for the image's display size
+    const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+    const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
+    if (!container || !imgEl) return 0;
+    
+    const rect = container.getBoundingClientRect();
+    const containerCenterX = rect.width / 2;
+    
+    // The image point at center in image coordinates (relative to image center)
+    const imagePointX = -this.slideshowTranslateX / this.slideshowZoom;
+    
+    // Convert to container coordinates: containerCenter + imagePoint * zoom
+    return containerCenterX + imagePointX * this.slideshowZoom;
+  }
+  
+  public getImageCenterY(): number {
+    const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+    const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
+    if (!container || !imgEl) return 0;
+    
+    const rect = container.getBoundingClientRect();
+    const containerCenterY = rect.height / 2;
+    
+    // The image point at center in image coordinates (relative to image center)
+    const imagePointY = -this.slideshowTranslateY / this.slideshowZoom;
+    
+    // Convert to container coordinates: containerCenter + imagePoint * zoom
+    return containerCenterY + imagePointY * this.slideshowZoom;
+  }
+  
+  public getContainerCenterX(): number {
+    const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+    if (!container) return 0;
+    const rect = container.getBoundingClientRect();
+    return rect.width / 2;
+  }
+  
+  public getContainerCenterY(): number {
+    const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+    if (!container) return 0;
+    const rect = container.getBoundingClientRect();
+    return rect.height / 2;
+  }
+  
+  // Get the image point (in image coordinates) that is currently at the center of the visible area
+  public getVisibleImageCenterPointX(): number {
+    // With transform-origin center: imagePoint = -translate / zoom
+    // This gives the image point relative to the image center
+    return -this.slideshowTranslateX / this.slideshowZoom;
+  }
+  
+  public getVisibleImageCenterPointY(): number {
+    return -this.slideshowTranslateY / this.slideshowZoom;
+  }
+  
   public getLocationButtonLabel(): string {
     if (this.locationViewMode === 'trace') {
       return this.translateService.instant('EVENTELEM.OPEN_TRACE_VIEWER');
@@ -3356,6 +3535,78 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.imageLoadingSubs.push(subscription);
   }
   
+  // Capture la partie visible de l'image zoomée dans un canvas et retourne un blob
+  private async captureVisibleImagePortion(imageBlob: Blob): Promise<Blob | null> {
+    try {
+      // Vérifier si l'image est zoomée
+      const minZoom = this.getMinSlideshowZoom();
+      if (this.slideshowZoom <= minZoom || this.showMapView) {
+        // Pas de zoom ou vue carte, retourner l'image originale
+        return null;
+      }
+      
+      // Calculer la portion visible
+      this.calculateVisibleImagePortion();
+      
+      if (this.visibleImageWidth <= 0 || this.visibleImageHeight <= 0) {
+        return null;
+      }
+      
+      // Créer une image à partir du blob
+      const img = new Image();
+      const imageUrl = URL.createObjectURL(imageBlob);
+      
+      return new Promise<Blob | null>((resolve, reject) => {
+        img.onload = () => {
+          try {
+            // Créer un canvas pour capturer la portion visible
+            const canvas = document.createElement('canvas');
+            canvas.width = this.visibleImageWidth;
+            canvas.height = this.visibleImageHeight;
+            const ctx = canvas.getContext('2d');
+            
+            if (!ctx) {
+              URL.revokeObjectURL(imageUrl);
+              resolve(null);
+              return;
+            }
+            
+            // Dessiner la portion visible de l'image sur le canvas
+            ctx.drawImage(
+              img,
+              this.visibleImageOriginX,
+              this.visibleImageOriginY,
+              this.visibleImageWidth,
+              this.visibleImageHeight,
+              0,
+              0,
+              this.visibleImageWidth,
+              this.visibleImageHeight
+            );
+            
+            // Convertir le canvas en blob
+            canvas.toBlob((blob) => {
+              URL.revokeObjectURL(imageUrl);
+              resolve(blob);
+            }, imageBlob.type || 'image/jpeg', 0.95);
+          } catch (error) {
+            URL.revokeObjectURL(imageUrl);
+            resolve(null);
+          }
+        };
+        
+        img.onerror = () => {
+          URL.revokeObjectURL(imageUrl);
+          resolve(null);
+        };
+        
+        img.src = imageUrl;
+      });
+    } catch (error) {
+      return null;
+    }
+  }
+  
   // Share image via Web Share API (WhatsApp, etc.)
   public async shareImage(): Promise<void> {
     try {
@@ -3398,6 +3649,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         // Fallback to download
         this.downloadImage();
         return;
+      }
+      
+      // Capturer la partie visible si l'image est zoomée
+      const visibleBlob = await this.captureVisibleImagePortion(blob);
+      if (visibleBlob) {
+        blob = visibleBlob;
       }
       
       // Get file name if available
@@ -3545,6 +3802,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
       
       if (blob) {
+        // Capturer la partie visible si l'image est zoomée
+        const visibleBlob = await this.captureVisibleImagePortion(blob);
+        if (visibleBlob) {
+          blob = visibleBlob;
+        }
+        
         // Use blob to create download link
         const fileName = this.imageFileNames.get(currentImageUrl) || 'image.jpg';
         const url = URL.createObjectURL(blob);

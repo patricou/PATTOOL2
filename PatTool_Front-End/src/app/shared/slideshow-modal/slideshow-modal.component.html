@@ -4,6 +4,9 @@
     <h5 class="modal-title">
       <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW_TITLE' | translate }} - {{ eventName }}
     </h5>
+    <button type="button" class="btn btn-outline-info btn-sm ms-2" (click)="toggleDebug()" aria-label="Debug" title="Debug (D)" style="display: none;">
+      Debug (D)
+    </button>
     <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="onSlideshowClose(c)" aria-label="Close">
       <i class="fa fa-times"></i>
     </button>
@@ -53,6 +56,33 @@
              class="slideshow-grid-overlay"
              [style.transform]="'translate(-50%, -50%) translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0) scale(' + slideshowZoom + ')'"
              style="transform-origin:center center;"></div>
+        
+        <!-- Debug: Cross at visible image center (container center) -->
+        <div *ngIf="showDebug && slideshowImages.length > 0 && (!showMapView || !currentMapUrl)" 
+             class="debug-center-cross"
+             style="transform: translate(-50%, -50%);"></div>
+        
+        <!-- Debug: Info panel -->
+        <div *ngIf="showDebug && slideshowImages.length > 0" class="debug-info-panel">
+          <div class="debug-title">DEBUG INFO</div>
+          <div class="debug-line"><strong>Zoom:</strong> {{ slideshowZoom | number:'1.2-2' }}</div>
+          <div class="debug-line"><strong>Translate X:</strong> {{ slideshowTranslateX | number:'1.2-2' }}px</div>
+          <div class="debug-line"><strong>Translate Y:</strong> {{ slideshowTranslateY | number:'1.2-2' }}px</div>
+          <div class="debug-line"><strong>Container W:</strong> {{ containerWidth | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>Container H:</strong> {{ containerHeight | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>Image Natural W:</strong> {{ imageNaturalWidth | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>Image Natural H:</strong> {{ imageNaturalHeight | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>Image Display W:</strong> {{ imageDisplayWidth | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>Image Display H:</strong> {{ imageDisplayHeight | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>Image Zoomed W:</strong> {{ imageZoomedWidth | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>Image Zoomed H:</strong> {{ imageZoomedHeight | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>Fullscreen:</strong> {{ isFullscreen ? 'Yes' : 'No' }}</div>
+          <div class="debug-line"><strong>Container Center X:</strong> {{ getContainerCenterX() | number:'1.2-2' }}px</div>
+          <div class="debug-line"><strong>Container Center Y:</strong> {{ getContainerCenterY() | number:'1.2-2' }}px</div>
+          <div class="debug-line"><strong>Image Point at Center X (rel):</strong> {{ getVisibleImageCenterPointX() | number:'1.2-2' }}px</div>
+          <div class="debug-line"><strong>Image Point at Center Y (rel):</strong> {{ getVisibleImageCenterPointY() | number:'1.2-2' }}px</div>
+          <div class="debug-line" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #00ff00;"><strong>Note:</strong> Croix rouge = centre de la zone visible</div>
+        </div>
         <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
           <i class="fa fa-spinner fa-spin fa-3x"></i>
           <p>{{ 'EVENTELEM.LOADING_IMAGES' | translate }}</p>
@@ -83,13 +113,27 @@
           </div>
         </div>
         
-        <!-- Rectangle de sélection (clic droit) -->
-        <div *ngIf="isSelectingRectangle && (!showMapView || !currentMapUrl)" 
+        <!-- Rectangle de sélection (clic droit et pinch zoom mobile) -->
+        <div *ngIf="isSelectingRectangle && !showMapView" 
              class="selection-rectangle"
              [style.left.px]="selectionRectX"
              [style.top.px]="selectionRectY"
              [style.width.px]="displaySelectionWidth"
              [style.height.px]="displaySelectionHeight">
+        </div>
+        
+        <!-- Affichage des coordonnées des doigts sur mobile -->
+        <div *ngIf="showTouchCoordinates && !showMapView" 
+             class="touch-coordinates-display">
+          <div class="touch-coord-item">
+            <strong>Doigt 1:</strong> X: {{ touch1X | number:'1.0-0' }}, Y: {{ touch1Y | number:'1.0-0' }}
+          </div>
+          <div class="touch-coord-item">
+            <strong>Doigt 2:</strong> X: {{ touch2X | number:'1.0-0' }}, Y: {{ touch2Y | number:'1.0-0' }}
+          </div>
+          <div class="touch-coord-item">
+            <strong>Rectangle:</strong> X: {{ selectionRectX | number:'1.0-0' }}, Y: {{ selectionRectY | number:'1.0-0' }}, W: {{ selectionRectWidth | number:'1.0-0' }}, H: {{ selectionRectHeight | number:'1.0-0' }}
+          </div>
         </div>
         
       </div>
@@ -106,7 +150,7 @@
         </button>
       </div>
       <!-- Keyboard Shortcuts Section - Moved outside slideshow-image-wrapper to be at same level as thumbnails -->
-      <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="shortcuts-section">
+      <div *ngIf="slideshowImages.length > 0 && showInfoPanel && !isMobileDevice()" class="shortcuts-section">
         <div class="shortcuts-title">
           <i class="fa fa-info-circle"></i> {{ 'EVENTELEM.SHORTCUTS_TITLE' | translate }}
         </div>

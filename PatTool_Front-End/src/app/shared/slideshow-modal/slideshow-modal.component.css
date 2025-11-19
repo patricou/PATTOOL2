@@ -708,14 +708,15 @@
 /* Rectangle de sélection (clic droit) */
 .selection-rectangle {
     position: absolute;
-    border: 2px dashed #4CAF50;
-    background: rgba(76, 175, 80, 0.15);
+    border: 3px dashed #4CAF50 !important; /* Bordure en pointillés comme avant */
+    background: rgba(76, 175, 80, 0.3) !important; /* Fond transparent comme avant */
     pointer-events: none;
-    z-index: 10000 !important;
+    z-index: 99999 !important;
     box-sizing: border-box;
-    outline: 1px solid rgba(76, 175, 80, 0.5);
+    outline: none !important; /* Pas d'outline en mode non-mobile */
     top: 0;
     left: 0;
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.8) !important;
 }
 
 /* En plein écran, s'assurer que le rectangle est visible */
@@ -729,6 +730,110 @@
 .slideshow-container:-ms-fullscreen .selection-rectangle {
     position: fixed !important;
     z-index: 999999 !important;
+}
+
+/* Affichage des coordonnées des doigts sur mobile */
+.touch-coordinates-display {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #28a745;
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 12px;
+    font-family: monospace;
+    z-index: 9999999 !important;
+    pointer-events: none;
+    border: 2px solid #28a745;
+    box-shadow: 0 0 10px rgba(40, 167, 69, 0.5);
+}
+
+.touch-coord-item {
+    margin-bottom: 5px;
+    line-height: 1.4;
+}
+
+/* Debug mode styles */
+.debug-center-cross {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 40px;
+    height: 40px;
+    pointer-events: none;
+    z-index: 9999998;
+}
+
+.debug-center-cross::before,
+.debug-center-cross::after {
+    content: '';
+    position: absolute;
+    background: #ff0000;
+    box-shadow: 0 0 3px rgba(255, 0, 0, 0.8);
+}
+
+.debug-center-cross::before {
+    top: 0;
+    left: 50%;
+    width: 2px;
+    height: 100%;
+    transform: translateX(-50%);
+}
+
+.debug-center-cross::after {
+    top: 50%;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    transform: translateY(-50%);
+}
+
+.debug-info-panel {
+    position: fixed;
+    top: 60px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.9);
+    color: #00ff00;
+    padding: 15px;
+    border-radius: 5px;
+    font-family: monospace;
+    font-size: 11px;
+    z-index: 9999999;
+    pointer-events: none;
+    border: 2px solid #00ff00;
+    box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
+    max-width: 300px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.debug-title {
+    font-weight: bold;
+    font-size: 13px;
+    color: #00ff00;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #00ff00;
+}
+
+.debug-line {
+    margin-bottom: 4px;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.debug-line strong {
+    color: #ffff00;
+}
+
+.touch-coord-item:last-child {
+    margin-bottom: 0;
+}
+
+.touch-coord-item strong {
+    color: #fff;
+    margin-right: 5px;
 }
 
 /* Ensure counter and zoom info are visible in fullscreen - must be above image */
@@ -1238,6 +1343,22 @@ body.slideshow-fullscreen-active .slideshow-footer {
         object-fit: contain !important;
         margin: auto !important;
         display: block !important;
+    }
+    
+    /* Rectangle de sélection plus visible sur mobile */
+    .selection-rectangle {
+        border: 5px dashed #28a745 !important; /* Bordure en pointillés (tirets) sur mobile */
+        background: rgba(40, 167, 69, 0.5) !important; /* Fond plus opaque sur mobile */
+        outline: none !important; /* Pas d'outline sur mobile */
+        box-shadow: 0 0 20px rgba(40, 167, 69, 1), inset 0 0 15px rgba(40, 167, 69, 0.4) !important; /* Ombre encore plus visible */
+        z-index: 9999999 !important; /* Z-index maximal sur mobile */
+        position: absolute !important; /* Forcer position absolute */
+        display: block !important; /* Forcer l'affichage */
+        visibility: visible !important; /* Forcer la visibilité */
+        opacity: 1 !important; /* Forcer l'opacité */
+        pointer-events: none !important; /* Pas d'interaction */
+        min-width: 50px !important; /* Largeur minimale */
+        min-height: 50px !important; /* Hauteur minimale */
     }
     
     .slideshow-controls {
