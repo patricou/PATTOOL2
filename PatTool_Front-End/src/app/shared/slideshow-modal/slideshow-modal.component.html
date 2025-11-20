@@ -4,8 +4,8 @@
     <h5 class="modal-title">
       <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW_TITLE' | translate }} - {{ eventName }}
     </h5>
-    <button type="button" class="btn btn-outline-info btn-sm ms-2" (click)="toggleDebug()" aria-label="Debug" title="Debug (D)" style="display: none;">
-      Debug (D)
+    <button type="button" class="btn btn-outline-info btn-sm ms-2" (click)="toggleDebug()" aria-label="Debug" [title]="'EVENTELEM.DEBUG_BUTTON' | translate" style="display: none;">
+      {{ 'EVENTELEM.DEBUG_BUTTON' | translate }}
     </button>
     <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="onSlideshowClose(c)" aria-label="Close">
       <i class="fa fa-times"></i>
@@ -64,24 +64,24 @@
         
         <!-- Debug: Info panel -->
         <div *ngIf="showDebug && slideshowImages.length > 0" class="debug-info-panel">
-          <div class="debug-title">DEBUG INFO</div>
-          <div class="debug-line"><strong>Zoom:</strong> {{ slideshowZoom | number:'1.2-2' }}</div>
-          <div class="debug-line"><strong>Translate X:</strong> {{ slideshowTranslateX | number:'1.2-2' }}px</div>
-          <div class="debug-line"><strong>Translate Y:</strong> {{ slideshowTranslateY | number:'1.2-2' }}px</div>
-          <div class="debug-line"><strong>Container W:</strong> {{ containerWidth | number:'1.0-0' }}px</div>
-          <div class="debug-line"><strong>Container H:</strong> {{ containerHeight | number:'1.0-0' }}px</div>
-          <div class="debug-line"><strong>Image Natural W:</strong> {{ imageNaturalWidth | number:'1.0-0' }}px</div>
-          <div class="debug-line"><strong>Image Natural H:</strong> {{ imageNaturalHeight | number:'1.0-0' }}px</div>
-          <div class="debug-line"><strong>Image Display W:</strong> {{ imageDisplayWidth | number:'1.0-0' }}px</div>
-          <div class="debug-line"><strong>Image Display H:</strong> {{ imageDisplayHeight | number:'1.0-0' }}px</div>
-          <div class="debug-line"><strong>Image Zoomed W:</strong> {{ imageZoomedWidth | number:'1.0-0' }}px</div>
-          <div class="debug-line"><strong>Image Zoomed H:</strong> {{ imageZoomedHeight | number:'1.0-0' }}px</div>
-          <div class="debug-line"><strong>Fullscreen:</strong> {{ isFullscreen ? 'Yes' : 'No' }}</div>
-          <div class="debug-line"><strong>Container Center X:</strong> {{ getContainerCenterX() | number:'1.2-2' }}px</div>
-          <div class="debug-line"><strong>Container Center Y:</strong> {{ getContainerCenterY() | number:'1.2-2' }}px</div>
-          <div class="debug-line"><strong>Image Point at Center X (rel):</strong> {{ getVisibleImageCenterPointX() | number:'1.2-2' }}px</div>
-          <div class="debug-line"><strong>Image Point at Center Y (rel):</strong> {{ getVisibleImageCenterPointY() | number:'1.2-2' }}px</div>
-          <div class="debug-line" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #00ff00;"><strong>Note:</strong> Croix rouge = centre de la zone visible</div>
+          <div class="debug-title">{{ 'EVENTELEM.DEBUG_INFO' | translate }}</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_ZOOM' | translate }}</strong> {{ slideshowZoom | number:'1.2-2' }}</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_TRANSLATE_X' | translate }}</strong> {{ slideshowTranslateX | number:'1.2-2' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_TRANSLATE_Y' | translate }}</strong> {{ slideshowTranslateY | number:'1.2-2' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_CONTAINER_W' | translate }}</strong> {{ containerWidth | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_CONTAINER_H' | translate }}</strong> {{ containerHeight | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_IMAGE_NATURAL_W' | translate }}</strong> {{ imageNaturalWidth | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_IMAGE_NATURAL_H' | translate }}</strong> {{ imageNaturalHeight | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_IMAGE_DISPLAY_W' | translate }}</strong> {{ imageDisplayWidth | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_IMAGE_DISPLAY_H' | translate }}</strong> {{ imageDisplayHeight | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_IMAGE_ZOOMED_W' | translate }}</strong> {{ imageZoomedWidth | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_IMAGE_ZOOMED_H' | translate }}</strong> {{ imageZoomedHeight | number:'1.0-0' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_FULLSCREEN' | translate }}</strong> {{ isFullscreen ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_CONTAINER_CENTER_X' | translate }}</strong> {{ getContainerCenterX() | number:'1.2-2' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_CONTAINER_CENTER_Y' | translate }}</strong> {{ getContainerCenterY() | number:'1.2-2' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_IMAGE_POINT_CENTER_X' | translate }}</strong> {{ getVisibleImageCenterPointX() | number:'1.2-2' }}px</div>
+          <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_IMAGE_POINT_CENTER_Y' | translate }}</strong> {{ getVisibleImageCenterPointY() | number:'1.2-2' }}px</div>
+          <div class="debug-line" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #00ff00;"><strong>{{ 'EVENTELEM.DEBUG_NOTE' | translate }}</strong> {{ 'EVENTELEM.DEBUG_NOTE_TEXT' | translate }}</div>
         </div>
         <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
           <i class="fa fa-spinner fa-spin fa-3x"></i>
@@ -94,7 +94,7 @@
           <div *ngIf="getCurrentImageFileName()" class="info-line info-file-name" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.3);">
             <span class="file-name">{{ getCurrentImageFileName() }}</span>
           </div>
-          <div class="info-line">Zoom: {{ (slideshowZoom * 100).toFixed(0) }}%</div>
+          <div class="info-line">{{ 'EVENTELEM.ZOOM_LABEL' | translate }} {{ (slideshowZoom * 100).toFixed(0) }}%</div>
           
           <!-- EXIF Info Section -->
           <div class="exif-section" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 8px; margin-top: 8px;">
@@ -108,7 +108,7 @@
               </div>
             </div>
             <div *ngIf="!isLoadingExif && (!exifData || exifData.length === 0)" class="exif-empty" style="text-align: center; padding: 8px; color: rgba(255, 255, 255, 0.6);">
-              <i class="fa fa-exclamation-triangle"></i> No EXIF data available
+              <i class="fa fa-exclamation-triangle"></i> {{ 'EVENTELEM.NO_EXIF_DATA' | translate }}
             </div>
           </div>
         </div>
@@ -126,13 +126,13 @@
         <div *ngIf="showTouchCoordinates && !showMapView" 
              class="touch-coordinates-display">
           <div class="touch-coord-item">
-            <strong>Doigt 1:</strong> X: {{ touch1X | number:'1.0-0' }}, Y: {{ touch1Y | number:'1.0-0' }}
+            <strong>{{ 'EVENTELEM.TOUCH_FINGER_1' | translate }}</strong> X: {{ touch1X | number:'1.0-0' }}, Y: {{ touch1Y | number:'1.0-0' }}
           </div>
           <div class="touch-coord-item">
-            <strong>Doigt 2:</strong> X: {{ touch2X | number:'1.0-0' }}, Y: {{ touch2Y | number:'1.0-0' }}
+            <strong>{{ 'EVENTELEM.TOUCH_FINGER_2' | translate }}</strong> X: {{ touch2X | number:'1.0-0' }}, Y: {{ touch2Y | number:'1.0-0' }}
           </div>
           <div class="touch-coord-item">
-            <strong>Rectangle:</strong> X: {{ selectionRectX | number:'1.0-0' }}, Y: {{ selectionRectY | number:'1.0-0' }}, W: {{ selectionRectWidth | number:'1.0-0' }}, H: {{ selectionRectHeight | number:'1.0-0' }}
+            <strong>{{ 'EVENTELEM.TOUCH_RECTANGLE' | translate }}</strong> X: {{ selectionRectX | number:'1.0-0' }}, Y: {{ selectionRectY | number:'1.0-0' }}, W: {{ selectionRectWidth | number:'1.0-0' }}, H: {{ selectionRectHeight | number:'1.0-0' }}
           </div>
         </div>
         
@@ -181,7 +181,7 @@
                (click)="onThumbnailClick(i)">
             <div *ngIf="getThumbnailUrl(i)" class="thumbnail-image-wrapper">
               <img [src]="getThumbnailUrl(i)" 
-                   [alt]="'Thumbnail ' + (i + 1)"
+                   [alt]="('EVENTELEM.THUMBNAIL_PREFIX' | translate) + (i + 1)"
                    class="thumbnail-image"
                    (error)="onThumbnailError($event)">
             </div>

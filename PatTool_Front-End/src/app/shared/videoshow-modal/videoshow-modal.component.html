@@ -37,13 +37,13 @@
           <div *ngIf="getCurrentVideoFileName()" class="info-line info-file-name" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.3);">
             <span class="file-name">{{ getCurrentVideoFileName() }}</span>
           </div>
-          <div class="info-line">Duration: {{ formatTime(duration) }}</div>
-          <div class="info-line">Current Time: {{ formatTime(currentTime) }}</div>
-          <div class="info-line">Volume: {{ (volume * 100).toFixed(0) }}%</div>
+          <div class="info-line">{{ 'EVENTELEM.VIDEO_DURATION' | translate }} {{ formatTime(duration) }}</div>
+          <div class="info-line">{{ 'EVENTELEM.VIDEO_CURRENT_TIME' | translate }} {{ formatTime(currentTime) }}</div>
+          <div class="info-line">{{ 'EVENTELEM.VIDEO_VOLUME' | translate }} {{ (volume * 100).toFixed(0) }}%</div>
           <div *ngIf="getVideoMetadata()" class="metadata-section" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 8px; margin-top: 8px;">
             <div class="metadata-title" style="font-weight: bold; margin-bottom: 6px;">{{ 'EVENTELEM.METADATA' | translate }}:</div>
             <div *ngIf="getVideoMetadata()?.originalSizeBytes" class="metadata-item" style="margin-bottom: 4px; font-size: 0.9em;">
-              <strong>Size:</strong> {{ getVideoMetadata()?.originalSizeKilobytes }} KB
+              <strong>{{ 'EVENTELEM.VIDEO_SIZE' | translate }}</strong> {{ getVideoMetadata()?.originalSizeKilobytes }} KB
             </div>
           </div>
         </div>
@@ -85,7 +85,7 @@
                (click)="onThumbnailClick(i)">
             <div *ngIf="getThumbnailUrl(i)" class="thumbnail-image-wrapper">
               <img [src]="getThumbnailUrl(i)" 
-                   [alt]="'Thumbnail ' + (i + 1)"
+                   [alt]="('EVENTELEM.THUMBNAIL_PREFIX' | translate) + (i + 1)"
                    class="thumbnail-image"
                    (error)="onThumbnailError($event)">
             </div>

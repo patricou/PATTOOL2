@@ -46,7 +46,7 @@ export class VideoCompressionService {
                         onProgress({
                             stage: 'analyzing',
                             progress: 2,
-                            message: `Format AVI détecté. Le fichier sera converti en MP4 après compression.`,
+                            message: `AVI format detected. File will be converted to MP4 after compression.`,
                             originalSize: file.size
                         });
                     }
@@ -57,7 +57,7 @@ export class VideoCompressionService {
                         onProgress({
                             stage: 'error',
                             progress: 0,
-                            message: `Format non supporté: ${file.name}. Utilisation du fichier original.`,
+                            message: `Unsupported format: ${file.name}. Using original file.`,
                             originalSize: file.size
                         });
                     }
@@ -74,7 +74,7 @@ export class VideoCompressionService {
                     onProgress({
                         stage: 'analyzing',
                         progress: 2,
-                        message: `Format ${isAvi ? 'AVI' : 'MOV'} détecté. Le fichier sera converti en ${targetFormat} après compression.`,
+                        message: `${isAvi ? 'AVI' : 'MOV'} format detected. File will be converted to ${targetFormat} after compression.`,
                         originalSize: file.size
                     });
                 }
@@ -82,7 +82,7 @@ export class VideoCompressionService {
                     onProgress({
                         stage: 'analyzing',
                         progress: 0,
-                        message: `Analyse de la vidéo: ${file.name} (${this.formatFileSize(file.size)})${formatInfo}`,
+                        message: `Analyzing video: ${file.name} (${this.formatFileSize(file.size)})${formatInfo}`,
                         originalSize: file.size
                     });
                 }
@@ -141,7 +141,7 @@ export class VideoCompressionService {
                                 onProgress({
                                     stage: 'error',
                                     progress: 0,
-                                    message: `Le navigateur ne peut pas lire ce fichier ${isAvi ? 'AVI' : 'MOV'} (codec non supporté). Le fichier original sera uploadé tel quel. Pour convertir en MP4, utilisez un outil externe (ex: VLC, HandBrake) avant l'upload.`,
+                                    message: `Browser cannot read this ${isAvi ? 'AVI' : 'MOV'} file (unsupported codec). Original file will be uploaded as-is. To convert to MP4, use an external tool (e.g., VLC, HandBrake) before upload.`,
                                     originalSize: file.size
                                 });
                             }
@@ -152,9 +152,9 @@ export class VideoCompressionService {
                             return;
                         }
                         
-                        let userMessage = `Erreur lors du chargement de la vidéo: ${errorMsg}`;
+                        let userMessage = `Error loading video: ${errorMsg}`;
                         if (isCodecError) {
-                            userMessage = `Codec non supporté par le navigateur. Le fichier original sera utilisé sans compression.`;
+                            userMessage = `Codec not supported by browser. Original file will be used without compression.`;
                         }
                         
                         if (onProgress) {
@@ -188,7 +188,7 @@ export class VideoCompressionService {
                             onProgress({
                                 stage: 'error',
                                 progress: 0,
-                                message: 'La vidéo ne peut pas être lue (dimensions invalides). Utilisation du fichier original.',
+                                message: 'Video cannot be read (invalid dimensions). Using original file.',
                                 originalSize: file.size
                             });
                         }
@@ -376,12 +376,12 @@ export class VideoCompressionService {
                                 const isAvi = file.name.toLowerCase().endsWith('.avi');
                                 const isMov = file.name.toLowerCase().endsWith('.mov');
                                 const formatChange = (isAvi || isMov) ? 
-                                                   ' (converti en ' + (mimeType.includes('mp4') ? 'MP4' : 'WebM') + ')' : '';
+                                                   ' (converted to ' + (mimeType.includes('mp4') ? 'MP4' : 'WebM') + ')' : '';
                                 
                                 onProgress({
                                     stage: 'complete',
                                     progress: 100,
-                                    message: `Compression terminée: ${this.formatFileSize(file.size)} → ${this.formatFileSize(blob.size)} (${reduction > 0 ? reduction.toFixed(1) : '0.0'}% réduction)${formatChange}`,
+                                    message: `Compression complete: ${this.formatFileSize(file.size)} → ${this.formatFileSize(blob.size)} (${reduction > 0 ? reduction.toFixed(1) : '0.0'}% reduction)${formatChange}`,
                                     originalSize: file.size,
                                     compressedSize: blob.size
                                 });
@@ -767,7 +767,7 @@ export class VideoCompressionService {
                     onProgress({
                         stage: 'loading-ffmpeg',
                         progress: 10,
-                        message: 'Chargement de FFmpeg... (cela peut prendre quelques secondes)',
+                        message: 'Loading FFmpeg... (this may take a few seconds)',
                         originalSize: file.size
                     });
                 }
@@ -786,7 +786,7 @@ export class VideoCompressionService {
                         onProgress({
                             stage: 'converting',
                             progress: 20 + (progressPercent * 0.6), // 20-80%
-                            message: `Conversion en cours: ${progressPercent}%`,
+                            message: `Converting: ${progressPercent}%`,
                             originalSize: file.size
                         });
                     }
@@ -821,7 +821,7 @@ export class VideoCompressionService {
                     onProgress({
                         stage: 'converting',
                         progress: 20,
-                        message: 'FFmpeg chargé. Démarrage de la conversion...',
+                        message: 'FFmpeg loaded. Starting conversion...',
                         originalSize: file.size
                     });
                 }
@@ -846,7 +846,7 @@ export class VideoCompressionService {
                 onProgress({
                     stage: 'converting',
                     progress: 25,
-                    message: 'Fichier chargé. Conversion en MP4...',
+                    message: 'File loaded. Converting to MP4...',
                     originalSize: file.size
                 });
             }
@@ -879,7 +879,7 @@ export class VideoCompressionService {
                 onProgress({
                     stage: 'finalizing',
                     progress: 90,
-                    message: 'Finalisation de la conversion...',
+                    message: 'Finalizing conversion...',
                     originalSize: file.size
                 });
             }
@@ -903,7 +903,7 @@ export class VideoCompressionService {
                 onProgress({
                     stage: 'complete',
                     progress: 100,
-                    message: `Conversion terminée: ${this.formatFileSize(file.size)} → ${this.formatFileSize(blob.size)} (${reduction > 0 ? reduction.toFixed(1) : '0.0'}% réduction) (converti en MP4)`,
+                    message: `Conversion complete: ${this.formatFileSize(file.size)} → ${this.formatFileSize(blob.size)} (${reduction > 0 ? reduction.toFixed(1) : '0.0'}% reduction) (converted to MP4)`,
                     originalSize: file.size,
                     compressedSize: blob.size
                 });
@@ -913,7 +913,7 @@ export class VideoCompressionService {
             
         } catch (error: any) {
             console.error('FFmpeg conversion error:', error);
-            throw new Error(`Erreur lors de la conversion FFmpeg: ${error.message || 'Erreur inconnue'}`);
+            throw new Error(`FFmpeg conversion error: ${error.message || 'Unknown error'}`);
         }
     }
     
@@ -1061,14 +1061,14 @@ export class VideoCompressionService {
         
         if (mimeType.includes('webm')) {
             if (inputExt.endsWith('.mp4') || inputExt.endsWith('.mov') || inputExt.endsWith('.avi')) {
-                return ' (sera converti en WebM)';
+                return ' (will be converted to WebM)';
             }
-            return ' (format WebM)';
+            return ' (WebM format)';
         } else if (mimeType.includes('mp4')) {
             if (inputExt.endsWith('.avi') || inputExt.endsWith('.mov')) {
-                return ' (sera converti en MP4)';
+                return ' (will be converted to MP4)';
             }
-            return ' (format MP4)';
+            return ' (MP4 format)';
         }
         
         return '';

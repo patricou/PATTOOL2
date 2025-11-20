@@ -813,7 +813,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 							// If compression failed (same size and no format change for AVI/MOV), use original
 							if (!formatChanged && compressedBlob.size >= file.size * 0.95) {
 								// Compression didn't really happen (probably error was caught and original returned)
-								this.addLog(`⚠️ Compression non disponible pour ce format. Utilisation du fichier original.`);
+								this.addLog(`⚠️ Compression not available for this format. Using original file.`);
 								processedFiles.push(file);
 							} else {
 								// Create a new File from the compressed Blob
@@ -835,7 +835,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 							this.addErrorLog(`❌ Error compressing video ${file.name}: ${error.message}`);
 							// Use original file if compression fails
 							processedFiles.push(file);
-							this.addLog(`📤 Le fichier original sera uploadé tel quel.`);
+							this.addLog(`📤 Original file will be uploaded as-is.`);
 						}
 					} else {
 						// Non-video files: add as-is
