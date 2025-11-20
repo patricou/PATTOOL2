@@ -107,6 +107,25 @@ export class FileService {
 
         const metadata: PatOriginalSizeMetadata = {};
 
+        // Try video-specific headers first
+        const videoSizeBytes = headers.get('X-Pat-Video-Size-Bytes');
+        if (videoSizeBytes) {
+            const parsed = parseInt(videoSizeBytes, 10);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                metadata.originalSizeBytes = parsed;
+                metadata.originalSizeKilobytes = Math.max(1, Math.round(parsed / 1024));
+            }
+        }
+
+        const videoSizeKB = headers.get('X-Pat-Video-Size-KB');
+        if (videoSizeKB) {
+            const parsed = parseInt(videoSizeKB, 10);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                metadata.originalSizeKilobytes = parsed;
+            }
+        }
+
+        // Fallback to image headers
         const originalSizeHeader = headers.get('X-Pat-Image-Size-Before');
         if (originalSizeHeader) {
             const parsed = parseInt(originalSizeHeader, 10);
@@ -198,6 +217,76 @@ export class FileService {
                 // console.log("Request headers:", headers);
                 return this._http.post(this.API_URL4UPLOADFILEONDISK, formData, { headers: headers, responseType: 'text' });
             })
+        );
+    }
+
+    // PUT file - update evenement and delete file from GridFS
+    updateFile(evenement: any, user: Member): Observable<any> {
+        this.user = user;
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers => {
+                return this._http.put(this.API_URL + "file", evenement, { headers: headers, responseType: 'json' });
+            })
+        );
+    }
+
+    // GET video - returns video file with streaming support
+    getVideo(videoId: string, range?: string): Observable<any> {
+        const headers: any = {};
+        if (range) {
+            headers['Range'] = range;
+        }
+        return this.getHeaderWithToken().pipe(
+            switchMap(tokenHeaders => {
+                Object.assign(headers, tokenHeaders);
+                return this._http.get(this.API_URL + "video/" + videoId, { 
+                    headers: headers, 
+                    responseType: 'arraybuffer',
+                    observe: 'response'
+                });
+            })
+        );
+    }
+
+    // GET video with metadata
+    getVideoWithMetadata(videoId: string, quality: string = 'auto'): Observable<ImageDownloadResult> {
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers =>
+                this._http.get(this.API_URL + "video/" + videoId + "?quality=" + quality, { 
+                    headers: headers, 
+                    responseType: 'arraybuffer', 
+                    observe: 'response' 
+                })
+            ),
+            map((response: HttpResponse<ArrayBuffer>) => ({
+                buffer: response.body || new ArrayBuffer(0),
+                headers: response.headers,
+                metadata: this.extractPatMetadata(response.headers)
+            }))
+        );
+    }
+
+    // GET video metadata only
+    getVideoMetadata(videoId: string): Observable<any> {
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers =>
+                this._http.get(this.API_URL + "video/" + videoId + "/metadata", { 
+                    headers: headers, 
+                    responseType: 'json' 
+                })
+            )
+        );
+    }
+
+    // Check if file is a video
+    checkIfVideo(filename: string): Observable<boolean> {
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers =>
+                this._http.get<{isVideo: boolean}>(this.API_URL + "video/check/" + encodeURIComponent(filename), { 
+                    headers: headers 
+                })
+            ),
+            map(response => response.isVideo)
         );
     }
 }

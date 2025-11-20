@@ -23,6 +23,7 @@ import { WindowRefService } from '../services/window-ref.service';
 import { CommonvaluesService } from '../services/commonvalues.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from '../shared/slideshow-modal/slideshow-modal.module';
+import { VideoshowModalModule } from '../shared/videoshow-modal/videoshow-modal.module';
 import { PhotosSelectorModalModule } from '../shared/photos-selector-modal/photos-selector-modal.module';
 import { TraceViewerModalModule } from '../shared/trace-viewer-modal/trace-viewer-modal.module';
 
@@ -49,6 +50,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		NgbModule,
 		NavigationButtonsModule,
 		SlideshowModalModule,
+		VideoshowModalModule,
 		PhotosSelectorModalModule,
 		TraceViewerModalModule
 	],

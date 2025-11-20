@@ -155,15 +155,19 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Getters pour le template (assurer une taille minimale pour l'affichage)
   public get displaySelectionWidth(): number {
-    // S'assurer qu'on retourne toujours une valeur valide et visible
-    const width = Math.max(50, this.selectionRectWidth);
-    return isNaN(width) || width <= 0 ? 100 : width;
+    // Ne pas afficher le rectangle si la taille est trop petite (moins de 5 pixels)
+    if (isNaN(this.selectionRectWidth) || this.selectionRectWidth < 5) {
+      return 0;
+    }
+    return this.selectionRectWidth;
   }
   
   public get displaySelectionHeight(): number {
-    // S'assurer qu'on retourne toujours une valeur valide et visible
-    const height = Math.max(50, this.selectionRectHeight);
-    return isNaN(height) || height <= 0 ? 100 : height;
+    // Ne pas afficher le rectangle si la taille est trop petite (moins de 5 pixels)
+    if (isNaN(this.selectionRectHeight) || this.selectionRectHeight < 5) {
+      return 0;
+    }
+    return this.selectionRectHeight;
   }
   
   // Touch state for mobile gestures

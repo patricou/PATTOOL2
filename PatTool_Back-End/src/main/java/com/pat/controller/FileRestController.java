@@ -694,13 +694,31 @@ public class FileRestController {
                     inputStream = filedata.getInputStream();
                 }
 
+                // Determine correct content type from filename (more reliable than browser's contentType)
+                String correctContentType = getContentTypeFromFilename(filedata.getOriginalFilename());
+                // Use browser's contentType if it's valid, otherwise use filename-based detection
+                if (contentType == null || contentType.isEmpty() || contentType.equals("application/octet-stream")) {
+                    contentType = correctContentType;
+                } else {
+                    // Validate browser's contentType matches the file extension
+                    String browserType = contentType.toLowerCase();
+                    String filenameType = correctContentType.toLowerCase();
+                    // If they don't match, prefer filename-based detection for images and videos
+                    if ((browserType.startsWith("image/") && !filenameType.startsWith("image/")) ||
+                        (browserType.startsWith("video/") && !filenameType.startsWith("video/"))) {
+                        log.warn("ContentType mismatch for file {}: browser says {}, filename suggests {}. Using filename-based type.",
+                                filedata.getOriginalFilename(), contentType, correctContentType);
+                        contentType = correctContentType;
+                    }
+                }
+
                 // Save the doc ( all type ) in  MongoDB
                 String fieldId =
-                        gridFsTemplate.store( inputStream, filedata.getOriginalFilename(), filedata.getContentType(), metaData).toString();
-                log.debug("Doc created id : "+fieldId);
+                        gridFsTemplate.store( inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
+                log.debug("Doc created id : "+fieldId + " with contentType: " + contentType);
 
-                // create the file info
-                FileUploaded fileUploaded = new FileUploaded(fieldId, filedata.getOriginalFilename(), filedata.getContentType(), uploaderMember);
+                // create the file info with correct content type
+                FileUploaded fileUploaded = new FileUploaded(fieldId, filedata.getOriginalFilename(), contentType, uploaderMember);
                 uploadedFiles.add(fileUploaded);
                 
                 // Add file to evenement
@@ -746,27 +764,94 @@ public class FileRestController {
 
         // retrieve the evenement id ( with file to delete )
         Evenement evenementNotUpdated = evenementsRepository.findById(evenement.getId()).orElse(null);
+        
+        if (evenementNotUpdated == null) {
+            log.error("Evenement not found: " + evenement.getId());
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
 
-        // retrieve the file id to delete
-        FileUploaded f = evenementNotUpdated.getFileUploadeds().stream().filter(
-                            fileUploaded -> {
-                                boolean b = false;
-                                for ( FileUploaded fileUploaded2 : evenement.getFileUploadeds())
-                                    if ( fileUploaded.getFieldId().equals( fileUploaded2.getFieldId() )) {
-                                        b = true;
-                                        break;
-                                }
-                                return !b;
-                            }
-                        ).findFirst().get();
+        // Find all files that were removed (files in old event but not in new event)
+        List<FileUploaded> filesToDelete = evenementNotUpdated.getFileUploadeds().stream()
+            .filter(fileUploaded -> {
+                // Check if this file still exists in the updated event
+                boolean stillExists = evenement.getFileUploadeds().stream()
+                    .anyMatch(fileUploaded2 -> fileUploaded.getFieldId().equals(fileUploaded2.getFieldId()));
+                return !stillExists; // Return true if file was removed
+            })
+            .collect(java.util.stream.Collectors.toList());
 
-        log.debug("File to delete " + f.getFieldId() );
+        log.debug("Files to delete from GridFS: " + filesToDelete.size());
 
-        // update the evenement without the file ( the save erase all )
+        // update the evenement without the files ( the save erase all )
         Evenement savedEvenement = evenementsRepository.save(evenement);
 
-        // delete the file in MongoDB
-        gridFsTemplate.delete(new Query(Criteria.where("_id").is(f.getFieldId())));
+        // delete all removed files from MongoDB GridFS
+        for (FileUploaded f : filesToDelete) {
+            String fileName = f.getFileName() != null ? f.getFileName() : "unknown";
+            String fileId = f.getFieldId();
+            
+            // Check if it's a video file
+            boolean isVideo = isVideoFile(fileName);
+            String fileType = isVideo ? "VIDEO" : "FILE";
+            
+            log.info("🗑️  [{}] Starting deletion from GridFS: ID={}, Name={}", fileType, fileId, fileName);
+            
+            try {
+                ObjectId fileObjectId = new ObjectId(fileId);
+                
+                // Check if file exists before deletion
+                GridFSFile fileToDelete = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(fileObjectId)));
+                if (fileToDelete != null) {
+                    long fileSize = fileToDelete.getLength();
+                    String contentType = fileToDelete.getMetadata() != null ? 
+                        fileToDelete.getMetadata().getString("contentType") : "unknown";
+                    
+                    log.info("📋 [{}] File found in GridFS - Size: {} bytes, ContentType: {}", 
+                            fileType, fileSize, contentType);
+                    
+                    // Delete the file
+                    gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileObjectId)));
+                    
+                    log.info("✅ [{}] Successfully deleted from GridFS: ID={}, Name={}, Size={} bytes", 
+                            fileType, fileId, fileName, fileSize);
+                } else {
+                    log.warn("⚠️  [{}] File not found in GridFS (may already be deleted): ID={}, Name={}", 
+                            fileType, fileId, fileName);
+                }
+            } catch (IllegalArgumentException e) {
+                log.error("❌ [{}] Invalid ObjectId format for file deletion: ID={}, Name={}", 
+                        fileType, fileId, fileName, e);
+                // Try with string ID as fallback
+                try {
+                    GridFSFile fileToDelete = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(fileId)));
+                    if (fileToDelete != null) {
+                        gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileId)));
+                        log.info("✅ [{}] Deleted from GridFS using string ID: ID={}, Name={}", 
+                                fileType, fileId, fileName);
+                    } else {
+                        log.warn("⚠️  [{}] File not found in GridFS (string ID): ID={}, Name={}", 
+                                fileType, fileId, fileName);
+                    }
+                } catch (Exception e2) {
+                    log.error("❌ [{}] Error deleting file from GridFS with string ID: ID={}, Name={}", 
+                            fileType, fileId, fileName, e2);
+                }
+            } catch (Exception e) {
+                log.error("❌ [{}] Error deleting file from GridFS: ID={}, Name={}", 
+                        fileType, fileId, fileName, e);
+                // Continue with other files - the file reference is already removed from the event
+            }
+        }
+        
+        if (!filesToDelete.isEmpty()) {
+            long videoCount = filesToDelete.stream()
+                .filter(f -> isVideoFile(f.getFileName()))
+                .count();
+            long otherFilesCount = filesToDelete.size() - videoCount;
+            
+            log.info("📊 Deletion summary: {} total file(s) processed - {} video(s), {} other file(s)", 
+                    filesToDelete.size(), videoCount, otherFilesCount);
+        }
 
         // return the evenement
         HttpHeaders httpHeaders = new HttpHeaders();
@@ -776,6 +861,28 @@ public class FileRestController {
 
         return new ResponseEntity<Evenement>(savedEvenement, httpHeaders, HttpStatus.CREATED);
 
+    }
+
+    /**
+     * Check if a file is a video based on its filename
+     */
+    private boolean isVideoFile(String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return false;
+        }
+        
+        String extension = filename.toLowerCase();
+        return extension.endsWith(".mp4") ||
+               extension.endsWith(".webm") ||
+               extension.endsWith(".ogg") ||
+               extension.endsWith(".ogv") ||
+               extension.endsWith(".mov") ||
+               extension.endsWith(".avi") ||
+               extension.endsWith(".mkv") ||
+               extension.endsWith(".flv") ||
+               extension.endsWith(".wmv") ||
+               extension.endsWith(".m4v") ||
+               extension.endsWith(".3gp");
     }
 
     /**
@@ -817,6 +924,24 @@ public class FileRestController {
             return "application/zip";
         } else if (extension.endsWith(".mp4")) {
             return "video/mp4";
+        } else if (extension.endsWith(".webm")) {
+            return "video/webm";
+        } else if (extension.endsWith(".ogg") || extension.endsWith(".ogv")) {
+            return "video/ogg";
+        } else if (extension.endsWith(".mov")) {
+            return "video/quicktime";
+        } else if (extension.endsWith(".avi")) {
+            return "video/x-msvideo";
+        } else if (extension.endsWith(".mkv")) {
+            return "video/x-matroska";
+        } else if (extension.endsWith(".flv")) {
+            return "video/x-flv";
+        } else if (extension.endsWith(".wmv")) {
+            return "video/x-ms-wmv";
+        } else if (extension.endsWith(".m4v")) {
+            return "video/x-m4v";
+        } else if (extension.endsWith(".3gp")) {
+            return "video/3gpp";
         } else if (extension.endsWith(".mp3")) {
             return "audio/mpeg";
         } else if (extension.endsWith(".wav")) {

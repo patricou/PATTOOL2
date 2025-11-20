@@ -1,5 +1,6 @@
 import { Component, OnInit, Input, Output, ViewChild, EventEmitter, AfterViewInit, TemplateRef, ElementRef } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
@@ -19,6 +20,7 @@ import { Commentary } from '../../model/commentary';
 import { environment } from '../../../environments/environment';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
+import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
 
 @Component({
 	selector: 'element-evenement',
@@ -36,6 +38,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// Upload logs
 	public uploadLogs: string[] = [];
 	public isUploading: boolean = false;
+	// Video compression quality selection
+	public selectedCompressionQuality: 'low' | 'medium' | 'high' = 'high';
+	public showQualitySelection: boolean = false;
+	public pendingVideoFiles: File[] = [];
+	public videoCountForModal: number = 0;
+	private qualityModalRef: any = null;
 	// Evaluate rating
 	public currentRate: number = 0;
 	public safePhotosUrl: SafeUrl = {} as SafeUrl;
@@ -104,6 +112,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
 	@ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
+	@ViewChild('videoshowModalComponent') videoshowModalComponent!: VideoshowModalComponent;
 	@ViewChild('traceViewerModalComponent') traceViewerModalComponent!: TraceViewerModalComponent;
 	@ViewChild('thumbnailImage', { static: false }) thumbnailImageRef!: ElementRef<HTMLImageElement>;
 	@ViewChild('cardSlideImage', { static: false }) cardSlideImageRef!: ElementRef<HTMLImageElement>;
@@ -156,6 +165,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
 	@ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
+	@ViewChild('qualitySelectionModal') qualitySelectionModal!: TemplateRef<any>;
 	@ViewChild('logContent') logContent: any;
 
 	@Input()
@@ -195,7 +205,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		private ratingConfig: NgbRatingConfig,
 		private _fileService: FileService,
 		private winRef: WindowRefService,
-		private translateService: TranslateService
+		private translateService: TranslateService,
+		private videoCompressionService: VideoCompressionService
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -379,6 +390,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		}
 	}
 
+	public onVideoshowClosed(): void {
+		// Handle videoshow modal close if needed
+		// Similar cleanup can be added here if needed in the future
+	}
+
 	public onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
 		if (!event || typeof event.lat !== 'number' || typeof event.lng !== 'number') {
 			return;
@@ -416,7 +432,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.forceCloseTooltips();
 		const hasFs = this.getPhotoFromFsCount() > 0;
 		const hasPhotosWeb = this.getPhotosUrlLinks().length > 0;
-		const hasUploaded = this.hasImageFiles();
+		const hasUploaded = this.hasImageFiles(); // This checks for image files only
 
 		if ((hasFs || hasPhotosWeb) && hasUploaded) {
 			this.openFsPhotosSelector(true);
@@ -427,7 +443,17 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			return;
 		}
 		if (hasUploaded) {
-			this.openSlideshow();
+			// Double check: make sure we have image files before opening slideshow
+			const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
+			if (imageFiles.length > 0) {
+				this.openSlideshow();
+			} else {
+				// No images found, show message
+				alert('Aucune image trouvée dans cet événement.');
+			}
+		} else {
+			// No images at all
+			alert('Aucune image trouvée dans cet événement.');
 		}
 	}
 
@@ -699,7 +725,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		}
 	}
 
-	private uploadFiles(): void {
+	private async uploadFiles(): Promise<void> {
 		if (this.selectedFiles.length === 0) {
 			console.log('No files to upload');
 			return;
@@ -749,8 +775,84 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			}
 		}
 
+		// Check for video files and ask for quality if needed
+		const processedFiles: File[] = [];
+		const videoFiles = this.selectedFiles.filter(file => this.isVideoFile(file.name));
+		
+		if (videoFiles.length > 0 && this.videoCompressionService.isSupported()) {
+			// Ask user for compression quality
+			const quality = await this.askForCompressionQuality(videoFiles.length);
+			
+			if (quality === null) {
+				// User cancelled, use original files
+				this.addLog(`⚠️ Compression cancelled, uploading original files`);
+				processedFiles.push(...this.selectedFiles);
+			} else {
+				this.addLog(`🎬 Found ${videoFiles.length} video file(s) - Compressing with ${quality} quality...`);
+				
+				for (let i = 0; i < this.selectedFiles.length; i++) {
+					const file = this.selectedFiles[i];
+					
+					if (this.isVideoFile(file.name)) {
+						try {
+							this.addLog(`🎥 Compressing video ${i + 1}/${videoFiles.length}: ${file.name}...`);
+							
+							const compressedBlob = await this.videoCompressionService.compressVideo(
+								file,
+								quality,
+								(progress: CompressionProgress) => {
+									// Update logs with compression progress
+									this.addLog(`   ${progress.message}`);
+								}
+							);
+							
+							// Check if compression actually happened (blob size should be different or format changed)
+							const isAviOrMov = file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mov');
+							const formatChanged = isAviOrMov && (compressedBlob.type.includes('webm') || compressedBlob.type.includes('mp4'));
+							
+							// If compression failed (same size and no format change for AVI/MOV), use original
+							if (!formatChanged && compressedBlob.size >= file.size * 0.95) {
+								// Compression didn't really happen (probably error was caught and original returned)
+								this.addLog(`⚠️ Compression non disponible pour ce format. Utilisation du fichier original.`);
+								processedFiles.push(file);
+							} else {
+								// Create a new File from the compressed Blob
+								// Use original filename but note that format may have changed (AVI/MOV -> WebM/MP4)
+								const outputFilename = (compressedBlob as any).name || file.name;
+								const compressedFile = new File(
+									[compressedBlob],
+									outputFilename,
+									{ type: compressedBlob.type || file.type }
+								);
+								
+								processedFiles.push(compressedFile);
+								
+								const reduction = ((1 - compressedBlob.size / file.size) * 100).toFixed(1);
+								this.addLog(`✅ Video compressed: ${this.formatFileSize(file.size)} → ${this.formatFileSize(compressedBlob.size)} (${reduction}% reduction)`);
+							}
+							
+						} catch (error: any) {
+							this.addErrorLog(`❌ Error compressing video ${file.name}: ${error.message}`);
+							// Use original file if compression fails
+							processedFiles.push(file);
+							this.addLog(`📤 Le fichier original sera uploadé tel quel.`);
+						}
+					} else {
+						// Non-video files: add as-is
+						processedFiles.push(file);
+					}
+				}
+			}
+		} else {
+			// No video files or compression not supported: use files as-is
+			processedFiles.push(...this.selectedFiles);
+			if (videoFiles.length > 0 && !this.videoCompressionService.isSupported()) {
+				this.addLog(`⚠️ Video compression not supported in this browser, uploading original files`);
+			}
+		}
+
 		const formData = new FormData();
-		for (let file of this.selectedFiles) {
+		for (let file of processedFiles) {
 			formData.append('file', file, file.name);
 		}
 		
@@ -847,6 +949,69 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				container.scrollTop = 0;
 			}
 		}, 0);
+	}
+
+	private formatFileSize(bytes: number): string {
+		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+		return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+	}
+
+	/**
+	 * Ask user for video compression quality
+	 */
+	private askForCompressionQuality(videoCount: number): Promise<'low' | 'medium' | 'high' | null> {
+		return new Promise((resolve) => {
+			this.selectedCompressionQuality = 'high'; // Default to best quality
+			this.videoCountForModal = videoCount; // Store for template
+			
+			if (this.qualitySelectionModal) {
+				this.qualityModalRef = this.modalService.open(this.qualitySelectionModal, {
+					centered: true,
+					backdrop: 'static',
+					keyboard: false,
+					size: 'md'
+				});
+
+				// Handle result
+				this.qualityModalRef.result.then(
+					(result: 'low' | 'medium' | 'high') => {
+						this.qualityModalRef = null;
+						resolve(result);
+					},
+					() => {
+						this.qualityModalRef = null;
+						resolve(null); // User dismissed
+					}
+				);
+			} else {
+				// Fallback to simple prompt
+				const choice = prompt(
+					`Choisissez la qualité de compression pour ${videoCount} vidéo(s):\n` +
+					`1. Basse (petite taille)\n` +
+					`2. Moyenne (taille moyenne)\n` +
+					`3. Haute (grande taille)\n\n` +
+					`Entrez 1, 2 ou 3:`
+				);
+				
+				if (choice === '1') resolve('low');
+				else if (choice === '2') resolve('medium');
+				else if (choice === '3') resolve('high');
+				else resolve(null);
+			}
+		});
+	}
+
+	public confirmQualitySelection(): void {
+		if (this.qualityModalRef) {
+			this.qualityModalRef.close(this.selectedCompressionQuality);
+		}
+	}
+
+	public cancelQualitySelection(): void {
+		if (this.qualityModalRef) {
+			this.qualityModalRef.dismiss();
+		}
 	}
 
 	private addSuccessLog(message: string): void {
@@ -1536,9 +1701,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return this.getSolidColor(0.9);
 	}
 
-	private getFileTypeKey(fileName: string): 'image' | 'pdf' | 'other' {
+	private getFileTypeKey(fileName: string): 'image' | 'video' | 'pdf' | 'other' {
 		if (this.isImageFile(fileName)) {
 			return 'image';
+		}
+		if (this.isVideoFile(fileName)) {
+			return 'video';
 		}
 		if (this.isPdfFile(fileName)) {
 			return 'pdf';
@@ -1563,6 +1731,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				r = this.adjustColorComponent(r, 45);
 				g = this.adjustColorComponent(g, 45);
 				b = this.adjustColorComponent(b, 45);
+				break;
+			case 'video':
+				r = this.adjustColorComponent(r, 30);
+				g = this.adjustColorComponent(g, -20);
+				b = this.adjustColorComponent(b, 30);
 				break;
 			case 'pdf':
 				r = this.adjustColorComponent(r, -50);
@@ -1768,15 +1941,31 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				console.log('Thumbnail file being deleted:', fileToDelete.fileName);
 			}
 			
-			// Remove the file from the list
-			this.evenement.fileUploadeds = this.evenement.fileUploadeds.filter(fileUploaded => !(fileUploaded.fieldId == fieldId));
-			this.updateFileUploaded.emit(this.evenement);
+			// Create a copy of the evenement without the file to delete
+			const evenementToUpdate = { ...this.evenement };
+			evenementToUpdate.fileUploadeds = this.evenement.fileUploadeds.filter(fileUploaded => !(fileUploaded.fieldId == fieldId));
 			
-			// If a thumbnail file was deleted, reload the card
-			if (isThumbnailFile) {
-				console.log('Thumbnail file deleted, reloading card...');
-				this.reloadEventCard();
-			}
+			// Call backend to delete the file from MongoDB GridFS
+			this._fileService.updateFile(evenementToUpdate, this.user).subscribe({
+				next: (updatedEvenement) => {
+					console.log('File deleted from MongoDB GridFS:', fieldId);
+					// Update the local evenement with the response
+					this.evenement.fileUploadeds = evenementToUpdate.fileUploadeds;
+					this.updateFileUploaded.emit(this.evenement);
+					
+					// If a thumbnail file was deleted, reload the card
+					if (isThumbnailFile) {
+						console.log('Thumbnail file deleted, reloading card...');
+						this.reloadEventCard();
+					}
+				},
+				error: (error) => {
+					console.error('Error deleting file from MongoDB:', error);
+					alert('Error deleting file from database. Please try again.');
+					// Revert the local change on error
+					// The file list will be restored when the component refreshes
+				}
+			});
 		}
 	}
 
@@ -2575,10 +2764,22 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		return trackExtensions.some(ext => lowerFileName.endsWith(ext));
 	}
 
+	// Check if file is a video based on extension
+	public isVideoFile(fileName: string): boolean {
+		if (!fileName) return false;
+		
+		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'];
+		const lowerFileName = fileName.toLowerCase();
+		
+		return videoExtensions.some(ext => lowerFileName.endsWith(ext));
+	}
+
 	// Handle file click based on file type
 	public handleFileClick(uploadedFile: UploadedFile): void {
 		if (this.isImageFile(uploadedFile.fileName)) {
 			this.openSingleImageInSlideshow(uploadedFile.fieldId, uploadedFile.fileName);
+		} else if (this.isVideoFile(uploadedFile.fileName)) {
+			this.openSingleVideoInVideoshow(uploadedFile.fieldId, uploadedFile.fileName);
 		} else if (this.isPdfFile(uploadedFile.fileName)) {
 			this.openPdfFile(uploadedFile.fieldId, uploadedFile.fileName);
 		} else if (this.isTrackFile(uploadedFile.fileName)) {
@@ -2590,6 +2791,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public getFileTooltip(fileName: string): string | null {
 		if (this.isImageFile(fileName)) {
 			return this.translateService.instant('EVENTELEM.CLICK_TO_VIEW');
+		} else if (this.isVideoFile(fileName)) {
+			return this.translateService.instant('EVENTELEM.CLICK_TO_VIEW_VIDEO') || 'Click to view video';
 		} else if (this.isPdfFile(fileName)) {
 			return this.translateService.instant('EVENTELEM.CLICK_TO_OPEN_PDF');
 		} else if (this.isTrackFile(fileName)) {
@@ -2843,8 +3046,20 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// Open slideshow modal with all images from this card
 	public openSlideshow(): void {
 		this.forceCloseTooltips();
-		// Filter to get only image files
-		const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
+		
+		// Filter to get ONLY image files - exclude videos and other file types
+		const imageFiles = this.evenement.fileUploadeds.filter(file => {
+			const fileName = file.fileName;
+			// Must be an image file
+			if (!this.isImageFile(fileName)) {
+				return false;
+			}
+			// Must NOT be a video file (double check)
+			if (this.isVideoFile(fileName)) {
+				return false;
+			}
+			return true;
+		});
 		
 		if (imageFiles.length === 0) {
 			alert('Aucune image trouvée dans cet événement.');
@@ -2861,6 +3076,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Open the slideshow modal immediately - images will be loaded dynamically
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true);
+		} else {
+			console.error('Slideshow modal component not available');
 		}
 	}
 
@@ -2878,6 +3095,47 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Open the slideshow modal with just this one image
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true);
+		}
+	}
+
+	// Open videoshow modal with all videos from this card
+	public openVideoshow(): void {
+		this.forceCloseTooltips();
+		// Filter to get only video files
+		const videoFiles = this.evenement.fileUploadeds.filter(file => this.isVideoFile(file.fileName));
+		
+		if (videoFiles.length === 0) {
+			alert('Aucune vidéo trouvée dans cet événement.');
+			return;
+		}
+
+		// Prepare video sources for the videoshow component
+		const videoSources: VideoshowVideoSource[] = videoFiles.map(file => ({
+			fileId: file.fieldId,
+			blobUrl: undefined,
+			fileName: file.fileName
+		}));
+
+		// Open the videoshow modal immediately - videos will be loaded dynamically
+		if (this.videoshowModalComponent) {
+			this.videoshowModalComponent.open(videoSources, this.evenement.evenementName, true);
+		}
+	}
+
+	// Open a single video in videoshow modal
+	public openSingleVideoInVideoshow(fileId: string, fileName: string): void {
+		this.forceCloseTooltips();
+		
+		// Prepare video source for the clicked video
+		const videoSource: VideoshowVideoSource = {
+			fileId: fileId,
+			blobUrl: undefined,
+			fileName: fileName
+		};
+
+		// Open the videoshow modal with just this one video
+		if (this.videoshowModalComponent) {
+			this.videoshowModalComponent.open([videoSource], this.evenement.evenementName, true);
 		}
 	}
 

@@ -1,0 +1,186 @@
+<!-- Videoshow Modal -->
+<ng-template #videoshowModal let-c="close" let-d="dismiss">
+  <div class="modal-header videoshow-header">
+    <h5 class="modal-title">
+      <i class="fa fa-video-camera"></i> {{ 'EVENTELEM.VIDEOSHOW_TITLE' | translate }} - {{ eventName }}
+    </h5>
+    <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="onVideoshowClose(c)" aria-label="Close">
+      <i class="fa fa-times"></i>
+    </button>
+  </div>
+  <div class="modal-body videoshow-body">
+    <div class="videoshow-container" #videoshowContainer>
+      <div class="videoshow-video-wrapper">
+        <div *ngIf="videoshowVideos.length === 0" class="videoshow-loading">
+          <i class="fa fa-spinner fa-spin fa-3x"></i>
+          <p>{{ 'EVENTELEM.LOADING_VIDEOS' | translate }}</p>
+        </div>
+        <video #videoshowVideoEl
+               *ngIf="videoshowVideos.length > 0"
+               [src]="getCurrentVideoshowVideo()"
+               class="videoshow-video"
+               controls
+               [muted]="isMuted"
+               [volume]="volume"
+               (loadedmetadata)="onVideoLoadedMetadata()"
+               (timeupdate)="onVideoTimeUpdate()"
+               (play)="onVideoPlay()"
+               (pause)="onVideoPause()"
+               (ended)="onVideoEnded()"
+               [class.fullscreen-video]="isFullscreen">
+          {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
+        </video>
+        <div *ngIf="videoshowVideos.length > 0" class="videoshow-counter">
+          {{ currentVideoshowIndex + 1 }} / {{ videoshowVideos.length }}
+        </div>
+        <div *ngIf="videoshowVideos.length > 0 && showInfoPanel" class="videoshow-info">
+          <div *ngIf="getCurrentVideoFileName()" class="info-line info-file-name" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.3);">
+            <span class="file-name">{{ getCurrentVideoFileName() }}</span>
+          </div>
+          <div class="info-line">Duration: {{ formatTime(duration) }}</div>
+          <div class="info-line">Current Time: {{ formatTime(currentTime) }}</div>
+          <div class="info-line">Volume: {{ (volume * 100).toFixed(0) }}%</div>
+          <div *ngIf="getVideoMetadata()" class="metadata-section" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 8px; margin-top: 8px;">
+            <div class="metadata-title" style="font-weight: bold; margin-bottom: 6px;">{{ 'EVENTELEM.METADATA' | translate }}:</div>
+            <div *ngIf="getVideoMetadata()?.originalSizeBytes" class="metadata-item" style="margin-bottom: 4px; font-size: 0.9em;">
+              <strong>Size:</strong> {{ getVideoMetadata()?.originalSizeKilobytes }} KB
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="videoshow-controls">
+        <button class="btn btn-lg btn-outline-light videoshow-btn-prev" 
+                (click)="previousVideo()"
+                [disabled]="videoshowVideos.length <= 1">
+          <i class="fa fa-chevron-left"></i>
+        </button>
+        <button class="btn btn-lg btn-outline-light videoshow-btn-next" 
+                (click)="nextVideo()"
+                [disabled]="videoshowVideos.length <= 1">
+          <i class="fa fa-chevron-right"></i>
+        </button>
+      </div>
+      <!-- Keyboard Shortcuts Section -->
+      <div *ngIf="videoshowVideos.length > 0 && showInfoPanel && !isMobileDevice()" class="shortcuts-section">
+        <div class="shortcuts-title">
+          <i class="fa fa-info-circle"></i> {{ 'EVENTELEM.SHORTCUTS_TITLE' | translate }}
+        </div>
+        <div class="shortcuts-list">
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_PREV_NEXT' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_PLAY_PAUSE' | translate }} (Space)</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_INFO_PANEL' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_FULLSCREEN' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_THUMBNAILS' | translate }}</div>
+        </div>
+      </div>
+      <!-- Thumbnails strip -->
+      <div *ngIf="videoshowVideos.length > 0 && showThumbnails" 
+           class="thumbnails-strip" 
+           [class.thumbnails-fullscreen]="isFullscreen"
+           #thumbnailsStrip>
+        <div class="thumbnails-container">
+          <div *ngFor="let video of videoshowVideos; let i = index" 
+               class="thumbnail-item"
+               [class.active]="isCurrentThumbnail(i)"
+               (click)="onThumbnailClick(i)">
+            <div *ngIf="getThumbnailUrl(i)" class="thumbnail-image-wrapper">
+              <img [src]="getThumbnailUrl(i)" 
+                   [alt]="'Thumbnail ' + (i + 1)"
+                   class="thumbnail-image"
+                   (error)="onThumbnailError($event)">
+            </div>
+            <div *ngIf="!getThumbnailUrl(i)" class="thumbnail-placeholder">
+              <i class="fa fa-video-camera"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer videoshow-footer">
+    <div class="d-flex gap-2 align-items-center flex-wrap">
+      <button type="button" class="btn btn-secondary" 
+              (click)="playPause(); $event.stopPropagation()"
+              [disabled]="videoshowVideos.length === 0">
+        <i [class.fa-play]="!isPlaying" [class.fa-pause]="isPlaying" class="me-1"></i>
+        <span>{{ isPlaying ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate) }}</span> <span class="ms-1">(Space)</span>
+      </button>
+      <button type="button" class="btn btn-secondary" 
+              (click)="stopVideo(); $event.stopPropagation()"
+              [disabled]="videoshowVideos.length === 0">
+        <i class="fa fa-stop me-1"></i>
+        <span>{{ 'EVENTELEM.STOP' | translate }}</span>
+      </button>
+      <div class="btn-group" role="group">
+        <button type="button" class="btn btn-secondary" 
+                (click)="setVolume(volume - 0.1); $event.stopPropagation()"
+                [disabled]="videoshowVideos.length === 0 || volume <= 0">
+          <i class="fa fa-volume-down"></i>
+        </button>
+        <button type="button" class="btn btn-secondary" 
+                (click)="toggleMute(); $event.stopPropagation()"
+                [disabled]="videoshowVideos.length === 0">
+          <i [class.fa-volume-up]="!isMuted" [class.fa-volume-off]="isMuted" class="me-1"></i>
+          <span>{{ isMuted ? ('EVENTELEM.UNMUTE' | translate) : ('EVENTELEM.MUTE' | translate) }}</span>
+        </button>
+        <button type="button" class="btn btn-secondary" 
+                (click)="setVolume(volume + 0.1); $event.stopPropagation()"
+                [disabled]="videoshowVideos.length === 0 || volume >= 1">
+          <i class="fa fa-volume-up"></i>
+        </button>
+      </div>
+      <button type="button" class="btn btn-secondary" 
+              (click)="toggleFullscreen(); $event.stopPropagation()">
+        <i [class.fa-arrows-alt]="!isFullscreen" [class.fa-compress]="isFullscreen" class="me-1"></i>
+        <span *ngIf="!isFullscreen">{{ 'EVENTELEM.FULLSCREEN' | translate }}</span>
+        <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span> <span class="ms-1">(P)</span>
+      </button>
+      <button type="button" class="btn btn-info" 
+              (click)="toggleInfoPanel(); $event.stopPropagation()"
+              [disabled]="videoshowVideos.length === 0">
+        <i class="fa fa-info-circle me-1"></i>
+        <span>{{ 'EVENTELEM.INFO' | translate }}</span> <span class="ms-1">(I)</span>
+      </button>
+      <div class="btn-group" role="group" ngbDropdown>
+        <button type="button" class="btn btn-secondary dropdown-toggle" 
+                ngbDropdownToggle
+                [disabled]="videoshowVideos.length === 0">
+          <i class="fa fa-cog me-1"></i>
+          <span>{{ 'EVENTELEM.QUALITY' | translate }}: {{ getQualityLabel(selectedQuality) | translate }}</span>
+        </button>
+        <div class="dropdown-menu" ngbDropdownMenu>
+          <button class="dropdown-item" 
+                  [class.active]="selectedQuality === 'auto'"
+                  (click)="changeQuality('auto'); $event.stopPropagation()">
+            {{ 'EVENTELEM.QUALITY_AUTO' | translate }}
+          </button>
+          <button class="dropdown-item" 
+                  [class.active]="selectedQuality === 'high'"
+                  (click)="changeQuality('high'); $event.stopPropagation()">
+            {{ 'EVENTELEM.QUALITY_HIGH' | translate }}
+          </button>
+          <button class="dropdown-item" 
+                  [class.active]="selectedQuality === 'medium'"
+                  (click)="changeQuality('medium'); $event.stopPropagation()">
+            {{ 'EVENTELEM.QUALITY_MEDIUM' | translate }}
+          </button>
+          <button class="dropdown-item" 
+                  [class.active]="selectedQuality === 'low'"
+                  (click)="changeQuality('low'); $event.stopPropagation()">
+            {{ 'EVENTELEM.QUALITY_LOW' | translate }}
+          </button>
+        </div>
+      </div>
+      <button type="button" class="btn btn-secondary" 
+              (click)="toggleThumbnails(); $event.stopPropagation()"
+              [disabled]="videoshowVideos.length <= 1">
+        <i class="fa me-1" [ngClass]="showThumbnails ? 'fa-eye-slash' : 'fa-eye'"></i>
+        <span>{{ showThumbnails ? ('EVENTELEM.HIDE_THUMBNAILS' | translate) : ('EVENTELEM.SHOW_THUMBNAILS' | translate) }}</span> <span class="ms-1">(T)</span>
+      </button>
+      <button type="button" class="btn btn-secondary ms-auto" (click)="onVideoshowClose(c)">
+        <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+      </button>
+    </div>
+  </div>
+</ng-template>
+
