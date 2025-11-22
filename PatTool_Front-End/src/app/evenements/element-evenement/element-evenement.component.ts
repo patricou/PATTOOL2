@@ -64,8 +64,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public dominantR: number = 128;
 	public dominantG: number = 128;
 	public dominantB: number = 128;
-	// Color calculation mode: true = full image, false = top 30%
-	public useFullImageForColor: boolean = false;
 
 	public isSlideshowActive: boolean = false;
 	public currentSlideshowIndex: number = 0;
@@ -81,6 +79,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public currentCardSlideImage: string = '';
 	private cardSlideshowInterval: any;
 	private cardSlideshowSubscriptions: Subscription[] = [];
+	private allSubscriptions: Subscription[] = []; // Track all subscriptions for cleanup
+	private pollIntervalId: ReturnType<typeof setInterval> | null = null;
+	private activeTimeouts: Set<ReturnType<typeof setTimeout>> = new Set();
+	private fullscreenListeners: Array<{ element: Document | HTMLElement; event: string; handler: () => void }> = [];
 	public isFullscreen: boolean = false;
 	private keyboardListener?: (event: KeyboardEvent) => void;
 	private isSlideshowModalOpen: boolean = false;
@@ -238,6 +240,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	// This ensures blob URLs remain valid across component destruction/recreation
 	private static readonly blobUrlCache: Map<string, SafeUrl> = new Map();
 
+	// Public static method to check if a file is already cached (to avoid duplicate requests)
+	public static isThumbnailCached(fileId: string): boolean {
+		return ElementEvenementComponent.blobUrlCache.has(fileId);
+	}
+
+	// Public static method to get cached thumbnail URL
+	public static getCachedThumbnail(fileId: string): SafeUrl | undefined {
+		return ElementEvenementComponent.blobUrlCache.get(fileId);
+	}
+
+	// Public static method to cache a thumbnail URL (for sharing cache between components)
+	public static setCachedThumbnail(fileId: string, safeUrl: SafeUrl): void {
+		ElementEvenementComponent.blobUrlCache.set(fileId, safeUrl);
+	}
+
 	// =========================
 	// Photo From FS integration
 	// =========================
@@ -374,6 +391,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 						}
 					});
 					this.fsSlideshowSubs.push(imageSub);
+					this.allSubscriptions.push(imageSub);
 				};
 				
 				// Start loading images
@@ -386,6 +404,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
             }
         });
 		this.fsSlideshowSubs.push(listSub);
+		this.allSubscriptions.push(listSub);
 	}
 
 	public onSlideshowClosed(): void {
@@ -873,10 +892,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Build the correct upload URL with user ID and event ID
 		const uploadUrl = `${this.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
 
+		// Clear any existing poll interval
+		if (this.pollIntervalId) {
+			clearInterval(this.pollIntervalId);
+			this.pollIntervalId = null;
+		}
+		
 		// Start polling for server logs
 		let lastLogCount = 0;
-		const pollInterval = setInterval(() => {
-			this._fileService.getUploadLogs(sessionId).subscribe(
+		this.pollIntervalId = setInterval(() => {
+			const logSubscription = this._fileService.getUploadLogs(sessionId).subscribe(
 				(serverLogs: string[]) => {
 					if (serverLogs.length > lastLogCount) {
 						// New logs available
@@ -890,15 +915,19 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 					console.error('Error fetching logs:', error);
 				}
 			);
+			this.allSubscriptions.push(logSubscription);
 		}, 500); // Poll every 500ms
 
-		this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId)
+		const uploadSubscription = this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId)
 			.subscribe({
 				next: (response: any) => {
 					
 					// Wait a bit for final logs
-						setTimeout(() => {
-							clearInterval(pollInterval);
+						const cleanupTimeout = setTimeout(() => {
+							if (this.pollIntervalId) {
+								clearInterval(this.pollIntervalId);
+								this.pollIntervalId = null;
+							}
 							
 							const fileCount = Array.isArray(response) ? response.length : 1;
 							this.addSuccessLog(`✅ Upload successful! ${fileCount} file(s) processed`);
@@ -914,14 +943,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 								fileInput.value = '';
 							}
 							
-						setTimeout(() => {
-							this.isUploading = false;
-							// Don't close modal automatically, let user close it manually
-						}, 1000);
+							const refreshTimeout = setTimeout(() => {
+								this.isUploading = false;
+								// Don't close modal automatically, let user close it manually
+							}, 1000);
+							this.activeTimeouts.add(refreshTimeout);
+							setTimeout(() => this.activeTimeouts.delete(refreshTimeout), 1100);
 						}, 500);
+						this.activeTimeouts.add(cleanupTimeout);
+						setTimeout(() => this.activeTimeouts.delete(cleanupTimeout), 600);
 				},
 				error: (error: any) => {
-					clearInterval(pollInterval);
+					if (this.pollIntervalId) {
+						clearInterval(this.pollIntervalId);
+						this.pollIntervalId = null;
+					}
 					console.error('File upload error:', error);
 					
 					let errorMessage = "Error uploading files.";
@@ -940,12 +976,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 					
 					this.addErrorLog(`❌ Upload error: ${errorMessage}`);
 					
-					setTimeout(() => {
+					const errorTimeout = setTimeout(() => {
 						this.isUploading = false;
 						// Don't close modal automatically, let user close it manually
 					}, 1000);
+					this.activeTimeouts.add(errorTimeout);
+					setTimeout(() => this.activeTimeouts.delete(errorTimeout), 1100);
 				}
 			});
+		this.allSubscriptions.push(uploadSubscription);
 	}
 
 	private addLog(message: string): void {
@@ -1027,24 +1066,28 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		this.uploadLogs.unshift(`SUCCESS: [${new Date().toLocaleTimeString()}] ${message}`);
 		
 		// Auto-scroll to top to show latest log
-		setTimeout(() => {
+		const scrollTimeout = setTimeout(() => {
 			if (this.logContent && this.logContent.nativeElement) {
 				const container = this.logContent.nativeElement;
 				container.scrollTop = 0;
 			}
 		}, 0);
+		this.activeTimeouts.add(scrollTimeout);
+		setTimeout(() => this.activeTimeouts.delete(scrollTimeout), 100);
 	}
 
 	private addErrorLog(message: string): void {
 		this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
 		
 		// Auto-scroll to top to show latest log
-		setTimeout(() => {
+		const scrollTimeout = setTimeout(() => {
 			if (this.logContent && this.logContent.nativeElement) {
 				const container = this.logContent.nativeElement;
 				container.scrollTop = 0;
 			}
 		}, 0);
+		this.activeTimeouts.add(scrollTimeout);
+		setTimeout(() => this.activeTimeouts.delete(scrollTimeout), 100);
 	}
 
 	private generateSessionId(): string {
@@ -1202,9 +1245,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 						// Reuse cached blob URL
 						this.thumbnailUrl = cachedBlobUrl;
 						// Detect dominant color after image loads
-						setTimeout(() => {
+						const colorTimeout = setTimeout(() => {
 							this.detectDominantColor();
 						}, 100);
+						this.activeTimeouts.add(colorTimeout);
+						setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
 					} else {
 						// Load and cache the blob URL
 						this._fileService.getFile(fileUploaded.fieldId).pipe(
@@ -1213,14 +1258,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 								let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
 								return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
 							})
-						).subscribe((safeUrl: SafeUrl) => {
-							// Cache the blob URL so it persists across component destruction
-							ElementEvenementComponent.blobUrlCache.set(fileUploaded.fieldId, safeUrl);
-							this.thumbnailUrl = safeUrl;
-							// Detect dominant color after image loads
-							setTimeout(() => {
-								this.detectDominantColor();
-							}, 100);
+						).subscribe({
+							next: (safeUrl: SafeUrl) => {
+								// Cache the blob URL so it persists across component destruction
+								ElementEvenementComponent.blobUrlCache.set(fileUploaded.fieldId, safeUrl);
+								this.thumbnailUrl = safeUrl;
+								// Detect dominant color after image loads
+								const colorTimeout = setTimeout(() => {
+									this.detectDominantColor();
+								}, 100);
+								this.activeTimeouts.add(colorTimeout);
+								setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
+							}
 						});
 					}
 				}
@@ -1338,27 +1387,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			canvas.width = img.naturalWidth || img.width;
 			canvas.height = img.naturalHeight || img.height;
 
-			// Draw image to canvas
-			ctx.drawImage(img, 0, 0);
+		// Draw image to canvas
+		ctx.drawImage(img, 0, 0);
 
-			// Determine sample area based on mode
-			let sampleHeight: number;
-			let sampleWidth: number;
-			let startX: number = 0;
-			let startY: number = 0;
+		// Determine sample area - use entire image for color calculation
+		let sampleHeight: number;
+		let sampleWidth: number;
+		let startX: number = 0;
+		let startY: number = 0;
 
-			if (this.useFullImageForColor) {
-				// Sample the full image
-				sampleHeight = canvas.height;
-				sampleWidth = canvas.width;
-			} else {
-				// Sample the top portion of the image (top 30%)
-				sampleHeight = Math.floor(canvas.height * 0.3);
-				sampleWidth = canvas.width;
-			}
+		// Sample the entire image (100%)
+		sampleHeight = canvas.height;
+		sampleWidth = canvas.width;
 
-			// Get image data from selected portion
-			const imageData = ctx.getImageData(startX, startY, sampleWidth, sampleHeight);
+		// Get image data from entire image
+		const imageData = ctx.getImageData(startX, startY, sampleWidth, sampleHeight);
 			const pixels = imageData.data;
 
 			// Calculate average color
@@ -1664,22 +1707,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	public getCardBackgroundGradient(): string {
 		if (!this.cardBackgroundGradientCache) {
-			const r = this.dominantR;
-			const g = this.dominantG;
-			const b = this.dominantB;
-
-			const lightR = this.adjustColorComponent(r, 110);
-			const lightG = this.adjustColorComponent(g, 110);
-			const lightB = this.adjustColorComponent(b, 110);
-
-			const darkR = this.adjustColorComponent(r, -120);
-			const darkG = this.adjustColorComponent(g, -120);
-			const darkB = this.adjustColorComponent(b, -120);
-
-			const startColor = `rgba(${lightR}, ${lightG}, ${lightB}, 0.9)`;
-			const endColor = `rgba(${darkR}, ${darkG}, ${darkB}, 0.95)`;
-
-			this.cardBackgroundGradientCache = `linear-gradient(155deg, ${startColor}, ${endColor})`;
+			// Use solid color instead of gradient
+			this.cardBackgroundGradientCache = this.getSolidColor(0.9);
 		}
 		return this.cardBackgroundGradientCache;
 	}
@@ -1940,7 +1969,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			evenementToUpdate.fileUploadeds = this.evenement.fileUploadeds.filter(fileUploaded => !(fileUploaded.fieldId == fieldId));
 			
 			// Call backend to delete the file from MongoDB GridFS
-			this._fileService.updateFile(evenementToUpdate, this.user).subscribe({
+			const updateSubscription = this._fileService.updateFile(evenementToUpdate, this.user).subscribe({
 				next: (updatedEvenement) => {
 					// Update the local evenement with the response
 					this.evenement.fileUploadeds = evenementToUpdate.fileUploadeds;
@@ -1958,6 +1987,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 					// The file list will be restored when the component refreshes
 				}
 			});
+			this.allSubscriptions.push(updateSubscription);
 		}
 	}
 
@@ -2867,6 +2897,57 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Stop card slideshow if active
 		this.stopCardSlideshow();
 		
+		// Stop main slideshow if active
+		if (this.slideshowInterval) {
+			clearInterval(this.slideshowInterval);
+			this.slideshowInterval = null;
+		}
+		
+		// Remove keyboard listener
+		this.removeKeyboardListener();
+		
+		// Clean up polling interval
+		if (this.pollIntervalId) {
+			clearInterval(this.pollIntervalId);
+			this.pollIntervalId = null;
+		}
+		
+		// Clean up all timeouts
+		this.activeTimeouts.forEach(timeoutId => {
+			clearTimeout(timeoutId);
+		});
+		this.activeTimeouts.clear();
+		
+		// Unsubscribe from all subscriptions
+		this.allSubscriptions.forEach(sub => {
+			if (!sub.closed) {
+				sub.unsubscribe();
+			}
+		});
+		this.allSubscriptions = [];
+		
+		// Unsubscribe from card slideshow subscriptions
+		this.cardSlideshowSubscriptions.forEach(sub => {
+			if (!sub.closed) {
+				sub.unsubscribe();
+			}
+		});
+		this.cardSlideshowSubscriptions = [];
+		
+		// Unsubscribe from FS slideshow subscriptions
+		this.fsSlideshowSubs.forEach(sub => {
+			if (!sub.closed) {
+				sub.unsubscribe();
+			}
+		});
+		this.fsSlideshowSubs = [];
+		
+		// Clean up fullscreen event listeners
+		this.fullscreenListeners.forEach(listener => {
+			listener.element.removeEventListener(listener.event, listener.handler);
+		});
+		this.fullscreenListeners = [];
+		
 		// Don't revoke blob URLs if they're in the persistent cache
 		// This allows them to be reused when components are recreated
 		if (this.thumbnailUrl && typeof this.thumbnailUrl === 'object' && 'changingThisBreaksApplicationSecurity' in this.thumbnailUrl) {
@@ -2909,6 +2990,19 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		});
 		this.fileThumbnailsCache.clear();
 		this.fileThumbnailsLoading.clear();
+		
+		// Clean up card slide images blob URLs
+		this.cardSlideImages.forEach(blobUrl => {
+			try {
+				if (blobUrl && typeof blobUrl === 'string' && blobUrl.startsWith('blob:')) {
+					URL.revokeObjectURL(blobUrl);
+				}
+			} catch (error) {
+				console.warn('Error cleaning up card slide blob URL:', error);
+			}
+		});
+		this.cardSlideImages = [];
+		this.cardSlideFileNames = [];
 
 		if (this.tooltipMutationObserver) {
 			this.tooltipMutationObserver.disconnect();
@@ -2926,13 +3020,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			document.removeEventListener('click', this.tooltipDocClickListener, true);
 			this.tooltipDocClickListener = undefined;
 		}
+		
+		// Clear all caches
 		this.buttonGradientCache.clear();
 		this.fileBadgeColorCache.clear();
 		this.fileBadgeTextColorCache.clear();
 		this.fileBadgeComponentsCache.clear();
+		this.solidColorCache.clear();
+		this.footerButtonStylesCache.clear();
 		this.photoFrameStylesCache = null;
 		this.photoImageStylesCache = null;
 		this.photoBorderColorCache = null;
+		
+		// Clear arrays to free memory
+		this.selectedFiles = [];
+		this.uploadLogs = [];
+		this.slideshowImages = [];
+		this.pendingVideoFiles = [];
 		this.cardBackgroundGradientCache = null;
 		this.filesListGradientCache = null;
 		this.statusBadgeGradientCache = null;
@@ -3004,15 +3108,22 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Listen to fullscreen events
 	private setupFullscreenListener(): void {
+		// Clean up existing listeners first
+		this.fullscreenListeners.forEach(listener => {
+			listener.element.removeEventListener(listener.event, listener.handler);
+		});
+		this.fullscreenListeners = [];
+		
 		const handleFullscreenChange = () => {
 			this.isFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
 				(document as any).mozFullScreenElement || (document as any).msFullscreenElement);
 		};
 
-		document.addEventListener('fullscreenchange', handleFullscreenChange);
-		document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-		document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-		document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+		const events = ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'];
+		events.forEach(eventName => {
+			document.addEventListener(eventName, handleFullscreenChange);
+			this.fullscreenListeners.push({ element: document, event: eventName, handler: handleFullscreenChange });
+		});
 	}
 
 	// Open slideshow modal with all images from this card
@@ -3450,43 +3561,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		}
 	}
 
-	// Toggle color calculation mode (full image vs top 30%)
-	public toggleColorCalculationMode(): void {
-		this.useFullImageForColor = !this.useFullImageForColor;
-		
-		// Force immediate recalculation with new mode
-		// Use a small delay to ensure the mode change is processed
-		setTimeout(() => {
-			// Recalculate color for thumbnail image
-			if (this.thumbnailImageRef && this.thumbnailImageRef.nativeElement) {
-				const img = this.thumbnailImageRef.nativeElement;
-				// Check if image is loaded
-				if (img.complete && img.naturalWidth > 0) {
-					// Force recalculation immediately using the existing method
-					this.processImageColor(img);
-				} else {
-					// Wait for image to load then recalculate
-					img.onload = () => {
-						this.processImageColor(img);
-					};
-				}
-			}
-			
-			// Also recalculate if slideshow is active
-			if (this.isCardSlideshowActive && this.cardSlideImageRef && this.cardSlideImageRef.nativeElement) {
-				const img = this.cardSlideImageRef.nativeElement;
-				if (img.complete && img.naturalWidth > 0) {
-					// Force recalculation immediately using the existing method
-					this.processImageColor(img);
-				} else {
-					// Wait for image to load then recalculate
-					img.onload = () => {
-						this.processImageColor(img);
-					};
-				}
-			}
-		}, 50);
-	}
 
 	// Force close all tooltips when mouse leaves an element
 	public forceCloseTooltips(): void {

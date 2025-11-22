@@ -275,10 +275,43 @@
         </div>
     </div>
 </div>
-<div class="loading-indicator text-center my-3" *ngIf="isLoadingNextPage">
-    <i class="fa fa-spinner fa-spin"></i>
+<!-- Spinner de chargement principal -->
+<div class="loading-spinner-container" *ngIf="isLoading">
+    <div class="loading-spinner">
+        <i class="fa fa-spinner fa-spin fa-3x"></i>
+        <p class="loading-text">{{ getLoadingEventsText() }}</p>
+        <div class="loading-info">
+            <div class="loading-info-item">
+                <span class="info-label">Page:</span>
+                <span class="info-value">{{ pageNumber }}</span>
+            </div>
+            <div class="loading-info-item">
+                <span class="info-label">Événements visibles:</span>
+                <span class="info-value">{{ getVisibleEventsCount() }}</span>
+            </div>
+            <div class="loading-info-item">
+                <span class="info-label">Dans le cache:</span>
+                <span class="info-value">{{ getBufferedEventsCount() }}</span>
+            </div>
+            <div class="loading-info-item">
+                <span class="info-label">Total chargés:</span>
+                <span class="info-value">{{ getAllLoadedEventsCount() }}</span>
+            </div>
+            <div class="loading-info-item">
+                <span class="info-label">Total disponible:</span>
+                <span class="info-value">{{ filteredTotal }}</span>
+            </div>
+        </div>
+    </div>
 </div>
-<div class="text-center text-muted my-3" *ngIf="!isLoadingNextPage && evenements.length === 0">
+
+<!-- Spinner de chargement pour le scroll infini -->
+<div class="loading-indicator" *ngIf="isLoadingNextPage && !isLoading">
+    <i class="fa fa-spinner fa-spin"></i>
+    <span class="loading-text-small">{{ getLoadingMoreText() }}</span>
+</div>
+
+<div class="text-center text-muted my-3" *ngIf="!isLoading && !isLoadingNextPage && evenements.length === 0">
     <small>{{ 'EVENTHOME.EVENTS_FOUND' | translate }}: 0</small>
 </div>
 <div #infiniteScrollAnchor class="infinite-scroll-anchor" aria-hidden="true"></div>

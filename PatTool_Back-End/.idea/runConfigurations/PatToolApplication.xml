@@ -1,0 +1,10 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="PatToolApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="pattool" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.pat.PatToolApplication" />
+    <option name="VM_PARAMETERS" value="-Xms512m -Xmx2048m -XX:MaxMetaspaceSize=512m -XX:MaxDirectMemorySize=512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=./logs/heapdump.hprof -Dfile.encoding=UTF-8" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

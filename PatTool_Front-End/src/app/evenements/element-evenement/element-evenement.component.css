@@ -27,36 +27,71 @@
 :host .card-block .card-info-box .card-info-item {
     margin-bottom: 0.35rem;
 }
-/* Forcer la card à utiliser flexbox pour positionner le footer en bas */
+/* ============================================
+   GESTION COMPLÈTE : HOST, BORDURE, HOVER
+   ============================================ */
+
+/* Host - Conteneur principal de la carte */
 :host {
     display: flex !important;
     flex-direction: column !important;
     height: 100% !important;
     min-height: 100% !important;
-    /* Background color will be set dynamically via ngStyle */
+    position: relative;
+    /* Background toujours transparent pour laisser voir le card-wrapper */
+    background: transparent !important;
+    background-image: none !important;
+    border: 3px solid #000000 !important;
+    border-radius: 0.25rem;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease;
 }
 
+
+/* Hover sur le host - bordure rouge uniquement, pas de changement de z-index qui pourrait affecter la taille */
 :host(:hover) {
-	position: relative;
-	z-index: 50;
+    border-color: #ff0000 !important;
+    border: 3px solid #ff0000 !important;
+    /* Pas de z-index pour éviter tout changement de rendu */
 }
 
+/* Empêcher TOUS les changements de background au hover (override des styles globaux) */
+:host.card:hover,
+:host.card:focus-within {
+    background: transparent !important;
+    background-image: none !important;
+    background-clip: initial !important;
+    background-origin: initial !important;
+    /* Ne pas toucher à la bordure - elle doit rester visible (noire ou rouge) */
+}
+
+/* Card wrapper - contient le contenu avec le gradient */
 .card-wrapper {
-	display: flex !important;
-	flex-direction: column !important;
-	height: 100% !important;
-	min-height: 100% !important;
-	width: 100%;
-	border-radius: 0.25rem;
-	overflow: hidden;
-	position: relative;
-	z-index: 0;
-	background-color: transparent;
-	box-shadow: none;
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    min-height: 100% !important;
+    width: 100%;
+    border-radius: 0.25rem;
+    overflow: hidden;
+    position: relative;
+    z-index: 0;
+    background-color: transparent;
+    box-shadow: none;
+    /* Pas de transition pour éviter tout changement visuel */
 }
 
+/* Hover sur card-wrapper - AUCUN changement de taille, position, ou ombre */
 .card-wrapper:hover {
-	z-index: 60;
+    z-index: 1;
+    /* Pas de transform, pas de box-shadow, pas de changement de taille */
+    /* Ne JAMAIS toucher au background, couleurs, filter, opacity - ils restent exactement tels quels */
+    /* Le background défini via [style.background] reste intact */
+}
+
+/* Bordure rouge au hover de la carte - sur le card-wrapper */
+:host(:hover)::after {
+    border: 3px solid #ff0000 !important;
 }
 
 :host .card-block {
@@ -115,9 +150,7 @@
 	inset: 2px;
 	border-radius: inherit;
 	border: 1px solid rgba(255, 255, 255, 0.22);
-	background:
-		linear-gradient(145deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0)),
-		radial-gradient(circle at top, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0));
+	background: rgba(255, 255, 255, 0.15);
 	pointer-events: none;
 }
 

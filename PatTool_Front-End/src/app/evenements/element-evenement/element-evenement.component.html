@@ -450,15 +450,6 @@
                accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar" style="display: none;" />
     </div>
 
-    <button *ngIf="thumbnailUrl && thumbnailUrl !== 'assets/images/images.jpg'"
-            class="btn btn-sm btn-outline-secondary mb-1 me-1 dynamic-footer-btn"
-            [ngStyle]="getFooterButtonStyles('color')"
-            (click)="toggleColorCalculationMode()"
-            placement="top"
-            ngbTooltip="{{ 'EVENTELEM.CARD_COLOR' | translate }}"
-            (mouseleave)="onTooltipMouseLeave($event)">
-        <i class="fa" [class.fa-image]="useFullImageForColor" [class.fa-crop]="!useFullImageForColor"></i>
-    </button>
 </div>
 </ng-container>
 

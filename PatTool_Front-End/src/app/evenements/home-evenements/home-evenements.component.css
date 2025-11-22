@@ -64,6 +64,9 @@
     width: 100%;
     transition: none !important;
     background-image: none;
+    overflow: visible !important;
+    /* Ensure smooth scrolling */
+    scroll-behavior: smooth;
 }
 .pat-jumbotron-element {
     padding-top: 25px;
@@ -200,13 +203,116 @@
     font-size: 0.7rem;
 }
 
+/* Spinner principal de chargement (plein écran) */
+.loading-spinner-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: transparent;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.loading-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    background-color: rgba(255, 255, 255, 0.7);
+    padding: 40px 60px;
+    border-radius: 12px;
+    backdrop-filter: blur(4px);
+    min-width: 300px;
+}
+
+.loading-spinner i {
+    color: #007bff;
+    animation: spin 1s linear infinite;
+}
+
+.loading-text {
+    color: #007bff;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin: 0;
+}
+
+.loading-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    margin-top: 10px;
+    padding-top: 15px;
+    border-top: 1px solid rgba(0, 123, 255, 0.2);
+}
+
+.loading-info-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.info-label {
+    color: #6c757d;
+    font-weight: 400;
+}
+
+.info-value {
+    color: #007bff;
+    font-weight: 600;
+    margin-left: 10px;
+}
+
+/* Spinner de chargement pour le scroll infini */
 .loading-indicator {
-    min-height: 3rem;
+    position: relative;
+    width: 100%;
+    padding: 30px 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    z-index: 100;
+}
+
+.loading-indicator i {
+    font-size: 2rem;
+    color: #007bff;
+    animation: spin 1s linear infinite;
+}
+
+.loading-text-small {
+    color: #6c757d;
+    font-size: 0.9rem;
+    font-weight: 400;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .infinite-scroll-anchor {
     width: 100%;
     height: 1px;
+    /* Ensure anchor is visible for IntersectionObserver */
+    visibility: hidden;
+    pointer-events: none;
+    /* Position anchor at the end of content for smooth loading */
+    margin-top: 20px;
+    margin-bottom: 20px;
 }
 
 /* Animation pour les cards - Disabled - No transitions */
@@ -254,7 +360,15 @@
     backface-visibility: hidden;
 }
 
-.pat-card .card::before {
+/* Désactiver les pseudo-éléments pour element-evenement - gérés par le composant */
+.pat-card element-evenement.card::before,
+.pat-card element-evenement.card::after {
+    display: none !important;
+    content: none !important;
+}
+
+/* Pseudo-éléments pour les autres cartes */
+.pat-card .card:not(element-evenement)::before {
     content: '';
     position: absolute;
     inset: 0;
@@ -269,7 +383,7 @@
     border-radius: inherit;
 }
 
-.pat-card .card::after {
+.pat-card .card:not(element-evenement)::after {
     content: '';
     position: absolute;
     top: -3px;
@@ -284,8 +398,27 @@
     pointer-events: none;
 }
 
-.pat-card .card:hover,
-.pat-card .card:focus-within {
+/* Hover styles désactivés - gérés par element-evenement.component.css */
+/* Les cartes element-evenement gèrent leur propre hover sans changer le background */
+.pat-card element-evenement.card:hover,
+.pat-card element-evenement.card:focus-within {
+    /* Pas de changement de background - géré par le composant */
+    background: transparent !important;
+    background-image: none !important;
+    /* Ne pas toucher à la bordure - elle est gérée par element-evenement.component.css */
+}
+
+.pat-card element-evenement.card:hover::before,
+.pat-card element-evenement.card:hover::after,
+.pat-card element-evenement.card:focus-within::before,
+.pat-card element-evenement.card:focus-within::after {
+    /* Désactiver les pseudo-éléments hover globaux */
+    display: none !important;
+}
+
+/* Pour les autres cartes (si nécessaire) */
+.pat-card .card:not(element-evenement):hover,
+.pat-card .card:not(element-evenement):focus-within {
     border: 3px solid transparent;
     position: relative;
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(15, 23, 42, 0.12);
@@ -296,7 +429,7 @@
     background-origin: padding-box, border-box;
 }
 
-.pat-card .card:hover::before {
+.pat-card .card:not(element-evenement):hover::before {
     opacity: 1;
     background:
         radial-gradient(70% 110% at 30% 15%, rgba(0, 0, 0, 0.25), transparent),
@@ -304,59 +437,99 @@
         linear-gradient(115deg, rgba(0, 0, 0, 0.15), transparent 55%);
 }
 
-.pat-card .card:hover::after,
-.pat-card .card:focus-within::after {
+.pat-card .card:not(element-evenement):hover::after,
+.pat-card .card:not(element-evenement):focus-within::after {
     opacity: 1;
 }
 
-/* Styles pour contourner les conteneurs Bootstrap */
-.card-group .pat-card .card:hover,
-.card-group .pat-card .card:focus-within {
+/* Désactiver les styles hover pour element-evenement dans tous les contextes */
+.card-group .pat-card element-evenement.card:hover,
+.card-group .pat-card element-evenement.card:focus-within,
+.col-xl-3 .pat-card element-evenement.card:hover,
+.col-xl-3 .pat-card element-evenement.card:focus-within,
+.col-lg-4 .pat-card element-evenement.card:hover,
+.col-lg-4 .pat-card element-evenement.card:focus-within,
+.col-md-6 .pat-card element-evenement.card:hover,
+.col-md-6 .pat-card element-evenement.card:focus-within,
+.col-sm-12 .pat-card element-evenement.card:hover,
+.col-sm-12 .pat-card element-evenement.card:focus-within {
+    background: transparent !important;
+    background-image: none !important;
+    /* Ne pas toucher à la bordure - elle est gérée par element-evenement.component.css */
+    box-shadow: none !important;
+}
+
+.card-group .pat-card element-evenement.card:hover::before,
+.card-group .pat-card element-evenement.card:hover::after,
+.card-group .pat-card element-evenement.card:focus-within::before,
+.card-group .pat-card element-evenement.card:focus-within::after,
+.col-xl-3 .pat-card element-evenement.card:hover::before,
+.col-xl-3 .pat-card element-evenement.card:hover::after,
+.col-xl-3 .pat-card element-evenement.card:focus-within::before,
+.col-xl-3 .pat-card element-evenement.card:focus-within::after,
+.col-lg-4 .pat-card element-evenement.card:hover::before,
+.col-lg-4 .pat-card element-evenement.card:hover::after,
+.col-lg-4 .pat-card element-evenement.card:focus-within::before,
+.col-lg-4 .pat-card element-evenement.card:focus-within::after,
+.col-md-6 .pat-card element-evenement.card:hover::before,
+.col-md-6 .pat-card element-evenement.card:hover::after,
+.col-md-6 .pat-card element-evenement.card:focus-within::before,
+.col-md-6 .pat-card element-evenement.card:focus-within::after,
+.col-sm-12 .pat-card element-evenement.card:hover::before,
+.col-sm-12 .pat-card element-evenement.card:hover::after,
+.col-sm-12 .pat-card element-evenement.card:focus-within::before,
+.col-sm-12 .pat-card element-evenement.card:focus-within::after {
+    display: none !important;
+}
+
+/* Styles pour les autres cartes (si nécessaire) */
+.card-group .pat-card .card:not(element-evenement):hover,
+.card-group .pat-card .card:not(element-evenement):focus-within {
     border: 3px solid transparent !important;
     position: relative !important;
 }
 
-.card-group .pat-card .card:hover::after,
-.card-group .pat-card .card:focus-within::after {
+.card-group .pat-card .card:not(element-evenement):hover::after,
+.card-group .pat-card .card:not(element-evenement):focus-within::after {
     opacity: 1 !important;
 }
 
-.card-group .pat-card .card:hover,
-.card-group .pat-card .card:focus-within {
+.card-group .pat-card .card:not(element-evenement):hover,
+.card-group .pat-card .card:not(element-evenement):focus-within {
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(15, 23, 42, 0.12) !important;
 }
 
-.col-xl-3 .pat-card .card:hover,
-.col-xl-3 .pat-card .card:focus-within,
-.col-lg-4 .pat-card .card:hover,
-.col-lg-4 .pat-card .card:focus-within,
-.col-md-6 .pat-card .card:hover,
-.col-md-6 .pat-card .card:focus-within,
-.col-sm-12 .pat-card .card:hover,
-.col-sm-12 .pat-card .card:focus-within {
+.col-xl-3 .pat-card .card:not(element-evenement):hover,
+.col-xl-3 .pat-card .card:not(element-evenement):focus-within,
+.col-lg-4 .pat-card .card:not(element-evenement):hover,
+.col-lg-4 .pat-card .card:not(element-evenement):focus-within,
+.col-md-6 .pat-card .card:not(element-evenement):hover,
+.col-md-6 .pat-card .card:not(element-evenement):focus-within,
+.col-sm-12 .pat-card .card:not(element-evenement):hover,
+.col-sm-12 .pat-card .card:not(element-evenement):focus-within {
     border: 3px solid transparent !important;
     position: relative !important;
 }
 
-.col-xl-3 .pat-card .card:hover::after,
-.col-xl-3 .pat-card .card:focus-within::after,
-.col-lg-4 .pat-card .card:hover::after,
-.col-lg-4 .pat-card .card:focus-within::after,
-.col-md-6 .pat-card .card:hover::after,
-.col-md-6 .pat-card .card:focus-within::after,
-.col-sm-12 .pat-card .card:hover::after,
-.col-sm-12 .pat-card .card:focus-within::after {
+.col-xl-3 .pat-card .card:not(element-evenement):hover::after,
+.col-xl-3 .pat-card .card:not(element-evenement):focus-within::after,
+.col-lg-4 .pat-card .card:not(element-evenement):hover::after,
+.col-lg-4 .pat-card .card:not(element-evenement):focus-within::after,
+.col-md-6 .pat-card .card:not(element-evenement):hover::after,
+.col-md-6 .pat-card .card:not(element-evenement):focus-within::after,
+.col-sm-12 .pat-card .card:not(element-evenement):hover::after,
+.col-sm-12 .pat-card .card:not(element-evenement):focus-within::after {
     opacity: 1 !important;
 }
 
-.col-xl-3 .pat-card .card:hover,
-.col-xl-3 .pat-card .card:focus-within,
-.col-lg-4 .pat-card .card:hover,
-.col-lg-4 .pat-card .card:focus-within,
-.col-md-6 .pat-card .card:hover,
-.col-md-6 .pat-card .card:focus-within,
-.col-sm-12 .pat-card .card:hover,
-.col-sm-12 .pat-card .card:focus-within {
+.col-xl-3 .pat-card .card:not(element-evenement):hover,
+.col-xl-3 .pat-card .card:not(element-evenement):focus-within,
+.col-lg-4 .pat-card .card:not(element-evenement):hover,
+.col-lg-4 .pat-card .card:not(element-evenement):focus-within,
+.col-md-6 .pat-card .card:not(element-evenement):hover,
+.col-md-6 .pat-card .card:not(element-evenement):focus-within,
+.col-sm-12 .pat-card .card:not(element-evenement):hover,
+.col-sm-12 .pat-card .card:not(element-evenement):focus-within {
     box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(15, 23, 42, 0.12) !important;
 }
 
@@ -377,7 +550,21 @@
         box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18);
     }
 
-    .pat-card .card:hover {
+    /* Désactiver hover pour element-evenement dans les media queries */
+    .pat-card element-evenement.card:hover {
+        background: transparent !important;
+        background-image: none !important;
+        /* Ne pas toucher à la bordure - elle est gérée par element-evenement.component.css */
+        box-shadow: none !important;
+    }
+    
+    .pat-card element-evenement.card:hover::before,
+    .pat-card element-evenement.card:hover::after {
+        display: none !important;
+    }
+    
+    /* Pour les autres cartes */
+    .pat-card .card:not(element-evenement):hover {
         border: 3px solid transparent !important;
         position: relative !important;
         box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(15, 23, 42, 0.12) !important;
@@ -425,6 +612,8 @@
     padding-bottom: 0;
     animation: none !important;
     transition: none !important;
+    /* Ensure smooth scrolling */
+    overflow: visible !important;
 }
 
 /* Disable all transitions on container and row elements */
