@@ -1,8 +1,8 @@
 import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, ViewChildren, QueryList, OnDestroy, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
-import { Observable, Subscription, fromEvent, firstValueFrom } from 'rxjs';
-import { debounceTime, map } from 'rxjs/operators';
+import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of } from 'rxjs';
+import { debounceTime, map, mergeMap, catchError } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
@@ -27,6 +27,14 @@ interface EventColorUpdate {
 	color: { r: number; g: number; b: number };
 }
 
+interface LoadingEventInfo {
+	eventId: string;
+	cardLoadStart: number;
+	cardLoadEnd?: number;
+	thumbnailLoadStart?: number;
+	thumbnailLoadEnd?: number;
+}
+
 @Component({
 	selector: 'home-evenements',
 	templateUrl: './home-evenements.component.html',
@@ -39,8 +47,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private bufferedEvenements: Evenement[] = [];
 	private allLoadedEvenements: Evenement[] = [];
 	private readonly INITIAL_VISIBLE_COUNT: number = 8; // Afficher 8 cards d'abord
+	private readonly SCROLL_INCREMENT: number = 8; // Afficher 8 cards supplémentaires à chaque scroll
 	private readonly BUFFER_SIZE: number = 12; // Cache de 12 cards avec thumbnails
 	private readonly MIN_BUFFER_SIZE: number = 12; // Toujours maintenir 12 cards en cache
+	private readonly CACHE_TRIGGER_THRESHOLD: number = 9; // Trigger load when cache drops below 9
 	private readonly TOTAL_ELEMENTS_PER_PAGE: number = this.INITIAL_VISIBLE_COUNT + this.BUFFER_SIZE; // 8 + 12 = 20
 	public cardsReady: boolean = false;
 	public isLoading: boolean = false; // État de chargement pour le spinner
@@ -78,6 +88,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private readonly defaultAverageBorderColor: string = 'rgba(52, 58, 64, 0.65)';
 	private eventColors: Map<string, { r: number; g: number; b: number }> = new Map();
 	public titleOnlyView: boolean = false;
+	public debugInfoCollapsed: boolean = true; // Debug info panel collapsed by default
+	public cachedMemoryUsage: string = 'N/A'; // Cached memory usage to prevent change detection errors
+	public cachedMemoryUsagePercent: number = 0; // Cached memory usage percentage
+	public cachedCardLoadTime: number = 0; // Cached card load time to prevent change detection errors
+	public cachedThumbnailLoadTime: number = 0; // Cached thumbnail load time to prevent change detection errors
 	@ViewChildren('searchterm')
 	public searchterms!: QueryList<ElementRef>;
 	@ViewChildren('patCard') patCards!: QueryList<ElementRef>;
@@ -110,6 +125,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private pollIntervalId: ReturnType<typeof setInterval> | null = null;
 	private firebaseUnsubscribe?: () => void;
 	private activeTimeouts: Set<ReturnType<typeof setTimeout>> = new Set();
+	private debugInfoUpdateInterval?: ReturnType<typeof setInterval>;
+	private loadingEvents: Map<string, LoadingEventInfo> = new Map(); // Track events being loaded with timestamps
+	private isLoadingMoreFromBuffer: boolean = false; // Prevent multiple simultaneous calls to loadMoreFromBuffer
+	private loadMoreFromBufferTimeoutId: ReturnType<typeof setTimeout> | null = null; // Debounce timer for loadMoreFromBuffer
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
@@ -133,6 +152,17 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.user = this._memberService.getUser();
 		this.cardsReady = false;
 		
+		// Reset pageNumber to 0 at startup to ensure clean state
+		// This prevents issues where the service might have an old page number
+		this.pageNumber = 0;
+		this._commonValuesService.setPageNumber(0);
+		
+		// Initialize cached memory usage and load times
+		this.updateCachedMemoryUsage();
+		
+		// Start real-time updates for debug info panel when visible
+		this.startDebugInfoUpdates();
+		
 		// Check if we need to load a specific event first (when returning from update)
 		const storedDataStr = sessionStorage.getItem('lastViewedEventData');
 		const storedEventId = sessionStorage.getItem('lastViewedEventId');
@@ -145,15 +175,18 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		})() : storedEventId;
 		
+		// Always reset first to ensure clean state
+		this.resetAndLoadEvents();
+		
+		// After reset, load specific event if needed (this will be handled in resetAndLoadEvents)
 		if (eventId) {
 			// Block scrolling until cards are ready
 			this.shouldBlockScroll = true;
 			this.blockPageScroll();
-			// Load the specific event first, then load normal events
+			// Load the specific event first, but after reset
+			// Note: resetAndLoadEvents will preserve it if it exists
 			this.loadAndDisplayEventFirst(eventId);
 		}
-		
-		this.resetAndLoadEvents();
 		
 		this.updateResponsiveState(this.nativeWindow.innerWidth);
 		// Initialize controls collapsed state based on screen size
@@ -161,6 +194,71 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.controlsCollapsed = true;
 		}
 		
+	}
+
+	private startDebugInfoUpdates(): void {
+		// Clear any existing interval
+		if (this.debugInfoUpdateInterval) {
+			clearInterval(this.debugInfoUpdateInterval);
+			this.debugInfoUpdateInterval = undefined;
+		}
+		
+		// Update debug info in real-time every 100ms (0.1 second) when panel is visible
+		// Use detectChanges for immediate updates of all debug information
+		this.debugInfoUpdateInterval = setInterval(() => {
+			if (!this.debugInfoCollapsed) {
+				// Update cached memory usage asynchronously to prevent change detection errors
+				this.updateCachedMemoryUsage();
+				// Clean up unused thumbnails periodically
+				this.cleanupUnusedThumbnails();
+				// Force immediate change detection for real-time updates
+				this.cdr.detectChanges();
+			}
+		}, 100);
+	}
+	
+	// Update cached memory usage values asynchronously
+	private updateCachedMemoryUsage(): void {
+		// Check if performance.memory is available (Chrome/Edge)
+		if (this.nativeWindow.performance && (this.nativeWindow.performance as any).memory) {
+			const memory = (this.nativeWindow.performance as any).memory;
+			const usedMB = (memory.usedJSHeapSize / 1048576).toFixed(2);
+			const totalMB = (memory.totalJSHeapSize / 1048576).toFixed(2);
+			const limitMB = (memory.jsHeapSizeLimit / 1048576).toFixed(2);
+			this.cachedMemoryUsage = `${usedMB} MB / ${totalMB} MB (limite: ${limitMB} MB)`;
+			this.cachedMemoryUsagePercent = Math.round((memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100);
+		} else if ((this.nativeWindow.navigator as any).deviceMemory) {
+			// Fallback: try to estimate from navigator.deviceMemory if available
+			const deviceMemory = (this.nativeWindow.navigator as any).deviceMemory;
+			this.cachedMemoryUsage = `N/A (RAM: ${deviceMemory} GB)`;
+			this.cachedMemoryUsagePercent = 0;
+		} else {
+			this.cachedMemoryUsage = 'N/A';
+			this.cachedMemoryUsagePercent = 0;
+		}
+		
+		// Update cached load times to prevent change detection errors
+		this.updateCachedLoadTimes();
+	}
+	
+	// Update cached load times asynchronously
+	private updateCachedLoadTimes(): void {
+		// Update card load time
+		const first = this.loadingEvents.values().next().value;
+		if (first && first.cardLoadStart) {
+			const end = first.cardLoadEnd || Date.now();
+			this.cachedCardLoadTime = end - first.cardLoadStart;
+		} else {
+			this.cachedCardLoadTime = 0;
+		}
+		
+		// Update thumbnail load time
+		if (first && first.thumbnailLoadStart) {
+			const end = first.thumbnailLoadEnd || Date.now();
+			this.cachedThumbnailLoadTime = end - first.thumbnailLoadStart;
+		} else {
+			this.cachedThumbnailLoadTime = 0;
+		}
 	}
 
 	@HostListener('window:resize', ['$event'])
@@ -195,15 +293,19 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Écouter les changements des cards pour déclencher l'animation
 				this.patCards.changes.subscribe(() => {
 					if (this.patCards.length > 0 && !this.cardsReady) {
-						setTimeout(() => {
+						// Use requestAnimationFrame for better performance, then do DOM operations
+						requestAnimationFrame(() => {
 							this.cardsReady = true;
 							this.cdr.markForCheck();
 							// Always unblock scrolling once cards are ready
 							this.unblockPageScroll();
 							this.shouldBlockScroll = false;
 							// Check for stored card to scroll to after cards are ready
-							this.checkAndScrollToStoredCard();
-						}, 50);
+							// Use another requestAnimationFrame for scroll operations
+							requestAnimationFrame(() => {
+								this.checkAndScrollToStoredCard();
+							});
+						});
 					} else if (this.patCards.length > 0 && this.cardsReady) {
 						// Cards are already ready, always unblock scrolling
 						this.unblockPageScroll();
@@ -238,15 +340,21 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		this.searchterms.forEach((searchtermRef: ElementRef) => {
 			if (searchtermRef && searchtermRef.nativeElement) {
+				// Reduce debounceTime from 700ms to 300ms for better responsiveness
+				// With [(ngModel)], text appears immediately in the input
 				const eventObservable = fromEvent(searchtermRef.nativeElement, 'input')
-					.pipe(debounceTime(700));
+					.pipe(debounceTime(300));
 
 				const subscription = eventObservable.subscribe(
 					((data: any) => {
+						// With [(ngModel)], dataFIlter is already updated automatically
+						// Just synchronize with the service and trigger filtering
+						const filterValue = this.dataFIlter; // Already updated by ngModel
+						this._commonValuesService.setDataFilter(filterValue);
+						
+						// Reset and reload events with the new filter
 						this.pageNumber = 0;
 						this._commonValuesService.setPageNumber(this.pageNumber);
-						this.dataFIlter = data.target.value;
-						this._commonValuesService.setDataFilter(this.dataFIlter);
 						this.resetAndLoadEvents();
 					}),
 					((err: any) => console.error(err))
@@ -279,8 +387,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			clearTimeout(this.prefetchTimeoutId);
 			this.prefetchTimeoutId = null;
 		}
+		// Force reset pageNumber to 0 and clear service
 		this.pageNumber = 0;
-		this._commonValuesService.setPageNumber(this.pageNumber);
+		this._commonValuesService.setPageNumber(0);
 		// Synchroniser elementsByPage avec le total à charger (visible + cache)
 		this.elementsByPage = this.TOTAL_ELEMENTS_PER_PAGE;
 		this._commonValuesService.setElementsByPage(this.elementsByPage);
@@ -304,6 +413,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.visibleEvenements = [];
 		this.bufferedEvenements = [];
 		this.allLoadedEvenements = [];
+		this.loadingEvents.clear(); // Clear loading events set
+		this.isLoadingMoreFromBuffer = false; // Reset flag on reset
 		if (firstEvent) {
 			// Keep the first event that was loaded for return
 			this.evenements = [firstEvent];
@@ -386,6 +497,20 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							this.INITIAL_VISIBLE_COUNT + this.BUFFER_SIZE
 						);
 						
+						// Mark initial visible events as loading with timestamps
+						this.visibleEvenements.forEach(e => {
+							const eId = e.id || this.getEventKey(e);
+							if (eId) {
+								this.loadingEvents.set(eId, {
+									eventId: eId,
+									cardLoadStart: Date.now()
+								});
+							}
+						});
+						
+						// Load all thumbnails in parallel for better performance
+						this.loadThumbnailsInParallel(this.visibleEvenements, true);
+						
 						// Combine visible with first event if exists (avoid duplication)
 						if (firstEvt) {
 							// Make sure firstEvt is not already in visibleEvenements
@@ -404,30 +529,58 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							this.evenements = this.visibleEvenements;
 						}
 						
+						// Mark card load end after cards are rendered (with a small delay for animation)
+						setTimeout(() => {
+							this.visibleEvenements.forEach(e => {
+								const eId = e.id || this.getEventKey(e);
+								if (eId) {
+									const loadingInfo = this.loadingEvents.get(eId);
+									if (loadingInfo) {
+										loadingInfo.cardLoadEnd = Date.now();
+										// Keep in map until thumbnail is also loaded
+										if (loadingInfo.thumbnailLoadEnd || !loadingInfo.thumbnailLoadStart) {
+											// Thumbnail already loaded or not needed, remove from loading
+											this.loadingEvents.delete(eId);
+										}
+										this.cdr.markForCheck();
+									}
+								}
+							});
+						}, 500); // 500ms delay to show loading indicator
+						
 						// Preload thumbnails for buffered events immediately
 						// This ensures all 12 buffer cards have thumbnails ready for smooth display
-						setTimeout(() => {
-							this.preloadThumbnailsForBufferedEvents();
-						}, 100);
+						// No setTimeout, load immediately
+						this.preloadThumbnailsForBufferedEvents();
 						
-						// After loading initial events, ensure buffer is at minimum size
-						// If buffer is below minimum and more events available, load more
-						if (this.bufferedEvenements.length < this.MIN_BUFFER_SIZE && 
+						// Clean up unused thumbnails after loading initial events
+						this.cleanupUnusedThumbnails();
+						
+						// After loading initial events, ensure buffer is at maximum size
+						// Trigger load when cache drops below trigger threshold (8)
+						if (this.bufferedEvenements.length < this.CACHE_TRIGGER_THRESHOLD && 
 						    this.hasMoreEvents && 
 						    !this.isLoadingNextPage) {
-							setTimeout(() => {
-								this.loadNextPage();
-							}, 300);
+							// Load immediately to maintain cache at maximum (up to 12)
+							this.loadNextPage();
 						}
 						
 						// Update page number
 						const firstEvtCount = this.evenements.length > 0 && this.evenements[0] ? 1 : 0;
 						this.filteredTotal = res?.page?.totalElements ?? (this.allLoadedEvenements.length + firstEvtCount);
-						const currentPageFromResponse = res?.page?.number ?? pageToLoad;
 						const totalPages = res?.page?.totalPages ?? null;
-
-						this.pageNumber = currentPageFromResponse + 1;
-						this._commonValuesService.setPageNumber(currentPageFromResponse);
+						
+						// For initial load, always use page 0 (first page)
+						// Don't trust server page number for initial load as it might be incorrect
+						if (pageToLoad === 0) {
+							this.pageNumber = 1; // Display as page 1 (but we're on page 0 internally)
+							this._commonValuesService.setPageNumber(0);
+						} else {
+							// For subsequent loads, use server response
+							const currentPageFromResponse = res?.page?.number ?? pageToLoad;
+							this.pageNumber = currentPageFromResponse + 1;
+							this._commonValuesService.setPageNumber(currentPageFromResponse);
+						}
 
 						// Check if we need to load more from server
 						if (this.allLoadedEvenements.length < totalToLoad) {
@@ -488,12 +641,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.eventsSubscription = subscription;
 			this.allSubscriptions.push(subscription);
 		}).catch((err) => {
-			console.error("Error while waiting for user value", err);
-			this.isLoadingNextPage = false;
-			this.isLoading = false; // Désactiver le spinner en cas d'erreur
-			this.hasMoreEvents = false;
-			// Always unblock scrolling on error
-			this.unblockPageScroll();
+			// Only reset flags if this is still the current request
+			if (requestToken === this.feedRequestToken) {
+				console.error("Error while waiting for user value", err);
+				this.isLoadingNextPage = false;
+				this.isLoading = false; // Désactiver le spinner en cas d'erreur
+				this.hasMoreEvents = false;
+				// Always unblock scrolling on error
+				this.unblockPageScroll();
+			}
 		});
 	}
 
@@ -535,8 +691,20 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	private loadNextPage(): void {
-		if (this.isLoadingNextPage || !this.hasMoreEvents) {
+		if (!this.hasMoreEvents) {
 			return;
+		}
+		
+		// Check if we're really loading - if flag is true but no active subscription, reset it
+		if (this.isLoadingNextPage) {
+			if (!this.eventsSubscription || this.eventsSubscription.closed) {
+				console.warn('isLoadingNextPage is true but no active subscription - resetting flag');
+				this.isLoadingNextPage = false;
+				this.isLoading = false;
+			} else {
+				// Really loading, don't start another one
+				return;
+			}
 		}
 
 		if (this.prefetchTimeoutId) {
@@ -553,23 +721,66 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.isLoading = true; // Activer le spinner
 		// Ensure scroll is unblocked when loading next page
 		this.unblockPageScroll();
+		
+		// Safety timeout: if loading takes more than 30 seconds, reset the flag
+		let loadingTimeout: ReturnType<typeof setTimeout> | null = setTimeout(() => {
+			if (this.isLoadingNextPage) {
+				console.warn('Loading timeout: resetting isLoadingNextPage flag');
+				this.isLoadingNextPage = false;
+				this.isLoading = false;
+			}
+			loadingTimeout = null;
+		}, 30000);
 
 		this.waitForNonEmptyValue().then(() => {
 			if (requestToken !== this.feedRequestToken) {
+				// Request token changed, reset flags and return
+				this.isLoadingNextPage = false;
+				this.isLoading = false;
+				if (loadingTimeout) {
+					clearTimeout(loadingTimeout);
+					loadingTimeout = null;
+				}
 				return;
 			}
-			this.eventsSubscription?.unsubscribe();
+			// Unsubscribe previous subscription if still active
+			if (this.eventsSubscription && !this.eventsSubscription.closed) {
+				this.eventsSubscription.unsubscribe();
+			}
 			
-			// Load buffer size more events (12 cards)
+			// Calculate how many events to load to reach MIN_BUFFER_SIZE (12)
+			// Always maintain exactly 12 events in cache
+			const currentBufferSize = this.bufferedEvenements.length;
+			const eventsToLoad = Math.max(0, this.MIN_BUFFER_SIZE - currentBufferSize);
+			
+			// If we already have enough in cache, don't load
+			if (eventsToLoad === 0) {
+				this.isLoadingNextPage = false;
+				this.isLoading = false;
+				return;
+			}
+			
+			// Load only what's needed to fill cache to 12
 			const subscription = this._evenementsService
-				.getEvents(searchString, pageToLoad, this.BUFFER_SIZE, this.user.id)
+				.getEvents(searchString, pageToLoad, eventsToLoad, this.user.id)
 				.subscribe({
 					next: (res: any) => {
 						if (requestToken !== this.feedRequestToken) {
+							// Request token changed, reset flags and return
+							if (loadingTimeout) {
+								clearTimeout(loadingTimeout);
+								loadingTimeout = null;
+							}
+							this.isLoadingNextPage = false;
+							this.isLoading = false;
 							return;
 						}
 						const newEvents: Evenement[] = res?.content ?? [];
 
+						if (loadingTimeout) {
+							clearTimeout(loadingTimeout);
+							loadingTimeout = null;
+						}
 						this.isLoadingNextPage = false;
 						this.isLoading = false; // Désactiver le spinner
 						// Ensure scroll is unblocked after loading
@@ -583,52 +794,63 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							this.allLoadedEvenements = [...this.allLoadedEvenements, ...uniqueNewEvents];
 							this.bufferedEvenements = [...this.bufferedEvenements, ...uniqueNewEvents];
 							
-							// Preload thumbnails for newly buffered events (immédiatement)
-							this.preloadThumbnailsForBufferedEvents();
+						// Preload thumbnails for newly buffered events (immediately)
+						// This ensures all cache cards have their thumbnails ready
+						this.preloadThumbnailsForBufferedEvents();
+						
+						// Clean up unused thumbnails after loading new events
+						this.cleanupUnusedThumbnails();
 						} else if (newEvents.length > 0) {
 							// All new events were duplicates, skipping...
 						}
 
 						const firstEvtCount = this.evenements.length > 0 && this.evenements[0] ? 1 : 0;
 						this.filteredTotal = res?.page?.totalElements ?? (this.allLoadedEvenements.length + firstEvtCount);
-						const currentPageFromResponse = res?.page?.number ?? pageToLoad;
 						const totalPages = res?.page?.totalPages ?? null;
-
-						this.pageNumber = currentPageFromResponse + 1;
-						this._commonValuesService.setPageNumber(currentPageFromResponse);
+						
+						// For loadNextPage, pageNumber should represent the last page we loaded
+						// Since we're loading the next page after pageToLoad, update accordingly
+						// But don't trust server response - use our internal tracking
+						// pageToLoad is the page we just requested, so after loading it, we're on that page
+						this.pageNumber = pageToLoad + 1; // Display as 1-based (page 1, 2, 3...)
+						this._commonValuesService.setPageNumber(pageToLoad); // Store as 0-based internally
 
 						if (newEvents.length === 0) {
 							this.hasMoreEvents = false;
 						} else if (totalPages !== null) {
 							this.hasMoreEvents = this.pageNumber < totalPages;
 						} else {
-							this.hasMoreEvents = newEvents.length === this.BUFFER_SIZE;
+							this.hasMoreEvents = newEvents.length >= eventsToLoad;
 						}
 
 						if (!this.hasMoreEvents && this.bufferedEvenements.length === 0) {
 							this.disconnectInfiniteScrollObserver();
 						}
 						
-						// ALWAYS maintain MIN_BUFFER_SIZE (12) cards in buffer
-						// Automatically preload more if buffer is below minimum
-						if (this.bufferedEvenements.length < this.MIN_BUFFER_SIZE && 
+						// ALWAYS maintain MIN_BUFFER_SIZE (12) cards in cache with thumbnails
+						// Trigger load when cache drops below trigger threshold (8)
+						if (this.bufferedEvenements.length < this.CACHE_TRIGGER_THRESHOLD && 
 						    this.hasMoreEvents && 
 						    !this.isLoadingNextPage) {
-							setTimeout(() => {
-								this.loadNextPage();
-							}, 200);
+							// Load immediately to maintain cache at maximum (up to 12)
+							this.loadNextPage();
 						}
 						
-						// Ensure observer is still active after loading new events (immédiatement)
+						// Ensure observer is still active after loading new events (immediately)
 						requestAnimationFrame(() => {
 							this.setupInfiniteScrollObserver();
-							// L'IntersectionObserver se chargera de déclencher le chargement quand nécessaire
-							// Ne pas charger immédiatement pour éviter de déplacer trop d'événements du buffer
+							// IntersectionObserver will handle triggering loading when needed
+							// DO NOT call loadMoreFromBuffer here - let the observer handle it
+							// This prevents multiple rapid calls
 						});
 					},
 					error: (err: any) => {
 						if (requestToken !== this.feedRequestToken) {
 							return;
+						}
+						if (loadingTimeout) {
+							clearTimeout(loadingTimeout);
+							loadingTimeout = null;
 						}
 						console.error("Error when getting Events", err);
 						this.isLoadingNextPage = false;
@@ -636,6 +858,19 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						this.hasMoreEvents = false;
 						// Always unblock scrolling on error
 						this.unblockPageScroll();
+					},
+					complete: () => {
+						// Handle completion - if no value was emitted, reset flags
+						if (requestToken === this.feedRequestToken && this.isLoadingNextPage) {
+							if (loadingTimeout) {
+								clearTimeout(loadingTimeout);
+								loadingTimeout = null;
+							}
+							console.warn('Subscription completed without emitting - resetting flags');
+							this.isLoadingNextPage = false;
+							this.isLoading = false;
+							this.unblockPageScroll();
+						}
 					}
 				});
 			this.eventsSubscription = subscription;
@@ -653,7 +888,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private setupInfiniteScrollObserver(): void {
 		this.disconnectInfiniteScrollObserver();
 
-		// Vérifier immédiatement si l'ancre est disponible
+		// Check immediately if anchor is available
 		if (!this.infiniteScrollAnchor || !this.infiniteScrollAnchor.nativeElement) {
 			// Retry after a short delay if anchor is not ready
 			setTimeout(() => this.setupInfiniteScrollObserver(), 100);
@@ -665,15 +900,20 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Create IntersectionObserver with optimal settings for smooth scrolling
 		this.intersectionObserver = new IntersectionObserver((entries) => {
 			entries.forEach(entry => {
-				if (entry.isIntersecting && !this.isLoadingNextPage) {
-					// Load more when anchor becomes visible (triggered early with rootMargin)
-					// Charger immédiatement sans délai
-					this.loadMoreFromBuffer();
+				if (entry.isIntersecting) {
+					// Only load more if cards are ready (initial load complete)
+					// This prevents loading at startup before initial cards are displayed
+					if (this.cardsReady && !this.isLoadingMoreFromBuffer) {
+						// Always try to load more from buffer when anchor is visible
+						// This will display cached items even if a page load is in progress
+						// The function itself will check if it should trigger a new page load
+						this.loadMoreFromBuffer();
+					}
 				}
 			});
 		}, {
 			root: null,
-			rootMargin: '1000px 0px 0px 0px', // Trigger 1000px before anchor is visible for much earlier loading
+			rootMargin: '2000px 0px 0px 0px', // Trigger 2000px before anchor is visible for much earlier loading
 			threshold: [0] // Single threshold for faster detection
 		});
 
@@ -689,37 +929,53 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		if (!this.intersectionObserver && this.infiniteScrollAnchor?.nativeElement) {
 			this.setupInfiniteScrollObserver();
 		}
+		
+		// Also check if we have cached items that should be displayed
+		// This ensures cached items are shown even if observer hasn't triggered yet
+		// Only if cards are ready (don't trigger during initial load)
+		if (this.cardsReady && !this.isLoadingMoreFromBuffer && this.bufferedEvenements.length > 0 && this.hasMoreEvents) {
+			// Check if we're near the bottom of the page
+			const scrollPosition = window.pageYOffset || document.documentElement.scrollTop;
+			const windowHeight = window.innerHeight;
+			const documentHeight = document.documentElement.scrollHeight;
+			
+			// If we're within 3000px of the bottom, load more from buffer
+			if (documentHeight - (scrollPosition + windowHeight) < 3000) {
+				this.loadMoreFromBuffer();
+			}
+		}
 	}
 
 	private loadMoreFromBuffer(): void {
-		// Prevent multiple simultaneous calls
-		if (this.isLoadingNextPage) {
+		// Prevent multiple simultaneous calls - CHECK FLAG FIRST (before any other check)
+		if (this.isLoadingMoreFromBuffer) {
 			return;
 		}
 		
-		// Si le buffer est vide, charger immédiatement depuis le serveur
-		if (this.bufferedEvenements.length === 0 && this.hasMoreEvents && !this.isLoadingNextPage) {
-			// Buffer is empty, load more from server immediately
-			this.isLoadingNextPage = true;
-			this.loadNextPage();
+		// Don't load more if cards are not ready yet (initial load still in progress)
+		if (!this.cardsReady) {
 			return;
 		}
 		
-		// ALWAYS maintain MIN_BUFFER_SIZE (12) cards in buffer with thumbnails loaded
-		// Preload immediately if buffer will drop below minimum after moving cards
-		const cardsToMove = Math.min(this.INITIAL_VISIBLE_COUNT, this.bufferedEvenements.length);
-		const bufferAfterMove = this.bufferedEvenements.length - cardsToMove;
-		
-		// If buffer will be below minimum after moving cards, preload NOW (sans timeout)
-		if (bufferAfterMove < this.MIN_BUFFER_SIZE && this.hasMoreEvents && !this.isLoadingNextPage) {
-			// Start loading next batch immediately to maintain buffer size
-			this.loadNextPage();
+		// Clear any pending debounce timer
+		if (this.loadMoreFromBufferTimeoutId) {
+			clearTimeout(this.loadMoreFromBufferTimeoutId);
+			this.loadMoreFromBufferTimeoutId = null;
 		}
 		
+		// Set flag IMMEDIATELY to prevent other calls from entering
+		// This must be the FIRST thing we do after checks
+		this.isLoadingMoreFromBuffer = true;
+		
+		// Disconnect observer temporarily to prevent it from triggering again during load
+		this.disconnectInfiniteScrollObserver();
+		
+		// PRIORITY 1: Display cache cards immediately (don't wait for anything)
 		// Move events from buffer to visible for smooth infinite scroll
+		// This happens FIRST, even if cache filling is in progress
 		if (this.bufferedEvenements.length > 0) {
-			// Move events from buffer to visible (8 at a time for smooth loading)
-			const eventsToMove = this.bufferedEvenements.splice(0, this.INITIAL_VISIBLE_COUNT);
+			// Move events from buffer to visible (4 at a time for smooth loading)
+			const eventsToMove = this.bufferedEvenements.splice(0, this.SCROLL_INCREMENT);
 			
 			// Get first event if exists (special event for return navigation)
 			const firstEvent = this.evenements.length > 0 && this.evenements[0] ? 
@@ -743,6 +999,20 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				});
 			});
 			
+			// Mark events as loading before adding to visible with timestamps
+			filteredEventsToMove.forEach(e => {
+				const eId = e.id || this.getEventKey(e);
+				if (eId) {
+					this.loadingEvents.set(eId, {
+						eventId: eId,
+						cardLoadStart: Date.now()
+					});
+				}
+			});
+			
+			// Load all thumbnails in parallel for better performance
+			this.loadThumbnailsInParallel(filteredEventsToMove, true);
+			
 			// Add filtered events to visible
 			this.visibleEvenements = [...this.visibleEvenements, ...filteredEventsToMove];
 			
@@ -764,21 +1034,79 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				this.evenements = this.visibleEvenements;
 			}
 			
-			// Trigger change detection without blocking scroll
+			// DISPLAY IMMEDIATELY the cards (synchronous change detection)
+			// Priority: display happens first, no waiting
 			this.cdr.detectChanges();
 			
-			// Re-setup observer immediately after DOM update (pas de timeout)
-			requestAnimationFrame(() => {
-				this.setupInfiniteScrollObserver();
-			});
-			
-			// After moving cards from buffer, ensure we maintain MIN_BUFFER_SIZE (12) cards
-			// ALWAYS maintain 12 cards with thumbnails loaded in buffer (sans timeout)
-			if (this.bufferedEvenements.length < this.MIN_BUFFER_SIZE && 
-			    this.hasMoreEvents && 
-			    !this.isLoadingNextPage) {
-				// Charger immédiatement sans timeout
+			// Mark card load end after cards are rendered (with a small delay for animation)
+			setTimeout(() => {
+				filteredEventsToMove.forEach(e => {
+					const eId = e.id || this.getEventKey(e);
+					if (eId) {
+						const loadingInfo = this.loadingEvents.get(eId);
+						if (loadingInfo) {
+							loadingInfo.cardLoadEnd = Date.now();
+							// Keep in map until thumbnail is also loaded
+							if (loadingInfo.thumbnailLoadEnd || !loadingInfo.thumbnailLoadStart) {
+								// Thumbnail already loaded or not needed, remove from loading
+								this.loadingEvents.delete(eId);
+							}
+							this.cdr.markForCheck();
+						}
+					}
+				});
+				
+				// Reset flag after cards are fully rendered
+				// This prevents multiple rapid calls
+				this.isLoadingMoreFromBuffer = false;
+				
+				// Re-setup observer after flag is reset to prevent immediate re-triggering
+				// Use a longer delay to ensure DOM is fully updated and prevent rapid re-triggering
+				setTimeout(() => {
+					this.setupInfiniteScrollObserver();
+				}, 500); // Additional delay after flag reset to prevent rapid re-triggering
+			}, 1500); // 1500ms delay to show loading indicator and prevent rapid calls
+		} else {
+			// Buffer is empty - reset flag after a delay and re-setup observer to detect when to load
+			setTimeout(() => {
+				this.isLoadingMoreFromBuffer = false;
+				setTimeout(() => {
+					this.setupInfiniteScrollObserver();
+				}, 500);
+			}, 1500); // Delay to prevent rapid re-triggering
+		}
+		
+		// Clean up unused thumbnails after moving events
+		this.cleanupUnusedThumbnails();
+		
+		// PRIORITY 2: Fill cache in parallel (non-blocking, happens after display)
+		// Calculate buffer state after the move
+		const bufferAfterMove = this.bufferedEvenements.length;
+		
+		// Fill cache in parallel - don't block display, just start loading
+		// It's OK if display is faster than cache filling - they work independently
+		// Cache will be filled in background while user continues scrolling
+		// Trigger load when cache drops below trigger threshold (8)
+		if (bufferAfterMove < this.CACHE_TRIGGER_THRESHOLD && this.hasMoreEvents) {
+			// If buffer is completely empty and we're not loading, force a load
+			// This handles the case where isLoadingNextPage might be stuck
+			if (bufferAfterMove === 0 && !this.isLoadingNextPage) {
+				this.isLoadingNextPage = true;
 				this.loadNextPage();
+			} else if (bufferAfterMove > 0 && !this.isLoadingNextPage) {
+				// Buffer has some items but not enough - load more to fill it
+				this.isLoadingNextPage = true;
+				this.loadNextPage();
+			} else if (bufferAfterMove === 0 && this.isLoadingNextPage) {
+				// Buffer is empty but isLoadingNextPage is true - might be stuck
+				// Check if we have an active subscription - if not, reset and load
+				if (!this.eventsSubscription || this.eventsSubscription.closed) {
+					console.warn('isLoadingNextPage is true but no active subscription - resetting and loading');
+					this.isLoadingNextPage = false;
+					this.isLoading = false;
+					this.isLoadingNextPage = true;
+					this.loadNextPage();
+				}
 			}
 		}
 	}
@@ -809,6 +1137,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	private tryLoadNextIfAnchorVisible(): void {
+		// Don't load if cards are not ready yet (initial load still in progress)
+		if (!this.cardsReady) {
+			return;
+		}
+		
 		if (!this.infiniteScrollAnchor?.nativeElement) {
 			return;
 		}
@@ -818,7 +1151,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				return;
 			}
 			if (this.infiniteScrollAnchor.nativeElement.getBoundingClientRect().top <= (this.nativeWindow?.innerHeight ?? document.documentElement.clientHeight ?? 0)) {
-				this.loadMoreFromBuffer();
+				if (!this.isLoadingMoreFromBuffer) {
+					this.loadMoreFromBuffer();
+				}
 			}
 		});
 	}
@@ -1297,13 +1632,192 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		return defaultUrl;
 	}
 
-	private loadThumbnailFromFile(eventId: string, fileId: string): void {
+	// Start loading thumbnail for an event (called in parallel for multiple events)
+	private startThumbnailLoad(evenement: Evenement, eventId: string): void {
+		// Find a file with "thumbnail" in the name
+		const thumbnailFile = evenement.fileUploadeds?.find(file => 
+			file.fileName && file.fileName.toLowerCase().includes('thumbnail')
+		);
+		
+		if (thumbnailFile) {
+			// Mark thumbnail load start
+			const loadingInfo = this.loadingEvents.get(eventId);
+			if (loadingInfo) {
+				loadingInfo.thumbnailLoadStart = Date.now();
+			}
+			
+			// Load thumbnail
+			this.loadThumbnailFromFile(eventId, thumbnailFile.fieldId, true);
+		} else {
+			// No thumbnail, mark as complete immediately
+			const loadingInfo = this.loadingEvents.get(eventId);
+			if (loadingInfo) {
+				loadingInfo.thumbnailLoadStart = Date.now();
+				loadingInfo.thumbnailLoadEnd = Date.now();
+				// If card is also loaded, remove from loading
+				if (loadingInfo.cardLoadEnd) {
+					this.loadingEvents.delete(eventId);
+				}
+			}
+		}
+	}
+	
+	// Load multiple thumbnails in parallel (optimized for performance)
+	private loadThumbnailsInParallel(events: Evenement[], trackLoading: boolean = false): void {
+		const thumbnailLoadRequests: Observable<{eventId: string, safeUrl: SafeUrl}>[] = [];
+		const eventsWithoutThumbnails: {event: Evenement, eventId: string}[] = [];
+		
+		events.forEach(evenement => {
+			const eventId = evenement.id || this.getEventKey(evenement);
+			if (!eventId) return;
+			
+			// Mark thumbnail load start if tracking
+			if (trackLoading) {
+				const loadingInfo = this.loadingEvents.get(eventId);
+				if (loadingInfo) {
+					loadingInfo.thumbnailLoadStart = Date.now();
+				}
+			}
+			
+			// Check if already cached
+			if (this.eventThumbnails.has(eventId)) {
+				const cached = this.eventThumbnails.get(eventId);
+				if (cached && typeof cached === 'object' && 'changingThisBreaksApplicationSecurity' in cached) {
+					const url = cached['changingThisBreaksApplicationSecurity'];
+					if (url && typeof url === 'string' && url.startsWith('blob:')) {
+						// Already loaded, mark as complete
+						if (trackLoading) {
+							const loadingInfo = this.loadingEvents.get(eventId);
+							if (loadingInfo) {
+								loadingInfo.thumbnailLoadEnd = Date.now();
+								if (loadingInfo.cardLoadEnd) {
+									this.loadingEvents.delete(eventId);
+								}
+								this.cdr.markForCheck();
+							}
+						}
+						return;
+					}
+				}
+			}
+			
+			// Find a file with "thumbnail" in the name
+			const thumbnailFile = evenement.fileUploadeds?.find(file => 
+				file.fileName && file.fileName.toLowerCase().includes('thumbnail')
+			);
+			
+			if (thumbnailFile) {
+				// Check if already cached in element-evenement shared cache
+				if (ElementEvenementComponent.isThumbnailCached(thumbnailFile.fieldId)) {
+					const cachedThumbnail = ElementEvenementComponent.getCachedThumbnail(thumbnailFile.fieldId);
+					if (cachedThumbnail) {
+						// Use cached thumbnail immediately
+						this.eventThumbnails.set(eventId, cachedThumbnail);
+						if (trackLoading) {
+							const loadingInfo = this.loadingEvents.get(eventId);
+							if (loadingInfo) {
+								loadingInfo.thumbnailLoadEnd = Date.now();
+								if (loadingInfo.cardLoadEnd) {
+									this.loadingEvents.delete(eventId);
+								}
+								this.cdr.markForCheck();
+							}
+						}
+						return;
+					}
+				}
+				
+				// Create load request
+				const loadRequest = this._fileService.getFile(thumbnailFile.fieldId).pipe(
+					map((res: any) => {
+						const blob = new Blob([res], { type: 'application/octet-stream' });
+						const objectUrl = this.nativeWindow.URL.createObjectURL(blob);
+						const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+						
+						// Cache in both places
+						this.eventThumbnails.set(eventId, safeUrl);
+						ElementEvenementComponent.setCachedThumbnail(thumbnailFile.fieldId, safeUrl);
+						
+						return { eventId, safeUrl };
+					}),
+					catchError((error: any) => {
+						console.error('Error loading thumbnail for event:', eventId, error);
+						// Use default image on error
+						const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+						this.eventThumbnails.set(eventId, defaultUrl);
+						return of({ eventId, safeUrl: defaultUrl });
+					})
+				);
+				
+				thumbnailLoadRequests.push(loadRequest);
+			} else {
+				// No thumbnail, use default image immediately
+				eventsWithoutThumbnails.push({ event: evenement, eventId });
+			}
+		});
+		
+		// Set default images immediately for events without thumbnails
+		eventsWithoutThumbnails.forEach(({ eventId }) => {
+			const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+			this.eventThumbnails.set(eventId, defaultUrl);
+			if (trackLoading) {
+				const loadingInfo = this.loadingEvents.get(eventId);
+				if (loadingInfo) {
+					loadingInfo.thumbnailLoadStart = Date.now();
+					loadingInfo.thumbnailLoadEnd = Date.now();
+					if (loadingInfo.cardLoadEnd) {
+						this.loadingEvents.delete(eventId);
+					}
+					this.cdr.markForCheck();
+				}
+			}
+		});
+		
+		// Load all thumbnails in parallel using forkJoin
+		if (thumbnailLoadRequests.length > 0) {
+			const parallelLoadSubscription = forkJoin(thumbnailLoadRequests).subscribe({
+				next: (results) => {
+					// All thumbnails loaded successfully
+					if (trackLoading) {
+						results.forEach(({ eventId }) => {
+							const loadingInfo = this.loadingEvents.get(eventId);
+							if (loadingInfo) {
+								loadingInfo.thumbnailLoadEnd = Date.now();
+								if (loadingInfo.cardLoadEnd) {
+									this.loadingEvents.delete(eventId);
+								}
+							}
+						});
+						this.cdr.markForCheck();
+					}
+				},
+				error: (error) => {
+					console.error('Error loading thumbnails in parallel:', error);
+				}
+			});
+			this.allSubscriptions.push(parallelLoadSubscription);
+		}
+	}
+
+	private loadThumbnailFromFile(eventId: string, fileId: string, trackLoading: boolean = false): void {
 		// Check if already cached in home-evenements cache
 		if (this.eventThumbnails.has(eventId)) {
 			const cached = this.eventThumbnails.get(eventId);
 			if (cached && typeof cached === 'object' && 'changingThisBreaksApplicationSecurity' in cached) {
 				const url = cached['changingThisBreaksApplicationSecurity'];
 				if (url && typeof url === 'string' && url.startsWith('blob:')) {
+					// Already loaded, mark as complete
+					if (trackLoading) {
+						const loadingInfo = this.loadingEvents.get(eventId);
+						if (loadingInfo) {
+							loadingInfo.thumbnailLoadEnd = Date.now();
+							// If card is also loaded, remove from loading
+							if (loadingInfo.cardLoadEnd) {
+								this.loadingEvents.delete(eventId);
+							}
+							this.cdr.markForCheck();
+						}
+					}
 					return; // Already loaded
 				}
 			}
@@ -1315,6 +1829,18 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			if (cachedThumbnail) {
 				// Reuse cached thumbnail from element-evenement component
 				this.eventThumbnails.set(eventId, cachedThumbnail);
+				// Mark as complete
+				if (trackLoading) {
+					const loadingInfo = this.loadingEvents.get(eventId);
+					if (loadingInfo) {
+						loadingInfo.thumbnailLoadEnd = Date.now();
+						// If card is also loaded, remove from loading
+						if (loadingInfo.cardLoadEnd) {
+							this.loadingEvents.delete(eventId);
+						}
+						this.cdr.markForCheck();
+					}
+				}
 				return;
 			}
 		}
@@ -1335,6 +1861,19 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				// Also cache in element-evenement shared cache to prevent duplicate requests
 				ElementEvenementComponent.setCachedThumbnail(fileId, safeUrl);
 				
+				// Mark thumbnail load end
+				if (trackLoading) {
+					const loadingInfo = this.loadingEvents.get(eventId);
+					if (loadingInfo) {
+						loadingInfo.thumbnailLoadEnd = Date.now();
+						// If card is also loaded, remove from loading
+						if (loadingInfo.cardLoadEnd) {
+							this.loadingEvents.delete(eventId);
+						}
+						this.cdr.markForCheck();
+					}
+				}
+				
 				// Ne pas révoquer l'URL blob immédiatement - la garder en mémoire
 				// L'URL sera automatiquement révoquée quand le composant sera détruit
 			},
@@ -1342,16 +1881,28 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				console.error('Error loading thumbnail for event:', eventId, error);
 				// En cas d'erreur, utiliser l'image par défaut
 				this.eventThumbnails.set(eventId, this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg"));
+				// Mark thumbnail load end even on error
+				if (trackLoading) {
+					const loadingInfo = this.loadingEvents.get(eventId);
+					if (loadingInfo) {
+						loadingInfo.thumbnailLoadEnd = Date.now();
+						// If card is also loaded, remove from loading
+						if (loadingInfo.cardLoadEnd) {
+							this.loadingEvents.delete(eventId);
+						}
+						this.cdr.markForCheck();
+					}
+				}
 			}
 		});
 		this.allSubscriptions.push(thumbnailSubscription);
 	}
 
 	private preloadThumbnailsForBufferedEvents(): void {
-		// Preload thumbnails for ALL buffered events to ensure smooth display
+		// Preload thumbnails for buffered events in parallel (all at once for maximum speed)
 		// This ensures all 12 buffer cards have thumbnails ready
-		this.bufferedEvenements.forEach(evenement => {
-			if (!evenement || !evenement.id) return;
+		const eventsToLoad = this.bufferedEvenements.filter(evenement => {
+			if (!evenement || !evenement.id) return false;
 			
 			// Skip if already cached
 			if (this.eventThumbnails.has(evenement.id)) {
@@ -1359,34 +1910,100 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				if (cached && typeof cached === 'object' && 'changingThisBreaksApplicationSecurity' in cached) {
 					const url = cached['changingThisBreaksApplicationSecurity'];
 					if (url && typeof url === 'string' && url.startsWith('blob:')) {
-						return; // Already loaded
+						return false; // Already loaded
 					}
 				}
 			}
+			return true;
+		});
+		
+		if (eventsToLoad.length === 0) {
+			// All thumbnails already loaded, check if buffer needs replenishing
+			// Trigger load when cache drops below trigger threshold (8)
+			if (this.bufferedEvenements.length < this.CACHE_TRIGGER_THRESHOLD && 
+			    this.hasMoreEvents && 
+			    !this.isLoadingNextPage) {
+				this.loadNextPage();
+			}
+			return;
+		}
+		
+		// Prepare thumbnail load requests (all in parallel)
+		const thumbnailLoadRequests: Observable<{eventId: string, safeUrl: SafeUrl}>[] = [];
+		
+		eventsToLoad.forEach(evenement => {
+			const eventId = evenement.id || this.getEventKey(evenement);
+			if (!eventId) return;
 			
-			// Chercher un fichier avec "thumbnail" dans le nom
+			// Find a file with "thumbnail" in the name
 			const thumbnailFile = evenement.fileUploadeds?.find(file => 
 				file.fileName && file.fileName.toLowerCase().includes('thumbnail')
 			);
 			
 			if (thumbnailFile) {
-				// Précharger l'image en arrière-plan immédiatement
-				this.loadThumbnailFromFile(evenement.id, thumbnailFile.fieldId);
+				// Check if already cached in element-evenement shared cache
+				if (ElementEvenementComponent.isThumbnailCached(thumbnailFile.fieldId)) {
+					const cachedThumbnail = ElementEvenementComponent.getCachedThumbnail(thumbnailFile.fieldId);
+					if (cachedThumbnail) {
+						// Use cached thumbnail immediately
+						this.eventThumbnails.set(eventId, cachedThumbnail);
+						return;
+					}
+				}
+				
+				// Create load request
+				const loadRequest = this._fileService.getFile(thumbnailFile.fieldId).pipe(
+					map((res: any) => {
+						const blob = new Blob([res], { type: 'application/octet-stream' });
+						const objectUrl = this.nativeWindow.URL.createObjectURL(blob);
+						const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+						
+						// Cache in both places
+						this.eventThumbnails.set(eventId, safeUrl);
+						ElementEvenementComponent.setCachedThumbnail(thumbnailFile.fieldId, safeUrl);
+						
+						return { eventId, safeUrl };
+					}),
+					catchError((error: any) => {
+						console.error('Error loading thumbnail for event:', eventId, error);
+						// Use default image on error
+						const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+						this.eventThumbnails.set(eventId, defaultUrl);
+						return of({ eventId, safeUrl: defaultUrl });
+					})
+				);
+				
+				thumbnailLoadRequests.push(loadRequest);
 			} else {
-				// Pas de thumbnail, utiliser l'image par défaut
+				// No thumbnail, use default image immediately
 				const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
-				this.eventThumbnails.set(evenement.id, defaultUrl);
+				this.eventThumbnails.set(eventId, defaultUrl);
 			}
 		});
 		
+		// Load all thumbnails in parallel using forkJoin
+		if (thumbnailLoadRequests.length > 0) {
+			const parallelLoadSubscription = forkJoin(thumbnailLoadRequests).subscribe({
+				next: (results) => {
+					// All thumbnails loaded successfully
+					// Force change detection to update debug panel
+					this.cdr.markForCheck();
+				},
+				error: (error) => {
+					console.error('Error loading thumbnails in parallel:', error);
+				}
+			});
+			this.allSubscriptions.push(parallelLoadSubscription);
+		}
+		
 		// After preloading thumbnails, check if buffer needs to be replenished
 		// Ensure we always maintain MIN_BUFFER_SIZE cards with thumbnails loaded
-		if (this.bufferedEvenements.length < this.MIN_BUFFER_SIZE && 
+		// Trigger load when cache drops below trigger threshold (8)
+		if (this.bufferedEvenements.length < this.CACHE_TRIGGER_THRESHOLD && 
 		    this.hasMoreEvents && 
 		    !this.isLoadingNextPage) {
-			setTimeout(() => {
-				this.loadNextPage();
-			}, 100);
+			// Load immediately to maintain cache at maximum
+			this.loadNextPage();
 		}
 	}
 
@@ -1598,6 +2215,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		if (this.shouldBlockScroll) {
 			this.unblockPageScroll();
 			this.shouldBlockScroll = false;
+		}
+		
+		// Clear debug info update interval
+		if (this.debugInfoUpdateInterval) {
+			clearInterval(this.debugInfoUpdateInterval);
+			this.debugInfoUpdateInterval = undefined;
 		}
 		
 		this.eventsSubscription?.unsubscribe();
@@ -2130,6 +2753,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		return this.evenements.length; // Retourne ce qui est réellement affiché
 	}
 	
+	// Get visible events count (without first special event)
+	public getVisibleEventsCountWithoutFirst(): number {
+		return this.visibleEvenements.length;
+	}
+	
 	// Get buffered events count
 	public getBufferedEventsCount(): number {
 		return this.bufferedEvenements.length;
@@ -2138,6 +2766,135 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Get all loaded events count
 	public getAllLoadedEventsCount(): number {
 		return this.allLoadedEvenements.length;
+	}
+	
+	// Get scroll increment value
+	public getScrollIncrement(): number {
+		return this.SCROLL_INCREMENT;
+	}
+	
+	// Get buffer size
+	public getBufferSize(): number {
+		return this.BUFFER_SIZE;
+	}
+	
+	// Check if an event is currently loading
+	public isEventLoading(evenement: Evenement): boolean {
+		const eventId = evenement.id || this.getEventKey(evenement);
+		return eventId ? this.loadingEvents.has(eventId) : false;
+	}
+	
+	// Get loading events count
+	public getLoadingEventsCount(): number {
+		return this.loadingEvents.size;
+	}
+	
+	// Get loading events info (for debug panel)
+	public getLoadingEventsInfo(): LoadingEventInfo[] {
+		return Array.from(this.loadingEvents.values());
+	}
+	
+	// Get first loading event ID (for debug panel)
+	public getFirstLoadingEventId(): string {
+		const first = this.loadingEvents.values().next().value;
+		return first ? first.eventId : '';
+	}
+	
+	// Get card load time for first loading event - returns cached value to prevent change detection errors
+	public getCardLoadTime(): number {
+		return this.cachedCardLoadTime;
+	}
+	
+	// Get thumbnail load time for first loading event - returns cached value to prevent change detection errors
+	public getThumbnailLoadTime(): number {
+		return this.cachedThumbnailLoadTime;
+	}
+	
+	// Get memory usage (in MB) - returns cached value to prevent change detection errors
+	public getMemoryUsage(): string {
+		return this.cachedMemoryUsage;
+	}
+	
+	// Get memory usage percentage (0-100) - returns cached value to prevent change detection errors
+	public getMemoryUsagePercent(): number {
+		return this.cachedMemoryUsagePercent;
+	}
+	
+	// Get cached thumbnails count (only for cards currently in buffer cache, not visible ones)
+	public getCachedThumbnailsCount(): number {
+		// Count thumbnails only for events in the buffer (cache), not visible ones
+		let count = 0;
+		
+		this.bufferedEvenements.forEach(e => {
+			const eId = e.id || this.getEventKey(e);
+			if (eId) {
+				// Check if thumbnail exists in local cache for this buffered event
+				if (this.eventThumbnails.has(eId)) {
+					const cached = this.eventThumbnails.get(eId);
+					if (cached && typeof cached === 'object' && 'changingThisBreaksApplicationSecurity' in cached) {
+						const url = cached['changingThisBreaksApplicationSecurity'];
+						if (url && typeof url === 'string' && (url.startsWith('blob:') || url.includes('images.jpg'))) {
+							count++;
+						}
+					}
+				}
+			}
+		});
+		
+		return count;
+	}
+	
+	// Clean up thumbnails that are no longer needed (not in visible or buffer)
+	private cleanupUnusedThumbnails(): void {
+		// Get all event IDs that should keep thumbnails
+		const keepEventIds = new Set<string>();
+		
+		// Add visible events (need thumbnails for display)
+		this.visibleEvenements.forEach(e => {
+			const eId = e.id || this.getEventKey(e);
+			if (eId) keepEventIds.add(eId);
+		});
+		
+		// Add buffered events (need thumbnails for cache)
+		this.bufferedEvenements.forEach(e => {
+			const eId = e.id || this.getEventKey(e);
+			if (eId) keepEventIds.add(eId);
+		});
+		
+		// Add displayed events (may include first special event)
+		this.evenements.forEach(e => {
+			const eId = e.id || this.getEventKey(e);
+			if (eId) keepEventIds.add(eId);
+		});
+		
+		// Remove thumbnails that are not in the keep list
+		const thumbnailsToRemove: string[] = [];
+		this.eventThumbnails.forEach((url, eventId) => {
+			if (!keepEventIds.has(eventId)) {
+				thumbnailsToRemove.push(eventId);
+			}
+		});
+		
+		// Remove unused thumbnails and revoke blob URLs
+		thumbnailsToRemove.forEach(eventId => {
+			const cached = this.eventThumbnails.get(eventId);
+			if (cached && typeof cached === 'object' && 'changingThisBreaksApplicationSecurity' in cached) {
+				const url = cached['changingThisBreaksApplicationSecurity'];
+				if (url && typeof url === 'string' && url.startsWith('blob:')) {
+					try {
+						this.nativeWindow.URL.revokeObjectURL(url);
+					} catch (e) {
+						// Ignore errors
+					}
+				}
+			}
+			this.eventThumbnails.delete(eventId);
+		});
+		
+		// Force change detection to update debug panel
+		if (thumbnailsToRemove.length > 0) {
+			this.cdr.markForCheck();
+		}
 	}
 	
 	// Download all files from the event as a single ZIP file
@@ -2307,14 +3064,18 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							fileInput.value = '';
 						}
 						
-						const refreshTimeout = setTimeout(() => {
+						// Use requestAnimationFrame to avoid blocking the main thread
+						// Split the work: first update UI state, then reload events
+						requestAnimationFrame(() => {
 							this.isUploading = false;
 							// Don't close modal automatically, let user close it manually
-							// Refresh the events list
-							this.resetAndLoadEvents();
-						}, 1000);
-						this.activeTimeouts.add(refreshTimeout);
-						setTimeout(() => this.activeTimeouts.delete(refreshTimeout), 1100);
+							// Refresh the events list after a short delay to allow UI to update
+							const refreshTimeout = setTimeout(() => {
+								this.resetAndLoadEvents();
+							}, 100);
+							this.activeTimeouts.add(refreshTimeout);
+							setTimeout(() => this.activeTimeouts.delete(refreshTimeout), 200);
+						});
 					}, 500);
 					this.activeTimeouts.add(cleanupTimeout);
 					setTimeout(() => this.activeTimeouts.delete(cleanupTimeout), 600);
@@ -2356,37 +3117,37 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private addLog(message: string): void {
 		this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
 		
-		// Auto-scroll to top to show latest log
-		setTimeout(() => {
+		// Auto-scroll to top to show latest log - use requestAnimationFrame for better performance
+		requestAnimationFrame(() => {
 			if (this.logContent && this.logContent.nativeElement) {
 				const container = this.logContent.nativeElement;
 				container.scrollTop = 0;
 			}
-		}, 0);
+		});
 	}
 
 	private addSuccessLog(message: string): void {
 		this.uploadLogs.unshift(`SUCCESS: [${new Date().toLocaleTimeString()}] ${message}`);
 		
-		// Auto-scroll to top to show latest log
-		setTimeout(() => {
+		// Auto-scroll to top to show latest log - use requestAnimationFrame for better performance
+		requestAnimationFrame(() => {
 			if (this.logContent && this.logContent.nativeElement) {
 				const container = this.logContent.nativeElement;
 				container.scrollTop = 0;
 			}
-		}, 0);
+		});
 	}
 
 	private addErrorLog(message: string): void {
 		this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
 		
-		// Auto-scroll to top to show latest log
-		setTimeout(() => {
+		// Auto-scroll to top to show latest log - use requestAnimationFrame for better performance
+		requestAnimationFrame(() => {
 			if (this.logContent && this.logContent.nativeElement) {
 				const container = this.logContent.nativeElement;
 				container.scrollTop = 0;
 			}
-		}, 0);
+		});
 	}
 
 	private generateSessionId(): string {

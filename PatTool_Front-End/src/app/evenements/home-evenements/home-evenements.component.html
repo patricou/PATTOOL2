@@ -1,4 +1,90 @@
 <div class="home-evenements-wrapper" [ngStyle]="{'background': averageGradient}">
+<!-- Debug Info Panel - Floating, doesn't block scroll -->
+<div class="debug-info-panel-floating" [class.show]="!debugInfoCollapsed">
+    <div class="debug-info-panel-content" *ngIf="!debugInfoCollapsed">
+        <div class="debug-info-header">
+            <h6 class="mb-0">{{ 'EVENTHOME.DEBUG_INFO' | translate }}</h6>
+        </div>
+        <div class="debug-info-body">
+            <div class="debug-info-item">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_PAGE' | translate }}:</span>
+                <span class="debug-value">{{ pageNumber }}</span>
+            </div>
+            <div class="debug-info-item">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_VISIBLE_EVENTS' | translate }}:</span>
+                <span class="debug-value">{{ getVisibleEventsCount() }}</span>
+            </div>
+            <div class="debug-info-item debug-info-item-inline">
+                <div class="debug-info-sub-item">
+                    <span class="debug-label text-danger">{{ 'EVENTHOME.DEBUG_CACHE' | translate }}:</span>
+                    <span class="debug-value text-danger fw-bold">{{ getBufferedEventsCount() }}</span>
+                </div>
+                <div class="debug-info-sub-item">
+                    <span class="debug-label text-danger">{{ 'EVENTHOME.DEBUG_CACHED_THUMBNAILS' | translate }}:</span>
+                    <span class="debug-value text-danger fw-bold">{{ getCachedThumbnailsCount() }}</span>
+                </div>
+            </div>
+            <div class="debug-info-item">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_LOADING_CARDS' | translate }}:</span>
+                <span class="debug-value" [class.text-warning]="getLoadingEventsCount() > 0" [class.text-success]="getLoadingEventsCount() === 0">
+                    {{ getLoadingEventsCount() }}
+                </span>
+            </div>
+            <div class="debug-info-item" *ngIf="getLoadingEventsCount() > 0">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_LOADING_CARD_ID' | translate }}:</span>
+                <span class="debug-value text-warning">{{ getFirstLoadingEventId() }}</span>
+            </div>
+            <div class="debug-info-item" *ngIf="getLoadingEventsCount() > 0 && getCardLoadTime() > 0">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_CARD_LOAD_TIME' | translate }}:</span>
+                <span class="debug-value">{{ getCardLoadTime() }}ms</span>
+            </div>
+            <div class="debug-info-item" *ngIf="getLoadingEventsCount() > 0 && getThumbnailLoadTime() > 0">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_THUMBNAIL_LOAD_TIME' | translate }}:</span>
+                <span class="debug-value">{{ getThumbnailLoadTime() }}ms</span>
+            </div>
+            <div class="debug-info-item">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_TOTAL_LOADED' | translate }}:</span>
+                <span class="debug-value">{{ getAllLoadedEventsCount() }}</span>
+            </div>
+            <div class="debug-info-item">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_TOTAL_AVAILABLE' | translate }}:</span>
+                <span class="debug-value">{{ filteredTotal }}</span>
+            </div>
+            <div class="debug-info-item">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_IS_LOADING' | translate }}:</span>
+                <span class="debug-value" [class.text-success]="!isLoading" [class.text-warning]="isLoading">
+                    {{ isLoading ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}
+                </span>
+            </div>
+            <div class="debug-info-item">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_IS_LOADING_NEXT' | translate }}:</span>
+                <span class="debug-value" [class.text-success]="!isLoadingNextPage" [class.text-warning]="isLoadingNextPage">
+                    {{ isLoadingNextPage ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}
+                </span>
+            </div>
+            <div class="debug-info-item">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_HAS_MORE' | translate }}:</span>
+                <span class="debug-value" [class.text-success]="hasMoreEvents" [class.text-danger]="!hasMoreEvents">
+                    {{ hasMoreEvents ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}
+                </span>
+            </div>
+            <div class="debug-info-item">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_FILTER' | translate }}:</span>
+                <span class="debug-value">{{ dataFIlter || ('EVENTHOME.DEBUG_EMPTY' | translate) }}</span>
+            </div>
+            <div class="debug-info-item">
+                <span class="debug-label">{{ 'EVENTHOME.DEBUG_MEMORY_USAGE' | translate }}:</span>
+                <span class="debug-value" 
+                      [class.text-success]="getMemoryUsagePercent() < 50" 
+                      [class.text-warning]="getMemoryUsagePercent() >= 50 && getMemoryUsagePercent() < 80"
+                      [class.text-danger]="getMemoryUsagePercent() >= 80">
+                    {{ getMemoryUsage() }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="pat-title">
     <h2>{{ "EVENTHOME.EVENTSLIST" | translate }}</h2>
     <app-navigation-buttons></app-navigation-buttons>
@@ -13,7 +99,7 @@
                         <div class="mobile-controls-row">
                             <div class="filter-input-container">
                                 <i class="fa fa-search search-icon"></i>
-                                <input type="text" id="message" [value]="dataFIlter" #searchterm
+                                <input type="text" id="message" [(ngModel)]="dataFIlter" #searchterm
                                     placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" 
                                     class="filter-input" />
                                 <button class="filter-clear-btn" 
@@ -27,6 +113,12 @@
                                 </button>
                             </div>
                             <div class="mobile-quick-actions">
+                                <button class="btn btn-sm btn-outline-secondary me-1" 
+                                    (click)="debugInfoCollapsed = !debugInfoCollapsed"
+                                    [ngbTooltip]="(debugInfoCollapsed ? ('EVENTHOME.DEBUG_SHOW' | translate) : ('EVENTHOME.DEBUG_HIDE' | translate))"
+                                    placement="bottom" container="body">
+                                    <i class="fa fa-info-circle"></i>
+                                </button>
                                 <div class="mobile-results-badge"
                                     [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
                                     <span class="count-value">{{ filteredTotal }}</span>
@@ -45,6 +137,12 @@
                 <div class="desktop-controls d-none d-md-flex">
                     <!-- Results Counter Section -->
                     <div class="results-section-redesigned">
+                        <button class="btn btn-sm btn-outline-secondary me-2" 
+                            (click)="debugInfoCollapsed = !debugInfoCollapsed"
+                            [ngbTooltip]="(debugInfoCollapsed ? ('EVENTHOME.DEBUG_SHOW' | translate) : ('EVENTHOME.DEBUG_HIDE' | translate))"
+                            placement="bottom" container="body">
+                            <i class="fa fa-info-circle"></i>
+                        </button>
                         <div class="results-counter-redesigned"
                             [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
                             <i class="fa fa-list-alt results-icon-redesigned"></i>
@@ -56,7 +154,7 @@
                     <div class="filter-section-redesigned">
                         <div class="filter-input-container-desktop">
                             <i class="fa fa-search search-icon"></i>
-                            <input type="text" [value]="dataFIlter" #searchterm
+                            <input type="text" [(ngModel)]="dataFIlter" #searchterm
                                 placeholder="{{ 'EVENTHOME.EVENTFILTRE' | translate }}" 
                                 class="filter-input" />
                             <button class="filter-clear-btn" 
@@ -125,7 +223,14 @@
     <div #cardsContainer class="row cards-container" *ngIf="!isCompactView" [class.cards-animated]="cardsReady">
         <div #patCard class="col-xl-3 col-lg-4 col-md-6 col-sm-12 card-group pat-card" 
              *ngFor="let evenement of evenements; trackBy: trackEvent; let i = index"
-             [attr.data-event-id]="evenement.id">
+             [attr.data-event-id]="evenement.id"
+             [class.card-loading]="isEventLoading(evenement)">
+            <div class="card-loading-overlay" *ngIf="isEventLoading(evenement)">
+                <div class="card-loading-spinner">
+                    <i class="fa fa-spinner fa-spin fa-2x"></i>
+                    <span class="card-loading-text">Chargement...</span>
+                </div>
+            </div>
             <element-evenement class="card" [user]="user" [evenement]="evenement" [titleOnly]="titleOnlyView"
                 (updateFileUploaded)="updateFileUploadedInEvent($event)" (addMember)="addMemberInEvent($event)"
                 (delMember)="delMemberInEvent($event)" (updateEvenement)="updEvent($event)"
@@ -278,30 +383,7 @@
 <!-- Spinner de chargement principal -->
 <div class="loading-spinner-container" *ngIf="isLoading">
     <div class="loading-spinner">
-        <i class="fa fa-spinner fa-spin fa-3x"></i>
-        <p class="loading-text">{{ getLoadingEventsText() }}</p>
-        <div class="loading-info">
-            <div class="loading-info-item">
-                <span class="info-label">Page:</span>
-                <span class="info-value">{{ pageNumber }}</span>
-            </div>
-            <div class="loading-info-item">
-                <span class="info-label">Événements visibles:</span>
-                <span class="info-value">{{ getVisibleEventsCount() }}</span>
-            </div>
-            <div class="loading-info-item">
-                <span class="info-label">Dans le cache:</span>
-                <span class="info-value">{{ getBufferedEventsCount() }}</span>
-            </div>
-            <div class="loading-info-item">
-                <span class="info-label">Total chargés:</span>
-                <span class="info-value">{{ getAllLoadedEventsCount() }}</span>
-            </div>
-            <div class="loading-info-item">
-                <span class="info-label">Total disponible:</span>
-                <span class="info-value">{{ filteredTotal }}</span>
-            </div>
-        </div>
+        <i class="fa fa-spinner fa-spin"></i>
     </div>
 </div>
 

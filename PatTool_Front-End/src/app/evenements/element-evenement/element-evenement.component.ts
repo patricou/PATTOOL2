@@ -254,6 +254,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	public static setCachedThumbnail(fileId: string, safeUrl: SafeUrl): void {
 		ElementEvenementComponent.blobUrlCache.set(fileId, safeUrl);
 	}
+	
+	// Public static method to get cached thumbnails count
+	public static getCachedThumbnailsCount(): number {
+		return ElementEvenementComponent.blobUrlCache.size;
+	}
 
 	// =========================
 	// Photo From FS integration
