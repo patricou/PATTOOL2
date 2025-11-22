@@ -118,7 +118,7 @@
         "DEBUG_PAGE": "Page",
         "DEBUG_VISIBLE_EVENTS": "Événements visibles",
         "DEBUG_CACHE": "Dans le cache",
-        "DEBUG_TOTAL_LOADED": "Total chargés",
+        "DEBUG_TOTAL_STREAMED": "Total streamés",
         "DEBUG_TOTAL_AVAILABLE": "Total disponible",
         "DEBUG_IS_LOADING": "En chargement",
         "DEBUG_IS_LOADING_NEXT": "Chargement page suivante",

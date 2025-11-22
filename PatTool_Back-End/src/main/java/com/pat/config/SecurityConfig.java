@@ -135,6 +135,7 @@ public class SecurityConfig {
             "Origin",
             "Access-Control-Request-Method",
             "Access-Control-Request-Headers",
+            "Cache-Control", // Required for SSE streaming
             "user-id", // Custom header used by your app
             "Author",  // Custom header sent by frontend
             "User",    // Custom header sent by frontend (user data)
@@ -148,7 +149,9 @@ public class SecurityConfig {
         configuration.setExposedHeaders(Arrays.asList(
             "Authorization",
             "Content-Type",
-            "Location"
+            "Location",
+            "Content-Disposition",
+            "Cache-Control"
         ));
         
         // Cache preflight requests for 1 hour

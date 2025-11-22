@@ -1,5 +1,6 @@
 package com.pat.controller;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pat.repo.domain.Evenement;
 import com.pat.repo.EvenementsRepository;
 import org.slf4j.Logger;
@@ -14,12 +15,18 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.bson.types.ObjectId;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Created by patricou on 4/20/2017.
@@ -35,6 +42,11 @@ public class EvenementRestController {
     
     @Autowired
     private GridFsTemplate gridFsTemplate;
+    
+    @Autowired
+    private ObjectMapper objectMapper;
+    
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
 
     @RequestMapping(value = "/{evenementName}/{page}/{size}", method = RequestMethod.GET)
     public Page<Evenement> getListEvenement(@PathVariable("evenementName") String evenementName,
@@ -46,6 +58,77 @@ public class EvenementRestController {
         Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "beginEventDate"));
 
         return evenementsRepository.searchByFilter(evenementName, userId, pageable);
+    }
+
+    /**
+     * Streaming endpoint for events using Server-Sent Events (SSE)
+     * Streams events one by one as they are processed
+     */
+    @GetMapping(value = "/stream/{evenementName}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamEvenements(@PathVariable("evenementName") String evenementName,
+                                      @RequestHeader(value = "user-id", required = false) String userId) {
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // No timeout
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                // Get all events matching the filter (without pagination)
+                List<Evenement> allEvents = evenementsRepository.searchByFilterStream(evenementName, userId);
+                
+                // Send total count first
+                emitter.send(SseEmitter.event()
+                    .name("total")
+                    .data(String.valueOf(allEvents.size())));
+                
+                // Stream events one by one
+                for (Evenement event : allEvents) {
+                    try {
+                        // Check if emitter is still valid (client might have disconnected)
+                        // Send event as JSON
+                        String eventJson = objectMapper.writeValueAsString(event);
+                        emitter.send(SseEmitter.event()
+                            .name("event")
+                            .data(eventJson));
+                        
+                        // Small delay to prevent overwhelming the client
+                        Thread.sleep(10);
+                    } catch (IOException e) {
+                        // Client likely disconnected
+                        log.debug("Client disconnected during streaming", e);
+                        return;
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        emitter.completeWithError(e);
+                        return;
+                    } catch (Exception e) {
+                        log.error("Error sending event", e);
+                        // Continue with next event instead of failing completely
+                    }
+                }
+                
+                // Send completion signal
+                emitter.send(SseEmitter.event()
+                    .name("complete")
+                    .data(""));
+                emitter.complete();
+                
+            } catch (Exception e) {
+                log.error("Error streaming events", e);
+                emitter.completeWithError(e);
+            }
+        }, executorService);
+        
+        // Handle client disconnection
+        emitter.onCompletion(() -> log.debug("SSE connection completed"));
+        emitter.onTimeout(() -> {
+            log.debug("SSE connection timeout");
+            emitter.complete();
+        });
+        emitter.onError((ex) -> {
+            log.error("SSE connection error", ex);
+            emitter.completeWithError(ex);
+        });
+        
+        return emitter;
     }
 
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)

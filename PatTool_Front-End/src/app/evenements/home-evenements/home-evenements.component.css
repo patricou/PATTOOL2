@@ -203,33 +203,6 @@
     font-size: 0.7rem;
 }
 
-/* Spinner principal de chargement (plein écran) */
-.loading-spinner-container {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 9999;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.loading-spinner {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    background-color: transparent;
-    padding: 15px 30px;
-}
-
-.loading-spinner i {
-    font-size: 2rem;
-    color: #007bff;
-    animation: spin 1s linear infinite;
-}
 
 .loading-text {
     color: #007bff;
@@ -266,36 +239,6 @@
     margin-left: 10px;
 }
 
-/* Spinner de chargement pour le scroll infini */
-.loading-indicator {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 15px 30px;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    z-index: 1000;
-    background-color: rgba(255, 255, 255, 0.9);
-    border-radius: 25px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    backdrop-filter: blur(4px);
-}
-
-.loading-indicator i {
-    font-size: 2rem;
-    color: #007bff;
-    animation: spin 1s linear infinite;
-}
-
-.loading-text-small {
-    color: #6c757d;
-    font-size: 0.9rem;
-    font-weight: 400;
-}
 
 @keyframes spin {
     from {
@@ -308,9 +251,9 @@
 
 .infinite-scroll-anchor {
     width: 100%;
-    height: 1px;
-    /* Ensure anchor is visible for IntersectionObserver */
-    visibility: hidden;
+    height: 20px; /* Increased height for better detection */
+    /* Ensure anchor is detectable by IntersectionObserver */
+    opacity: 0;
     pointer-events: none;
     /* Position anchor at the end of content for smooth loading */
     margin-top: 20px;
@@ -3880,19 +3823,6 @@
     border-color: rgba(0, 0, 0, 0.3);
 }
 
-.file-thumbnail-loading {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #6c757d;
-    flex-shrink: 0;
-}
-
-.file-thumbnail-loading i {
-    font-size: 1rem;
-}
 
 /* Badge clickable styles */
 .badge-clickable {
@@ -3908,8 +3838,7 @@
 
 /* Responsive adjustments for thumbnails */
 @media (max-width: 768px) {
-    .file-thumbnail,
-    .file-thumbnail-loading {
+    .file-thumbnail {
         width: 32px;
         height: 32px;
     }
@@ -4283,6 +4212,29 @@
     font-variant-numeric: tabular-nums;
 }
 
+.debug-info-section {
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.debug-info-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.debug-section-title {
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(108, 117, 125, 0.2);
+}
+
 /* Mobile responsive */
 @media (max-width: 767px) {
     .debug-info-panel-floating {
@@ -4487,48 +4439,6 @@
     position: relative;
 }
 
-.pat-card.card-loading {
-    opacity: 0.7;
-    pointer-events: none;
-}
-
-.card-loading-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.9);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    border-radius: 8px;
-    backdrop-filter: blur(2px);
-    animation: fadeIn 0.3s ease-in;
-}
-
-.card-loading-spinner {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    color: #007bff;
-}
-
-.card-loading-spinner i {
-    color: #007bff;
-    animation: spin 1s linear infinite;
-}
-
-.card-loading-text {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: #007bff;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
 
 @keyframes fadeIn {
     from {

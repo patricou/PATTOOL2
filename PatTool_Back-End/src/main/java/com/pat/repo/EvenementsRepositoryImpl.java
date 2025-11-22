@@ -72,6 +72,43 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		return toPage(sortedEvents, pageable);
 	}
 
+	@Override
+	public List<Evenement> searchByFilterStream(String filter, String userId) {
+		String normalizedFilter = normalizeFilter(filter);
+
+		Query query = new Query();
+		query.addCriteria(buildAccessCriteria(userId));
+
+		List<Evenement> events = mongoTemplate.find(query, Evenement.class);
+
+		if (events.isEmpty()) {
+			return new ArrayList<>();
+		}
+
+		if (!normalizedFilter.isEmpty()) {
+			events = events.stream()
+					.filter(event -> matchesFilter(event, normalizedFilter))
+					.collect(Collectors.toList());
+
+			if (events.isEmpty()) {
+				return new ArrayList<>();
+			}
+		}
+
+		List<EvenementScore> scoredEvents = scoreEvents(events, normalizedFilter);
+		scoredEvents.sort(Comparator
+				.comparing(EvenementScore::getBeginEventDate, Comparator.nullsLast(Comparator.reverseOrder()))
+				.thenComparing(EvenementScore::getScore, Comparator.reverseOrder())
+				.thenComparing(e -> e.getEvenement().getEvenementName(), Comparator.nullsLast(String::compareToIgnoreCase)));
+
+		List<Evenement> sortedEvents = new ArrayList<>(scoredEvents.size());
+		for (EvenementScore scoredEvent : scoredEvents) {
+			sortedEvents.add(scoredEvent.getEvenement());
+		}
+
+		return sortedEvents;
+	}
+
 	private Criteria buildAccessCriteria(String userId) {
 		List<Criteria> accessCriteria = new ArrayList<>();
 		accessCriteria.add(Criteria.where("visibility").is("public"));

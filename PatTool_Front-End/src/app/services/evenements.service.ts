@@ -1,10 +1,15 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, from } from 'rxjs';
+import { Observable, from, Subject } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 import { Evenement } from '../model/evenement';
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
+
+export interface StreamedEvent {
+	type: 'total' | 'event' | 'complete';
+	data: any;
+}
 
 
 @Injectable()
@@ -24,17 +29,6 @@ export class EvenementsService {
 			}))
 		);
 	}
-	// GET + %name%
-	getEvents(name: string, pageNumber: number, elementsByPage: number, userId: string): Observable<any> {
-		return this.getHeaderWithToken().pipe(
-			switchMap(headers => {
-				// Add user-id header for filtering
-				const headersWithUser = headers.set('user-id', userId || '');
-				return this._http.get(this.API_URL + "even/" + name + "/" + pageNumber + "/" + elementsByPage, { headers: headersWithUser });
-			})
-		);
-	}
-
 	// GET  + {id}
 	getEvenement(id: string): Observable<Evenement> {
 		return this.getHeaderWithToken().pipe(
@@ -105,6 +99,166 @@ export class EvenementsService {
 				this._http.delete(this.API_URL + 'even/' + id, { headers: headers })
 			)
 		);
+	}
+
+	// Stream events using Server-Sent Events (SSE)
+	streamEvents(name: string, userId: string): Observable<StreamedEvent> {
+		const subject = new Subject<StreamedEvent>();
+		
+		this.getHeaderWithToken().subscribe({
+			next: (headers) => {
+				const token = headers.get('Authorization') || '';
+				const url = this.API_URL + "even/stream/" + encodeURIComponent(name);
+				
+				// Use fetch API since EventSource doesn't support custom headers
+				this.streamWithFetch(url, token, userId, subject).catch(err => {
+					subject.error(err);
+				});
+			},
+			error: (err) => {
+				subject.error(err);
+			}
+		});
+		
+		return subject.asObservable();
+	}
+
+	private async streamWithFetch(
+		url: string, 
+		authToken: string, 
+		userId: string, 
+		subject: Subject<StreamedEvent>
+	): Promise<void> {
+		try {
+			const response = await fetch(url, {
+				headers: {
+					'Authorization': authToken,
+					'user-id': userId || '',
+					'Accept': 'text/event-stream'
+				},
+				cache: 'no-cache'
+			});
+
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+
+			const reader = response.body?.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+
+			if (!reader) {
+				subject.error(new Error('No reader available'));
+				return;
+			}
+
+			let currentEventType: string | null = null;
+			let currentData: string = '';
+
+			while (true) {
+				const { done, value } = await reader.read();
+				
+				if (done) {
+					// Process any remaining data
+					if (currentEventType && currentData) {
+						this.processSSEEvent(currentEventType, currentData, subject);
+					}
+					subject.complete();
+					break;
+				}
+
+				buffer += decoder.decode(value, { stream: true });
+				const lines = buffer.split('\n');
+				buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+				for (const line of lines) {
+					if (line.trim() === '') {
+						// Empty line indicates end of event - process it
+						if (currentEventType && currentData) {
+							this.processSSEEvent(currentEventType, currentData, subject);
+							currentEventType = null;
+							currentData = '';
+						}
+						continue;
+					}
+					
+					if (line.startsWith('event:')) {
+						// Process previous event if exists
+						if (currentEventType && currentData) {
+							this.processSSEEvent(currentEventType, currentData, subject);
+						}
+						currentEventType = line.substring(6).trim();
+						currentData = '';
+						continue;
+					}
+					
+					if (line.startsWith('data:')) {
+						const data = line.substring(5).trim();
+						if (currentData) {
+							currentData += '\n' + data; // Handle multi-line data
+						} else {
+							currentData = data;
+						}
+					}
+				}
+			}
+		} catch (error) {
+			subject.error(error);
+		}
+	}
+
+	private processSSEEvent(eventType: string, data: string, subject: Subject<StreamedEvent>): void {
+		if (eventType === 'total') {
+			subject.next({
+				type: 'total',
+				data: Number(data)
+			});
+		} else if (eventType === 'event') {
+			// Try to parse as JSON and convert to Evenement
+			try {
+				const parsed = JSON.parse(data);
+				// Convert to Evenement object
+				const evenement = new Evenement(
+					parsed.author,
+					parsed.closeInscriptionDate ? new Date(parsed.closeInscriptionDate) : new Date(),
+					parsed.comments || '',
+					parsed.creationDate ? new Date(parsed.creationDate) : new Date(),
+					parsed.endEventDate ? new Date(parsed.endEventDate) : new Date(),
+					parsed.beginEventDate ? new Date(parsed.beginEventDate) : new Date(),
+					parsed.evenementName || '',
+					parsed.id || '',
+					parsed.members || [],
+					parsed.openInscriptionDate ? new Date(parsed.openInscriptionDate) : new Date(),
+					parsed.status || '',
+					parsed.type || '',
+					parsed.fileUploadeds || [],
+					parsed.startHour || '',
+					parsed.diffculty || '',
+					parsed.startLocation || '',
+					parsed.durationEstimation || '',
+					parsed.ratingPlus || 0,
+					parsed.ratingMinus || 0,
+					parsed.visibility || '',
+					parsed.urlEvents || [],
+					parsed.commentaries || []
+				);
+				subject.next({
+					type: 'event',
+					data: evenement
+				});
+			} catch (e) {
+				// If not JSON, send as string
+				subject.next({
+					type: 'event',
+					data: data
+				});
+			}
+		} else if (eventType === 'complete') {
+			subject.next({
+				type: 'complete',
+				data: null
+			});
+		}
 	}
 
 }

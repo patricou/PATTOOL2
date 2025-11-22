@@ -6,80 +6,99 @@
             <h6 class="mb-0">{{ 'EVENTHOME.DEBUG_INFO' | translate }}</h6>
         </div>
         <div class="debug-info-body">
-            <div class="debug-info-item">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_PAGE' | translate }}:</span>
-                <span class="debug-value">{{ pageNumber }}</span>
-            </div>
-            <div class="debug-info-item">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_VISIBLE_EVENTS' | translate }}:</span>
-                <span class="debug-value">{{ getVisibleEventsCount() }}</span>
-            </div>
-            <div class="debug-info-item debug-info-item-inline">
-                <div class="debug-info-sub-item">
-                    <span class="debug-label text-danger">{{ 'EVENTHOME.DEBUG_CACHE' | translate }}:</span>
-                    <span class="debug-value text-danger fw-bold">{{ getBufferedEventsCount() }}</span>
+            <!-- Events Info -->
+            <div class="debug-info-section">
+                <div class="debug-section-title">Événements</div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_VISIBLE_EVENTS' | translate }}:</span>
+                    <span class="debug-value">{{ getVisibleEventsCount() }}</span>
                 </div>
-                <div class="debug-info-sub-item">
-                    <span class="debug-label text-danger">{{ 'EVENTHOME.DEBUG_CACHED_THUMBNAILS' | translate }}:</span>
-                    <span class="debug-value text-danger fw-bold">{{ getCachedThumbnailsCount() }}</span>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_TOTAL_STREAMED' | translate }}:</span>
+                    <span class="debug-value">{{ getAllStreamedEventsCount() }}</span>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_TOTAL_AVAILABLE' | translate }}:</span>
+                    <span class="debug-value">{{ filteredTotal }}</span>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_HAS_MORE' | translate }}:</span>
+                    <span class="debug-value" [class.text-success]="hasMoreEvents" [class.text-danger]="!hasMoreEvents">
+                        {{ hasMoreEvents ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}
+                    </span>
                 </div>
             </div>
-            <div class="debug-info-item">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_LOADING_CARDS' | translate }}:</span>
-                <span class="debug-value" [class.text-warning]="getLoadingEventsCount() > 0" [class.text-success]="getLoadingEventsCount() === 0">
-                    {{ getLoadingEventsCount() }}
-                </span>
+
+            <!-- Caches Info -->
+            <div class="debug-info-section">
+                <div class="debug-section-title">Caches</div>
+                <div class="debug-info-item">
+                    <span class="debug-label">Event Thumbnails:</span>
+                    <span class="debug-value">{{ getCachedThumbnailsCount() }}</span>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">File Thumbnails:</span>
+                    <span class="debug-value">{{ getFileThumbnailsCacheCount() }}</span>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">Event Colors:</span>
+                    <span class="debug-value">{{ getEventColorsCacheCount() }}</span>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">Pending Thumbnail Loads:</span>
+                    <span class="debug-value" [class.text-warning]="getPendingThumbnailLoadsCount() > 0">
+                        {{ getPendingThumbnailLoadsCount() }}
+                    </span>
+                </div>
             </div>
-            <div class="debug-info-item" *ngIf="getLoadingEventsCount() > 0">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_LOADING_CARD_ID' | translate }}:</span>
-                <span class="debug-value text-warning">{{ getFirstLoadingEventId() }}</span>
+
+            <!-- Loading Info -->
+            <div class="debug-info-section">
+                <div class="debug-section-title">Chargement</div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_IS_LOADING' | translate }}:</span>
+                    <span class="debug-value" [class.text-success]="!isLoading" [class.text-warning]="isLoading">
+                        {{ isLoading ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}
+                    </span>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_IS_LOADING_NEXT' | translate }}:</span>
+                    <span class="debug-value" [class.text-success]="!isLoadingNextPage" [class.text-warning]="isLoadingNextPage">
+                        {{ isLoadingNextPage ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}
+                    </span>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_LOADING_CARDS' | translate }}:</span>
+                    <span class="debug-value" [class.text-warning]="getLoadingEventsCount() > 0" [class.text-success]="getLoadingEventsCount() === 0">
+                        {{ getLoadingEventsCount() }}
+                    </span>
+                </div>
+                <div class="debug-info-item" *ngIf="getLoadingEventsCount() > 0 && getCardLoadTime() > 0">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_CARD_LOAD_TIME' | translate }}:</span>
+                    <span class="debug-value">{{ getCardLoadTime() }}ms</span>
+                </div>
+                <div class="debug-info-item" *ngIf="getLoadingEventsCount() > 0 && getThumbnailLoadTime() > 0">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_THUMBNAIL_LOAD_TIME' | translate }}:</span>
+                    <span class="debug-value">{{ getThumbnailLoadTime() }}ms</span>
+                </div>
             </div>
-            <div class="debug-info-item" *ngIf="getLoadingEventsCount() > 0 && getCardLoadTime() > 0">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_CARD_LOAD_TIME' | translate }}:</span>
-                <span class="debug-value">{{ getCardLoadTime() }}ms</span>
-            </div>
-            <div class="debug-info-item" *ngIf="getLoadingEventsCount() > 0 && getThumbnailLoadTime() > 0">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_THUMBNAIL_LOAD_TIME' | translate }}:</span>
-                <span class="debug-value">{{ getThumbnailLoadTime() }}ms</span>
-            </div>
-            <div class="debug-info-item">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_TOTAL_LOADED' | translate }}:</span>
-                <span class="debug-value">{{ getAllLoadedEventsCount() }}</span>
-            </div>
-            <div class="debug-info-item">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_TOTAL_AVAILABLE' | translate }}:</span>
-                <span class="debug-value">{{ filteredTotal }}</span>
-            </div>
-            <div class="debug-info-item">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_IS_LOADING' | translate }}:</span>
-                <span class="debug-value" [class.text-success]="!isLoading" [class.text-warning]="isLoading">
-                    {{ isLoading ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}
-                </span>
-            </div>
-            <div class="debug-info-item">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_IS_LOADING_NEXT' | translate }}:</span>
-                <span class="debug-value" [class.text-success]="!isLoadingNextPage" [class.text-warning]="isLoadingNextPage">
-                    {{ isLoadingNextPage ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}
-                </span>
-            </div>
-            <div class="debug-info-item">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_HAS_MORE' | translate }}:</span>
-                <span class="debug-value" [class.text-success]="hasMoreEvents" [class.text-danger]="!hasMoreEvents">
-                    {{ hasMoreEvents ? ('COMMUN.YES' | translate) : ('COMMUN.NO' | translate) }}
-                </span>
-            </div>
-            <div class="debug-info-item">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_FILTER' | translate }}:</span>
-                <span class="debug-value">{{ dataFIlter || ('EVENTHOME.DEBUG_EMPTY' | translate) }}</span>
-            </div>
-            <div class="debug-info-item">
-                <span class="debug-label">{{ 'EVENTHOME.DEBUG_MEMORY_USAGE' | translate }}:</span>
-                <span class="debug-value" 
-                      [class.text-success]="getMemoryUsagePercent() < 50" 
-                      [class.text-warning]="getMemoryUsagePercent() >= 50 && getMemoryUsagePercent() < 80"
-                      [class.text-danger]="getMemoryUsagePercent() >= 80">
-                    {{ getMemoryUsage() }}
-                </span>
+
+            <!-- Other Info -->
+            <div class="debug-info-section">
+                <div class="debug-section-title">Autres</div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_FILTER' | translate }}:</span>
+                    <span class="debug-value">{{ dataFIlter || ('EVENTHOME.DEBUG_EMPTY' | translate) }}</span>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_MEMORY_USAGE' | translate }}:</span>
+                    <span class="debug-value" 
+                          [class.text-success]="getMemoryUsagePercent() < 50" 
+                          [class.text-warning]="getMemoryUsagePercent() >= 50 && getMemoryUsagePercent() < 80"
+                          [class.text-danger]="getMemoryUsagePercent() >= 80">
+                        {{ getMemoryUsage() }}
+                    </span>
+                </div>
             </div>
         </div>
     </div>
@@ -223,14 +242,7 @@
     <div #cardsContainer class="row cards-container" *ngIf="!isCompactView" [class.cards-animated]="cardsReady">
         <div #patCard class="col-xl-3 col-lg-4 col-md-6 col-sm-12 card-group pat-card" 
              *ngFor="let evenement of evenements; trackBy: trackEvent; let i = index"
-             [attr.data-event-id]="evenement.id"
-             [class.card-loading]="isEventLoading(evenement)">
-            <div class="card-loading-overlay" *ngIf="isEventLoading(evenement)">
-                <div class="card-loading-spinner">
-                    <i class="fa fa-spinner fa-spin fa-2x"></i>
-                    <span class="card-loading-text">Chargement...</span>
-                </div>
-            </div>
+             [attr.data-event-id]="evenement.id">
             <element-evenement class="card" [user]="user" [evenement]="evenement" [titleOnly]="titleOnlyView"
                 (updateFileUploaded)="updateFileUploadedInEvent($event)" (addMember)="addMemberInEvent($event)"
                 (delMember)="delMemberInEvent($event)" (updateEvenement)="updEvent($event)"
@@ -238,6 +250,8 @@
                 (colorComputed)="onEventColorUpdate($event)"
                 (storeEventForReturn)="storeEventIdForReturn($event)"></element-evenement>
         </div>
+        <!-- Infinite scroll anchor - placed after all cards -->
+        <div #infiniteScrollAnchor class="infinite-scroll-anchor" aria-hidden="true"></div>
     </div>
 
     <!-- Vue compacte (liste) -->
@@ -246,6 +260,7 @@
              (click)="openEventDetails(evenement)">
             <div class="compact-image">
                 <img [src]="getEventThumbnail(evenement)" [alt]="evenement.evenementName"
+                    [attr.data-event-id]="evenement.id || getEventKey(evenement)"
                     class="compact-thumbnail clickable-image" (error)="onImageError($event)"
                     (click)="openImageModal(getEventThumbnail(evenement), evenement.evenementName); $event.stopPropagation()">
                 <!-- Badge de statut à droite -->
@@ -378,25 +393,14 @@
                 </button>
             </div>
         </div>
+        <!-- Infinite scroll anchor for compact view -->
+        <div #infiniteScrollAnchor class="infinite-scroll-anchor" aria-hidden="true" *ngIf="isCompactView"></div>
     </div>
-</div>
-<!-- Spinner de chargement principal -->
-<div class="loading-spinner-container" *ngIf="isLoading">
-    <div class="loading-spinner">
-        <i class="fa fa-spinner fa-spin"></i>
-    </div>
-</div>
-
-<!-- Spinner de chargement pour le scroll infini -->
-<div class="loading-indicator" *ngIf="isLoadingNextPage && !isLoading">
-    <i class="fa fa-spinner fa-spin"></i>
-    <span class="loading-text-small">{{ getLoadingMoreText() }}</span>
 </div>
 
 <div class="text-center text-muted my-3" *ngIf="!isLoading && !isLoadingNextPage && evenements.length === 0">
     <small>{{ 'EVENTHOME.EVENTS_FOUND' | translate }}: 0</small>
 </div>
-<div #infiniteScrollAnchor class="infinite-scroll-anchor" aria-hidden="true"></div>
 
 <!-- Photos Modal -->
 <ng-template #photosModal let-c="close" let-d="dismiss">
@@ -749,12 +753,6 @@
                             (error)="hideImageOnError($event)"
                             [style.cursor]="isImageFile(uploadedFile.fileName) ? 'pointer' : 'default'"
                             [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ''" />
-                        <!-- Loading indicator for image thumbnails -->
-                        <span
-                            *ngIf="isImageFile(uploadedFile.fileName) && isThumbnailLoading(uploadedFile.fieldId) && !getFileThumbnail(uploadedFile.fieldId)"
-                            class="file-thumbnail-loading me-2">
-                            <i class="fa fa-spinner fa-spin"></i>
-                        </span>
                         <span class="badge"
                             [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
                             [class.bg-info]="isImageFile(uploadedFile.fileName)"
