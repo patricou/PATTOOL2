@@ -18,7 +18,7 @@
     font-weight: 600;
     border: 1px solid;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-    transition: all 0.3s ease;
+    transition: none !important;
     min-width: 120px;
     width: 100%;
 }
@@ -62,7 +62,7 @@
 .home-evenements-wrapper {
     min-height: 100%;
     width: 100%;
-    transition: background 0.35s ease;
+    transition: none !important;
     background-image: none;
 }
 .pat-jumbotron-element {
@@ -145,7 +145,7 @@
     border-radius: 4px;
     font-weight: 500;
     font-size: 0.7rem;
-    transition: all 0.3s ease;
+    transition: none !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -209,20 +209,14 @@
     height: 1px;
 }
 
-/* Animation pour les cards - Disabled */
-.cards-container:not(.cards-animated) .pat-card {
-    opacity: 1 !important;
-    transform: none !important;
-}
-
-/* .cards-container .pat-card {
-    transition: opacity 0.8s cubic-bezier(0.4, 0.0, 0.2, 1), 
-                transform 0.8s cubic-bezier(0.4, 0.0, 0.2, 1);
-} */
-
+/* Animation pour les cards - Disabled - No transitions */
+.cards-container .pat-card,
+.cards-container:not(.cards-animated) .pat-card,
 .cards-container.cards-animated .pat-card {
     opacity: 1 !important;
     transform: none !important;
+    animation: none !important;
+    transition: none !important;
 }
 
 /* Délais progressifs pour effet cascade - Disabled */
@@ -270,40 +264,66 @@
         linear-gradient(115deg, rgba(59, 130, 246, 0.12), transparent 55%);
     opacity: 0;
     /* transition: opacity 0.35s ease; */
-    z-index: 1;
+    z-index: 2;
     pointer-events: none;
+    border-radius: inherit;
 }
 
 .pat-card .card::after {
     content: '';
     position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    border: 1px solid rgba(59, 130, 246, 0.2);
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    border-radius: 19px;
+    background: linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #000000 100%);
     opacity: 0;
     /* transition: opacity 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease; */
-    z-index: 2;
+    z-index: 0;
     pointer-events: none;
 }
 
 .pat-card .card:hover,
 .pat-card .card:focus-within {
-    border: 2px solid rgba(0, 0, 0, 0.9);
+    border: 3px solid transparent;
+    position: relative;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(15, 23, 42, 0.12);
+    background: 
+        linear-gradient(180deg, #ffffff 0%, #f8fafc 100%) padding-box,
+        linear-gradient(135deg, #000000 0%, #1a1a1a 50%, #000000 100%) border-box;
+    background-clip: padding-box, border-box;
+    background-origin: padding-box, border-box;
 }
 
 .pat-card .card:hover::before {
-    opacity: 0;
+    opacity: 1;
+    background:
+        radial-gradient(70% 110% at 30% 15%, rgba(0, 0, 0, 0.25), transparent),
+        radial-gradient(90% 150% at 80% -10%, rgba(0, 0, 0, 0.2), transparent),
+        linear-gradient(115deg, rgba(0, 0, 0, 0.15), transparent 55%);
 }
 
 .pat-card .card:hover::after,
 .pat-card .card:focus-within::after {
-    opacity: 0;
+    opacity: 1;
 }
 
 /* Styles pour contourner les conteneurs Bootstrap */
 .card-group .pat-card .card:hover,
 .card-group .pat-card .card:focus-within {
-    border: 2px solid rgba(0, 0, 0, 0.9) !important;
+    border: 3px solid transparent !important;
+    position: relative !important;
+}
+
+.card-group .pat-card .card:hover::after,
+.card-group .pat-card .card:focus-within::after {
+    opacity: 1 !important;
+}
+
+.card-group .pat-card .card:hover,
+.card-group .pat-card .card:focus-within {
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(15, 23, 42, 0.12) !important;
 }
 
 .col-xl-3 .pat-card .card:hover,
@@ -314,7 +334,30 @@
 .col-md-6 .pat-card .card:focus-within,
 .col-sm-12 .pat-card .card:hover,
 .col-sm-12 .pat-card .card:focus-within {
-    border: 2px solid rgba(0, 0, 0, 0.9) !important;
+    border: 3px solid transparent !important;
+    position: relative !important;
+}
+
+.col-xl-3 .pat-card .card:hover::after,
+.col-xl-3 .pat-card .card:focus-within::after,
+.col-lg-4 .pat-card .card:hover::after,
+.col-lg-4 .pat-card .card:focus-within::after,
+.col-md-6 .pat-card .card:hover::after,
+.col-md-6 .pat-card .card:focus-within::after,
+.col-sm-12 .pat-card .card:hover::after,
+.col-sm-12 .pat-card .card:focus-within::after {
+    opacity: 1 !important;
+}
+
+.col-xl-3 .pat-card .card:hover,
+.col-xl-3 .pat-card .card:focus-within,
+.col-lg-4 .pat-card .card:hover,
+.col-lg-4 .pat-card .card:focus-within,
+.col-md-6 .pat-card .card:hover,
+.col-md-6 .pat-card .card:focus-within,
+.col-sm-12 .pat-card .card:hover,
+.col-sm-12 .pat-card .card:focus-within {
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(15, 23, 42, 0.12) !important;
 }
 
 @media (max-width: 991px) {
@@ -335,12 +378,18 @@
     }
 
     .pat-card .card:hover {
-        border: 2px solid rgba(0, 0, 0, 0.9) !important;
+        border: 3px solid transparent !important;
+        position: relative !important;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 0, 0, 0.3), 0 12px 28px rgba(15, 23, 42, 0.12) !important;
+    }
+    
+    .pat-card .card:hover::after {
+        opacity: 1 !important;
     }
 }
 
-/* Animation pour l'apparition des cartes */
-@keyframes slideInUp {
+/* Animations disabled - no transition effects */
+/* @keyframes slideInUp {
     from {
         opacity: 0;
         transform: translateY(30px);
@@ -351,7 +400,6 @@
     }
 }
 
-/* Animation pour l'apparition des cartes avec fade-in */
 @keyframes fadeInUp {
     from {
         opacity: 0;
@@ -361,92 +409,13 @@
         opacity: 1;
         transform: translateY(0) scale(1);
     }
-}
+} */
 
-/* Délai progressif pour chaque carte - effet cascade */
-.pat-card:nth-child(1) {
-    animation-delay: 0.05s;
-}
-
-.pat-card:nth-child(2) {
-    animation-delay: 0.1s;
-}
-
-.pat-card:nth-child(3) {
-    animation-delay: 0.15s;
-}
-
-.pat-card:nth-child(4) {
-    animation-delay: 0.2s;
-}
-
-.pat-card:nth-child(5) {
-    animation-delay: 0.25s;
-}
-
-.pat-card:nth-child(6) {
-    animation-delay: 0.3s;
-}
-
-.pat-card:nth-child(7) {
-    animation-delay: 0.35s;
-}
-
-.pat-card:nth-child(8) {
-    animation-delay: 0.4s;
-}
-
-.pat-card:nth-child(9) {
-    animation-delay: 0.45s;
-}
-
-.pat-card:nth-child(10) {
-    animation-delay: 0.5s;
-}
-
-.pat-card:nth-child(11) {
-    animation-delay: 0.55s;
-}
-
-.pat-card:nth-child(12) {
-    animation-delay: 0.6s;
-}
-
-.pat-card:nth-child(13) {
-    animation-delay: 0.65s;
-}
-
-.pat-card:nth-child(14) {
-    animation-delay: 0.7s;
-}
-
-.pat-card:nth-child(15) {
-    animation-delay: 0.75s;
-}
-
-.pat-card:nth-child(16) {
-    animation-delay: 0.8s;
-}
-
-.pat-card:nth-child(17) {
-    animation-delay: 0.85s;
-}
-
-.pat-card:nth-child(18) {
-    animation-delay: 0.9s;
-}
-
-.pat-card:nth-child(19) {
-    animation-delay: 0.95s;
-}
-
-.pat-card:nth-child(20) {
-    animation-delay: 1s;
-}
-
-/* Pour les cartes au-delà de 20, utiliser un délai calculé */
-.pat-card:nth-child(n+21) {
-    animation-delay: 1.05s;
+/* Animation delays disabled - no transition effects */
+.pat-card {
+    animation: none !important;
+    animation-delay: 0s !important;
+    transition: none !important;
 }
 
 .container-fluid {
@@ -454,7 +423,17 @@
     padding-right: 15px;
     padding-top: 0;
     padding-bottom: 0;
-    animation: fadeIn 0.8s ease-out;
+    animation: none !important;
+    transition: none !important;
+}
+
+/* Disable all transitions on container and row elements */
+.container-fluid,
+.container-fluid .row,
+.controls-bar,
+.controls-bar > * {
+    transition: none !important;
+    animation: none !important;
 }
 
 /* Réduire l'espace entre les contrôles et les cards */
@@ -484,7 +463,7 @@
 
 .pat-page-btn {
     margin-bottom: 3px;
-    transition: all 0.3s ease;
+    transition: none !important;
 }
 
 .pat-page-btn:hover {
@@ -504,7 +483,8 @@
     gap: 0.5rem;
     padding: 0.75rem;
     margin-bottom: 0.75rem;
-    animation: slideInDown 0.6s ease-out 0.3s both;
+    animation: none !important;
+    transition: none !important;
     position: relative;
     background: linear-gradient(135deg, rgba(248, 250, 252, 0.98) 0%, rgba(241, 245, 249, 0.95) 100%);
     border-radius: 10px;
@@ -855,7 +835,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: none !important;
     font-size: 0.75rem;
     flex-shrink: 0;
     box-sizing: border-box;
@@ -1313,7 +1293,7 @@
     border-radius: 6px;
     background-color: #ffffff;
     overflow: hidden;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: none !important;
 }
 
 .filter-input-container-desktop .search-icon {
@@ -1360,7 +1340,7 @@
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: none !important;
     font-size: 0.65rem;
     flex-shrink: 0;
     box-sizing: border-box;
@@ -1394,7 +1374,7 @@
 .btn-filter {
     height: 38px;
     min-width: 38px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: none !important;
     background-color: #ffffff;
     color: #dc3545;
     border: 1.5px solid #dee2e6;
@@ -1423,7 +1403,7 @@
 .btn-toggle-view {
     height: 38px;
     min-width: 38px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: none !important;
     border: 2px solid #dee2e6 !important;
     color: #007bff !important;
     background-color: #ffffff !important;
@@ -1446,7 +1426,7 @@
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.1), transparent);
-    transition: left 0.5s ease;
+    transition: none !important;
     z-index: 0;
 }
 
@@ -1482,7 +1462,7 @@
     height: 38px;
     min-width: 90px;
     max-width: 180px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: none !important;
     border: 1.5px solid #dee2e6 !important;
     border-radius: 10px !important;
     padding: 0.45rem 2.25rem 0.45rem 0.75rem !important;
@@ -1533,7 +1513,7 @@
 .btn-pagination {
     height: 38px;
     min-width: 38px;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: none !important;
     border: 2px solid #dee2e6 !important;
     color: #6c757d;
     background-color: #ffffff;
@@ -1556,7 +1536,7 @@
     width: 100%;
     height: 100%;
     background: linear-gradient(90deg, transparent, rgba(0, 123, 255, 0.1), transparent);
-    transition: left 0.5s ease;
+    transition: none !important;
 }
 
 .btn-pagination:hover:not(:disabled)::before {
@@ -1593,7 +1573,7 @@
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     border-radius: 8px;
     border: 1px solid #dee2e6;
-    transition: all 0.3s ease;
+    transition: none !important;
     white-space: nowrap;
     display: flex;
     align-items: center;
@@ -2169,14 +2149,15 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-@keyframes fadeIn {
+/* fadeIn animation disabled - no transitions */
+/* @keyframes fadeIn {
     from {
         opacity: 0;
     }
     to {
         opacity: 1;
     }
-}
+} */
 
 @keyframes slideInDown {
     from {
@@ -2194,7 +2175,7 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    animation: fadeIn 0.8s ease-out;
+    animation: none !important;
     overflow: visible;
     width: 100%;
 }
@@ -2515,9 +2496,9 @@
     animation: slideInUp 0.5s ease-out 0.3s both;
 }
 
-/* Photos Gallery Staggered Animation */
+/* Photos Gallery Staggered Animation - Disabled */
 .photos-gallery .photo-card {
-    animation: fadeInUp 0.6s ease-out both;
+    animation: none !important;
 }
 
 .photos-gallery .photo-card:nth-child(1) { animation-delay: 0.1s; }
@@ -3363,7 +3344,7 @@
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    animation: fadeIn 0.5s ease-in-out;
+    animation: none !important;
 }
 
 /* Image in fullscreen mode - override all size constraints */
@@ -3965,3 +3946,32 @@
  .pat-card .card-footer button.btn-sm:hover i {
      color: #000 !important;
  }
+
+/* Card highlight effect when returning from navigation */
+.pat-card.card-highlight {
+    animation: cardHighlight 3s ease-in-out;
+    z-index: 10;
+    position: relative;
+}
+
+.pat-card.card-highlight .card {
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.8), 0 0 40px rgba(0, 0, 0, 0.4) !important;
+    border: 3px solid rgba(0, 0, 0, 0.9) !important;
+    transform: scale(1.02);
+    transition: all 0.3s ease;
+}
+
+@keyframes cardHighlight {
+    0% {
+        transform: scale(1);
+    }
+    10% {
+        transform: scale(1.03);
+    }
+    20% {
+        transform: scale(1.02);
+    }
+    100% {
+        transform: scale(1);
+    }
+}

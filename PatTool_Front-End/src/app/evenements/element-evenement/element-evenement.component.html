@@ -384,6 +384,7 @@
        [ngStyle]="getFooterButtonStyles('details')"
        placement="top"
        ngbTooltip="{{ 'EVENTELEM.VIEW_DETAILS' | translate }}"
+       (click)="storeEventIdForReturn()"
        (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-eye" aria-hidden="true"></i>
     </a>
@@ -425,6 +426,7 @@
     <a class="btn btn-sm btn-warning mb-1 me-1 dynamic-footer-btn" 
        [ngStyle]="getFooterButtonStyles('edit')"
        [routerLink]="['/updeven',evenement.id]"
+       (click)="storeEventIdForReturn()"
        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" 
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>

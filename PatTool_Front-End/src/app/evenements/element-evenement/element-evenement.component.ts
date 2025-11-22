@@ -3,10 +3,10 @@ import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent }
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
-import { DomSanitizer, SafeResourceUrl, SafeUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 // Removed ng2-file-upload - using native HTML file input
-import { NgbModal, NgbRatingConfig, NgbTooltip } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModal, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import * as JSZip from 'jszip';
 
@@ -197,6 +197,17 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	@Output()
 	colorComputed: EventEmitter<{ eventId: string; color: { r: number; g: number; b: number } }> = new EventEmitter();
+	
+	@Output()
+	storeEventForReturn: EventEmitter<string> = new EventEmitter<string>();
+	
+	// Store event ID before navigation - emit to parent so it can calculate page
+	public storeEventIdForReturn(): void {
+		if (this.evenement && this.evenement.id) {
+			// Emit to parent so it can calculate page number
+			this.storeEventForReturn.emit(this.evenement.id);
+		}
+	}
 
 	constructor(
 		private sanitizer: DomSanitizer,
@@ -727,7 +738,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	private async uploadFiles(): Promise<void> {
 		if (this.selectedFiles.length === 0) {
-			console.log('No files to upload');
 			return;
 		}
 
@@ -764,7 +774,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			if (useAsThumbnail) {
 				// Modify the filename to add "thumbnail" in the middle
 				const modifiedFileName = this.addThumbnailToFileName(imageFile.name);
-				// console.log("Modified filename:", modifiedFileName);
 				
 				// Create a new File object with the modified name
 				const modifiedFile = new File([imageFile], modifiedFileName, { type: imageFile.type });
@@ -1044,8 +1053,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	private handleUploadResponse(response: any): void {
 		try {
-			// console.log('Processing upload response:', response);
-			
 			// The response from database upload should contain the uploaded file information
 			if (response && Array.isArray(response)) {
 				// Response is directly an array of uploaded files
@@ -1059,7 +1066,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				this.addUploadedFilesToEvent([response]);
 			} else {
 				// Fallback: create uploaded file entries based on selected files
-				console.log('No file information in response, creating entries from selected files');
 				this.createUploadedFileEntries();
 			}
 		} catch (error) {
@@ -1083,7 +1089,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			// Check if this file contains "thumbnail" in its name
 			if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
 				hasThumbnailFile = true;
-				// console.log('Thumbnail file detected:', uploadedFile.fileName);
 			}
 			
 			// Add to event's file list if not already present
@@ -1095,8 +1100,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		
 		// If a thumbnail file was uploaded, remove "thumbnail" from old files and update
 		if (hasThumbnailFile) {
-			// console.log('Thumbnail file uploaded, cleaning up old thumbnails...');
-			
 			// Remove "thumbnail" from any old thumbnail files
 			let hasModifiedFiles = false;
 			this.evenement.fileUploadeds.forEach(fileUploaded => {
@@ -1108,7 +1111,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				// If not the new file and contains "thumbnail", clean it up
 				if (!isNewFile && fileUploaded.fileName && fileUploaded.fileName.toLowerCase().includes('thumbnail')) {
 					const newName = fileUploaded.fileName.replace(/thumbnail/gi, '').replace(/\s+/g, '');
-					// console.log(`Removing thumbnail from old file: ${fileUploaded.fileName} → ${newName}`);
 					fileUploaded.fileName = newName;
 					hasModifiedFiles = true;
 				}
@@ -1116,7 +1118,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			
 			// Update the event in database if we modified any file names
 			if (hasModifiedFiles) {
-				// console.log('Updating event with cleaned file names...');
 				this.updateEvenement.emit(this.evenement);
 			}
 			
@@ -1143,7 +1144,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			// Check if this file contains "thumbnail" in its name
 			if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
 				hasThumbnailFile = true;
-				console.log('Thumbnail file detected in fallback:', uploadedFile.fileName);
 			}
 			
 			// Add to event's file list if not already present
@@ -1156,8 +1156,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		
 		// If a thumbnail file was uploaded, remove "thumbnail" from old files and update
 		if (hasThumbnailFile) {
-			console.log('Thumbnail file uploaded in fallback, cleaning up old thumbnails...');
-			
 			// Remove "thumbnail" from any old thumbnail files
 			let hasModifiedFiles = false;
 			this.evenement.fileUploadeds.forEach(fileUploaded => {
@@ -1167,7 +1165,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				// If not a new file and contains "thumbnail", clean it up
 				if (!isNewFile && fileUploaded.fileName && fileUploaded.fileName.toLowerCase().includes('thumbnail')) {
 					const newName = fileUploaded.fileName.replace(/thumbnail/gi, '').replace(/\s+/g, '');
-					console.log(`Removing thumbnail from old file: ${fileUploaded.fileName} → ${newName}`);
 					fileUploaded.fileName = newName;
 					hasModifiedFiles = true;
 				}
@@ -1175,7 +1172,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			
 			// Update the event in database if we modified any file names
 			if (hasModifiedFiles) {
-				console.log('Updating event with cleaned file names...');
 				this.updateEvenement.emit(this.evenement);
 			}
 			
@@ -1930,7 +1926,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 	}
 	// delete a file uploaded linked to the evenement, update the evenement
 	delFile(fieldId: string) {
-		//console.log("File Id : " + fieldId);
 		if (confirm("Are you sure you want to delete the file ? ")) {
 			// Find the file being deleted to check if it contains "thumbnail"
 			const fileToDelete = this.evenement.fileUploadeds.find(fileUploaded => fileUploaded.fieldId === fieldId);
@@ -1938,7 +1933,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			
 			if (fileToDelete && fileToDelete.fileName && fileToDelete.fileName.toLowerCase().includes('thumbnail')) {
 				isThumbnailFile = true;
-				console.log('Thumbnail file being deleted:', fileToDelete.fileName);
 			}
 			
 			// Create a copy of the evenement without the file to delete
@@ -1948,14 +1942,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			// Call backend to delete the file from MongoDB GridFS
 			this._fileService.updateFile(evenementToUpdate, this.user).subscribe({
 				next: (updatedEvenement) => {
-					console.log('File deleted from MongoDB GridFS:', fieldId);
 					// Update the local evenement with the response
 					this.evenement.fileUploadeds = evenementToUpdate.fileUploadeds;
 					this.updateFileUploaded.emit(this.evenement);
 					
 					// If a thumbnail file was deleted, reload the card
 					if (isThumbnailFile) {
-						console.log('Thumbnail file deleted, reloading card...');
 						this.reloadEventCard();
 					}
 				},
@@ -2160,13 +2152,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Open photos modal from parent component
 	public openPhotosModalFromParent() {
-		console.log("Opening photos modal for event:", this.evenement.evenementName);
 		this.openPhotosModal.emit(this.evenement);
 	}
 
 	// Open photo in new tab
 	public openPhotoInNewTab(photoUrl: string) {
-		console.log("Opening photo in new tab:", photoUrl);
 		this.nativeWindow.open(photoUrl, '_blank');
 	}
 
@@ -2179,7 +2169,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Open JSON modal
 	public openJsonModal() {
-		console.log("Opening JSON modal for event:", this.evenement.evenementName);
 		this.forceCloseTooltips();
 		
 		if (this.jsonModal) {
@@ -2237,13 +2226,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 				link.setAttribute('download', fileName);
 				natw.document.body.appendChild(link);
 				link.click();
-				// remove the 				
 				setTimeout(function () {
 					natw.document.body.removeChild(link);
 					natw.URL.revokeObjectURL(objectUrl);
 				}, 5000);
 			}
-			//this.nativeWindow.open(objectUrl);
 		}
 		);
 	}
@@ -2258,8 +2245,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 		// Show loading message
 		const loadingMessage = `Téléchargement de ${this.evenement.fileUploadeds.length} fichier(s)...`;
 		
-		console.log('Starting download of all files:', this.evenement.fileUploadeds.length);
-		
 		try {
 			// Create a new ZIP file
 			const zip = new JSZip();
@@ -2268,11 +2253,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			// Download all files and add them to the ZIP
 			const downloadPromises = this.evenement.fileUploadeds.map(async (file) => {
 				try {
-					console.log(`Fetching file: ${file.fileName}`);
 					const blob = await firstValueFrom(this.getFileBlobUrl(file.fieldId));
 					zip.file(file.fileName, blob);
 					successCount++;
-					console.log(`Added to ZIP: ${file.fileName} (${successCount}/${this.evenement.fileUploadeds.length})`);
 				} catch (error) {
 					console.error(`Error fetching file ${file.fileName}:`, error);
 				}
@@ -2287,7 +2270,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			}
 			
 			// Generate the ZIP file
-			console.log('Generating ZIP file...');
 			const zipBlob = await zip.generateAsync({ type: 'blob' });
 			
 			// Create a download link and trigger download
@@ -2300,8 +2282,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			link.click();
 			document.body.removeChild(link);
 			window.URL.revokeObjectURL(url);
-			
-			console.log(`ZIP file downloaded successfully with ${successCount} file(s)`);
 		} catch (error) {
 			console.error('Error creating ZIP file:', error);
 			alert('Erreur lors de la création du fichier ZIP');
@@ -2423,19 +2403,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Reload the event card thumbnail when a thumbnail file is uploaded/deleted
 	private reloadEventCard(): void {
-		// console.log('Reloading thumbnail for event:', this.evenement.evenementName);
-		
 		// Find the thumbnail file in the uploaded files
 		const thumbnailFile = this.evenement.fileUploadeds.find(file => 
 			file.fileName && file.fileName.toLowerCase().includes('thumbnail')
 		);
 		
 		if (thumbnailFile) {
-			// console.log('Found thumbnail file:', thumbnailFile.fileName);
 			// Update the thumbnail URL to force refresh
 			this.setThumbnailImage();
 		} else {
-			// console.log('No thumbnail file found, using default image');
 			// Reset to default image if no thumbnail file exists
 			this.thumbnailUrl = "assets/images/images.jpg";
 			// Reset to default color
@@ -2817,16 +2793,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 
 	// Open PDF file in new tab
 	public openPdfFile(fileId: string, fileName: string): void {
-		console.log('Opening PDF file:', fileName, 'with ID:', fileId);
 		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
-			console.log('Blob received:', blob);
-			
 			// Create a new blob with proper MIME type for PDF
 			const pdfBlob = new Blob([blob], { type: 'application/pdf' });
 			
 			// Create object URL for the blob
 			const objectUrl = URL.createObjectURL(pdfBlob);
-			console.log('Object URL created:', objectUrl);
 			
 			// Open PDF in new tab with optimized parameters
 			const newWindow = window.open(objectUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
@@ -3004,9 +2976,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit {
 			animation: true,
 			centered: true
 		}).result.then((result) => {
-			console.log('Comments modal closed with:', result);
+			// Modal closed
 		}, (reason) => {
-			console.log('Comments modal dismissed:', reason);
+			// Modal dismissed
 		});
 	}
 

@@ -1,5 +1,4 @@
 import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, ViewChildren, QueryList, OnDestroy, TemplateRef, ChangeDetectorRef } from '@angular/core';
-import { trigger, transition, style, animate, query, stagger } from '@angular/animations';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom } from 'rxjs';
@@ -96,6 +95,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private readonly prefetchThresholdMultiplier = 2;
 	private updateAverageColorTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	private lastAverageRgb: { r: number; g: number; b: number } | null = null;
+	private shouldBlockScroll: boolean = false;
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
@@ -118,6 +118,27 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	ngOnInit() {
 		this.user = this._memberService.getUser();
 		this.cardsReady = false;
+		
+		// Check if we need to load a specific event first (when returning from update)
+		const storedDataStr = sessionStorage.getItem('lastViewedEventData');
+		const storedEventId = sessionStorage.getItem('lastViewedEventId');
+		const eventId = storedDataStr ? (() => {
+			try {
+				const data = JSON.parse(storedDataStr);
+				return data.eventId;
+			} catch (e) {
+				return null;
+			}
+		})() : storedEventId;
+		
+		if (eventId) {
+			// Block scrolling until cards are ready
+			this.shouldBlockScroll = true;
+			this.blockPageScroll();
+			// Load the specific event first, then load normal events
+			this.loadAndDisplayEventFirst(eventId);
+		}
+		
 		this.resetAndLoadEvents();
 		
 		this.updateResponsiveState(this.nativeWindow.innerWidth);
@@ -126,8 +147,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.controlsCollapsed = true;
 		}
 		
-		// Scroll to top when component loads
-		this.scrollToTop();
 	}
 
 	@HostListener('window:resize', ['$event'])
@@ -159,9 +178,36 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				setTimeout(() => {
 					this.cardsReady = true;
 					this.cdr.markForCheck();
+					// Unblock scrolling once cards are ready
+					if (this.shouldBlockScroll) {
+						this.unblockPageScroll();
+						this.shouldBlockScroll = false;
+					}
+					// Check for stored card to scroll to after cards are ready
+					this.checkAndScrollToStoredCard();
 				}, 50);
+			} else if (this.patCards.length > 0 && this.cardsReady) {
+				// Cards are already ready, unblock scrolling if needed
+				if (this.shouldBlockScroll) {
+					this.unblockPageScroll();
+					this.shouldBlockScroll = false;
+				}
+				// Cards are already ready, check for stored card
+				this.checkAndScrollToStoredCard();
 			}
 		});
+		
+		// Also check after a delay in case cards are already loaded
+		setTimeout(() => {
+			if (this.patCards && this.patCards.length > 0) {
+				// Unblock scrolling if cards are loaded
+				if (this.shouldBlockScroll) {
+					this.unblockPageScroll();
+					this.shouldBlockScroll = false;
+				}
+				this.checkAndScrollToStoredCard();
+			}
+		}, 1500);
 	}
 
 	private setupSearchInputs(): void {
@@ -182,8 +228,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						this._commonValuesService.setDataFilter(this.dataFIlter);
 						this.resetAndLoadEvents();
 					}),
-					((err: any) => console.error(err)),
-					() => console.log('complete')
+					((err: any) => console.error(err))
 				);
 				this.searchSubscriptions.push(subscription);
 			}
@@ -196,9 +241,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				if (this.user.id !== "") {
 					resolve();
 				} else {
-					let now = new Date();
-					// console.log("This.user.id is still empty " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
-					setTimeout(checkValue, 100); // Appeler checkValue de manière récursive après 100ms
+					setTimeout(checkValue, 100);
 				}
 			};
 			checkValue(); // Déclencher la première vérification
@@ -217,7 +260,28 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.pageNumber = 0;
 		this._commonValuesService.setPageNumber(this.pageNumber);
 		this._commonValuesService.setElementsByPage(this.elementsByPage);
+		
+		// Preserve first event if it was loaded for return navigation
+		const storedDataStr = sessionStorage.getItem('lastViewedEventData');
+		const storedEventId = sessionStorage.getItem('lastViewedEventId');
+		const eventId = storedDataStr ? (() => {
+			try {
+				const data = JSON.parse(storedDataStr);
+				return data.eventId;
+			} catch (e) {
+				return null;
+			}
+		})() : storedEventId;
+		
+		const firstEvent = this.evenements.length > 0 && eventId && 
+			(this.evenements[0].id === eventId || this.getEventKey(this.evenements[0]) === eventId) 
+			? this.evenements[0] : null;
 		this.evenements = [];
+		if (firstEvent) {
+			// Keep the first event that was loaded for return
+			this.evenements = [firstEvent];
+		}
+		
 		this.filteredTotal = 0;
 		this.resetColorAggregation();
 		if (this.infiniteScrollAnchor?.nativeElement) {
@@ -260,10 +324,23 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					this.isLoadingNextPage = false;
 					this.cardsReady = false;
 					
+					// Filter out the event that might be at first position (if we just loaded it)
+					const firstEventId = this.evenements.length > 0 && this.evenements[0] ? 
+						(this.evenements[0].id || this.getEventKey(this.evenements[0])) : null;
+					
+					const filteredNewEvents = firstEventId ? 
+						newEvents.filter(e => (e.id || this.getEventKey(e)) !== firstEventId) : 
+						newEvents;
+					
 					if (pageToLoad === 0) {
-						this.evenements = newEvents;
+						// If we have an event at first position, keep it and add the rest
+						if (this.evenements.length > 0 && firstEventId) {
+							this.evenements = [this.evenements[0], ...filteredNewEvents];
+						} else {
+							this.evenements = newEvents;
+						}
 					} else {
-						this.evenements = [...this.evenements, ...newEvents];
+						this.evenements = [...this.evenements, ...filteredNewEvents];
 					}
 					
 					// Forcer la détection de changements
@@ -274,11 +351,21 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						if (this.patCards && this.patCards.length > 0) {
 							this.cardsReady = true;
 							this.cdr.markForCheck();
+							// Unblock scrolling once cards are ready
+							if (this.shouldBlockScroll) {
+								this.unblockPageScroll();
+								this.shouldBlockScroll = false;
+							}
 						} else {
 							// Si pas encore de cards, réessayer
 							setTimeout(() => {
 								this.cardsReady = true;
 								this.cdr.markForCheck();
+								// Unblock scrolling once cards are ready
+								if (this.shouldBlockScroll) {
+									this.unblockPageScroll();
+									this.shouldBlockScroll = false;
+								}
 							}, 100);
 						}
 					}, 150);
@@ -531,25 +618,17 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	public addMemberInEvent(evenement: Evenement) {
-		//console.log("addMemberInEvent " + JSON.stringify(evenement));
-		// put the user logged in the venemen as member
 		evenement.members.push(this.user);
-		// save the evenement ( does an Update )
 		this._evenementsService.putEvenement(evenement).subscribe(
-			(res: any) => // console.log("I participe return ok " ),
-				(err: any) => alert("Error when deleting participant " + err));
+			() => {},
+			(err: any) => alert("Error when deleting participant " + err));
 	}
 
 	public delMemberInEvent(evenement: Evenement) {
-		//console.log("delMemberInEvent " + JSON.stringify(evenement));
-		// put the user logged in the venemen as member    
-		let members: Member[] = evenement.members;
-		// remove the member
-		evenement.members = members.filter(memb => !(memb.id == this.user.id));
-		// save the evenement ( does an Update )
+		evenement.members = evenement.members.filter(memb => !(memb.id == this.user.id));
 		this._evenementsService.putEvenement(evenement).subscribe(
-			(res: any) => // console.log("I don't participe in evenement ok "),
-				(err: any) => alert("Error when deleting participant " + err));
+			() => {},
+			(err: any) => alert("Error when deleting participant " + err));
 	}
 
 	public async delEvent(evenement: Evenement) {
@@ -557,10 +636,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		try {
 			const messagesRef = ref(this.database, evenement.id);
 			await remove(messagesRef);
-			console.log("Firebase chat messages deleted for event: " + evenement.id);
 		} catch (error) {
 			console.error("Error deleting Firebase chat messages:", error);
-			// Continue with event deletion even if Firebase deletion fails
 		}
 		
 		// Then delete the event from backend
@@ -570,7 +647,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					this.resetAndLoadEvents();
 				},
 				(err: any) => {
-					console.log("Del evenement error : " + err);
+					console.error("Del evenement error : " + err);
 					alert("Issue when deleting the event : " + err);
 				}
 			);
@@ -578,7 +655,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	public updEvent(evenement: Evenement) {
 		this._evenementsService.putEvenement(evenement)
-			.subscribe((resp: any) => // console.log("Update Status OK "),
+			.subscribe(
+				() => {},
 				(err: any) => alert("Update Status Error : " + err));
 	}
 
@@ -648,10 +726,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			keyboard: false,
 			animation: true,
 			centered: true
-		}).result.then((result) => {
-			console.log('Files modal closed with:', result);
-		}, (reason) => {
-			console.log('Files modal dismissed:', reason);
 		});
 	}
 	
@@ -704,11 +778,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	public openPhotosModal(evenement: Evenement) {
-		// Ouvrir le modal des photos pour l'événement
-		console.log('Opening photos modal for event:', evenement.evenementName);
-		
-		// No photos available since photosUrl field has been removed
-		console.log('No photos available - photosUrl field has been removed');
+		// Modal photos is kept for compatibility but photosUrl field has been removed
+		// The modal will show "No photos available" message
 	}
 
 	public openPhotoInNewTab(url: string) {
@@ -738,9 +809,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	public openUrlsModal(evenement: Evenement) {
-		console.log('Opening URLs modal for event:', evenement.evenementName);
-		console.log('UrlEvents data:', evenement.urlEvents);
-		
 		this.selectedEvent = evenement;
 		this.selectedEventName = evenement.evenementName;
 		
@@ -750,10 +818,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			keyboard: false,
 			animation: true,
 			centered: true
-		}).result.then((result) => {
-			console.log('URLs modal closed with:', result);
-		}, (reason) => {
-			console.log('URLs modal dismissed:', reason);
 		});
 	}
 
@@ -863,7 +927,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	public updateFileUploadedInEvent(evenement: Evenement) {
 		this._evenementsService.put4FileEvenement(evenement)
-			.subscribe((resp: any) => // console.log("Delete file OK "),
+			.subscribe(
+				() => {},
 				(err: any) => alert("Delete File Error : " + err));
 	}
 	public clearFilter() {
@@ -983,8 +1048,78 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	public openEventDetails(evenement: Evenement) {
+		// Store the event ID and page info before navigating
+		this.storeEventIdForReturn(evenement.id);
 		// Navigation vers la page de détails de l'événement
 		this._router.navigate(['/details-evenement', evenement.id]);
+	}
+	
+	// Store event ID and page number when navigating away from a card
+	public storeEventIdForReturn(eventId: string): void {
+		if (eventId) {
+			// Find the index of the event in the current array
+			const eventIndex = this.evenements.findIndex(e => 
+				e.id === eventId || this.getEventKey(e) === eventId
+			);
+			
+			if (eventIndex >= 0) {
+				// Calculate which page this event is on (0-based)
+				const pageNumber = Math.floor(eventIndex / this.elementsByPage);
+				const storageData = {
+					eventId: eventId,
+					pageNumber: pageNumber,
+					eventIndex: eventIndex,
+					filter: this.dataFIlter || ''
+				};
+				sessionStorage.setItem('lastViewedEventData', JSON.stringify(storageData));
+			} else {
+				// If not found in current array, just store the ID
+				sessionStorage.setItem('lastViewedEventId', eventId);
+			}
+		}
+	}
+	
+	// Check for stored event ID (called after cards are loaded)
+	private checkAndScrollToStoredCard(): void {
+		// Method kept for compatibility but does nothing
+	}
+	
+	// Load specific event and place it at the first position
+	private loadAndDisplayEventFirst(eventId: string): void {
+		// Clear stored data immediately
+		sessionStorage.removeItem('lastViewedEventData');
+		sessionStorage.removeItem('lastViewedEventId');
+		
+		// Fetch the specific event from backend
+		this._evenementsService.getEvenement(eventId).subscribe({
+			next: (evenement: Evenement) => {
+				// Add event at first position (array might be empty at this point)
+				if (this.evenements.length === 0) {
+					this.evenements = [evenement];
+				} else {
+					// Check if event already exists in the array
+					const existingIndex = this.evenements.findIndex(e => 
+						e.id === evenement.id || this.getEventKey(e) === eventId
+					);
+					
+					if (existingIndex >= 0) {
+						// Event already in array, move it to first position
+						const event = this.evenements[existingIndex];
+						this.evenements.splice(existingIndex, 1);
+						this.evenements.unshift(event);
+					} else {
+						// Event not in array, add it at first position
+						this.evenements.unshift(evenement);
+					}
+				}
+				
+				// Force change detection
+				this.cdr.detectChanges();
+			},
+			error: (error: any) => {
+				console.error('Error loading event for first position:', error);
+			}
+		});
 	}
 
 	public onImageError(event: any) {
@@ -1069,6 +1204,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	ngOnDestroy() {
+		// Unblock scrolling if it was blocked
+		if (this.shouldBlockScroll) {
+			this.unblockPageScroll();
+			this.shouldBlockScroll = false;
+		}
+		
 		this.eventsSubscription?.unsubscribe();
 		this.searchSubscriptions.forEach(sub => sub.unsubscribe());
 		this.searchSubscriptions = [];
@@ -1117,6 +1258,26 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.nativeWindow.scrollTo(0, 0);
 	}
 	
+	// Block page scrolling
+	private blockPageScroll(): void {
+		if (document.body) {
+			document.body.style.overflow = 'hidden';
+		}
+		if (document.documentElement) {
+			document.documentElement.style.overflow = 'hidden';
+		}
+	}
+	
+	// Unblock page scrolling
+	private unblockPageScroll(): void {
+		if (document.body) {
+			document.body.style.overflow = '';
+		}
+		if (document.documentElement) {
+			document.documentElement.style.overflow = '';
+		}
+	}
+	
 	// Open image modal for large display
 	openImageModal(imageUrl: SafeUrl, imageAlt: string): void {
 		this.selectedImageUrl = imageUrl;
@@ -1146,10 +1307,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			keyboard: false,
 			animation: true,
 			centered: true
-		}).result.then((result) => {
-			console.log('JSON modal closed with:', result);
-		}, (reason) => {
-			console.log('JSON modal dismissed:', reason);
 		});
 	}
 
@@ -1195,10 +1352,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			keyboard: false,
 			animation: true,
 			centered: true
-		}).result.then((result) => {
-			console.log('Comments modal closed with:', result);
-		}, (reason) => {
-			console.log('Comments modal dismissed:', reason);
 		});
 	}
 
@@ -1221,10 +1374,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		window.open(`mailto:${email}`, '_blank');
 	}
 
-	// Photo selection - now handled by PhotosSelectorModalComponent
 	private currentEventForPhotosSelector: Evenement | null = null;
-
-	// File thumbnails cache
 	private fileThumbnailsCache: Map<string, SafeUrl> = new Map();
 	private fileThumbnailsLoading: Set<string> = new Set();
 
@@ -1249,10 +1399,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		return evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName)).length;
 	}
 
-	// =========================
-	// Photo From FS integration
-	// =========================
-
 	public getPhotoFromFsLinks(evenement: Evenement): UrlEvent[] {
 		if (!evenement || !evenement.urlEvents) return [];
 		return evenement.urlEvents.filter(u => (u.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS');
@@ -1270,7 +1416,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public getTotalPhotosCount(evenement: Evenement): number {
 		// Each photo source counts as 1, regardless of how many photos it contains
 		let count = 0;
-		// Photos uploadées: count as 1 if any exist
 		if (this.hasImageFiles(evenement)) {
 			count += 1;
 		}
@@ -1412,14 +1557,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.slideshowModalComponent.open([imageSource], eventName, true);
 	}
 
-	// =========================
-	// Slideshow methods (now handled by SlideshowModalComponent)
-	// =========================
-	
-	// =========================
-	// File Management Methods
-	// =========================
-	
 	// Get the file url with the bearer token for authentication
 	public getFileBlobUrl(fileId: string): Observable<any> {
 		return this._fileService.getFile(fileId).pipe(
@@ -1498,16 +1635,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	
 	// Open PDF file in new tab
 	public openPdfFile(fileId: string, fileName: string): void {
-		console.log('Opening PDF file:', fileName, 'with ID:', fileId);
 		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
-			console.log('Blob received:', blob);
-			
-			// Create a new blob with proper MIME type for PDF
 			const pdfBlob = new Blob([blob], { type: 'application/pdf' });
-			
-			// Create object URL for the blob
 			const objectUrl = URL.createObjectURL(pdfBlob);
-			console.log('Object URL created:', objectUrl);
 			
 			// Open PDF in new tab with optimized parameters
 			const newWindow = window.open(objectUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
@@ -1594,11 +1724,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			return;
 		}
 
-		// Show loading message
-		const loadingMessage = `Téléchargement de ${evenement.fileUploadeds.length} fichier(s)...`;
-		
-		console.log('Starting download of all files:', evenement.fileUploadeds.length);
-		
 		try {
 			// Create a new ZIP file
 			const zip = new JSZip();
@@ -1607,11 +1732,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			// Download all files and add them to the ZIP
 			const downloadPromises = evenement.fileUploadeds.map(async (file) => {
 				try {
-					console.log(`Fetching file: ${file.fileName}`);
 					const blob = await firstValueFrom(this.getFileBlobUrl(file.fieldId));
 					zip.file(file.fileName, blob);
 					successCount++;
-					console.log(`Added to ZIP: ${file.fileName} (${successCount}/${evenement.fileUploadeds.length})`);
 				} catch (error) {
 					console.error(`Error fetching file ${file.fileName}:`, error);
 				}
@@ -1625,11 +1748,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				return;
 			}
 			
-			// Generate the ZIP file
-			console.log('Generating ZIP file...');
 			const zipBlob = await zip.generateAsync({ type: 'blob' });
 			
-			// Create a download link and trigger download
 			const zipFileName = `${evenement.evenementName}_files_${new Date().getTime()}.zip`;
 			const url = window.URL.createObjectURL(zipBlob);
 			const link = document.createElement('a');
@@ -1639,17 +1759,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			link.click();
 			document.body.removeChild(link);
 			window.URL.revokeObjectURL(url);
-			
-			console.log(`ZIP file downloaded successfully with ${successCount} file(s)`);
 		} catch (error) {
 			console.error('Error creating ZIP file:', error);
 			alert('Erreur lors de la création du fichier ZIP');
 		}
 	}
-	
-	// =========================
-	// File Upload Methods
-	// =========================
 	
 	public onFileSelected(event: any, evenement: Evenement): void {
 		const files: FileList = event.target.files;
@@ -1661,7 +1775,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	private uploadFiles(evenement: Evenement): void {
 		if (this.selectedFiles.length === 0) {
-			console.log('No files to upload');
 			return;
 		}
 
@@ -1851,8 +1964,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				// Response is a single uploaded file object
 				this.addUploadedFilesToEvent([response], evenement);
 			} else {
-				// Fallback: create uploaded file entries based on selected files
-				console.log('No file information in response, creating entries from selected files');
 				this.createUploadedFileEntries(evenement);
 			}
 		} catch (error) {
@@ -1918,7 +2029,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	private generateFileId(): string {
-		return 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+		return 'file_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
 	}
 
 	// Check if a File object is an image based on MIME type
