@@ -114,7 +114,7 @@
         "DEBUG_PAGE": "الصفحة",
         "DEBUG_VISIBLE_EVENTS": "الأحداث المرئية",
         "DEBUG_CACHE": "في الذاكرة المؤقتة",
-        "DEBUG_TOTAL_LOADED": "إجمالي المحمل",
+        "DEBUG_TOTAL_STREAMED": "إجمالي المدفوع",
         "DEBUG_TOTAL_AVAILABLE": "إجمالي المتاح",
         "DEBUG_IS_LOADING": "جاري التحميل",
         "DEBUG_IS_LOADING_NEXT": "تحميل الصفحة التالية",
@@ -150,7 +150,9 @@
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "هذا الإجراء لا يمكن التراجع عنه.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "إلغاء",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "حذف جميع التعليقات",
-        "SELECT_PAGE": "اختر الصفحة"
+        "SELECT_PAGE": "اختر الصفحة",
+        "EDIT_LINK": "تعديل الرابط",
+        "NO_FILES_ADDED": "لم تتم إضافة ملفات إلى هذا الحدث"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "اختيار الصور",

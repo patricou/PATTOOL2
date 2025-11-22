@@ -114,7 +114,7 @@
         "DEBUG_PAGE": "עמוד",
         "DEBUG_VISIBLE_EVENTS": "אירועים גלויים",
         "DEBUG_CACHE": "במטמון",
-        "DEBUG_TOTAL_LOADED": "סה\"כ נטענו",
+        "DEBUG_TOTAL_STREAMED": "סה\"כ הועברו",
         "DEBUG_TOTAL_AVAILABLE": "סה\"כ זמינים",
         "DEBUG_IS_LOADING": "טוען",
         "DEBUG_IS_LOADING_NEXT": "טוען עמוד הבא",
@@ -150,7 +150,9 @@
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "פעולה זו אינה ניתנת לביטול.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "בטל",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "מחק את כל ההערות",
-        "SELECT_PAGE": "בחר עמוד"
+        "SELECT_PAGE": "בחר עמוד",
+        "EDIT_LINK": "ערוך קישור",
+        "NO_FILES_ADDED": "לא נוספו קבצים לאירוע זה"
     },
     "EVENTCREATION": {
         "TITLE": "יצירת פעילות",

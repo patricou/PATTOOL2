@@ -113,7 +113,7 @@
         "DEBUG_PAGE": "पृष्ठ",
         "DEBUG_VISIBLE_EVENTS": "दृश्यमान घटनाएं",
         "DEBUG_CACHE": "कैश में",
-        "DEBUG_TOTAL_LOADED": "कुल लोड किए गए",
+        "DEBUG_TOTAL_STREAMED": "कुल स्ट्रीम किए गए",
         "DEBUG_TOTAL_AVAILABLE": "कुल उपलब्ध",
         "DEBUG_IS_LOADING": "लोड हो रहा है",
         "DEBUG_IS_LOADING_NEXT": "अगला पृष्ठ लोड हो रहा है",
@@ -149,7 +149,9 @@
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "यह क्रिया अपरिवर्तनीय है।",
         "DELETE_ALL_COMMENTARIES_CANCEL": "रद्द करें",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "सभी टिप्पणियाँ हटाएं",
-        "SELECT_PAGE": "पृष्ठ चुनें"
+        "SELECT_PAGE": "पृष्ठ चुनें",
+        "EDIT_LINK": "लिंक संपादित करें",
+        "NO_FILES_ADDED": "इस घटना में कोई फ़ाइल नहीं जोड़ी गई"
     },
     "EVENTCREATION": {
         "TITLE": "गतिविधि निर्माण",

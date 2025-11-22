@@ -142,7 +142,8 @@
         "DELETE_ALL_COMMENTARIES_CANCEL": "Annuler",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Supprimer tous les commentaires",
         "SELECT_PAGE": "Sélectionner la page",
-        "EDIT_LINK": "Modifier le lien"
+        "EDIT_LINK": "Modifier le lien",
+        "NO_FILES_ADDED": "Aucun fichier ajouté à cet événement"
     },
     
     "EVENTCREATION": {
@@ -358,7 +359,6 @@
         "VIDEO_COMPRESSION_TITLE": "Compression vidéo",
         "VIDEO_COMPRESSION_MESSAGE": "{{count}} vidéo(s) détectée(s). Choisissez la qualité de compression :",
         "CONFIRM": "Confirmer",
-        "CANCEL": "Annuler",
         "DOWNLOAD_ALL_FILES": "Télécharger tous les fichiers",
         "ATTENTION": "Attention",
         "IMAGE_COMPRESSION_WARNING": "Les images téléchargées seront automatiquement compressées pour réduire leur taille, ce qui peut entraîner une perte de qualité visuelle.",

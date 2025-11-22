@@ -115,7 +115,7 @@
         "DEBUG_PAGE": "ページ",
         "DEBUG_VISIBLE_EVENTS": "表示中のイベント",
         "DEBUG_CACHE": "キャッシュ内",
-        "DEBUG_TOTAL_LOADED": "読み込み済み合計",
+        "DEBUG_TOTAL_STREAMED": "ストリーミング済み合計",
         "DEBUG_TOTAL_AVAILABLE": "利用可能合計",
         "DEBUG_IS_LOADING": "読み込み中",
         "DEBUG_IS_LOADING_NEXT": "次のページを読み込み中",
@@ -151,7 +151,9 @@
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "この操作は元に戻すことができません。",
         "DELETE_ALL_COMMENTARIES_CANCEL": "キャンセル",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "すべてのコメントを削除",
-        "SELECT_PAGE": "ページを選択"
+        "SELECT_PAGE": "ページを選択",
+        "EDIT_LINK": "リンクを編集",
+        "NO_FILES_ADDED": "このイベントにファイルが追加されていません"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "写真の選択",

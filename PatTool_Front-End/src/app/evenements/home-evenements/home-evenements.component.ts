@@ -235,7 +235,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.updateCachedLoadTimes();
 	}
 	
-	// Update cached load times asynchronously
+		// Update cached load times asynchronously
 	private updateCachedLoadTimes(): void {
 		// Update card load time
 		const first = this.loadingEvents.values().next().value;
@@ -660,9 +660,17 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						this.scheduleCardLoadEndBatch();
 					}
 					this.queueThumbnailLoad(event);
+					// Load file thumbnails for displayed events
+					this.loadFileThumbnails(event);
 				}
 			});
 			this.cdr.markForCheck();
+			
+			// Re-observe thumbnail elements after new events are added to DOM
+			// Use setTimeout to ensure DOM is updated
+			setTimeout(() => {
+				this.observeThumbnailElements();
+			}, 100);
 		}
 	}
 
@@ -726,6 +734,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					this.scheduleCardLoadEndBatch();
 				}
 				this.queueThumbnailLoad(event);
+				// Load file thumbnails for displayed events
+				this.loadFileThumbnails(event);
 			} else {
 				console.log('✗ Event already loaded:', eventId);
 			}
@@ -776,8 +786,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		if (!this.isEventVisible(update.eventId)) {
 			return;
 		}
-		// Ne plus stocker les couleurs des cartes - on n'utilise plus la moyenne
-		// this.eventColors.set(update.eventId, update.color);
+		// Stocker les couleurs des cartes pour le debug
+		this.eventColors.set(update.eventId, update.color);
 		
 		// Ne plus mettre à jour la couleur moyenne - utiliser toujours les couleurs par défaut
 		// Plus besoin de débouncer car on ne calcule plus la moyenne

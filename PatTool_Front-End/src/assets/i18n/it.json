@@ -115,7 +115,7 @@
         "DEBUG_PAGE": "Pagina",
         "DEBUG_VISIBLE_EVENTS": "Eventi visibili",
         "DEBUG_CACHE": "In cache",
-        "DEBUG_TOTAL_LOADED": "Totale caricati",
+        "DEBUG_TOTAL_STREAMED": "Totale trasmessi",
         "DEBUG_TOTAL_AVAILABLE": "Totale disponibile",
         "DEBUG_IS_LOADING": "Caricamento",
         "DEBUG_IS_LOADING_NEXT": "Caricamento pagina successiva",
@@ -150,7 +150,9 @@
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Questa azione è irreversibile.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "Annulla",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Elimina tutti i commenti",
-        "SELECT_PAGE": "Seleziona pagina"
+        "SELECT_PAGE": "Seleziona pagina",
+        "EDIT_LINK": "Modifica collegamento",
+        "NO_FILES_ADDED": "Nessun file aggiunto a questo evento"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "Selezione foto",

@@ -114,7 +114,7 @@
         "DEBUG_PAGE": "页面",
         "DEBUG_VISIBLE_EVENTS": "可见事件",
         "DEBUG_CACHE": "缓存中",
-        "DEBUG_TOTAL_LOADED": "已加载总数",
+        "DEBUG_TOTAL_STREAMED": "已流式传输总数",
         "DEBUG_TOTAL_AVAILABLE": "可用总数",
         "DEBUG_IS_LOADING": "加载中",
         "DEBUG_IS_LOADING_NEXT": "加载下一页",
@@ -150,7 +150,9 @@
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "此操作不可逆。",
         "DELETE_ALL_COMMENTARIES_CANCEL": "取消",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "删除所有评论",
-        "SELECT_PAGE": "选择页面"
+        "SELECT_PAGE": "选择页面",
+        "EDIT_LINK": "编辑链接",
+        "NO_FILES_ADDED": "未向此活动添加文件"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "照片选择",

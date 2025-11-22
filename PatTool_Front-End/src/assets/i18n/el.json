@@ -115,7 +115,7 @@
         "DEBUG_PAGE": "Σελίδα",
         "DEBUG_VISIBLE_EVENTS": "Ορατά γεγονότα",
         "DEBUG_CACHE": "Στη μνήμη cache",
-        "DEBUG_TOTAL_LOADED": "Σύνολο φορτωμένα",
+        "DEBUG_TOTAL_STREAMED": "Σύνολο μεταδομένα",
         "DEBUG_TOTAL_AVAILABLE": "Σύνολο διαθέσιμα",
         "DEBUG_IS_LOADING": "Φόρτωση",
         "DEBUG_IS_LOADING_NEXT": "Φόρτωση επόμενης σελίδας",
@@ -151,7 +151,9 @@
         "DELETE_ALL_COMMENTARIES_IRREVERSIBLE": "Αυτή η ενέργεια είναι μη αναστρέψιμη.",
         "DELETE_ALL_COMMENTARIES_CANCEL": "Ακύρωση",
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Διαγραφή όλων των σχολίων",
-        "SELECT_PAGE": "Επιλογή σελίδας"
+        "SELECT_PAGE": "Επιλογή σελίδας",
+        "EDIT_LINK": "Επεξεργασία συνδέσμου",
+        "NO_FILES_ADDED": "Δεν προστέθηκαν αρχεία σε αυτή την εκδήλωση"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "Επιλογή φωτογραφιών",

@@ -133,9 +133,7 @@
                             </div>
                             <div class="mobile-quick-actions">
                                 <button class="btn btn-sm btn-outline-secondary me-1" 
-                                    (click)="debugInfoCollapsed = !debugInfoCollapsed"
-                                    [ngbTooltip]="(debugInfoCollapsed ? ('EVENTHOME.DEBUG_SHOW' | translate) : ('EVENTHOME.DEBUG_HIDE' | translate))"
-                                    placement="bottom" container="body">
+                                    (click)="debugInfoCollapsed = !debugInfoCollapsed">
                                     <i class="fa fa-info-circle"></i>
                                 </button>
                                 <div class="mobile-results-badge"
@@ -157,9 +155,7 @@
                     <!-- Results Counter Section -->
                     <div class="results-section-redesigned">
                         <button class="btn btn-sm btn-outline-secondary me-2" 
-                            (click)="debugInfoCollapsed = !debugInfoCollapsed"
-                            [ngbTooltip]="(debugInfoCollapsed ? ('EVENTHOME.DEBUG_SHOW' | translate) : ('EVENTHOME.DEBUG_HIDE' | translate))"
-                            placement="bottom" container="body">
+                            (click)="debugInfoCollapsed = !debugInfoCollapsed">
                             <i class="fa fa-info-circle"></i>
                         </button>
                         <div class="results-counter-redesigned"
