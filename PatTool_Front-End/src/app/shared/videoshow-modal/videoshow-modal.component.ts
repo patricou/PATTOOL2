@@ -777,7 +777,6 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public stopVideo(): void {
     const video = this.getVideoElement();
     if (!video) {
-      console.warn('Video element not found');
       return;
     }
     
@@ -791,7 +790,6 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public setVolume(volume: number): void {
     const video = this.getVideoElement();
     if (!video) {
-      console.warn('Video element not found');
       return;
     }
     
@@ -805,7 +803,6 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public toggleMute(): void {
     const video = this.getVideoElement();
     if (!video) {
-      console.warn('Video element not found');
       return;
     }
     
@@ -817,7 +814,6 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public seekTo(time: number): void {
     const video = this.getVideoElement();
     if (!video) {
-      console.warn('Video element not found');
       return;
     }
     

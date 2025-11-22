@@ -10,7 +10,8 @@
          [src]="thumbnailUrl" 
          alt="Card image" 
          [ngStyle]="getPhotoImageStyles()"
-         (load)="detectDominantColor()" />
+         (load)="detectDominantColor()"
+         (error)="onThumbnailError($event)" />
     
     <!-- Card Slideshow -->
     <div *ngIf="isCardSlideshowActive" class="card-slideshow-display">

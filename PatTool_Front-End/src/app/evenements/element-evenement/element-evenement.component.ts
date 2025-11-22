@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, TemplateRef, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, OnChanges, SimpleChanges, TemplateRef, ElementRef } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
@@ -28,7 +28,7 @@ import { VideoCompressionService, CompressionProgress } from '../../services/vid
 	styleUrls: ['./element-evenement.component.css'],
 	providers: [NgbRatingConfig]
 })
-export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestroy {
+export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges {
 
 	public selectedFiles: File[] = [];
 	public API_URL: string = environment.API_URL;
@@ -239,6 +239,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Static cache for blob URLs to prevent them from being revoked
 	// This ensures blob URLs remain valid across component destruction/recreation
 	private static readonly blobUrlCache: Map<string, SafeUrl> = new Map();
+	
+	// Static cache for Blob objects to allow recreating blob URLs if they're revoked
+	// This prevents ERR_FILE_NOT_FOUND errors by storing the original Blob
+	private static readonly blobCache: Map<string, Blob> = new Map();
 
 	// Public static method to check if a file is already cached (to avoid duplicate requests)
 	public static isThumbnailCached(fileId: string): boolean {
@@ -258,6 +262,65 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Public static method to get cached thumbnails count
 	public static getCachedThumbnailsCount(): number {
 		return ElementEvenementComponent.blobUrlCache.size;
+	}
+	
+	// Public static method to cleanup unused caches (called from home-evenements)
+	public static cleanupUnusedCaches(keepFieldIds: Set<string>): void {
+		// Clean up blobUrlCache - remove entries for fieldIds not in use
+		const blobUrlCacheEntriesToRemove: string[] = [];
+		ElementEvenementComponent.blobUrlCache.forEach((blobUrl, fieldId) => {
+			if (!keepFieldIds.has(fieldId)) {
+				blobUrlCacheEntriesToRemove.push(fieldId);
+			}
+		});
+		
+		// Clean up blobCache - remove entries for fieldIds not in use
+		const blobCacheEntriesToRemove: string[] = [];
+		ElementEvenementComponent.blobCache.forEach((blob, fieldId) => {
+			if (!keepFieldIds.has(fieldId)) {
+				blobCacheEntriesToRemove.push(fieldId);
+			}
+		});
+		
+		// Remove unused blob URLs and revoke them
+		blobUrlCacheEntriesToRemove.forEach(fieldId => {
+			const blobUrl = ElementEvenementComponent.blobUrlCache.get(fieldId);
+			if (blobUrl && typeof blobUrl === 'object' && 'changingThisBreaksApplicationSecurity' in blobUrl) {
+				const url = blobUrl['changingThisBreaksApplicationSecurity'];
+				if (url && typeof url === 'string' && url.startsWith('blob:')) {
+					try {
+						URL.revokeObjectURL(url);
+					} catch (e) {
+						// Ignore errors
+					}
+				}
+			}
+			ElementEvenementComponent.blobUrlCache.delete(fieldId);
+		});
+		
+		// Remove unused blobs from cache (they will be garbage collected)
+		blobCacheEntriesToRemove.forEach(fieldId => {
+			ElementEvenementComponent.blobCache.delete(fieldId);
+		});
+	}
+	
+	// Public static method to cleanup unused thumbnail cache entries
+	public static cleanupUnusedThumbnailCache(keepEventIds: Set<string>): void {
+		const entriesToRemove: string[] = [];
+		ElementEvenementComponent.thumbnailCache.forEach((cached, cacheKey) => {
+			if (!keepEventIds.has(cacheKey)) {
+				entriesToRemove.push(cacheKey);
+			}
+		});
+		
+		entriesToRemove.forEach(cacheKey => {
+			ElementEvenementComponent.thumbnailCache.delete(cacheKey);
+		});
+	}
+	
+	// Public static method to get blob cache size
+	public static getBlobCacheSize(): number {
+		return ElementEvenementComponent.blobCache.size;
 	}
 
 	// =========================
@@ -281,7 +344,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public getTotalPhotosCount(): number {
 		// Each photo source counts as 1, regardless of how many photos it contains
 		let count = 0;
-		// Photos uploadées: count as 1 if any exist
+		// Uploaded photos: count as 1 if any exist
 		if (this.hasImageFiles()) {
 			count += 1;
 		}
@@ -741,15 +804,138 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// sanitize the photoUrl
 		// Call Thumbnail Image function
 		// Use cache if available (now handles blob URLs correctly)
-		if (!this.applyCachedStyles(this.getThumbnailSignature())) {
-			this.setThumbnailImage();
-		}
+		// Try loading immediately first
+		this.loadThumbnail();
+		
+		// Also try after delays in case fileUploadeds is populated later
+		// This handles cases where we return from update page
+		setTimeout(() => {
+			// Check if thumbnail is still default or invalid
+			if (!this.thumbnailUrl || this.thumbnailUrl === "assets/images/images.jpg" || 
+				(typeof this.thumbnailUrl === 'object' && 'changingThisBreaksApplicationSecurity' in this.thumbnailUrl)) {
+				const url = typeof this.thumbnailUrl === 'object' ? 
+					this.thumbnailUrl['changingThisBreaksApplicationSecurity'] : this.thumbnailUrl;
+				if (!url || url === "assets/images/images.jpg") {
+					// Thumbnail not loaded yet, try again
+					this.loadThumbnail();
+				}
+			}
+		}, 300);
+		
+		setTimeout(() => {
+			// Final check - if still default, try one more time
+			if (!this.thumbnailUrl || this.thumbnailUrl === "assets/images/images.jpg" || 
+				(typeof this.thumbnailUrl === 'object' && 'changingThisBreaksApplicationSecurity' in this.thumbnailUrl)) {
+				const url = typeof this.thumbnailUrl === 'object' ? 
+					this.thumbnailUrl['changingThisBreaksApplicationSecurity'] : this.thumbnailUrl;
+				if (!url || url === "assets/images/images.jpg") {
+					this.loadThumbnail();
+				}
+			}
+		}, 600);
 		
 		// Initialize commentaries if not present
 		this.initializeCommentaries();
 		
 		// Setup tooltip auto-close on modal open
 		this.setupTooltipAutoClose();
+	}
+	
+	ngOnChanges(changes: SimpleChanges): void {
+		// If the evenement input changes (e.g., after an update), reload the thumbnail
+		if (changes['evenement']) {
+			if (changes['evenement'].firstChange) {
+				// First change is handled in ngOnInit
+				return;
+			}
+			
+			const previousEvenement = changes['evenement'].previousValue;
+			const currentEvenement = changes['evenement'].currentValue;
+			
+			// Check if event ID is the same (same event, just updated)
+			if (previousEvenement && currentEvenement) {
+				const prevId = previousEvenement.id || previousEvenement.evenementName;
+				const currId = currentEvenement.id || currentEvenement.evenementName;
+				
+				if (prevId === currId && currId) {
+					// Event was updated - reload thumbnail to reflect any changes
+					// Delay to ensure fileUploadeds is populated
+					setTimeout(() => {
+						this.loadThumbnail();
+					}, 150);
+				}
+			}
+		}
+	}
+	
+	// Centralized method to load thumbnail
+	private loadThumbnail(): void {
+		const signature = this.getThumbnailSignature();
+		// Try to apply cached styles first - pass signature but it will be lenient for blob URLs
+		// This allows using cache even if signature changed (e.g., fieldId changed after update)
+		if (!this.applyCachedStyles(signature)) {
+			// If cache doesn't work, try to load from fileUploadeds
+			this.setThumbnailImage();
+		}
+		// Note: applyCachedStyles now handles blob URL validation internally
+	}
+	
+	// Handle thumbnail image error (e.g., blob URL revoked)
+	public onThumbnailError(event: any): void {
+		const img = event.target as HTMLImageElement;
+		if (!img || !img.src) {
+			return;
+		}
+		
+		// Check if it's a blob URL that failed
+		if (img.src.startsWith('blob:')) {
+			// Blob URL is invalid (probably revoked), try to recreate from cached Blob first
+			const thumbnailFile = this.evenement.fileUploadeds?.find(file => 
+				file.fileName && file.fileName.indexOf('thumbnail') !== -1
+			);
+			
+			if (thumbnailFile) {
+				const cachedBlob = ElementEvenementComponent.blobCache.get(thumbnailFile.fieldId);
+				if (cachedBlob) {
+					// Try to recreate blob URL from cached Blob
+					try {
+						const objectUrl = this.nativeWindow.URL.createObjectURL(cachedBlob);
+						const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+						// Update blob URL cache with new URL
+						ElementEvenementComponent.blobUrlCache.set(thumbnailFile.fieldId, safeUrl);
+						this.thumbnailUrl = safeUrl;
+						// Update thumbnail cache
+						this.cacheCurrentStyles(this.getThumbnailSignature());
+						return; // Successfully recreated from cached Blob
+					} catch (error) {
+						// Failed to recreate, will reload from server below
+					}
+				}
+				
+				// Remove invalid blob URL from cache
+				const currentBlobUrl = this.thumbnailUrl;
+				if (currentBlobUrl && typeof currentBlobUrl === 'object' && 
+					'changingThisBreaksApplicationSecurity' in currentBlobUrl) {
+					const url = currentBlobUrl['changingThisBreaksApplicationSecurity'];
+					if (url && typeof url === 'string' && url.startsWith('blob:')) {
+						// Remove invalid blob URL from cache (keep Blob in blobCache for potential reuse)
+						ElementEvenementComponent.blobUrlCache.delete(thumbnailFile.fieldId);
+						// Also remove from thumbnailCache
+						const cacheKey = this.getCacheKey();
+						if (cacheKey) {
+							ElementEvenementComponent.thumbnailCache.delete(cacheKey);
+						}
+					}
+				}
+			}
+			
+			// Reset to default and reload from server
+			this.thumbnailUrl = "assets/images/images.jpg";
+			// Reload thumbnail from server
+			setTimeout(() => {
+				this.setThumbnailImage();
+			}, 100);
+		}
 	}
 	
 	public onFileSelected(event: any): void {
@@ -959,11 +1145,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						setTimeout(() => this.activeTimeouts.delete(cleanupTimeout), 600);
 				},
 				error: (error: any) => {
+					console.error('File upload error:', error);
 					if (this.pollIntervalId) {
 						clearInterval(this.pollIntervalId);
 						this.pollIntervalId = null;
 					}
-					console.error('File upload error:', error);
 					
 					let errorMessage = "Error uploading files.";
 					
@@ -1241,14 +1427,19 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return;
 		}
 
-		if (this.evenement.fileUploadeds.length != 0) {
-			this.evenement.fileUploadeds.map(fileUploaded => {
-				if (fileUploaded.fileName.indexOf('thumbnail') !== -1) {
+		// Check if fileUploadeds is populated and has a thumbnail file
+		if (this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0) {
+			let thumbnailFound = false;
+			this.evenement.fileUploadeds.forEach(fileUploaded => {
+				if (fileUploaded.fileName && fileUploaded.fileName.indexOf('thumbnail') !== -1) {
+					thumbnailFound = true;
 					// Check if we have a cached blob URL for this file
 					const cachedBlobUrl = ElementEvenementComponent.blobUrlCache.get(fileUploaded.fieldId);
 					if (cachedBlobUrl) {
 						// Reuse cached blob URL
 						this.thumbnailUrl = cachedBlobUrl;
+						// Update thumbnail cache to ensure it's up to date
+						this.cacheCurrentStyles(this.getThumbnailSignature());
 						// Detect dominant color after image loads
 						const colorTimeout = setTimeout(() => {
 							this.detectDominantColor();
@@ -1256,10 +1447,36 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						this.activeTimeouts.add(colorTimeout);
 						setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
 					} else {
+						// Check if we have the Blob in cache but URL was revoked
+						const cachedBlob = ElementEvenementComponent.blobCache.get(fileUploaded.fieldId);
+						if (cachedBlob) {
+							// Recreate blob URL from cached Blob
+							try {
+								const objectUrl = this.nativeWindow.URL.createObjectURL(cachedBlob);
+								const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+								// Update both caches
+								ElementEvenementComponent.blobUrlCache.set(fileUploaded.fieldId, safeUrl);
+								this.thumbnailUrl = safeUrl;
+								// Update thumbnail cache with new data
+								this.cacheCurrentStyles(this.getThumbnailSignature());
+								// Detect dominant color after image loads
+								const colorTimeout = setTimeout(() => {
+									this.detectDominantColor();
+								}, 100);
+								this.activeTimeouts.add(colorTimeout);
+								setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
+								return; // Successfully recreated from cached Blob
+							} catch (error) {
+								// Continue to load from server below
+							}
+						}
+						
 						// Load and cache the blob URL
 						this._fileService.getFile(fileUploaded.fieldId).pipe(
 							map((res: any) => {
 								let blob = new Blob([res], { type: 'application/octet-stream' });
+								// Store the Blob in cache for potential recreation later
+								ElementEvenementComponent.blobCache.set(fileUploaded.fieldId, blob);
 								let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
 								return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
 							})
@@ -1268,20 +1485,75 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 								// Cache the blob URL so it persists across component destruction
 								ElementEvenementComponent.blobUrlCache.set(fileUploaded.fieldId, safeUrl);
 								this.thumbnailUrl = safeUrl;
+								// Update thumbnail cache with new data
+								this.cacheCurrentStyles(this.getThumbnailSignature());
 								// Detect dominant color after image loads
 								const colorTimeout = setTimeout(() => {
 									this.detectDominantColor();
 								}, 100);
 								this.activeTimeouts.add(colorTimeout);
 								setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
+							},
+							error: (error) => {
+								// Try to use cached thumbnail as fallback
+								this.tryUseCachedThumbnailFallback();
 							}
 						});
 					}
 				}
+			});
+			
+			// If no thumbnail was found but fileUploadeds exists, try to use cached thumbnail
+			if (!thumbnailFound) {
+				this.tryUseCachedThumbnailFallback();
 			}
-			)
 		} else {
-			// Reset to default color if no thumbnail
+			// fileUploadeds is empty or not populated yet - try to use cached thumbnail
+			// This can happen when coming back from update before fileUploadeds is populated
+			const cacheKey = this.getCacheKey();
+			if (cacheKey) {
+				const cached = ElementEvenementComponent.thumbnailCache.get(cacheKey);
+				if (cached && cached.thumbnailUrl && cached.thumbnailUrl !== "assets/images/images.jpg") {
+					// Try to use cached thumbnail if available
+					if (typeof cached.thumbnailUrl === 'object' && 
+						'changingThisBreaksApplicationSecurity' in cached.thumbnailUrl) {
+						const url = cached.thumbnailUrl['changingThisBreaksApplicationSecurity'];
+						if (url && typeof url === 'string' && url.startsWith('blob:')) {
+							// Check if blob URL exists in cache
+							for (const blobUrl of ElementEvenementComponent.blobUrlCache.values()) {
+								if (blobUrl === cached.thumbnailUrl) {
+									this.thumbnailUrl = blobUrl;
+									this.dominantR = cached.dominant.r;
+									this.dominantG = cached.dominant.g;
+									this.dominantB = cached.dominant.b;
+									this.calculatedRgbValues = `RGB(${this.dominantR}, ${this.dominantG}, ${this.dominantB})`;
+									this.titleBackgroundColor = cached.titleBackground;
+									this.titleBorderColor = cached.titleBorder;
+									this.descriptionBackgroundColor = cached.descriptionBackground;
+									this.invalidateColorCaches();
+									this.emitDominantColor();
+									return; // Successfully used cached thumbnail
+								}
+							}
+						} else {
+							// Not a blob URL, use it directly
+							this.thumbnailUrl = cached.thumbnailUrl;
+							this.dominantR = cached.dominant.r;
+							this.dominantG = cached.dominant.g;
+							this.dominantB = cached.dominant.b;
+							this.calculatedRgbValues = `RGB(${this.dominantR}, ${this.dominantG}, ${this.dominantB})`;
+							this.titleBackgroundColor = cached.titleBackground;
+							this.titleBorderColor = cached.titleBorder;
+							this.descriptionBackgroundColor = cached.descriptionBackground;
+							this.invalidateColorCaches();
+							this.emitDominantColor();
+							return;
+						}
+					}
+				}
+			}
+			
+			// Reset to default color if no thumbnail found and no cached version available
 			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
 			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
 			this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
@@ -1292,6 +1564,39 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.invalidateColorCaches();
 			this.emitDominantColor();
 			this.cacheCurrentStyles(signature);
+		}
+	}
+	
+	// Try to use cached thumbnail as fallback when thumbnail file can't be loaded
+	private tryUseCachedThumbnailFallback(): void {
+		const cacheKey = this.getCacheKey();
+		if (cacheKey) {
+			const cached = ElementEvenementComponent.thumbnailCache.get(cacheKey);
+			if (cached && cached.thumbnailUrl && cached.thumbnailUrl !== "assets/images/images.jpg") {
+				// Check if cached blob URL is still valid by looking for it in blobUrlCache
+				if (typeof cached.thumbnailUrl === 'object' && 
+					'changingThisBreaksApplicationSecurity' in cached.thumbnailUrl) {
+					const url = cached.thumbnailUrl['changingThisBreaksApplicationSecurity'];
+					if (url && typeof url === 'string' && url.startsWith('blob:')) {
+						// Look for matching blob URL in cache
+						for (const blobUrl of ElementEvenementComponent.blobUrlCache.values()) {
+							if (blobUrl === cached.thumbnailUrl) {
+								this.thumbnailUrl = blobUrl;
+								this.dominantR = cached.dominant.r;
+								this.dominantG = cached.dominant.g;
+								this.dominantB = cached.dominant.b;
+								this.calculatedRgbValues = `RGB(${this.dominantR}, ${this.dominantG}, ${this.dominantB})`;
+								this.titleBackgroundColor = cached.titleBackground;
+								this.titleBorderColor = cached.titleBorder;
+								this.descriptionBackgroundColor = cached.descriptionBackground;
+								this.invalidateColorCaches();
+								this.emitDominantColor();
+								return; // Successfully used cached thumbnail
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 
@@ -1518,24 +1823,49 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return false;
 		}
 
-		if (expectedSignature && cached.signature !== expectedSignature) {
-			return false;
-		}
-
 		// For blob URLs, verify they're still in the persistent cache
+		// Even if signature doesn't match, try to use the cached blob URL if it exists
 		if (cached.thumbnailUrl && typeof cached.thumbnailUrl === 'object' && 
 			'changingThisBreaksApplicationSecurity' in cached.thumbnailUrl) {
 			const url = cached.thumbnailUrl['changingThisBreaksApplicationSecurity'];
 			if (url && typeof url === 'string' && url.startsWith('blob:')) {
-				// Check if this blob URL is still in our persistent cache
-				// Find the fileId that corresponds to this blob URL
+				// Find the thumbnail file to get its fieldId
 				const thumbnailFile = this.evenement.fileUploadeds?.find(file => 
 					file.fileName && file.fileName.indexOf('thumbnail') !== -1
 				);
+				
+				// Always try to recreate blob URL from cached Blob first (even if blob URL exists)
+				// This ensures the blob URL is always valid and prevents ERR_FILE_NOT_FOUND
 				if (thumbnailFile) {
+					const cachedBlob = ElementEvenementComponent.blobCache.get(thumbnailFile.fieldId);
+					if (cachedBlob) {
+						// Recreate blob URL from cached Blob to ensure it's valid
+						try {
+							const objectUrl = this.nativeWindow.URL.createObjectURL(cachedBlob);
+							const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+							// Update cache with new blob URL
+							ElementEvenementComponent.blobUrlCache.set(thumbnailFile.fieldId, safeUrl);
+							// Use the recreated blob URL
+							this.thumbnailUrl = safeUrl;
+							this.dominantR = cached.dominant.r;
+							this.dominantG = cached.dominant.g;
+							this.dominantB = cached.dominant.b;
+							this.calculatedRgbValues = `RGB(${this.dominantR}, ${this.dominantG}, ${this.dominantB})`;
+							this.titleBackgroundColor = cached.titleBackground;
+							this.titleBorderColor = cached.titleBorder;
+							this.descriptionBackgroundColor = cached.descriptionBackground;
+							this.invalidateColorCaches();
+							this.emitDominantColor();
+							return true;
+						} catch (error) {
+							// Failed to recreate, will try other methods below
+						}
+					}
+					
+					// If Blob not found, try to use cached blob URL if it exists
 					const cachedBlobUrl = ElementEvenementComponent.blobUrlCache.get(thumbnailFile.fieldId);
-					if (cachedBlobUrl && cachedBlobUrl === cached.thumbnailUrl) {
-						// Blob URL is still in cache, use it
+					if (cachedBlobUrl) {
+						// Use cached blob URL (but it might be revoked - will be handled by error handler)
 						this.thumbnailUrl = cachedBlobUrl;
 						this.dominantR = cached.dominant.r;
 						this.dominantG = cached.dominant.g;
@@ -1549,9 +1879,50 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						return true;
 					}
 				}
-				// Blob URL not in persistent cache, don't use cached styles
+				
+				// If no thumbnail file found yet, try to find blob URL in cache by matching URLs
+				for (const [fieldId, blobUrl] of ElementEvenementComponent.blobUrlCache.entries()) {
+					if (blobUrl === cached.thumbnailUrl) {
+						// Found matching blob URL - check if we have the Blob to recreate URL
+						const cachedBlob = ElementEvenementComponent.blobCache.get(fieldId);
+						if (cachedBlob) {
+							// Recreate blob URL from cached Blob
+							try {
+								const objectUrl = this.nativeWindow.URL.createObjectURL(cachedBlob);
+								const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+								ElementEvenementComponent.blobUrlCache.set(fieldId, safeUrl);
+								this.thumbnailUrl = safeUrl;
+							} catch (error) {
+								// Failed to recreate, use cached URL (might fail, error handler will deal with it)
+								this.thumbnailUrl = blobUrl;
+							}
+						} else {
+							// No Blob cache, use cached URL (might be revoked)
+							this.thumbnailUrl = blobUrl;
+						}
+						
+						this.dominantR = cached.dominant.r;
+						this.dominantG = cached.dominant.g;
+						this.dominantB = cached.dominant.b;
+						this.calculatedRgbValues = `RGB(${this.dominantR}, ${this.dominantG}, ${this.dominantB})`;
+						this.titleBackgroundColor = cached.titleBackground;
+						this.titleBorderColor = cached.titleBorder;
+						this.descriptionBackgroundColor = cached.descriptionBackground;
+						this.invalidateColorCaches();
+						this.emitDominantColor();
+						return true;
+					}
+				}
+				
+				// Blob URL not found in cache - it may have been revoked
 				return false;
 			}
+		}
+
+		// Not a blob URL, use it directly (e.g., default image)
+		// Only use if signature matches (to avoid using wrong cached data)
+		if (expectedSignature && cached.signature !== expectedSignature) {
+			return false;
 		}
 
 		this.thumbnailUrl = cached.thumbnailUrl;
@@ -1627,7 +1998,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this.photoImageStylesCache;
 	}
 	
-	// Get color for a specific button type - basé uniquement sur la couleur calculée
+	// Get color for a specific button type - based only on calculated color
 	public getButtonGradientForType(_buttonType: string, r: number, g: number, b: number): string {
 		const cacheKey = `${_buttonType}|${r}|${g}|${b}`;
 		let cached = this.buttonGradientCache.get(cacheKey);
@@ -1680,7 +2051,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return cached;
 	}
 	
-	// Solid color for files list - basé sur la couleur calculée
+	// Solid color for files list - based on calculated color
 	public getFilesListGradient(): string {
 		if (!this.filesListGradientCache) {
 			this.filesListGradientCache = this.getSolidColor(0.1);
@@ -1718,7 +2089,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this.cardBackgroundGradientCache;
 	}
 	
-	// Get gradient for status badges - basé sur la couleur calculée
+	// Get gradient for status badges - based on calculated color
 	public getStatusBadgeGradient(): string {
 		if (!this.statusBadgeGradientCache) {
 			this.statusBadgeGradientCache = this.getButtonGradientForType('status', this.dominantR, this.dominantG, this.dominantB);
@@ -1860,7 +2231,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this.getColorBrightness(r, g, b) > 160 ? 'rgba(0, 0, 0, 0.85)' : 'white';
 	}
 
-	// Get gradient for visibility badges - basé sur la couleur calculée
+	// Get gradient for visibility badges - based on calculated color
 	public getVisibilityBadgeGradient(): string {
 		if (!this.visibilityBadgeGradientCache) {
 			this.visibilityBadgeGradientCache = this.getButtonGradientForType('visibility', this.dominantR, this.dominantG, this.dominantB);
@@ -1868,7 +2239,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this.visibilityBadgeGradientCache;
 	}
 	
-	// Get gradient for download all button - basé sur la couleur calculée
+	// Get gradient for download all button - based on calculated color
 	public getDownloadAllButtonGradient(): string {
 		if (!this.downloadAllButtonGradientCache) {
 			this.downloadAllButtonGradientCache = this.getButtonGradientForType('download', this.dominantR, this.dominantG, this.dominantB);
@@ -1876,7 +2247,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this.downloadAllButtonGradientCache;
 	}
 	
-	// Get gradient for rating badges - basé sur la couleur calculée
+	// Get gradient for rating badges - based on calculated color
 	public getRatingBadgeGradient(): string {
 		if (!this.ratingBadgeGradientCache) {
 			this.ratingBadgeGradientCache = this.getButtonGradientForType('rating', this.dominantR, this.dominantG, this.dominantB);
@@ -1885,6 +2256,19 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 	// Detect color after view is initialized
 	ngAfterViewInit() {
+		// Verify thumbnail is loaded after view init
+		// This helps when coming back from update page
+		setTimeout(() => {
+			if (!this.thumbnailUrl || this.thumbnailUrl === "assets/images/images.jpg" || 
+				(typeof this.thumbnailUrl === 'object' && 'changingThisBreaksApplicationSecurity' in this.thumbnailUrl)) {
+				const url = typeof this.thumbnailUrl === 'object' ? 
+					this.thumbnailUrl['changingThisBreaksApplicationSecurity'] : this.thumbnailUrl;
+				if (!url || url === "assets/images/images.jpg") {
+					// Thumbnail not loaded, try again now that view is initialized
+					this.loadThumbnail();
+				}
+			}
+		}, 200);
 		// Try to detect color if image is already loaded
 		setTimeout(() => {
 			if (this.thumbnailImageRef && this.thumbnailImageRef.nativeElement) {
@@ -2478,17 +2862,17 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
 		];
 		
-		// Chercher d'abord par ID exact
+		// Search first by exact ID
 		let type = urlEventTypes.find(t => t.id === normalizedType);
 		
-		// Si pas trouvé, chercher dans les alias
+		// If not found, search in aliases
 		if (!type) {
 			type = urlEventTypes.find(t => 
 				t.aliases.some(alias => alias.toUpperCase() === normalizedType)
 			);
 		}
 		
-		// Si toujours pas trouvé, chercher une correspondance partielle
+		// If still not found, search for partial match
 		if (!type) {
 			type = urlEventTypes.find(t => 
 				t.id.includes(normalizedType) || 
@@ -2516,7 +2900,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		});
 		
 		return nonPhotoUrls.reduce((groups: { [key: string]: any[] }, urlEvent) => {
-			// Normaliser le type pour le regroupement
+			// Normalize type for grouping
 			const normalizedType = this.normalizeTypeForGrouping(urlEvent.typeUrl || 'OTHER');
 			if (!groups[normalizedType]) {
 				groups[normalizedType] = [];
@@ -2526,7 +2910,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}, {});
 	}
 
-	// Normaliser le type pour le regroupement (utilise la même logique que getUrlTypeLabel)
+	// Normalize type for grouping (uses same logic as getUrlTypeLabel)
 	private normalizeTypeForGrouping(typeId: string): string {
 		const normalizedType = typeId?.trim().toUpperCase() || 'OTHER';
 		
@@ -2631,7 +3015,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		const commentaryDate = new Date(date);
 		
-		// Mapper la langue actuelle à la locale appropriée
+		// Map current language to appropriate locale
 		const currentLang = this.translateService.currentLang || 'fr';
 		const localeMap: { [key: string]: string } = {
 			'fr': 'fr-FR',
@@ -2650,7 +3034,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		const locale = localeMap[currentLang] || 'fr-FR';
 		
-		// Formater la date et l'heure selon la locale de la langue sélectionnée
+		// Format date and time according to selected language locale
 		return commentaryDate.toLocaleString(locale, {
 			day: 'numeric',
 			month: 'short',
@@ -2666,7 +3050,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		const eventDate = new Date(date);
 		
-		// Mapper la langue actuelle à la locale appropriée
+		// Map current language to appropriate locale
 		const currentLang = this.translateService.currentLang || 'fr';
 		const localeMap: { [key: string]: string } = {
 			'fr': 'fr-FR',
@@ -2685,7 +3069,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		const locale = localeMap[currentLang] || 'fr-FR';
 		
-		// Formater la date selon la locale de la langue sélectionnée
+		// Format date according to selected language locale
 		return eventDate.toLocaleDateString(locale, {
 			day: 'numeric',
 			month: 'long',
@@ -2699,7 +3083,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		const eventDate = new Date(date);
 		
-		// Mapper la langue actuelle à la locale appropriée
+		// Map current language to appropriate locale
 		const currentLang = this.translateService.currentLang || 'fr';
 		const localeMap: { [key: string]: string } = {
 			'fr': 'fr-FR',
@@ -2718,14 +3102,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		const locale = localeMap[currentLang] || 'fr-FR';
 		
-		// Formater la date selon la locale de la langue sélectionnée
+		// Format date according to selected language locale
 		const formattedDate = eventDate.toLocaleDateString(locale, {
 			day: 'numeric',
 			month: 'long',
 			year: 'numeric'
 		});
 		
-		// Extraire l'heure de la date si startHour est vide
+		// Extract time from date if startHour is empty
 		let timeToDisplay = time;
 		if (!timeToDisplay || timeToDisplay.trim() === '') {
 			timeToDisplay = eventDate.toLocaleTimeString(locale, {
@@ -2734,7 +3118,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			});
 		}
 		
-		// Ajouter l'heure si elle existe
+		// Add time if it exists
 		if (timeToDisplay && timeToDisplay.trim() !== '') {
 			return `${formattedDate} ${this.translateService.instant('COMMUN.AT')} ${timeToDisplay}`;
 		}
@@ -2848,7 +3232,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				URL.revokeObjectURL(objectUrl);
 			}, 10000);
 		}, (error) => {
-			console.error('Error loading PDF file:', error);
 			alert('Erreur lors du chargement du fichier PDF');
 		});
 	}
@@ -2976,7 +3359,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					}
 				}
 			} catch (error) {
-				console.warn('Error cleaning up blob URL:', error);
 			}
 		}
 		
@@ -3068,7 +3450,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return [];
 		}
 		
-		// Trier les commentaires par date de création décroissante (plus récent en premier)
+		// Sort comments by creation date descending (newest first)
 		return this.evenement.commentaries.sort((a, b) => {
 			const dateA = new Date(a.dateCreation).getTime();
 			const dateB = new Date(b.dateCreation).getTime();
@@ -3165,7 +3547,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true);
 		} else {
-			console.error('Slideshow modal component not available');
 		}
 	}
 
@@ -3183,6 +3564,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Open the slideshow modal with just this one image
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true);
+		} else {
+			console.error('Slideshow modal component not available');
 		}
 	}
 

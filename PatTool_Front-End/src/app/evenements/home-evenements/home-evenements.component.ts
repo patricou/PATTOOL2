@@ -420,6 +420,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.isLoadingNextPage = false;
 		this.hasMoreEvents = true;
 		this.isLoading = true;
+		// Disconnect observer before reset
+		this.disconnectInfiniteScrollObserver();
 		if (this.prefetchTimeoutId) {
 			clearTimeout(this.prefetchTimeoutId);
 			this.prefetchTimeoutId = null;
@@ -450,9 +452,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		this.filteredTotal = 0;
 		this.resetColorAggregation();
-		if (this.infiniteScrollAnchor?.nativeElement) {
-			this.setupInfiniteScrollObserver();
-		}
+		// Don't set up observer here - wait until after cards are rendered
 		this.loadInitialEvents();
 	}
 
@@ -565,15 +565,30 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							}, 150);
 							
 							// Reconnect observer after streaming completes to enable scroll loading
+							// Wait a bit longer to ensure DOM is updated and anchor is rendered
 							setTimeout(() => {
 								console.log('Streaming complete, setting up observer', { 
 									displayed: this.evenements.length, 
 									total: this.allStreamedEvents.length,
 									hasMore: this.evenements.length < this.allStreamedEvents.length
 								});
-								this.setupInfiniteScrollObserver();
+								// Force setup of observer - retry multiple times if needed
+								let retryCount = 0;
+								const maxRetries = 5;
+								const trySetupObserver = () => {
+									if (this.infiniteScrollAnchor?.nativeElement) {
+										this.setupInfiniteScrollObserver();
+										console.log('Observer set up successfully');
+									} else if (retryCount < maxRetries) {
+										retryCount++;
+										setTimeout(trySetupObserver, 200);
+									} else {
+										console.warn('Failed to set up observer after', maxRetries, 'retries');
+									}
+								};
+								trySetupObserver();
 								this.observeThumbnailElements();
-							}, 200);
+							}, 400);
 							
 							// Use scheduleChangeDetection instead of detectChanges for better performance
 							this.scheduleChangeDetection();
@@ -635,7 +650,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				if (entry.isIntersecting) {
 					const displayedCount = this.evenements.length;
 					const totalCount = this.allStreamedEvents.length;
-					console.log('IntersectionObserver triggered:', { displayedCount, totalCount, hasMore: displayedCount < totalCount });
 					
 					if (displayedCount < totalCount) {
 						// Load next 8 events from buffer
@@ -703,12 +717,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	// Load next 8 events when scrolling
 	private loadNextPage(): void {
-		console.log('=== loadNextPage called ===', { 
-			isLoading: this.isLoadingNextPage, 
-			displayed: this.evenements.length, 
-			total: this.allStreamedEvents.length 
-		});
-		
 		if (this.isLoadingNextPage) {
 			console.log('Already loading, skipping');
 			return;
@@ -728,13 +736,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Load next 8 events
 		const nextEvents = this.allStreamedEvents.slice(currentCount, currentCount + this.CARDS_PER_PAGE);
 		
-		console.log('Loading next events:', { 
-			currentCount, 
-			nextEventsCount: nextEvents.length, 
-			total: totalCount,
-			events: nextEvents.map(e => e.id || this.getEventKey(e))
-		});
-		
 		if (nextEvents.length === 0) {
 			console.log('No next events found');
 			this.isLoadingNextPage = false;
@@ -745,11 +746,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Add all next events
 		nextEvents.forEach(event => {
 			const eventId = event.id || this.getEventKey(event);
-			if (!this.isEventAlreadyLoaded(event)) {
-				this.evenements.push(event);
-				console.log('✓ Added event to display:', eventId);
-				
-				// Load thumbnail for new event
+		if (!this.isEventAlreadyLoaded(event)) {
+			this.evenements.push(event);
+			
+			// Load thumbnail for new event
 				if (eventId) {
 					const loadingInfo: LoadingEventInfo = {
 						eventId: eventId,
@@ -771,12 +771,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Update hasMoreEvents
 		this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
 		
-		console.log('=== loadNextPage complete ===', { 
-			displayed: this.evenements.length, 
-			total: this.allStreamedEvents.length, 
-			hasMore: this.hasMoreEvents 
-		});
-		
 		this.isLoadingNextPage = false;
 		// Use scheduleChangeDetection for better performance with OnPush
 		this.scheduleChangeDetection();
@@ -788,7 +782,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					// Disconnect and reconnect to reset observer
 					this.intersectionObserver.disconnect();
 					this.intersectionObserver.observe(this.infiniteScrollAnchor.nativeElement);
-					console.log('✓ Re-observed anchor after loading');
 				} catch (error) {
 					console.error('Error re-observing anchor:', error);
 				}
@@ -2161,6 +2154,34 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		});
 		this.fileThumbnailsCache.clear();
 		this.fileThumbnailsLoading.clear();
+		
+		// Clean up static caches from ElementEvenementComponent
+		// Collect all fieldIds and eventIds currently displayed
+		const keepEventIds = new Set<string>();
+		const keepFieldIds = new Set<string>();
+		this.evenements.forEach(e => {
+			const eId = e.id || this.getEventKey(e);
+			if (eId) {
+				keepEventIds.add(eId);
+				// Collect fieldIds from thumbnail files
+				if (e.fileUploadeds) {
+					e.fileUploadeds.forEach(file => {
+						if (file.fileName && file.fileName.indexOf('thumbnail') !== -1 && file.fieldId) {
+							keepFieldIds.add(file.fieldId);
+						}
+					});
+				}
+			}
+		});
+		
+		// Clean up static caches, keeping only what's currently displayed
+		if (keepFieldIds.size > 0) {
+			ElementEvenementComponent.cleanupUnusedCaches(keepFieldIds);
+		} else {
+			// If no events displayed, clean all (component is being destroyed)
+			ElementEvenementComponent.cleanupUnusedCaches(new Set<string>());
+		}
+		ElementEvenementComponent.cleanupUnusedThumbnailCache(keepEventIds);
 	}
 	
 	// Scroll to top of the page
@@ -2699,14 +2720,25 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private cleanupUnusedThumbnails(): void {
 		// Get all event IDs that should keep thumbnails
 		const keepEventIds = new Set<string>();
+		const keepFieldIds = new Set<string>(); // Field IDs to keep (from displayed events)
 		
 		// Add displayed events (only currently visible events)
 		this.evenements.forEach(e => {
 			const eId = e.id || this.getEventKey(e);
-			if (eId) keepEventIds.add(eId);
+			if (eId) {
+				keepEventIds.add(eId);
+				// Also collect field IDs from thumbnail files in displayed events
+				if (e.fileUploadeds) {
+					e.fileUploadeds.forEach(file => {
+						if (file.fileName && file.fileName.indexOf('thumbnail') !== -1 && file.fieldId) {
+							keepFieldIds.add(file.fieldId);
+						}
+					});
+				}
+			}
 		});
 		
-		// Remove thumbnails that are not in the keep list
+		// Remove thumbnails that are not in the keep list (local cache)
 		const thumbnailsToRemove: string[] = [];
 		this.eventThumbnails.forEach((url, eventId) => {
 			if (!keepEventIds.has(eventId)) {
@@ -2714,7 +2746,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		});
 		
-		// Remove unused thumbnails and revoke blob URLs
+		// Remove unused thumbnails and revoke blob URLs (local cache)
 		thumbnailsToRemove.forEach(eventId => {
 			const cached = this.eventThumbnails.get(eventId);
 			if (cached && typeof cached === 'object' && 'changingThisBreaksApplicationSecurity' in cached) {
@@ -2730,9 +2762,25 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.eventThumbnails.delete(eventId);
 		});
 		
+		// Clean up static caches (blobUrlCache, blobCache, thumbnailCache) from ElementEvenementComponent
+		// Only keep entries that are still in use by displayed events
+		this.cleanupStaticThumbnailCaches(keepEventIds, keepFieldIds);
+		
 		// Force change detection to update debug panel
 		if (thumbnailsToRemove.length > 0) {
 			this.scheduleChangeDetection();
+		}
+	}
+	
+	// Clean up static thumbnail caches from ElementEvenementComponent
+	private cleanupStaticThumbnailCaches(keepEventIds: Set<string>, keepFieldIds: Set<string>): void {
+		// Clean up thumbnailCache - remove entries for events not displayed
+		ElementEvenementComponent.cleanupUnusedThumbnailCache(keepEventIds);
+		
+		// Clean up blobUrlCache and blobCache - remove entries for fieldIds not in use
+		// But only if we have fieldIds to check (if no events displayed, we might want to keep some for next load)
+		if (keepFieldIds.size > 0) {
+			ElementEvenementComponent.cleanupUnusedCaches(keepFieldIds);
 		}
 	}
 	
