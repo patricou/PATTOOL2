@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, ViewChildren, QueryList, OnDestroy, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, ViewChildren, QueryList, OnDestroy, TemplateRef, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject } from 'rxjs';
@@ -39,6 +39,7 @@ interface LoadingEventInfo {
 	selector: 'home-evenements',
 	templateUrl: './home-evenements.component.html',
 	styleUrls: ['./home-evenements.component.css'],
+	changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy {
 
@@ -128,6 +129,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private pendingThumbnailLoads: Set<string> = new Set(); // Track thumbnails currently being loaded
 	private pendingCardLoadEnds: Set<string> = new Set(); // Track cards waiting for loadEnd mark
 	private cardLoadEndBatchTimeout: ReturnType<typeof setTimeout> | null = null;
+	private changeDetectionScheduled: boolean = false; // Flag to prevent multiple change detection calls
+	private pendingChangeDetection: boolean = false; // Flag to track if change detection is needed
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
@@ -198,20 +201,41 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 		
 		// Update debug info in real-time every 100ms (0.1 second) when panel is visible
-		// Use detectChanges for immediate updates of all debug information
+		// Use markForCheck with OnPush for better performance
 		this.debugInfoUpdateInterval = setInterval(() => {
 			if (!this.debugInfoCollapsed) {
 				// Update cached memory usage asynchronously to prevent change detection errors
 				this.updateCachedMemoryUsage();
 				// Clean up unused thumbnails periodically
 				this.cleanupUnusedThumbnails();
-				// Force immediate change detection for real-time updates
-				this.cdr.detectChanges();
+				// Schedule change detection for real-time updates
+				this.scheduleChangeDetection();
 			}
 		}, 100);
 	}
 	
 	// Update cached memory usage values asynchronously
+	// Optimized change detection scheduling - batches multiple calls
+	private scheduleChangeDetection(): void {
+		if (this.changeDetectionScheduled) {
+			this.pendingChangeDetection = true;
+			return;
+		}
+		
+		this.changeDetectionScheduled = true;
+		this.pendingChangeDetection = false;
+		
+		requestAnimationFrame(() => {
+			this.cdr.markForCheck();
+			this.changeDetectionScheduled = false;
+			
+			// If there was a pending change detection, schedule another one
+			if (this.pendingChangeDetection) {
+				this.scheduleChangeDetection();
+			}
+		});
+	}
+
 	private updateCachedMemoryUsage(): void {
 		// Check if performance.memory is available (Chrome/Edge)
 		if (this.nativeWindow.performance && (this.nativeWindow.performance as any).memory) {
@@ -311,7 +335,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						// Use requestAnimationFrame for better performance, then do DOM operations
 						requestAnimationFrame(() => {
 							this.cardsReady = true;
-							this.cdr.markForCheck();
+							this.scheduleChangeDetection();
 							// Always unblock scrolling once cards are ready
 							this.unblockPageScroll();
 							this.shouldBlockScroll = false;
@@ -472,7 +496,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						if (streamedEvent.type === 'total') {
 							// Total count received
 							this.filteredTotal = streamedEvent.data as number;
-							this.cdr.markForCheck();
+							this.scheduleChangeDetection();
 						} else if (streamedEvent.type === 'event') {
 							// New event received - add it to the buffer
 							const newEvent = streamedEvent.data as Evenement;
@@ -492,7 +516,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							// Display only first 8 events (or less if not enough)
 							this.updateDisplayedEvents();
 							
-							this.cdr.markForCheck();
+							// Batch change detection for better performance
+							this.scheduleChangeDetection();
 						} else if (streamedEvent.type === 'complete') {
 							// Streaming complete - ensure first 8 events are displayed
 							this.updateDisplayedEvents();
@@ -516,7 +541,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 										}
 									}
 								});
-								this.cdr.markForCheck();
+								this.scheduleChangeDetection();
 							}, 300);
 							
 							// Clean up unused thumbnails
@@ -526,13 +551,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							setTimeout(() => {
 								if (this.patCards && this.patCards.length > 0) {
 									this.cardsReady = true;
-									this.cdr.markForCheck();
+									this.scheduleChangeDetection();
 									this.unblockPageScroll();
 									this.shouldBlockScroll = false;
 								} else {
 									setTimeout(() => {
 										this.cardsReady = true;
-										this.cdr.markForCheck();
+										this.scheduleChangeDetection();
 										this.unblockPageScroll();
 										this.shouldBlockScroll = false;
 									}, 100);
@@ -550,7 +575,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 								this.observeThumbnailElements();
 							}, 200);
 							
-							this.cdr.detectChanges();
+							// Use scheduleChangeDetection instead of detectChanges for better performance
+							this.scheduleChangeDetection();
 						}
 					},
 					error: (err: any) => {
@@ -664,7 +690,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					this.loadFileThumbnails(event);
 				}
 			});
-			this.cdr.markForCheck();
+			// Batch change detection for better performance
+			this.scheduleChangeDetection();
 			
 			// Re-observe thumbnail elements after new events are added to DOM
 			// Use setTimeout to ensure DOM is updated
@@ -751,7 +778,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		});
 		
 		this.isLoadingNextPage = false;
-		this.cdr.detectChanges(); // Use detectChanges instead of markForCheck for immediate update
+		// Use scheduleChangeDetection for better performance with OnPush
+		this.scheduleChangeDetection();
 		
 		// Re-observe after a short delay
 		setTimeout(() => {
@@ -833,8 +861,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.averageBorderColor = this.defaultAverageBorderColor;
 		this.averageGradient = newGradient;
 		
-		// Utiliser markForCheck au lieu de detectChanges pour éviter l'erreur
-		this.cdr.markForCheck();
+		// Use scheduleChangeDetection for better performance
+		this.scheduleChangeDetection();
 	}
 
 	private buildRgba(r: number, g: number, b: number, alpha: number = 1): string {
@@ -1331,7 +1359,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 								if (loadingInfo.cardLoadEnd) {
 									this.loadingEvents.delete(eventId);
 								}
-								this.cdr.markForCheck();
+								// Batch change detection
+								this.scheduleChangeDetection();
 							}
 						}
 						return;
@@ -1358,7 +1387,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 								if (loadingInfo.cardLoadEnd) {
 									this.loadingEvents.delete(eventId);
 								}
-								this.cdr.markForCheck();
+								// Batch change detection
+								this.scheduleChangeDetection();
 							}
 						}
 						return;
@@ -1406,7 +1436,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					if (loadingInfo.cardLoadEnd) {
 						this.loadingEvents.delete(eventId);
 					}
-					this.cdr.markForCheck();
+					// Batch change detection
+					this.scheduleChangeDetection();
 				}
 			}
 		});
@@ -1448,17 +1479,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 										});
 									}
 									// Trigger change detection
-									requestAnimationFrame(() => {
-										this.cdr.markForCheck();
-									});
+									this.scheduleChangeDetection();
 									scheduleNext();
 								});
 							},
 							error: (error) => {
 								console.error('Error loading thumbnail batch:', error);
-								requestAnimationFrame(() => {
-									this.cdr.markForCheck();
-								});
+								this.scheduleChangeDetection();
 								scheduleNext();
 							}
 						});
@@ -1480,17 +1507,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 											}
 										});
 									}
-									requestAnimationFrame(() => {
-										this.cdr.markForCheck();
-									});
+									// Trigger change detection
+									this.scheduleChangeDetection();
 									scheduleNext();
 								});
 							},
 							error: (error) => {
 								console.error('Error loading thumbnail batch:', error);
-								requestAnimationFrame(() => {
-									this.cdr.markForCheck();
-								});
+								this.scheduleChangeDetection();
 								scheduleNext();
 							}
 						});
@@ -1519,7 +1543,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							if (loadingInfo.cardLoadEnd) {
 								this.loadingEvents.delete(eventId);
 							}
-							this.cdr.markForCheck();
+							// Batch change detection
+							this.scheduleChangeDetection();
 						}
 					}
 					return; // Already loaded
@@ -1542,7 +1567,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						if (loadingInfo.cardLoadEnd) {
 							this.loadingEvents.delete(eventId);
 						}
-						this.cdr.markForCheck();
+						// Batch change detection
+						this.scheduleChangeDetection();
 					}
 				}
 				return;
@@ -1574,7 +1600,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						if (loadingInfo.cardLoadEnd) {
 							this.loadingEvents.delete(eventId);
 						}
-						this.cdr.markForCheck();
+						// Batch change detection
+						this.scheduleChangeDetection();
 					}
 				}
 				
@@ -1594,7 +1621,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						if (loadingInfo.cardLoadEnd) {
 							this.loadingEvents.delete(eventId);
 						}
-						this.cdr.markForCheck();
+						// Batch change detection
+						this.scheduleChangeDetection();
 					}
 				}
 			}
@@ -1721,7 +1749,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			});
 
 			this.cardLoadEndBatchTimeout = null;
-			this.cdr.markForCheck();
+			this.scheduleChangeDetection();
 		}, 300); // Same delay as used in the existing card load end marking
 	}
 
@@ -1920,7 +1948,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				}
 				
 				// Force change detection
-				this.cdr.detectChanges();
+				this.scheduleChangeDetection();
 			},
 			error: (error: any) => {
 				console.error('Error loading event for first position:', error);
@@ -1947,6 +1975,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.selectedEvent = evenement;
 		this.selectedEventName = evenement.evenementName;
 		
+		// Clean up previous Firebase subscription if exists
+		if (this.firebaseUnsubscribe) {
+			this.firebaseUnsubscribe();
+			this.firebaseUnsubscribe = undefined;
+		}
+		
 		// Utiliser Firebase comme dans element-evenement
 		const messagesRef = ref(this.database, evenement.id);
 		this.items = new Observable(observer => {
@@ -1970,12 +2004,25 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				observer.error(error);
 			});
 			
+			// Store unsubscribe function for cleanup
+			this.firebaseUnsubscribe = unsubscribe;
+			
 			// Retourner la fonction de nettoyage
 			return () => unsubscribe();
 		});
 		
 		// Utiliser la même configuration que dans element-evenement
-		this.modalService.open(this.chatModal, { backdrop: 'static', keyboard: false });
+		const modalRef = this.modalService.open(this.chatModal, { backdrop: 'static', keyboard: false });
+		
+		// Clean up Firebase subscription when modal is closed
+		modalRef.result.finally(() => {
+			if (this.firebaseUnsubscribe) {
+				this.firebaseUnsubscribe();
+				this.firebaseUnsubscribe = undefined;
+			}
+		}).catch(() => {
+			// Modal dismissed - cleanup already handled in finally
+		});
 	}
 
 	public async Send() {
@@ -2022,13 +2069,36 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.debugInfoUpdateInterval = undefined;
 		}
 		
+		// Clean up poll interval
+		if (this.pollIntervalId) {
+			clearInterval(this.pollIntervalId);
+			this.pollIntervalId = null;
+		}
+		
+		// Unsubscribe from all subscriptions
 		this.eventsSubscription?.unsubscribe();
 		this.searchSubscriptions.forEach(sub => sub.unsubscribe());
 		this.searchSubscriptions = [];
+		this.allSubscriptions.forEach(sub => {
+			if (!sub.closed) {
+				sub.unsubscribe();
+			}
+		});
+		this.allSubscriptions = [];
 		this.thumbnailLoadQueueSubscription?.unsubscribe();
 		this.thumbnailLoadQueue.complete();
+		
+		// Disconnect observers
 		this.disconnectThumbnailObserver();
 		this.disconnectInfiniteScrollObserver();
+		
+		// Clean up Firebase unsubscribe
+		if (this.firebaseUnsubscribe) {
+			this.firebaseUnsubscribe();
+			this.firebaseUnsubscribe = undefined;
+		}
+		
+		// Clean up all timeouts
 		if (this.prefetchTimeoutId) {
 			clearTimeout(this.prefetchTimeoutId);
 			this.prefetchTimeoutId = null;
@@ -2037,6 +2107,27 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			clearTimeout(this.scrollCheckTimeoutId);
 			this.scrollCheckTimeoutId = null;
 		}
+		if (this.updateAverageColorTimeoutId) {
+			clearTimeout(this.updateAverageColorTimeoutId);
+			this.updateAverageColorTimeoutId = null;
+		}
+		if (this.cardLoadEndBatchTimeout) {
+			clearTimeout(this.cardLoadEndBatchTimeout);
+			this.cardLoadEndBatchTimeout = null;
+		}
+		
+		// Clean up active timeouts Set
+		this.activeTimeouts.forEach(timeoutId => {
+			clearTimeout(timeoutId);
+		});
+		this.activeTimeouts.clear();
+		
+		// Clean up Maps and Sets
+		this.loadingEvents.clear();
+		this.eventColors.clear();
+		this.pendingThumbnailLoads.clear();
+		this.pendingCardLoadEnds.clear();
+		
 		// Nettoyer toutes les URLs blob pour éviter les fuites mémoire
 		this.eventThumbnails.forEach((safeUrl, eventId) => {
 			try {
@@ -2641,7 +2732,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		// Force change detection to update debug panel
 		if (thumbnailsToRemove.length > 0) {
-			this.cdr.markForCheck();
+			this.scheduleChangeDetection();
 		}
 	}
 	

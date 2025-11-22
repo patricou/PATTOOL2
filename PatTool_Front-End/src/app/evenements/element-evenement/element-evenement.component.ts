@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, Output, ViewChild, EventEmitter, AfterViewInit, TemplateRef, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, TemplateRef, ElementRef } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
@@ -28,7 +28,7 @@ import { VideoCompressionService, CompressionProgress } from '../../services/vid
 	styleUrls: ['./element-evenement.component.css'],
 	providers: [NgbRatingConfig]
 })
-export class ElementEvenementComponent implements OnInit, AfterViewInit {
+export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestroy {
 
 	public selectedFiles: File[] = [];
 	public API_URL: string = environment.API_URL;

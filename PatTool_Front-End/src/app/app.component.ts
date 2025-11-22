@@ -895,6 +895,17 @@ export class AppComponent implements OnInit {
             const parentItem = document.querySelector('#documentationSubmenu')?.closest('.dropdown-submenu') as HTMLElement;
             
             if (submenuElement && parentItem) {
+                // Check if we're in mobile mode (screen width <= 991.98px)
+                const isMobile = window.innerWidth <= 991.98;
+                
+                if (isMobile) {
+                    // In mobile mode, don't position with fixed, let CSS handle it
+                    // Just ensure it's visible
+                    submenuElement.classList.add('show');
+                    submenuElement.setAttribute('data-visible', 'true');
+                    return;
+                }
+                
                 const parentRect = parentItem.getBoundingClientRect();
                 
                 // Check if parent is visible
@@ -954,6 +965,17 @@ export class AppComponent implements OnInit {
             const parentItem = document.querySelector('#languageSubmenu')?.closest('.dropdown-submenu') as HTMLElement;
             
             if (submenuElement && parentItem) {
+                // Check if we're in mobile mode (screen width <= 991.98px)
+                const isMobile = window.innerWidth <= 991.98;
+                
+                if (isMobile) {
+                    // In mobile mode, don't position with fixed, let CSS handle it
+                    // Just ensure it's visible
+                    submenuElement.classList.add('show');
+                    submenuElement.setAttribute('data-visible', 'true');
+                    return;
+                }
+                
                 const parentRect = parentItem.getBoundingClientRect();
                 
                 // Check if parent is visible
