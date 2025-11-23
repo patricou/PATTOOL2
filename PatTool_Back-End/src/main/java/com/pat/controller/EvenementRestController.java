@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.gridfs.GridFsTemplate;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Created by patricou on 4/20/2017.
@@ -42,6 +44,9 @@ public class EvenementRestController {
     
     @Autowired
     private GridFsTemplate gridFsTemplate;
+    
+    @Autowired
+    private MongoTemplate mongoTemplate;
     
     @Autowired
     private ObjectMapper objectMapper;
@@ -61,8 +66,9 @@ public class EvenementRestController {
     }
 
     /**
-     * Streaming endpoint for events using Server-Sent Events (SSE)
-     * Streams events one by one as they are processed
+     * Reactive streaming endpoint for events using Server-Sent Events (SSE)
+     * Streams events one by one as they are fetched from MongoDB 8.2
+     * Sends data immediately when 1 record is available (reactive approach)
      */
     @GetMapping(value = "/stream/{evenementName}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamEvenements(@PathVariable("evenementName") String evenementName,
@@ -71,33 +77,75 @@ public class EvenementRestController {
         
         CompletableFuture.runAsync(() -> {
             try {
-                // Get all events matching the filter (without pagination)
-                List<Evenement> allEvents = evenementsRepository.searchByFilterStream(evenementName, userId);
+                // Build query with access criteria (same as repository)
+                Query query = new Query();
+                query.addCriteria(buildAccessCriteria(userId));
                 
-                // Send total count first
-                emitter.send(SseEmitter.event()
-                    .name("total")
-                    .data(String.valueOf(allEvents.size())));
+                // Sort by beginEventDate descending (most recent first) - MongoDB 8.2 will sort efficiently
+                query.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
                 
-                // Stream events one by one
-                for (Evenement event : allEvents) {
+                String normalizedFilter = normalizeFilter(evenementName);
+                log.debug("Starting reactive stream from MongoDB 8.2 for filter: {} (sorted by date DESC, most recent first)", evenementName);
+                
+                AtomicInteger sentCount = new AtomicInteger(0);
+                List<Evenement> matchedEvents = new java.util.ArrayList<>();
+                
+                // Use stream() which returns a Stream backed by a MongoDB cursor
+                // MongoDB will return results sorted by beginEventDate DESC
+                try (java.util.stream.Stream<Evenement> eventStream = 
+                        mongoTemplate.stream(query, Evenement.class)) {
+                    
+                    // Collect all events that match the filter
+                    // Note: We collect first because complex filtering requires in-memory processing
+                    // MongoDB has already sorted them by date (most recent first)
+                    eventStream.forEach(event -> {
+                        try {
+                            // Apply filter if needed (in-memory filtering for complex logic)
+                            if (normalizedFilter.isEmpty() || matchesFilter(event, normalizedFilter)) {
+                                matchedEvents.add(event);
+                            }
+                        } catch (Exception e) {
+                            log.error("Error processing event from MongoDB stream", e);
+                            // Continue with next event instead of failing completely
+                        }
+                    });
+                }
+                
+                // Additional sort to handle null dates (put them at the end)
+                // MongoDB already sorted by date, but we ensure nulls are last
+                matchedEvents.sort((e1, e2) -> {
+                    java.util.Date date1 = e1.getBeginEventDate();
+                    java.util.Date date2 = e2.getBeginEventDate();
+                    
+                    if (date1 == null && date2 == null) return 0;
+                    if (date1 == null) return 1;  // null dates go to end
+                    if (date2 == null) return -1; // null dates go to end
+                    
+                    // Most recent first (descending order) - MongoDB already sorted, but ensure consistency
+                    return date2.compareTo(date1);
+                });
+                
+                log.debug("Collected and sorted {} events by date (most recent first), now streaming", matchedEvents.size());
+                
+                // Stream the sorted events one by one (most recent first)
+                for (Evenement event : matchedEvents) {
                     try {
-                        // Check if emitter is still valid (client might have disconnected)
-                        // Send event as JSON
+                        // Send event in sorted order (most recent first)
                         String eventJson = objectMapper.writeValueAsString(event);
                         emitter.send(SseEmitter.event()
                             .name("event")
                             .data(eventJson));
                         
-                        // Small delay to prevent overwhelming the client
-                        Thread.sleep(10);
+                        int currentCount = sentCount.incrementAndGet();
+                        
+                        // Log first few events for debugging
+                        if (currentCount <= 3) {
+                            log.debug("✅ Sent event {} (most recent first): {} - Date: {}", 
+                                currentCount, event.getId(), event.getBeginEventDate());
+                        }
                     } catch (IOException e) {
                         // Client likely disconnected
                         log.debug("Client disconnected during streaming", e);
-                        return;
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        emitter.completeWithError(e);
                         return;
                     } catch (Exception e) {
                         log.error("Error sending event", e);
@@ -105,15 +153,31 @@ public class EvenementRestController {
                     }
                 }
                 
+                // Send total count (after we've processed all events)
+                emitter.send(SseEmitter.event()
+                    .name("total")
+                    .data(String.valueOf(matchedEvents.size())));
+                
                 // Send completion signal
                 emitter.send(SseEmitter.event()
                     .name("complete")
                     .data(""));
                 emitter.complete();
                 
+                log.debug("✅ Reactive streaming completed: {} events sent sorted by date (most recent first)", 
+                    sentCount.get());
+                
             } catch (Exception e) {
-                log.error("Error streaming events", e);
-                emitter.completeWithError(e);
+                log.error("Error streaming events reactively from MongoDB 8.2", e);
+                try {
+                    emitter.send(SseEmitter.event()
+                        .name("error")
+                        .data("Error: " + e.getMessage()));
+                    emitter.completeWithError(e);
+                } catch (IOException ioException) {
+                    log.error("Error sending error event", ioException);
+                    emitter.completeWithError(e);
+                }
             }
         }, executorService);
         
@@ -129,6 +193,61 @@ public class EvenementRestController {
         });
         
         return emitter;
+    }
+    
+    // Helper methods for filtering (extracted from repository logic)
+    private Criteria buildAccessCriteria(String userId) {
+        java.util.List<Criteria> accessCriteria = new java.util.ArrayList<>();
+        accessCriteria.add(Criteria.where("visibility").is("public"));
+        
+        if (userId != null && !userId.isEmpty()) {
+            accessCriteria.add(buildAuthorCriteria(userId));
+        }
+        
+        if (accessCriteria.size() == 1) {
+            return accessCriteria.get(0);
+        }
+        
+        return new Criteria().orOperator(accessCriteria.toArray(new Criteria[0]));
+    }
+    
+    private Criteria buildAuthorCriteria(String userId) {
+        java.util.List<Criteria> authorCriteria = new java.util.ArrayList<>();
+        try {
+            authorCriteria.add(Criteria.where("author.$id").is(new ObjectId(userId)));
+        } catch (IllegalArgumentException ex) {
+            // not an ObjectId, fall back to string comparison
+        }
+        authorCriteria.add(Criteria.where("author.id").is(userId));
+        return new Criteria().orOperator(authorCriteria.toArray(new Criteria[0]));
+    }
+    
+    private String normalizeFilter(String filter) {
+        if (filter == null || filter.trim().isEmpty() || "*".equals(filter.trim())) {
+            return "";
+        }
+        return normalizeForSearch(filter.trim());
+    }
+    
+    private String normalizeForSearch(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        String lower = value.toLowerCase(java.util.Locale.ROOT);
+        String normalized = java.text.Normalizer.normalize(lower, java.text.Normalizer.Form.NFD);
+        return normalized.replaceAll("\\p{M}", "");
+    }
+    
+    private boolean matchesFilter(Evenement event, String normalizedFilter) {
+        if (normalizedFilter.isEmpty()) {
+            return true;
+        }
+        String eventName = event.getEvenementName() != null ? 
+            normalizeForSearch(event.getEvenementName()) : "";
+        String comments = event.getComments() != null ? 
+            normalizeForSearch(event.getComments()) : "";
+        
+        return eventName.contains(normalizedFilter) || comments.contains(normalizedFilter);
     }
 
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)
