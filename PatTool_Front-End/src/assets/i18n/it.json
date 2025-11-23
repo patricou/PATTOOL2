@@ -54,7 +54,8 @@
         "NO_LINKS": "Nessun link disponibile in questa categoria",
         "SEARCH_PLACEHOLDER": "Cerca per nome o URL...",
         "NO_SEARCH_RESULTS": "Nessun risultato trovato per questa ricerca",
-        "OPEN_URL_ON_CLICK": "Apri URL al clic"
+        "OPEN_URL_ON_CLICK": "Apri URL al clic",
+        "ADMIN_BUTTON": "Amministrazione"
     },
     "IOT": {
         "TITLE": "Controllo Casa",
@@ -127,6 +128,9 @@
         "DEBUG_CARD_LOAD_TIME": "Tempo caricamento carta",
         "DEBUG_THUMBNAIL_LOAD_TIME": "Tempo caricamento miniatura",
         "DEBUG_MEMORY_USAGE": "Uso memoria",
+        "DEBUG_HOST_MEMORY": "Memoria sistema (host)",
+        "DEBUG_NETWORK_LATENCY": "Latenza di rete",
+        "DEBUG_REFRESH_MEMORY": "Aggiorna memoria sistema",
         "DEBUG_CACHED_THUMBNAILS": "Miniature in cache",
         "DEBUG_SECTION_EVENTS": "Eventi",
         "DEBUG_SECTION_CACHES": "Cache",

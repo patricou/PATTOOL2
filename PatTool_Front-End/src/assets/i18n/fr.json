@@ -130,6 +130,9 @@
         "DEBUG_CARD_LOAD_TIME": "Temps chargement card",
         "DEBUG_THUMBNAIL_LOAD_TIME": "Temps chargement thumbnail",
         "DEBUG_MEMORY_USAGE": "Utilisation mémoire",
+        "DEBUG_HOST_MEMORY": "Mémoire système (host)",
+        "DEBUG_NETWORK_LATENCY": "Latence réseau",
+        "DEBUG_REFRESH_MEMORY": "Rafraîchir la mémoire système",
         "DEBUG_CACHED_THUMBNAILS": "Thumbnails en cache",
         "DEBUG_SECTION_EVENTS": "Événements",
         "DEBUG_SECTION_CACHES": "Caches",
@@ -647,7 +650,8 @@
         "NO_LINKS": "Aucun lien disponible dans cette catégorie",
         "SEARCH_PLACEHOLDER": "Rechercher par nom ou URL...",
         "NO_SEARCH_RESULTS": "Aucun résultat trouvé pour cette recherche",
-        "OPEN_URL_ON_CLICK": "Ouvrir l'URL au clic"
+        "OPEN_URL_ON_CLICK": "Ouvrir l'URL au clic",
+        "ADMIN_BUTTON": "Administration"
     },
     "LINKSADMIN": {
         "TITLE": "Administration des Liens",

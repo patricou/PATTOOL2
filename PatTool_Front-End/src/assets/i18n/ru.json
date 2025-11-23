@@ -62,7 +62,8 @@
         "NO_LINKS": "В этой категории нет доступных ссылок",
         "SEARCH_PLACEHOLDER": "Поиск по имени или URL...",
         "NO_SEARCH_RESULTS": "Результаты для этого поиска не найдены",
-        "OPEN_URL_ON_CLICK": "Открыть URL при клике"
+        "OPEN_URL_ON_CLICK": "Открыть URL при клике",
+        "ADMIN_BUTTON": "Администрирование"
     },
     "IOT": {
         "TITLE": "Управление домом",
@@ -135,6 +136,9 @@
         "DEBUG_CARD_LOAD_TIME": "Время загрузки карточки",
         "DEBUG_THUMBNAIL_LOAD_TIME": "Время загрузки миниатюры",
         "DEBUG_MEMORY_USAGE": "Использование памяти",
+        "DEBUG_HOST_MEMORY": "Память системы (хост)",
+        "DEBUG_NETWORK_LATENCY": "Сетевая задержка",
+        "DEBUG_REFRESH_MEMORY": "Обновить память системы",
         "DEBUG_CACHED_THUMBNAILS": "Миниатюры в кэше",
         "DEBUG_SECTION_EVENTS": "События",
         "DEBUG_SECTION_CACHES": "Кэши",

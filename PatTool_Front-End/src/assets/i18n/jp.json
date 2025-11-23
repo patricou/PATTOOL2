@@ -54,7 +54,8 @@
         "NO_LINKS": "このカテゴリには利用可能なリンクがありません",
         "SEARCH_PLACEHOLDER": "名前またはURLで検索...",
         "NO_SEARCH_RESULTS": "この検索で結果が見つかりませんでした",
-        "OPEN_URL_ON_CLICK": "クリック時にURLを開く"
+        "OPEN_URL_ON_CLICK": "クリック時にURLを開く",
+        "ADMIN_BUTTON": "管理"
     },
     "IOT": {
         "TITLE": "ホームコントロール",
@@ -127,6 +128,9 @@
         "DEBUG_CARD_LOAD_TIME": "カード読み込み時間",
         "DEBUG_THUMBNAIL_LOAD_TIME": "サムネイル読み込み時間",
         "DEBUG_MEMORY_USAGE": "メモリ使用量",
+        "DEBUG_HOST_MEMORY": "システムメモリ（ホスト）",
+        "DEBUG_NETWORK_LATENCY": "ネットワーク遅延",
+        "DEBUG_REFRESH_MEMORY": "システムメモリを更新",
         "DEBUG_CACHED_THUMBNAILS": "キャッシュされたサムネイル",
         "DEBUG_SECTION_EVENTS": "イベント",
         "DEBUG_SECTION_CACHES": "キャッシュ",

@@ -54,7 +54,8 @@
         "NO_LINKS": "אין קישורים זמינים בקטגוריה זו",
         "SEARCH_PLACEHOLDER": "חיפוש לפי שם או כתובת...",
         "NO_SEARCH_RESULTS": "לא נמצאו תוצאות לחיפוש זה",
-        "OPEN_URL_ON_CLICK": "פתח כתובת בלחיצה"
+        "OPEN_URL_ON_CLICK": "פתח כתובת בלחיצה",
+        "ADMIN_BUTTON": "ניהול"
     },
     "IOT": {
         "TITLE": "שליטה בבית",
@@ -126,6 +127,9 @@
         "DEBUG_CARD_LOAD_TIME": "זמן טעינת כרטיס",
         "DEBUG_THUMBNAIL_LOAD_TIME": "זמן טעינת תמונה ממוזערת",
         "DEBUG_MEMORY_USAGE": "שימוש בזיכרון",
+        "DEBUG_HOST_MEMORY": "זיכרון מערכת (מארח)",
+        "DEBUG_NETWORK_LATENCY": "זמן השהיית רשת",
+        "DEBUG_REFRESH_MEMORY": "רענון זיכרון מערכת",
         "DEBUG_CACHED_THUMBNAILS": "תמונות ממוזערות במטמון",
         "DEBUG_SECTION_EVENTS": "אירועים",
         "DEBUG_SECTION_CACHES": "מטמונים",

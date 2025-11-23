@@ -27,7 +27,7 @@ public class UrlLinkRestController {
 
     @GetMapping(value="/urllink", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<UrlLink> getUrlLink(@RequestHeader(value = "user-id", required = false) String userId){
-        log.info("Get urlLink / User Id : "+ userId);
+        log.debug("Get urlLink / User Id : "+ userId);
         Sort sort = Sort.by(Sort.Direction.ASC, "linkName");
         List<UrlLink> allLinks = urlLinkRepository.findAll(sort);
         

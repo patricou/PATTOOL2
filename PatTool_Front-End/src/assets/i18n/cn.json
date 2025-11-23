@@ -54,7 +54,8 @@
         "NO_LINKS": "此类别中没有可用的链接",
         "SEARCH_PLACEHOLDER": "按名称或URL搜索...",
         "NO_SEARCH_RESULTS": "未找到搜索结果",
-        "OPEN_URL_ON_CLICK": "点击时打开URL"
+        "OPEN_URL_ON_CLICK": "点击时打开URL",
+        "ADMIN_BUTTON": "管理"
     },
     "IOT": {
         "TITLE": "家庭控制",
@@ -126,6 +127,9 @@
         "DEBUG_CARD_LOAD_TIME": "卡片加载时间",
         "DEBUG_THUMBNAIL_LOAD_TIME": "缩略图加载时间",
         "DEBUG_MEMORY_USAGE": "内存使用",
+        "DEBUG_HOST_MEMORY": "系统内存（主机）",
+        "DEBUG_NETWORK_LATENCY": "网络延迟",
+        "DEBUG_REFRESH_MEMORY": "刷新系统内存",
         "DEBUG_CACHED_THUMBNAILS": "缓存缩略图",
         "DEBUG_SECTION_EVENTS": "事件",
         "DEBUG_SECTION_CACHES": "缓存",

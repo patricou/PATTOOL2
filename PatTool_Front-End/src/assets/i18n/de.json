@@ -54,7 +54,8 @@
         "NO_LINKS": "Keine Links in dieser Kategorie verfügbar",
         "SEARCH_PLACEHOLDER": "Nach Name oder URL suchen...",
         "NO_SEARCH_RESULTS": "Keine Ergebnisse für diese Suche gefunden",
-        "OPEN_URL_ON_CLICK": "URL beim Klicken öffnen"
+        "OPEN_URL_ON_CLICK": "URL beim Klicken öffnen",
+        "ADMIN_BUTTON": "Verwaltung"
     },
     "IOT": {
         "TITLE": "Haussteuerung",
@@ -127,6 +128,9 @@
         "DEBUG_CARD_LOAD_TIME": "Karten-Ladezeit",
         "DEBUG_THUMBNAIL_LOAD_TIME": "Miniaturansicht-Ladezeit",
         "DEBUG_MEMORY_USAGE": "Speichernutzung",
+        "DEBUG_HOST_MEMORY": "System-Speicher (Host)",
+        "DEBUG_NETWORK_LATENCY": "Netzwerk-Latenz",
+        "DEBUG_REFRESH_MEMORY": "System-Speicher aktualisieren",
         "DEBUG_CACHED_THUMBNAILS": "Gecachte Miniaturansichten",
         "DEBUG_SECTION_EVENTS": "Ereignisse",
         "DEBUG_SECTION_CACHES": "Caches",

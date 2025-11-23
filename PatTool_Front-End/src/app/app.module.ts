@@ -75,7 +75,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 			}
 		}),
 		RouterModule.forRoot([
-			{ path: '', component: HomePageComponent },
+			{ path: '', redirectTo: 'even', pathMatch: 'full' },
 			{ path: 'even', component: HomeEvenementsComponent },
 			{ path: 'neweven', component: CreateEvenementComponent },
 			{ path: 'updeven/:id', component: UpdateEvenementComponent, canDeactivate: [UnsavedChangesGuard] },
@@ -86,7 +86,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		{ path: 'links-admin', component: LinksAdminComponent },
 		{ path: 'iot', component: IothomeComponent },
 		{ path: 'patgpt', component: PatgptComponent },
-			{ path: 'home', redirectTo: '', pathMatch: 'full' },
+			{ path: 'home', component: HomePageComponent },
 			{ path: '**', component: PageNotFoundComponent }
 		]),
 		NgbModule,

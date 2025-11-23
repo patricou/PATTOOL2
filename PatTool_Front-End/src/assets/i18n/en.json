@@ -123,6 +123,9 @@
         "DEBUG_CARD_LOAD_TIME": "Card load time",
         "DEBUG_THUMBNAIL_LOAD_TIME": "Thumbnail load time",
         "DEBUG_MEMORY_USAGE": "Memory usage",
+        "DEBUG_HOST_MEMORY": "Host memory (system)",
+        "DEBUG_NETWORK_LATENCY": "Network latency",
+        "DEBUG_REFRESH_MEMORY": "Refresh system memory",
         "DEBUG_CACHED_THUMBNAILS": "Cached thumbnails",
         "DEBUG_SECTION_EVENTS": "Events",
         "DEBUG_SECTION_CACHES": "Caches",
@@ -652,7 +655,8 @@
         "NO_LINKS": "No links available in this category",
         "SEARCH_PLACEHOLDER": "Search by name or URL...",
         "NO_SEARCH_RESULTS": "No results found for this search",
-        "OPEN_URL_ON_CLICK": "Open URL on click"
+        "OPEN_URL_ON_CLICK": "Open URL on click",
+        "ADMIN_BUTTON": "Administration"
     },
     "LINKSADMIN": {
         "TITLE": "Links Administration",

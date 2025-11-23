@@ -54,7 +54,8 @@
         "NO_LINKS": "لا توجد روابط متاحة في هذه الفئة",
         "SEARCH_PLACEHOLDER": "البحث بالاسم أو الرابط...",
         "NO_SEARCH_RESULTS": "لم يتم العثور على نتائج لهذا البحث",
-        "OPEN_URL_ON_CLICK": "فتح الرابط عند النقر"
+        "OPEN_URL_ON_CLICK": "فتح الرابط عند النقر",
+        "ADMIN_BUTTON": "الإدارة"
     },
     "IOT": {
         "TITLE": "التحكم في المنزل",
@@ -126,6 +127,9 @@
         "DEBUG_CARD_LOAD_TIME": "وقت تحميل البطاقة",
         "DEBUG_THUMBNAIL_LOAD_TIME": "وقت تحميل الصورة المصغرة",
         "DEBUG_MEMORY_USAGE": "استخدام الذاكرة",
+        "DEBUG_HOST_MEMORY": "ذاكرة النظام (المضيف)",
+        "DEBUG_NETWORK_LATENCY": "زمن انتقال الشبكة",
+        "DEBUG_REFRESH_MEMORY": "تحديث ذاكرة النظام",
         "DEBUG_CACHED_THUMBNAILS": "الصور المصغرة في الذاكرة المؤقتة",
         "DEBUG_SECTION_EVENTS": "الأحداث",
         "DEBUG_SECTION_CACHES": "الذاكرة المؤقتة",

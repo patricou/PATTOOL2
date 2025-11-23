@@ -125,6 +125,9 @@
         "DEBUG_CARD_LOAD_TIME": "कार्ड लोड समय",
         "DEBUG_THUMBNAIL_LOAD_TIME": "थंबनेल लोड समय",
         "DEBUG_MEMORY_USAGE": "मेमोरी उपयोग",
+        "DEBUG_HOST_MEMORY": "सिस्टम मेमोरी (होस्ट)",
+        "DEBUG_NETWORK_LATENCY": "नेटवर्क विलंबता",
+        "DEBUG_REFRESH_MEMORY": "सिस्टम मेमोरी ताज़ा करें",
         "DEBUG_CACHED_THUMBNAILS": "कैश में थंबनेल",
         "DEBUG_SECTION_EVENTS": "घटनाएं",
         "DEBUG_SECTION_CACHES": "कैश",
@@ -633,7 +636,8 @@
         "NO_LINKS": "इस श्रेणी में कोई लिंक उपलब्ध नहीं है",
         "SEARCH_PLACEHOLDER": "नाम या URL से खोजें...",
         "NO_SEARCH_RESULTS": "इस खोज के लिए कोई परिणाम नहीं मिला",
-        "OPEN_URL_ON_CLICK": "क्लिक पर URL खोलें"
+        "OPEN_URL_ON_CLICK": "क्लिक पर URL खोलें",
+        "ADMIN_BUTTON": "प्रशासन"
     },
     "LINKSADMIN": {
         "TITLE": "लिंक प्रशासन",

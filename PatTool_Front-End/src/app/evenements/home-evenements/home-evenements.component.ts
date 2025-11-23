@@ -1,13 +1,14 @@
 import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, ViewChildren, QueryList, OnDestroy, TemplateRef, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
-import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject } from 'rxjs';
-import { debounceTime, map, mergeMap, catchError } from 'rxjs/operators';
+import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject, from } from 'rxjs';
+import { debounceTime, map, mergeMap, catchError, switchMap } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import { Database, ref, push, remove, onValue } from '@angular/fire/database';
 import * as JSZip from 'jszip';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 
 import { Evenement } from '../../model/evenement';
 import { MembersService } from '../../services/members.service';
@@ -21,6 +22,7 @@ import { CommonvaluesService } from '../../services/commonvalues.service';
 import { EvenementsService, StreamedEvent } from '../../services/evenements.service';
 import { environment } from '../../../environments/environment';
 import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 
 interface EventColorUpdate {
 	eventId: string;
@@ -83,6 +85,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public debugInfoCollapsed: boolean = true; // Debug info panel collapsed by default
 	public cachedMemoryUsage: string = 'N/A'; // Cached memory usage to prevent change detection errors
 	public cachedMemoryUsagePercent: number = 0; // Cached memory usage percentage
+	public cachedHostMemoryUsage: string = 'N/A'; // Cached host memory usage (system RAM)
+	public cachedHostMemoryUsagePercent: number = 0; // Cached host memory usage percentage
+	public cachedNetworkSpeed: string = 'N/A'; // Cached network speed between frontend and backend (MB/s)
+	public cachedNetworkSpeedMbps: number = 0; // Cached network speed in MB/s
 	public cachedCardLoadTime: number = 0; // Cached card load time to prevent change detection errors
 	public cachedThumbnailLoadTime: number = 0; // Cached thumbnail load time to prevent change detection errors
 	@ViewChildren('searchterm')
@@ -142,7 +148,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		private modalService: NgbModal,
 		private translateService: TranslateService,
 		private database: Database,
-		private cdr: ChangeDetectorRef) {
+		private cdr: ChangeDetectorRef,
+		private _http: HttpClient,
+		private _keycloakService: KeycloakService) {
 		this.nativeWindow = winRef.getNativeWindow();
 		this.averageColor = this.defaultAverageColor;
 		this.averageTextColor = this.defaultAverageTextColor;
@@ -156,6 +164,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		// Initialize cached memory usage and load times
 		this.updateCachedMemoryUsage();
+		
+		// Initialize host memory (system RAM) once at startup
+		this.updateHostMemoryUsage();
+		
+		// Initialize network latency once at startup
+		this.updateNetworkLatency();
 		
 		// Start real-time updates for debug info panel when visible
 		this.startDebugInfoUpdates();
@@ -202,10 +216,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		// Update debug info in real-time every 100ms (0.1 second) when panel is visible
 		// Use markForCheck with OnPush for better performance
+		// Note: Memory info is now updated manually via refresh button, not automatically
 		this.debugInfoUpdateInterval = setInterval(() => {
 			if (!this.debugInfoCollapsed) {
-				// Update cached memory usage asynchronously to prevent change detection errors
-				this.updateCachedMemoryUsage();
 				// Clean up unused thumbnails periodically
 				this.cleanupUnusedThumbnails();
 				// Schedule change detection for real-time updates
@@ -243,8 +256,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			const usedMB = (memory.usedJSHeapSize / 1048576).toFixed(2);
 			const totalMB = (memory.totalJSHeapSize / 1048576).toFixed(2);
 			const limitMB = (memory.jsHeapSizeLimit / 1048576).toFixed(2);
-			this.cachedMemoryUsage = `${usedMB} MB / ${totalMB} MB (limite: ${limitMB} MB)`;
-			this.cachedMemoryUsagePercent = Math.round((memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100);
+			const usagePercent = Math.round((memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100);
+			this.cachedMemoryUsagePercent = usagePercent;
+			// Format: "usedMB MB / totalMB MB (limite: limitMB MB) - XX%"
+			this.cachedMemoryUsage = `${usedMB} MB / ${totalMB} MB (limite: ${limitMB} MB) - ${usagePercent}%`;
 		} else if ((this.nativeWindow.navigator as any).deviceMemory) {
 			// Fallback: try to estimate from navigator.deviceMemory if available
 			const deviceMemory = (this.nativeWindow.navigator as any).deviceMemory;
@@ -255,8 +270,145 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.cachedMemoryUsagePercent = 0;
 		}
 		
+		// Note: Host memory is now updated manually via refresh button, not automatically
+		
 		// Update cached load times to prevent change detection errors
 		this.updateCachedLoadTimes();
+	}
+	
+	// Public method to refresh both memory info manually (JavaScript and system memory)
+	public refreshMemoryInfo(): void {
+		// Refresh JavaScript memory usage
+		this.updateCachedMemoryUsage();
+		// Refresh host memory (system RAM)
+		this.updateHostMemoryUsage();
+		// Refresh network latency
+		this.updateNetworkLatency();
+		this.scheduleChangeDetection();
+	}
+	
+	private updateNetworkLatency(): void {
+		// Measure network speed by downloading data from backend
+		const startTime = performance.now();
+		const dataSizeMB = 100; // 100 MB test data
+		
+		this.speedTestBackend().subscribe({
+			next: (response: ArrayBuffer) => {
+				const endTime = performance.now();
+				const durationMs = endTime - startTime;
+				const durationSec = durationMs / 1000;
+				
+				// Calculate speed in MB/s
+				const speedMbps = dataSizeMB / durationSec;
+				this.cachedNetworkSpeedMbps = speedMbps;
+				
+				// Format speed with 2 decimal places
+				if (speedMbps >= 1) {
+					this.cachedNetworkSpeed = `${speedMbps.toFixed(2)} MB/s`;
+				} else {
+					// If less than 1 MB/s, show in KB/s
+					const speedKbps = speedMbps * 1024;
+					this.cachedNetworkSpeed = `${speedKbps.toFixed(2)} KB/s`;
+				}
+			},
+			error: (error) => {
+				this.cachedNetworkSpeed = 'Error';
+				this.cachedNetworkSpeedMbps = 0;
+			}
+		});
+	}
+	
+	private speedTestBackend(): Observable<ArrayBuffer> {
+		// Get header with token for Keycloak Security
+		return from(this._keycloakService.getToken()).pipe(
+			switchMap((token: string) => {
+				const headers = new HttpHeaders({
+					'Accept': 'application/octet-stream',
+					'Authorization': 'Bearer ' + token
+				});
+				return this._http.get(environment.API_URL + 'system/speedtest', { 
+					headers: headers,
+					responseType: 'arraybuffer'
+				});
+			}),
+			catchError((error) => {
+				// Return error to handle in subscribe
+				throw error;
+			})
+		);
+	}
+	
+	private updateHostMemoryUsage(): void {
+		// Get system memory from backend API
+		this.getSystemMemoryFromBackend().subscribe({
+			next: (memoryInfo: any) => {
+				if (memoryInfo && !memoryInfo.error) {
+					const usedMB = memoryInfo.usedMB;
+					const totalMB = memoryInfo.totalMB;
+					const totalGB = memoryInfo.totalGB;
+					const usagePercent = memoryInfo.usagePercent || 0;
+					
+					// Store percentage
+					this.cachedHostMemoryUsagePercent = usagePercent;
+					
+					// Format: "usedMB MB / totalMB MB (totalGB GB total) - XX%"
+					this.cachedHostMemoryUsage = `${usedMB} MB / ${totalMB} MB (${totalGB} GB total) - ${usagePercent}%`;
+				} else {
+					// Fallback to browser API if backend fails
+					this.updateHostMemoryUsageFallback();
+				}
+			},
+			error: (error) => {
+				// Fallback to browser API if backend call fails
+				this.updateHostMemoryUsageFallback();
+			}
+		});
+	}
+	
+	private updateHostMemoryUsageFallback(): void {
+		// Fallback: Try to get system memory information from browser
+		if ((this.nativeWindow.navigator as any).deviceMemory) {
+			// deviceMemory gives total RAM in GB
+			const totalRAMGB = (this.nativeWindow.navigator as any).deviceMemory;
+			const totalRAMMB = parseFloat((totalRAMGB * 1024).toFixed(0));
+			
+			// Try to get used memory if available (limited browser support)
+			if (this.nativeWindow.performance && (this.nativeWindow.performance as any).memory) {
+				const memory = (this.nativeWindow.performance as any).memory;
+				// Use JS heap used as an approximation of memory used by the browser
+				// Note: This is browser memory, not total system memory used
+				const usedMB = parseFloat((memory.usedJSHeapSize / 1048576).toFixed(0));
+				const usagePercent = totalRAMMB > 0 ? Math.round((usedMB / totalRAMMB) * 100) : 0;
+				this.cachedHostMemoryUsagePercent = usagePercent;
+				this.cachedHostMemoryUsage = `${usedMB} MB / ${totalRAMMB} MB (${totalRAMGB} GB total) - ${usagePercent}% [browser]`;
+			} else {
+				// Only total RAM available
+				this.cachedHostMemoryUsagePercent = 0;
+				this.cachedHostMemoryUsage = `N/A / ${totalRAMMB} MB (${totalRAMGB} GB total) [browser]`;
+			}
+		} else {
+			// System memory info not available
+			this.cachedHostMemoryUsagePercent = 0;
+			this.cachedHostMemoryUsage = 'N/A';
+		}
+	}
+	
+	private getSystemMemoryFromBackend(): Observable<any> {
+		// Get header with token for Keycloak Security
+		return from(this._keycloakService.getToken()).pipe(
+			switchMap((token: string) => {
+				const headers = new HttpHeaders({
+					'Accept': 'application/json',
+					'Content-Type': 'application/json; charset=UTF-8',
+					'Authorization': 'Bearer ' + token
+				});
+				return this._http.get<any>(environment.API_URL + 'system/memory', { headers: headers });
+			}),
+			catchError((error) => {
+				// Return error object to handle in subscribe
+				return of({ error: error.message || 'Failed to retrieve system memory' });
+			})
+		);
 	}
 	
 		// Update cached load times asynchronously
@@ -308,6 +460,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	onWindowScroll(event: Event): void {
 		// Remove scroll listener - we use IntersectionObserver only for smooth scrolling
 		// This prevents conflicts and ensures smooth infinite scroll
+	}
+
+	@HostListener('window:keydown', ['$event'])
+	onKeyDown(event: KeyboardEvent): void {
+		// Toggle debug info panel with Ctrl+I (or Cmd+I on Mac)
+		if ((event.ctrlKey || event.metaKey) && event.key === 'i') {
+			event.preventDefault();
+			this.debugInfoCollapsed = !this.debugInfoCollapsed;
+			this.scheduleChangeDetection();
+		}
 	}
 
 	private updateResponsiveState(width: number): void {
@@ -2780,6 +2942,26 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Get memory usage percentage (0-100) - returns cached value to prevent change detection errors
 	public getMemoryUsagePercent(): number {
 		return this.cachedMemoryUsagePercent;
+	}
+	
+	// Get host memory usage (system RAM) - returns cached value to prevent change detection errors
+	public getHostMemoryUsage(): string {
+		return this.cachedHostMemoryUsage;
+	}
+	
+	// Get host memory usage percentage (0-100) - returns cached value to prevent change detection errors
+	public getHostMemoryUsagePercent(): number {
+		return this.cachedHostMemoryUsagePercent;
+	}
+	
+	// Get network speed - returns cached value to prevent change detection errors
+	public getNetworkSpeed(): string {
+		return this.cachedNetworkSpeed;
+	}
+	
+	// Get network speed in MB/s - returns cached value to prevent change detection errors
+	public getNetworkSpeedMbps(): number {
+		return this.cachedNetworkSpeedMbps;
 	}
 	
 	// Get cached thumbnails count - now counts all thumbnails since there's no buffer

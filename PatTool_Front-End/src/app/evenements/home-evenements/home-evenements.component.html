@@ -102,6 +102,31 @@
                         {{ getMemoryUsage() }}
                     </span>
                 </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_HOST_MEMORY' | translate }}:</span>
+                    <span class="debug-value" 
+                          [class.text-success]="getHostMemoryUsagePercent() < 50" 
+                          [class.text-warning]="getHostMemoryUsagePercent() >= 50 && getHostMemoryUsagePercent() < 80"
+                          [class.text-danger]="getHostMemoryUsagePercent() >= 80">
+                        {{ getHostMemoryUsage() }}
+                    </span>
+                    <button type="button" 
+                            class="btn btn-sm btn-outline-secondary ms-2" 
+                            (click)="refreshMemoryInfo()"
+                            [attr.aria-label]="'EVENTHOME.DEBUG_REFRESH_MEMORY' | translate"
+                            title="{{ 'EVENTHOME.DEBUG_REFRESH_MEMORY' | translate }}">
+                        <i class="fa fa-refresh"></i>
+                    </button>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_NETWORK_LATENCY' | translate }}:</span>
+                    <span class="debug-value" 
+                          [class.text-success]="getNetworkSpeedMbps() > 0 && getNetworkSpeedMbps() >= 10" 
+                          [class.text-warning]="getNetworkSpeedMbps() > 0 && getNetworkSpeedMbps() >= 1 && getNetworkSpeedMbps() < 10"
+                          [class.text-danger]="getNetworkSpeedMbps() > 0 && getNetworkSpeedMbps() < 1">
+                        {{ getNetworkSpeed() }}
+                    </span>
+                </div>
             </div>
         </div>
     </div>

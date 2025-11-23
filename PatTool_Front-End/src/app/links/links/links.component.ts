@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
 import { Category } from '../../model/Category';
 import { Member } from '../../model/member';
 import { urllink } from '../../model/urllink';
@@ -22,7 +23,7 @@ export class LinksComponent implements OnInit {
   public showSuggestions: boolean = false;
   public openUrlOnClick: boolean = true;
 
-  constructor(private _memberService: MembersService, private _urlLinkService: UrllinkService, private _commonValuesService: CommonvaluesService) { }
+  constructor(private _memberService: MembersService, private _urlLinkService: UrllinkService, private _commonValuesService: CommonvaluesService, private router: Router) { }
 
   ngOnInit() {
     // to get urls when user.id is not empty
@@ -217,6 +218,10 @@ export class LinksComponent implements OnInit {
     const icon = iconMap[normalizedName] || 'fa-folder';
     
     return icon;
+  }
+
+  navigateToLinksAdmin(): void {
+    this.router.navigate(['links-admin']);
   }
 
 }

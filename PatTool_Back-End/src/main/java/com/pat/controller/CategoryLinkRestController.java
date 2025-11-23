@@ -30,7 +30,7 @@ public class CategoryLinkRestController {
 
     @RequestMapping(method = RequestMethod.GET)
     public List<CategoryLink> getCategory(@RequestHeader(value = "user-id", required = false) String userId){
-        log.info("Get categoryUrl for user: {}", userId);
+        log.debug("Get categoryUrl for user: {}", userId);
         Sort sort = Sort.by(Sort.Direction.ASC, "categoryName");
         List<CategoryLink> allCategories = categoryLinkRepository.findAll(sort);
         

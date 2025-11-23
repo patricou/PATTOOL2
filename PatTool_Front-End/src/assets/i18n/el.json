@@ -54,7 +54,8 @@
         "NO_LINKS": "Δεν υπάρχουν διαθέσιμοι σύνδεσμοι σε αυτή την κατηγορία",
         "SEARCH_PLACEHOLDER": "Αναζήτηση με όνομα ή URL...",
         "NO_SEARCH_RESULTS": "Δεν βρέθηκαν αποτελέσματα για αυτή την αναζήτηση",
-        "OPEN_URL_ON_CLICK": "Άνοιγμα URL στο κλικ"
+        "OPEN_URL_ON_CLICK": "Άνοιγμα URL στο κλικ",
+        "ADMIN_BUTTON": "Διαχείριση"
     },
     "IOT": {
         "TITLE": "Έλεγχος σπιτιού",
@@ -127,6 +128,9 @@
         "DEBUG_CARD_LOAD_TIME": "Χρόνος φόρτωσης κάρτας",
         "DEBUG_THUMBNAIL_LOAD_TIME": "Χρόνος φόρτωσης μικρογραφίας",
         "DEBUG_MEMORY_USAGE": "Χρήση μνήμης",
+        "DEBUG_HOST_MEMORY": "Μνήμη συστήματος (host)",
+        "DEBUG_NETWORK_LATENCY": "Καθυστέρηση δικτύου",
+        "DEBUG_REFRESH_MEMORY": "Ανανέωση μνήμης συστήματος",
         "DEBUG_CACHED_THUMBNAILS": "Μικρογραφίες σε cache",
         "DEBUG_SECTION_EVENTS": "Γεγονότα",
         "DEBUG_SECTION_CACHES": "Cache",

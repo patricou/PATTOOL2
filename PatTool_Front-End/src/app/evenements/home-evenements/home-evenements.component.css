@@ -4143,7 +4143,7 @@
     border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-    padding: 15px;
+    padding: 10px;
     min-width: 300px;
     max-width: 350px;
     max-height: calc(100vh - 40px);
@@ -4161,8 +4161,8 @@
 }
 
 .debug-info-panel-content .debug-info-header {
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
     border-bottom: 2px solid rgba(0, 123, 255, 0.2);
     position: sticky;
     top: 0;
@@ -4204,19 +4204,20 @@
 .debug-info-panel-content .debug-info-body {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 2px;
 }
 
 .debug-info-panel-content .debug-info-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 6px 10px;
+    padding: 3px 8px;
     background: rgba(0, 0, 0, 0.02);
-    border-radius: 6px;
+    border-radius: 4px;
     border-left: 3px solid rgba(0, 123, 255, 0.3);
     transition: all 0.2s ease;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    min-height: 24px;
 }
 
 .debug-info-panel-content .debug-info-item:hover {
@@ -4238,8 +4239,8 @@
 }
 
 .debug-info-section {
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
 }
 
@@ -4251,12 +4252,12 @@
 
 .debug-section-title {
     font-weight: 600;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: #6c757d;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin-bottom: 6px;
-    padding-bottom: 4px;
+    margin-bottom: 3px;
+    padding-bottom: 2px;
     border-bottom: 1px solid rgba(108, 117, 125, 0.2);
 }
 
