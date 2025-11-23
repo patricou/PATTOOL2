@@ -389,7 +389,8 @@ public class FileRestController {
                     } catch (IOException e) {
                         // Connection closed by client - log at debug level and return null
                         if (e.getMessage() != null && (e.getMessage().contains("Connection reset") || 
-                                                         e.getMessage().contains("Broken pipe"))) {
+                                                         e.getMessage().contains("Broken pipe") ||
+                                                         e.getMessage().contains("An established connection was aborted by the software in your host machine"))) {
                             log.debug("Client closed connection before file transfer completed for file: " + fileId);
                             return null; // Connection already closed, can't send response
                         }
@@ -405,7 +406,8 @@ public class FileRestController {
                 String errorMsg = e.getMessage();
                 if (errorMsg != null && (errorMsg.contains("Connection reset") || 
                                          errorMsg.contains("Broken pipe") ||
-                                         errorMsg.contains("Connection closed"))) {
+                                         errorMsg.contains("Connection closed") ||
+                                         errorMsg.contains("An established connection was aborted by the software in your host machine"))) {
                     log.debug("Client closed connection during file transfer for file: " + fileId);
                     return null; // Connection already closed, can't send response
                 }
@@ -427,7 +429,8 @@ public class FileRestController {
             if (cause instanceof IOException) {
                 String causeMsg = cause.getMessage();
                 if (causeMsg != null && (causeMsg.contains("Connection reset") || 
-                                         causeMsg.contains("Broken pipe"))) {
+                                         causeMsg.contains("Broken pipe") ||
+                                         causeMsg.contains("An established connection was aborted by the software in your host machine"))) {
                     log.debug("Client closed connection (wrapped IOException) for file: " + fileId);
                     return null; // Connection already closed
                 }

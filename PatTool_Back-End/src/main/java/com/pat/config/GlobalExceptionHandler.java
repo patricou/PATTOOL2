@@ -187,7 +187,8 @@ public class GlobalExceptionHandler {
         // Check if this is a connection reset (client closed connection)
         if (message != null && (message.contains("Connection reset by peer") ||
                                  message.contains("Broken pipe") ||
-                                 message.contains("Connection closed"))) {
+                                 message.contains("Connection closed") ||
+                                 message.contains("An established connection was aborted by the software in your host machine"))) {
             // This is normal when client closes connection (e.g., closing photo slideshow)
             String logMessage = "Client closed connection during file transfer (likely normal) from IP [" + clientIp + "]: " + message;
             log.info(logMessage);
@@ -226,7 +227,8 @@ public class GlobalExceptionHandler {
         // Check if this is a connection reset wrapped in another exception
         if (message != null && (message.contains("Connection reset") ||
                                  message.contains("Broken pipe") ||
-                                 message.contains("AsyncRequestNotUsableException"))) {
+                                 message.contains("AsyncRequestNotUsableException") ||
+                                 message.contains("An established connection was aborted by the software in your host machine"))) {
             String logMessage = "Client closed connection (likely normal) from IP [" + clientIp + "]: " + message;
             log.info(logMessage);
             exceptionTrackingService.addLog(clientIp, logMessage);
@@ -269,7 +271,8 @@ public class GlobalExceptionHandler {
         
         // Only track if it's NOT a connection reset (which is normal)
         if (message != null && !message.contains("Connection reset by peer") &&
-            !message.contains("Broken pipe") && !message.contains("Connection closed")) {
+            !message.contains("Broken pipe") && !message.contains("Connection closed") &&
+            !message.contains("An established connection was aborted by the software in your host machine")) {
             String stackTrace = getStackTrace(exc);
             exceptionTrackingService.addException(
                 clientIp,

@@ -115,6 +115,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private intersectionObserver?: IntersectionObserver;
 	private feedRequestToken = 0;
 	private prefetchTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	private streamingTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	private readonly prefetchThresholdMultiplier = 2;
 	private updateAverageColorTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	private lastAverageRgb: { r: number; g: number; b: number } | null = null;
@@ -458,8 +459,42 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	@HostListener('window:scroll', ['$event'])
 	onWindowScroll(event: Event): void {
-		// Remove scroll listener - we use IntersectionObserver only for smooth scrolling
-		// This prevents conflicts and ensures smooth infinite scroll
+		// Simple scroll-based infinite scroll
+		this.checkScrollForLoadMore();
+	}
+
+	// Check scroll position to load more events - SIMPLIFIED VERSION
+	private checkScrollForLoadMore(): void {
+		// Simple check: only prevent if actively loading next page
+		if (this.isLoadingNextPage) {
+			return;
+		}
+
+		const displayedCount = this.evenements.length;
+		const totalCount = this.allStreamedEvents.length;
+
+		// If no more events available, stop
+		if (displayedCount >= totalCount) {
+			this.hasMoreEvents = false;
+			return;
+		}
+
+		// Get scroll position
+		const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+		const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+		const documentHeight = document.documentElement.scrollHeight;
+
+		// Load more when within 500px of bottom
+		const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
+		
+		if (distanceFromBottom < 500) {
+			console.log('📜 Loading more events...', {
+				displayed: displayedCount,
+				total: totalCount,
+				remaining: totalCount - displayedCount
+			});
+			this.loadNextPage();
+		}
 	}
 
 	@HostListener('window:keydown', ['$event'])
@@ -541,10 +576,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		this.searchterms.forEach((searchtermRef: ElementRef) => {
 			if (searchtermRef && searchtermRef.nativeElement) {
-				// Reduce debounceTime from 700ms to 300ms for better responsiveness
+				// Reduced debounceTime to 200ms for faster filter response
 				// With [(ngModel)], text appears immediately in the input
 				const eventObservable = fromEvent(searchtermRef.nativeElement, 'input')
-					.pipe(debounceTime(300));
+					.pipe(debounceTime(200));
 
 				const subscription = eventObservable.subscribe(
 					((data: any) => {
@@ -583,6 +618,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private resetAndLoadEvents(): void {
 		this.feedRequestToken++;
 		this.eventsSubscription?.unsubscribe();
+		
+		// Clear any streaming timeout
+		if (this.streamingTimeoutId) {
+			clearTimeout(this.streamingTimeoutId);
+			this.streamingTimeoutId = null;
+		}
+		
 		this.isLoadingNextPage = false;
 		this.hasMoreEvents = true;
 		this.isLoading = true;
@@ -618,6 +660,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		this.filteredTotal = 0;
 		this.resetColorAggregation();
+		
+		// Scroll to top when filter changes to show first elements
+		// Use requestAnimationFrame to ensure it happens after DOM updates
+		requestAnimationFrame(() => {
+			this.scrollToTop();
+		});
+		
 		// Don't set up observer here - wait until after cards are rendered
 		this.loadInitialEvents();
 	}
@@ -641,8 +690,34 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const searchString = rawFilter === "" ? "*" : rawFilter;
 
 		// Only set isLoading for initial load, not isLoadingNextPage
+		console.log('🚀 Starting loadEventsStream - setting isLoading to true');
 		this.isLoading = true;
 		this.isLoadingNextPage = false; // Not loading next page, this is initial load
+		this.hasMoreEvents = true; // Assume we have more events until we know otherwise
+
+		// Clear any existing timeout
+		if (this.streamingTimeoutId) {
+			clearTimeout(this.streamingTimeoutId);
+			this.streamingTimeoutId = null;
+		}
+
+		// Add timeout fallback: if complete event doesn't fire within 10 seconds, assume streaming is done
+		this.streamingTimeoutId = setTimeout(() => {
+			if (requestToken === this.feedRequestToken && this.isLoading) {
+				console.warn('⚠️ Streaming timeout - setting isLoading to false');
+				this.isLoading = false;
+				this.isLoadingNextPage = false;
+				this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
+				this.unblockPageScroll();
+				this.shouldBlockScroll = false;
+				// Setup observer after timeout
+				setTimeout(() => {
+					if (this.infiniteScrollAnchor?.nativeElement) {
+						this.setupInfiniteScrollObserver();
+					}
+				}, 300);
+			}
+		}, 10000); // 10 second timeout - shorter for faster response
 
 		this.waitForNonEmptyValue().then(() => {
 			if (requestToken !== this.feedRequestToken) {
@@ -656,8 +731,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				.subscribe({
 					next: (streamedEvent: StreamedEvent) => {
 						if (requestToken !== this.feedRequestToken) {
+							console.log('⚠️ Request token mismatch, ignoring event');
 							return;
 						}
+						
+						console.log('📨 StreamedEvent received:', streamedEvent.type, {
+							displayed: this.evenements.length,
+							total: this.allStreamedEvents.length,
+							isLoading: this.isLoading
+						});
 						
 						if (streamedEvent.type === 'total') {
 							// Total count received
@@ -695,14 +777,33 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							// Display only first 8 events (or less if not enough)
 							this.updateDisplayedEvents();
 							
+		// Always update hasMoreEvents during streaming
+		this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
+							
 							// Batch change detection for better performance
 							this.scheduleChangeDetection();
 						} else if (streamedEvent.type === 'complete') {
+							console.log('🎉 ✅ COMPLETE event received!');
+							
+							// Clear timeout since we got the complete event
+							if (this.streamingTimeoutId) {
+								clearTimeout(this.streamingTimeoutId);
+								this.streamingTimeoutId = null;
+							}
+							
 							// Streaming complete - ensure first 8 events are displayed
 							this.updateDisplayedEvents();
 							this.isLoadingNextPage = false;
+							console.log('✅ Streaming complete - setting isLoading to false');
 							this.isLoading = false;
-							this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
+							const newHasMore = this.evenements.length < this.allStreamedEvents.length;
+							console.log('📊 Streaming complete - updating hasMoreEvents', {
+								oldValue: this.hasMoreEvents,
+								newValue: newHasMore,
+								displayed: this.evenements.length,
+								total: this.allStreamedEvents.length
+							});
+							this.hasMoreEvents = newHasMore;
 							// Always unblock scroll when streaming completes
 							this.unblockPageScroll();
 							this.shouldBlockScroll = false;
@@ -849,48 +950,90 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	private setupInfiniteScrollObserver(): void {
+		console.log('🔧 setupInfiniteScrollObserver called');
+		
+		// Disconnect any existing observer first
 		this.disconnectInfiniteScrollObserver();
 
-		// Check immediately if anchor is available
+		// Check if anchor is available
 		if (!this.infiniteScrollAnchor || !this.infiniteScrollAnchor.nativeElement) {
-			// Retry after a short delay if anchor is not ready
+			console.log('⏳ Anchor not ready, retrying in 100ms...');
 			setTimeout(() => this.setupInfiniteScrollObserver(), 100);
 			return;
 		}
 
 		const anchor = this.infiniteScrollAnchor.nativeElement;
+		console.log('🔍 Anchor found, setting up IntersectionObserver', {
+			anchorExists: !!anchor,
+			displayed: this.evenements.length,
+			total: this.allStreamedEvents.length,
+			hasMore: this.hasMoreEvents
+		});
 
-		// Observer to load next 8 events when scrolling
+		// Create new IntersectionObserver for infinite scroll
 		this.intersectionObserver = new IntersectionObserver((entries) => {
 			entries.forEach(entry => {
+				console.log('👁️ IntersectionObserver entry', {
+					isIntersecting: entry.isIntersecting,
+					intersectionRatio: entry.intersectionRatio,
+					boundingClientRect: entry.boundingClientRect,
+					displayed: this.evenements.length,
+					total: this.allStreamedEvents.length
+				});
+
 				if (entry.isIntersecting) {
-					const displayedCount = this.evenements.length;
-					const totalCount = this.allStreamedEvents.length;
-					
-					if (displayedCount < totalCount) {
-						// Load next 8 events from buffer
-						this.loadNextPage();
-					}
+					console.log('👁️ ✅ Observer triggered - anchor is visible!');
+					this.handleScrollToLoadMore();
 				}
 			});
 		}, {
 			root: null,
-			rootMargin: '200px', // Start loading 200px before reaching the anchor
-			threshold: 0
+			rootMargin: '300px', // Start loading 300px before reaching the anchor
+			threshold: 0 // Trigger as soon as any part is visible
 		});
 
+		// Start observing the anchor
 		try {
 			this.intersectionObserver.observe(anchor);
-			console.log('IntersectionObserver setup complete, observing anchor');
-			// Ensure scroll is unblocked when observer is set up
+			console.log('✅ Infinite scroll observer setup complete and observing anchor');
 			this.unblockPageScroll();
 			this.shouldBlockScroll = false;
 		} catch (error) {
-			console.error('Error setting up IntersectionObserver:', error);
-			// Ensure scroll is unblocked even if observer setup fails
+			console.error('❌ Error setting up IntersectionObserver:', error);
 			this.unblockPageScroll();
 			this.shouldBlockScroll = false;
 		}
+	}
+
+	// Handle scroll to load more events (for IntersectionObserver)
+	private handleScrollToLoadMore(): void {
+		console.log('👁️ handleScrollToLoadMore (from IntersectionObserver)', {
+			isLoading: this.isLoadingNextPage,
+			displayed: this.evenements.length,
+			total: this.allStreamedEvents.length,
+			hasMore: this.hasMoreEvents
+		});
+
+		// Don't load if already loading
+		if (this.isLoadingNextPage) {
+			console.log('⏸️ Already loading, skipping');
+			return;
+		}
+
+		const displayedCount = this.evenements.length;
+		const totalCount = this.allStreamedEvents.length;
+
+		// Check if there are more events to load
+		if (displayedCount >= totalCount) {
+			console.log('✅ All events displayed, disconnecting observer');
+			this.hasMoreEvents = false;
+			this.disconnectInfiniteScrollObserver();
+			return;
+		}
+
+		// Load next page
+		console.log('⬇️ Loading next page from IntersectionObserver...');
+		this.loadNextPage();
 	}
 
 	private checkScrollPosition(): void {
@@ -946,6 +1089,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					}
 					this.queueThumbnailLoad(this.allStreamedEvents[0]);
 					this.loadFileThumbnails(this.allStreamedEvents[0]);
+					
+					// Scroll to top when first event is displayed (only on initial load, not when loading more pages)
+					if (this.isLoading && !this.isLoadingNextPage) {
+						requestAnimationFrame(() => {
+							this.scrollToTop();
+						});
+					}
 				}
 			}
 		}
@@ -989,73 +1139,123 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	// Load next 8 events when scrolling
 	private loadNextPage(): void {
+		console.log('📥 loadNextPage called', {
+			isLoading: this.isLoadingNextPage,
+			current: this.evenements.length,
+			total: this.allStreamedEvents.length
+		});
+
+		// Prevent multiple simultaneous loads
 		if (this.isLoadingNextPage) {
-			console.log('Already loading, skipping');
+			console.log('⏸️ Already loading, aborting');
 			return;
 		}
-		
+
 		const currentCount = this.evenements.length;
 		const totalCount = this.allStreamedEvents.length;
-		
+
+		// Check if there are more events available
 		if (currentCount >= totalCount) {
-			console.log('No more events to load', { currentCount, totalCount });
+			console.log('✅ All events already loaded');
 			this.hasMoreEvents = false;
+			this.disconnectInfiniteScrollObserver();
 			return;
 		}
-		
+
+		// Mark as loading
 		this.isLoadingNextPage = true;
-		
-		// Load next 8 events
-		const nextEvents = this.allStreamedEvents.slice(currentCount, currentCount + this.CARDS_PER_PAGE);
-		
+		console.log('🔄 Starting to load next page...');
+
+		// Calculate how many events to load (next 8 or remaining)
+		const remainingCount = totalCount - currentCount;
+		const loadCount = Math.min(this.CARDS_PER_PAGE, remainingCount);
+		const nextEvents = this.allStreamedEvents.slice(currentCount, currentCount + loadCount);
+
+		console.log('📊 Loading stats:', {
+			remaining: remainingCount,
+			loadCount: loadCount,
+			nextEventsLength: nextEvents.length
+		});
+
 		if (nextEvents.length === 0) {
-			console.log('No next events found');
+			console.log('⚠️ No events to load');
 			this.isLoadingNextPage = false;
 			this.hasMoreEvents = false;
+			this.disconnectInfiniteScrollObserver();
 			return;
 		}
-		
-		// Add all next events
+
+		// Add events to displayed list
+		let addedCount = 0;
 		nextEvents.forEach(event => {
 			const eventId = event.id || this.getEventKey(event);
-		if (!this.isEventAlreadyLoaded(event)) {
-			this.evenements.push(event);
 			
-			// Load thumbnail for new event
+			// Skip if event is already loaded (shouldn't happen, but safety check)
+			if (!this.isEventAlreadyLoaded(event)) {
+				this.evenements.push(event);
+				addedCount++;
+
+				// Track loading for this event
 				if (eventId) {
 					const loadingInfo: LoadingEventInfo = {
 						eventId: eventId,
 						cardLoadStart: Date.now()
 					};
 					this.loadingEvents.set(eventId, loadingInfo);
-					// Queue card load end to be processed in batch
 					this.pendingCardLoadEnds.add(eventId);
 					this.scheduleCardLoadEndBatch();
 				}
+
+				// Load thumbnails
 				this.queueThumbnailLoad(event);
-				// Load file thumbnails for displayed events
 				this.loadFileThumbnails(event);
-			} else {
-				console.log('✗ Event already loaded:', eventId);
 			}
 		});
-		
-		// Update hasMoreEvents
-		this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
-		
+
+		console.log(`✅ Added ${addedCount} events. New count: ${this.evenements.length}`);
+
+		// Update state
+		const newHasMore = this.evenements.length < this.allStreamedEvents.length;
+		console.log('📊 Updating hasMoreEvents', {
+			oldValue: this.hasMoreEvents,
+			newValue: newHasMore,
+			displayed: this.evenements.length,
+			total: this.allStreamedEvents.length
+		});
+		this.hasMoreEvents = newHasMore;
 		this.isLoadingNextPage = false;
-		// Use scheduleChangeDetection for better performance with OnPush
+
+		// Trigger change detection
 		this.scheduleChangeDetection();
-		
-		// Re-observe after a short delay
+
+		// Reconnect observer after DOM updates
 		setTimeout(() => {
-			if (this.infiniteScrollAnchor && this.infiniteScrollAnchor.nativeElement && this.intersectionObserver) {
-				try {
-					// Disconnect and reconnect to reset observer
-					this.intersectionObserver.disconnect();
-					this.intersectionObserver.observe(this.infiniteScrollAnchor.nativeElement);
-				} catch (error) {
-					console.error('Error re-observing anchor:', error);
+			console.log('🔄 Reconnecting observer after load', {
+				hasMore: this.hasMoreEvents,
+				displayed: this.evenements.length,
+				total: this.allStreamedEvents.length,
+				anchorExists: !!this.infiniteScrollAnchor?.nativeElement,
+				observerExists: !!this.intersectionObserver
+			});
+
+			if (!this.hasMoreEvents) {
+				console.log('🛑 No more events, disconnecting observer');
+				this.disconnectInfiniteScrollObserver();
+			} else {
+				// Reconnect observer to continue watching
+				if (this.infiniteScrollAnchor?.nativeElement && this.intersectionObserver) {
+					try {
+						this.intersectionObserver.disconnect();
+						this.intersectionObserver.observe(this.infiniteScrollAnchor.nativeElement);
+						console.log('✅ Observer reconnected successfully');
+					} catch (error) {
+						console.error('❌ Error reconnecting scroll observer:', error);
+					}
+				} else {
+					console.warn('⚠️ Cannot reconnect: anchor or observer missing', {
+						anchor: !!this.infiniteScrollAnchor?.nativeElement,
+						observer: !!this.intersectionObserver
+					});
 				}
 			}
 		}, 200);
@@ -1065,8 +1265,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	private disconnectInfiniteScrollObserver(): void {
 		if (this.intersectionObserver) {
+			console.log('🔌 Disconnecting infinite scroll observer');
 			this.intersectionObserver.disconnect();
 			this.intersectionObserver = undefined;
+		} else {
+			console.log('ℹ️ No observer to disconnect');
 		}
 	}
 
@@ -2377,6 +2580,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	ngOnDestroy() {
+		// Clear streaming timeout
+		if (this.streamingTimeoutId) {
+			clearTimeout(this.streamingTimeoutId);
+			this.streamingTimeoutId = null;
+		}
+		
 		// Unblock scrolling if it was blocked
 		if (this.shouldBlockScroll) {
 			this.unblockPageScroll();

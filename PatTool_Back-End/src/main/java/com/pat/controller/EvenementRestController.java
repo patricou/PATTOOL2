@@ -79,17 +79,56 @@ public class EvenementRestController {
             try {
                 // Build query with access criteria (same as repository)
                 Query query = new Query();
-                query.addCriteria(buildAccessCriteria(userId));
+                
+                // Build all criteria first, then combine them properly
+                Criteria accessCriteria = buildAccessCriteria(userId);
+                
+                // Add MongoDB-level filtering for text fields to reduce fetched documents
+                // This significantly improves performance by filtering at database level
+                String normalizedFilter = normalizeFilter(evenementName);
+                
+                if (!normalizedFilter.isEmpty()) {
+                    // Add regex criteria for evenementName and comments to MongoDB query
+                    // This reduces the number of documents fetched from MongoDB
+                    java.util.List<Criteria> textCriteria = new java.util.ArrayList<>();
+                    
+                    // Escape special regex characters to prevent errors, but allow substring matching
+                    // The pattern will match any string containing the filter text (case-insensitive)
+                    String escapedFilter = escapeRegex(normalizedFilter);
+                    
+                    // Case-insensitive regex for evenementName (substring match)
+                    textCriteria.add(Criteria.where("evenementName")
+                        .regex(escapedFilter, "i"));
+                    
+                    // Case-insensitive regex for comments (substring match)
+                    textCriteria.add(Criteria.where("comments")
+                        .regex(escapedFilter, "i"));
+                    
+                    // Combine text criteria with OR - match if filter is in name OR comments
+                    Criteria textFilter = new Criteria().orOperator(textCriteria.toArray(new Criteria[0]));
+                    
+                    // Combine access criteria AND text filter using andOperator
+                    // This properly combines multiple criteria without conflicts
+                    Criteria combinedCriteria = new Criteria().andOperator(
+                        accessCriteria,
+                        textFilter
+                    );
+                    query.addCriteria(combinedCriteria);
+                } else {
+                    // No text filter, just use access criteria
+                    query.addCriteria(accessCriteria);
+                }
                 
                 // Sort by beginEventDate descending (most recent first) - MongoDB will sort efficiently
                 // Events with null dates will be at the end of the sorted results
                 query.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
                 
-                String normalizedFilter = normalizeFilter(evenementName);
                 log.debug("Starting truly reactive stream from MongoDB Atlas for filter: {} (sorted by date DESC, most recent first)", evenementName);
                 
                 AtomicInteger sentCount = new AtomicInteger(0);
                 AtomicInteger totalCount = new AtomicInteger(0);
+                // Flag to track if client is still connected
+                java.util.concurrent.atomic.AtomicBoolean clientConnected = new java.util.concurrent.atomic.AtomicBoolean(true);
                 // Only collect events with null dates to send them at the end
                 List<Evenement> nullDateEvents = new java.util.ArrayList<>();
                 
@@ -100,6 +139,11 @@ public class EvenementRestController {
                     
                     // Process and send events immediately as they arrive from MongoDB
                     eventStream.forEach(event -> {
+                        // Check if client is still connected before processing
+                        if (!clientConnected.get()) {
+                            return; // Stop processing if client disconnected
+                        }
+                        
                         try {
                             // Apply filter if needed (in-memory filtering for complex logic)
                             if (normalizedFilter.isEmpty() || matchesFilter(event, normalizedFilter)) {
@@ -112,6 +156,11 @@ public class EvenementRestController {
                                 } else {
                                     // Send events with dates immediately (they're already sorted by MongoDB)
                                     try {
+                                        // Check connection before sending
+                                        if (!clientConnected.get()) {
+                                            return; // Stop if client disconnected
+                                        }
+                                        
                                         String eventJson = objectMapper.writeValueAsString(event);
                                         emitter.send(SseEmitter.event()
                                             .name("event")
@@ -125,9 +174,15 @@ public class EvenementRestController {
                                                 currentCount, event.getId(), event.getBeginEventDate());
                                         }
                                     } catch (IOException e) {
-                                        // Client likely disconnected
+                                        // Client disconnected - mark as disconnected and stop processing
                                         log.debug("Client disconnected during streaming", e);
-                                        throw new RuntimeException("Client disconnected", e);
+                                        clientConnected.set(false);
+                                        return; // Stop processing stream
+                                    } catch (IllegalStateException e) {
+                                        // Emitter already completed/closed
+                                        log.debug("Emitter already closed, stopping stream", e);
+                                        clientConnected.set(false);
+                                        return; // Stop processing stream
                                     } catch (Exception e) {
                                         log.error("Error sending event", e);
                                         // Continue with next event instead of failing completely
@@ -142,38 +197,67 @@ public class EvenementRestController {
                 }
                 
                 // Send null-dated events at the end (they were collected separately)
-                for (Evenement event : nullDateEvents) {
-                    try {
-                        String eventJson = objectMapper.writeValueAsString(event);
-                        emitter.send(SseEmitter.event()
-                            .name("event")
-                            .data(eventJson));
-                        
-                        int currentCount = sentCount.incrementAndGet();
-                        log.debug("✅ Sent null-dated event {} at end: {}", currentCount, event.getId());
-                    } catch (IOException e) {
-                        // Client likely disconnected
-                        log.debug("Client disconnected during streaming null-dated events", e);
-                        return;
-                    } catch (Exception e) {
-                        log.error("Error sending null-dated event", e);
-                        // Continue with next event instead of failing completely
+                // Only if client is still connected
+                if (clientConnected.get()) {
+                    for (Evenement event : nullDateEvents) {
+                        try {
+                            // Check connection before sending
+                            if (!clientConnected.get()) {
+                                break; // Stop if client disconnected
+                            }
+                            
+                            String eventJson = objectMapper.writeValueAsString(event);
+                            emitter.send(SseEmitter.event()
+                                .name("event")
+                                .data(eventJson));
+                            
+                            int currentCount = sentCount.incrementAndGet();
+                            log.debug("✅ Sent null-dated event {} at end: {}", currentCount, event.getId());
+                        } catch (IOException e) {
+                            // Client disconnected - stop sending
+                            log.debug("Client disconnected during streaming null-dated events", e);
+                            clientConnected.set(false);
+                            break;
+                        } catch (IllegalStateException e) {
+                            // Emitter already completed/closed
+                            log.debug("Emitter already closed, stopping null-dated events", e);
+                            clientConnected.set(false);
+                            break;
+                        } catch (Exception e) {
+                            log.error("Error sending null-dated event", e);
+                            // Continue with next event instead of failing completely
+                        }
                     }
                 }
                 
-                // Send total count (after we've processed all events)
-                emitter.send(SseEmitter.event()
-                    .name("total")
-                    .data(String.valueOf(totalCount.get())));
-                
-                // Send completion signal
-                emitter.send(SseEmitter.event()
-                    .name("complete")
-                    .data(""));
-                emitter.complete();
-                
-                log.debug("✅ Truly reactive streaming completed: {} events sent ({} with dates immediately, {} null-dated at end)", 
-                    sentCount.get(), sentCount.get() - nullDateEvents.size(), nullDateEvents.size());
+                // Send total count and completion signal only if client is still connected
+                if (clientConnected.get()) {
+                    try {
+                        // Send total count (after we've processed all events)
+                        emitter.send(SseEmitter.event()
+                            .name("total")
+                            .data(String.valueOf(totalCount.get())));
+                        
+                        // Send completion signal
+                        emitter.send(SseEmitter.event()
+                            .name("complete")
+                            .data(""));
+                        emitter.complete();
+                        
+                        log.debug("✅ Truly reactive streaming completed: {} events sent ({} with dates immediately, {} null-dated at end)", 
+                            sentCount.get(), sentCount.get() - nullDateEvents.size(), nullDateEvents.size());
+                    } catch (IOException e) {
+                        log.debug("Client disconnected while sending completion signal", e);
+                        clientConnected.set(false);
+                    } catch (IllegalStateException e) {
+                        log.debug("Emitter already closed while sending completion signal", e);
+                        clientConnected.set(false);
+                    } catch (Exception e) {
+                        log.error("Error sending completion signal", e);
+                    }
+                } else {
+                    log.debug("Streaming stopped early due to client disconnection. Sent {} events before disconnect.", sentCount.get());
+                }
                 
             } catch (Exception e) {
                 log.error("Error streaming events reactively from MongoDB Atlas", e);
@@ -244,6 +328,17 @@ public class EvenementRestController {
         String lower = value.toLowerCase(java.util.Locale.ROOT);
         String normalized = java.text.Normalizer.normalize(lower, java.text.Normalizer.Form.NFD);
         return normalized.replaceAll("\\p{M}", "");
+    }
+    
+    /**
+     * Escape special regex characters in the filter string to prevent regex errors
+     */
+    private String escapeRegex(String pattern) {
+        if (pattern == null || pattern.isEmpty()) {
+            return pattern;
+        }
+        // Escape special regex characters: . ^ $ * + ? { } [ ] \ | ( )
+        return pattern.replaceAll("([\\\\\\[\\]{}()*+?.^$|])", "\\\\$1");
     }
     
     private boolean matchesFilter(Evenement event, String normalizedFilter) {
