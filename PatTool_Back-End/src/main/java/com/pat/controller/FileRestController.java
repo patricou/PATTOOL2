@@ -186,7 +186,7 @@ public class FileRestController {
                 result.append("- A different GridFS bucket\n");
                 result.append("- A different collection structure\n\n");
                 
-                result.append("Current MongoDB connection: 192.168.1.39:27017\n");
+                result.append("Current MongoDB connection: 192.168.1.39:27018\n");
                 result.append("Current database: rando (from application.properties)\n");
                 result.append("GridFS bucket: fs (default)\n\n");
                 
