@@ -67,8 +67,8 @@ public class EvenementRestController {
 
     /**
      * Reactive streaming endpoint for events using Server-Sent Events (SSE)
-     * Streams events one by one as they are fetched from MongoDB 8.2
-     * Sends data immediately when 1 record is available (reactive approach)
+     * Streams events one by one as they are fetched from MongoDB Atlas
+     * Sends data immediately when 1 record is available (truly reactive approach)
      */
     @GetMapping(value = "/stream/{evenementName}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamEvenements(@PathVariable("evenementName") String evenementName,
@@ -81,28 +81,58 @@ public class EvenementRestController {
                 Query query = new Query();
                 query.addCriteria(buildAccessCriteria(userId));
                 
-                // Sort by beginEventDate descending (most recent first) - MongoDB 8.2 will sort efficiently
+                // Sort by beginEventDate descending (most recent first) - MongoDB will sort efficiently
+                // Events with null dates will be at the end of the sorted results
                 query.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
                 
                 String normalizedFilter = normalizeFilter(evenementName);
-                log.debug("Starting reactive stream from MongoDB 8.2 for filter: {} (sorted by date DESC, most recent first)", evenementName);
+                log.debug("Starting truly reactive stream from MongoDB Atlas for filter: {} (sorted by date DESC, most recent first)", evenementName);
                 
                 AtomicInteger sentCount = new AtomicInteger(0);
-                List<Evenement> matchedEvents = new java.util.ArrayList<>();
+                AtomicInteger totalCount = new AtomicInteger(0);
+                // Only collect events with null dates to send them at the end
+                List<Evenement> nullDateEvents = new java.util.ArrayList<>();
                 
                 // Use stream() which returns a Stream backed by a MongoDB cursor
-                // MongoDB will return results sorted by beginEventDate DESC
+                // MongoDB will return results sorted by beginEventDate DESC (nulls last)
                 try (java.util.stream.Stream<Evenement> eventStream = 
                         mongoTemplate.stream(query, Evenement.class)) {
                     
-                    // Collect all events that match the filter
-                    // Note: We collect first because complex filtering requires in-memory processing
-                    // MongoDB has already sorted them by date (most recent first)
+                    // Process and send events immediately as they arrive from MongoDB
                     eventStream.forEach(event -> {
                         try {
                             // Apply filter if needed (in-memory filtering for complex logic)
                             if (normalizedFilter.isEmpty() || matchesFilter(event, normalizedFilter)) {
-                                matchedEvents.add(event);
+                                totalCount.incrementAndGet();
+                                
+                                // Check if event has a null date
+                                if (event.getBeginEventDate() == null) {
+                                    // Collect null-dated events to send at the end
+                                    nullDateEvents.add(event);
+                                } else {
+                                    // Send events with dates immediately (they're already sorted by MongoDB)
+                                    try {
+                                        String eventJson = objectMapper.writeValueAsString(event);
+                                        emitter.send(SseEmitter.event()
+                                            .name("event")
+                                            .data(eventJson));
+                                        
+                                        int currentCount = sentCount.incrementAndGet();
+                                        
+                                        // Log first few events for debugging
+                                        if (currentCount <= 3) {
+                                            log.debug("✅ Sent event {} immediately (reactive): {} - Date: {}", 
+                                                currentCount, event.getId(), event.getBeginEventDate());
+                                        }
+                                    } catch (IOException e) {
+                                        // Client likely disconnected
+                                        log.debug("Client disconnected during streaming", e);
+                                        throw new RuntimeException("Client disconnected", e);
+                                    } catch (Exception e) {
+                                        log.error("Error sending event", e);
+                                        // Continue with next event instead of failing completely
+                                    }
+                                }
                             }
                         } catch (Exception e) {
                             log.error("Error processing event from MongoDB stream", e);
@@ -111,44 +141,22 @@ public class EvenementRestController {
                     });
                 }
                 
-                // Additional sort to handle null dates (put them at the end)
-                // MongoDB already sorted by date, but we ensure nulls are last
-                matchedEvents.sort((e1, e2) -> {
-                    java.util.Date date1 = e1.getBeginEventDate();
-                    java.util.Date date2 = e2.getBeginEventDate();
-                    
-                    if (date1 == null && date2 == null) return 0;
-                    if (date1 == null) return 1;  // null dates go to end
-                    if (date2 == null) return -1; // null dates go to end
-                    
-                    // Most recent first (descending order) - MongoDB already sorted, but ensure consistency
-                    return date2.compareTo(date1);
-                });
-                
-                log.debug("Collected and sorted {} events by date (most recent first), now streaming", matchedEvents.size());
-                
-                // Stream the sorted events one by one (most recent first)
-                for (Evenement event : matchedEvents) {
+                // Send null-dated events at the end (they were collected separately)
+                for (Evenement event : nullDateEvents) {
                     try {
-                        // Send event in sorted order (most recent first)
                         String eventJson = objectMapper.writeValueAsString(event);
                         emitter.send(SseEmitter.event()
                             .name("event")
                             .data(eventJson));
                         
                         int currentCount = sentCount.incrementAndGet();
-                        
-                        // Log first few events for debugging
-                        if (currentCount <= 3) {
-                            log.debug("✅ Sent event {} (most recent first): {} - Date: {}", 
-                                currentCount, event.getId(), event.getBeginEventDate());
-                        }
+                        log.debug("✅ Sent null-dated event {} at end: {}", currentCount, event.getId());
                     } catch (IOException e) {
                         // Client likely disconnected
-                        log.debug("Client disconnected during streaming", e);
+                        log.debug("Client disconnected during streaming null-dated events", e);
                         return;
                     } catch (Exception e) {
-                        log.error("Error sending event", e);
+                        log.error("Error sending null-dated event", e);
                         // Continue with next event instead of failing completely
                     }
                 }
@@ -156,7 +164,7 @@ public class EvenementRestController {
                 // Send total count (after we've processed all events)
                 emitter.send(SseEmitter.event()
                     .name("total")
-                    .data(String.valueOf(matchedEvents.size())));
+                    .data(String.valueOf(totalCount.get())));
                 
                 // Send completion signal
                 emitter.send(SseEmitter.event()
@@ -164,11 +172,11 @@ public class EvenementRestController {
                     .data(""));
                 emitter.complete();
                 
-                log.debug("✅ Reactive streaming completed: {} events sent sorted by date (most recent first)", 
-                    sentCount.get());
+                log.debug("✅ Truly reactive streaming completed: {} events sent ({} with dates immediately, {} null-dated at end)", 
+                    sentCount.get(), sentCount.get() - nullDateEvents.size(), nullDateEvents.size());
                 
             } catch (Exception e) {
-                log.error("Error streaming events reactively from MongoDB 8.2", e);
+                log.error("Error streaming events reactively from MongoDB Atlas", e);
                 try {
                     emitter.send(SseEmitter.event()
                         .name("error")
