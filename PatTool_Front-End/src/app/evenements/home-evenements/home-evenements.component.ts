@@ -553,6 +553,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						const filterValue = this.dataFIlter; // Already updated by ngModel
 						this._commonValuesService.setDataFilter(filterValue);
 						
+						// Ensure scroll is unblocked when filter changes
+						this.unblockPageScroll();
+						this.shouldBlockScroll = false;
+						
 						// Reset and reload events with the new filter
 						this.resetAndLoadEvents();
 					}),
@@ -699,7 +703,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							this.isLoadingNextPage = false;
 							this.isLoading = false;
 							this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
+							// Always unblock scroll when streaming completes
 							this.unblockPageScroll();
+							this.shouldBlockScroll = false;
 							
 							// Mark card load end after cards are rendered
 							setTimeout(() => {
@@ -749,16 +755,37 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 								});
 								// Force setup of observer - retry multiple times if needed
 								let retryCount = 0;
-								const maxRetries = 5;
+								const maxRetries = 10; // Increased retries
 								const trySetupObserver = () => {
 									if (this.infiniteScrollAnchor?.nativeElement) {
 										this.setupInfiniteScrollObserver();
 										console.log('Observer set up successfully');
+										// Final guarantee: ensure scroll is unblocked after observer is set up
+										setTimeout(() => {
+											this.unblockPageScroll();
+											this.shouldBlockScroll = false;
+											// Force one more unblock after a delay to catch any edge cases
+											setTimeout(() => {
+												this.unblockPageScroll();
+												this.shouldBlockScroll = false;
+											}, 300);
+										}, 100);
 									} else if (retryCount < maxRetries) {
 										retryCount++;
 										setTimeout(trySetupObserver, 200);
 									} else {
 										console.warn('Failed to set up observer after', maxRetries, 'retries');
+										// Even if observer setup fails, ensure scroll is unblocked
+										this.unblockPageScroll();
+										this.shouldBlockScroll = false;
+										// Try one more time after a longer delay
+										setTimeout(() => {
+											if (this.infiniteScrollAnchor?.nativeElement) {
+												this.setupInfiniteScrollObserver();
+											}
+											this.unblockPageScroll();
+											this.shouldBlockScroll = false;
+										}, 1000);
 									}
 								};
 								trySetupObserver();
@@ -779,6 +806,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						this.hasMoreEvents = false;
 						// Always unblock scrolling on error
 						this.unblockPageScroll();
+						this.shouldBlockScroll = false;
+						// Try to reconnect observer even on error to allow scrolling
+						setTimeout(() => {
+							if (this.infiniteScrollAnchor?.nativeElement) {
+								this.setupInfiniteScrollObserver();
+							}
+						}, 500);
 					}
 				});
 			this.eventsSubscription = subscription;
@@ -792,6 +826,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				this.hasMoreEvents = false;
 				// Always unblock scrolling on error
 				this.unblockPageScroll();
+				this.shouldBlockScroll = false;
+				// Try to reconnect observer even on error to allow scrolling
+				setTimeout(() => {
+					if (this.infiniteScrollAnchor?.nativeElement) {
+						this.setupInfiniteScrollObserver();
+					}
+				}, 500);
 			}
 		});
 	}
@@ -841,8 +882,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		try {
 			this.intersectionObserver.observe(anchor);
 			console.log('IntersectionObserver setup complete, observing anchor');
+			// Ensure scroll is unblocked when observer is set up
+			this.unblockPageScroll();
+			this.shouldBlockScroll = false;
 		} catch (error) {
 			console.error('Error setting up IntersectionObserver:', error);
+			// Ensure scroll is unblocked even if observer setup fails
+			this.unblockPageScroll();
+			this.shouldBlockScroll = false;
 		}
 	}
 
@@ -1449,8 +1496,30 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public clearFilter() {
 		this.dataFIlter = "";
 		this._commonValuesService.setDataFilter(this.dataFIlter);
+		// Force enable scroll immediately
+		this.forceEnableScroll();
+		
 		this.resetAndLoadEvents();
-		this.scrollToTop();
+		
+		// Scroll to top after a short delay to ensure it happens after DOM updates
+		setTimeout(() => {
+			this.scrollToTop();
+			// Force enable scroll again after scrolling
+			this.forceEnableScroll();
+			
+			// Additional safeguard: force enable scroll again after events have time to load
+			setTimeout(() => {
+				this.forceEnableScroll();
+				// Final safeguard: ensure observer is set up and scroll is enabled
+				setTimeout(() => {
+					this.forceEnableScroll();
+					// One more time after observer should be set up
+					setTimeout(() => {
+						this.forceEnableScroll();
+					}, 500);
+				}, 500);
+			}, 300);
+		}, 100);
 	}
 
 	// Méthodes pour la vue compacte
@@ -2461,10 +2530,48 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private unblockPageScroll(): void {
 		if (document.body) {
 			document.body.style.overflow = '';
+			document.body.style.overflowX = '';
+			document.body.style.overflowY = '';
+			document.body.style.position = '';
+			document.body.style.height = '';
 		}
 		if (document.documentElement) {
 			document.documentElement.style.overflow = '';
+			document.documentElement.style.overflowX = '';
+			document.documentElement.style.overflowY = '';
+			document.documentElement.style.position = '';
+			document.documentElement.style.height = '';
 		}
+		// Also ensure html element is unblocked
+		const htmlElement = document.querySelector('html');
+		if (htmlElement) {
+			(htmlElement as HTMLElement).style.overflow = '';
+			(htmlElement as HTMLElement).style.overflowX = '';
+			(htmlElement as HTMLElement).style.overflowY = '';
+			(htmlElement as HTMLElement).style.position = '';
+			(htmlElement as HTMLElement).style.height = '';
+		}
+	}
+	
+	// Force enable scroll - comprehensive method to ensure scroll always works
+	private forceEnableScroll(): void {
+		this.shouldBlockScroll = false;
+		this.unblockPageScroll();
+		// Use requestAnimationFrame to ensure DOM is ready
+		requestAnimationFrame(() => {
+			this.unblockPageScroll();
+			// Also check and reconnect observer if needed
+			if (!this.intersectionObserver && this.infiniteScrollAnchor?.nativeElement) {
+				this.setupInfiniteScrollObserver();
+			}
+			// Verify scroll is actually enabled by checking computed styles
+			const bodyStyle = window.getComputedStyle(document.body);
+			const htmlStyle = window.getComputedStyle(document.documentElement);
+			if (bodyStyle.overflow === 'hidden' || htmlStyle.overflow === 'hidden') {
+				// Force unblock if still hidden
+				this.unblockPageScroll();
+			}
+		});
 	}
 	
 	// Open image modal for large display
