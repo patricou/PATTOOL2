@@ -502,16 +502,29 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							const newEvent = streamedEvent.data as Evenement;
 							const newEventId = newEvent.id || this.getEventKey(newEvent);
 							
-							// Skip if already in buffer
-							if (this.allStreamedEvents.some(e => {
+							// Check if event already exists in buffer
+							const existingIndex = this.allStreamedEvents.findIndex(e => {
 								const eId = e.id || this.getEventKey(e);
 								return eId === newEventId;
-							})) {
-								return;
-							}
+							});
 							
-							// Add event to buffer
-							this.allStreamedEvents.push(newEvent);
+							if (existingIndex >= 0) {
+								// Event already exists, replace it with the updated version to ensure we have the latest data
+								this.allStreamedEvents[existingIndex] = newEvent;
+								
+								// Also update in evenements if it's currently displayed
+								const displayedIndex = this.evenements.findIndex(e => {
+									const eId = e.id || this.getEventKey(e);
+									return eId === newEventId;
+								});
+								
+								if (displayedIndex >= 0) {
+									this.evenements[displayedIndex] = newEvent;
+								}
+							} else {
+								// Event not in buffer, add it
+								this.allStreamedEvents.push(newEvent);
+							}
 							
 							// Display only first 8 events (or less if not enough)
 							this.updateDisplayedEvents();
@@ -680,23 +693,73 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const currentCount = this.evenements.length;
 		const targetCount = Math.min(this.CARDS_PER_PAGE, this.allStreamedEvents.length);
 		
-		// Only update if we need to add more events (not remove)
-		if (currentCount < targetCount) {
-			// Add new events from buffer
-			const newEvents = this.allStreamedEvents.slice(currentCount, targetCount);
-			newEvents.forEach(event => {
-				if (!this.isEventAlreadyLoaded(event)) {
-					this.evenements.push(event);
-					// Load thumbnail for new event
-					const eId = event.id || this.getEventKey(event);
+		// Remove duplicates: if an event appears multiple times, keep only the first occurrence
+		const seenIds = new Set<string>();
+		for (let i = this.evenements.length - 1; i >= 0; i--) {
+			const eventId = this.evenements[i].id || this.getEventKey(this.evenements[i]);
+			if (eventId && seenIds.has(eventId)) {
+				// Duplicate found, remove it
+				this.evenements.splice(i, 1);
+			} else if (eventId) {
+				seenIds.add(eventId);
+			}
+		}
+		
+		// Ensure first event matches allStreamedEvents[0] if it exists (important for updated events)
+		if (this.allStreamedEvents.length > 0) {
+			const firstStreamedId = this.allStreamedEvents[0].id || this.getEventKey(this.allStreamedEvents[0]);
+			if (firstStreamedId) {
+				const firstDisplayedIndex = this.evenements.findIndex(e => {
+					const eId = e.id || this.getEventKey(e);
+					return eId === firstStreamedId;
+				});
+				
+				if (firstDisplayedIndex > 0) {
+					// First event is not at position 0, move it there
+					const firstEvent = this.evenements[firstDisplayedIndex];
+					this.evenements.splice(firstDisplayedIndex, 1);
+					this.evenements.unshift(firstEvent);
+				} else if (firstDisplayedIndex === 0) {
+					// Already at position 0, just update it to get latest data
+					this.evenements[0] = this.allStreamedEvents[0];
+				} else if (this.evenements.length === 0) {
+					// No events displayed yet, add the first one
+					this.evenements.push(this.allStreamedEvents[0]);
+					const eId = firstStreamedId;
 					if (eId) {
 						const loadingInfo: LoadingEventInfo = {
 							eventId: eId,
 							cardLoadStart: Date.now()
 						};
 						this.loadingEvents.set(eId, loadingInfo);
-						// Queue card load end to be processed in batch
 						this.pendingCardLoadEnds.add(eId);
+						this.scheduleCardLoadEndBatch();
+					}
+					this.queueThumbnailLoad(this.allStreamedEvents[0]);
+					this.loadFileThumbnails(this.allStreamedEvents[0]);
+				}
+			}
+		}
+		
+		// Only update if we need to add more events (not remove)
+		const updatedCount = this.evenements.length;
+		if (updatedCount < targetCount) {
+			// Add new events from buffer
+			const newEvents = this.allStreamedEvents.slice(updatedCount, targetCount);
+			
+			newEvents.forEach(event => {
+				const eventId = event.id || this.getEventKey(event);
+				if (!eventId || !this.isEventAlreadyLoaded(event)) {
+					this.evenements.push(event);
+					// Load thumbnail for new event
+					if (eventId) {
+						const loadingInfo: LoadingEventInfo = {
+							eventId: eventId,
+							cardLoadStart: Date.now()
+						};
+						this.loadingEvents.set(eventId, loadingInfo);
+						// Queue card load end to be processed in batch
+						this.pendingCardLoadEnds.add(eventId);
 						this.scheduleCardLoadEndBatch();
 					}
 					this.queueThumbnailLoad(event);
@@ -1014,14 +1077,18 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		});
 	}
 	
-	// Load thumbnails for all image files
+	// Load thumbnails for image files (only those with "thumbnail" in the name)
 	private loadFileThumbnails(evenement: Evenement): void {
 		if (!evenement.fileUploadeds || evenement.fileUploadeds.length === 0) {
 			return;
 		}
 		
-		// Filter image files and load their thumbnails
-		const imageFiles = evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
+		// Filter image files that have "thumbnail" in the name and load their thumbnails
+		const imageFiles = evenement.fileUploadeds.filter(file => 
+			this.isImageFile(file.fileName) && 
+			file.fileName && 
+			file.fileName.toLowerCase().includes('thumbnail')
+		);
 		
 		imageFiles.forEach(file => {
 			// Skip if already cached or loading
@@ -1394,6 +1461,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						const blob = new Blob([res], { type: 'application/octet-stream' });
 						const objectUrl = this.nativeWindow.URL.createObjectURL(blob);
 						const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+						
+						// Only cache blobs for files with "thumbnail" in the name
+						// Store the Blob in cache for potential recreation later (only for thumbnails)
+						if (thumbnailFile.fileName && thumbnailFile.fileName.toLowerCase().includes('thumbnail')) {
+							ElementEvenementComponent.setCachedBlob(thumbnailFile.fieldId, blob);
+						}
 						
 						// Cache in both places
 						this.eventThumbnails.set(eventId, safeUrl);
@@ -1920,23 +1993,46 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Fetch the specific event from backend
 		this._evenementsService.getEvenement(eventId).subscribe({
 			next: (evenement: Evenement) => {
-				// Add event at first position (array might be empty at this point)
+				const eventIdToMatch = evenement.id || this.getEventKey(evenement) || eventId;
+				
+				// Update both evenements and allStreamedEvents arrays
+				// Update evenements array
 				if (this.evenements.length === 0) {
 					this.evenements = [evenement];
 				} else {
 					// Check if event already exists in the array
-					const existingIndex = this.evenements.findIndex(e => 
-						e.id === evenement.id || this.getEventKey(e) === eventId
-					);
+					const existingIndex = this.evenements.findIndex(e => {
+						const eId = e.id || this.getEventKey(e);
+						return eId === eventIdToMatch;
+					});
 					
 					if (existingIndex >= 0) {
-						// Event already in array, move it to first position
-						const event = this.evenements[existingIndex];
+						// Event already in array, replace it with updated version and move to first position
 						this.evenements.splice(existingIndex, 1);
-						this.evenements.unshift(event);
+						this.evenements.unshift(evenement);
 					} else {
 						// Event not in array, add it at first position
 						this.evenements.unshift(evenement);
+					}
+				}
+				
+				// Also update allStreamedEvents array to keep it in sync
+				if (this.allStreamedEvents.length === 0) {
+					this.allStreamedEvents = [evenement];
+				} else {
+					// Check if event already exists in allStreamedEvents
+					const existingStreamIndex = this.allStreamedEvents.findIndex(e => {
+						const eId = e.id || this.getEventKey(e);
+						return eId === eventIdToMatch;
+					});
+					
+					if (existingStreamIndex >= 0) {
+						// Event already in streamed events, replace it with updated version and move to first position
+						this.allStreamedEvents.splice(existingStreamIndex, 1);
+						this.allStreamedEvents.unshift(evenement);
+					} else {
+						// Event not in streamed events, add it at first position
+						this.allStreamedEvents.unshift(evenement);
 					}
 				}
 				

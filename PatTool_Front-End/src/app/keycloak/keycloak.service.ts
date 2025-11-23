@@ -64,14 +64,64 @@ export class KeycloakService {
             resolve(<string>KeycloakService.auth.authz.token);
           })
           .error(() => {
-            console.log('Failed to refresh token');
-            // Don't redirect if token refresh fails - let the interceptor handle it
+            console.log('Failed to refresh token - session expired, redirecting to login');
+            // Session expired - redirect to Keycloak login
+            this.redirectToLogin();
             reject('Token refresh failed');
           });
       } else {
+        // No token available - redirect to login
+        console.log('No token available - redirecting to login');
+        this.redirectToLogin();
         reject('Not logged in');
       }
     });
+  }
+
+  /**
+   * Redirects to Keycloak login page when session has expired
+   */
+  redirectToLogin(): void {
+    try {
+      if (KeycloakService.auth.authz && typeof KeycloakService.auth.authz.login === 'function') {
+        // Use Keycloak's login method to redirect to login page
+        KeycloakService.auth.authz.login({
+          redirectUri: window.location.href
+        });
+      } else {
+        // If Keycloak is not initialized or login method not available, construct login URL manually
+        const loginUrl = this.getLoginUrl();
+        if (loginUrl) {
+          window.location.href = loginUrl;
+        } else {
+          console.error('Unable to construct login URL - Keycloak not properly initialized');
+        }
+      }
+    } catch (error) {
+      console.error('Error redirecting to login:', error);
+      // Fallback: try to construct URL manually
+      const loginUrl = this.getLoginUrl();
+      if (loginUrl) {
+        window.location.href = loginUrl;
+      }
+    }
+  }
+
+  /**
+   * Constructs the Keycloak login URL
+   */
+  private getLoginUrl(): string {
+    // Use values from Keycloak instance if available, otherwise use defaults
+    const authz = KeycloakService.auth.authz;
+    const authServerUrl = (authz && authz.authServerUrl) ? authz.authServerUrl : environment.keykloakBaseUrl;
+    const realm = (authz && authz.realm) ? authz.realm : 'pat-realm';
+    const clientId = (authz && authz.clientId) ? authz.clientId : 'tutorial-frontend';
+    const redirectUri = encodeURIComponent(window.location.href);
+    
+    // Remove trailing slash from authServerUrl if present
+    const baseUrl = authServerUrl.endsWith('/') ? authServerUrl.slice(0, -1) : authServerUrl;
+    
+    return `${baseUrl}/realms/${realm}/protocol/openid-connect/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=code&scope=openid`;
   }
 
   getTokenSync(): string {

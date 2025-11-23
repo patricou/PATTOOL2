@@ -4,11 +4,14 @@
     <div class="debug-info-panel-content" *ngIf="!debugInfoCollapsed">
         <div class="debug-info-header">
             <h6 class="mb-0">{{ 'EVENTHOME.DEBUG_INFO' | translate }}</h6>
+            <button type="button" class="btn btn-sm btn-close-debug" (click)="debugInfoCollapsed = true" [attr.aria-label]="'COMMUN.CLOSE' | translate">
+                <i class="fa fa-times"></i>
+            </button>
         </div>
         <div class="debug-info-body">
             <!-- Events Info -->
             <div class="debug-info-section">
-                <div class="debug-section-title">Événements</div>
+                <div class="debug-section-title">{{ 'EVENTHOME.DEBUG_SECTION_EVENTS' | translate }}</div>
                 <div class="debug-info-item">
                     <span class="debug-label">{{ 'EVENTHOME.DEBUG_VISIBLE_EVENTS' | translate }}:</span>
                     <span class="debug-value">{{ getVisibleEventsCount() }}</span>
@@ -31,21 +34,21 @@
 
             <!-- Caches Info -->
             <div class="debug-info-section">
-                <div class="debug-section-title">Caches</div>
+                <div class="debug-section-title">{{ 'EVENTHOME.DEBUG_SECTION_CACHES' | translate }}</div>
                 <div class="debug-info-item">
-                    <span class="debug-label">Event Thumbnails:</span>
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_EVENT_THUMBNAILS' | translate }}</span>
                     <span class="debug-value">{{ getCachedThumbnailsCount() }}</span>
                 </div>
                 <div class="debug-info-item">
-                    <span class="debug-label">File Thumbnails:</span>
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_FILE_THUMBNAILS' | translate }}</span>
                     <span class="debug-value">{{ getFileThumbnailsCacheCount() }}</span>
                 </div>
                 <div class="debug-info-item">
-                    <span class="debug-label">Event Colors:</span>
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_EVENT_COLORS' | translate }}</span>
                     <span class="debug-value">{{ getEventColorsCacheCount() }}</span>
                 </div>
                 <div class="debug-info-item">
-                    <span class="debug-label">Pending Thumbnail Loads:</span>
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_PENDING_THUMBNAIL_LOADS' | translate }}</span>
                     <span class="debug-value" [class.text-warning]="getPendingThumbnailLoadsCount() > 0">
                         {{ getPendingThumbnailLoadsCount() }}
                     </span>
@@ -54,7 +57,7 @@
 
             <!-- Loading Info -->
             <div class="debug-info-section">
-                <div class="debug-section-title">Chargement</div>
+                <div class="debug-section-title">{{ 'EVENTHOME.DEBUG_SECTION_LOADING' | translate }}</div>
                 <div class="debug-info-item">
                     <span class="debug-label">{{ 'EVENTHOME.DEBUG_IS_LOADING' | translate }}:</span>
                     <span class="debug-value" [class.text-success]="!isLoading" [class.text-warning]="isLoading">
@@ -85,7 +88,7 @@
 
             <!-- Other Info -->
             <div class="debug-info-section">
-                <div class="debug-section-title">Autres</div>
+                <div class="debug-section-title">{{ 'EVENTHOME.DEBUG_SECTION_OTHER' | translate }}</div>
                 <div class="debug-info-item">
                     <span class="debug-label">{{ 'EVENTHOME.DEBUG_FILTER' | translate }}:</span>
                     <span class="debug-value">{{ dataFIlter || ('EVENTHOME.DEBUG_EMPTY' | translate) }}</span>

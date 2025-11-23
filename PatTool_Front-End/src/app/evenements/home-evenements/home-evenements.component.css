@@ -4168,12 +4168,37 @@
     top: 0;
     background: rgba(255, 255, 255, 0.95);
     z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .debug-info-panel-content .debug-info-header h6 {
     color: #495057;
     font-weight: 700;
     font-size: 0.9rem;
+    margin: 0;
+}
+
+.debug-info-panel-content .debug-info-header .btn-close-debug {
+    background: transparent;
+    border: none;
+    color: #6c757d;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+    transition: color 0.2s ease;
+}
+
+.debug-info-panel-content .debug-info-header .btn-close-debug:hover {
+    color: #dc3545;
+    background: transparent;
+}
+
+.debug-info-panel-content .debug-info-header .btn-close-debug:focus {
+    outline: none;
+    box-shadow: none;
 }
 
 .debug-info-panel-content .debug-info-body {

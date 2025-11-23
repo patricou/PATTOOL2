@@ -259,6 +259,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		ElementEvenementComponent.blobUrlCache.set(fileId, safeUrl);
 	}
 	
+	// Public static method to cache a blob (only for thumbnails)
+	public static setCachedBlob(fileId: string, blob: Blob): void {
+		ElementEvenementComponent.blobCache.set(fileId, blob);
+	}
+	
 	// Public static method to get cached thumbnails count
 	public static getCachedThumbnailsCount(): number {
 		return ElementEvenementComponent.blobUrlCache.size;
@@ -1475,8 +1480,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						this._fileService.getFile(fileUploaded.fieldId).pipe(
 							map((res: any) => {
 								let blob = new Blob([res], { type: 'application/octet-stream' });
-								// Store the Blob in cache for potential recreation later
-								ElementEvenementComponent.blobCache.set(fileUploaded.fieldId, blob);
+								// Only cache blobs for files with "thumbnail" in the name
+								// Store the Blob in cache for potential recreation later (only for thumbnails)
+								if (fileUploaded.fileName && fileUploaded.fileName.toLowerCase().includes('thumbnail')) {
+									ElementEvenementComponent.blobCache.set(fileUploaded.fieldId, blob);
+								}
 								let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
 								return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
 							})
@@ -2499,14 +2507,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 	}
 	
-	// Load thumbnails for all image files
+	// Load thumbnails for image files (only those with "thumbnail" in the name)
 	private loadFileThumbnails(): void {
 		if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
 			return;
 		}
 		
-		// Filter image files and load their thumbnails
-		const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
+		// Filter image files that have "thumbnail" in the name and load their thumbnails
+		const imageFiles = this.evenement.fileUploadeds.filter(file => 
+			this.isImageFile(file.fileName) && 
+			file.fileName && 
+			file.fileName.toLowerCase().includes('thumbnail')
+		);
 		
 		imageFiles.forEach(file => {
 			// Skip if already cached or loading

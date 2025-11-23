@@ -253,7 +253,7 @@
                 <i class="fa fa-user-circle user-modal-icon"></i>
                 <h5 class="user-modal-title">{{"USERINFO.TITLE" | translate }}</h5>
             </div>
-            <button type="button" class="user-modal-close" aria-label="Close" (click)="d('Cross click')">
+            <button type="button" class="user-modal-close" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="d('Cross click')">
                 <i class="fa fa-times"></i>
             </button>
         </div>
@@ -270,7 +270,7 @@
                             <span class="flex-grow-1">{{user.addressEmail}}</span>
                             <button class="btn btn-sm btn-outline-primary ms-2" 
                                     (click)="sendEmail(user.addressEmail)"
-                                    title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
+                                    [attr.title]="'EVENTELEM.SEND_EMAIL' | translate">
                                 <i class="fa fa-envelope"></i>
                             </button>
                         </div>
@@ -342,7 +342,7 @@
 <ng-template #uploadfilecontent let-c="close" let-d="dismiss">
     <div class="modal-content pat-upload-modal">
         <div class="modal-header pat-modal-header">
-            <button type="button" class="btn btn-outline-light btn-sm rounded-circle modal-close-btn-left" (click)="c('Close click')" aria-label="Close">
+            <button type="button" class="btn btn-outline-light btn-sm rounded-circle modal-close-btn-left" (click)="c('Close click')" [attr.aria-label]="'COMMUN.CLOSE' | translate">
                 <i class="fa fa-times"></i>
             </button>
             <div class="modal-title-container">
@@ -436,7 +436,7 @@
                                     <button type="button" 
                                             class="file-remove-btn" 
                                             (click)="removeFile(i); $event.stopPropagation()"
-                                            title="Remove file">
+                                            [attr.title]="'UPLOADFILE.REMOVE_FILE' | translate">
                                         <i class="fa fa-times"></i>
                                     </button>
                                 </div>
@@ -530,7 +530,7 @@
 <ng-template #sharefilecontent let-c="close" let-d="dismiss">
     <div class="modal-content pat-upload-modal">
         <div class="modal-header pat-modal-header">
-            <button type="button" class="btn btn-outline-light btn-sm rounded-circle modal-close-btn-left" (click)="c('Close click')" aria-label="Close">
+            <button type="button" class="btn btn-outline-light btn-sm rounded-circle modal-close-btn-left" (click)="c('Close click')" [attr.aria-label]="'COMMUN.CLOSE' | translate">
                 <i class="fa fa-times"></i>
             </button>
             <div class="modal-title-container">
@@ -620,7 +620,7 @@
                                     <button type="button" 
                                             class="file-remove-btn" 
                                             (click)="removeShareFile(i); $event.stopPropagation()"
-                                            title="Remove file">
+                                            [attr.title]="'UPLOADFILE.REMOVE_FILE' | translate">
                                         <i class="fa fa-times"></i>
                                     </button>
                                 </div>

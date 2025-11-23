@@ -1,9 +1,8 @@
 import { Injectable } from '@angular/core';
-import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent } from '@angular/common/http';
+import { HttpInterceptor, HttpRequest, HttpHandler, HttpEvent, HttpErrorResponse } from '@angular/common/http';
 import { KeycloakService } from './keycloak.service';
-import { Observable, from } from 'rxjs';
+import { Observable, from, throwError } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
-import { of } from 'rxjs';
 
 /**
  * This provides an HTTP interceptor that adds the Keycloak token to each request.
@@ -41,16 +40,38 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                     const authReq = req.clone({
                         headers: req.headers.set('Authorization', 'Bearer ' + token)
                     });
-                    return next.handle(authReq);
+                    return next.handle(authReq).pipe(
+                        catchError((error: HttpErrorResponse) => {
+                            // Handle 401 Unauthorized - session expired
+                            if (error.status === 401) {
+                                console.log('Received 401 Unauthorized - session expired, redirecting to login');
+                                this.keycloakService.redirectToLogin();
+                                return throwError(() => error);
+                            }
+                            return throwError(() => error);
+                        })
+                    );
                 } else {
                     // If no token available, proceed without auth header
-                    // This allows the request to fail with 401 which Keycloak can handle
-                    return next.handle(req);
+                    // This allows the request to fail with 401 which will be caught and handled
+                    return next.handle(req).pipe(
+                        catchError((error: HttpErrorResponse) => {
+                            // Handle 401 Unauthorized - session expired
+                            if (error.status === 401) {
+                                console.log('Received 401 Unauthorized - no token available, redirecting to login');
+                                this.keycloakService.redirectToLogin();
+                            }
+                            return throwError(() => error);
+                        })
+                    );
                 }
             }),
             catchError(error => {
-                // If token retrieval fails, proceed without auth header
-                return next.handle(req);
+                // If token retrieval fails (session expired), redirect to login
+                console.log('Token retrieval failed - redirecting to login');
+                this.keycloakService.redirectToLogin();
+                // Return error to prevent the request from proceeding
+                return throwError(() => error);
             })
         );
     }
