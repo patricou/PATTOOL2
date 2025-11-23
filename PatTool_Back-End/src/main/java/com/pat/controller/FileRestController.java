@@ -2,8 +2,7 @@ package com.pat.controller;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mongodb.BasicDBObject;
-import com.mongodb.DBObject;
+import org.bson.Document;
 import com.mongodb.client.gridfs.model.GridFSFile;
 import com.pat.repo.domain.Evenement;
 import com.pat.repo.domain.FileUploaded;
@@ -617,7 +616,8 @@ public class FileRestController {
                         fileIndex + 1, files.length, filedata.getOriginalFilename(), filedata.getSize() / 1024));
                 }
 
-                DBObject metaData = new BasicDBObject();
+                // Use modern Document API instead of deprecated DBObject
+                Document metaData = new Document();
                 metaData.put("UploaderName", uploaderMember.getFirstName()+" "+uploaderMember.getLastName());
                 metaData.put("UploaderId", uploaderMember.getId());
 
