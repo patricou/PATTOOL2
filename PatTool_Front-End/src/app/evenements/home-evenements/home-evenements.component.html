@@ -22,7 +22,7 @@
                 </div>
                 <div class="debug-info-item">
                     <span class="debug-label">{{ 'EVENTHOME.DEBUG_TOTAL_AVAILABLE' | translate }}:</span>
-                    <span class="debug-value">{{ filteredTotal }}</span>
+                    <span class="debug-value">{{ getAllStreamedEventsCount() }}</span>
                 </div>
                 <div class="debug-info-item">
                     <span class="debug-label">{{ 'EVENTHOME.DEBUG_HAS_MORE' | translate }}:</span>
@@ -164,9 +164,13 @@
                                     (click)="debugInfoCollapsed = !debugInfoCollapsed">
                                     <i class="fa fa-info-circle"></i>
                                 </button>
+                                <div class="mobile-results-badge me-1"
+                                    [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
+                                    <span class="count-value">{{ getVisibleEventsCount() }}</span>
+                                </div>
                                 <div class="mobile-results-badge"
                                     [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
-                                    <span class="count-value">{{ filteredTotal }}</span>
+                                    <span class="count-value">{{ getAllStreamedEventsCount() }}</span>
                                 </div>
                                 <button class="btn btn-sm btn-outline-primary btn-toggle-view-mobile" (click)="toggleViewMode()"
                                     [ngbTooltip]="('EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate)"
@@ -186,10 +190,15 @@
                             (click)="debugInfoCollapsed = !debugInfoCollapsed">
                             <i class="fa fa-info-circle"></i>
                         </button>
+                        <div class="results-counter-redesigned me-2"
+                            [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
+                            <i class="fa fa-list-alt results-icon-redesigned"></i>
+                            <span class="count-value-redesigned">{{ getVisibleEventsCount() }}</span>
+                        </div>
                         <div class="results-counter-redesigned"
                             [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
                             <i class="fa fa-list-alt results-icon-redesigned"></i>
-                            <span class="count-value-redesigned">{{ filteredTotal }}</span>
+                            <span class="count-value-redesigned">{{ getAllStreamedEventsCount() }}</span>
                         </div>
                     </div>
 

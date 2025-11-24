@@ -536,6 +536,7 @@
         "BACKEND": "Back End",
         "DATA": "Data",
         "SECURITY": "Security",
+        "STREAMING": "Streaming",
         "REF": "Imagined, designed and implemented by"
     },
     "USERINFO": {
@@ -623,7 +624,9 @@
         "API_DESC": "RESTful API with comprehensive documentation",
         "SWAGGER_DOCS": "Swagger Documentation",
         "DATA_PERSISTENCE": "Data Persistence",
-        "MONGODB_DESC": "NoSQL document database with authentication",
+        "MONGODB": "MongoDB",
+        "MONGODB_DESC": "Cloud NoSQL document database with authentication",
+        "MONGODB_ATLAS": "MongoDB Atlas",
         "FIREBASE_CONSOLE": "Firebase Console",
         "FIREBASE_DESC": "Real-time chat functionality",
         "KEYCLOAK_AUTH": "Keycloak Authentication",
@@ -646,7 +649,18 @@
         "LOADING": "Loading...",
         "REFRESH_REPORT": "Refresh",
         "REPORT_OVERLAY_TITLE": "Exception & Connection report (last 7 days)",
-        "CLOSE_OVERLAY": "Close preview"
+        "CLOSE_OVERLAY": "Close preview",
+        "STREAMING_ARCHITECTURE": "Streaming Architecture",
+        "STREAMING_ARCHITECTURE_DESC": "Hybrid streaming system with client-side caching",
+        "STREAMING_OVERVIEW": "The system uses a hybrid approach: backend streams ALL events once via Server-Sent Events (SSE), frontend caches ALL events in memory, and displays only 8 at a time with client-side pagination.",
+        "STREAMING_BACKEND": "Server Streaming",
+        "STREAMING_BACKEND_DESC": "Backend streams all matching events from MongoDB 8.2 via SSE, one by one, in real-time.",
+        "STREAMING_FRONTEND": "Frontend Caching",
+        "STREAMING_FRONTEND_DESC": "Frontend caches all events in memory. Scrolling uses cached data - NO backend calls.",
+        "STREAMING_BENEFITS": "Benefits",
+        "STREAMING_BENEFITS_DESC": "Fast scrolling with no network latency, instant display of next 8 events, offline-ready, instant search/filter on cached data.",
+        "STREAMING_APPROACH": "Approach",
+        "STREAMING_APPROACH_DESC": "Stream once, cache all, client-side pagination"
     },
     "LINKS": {
         "TITLE": "Links",

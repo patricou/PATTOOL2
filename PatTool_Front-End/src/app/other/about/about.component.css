@@ -19,6 +19,7 @@
     background: #f8f9fa;
     padding: 0;
     margin: 0;
+    font-family: "Open Sans", sans-serif;
 }
 
 /* Hero Section - Now using global .pat-title class */
@@ -26,14 +27,16 @@
 /* Main Content */
 .main-content {
     padding: 20px 15px;
-    max-width: 1200px;
+    max-width: 98%;
+    width: 98%;
     margin: 0 auto;
+    font-family: "Open Sans", sans-serif;
 }
 
 /* Tech Grid */
 .tech-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 15px;
     margin-bottom: 20px;
 }
@@ -48,6 +51,7 @@
     transition: all 0.3s ease;
     overflow: hidden;
     position: relative;
+    font-family: "Open Sans", sans-serif;
 }
 
 .tech-card:hover {
@@ -62,6 +66,10 @@
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+.streaming-card .card-header {
+    background: linear-gradient(135deg, #28a745, #20c997);
 }
 
 .card-header i {
@@ -80,6 +88,7 @@
     margin: 0;
     font-size: 0.9rem;
     font-weight: 600;
+    font-family: "Open Sans", sans-serif;
     flex: 1;
     text-overflow: initial !important;
     overflow: visible !important;
@@ -91,6 +100,7 @@
 
 .card-content {
     padding: 15px;
+    font-family: "Open Sans", sans-serif;
 }
 
 /* Tech Items */
@@ -129,6 +139,7 @@
     margin: 0 0 4px 0;
     font-size: 0.85rem;
     font-weight: 600;
+    font-family: "Open Sans", sans-serif;
     color: #333;
 }
 
@@ -137,6 +148,7 @@
     color: #666;
     line-height: 1.3;
     font-size: 0.75rem;
+    font-family: "Open Sans", sans-serif;
 }
 
 .report-control-panel {
@@ -172,6 +184,7 @@
     margin: 0;
     font-size: 0.95rem;
     font-weight: 700;
+    font-family: "Open Sans", sans-serif;
     color: #12263f;
     letter-spacing: 0.01em;
 }
@@ -180,6 +193,7 @@
     margin: 4px 0 0;
     color: #495057;
     font-size: 0.78rem;
+    font-family: "Open Sans", sans-serif;
     max-width: 420px;
     line-height: 1.35;
 }
@@ -198,6 +212,7 @@
     border-radius: 999px;
     font-weight: 600;
     font-size: 0.78rem;
+    font-family: "Open Sans", sans-serif;
     letter-spacing: 0.01em;
     padding: 0.5rem 1.15rem;
     transition: transform 0.18s ease, background 0.18s ease;
@@ -363,6 +378,7 @@
     color: #fff;
     font-weight: 600;
     font-size: 1rem;
+    font-family: "Open Sans", sans-serif;
 }
 
 .report-overlay-title {
@@ -433,6 +449,7 @@
     border-radius: 8px;
     font-size: 0.65rem;
     font-weight: 500;
+    font-family: "Open Sans", sans-serif;
     border: 1px solid rgba(102, 126, 234, 0.2);
 }
 
@@ -454,6 +471,7 @@
     border-radius: 6px;
     font-size: 0.7rem;
     font-weight: 500;
+    font-family: "Open Sans", sans-serif;
     transition: all 0.3s ease;
     border: 1px solid rgba(102, 126, 234, 0.2);
 }
@@ -483,12 +501,14 @@
     margin-bottom: 8px;
     color: #333;
     font-size: 1rem;
+    font-family: "Open Sans", sans-serif;
 }
 
 .storage-item p {
     margin: 8px 0 0 0;
     font-size: 0.9rem;
     color: #666;
+    font-family: "Open Sans", sans-serif;
 }
 
 /* Author Section */
@@ -500,6 +520,7 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     border: 1px solid #dee2e6;
     margin: 0 20%;
+    font-family: "Open Sans", sans-serif;
 }
 
 .author-content {
@@ -512,12 +533,14 @@
     margin-bottom: 8px;
     color: #333;
     font-weight: 600;
+    font-family: "Open Sans", sans-serif;
 }
 
 .author-info p {
     color: #666;
     margin-bottom: 20px;
     font-size: 1rem;
+    font-family: "Open Sans", sans-serif;
 }
 
 .business-card {
@@ -549,6 +572,7 @@
     margin-bottom: 10px;
     color: #333;
     font-weight: 600;
+    font-family: "Open Sans", sans-serif;
 }
 
 .website-link {
@@ -557,6 +581,7 @@
     text-decoration: none;
     font-size: 1.1rem;
     font-weight: 500;
+    font-family: "Open Sans", sans-serif;
     margin-bottom: 10px;
     transition: color 0.3s ease;
 }
@@ -568,10 +593,18 @@
 .copyright {
     color: #999;
     font-size: 0.9rem;
+    font-family: "Open Sans", sans-serif;
     margin: 0;
 }
 
 /* Responsive Design */
+@media (max-width: 1400px) {
+    .tech-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+    }
+}
+
 @media (max-width: 1200px) {
     .tech-grid {
         grid-template-columns: repeat(2, 1fr);

@@ -112,7 +112,7 @@ public class ExceptionReportScheduler {
 
     /**
      * Generate and send the exception/connection report email in HTML format
-     * Simplified version: Only shows user connections (factorized by user) and exceptions (factorized by IP)
+     * Simplified version: Only shows user connections and IPs with exceptions/connection attempts
      * @param exceptions Map of exceptions by IP address
      * @param connections Map of connections by IP address
      * @param logs Map of log messages by IP address (not used in simplified report)
@@ -130,8 +130,8 @@ public class ExceptionReportScheduler {
         LocalDateTime reportStart = null;
         LocalDateTime reportEnd = null;
 
-        // Build user connection summary (factorized by user)
-        Map<String, UserConnectionData> userConnectionMap = new LinkedHashMap<>();
+        // Build user connections list (one row per connection)
+        List<UserConnectionRow> userConnectionRows = new ArrayList<>();
         for (Map.Entry<String, List<ExceptionTrackingService.ConnectionInfo>> entry : connections.entrySet()) {
             String ipAddress = entry.getKey();
             List<ExceptionTrackingService.ConnectionInfo> connectionList = entry.getValue();
@@ -142,6 +142,7 @@ public class ExceptionReportScheduler {
             IpGeolocationService.IPInfo ipInfo = getIpInfo(ipInfoCache, ipAddress);
             String domainName = formatDomainName(ipInfo);
             String location = formatLocation(ipInfo);
+            String country = extractCountry(location);
 
             for (ExceptionTrackingService.ConnectionInfo info : connectionList) {
                 if (info == null) {
@@ -160,18 +161,22 @@ public class ExceptionReportScheduler {
                 String normalizedUserRaw = normalizeUser(info);
                 String normalizedUser = (normalizedUserRaw == null || normalizedUserRaw.isEmpty()) ? "N/A" : normalizedUserRaw;
 
-                UserConnectionData userData = userConnectionMap.computeIfAbsent(
-                        normalizedUser,
-                        k -> new UserConnectionData(normalizedUser)
-                );
-                userData.addConnection(ipAddress, domainName, location, timestamp);
+                userConnectionRows.add(new UserConnectionRow(
+                    normalizedUser,
+                    ipAddress,
+                    domainName,
+                    location,
+                    country,
+                    timestamp
+                ));
             }
         }
-        List<UserConnectionData> userConnections = new ArrayList<>(userConnectionMap.values());
-        userConnections.sort(Comparator.comparingInt(UserConnectionData::getTotalConnections).reversed());
+        userConnectionRows.sort(Comparator.comparing(UserConnectionRow::getTimestamp).reversed());
 
-        // Build exception summary (factorized by IP)
-        List<ExceptionIPData> exceptionIPList = new ArrayList<>();
+        // Build IP exception/attempt summary (grouped by IP with count)
+        Map<String, IPAttemptData> ipAttemptMap = new LinkedHashMap<>();
+        
+        // Add exceptions
         for (Map.Entry<String, List<ExceptionTrackingService.ExceptionInfo>> entry : exceptions.entrySet()) {
             String ipAddress = entry.getKey();
             List<ExceptionTrackingService.ExceptionInfo> exceptionList = entry.getValue();
@@ -182,8 +187,13 @@ public class ExceptionReportScheduler {
             IpGeolocationService.IPInfo ipInfo = getIpInfo(ipInfoCache, ipAddress);
             String domainName = formatDomainName(ipInfo);
             String location = formatLocation(ipInfo);
+            String country = extractCountry(location);
 
-            ExceptionIPData exceptionData = new ExceptionIPData(ipAddress, domainName, location);
+            IPAttemptData attemptData = ipAttemptMap.computeIfAbsent(
+                ipAddress,
+                k -> new IPAttemptData(ipAddress, domainName, location, country)
+            );
+
             for (ExceptionTrackingService.ExceptionInfo info : exceptionList) {
                 if (info == null) {
                     continue;
@@ -196,12 +206,48 @@ public class ExceptionReportScheduler {
                     if (reportEnd == null || timestamp.isAfter(reportEnd)) {
                         reportEnd = timestamp;
                     }
-                    exceptionData.addTimestamp(timestamp);
+                    attemptData.addTimestamp(timestamp);
                 }
             }
-            exceptionIPList.add(exceptionData);
         }
-        exceptionIPList.sort(Comparator.comparingInt(ExceptionIPData::getCount).reversed());
+        
+        // Add connection attempts from logs (IPs that tried to connect but may not have succeeded)
+        for (Map.Entry<String, List<ExceptionTrackingService.LogInfo>> entry : logs.entrySet()) {
+            String ipAddress = entry.getKey();
+            List<ExceptionTrackingService.LogInfo> logList = entry.getValue();
+            if (logList == null || logList.isEmpty()) {
+                continue;
+            }
+
+            IpGeolocationService.IPInfo ipInfo = getIpInfo(ipInfoCache, ipAddress);
+            String domainName = formatDomainName(ipInfo);
+            String location = formatLocation(ipInfo);
+            String country = extractCountry(location);
+
+            IPAttemptData attemptData = ipAttemptMap.computeIfAbsent(
+                ipAddress,
+                k -> new IPAttemptData(ipAddress, domainName, location, country)
+            );
+
+            for (ExceptionTrackingService.LogInfo info : logList) {
+                if (info == null) {
+                    continue;
+                }
+                LocalDateTime timestamp = info.getTimestamp();
+                if (timestamp != null) {
+                    if (reportStart == null || timestamp.isBefore(reportStart)) {
+                        reportStart = timestamp;
+                    }
+                    if (reportEnd == null || timestamp.isAfter(reportEnd)) {
+                        reportEnd = timestamp;
+                    }
+                    attemptData.addTimestamp(timestamp);
+                }
+            }
+        }
+        
+        List<IPAttemptData> ipAttemptList = new ArrayList<>(ipAttemptMap.values());
+        ipAttemptList.sort(Comparator.comparingInt(IPAttemptData::getCount).reversed());
 
         String reportFrom = reportStart != null ? escapeHtml(formatDateTime(reportStart)) : "N/A";
         String reportTo = reportEnd != null ? escapeHtml(formatDateTime(reportEnd)) : "N/A";
@@ -210,7 +256,7 @@ public class ExceptionReportScheduler {
         String subject = "[PatTool] " + reportType + " - " + 
                         totalConnections + " connections, " + totalExceptions + " exceptions";
         
-        // Generate simplified HTML email body with anti-spam best practices
+        // Generate simplified HTML email body
         StringBuilder bodyBuilder = new StringBuilder();
         bodyBuilder.append("<!DOCTYPE html>");
         bodyBuilder.append("<html lang='en'>");
@@ -220,92 +266,90 @@ public class ExceptionReportScheduler {
         bodyBuilder.append("<meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>");
         bodyBuilder.append("<title>").append(escapeHtml(subject)).append("</title>");
         bodyBuilder.append("<style type='text/css'>");
-        // Inline styles for better email client compatibility
-        bodyBuilder.append("body { font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; background-color: #f5f5f5; margin: 0; padding: 10px; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }");
+        bodyBuilder.append("body { font-family: Arial, Helvetica, sans-serif; font-size: 14px; line-height: 1.6; color: #333333; background-color: #f5f5f5; margin: 0; padding: 10px; }");
         bodyBuilder.append(".header { background-color: #667eea; color: #ffffff; padding: 15px; border-radius: 5px; margin-bottom: 15px; }");
         bodyBuilder.append(".header h1 { margin: 0; font-size: 18px; font-weight: bold; }");
         bodyBuilder.append(".section { background-color: #ffffff; margin: 15px 0; padding: 15px; border-radius: 5px; border: 1px solid #e0e0e0; }");
         bodyBuilder.append(".section-header { background-color: #667eea; color: #ffffff; padding: 10px; margin: -15px -15px 15px -15px; border-radius: 5px 5px 0 0; font-weight: bold; }");
         bodyBuilder.append(".connection-section { border-left: 4px solid #28a745; }");
         bodyBuilder.append(".exception-section { border-left: 4px solid #dc3545; }");
-        bodyBuilder.append(".info-item { margin: 5px 0; padding: 5px 0; }");
-        bodyBuilder.append(".label { font-weight: bold; color: #555555; }");
-        bodyBuilder.append(".value { color: #333333; }");
-        bodyBuilder.append("table { width: 100%; border-collapse: collapse; margin: 10px 0; max-width: 100%; }");
+        bodyBuilder.append("table { width: 100%; border-collapse: collapse; margin: 10px 0; }");
         bodyBuilder.append("th, td { padding: 8px; border: 1px solid #dddddd; text-align: left; word-wrap: break-word; }");
         bodyBuilder.append("th { background-color: #667eea; color: #ffffff; font-weight: bold; }");
         bodyBuilder.append("tr:nth-child(even) { background-color: #f8f9fa; }");
-        bodyBuilder.append(".timestamp { color: #6c757d; font-size: 12px; }");
-        bodyBuilder.append("@media only screen and (max-width: 600px) { table { width: 100% !important; } }");
         bodyBuilder.append("</style>");
         bodyBuilder.append("</head>");
         bodyBuilder.append("<body>");
         
         // Header
-        bodyBuilder.append("<div class='header'><h1>📊 USER CONNECTIONS & EXCEPTIONS REPORT (Last 7 Days)</h1></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>Type:</span> <span class='value'>").append(escapeHtml(reportType)).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>Generated on:</span> <span class='value'>").append(escapeHtml(formatDateTime(LocalDateTime.now()))).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>Report period:</span> <span class='value'>").append(reportFrom).append(" → ").append(reportTo).append("</span></div>");
+        bodyBuilder.append("<div class='header'><h1>📊 RAPPORT DE CONNEXIONS ET TENTATIVES (7 Derniers Jours)</h1></div>");
+        bodyBuilder.append("<div style='margin: 10px 0;'><strong>Type:</strong> ").append(escapeHtml(reportType)).append("</div>");
+        bodyBuilder.append("<div style='margin: 10px 0;'><strong>Généré le:</strong> ").append(escapeHtml(formatDateTime(LocalDateTime.now()))).append("</div>");
+        bodyBuilder.append("<div style='margin: 10px 0;'><strong>Période:</strong> ").append(reportFrom).append(" → ").append(reportTo).append("</div>");
 
-        // ========== SECTION 1: USER CONNECTIONS (Factorized by User) ==========
-        if (!userConnections.isEmpty()) {
+        // ========== SECTION 1: USER CONNECTIONS ==========
+        if (!userConnectionRows.isEmpty()) {
             bodyBuilder.append("<div class='section connection-section'>");
-            bodyBuilder.append("<div class='section-header'>🔵 USER CONNECTIONS (Factorized by User)</div>");
+            bodyBuilder.append("<div class='section-header'>🔵 UTILISATEURS CONNECTÉS (7 Derniers Jours)</div>");
             bodyBuilder.append("<table>");
             bodyBuilder.append("<tr>");
-            bodyBuilder.append("<th>User</th>");
+            bodyBuilder.append("<th>Utilisateur</th>");
+            bodyBuilder.append("<th>Date/Heure</th>");
             bodyBuilder.append("<th>IP</th>");
-            bodyBuilder.append("<th>Domain Name</th>");
-            bodyBuilder.append("<th>Location</th>");
-            bodyBuilder.append("<th>DateTimes</th>");
+            bodyBuilder.append("<th>Local</th>");
+            bodyBuilder.append("<th>Domaine</th>");
+            bodyBuilder.append("<th>Pays</th>");
             bodyBuilder.append("</tr>");
             
-            for (UserConnectionData userData : userConnections) {
-                for (UserConnectionData.ConnectionEntry entry : userData.getConnections()) {
-                    bodyBuilder.append("<tr>");
-                    bodyBuilder.append("<td>").append(escapeHtml(userData.getUser())).append("</td>");
-                    bodyBuilder.append("<td>").append(escapeHtml(entry.getIp())).append("</td>");
-                    bodyBuilder.append("<td>").append(escapeHtml(entry.getDomainName())).append("</td>");
-                    bodyBuilder.append("<td>").append(escapeHtml(entry.getLocation())).append("</td>");
-                    bodyBuilder.append("<td class='timestamp'>").append(entry.formatTimestamps(this::formatDateTime, this::escapeHtml)).append("</td>");
-                    bodyBuilder.append("</tr>");
-                }
-            }
-            bodyBuilder.append("</table>");
-            bodyBuilder.append("</div>");
-        }
-
-        // ========== SECTION 2: EXCEPTIONS (Factorized by IP) ==========
-        if (!exceptionIPList.isEmpty()) {
-            bodyBuilder.append("<div class='section exception-section'>");
-            bodyBuilder.append("<div class='section-header'>🔴 EXCEPTIONS (Factorized by IP)</div>");
-            bodyBuilder.append("<table>");
-            bodyBuilder.append("<tr>");
-            bodyBuilder.append("<th>IP</th>");
-            bodyBuilder.append("<th>Domain Name</th>");
-            bodyBuilder.append("<th>Location</th>");
-            bodyBuilder.append("<th>DateTimes</th>");
-            bodyBuilder.append("<th>Count</th>");
-            bodyBuilder.append("</tr>");
-            
-            for (ExceptionIPData exceptionData : exceptionIPList) {
+            for (UserConnectionRow row : userConnectionRows) {
                 bodyBuilder.append("<tr>");
-                bodyBuilder.append("<td>").append(escapeHtml(exceptionData.getIp())).append("</td>");
-                bodyBuilder.append("<td>").append(escapeHtml(exceptionData.getDomainName())).append("</td>");
-                bodyBuilder.append("<td>").append(escapeHtml(exceptionData.getLocation())).append("</td>");
-                bodyBuilder.append("<td class='timestamp'>").append(exceptionData.formatTimestamps(this::formatDateTime, this::escapeHtml)).append("</td>");
-                bodyBuilder.append("<td>").append(exceptionData.getCount()).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(row.getUser())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(formatDateTime(row.getTimestamp()))).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(row.getIp())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(row.getLocation())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(row.getDomain())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(row.getCountry())).append("</td>");
                 bodyBuilder.append("</tr>");
             }
             bodyBuilder.append("</table>");
             bodyBuilder.append("</div>");
         }
 
-        // Add footer with proper email etiquette
+        // ========== SECTION 2: IP ATTEMPTS/EXCEPTIONS ==========
+        if (!ipAttemptList.isEmpty()) {
+            bodyBuilder.append("<div class='section exception-section'>");
+            bodyBuilder.append("<div class='section-header'>🔴 IPs AVEC TENTATIVES/CONNEXIONS OU EXCEPTIONS</div>");
+            bodyBuilder.append("<table>");
+            bodyBuilder.append("<tr>");
+            bodyBuilder.append("<th>Date</th>");
+            bodyBuilder.append("<th>IP</th>");
+            bodyBuilder.append("<th>Local</th>");
+            bodyBuilder.append("<th>Pays</th>");
+            bodyBuilder.append("<th>Domaine</th>");
+            bodyBuilder.append("<th>Date/Heure</th>");
+            bodyBuilder.append("<th>Nombre</th>");
+            bodyBuilder.append("</tr>");
+            
+            for (IPAttemptData attemptData : ipAttemptList) {
+                String firstDate = attemptData.getFirstDate();
+                String allTimestamps = attemptData.formatTimestamps(this::formatDateTime, this::escapeHtml);
+                bodyBuilder.append("<tr>");
+                bodyBuilder.append("<td>").append(escapeHtml(firstDate)).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(attemptData.getIp())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(attemptData.getLocation())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(attemptData.getCountry())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(attemptData.getDomain())).append("</td>");
+                bodyBuilder.append("<td>").append(allTimestamps).append("</td>");
+                bodyBuilder.append("<td>").append(attemptData.getCount()).append("</td>");
+                bodyBuilder.append("</tr>");
+            }
+            bodyBuilder.append("</table>");
+            bodyBuilder.append("</div>");
+        }
+
+        // Footer
         bodyBuilder.append("<div style='margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-top: 2px solid #e0e0e0; font-size: 12px; color: #666666;'>");
-        bodyBuilder.append("<p style='margin: 5px 0;'>This is an automated system report from PatTool Application.</p>");
-        bodyBuilder.append("<p style='margin: 5px 0;'>Report generated automatically on ").append(escapeHtml(formatDateTime(LocalDateTime.now()))).append("</p>");
-        bodyBuilder.append("<p style='margin: 5px 0;'>This email contains system monitoring information for the last 7 days.</p>");
+        bodyBuilder.append("<p style='margin: 5px 0;'>Rapport automatique généré par l'application PatTool.</p>");
         bodyBuilder.append("</div>");
 
         bodyBuilder.append("</body></html>");
@@ -397,6 +441,44 @@ public class ExceptionReportScheduler {
             return "N/A";
         }
         return ipInfo.getLocation().trim();
+    }
+
+    /**
+     * Extract country from location string (format: "City, Region, Country" or "Country")
+     */
+    private String extractCountry(String location) {
+        if (location == null || location.trim().isEmpty() || "N/A".equals(location)) {
+            return "N/A";
+        }
+        // Location format is typically "City, Region, Country" or "Country"
+        // Try to extract the last part after the last comma
+        int lastComma = location.lastIndexOf(',');
+        if (lastComma > 0 && lastComma < location.length() - 1) {
+            String country = location.substring(lastComma + 1).trim();
+            // Remove any parentheses content (like ISP info)
+            int parenIndex = country.indexOf('(');
+            if (parenIndex > 0) {
+                country = country.substring(0, parenIndex).trim();
+            }
+            return country.isEmpty() ? location : country;
+        }
+        // If no comma, assume the whole string is the country
+        int parenIndex = location.indexOf('(');
+        if (parenIndex > 0) {
+            return location.substring(0, parenIndex).trim();
+        }
+        return location;
+    }
+
+    /**
+     * Format date only (without time)
+     */
+    private String formatDate(LocalDateTime dateTime) {
+        if (dateTime == null) {
+            return "N/A";
+        }
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+        return dateTime.format(formatter);
     }
 
     private String normalizeUser(ExceptionTrackingService.ConnectionInfo info) {
@@ -964,6 +1046,89 @@ public class ExceptionReportScheduler {
                 return "N/A";
             }
             return timestamps.stream()
+                    .map(formatter)
+                    .map(escaper)
+                    .collect(Collectors.joining(", "));
+        }
+    }
+
+    /**
+     * Data class for user connection row
+     */
+    private static class UserConnectionRow {
+        private final String user;
+        private final String ip;
+        private final String domain;
+        private final String location;
+        private final String country;
+        private final LocalDateTime timestamp;
+
+        UserConnectionRow(String user, String ip, String domain, String location, String country, LocalDateTime timestamp) {
+            this.user = user != null ? user : "N/A";
+            this.ip = ip != null ? ip : "N/A";
+            this.domain = domain != null ? domain : "N/A";
+            this.location = location != null ? location : "N/A";
+            this.country = country != null ? country : "N/A";
+            this.timestamp = timestamp;
+        }
+
+        public String getUser() { return user; }
+        public String getIp() { return ip; }
+        public String getDomain() { return domain; }
+        public String getLocation() { return location; }
+        public String getCountry() { return country; }
+        public LocalDateTime getTimestamp() { return timestamp; }
+    }
+
+    /**
+     * Data class for IP attempt/exception data
+     */
+    private static class IPAttemptData {
+        private final String ip;
+        private final String domain;
+        private final String location;
+        private final String country;
+        private final List<LocalDateTime> timestamps = new ArrayList<>();
+
+        IPAttemptData(String ip, String domain, String location, String country) {
+            this.ip = ip != null ? ip : "N/A";
+            this.domain = domain != null ? domain : "N/A";
+            this.location = location != null ? location : "N/A";
+            this.country = country != null ? country : "N/A";
+        }
+
+        public void addTimestamp(LocalDateTime timestamp) {
+            if (timestamp != null) {
+                timestamps.add(timestamp);
+            }
+        }
+
+        public String getIp() { return ip; }
+        public String getDomain() { return domain; }
+        public String getLocation() { return location; }
+        public String getCountry() { return country; }
+        public int getCount() { return timestamps.size(); }
+
+        public String getFirstDate() {
+            if (timestamps.isEmpty()) {
+                return "N/A";
+            }
+            LocalDateTime first = timestamps.stream()
+                    .min(Comparator.naturalOrder())
+                    .orElse(null);
+            if (first == null) {
+                return "N/A";
+            }
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+            return first.format(formatter);
+        }
+
+        public String formatTimestamps(Function<LocalDateTime, String> formatter, Function<String, String> escaper) {
+            if (timestamps.isEmpty()) {
+                return "N/A";
+            }
+            return timestamps.stream()
+                    .sorted()
                     .map(formatter)
                     .map(escaper)
                     .collect(Collectors.joining(", "));

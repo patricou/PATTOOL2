@@ -531,6 +531,7 @@
         "BACKEND": "Coté Serveur",
         "DATA": "Donnée",
         "SECURITY": "Sécurité",
+        "STREAMING": "Streaming",
         "REF": "Imaginé, Designé et implementé par"
     },
     "USERINFO": {
@@ -618,7 +619,9 @@
         "API_DESC": "API RESTful avec documentation complète",
         "SWAGGER_DOCS": "Documentation Swagger",
         "DATA_PERSISTENCE": "Persistance des Données",
-        "MONGODB_DESC": "Base de données document NoSQL avec authentification",
+        "MONGODB": "MongoDB",
+        "MONGODB_DESC": "Base de données document NoSQL cloud avec authentification",
+        "MONGODB_ATLAS": "MongoDB Atlas",
         "FIREBASE_CONSOLE": "Console Firebase",
         "FIREBASE_DESC": "Fonctionnalité de chat en temps réel",
         "KEYCLOAK_AUTH": "Authentification Keycloak",
@@ -641,7 +644,18 @@
         "LOADING": "Chargement...",
         "REFRESH_REPORT": "Rafraîchir",
         "REPORT_OVERLAY_TITLE": "Rapport d'exceptions et de connexions (7 derniers jours)",
-        "CLOSE_OVERLAY": "Fermer l'aperçu"
+        "CLOSE_OVERLAY": "Fermer l'aperçu",
+        "STREAMING_ARCHITECTURE": "Architecture de Streaming",
+        "STREAMING_ARCHITECTURE_DESC": "Système de streaming hybride avec cache côté client",
+        "STREAMING_OVERVIEW": "Le système utilise une approche hybride : le backend transmet TOUS les événements une fois via Server-Sent Events (SSE), le frontend met en cache TOUS les événements en mémoire, et affiche seulement 8 à la fois avec pagination côté client.",
+        "STREAMING_BACKEND": "Streaming Serveur",
+        "STREAMING_BACKEND_DESC": "Le backend transmet tous les événements correspondants depuis MongoDB 8.2 via SSE, un par un, en temps réel.",
+        "STREAMING_FRONTEND": "Cache Frontend",
+        "STREAMING_FRONTEND_DESC": "Le frontend met en cache tous les événements en mémoire. Le défilement utilise les données mises en cache - AUCUN appel backend.",
+        "STREAMING_BENEFITS": "Avantages",
+        "STREAMING_BENEFITS_DESC": "Défilement rapide sans latence réseau, affichage instantané des 8 événements suivants, prêt pour le mode hors ligne, recherche/filtrage instantané des données mises en cache.",
+        "STREAMING_APPROACH": "Approche",
+        "STREAMING_APPROACH_DESC": "Stream une fois, cache tout, pagination côté client"
     },
     "LINKS": {
         "TITLE": "Liens",

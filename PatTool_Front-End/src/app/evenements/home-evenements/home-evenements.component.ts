@@ -488,11 +488,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
 		
 		if (distanceFromBottom < 500) {
-			console.log('📜 Loading more events...', {
-				displayed: displayedCount,
-				total: totalCount,
-				remaining: totalCount - displayedCount
-			});
+			// Removed log: Loading more events (too verbose)
 			this.loadNextPage();
 		}
 	}
@@ -500,7 +496,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@HostListener('window:keydown', ['$event'])
 	onKeyDown(event: KeyboardEvent): void {
 		// Toggle debug info panel with Ctrl+I (or Cmd+I on Mac)
-		if ((event.ctrlKey || event.metaKey) && event.key === 'i') {
+		// Use toLowerCase() to handle both 'i' and 'I' cases (case-insensitive)
+		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'i') {
 			event.preventDefault();
 			this.debugInfoCollapsed = !this.debugInfoCollapsed;
 			this.scheduleChangeDetection();
@@ -587,6 +584,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						// Just synchronize with the service and trigger filtering
 						const filterValue = this.dataFIlter; // Already updated by ngModel
 						this._commonValuesService.setDataFilter(filterValue);
+						
+						// Clear caches when filter changes
+						this.clearCaches();
 						
 						// Ensure scroll is unblocked when filter changes
 						this.unblockPageScroll();
@@ -690,7 +690,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const searchString = rawFilter === "" ? "*" : rawFilter;
 
 		// Only set isLoading for initial load, not isLoadingNextPage
-		console.log('🚀 Starting loadEventsStream - setting isLoading to true');
+		// Removed log: Starting loadEventsStream (too verbose)
 		this.isLoading = true;
 		this.isLoadingNextPage = false; // Not loading next page, this is initial load
 		this.hasMoreEvents = true; // Assume we have more events until we know otherwise
@@ -704,7 +704,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Add timeout fallback: if complete event doesn't fire within 10 seconds, assume streaming is done
 		this.streamingTimeoutId = setTimeout(() => {
 			if (requestToken === this.feedRequestToken && this.isLoading) {
-				console.warn('⚠️ Streaming timeout - setting isLoading to false');
+				// Removed log: Streaming timeout (too verbose)
 				this.isLoading = false;
 				this.isLoadingNextPage = false;
 				this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
@@ -735,11 +735,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							return;
 						}
 						
-						console.log('📨 StreamedEvent received:', streamedEvent.type, {
-							displayed: this.evenements.length,
-							total: this.allStreamedEvents.length,
-							isLoading: this.isLoading
-						});
+						// Removed log: StreamedEvent received (too verbose)
 						
 						if (streamedEvent.type === 'total') {
 							// Total count received
@@ -950,7 +946,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	private setupInfiniteScrollObserver(): void {
-		console.log('🔧 setupInfiniteScrollObserver called');
+		// Removed log: setupInfiniteScrollObserver called (too verbose)
 		
 		// Disconnect any existing observer first
 		this.disconnectInfiniteScrollObserver();
@@ -963,26 +959,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 
 		const anchor = this.infiniteScrollAnchor.nativeElement;
-		console.log('🔍 Anchor found, setting up IntersectionObserver', {
-			anchorExists: !!anchor,
-			displayed: this.evenements.length,
-			total: this.allStreamedEvents.length,
-			hasMore: this.hasMoreEvents
-		});
+		// Removed log: Anchor found, setting up IntersectionObserver (too verbose)
 
 		// Create new IntersectionObserver for infinite scroll
 		this.intersectionObserver = new IntersectionObserver((entries) => {
 			entries.forEach(entry => {
-				console.log('👁️ IntersectionObserver entry', {
-					isIntersecting: entry.isIntersecting,
-					intersectionRatio: entry.intersectionRatio,
-					boundingClientRect: entry.boundingClientRect,
-					displayed: this.evenements.length,
-					total: this.allStreamedEvents.length
-				});
+				// Removed log: IntersectionObserver entry (too verbose)
 
 				if (entry.isIntersecting) {
-					console.log('👁️ ✅ Observer triggered - anchor is visible!');
+					// Removed log: Observer triggered - anchor is visible (too verbose)
 					this.handleScrollToLoadMore();
 				}
 			});
@@ -995,7 +980,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Start observing the anchor
 		try {
 			this.intersectionObserver.observe(anchor);
-			console.log('✅ Infinite scroll observer setup complete and observing anchor');
+			// Removed log: Infinite scroll observer setup complete (too verbose)
 			this.unblockPageScroll();
 			this.shouldBlockScroll = false;
 		} catch (error) {
@@ -1007,12 +992,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	// Handle scroll to load more events (for IntersectionObserver)
 	private handleScrollToLoadMore(): void {
-		console.log('👁️ handleScrollToLoadMore (from IntersectionObserver)', {
-			isLoading: this.isLoadingNextPage,
-			displayed: this.evenements.length,
-			total: this.allStreamedEvents.length,
-			hasMore: this.hasMoreEvents
-		});
+		// Removed log: handleScrollToLoadMore (too verbose)
 
 		// Don't load if already loading
 		if (this.isLoadingNextPage) {
@@ -1025,7 +1005,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		// Check if there are more events to load
 		if (displayedCount >= totalCount) {
-			console.log('✅ All events displayed, disconnecting observer');
+			// Removed log: All events displayed, disconnecting observer (too verbose)
 			this.hasMoreEvents = false;
 			this.disconnectInfiniteScrollObserver();
 			return;
@@ -1088,7 +1068,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						this.scheduleCardLoadEndBatch();
 					}
 					this.queueThumbnailLoad(this.allStreamedEvents[0]);
-					this.loadFileThumbnails(this.allStreamedEvents[0]);
+					// Removed loadFileThumbnails() call to avoid double loading - queueThumbnailLoad() already loads the thumbnail
 					
 					// Scroll to top when first event is displayed (only on initial load, not when loading more pages)
 					if (this.isLoading && !this.isLoadingNextPage) {
@@ -1122,8 +1102,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						this.scheduleCardLoadEndBatch();
 					}
 					this.queueThumbnailLoad(event);
-					// Load file thumbnails for displayed events
-					this.loadFileThumbnails(event);
+					// Removed loadFileThumbnails() call to avoid double loading - queueThumbnailLoad() already loads the thumbnail
 				}
 			});
 			// Batch change detection for better performance
@@ -1139,11 +1118,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	// Load next 8 events when scrolling
 	private loadNextPage(): void {
-		console.log('📥 loadNextPage called', {
-			isLoading: this.isLoadingNextPage,
-			current: this.evenements.length,
-			total: this.allStreamedEvents.length
-		});
+		// Removed log: loadNextPage called (too verbose)
 
 		// Prevent multiple simultaneous loads
 		if (this.isLoadingNextPage) {
@@ -1164,18 +1139,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		// Mark as loading
 		this.isLoadingNextPage = true;
-		console.log('🔄 Starting to load next page...');
+		// Removed log: Starting to load next page (too verbose)
 
 		// Calculate how many events to load (next 8 or remaining)
 		const remainingCount = totalCount - currentCount;
 		const loadCount = Math.min(this.CARDS_PER_PAGE, remainingCount);
 		const nextEvents = this.allStreamedEvents.slice(currentCount, currentCount + loadCount);
 
-		console.log('📊 Loading stats:', {
-			remaining: remainingCount,
-			loadCount: loadCount,
-			nextEventsLength: nextEvents.length
-		});
+		// Removed log: Loading stats (too verbose)
 
 		if (nextEvents.length === 0) {
 			console.log('⚠️ No events to load');
@@ -1208,20 +1179,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 				// Load thumbnails
 				this.queueThumbnailLoad(event);
-				this.loadFileThumbnails(event);
+				// Removed loadFileThumbnails() call to avoid double loading - queueThumbnailLoad() already loads the thumbnail
 			}
 		});
 
-		console.log(`✅ Added ${addedCount} events. New count: ${this.evenements.length}`);
+		// Removed log: Added events (too verbose)
 
 		// Update state
 		const newHasMore = this.evenements.length < this.allStreamedEvents.length;
-		console.log('📊 Updating hasMoreEvents', {
-			oldValue: this.hasMoreEvents,
-			newValue: newHasMore,
-			displayed: this.evenements.length,
-			total: this.allStreamedEvents.length
-		});
+		// Removed log: Updating hasMoreEvents (too verbose)
 		this.hasMoreEvents = newHasMore;
 		this.isLoadingNextPage = false;
 
@@ -1269,7 +1235,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.intersectionObserver.disconnect();
 			this.intersectionObserver = undefined;
 		} else {
-			console.log('ℹ️ No observer to disconnect');
+			// Removed log: No observer to disconnect (too verbose)
 		}
 	}
 
@@ -1696,11 +1662,55 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				() => {},
 				(err: any) => alert("Delete File Error : " + err));
 	}
+	// Clear all caches when filter changes
+	private clearCaches(): void {
+		// Clear event colors cache
+		this.eventColors.clear();
+		
+		// Clear pending thumbnail loads
+		this.pendingThumbnailLoads.clear();
+		
+		// Clean up event thumbnails blob URLs
+		this.eventThumbnails.forEach((safeUrl, eventId) => {
+			try {
+				const url = safeUrl && typeof safeUrl === 'object' && 'changingThisBreaksApplicationSecurity' in safeUrl 
+					? safeUrl['changingThisBreaksApplicationSecurity'] 
+					: safeUrl as string;
+				
+				if (url && typeof url === 'string' && url.startsWith('blob:')) {
+					this.nativeWindow.URL.revokeObjectURL(url);
+				}
+			} catch (error) {
+				console.warn('Error cleaning up blob URL:', error);
+			}
+		});
+		this.eventThumbnails.clear();
+		
+		// Clean up file thumbnails cache
+		this.fileThumbnailsCache.forEach((safeUrl) => {
+			try {
+				if (safeUrl && typeof safeUrl === 'object' && 'changingThisBreaksApplicationSecurity' in safeUrl) {
+					const url = safeUrl['changingThisBreaksApplicationSecurity'];
+					if (url && typeof url === 'string' && url.startsWith('blob:')) {
+						this.nativeWindow.URL.revokeObjectURL(url);
+					}
+				}
+			} catch (error) {
+				console.warn('Error cleaning up file thumbnail blob URL:', error);
+			}
+		});
+		this.fileThumbnailsCache.clear();
+		this.fileThumbnailsLoading.clear();
+	}
+
 	public clearFilter() {
 		this.dataFIlter = "";
 		this._commonValuesService.setDataFilter(this.dataFIlter);
 		// Force enable scroll immediately
 		this.forceEnableScroll();
+		
+		// Clear caches when filter is cleared
+		this.clearCaches();
 		
 		this.resetAndLoadEvents();
 		
@@ -3301,6 +3311,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 	
 	// Get all streamed events buffer size
+	// Return the actual count of events received from backend
 	public getAllStreamedEventsCount(): number {
 		return this.allStreamedEvents.length;
 	}

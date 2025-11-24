@@ -217,6 +217,7 @@
                              [class.file-thumbnail-clickable]="isImageFile(uploadedFile.fileName)"
                              [alt]="uploadedFile.fileName"
                              (click)="isImageFile(uploadedFile.fileName) && handleFileClick(uploadedFile)"
+                             (load)="onFileThumbnailLoaded(uploadedFile.fieldId)"
                              (error)="hideImageOnError($event)"
                              [style.cursor]="isImageFile(uploadedFile.fileName) ? 'pointer' : 'default'"
                              [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ''" />
@@ -451,6 +452,20 @@
                accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar" style="display: none;" />
     </div>
 
+    <button class="btn btn-sm btn-info mb-1 me-1 dynamic-footer-btn" 
+            [ngStyle]="getFooterButtonStyles('stats')"
+            (click)="collectAndDisplayLoadingStats()"
+            placement="top"
+            ngbTooltip="Loading Statistics"
+            (mouseleave)="onTooltipMouseLeave($event)">
+        <i class="fa fa-bar-chart" aria-hidden="true"></i>
+    </button>
+
+</div>
+<div class="text-center mt-1 mb-1" *ngIf="!titleOnly && getCurrentCardLoadTime() > 0" [style.color]="titleBorderColor">
+    <small style="opacity: 0.7; font-size: 0.7rem;">
+        <i class="fa fa-clock-o me-1"></i>Load time: {{ formatTimeForCard(getCurrentCardLoadTime()) }}
+    </small>
 </div>
 </ng-container>
 
@@ -714,6 +729,160 @@
         </button>
         <button type="button" class="btn btn-primary" (click)="confirmQualitySelection()">
             {{ 'EVENTELEM.CONFIRM' | translate }}
+        </button>
+    </div>
+</ng-template>
+
+<!-- Loading Statistics Modal -->
+<ng-template #loadingStatsModal let-c="close" let-d="dismiss">
+    <div class="modal-header bg-info text-white border border-2 border-white rounded-top">
+        <h5 class="modal-title">
+            <i class="fa fa-bar-chart me-2"></i>
+            Loading Statistics - {{ evenement.evenementName }}
+        </h5>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white" (click)="c('Close click')" aria-label="Close">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="loading-stats-container">
+            <!-- Summary Section -->
+            <div class="stats-summary mb-4">
+                <h6 class="mb-3"><i class="fa fa-clock-o me-2"></i>Summary</h6>
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <div class="stat-item">
+                            <strong>Total Load Time:</strong>
+                            <span class="badge bg-primary ms-2">{{ formatTime(loadingStats.totalLoadTime) }}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <div class="stat-item">
+                            <strong>Component Initialization:</strong>
+                            <span class="badge ms-2" 
+                                  [class.bg-danger]="getSlowestSummaryOperation() === 'componentInit'"
+                                  [class.bg-secondary]="getSlowestSummaryOperation() !== 'componentInit'">
+                                {{ formatTime(loadingStats.componentInit) }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <div class="stat-item">
+                            <strong>Thumbnail Load:</strong>
+                            <span class="badge ms-2" 
+                                  [class.bg-danger]="getSlowestSummaryOperation() === 'thumbnailLoad'"
+                                  [class.bg-success]="getSlowestSummaryOperation() !== 'thumbnailLoad'">
+                                {{ formatTime(loadingStats.thumbnailLoad) }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-2">
+                        <div class="stat-item">
+                            <strong>Color Detection:</strong>
+                            <span class="badge ms-2" 
+                                  [class.bg-danger]="getSlowestSummaryOperation() === 'colorDetection'"
+                                  [class.bg-warning]="getSlowestSummaryOperation() !== 'colorDetection'">
+                                {{ formatTime(loadingStats.colorDetection) }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- File Thumbnails Section -->
+            <div class="stats-section mb-4" *ngIf="loadingStats.totalFiles > 0">
+                <h6 class="mb-3">
+                    <i class="fa fa-file-image-o me-2"></i>
+                    File Thumbnails ({{ loadingStats.totalFiles }})
+                </h6>
+                <div class="mb-2">
+                    <strong>Average Load Time:</strong>
+                    <span class="badge bg-info ms-2">{{ formatTime(loadingStats.averageFileThumbnailTime) }}</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>File Name</th>
+                                <th class="text-end">Load Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let file of loadingStats.fileThumbnails" 
+                                [class.table-danger]="file.loadTime === getMaxFileThumbnailTime() && getMaxFileThumbnailTime() > 0">
+                                <td>
+                                    <small [class.text-danger]="file.loadTime === getMaxFileThumbnailTime() && getMaxFileThumbnailTime() > 0"
+                                           [class.fw-bold]="file.loadTime === getMaxFileThumbnailTime() && getMaxFileThumbnailTime() > 0">
+                                        {{ file.fileName }}
+                                    </small>
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge" 
+                                          [class.bg-danger]="file.loadTime === getMaxFileThumbnailTime() && getMaxFileThumbnailTime() > 0"
+                                          [class.bg-success]="file.loadTime !== getMaxFileThumbnailTime() && file.loadTime < 500"
+                                          [class.bg-warning]="file.loadTime !== getMaxFileThumbnailTime() && file.loadTime >= 500 && file.loadTime < 2000"
+                                          [class.bg-secondary]="file.loadTime !== getMaxFileThumbnailTime() && file.loadTime >= 2000">
+                                        {{ formatTime(file.loadTime) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Card Slideshow Images Section -->
+            <div class="stats-section mb-4" *ngIf="loadingStats.totalCardSlideshowImages > 0">
+                <h6 class="mb-3">
+                    <i class="fa fa-picture-o me-2"></i>
+                    Card Slideshow Images ({{ loadingStats.totalCardSlideshowImages }})
+                </h6>
+                <div class="mb-2">
+                    <strong>Average Load Time:</strong>
+                    <span class="badge bg-info ms-2">{{ formatTime(loadingStats.averageCardSlideshowTime) }}</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped">
+                        <thead>
+                            <tr>
+                                <th>File Name</th>
+                                <th class="text-end">Load Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let image of loadingStats.cardSlideshowImages" 
+                                [class.table-danger]="image.loadTime === getMaxCardSlideshowTime() && getMaxCardSlideshowTime() > 0">
+                                <td>
+                                    <small [class.text-danger]="image.loadTime === getMaxCardSlideshowTime() && getMaxCardSlideshowTime() > 0"
+                                           [class.fw-bold]="image.loadTime === getMaxCardSlideshowTime() && getMaxCardSlideshowTime() > 0">
+                                        {{ image.fileName }}
+                                    </small>
+                                </td>
+                                <td class="text-end">
+                                    <span class="badge" 
+                                          [class.bg-danger]="image.loadTime === getMaxCardSlideshowTime() && getMaxCardSlideshowTime() > 0"
+                                          [class.bg-success]="image.loadTime !== getMaxCardSlideshowTime() && image.loadTime < 500"
+                                          [class.bg-warning]="image.loadTime !== getMaxCardSlideshowTime() && image.loadTime >= 500 && image.loadTime < 2000"
+                                          [class.bg-secondary]="image.loadTime !== getMaxCardSlideshowTime() && image.loadTime >= 2000">
+                                        {{ formatTime(image.loadTime) }}
+                                    </span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- No Data Message -->
+            <div class="text-center text-muted py-4" *ngIf="loadingStats.totalFiles === 0 && loadingStats.totalCardSlideshowImages === 0">
+                <i class="fa fa-info-circle fa-3x mb-3"></i>
+                <p>No loading data available yet. Data will appear as elements are loaded.</p>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            <i class="fa fa-times"></i> Close
         </button>
     </div>
 </ng-template>

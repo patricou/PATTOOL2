@@ -537,6 +537,7 @@
         "BACKEND": "الواجهة الخلفية",
         "DATA": "البيانات",
         "SECURITY": "الأمان",
+        "STREAMING": "البث",
         "REF": "تصور، تصميم وتنفيذ من قبل"
     },
     "USERINFO": {
@@ -625,7 +626,9 @@
         "API_DESC": "API RESTful مع وثائق شاملة",
         "SWAGGER_DOCS": "وثائق Swagger",
         "DATA_PERSISTENCE": "استمرارية البيانات",
-        "MONGODB_DESC": "قاعدة بيانات مستندات NoSQL مع المصادقة",
+        "MONGODB": "MongoDB",
+        "MONGODB_DESC": "قاعدة بيانات مستندات NoSQL سحابية مع المصادقة",
+        "MONGODB_ATLAS": "MongoDB Atlas",
         "FIREBASE_CONSOLE": "وحدة تحكم Firebase",
         "FIREBASE_DESC": "وظيفة الدردشة في الوقت الفعلي",
         "KEYCLOAK_AUTH": "مصادقة Keycloak",
@@ -648,7 +651,18 @@
         "LOADING": "جارٍ التحميل...",
         "REFRESH_REPORT": "تحديث",
         "REPORT_OVERLAY_TITLE": "تقرير الاستثناءات والاتصالات (آخر 7 أيام)",
-        "CLOSE_OVERLAY": "إغلاق المعاينة"
+        "CLOSE_OVERLAY": "إغلاق المعاينة",
+        "STREAMING_ARCHITECTURE": "هندسة البث",
+        "STREAMING_ARCHITECTURE_DESC": "نظام بث هجين مع تخزين مؤقت على جانب العميل",
+        "STREAMING_OVERVIEW": "يستخدم النظام نهجًا هجينًا: يقوم الخادم الخلفي ببث جميع الأحداث مرة واحدة عبر Server-Sent Events (SSE)، ويقوم الواجهة الأمامية بتخزين جميع الأحداث في الذاكرة، ويعرض 8 فقط في كل مرة مع ترقيم الصفحات على جانب العميل.",
+        "STREAMING_BACKEND": "بث الخادم",
+        "STREAMING_BACKEND_DESC": "يقوم الخادم الخلفي ببث جميع الأحداث المطابقة من MongoDB 8.2 عبر SSE، واحدًا تلو الآخر، في الوقت الفعلي.",
+        "STREAMING_FRONTEND": "تخزين الواجهة الأمامية",
+        "STREAMING_FRONTEND_DESC": "تقوم الواجهة الأمامية بتخزين جميع الأحداث في الذاكرة. يستخدم التمرير البيانات المخزنة مؤقتًا - بدون استدعاءات الخادم الخلفي.",
+        "STREAMING_BENEFITS": "الفوائد",
+        "STREAMING_BENEFITS_DESC": "تمرير سريع بدون زمن انتقال للشبكة، عرض فوري للأحداث الثمانية التالية، جاهز للعمل دون اتصال، بحث/تصفية فوري للبيانات المخزنة مؤقتًا.",
+        "STREAMING_APPROACH": "النهج",
+        "STREAMING_APPROACH_DESC": "بث مرة واحدة، تخزين الكل، ترقيم الصفحات على جانب العميل"
     },
     "LINKSADMIN": {
         "TITLE": "إدارة الروابط",

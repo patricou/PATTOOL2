@@ -146,6 +146,40 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private tooltipShownListener?: () => void;
 	private tooltipDocClickListener?: (event: MouseEvent) => void;
 
+	// Loading time tracking
+	private componentInitStartTime: number = 0;
+	private componentInitEndTime: number = 0;
+	private thumbnailLoadStartTime: number = 0;
+	private thumbnailLoadEndTime: number = 0;
+	private thumbnailImageLoadEndTime: number = 0; // When image actually displays
+	private fileThumbnailsLoadTimes: Map<string, { start: number; end: number; fileName: string; displayed: boolean }> = new Map();
+	private cardSlideshowLoadTimes: Map<string, { start: number; end: number; fileName: string; displayed: boolean }> = new Map();
+	private colorDetectionStartTime: number = 0;
+	private colorDetectionEndTime: number = 0;
+	public loadingStats: {
+		componentInit: number;
+		thumbnailLoad: number;
+		colorDetection: number;
+		fileThumbnails: Array<{ fileName: string; loadTime: number }>;
+		cardSlideshowImages: Array<{ fileName: string; loadTime: number }>;
+		totalFiles: number;
+		totalCardSlideshowImages: number;
+		averageFileThumbnailTime: number;
+		averageCardSlideshowTime: number;
+		totalLoadTime: number;
+	} = {
+		componentInit: 0,
+		thumbnailLoad: 0,
+		colorDetection: 0,
+		fileThumbnails: [],
+		cardSlideshowImages: [],
+		totalFiles: 0,
+		totalCardSlideshowImages: 0,
+		averageFileThumbnailTime: 0,
+		averageCardSlideshowTime: 0,
+		totalLoadTime: 0
+	};
+
 	private eventTypeLabels: { [key: string]: string } = {
 		'11': 'EVENTCREATION.TYPE.DOCUMENTS',
 		'12': 'EVENTCREATION.TYPE.FICHE',
@@ -168,6 +202,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
 	@ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
 	@ViewChild('qualitySelectionModal') qualitySelectionModal!: TemplateRef<any>;
+	@ViewChild('loadingStatsModal') loadingStatsModal!: TemplateRef<any>;
 	@ViewChild('logContent') logContent: any;
 
 	@Input()
@@ -796,6 +831,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	ngOnInit() {
+		// Track component initialization start time
+		this.componentInitStartTime = performance.now();
+		
 		// init the rate 
 		this.currentRate = 0;
 		if (this.evenement.ratingMinus != null) {
@@ -810,7 +848,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Call Thumbnail Image function
 		// Use cache if available (now handles blob URLs correctly)
 		// Try loading immediately first
+		this.thumbnailLoadStartTime = performance.now();
 		this.loadThumbnail();
+		
+		// Mark component initialization as complete after a short delay to allow view to initialize
+		setTimeout(() => {
+			if (this.componentInitEndTime === 0) {
+				this.componentInitEndTime = performance.now();
+			}
+		}, 100);
 		
 		// Also try after delays in case fileUploadeds is populated later
 		// This handles cases where we return from update page
@@ -1441,11 +1487,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					// Check if we have a cached blob URL for this file
 					const cachedBlobUrl = ElementEvenementComponent.blobUrlCache.get(fileUploaded.fieldId);
 					if (cachedBlobUrl) {
+						// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
+						this.thumbnailLoadEndTime = performance.now();
 						// Reuse cached blob URL
 						this.thumbnailUrl = cachedBlobUrl;
 						// Update thumbnail cache to ensure it's up to date
 						this.cacheCurrentStyles(this.getThumbnailSignature());
-						// Detect dominant color after image loads
+						// Detect dominant color after image loads (this will track when image actually displays)
 						const colorTimeout = setTimeout(() => {
 							this.detectDominantColor();
 						}, 100);
@@ -1457,6 +1505,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						if (cachedBlob) {
 							// Recreate blob URL from cached Blob
 							try {
+								// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
+								this.thumbnailLoadEndTime = performance.now();
 								const objectUrl = this.nativeWindow.URL.createObjectURL(cachedBlob);
 								const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
 								// Update both caches
@@ -1464,7 +1514,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 								this.thumbnailUrl = safeUrl;
 								// Update thumbnail cache with new data
 								this.cacheCurrentStyles(this.getThumbnailSignature());
-								// Detect dominant color after image loads
+								// Detect dominant color after image loads (this will track when image actually displays)
 								const colorTimeout = setTimeout(() => {
 									this.detectDominantColor();
 								}, 100);
@@ -1490,12 +1540,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 							})
 						).subscribe({
 							next: (safeUrl: SafeUrl) => {
+								// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
+								this.thumbnailLoadEndTime = performance.now();
 								// Cache the blob URL so it persists across component destruction
 								ElementEvenementComponent.blobUrlCache.set(fileUploaded.fieldId, safeUrl);
 								this.thumbnailUrl = safeUrl;
 								// Update thumbnail cache with new data
 								this.cacheCurrentStyles(this.getThumbnailSignature());
-								// Detect dominant color after image loads
+								// Detect dominant color after image loads (this will track when image actually displays)
 								const colorTimeout = setTimeout(() => {
 									this.detectDominantColor();
 								}, 100);
@@ -1610,6 +1662,17 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	// Detect dominant color from the top portion of the thumbnail image
 	public detectDominantColor(): void {
+		// This is called when the image load event fires, so the image is now displayed
+		// Track thumbnail image display time (when image actually shows)
+		if (this.thumbnailImageLoadEndTime === 0) {
+			this.thumbnailImageLoadEndTime = performance.now();
+		}
+		
+		// Track color detection start time
+		if (this.colorDetectionStartTime === 0) {
+			this.colorDetectionStartTime = performance.now();
+		}
+		
 		// Wait a bit for the image to be in the DOM
 		setTimeout(() => {
 			if (!this.thumbnailImageRef || !this.thumbnailImageRef.nativeElement) {
@@ -1623,16 +1686,33 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				// Wait for image to load
 				img.onload = () => {
 					this.processImageColor(img);
+					// Track color detection end time
+					this.colorDetectionEndTime = performance.now();
 				};
 				return;
 			}
 
 			this.processImageColor(img);
+			// Track color detection end time
+			this.colorDetectionEndTime = performance.now();
 		}, 200);
 	}
 
 	// Detect dominant color from the current slideshow image
 	public detectDominantColorFromSlideshow(): void {
+		// This is called when the card slide image load event fires, so the image is now displayed
+		// Track card slideshow image display time
+		if (this.currentCardSlideIndex >= 0 && this.currentCardSlideIndex < this.cardSlideFileNames.length) {
+			const currentFileName = this.cardSlideFileNames[this.currentCardSlideIndex];
+			// Find the load time entry for this image
+			this.cardSlideshowLoadTimes.forEach((value, fileId) => {
+				if (value.fileName === currentFileName && !value.displayed) {
+					value.end = performance.now();
+					value.displayed = true;
+				}
+			});
+		}
+		
 		// Wait a bit for the image to be in the DOM
 		setTimeout(() => {
 			if (!this.cardSlideImageRef || !this.cardSlideImageRef.nativeElement) {
@@ -2264,6 +2344,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 	// Detect color after view is initialized
 	ngAfterViewInit() {
+		// Track component initialization end time (when view is ready)
+		if (this.componentInitEndTime === 0) {
+			this.componentInitEndTime = performance.now();
+		}
+		
 		// Verify thumbnail is loaded after view init
 		// This helps when coming back from update page
 		setTimeout(() => {
@@ -2529,6 +2614,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			// Mark as loading
 			this.fileThumbnailsLoading.add(file.fieldId);
 			
+			// Track loading start time
+			const loadStartTime = performance.now();
+			this.fileThumbnailsLoadTimes.set(file.fieldId, { start: loadStartTime, end: 0, fileName: file.fileName, displayed: false });
+			
 			// Load the file and create thumbnail URL
 			this._fileService.getFile(file.fieldId).pipe(
 				map((res: any) => {
@@ -2540,10 +2629,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				next: (safeUrl: SafeUrl) => {
 					this.fileThumbnailsCache.set(file.fieldId, safeUrl);
 					this.fileThumbnailsLoading.delete(file.fieldId);
+					// Image display time will be tracked in onFileThumbnailLoaded() when the load event fires
 				},
 				error: (error) => {
 					console.error('Error loading thumbnail for file:', file.fileName, error);
 					this.fileThumbnailsLoading.delete(file.fieldId);
+					// Track loading end time even on error
+					const loadEndTime = performance.now();
+					const loadTime = this.fileThumbnailsLoadTimes.get(file.fieldId);
+					if (loadTime) {
+						loadTime.end = loadEndTime;
+						loadTime.displayed = true;
+					}
 				}
 			});
 		});
@@ -2595,6 +2692,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		const target = event.target as HTMLImageElement;
 		if (target) {
 			target.style.display = 'none';
+		}
+	}
+
+	// Track when file thumbnail is actually displayed
+	public onFileThumbnailLoaded(fileId: string): void {
+		const loadTime = this.fileThumbnailsLoadTimes.get(fileId);
+		if (loadTime && !loadTime.displayed) {
+			loadTime.end = performance.now();
+			loadTime.displayed = true;
 		}
 	}
 
@@ -3485,6 +3591,169 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		});
 	}
 
+	// Collect and display loading stats
+	public collectAndDisplayLoadingStats(): void {
+		this.forceCloseTooltips();
+		
+		// Calculate component initialization time (from start to when view is ready)
+		const componentInitTime = (this.componentInitStartTime > 0 && this.componentInitEndTime > 0) ? 
+			(this.componentInitEndTime - this.componentInitStartTime) : 0;
+		
+		// Calculate thumbnail load time (from start to when image is actually displayed)
+		// Use thumbnailImageLoadEndTime if available (when image actually displays), otherwise use thumbnailLoadEndTime
+		const thumbnailDisplayTime = this.thumbnailImageLoadEndTime > 0 ? 
+			this.thumbnailImageLoadEndTime : this.thumbnailLoadEndTime;
+		const thumbnailLoadTime = (this.thumbnailLoadStartTime > 0 && thumbnailDisplayTime > 0) ? 
+			(thumbnailDisplayTime - this.thumbnailLoadStartTime) : 0;
+		
+		// Calculate color detection time
+		const colorDetectionTime = (this.colorDetectionStartTime > 0 && this.colorDetectionEndTime > 0) ? 
+			(this.colorDetectionEndTime - this.colorDetectionStartTime) : 0;
+		
+		// Collect file thumbnail load times (only those that are actually displayed)
+		const fileThumbnails: Array<{ fileName: string; loadTime: number }> = [];
+		this.fileThumbnailsLoadTimes.forEach((value, fileId) => {
+			if (value.end > 0 && value.displayed) {
+				const loadTime = value.end - value.start;
+				fileThumbnails.push({ fileName: value.fileName, loadTime: loadTime });
+			}
+		});
+		
+		// Collect card slideshow image load times (only those that are actually displayed)
+		const cardSlideshowImages: Array<{ fileName: string; loadTime: number }> = [];
+		this.cardSlideshowLoadTimes.forEach((value, fileId) => {
+			if (value.end > 0 && value.displayed) {
+				const loadTime = value.end - value.start;
+				cardSlideshowImages.push({ fileName: value.fileName, loadTime: loadTime });
+			}
+		});
+		
+		// Calculate averages
+		const averageFileThumbnailTime = fileThumbnails.length > 0 ? 
+			fileThumbnails.reduce((sum, item) => sum + item.loadTime, 0) / fileThumbnails.length : 0;
+		
+		const averageCardSlideshowTime = cardSlideshowImages.length > 0 ? 
+			cardSlideshowImages.reduce((sum, item) => sum + item.loadTime, 0) / cardSlideshowImages.length : 0;
+		
+		// Calculate total load time (from component init to when all elements are displayed)
+		// Use the latest display time among all elements
+		let latestDisplayTime = this.componentInitEndTime > 0 ? this.componentInitEndTime : 0;
+		if (this.thumbnailImageLoadEndTime > 0 && this.thumbnailImageLoadEndTime > latestDisplayTime) {
+			latestDisplayTime = this.thumbnailImageLoadEndTime;
+		}
+		this.fileThumbnailsLoadTimes.forEach((value, fileId) => {
+			if (value.displayed && value.end > latestDisplayTime) {
+				latestDisplayTime = value.end;
+			}
+		});
+		this.cardSlideshowLoadTimes.forEach((value, fileId) => {
+			if (value.displayed && value.end > latestDisplayTime) {
+				latestDisplayTime = value.end;
+			}
+		});
+		
+		const totalLoadTime = (this.componentInitStartTime > 0 && latestDisplayTime > 0) ? 
+			(latestDisplayTime - this.componentInitStartTime) : 0;
+		
+		// Update loading stats
+		this.loadingStats = {
+			componentInit: componentInitTime,
+			thumbnailLoad: thumbnailLoadTime,
+			colorDetection: colorDetectionTime,
+			fileThumbnails: fileThumbnails.sort((a, b) => b.loadTime - a.loadTime), // Sort by load time descending
+			cardSlideshowImages: cardSlideshowImages.sort((a, b) => b.loadTime - a.loadTime), // Sort by load time descending
+			totalFiles: fileThumbnails.length,
+			totalCardSlideshowImages: cardSlideshowImages.length,
+			averageFileThumbnailTime: averageFileThumbnailTime,
+			averageCardSlideshowTime: averageCardSlideshowTime,
+			totalLoadTime: totalLoadTime
+		};
+		
+		// Open the modal
+		if (this.loadingStatsModal) {
+			this.modalService.open(this.loadingStatsModal, {
+				size: 'lg',
+				centered: true,
+				backdrop: 'static',
+				keyboard: false,
+				animation: true
+			});
+		}
+	}
+	
+	// Format time in milliseconds to readable string
+	public formatTime(ms: number): string {
+		if (ms < 1000) {
+			return `${ms.toFixed(2)} ms`;
+		} else {
+			return `${(ms / 1000).toFixed(2)} s`;
+		}
+	}
+
+	// Get current card load time in milliseconds
+	public getCurrentCardLoadTime(): number {
+		// Calculate total load time (from component init to when all elements are displayed)
+		let latestDisplayTime = this.componentInitEndTime > 0 ? this.componentInitEndTime : 0;
+		if (this.thumbnailImageLoadEndTime > 0 && this.thumbnailImageLoadEndTime > latestDisplayTime) {
+			latestDisplayTime = this.thumbnailImageLoadEndTime;
+		}
+		this.fileThumbnailsLoadTimes.forEach((value, fileId) => {
+			if (value.displayed && value.end > latestDisplayTime) {
+				latestDisplayTime = value.end;
+			}
+		});
+		this.cardSlideshowLoadTimes.forEach((value, fileId) => {
+			if (value.displayed && value.end > latestDisplayTime) {
+				latestDisplayTime = value.end;
+			}
+		});
+		
+		if (this.componentInitStartTime > 0 && latestDisplayTime > 0) {
+			return latestDisplayTime - this.componentInitStartTime;
+		}
+		return 0;
+	}
+
+	// Format time for card display (always in ms)
+	public formatTimeForCard(ms: number): string {
+		return `${Math.round(ms)} ms`;
+	}
+
+	// Get the maximum load time for file thumbnails
+	public getMaxFileThumbnailTime(): number {
+		if (this.loadingStats.fileThumbnails.length === 0) {
+			return 0;
+		}
+		return Math.max(...this.loadingStats.fileThumbnails.map(f => f.loadTime));
+	}
+
+	// Get the maximum load time for card slideshow images
+	public getMaxCardSlideshowTime(): number {
+		if (this.loadingStats.cardSlideshowImages.length === 0) {
+			return 0;
+		}
+		return Math.max(...this.loadingStats.cardSlideshowImages.map(i => i.loadTime));
+	}
+
+	// Get the slowest operation in summary
+	public getSlowestSummaryOperation(): string {
+		const times = {
+			'componentInit': this.loadingStats.componentInit,
+			'thumbnailLoad': this.loadingStats.thumbnailLoad,
+			'colorDetection': this.loadingStats.colorDetection
+		};
+		
+		let maxTime = 0;
+		let slowestOp = '';
+		for (const [key, value] of Object.entries(times)) {
+			if (value > maxTime) {
+				maxTime = value;
+				slowestOp = key;
+			}
+		}
+		return slowestOp;
+	}
+
 	public openUserModal(user: Member): void {
 		this.forceCloseTooltips();
 		this.selectedUser = user;
@@ -3676,6 +3945,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			active++;
 			
 			if (file.fieldId) {
+				// Track card slideshow image loading start time
+				const loadStartTime = performance.now();
+				this.cardSlideshowLoadTimes.set(file.fieldId, { start: loadStartTime, end: 0, fileName: file.fileName, displayed: false });
+				
 				const sub = this._fileService.getFile(file.fieldId).subscribe({
 					next: (buffer: ArrayBuffer) => {
 						const blob = new Blob([buffer], { type: 'image/*' });
@@ -3690,6 +3963,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						this.cardSlideshowPaused = false; // Start playing
 						this.startCardAutoplay(); // Start autoplay immediately
 					}
+					
+					// Track when image is actually displayed (not just when blob URL is created)
+					// The detectDominantColorFromSlideshow is called when image loads, so we'll track there
 					},
 					error: (error) => {
 						console.error('Error loading image:', file.fileName, error);
