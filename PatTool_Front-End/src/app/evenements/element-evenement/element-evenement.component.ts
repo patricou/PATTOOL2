@@ -278,10 +278,28 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Static cache for Blob objects to allow recreating blob URLs if they're revoked
 	// This prevents ERR_FILE_NOT_FOUND errors by storing the original Blob
 	private static readonly blobCache: Map<string, Blob> = new Map();
+	
+	// Static set to track files currently being loaded (to prevent duplicate concurrent requests)
+	private static readonly filesLoading: Set<string> = new Set();
 
 	// Public static method to check if a file is already cached (to avoid duplicate requests)
 	public static isThumbnailCached(fileId: string): boolean {
 		return ElementEvenementComponent.blobUrlCache.has(fileId);
+	}
+	
+	// Public static method to check if a file is currently being loaded
+	public static isFileLoading(fileId: string): boolean {
+		return ElementEvenementComponent.filesLoading.has(fileId);
+	}
+	
+	// Public static method to mark a file as loading
+	public static setFileLoading(fileId: string): void {
+		ElementEvenementComponent.filesLoading.add(fileId);
+	}
+	
+	// Public static method to mark a file as no longer loading
+	public static clearFileLoading(fileId: string): void {
+		ElementEvenementComponent.filesLoading.delete(fileId);
 	}
 
 	// Public static method to get cached thumbnail URL
@@ -1484,50 +1502,65 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.evenement.fileUploadeds.forEach(fileUploaded => {
 				if (fileUploaded.fileName && fileUploaded.fileName.indexOf('thumbnail') !== -1) {
 					thumbnailFound = true;
-					// Check if we have a cached blob URL for this file
-					const cachedBlobUrl = ElementEvenementComponent.blobUrlCache.get(fileUploaded.fieldId);
-					if (cachedBlobUrl) {
-						// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
-						this.thumbnailLoadEndTime = performance.now();
-						// Reuse cached blob URL
-						this.thumbnailUrl = cachedBlobUrl;
-						// Update thumbnail cache to ensure it's up to date
-						this.cacheCurrentStyles(this.getThumbnailSignature());
-						// Detect dominant color after image loads (this will track when image actually displays)
-						const colorTimeout = setTimeout(() => {
-							this.detectDominantColor();
-						}, 100);
-						this.activeTimeouts.add(colorTimeout);
-						setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
-					} else {
-						// Check if we have the Blob in cache but URL was revoked
-						const cachedBlob = ElementEvenementComponent.blobCache.get(fileUploaded.fieldId);
-						if (cachedBlob) {
-							// Recreate blob URL from cached Blob
-							try {
-								// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
-								this.thumbnailLoadEndTime = performance.now();
-								const objectUrl = this.nativeWindow.URL.createObjectURL(cachedBlob);
-								const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
-								// Update both caches
-								ElementEvenementComponent.blobUrlCache.set(fileUploaded.fieldId, safeUrl);
-								this.thumbnailUrl = safeUrl;
-								// Update thumbnail cache with new data
-								this.cacheCurrentStyles(this.getThumbnailSignature());
-								// Detect dominant color after image loads (this will track when image actually displays)
-								const colorTimeout = setTimeout(() => {
-									this.detectDominantColor();
-								}, 100);
-								this.activeTimeouts.add(colorTimeout);
-								setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
-								return; // Successfully recreated from cached Blob
-							} catch (error) {
-								// Continue to load from server below
-							}
+					// Check if already cached in shared cache (to avoid duplicate backend request)
+					if (ElementEvenementComponent.isThumbnailCached(fileUploaded.fieldId)) {
+						const cachedThumbnail = ElementEvenementComponent.getCachedThumbnail(fileUploaded.fieldId);
+						if (cachedThumbnail) {
+							// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
+							this.thumbnailLoadEndTime = performance.now();
+							// Reuse cached thumbnail
+							this.thumbnailUrl = cachedThumbnail;
+							// Update thumbnail cache to ensure it's up to date
+							this.cacheCurrentStyles(this.getThumbnailSignature());
+							// Detect dominant color after image loads (this will track when image actually displays)
+							const colorTimeout = setTimeout(() => {
+								this.detectDominantColor();
+							}, 100);
+							this.activeTimeouts.add(colorTimeout);
+							setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
+							return; // Use cached thumbnail
 						}
-						
-						// Load and cache the blob URL
-						this._fileService.getFile(fileUploaded.fieldId).pipe(
+					}
+					
+					// Check if file is currently being loaded (to prevent duplicate concurrent requests)
+					if (ElementEvenementComponent.isFileLoading(fileUploaded.fieldId) || this.fileThumbnailsLoading.has(fileUploaded.fieldId)) {
+						// File is already being loaded, wait for it to complete
+						// We'll set up a listener or just return and let the other load complete
+						// The thumbnail will be updated when the other load completes
+						return;
+					}
+					
+					// Check if we have the Blob in cache but URL was revoked
+					const cachedBlob = ElementEvenementComponent.blobCache.get(fileUploaded.fieldId);
+					if (cachedBlob) {
+						// Recreate blob URL from cached Blob
+						try {
+							// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
+							this.thumbnailLoadEndTime = performance.now();
+							const objectUrl = this.nativeWindow.URL.createObjectURL(cachedBlob);
+							const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+							// Update both caches
+							ElementEvenementComponent.blobUrlCache.set(fileUploaded.fieldId, safeUrl);
+							this.thumbnailUrl = safeUrl;
+							// Update thumbnail cache with new data
+							this.cacheCurrentStyles(this.getThumbnailSignature());
+							// Detect dominant color after image loads (this will track when image actually displays)
+							const colorTimeout = setTimeout(() => {
+								this.detectDominantColor();
+							}, 100);
+							this.activeTimeouts.add(colorTimeout);
+							setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
+							return; // Successfully recreated from cached Blob
+						} catch (error) {
+							// Continue to load from server below
+						}
+					}
+					
+					// Mark as loading to prevent duplicate requests
+					ElementEvenementComponent.setFileLoading(fileUploaded.fieldId);
+					
+					// Load and cache the blob URL
+					this._fileService.getFile(fileUploaded.fieldId).pipe(
 							map((res: any) => {
 								let blob = new Blob([res], { type: 'application/octet-stream' });
 								// Only cache blobs for files with "thumbnail" in the name
@@ -1540,6 +1573,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 							})
 						).subscribe({
 							next: (safeUrl: SafeUrl) => {
+								// Mark as no longer loading
+								ElementEvenementComponent.clearFileLoading(fileUploaded.fieldId);
 								// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
 								this.thumbnailLoadEndTime = performance.now();
 								// Cache the blob URL so it persists across component destruction
@@ -1555,12 +1590,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 								setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
 							},
 							error: (error) => {
+								// Mark as no longer loading even on error
+								ElementEvenementComponent.clearFileLoading(fileUploaded.fieldId);
 								// Try to use cached thumbnail as fallback
 								this.tryUseCachedThumbnailFallback();
 							}
 						});
 					}
-				}
 			});
 			
 			// If no thumbnail was found but fileUploadeds exists, try to use cached thumbnail
@@ -2611,8 +2647,25 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				return;
 			}
 			
-			// Mark as loading
+			// Check if already cached in shared cache (to avoid duplicate backend request)
+			if (ElementEvenementComponent.isThumbnailCached(file.fieldId)) {
+				const cachedThumbnail = ElementEvenementComponent.getCachedThumbnail(file.fieldId);
+				if (cachedThumbnail) {
+					// Reuse cached thumbnail from shared cache
+					this.fileThumbnailsCache.set(file.fieldId, cachedThumbnail);
+					return;
+				}
+			}
+			
+			// Check if file is currently being loaded (to prevent duplicate concurrent requests)
+			if (ElementEvenementComponent.isFileLoading(file.fieldId) || this.fileThumbnailsLoading.has(file.fieldId)) {
+				// File is already being loaded, skip
+				return;
+			}
+			
+			// Mark as loading in both local and shared state
 			this.fileThumbnailsLoading.add(file.fieldId);
+			ElementEvenementComponent.setFileLoading(file.fieldId);
 			
 			// Track loading start time
 			const loadStartTime = performance.now();
@@ -2629,11 +2682,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				next: (safeUrl: SafeUrl) => {
 					this.fileThumbnailsCache.set(file.fieldId, safeUrl);
 					this.fileThumbnailsLoading.delete(file.fieldId);
+					ElementEvenementComponent.clearFileLoading(file.fieldId);
+					// Also cache in shared cache to prevent duplicate requests
+					ElementEvenementComponent.setCachedThumbnail(file.fieldId, safeUrl);
 					// Image display time will be tracked in onFileThumbnailLoaded() when the load event fires
 				},
 				error: (error) => {
 					console.error('Error loading thumbnail for file:', file.fileName, error);
 					this.fileThumbnailsLoading.delete(file.fieldId);
+					ElementEvenementComponent.clearFileLoading(file.fieldId);
 					// Track loading end time even on error
 					const loadEndTime = performance.now();
 					const loadTime = this.fileThumbnailsLoadTimes.get(file.fieldId);

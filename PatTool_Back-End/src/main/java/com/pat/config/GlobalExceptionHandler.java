@@ -188,7 +188,8 @@ public class GlobalExceptionHandler {
         if (message != null && (message.contains("Connection reset by peer") ||
                                  message.contains("Broken pipe") ||
                                  message.contains("Connection closed") ||
-                                 message.contains("An established connection was aborted by the software in your host machine"))) {
+                                 message.contains("An established connection was aborted by the software in your host machine") ||
+                                 message.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte"))) {
             // This is normal when client closes connection (e.g., closing photo slideshow)
             String logMessage = "Client closed connection during file transfer (likely normal) from IP [" + clientIp + "]: " + message;
             log.info(logMessage);
@@ -196,9 +197,9 @@ public class GlobalExceptionHandler {
             return null; // Connection already closed, return void
         }
         
-        // For other IOExceptions, log as error and handle normally
+        // For other IOExceptions, log as error and handle normally (without stack trace)
         String logMessage = "IO Exception occurred from IP [" + clientIp + "]: " + message;
-        log.error(logMessage, exc);
+        log.error(logMessage);
         exceptionTrackingService.addLog(clientIp, logMessage);
         
         // Track exception if it's a real error (not connection reset)
@@ -228,7 +229,8 @@ public class GlobalExceptionHandler {
         if (message != null && (message.contains("Connection reset") ||
                                  message.contains("Broken pipe") ||
                                  message.contains("AsyncRequestNotUsableException") ||
-                                 message.contains("An established connection was aborted by the software in your host machine"))) {
+                                 message.contains("An established connection was aborted by the software in your host machine") ||
+                                 message.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte"))) {
             String logMessage = "Client closed connection (likely normal) from IP [" + clientIp + "]: " + message;
             log.info(logMessage);
             exceptionTrackingService.addLog(clientIp, logMessage);
@@ -272,7 +274,8 @@ public class GlobalExceptionHandler {
         // Only track if it's NOT a connection reset (which is normal)
         if (message != null && !message.contains("Connection reset by peer") &&
             !message.contains("Broken pipe") && !message.contains("Connection closed") &&
-            !message.contains("An established connection was aborted by the software in your host machine")) {
+            !message.contains("An established connection was aborted by the software in your host machine") &&
+            !message.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte")) {
             String stackTrace = getStackTrace(exc);
             exceptionTrackingService.addException(
                 clientIp,

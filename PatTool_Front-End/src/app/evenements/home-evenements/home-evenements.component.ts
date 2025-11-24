@@ -1217,11 +1217,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					} catch (error) {
 						console.error('❌ Error reconnecting scroll observer:', error);
 					}
-				} else {
-					console.warn('⚠️ Cannot reconnect: anchor or observer missing', {
-						anchor: !!this.infiniteScrollAnchor?.nativeElement,
-						observer: !!this.intersectionObserver
-					});
 				}
 			}
 		}, 200);
@@ -1231,7 +1226,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	private disconnectInfiniteScrollObserver(): void {
 		if (this.intersectionObserver) {
-			console.log('🔌 Disconnecting infinite scroll observer');
 			this.intersectionObserver.disconnect();
 			this.intersectionObserver = undefined;
 		} else {
@@ -1474,8 +1468,25 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				return;
 			}
 			
-			// Mark as loading
+			// Check if already cached in element-evenement shared cache (to avoid duplicate backend request)
+			if (ElementEvenementComponent.isThumbnailCached(file.fieldId)) {
+				const cachedThumbnail = ElementEvenementComponent.getCachedThumbnail(file.fieldId);
+				if (cachedThumbnail) {
+					// Reuse cached thumbnail from element-evenement component
+					this.fileThumbnailsCache.set(file.fieldId, cachedThumbnail);
+					return;
+				}
+			}
+			
+			// Check if file is currently being loaded (to prevent duplicate concurrent requests)
+			if (ElementEvenementComponent.isFileLoading(file.fieldId)) {
+				// File is already being loaded, skip
+				return;
+			}
+			
+			// Mark as loading in both local and shared state
 			this.fileThumbnailsLoading.add(file.fieldId);
+			ElementEvenementComponent.setFileLoading(file.fieldId);
 			
 			// Load the file and create thumbnail URL
 			const thumbnailSubscription = this._fileService.getFile(file.fieldId).pipe(
@@ -1488,10 +1499,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				next: (safeUrl: SafeUrl) => {
 					this.fileThumbnailsCache.set(file.fieldId, safeUrl);
 					this.fileThumbnailsLoading.delete(file.fieldId);
+					ElementEvenementComponent.clearFileLoading(file.fieldId);
+					// Also cache in element-evenement shared cache to prevent duplicate requests
+					ElementEvenementComponent.setCachedThumbnail(file.fieldId, safeUrl);
 				},
 				error: (error) => {
 					console.error('Error loading thumbnail for file:', file.fileName, error);
 					this.fileThumbnailsLoading.delete(file.fieldId);
+					ElementEvenementComponent.clearFileLoading(file.fieldId);
 				}
 			});
 			this.allSubscriptions.push(thumbnailSubscription);
@@ -1899,9 +1914,21 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					}
 				}
 				
+				// Check if file is currently being loaded (to prevent duplicate concurrent requests)
+				if (ElementEvenementComponent.isFileLoading(thumbnailFile.fieldId)) {
+					// File is already being loaded, skip
+					return;
+				}
+				
+				// Mark as loading
+				ElementEvenementComponent.setFileLoading(thumbnailFile.fieldId);
+				
 				// Create load request
 				const loadRequest = this._fileService.getFile(thumbnailFile.fieldId).pipe(
 					map((res: any) => {
+						// Mark as no longer loading
+						ElementEvenementComponent.clearFileLoading(thumbnailFile.fieldId);
+						
 						const blob = new Blob([res], { type: 'application/octet-stream' });
 						const objectUrl = this.nativeWindow.URL.createObjectURL(blob);
 						const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
@@ -1919,6 +1946,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						return { eventId, safeUrl };
 					}),
 					catchError((error: any) => {
+						// Mark as no longer loading even on error
+						ElementEvenementComponent.clearFileLoading(thumbnailFile.fieldId);
+						
 						console.error('Error loading thumbnail for event:', eventId, error);
 						// Use default image on error
 						const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
@@ -2085,6 +2115,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		}
 		
+		// Check if file is currently being loaded (to prevent duplicate concurrent requests)
+		if (ElementEvenementComponent.isFileLoading(fileId)) {
+			// File is already being loaded, skip
+			return;
+		}
+		
+		// Mark as loading
+		ElementEvenementComponent.setFileLoading(fileId);
+		
 		const thumbnailSubscription = this._fileService.getFile(fileId).pipe(
 			map((res: any) => {
 				let blob = new Blob([res], { type: 'application/octet-stream' });
@@ -2092,6 +2131,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			})
 		).subscribe({
 			next: (blob: any) => {
+				// Mark as no longer loading
+				ElementEvenementComponent.clearFileLoading(fileId);
+				
 				let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
 				let safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
 				
@@ -2119,6 +2161,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				// L'URL sera automatiquement révoquée quand le composant sera détruit
 			},
 			error: (error: any) => {
+				// Mark as no longer loading even on error
+				ElementEvenementComponent.clearFileLoading(fileId);
+				
 				console.error('Error loading thumbnail for event:', eventId, error);
 				// En cas d'erreur, utiliser l'image par défaut
 				this.eventThumbnails.set(eventId, this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg"));
