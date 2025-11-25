@@ -10,6 +10,7 @@ import com.pat.repo.domain.Member;
 import com.pat.repo.EvenementsRepository;
 import com.pat.repo.MembersRepository;
 import com.pat.service.ImageCompressionService;
+import com.pat.service.MemoryMonitoringService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -71,6 +72,9 @@ public class FileRestController {
     private MailController mailController;
     @Autowired
     private ImageCompressionService imageCompressionService;
+    
+    @Autowired
+    private MemoryMonitoringService memoryMonitoringService;
 
     private static final Logger log = LoggerFactory.getLogger(FileRestController.class);
     
@@ -447,6 +451,17 @@ public class FileRestController {
     public ResponseEntity<String> handleFileUpload(@RequestParam("files") MultipartFile[] files, 
                                                    @RequestParam(value = "allowOriginal", required = false, defaultValue = "false") boolean allowOriginal,
                                                    HttpServletRequest request) {
+        
+        // Check memory before processing large file uploads
+        if (!memoryMonitoringService.checkMemoryUsage()) {
+            double usagePercent = memoryMonitoringService.getMemoryUsagePercent();
+            String errorMessage = String.format(
+                "Cannot process file upload: Server memory usage is critical (%.1f%%). Please try again later.",
+                usagePercent
+            );
+            log.warn("Rejecting file upload due to critical memory usage: {}", memoryMonitoringService.getMemoryInfo());
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorMessage);
+        }
 
         LocalDate date = LocalDate.now();
 
@@ -575,6 +590,21 @@ public class FileRestController {
                                                         @RequestParam(value = "allowOriginal", required = false, defaultValue = "false") boolean allowOriginal,
                                                         @PathVariable String userId, 
                                                         @PathVariable String evenementid  ){
+        
+        // Check memory before processing large file uploads
+        if (!memoryMonitoringService.checkMemoryUsage()) {
+            double usagePercent = memoryMonitoringService.getMemoryUsagePercent();
+            String errorMessage = String.format(
+                "Cannot process file upload: Server memory usage is critical (%.1f%%). Please try again later.",
+                usagePercent
+            );
+            log.warn("Rejecting file upload due to critical memory usage: {}", memoryMonitoringService.getMemoryInfo());
+            if (sessionId != null && !sessionId.isEmpty()) {
+                addUploadLog(sessionId, "❌ Upload rejected: " + errorMessage);
+            }
+            return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(null);
+        }
+        
         // Clean sessionId if it contains duplicates (comma-separated)
         String cleanSessionId = sessionId;
         if (sessionId != null && sessionId.contains(",")) {

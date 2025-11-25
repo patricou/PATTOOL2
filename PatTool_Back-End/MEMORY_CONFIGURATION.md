@@ -1,138 +1,164 @@
 # Memory Configuration Guide
 
-## Problem
-The application was experiencing out-of-memory errors with the following symptoms:
-- `Java HotSpot(TM) 64-Bit Server VM warning: INFO: os::commit_memory(...) failed; error='The paging file is too small'`
-- `Native memory allocation (mmap) failed to map 2097152 bytes for G1 virtual space`
-- Application crashes during file upload operations
+## Overview
 
-## Root Cause
-The application processes large files (up to 250MB per file, 700MB per request) and loads entire files into memory for image compression. The default JVM memory settings were insufficient for these operations.
+This document provides guidance on configuring JVM memory settings to prevent `OutOfMemoryError` in the PatTool backend application.
 
-## Solution
+## Current Memory Protection Features
 
-### JVM Memory Settings
-The following memory configuration has been applied:
+1. **OutOfMemoryError Handler**: Automatically catches and handles OOM errors gracefully
+2. **Memory Monitoring Service**: Monitors memory usage and logs warnings
+3. **Memory Check Filter**: Rejects requests when memory usage is critical (>90%)
+4. **Early Detection**: Prevents OOM by rejecting requests before memory is exhausted
 
-- **Initial Heap Size (`-Xms`)**: 512MB
-- **Maximum Heap Size (`-Xmx`)**: 2048MB (2GB)
-- **Max Metaspace Size**: 512MB (for class metadata)
-- **Max Direct Memory Size**: 512MB (for NIO buffers and native memory)
-- **Garbage Collector**: G1GC (G1 Garbage Collector)
-- **GC Pause Target**: 200ms
+## JVM Memory Configuration
 
-### How to Run
+### Recommended Settings
 
-#### Option 1: Using the Batch Script (Recommended)
-```batch
-# For production JAR
-run.bat
+For a production server with moderate load:
 
-# For development mode
-run-dev.bat
+```bash
+# Minimum heap size: 2GB
+# Maximum heap size: 4GB
+# Use G1GC garbage collector (recommended for Java 11+)
+java -Xms2g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -jar pattool-0.0.1-SNAPSHOT.jar
 ```
 
-#### Option 2: Manual Command Line
-```batch
-# For production JAR
-java -Xms512m -Xmx2048m -XX:MaxMetaspaceSize=512m -XX:MaxDirectMemorySize=512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -jar target\pattool-0.0.1-SNAPSHOT.jar
+### For High-Load Servers
 
-# For development mode
-set MAVEN_OPTS=-Xms512m -Xmx2048m -XX:MaxMetaspaceSize=512m -XX:MaxDirectMemorySize=512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200
-mvn spring-boot:run
+```bash
+# Minimum heap size: 4GB
+# Maximum heap size: 8GB
+# Use G1GC with optimized settings
+java -Xms4g -Xmx8g \
+     -XX:+UseG1GC \
+     -XX:MaxGCPauseMillis=200 \
+     -XX:G1HeapRegionSize=16m \
+     -XX:InitiatingHeapOccupancyPercent=45 \
+     -XX:+HeapDumpOnOutOfMemoryError \
+     -XX:HeapDumpPath=/var/log/pattool/heapdump.hprof \
+     -jar pattool-0.0.1-SNAPSHOT.jar
 ```
 
-#### Option 3: IntelliJ IDEA Run Configuration
+### For Development/Low-Load Servers
 
-**Method 1: Using the Pre-configured Run Configuration (Recommended)**
-A run configuration file has been created at `.idea/runConfigurations/PatToolApplication.xml`. 
-IntelliJ should automatically detect it. If not:
-1. Go to Run → Edit Configurations
-2. Click the "+" button → Spring Boot
-3. Name it "PatToolApplication"
-4. Main class: `com.pat.PatToolApplication`
-5. In "VM options", add:
-```
--Xms512m -Xmx2048m -XX:MaxMetaspaceSize=512m -XX:MaxDirectMemorySize=512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=./logs/heapdump.hprof -Dfile.encoding=UTF-8
+```bash
+# Minimum heap size: 512MB
+# Maximum heap size: 2GB
+java -Xms512m -Xmx2g -XX:+UseG1GC -jar pattool-0.0.1-SNAPSHOT.jar
 ```
 
-**Method 2: Manual Configuration**
-1. Go to **Run** → **Edit Configurations...** (or press `Alt+Shift+F10` then `0`)
-2. Click the **"+"** button in the top-left corner
-3. Select **Spring Boot**
-4. Configure:
-   - **Name**: `PatToolApplication`
-   - **Main class**: `com.pat.PatToolApplication`
-   - **Module**: `pattool`
-5. In the **"VM options"** field, paste:
-```
--Xms512m -Xmx2048m -XX:MaxMetaspaceSize=512m -XX:MaxDirectMemorySize=512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=./logs/heapdump.hprof -Dfile.encoding=UTF-8
-```
-6. Click **Apply** and **OK**
-7. Now you can run the application using the green play button or `Shift+F10`
+## Application Properties Configuration
 
-**Visual Guide:**
-- The VM options field is located in the "Configuration" tab
-- It's usually below the "Main class" field
-- Make sure to select the correct module (`pattool`) from the dropdown
+The following properties in `application.properties` control memory monitoring:
 
-### Memory Settings Explained
-
-- **`-Xms512m`**: Initial heap size. Starting with 512MB prevents frequent heap resizing.
-- **`-Xmx2048m`**: Maximum heap size. 2GB should be sufficient for most operations.
-- **`-XX:MaxMetaspaceSize=512m`**: Limits the metaspace (class metadata) to prevent native memory issues.
-- **`-XX:MaxDirectMemorySize=512m`**: Limits direct memory allocation, which is separate from heap memory.
-- **`-XX:+UseG1GC`**: Uses the G1 garbage collector, which is better for large heap sizes.
-- **`-XX:MaxGCPauseMillis=200`**: Targets GC pauses under 200ms for better responsiveness.
-
-### Windows Paging File (CRITICAL - Required!)
-
-**If you're getting "paging file is too small" errors, you MUST increase the Windows paging file.**
-
-This is a **Windows system requirement**, not just a Java configuration issue.
-
-**Quick Check:**
-```batch
-# Run this script to check your current paging file settings
-check-paging-file.bat
+```properties
+# Memory monitoring settings
+# Warning threshold: Log warning when memory usage exceeds this percentage (default: 85%)
+app.memory.warning-threshold=85
+# Critical threshold: Reject requests when memory usage exceeds this percentage (default: 90%)
+app.memory.critical-threshold=90
 ```
 
-**To Fix:**
-1. Press `Windows + Pause/Break` (or Right-click **This PC** → **Properties**)
-2. Click **Advanced system settings**
-3. **Performance** section → **Settings...**
-4. **Advanced** tab → **Virtual Memory** → **Change...**
-5. **Uncheck** "Automatically manage paging file size"
-6. Select **C:** drive
-7. Select **Custom size**:
-   - **Initial size**: `4096` (4GB)
-   - **Maximum size**: `8192` (8GB) or `12288` (12GB)
-8. Click **Set** → **OK**
-9. **RESTART YOUR COMPUTER** (required!)
+### Adjusting Thresholds
 
-**See `WINDOWS_PAGING_FILE_FIX.md` for detailed instructions and troubleshooting.**
+- **Lower thresholds (e.g., 80% warning, 85% critical)**: More conservative, rejects requests earlier
+- **Higher thresholds (e.g., 90% warning, 95% critical)**: More aggressive, allows higher memory usage
 
-**Temporary Workaround:**
-If you can't increase the paging file right now, use the "PatToolApplication (Low Memory)" run configuration in IntelliJ, which uses reduced memory settings.
+**Recommendation**: Keep critical threshold at 90% or lower to prevent OOM errors.
 
-### Monitoring Memory Usage
-The application is configured to create heap dumps on out-of-memory errors:
-- Location: `./logs/heapdump.hprof`
-- Use tools like Eclipse MAT or VisualVM to analyze heap dumps
+## Memory Usage Patterns
 
-### Adjusting Memory Settings
-If you need to adjust memory settings based on your system:
+### High Memory Usage Scenarios
 
-- **For systems with 4GB RAM**: Use `-Xmx1024m` (1GB)
-- **For systems with 8GB+ RAM**: Current settings (2GB) should work well
-- **For systems with 16GB+ RAM**: You can increase to `-Xmx4096m` (4GB) if needed
+1. **Large File Uploads**: Files up to 250MB are loaded into memory during processing
+2. **Event Streaming**: Streaming all events can accumulate memory if there are many events
+3. **Image Compression**: Multiple concurrent image compressions can use significant memory
+4. **MongoDB Queries**: Large result sets can consume memory
 
-### Troubleshooting
-If memory issues persist:
+### Optimization Tips
 
-1. Check heap dump files in `./logs/` directory
-2. Monitor memory usage with JVisualVM or similar tools
-3. Consider optimizing file processing to use streaming instead of loading entire files into memory
-4. Review application logs for memory-related warnings
-5. Check Windows Event Viewer for system-level memory issues
+1. **File Uploads**: Consider streaming file processing instead of loading entire files into memory
+2. **Event Streaming**: The current implementation uses MongoDB cursors which is memory-efficient
+3. **Image Compression**: The `app.image.compression.max-concurrency` setting limits concurrent operations
+4. **Database Queries**: Use pagination or cursors for large result sets
 
+## Monitoring Memory Usage
+
+### Application Logs
+
+The application logs memory warnings when usage exceeds the warning threshold:
+
+```
+WARNING: High memory usage detected: 87.5% (3500 MB / 4000 MB). 
+Consider increasing heap size or investigating memory leaks.
+```
+
+### Critical Alerts
+
+When memory usage is critical, requests are rejected:
+
+```
+CRITICAL: Memory usage at 92.3% (3692 MB / 4000 MB). 
+Server may reject requests to prevent OutOfMemoryError.
+```
+
+### Heap Dumps
+
+If you configure `-XX:+HeapDumpOnOutOfMemoryError`, a heap dump will be created when OOM occurs. 
+Analyze the heap dump with tools like:
+- Eclipse MAT (Memory Analyzer Tool)
+- VisualVM
+- jhat (Java Heap Analysis Tool)
+
+## Troubleshooting
+
+### OutOfMemoryError Still Occurs
+
+1. **Increase heap size**: Increase `-Xmx` value
+2. **Lower critical threshold**: Reduce `app.memory.critical-threshold` to reject requests earlier
+3. **Investigate memory leaks**: Use heap dumps and profiling tools
+4. **Optimize code**: Review file upload and data processing code
+
+### Too Many Requests Rejected
+
+1. **Increase heap size**: More memory = fewer rejections
+2. **Raise critical threshold**: Only if you're confident about memory usage patterns
+3. **Optimize memory usage**: Reduce memory footprint of operations
+
+### Memory Warnings Too Frequent
+
+1. **Increase warning threshold**: Only if memory usage is stable
+2. **Investigate memory leaks**: Frequent warnings may indicate a leak
+3. **Optimize operations**: Reduce memory usage of heavy operations
+
+## System Requirements
+
+### Minimum System Memory
+
+- **Development**: 4GB RAM (2GB for JVM + 2GB for OS)
+- **Production (Low Load)**: 8GB RAM (4GB for JVM + 4GB for OS)
+- **Production (High Load)**: 16GB+ RAM (8GB+ for JVM + 8GB+ for OS)
+
+### Disk Space
+
+Ensure sufficient disk space for:
+- Heap dumps (if enabled): ~2-4x heap size
+- Application logs
+- Temporary files during file uploads
+
+## Best Practices
+
+1. **Set -Xms equal to -Xmx**: Prevents heap resizing overhead
+2. **Use G1GC**: Best for applications with varying heap sizes
+3. **Monitor regularly**: Check logs for memory warnings
+4. **Test with production-like data**: Ensure heap size is adequate
+5. **Enable heap dumps**: Helps diagnose OOM issues
+6. **Review memory monitoring logs**: Identify patterns and optimize
+
+## Related Files
+
+- `GlobalExceptionHandler.java`: Handles OutOfMemoryError
+- `MemoryMonitoringService.java`: Monitors memory usage
+- `MemoryCheckFilter.java`: Rejects requests when memory is critical
+- `application.properties`: Configuration for memory thresholds

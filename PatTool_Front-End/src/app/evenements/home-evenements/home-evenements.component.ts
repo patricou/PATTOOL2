@@ -87,10 +87,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public cachedMemoryUsagePercent: number = 0; // Cached memory usage percentage
 	public cachedHostMemoryUsage: string = 'N/A'; // Cached host memory usage (system RAM)
 	public cachedHostMemoryUsagePercent: number = 0; // Cached host memory usage percentage
-	public cachedNetworkSpeed: string = 'N/A'; // Cached network speed between frontend and backend (MB/s)
-	public cachedNetworkSpeedMbps: number = 0; // Cached network speed in MB/s
-	public cachedCardLoadTime: number = 0; // Cached card load time to prevent change detection errors
-	public cachedThumbnailLoadTime: number = 0; // Cached thumbnail load time to prevent change detection errors
+	public cachedJvmMemoryUsage: string = 'N/A'; // Cached JVM memory usage
+	public cachedJvmMemoryUsagePercent: number = 0; // Cached JVM memory usage percentage
+	public cachedCompressionCacheCount: number = 0; // Number of photos in compression cache
+	public cachedCompressionCacheSizeMB: number = 0; // Size of compression cache in MB
+	public cachedJvmStatus: string = 'OK'; // Cached JVM memory status (OK/WARNING/CRITICAL)
 	@ViewChildren('searchterm')
 	public searchterms!: QueryList<ElementRef>;
 	@ViewChildren('patCard') patCards!: QueryList<ElementRef>;
@@ -125,6 +126,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private firebaseUnsubscribe?: () => void;
 	private activeTimeouts: Set<ReturnType<typeof setTimeout>> = new Set();
 	private debugInfoUpdateInterval?: ReturnType<typeof setInterval>;
+	private memoryAutoRefreshInterval?: ReturnType<typeof setInterval>;
+	public isMemoryAutoRefreshActive: boolean = false; // Track if memory auto-refresh is active
+	private cacheAutoRefreshInterval?: ReturnType<typeof setInterval>;
+	public isCacheAutoRefreshActive: boolean = false; // Track if cache auto-refresh is active
 	private loadingEvents: Map<string, LoadingEventInfo> = new Map(); // Track events being loaded with timestamps
 	private thumbnailLoadQueue: Subject<Evenement> = new Subject<Evenement>(); // Queue for batching thumbnail loads
 	private thumbnailLoadQueueSubscription?: Subscription;
@@ -163,14 +168,17 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.user = this._memberService.getUser();
 		this.cardsReady = false;
 		
-		// Initialize cached memory usage and load times
+		// Initialize cached memory usage
 		this.updateCachedMemoryUsage();
 		
 		// Initialize host memory (system RAM) once at startup
 		this.updateHostMemoryUsage();
 		
-		// Initialize network latency once at startup
-		this.updateNetworkLatency();
+		// Initialize JVM memory once at startup
+		this.updateJvmMemoryUsage();
+		
+		// Initialize compression cache statistics once at startup (not refreshed in real-time)
+		this.updateCompressionCacheStats();
 		
 		// Start real-time updates for debug info panel when visible
 		this.startDebugInfoUpdates();
@@ -273,70 +281,190 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		// Note: Host memory is now updated manually via refresh button, not automatically
 		
-		// Update cached load times to prevent change detection errors
-		this.updateCachedLoadTimes();
 	}
 	
-	// Public method to refresh both memory info manually (JavaScript and system memory)
+	// Public method to refresh all memory info manually (JavaScript, system RAM, and JVM)
 	public refreshMemoryInfo(): void {
 		// Refresh JavaScript memory usage
 		this.updateCachedMemoryUsage();
 		// Refresh host memory (system RAM)
 		this.updateHostMemoryUsage();
-		// Refresh network latency
-		this.updateNetworkLatency();
+		// Refresh JVM memory
+		this.updateJvmMemoryUsage();
 		this.scheduleChangeDetection();
 	}
 	
-	private updateNetworkLatency(): void {
-		// Measure network speed by downloading data from backend
-		const startTime = performance.now();
-		const dataSizeMB = 100; // 100 MB test data
-		
-		this.speedTestBackend().subscribe({
-			next: (response: ArrayBuffer) => {
-				const endTime = performance.now();
-				const durationMs = endTime - startTime;
-				const durationSec = durationMs / 1000;
-				
-				// Calculate speed in MB/s
-				const speedMbps = dataSizeMB / durationSec;
-				this.cachedNetworkSpeedMbps = speedMbps;
-				
-				// Format speed with 2 decimal places
-				if (speedMbps >= 1) {
-					this.cachedNetworkSpeed = `${speedMbps.toFixed(2)} MB/s`;
+	// Toggle automatic memory refresh (every 1 second)
+	public toggleMemoryAutoRefresh(): void {
+		if (this.isMemoryAutoRefreshActive) {
+			// Stop auto-refresh
+			if (this.memoryAutoRefreshInterval) {
+				clearInterval(this.memoryAutoRefreshInterval);
+				this.memoryAutoRefreshInterval = undefined;
+			}
+			this.isMemoryAutoRefreshActive = false;
+		} else {
+			// Start auto-refresh
+			this.refreshMemoryInfo(); // Refresh immediately
+			this.memoryAutoRefreshInterval = setInterval(() => {
+				this.refreshMemoryInfo();
+			}, 1000); // Refresh every 1 second
+			this.isMemoryAutoRefreshActive = true;
+		}
+		this.scheduleChangeDetection();
+	}
+	
+	private updateJvmMemoryUsage(): void {
+		// Get JVM memory from backend API
+		this.getJvmMemoryFromBackend().subscribe({
+			next: (memoryInfo: any) => {
+				if (memoryInfo && !memoryInfo.error) {
+					const usedMB = memoryInfo.usedMB || 0;
+					const maxMB = memoryInfo.maxMB || 0;
+					const freeMB = memoryInfo.freeMB || 0;
+					const usagePercent = memoryInfo.usagePercent || 0;
+					const status = memoryInfo.status || 'OK';
+					
+					// Store values
+					this.cachedJvmMemoryUsagePercent = Math.round(usagePercent);
+					this.cachedJvmStatus = status;
+					
+					// Format: "usedMB MB / maxMB MB (usagePercent%) - status"
+					this.cachedJvmMemoryUsage = `${usedMB} MB / ${maxMB} MB (${Math.round(usagePercent)}%) - ${status}`;
+					
+					// Note: Compression cache statistics are NOT updated here to avoid real-time refresh
+					// They are only updated on manual refresh or initial load
+					
+					// Schedule change detection to update the UI with new values
+					this.scheduleChangeDetection();
 				} else {
-					// If less than 1 MB/s, show in KB/s
-					const speedKbps = speedMbps * 1024;
-					this.cachedNetworkSpeed = `${speedKbps.toFixed(2)} KB/s`;
+					// Fallback if backend fails
+					this.cachedJvmMemoryUsage = 'N/A';
+					this.cachedJvmMemoryUsagePercent = 0;
+					this.cachedJvmStatus = 'UNKNOWN';
+					// Note: Compression cache statistics are NOT reset here
+					// Schedule change detection to update the UI
+					this.scheduleChangeDetection();
 				}
 			},
 			error: (error) => {
-				this.cachedNetworkSpeed = 'Error';
-				this.cachedNetworkSpeedMbps = 0;
+				// Fallback if backend call fails
+				this.cachedJvmMemoryUsage = 'N/A';
+				this.cachedJvmMemoryUsagePercent = 0;
+				this.cachedJvmStatus = 'ERROR';
+				// Note: Compression cache statistics are NOT reset here
+				// Schedule change detection to update the UI
+				this.scheduleChangeDetection();
 			}
 		});
 	}
 	
-	private speedTestBackend(): Observable<ArrayBuffer> {
+	private getJvmMemoryFromBackend(): Observable<any> {
 		// Get header with token for Keycloak Security
 		return from(this._keycloakService.getToken()).pipe(
 			switchMap((token: string) => {
 				const headers = new HttpHeaders({
-					'Accept': 'application/octet-stream',
+					'Accept': 'application/json',
+					'Content-Type': 'application/json; charset=UTF-8',
 					'Authorization': 'Bearer ' + token
 				});
-				return this._http.get(environment.API_URL + 'system/speedtest', { 
-					headers: headers,
-					responseType: 'arraybuffer'
-				});
+				return this._http.get<any>(environment.API_URL + 'system/memory', { headers: headers });
 			}),
 			catchError((error) => {
-				// Return error to handle in subscribe
-				throw error;
+				// Return error object to handle in subscribe
+				return of({ error: error.message || 'Failed to retrieve JVM memory' });
 			})
 		);
+	}
+	
+	private getCacheStatsFromBackend(): Observable<any> {
+		// Get header with token for Keycloak Security
+		return from(this._keycloakService.getToken()).pipe(
+			switchMap((token: string) => {
+				const headers = new HttpHeaders({
+					'Accept': 'application/json',
+					'Content-Type': 'application/json; charset=UTF-8',
+					'Authorization': 'Bearer ' + token
+				});
+				return this._http.get<any>(environment.API_URL + 'system/cache', { headers: headers });
+			}),
+			catchError((error) => {
+				// Return error object to handle in subscribe
+				return of({ error: error.message || 'Failed to retrieve cache statistics' });
+			})
+		);
+	}
+	
+	// Update compression cache statistics (called only on initialization, not in real-time)
+	private updateCompressionCacheStats(): void {
+		this.getCacheStatsFromBackend().subscribe({
+			next: (cacheInfo: any) => {
+				// console.log('Cache stats response received:', cacheInfo); // Always log to debug
+				
+				if (cacheInfo && !cacheInfo.error) {
+					// Extract values with proper type conversion
+					let entryCount = 0;
+					let totalSizeMB = 0;
+					
+					if (cacheInfo.entryCount !== undefined && cacheInfo.entryCount !== null) {
+						entryCount = typeof cacheInfo.entryCount === 'number' ? cacheInfo.entryCount : parseInt(cacheInfo.entryCount, 10) || 0;
+					}
+					
+					if (cacheInfo.totalSizeMB !== undefined && cacheInfo.totalSizeMB !== null) {
+						totalSizeMB = typeof cacheInfo.totalSizeMB === 'number' ? cacheInfo.totalSizeMB : parseFloat(cacheInfo.totalSizeMB) || 0;
+					}
+					
+					const enabled = cacheInfo.enabled !== false; // Default to true if not specified
+					
+					// Update cached values
+					this.cachedCompressionCacheCount = entryCount;
+					this.cachedCompressionCacheSizeMB = totalSizeMB;
+					
+					// Debug log (always log to help debug)
+					// console.log('Compression cache stats updated:', {
+					// 	entryCount: this.cachedCompressionCacheCount,
+					// 	totalSizeMB: this.cachedCompressionCacheSizeMB,
+					// 	enabled: enabled,
+					// 	raw: cacheInfo
+					// });
+					
+					this.scheduleChangeDetection();
+				} else {
+					// Cache stats not available or error
+					// console.warn('Cache stats request failed or returned error:', cacheInfo);
+					this.cachedCompressionCacheCount = 0;
+					this.cachedCompressionCacheSizeMB = 0;
+					this.scheduleChangeDetection();
+				}
+			},
+			error: (error) => {
+				// Log error
+				console.error('Error fetching compression cache stats:', error);
+				this.cachedCompressionCacheCount = 0;
+				this.cachedCompressionCacheSizeMB = 0;
+				this.scheduleChangeDetection();
+			}
+		});
+	}
+	
+	// Toggle automatic cache refresh (every 1 second)
+	public toggleCacheAutoRefresh(): void {
+		if (this.isCacheAutoRefreshActive) {
+			// Stop auto-refresh
+			if (this.cacheAutoRefreshInterval) {
+				clearInterval(this.cacheAutoRefreshInterval);
+				this.cacheAutoRefreshInterval = undefined;
+			}
+			this.isCacheAutoRefreshActive = false;
+		} else {
+			// Start auto-refresh
+			this.updateCompressionCacheStats(); // Refresh immediately
+			this.cacheAutoRefreshInterval = setInterval(() => {
+				this.updateCompressionCacheStats();
+			}, 1000); // Refresh every 1 second
+			this.isCacheAutoRefreshActive = true;
+		}
+		this.scheduleChangeDetection();
 	}
 	
 	private updateHostMemoryUsage(): void {
@@ -412,44 +540,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		);
 	}
 	
-		// Update cached load times asynchronously
-	private updateCachedLoadTimes(): void {
-		// Update card load time
-		const first = this.loadingEvents.values().next().value;
-		if (first && first.cardLoadStart) {
-			// Only calculate time if cardLoadEnd is defined (loading is complete)
-			// Otherwise, don't update to prevent continuously increasing time
-			if (first.cardLoadEnd) {
-				this.cachedCardLoadTime = first.cardLoadEnd - first.cardLoadStart;
-			} else {
-				// Card is still loading - calculate current elapsed time but only if we want to show it
-				// For now, keep the last known value or 0 to prevent continuous increase
-				if (this.cachedCardLoadTime === 0) {
-					// Only update once when loading starts, then wait for cardLoadEnd
-					this.cachedCardLoadTime = Date.now() - first.cardLoadStart;
-				}
-				// Don't update again until cardLoadEnd is set
-			}
-		} else {
-			this.cachedCardLoadTime = 0;
-		}
-		
-		// Update thumbnail load time
-		if (first && first.thumbnailLoadStart) {
-			// Only calculate time if thumbnailLoadEnd is defined (loading is complete)
-			if (first.thumbnailLoadEnd) {
-				this.cachedThumbnailLoadTime = first.thumbnailLoadEnd - first.thumbnailLoadStart;
-			} else {
-				// Thumbnail is still loading - keep last known value or 0
-				if (this.cachedThumbnailLoadTime === 0) {
-					// Only update once when loading starts
-					this.cachedThumbnailLoadTime = Date.now() - first.thumbnailLoadStart;
-				}
-			}
-		} else {
-			this.cachedThumbnailLoadTime = 0;
-		}
-	}
 
 	@HostListener('window:resize', ['$event'])
 	onWindowResize(event: UIEvent): void {
@@ -731,7 +821,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				.subscribe({
 					next: (streamedEvent: StreamedEvent) => {
 						if (requestToken !== this.feedRequestToken) {
-							console.log('⚠️ Request token mismatch, ignoring event');
+							// console.log('⚠️ Request token mismatch, ignoring event');
 							return;
 						}
 						
@@ -779,7 +869,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							// Batch change detection for better performance
 							this.scheduleChangeDetection();
 						} else if (streamedEvent.type === 'complete') {
-							console.log('🎉 ✅ COMPLETE event received!');
+							// console.log('🎉 ✅ COMPLETE event received!');
 							
 							// Clear timeout since we got the complete event
 							if (this.streamingTimeoutId) {
@@ -790,15 +880,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							// Streaming complete - ensure first 8 events are displayed
 							this.updateDisplayedEvents();
 							this.isLoadingNextPage = false;
-							console.log('✅ Streaming complete - setting isLoading to false');
+							// console.log('✅ Streaming complete - setting isLoading to false');
 							this.isLoading = false;
 							const newHasMore = this.evenements.length < this.allStreamedEvents.length;
-							console.log('📊 Streaming complete - updating hasMoreEvents', {
-								oldValue: this.hasMoreEvents,
-								newValue: newHasMore,
-								displayed: this.evenements.length,
-								total: this.allStreamedEvents.length
-							});
+							// console.log('📊 Streaming complete - updating hasMoreEvents', {
+							// 	oldValue: this.hasMoreEvents,
+							// 	newValue: newHasMore,
+							// 	displayed: this.evenements.length,
+							// 	total: this.allStreamedEvents.length
+							// });
 							this.hasMoreEvents = newHasMore;
 							// Always unblock scroll when streaming completes
 							this.unblockPageScroll();
@@ -845,18 +935,18 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							// Reconnect observer after streaming completes to enable scroll loading
 							// Wait a bit longer to ensure DOM is updated and anchor is rendered
 							setTimeout(() => {
-								console.log('Streaming complete, setting up observer', { 
-									displayed: this.evenements.length, 
-									total: this.allStreamedEvents.length,
-									hasMore: this.evenements.length < this.allStreamedEvents.length
-								});
+								// console.log('Streaming complete, setting up observer', { 
+								// 	displayed: this.evenements.length, 
+								// 	total: this.allStreamedEvents.length,
+								// 	hasMore: this.evenements.length < this.allStreamedEvents.length
+								// });
 								// Force setup of observer - retry multiple times if needed
 								let retryCount = 0;
 								const maxRetries = 10; // Increased retries
 								const trySetupObserver = () => {
 									if (this.infiniteScrollAnchor?.nativeElement) {
 										this.setupInfiniteScrollObserver();
-										console.log('Observer set up successfully');
+										// console.log('Observer set up successfully');
 										// Final guarantee: ensure scroll is unblocked after observer is set up
 										setTimeout(() => {
 											this.unblockPageScroll();
@@ -871,7 +961,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 										retryCount++;
 										setTimeout(trySetupObserver, 200);
 									} else {
-										console.warn('Failed to set up observer after', maxRetries, 'retries');
+										// console.warn('Failed to set up observer after', maxRetries, 'retries');
 										// Even if observer setup fails, ensure scroll is unblocked
 										this.unblockPageScroll();
 										this.shouldBlockScroll = false;
@@ -897,7 +987,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						if (requestToken !== this.feedRequestToken) {
 							return;
 						}
-						console.error("Error when getting Events", err);
 						this.isLoadingNextPage = false;
 						this.isLoading = false;
 						this.hasMoreEvents = false;
@@ -917,7 +1006,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}).catch((err) => {
 			// Only reset flags if this is still the current request
 			if (requestToken === this.feedRequestToken) {
-				console.error("Error while waiting for user value", err);
 				this.isLoadingNextPage = false;
 				this.isLoading = false; // Désactiver le spinner en cas d'erreur
 				this.hasMoreEvents = false;
@@ -953,7 +1041,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		// Check if anchor is available
 		if (!this.infiniteScrollAnchor || !this.infiniteScrollAnchor.nativeElement) {
-			console.log('⏳ Anchor not ready, retrying in 100ms...');
+			// console.log('⏳ Anchor not ready, retrying in 100ms...');
 			setTimeout(() => this.setupInfiniteScrollObserver(), 100);
 			return;
 		}
@@ -996,7 +1084,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		// Don't load if already loading
 		if (this.isLoadingNextPage) {
-			console.log('⏸️ Already loading, skipping');
+			// console.log('⏸️ Already loading, skipping');
 			return;
 		}
 
@@ -1012,7 +1100,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 
 		// Load next page
-		console.log('⬇️ Loading next page from IntersectionObserver...');
+		// console.log('⬇️ Loading next page from IntersectionObserver...');
 		this.loadNextPage();
 	}
 
@@ -1122,7 +1210,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		// Prevent multiple simultaneous loads
 		if (this.isLoadingNextPage) {
-			console.log('⏸️ Already loading, aborting');
+			// console.log('⏸️ Already loading, aborting');
 			return;
 		}
 
@@ -1131,7 +1219,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		// Check if there are more events available
 		if (currentCount >= totalCount) {
-			console.log('✅ All events already loaded');
+			// console.log('✅ All events already loaded');
 			this.hasMoreEvents = false;
 			this.disconnectInfiniteScrollObserver();
 			return;
@@ -1149,7 +1237,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Removed log: Loading stats (too verbose)
 
 		if (nextEvents.length === 0) {
-			console.log('⚠️ No events to load');
+			// console.log('⚠️ No events to load');
 			this.isLoadingNextPage = false;
 			this.hasMoreEvents = false;
 			this.disconnectInfiniteScrollObserver();
@@ -1196,16 +1284,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		// Reconnect observer after DOM updates
 		setTimeout(() => {
-			console.log('🔄 Reconnecting observer after load', {
-				hasMore: this.hasMoreEvents,
-				displayed: this.evenements.length,
-				total: this.allStreamedEvents.length,
-				anchorExists: !!this.infiniteScrollAnchor?.nativeElement,
-				observerExists: !!this.intersectionObserver
-			});
+			// console.log('🔄 Reconnecting observer after load', {
+			// 	hasMore: this.hasMoreEvents,
+			// 	displayed: this.evenements.length,
+			// 	total: this.allStreamedEvents.length,
+			// 	anchorExists: !!this.infiniteScrollAnchor?.nativeElement,
+			// 	observerExists: !!this.intersectionObserver
+			// });
 
 			if (!this.hasMoreEvents) {
-				console.log('🛑 No more events, disconnecting observer');
+				// console.log('🛑 No more events, disconnecting observer');
 				this.disconnectInfiniteScrollObserver();
 			} else {
 				// Reconnect observer to continue watching
@@ -1213,7 +1301,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					try {
 						this.intersectionObserver.disconnect();
 						this.intersectionObserver.observe(this.infiniteScrollAnchor.nativeElement);
-						console.log('✅ Observer reconnected successfully');
+						// console.log('✅ Observer reconnected successfully');
 					} catch (error) {
 						console.error('❌ Error reconnecting scroll observer:', error);
 					}
@@ -1474,6 +1562,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				if (cachedThumbnail) {
 					// Reuse cached thumbnail from element-evenement component
 					this.fileThumbnailsCache.set(file.fieldId, cachedThumbnail);
+					// Trigger change detection to update debug panel
+					this.scheduleChangeDetection();
 					return;
 				}
 			}
@@ -1487,6 +1577,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			// Mark as loading in both local and shared state
 			this.fileThumbnailsLoading.add(file.fieldId);
 			ElementEvenementComponent.setFileLoading(file.fieldId);
+			// Trigger change detection to update debug panel
+			this.scheduleChangeDetection();
 			
 			// Load the file and create thumbnail URL
 			const thumbnailSubscription = this._fileService.getFile(file.fieldId).pipe(
@@ -1502,11 +1594,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					ElementEvenementComponent.clearFileLoading(file.fieldId);
 					// Also cache in element-evenement shared cache to prevent duplicate requests
 					ElementEvenementComponent.setCachedThumbnail(file.fieldId, safeUrl);
+					// Trigger change detection to update debug panel
+					this.scheduleChangeDetection();
 				},
 				error: (error) => {
 					console.error('Error loading thumbnail for file:', file.fileName, error);
 					this.fileThumbnailsLoading.delete(file.fieldId);
 					ElementEvenementComponent.clearFileLoading(file.fieldId);
+					// Trigger change detection to update debug panel
+					this.scheduleChangeDetection();
 				}
 			});
 			this.allSubscriptions.push(thumbnailSubscription);
@@ -1696,7 +1792,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					this.nativeWindow.URL.revokeObjectURL(url);
 				}
 			} catch (error) {
-				console.warn('Error cleaning up blob URL:', error);
+				// console.warn('Error cleaning up blob URL:', error);
 			}
 		});
 		this.eventThumbnails.clear();
@@ -1711,7 +1807,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					}
 				}
 			} catch (error) {
-				console.warn('Error cleaning up file thumbnail blob URL:', error);
+				// console.warn('Error cleaning up file thumbnail blob URL:', error);
 			}
 		});
 		this.fileThumbnailsCache.clear();
@@ -2640,6 +2736,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			clearTimeout(this.streamingTimeoutId);
 			this.streamingTimeoutId = null;
 		}
+		// Clear memory auto-refresh interval
+		if (this.memoryAutoRefreshInterval) {
+			clearInterval(this.memoryAutoRefreshInterval);
+			this.memoryAutoRefreshInterval = undefined;
+		}
+		// Clear cache auto-refresh interval
+		if (this.cacheAutoRefreshInterval) {
+			clearInterval(this.cacheAutoRefreshInterval);
+			this.cacheAutoRefreshInterval = undefined;
+		}
 		
 		// Unblock scrolling if it was blocked
 		if (this.shouldBlockScroll) {
@@ -2647,10 +2753,28 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.shouldBlockScroll = false;
 		}
 		
+		// Clear memory auto-refresh interval
+		if (this.memoryAutoRefreshInterval) {
+			clearInterval(this.memoryAutoRefreshInterval);
+			this.memoryAutoRefreshInterval = undefined;
+		}
+		
+		// Clear cache auto-refresh interval
+		if (this.cacheAutoRefreshInterval) {
+			clearInterval(this.cacheAutoRefreshInterval);
+			this.cacheAutoRefreshInterval = undefined;
+		}
+		
 		// Clear debug info update interval
 		if (this.debugInfoUpdateInterval) {
 			clearInterval(this.debugInfoUpdateInterval);
 			this.debugInfoUpdateInterval = undefined;
+		}
+		
+		// Clear memory auto-refresh interval
+		if (this.memoryAutoRefreshInterval) {
+			clearInterval(this.memoryAutoRefreshInterval);
+			this.memoryAutoRefreshInterval = undefined;
 		}
 		
 		// Clean up poll interval
@@ -2725,7 +2849,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				}
 			} catch (error) {
 				// Ignorer les erreurs lors du nettoyage
-				console.warn('Error cleaning up blob URL:', error);
+				// console.warn('Error cleaning up blob URL:', error);
 			}
 		});
 		this.eventThumbnails.clear();
@@ -2740,7 +2864,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					}
 				}
 			} catch (error) {
-				console.warn('Error cleaning up file thumbnail blob URL:', error);
+				// console.warn('Error cleaning up file thumbnail blob URL:', error);
 			}
 		});
 		this.fileThumbnailsCache.clear();
@@ -3295,16 +3419,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		return this.loadingEvents.size;
 	}
 	
-	// Get card load time for first loading event - returns cached value to prevent change detection errors
-	public getCardLoadTime(): number {
-		return this.cachedCardLoadTime;
-	}
-	
-	// Get thumbnail load time for first loading event - returns cached value to prevent change detection errors
-	public getThumbnailLoadTime(): number {
-		return this.cachedThumbnailLoadTime;
-	}
-	
 	// Get memory usage (in MB) - returns cached value to prevent change detection errors
 	public getMemoryUsage(): string {
 		return this.cachedMemoryUsage;
@@ -3325,14 +3439,19 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		return this.cachedHostMemoryUsagePercent;
 	}
 	
-	// Get network speed - returns cached value to prevent change detection errors
-	public getNetworkSpeed(): string {
-		return this.cachedNetworkSpeed;
+	// Get JVM memory usage - returns cached value to prevent change detection errors
+	public getJvmMemoryUsage(): string {
+		return this.cachedJvmMemoryUsage;
 	}
 	
-	// Get network speed in MB/s - returns cached value to prevent change detection errors
-	public getNetworkSpeedMbps(): number {
-		return this.cachedNetworkSpeedMbps;
+	// Get JVM memory usage percentage (0-100) - returns cached value to prevent change detection errors
+	public getJvmMemoryUsagePercent(): number {
+		return this.cachedJvmMemoryUsagePercent;
+	}
+	
+	// Get JVM memory status (OK/WARNING/CRITICAL)
+	public getJvmStatus(): string {
+		return this.cachedJvmStatus;
 	}
 	
 	// Get cached thumbnails count - now counts all thumbnails since there's no buffer
@@ -3340,14 +3459,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		return this.eventThumbnails.size;
 	}
 	
-	// Get file thumbnails cache count
+	// Get file thumbnails cache count (from shared static cache in ElementEvenementComponent)
 	public getFileThumbnailsCacheCount(): number {
-		return this.fileThumbnailsCache.size;
+		// Use the static shared cache from ElementEvenementComponent, not the local cache
+		return ElementEvenementComponent.getCachedThumbnailsCount();
 	}
 	
-	// Get pending thumbnail loads count
+	// Get pending thumbnail loads count (from shared static set in ElementEvenementComponent)
 	public getPendingThumbnailLoadsCount(): number {
-		return this.pendingThumbnailLoads.size;
+		// Use the static shared loading set from ElementEvenementComponent
+		return ElementEvenementComponent.getPendingFileThumbnailLoadsCount();
 	}
 	
 	// Get event colors cache count

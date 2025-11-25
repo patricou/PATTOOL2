@@ -145,14 +145,35 @@ public class GlobalExceptionHandler {
         String clientIp = getClientIpAddress(request);
         String message = exc.getMessage();
         String logMessage;
-        if (message != null && (message.contains("Connection reset") || 
+        
+        // Check if this is a connection abort (normal client disconnection)
+        boolean isConnectionAbort = message != null && (message.contains("Connection reset") || 
                                  message.contains("failed to write") ||
-                                 message.contains("Connection closed"))) {
-            logMessage = "Client closed connection during async request (likely normal) from IP [" + clientIp + "]: " + message;
-            log.info(logMessage);
+                                 message.contains("Connection closed") ||
+                                 message.contains("An established connection was aborted by the software in your host machine") ||
+                                 message.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte"));
+        
+        // Also check the cause chain
+        Throwable cause = exc.getCause();
+        if (!isConnectionAbort && cause != null) {
+            String causeMessage = cause.getMessage();
+            isConnectionAbort = causeMessage != null && (causeMessage.contains("Connection reset") ||
+                                 causeMessage.contains("An established connection was aborted by the software in your host machine") ||
+                                 causeMessage.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte"));
+        }
+        
+        if (isConnectionAbort) {
+            // Extract just the main message without full exception details
+            String shortMessage = message != null ? message : (cause != null ? cause.getMessage() : "Connection aborted");
+            // Remove "java.io.IOException: " prefix if present
+            if (shortMessage != null && shortMessage.contains(": ")) {
+                shortMessage = shortMessage.substring(shortMessage.indexOf(": ") + 2);
+            }
+            logMessage = "Client closed connection during async request (likely normal) from IP [" + clientIp + "]: " + shortMessage;
+            log.info(logMessage); // Log as info WITHOUT stack trace
         } else {
             logMessage = "AsyncRequestNotUsableException from IP [" + clientIp + "]: " + message;
-            log.info(logMessage);
+            log.info(logMessage); // Log as info WITHOUT stack trace
         }
         exceptionTrackingService.addLog(clientIp, logMessage);
         
@@ -173,6 +194,78 @@ public class GlobalExceptionHandler {
         log.info(logMessage);
         exceptionTrackingService.addLog(clientIp, logMessage);
         return null;
+    }
+
+    /**
+     * Handle OutOfMemoryError - CRITICAL: Must be handled before generic Exception handler
+     * Do NOT attempt to create stack traces or do anything memory-intensive
+     */
+    @ExceptionHandler(OutOfMemoryError.class)
+    public ResponseEntity<String> handleOutOfMemoryError(OutOfMemoryError error, HttpServletRequest request) {
+        String clientIp = getClientIpAddress(request);
+        
+        // CRITICAL: Do NOT create stack traces or do anything that allocates memory
+        // Just log minimal information and return error response
+        String logMessage = "CRITICAL: OutOfMemoryError detected from IP [" + clientIp + "]. " +
+                           "Heap space exhausted. Request URI: " + 
+                           (request != null ? request.getRequestURI() : "unknown") + 
+                           ". Free memory: " + getMemoryInfo();
+        
+        // Use System.err directly to avoid potential memory issues with logger
+        System.err.println(logMessage);
+        
+        // Try to log, but don't fail if it causes OOM
+        try {
+            log.error(logMessage);
+        } catch (Throwable t) {
+            // Ignore - we're already out of memory
+        }
+        
+        // Try to track exception, but don't fail if it causes OOM
+        try {
+            // Don't create stack trace - it could cause another OOM
+            exceptionTrackingService.addException(
+                clientIp,
+                "OutOfMemoryError",
+                "Java heap space exhausted",
+                request != null ? request.getRequestURI() : "unknown",
+                request != null ? request.getMethod() : "unknown",
+                "Stack trace omitted to prevent additional memory allocation",
+                logMessage
+            );
+        } catch (Throwable t) {
+            // Ignore - we're already out of memory
+        }
+        
+        // Suggest garbage collection (non-blocking)
+        try {
+            System.gc();
+        } catch (Throwable t) {
+            // Ignore
+        }
+        
+        return ResponseEntity.status(HttpStatus.INSUFFICIENT_STORAGE)
+                .body("Server is experiencing high memory usage. Please try again later or contact support.");
+    }
+    
+    /**
+     * Get memory information safely without allocating too much memory
+     */
+    private String getMemoryInfo() {
+        try {
+            Runtime runtime = Runtime.getRuntime();
+            long maxMemory = runtime.maxMemory();
+            long totalMemory = runtime.totalMemory();
+            long freeMemory = runtime.freeMemory();
+            long usedMemory = totalMemory - freeMemory;
+            
+            return String.format("Used: %d MB / Max: %d MB (%.1f%%)",
+                usedMemory / (1024 * 1024),
+                maxMemory / (1024 * 1024),
+                (usedMemory * 100.0) / maxMemory);
+        } catch (Throwable t) {
+            return "Unable to retrieve memory info";
+        }
     }
 
     @ExceptionHandler(IOException.class)
@@ -210,6 +303,11 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleGenericException(Exception exc, HttpServletRequest request) {
+        // Check if this is an OutOfMemoryError wrapped in an Exception
+        if (exc.getCause() instanceof OutOfMemoryError) {
+            return handleOutOfMemoryError((OutOfMemoryError) exc.getCause(), request);
+        }
+        
         String clientIp = getClientIpAddress(request);
         // Check if this exception is related to missing static resources from scanners
         String message = exc.getMessage();
@@ -226,13 +324,22 @@ public class GlobalExceptionHandler {
         }
         
         // Check if this is a connection reset wrapped in another exception
-        if (message != null && (message.contains("Connection reset") ||
+        // Also check the cause chain for connection abort messages
+        Throwable cause = exc.getCause();
+        String causeMessage = cause != null ? cause.getMessage() : null;
+        boolean isConnectionAbort = (message != null && (message.contains("Connection reset") ||
                                  message.contains("Broken pipe") ||
                                  message.contains("AsyncRequestNotUsableException") ||
                                  message.contains("An established connection was aborted by the software in your host machine") ||
-                                 message.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte"))) {
-            String logMessage = "Client closed connection (likely normal) from IP [" + clientIp + "]: " + message;
-            log.info(logMessage);
+                                 message.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte"))) ||
+                                 (causeMessage != null && (causeMessage.contains("Connection reset") ||
+                                 causeMessage.contains("Broken pipe") ||
+                                 causeMessage.contains("An established connection was aborted by the software in your host machine") ||
+                                 causeMessage.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte")));
+        
+        if (isConnectionAbort) {
+            String logMessage = "Client closed connection (likely normal) from IP [" + clientIp + "]: " + (message != null ? message : causeMessage);
+            log.info(logMessage); // Log as info without stack trace
             exceptionTrackingService.addLog(clientIp, logMessage);
             return null; // Connection already closed
         }
@@ -240,13 +347,21 @@ public class GlobalExceptionHandler {
         if (hasClientAbortCause(exc)) {
             String logMessage = "Client aborted connection (wrapped exception) from IP [" + clientIp + "]: "
                 + (message != null ? message : exc.getClass().getSimpleName());
-            log.info(logMessage);
+            log.info(logMessage); // Log as info without stack trace
             exceptionTrackingService.addLog(clientIp, logMessage);
             return null;
         }
 
+        // Check if this is a connection abort exception - don't log stack trace
+        boolean isConnectionAbortException = exc instanceof java.io.IOException && 
+            (message != null && message.contains("An established connection was aborted by the software in your host machine"));
+        
         String logMessage = "Unexpected error occurred from IP [" + clientIp + "]: " + exc.getMessage();
-        log.error(logMessage, exc);
+        if (isConnectionAbortException) {
+            log.info(logMessage); // Log as info without stack trace for connection abort
+        } else {
+            log.error(logMessage, exc); // Log with stack trace for other exceptions
+        }
         exceptionTrackingService.addLog(clientIp, logMessage);
         
         // Track exception

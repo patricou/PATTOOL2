@@ -53,6 +53,26 @@
                         {{ getPendingThumbnailLoadsCount() }}
                     </span>
                 </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_COMPRESSION_CACHE_PHOTOS' | translate }}:</span>
+                    <span class="debug-value">{{ cachedCompressionCacheCount }}</span>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_COMPRESSION_CACHE_SIZE' | translate }}:</span>
+                    <span class="debug-value">{{ cachedCompressionCacheSizeMB }} MB</span>
+                </div>
+                <div class="debug-info-item">
+                    <button type="button" 
+                            class="btn btn-sm w-100" 
+                            [class.btn-outline-success]="!isCacheAutoRefreshActive"
+                            [class.btn-outline-danger]="isCacheAutoRefreshActive"
+                            (click)="toggleCacheAutoRefresh()"
+                            [attr.aria-label]="(isCacheAutoRefreshActive ? 'EVENTHOME.DEBUG_STOP_CACHE' : 'EVENTHOME.DEBUG_START_CACHE') | translate"
+                            [title]="(isCacheAutoRefreshActive ? 'EVENTHOME.DEBUG_STOP_CACHE' : 'EVENTHOME.DEBUG_START_CACHE') | translate">
+                        <i class="fa" [class.fa-play]="!isCacheAutoRefreshActive" [class.fa-stop]="isCacheAutoRefreshActive"></i> 
+                        {{ (isCacheAutoRefreshActive ? 'EVENTHOME.DEBUG_STOP_CACHE' : 'EVENTHOME.DEBUG_START_CACHE') | translate }}
+                    </button>
+                </div>
             </div>
 
             <!-- Loading Info -->
@@ -76,13 +96,55 @@
                         {{ getLoadingEventsCount() }}
                     </span>
                 </div>
-                <div class="debug-info-item" *ngIf="getLoadingEventsCount() > 0 && getCardLoadTime() > 0">
-                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_CARD_LOAD_TIME' | translate }}:</span>
-                    <span class="debug-value">{{ getCardLoadTime() }}ms</span>
+            </div>
+
+            <!-- Memory Info -->
+            <div class="debug-info-section">
+                <div class="debug-section-title">{{ 'EVENTHOME.DEBUG_SECTION_MEMORY' | translate }}</div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_MEMORY_USAGE' | translate }} (JS):</span>
+                    <span class="debug-value" 
+                          [class.text-success]="getMemoryUsagePercent() < 50" 
+                          [class.text-warning]="getMemoryUsagePercent() >= 50 && getMemoryUsagePercent() < 80"
+                          [class.text-danger]="getMemoryUsagePercent() >= 80">
+                        {{ getMemoryUsage() }}
+                    </span>
                 </div>
-                <div class="debug-info-item" *ngIf="getLoadingEventsCount() > 0 && getThumbnailLoadTime() > 0">
-                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_THUMBNAIL_LOAD_TIME' | translate }}:</span>
-                    <span class="debug-value">{{ getThumbnailLoadTime() }}ms</span>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_HOST_MEMORY' | translate }} (System RAM):</span>
+                    <span class="debug-value" 
+                          [class.text-success]="getHostMemoryUsagePercent() < 50" 
+                          [class.text-warning]="getHostMemoryUsagePercent() >= 50 && getHostMemoryUsagePercent() < 80"
+                          [class.text-danger]="getHostMemoryUsagePercent() >= 80">
+                        {{ getHostMemoryUsage() }}
+                    </span>
+                </div>
+                <div class="debug-info-item">
+                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_JVM_MEMORY' | translate }} (Backend):</span>
+                    <span class="debug-value" 
+                          [class.text-success]="getJvmMemoryUsagePercent() < 50" 
+                          [class.text-warning]="getJvmMemoryUsagePercent() >= 50 && getJvmMemoryUsagePercent() < 85"
+                          [class.text-danger]="getJvmMemoryUsagePercent() >= 85">
+                        {{ getJvmMemoryUsage() }}
+                    </span>
+                    <span class="badge ms-2" 
+                          [class.bg-success]="getJvmStatus() === 'OK'"
+                          [class.bg-warning]="getJvmStatus() === 'WARNING'"
+                          [class.bg-danger]="getJvmStatus() === 'CRITICAL'">
+                        {{ getJvmStatus() }}
+                    </span>
+                </div>
+                <div class="debug-info-item">
+                    <button type="button" 
+                            class="btn btn-sm w-100" 
+                            [class.btn-outline-success]="!isMemoryAutoRefreshActive"
+                            [class.btn-outline-danger]="isMemoryAutoRefreshActive"
+                            (click)="toggleMemoryAutoRefresh()"
+                            [attr.aria-label]="(isMemoryAutoRefreshActive ? 'EVENTHOME.DEBUG_STOP_MEMORY' : 'EVENTHOME.DEBUG_START_MEMORY') | translate"
+                            [title]="(isMemoryAutoRefreshActive ? 'EVENTHOME.DEBUG_STOP_MEMORY' : 'EVENTHOME.DEBUG_START_MEMORY') | translate">
+                        <i class="fa" [class.fa-play]="!isMemoryAutoRefreshActive" [class.fa-stop]="isMemoryAutoRefreshActive"></i> 
+                        {{ (isMemoryAutoRefreshActive ? 'EVENTHOME.DEBUG_STOP_MEMORY' : 'EVENTHOME.DEBUG_START_MEMORY') | translate }}
+                    </button>
                 </div>
             </div>
 
@@ -92,40 +154,6 @@
                 <div class="debug-info-item">
                     <span class="debug-label">{{ 'EVENTHOME.DEBUG_FILTER' | translate }}:</span>
                     <span class="debug-value">{{ dataFIlter || ('EVENTHOME.DEBUG_EMPTY' | translate) }}</span>
-                </div>
-                <div class="debug-info-item">
-                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_MEMORY_USAGE' | translate }}:</span>
-                    <span class="debug-value" 
-                          [class.text-success]="getMemoryUsagePercent() < 50" 
-                          [class.text-warning]="getMemoryUsagePercent() >= 50 && getMemoryUsagePercent() < 80"
-                          [class.text-danger]="getMemoryUsagePercent() >= 80">
-                        {{ getMemoryUsage() }}
-                    </span>
-                </div>
-                <div class="debug-info-item">
-                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_HOST_MEMORY' | translate }}:</span>
-                    <span class="debug-value" 
-                          [class.text-success]="getHostMemoryUsagePercent() < 50" 
-                          [class.text-warning]="getHostMemoryUsagePercent() >= 50 && getHostMemoryUsagePercent() < 80"
-                          [class.text-danger]="getHostMemoryUsagePercent() >= 80">
-                        {{ getHostMemoryUsage() }}
-                    </span>
-                    <button type="button" 
-                            class="btn btn-sm btn-outline-secondary ms-2" 
-                            (click)="refreshMemoryInfo()"
-                            [attr.aria-label]="'EVENTHOME.DEBUG_REFRESH_MEMORY' | translate"
-                            title="{{ 'EVENTHOME.DEBUG_REFRESH_MEMORY' | translate }}">
-                        <i class="fa fa-refresh"></i>
-                    </button>
-                </div>
-                <div class="debug-info-item">
-                    <span class="debug-label">{{ 'EVENTHOME.DEBUG_NETWORK_LATENCY' | translate }}:</span>
-                    <span class="debug-value" 
-                          [class.text-success]="getNetworkSpeedMbps() > 0 && getNetworkSpeedMbps() >= 10" 
-                          [class.text-warning]="getNetworkSpeedMbps() > 0 && getNetworkSpeedMbps() >= 1 && getNetworkSpeedMbps() < 10"
-                          [class.text-danger]="getNetworkSpeedMbps() > 0 && getNetworkSpeedMbps() < 1">
-                        {{ getNetworkSpeed() }}
-                    </span>
                 </div>
             </div>
         </div>

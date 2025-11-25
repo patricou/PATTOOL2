@@ -322,6 +322,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return ElementEvenementComponent.blobUrlCache.size;
 	}
 	
+	// Public static method to get count of files currently loading
+	public static getPendingFileThumbnailLoadsCount(): number {
+		return ElementEvenementComponent.filesLoading.size;
+	}
+	
 	// Public static method to cleanup unused caches (called from home-evenements)
 	public static cleanupUnusedCaches(keepFieldIds: Set<string>): void {
 		// Clean up blobUrlCache - remove entries for fieldIds not in use

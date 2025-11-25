@@ -34,29 +34,9 @@ public class SystemInfoController {
         }
     }
 
-    @GetMapping("/speedtest")
-    public ResponseEntity<byte[]> speedTest() {
-        try {
-            // Return 100 MB of data for speed test
-            long dataSize = 100L * 1024 * 1024; // 100 MB
-            byte[] data = new byte[(int) dataSize];
-            // Fill with some data (not all zeros to avoid compression)
-            // Use a pattern that repeats to avoid excessive memory allocation overhead
-            for (int i = 0; i < dataSize; i++) {
-                data[i] = (byte) (i % 256);
-            }
-            log.debug("Speed test endpoint called - returning {} bytes ({} MB)", dataSize, dataSize / (1024 * 1024));
-            return ResponseEntity.ok()
-                    .header("Content-Type", "application/octet-stream")
-                    .header("Content-Length", String.valueOf(dataSize))
-                    .body(data);
-        } catch (Exception e) {
-            log.error("Error in speed test endpoint", e);
-            return ResponseEntity.status(500).build();
-        }
-    }
+    // Speed test endpoint removed - use /api/system/speedtest from SystemController instead
 
-    @GetMapping("/memory")
+    @GetMapping("/physical-memory")
     public ResponseEntity<Map<String, Object>> getSystemMemory() {
         try {
             Map<String, Object> memoryInfo = new HashMap<>();

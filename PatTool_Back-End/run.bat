@@ -23,7 +23,8 @@ set JAVA_OPTS=-Xms512m ^
     -XX:MaxGCPauseMillis=200 ^
     -XX:+HeapDumpOnOutOfMemoryError ^
     -XX:HeapDumpPath=./logs/heapdump.hprof ^
-    -Dfile.encoding=UTF-8
+    -Dfile.encoding=UTF-8 ^
+    -Djdk.tls.client.protocols=TLSv1.2
 
 REM Create logs directory if it doesn't exist
 if not exist "logs" mkdir logs

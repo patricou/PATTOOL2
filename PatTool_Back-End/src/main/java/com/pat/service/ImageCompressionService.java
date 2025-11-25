@@ -11,6 +11,7 @@ import com.drew.metadata.exif.GpsDirectory;
 import com.drew.lang.GeoLocation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -45,6 +46,10 @@ public class ImageCompressionService {
     private final Map<String, CacheEntry> compressionCache;
     private final long cacheTtlMillis;
     private final int cacheMaxEntries;
+    private final long cacheMaxSizeBytes; // Maximum total cache size in bytes
+    
+    @Autowired(required = false)
+    private MemoryMonitoringService memoryMonitoringService;
 
     public static final class CompressionResult {
         private final byte[] data;
@@ -93,18 +98,21 @@ public class ImageCompressionService {
     public ImageCompressionService(
         @Value("${app.image.compression.max-concurrency:10}") int maxConcurrentCompressions,
         @Value("${app.image.compression.cache.max-entries:3000}") int cacheMaxEntries,
+        @Value("${app.image.compression.cache.max-size-mb:200}") int cacheMaxSizeMB,
         @Value("${app.image.compression.cache.ttl:PT2H}") Duration cacheTtl
     ) {
         int permits = Math.max(1, maxConcurrentCompressions);
         this.compressionSemaphore = new Semaphore(permits, true);
         this.compressionCache = new ConcurrentHashMap<>();
         this.cacheMaxEntries = Math.max(1, cacheMaxEntries);
+        this.cacheMaxSizeBytes = Math.max(50L * 1024 * 1024, (long) cacheMaxSizeMB * 1024 * 1024); // Minimum 50MB, default 500MB
         Duration effectiveTtl = cacheTtl != null ? cacheTtl : Duration.ofHours(1);
         this.cacheTtlMillis = Math.max(0L, effectiveTtl.toMillis());
-        log.debug(
-            "ImageCompressionService initialized with {} concurrent compression permits, cache enabled (maxEntries={}, ttl={} ms)",
+        log.info(
+            "ImageCompressionService initialized with {} concurrent compression permits, cache enabled (maxEntries={}, maxSize={} MB, ttl={} ms)",
             permits,
             this.cacheMaxEntries,
+            this.cacheMaxSizeBytes / (1024 * 1024),
             this.cacheTtlMillis
         );
     }
@@ -279,10 +287,18 @@ public class ImageCompressionService {
 
                 if (result.length <= maxSize) {
                     emitLog(logConsumer, String.format("✅ Final size: %d KB (%dx%d)", result.length / 1024, currentWidth, currentHeight));
+                    // Free intermediate images before returning
+                    if (resizedImage != imageToCompress && resizedImage != imageWithOrientation) {
+                        resizedImage.flush();
+                    }
                     return new CompressionResult(result, originalSize, enrichedExifMetadata);
                 }
             }
 
+            // Free previous imageToCompress if it was a separate instance
+            if (imageToCompress != imageWithOrientation && imageToCompress != originalImage) {
+                imageToCompress.flush();
+            }
             imageToCompress = resizedImage;
         }
 
@@ -313,10 +329,33 @@ public class ImageCompressionService {
 
                 result = compressWithQuality(finalResize, format, quality);
                 result = preserveExifMetadata(originalFileBytes, result, format, originalSize);
+                
+                if (result.length <= maxSize) {
+                    emitLog(logConsumer, String.format("✅ Final size: %d KB (%dx%d)", result.length / 1024, currentWidth, currentHeight));
+                    // Free intermediate images before returning
+                    if (finalResize != imageToCompress && finalResize != imageWithOrientation) {
+                        finalResize.flush();
+                    }
+                    // Free previous imageToCompress if it was a separate instance
+                    if (imageToCompress != imageWithOrientation && imageToCompress != originalImage && imageToCompress != finalResize) {
+                        imageToCompress.flush();
+                    }
+                    return new CompressionResult(result, originalSize, enrichedExifMetadata);
+                }
+                
+                // Free previous imageToCompress if it was a separate instance before reassigning
+                if (imageToCompress != imageWithOrientation && imageToCompress != originalImage && imageToCompress != finalResize) {
+                    imageToCompress.flush();
+                }
+                imageToCompress = finalResize;
             }
         }
 
         emitLog(logConsumer, String.format("✅ Final size: %d KB (%dx%d)", result.length / 1024, currentWidth, currentHeight));
+        // Free any remaining intermediate images before returning
+        if (imageToCompress != imageWithOrientation && imageToCompress != originalImage) {
+            imageToCompress.flush();
+        }
         return new CompressionResult(result, originalSize, enrichedExifMetadata);
     }
 
@@ -420,6 +459,16 @@ public class ImageCompressionService {
         return outputStream.toByteArray();
     }
 
+    /**
+     * Public method to check if a compressed version exists in cache
+     * This allows checking cache BEFORE loading image into memory
+     * @param cacheKey Cache key for the image
+     * @return CompressionResult if found in cache, null otherwise
+     */
+    public CompressionResult getFromCache(String cacheKey) {
+        return getFromCache(cacheKey, null);
+    }
+
     private CompressionResult getFromCache(String cacheKey, Consumer<String> logConsumer) {
         if (!isCacheEnabled() || cacheKey == null) {
             return null;
@@ -438,18 +487,86 @@ public class ImageCompressionService {
         }
 
         emitLog(logConsumer, "⚡ Serving compressed image from cache");
+        // Log cache hit for debugging
+        log.debug("Retrieved image from compression cache: key={}, size={} KB, cacheSize={}", 
+                cacheKey.substring(0, Math.min(50, cacheKey.length())), 
+                entry.result.getCompressedSize() / 1024,
+                compressionCache.size());
         return entry.result;
     }
 
     private void storeInCache(String cacheKey, CompressionResult result) {
         if (!isCacheEnabled() || cacheKey == null || result == null) {
+            if (log.isDebugEnabled()) {
+                log.debug("Not storing in cache: enabled={}, cacheKey={}, result={}", 
+                        isCacheEnabled(), cacheKey != null, result != null);
+            }
             return;
         }
 
         long now = System.currentTimeMillis();
         compressionCache.put(cacheKey, new CacheEntry(result, now));
-        cleanupExpiredEntries(now);
-        enforceCacheLimit();
+        
+        // Check cache size and do aggressive cleanup if needed
+        long currentCacheSizeBytes = getCurrentCacheSizeBytes();
+        boolean cacheSizeCritical = currentCacheSizeBytes > cacheMaxSizeBytes * 0.8;
+        boolean cacheEntriesCritical = compressionCache.size() > cacheMaxEntries * 0.8;
+        
+        // Check if JVM memory is critical - if so, aggressively clean cache
+        boolean memoryCritical = false;
+        if (memoryMonitoringService != null) {
+            double memoryUsagePercent = memoryMonitoringService.getMemoryUsagePercent();
+            memoryCritical = memoryUsagePercent >= 85.0; // Critical if memory usage >= 85%
+        }
+        
+        if (cacheSizeCritical || cacheEntriesCritical || memoryCritical) {
+            // Aggressive cleanup when cache is getting large OR memory is critical
+            // This helps free memory faster when slideshow loads many images
+            cleanupExpiredEntries(now);
+            enforceCacheLimit(); // This will enforce both size and entry limits
+            
+            // If memory is critical, reduce cache to 50% to free memory immediately
+            if (memoryCritical) {
+                long targetSize = cacheMaxSizeBytes / 2; // Reduce to 50% of max size
+                long currentSize = getCurrentCacheSizeBytes();
+                if (currentSize > targetSize) {
+                    List<Map.Entry<String, CacheEntry>> entries = new ArrayList<>(compressionCache.entrySet());
+                    entries.sort((a, b) -> Long.compare(a.getValue().createdAt, b.getValue().createdAt));
+                    
+                    long sizeToRemove = currentSize - targetSize;
+                    long removedSize = 0;
+                    for (Map.Entry<String, CacheEntry> entry : entries) {
+                        if (removedSize >= sizeToRemove) {
+                            break;
+                        }
+                        CacheEntry cacheEntry = entry.getValue();
+                        if (cacheEntry.result != null && cacheEntry.result.getData() != null) {
+                            long entrySize = cacheEntry.result.getCompressedSize();
+                            compressionCache.remove(entry.getKey(), cacheEntry);
+                            removedSize += entrySize;
+                        }
+                    }
+                    log.warn("Memory critical ({}%), aggressively reduced cache from {} MB to {} MB (freed {} MB)", 
+                            String.format("%.1f", memoryMonitoringService.getMemoryUsagePercent()),
+                            currentSize / (1024 * 1024),
+                            getCurrentCacheSizeBytes() / (1024 * 1024),
+                            removedSize / (1024 * 1024));
+                }
+                System.gc(); // Force GC when memory is critical
+            } else if (currentCacheSizeBytes > cacheMaxSizeBytes * 0.9 || compressionCache.size() > cacheMaxEntries * 0.9) {
+                System.gc(); // Suggest GC when cache is > 90% full
+            }
+        } else {
+            // Normal cleanup
+            cleanupExpiredEntries(now);
+            enforceCacheLimit();
+        }
+        
+        // Log cache storage for debugging
+        log.debug("Stored image in compression cache: key={}, size={} KB, cacheSize={}", 
+                cacheKey.substring(0, Math.min(50, cacheKey.length())), 
+                result.getCompressedSize() / 1024,
+                compressionCache.size());
     }
 
     private boolean isCacheEnabled() {
@@ -476,6 +593,33 @@ public class ImageCompressionService {
             return;
         }
 
+        // First, enforce size limit (in bytes) - more important than entry count
+        long currentCacheSizeBytes = getCurrentCacheSizeBytes();
+        if (currentCacheSizeBytes > cacheMaxSizeBytes) {
+            // Cache exceeds size limit - remove oldest entries until under limit
+            List<Map.Entry<String, CacheEntry>> entries = new ArrayList<>(compressionCache.entrySet());
+            entries.sort((a, b) -> Long.compare(a.getValue().createdAt, b.getValue().createdAt));
+            
+            long sizeToRemove = currentCacheSizeBytes - (cacheMaxSizeBytes * 9 / 10); // Remove until 90% of limit
+            long removedSize = 0;
+            for (Map.Entry<String, CacheEntry> entry : entries) {
+                if (removedSize >= sizeToRemove) {
+                    break;
+                }
+                CacheEntry cacheEntry = entry.getValue();
+                if (cacheEntry.result != null && cacheEntry.result.getData() != null) {
+                    long entrySize = cacheEntry.result.getCompressedSize();
+                    compressionCache.remove(entry.getKey(), cacheEntry);
+                    removedSize += entrySize;
+                }
+            }
+            log.debug("Cache size limit exceeded ({} MB > {} MB), removed entries to free {} MB", 
+                    currentCacheSizeBytes / (1024 * 1024),
+                    cacheMaxSizeBytes / (1024 * 1024),
+                    removedSize / (1024 * 1024));
+        }
+
+        // Then, enforce entry count limit
         int overshoot = compressionCache.size() - cacheMaxEntries;
         if (overshoot <= 0) {
             return;
@@ -488,6 +632,70 @@ public class ImageCompressionService {
             Map.Entry<String, CacheEntry> entry = entries.get(i);
             compressionCache.remove(entry.getKey(), entry.getValue());
         }
+    }
+    
+    /**
+     * Calculate current total cache size in bytes
+     */
+    private long getCurrentCacheSizeBytes() {
+        long totalSize = 0;
+        for (CacheEntry entry : compressionCache.values()) {
+            if (entry.result != null && entry.result.getData() != null) {
+                totalSize += entry.result.getCompressedSize();
+            }
+        }
+        return totalSize;
+    }
+
+    /**
+     * Get compression cache statistics
+     * @return Map with cache entry count and total size in bytes
+     */
+    public Map<String, Object> getCacheStatistics() {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        
+        if (!isCacheEnabled()) {
+            stats.put("enabled", false);
+            stats.put("entryCount", 0);
+            stats.put("totalSizeBytes", 0);
+            stats.put("totalSizeMB", 0.0);
+            stats.put("maxEntries", cacheMaxEntries);
+            return stats;
+        }
+        
+        long now = System.currentTimeMillis();
+        int validEntryCount = 0;
+        long totalSizeBytes = 0;
+        
+        // Count valid (non-expired) entries and calculate total size
+        for (CacheEntry entry : compressionCache.values()) {
+            if (!isExpired(entry, now)) {
+                validEntryCount++;
+                if (entry.result != null && entry.result.getData() != null) {
+                    totalSizeBytes += entry.result.getCompressedSize();
+                }
+            }
+        }
+        
+        // Calculate total size in MB with proper precision
+        double totalSizeMB = totalSizeBytes / (1024.0 * 1024.0);
+        // Round to 2 decimal places
+        totalSizeMB = Math.round(totalSizeMB * 100.0) / 100.0;
+        
+        stats.put("enabled", true);
+        stats.put("entryCount", validEntryCount);
+        stats.put("totalSizeBytes", totalSizeBytes);
+        stats.put("totalSizeMB", totalSizeMB);
+        stats.put("maxEntries", cacheMaxEntries);
+        stats.put("cacheSize", compressionCache.size()); // Total entries including expired
+        
+        // Debug log to verify calculation
+        if (log.isDebugEnabled()) {
+            log.debug("Compression cache stats: {} entries, {} bytes ({} MB)", 
+                    validEntryCount, totalSizeBytes, totalSizeMB);
+        }
+        
+        return stats;
     }
 
     private Map<String, String> collectExifMetadata(byte[] originalFileBytes) {

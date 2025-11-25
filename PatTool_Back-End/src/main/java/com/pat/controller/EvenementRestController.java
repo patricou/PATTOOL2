@@ -27,8 +27,11 @@ import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
+import jakarta.annotation.PreDestroy;
 
 /**
  * Created by patricou on 4/20/2017.
@@ -51,7 +54,16 @@ public class EvenementRestController {
     @Autowired
     private ObjectMapper objectMapper;
     
-    private final ExecutorService executorService = Executors.newCachedThreadPool();
+    // Use bounded thread pool to prevent memory leaks from unlimited thread creation
+    // Max 50 threads, with 30 second keep-alive time for idle threads
+    // This prevents memory leaks from CachedThreadPool which can create unlimited threads
+    private final ExecutorService executorService = new ThreadPoolExecutor(
+        5,  // Core pool size
+        50, // Maximum pool size (bounded to prevent memory issues)
+        30L, TimeUnit.SECONDS, // Keep-alive time for idle threads
+        new LinkedBlockingQueue<>(1000), // Bounded queue to prevent unbounded memory growth
+        new ThreadPoolExecutor.CallerRunsPolicy() // Reject policy: run in caller thread if queue is full
+    );
 
     @RequestMapping(value = "/{evenementName}/{page}/{size}", method = RequestMethod.GET)
     public Page<Evenement> getListEvenement(@PathVariable("evenementName") String evenementName,
@@ -130,7 +142,8 @@ public class EvenementRestController {
                 // Flag to track if client is still connected
                 java.util.concurrent.atomic.AtomicBoolean clientConnected = new java.util.concurrent.atomic.AtomicBoolean(true);
                 // Only collect events with null dates to send them at the end
-                List<Evenement> nullDateEvents = new java.util.ArrayList<>();
+                // Limit size to prevent excessive memory usage (max 1000 null-dated events)
+                List<Evenement> nullDateEvents = new java.util.ArrayList<>(1000);
                 
                 // Use stream() which returns a Stream backed by a MongoDB cursor
                 // MongoDB will return results sorted by beginEventDate DESC (nulls last)
@@ -152,7 +165,29 @@ public class EvenementRestController {
                                 // Check if event has a null date
                                 if (event.getBeginEventDate() == null) {
                                     // Collect null-dated events to send at the end
-                                    nullDateEvents.add(event);
+                                    // Limit accumulation to prevent memory issues
+                                    if (nullDateEvents.size() < 1000) {
+                                        nullDateEvents.add(event);
+                                    } else {
+                                        // If too many null-dated events, send immediately to prevent memory buildup
+                                        try {
+                                            if (!clientConnected.get()) {
+                                                return;
+                                            }
+                                            String eventJson = objectMapper.writeValueAsString(event);
+                                            emitter.send(SseEmitter.event()
+                                                .name("event")
+                                                .data(eventJson));
+                                            sentCount.incrementAndGet();
+                                            log.debug("Sent null-dated event immediately (limit reached): {}", event.getId());
+                                        } catch (IOException | IllegalStateException e) {
+                                            log.debug("Client disconnected or emitter closed while sending null-dated event", e);
+                                            clientConnected.set(false);
+                                            return;
+                                        } catch (Exception e) {
+                                            log.error("Error sending null-dated event immediately", e);
+                                        }
+                                    }
                                 } else {
                                     // Send events with dates immediately (they're already sorted by MongoDB)
                                     try {
@@ -280,7 +315,36 @@ public class EvenementRestController {
             emitter.complete();
         });
         emitter.onError((ex) -> {
-            log.error("SSE connection error", ex);
+            // Check if this is a normal client disconnection (connection abort)
+            String errorMessage = ex.getMessage();
+            boolean isConnectionAbort = false;
+            
+            if (errorMessage != null) {
+                isConnectionAbort = errorMessage.contains("An established connection was aborted by the software in your host machine") ||
+                                   errorMessage.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte") ||
+                                   errorMessage.contains("Connection reset") ||
+                                   errorMessage.contains("Broken pipe") ||
+                                   errorMessage.contains("Connection closed");
+            }
+            
+            // Also check the cause chain
+            if (!isConnectionAbort && ex.getCause() != null) {
+                String causeMessage = ex.getCause().getMessage();
+                if (causeMessage != null) {
+                    isConnectionAbort = causeMessage.contains("An established connection was aborted by the software in your host machine") ||
+                                       causeMessage.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte") ||
+                                       causeMessage.contains("Connection reset") ||
+                                       causeMessage.contains("Broken pipe");
+                }
+            }
+            
+            if (isConnectionAbort) {
+                // Normal client disconnection - log at debug level without stack trace
+                log.debug("SSE connection closed by client (normal)");
+            } else {
+                // Real error - log with stack trace
+                log.error("SSE connection error", ex);
+            }
             emitter.completeWithError(ex);
         });
         
@@ -460,5 +524,31 @@ public class EvenementRestController {
         return deleteEvenement(id);
     }
 
+    /**
+     * Cleanup method to properly shut down the executor service when the application stops.
+     * This prevents memory leaks from threads that are never cleaned up.
+     */
+    @PreDestroy
+    public void cleanup() {
+        log.info("Shutting down executor service for event streaming...");
+        executorService.shutdown();
+        try {
+            // Wait up to 30 seconds for tasks to complete
+            if (!executorService.awaitTermination(30, TimeUnit.SECONDS)) {
+                log.warn("Executor service did not terminate gracefully, forcing shutdown...");
+                executorService.shutdownNow();
+                // Wait again for forced shutdown
+                if (!executorService.awaitTermination(10, TimeUnit.SECONDS)) {
+                    log.error("Executor service did not terminate after forced shutdown");
+                }
+            } else {
+                log.info("Executor service terminated gracefully");
+            }
+        } catch (InterruptedException e) {
+            log.error("Interrupted while waiting for executor service to terminate", e);
+            executorService.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
+    }
 
 }

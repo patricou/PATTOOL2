@@ -4235,6 +4235,11 @@
     font-weight: 700;
     color: #212529;
     font-size: 0.8rem;
+}
+
+/* Override Bootstrap text-warning color to dark orange for better visibility */
+.debug-info-panel-content .debug-value.text-warning {
+    color: #d35400 !important; /* Dark orange instead of yellow */
     font-variant-numeric: tabular-nums;
 }
 
@@ -4308,6 +4313,11 @@
     font-weight: 700;
     color: #212529;
     font-size: 0.875rem;
+}
+
+/* Override Bootstrap text-warning color to dark orange for better visibility in debug panel */
+.debug-info-panel .debug-value.text-warning {
+    color: #d35400 !important; /* Dark orange instead of yellow */
     font-variant-numeric: tabular-nums;
 }
 
@@ -4417,6 +4427,11 @@
     font-weight: 700;
     color: #212529;
     font-size: 0.8rem;
+}
+
+/* Override Bootstrap text-warning color to dark orange for better visibility */
+.debug-info-panel .debug-value.text-warning {
+    color: #d35400 !important; /* Dark orange instead of yellow */
     font-variant-numeric: tabular-nums;
 }
 
