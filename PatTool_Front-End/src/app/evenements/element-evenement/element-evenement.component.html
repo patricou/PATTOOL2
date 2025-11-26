@@ -2,94 +2,95 @@
 <!-- thw following line allows to have tooltips on button in footer !! -->
 <div class="card-wrapper" 
      [style.background]="getCardBackgroundGradient()">
-<div class="card-image-container" [ngStyle]="getPhotoFrameStyles()">
-    <!-- Show slideshow if active, otherwise show thumbnail -->
-    <img *ngIf="!isCardSlideshowActive" 
-         #thumbnailImage 
-         class="card-img img-fluid mx-auto d-block" 
-         [src]="thumbnailUrl" 
-         alt="Card image" 
-         [ngStyle]="getPhotoImageStyles()"
-         (load)="detectDominantColor()"
-         (error)="onThumbnailError($event)" />
-    
-    <!-- Card Slideshow -->
-    <div *ngIf="isCardSlideshowActive" class="card-slideshow-display">
-        <!-- Photo counter in bottom left -->
-        <div class="card-slideshow-counter"
-             [style.color]="titleBorderColor"
-             [style.background-color]="titleBackgroundColor">
-            {{ currentCardSlideIndex + 1 }} / {{ cardSlideImages.length }}
-        </div>
-        
-        <!-- Image name in bottom center -->
-        <div class="card-slideshow-filename"
-             [style.color]="titleBorderColor"
-             [style.background-color]="titleBackgroundColor">
-            {{ getCurrentCardSlideFileName() }}
-        </div>
-        
-        <!-- RGB values in bottom right -->
-        <div class="card-slideshow-rgb"
-             [style.color]="titleBorderColor"
-             [style.background-color]="titleBackgroundColor">
-            {{ calculatedRgbValues }}
-        </div>
-        
-        <img *ngIf="currentCardSlideImage" 
-             #cardSlideImage
-             class="card-img img-fluid mx-auto d-block slideshow-image" 
-             [src]="currentCardSlideImage" 
-             alt="Slideshow image"
+    <div class="card-image-container" [ngStyle]="getPhotoFrameStyles()">
+        <!-- Show slideshow if active, otherwise show thumbnail -->
+        <img *ngIf="!isCardSlideshowActive" 
+             #thumbnailImage 
+             class="card-img img-fluid mx-auto d-block" 
+             [src]="thumbnailUrl" 
+             alt="Card image" 
              [ngStyle]="getPhotoImageStyles()"
-             (load)="detectDominantColorFromSlideshow()" />
+             (load)="detectDominantColor()"
+             (error)="onThumbnailError($event)" />
         
-        <!-- Pause/Play toggle button - visible when playing -->
-        <button *ngIf="!cardSlideshowPaused" 
-                class="btn btn-sm btn-outline-light card-slideshow-control-btn"
-                [style.border-color]="titleBorderColor"
-                (click)="toggleCardSlideshowPause(); $event.stopPropagation()">
-            <i class="fa fa-pause"></i>
-        </button>
+        <!-- Card Slideshow -->
+        <div *ngIf="isCardSlideshowActive" class="card-slideshow-display">
+            <!-- Photo counter in bottom left -->
+            <div class="card-slideshow-counter"
+                 [style.color]="titleBorderColor"
+                 [style.background-color]="titleBackgroundColor">
+                {{ currentCardSlideIndex + 1 }} / {{ cardSlideImages.length }}
+            </div>
+            
+            <!-- Image name in bottom center -->
+            <div class="card-slideshow-filename"
+                 [style.color]="titleBorderColor"
+                 [style.background-color]="titleBackgroundColor">
+                {{ getCurrentCardSlideFileName() }}
+            </div>
+            
+            <!-- RGB values in bottom right -->
+            <div class="card-slideshow-rgb"
+                 [style.color]="titleBorderColor"
+                 [style.background-color]="titleBackgroundColor">
+                {{ calculatedRgbValues }}
+            </div>
+            
+            <img *ngIf="currentCardSlideImage" 
+                 #cardSlideImage
+                 class="card-img img-fluid mx-auto d-block slideshow-image" 
+                 [src]="currentCardSlideImage" 
+                 alt="Slideshow image"
+                 [ngStyle]="getPhotoImageStyles()"
+                 (load)="detectDominantColorFromSlideshow()" />
+            
+            <!-- Pause/Play toggle button - visible when playing -->
+            <button *ngIf="!cardSlideshowPaused" 
+                    class="btn btn-sm btn-outline-light card-slideshow-control-btn"
+                    [style.border-color]="titleBorderColor"
+                    (click)="toggleCardSlideshowPause(); $event.stopPropagation()">
+                <i class="fa fa-pause"></i>
+            </button>
+            
+            <!-- Play button in center when paused -->
+            <button *ngIf="cardSlideshowPaused" 
+                    class="btn btn-sm btn-outline-light card-slideshow-control-btn"
+                    [style.border-color]="titleBorderColor"
+                    (click)="toggleCardSlideshowPause(); $event.stopPropagation()">
+                <i class="fa fa-play"></i>
+            </button>
+            
+            <!-- Prev button on the left - always visible -->
+            <button class="btn btn-sm btn-outline-light card-nav-btn card-nav-left"
+                    [style.border-color]="titleBorderColor"
+                    (click)="previousCardSlide(); $event.stopPropagation()">
+                <i class="fa fa-chevron-left"></i>
+            </button>
+            
+            <!-- Next button on the right - always visible -->
+            <button class="btn btn-sm btn-outline-light card-nav-btn card-nav-right"
+                    [style.border-color]="titleBorderColor"
+                    (click)="nextCardSlide(); $event.stopPropagation()">
+                <i class="fa fa-chevron-right"></i>
+            </button>
+        </div>
         
-        <!-- Play button in center when paused -->
-        <button *ngIf="cardSlideshowPaused" 
-                class="btn btn-sm btn-outline-light card-slideshow-control-btn"
-                [style.border-color]="titleBorderColor"
-                (click)="toggleCardSlideshowPause(); $event.stopPropagation()">
-            <i class="fa fa-play"></i>
-        </button>
-        
-        <!-- Prev button on the left - always visible -->
-        <button class="btn btn-sm btn-outline-light card-nav-btn card-nav-left"
-                [style.border-color]="titleBorderColor"
-                (click)="previousCardSlide(); $event.stopPropagation()">
-            <i class="fa fa-chevron-left"></i>
-        </button>
-        
-        <!-- Next button on the right - always visible -->
-        <button class="btn btn-sm btn-outline-light card-nav-btn card-nav-right"
-                [style.border-color]="titleBorderColor"
-                (click)="nextCardSlide(); $event.stopPropagation()">
-            <i class="fa fa-chevron-right"></i>
-        </button>
+        <!-- Title overlay on the image - visible on top -->
+        <div class="card-img-overlay">
+            <h4 class="card-title text-center pat-card" 
+                [style.background-color]="'transparent'"
+                [style.color]="titleBorderColor">
+                <b>{{evenement.evenementName}}</b>
+            </h4>
+            <!-- Play button in title to start slideshow -->
+            <button *ngIf="hasImageFiles() && !isCardSlideshowActive" 
+                    class="btn btn-sm btn-outline-light play-in-title-btn"
+                    [style.border-color]="titleBorderColor"
+                    (click)="startCardSlideshow(); $event.stopPropagation()">
+                <i class="fa fa-play"></i>
+            </button>
+        </div>
     </div>
-    
-    <div class="card-img-overlay">
-        <h4 class="card-title text-center pat-card" 
-            [style.background-color]="titleBackgroundColor"
-            [style.color]="titleBorderColor">
-            <b>{{evenement.evenementName}}</b>
-        </h4>
-        <!-- Play button in title to start slideshow -->
-        <button *ngIf="hasImageFiles() && !isCardSlideshowActive" 
-                class="btn btn-sm btn-outline-light play-in-title-btn"
-                [style.border-color]="titleBorderColor"
-                (click)="startCardSlideshow(); $event.stopPropagation()">
-            <i class="fa fa-play"></i>
-        </button>
-    </div>
-</div>
 <div class="card-block pat-card-block" [style.color]="titleBorderColor">
     <div class="alert alert-warning small pat-alert text-center"
          [style.background-color]="descriptionBackgroundColor"

@@ -1348,6 +1348,30 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Plus besoin de débouncer car on ne calcule plus la moyenne
 	}
 
+	// Handle card ready event - triggered when thumbnail is loaded and card is ready to display
+	public onCardReady(eventId: string): void {
+		if (!eventId) {
+			return;
+		}
+		
+		// Mark thumbnail as loaded in loading events
+		const loadingInfo = this.loadingEvents.get(eventId);
+		if (loadingInfo) {
+			// Mark thumbnail load end time
+			if (!loadingInfo.thumbnailLoadEnd) {
+				loadingInfo.thumbnailLoadEnd = Date.now();
+			}
+			// If card load end is also marked, remove from loading events
+			if (loadingInfo.cardLoadEnd && loadingInfo.thumbnailLoadEnd) {
+				this.loadingEvents.delete(eventId);
+			}
+		}
+		
+		// Trigger immediate change detection for this specific card
+		// Use markForCheck for immediate change detection with OnPush strategy
+		this.cdr.markForCheck();
+	}
+
 	private resetColorAggregation(): void {
 		this.eventColors.clear();
 		this.lastAverageRgb = null;
@@ -2396,7 +2420,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			clearTimeout(this.cardLoadEndBatchTimeout);
 		}
 
-		// Process batch after a short delay to allow multiple cards to be queued
+		// Process batch after a very short delay to allow multiple cards to be queued
+		// Reduced from 300ms to 50ms for faster card appearance
 		this.cardLoadEndBatchTimeout = setTimeout(() => {
 			if (this.pendingCardLoadEnds.size === 0) {
 				this.cardLoadEndBatchTimeout = null;
@@ -2421,7 +2446,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 			this.cardLoadEndBatchTimeout = null;
 			this.scheduleChangeDetection();
-		}, 300); // Same delay as used in the existing card load end marking
+		}, 50); // Reduced delay from 300ms to 50ms for faster card display
 	}
 
 	// Setup IntersectionObserver for lazy loading visible thumbnails

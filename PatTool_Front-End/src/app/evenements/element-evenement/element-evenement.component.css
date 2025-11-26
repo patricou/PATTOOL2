@@ -315,17 +315,23 @@
         0 1px 3px var(--btn-shadow-color, rgba(15, 23, 42, 0.24)) !important;
 }
 
-/* Style pour le titre sur l'image avec fond blanc transparent */
+/* Title overlay on the image - positioned on top */
 .card-img-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     display: flex;
     align-items: flex-start;
     justify-content: center;
     padding: 0.5rem;
-    top: 4px;
     pointer-events: none;
+    z-index: 10; /* Higher than image (z-index: 1) and blurred background (z-index: 0) */
 }
 
-.card-img-overlay .card-title {
+.card-img-overlay .card-title,
+.card-img-overlay .pat-card {
     /* background will be set dynamically via [style.background] */
     padding: 0.4rem 0.8rem;
     border-radius: 0.25rem;
@@ -336,16 +342,7 @@
     font-size: 1.08rem;
     font-weight: 700;
     text-decoration: underline;
-}
-
-.card-img-overlay .pat-card {
-    /* background will be set dynamically via [style.background] */
-    padding: 0.4rem 0.8rem;
-    border-radius: 0.25rem;
-    border: none;
-    font-size: 1.08rem;
-    font-weight: 700;
-    text-decoration: underline;
+    pointer-events: auto; /* Allow clicking on title */
 }
 
 /* Card wrapper styles merged above */
@@ -355,18 +352,41 @@
     position: relative;
     box-sizing: border-box;
     padding: 7px 7px 0 7px !important;
+    overflow: hidden;
+}
+
+/* Blurred background image using pseudo-element */
+.card-image-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: var(--thumbnail-bg-image, none);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(15px);
+    transform: scale(1.1); /* Scale up slightly to avoid white edges from blur */
+    z-index: 0;
+    border-radius: inherit;
+    opacity: 0.8; /* Slightly reduce opacity for better image visibility on top */
 }
 
 .card-image-container img {
     display: block;
     width: 100%;
-    height: auto;
+    height: 100%;
     margin: 0;
 	padding: 0 !important;
 	border-radius: inherit !important;
 	background-color: transparent !important;
 	box-shadow: none !important;
 	box-sizing: border-box !important;
+    position: relative;
+    z-index: 1; /* Ensure image is above blurred background */
+    object-fit: contain; /* Ensure entire image is visible and fits within container */
 }
 
 
@@ -762,6 +782,10 @@
         padding: 0.3rem !important;
         gap: 0.15rem !important;
         min-height: 47px !important;
+    }
+    
+    .card-img-overlay {
+        padding: 0.4rem 0.5rem;
     }
     
     .card-img-overlay .card-title,

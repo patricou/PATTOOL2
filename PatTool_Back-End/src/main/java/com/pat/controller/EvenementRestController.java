@@ -95,39 +95,42 @@ public class EvenementRestController {
                 // Build all criteria first, then combine them properly
                 Criteria accessCriteria = buildAccessCriteria(userId);
                 
-                // Add MongoDB-level filtering for text fields to reduce fetched documents
-                // This significantly improves performance by filtering at database level
+                // Get normalized filter for matching (title, description, and type)
                 String normalizedFilter = normalizeFilter(evenementName);
                 
+                // Build MongoDB query criteria for efficient database-level filtering
+                java.util.List<Criteria> filterCriteriaList = new java.util.ArrayList<>();
+                
                 if (!normalizedFilter.isEmpty()) {
-                    // Add regex criteria for evenementName and comments to MongoDB query
-                    // This reduces the number of documents fetched from MongoDB
-                    java.util.List<Criteria> textCriteria = new java.util.ArrayList<>();
+                    // Resolve filter to type number if it's a keyword (e.g., "velo" -> "5")
+                    String resolvedTypeNumber = resolveCanonicalType(normalizedFilter);
                     
-                    // Escape special regex characters to prevent errors, but allow substring matching
-                    // The pattern will match any string containing the filter text (case-insensitive)
+                    // Build text search criteria for title and description
                     String escapedFilter = escapeRegex(normalizedFilter);
+                    java.util.List<Criteria> textCriteria = new java.util.ArrayList<>();
+                    textCriteria.add(Criteria.where("evenementName").regex(escapedFilter, "i"));
+                    textCriteria.add(Criteria.where("comments").regex(escapedFilter, "i"));
                     
-                    // Case-insensitive regex for evenementName (substring match)
-                    textCriteria.add(Criteria.where("evenementName")
-                        .regex(escapedFilter, "i"));
-                    
-                    // Case-insensitive regex for comments (substring match)
-                    textCriteria.add(Criteria.where("comments")
-                        .regex(escapedFilter, "i"));
-                    
-                    // Combine text criteria with OR - match if filter is in name OR comments
+                    // Combine text criteria with OR
                     Criteria textFilter = new Criteria().orOperator(textCriteria.toArray(new Criteria[0]));
+                    filterCriteriaList.add(textFilter);
                     
-                    // Combine access criteria AND text filter using andOperator
-                    // This properly combines multiple criteria without conflicts
-                    Criteria combinedCriteria = new Criteria().andOperator(
+                    // If filter resolves to a type number, add type filter
+                    if (resolvedTypeNumber != null) {
+                        filterCriteriaList.add(Criteria.where("type").is(resolvedTypeNumber));
+                    }
+                    
+                    // Combine all filters with OR (match if text matches OR type matches)
+                    Criteria combinedFilter = new Criteria().orOperator(filterCriteriaList.toArray(new Criteria[0]));
+                    
+                    // Combine access criteria AND filter criteria
+                    Criteria finalCriteria = new Criteria().andOperator(
                         accessCriteria,
-                        textFilter
+                        combinedFilter
                     );
-                    query.addCriteria(combinedCriteria);
+                    query.addCriteria(finalCriteria);
                 } else {
-                    // No text filter, just use access criteria
+                    // No filter, just use access criteria
                     query.addCriteria(accessCriteria);
                 }
                 
@@ -135,7 +138,13 @@ public class EvenementRestController {
                 // Events with null dates will be at the end of the sorted results
                 query.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
                 
-                log.debug("Starting truly reactive stream from MongoDB Atlas for filter: {} (sorted by date DESC, most recent first)", evenementName);
+                // Configure cursor batch size to 16 for faster streaming with reduced delays
+                // Smaller batch size (default is 101) means events are sent in smaller groups
+                // This reduces the delay between batches while maintaining reasonable efficiency
+                // Balance: Too small (1-2) = too many round trips, too large (101+) = long delays between batches
+                query.cursorBatchSize(16);
+                
+                log.debug("Starting truly reactive stream from MongoDB Atlas for filter: {} (sorted by date DESC, most recent first, batch size: 16)", evenementName);
                 
                 AtomicInteger sentCount = new AtomicInteger(0);
                 AtomicInteger totalCount = new AtomicInteger(0);
@@ -147,6 +156,7 @@ public class EvenementRestController {
                 
                 // Use stream() which returns a Stream backed by a MongoDB cursor
                 // MongoDB will return results sorted by beginEventDate DESC (nulls last)
+                // With batch size 1, each document is fetched and sent immediately
                 try (java.util.stream.Stream<Evenement> eventStream = 
                         mongoTemplate.stream(query, Evenement.class)) {
                     
@@ -409,12 +419,152 @@ public class EvenementRestController {
         if (normalizedFilter.isEmpty()) {
             return true;
         }
+        
+        // Check title (evenementName) - search for the word itself
         String eventName = event.getEvenementName() != null ? 
             normalizeForSearch(event.getEvenementName()) : "";
+        boolean titleMatch = eventName.contains(normalizedFilter);
+        
+        // Check description (comments) - search for the word itself
         String comments = event.getComments() != null ? 
             normalizeForSearch(event.getComments()) : "";
+        boolean descriptionMatch = comments.contains(normalizedFilter);
         
-        return eventName.contains(normalizedFilter) || comments.contains(normalizedFilter);
+        // Check type - resolve keyword to numeric type and check if event type equals that number
+        // e.g., "velo" → "5", then check if event.type == "5"
+        boolean typeMatch = matchesType(event.getType(), normalizedFilter);
+        
+        // OR condition: match if title OR description OR type matches
+        return titleMatch || descriptionMatch || typeMatch;
+    }
+    
+    // Type alias lookup - maps keywords to canonical type numbers (e.g., "vtt" -> "1", "ski" -> "2")
+    private static final java.util.Map<String, String> TYPE_ALIAS_LOOKUP = new java.util.HashMap<>();
+    // Type keywords for all languages - matches repository implementation
+    private static final java.util.Map<String, java.util.List<String>> TYPE_KEYWORDS_MAP = new java.util.HashMap<>();
+    
+    static {
+        // Build the lookup maps - matches repository implementation exactly
+        registerType("1", new String[]{"vtt", "mountain bike", "mountain biking", "mtb", "bicicleta de montana", "bicicleta de montaña", "bicicletta da montagna", "btt", "mountainbike", "горный велосипед", "山地车"},
+                "1", "VTT", "EVENTCREATION.TYPE.VTT");
+        registerType("2", new String[]{"ski", "skiing", "esqui", "esquiar", "sci", "sci alpino", "sciare", "skifahren", "lyzhi", "лыжи", "катание на лыжах", "горные лыжи", "スキー", "スキ", "스키", "滑雪"},
+                "2", "SKI", "EVENTCREATION.TYPE.SKI");
+        registerType("3", new String[]{"run", "running", "course", "course a pied", "jogging", "footing", "correr", "carrera", "corrida", "correre", "laufen", "lauf", "rennen", "marathon", "race", "бег", "бегать"},
+                "3", "RUN", "COURSE", "EVENTCREATION.TYPE.RUN");
+        registerType("4", new String[]{"walk", "walking", "marche", "promenade", "balade", "andar", "caminar", "paseo", "passeggiata", "spaziergang", "wandern", "步行", "散歩"},
+                "4", "WALK", "MARCHE", "EVENTCREATION.TYPE.WALK");
+        registerType("5", new String[]{"bike", "biking", "velo", "vélo", "cycling", "cyclisme", "bicycle", "bicicleta", "bicicletta", "radfahren", "fahrrad", "自転車", "骑行"},
+                "5", "BIKE", "VELO", "VÉLO", "EVENTCREATION.TYPE.BIKE");
+        registerType("6", new String[]{"party", "fete", "fête", "fiesta", "soirée", "celebration", "fest", "festen", "festivity", "festlichkeit", "celebracion", "celebración"},
+                "6", "PARTY", "FETE", "FÊTE", "EVENTCREATION.TYPE.PARTY");
+        registerType("7", new String[]{"vacation", "vacances", "vacaciones", "vacanza", "urlaub", "holiday", "holidays", "ferie", "ferias", "праздники"},
+                "7", "VACATION", "VACANCES", "EVENTCREATION.TYPE.VACATION");
+        registerType("8", new String[]{"travel", "voyage", "viaje", "viaggio", "reise", "trip", "journey", "viajar", "traveling", "travelling", "旅行", "旅"},
+                "8", "TRAVEL", "VOYAGE", "EVENTCREATION.TYPE.TRAVEL");
+        registerType("9", new String[]{"rando", "randonnée", "randonnee", "hike", "hiking", "trek", "trekking", "senderismo", "excursion", "escursionismo", "wanderung", "wandern", "徒步", "ハイキング"},
+                "9", "RANDO", "EVENTCREATION.TYPE.RANDO");
+        registerType("10", new String[]{"photos", "photo", "picture", "pictures", "imagenes", "immagini", "bilder", "fotografie", "fotos", "photoes", "写真", "照片"},
+                "10", "PHOTOS", "EVENTCREATION.TYPE.PHOTOS");
+        registerType("11", new String[]{"documents", "document", "docs", "documentos", "documenti", "dokumente", "documentacion", "documentación", "documentation", "资料"},
+                "11", "DOCUMENTS", "EVENTCREATION.TYPE.DOCUMENTS");
+        registerType("12", new String[]{"fiche", "sheet", "fact sheet", "datasheet", "scheda", "hoja", "blatt", "schede", "ficha", "schede informative"},
+                "12", "FICHE", "EVENTCREATION.TYPE.FICHE");
+    }
+    
+    private static void registerType(String canonicalKey, String[] keywords, String... aliases) {
+        java.util.List<String> normalizedKeywords = new java.util.ArrayList<>();
+        
+        registerAlias(canonicalKey, canonicalKey);
+        for (String alias : aliases) {
+            registerAlias(alias, canonicalKey);
+        }
+        
+        for (String keyword : keywords) {
+            if (keyword == null || keyword.trim().isEmpty()) {
+                continue;
+            }
+            registerAlias(keyword, canonicalKey);
+            String normalized = normalizeForSearchStatic(keyword);
+            if (normalized != null && !normalized.isEmpty()) {
+                normalizedKeywords.add(normalized);
+                registerAlias(normalized, canonicalKey);
+            }
+        }
+        
+        TYPE_KEYWORDS_MAP.put(canonicalKey, normalizedKeywords);
+    }
+    
+    private static void registerAlias(String alias, String canonicalKey) {
+        if (alias == null || alias.trim().isEmpty()) {
+            return;
+        }
+        TYPE_ALIAS_LOOKUP.putIfAbsent(alias, canonicalKey);
+        TYPE_ALIAS_LOOKUP.putIfAbsent(alias.toUpperCase(java.util.Locale.ROOT), canonicalKey);
+        TYPE_ALIAS_LOOKUP.putIfAbsent(alias.toLowerCase(java.util.Locale.ROOT), canonicalKey);
+        String normalized = normalizeForSearchStatic(alias);
+        if (normalized != null && !normalized.isEmpty()) {
+            TYPE_ALIAS_LOOKUP.putIfAbsent(normalized, canonicalKey);
+        }
+    }
+    
+    private static String normalizeForSearchStatic(String value) {
+        if (value == null || value.isEmpty()) {
+            return "";
+        }
+        String lower = value.toLowerCase(java.util.Locale.ROOT);
+        String normalized = java.text.Normalizer.normalize(lower, java.text.Normalizer.Form.NFD);
+        return normalized.replaceAll("\\p{M}", "");
+    }
+    
+    private String resolveCanonicalType(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        
+        String trimmed = value.trim();
+        
+        String canonical = TYPE_ALIAS_LOOKUP.get(trimmed);
+        if (canonical != null) {
+            return canonical;
+        }
+        
+        canonical = TYPE_ALIAS_LOOKUP.get(trimmed.toUpperCase(java.util.Locale.ROOT));
+        if (canonical != null) {
+            return canonical;
+        }
+        
+        canonical = TYPE_ALIAS_LOOKUP.get(trimmed.toLowerCase(java.util.Locale.ROOT));
+        if (canonical != null) {
+            return canonical;
+        }
+        
+        String normalized = normalizeForSearch(value);
+        return TYPE_ALIAS_LOOKUP.get(normalized);
+    }
+    
+    private boolean matchesType(String type, String normalizedFilter) {
+        if (type == null || type.trim().isEmpty() || normalizedFilter.isEmpty()) {
+            return false;
+        }
+        
+        String typeTrimmed = type.trim();
+        
+        // First, check if filter is a direct numeric type match (e.g., searching "5" matches type "5")
+        String normalizedTypeValue = normalizeForSearch(typeTrimmed);
+        if (normalizedTypeValue.equals(normalizedFilter) || normalizedFilter.equals(normalizedTypeValue)) {
+            return true;
+        }
+        
+        // Resolve the filter keyword to its canonical type number (e.g., "velo" → "5", "vtt" → "1")
+        String canonicalFilterType = resolveCanonicalType(normalizedFilter);
+        
+        // If the filter resolves to a type number, check if the event's type equals that number
+        // e.g., if filter "velo" resolves to "5", check if event.type == "5"
+        if (canonicalFilterType != null && typeTrimmed.equals(canonicalFilterType)) {
+            return true;
+        }
+        
+        return false;
     }
 
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)

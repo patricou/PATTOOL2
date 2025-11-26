@@ -133,6 +133,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private photoFrameStylesCache: { [key: string]: string } | null = null;
 	private photoImageStylesCache: { [key: string]: string } | null = null;
 	private photoBorderColorCache: string | null = null;
+	// Portrait image handling
+	private isThumbnailPortrait: boolean = false;
+	private thumbnailImageWidth: number = 0;
+	private thumbnailDisplayedWidth: number = 0;
 	private cardBackgroundGradientCache: string | null = null;
 	private filesListGradientCache: string | null = null;
 	private statusBadgeGradientCache: string | null = null;
@@ -237,11 +241,25 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	@Output()
 	storeEventForReturn: EventEmitter<string> = new EventEmitter<string>();
 	
+	@Output()
+	cardReady: EventEmitter<string> = new EventEmitter<string>();
+	
 	// Store event ID before navigation - emit to parent so it can calculate page
 	public storeEventIdForReturn(): void {
 		if (this.evenement && this.evenement.id) {
 			// Emit to parent so it can calculate page number
 			this.storeEventForReturn.emit(this.evenement.id);
+		}
+	}
+	
+	// Emit card ready event when thumbnail is successfully set
+	private emitCardReady(): void {
+		const eventId = this.evenement?.id || this.evenement?.evenementName || '';
+		if (eventId) {
+			// Use setTimeout to ensure this runs after Angular's change detection cycle
+			setTimeout(() => {
+				this.cardReady.emit(eventId);
+			}, 0);
 		}
 	}
 
@@ -1515,6 +1533,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 	// Set image thumbnail - USE GETFILE for display (with resizing)
 	public setThumbnailImage() {
+		// Reset portrait detection when thumbnail changes
+		this.isThumbnailPortrait = false;
+		this.thumbnailImageWidth = 0;
+		this.thumbnailDisplayedWidth = 0;
+		this.photoFrameStylesCache = null;
+		
 		const signature = this.getThumbnailSignature();
 		if (this.applyCachedStyles(signature)) {
 			return;
@@ -1536,6 +1560,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 							this.thumbnailUrl = cachedThumbnail;
 							// Update thumbnail cache to ensure it's up to date
 							this.cacheCurrentStyles(this.getThumbnailSignature());
+							// Emit card ready event for immediate change detection
+							this.emitCardReady();
 							// Detect dominant color after image loads (this will track when image actually displays)
 							const colorTimeout = setTimeout(() => {
 								this.detectDominantColor();
@@ -1568,6 +1594,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 							this.thumbnailUrl = safeUrl;
 							// Update thumbnail cache with new data
 							this.cacheCurrentStyles(this.getThumbnailSignature());
+							// Emit card ready event for immediate change detection
+							this.emitCardReady();
 							// Detect dominant color after image loads (this will track when image actually displays)
 							const colorTimeout = setTimeout(() => {
 								this.detectDominantColor();
@@ -1606,6 +1634,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 								this.thumbnailUrl = safeUrl;
 								// Update thumbnail cache with new data
 								this.cacheCurrentStyles(this.getThumbnailSignature());
+								// Emit card ready event for immediate change detection
+								this.emitCardReady();
 								// Detect dominant color after image loads (this will track when image actually displays)
 								const colorTimeout = setTimeout(() => {
 									this.detectDominantColor();
@@ -1652,6 +1682,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 									this.descriptionBackgroundColor = cached.descriptionBackground;
 									this.invalidateColorCaches();
 									this.emitDominantColor();
+									// Emit card ready event for immediate change detection
+									this.emitCardReady();
 									return; // Successfully used cached thumbnail
 								}
 							}
@@ -1667,6 +1699,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 							this.descriptionBackgroundColor = cached.descriptionBackground;
 							this.invalidateColorCaches();
 							this.emitDominantColor();
+							// Emit card ready event for immediate change detection
+							this.emitCardReady();
 							return;
 						}
 					}
@@ -1711,6 +1745,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 								this.descriptionBackgroundColor = cached.descriptionBackground;
 								this.invalidateColorCaches();
 								this.emitDominantColor();
+								// Emit card ready event for immediate change detection
+								this.emitCardReady();
 								return; // Successfully used cached thumbnail
 							}
 						}
@@ -1726,6 +1762,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Track thumbnail image display time (when image actually shows)
 		if (this.thumbnailImageLoadEndTime === 0) {
 			this.thumbnailImageLoadEndTime = performance.now();
+			// Emit card ready event when image actually loads - this ensures parent knows card is visible
+			this.emitCardReady();
 		}
 		
 		// Track color detection start time
@@ -1745,17 +1783,62 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			if (!img.complete || img.naturalWidth === 0) {
 				// Wait for image to load
 				img.onload = () => {
+					// Detect portrait orientation
+					this.detectPortraitOrientation(img);
 					this.processImageColor(img);
 					// Track color detection end time
 					this.colorDetectionEndTime = performance.now();
+					// Emit card ready when image actually loads
+					if (this.thumbnailImageLoadEndTime === 0) {
+						this.thumbnailImageLoadEndTime = performance.now();
+						this.emitCardReady();
+					}
 				};
 				return;
 			}
 
+			// Detect portrait orientation
+			this.detectPortraitOrientation(img);
 			this.processImageColor(img);
 			// Track color detection end time
 			this.colorDetectionEndTime = performance.now();
 		}, 200);
+	}
+
+	// Detect if thumbnail image is portrait and store dimensions
+	private detectPortraitOrientation(img: HTMLImageElement): void {
+		if (!img || img.naturalWidth === 0 || img.naturalHeight === 0) {
+			this.isThumbnailPortrait = false;
+			this.thumbnailImageWidth = 0;
+			this.thumbnailDisplayedWidth = 0;
+			// Invalidate frame styles cache to recalculate
+			this.photoFrameStylesCache = null;
+			return;
+		}
+
+		// Check if image is portrait (height > width)
+		const isPortrait = img.naturalHeight > img.naturalWidth;
+		const imageWidth = img.naturalWidth;
+		
+		// Get displayed width after a short delay to ensure image is laid out
+		setTimeout(() => {
+			if (img.offsetWidth > 0) {
+				const displayedWidth = img.offsetWidth;
+				if (this.thumbnailDisplayedWidth !== displayedWidth) {
+					this.thumbnailDisplayedWidth = displayedWidth;
+					// Invalidate frame styles cache to recalculate with actual displayed width
+					this.photoFrameStylesCache = null;
+				}
+			}
+		}, 100);
+		
+		// Only update if orientation changed
+		if (this.isThumbnailPortrait !== isPortrait || this.thumbnailImageWidth !== imageWidth) {
+			this.isThumbnailPortrait = isPortrait;
+			this.thumbnailImageWidth = imageWidth;
+			// Invalidate frame styles cache to recalculate with new dimensions
+			this.photoFrameStylesCache = null;
+		}
 	}
 
 	// Detect dominant color from the current slideshow image
@@ -2110,16 +2193,47 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this.solidColorCache.get(key) as string;
 	}
 
+	// Helper method to extract URL string from thumbnailUrl (handles both string and SafeUrl)
+	private getThumbnailUrlString(): string | null {
+		if (!this.thumbnailUrl) {
+			return null;
+		}
+		if (typeof this.thumbnailUrl === 'string') {
+			return this.thumbnailUrl;
+		}
+		if (typeof this.thumbnailUrl === 'object' && 'changingThisBreaksApplicationSecurity' in this.thumbnailUrl) {
+			return this.thumbnailUrl['changingThisBreaksApplicationSecurity'] as string;
+		}
+		return null;
+	}
+
 	public getPhotoFrameStyles(): { [key: string]: string } {
 		if (!this.photoFrameStylesCache) {
-			this.photoFrameStylesCache = {
+			const baseStyles: { [key: string]: string } = {
 				position: 'relative',
 				backgroundColor: this.getSolidColor(0.35),
 				borderRadius: '8px',
 				padding: '7px 7px 0 7px',
 				boxShadow: 'none',
-				boxSizing: 'border-box'
+				boxSizing: 'border-box',
+				overflow: 'hidden'
 			};
+
+			// Add blurred background image if thumbnail URL is available
+			const thumbnailUrlStr = this.getThumbnailUrlString();
+			if (thumbnailUrlStr && thumbnailUrlStr !== 'assets/images/images.jpg') {
+				// Use CSS custom property so the pseudo-element can access it
+				baseStyles['--thumbnail-bg-image'] = `url(${thumbnailUrlStr})`;
+			}
+
+			// Set fixed aspect ratio for all images to ensure same height
+			// Using aspect-ratio 16:9 for consistent sizing
+			baseStyles['aspect-ratio'] = '16 / 9';
+			baseStyles['display'] = 'flex';
+			baseStyles['align-items'] = 'center';
+			baseStyles['justify-content'] = 'center';
+
+			this.photoFrameStylesCache = baseStyles;
 		}
 		return this.photoFrameStylesCache;
 	}
@@ -2140,9 +2254,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				borderRadius: 'inherit',
 				backgroundColor: 'transparent',
 				padding: '0',
-				boxSizing: 'border-box'
+				boxSizing: 'border-box',
+				width: '100%',
+				height: '100%',
+				objectFit: 'contain' // Ensure entire image is visible and fits within container
 			};
 		}
+		
 		return this.photoImageStylesCache;
 	}
 	
