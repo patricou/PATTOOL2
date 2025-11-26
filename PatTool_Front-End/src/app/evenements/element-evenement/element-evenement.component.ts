@@ -34,7 +34,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public API_URL: string = environment.API_URL;
 	public API_URL4FILE: string = environment.API_URL4FILE;
 	public showParticipantsList: boolean = false;
-	public showFilesList: boolean = false;
 	// Upload logs
 	public uploadLogs: string[] = [];
 	public isUploading: boolean = false;
@@ -2625,25 +2624,30 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.showParticipantsList = true;
 	}
 
-	public toggleFilesList(): void {
-		this.showFilesList = !this.showFilesList;
-		// Load thumbnails when list is opened
-		if (this.showFilesList) {
-			this.loadFileThumbnails();
-		}
+	public openFilesModal(content: any): void {
+		this.forceCloseTooltips();
+		// Load thumbnails when modal is opened
+		this.loadFileThumbnails();
+		// Open the modal
+		this.modalService.open(content, { 
+			size: 'xl', 
+			centered: true, 
+			backdrop: 'static', 
+			keyboard: false,
+			windowClass: 'files-management-modal'
+		});
 	}
 	
-	// Load thumbnails for image files (only those with "thumbnail" in the name)
+	// Load thumbnails for all image files
 	private loadFileThumbnails(): void {
 		if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
 			return;
 		}
 		
-		// Filter image files that have "thumbnail" in the name and load their thumbnails
+		// Filter all image files and load their thumbnails
 		const imageFiles = this.evenement.fileUploadeds.filter(file => 
 			this.isImageFile(file.fileName) && 
-			file.fileName && 
-			file.fileName.toLowerCase().includes('thumbnail')
+			file.fileName
 		);
 		
 		imageFiles.forEach(file => {
@@ -2679,7 +2683,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			// Load the file and create thumbnail URL
 			this._fileService.getFile(file.fieldId).pipe(
 				map((res: any) => {
-					const blob = new Blob([res], { type: 'application/octet-stream' });
+					// Determine MIME type from file extension for proper image display
+					const mimeType = this.getImageMimeType(file.fileName);
+					const blob = new Blob([res], { type: mimeType || 'image/jpeg' });
 					const objectUrl = this.nativeWindow.URL.createObjectURL(blob);
 					return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
 				})
@@ -3320,6 +3326,29 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		const lowerFileName = fileName.toLowerCase();
 		
 		return imageExtensions.some(ext => lowerFileName.endsWith(ext));
+	}
+
+	// Get MIME type for image files based on extension
+	private getImageMimeType(fileName: string): string {
+		if (!fileName) return 'image/jpeg';
+		
+		const lowerFileName = fileName.toLowerCase();
+		if (lowerFileName.endsWith('.jpg') || lowerFileName.endsWith('.jpeg')) {
+			return 'image/jpeg';
+		} else if (lowerFileName.endsWith('.png')) {
+			return 'image/png';
+		} else if (lowerFileName.endsWith('.gif')) {
+			return 'image/gif';
+		} else if (lowerFileName.endsWith('.bmp')) {
+			return 'image/bmp';
+		} else if (lowerFileName.endsWith('.webp')) {
+			return 'image/webp';
+		} else if (lowerFileName.endsWith('.svg')) {
+			return 'image/svg+xml';
+		} else if (lowerFileName.endsWith('.tiff') || lowerFileName.endsWith('.tif')) {
+			return 'image/tiff';
+		}
+		return 'image/jpeg'; // Default
 	}
 
 	// Check if file is a PDF based on extension

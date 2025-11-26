@@ -180,136 +180,6 @@
             </li>
         </ul>
     </div>
-    <div [hidden]="tfl" *ngIf="!titleOnly">
-        <div class="card-text">
-            <hr>
-            <h5 class="d-flex justify-content-between align-items-center">
-                <div class="d-flex align-items-center">
-                    <b> <span style="font-size: 0.85rem;">{{"EVENTELEM.FILES" | translate }} ({{ evenement.fileUploadeds.length }})</span> : </b>
-                    <button class="btn btn-sm btn-outline-primary ms-1" 
-                            style="padding: 0.1rem 0.25rem; font-size: 0.65rem;"
-                            [style.color]="titleBorderColor"
-                            (click)="toggleFilesList()"
-                            [title]="showFilesList ? ('Hide files list' | translate) : ('Show files list' | translate)">
-                        <i class="fa" [class.fa-plus]="!showFilesList" [class.fa-minus]="showFilesList"></i>
-                    </button>
-                </div>
-                <button class="btn btn-sm btn-success download-all-btn" 
-                        *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0"
-                        (click)="downloadAllFiles()"
-                        [style.background-color]="getDownloadAllButtonGradient()"
-                        [style.border-color]="'white'"
-                        [style.color]="'white'"
-                        style="padding: 0.15rem 0.3rem; font-size: 0.7rem;">
-                    <i class="fa fa-download"></i> {{ 'COMMUN.DOWNLOAD_ALL' | translate }}
-                </button>
-            </h5>
-            <ul class="list-group files-list" 
-                *ngIf="showFilesList"
-                [style.background-color]="getFilesListGradient()">
-                <li class="list-group-item d-flex justify-content-between align-items-center"
-                    *ngFor="let uploadedFile of evenement.fileUploadeds ">
-                    <span class="file-name d-flex align-items-center">
-                        <!-- Thumbnail for image files -->
-                        <img *ngIf="isImageFile(uploadedFile.fileName) && getFileThumbnail(uploadedFile.fieldId)" 
-                             [src]="getFileThumbnail(uploadedFile.fieldId)" 
-                             class="file-thumbnail me-2"
-                             [class.file-thumbnail-clickable]="isImageFile(uploadedFile.fileName)"
-                             [alt]="uploadedFile.fileName"
-                             (click)="isImageFile(uploadedFile.fileName) && handleFileClick(uploadedFile)"
-                             (load)="onFileThumbnailLoaded(uploadedFile.fieldId)"
-                             (error)="hideImageOnError($event)"
-                             [style.cursor]="isImageFile(uploadedFile.fileName) ? 'pointer' : 'default'"
-                             [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ''" />
-                        <!-- Loading indicator for image thumbnails -->
-                        <span *ngIf="isImageFile(uploadedFile.fileName) && isThumbnailLoading(uploadedFile.fieldId) && !getFileThumbnail(uploadedFile.fieldId)"
-                              class="file-thumbnail-loading me-2">
-                            <i class="fa fa-spinner fa-spin"></i>
-                        </span>
-                        <span class="badge"
-                              [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)"
-                              [style.background-color]="getFileBadgeColor(uploadedFile.fileName)"
-                              [style.border-color]="'white'"
-                              [style.color]="getFileBadgeTextColor(uploadedFile.fileName)"
-                              [title]="uploadedFile.fileName"
-                              ngbTooltip="{{uploadedFile.fileName}}" placement="top"
-                              (mouseleave)="onTooltipMouseLeave($event)"
-                              (click)="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) && handleFileClick(uploadedFile)"
-                              [style.cursor]="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
-                            {{getTruncatedFileName(uploadedFile.fileName)}}
-                        </span>
-                        <small class="text-muted ms-2 clickable-user" [style.color]="titleBorderColor" 
-                               (click)="openUserModal(uploadedFile.uploaderMember)"
-                               title="Cliquer pour voir les détails de l'utilisateur">
-                            {{uploadedFile.uploaderMember.userName}}
-                        </small>
-                    </span>
-                    <div class="file-actions">
-                        <button class="btn btn-sm btn-warning me-2"
-                                *ngIf="isImageFile(uploadedFile.fileName)"
-                                [disabled]="isThumbnailFile(uploadedFile)"
-                                ngbTooltip="{{ 'EVENTELEM.SET_AS_CARD_IMAGE' | translate }}"
-                                (click)="setFileAsThumbnail(uploadedFile)"
-                                [style.background-color]="getFileActionButtonGradient()"
-                                [style.border-color]="'white'"
-                                [style.color]="'white'"
-                                (mouseleave)="onTooltipMouseLeave($event)">
-                            <i class="fa fa-star" aria-hidden="true"></i>
-                        </button>
-                        <button class="btn btn-sm btn-info me-2"
-                                *ngIf="isTrackFile(uploadedFile.fileName)"
-                                ngbTooltip="{{ 'EVENTELEM.VIEW_TRACK' | translate }}"
-                                (click)="openTrackFile(uploadedFile)"
-                                [style.background-color]="getFileActionButtonGradient()"
-                                [style.border-color]="'white'"
-                                [style.color]="'white'"
-                                (mouseleave)="onTooltipMouseLeave($event)">
-                            <i class="fa fa-eye" aria-hidden="true"></i>
-                        </button>
-                        <button class="btn btn-sm btn-primary me-2"
-                                *ngIf="isVideoFile(uploadedFile.fileName)"
-                                ngbTooltip="{{ 'EVENTELEM.CLICK_TO_VIEW_VIDEO' | translate }}"
-                                (click)="openSingleVideoInVideoshow(uploadedFile.fieldId, uploadedFile.fileName)"
-                                [style.background-color]="getFileActionButtonGradient()"
-                                [style.border-color]="'white'"
-                                [style.color]="'white'"
-                                (mouseleave)="onTooltipMouseLeave($event)">
-                            <i class="fa fa-video-camera" aria-hidden="true"></i>
-                        </button>
-                        <button class="btn btn-sm btn-primary me-2"
-                                *ngIf="isPdfFile(uploadedFile.fileName)"
-                                ngbTooltip="{{ 'EVENTELEM.CLICK_TO_OPEN_PDF' | translate }}"
-                                (click)="openPdfFile(uploadedFile.fieldId, uploadedFile.fileName)"
-                                [style.background-color]="getFileActionButtonGradient()"
-                                [style.border-color]="'white'"
-                                [style.color]="'white'"
-                                (mouseleave)="onTooltipMouseLeave($event)">
-                            <i class="fa fa-eye" aria-hidden="true"></i>
-                        </button>
-                        <button class="btn btn-sm btn-primary me-2" placement="left"
-                            ngbTooltip="{{ 'COMMUN.DOWNLOAD' | translate }}"
-                            (click)="openWindows(uploadedFile.fieldId, uploadedFile.fileName)"
-                            [style.background-color]="getFileActionButtonGradient()"
-                            [style.border-color]="'white'"
-                            [style.color]="'white'"
-                            (mouseleave)="onTooltipMouseLeave($event)">
-                            <i class="fa fa-files-o" aria-hidden="true"></i>
-                        </button>
-                        <button class="btn btn-sm btn-danger" placement="left"
-                            ngbTooltip="{{ 'EVENTELEM.DELETEFILE' | translate }}"
-                            [disabled]="!isFileOwner(uploadedFile.uploaderMember)"
-                            (click)="delFile(uploadedFile.fieldId)"
-                            [style.background-color]="getFileActionButtonGradient()"
-                            [style.border-color]="'white'"
-                            [style.color]="'white'"
-                            (mouseleave)="onTooltipMouseLeave($event)">
-                            <i class="fa fa-trash" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                </li>
-            </ul>
-        </div>
-    </div>
     <div class="card-text" *ngIf="showParticipantsList && !titleOnly">
         <hr>
         <h5 class="pat-members d-flex justify-content-between align-items-center">
@@ -381,6 +251,26 @@
         <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getTotalPhotosCount() }}
     </button>
     
+    <a class="btn btn-sm btn-outline-primary mb-1 me-1 dynamic-footer-btn" 
+       [hidden]="!isAnyFiles()" 
+       [ngStyle]="getFooterButtonStyles('download')"
+       (click)="openFilesModal(filesModal)"
+       placement="top" 
+       ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"
+       (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-download"
+            aria-hidden="true"></i> {{ getFilesCount() }}</a>
+
+    <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
+         (mouseleave)="onTooltipMouseLeave($event)">
+        <label [for]="'file-upload-input-' + evenement.id" 
+               class="btn btn-sm btn-success mb-1 dynamic-footer-btn"
+               [ngStyle]="getFooterButtonStyles('upload')">
+            <i class="fa fa-upload" aria-hidden="true"></i>
+        </label>
+        <input type="file" [id]="'file-upload-input-' + evenement.id" #fileInput (change)="onFileSelected($event)" multiple 
+               accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar" style="display: none;" />
+    </div>
+    
     <a class="btn btn-sm btn-outline-info mb-1 me-1 eye-button dynamic-footer-btn" 
        [routerLink]="['/details-evenement', evenement.id]" 
        [ngStyle]="getFooterButtonStyles('details')"
@@ -432,25 +322,6 @@
        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" 
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
-    <a class="btn btn-sm btn-outline-primary mb-1 me-1 dynamic-footer-btn" 
-       [hidden]="!isAnyFiles()" 
-       [ngStyle]="getFooterButtonStyles('download')"
-       (click)="toogleFileListe()"
-       placement="top" 
-       ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"
-       (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-download"
-            aria-hidden="true"></i> {{ getFilesCount() }}</a>
-
-    <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
-         (mouseleave)="onTooltipMouseLeave($event)">
-        <label [for]="'file-upload-input-' + evenement.id" 
-               class="btn btn-sm btn-success mb-1 dynamic-footer-btn"
-               [ngStyle]="getFooterButtonStyles('upload')">
-            <i class="fa fa-upload" aria-hidden="true"></i>
-        </label>
-        <input type="file" [id]="'file-upload-input-' + evenement.id" #fileInput (change)="onFileSelected($event)" multiple 
-               accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar" style="display: none;" />
-    </div>
 
     <button class="btn btn-sm btn-info mb-1 me-1 dynamic-footer-btn" 
             [ngStyle]="getFooterButtonStyles('stats')"
@@ -591,6 +462,145 @@
         </ng-template>
     </div>
     <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+        </button>
+    </div>
+</ng-template>
+
+<!-- Files Management Modal -->
+<ng-template #filesModal let-c="close" let-d="dismiss">
+    <div class="modal-header bg-primary text-white selector-header border border-2 border-white rounded-top">
+        <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
+            <i class="fa fa-files-o"></i> {{ 'EVENTELEM.FILES' | translate }} - {{ evenement.evenementName }} ({{ evenement.fileUploadeds.length }})
+        </h5>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white" (click)="c('Close click')" aria-label="Close">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body selector-body" style="max-height: 70vh; overflow-y: auto;">
+        <div *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0; else noFilesTemplate">
+            <ul class="list-group files-list" 
+                [style.background-color]="getFilesListGradient()">
+                <li class="list-group-item d-flex justify-content-between align-items-center"
+                    *ngFor="let uploadedFile of evenement.fileUploadeds">
+                    <span class="file-name d-flex align-items-center">
+                        <!-- Thumbnail for image files -->
+                        <img *ngIf="isImageFile(uploadedFile.fileName) && getFileThumbnail(uploadedFile.fieldId)" 
+                             [src]="getFileThumbnail(uploadedFile.fieldId)" 
+                             class="file-thumbnail me-2"
+                             [class.file-thumbnail-clickable]="isImageFile(uploadedFile.fileName)"
+                             [alt]="uploadedFile.fileName"
+                             (click)="isImageFile(uploadedFile.fileName) && handleFileClick(uploadedFile)"
+                             (load)="onFileThumbnailLoaded(uploadedFile.fieldId)"
+                             (error)="hideImageOnError($event)"
+                             [style.cursor]="isImageFile(uploadedFile.fileName) ? 'pointer' : 'default'"
+                             [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ''" />
+                        <!-- Loading indicator for image thumbnails -->
+                        <span *ngIf="isImageFile(uploadedFile.fileName) && isThumbnailLoading(uploadedFile.fieldId) && !getFileThumbnail(uploadedFile.fieldId)"
+                              class="file-thumbnail-loading me-2">
+                            <i class="fa fa-spinner fa-spin"></i>
+                        </span>
+                        <span class="badge"
+                              [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)"
+                              [style.background-color]="getFileBadgeColor(uploadedFile.fileName)"
+                              [style.border-color]="'white'"
+                              [style.color]="getFileBadgeTextColor(uploadedFile.fileName)"
+                              [title]="uploadedFile.fileName"
+                              ngbTooltip="{{uploadedFile.fileName}}" 
+                              placement="top"
+                              (mouseleave)="onTooltipMouseLeave($event)"
+                              (click)="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) && handleFileClick(uploadedFile)"
+                              [style.cursor]="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
+                            {{getTruncatedFileName(uploadedFile.fileName)}}
+                        </span>
+                        <small class="text-muted ms-2 clickable-user" [style.color]="titleBorderColor" 
+                               (click)="openUserModal(uploadedFile.uploaderMember)"
+                               title="Cliquer pour voir les détails de l'utilisateur">
+                            {{uploadedFile.uploaderMember.userName}}
+                        </small>
+                    </span>
+                    <div class="file-actions">
+                        <button class="btn btn-sm btn-warning me-2"
+                                *ngIf="isImageFile(uploadedFile.fileName)"
+                                [disabled]="isThumbnailFile(uploadedFile)"
+                                ngbTooltip="{{ 'EVENTELEM.SET_AS_CARD_IMAGE' | translate }}"
+                                (click)="setFileAsThumbnail(uploadedFile)"
+                                [style.background-color]="getFileActionButtonGradient()"
+                                [style.border-color]="'white'"
+                                [style.color]="'white'"
+                                (mouseleave)="onTooltipMouseLeave($event)">
+                            <i class="fa fa-star" aria-hidden="true"></i>
+                        </button>
+                        <button class="btn btn-sm btn-info me-2"
+                                *ngIf="isTrackFile(uploadedFile.fileName)"
+                                ngbTooltip="{{ 'EVENTELEM.VIEW_TRACK' | translate }}"
+                                (click)="openTrackFile(uploadedFile)"
+                                [style.background-color]="getFileActionButtonGradient()"
+                                [style.border-color]="'white'"
+                                [style.color]="'white'"
+                                (mouseleave)="onTooltipMouseLeave($event)">
+                            <i class="fa fa-eye" aria-hidden="true"></i>
+                        </button>
+                        <button class="btn btn-sm btn-primary me-2"
+                                *ngIf="isVideoFile(uploadedFile.fileName)"
+                                ngbTooltip="{{ 'EVENTELEM.CLICK_TO_VIEW_VIDEO' | translate }}"
+                                (click)="openSingleVideoInVideoshow(uploadedFile.fieldId, uploadedFile.fileName)"
+                                [style.background-color]="getFileActionButtonGradient()"
+                                [style.border-color]="'white'"
+                                [style.color]="'white'"
+                                (mouseleave)="onTooltipMouseLeave($event)">
+                            <i class="fa fa-video-camera" aria-hidden="true"></i>
+                        </button>
+                        <button class="btn btn-sm btn-primary me-2"
+                                *ngIf="isPdfFile(uploadedFile.fileName)"
+                                ngbTooltip="{{ 'EVENTELEM.CLICK_TO_OPEN_PDF' | translate }}"
+                                (click)="openPdfFile(uploadedFile.fieldId, uploadedFile.fileName)"
+                                [style.background-color]="getFileActionButtonGradient()"
+                                [style.border-color]="'white'"
+                                [style.color]="'white'"
+                                (mouseleave)="onTooltipMouseLeave($event)">
+                            <i class="fa fa-eye" aria-hidden="true"></i>
+                        </button>
+                        <button class="btn btn-sm btn-primary me-2" placement="left"
+                            ngbTooltip="{{ 'COMMUN.DOWNLOAD' | translate }}"
+                            (click)="openWindows(uploadedFile.fieldId, uploadedFile.fileName)"
+                            [style.background-color]="getFileActionButtonGradient()"
+                            [style.border-color]="'white'"
+                            [style.color]="'white'"
+                            (mouseleave)="onTooltipMouseLeave($event)">
+                            <i class="fa fa-files-o" aria-hidden="true"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger" placement="left"
+                            ngbTooltip="{{ 'EVENTELEM.DELETEFILE' | translate }}"
+                            [disabled]="!isFileOwner(uploadedFile.uploaderMember)"
+                            (click)="delFile(uploadedFile.fieldId)"
+                            [style.background-color]="getFileActionButtonGradient()"
+                            [style.border-color]="'white'"
+                            [style.color]="'white'"
+                            (mouseleave)="onTooltipMouseLeave($event)">
+                            <i class="fa fa-trash" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                </li>
+            </ul>
+        </div>
+        <ng-template #noFilesTemplate>
+            <div class="text-center text-muted py-4">
+                <i class="fa fa-files-o fa-3x mb-3"></i>
+                <p>{{ 'EVENTELEM.NO_FILES' | translate }}</p>
+            </div>
+        </ng-template>
+    </div>
+    <div class="modal-footer">
+        <button class="btn btn-sm btn-success" 
+                *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0"
+                (click)="downloadAllFiles()"
+                [style.background-color]="getDownloadAllButtonGradient()"
+                [style.border-color]="'white'"
+                [style.color]="'white'">
+            <i class="fa fa-download"></i> {{ 'COMMUN.DOWNLOAD_ALL' | translate }}
+        </button>
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">
             <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
         </button>
