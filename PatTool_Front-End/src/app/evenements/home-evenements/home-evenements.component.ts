@@ -135,9 +135,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private thumbnailLoadQueueSubscription?: Subscription;
 	private thumbnailObserver?: IntersectionObserver; // Observer for lazy loading visible thumbnails
 	private readonly THUMBNAIL_BATCH_SIZE = 5; // Load thumbnails in smaller batches of 5 to reduce handler time
-	private readonly THUMBNAIL_BATCH_DELAY = 200; // Increased delay in ms to batch thumbnail loads
+	private readonly THUMBNAIL_BATCH_DELAY = 50; // Reduced delay for faster initial display (was 200ms)
 	private readonly THUMBNAIL_PREFETCH_DISTANCE = 200; // Prefetch thumbnails 200px before viewport
-	private readonly THUMBNAIL_BATCH_INTERVAL = 100; // Delay between batches in ms
+	private readonly THUMBNAIL_BATCH_INTERVAL = 50; // Reduced delay between batches for faster loading (was 100ms)
+	private readonly INITIAL_CARDS_IMMEDIATE_DETECTION = 8; // Number of initial cards to display with immediate change detection
 	private pendingThumbnailLoads: Set<string> = new Set(); // Track thumbnails currently being loaded
 	private pendingCardLoadEnds: Set<string> = new Set(); // Track cards waiting for loadEnd mark
 	private cardLoadEndBatchTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -238,7 +239,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	
 	// Update cached memory usage values asynchronously
 	// Optimized change detection scheduling - batches multiple calls
-	private scheduleChangeDetection(): void {
+	// For initial cards (first 8), use immediate detection for faster display
+	private scheduleChangeDetection(immediate: boolean = false): void {
+		// Use immediate change detection for initial cards to display them faster
+		if (immediate && this.evenements.length <= this.INITIAL_CARDS_IMMEDIATE_DETECTION) {
+			this.cdr.markForCheck();
+			return;
+		}
+		
 		if (this.changeDetectionScheduled) {
 			this.pendingChangeDetection = true;
 			return;
@@ -866,8 +874,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Always update hasMoreEvents during streaming
 		this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
 							
-							// Batch change detection for better performance
-							this.scheduleChangeDetection();
+							// Use immediate change detection for initial cards to display them faster
+							// After initial cards, batch change detection for better performance
+							const isInitialCards = this.evenements.length <= this.INITIAL_CARDS_IMMEDIATE_DETECTION;
+							this.scheduleChangeDetection(isInitialCards);
 						} else if (streamedEvent.type === 'complete') {
 							// console.log('🎉 ✅ COMPLETE event received!');
 							
@@ -1193,8 +1203,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					// Removed loadFileThumbnails() call to avoid double loading - queueThumbnailLoad() already loads the thumbnail
 				}
 			});
-			// Batch change detection for better performance
-			this.scheduleChangeDetection();
+			// Use immediate change detection for initial cards to display them faster
+			const isInitialCards = this.evenements.length <= this.INITIAL_CARDS_IMMEDIATE_DETECTION;
+			this.scheduleChangeDetection(isInitialCards);
 			
 			// Re-observe thumbnail elements after new events are added to DOM
 			// Use setTimeout to ensure DOM is updated
@@ -1861,7 +1872,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public getEventThumbnail(evenement: Evenement): SafeUrl {
 		const eventId = evenement.id || this.getEventKey(evenement);
 		if (!eventId) {
-			const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+			const defaultUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
 			return defaultUrl;
 		}
 		
@@ -1905,7 +1916,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 		
 		// Toujours retourner l'image par défaut en attendant le chargement
-		const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+		const defaultUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
 		// Ne pas écraser si on a déjà une image par défaut
 		if (!this.eventThumbnails.has(eventId)) {
 			this.eventThumbnails.set(eventId, defaultUrl);
@@ -2047,7 +2058,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						
 						console.error('Error loading thumbnail for event:', eventId, error);
 						// Use default image on error
-						const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+						const defaultUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
 						this.eventThumbnails.set(eventId, defaultUrl);
 						return of({ eventId, safeUrl: defaultUrl });
 					})
@@ -2062,7 +2073,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		// Set default images immediately for events without thumbnails
 		eventsWithoutThumbnails.forEach(({ eventId }) => {
-			const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+			const defaultUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
 			this.eventThumbnails.set(eventId, defaultUrl);
 			if (trackLoading) {
 				const loadingInfo = this.loadingEvents.get(eventId);
@@ -2262,7 +2273,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				
 				console.error('Error loading thumbnail for event:', eventId, error);
 				// En cas d'erreur, utiliser l'image par défaut
-				this.eventThumbnails.set(eventId, this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg"));
+				this.eventThumbnails.set(eventId, ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer));
 				// Mark thumbnail load end even on error
 				if (trackLoading) {
 					const loadingInfo = this.loadingEvents.get(eventId);
@@ -2335,13 +2346,22 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				clearTimeout(batchTimeout);
 			}
 			
+			// For initial visible cards, process immediately or with minimal delay
+			// This ensures thumbnails start loading faster for the first cards
+			const eventId = event.id || this.getEventKey(event);
+			const isInitialCard = this.evenements.length <= this.INITIAL_CARDS_IMMEDIATE_DETECTION && 
+				this.evenements.some(e => (e.id || this.getEventKey(e)) === eventId);
+			
+			// Use shorter delay for initial cards, normal delay for others
+			const delay = isInitialCard ? 0 : this.THUMBNAIL_BATCH_DELAY;
+			
 			// Process batch after delay using requestAnimationFrame for better performance
 			batchTimeout = setTimeout(() => {
 				requestAnimationFrame(() => {
 					processBatch();
 				});
 				batchTimeout = null;
-			}, this.THUMBNAIL_BATCH_DELAY);
+			}, delay);
 		});
 		
 		this.allSubscriptions.push(this.thumbnailLoadQueueSubscription);
@@ -2633,7 +2653,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public onImageError(event: any) {
 		const target = event.target as HTMLImageElement;
 		if (target) {
-			target.src = "assets/images/images.jpg";
+			target.src = ElementEvenementComponent.getDefaultPlaceholderImageUrl();
 		}
 	}
 

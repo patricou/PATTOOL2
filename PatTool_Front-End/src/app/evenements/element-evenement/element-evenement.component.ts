@@ -49,7 +49,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Native Window
 	public nativeWindow: any;
 	// Thumbnail image
-	public thumbnailUrl: any = "assets/images/images.jpg";
+	public thumbnailUrl: any = ElementEvenementComponent.getDefaultPlaceholderImageUrl();
 	public selectedUser: Member | null = null;
 	// Dominant color for title background
 	public titleBackgroundColor: string = 'rgba(255, 255, 255, 0.6)';
@@ -278,6 +278,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// This prevents ERR_FILE_NOT_FOUND errors by storing the original Blob
 	private static readonly blobCache: Map<string, Blob> = new Map();
 	
+	// Static cache for the default placeholder image - loaded once and reused across all components
+	// This prevents multiple HTTP requests for the same default image
+	private static defaultPlaceholderImage: SafeUrl | null = null;
+	private static defaultPlaceholderImageUrl: string = "assets/images/images.jpg";
+	
 	// Static set to track files currently being loaded (to prevent duplicate concurrent requests)
 	private static readonly filesLoading: Set<string> = new Set();
 
@@ -383,6 +388,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Public static method to get blob cache size
 	public static getBlobCacheSize(): number {
 		return ElementEvenementComponent.blobCache.size;
+	}
+	
+	// Public static method to get the default placeholder image (cached, loaded only once)
+	// This ensures the default image is loaded only once from the backend, not once per component
+	public static getDefaultPlaceholderImage(sanitizer: DomSanitizer): SafeUrl {
+		if (!ElementEvenementComponent.defaultPlaceholderImage) {
+			ElementEvenementComponent.defaultPlaceholderImage = 
+				sanitizer.bypassSecurityTrustUrl(ElementEvenementComponent.defaultPlaceholderImageUrl);
+		}
+		return ElementEvenementComponent.defaultPlaceholderImage;
+	}
+	
+	// Public static method to get the default placeholder image URL string (for direct use)
+	public static getDefaultPlaceholderImageUrl(): string {
+		return ElementEvenementComponent.defaultPlaceholderImageUrl;
 	}
 
 	// =========================
@@ -1003,7 +1023,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			}
 			
 			// Reset to default and reload from server
-			this.thumbnailUrl = "assets/images/images.jpg";
+			this.thumbnailUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
 			// Reload thumbnail from server
 			setTimeout(() => {
 				this.setThumbnailImage();
@@ -3018,7 +3038,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.setThumbnailImage();
 		} else {
 			// Reset to default image if no thumbnail file exists
-			this.thumbnailUrl = "assets/images/images.jpg";
+			this.thumbnailUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
 			// Reset to default color
 			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
 			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';

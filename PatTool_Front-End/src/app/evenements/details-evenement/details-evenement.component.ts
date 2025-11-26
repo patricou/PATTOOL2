@@ -17,6 +17,7 @@ import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
 import { WindowRefService } from '../../services/window-ref.service';
 import { environment } from '../../../environments/environment';
+import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
 
 @Component({
   selector: 'app-details-evenement',
@@ -198,8 +199,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         }
         
         console.error('Error loading image:', error);
-        // Set default image on error
-        const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+        // Set default image on error (using cached version)
+        const defaultUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
         this.imageCache.set(fileId, defaultUrl);
         const photoItem = this.photoItems.find(item => item.file.fieldId === fileId);
         if (photoItem) {
@@ -528,7 +529,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   public onImageError(event: any): void {
     const target = event.target as HTMLImageElement;
     if (target) {
-      target.src = 'assets/images/images.jpg'; // Fallback image
+      target.src = ElementEvenementComponent.getDefaultPlaceholderImageUrl(); // Fallback image
     }
   }
 
