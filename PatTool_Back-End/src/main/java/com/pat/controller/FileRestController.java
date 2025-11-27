@@ -837,19 +837,34 @@ public class FileRestController {
             }
         }
 
-        // Check if there's a new thumbnail file in the updated event
-        // (in case a new file with "thumbnail" in name was added)
-        if (evenement.getThumbnail() == null || 
-            (oldThumbnail != null && !oldThumbnail.getFieldId().equals(evenement.getThumbnail().getFieldId()))) {
-            // Look for a file with "thumbnail" in its name
-            FileUploaded newThumbnail = evenement.getFileUploadeds().stream()
-                .filter(file -> file.getFileName() != null && 
-                               file.getFileName().toLowerCase().contains("thumbnail"))
-                .findFirst()
-                .orElse(null);
-            if (newThumbnail != null) {
+        // Always check if there's a thumbnail file in the updated event
+        // This ensures that if a new file with "thumbnail" in name was added, it's set as thumbnail
+        // Also handles the case where thumbnail was set during upload but event was updated
+        FileUploaded newThumbnail = evenement.getFileUploadeds().stream()
+            .filter(file -> file != null && 
+                           file.getFileName() != null && 
+                           file.getFileName().toLowerCase().contains("thumbnail"))
+            .findFirst()
+            .orElse(null);
+        
+        if (newThumbnail != null) {
+            // Check if this is a different thumbnail than the current one
+            if (evenement.getThumbnail() == null || 
+                !newThumbnail.getFieldId().equals(evenement.getThumbnail().getFieldId())) {
                 evenement.setThumbnail(newThumbnail);
                 log.debug("Thumbnail updated for evenement {}: {}", evenement.getId(), newThumbnail.getFileName());
+            }
+        } else if (evenement.getThumbnail() != null) {
+            // No thumbnail file found in fileUploadeds, but thumbnail field is set
+            // Check if the current thumbnail still exists in fileUploadeds
+            boolean thumbnailStillExists = evenement.getFileUploadeds().stream()
+                .anyMatch(file -> file != null && 
+                                 file.getFieldId() != null &&
+                                 file.getFieldId().equals(evenement.getThumbnail().getFieldId()));
+            if (!thumbnailStillExists) {
+                // Thumbnail file was removed, clear the thumbnail field
+                evenement.setThumbnail(null);
+                log.debug("Thumbnail cleared for evenement {} (file no longer in fileUploadeds)", evenement.getId());
             }
         }
 

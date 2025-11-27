@@ -1432,6 +1432,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	private addUploadedFilesToEvent(uploadedFilesData: any[]): void {
 		let hasThumbnailFile = false;
+		let thumbnailFile: UploadedFile | null = null;
 		
 		for (let fileData of uploadedFilesData) {
 			const uploadedFile = new UploadedFile(
@@ -1444,6 +1445,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			// Check if this file contains "thumbnail" in its name
 			if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
 				hasThumbnailFile = true;
+				thumbnailFile = uploadedFile; // Store the thumbnail file
 			}
 			
 			// Add to event's file list if not already present
@@ -1453,9 +1455,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			}
 		}
 		
-		// If a thumbnail file was uploaded, remove "thumbnail" from old files and update
-		if (hasThumbnailFile) {
-			// Remove "thumbnail" from any old thumbnail files
+		// If a thumbnail file was uploaded, set it as thumbnail and update
+		if (hasThumbnailFile && thumbnailFile) {
+			// Set the thumbnail field
+			this.evenement.thumbnail = thumbnailFile;
+			
+			// Remove "thumbnail" from any old thumbnail files (except the new one)
 			let hasModifiedFiles = false;
 			this.evenement.fileUploadeds.forEach(fileUploaded => {
 				// Skip the newly uploaded file
@@ -1471,12 +1476,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				}
 			});
 			
-			// Update the event in database if we modified any file names
+			// Update the event in database if we modified any file names or set thumbnail
 			if (hasModifiedFiles) {
 				this.updateEvenement.emit(this.evenement);
 			}
 			
-			this.reloadEventCard();
+			// Force reload of the card with the new thumbnail
+			setTimeout(() => {
+				this.invalidateThumbnailCache();
+				this.reloadEventCard();
+			}, 100);
 		}
 		
 		// Don't emit update event since the database upload already updated the event
@@ -3362,8 +3371,63 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			hasChanges = true;
 		}
 
+		// Set the file as thumbnail in the thumbnail field
+		this.evenement.thumbnail = uploadedFile;
+		hasChanges = true;
+
 		if (hasChanges) {
-			this.reloadEventCard();
+			// Invalidate cache immediately to prepare for reload
+			this.invalidateThumbnailCache();
+			
+			// Save the event to update fileUploadeds and thumbnail field on backend
+			this._evenementsService.put4FileEvenement(this.evenement).subscribe({
+				next: (updatedEvent: Evenement) => {
+					// Update local event with response from server
+					if (updatedEvent) {
+						// Update all fields from server response
+						this.evenement = updatedEvent;
+						// Ensure thumbnail is set from server response (backend should have set it based on file name)
+						if (updatedEvent.thumbnail) {
+							this.evenement.thumbnail = updatedEvent.thumbnail;
+						} else {
+							// Backend should have set it, but if not, use the file we just set
+							// Find the thumbnail file in fileUploadeds
+							const thumbnailInFiles = this.evenement.fileUploadeds.find(f => 
+								f.fileName && f.fileName.toLowerCase().includes('thumbnail')
+							);
+							if (thumbnailInFiles) {
+								this.evenement.thumbnail = thumbnailInFiles;
+							}
+						}
+					}
+					// Force reload by directly loading the thumbnail image
+					// Use setTimeout to ensure DOM is ready and cache is cleared
+					setTimeout(() => {
+						const thumbnailFile = this.evenement.thumbnail;
+						if (thumbnailFile && thumbnailFile.fieldId) {
+							// Directly load the image, bypassing cache
+							this.loadThumbnailImage(thumbnailFile.fieldId, thumbnailFile.fileName);
+						} else {
+							// No thumbnail, reset to default
+							this.thumbnailUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
+							this.reloadEventCard();
+						}
+					}, 150);
+				},
+				error: (error: any) => {
+					console.error('Error updating event thumbnail:', error);
+					// Still reload the card even if save failed (local changes)
+					setTimeout(() => {
+						const thumbnailFile = this.evenement.thumbnail;
+						if (thumbnailFile && thumbnailFile.fieldId) {
+							// Directly load the image even if save failed
+							this.loadThumbnailImage(thumbnailFile.fieldId, thumbnailFile.fileName);
+						} else {
+							this.reloadEventCard();
+						}
+					}, 150);
+				}
+			});
 		}
 	}
 
@@ -3372,14 +3436,46 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return name.includes('thumbnail');
 	}
 
+	// Invalidate thumbnail cache to force reload
+	private invalidateThumbnailCache(): void {
+		const cacheKey = this.getCacheKey();
+		if (cacheKey) {
+			ElementEvenementComponent.thumbnailCache.delete(cacheKey);
+		}
+		// Clear blob URL cache for current thumbnail if exists
+		if (this.evenement.thumbnail && this.evenement.thumbnail.fieldId) {
+			ElementEvenementComponent.blobUrlCache.delete(this.evenement.thumbnail.fieldId);
+			// Also clear loading state
+			ElementEvenementComponent.clearFileLoading(this.evenement.thumbnail.fieldId);
+		}
+		// Also clear blob cache to force reload from server
+		if (this.evenement.thumbnail && this.evenement.thumbnail.fieldId) {
+			ElementEvenementComponent.blobCache.delete(this.evenement.thumbnail.fieldId);
+		}
+		// Reset thumbnail URL to force reload
+		this.thumbnailUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
+		// Reset portrait detection
+		this.isThumbnailPortrait = false;
+		this.thumbnailImageWidth = 0;
+		this.thumbnailDisplayedWidth = 0;
+	}
+
 	// Reload the event card thumbnail when a thumbnail file is uploaded/deleted
 	private reloadEventCard(): void {
+		// Invalidate cache first to ensure fresh load
+		this.invalidateThumbnailCache();
+		
 		// Use the thumbnail field directly
 		const thumbnailFile = this.evenement.thumbnail;
 		
 		if (thumbnailFile && thumbnailFile.fieldId) {
-			// Update the thumbnail URL to force refresh
-			this.setThumbnailImage();
+			// Small delay to ensure cache is cleared before reloading
+			setTimeout(() => {
+				// Force reload by directly loading the thumbnail image
+				// Don't use setThumbnailImage() as it checks cache first
+				// Instead, directly load the image
+				this.loadThumbnailImage(thumbnailFile.fieldId, thumbnailFile.fileName);
+			}, 100);
 		} else {
 			// Reset to default image if no thumbnail file exists
 			this.thumbnailUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
