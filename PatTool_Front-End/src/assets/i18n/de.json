@@ -249,6 +249,7 @@
         "TYPE.PHOTOS": "Fotos",
         "TYPE.DOCUMENTS": "Dokumente",
         "TYPE.FICHE": "Datenblatt",
+        "TYPE.WINE": "Wein",
         "ISSUEDETAIL": "Problem beim Speichern der Veranstaltung:",
         "ISSUEDELDETAIL": "Problem beim Löschen der Veranstaltung:",
         "VISIBILITY": "Sichtbarkeit",

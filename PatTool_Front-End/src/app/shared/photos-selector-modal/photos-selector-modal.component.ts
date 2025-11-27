@@ -58,6 +58,9 @@ export class PhotosSelectorModalComponent implements OnInit {
       return;
     }
 
+    // Block body scroll when modal opens
+    this.blockPageScroll();
+    
     this.modalRef = this.modalService.open(this.photosSelectorModal, {
       centered: true,
       size: 'lg',
@@ -109,20 +112,20 @@ export class PhotosSelectorModalComponent implements OnInit {
     setTimeout(applyWidth, 100);
     setTimeout(applyWidth, 200);
 
-    this.modalRef.result.then(
-      () => {
-        this.closed.emit();
-      },
-      () => {
-        this.closed.emit();
-      }
-    );
+    this.modalRef.result.finally(() => {
+      this.unblockPageScroll();
+      this.closed.emit();
+    }).catch(() => {
+      this.unblockPageScroll();
+      this.closed.emit();
+    });
   }
 
   public close(): void {
     if (this.modalRef) {
       this.modalRef.close();
     }
+    this.unblockPageScroll();
   }
 
   public confirmSelection(modalRef?: any): void {
@@ -199,6 +202,32 @@ export class PhotosSelectorModalComponent implements OnInit {
   public isAuthor(): boolean {
     if (!this.evenement || !this.user) return false;
     return this.evenement.author.userName.toLowerCase() === this.user.userName.toLowerCase();
+  }
+  
+  // Block page scrolling
+  private blockPageScroll(): void {
+    if (document.body) {
+      document.body.style.overflow = 'hidden';
+    }
+    if (document.documentElement) {
+      document.documentElement.style.overflow = 'hidden';
+    }
+  }
+  
+  // Unblock page scrolling
+  private unblockPageScroll(): void {
+    if (document.body) {
+      document.body.style.overflow = '';
+      document.body.style.overflowX = '';
+      document.body.style.overflowY = '';
+      document.body.style.position = '';
+      document.body.style.height = '';
+    }
+    if (document.documentElement) {
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overflowX = '';
+      document.documentElement.style.overflowY = '';
+    }
   }
 }
 

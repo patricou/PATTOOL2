@@ -62,7 +62,8 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		{ value: "7", label: "EVENTCREATION.TYPE.VACATION" },
 		{ value: "5", label: "EVENTCREATION.TYPE.BIKE" },
 		{ value: "8", label: "EVENTCREATION.TYPE.TRAVEL" },
-		{ value: "1", label: "EVENTCREATION.TYPE.VTT" }
+		{ value: "1", label: "EVENTCREATION.TYPE.VTT" },
+		{ value: "13", label: "EVENTCREATION.TYPE.WINE" }
 	];
 	public user: Member = new Member("", "", "", "", "", [], "");
 	

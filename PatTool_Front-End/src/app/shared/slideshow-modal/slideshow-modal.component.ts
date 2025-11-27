@@ -270,6 +270,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   ngOnDestroy(): void {
     this.cleanupAllMemory();
+    this.unblockPageScroll();
   }
   
   // Centralized method to clean up all memory used by the slideshow
@@ -494,6 +495,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Remove any existing keyboard listener
     this.removeKeyboardListener();
     
+    // Block body scroll when modal opens
+    this.blockPageScroll();
+    
     // Open the modal immediately
     try {
       this.modalRef = this.modalService.open(this.slideshowModal, { 
@@ -529,16 +533,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }, 100);
       
       // Handle modal close event
-      this.modalRef.result.then(
-        () => {
-          this.cleanupAllMemory();
-          this.closed.emit();
-        },
-        () => {
-          this.cleanupAllMemory();
-          this.closed.emit();
-        }
-      );
+      this.modalRef.result.finally(() => {
+        this.unblockPageScroll();
+        this.cleanupAllMemory();
+        this.closed.emit();
+      }).catch(() => {
+        this.unblockPageScroll();
+        this.cleanupAllMemory();
+        this.closed.emit();
+      });
       
       // Load images (will be empty array if loading dynamically)
       if (images.length > 0) {
@@ -3080,6 +3083,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Close handler
   public onSlideshowClose(cRef?: any): void {
+    this.unblockPageScroll();
     try {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
@@ -4865,6 +4869,32 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Default to JPEG as it's the most common format for photos with EXIF
     return 'image/jpeg';
+  }
+  
+  // Block page scrolling
+  private blockPageScroll(): void {
+    if (document.body) {
+      document.body.style.overflow = 'hidden';
+    }
+    if (document.documentElement) {
+      document.documentElement.style.overflow = 'hidden';
+    }
+  }
+  
+  // Unblock page scrolling
+  private unblockPageScroll(): void {
+    if (document.body) {
+      document.body.style.overflow = '';
+      document.body.style.overflowX = '';
+      document.body.style.overflowY = '';
+      document.body.style.position = '';
+      document.body.style.height = '';
+    }
+    if (document.documentElement) {
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.overflowX = '';
+      document.documentElement.style.overflowY = '';
+    }
   }
 }
 

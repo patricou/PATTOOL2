@@ -52,7 +52,8 @@ export class CreateEvenementComponent implements OnInit {
 		{ value: "7", label: "EVENTCREATION.TYPE.VACATION" },
 		{ value: "5", label: "EVENTCREATION.TYPE.BIKE" },
 		{ value: "8", label: "EVENTCREATION.TYPE.TRAVEL" },
-		{ value: "1", label: "EVENTCREATION.TYPE.VTT" }
+		{ value: "1", label: "EVENTCREATION.TYPE.VTT" },
+		{ value: "13", label: "EVENTCREATION.TYPE.WINE" }
 	];
 
 	// Commentary management
@@ -177,12 +178,21 @@ export class CreateEvenementComponent implements OnInit {
 	addUrlEvent() {
 		if (this.newUrlEvent.link && this.newUrlEvent.link.trim() !== '' && 
 			this.newUrlEvent.typeUrl && this.newUrlEvent.typeUrl.trim() !== '') {
+			
+			let linkValue = this.newUrlEvent.link.trim();
+			
+			// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
+			const typeUrl = this.newUrlEvent.typeUrl.trim().toUpperCase();
+			if (typeUrl === 'PHOTOFROMFS') {
+				linkValue = this.addYearPrefixIfNeeded(linkValue);
+			}
+			
 			// Create a new UrlEvent instance to avoid reference issues
 			const urlEvent = new UrlEvent(
 				this.newUrlEvent.typeUrl.trim(),
 				new Date(), // Always use current date for creation
 				this.user.userName, // Use userName as owner
-				this.newUrlEvent.link.trim(),
+				linkValue,
 				this.newUrlEvent.urlDescription.trim()
 			);
 			this.evenement.urlEvents.push(urlEvent);
@@ -194,7 +204,325 @@ export class CreateEvenementComponent implements OnInit {
 	}
 
 	// Handle folder selection for PHOTOFROMFS
-    
+	@ViewChild('directoryInput') directoryInput!: any;
+	
+	async selectDirectory() {
+		// Try to use File System Access API if available (modern browsers)
+		if ('showDirectoryPicker' in window) {
+			try {
+				const directoryHandle = await (window as any).showDirectoryPicker();
+				const dirName = directoryHandle.name;
+				// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
+				if (this.newUrlEvent.typeUrl && this.newUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS') {
+					this.newUrlEvent.link = this.addYearPrefixIfNeeded(dirName);
+				} else {
+					this.newUrlEvent.link = dirName;
+				}
+			} catch (error: any) {
+				// User cancelled or error occurred, fall back to webkitdirectory
+				if (error.name !== 'AbortError') {
+					console.error('Error selecting directory:', error);
+				}
+				// Fall back to webkitdirectory method
+				if (this.directoryInput && this.directoryInput.nativeElement) {
+					this.directoryInput.nativeElement.click();
+				}
+			}
+		} else {
+			// Fall back to webkitdirectory for older browsers
+			if (this.directoryInput && this.directoryInput.nativeElement) {
+				this.directoryInput.nativeElement.click();
+			}
+		}
+	}
+	
+	onDirectorySelected(event: any) {
+		const files: FileList = event?.target?.files;
+		const directoryPath = this.resolveDirectoryPathFromSelection(files);
+
+		if (directoryPath) {
+			// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
+			if (this.newUrlEvent.typeUrl && this.newUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS') {
+				this.newUrlEvent.link = this.addYearPrefixIfNeeded(directoryPath);
+			} else {
+				this.newUrlEvent.link = directoryPath;
+			}
+		}
+
+		// Reset the input so the same directory can be selected again
+		if (event?.target) {
+			event.target.value = '';
+		}
+	}
+
+	// Helper method to check if first 4 chars are a valid year and add prefix if needed
+	private addYearPrefixIfNeeded(link: string): string {
+		if (!link) {
+			return link;
+		}
+		
+		// Trim and normalize the link first
+		const trimmedLink = link.trim();
+		
+		if (trimmedLink.length < 4) {
+			return trimmedLink;
+		}
+		
+		const firstFourChars = trimmedLink.substring(0, 4);
+		
+		// Check if first 4 characters are digits (YYYY format)
+		const isYearFormat = /^\d{4}$/.test(firstFourChars);
+		
+		if (isYearFormat) {
+			const year = parseInt(firstFourChars, 10);
+			// Validate it's a reasonable year (1900-2100)
+			if (year >= 1900 && year <= 2100) {
+				// Check if it's not already prefixed with the year
+				// Check for both '/' and '\' separators and also check if it's already duplicated
+				const yearWithSlash = firstFourChars + '/';
+				const yearWithBackslash = firstFourChars + '\\';
+				const doubleYear = firstFourChars + '/' + firstFourChars;
+				
+				const alreadyHasSlash = trimmedLink.startsWith(yearWithSlash);
+				const alreadyHasBackslash = trimmedLink.startsWith(yearWithBackslash);
+				const alreadyDouble = trimmedLink.startsWith(doubleYear);
+				
+				if (!alreadyHasSlash && !alreadyHasBackslash && !alreadyDouble) {
+					// Add the year at the start with a "/" between
+					return firstFourChars + '/' + trimmedLink;
+				}
+			}
+		}
+		
+		return trimmedLink;
+	}
+
+	// Handle real-time link input changes for NEW PHOTOFROMFS type
+	onNewLinkInputChange(value: string) {
+		// Check if this is a PHOTOFROMFS type
+		const currentTypeUrl = this.newUrlEvent?.typeUrl;
+		const isPhotoFromFs = currentTypeUrl && 
+		                      currentTypeUrl.trim().toUpperCase() === 'PHOTOFROMFS';
+		
+		// Update the link value first
+		if (this.newUrlEvent) {
+			this.newUrlEvent.link = value;
+		}
+		
+		// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY) and add prefix if needed
+		if (isPhotoFromFs && value && value.length >= 4) {
+			const processedLink = this.addYearPrefixIfNeeded(value);
+			
+			// Only update if the processed link is different to avoid cursor jumping
+			if (processedLink !== value && this.newUrlEvent) {
+				// Use setTimeout to update after the input event completes
+				setTimeout(() => {
+					if (this.newUrlEvent) {
+						this.newUrlEvent.link = processedLink;
+					}
+				}, 0);
+			}
+		}
+	}
+	
+	// Handle new link blur event
+	onNewLinkBlur() {
+		// Check if this is a PHOTOFROMFS type
+		const isPhotoFromFs = this.newUrlEvent?.typeUrl && 
+		                      this.newUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS';
+		
+		if (isPhotoFromFs && this.newUrlEvent?.link) {
+			const processedLink = this.addYearPrefixIfNeeded(this.newUrlEvent.link);
+			if (processedLink !== this.newUrlEvent.link) {
+				this.newUrlEvent.link = processedLink;
+			}
+		}
+	}
+
+	private resolveDirectoryPathFromSelection(files: FileList | null | undefined): string {
+		if (!files || files.length === 0) {
+			return '';
+		}
+
+		const fullPath = this.extractFullPathFromFiles(files);
+		if (fullPath) {
+			return fullPath;
+		}
+
+		const relativePath = this.extractRelativeDirectoryFromFiles(files);
+		return this.finalizePath(relativePath);
+	}
+
+	private extractFullPathFromFiles(files: FileList): string {
+		const fileArray = Array.from(files) as any[];
+
+		if (fileArray.length === 0) {
+			return '';
+		}
+
+		const candidates = fileArray.filter(file => !!(file?.path || file?.mozFullPath));
+		if (candidates.length === 0) {
+			return '';
+		}
+
+		const firstFile = candidates[0];
+		const rawFilePath: string = firstFile.path || firstFile.mozFullPath;
+		if (!rawFilePath) {
+			return '';
+		}
+
+		const normalizedFilePath = this.normalizePath(rawFilePath);
+		const relativePaths = this.getRelativePaths(fileArray);
+		const relativeDirectory = this.getRelativeDirectoryPrefix(relativePaths);
+		const firstRelative = this.normalizePath(firstFile.webkitRelativePath || firstFile.name || '');
+
+		let basePath = this.stripSuffix(normalizedFilePath, firstRelative);
+		if (!basePath) {
+			basePath = this.stripFilenameFromPath(normalizedFilePath);
+		}
+
+		if (relativeDirectory) {
+			const combined = this.joinPaths(basePath, relativeDirectory);
+			return this.finalizePath(combined);
+		}
+
+		return this.finalizePath(basePath);
+	}
+
+	private getRelativePaths(files: any[]): string[] {
+		return files
+			.map(file => this.normalizePath(file?.webkitRelativePath || file?.relativePath || file?.name || ''))
+			.filter(path => !!path);
+	}
+
+	private getRelativeDirectoryPrefix(paths: string[]): string {
+		if (paths.length === 0) {
+			return '';
+		}
+
+		const splitPaths = paths.map(path => path.split('/').filter(segment => segment.length > 0));
+		const firstPathParts = splitPaths[0];
+		let minLength = firstPathParts.length;
+
+		for (let i = 1; i < splitPaths.length; i++) {
+			minLength = Math.min(minLength, splitPaths[i].length);
+		}
+
+		const commonParts: string[] = [];
+
+		for (let i = 0; i < minLength; i++) {
+			const segment = firstPathParts[i];
+			const allMatch = splitPaths.every(parts => parts[i] === segment);
+			if (allMatch) {
+				commonParts.push(segment);
+			} else {
+				break;
+			}
+		}
+
+		// Avoid returning the filename when only one file is present
+		if (commonParts.length === firstPathParts.length) {
+			commonParts.pop();
+		}
+
+		return commonParts.join('/');
+	}
+
+	private extractRelativeDirectoryFromFiles(files: FileList): string {
+		const relativePaths = this.getRelativePaths(Array.from(files) as any[]);
+		const relativeDirectory = this.getRelativeDirectoryPrefix(relativePaths);
+		return this.normalizePath(relativeDirectory);
+	}
+
+	private stripFilenameFromPath(pathWithFile: string): string {
+		if (!pathWithFile) {
+			return '';
+		}
+
+		const normalized = this.normalizePath(pathWithFile);
+		const lastSlash = normalized.lastIndexOf('/');
+
+		if (lastSlash === -1) {
+			return normalized;
+		}
+
+		return normalized.substring(0, lastSlash);
+	}
+
+	private stripSuffix(value: string, suffix: string): string {
+		if (!value || !suffix) {
+			return value;
+		}
+
+		if (!value.endsWith(suffix)) {
+			return value;
+		}
+
+		return value.substring(0, value.length - suffix.length);
+	}
+
+	private normalizePath(path: string): string {
+		if (!path) {
+			return '';
+		}
+
+		const isUnc = path.startsWith('\\\\') || path.startsWith('//');
+		let normalized = path.replace(/\\/g, '/');
+
+		if (isUnc) {
+			normalized = '//' + normalized.replace(/^\/+/, '');
+		} else {
+			normalized = normalized.replace(/\/{2,}/g, '/');
+		}
+
+		return normalized;
+	}
+
+	private joinPaths(base: string, relative: string): string {
+		const normalizedBase = this.normalizePath(base).replace(/\/+$/, '');
+		const normalizedRelative = this.normalizePath(relative).replace(/^\/+/, '');
+
+		if (!normalizedRelative) {
+			return normalizedBase;
+		}
+
+		if (!normalizedBase) {
+			return normalizedRelative;
+		}
+
+		if (normalizedBase.endsWith(':')) {
+			return `${normalizedBase}/${normalizedRelative}`;
+		}
+
+		return `${normalizedBase}/${normalizedRelative}`;
+	}
+
+	private finalizePath(path: string): string {
+		if (!path) {
+			return '';
+		}
+
+		const normalized = this.normalizePath(path);
+
+		if (this.isWindowsPlatform()) {
+			if (normalized.startsWith('//')) {
+				return '\\\\' + normalized.substring(2).replace(/\//g, '\\');
+			}
+
+			return normalized.replace(/\//g, '\\');
+		}
+
+		return normalized;
+	}
+
+	private isWindowsPlatform(): boolean {
+		if (typeof navigator === 'undefined' || !navigator) {
+			return false;
+		}
+
+		const platform = (navigator as any).userAgentData?.platform || navigator.platform || '';
+		return platform.toLowerCase().includes('win');
+	}
 	
 	removeUrlEvent(index: number) {
 		if (index >= 0 && index < this.evenement.urlEvents.length) {

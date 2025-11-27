@@ -249,6 +249,7 @@
         "TYPE.PHOTOS": "照片",
         "TYPE.DOCUMENTS": "文档",
         "TYPE.FICHE": "资料卡",
+        "TYPE.WINE": "葡萄酒",
         "ISSUE": "问题",
         "ISSUEDETAIL": "保存活动时出错：",
         "ISSUEDELDETAIL": "删除活动时出错：",

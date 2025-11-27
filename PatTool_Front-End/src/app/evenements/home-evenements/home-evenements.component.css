@@ -4499,4 +4499,66 @@
     }
 }
 
+/* Files Management Modal - Align with Slideshow Modal */
+/* White border around the files management modal - same as slideshow */
+::ng-deep .files-management-modal .modal-dialog .modal-content,
+::ng-deep .files-management-modal .modal-content,
+::ng-deep .modal.show .files-management-modal .modal-dialog .modal-content,
+::ng-deep .modal.show .modal-dialog .modal-content:has(.files-management-header),
+::ng-deep .modal.show:has(.files-management-header) .modal-content,
+::ng-deep .files-management-modal.modal-dialog .modal-content {
+    border: 2px solid white !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+}
+
+/* Prevent body scroll when files management modal is open */
+::ng-deep body.modal-open .files-management-modal ~ *,
+::ng-deep .modal.show.files-management-modal ~ * {
+    pointer-events: none;
+}
+
+/* Ensure body doesn't scroll when files management modal is open */
+::ng-deep body:has(.files-management-modal),
+::ng-deep body.modal-open:has(.files-management-modal) {
+    overflow: hidden !important;
+}
+
+.files-management-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+    border: none;
+    position: relative;
+    z-index: 20000;
+    pointer-events: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.files-management-header .modal-title {
+    color: white;
+    font-weight: 600;
+    margin: 0;
+}
+
+.files-management-header .modal-title i {
+    margin-right: 8px;
+}
+
+.files-management-header .btn {
+    color: white;
+    border-color: rgba(255, 255, 255, 0.5);
+    background-color: transparent;
+}
+
+.files-management-header .btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-color: white;
+}
+
+.files-management-header .btn i {
+    color: white;
+}
+
 /* SSE Event Notification - Center of screen */

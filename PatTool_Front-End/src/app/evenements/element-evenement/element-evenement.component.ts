@@ -196,7 +196,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		'7': 'EVENTCREATION.TYPE.VACATION',
 		'5': 'EVENTCREATION.TYPE.BIKE',
 		'8': 'EVENTCREATION.TYPE.TRAVEL',
-		'1': 'EVENTCREATION.TYPE.VTT'
+		'1': 'EVENTCREATION.TYPE.VTT',
+		'13': 'EVENTCREATION.TYPE.WINE'
 	};
 
 	@ViewChild('jsonModal')
@@ -306,10 +307,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	
 	// Static set to track files currently being loaded (to prevent duplicate concurrent requests)
 	private static readonly filesLoading: Set<string> = new Set();
-
-	// Global queue for color calculations to prevent blocking when multiple cards load simultaneously
-	private static colorCalculationQueue: Array<() => void> = [];
-	private static isProcessingColorQueue: boolean = false;
 
 	// Global queue for image loading to prevent all 8 cards from loading images simultaneously
 	private static imageLoadingQueue: Array<() => void> = [];
@@ -1882,23 +1879,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.colorDetectionStartTime = performance.now();
 		}
 		
-		// Schedule color calculation asynchronously to avoid blocking card rendering
-		// This allows cards to render immediately while colors are calculated progressively
-		this.scheduleColorCalculation();
-	}
-
-	// Schedule color calculation to run when browser is idle (non-blocking)
-	private scheduleColorCalculation(): void {
-		// Add to global queue to process one at a time (prevents all 8 cards from blocking simultaneously)
-		ElementEvenementComponent.enqueueColorCalculation(() => {
+		// Perform color calculation asynchronously to avoid blocking card rendering
+		// Small delay ensures image is in DOM, calculation is already optimized and non-blocking
+		setTimeout(() => {
 			this.performColorCalculation();
-		});
-	}
-
-	// Enqueue color calculation to process sequentially (one at a time)
-	private static enqueueColorCalculation(calculationFn: () => void): void {
-		ElementEvenementComponent.colorCalculationQueue.push(calculationFn);
-		ElementEvenementComponent.processColorQueue();
+		}, 10);
 	}
 
 	// Enqueue image loading to prevent all cards from loading simultaneously
@@ -1939,65 +1924,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		setTimeout(() => ElementEvenementComponent.processImageQueue(), 50);
 	}
 
-	// Process color calculation queue one item at a time
-	private static processColorQueue(): void {
-		// If already processing or queue is empty, return
-		if (ElementEvenementComponent.isProcessingColorQueue || ElementEvenementComponent.colorCalculationQueue.length === 0) {
-			return;
-		}
-
-		ElementEvenementComponent.isProcessingColorQueue = true;
-
-		// Use requestIdleCallback to process when browser is idle
-		const processNext = () => {
-			if (ElementEvenementComponent.colorCalculationQueue.length === 0) {
-				ElementEvenementComponent.isProcessingColorQueue = false;
-				return;
-			}
-
-			// Get next item from queue
-			const calculationFn = ElementEvenementComponent.colorCalculationQueue.shift();
-			if (calculationFn) {
-				// Execute the color calculation
-				try {
-					calculationFn();
-				} catch (error) {
-					console.error('Error in color calculation queue:', error);
-				}
-			}
-
-			// Process next item after a delay to allow rendering and prevent blocking
-			// Longer delay ensures cards are fully rendered before next color calculation
-			setTimeout(() => {
-				ElementEvenementComponent.isProcessingColorQueue = false;
-				// Use requestIdleCallback again for next item to ensure browser is idle
-				if (typeof requestIdleCallback !== 'undefined') {
-					requestIdleCallback(() => {
-						ElementEvenementComponent.processColorQueue();
-					}, { timeout: 200 });
-				} else {
-					setTimeout(() => {
-						ElementEvenementComponent.processColorQueue();
-					}, 150); // Longer delay for fallback
-				}
-			}, 100); // Delay between calculations to allow rendering
-		};
-
-		// Defer initial processing to ensure cards render first
-		if (typeof requestIdleCallback !== 'undefined') {
-			requestIdleCallback(processNext, { timeout: 300 }); // Wait for cards to render first
-		} else if (typeof requestAnimationFrame !== 'undefined') {
-			requestAnimationFrame(() => {
-				setTimeout(processNext, 200); // Delay to let cards render
-			});
-		} else {
-			setTimeout(processNext, 300);
-		}
-	}
-
-	// Perform the actual color calculation (extracted from detectDominantColor for async scheduling)
+	// Perform the actual color calculation
 	private performColorCalculation(): void {
-		// Minimal delay to ensure image is in DOM (reduced since we're already deferring)
+		// Small delay to ensure image is in DOM
 		setTimeout(() => {
 			if (!this.thumbnailImageRef || !this.thumbnailImageRef.nativeElement) {
 				return;
@@ -2028,7 +1957,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.processImageColor(img);
 			// Track color detection end time
 			this.colorDetectionEndTime = performance.now();
-		}, 10); // Minimal delay since we're already deferring with requestIdleCallback/requestAnimationFrame
+		}, 10); // Small delay to ensure image is in DOM
 	}
 
 	// Detect if thumbnail image is portrait and store dimensions
@@ -3033,10 +2962,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return b;
 	}
 
-	public isAnyParticpants(): boolean {
-		return this.evenement.members.length > 0;
-	}
-
 	public toggleParticipantsList(): void {
 		this.showParticipantsList = !this.showParticipantsList;
 	}
@@ -3311,11 +3236,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.modalService.open(content, { size: 'lg', centered: true, backdrop: 'static', keyboard: false });
 	}
 
-	// Open photos modal from parent component
-	public openPhotosModalFromParent() {
-		this.openPhotosModal.emit(this.evenement);
-	}
-
 	// Open photo in new tab
 	public openPhotoInNewTab(photoUrl: string) {
 		this.nativeWindow.open(photoUrl, '_blank');
@@ -3353,11 +3273,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return JSON.stringify(this.evenement, null, 2);
 	}
 
-	// for file list toogle
-	public tfl: boolean = true;
-	public toogleFileListe() {
-		this.tfl = !this.tfl;
-	}
 	// Rate functions
 	public addRatePlus() {
 		this.evenement.ratingPlus = this.evenement.ratingPlus + 1;

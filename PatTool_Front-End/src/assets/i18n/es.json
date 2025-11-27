@@ -250,6 +250,7 @@
         "TYPE.PHOTOS": "Fotos",
         "TYPE.DOCUMENTS": "Documentos",
         "TYPE.FICHE": "Ficha",
+        "TYPE.WINE": "Vino",
         "ISSUEDETAIL": "Problema al guardar el evento:",
         "ISSUEDELDETAIL": "Problema al eliminar el evento:",
         "VISIBILITY": "Visibilidad",

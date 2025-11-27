@@ -66,6 +66,12 @@
     overflow: hidden;
 }
 
+/* Prevent body scroll when slideshow modal is open */
+::ng-deep body:has(.slideshow-modal-wide),
+::ng-deep body.modal-open:has(.slideshow-modal-wide) {
+    overflow: hidden !important;
+}
+
 .slideshow-header {
     background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
     color: white;

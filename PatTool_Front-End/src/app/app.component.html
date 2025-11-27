@@ -184,6 +184,12 @@
                                     <i class="fa fa-picture-o"></i> {{ 'MENU.SLIDESHOW_DOCUMENTATION' | translate }}
                                 </a>
                             </li>
+                            <li>
+                                <a class="dropdown-item" 
+                                   (click)="openRecentFeaturesDocumentation(); showDocumentationSubmenu = false; closeMenu(); $event.preventDefault()">
+                                    <i class="fa fa-file-text-o"></i> Recent Features Documentation
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <li class="dropdown-submenu" 

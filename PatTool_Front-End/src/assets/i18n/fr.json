@@ -233,6 +233,7 @@
         "TYPE.PHOTOS": "Photos",
         "TYPE.DOCUMENTS": "Documents",
         "TYPE.FICHE": "Fiche",
+        "TYPE.WINE": "Vin",
         "ISSUE": "Probleme",
         "ISSUEDETAIL": "Probléme en voulant enregistrer l'Activité : ",
         "ISSUEDELDETAIL": "Probléme en voulant supprimer l'Activité : ",

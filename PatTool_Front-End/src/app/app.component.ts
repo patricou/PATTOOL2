@@ -1080,6 +1080,12 @@ export class AppComponent implements OnInit {
         window.open(docUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
     }
 
+    openRecentFeaturesDocumentation(): void {
+        // Open the recent features documentation HTML file in a new window
+        const docUrl = '/assets/RECENT_FEATURES_DOCUMENTATION.html';
+        window.open(docUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
+    }
+
     @HostListener('document:click', ['$event'])
     onDocumentClick(event: Event): void {
         const target = event.target as HTMLElement;

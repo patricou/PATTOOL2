@@ -243,6 +243,7 @@
         "TYPE.PHOTOS": "תמונות",
         "TYPE.DOCUMENTS": "מסמכים",
         "TYPE.FICHE": "דף מידע",
+        "TYPE.WINE": "יין",
         "ISSUEDETAIL": "בעיה בניסיון לשמור את הפעילות:",
         "ISSUEDELDETAIL": "בעיה בניסיון למחוק את הפעילות:",
         "VISIBILITY": "נראות",

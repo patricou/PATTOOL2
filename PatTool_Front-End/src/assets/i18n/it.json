@@ -251,6 +251,7 @@
         "TYPE.PHOTOS": "Foto",
         "TYPE.DOCUMENTS": "Documenti",
         "TYPE.FICHE": "Scheda",
+        "TYPE.WINE": "Vino",
         "ISSUEDETAIL": "Problema durante il salvataggio dell'Attività:",
         "ISSUEDELDETAIL": "Problema durante l'eliminazione dell'Attività:",
         "VISIBILITY": "Visibilità",

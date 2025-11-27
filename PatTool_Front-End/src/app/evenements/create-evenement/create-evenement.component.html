@@ -286,8 +286,20 @@
                                         <i class="fa fa-link"></i>
                                         {{ "EVENTHOME.URL_LINK" | translate }}
                                     </label>
-                                    <input [(ngModel)]="newUrlEvent.link" name="link" type="url" 
-                                           placeholder="https://example.com" class="form-control">
+                                    <div class="input-group">
+                                        <input [(ngModel)]="newUrlEvent.link" name="link" type="text" 
+                                               placeholder="https://example.com" class="form-control form-control-sm"
+                                               (input)="onNewLinkInputChange($any($event.target).value)"
+                                               (blur)="onNewLinkBlur()">
+                                        <button *ngIf="newUrlEvent.typeUrl === 'PHOTOFROMFS'" 
+                                                type="button" 
+                                                class="btn btn-outline-primary btn-sm" 
+                                                (click)="selectDirectory()"
+                                                title="Choisir un dossier">
+                                            <i class="fa fa-folder-open"></i>
+                                        </button>
+                                    </div>
+                                    <input #directoryInput type="file" webkitdirectory style="display: none;" (change)="onDirectorySelected($event)">
                                 </div>
                                 <div class="col-md-3">
                                     <label class="form-label">

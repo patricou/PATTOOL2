@@ -39,6 +39,12 @@ img, video, canvas {
     border-radius: 0.5rem !important;
 }
 
+/* Prevent body scroll when photos selector modal is open */
+::ng-deep body:has(.fs-selector-modal),
+::ng-deep body.modal-open:has(.fs-selector-modal) {
+    overflow: hidden !important;
+}
+
 @media (max-width: 768px) {
     ::ng-deep .fs-selector-modal.modal-dialog,
     ::ng-deep .modal-dialog.fs-selector-modal,

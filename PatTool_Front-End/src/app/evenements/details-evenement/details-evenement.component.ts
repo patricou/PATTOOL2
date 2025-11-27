@@ -316,7 +316,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       '7': 'EVENTCREATION.TYPE.VACATION',
       '5': 'EVENTCREATION.TYPE.BIKE',
       '8': 'EVENTCREATION.TYPE.TRAVEL',
-      '1': 'EVENTCREATION.TYPE.VTT'
+      '1': 'EVENTCREATION.TYPE.VTT',
+      '13': 'EVENTCREATION.TYPE.WINE'
     };
     
     return typeMap[type] || 'EVENTCREATION.TYPE.OTHER';

@@ -248,6 +248,7 @@
         "TYPE.PHOTOS": "صور",
         "TYPE.DOCUMENTS": "وثائق",
         "TYPE.FICHE": "نشرة معلومات",
+        "TYPE.WINE": "نبيذ",
         "ISSUE": "مشكلة",
         "ISSUEDETAIL": "مشكلة عند محاولة تسجيل النشاط : ",
         "ISSUEDELDETAIL": "مشكلة عند محاولة حذف النشاط : ",

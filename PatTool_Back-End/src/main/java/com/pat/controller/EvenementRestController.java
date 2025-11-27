@@ -499,6 +499,8 @@ public class EvenementRestController {
                 "11", "DOCUMENTS", "EVENTCREATION.TYPE.DOCUMENTS");
         registerType("12", new String[]{"fiche", "sheet", "fact sheet", "datasheet", "scheda", "hoja", "blatt", "schede", "ficha", "schede informative"},
                 "12", "FICHE", "EVENTCREATION.TYPE.FICHE");
+        registerType("13", new String[]{"wine", "vin", "vino", "wein", "vino", "wijn", "вино", "ワイン", "葡萄酒", "יין", "κρασί", "نبيذ"},
+                "13", "WINE", "VIN", "EVENTCREATION.TYPE.WINE");
     }
     
     private static void registerType(String canonicalKey, String[] keywords, String... aliases) {

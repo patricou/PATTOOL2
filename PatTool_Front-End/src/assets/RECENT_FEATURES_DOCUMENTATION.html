@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Recent Features Documentation - PatTool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-color: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary-color: #64748b;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --bg-color: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f1f5f9;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
+            --code-bg: #1e293b;
+            --code-text: #e2e8f0;
+            --shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-secondary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+            color: white;
+            padding: 3rem 2rem;
+            margin: -2rem -2rem 3rem -2rem;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            font-size: 1.125rem;
+            opacity: 0.9;
+        }
+
+        /* Sections */
+        .section {
+            background: white;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow);
+        }
+
+        .section h2 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        .section h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+        }
+
+        .section h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .section p {
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .section ul, .section ol {
+            margin-left: 2rem;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .section li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Code blocks */
+        .code-block {
+            background: var(--code-bg);
+            color: var(--code-text);
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.5;
+        }
+
+        .code-inline {
+            background: var(--bg-tertiary);
+            color: var(--primary-color);
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.25rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        /* Feature cards */
+        .feature-card {
+            background: var(--bg-tertiary);
+            border-left: 4px solid var(--primary-color);
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            border-radius: 0.5rem;
+        }
+
+        .feature-card h4 {
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-right: 0.5rem;
+        }
+
+        .badge-frontend {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .badge-backend {
+            background: var(--success-color);
+            color: white;
+        }
+
+        .badge-i18n {
+            background: var(--warning-color);
+            color: white;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        /* Alert boxes */
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 0.5rem;
+            margin: 1.5rem 0;
+            border-left: 4px solid;
+        }
+
+        .alert-info {
+            background: #dbeafe;
+            border-color: var(--primary-color);
+            color: #1e40af;
+        }
+
+        .alert-success {
+            background: #d1fae5;
+            border-color: var(--success-color);
+            color: #065f46;
+        }
+
+        .alert-warning {
+            background: #fef3c7;
+            border-color: var(--warning-color);
+            color: #92400e;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            border-top: 1px solid var(--border-color);
+            margin-top: 3rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Recent Features Documentation</h1>
+            <p>Comprehensive documentation of recent enhancements and new features in PatTool</p>
+        </div>
+
+        <!-- Table of Contents -->
+        <div class="section">
+            <h2>Table of Contents</h2>
+            <ul>
+                <li><a href="#file-system-photo-selection">1. File System Photo Selection Feature</a></li>
+                <li><a href="#wine-activity-type">2. Wine Activity Type Implementation</a></li>
+                <li><a href="#technical-details">3. Technical Implementation Details</a></li>
+                <li><a href="#file-structure">4. Modified Files Structure</a></li>
+            </ul>
+        </div>
+
+        <!-- File System Photo Selection -->
+        <div class="section" id="file-system-photo-selection">
+            <h2>1. File System Photo Selection Feature</h2>
+            
+            <div class="alert alert-info">
+                <strong>Feature Overview:</strong> Added directory selection functionality for "Photo from File System" link type in event creation component, matching the existing functionality in the update component.
+            </div>
+
+            <h3>1.1 Description</h3>
+            <p>
+                When creating a new event, users can now add a link of type "Photo from File System" (PHOTOFROMFS) and select a directory from their local file system. This feature was previously only available in the event update component and has now been extended to the creation component.
+            </p>
+
+            <h3>1.2 User Interface Changes</h3>
+            <p>The following UI elements were added to the event creation form:</p>
+            <ul>
+                <li><strong>Directory Selection Button:</strong> A folder icon button appears next to the link input field when "Photo from File System" is selected as the link type</li>
+                <li><strong>File Input Field:</strong> A hidden file input with <code class="code-inline">webkitdirectory</code> attribute for directory selection</li>
+                <li><strong>Input Type Change:</strong> The link input field type was changed from <code class="code-inline">url</code> to <code class="code-inline">text</code> to accommodate file system paths</li>
+            </ul>
+
+            <h3>1.3 Technical Implementation</h3>
+            
+            <h4>Frontend Components Modified:</h4>
+            <ul>
+                <li><span class="badge badge-frontend">Frontend</span> <code class="code-inline">create-evenement.component.html</code></li>
+                <li><span class="badge badge-frontend">Frontend</span> <code class="code-inline">create-evenement.component.ts</code></li>
+            </ul>
+
+            <h4>Key Methods Added:</h4>
+            <div class="code-block">
+async selectDirectory() {
+    // Try to use File System Access API if available (modern browsers)
+    if ('showDirectoryPicker' in window) {
+        try {
+            const directoryHandle = await (window as any).showDirectoryPicker();
+            const dirName = directoryHandle.name;
+            if (this.newUrlEvent.typeUrl && 
+                this.newUrlEvent.typeUrl.trim().toUpperCase() === 'PHOTOFROMFS') {
+                this.newUrlEvent.link = this.addYearPrefixIfNeeded(dirName);
+            } else {
+                this.newUrlEvent.link = dirName;
+            }
+        } catch (error: any) {
+            // Fall back to webkitdirectory for older browsers
+            if (this.directoryInput && this.directoryInput.nativeElement) {
+                this.directoryInput.nativeElement.click();
+            }
+        }
+    } else {
+        // Fall back to webkitdirectory for older browsers
+        if (this.directoryInput && this.directoryInput.nativeElement) {
+            this.directoryInput.nativeElement.click();
+        }
+    }
+}
+            </div>
+
+            <h4>Features:</h4>
+            <ul>
+                <li><strong>Modern Browser Support:</strong> Uses File System Access API (<code class="code-inline">showDirectoryPicker</code>) when available</li>
+                <li><strong>Fallback Support:</strong> Falls back to <code class="code-inline">webkitdirectory</code> for older browsers</li>
+                <li><strong>Year Prefix Handling:</strong> Automatically adds year prefix (YYYY/) if the directory name starts with a 4-digit year</li>
+                <li><strong>Path Resolution:</strong> Comprehensive path resolution from file selection, handling both full paths and relative paths</li>
+                <li><strong>Real-time Input Processing:</strong> Handles input changes and blur events to process paths in real-time</li>
+            </ul>
+
+            <h4>Helper Methods:</h4>
+            <ul>
+                <li><code class="code-inline">onDirectorySelected()</code> - Processes directory selection from file input</li>
+                <li><code class="code-inline">addYearPrefixIfNeeded()</code> - Adds year prefix for PHOTOFROMFS type links</li>
+                <li><code class="code-inline">onNewLinkInputChange()</code> - Handles real-time input changes</li>
+                <li><code class="code-inline">onNewLinkBlur()</code> - Processes link on blur event</li>
+                <li><code class="code-inline">resolveDirectoryPathFromSelection()</code> - Resolves directory path from file selection</li>
+                <li><code class="code-inline">extractFullPathFromFiles()</code> - Extracts full path from file list</li>
+                <li><code class="code-inline">normalizePath()</code> - Normalizes file paths (handles Windows/Unix differences)</li>
+                <li><code class="code-inline">finalizePath()</code> - Finalizes path format based on platform</li>
+            </ul>
+        </div>
+
+        <!-- Wine Activity Type -->
+        <div class="section" id="wine-activity-type">
+            <h2>2. Wine Activity Type Implementation</h2>
+            
+            <div class="alert alert-success">
+                <strong>Feature Overview:</strong> Added a new activity type "Wine" (type ID: 13) with full internationalization support across all 12 supported languages and backend filtering capabilities.
+            </div>
+
+            <h3>2.1 Description</h3>
+            <p>
+                A new activity type "Wine" has been added to the system, allowing users to create and categorize wine-related events. The implementation includes complete frontend and backend support with multilingual translations and search filtering.
+            </p>
+
+            <h3>2.2 Frontend Implementation</h3>
+            
+            <h4>Components Modified:</h4>
+            <ul>
+                <li><span class="badge badge-frontend">Frontend</span> <code class="code-inline">create-evenement.component.ts</code></li>
+                <li><span class="badge badge-frontend">Frontend</span> <code class="code-inline">update-evenement.component.ts</code></li>
+                <li><span class="badge badge-frontend">Frontend</span> <code class="code-inline">element-evenement.component.ts</code></li>
+                <li><span class="badge badge-frontend">Frontend</span> <code class="code-inline">details-evenement.component.ts</code></li>
+            </ul>
+
+            <h4>Type Definition:</h4>
+            <div class="code-block">
+{ value: "13", label: "EVENTCREATION.TYPE.WINE" }
+            </div>
+
+            <h4>Type Mapping:</h4>
+            <div class="code-block">
+'13': 'EVENTCREATION.TYPE.WINE'
+            </div>
+
+            <h3>2.3 Internationalization (i18n)</h3>
+            
+            <p>The "Wine" activity type has been translated into all 12 supported languages:</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>Language</th>
+                        <th>Translation</th>
+                        <th>File Location</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>English (en)</td>
+                        <td>Wine</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>French (fr)</td>
+                        <td>Vin</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>Italian (it)</td>
+                        <td>Vino</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>Spanish (es)</td>
+                        <td>Vino</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>German (de)</td>
+                        <td>Wein</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>Arabic (ar)</td>
+                        <td>نبيذ</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>Chinese (cn)</td>
+                        <td>葡萄酒</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>Japanese (jp)</td>
+                        <td>ワイン</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>Russian (ru)</td>
+                        <td>Вино</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>Hindi (in)</td>
+                        <td>शराब</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>Hebrew (he)</td>
+                        <td>יין</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                    <tr>
+                        <td>Greek (el)</td>
+                        <td>Κρασί</td>
+                        <td>Frontend & Backend</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h4>Translation Key:</h4>
+            <div class="code-block">
+"TYPE.WINE": "Wine"  // (varies by language)
+            </div>
+
+            <h3>2.4 Backend Implementation</h3>
+            
+            <h4>Files Modified:</h4>
+            <ul>
+                <li><span class="badge badge-backend">Backend</span> <code class="code-inline">EvenementRestController.java</code></li>
+                <li><span class="badge badge-backend">Backend</span> <code class="code-inline">EvenementsRepositoryImpl.java</code></li>
+            </ul>
+
+            <h4>Type Registration:</h4>
+            <div class="code-block">
+registerType("13", new String[]{
+    "wine", "vin", "vino", "wein", "vino", "wijn", 
+    "вино", "ワイン", "葡萄酒", "יין", "κρασί", "نبيذ"
+}, "13", "WINE", "VIN", "EVENTCREATION.TYPE.WINE");
+            </div>
+
+            <h4>Search Keywords:</h4>
+            <p>The backend filter supports searching for wine-related events using the following keywords in multiple languages:</p>
+            <ul>
+                <li>English: wine</li>
+                <li>French: vin</li>
+                <li>Italian/Spanish: vino</li>
+                <li>German: wein</li>
+                <li>Dutch: wijn</li>
+                <li>Russian: вино</li>
+                <li>Japanese: ワイン</li>
+                <li>Chinese: 葡萄酒</li>
+                <li>Hebrew: יין</li>
+                <li>Greek: κρασί</li>
+                <li>Arabic: نبيذ</li>
+            </ul>
+
+            <h4>Aliases:</h4>
+            <p>The type can be referenced using the following aliases:</p>
+            <ul>
+                <li><code class="code-inline">13</code> - Canonical ID</li>
+                <li><code class="code-inline">WINE</code> - English alias</li>
+                <li><code class="code-inline">VIN</code> - French alias</li>
+                <li><code class="code-inline">EVENTCREATION.TYPE.WINE</code> - Translation key</li>
+            </ul>
+        </div>
+
+        <!-- Technical Details -->
+        <div class="section" id="technical-details">
+            <h2>3. Technical Implementation Details</h2>
+
+            <h3>3.1 File System Access API</h3>
+            <p>
+                The directory selection feature uses the modern File System Access API when available, providing a native file picker experience. For browsers that don't support this API, the implementation falls back to the traditional <code class="code-inline">webkitdirectory</code> file input.
+            </p>
+
+            <div class="feature-card">
+                <h4>Browser Compatibility</h4>
+                <ul>
+                    <li><strong>Modern Browsers:</strong> Chrome 86+, Edge 86+ - Uses File System Access API</li>
+                    <li><strong>Older Browsers:</strong> Firefox, Safari, older Chrome - Uses webkitdirectory fallback</li>
+                </ul>
+            </div>
+
+            <h3>3.2 Year Prefix Logic</h3>
+            <p>
+                For PHOTOFROMFS type links, the system automatically detects if a directory name starts with a 4-digit year (YYYY format, between 1900-2100) and adds it as a prefix if not already present. This ensures consistent path formatting for file system photo directories.
+            </p>
+
+            <div class="code-block">
+private addYearPrefixIfNeeded(link: string): string {
+    // Checks if first 4 chars are a valid year (YYYY)
+    // Adds "YYYY/" prefix if needed
+    // Handles duplicate prefix prevention
+}
+            </div>
+
+            <h3>3.3 Path Normalization</h3>
+            <p>
+                The implementation includes comprehensive path normalization to handle differences between Windows and Unix-like systems:
+            </p>
+            <ul>
+                <li>Converts backslashes to forward slashes (and vice versa for Windows)</li>
+                <li>Handles UNC paths (Windows network paths)</li>
+                <li>Removes duplicate slashes</li>
+                <li>Preserves platform-specific path formats</li>
+            </ul>
+
+            <h3>3.4 Backend Search Integration</h3>
+            <p>
+                The backend search functionality has been extended to recognize wine-related keywords in multiple languages. When users search for events, the system will match events of type "Wine" using any of the registered keywords.
+            </p>
+
+            <div class="alert alert-warning">
+                <strong>Note:</strong> The search is case-insensitive and supports partial matches, making it easy to find wine-related events regardless of the language used in the search query.
+            </div>
+        </div>
+
+        <!-- File Structure -->
+        <div class="section" id="file-structure">
+            <h2>4. Modified Files Structure</h2>
+
+            <h3>4.1 Frontend Files</h3>
+            
+            <h4>Component Files:</h4>
+            <ul>
+                <li><code class="code-inline">PatTool_Front-End/src/app/evenements/create-evenement/create-evenement.component.ts</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/app/evenements/create-evenement/create-evenement.component.html</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/app/evenements/update-evenement/update-evenement.component.ts</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/app/evenements/element-evenement/element-evenement.component.ts</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/app/evenements/details-evenement/details-evenement.component.ts</code></li>
+            </ul>
+
+            <h4>Translation Files (Frontend):</h4>
+            <ul>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/en.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/fr.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/it.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/es.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/de.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/ar.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/cn.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/jp.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/ru.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/in.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/he.json</code></li>
+                <li><code class="code-inline">PatTool_Front-End/src/assets/i18n/el.json</code></li>
+            </ul>
+
+            <h3>4.2 Backend Files</h3>
+            
+            <h4>Java Source Files:</h4>
+            <ul>
+                <li><code class="code-inline">PatTool_Back-End/src/main/java/com/pat/controller/EvenementRestController.java</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/java/com/pat/repo/EvenementsRepositoryImpl.java</code></li>
+            </ul>
+
+            <h4>Translation Files (Backend):</h4>
+            <ul>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/en.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/fr.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/it.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/es.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/de.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/ar.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/cn.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/jp.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/ru.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/in.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/he.json</code></li>
+                <li><code class="code-inline">PatTool_Back-End/src/main/resources/static/assets/i18n/el.json</code></li>
+            </ul>
+
+            <h3>4.3 Summary</h3>
+            <div class="feature-card">
+                <h4>Total Files Modified</h4>
+                <ul>
+                    <li><strong>Frontend Components:</strong> 5 files</li>
+                    <li><strong>Frontend Translations:</strong> 12 files</li>
+                    <li><strong>Backend Java:</strong> 2 files</li>
+                    <li><strong>Backend Translations:</strong> 12 files</li>
+                    <li><strong>Total:</strong> 31 files</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>PatTool - Recent Features Documentation</p>
+            <p>Last Updated: December 2024</p>
+        </div>
+    </div>
+</body>
+</html>
+

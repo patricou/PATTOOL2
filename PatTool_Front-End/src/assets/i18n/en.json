@@ -245,6 +245,7 @@
         "TYPE.PHOTOS": "Photos",
         "TYPE.DOCUMENTS": "Documents",
         "TYPE.FICHE": "Factsheet",
+        "TYPE.WINE": "Wine",
         "ISSUEDETAIL": "Issue when save the evenement :",
         "ISSUEDELDETAIL": "Issue when deleting the evenement :",
         "VISIBILITY": "Visibilty",

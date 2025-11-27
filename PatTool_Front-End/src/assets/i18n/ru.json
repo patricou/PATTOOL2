@@ -251,6 +251,7 @@
         "TYPE.PHOTOS": "Фото",
         "TYPE.DOCUMENTS": "Документы",
         "TYPE.FICHE": "Информационный лист",
+        "TYPE.WINE": "Вино",
         "ISSUEDETAIL": "Ошибка при сохранении мероприятия:",
         "ISSUEDELDETAIL": "Ошибка при удалении мероприятия:",
         "VISIBILITY": "Видимость",

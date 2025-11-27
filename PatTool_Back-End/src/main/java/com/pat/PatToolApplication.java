@@ -2,15 +2,27 @@ package com.pat;
 
 import com.pat.repo.CategoryLinkRepository;
 import com.pat.repo.UrlLinkRepository;
+import com.pat.service.SmtpMailSender;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.EnableScheduling;
+
+import java.net.InetAddress;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 @SpringBootApplication(scanBasePackages = {"com.pat"})
 @EnableScheduling
 public class PatToolApplication implements CommandLineRunner {
+
+    private static final Logger log = LoggerFactory.getLogger(PatToolApplication.class);
 
     public static void main(String[] args) {
         SpringApplication.run(PatToolApplication.class, args);
@@ -20,9 +32,67 @@ public class PatToolApplication implements CommandLineRunner {
     CategoryLinkRepository categoryLinkRepository;
     @Autowired
     UrlLinkRepository urlLinkRepository;
+    
+    @Autowired(required = false)
+    private SmtpMailSender smtpMailSender;
+    
+    @Value("${app.mailsentfrom:}")
+    private String mailSentFrom;
+    
+    @Value("${app.mailsentto:}")
+    private String mailSentTo;
+    
+    @Value("${app.sendmail:false}")
+    private Boolean sendmail;
 
     public void run(String... arg0) throws Exception {
          //initData();
+    }
+    
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        log.info("Application is ready. Preparing startup notification email...");
+        
+        if (sendmail != null && sendmail && smtpMailSender != null && 
+            mailSentFrom != null && !mailSentFrom.isEmpty() && 
+            mailSentTo != null && !mailSentTo.isEmpty()) {
+            
+            try {
+                String hostname = InetAddress.getLocalHost().getHostName();
+                String hostAddress = InetAddress.getLocalHost().getHostAddress();
+                String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+                
+                String subject = "PatTool Application Started - " + timestamp;
+                
+                String body = String.format(
+                    "<html><body style='font-family: Arial, sans-serif;'>" +
+                    "<h2 style='color: #2c3e50;'>PatTool Application Startup Notification</h2>" +
+                    "<p>The PatTool application has successfully started.</p>" +
+                    "<table style='border-collapse: collapse; width: 100%%; max-width: 600px;'>" +
+                    "<tr style='background-color: #f2f2f2;'><td style='padding: 8px; border: 1px solid #ddd; font-weight: bold;'>Startup Time:</td><td style='padding: 8px; border: 1px solid #ddd;'>%s</td></tr>" +
+                    "<tr><td style='padding: 8px; border: 1px solid #ddd; font-weight: bold;'>Hostname:</td><td style='padding: 8px; border: 1px solid #ddd;'>%s</td></tr>" +
+                    "<tr style='background-color: #f2f2f2;'><td style='padding: 8px; border: 1px solid #ddd; font-weight: bold;'>IP Address:</td><td style='padding: 8px; border: 1px solid #ddd;'>%s</td></tr>" +
+                    "<tr><td style='padding: 8px; border: 1px solid #ddd; font-weight: bold;'>Java Version:</td><td style='padding: 8px; border: 1px solid #ddd;'>%s</td></tr>" +
+                    "<tr style='background-color: #f2f2f2;'><td style='padding: 8px; border: 1px solid #ddd; font-weight: bold;'>OS:</td><td style='padding: 8px; border: 1px solid #ddd;'>%s %s</td></tr>" +
+                    "</table>" +
+                    "<p style='margin-top: 20px; color: #7f8c8d; font-size: 12px;'>This is an automated notification from the PatTool application.</p>" +
+                    "</body></html>",
+                    timestamp,
+                    hostname,
+                    hostAddress,
+                    System.getProperty("java.version"),
+                    System.getProperty("os.name"),
+                    System.getProperty("os.version")
+                );
+                
+                smtpMailSender.sendMail(mailSentFrom, mailSentTo, subject, body, true);
+                log.info("Startup notification email sent successfully to: {}", mailSentTo);
+            } catch (Exception e) {
+                log.error("Failed to send startup notification email: {}", e.getMessage(), e);
+            }
+        } else {
+            log.info("Startup email notification skipped - email sending is disabled or not configured");
+        }
     }
 
     private void initData() {

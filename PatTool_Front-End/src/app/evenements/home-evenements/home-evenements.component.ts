@@ -2,7 +2,7 @@ import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, 
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject, from } from 'rxjs';
-import { debounceTime, map, mergeMap, catchError, switchMap } from 'rxjs/operators';
+import { debounceTime, map, catchError, switchMap } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
@@ -51,7 +51,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public isLoading: boolean = false; // État de chargement
 	public user: Member = new Member("", "", "", "", "", [], "");
 	public dataFIlter: string = this._commonValuesService.getDataFilter();
-	public filteredTotal: number = 0;
 	public averageColor!: string;
 	public averageTextColor!: string;
 	public averageBorderColor!: string;
@@ -758,7 +757,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.evenements = [firstEvent];
 		}
 		
-		this.filteredTotal = 0;
 		this.resetColorAggregation();
 		
 		// Scroll to top when filter changes to show first elements
@@ -837,11 +835,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						
 						// Removed log: StreamedEvent received (too verbose)
 						
-						if (streamedEvent.type === 'total') {
-							// Total count received
-							this.filteredTotal = streamedEvent.data as number;
-							this.scheduleChangeDetection();
-						} else if (streamedEvent.type === 'event') {
+					if (streamedEvent.type === 'event') {
 							
 							// New event received - add it to the buffer
 							const newEvent = streamedEvent.data as Evenement;
@@ -1618,13 +1612,25 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Force change detection before opening modal
 		this.cdr.markForCheck();
 		
+		// Block body scroll when modal opens
+		this.blockPageScroll();
+		
 		// Open modal immediately with spinner
-		this.modalService.open(this.filesModal, { 
+		const modalRef = this.modalService.open(this.filesModal, { 
 			size: 'lg',
 			backdrop: 'static',
 			keyboard: false,
 			animation: true,
-			centered: true
+			centered: true,
+			windowClass: 'files-management-modal'
+		});
+		
+		// Unblock body scroll when modal closes
+		modalRef.result.finally(() => {
+			this.unblockPageScroll();
+		}).catch(() => {
+			// Handle dismissal
+			this.unblockPageScroll();
 		});
 		
 		// Load all files on-demand in the background
@@ -3517,11 +3523,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		return this.evenements.length;
 	}
 	
-	// Get streamed events count (total events in buffer)
-	public getStreamedEventsCount(): number {
-		return this.allStreamedEvents.length;
-	}
-	
 	// Get loading events count
 	public getLoadingEventsCount(): number {
 		return this.loadingEvents.size;
@@ -3588,11 +3589,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Return the actual count of events received from backend
 	public getAllStreamedEventsCount(): number {
 		return this.allStreamedEvents.length;
-	}
-	
-	// Get loading events map size
-	public getLoadingEventsMapSize(): number {
-		return this.loadingEvents.size;
 	}
 	
 	// Clean up thumbnails that are no longer needed

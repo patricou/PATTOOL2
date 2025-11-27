@@ -252,6 +252,7 @@
         "TYPE.PHOTOS": "写真",
         "TYPE.DOCUMENTS": "文書",
         "TYPE.FICHE": "情報シート",
+        "TYPE.WINE": "ワイン",
         "ISSUEDETAIL": "活動の保存中に問題が発生しました：",
         "ISSUEDELDETAIL": "活動の削除中に問題が発生しました：",
         "VISIBILITY": "可視性",
