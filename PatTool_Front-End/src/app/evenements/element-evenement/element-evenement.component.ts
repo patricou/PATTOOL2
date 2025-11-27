@@ -21,6 +21,7 @@ import { environment } from '../../../environments/environment';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
 import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
+import { EvenementsService } from '../../services/evenements.service';
 
 @Component({
 	selector: 'element-evenement',
@@ -209,7 +210,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	@ViewChild('logContent') logContent: any;
 
 	@Input()
-	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], []);
+	evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], [], undefined);
 
 	@Input()
 	user: Member = new Member("", "", "", "", "", [], "");
@@ -271,7 +272,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private _fileService: FileService,
 		private winRef: WindowRefService,
 		private translateService: TranslateService,
-		private videoCompressionService: VideoCompressionService
+		private videoCompressionService: VideoCompressionService,
+		private _evenementsService: EvenementsService
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -303,6 +305,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	
 	// Static set to track files currently being loaded (to prevent duplicate concurrent requests)
 	private static readonly filesLoading: Set<string> = new Set();
+
+	// Global queue for color calculations to prevent blocking when multiple cards load simultaneously
+	private static colorCalculationQueue: Array<() => void> = [];
+	private static isProcessingColorQueue: boolean = false;
+
+	// Global queue for image loading to prevent all 8 cards from loading images simultaneously
+	private static imageLoadingQueue: Array<() => void> = [];
+	private static isProcessingImageQueue: boolean = false;
+	private static readonly MAX_CONCURRENT_IMAGE_LOADS = 2; // Load 2 images at a time
+	private static currentImageLoads: number = 0;
 
 	// Public static method to check if a file is already cached (to avoid duplicate requests)
 	public static isThumbnailCached(fileId: string): boolean {
@@ -1001,11 +1013,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Check if it's a blob URL that failed
 		if (img.src.startsWith('blob:')) {
 			// Blob URL is invalid (probably revoked), try to recreate from cached Blob first
-			const thumbnailFile = this.evenement.fileUploadeds?.find(file => 
-				file.fileName && file.fileName.indexOf('thumbnail') !== -1
-			);
+			const thumbnailFile = this.evenement.thumbnail;
 			
-			if (thumbnailFile) {
+			if (thumbnailFile && thumbnailFile.fieldId) {
 				const cachedBlob = ElementEvenementComponent.blobCache.get(thumbnailFile.fieldId);
 				if (cachedBlob) {
 					// Try to recreate blob URL from cached Blob
@@ -1531,6 +1541,55 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Generate a unique file ID (you might want to use a proper UUID generator)
 		return 'file_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 	}
+	// Load thumbnail image from server (extracted for queue processing)
+	private loadThumbnailImage(fieldId: string, fileName: string | undefined): void {
+		// Load and cache the blob URL
+		this._fileService.getFile(fieldId).pipe(
+			map((res: any) => {
+				let blob = new Blob([res], { type: 'application/octet-stream' });
+				// Only cache blobs for files with "thumbnail" in the name
+				// Store the Blob in cache for potential recreation later (only for thumbnails)
+				if (fileName && fileName.toLowerCase().includes('thumbnail')) {
+					ElementEvenementComponent.blobCache.set(fieldId, blob);
+				}
+				let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
+				return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+			})
+		).subscribe({
+			next: (safeUrl: SafeUrl) => {
+				// Mark as no longer loading
+				ElementEvenementComponent.clearFileLoading(fieldId);
+				// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
+				this.thumbnailLoadEndTime = performance.now();
+				// Cache the blob URL so it persists across component destruction
+				ElementEvenementComponent.blobUrlCache.set(fieldId, safeUrl);
+				this.thumbnailUrl = safeUrl;
+				// Update thumbnail cache with new data
+				this.cacheCurrentStyles(this.getThumbnailSignature());
+				// Emit card ready event for immediate change detection
+				this.emitCardReady();
+				// Detect dominant color after image loads (this will track when image actually displays)
+				const colorTimeout = setTimeout(() => {
+					this.detectDominantColor();
+				}, 100);
+				this.activeTimeouts.add(colorTimeout);
+				setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
+				
+				// Notify queue that this image load is complete
+				ElementEvenementComponent.onImageLoadComplete();
+			},
+			error: (error) => {
+				// Mark as no longer loading even on error
+				ElementEvenementComponent.clearFileLoading(fieldId);
+				// Try to use cached thumbnail as fallback
+				this.tryUseCachedThumbnailFallback();
+				
+				// Notify queue that this image load is complete (even on error)
+				ElementEvenementComponent.onImageLoadComplete();
+			}
+		});
+	}
+
 	// Set image thumbnail - USE GETFILE for display (with resizing)
 	public setThumbnailImage() {
 		// Reset portrait detection when thumbnail changes
@@ -1544,119 +1603,77 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return;
 		}
 
-		// Check if fileUploadeds is populated and has a thumbnail file
-		if (this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0) {
-			let thumbnailFound = false;
-			this.evenement.fileUploadeds.forEach(fileUploaded => {
-				if (fileUploaded.fileName && fileUploaded.fileName.indexOf('thumbnail') !== -1) {
-					thumbnailFound = true;
-					// Check if already cached in shared cache (to avoid duplicate backend request)
-					if (ElementEvenementComponent.isThumbnailCached(fileUploaded.fieldId)) {
-						const cachedThumbnail = ElementEvenementComponent.getCachedThumbnail(fileUploaded.fieldId);
-						if (cachedThumbnail) {
-							// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
-							this.thumbnailLoadEndTime = performance.now();
-							// Reuse cached thumbnail
-							this.thumbnailUrl = cachedThumbnail;
-							// Update thumbnail cache to ensure it's up to date
-							this.cacheCurrentStyles(this.getThumbnailSignature());
-							// Emit card ready event for immediate change detection
-							this.emitCardReady();
-							// Detect dominant color after image loads (this will track when image actually displays)
-							const colorTimeout = setTimeout(() => {
-								this.detectDominantColor();
-							}, 100);
-							this.activeTimeouts.add(colorTimeout);
-							setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
-							return; // Use cached thumbnail
-						}
-					}
-					
-					// Check if file is currently being loaded (to prevent duplicate concurrent requests)
-					if (ElementEvenementComponent.isFileLoading(fileUploaded.fieldId) || this.fileThumbnailsLoading.has(fileUploaded.fieldId)) {
-						// File is already being loaded, wait for it to complete
-						// We'll set up a listener or just return and let the other load complete
-						// The thumbnail will be updated when the other load completes
-						return;
-					}
-					
-					// Check if we have the Blob in cache but URL was revoked
-					const cachedBlob = ElementEvenementComponent.blobCache.get(fileUploaded.fieldId);
-					if (cachedBlob) {
-						// Recreate blob URL from cached Blob
-						try {
-							// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
-							this.thumbnailLoadEndTime = performance.now();
-							const objectUrl = this.nativeWindow.URL.createObjectURL(cachedBlob);
-							const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
-							// Update both caches
-							ElementEvenementComponent.blobUrlCache.set(fileUploaded.fieldId, safeUrl);
-							this.thumbnailUrl = safeUrl;
-							// Update thumbnail cache with new data
-							this.cacheCurrentStyles(this.getThumbnailSignature());
-							// Emit card ready event for immediate change detection
-							this.emitCardReady();
-							// Detect dominant color after image loads (this will track when image actually displays)
-							const colorTimeout = setTimeout(() => {
-								this.detectDominantColor();
-							}, 100);
-							this.activeTimeouts.add(colorTimeout);
-							setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
-							return; // Successfully recreated from cached Blob
-						} catch (error) {
-							// Continue to load from server below
-						}
-					}
-					
-					// Mark as loading to prevent duplicate requests
-					ElementEvenementComponent.setFileLoading(fileUploaded.fieldId);
-					
-					// Load and cache the blob URL
-					this._fileService.getFile(fileUploaded.fieldId).pipe(
-							map((res: any) => {
-								let blob = new Blob([res], { type: 'application/octet-stream' });
-								// Only cache blobs for files with "thumbnail" in the name
-								// Store the Blob in cache for potential recreation later (only for thumbnails)
-								if (fileUploaded.fileName && fileUploaded.fileName.toLowerCase().includes('thumbnail')) {
-									ElementEvenementComponent.blobCache.set(fileUploaded.fieldId, blob);
-								}
-								let objectUrl = this.nativeWindow.URL.createObjectURL(blob);
-								return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
-							})
-						).subscribe({
-							next: (safeUrl: SafeUrl) => {
-								// Mark as no longer loading
-								ElementEvenementComponent.clearFileLoading(fileUploaded.fieldId);
-								// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
-								this.thumbnailLoadEndTime = performance.now();
-								// Cache the blob URL so it persists across component destruction
-								ElementEvenementComponent.blobUrlCache.set(fileUploaded.fieldId, safeUrl);
-								this.thumbnailUrl = safeUrl;
-								// Update thumbnail cache with new data
-								this.cacheCurrentStyles(this.getThumbnailSignature());
-								// Emit card ready event for immediate change detection
-								this.emitCardReady();
-								// Detect dominant color after image loads (this will track when image actually displays)
-								const colorTimeout = setTimeout(() => {
-									this.detectDominantColor();
-								}, 100);
-								this.activeTimeouts.add(colorTimeout);
-								setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
-							},
-							error: (error) => {
-								// Mark as no longer loading even on error
-								ElementEvenementComponent.clearFileLoading(fileUploaded.fieldId);
-								// Try to use cached thumbnail as fallback
-								this.tryUseCachedThumbnailFallback();
-							}
-						});
-					}
-			});
-			
-			// If no thumbnail was found but fileUploadeds exists, try to use cached thumbnail
-			if (!thumbnailFound) {
-				this.tryUseCachedThumbnailFallback();
+		// Use the thumbnail field directly (set when file with "thumbnail" in name is uploaded)
+		const thumbnailFile = this.evenement.thumbnail;
+		
+		if (thumbnailFile && thumbnailFile.fieldId) {
+			// Check if already cached in shared cache (to avoid duplicate backend request)
+			if (ElementEvenementComponent.isThumbnailCached(thumbnailFile.fieldId)) {
+				const cachedThumbnail = ElementEvenementComponent.getCachedThumbnail(thumbnailFile.fieldId);
+				if (cachedThumbnail) {
+					// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
+					this.thumbnailLoadEndTime = performance.now();
+					// Reuse cached thumbnail
+					this.thumbnailUrl = cachedThumbnail;
+					// Update thumbnail cache to ensure it's up to date
+					this.cacheCurrentStyles(this.getThumbnailSignature());
+					// Emit card ready event for immediate change detection
+					this.emitCardReady();
+					// Detect dominant color after image loads (this will track when image actually displays)
+					const colorTimeout = setTimeout(() => {
+						this.detectDominantColor();
+					}, 100);
+					this.activeTimeouts.add(colorTimeout);
+					setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
+					return; // Use cached thumbnail
+				}
 			}
+			
+			// Check if file is currently being loaded (to prevent duplicate concurrent requests)
+			if (ElementEvenementComponent.isFileLoading(thumbnailFile.fieldId) || this.fileThumbnailsLoading.has(thumbnailFile.fieldId)) {
+				// File is already being loaded, wait for it to complete
+				// We'll set up a listener or just return and let the other load complete
+				// The thumbnail will be updated when the other load completes
+				return;
+			}
+			
+			// Check if we have the Blob in cache but URL was revoked
+			const cachedBlob = ElementEvenementComponent.blobCache.get(thumbnailFile.fieldId);
+			if (cachedBlob) {
+				// Recreate blob URL from cached Blob
+				try {
+					// Track thumbnail blob URL creation time (not display time - that's tracked in detectDominantColor)
+					this.thumbnailLoadEndTime = performance.now();
+					const objectUrl = this.nativeWindow.URL.createObjectURL(cachedBlob);
+					const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+					// Update both caches
+					ElementEvenementComponent.blobUrlCache.set(thumbnailFile.fieldId, safeUrl);
+					this.thumbnailUrl = safeUrl;
+					// Update thumbnail cache with new data
+					this.cacheCurrentStyles(this.getThumbnailSignature());
+					// Emit card ready event for immediate change detection
+					this.emitCardReady();
+					// Detect dominant color after image loads (this will track when image actually displays)
+					const colorTimeout = setTimeout(() => {
+						this.detectDominantColor();
+					}, 100);
+					this.activeTimeouts.add(colorTimeout);
+					setTimeout(() => this.activeTimeouts.delete(colorTimeout), 200);
+					return; // Successfully recreated from cached Blob
+				} catch (error) {
+					// Continue to load from server below
+				}
+			}
+			
+			// Mark as loading to prevent duplicate requests
+			ElementEvenementComponent.setFileLoading(thumbnailFile.fieldId);
+			
+			// Queue image loading to prevent all 8 cards from loading simultaneously
+			// This ensures cards render immediately while images load progressively
+			ElementEvenementComponent.enqueueImageLoad(() => {
+				this.loadThumbnailImage(thumbnailFile.fieldId, thumbnailFile.fileName);
+			});
+			return; // Exit early, image will load via queue
 		} else {
 			// fileUploadeds is empty or not populated yet - try to use cached thumbnail
 			// This can happen when coming back from update before fileUploadeds is populated
@@ -1771,7 +1788,122 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.colorDetectionStartTime = performance.now();
 		}
 		
-		// Wait a bit for the image to be in the DOM
+		// Schedule color calculation asynchronously to avoid blocking card rendering
+		// This allows cards to render immediately while colors are calculated progressively
+		this.scheduleColorCalculation();
+	}
+
+	// Schedule color calculation to run when browser is idle (non-blocking)
+	private scheduleColorCalculation(): void {
+		// Add to global queue to process one at a time (prevents all 8 cards from blocking simultaneously)
+		ElementEvenementComponent.enqueueColorCalculation(() => {
+			this.performColorCalculation();
+		});
+	}
+
+	// Enqueue color calculation to process sequentially (one at a time)
+	private static enqueueColorCalculation(calculationFn: () => void): void {
+		ElementEvenementComponent.colorCalculationQueue.push(calculationFn);
+		ElementEvenementComponent.processColorQueue();
+	}
+
+	// Enqueue image loading to prevent all cards from loading simultaneously
+	private static enqueueImageLoad(loadFn: () => void): void {
+		ElementEvenementComponent.imageLoadingQueue.push(loadFn);
+		ElementEvenementComponent.processImageQueue();
+	}
+
+	// Process image loading queue (load 2 images at a time to balance speed and performance)
+	private static processImageQueue(): void {
+		// If already at max concurrent loads or queue is empty, return
+		if (ElementEvenementComponent.currentImageLoads >= ElementEvenementComponent.MAX_CONCURRENT_IMAGE_LOADS || 
+			ElementEvenementComponent.imageLoadingQueue.length === 0) {
+			return;
+		}
+
+		// Process next image load
+		const loadFn = ElementEvenementComponent.imageLoadingQueue.shift();
+		if (loadFn) {
+			ElementEvenementComponent.currentImageLoads++;
+			
+			// Execute the image load
+			try {
+				loadFn();
+			} catch (error) {
+				console.error('Error in image loading queue:', error);
+				ElementEvenementComponent.currentImageLoads--;
+				// Process next item
+				setTimeout(() => ElementEvenementComponent.processImageQueue(), 0);
+			}
+		}
+	}
+
+	// Called when an image load completes (success or error)
+	public static onImageLoadComplete(): void {
+		ElementEvenementComponent.currentImageLoads = Math.max(0, ElementEvenementComponent.currentImageLoads - 1);
+		// Process next image in queue
+		setTimeout(() => ElementEvenementComponent.processImageQueue(), 50);
+	}
+
+	// Process color calculation queue one item at a time
+	private static processColorQueue(): void {
+		// If already processing or queue is empty, return
+		if (ElementEvenementComponent.isProcessingColorQueue || ElementEvenementComponent.colorCalculationQueue.length === 0) {
+			return;
+		}
+
+		ElementEvenementComponent.isProcessingColorQueue = true;
+
+		// Use requestIdleCallback to process when browser is idle
+		const processNext = () => {
+			if (ElementEvenementComponent.colorCalculationQueue.length === 0) {
+				ElementEvenementComponent.isProcessingColorQueue = false;
+				return;
+			}
+
+			// Get next item from queue
+			const calculationFn = ElementEvenementComponent.colorCalculationQueue.shift();
+			if (calculationFn) {
+				// Execute the color calculation
+				try {
+					calculationFn();
+				} catch (error) {
+					console.error('Error in color calculation queue:', error);
+				}
+			}
+
+			// Process next item after a delay to allow rendering and prevent blocking
+			// Longer delay ensures cards are fully rendered before next color calculation
+			setTimeout(() => {
+				ElementEvenementComponent.isProcessingColorQueue = false;
+				// Use requestIdleCallback again for next item to ensure browser is idle
+				if (typeof requestIdleCallback !== 'undefined') {
+					requestIdleCallback(() => {
+						ElementEvenementComponent.processColorQueue();
+					}, { timeout: 200 });
+				} else {
+					setTimeout(() => {
+						ElementEvenementComponent.processColorQueue();
+					}, 150); // Longer delay for fallback
+				}
+			}, 100); // Delay between calculations to allow rendering
+		};
+
+		// Defer initial processing to ensure cards render first
+		if (typeof requestIdleCallback !== 'undefined') {
+			requestIdleCallback(processNext, { timeout: 300 }); // Wait for cards to render first
+		} else if (typeof requestAnimationFrame !== 'undefined') {
+			requestAnimationFrame(() => {
+				setTimeout(processNext, 200); // Delay to let cards render
+			});
+		} else {
+			setTimeout(processNext, 300);
+		}
+	}
+
+	// Perform the actual color calculation (extracted from detectDominantColor for async scheduling)
+	private performColorCalculation(): void {
+		// Minimal delay to ensure image is in DOM (reduced since we're already deferring)
 		setTimeout(() => {
 			if (!this.thumbnailImageRef || !this.thumbnailImageRef.nativeElement) {
 				return;
@@ -1802,7 +1934,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.processImageColor(img);
 			// Track color detection end time
 			this.colorDetectionEndTime = performance.now();
-		}, 200);
+		}, 10); // Minimal delay since we're already deferring with requestIdleCallback/requestAnimationFrame
 	}
 
 	// Detect if thumbnail image is portrait and store dimensions
@@ -1915,7 +2047,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	// Process image to extract dominant color from top portion or full image
+	// Made async to prevent blocking the main thread
 	private processImageColor(img: HTMLImageElement): void {
+		// Process immediately since we're already in the queue (one at a time)
+		// No need for additional deferring as queue handles sequencing
+		this.processImageColorSync(img);
+	}
+
+	// Synchronous color processing (called after deferring to avoid blocking)
+	private processImageColorSync(img: HTMLImageElement): void {
 		try {
 			const canvas = document.createElement('canvas');
 			const ctx = canvas.getContext('2d');
@@ -1924,103 +2064,156 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				return;
 			}
 
-			// Set canvas size to match image
-			canvas.width = img.naturalWidth || img.width;
-			canvas.height = img.naturalHeight || img.height;
+			// Optimize: Limit canvas size to reduce processing time significantly
+			// Use max 200px width/height for color calculation (more than sufficient for accurate color)
+			// Smaller = much faster processing, especially for large images
+			const maxSize = 200;
+			const imgWidth = img.naturalWidth || img.width;
+			const imgHeight = img.naturalHeight || img.height;
+			
+			let canvasWidth = imgWidth;
+			let canvasHeight = imgHeight;
+			
+			// Scale down if image is too large (most images will be scaled down)
+			if (imgWidth > maxSize || imgHeight > maxSize) {
+				const scale = Math.min(maxSize / imgWidth, maxSize / imgHeight);
+				canvasWidth = Math.floor(imgWidth * scale);
+				canvasHeight = Math.floor(imgHeight * scale);
+			}
 
-		// Draw image to canvas
-		ctx.drawImage(img, 0, 0);
+			// Set canvas size (smaller = faster processing)
+			canvas.width = canvasWidth;
+			canvas.height = canvasHeight;
 
-		// Determine sample area - use entire image for color calculation
-		let sampleHeight: number;
-		let sampleWidth: number;
-		let startX: number = 0;
-		let startY: number = 0;
+			// Draw image to canvas (scaled down for faster processing)
+			ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
 
-		// Sample the entire image (100%)
-		sampleHeight = canvas.height;
-		sampleWidth = canvas.width;
-
-		// Get image data from entire image
-		const imageData = ctx.getImageData(startX, startY, sampleWidth, sampleHeight);
+			// Get image data from canvas
+			const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
 			const pixels = imageData.data;
 
-			// Calculate average color
-			let r = 0, g = 0, b = 0;
-			let pixelCount = 0;
+			// Process pixels in chunks to avoid blocking
+			this.processPixelsChunked(pixels);
+		} catch (error) {
+			console.error('Error detecting dominant color:', error);
+			// Fallback to default color
+			this.setDefaultColors();
+		}
+	}
 
-			// Sample every 10th pixel for performance
-			for (let i = 0; i < pixels.length; i += 40) { // RGBA = 4 bytes, skip 10 pixels
+	// Process pixels in chunks to avoid blocking the main thread
+	private processPixelsChunked(pixels: Uint8ClampedArray): void {
+		const chunkSize = 50000; // Process 50k pixels at a time
+		let r = 0, g = 0, b = 0;
+		let pixelCount = 0;
+		let i = 0;
+		
+		// Sample every 20th pixel for better performance (RGBA = 4 bytes, so i += 80)
+		// With 200px max canvas, this samples ~1000 pixels which is more than enough for accurate color
+		const pixelStep = 80; // Every 20th pixel (20 * 4 bytes RGBA)
+		
+		const processChunk = () => {
+			const end = Math.min(i + chunkSize, pixels.length);
+			
+			// Sample pixels with larger step for faster processing
+			for (; i < end; i += pixelStep) {
 				r += pixels[i];
 				g += pixels[i + 1];
 				b += pixels[i + 2];
 				pixelCount++;
 			}
-
-			if (pixelCount > 0) {
-				r = Math.floor(r / pixelCount);
-				g = Math.floor(g / pixelCount);
-				b = Math.floor(b / pixelCount);
-				
-				// Store RGB values for gradient calculations
-				this.dominantR = r;
-				this.dominantG = g;
-				this.dominantB = b;
-
-				// Store RGB values as string
-				this.calculatedRgbValues = `RGB(${r}, ${g}, ${b})`;
-
-				// Use the dominant color with 60% opacity for background
-				this.titleBackgroundColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
-				
-				// Calculate brightness to determine base color for text and border
-				// Using luminance formula: 0.299*R + 0.587*G + 0.114*B
-				const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
-				
-				const bgAlpha = brightness > 150 ? 0.72 : 0.68;
-				this.descriptionBackgroundColor = this.buildColorString(
-					this.adjustColorComponent(r, -22),
-					this.adjustColorComponent(g, -22),
-					this.adjustColorComponent(b, -22),
-					bgAlpha
-				);
-
-				// Start with white or black as base, then tint with the average color
-				// Mix 82% base color (white/black) with 18% average color for a subtle tint
-				let tintR: number, tintG: number, tintB: number;
-				
-				if (brightness < 128) {
-					// Dark image: use white as base, tinted with average color
-					tintR = Math.floor(255 * 0.82 + r * 0.18);
-					tintG = Math.floor(255 * 0.82 + g * 0.18);
-					tintB = Math.floor(255 * 0.82 + b * 0.18);
-				} else {
-					// Light image: use black as base, tinted with average color
-					tintR = Math.floor(0 * 0.82 + r * 0.18);
-					tintG = Math.floor(0 * 0.82 + g * 0.18);
-					tintB = Math.floor(0 * 0.82 + b * 0.18);
-				}
-				
-				// Use the lightly tinted color for border and text
-				this.titleBorderColor = `rgba(${tintR}, ${tintG}, ${tintB}, 0.95)`;
-				
+			
+			if (i < pixels.length) {
+				// More to process: schedule next chunk with minimal delay
+				setTimeout(processChunk, 0);
+			} else {
+				// Done: calculate final colors
+				this.finalizeColorCalculation(r, g, b, pixelCount);
 			}
-			this.invalidateColorCaches();
-			this.emitDominantColor();
-			this.cacheCurrentStyles(this.getThumbnailSignature());
-		} catch (error) {
-			console.error('Error detecting dominant color:', error);
-			// Fallback to default color
-			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
-			this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
-			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
-			this.dominantR = 128;
-			this.dominantG = 128;
-			this.dominantB = 128;
-			this.invalidateColorCaches();
-			this.emitDominantColor();
-			this.cacheCurrentStyles();
+		};
+		
+		// Start processing
+		if (pixels.length < chunkSize * 2) {
+			// Small image: process immediately
+			for (i = 0; i < pixels.length; i += pixelStep) {
+				r += pixels[i];
+				g += pixels[i + 1];
+				b += pixels[i + 2];
+				pixelCount++;
+			}
+			this.finalizeColorCalculation(r, g, b, pixelCount);
+		} else {
+			// Large image: process in chunks
+			processChunk();
 		}
+	}
+
+	// Finalize color calculation and update component
+	private finalizeColorCalculation(r: number, g: number, b: number, pixelCount: number): void {
+		if (pixelCount > 0) {
+			r = Math.floor(r / pixelCount);
+			g = Math.floor(g / pixelCount);
+			b = Math.floor(b / pixelCount);
+			
+			// Store RGB values for gradient calculations
+			this.dominantR = r;
+			this.dominantG = g;
+			this.dominantB = b;
+
+			// Store RGB values as string
+			this.calculatedRgbValues = `RGB(${r}, ${g}, ${b})`;
+
+			// Use the dominant color with 60% opacity for background
+			this.titleBackgroundColor = `rgba(${r}, ${g}, ${b}, 0.6)`;
+			
+			// Calculate brightness to determine base color for text and border
+			// Using luminance formula: 0.299*R + 0.587*G + 0.114*B
+			const brightness = (0.299 * r + 0.587 * g + 0.114 * b);
+			
+			const bgAlpha = brightness > 150 ? 0.72 : 0.68;
+			this.descriptionBackgroundColor = this.buildColorString(
+				this.adjustColorComponent(r, -22),
+				this.adjustColorComponent(g, -22),
+				this.adjustColorComponent(b, -22),
+				bgAlpha
+			);
+
+			// Start with white or black as base, then tint with the average color
+			// Mix 82% base color (white/black) with 18% average color for a subtle tint
+			let tintR: number, tintG: number, tintB: number;
+			
+			if (brightness < 128) {
+				// Dark image: use white as base, tinted with average color
+				tintR = Math.floor(255 * 0.82 + r * 0.18);
+				tintG = Math.floor(255 * 0.82 + g * 0.18);
+				tintB = Math.floor(255 * 0.82 + b * 0.18);
+			} else {
+				// Light image: use black as base, tinted with average color
+				tintR = Math.floor(0 * 0.82 + r * 0.18);
+				tintG = Math.floor(0 * 0.82 + g * 0.18);
+				tintB = Math.floor(0 * 0.82 + b * 0.18);
+			}
+			
+			// Use the lightly tinted color for border and text
+			this.titleBorderColor = `rgba(${tintR}, ${tintG}, ${tintB}, 0.95)`;
+		}
+		
+		this.invalidateColorCaches();
+		this.emitDominantColor();
+		this.cacheCurrentStyles(this.getThumbnailSignature());
+	}
+
+	// Set default colors (fallback)
+	private setDefaultColors(): void {
+		this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
+		this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
+		this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
+		this.dominantR = 128;
+		this.dominantG = 128;
+		this.dominantB = 128;
+		this.invalidateColorCaches();
+		this.emitDominantColor();
+		this.cacheCurrentStyles();
 	}
 
 	private buildColorString(r: number, g: number, b: number, alpha: number = 1): string {
@@ -2037,11 +2230,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 	
 	private getThumbnailSignature(): string {
-		if (!this.evenement || !this.evenement.fileUploadeds) {
+		if (!this.evenement || !this.evenement.thumbnail) {
 			return 'no-thumbnail';
 		}
-		const thumbnailFile = this.evenement.fileUploadeds.find(file => file.fileName && file.fileName.indexOf('thumbnail') !== -1);
-		return thumbnailFile ? thumbnailFile.fieldId : 'no-thumbnail';
+		return this.evenement.thumbnail.fieldId || 'no-thumbnail';
 	}
 
 	private applyCachedStyles(expectedSignature?: string): boolean {
@@ -2060,14 +2252,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			'changingThisBreaksApplicationSecurity' in cached.thumbnailUrl) {
 			const url = cached.thumbnailUrl['changingThisBreaksApplicationSecurity'];
 			if (url && typeof url === 'string' && url.startsWith('blob:')) {
-				// Find the thumbnail file to get its fieldId
-				const thumbnailFile = this.evenement.fileUploadeds?.find(file => 
-					file.fileName && file.fileName.indexOf('thumbnail') !== -1
-				);
+				// Use the thumbnail field directly to get its fieldId
+				const thumbnailFile = this.evenement.thumbnail;
 				
 				// Always try to recreate blob URL from cached Blob first (even if blob URL exists)
 				// This ensures the blob URL is always valid and prevents ERR_FILE_NOT_FOUND
-				if (thumbnailFile) {
+				if (thumbnailFile && thumbnailFile.fieldId) {
 					const cachedBlob = ElementEvenementComponent.blobCache.get(thumbnailFile.fieldId);
 					if (cachedBlob) {
 						// Recreate blob URL from cached Blob to ensure it's valid
@@ -2762,17 +2952,55 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.showParticipantsList = true;
 	}
 
+	public isLoadingFiles: boolean = false;
+	
+	public onFilesButtonClick(content: any): void {
+		this.openFilesModal(content);
+	}
+	
 	public openFilesModal(content: any): void {
 		this.forceCloseTooltips();
-		// Load thumbnails when modal is opened
-		this.loadFileThumbnails();
-		// Open the modal
+		
+		if (!this.evenement || !this.evenement.id) {
+			console.error('Invalid event in openFilesModal');
+			return;
+		}
+		
+		if (!this._evenementsService) {
+			console.error('_evenementsService is not available!');
+			return;
+		}
+		
+		// Set loading state to show spinner while files are being loaded
+		this.isLoadingFiles = true;
+		
+		// Open the modal immediately with spinner
 		this.modalService.open(content, { 
 			size: 'xl', 
 			centered: true, 
 			backdrop: 'static', 
 			keyboard: false,
 			windowClass: 'files-management-modal'
+		});
+		
+		// Load all files on-demand in the background
+		// This avoids loading all files in the list query (only thumbnail is loaded)
+		this._evenementsService.getEventFiles(this.evenement.id).subscribe({
+			next: (files: UploadedFile[]) => {
+				// Update the evenement with all loaded files
+				if (files && files.length > 0) {
+					this.evenement.fileUploadeds = files;
+				}
+				
+				this.isLoadingFiles = false;
+				
+				// Load thumbnails for all files
+				this.loadFileThumbnails();
+			},
+			error: (error) => {
+				console.error('Error loading files:', error);
+				this.isLoadingFiles = false;
+			}
 		});
 	}
 	
@@ -3146,12 +3374,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	// Reload the event card thumbnail when a thumbnail file is uploaded/deleted
 	private reloadEventCard(): void {
-		// Find the thumbnail file in the uploaded files
-		const thumbnailFile = this.evenement.fileUploadeds.find(file => 
-			file.fileName && file.fileName.toLowerCase().includes('thumbnail')
-		);
+		// Use the thumbnail field directly
+		const thumbnailFile = this.evenement.thumbnail;
 		
-		if (thumbnailFile) {
+		if (thumbnailFile && thumbnailFile.fieldId) {
 			// Update the thumbnail URL to force refresh
 			this.setThumbnailImage();
 		} else {
@@ -3690,10 +3916,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				const url = this.thumbnailUrl['changingThisBreaksApplicationSecurity'];
 				if (url && typeof url === 'string' && url.startsWith('blob:')) {
 					// Check if this blob URL is in the persistent cache
-					const thumbnailFile = this.evenement.fileUploadeds?.find(file => 
-						file.fileName && file.fileName.indexOf('thumbnail') !== -1
-					);
-					if (thumbnailFile) {
+					const thumbnailFile = this.evenement.thumbnail;
+					if (thumbnailFile && thumbnailFile.fieldId) {
 						const cachedBlobUrl = ElementEvenementComponent.blobUrlCache.get(thumbnailFile.fieldId);
 						// Only revoke if it's not in the persistent cache
 						if (cachedBlobUrl !== this.thumbnailUrl) {

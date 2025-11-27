@@ -326,6 +326,7 @@
         "ACCEPTED_FORMATS": "स्वीकार्य प्रारूप: छवियाँ, वीडियो, PDF, दस्तावेज़, Excel, OpenOffice, संग्रह",
         "SELECT_FILES": "फ़ाइलें चुनें",
 		"FILES": "फ़ाइलें",
+		"NO_FILES": "कोई फ़ाइल नहीं",
 		"VIEW_DETAILS": "विवरण देखें",
 		"USER_DETAILS": "उपयोगकर्ता विवरण",
 		"USER_INFO": "उपयोगकर्ता जानकारी",

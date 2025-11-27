@@ -255,11 +255,12 @@
     <a class="btn btn-sm btn-outline-primary mb-1 me-1 dynamic-footer-btn" 
        [hidden]="!isAnyFiles()" 
        [ngStyle]="getFooterButtonStyles('download')"
-       (click)="openFilesModal(filesModal)"
+       (click)="onFilesButtonClick(filesModal); $event.stopPropagation()"
        placement="top" 
        ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"
-       (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-download"
-            aria-hidden="true"></i> {{ getFilesCount() }}</a>
+       (mouseleave)="onTooltipMouseLeave($event)">
+        <i class="fa fa-download" aria-hidden="true"></i>
+    </a>
 
     <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
          (mouseleave)="onTooltipMouseLeave($event)">
@@ -480,7 +481,11 @@
         </button>
     </div>
     <div class="modal-body selector-body" style="max-height: 70vh; overflow-y: auto;">
-        <div *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0; else noFilesTemplate">
+        <div *ngIf="isLoadingFiles" class="text-center py-4">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2">{{ 'COMMUN.LOADING' | translate }}...</p>
+        </div>
+        <div *ngIf="!isLoadingFiles && evenement.fileUploadeds && evenement.fileUploadeds.length > 0; else noFilesTemplate">
             <ul class="list-group files-list" 
                 [style.background-color]="getFilesListGradient()">
                 <li class="list-group-item d-flex justify-content-between align-items-center"

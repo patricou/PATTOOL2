@@ -327,6 +327,7 @@
         "ACCEPTED_FORMATS": "פורמטים מקובלים: תמונות, סרטונים, PDF, מסמכים, Excel, OpenOffice, ארכיונים",
         "SELECT_FILES": "בחר קבצים",
 		"FILES": "קבצים",
+		"NO_FILES": "אין קבצים",
 		"VIEW_DETAILS": "הצג פרטים",
 		"USER_DETAILS": "פרטי משתמש",
 		"USER_INFO": "מידע משתמש",

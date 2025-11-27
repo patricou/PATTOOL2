@@ -18,7 +18,7 @@ import { EvenementsService } from '../../services/evenements.service';
 export class CreateEvenementComponent implements OnInit {
 
 	public user: Member = new Member("", "", "", "", "", [], "");
-	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], []);
+	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], [], undefined);
 	// Removed ngx-mydatepicker options - using native HTML date inputs
 	// Using native HTML date inputs instead of ngx-mydatepicker
 	public author: string = "";
@@ -72,7 +72,7 @@ export class CreateEvenementComponent implements OnInit {
 		this.user = this._memberService.getUser();
 
 		// init new event fields
-		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public", [], []);
+		this.evenement = new Evenement(this.user, new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "Open", "", [], "", "", "", "", 0, 0, "public", [], [], undefined);
 		this.author = this.evenement.author.firstName + " " + this.evenement.author.lastName + " / " + this.evenement.author.userName;
 		
 		// Initialize date strings with local timezone

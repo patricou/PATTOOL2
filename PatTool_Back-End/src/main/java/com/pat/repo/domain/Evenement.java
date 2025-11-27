@@ -49,6 +49,7 @@ public class Evenement {
     @DBRef
     private List<Member> members = new ArrayList<Member>();
     private List<FileUploaded> fileUploadeds = new ArrayList<FileUploaded>();
+    private FileUploaded thumbnail; // Thumbnail file (file with "thumbnail" in its name)
     private String startHour;
     private String diffculty;
     private String startLocation;
@@ -169,6 +170,14 @@ public class Evenement {
         this.fileUploadeds = fileUploadeds;
     }
 
+    public FileUploaded getThumbnail() {
+        return thumbnail;
+    }
+
+    public void setThumbnail(FileUploaded thumbnail) {
+        this.thumbnail = thumbnail;
+    }
+
     public String getStartHour() {
         return startHour;
     }
@@ -269,6 +278,7 @@ public class Evenement {
                 ", ratingMinus=" + ratingMinus +
                 ", members=" + members +
                 ", fileUploadeds=" + fileUploadeds +
+                ", thumbnail=" + thumbnail +
                 ", startHour='" + startHour + '\'' +
                 ", diffculty='" + diffculty + '\'' +
                 ", startLocation='" + startLocation + '\'' +

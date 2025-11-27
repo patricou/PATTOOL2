@@ -756,6 +756,16 @@ public class FileRestController {
                 
                 // Add file to evenement
                 evenement.getFileUploadeds().add(fileUploaded);
+                
+                // If file name contains "thumbnail", also set it as the thumbnail
+                String fileName = filedata.getOriginalFilename();
+                if (fileName != null && fileName.toLowerCase().contains("thumbnail")) {
+                    evenement.setThumbnail(fileUploaded);
+                    log.debug("Thumbnail set for evenement {}: {}", evenementid, fileName);
+                    if (finalSessionId != null) {
+                        addUploadLog(finalSessionId, String.format("🖼️ Thumbnail detected and set: %s", fileName));
+                    }
+                }
             }
 
             // Save the evenement updated with all files
@@ -814,6 +824,34 @@ public class FileRestController {
             .collect(java.util.stream.Collectors.toList());
 
         log.debug("Files to delete from GridFS: " + filesToDelete.size());
+
+        // Check if the thumbnail file was deleted
+        FileUploaded oldThumbnail = evenementNotUpdated.getThumbnail();
+        if (oldThumbnail != null) {
+            boolean thumbnailDeleted = filesToDelete.stream()
+                .anyMatch(file -> file.getFieldId().equals(oldThumbnail.getFieldId()));
+            if (thumbnailDeleted) {
+                // Thumbnail was deleted, clear the thumbnail field
+                evenement.setThumbnail(null);
+                log.debug("Thumbnail cleared for evenement {} (file was deleted)", evenement.getId());
+            }
+        }
+
+        // Check if there's a new thumbnail file in the updated event
+        // (in case a new file with "thumbnail" in name was added)
+        if (evenement.getThumbnail() == null || 
+            (oldThumbnail != null && !oldThumbnail.getFieldId().equals(evenement.getThumbnail().getFieldId()))) {
+            // Look for a file with "thumbnail" in its name
+            FileUploaded newThumbnail = evenement.getFileUploadeds().stream()
+                .filter(file -> file.getFileName() != null && 
+                               file.getFileName().toLowerCase().contains("thumbnail"))
+                .findFirst()
+                .orElse(null);
+            if (newThumbnail != null) {
+                evenement.setThumbnail(newThumbnail);
+                log.debug("Thumbnail updated for evenement {}: {}", evenement.getId(), newThumbnail.getFileName());
+            }
+        }
 
         // update the evenement without the files ( the save erase all )
         Evenement savedEvenement = evenementsRepository.save(evenement);

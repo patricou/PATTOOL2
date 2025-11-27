@@ -41,6 +41,11 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 
 		Query query = new Query();
 		query.addCriteria(buildAccessCriteria(userId));
+		
+		// PERFORMANCE OPTIMIZATION: Exclude fileUploadeds from query results
+		// All files will be loaded on-demand via /api/even/{id}/files endpoint
+		// This dramatically reduces document size for events with many files
+		query.fields().exclude("fileUploadeds");
 
 		List<Evenement> events = mongoTemplate.find(query, Evenement.class);
 
@@ -78,6 +83,11 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 
 		Query query = new Query();
 		query.addCriteria(buildAccessCriteria(userId));
+		
+		// PERFORMANCE OPTIMIZATION: Exclude fileUploadeds from query results
+		// All files will be loaded on-demand via /api/even/{id}/files endpoint
+		// This dramatically reduces document size for events with many files
+		query.fields().exclude("fileUploadeds");
 
 		List<Evenement> events = mongoTemplate.find(query, Evenement.class);
 

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, from, Subject } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { map, switchMap, catchError } from 'rxjs/operators';
 import { Evenement } from '../model/evenement';
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
@@ -57,11 +57,35 @@ export class EvenementsService {
 							evenement.ratingMinus,
 							evenement.visibility,
 							evenement.urlEvents || [],
-							evenement.commentaries || []
+							evenement.commentaries || [],
+							evenement.thumbnail
 						)
 					})
 				)
 			)
+		);
+	}
+
+	// GET /{id}/files - Load all files for an event (on-demand)
+	getEventFiles(id: string): Observable<any[]> {
+		const url = this.API_URL + "even/" + id + "/files";
+		
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers => {
+				return this._http.get<any[]>(url, { headers: headers }).pipe(
+					map(files => {
+						return files || [];
+					}),
+					catchError(error => {
+						console.error('Error loading event files:', error);
+						throw error; // Re-throw to be handled by subscribe error handler
+					})
+				);
+			}),
+			catchError(error => {
+				console.error('Error in getEventFiles:', error);
+				throw error;
+			})
 		);
 	}
 
@@ -240,7 +264,8 @@ export class EvenementsService {
 					parsed.ratingMinus || 0,
 					parsed.visibility || '',
 					parsed.urlEvents || [],
-					parsed.commentaries || []
+					parsed.commentaries || [],
+					parsed.thumbnail
 				);
 				subject.next({
 					type: 'event',

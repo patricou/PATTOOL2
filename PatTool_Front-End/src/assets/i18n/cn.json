@@ -334,6 +334,7 @@
         "ACCEPTED_FORMATS": "接受格式：图片、视频、PDF、文档、Excel、OpenOffice、档案",
         "SELECT_FILES": "选择文件",
 		"FILES": "文件",
+		"NO_FILES": "无文件",
 		"VIEW_DETAILS": "查看详情",
 		"USER_DETAILS": "用户详情",
 		"USER_INFO": "用户信息",

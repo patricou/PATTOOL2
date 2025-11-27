@@ -24,7 +24,7 @@ import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slid
 })
 export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEvenementComponent> {
 
-	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "Nouvel Evenement !!", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], []);
+	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "Nouvel Evenement !!", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], [], undefined);
 	private originalEvenement: Evenement | null = null;
 	public hasUnsavedChanges: boolean = false;
 	// Removed ngx-mydatepicker options - using native HTML date inputs

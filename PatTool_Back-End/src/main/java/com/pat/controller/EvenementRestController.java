@@ -2,6 +2,7 @@ package com.pat.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pat.repo.domain.Evenement;
+import com.pat.repo.domain.FileUploaded;
 import com.pat.repo.EvenementsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.bson.types.ObjectId;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -138,13 +140,18 @@ public class EvenementRestController {
                 // Events with null dates will be at the end of the sorted results
                 query.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
                 
-                // Configure cursor batch size to 16 for faster streaming with reduced delays
-                // Smaller batch size (default is 101) means events are sent in smaller groups
-                // This reduces the delay between batches while maintaining reasonable efficiency
-                // Balance: Too small (1-2) = too many round trips, too large (101+) = long delays between batches
-                query.cursorBatchSize(16);
+                // CRITICAL PERFORMANCE OPTIMIZATION: Exclude fileUploadeds from query results
+                // All files will be loaded on-demand via /api/even/{id}/files endpoint
+                // This dramatically reduces document size for events with many files (50+)
+                query.fields().exclude("fileUploadeds");
                 
-                log.debug("Starting truly reactive stream from MongoDB Atlas for filter: {} (sorted by date DESC, most recent first, batch size: 16)", evenementName);
+                // Configure cursor batch size to 8 for optimal MongoDB efficiency
+                // With batch size 8, MongoDB fetches 8 documents at once, significantly reducing round trips
+                // This helps eliminate delays caused by MongoDB's internal processing and network latency
+                // The events are still sent immediately as they're processed, maintaining reactive streaming
+                // Larger batch size reduces the number of round trips to MongoDB, which is especially important
+                // when there are delays between certain documents (e.g., between 4th and 5th event)
+                query.cursorBatchSize(8);
                 
                 AtomicInteger sentCount = new AtomicInteger(0);
                 AtomicInteger totalCount = new AtomicInteger(0);
@@ -169,17 +176,22 @@ public class EvenementRestController {
                         
                         try {
                             // Apply filter if needed (in-memory filtering for complex logic)
-                            if (normalizedFilter.isEmpty() || matchesFilter(event, normalizedFilter)) {
+                            // If filter is empty, MongoDB already filtered correctly, so we accept all events
+                            // If filter exists, do in-memory filtering to match complex logic (short-circuit: matchesFilter() only called when filter is not empty)
+                            boolean shouldIncludeEvent = normalizedFilter.isEmpty() || matchesFilter(event, normalizedFilter);
+                            if (shouldIncludeEvent) {
                                 totalCount.incrementAndGet();
                                 
                                 // Check if event has a null date
                                 if (event.getBeginEventDate() == null) {
+                                    
                                     // Collect null-dated events to send at the end
                                     // Limit accumulation to prevent memory issues
                                     if (nullDateEvents.size() < 1000) {
                                         nullDateEvents.add(event);
                                     } else {
                                         // If too many null-dated events, send immediately to prevent memory buildup
+                                        
                                         try {
                                             if (!clientConnected.get()) {
                                                 return;
@@ -206,18 +218,27 @@ public class EvenementRestController {
                                             return; // Stop if client disconnected
                                         }
                                         
+                                        // Preload DBRef to avoid lazy loading during serialization
+                                        // This ensures DBRef resolution happens before serialization, not during
+                                        if (event.getAuthor() != null) {
+                                            // Trigger DBRef resolution by accessing the object
+                                            event.getAuthor().getId();
+                                        }
+                                        if (event.getMembers() != null && !event.getMembers().isEmpty()) {
+                                            // Trigger DBRef resolution for all members
+                                            event.getMembers().forEach(member -> {
+                                                if (member != null) {
+                                                    member.getId();
+                                                }
+                                            });
+                                        }
+                                        
                                         String eventJson = objectMapper.writeValueAsString(event);
                                         emitter.send(SseEmitter.event()
                                             .name("event")
                                             .data(eventJson));
                                         
-                                        int currentCount = sentCount.incrementAndGet();
-                                        
-                                        // Log first few events for debugging
-                                        if (currentCount <= 3) {
-                                            log.debug("✅ Sent event {} immediately (reactive): {} - Date: {}", 
-                                                currentCount, event.getId(), event.getBeginEventDate());
-                                        }
+                                        sentCount.incrementAndGet();
                                     } catch (IOException e) {
                                         // Client disconnected - mark as disconnected and stop processing
                                         log.debug("Client disconnected during streaming", e);
@@ -249,6 +270,15 @@ public class EvenementRestController {
                             // Check connection before sending
                             if (!clientConnected.get()) {
                                 break; // Stop if client disconnected
+                            }
+                            
+                            // Ensure only thumbnail file is included (should already be done, but double-check)
+                            if (event.getFileUploadeds() != null && !event.getFileUploadeds().isEmpty()) {
+                                List<FileUploaded> thumbnailOnly = event.getFileUploadeds().stream()
+                                    .filter(file -> file.getFileName() != null && 
+                                            file.getFileName().toLowerCase().contains("thumbnail"))
+                                    .collect(java.util.stream.Collectors.toList());
+                                event.setFileUploadeds(thumbnailOnly);
                             }
                             
                             String eventJson = objectMapper.writeValueAsString(event);
@@ -571,6 +601,37 @@ public class EvenementRestController {
     public Evenement getEvenement(@PathVariable String id) {
         //log.info("Get evenement {id} : " + id );
         return evenementsRepository.findById(id).orElse(null);
+    }
+    
+    /**
+     * Get all files for an event (loaded on-demand when user clicks file management button)
+     * This endpoint is called separately to avoid loading all files in list queries
+     * Uses MongoTemplate directly to ensure we get the complete document with all files
+     */
+    @RequestMapping(value = "/{id}/files", method = RequestMethod.GET)
+    public ResponseEntity<List<FileUploaded>> getEventFiles(@PathVariable String id) {
+        try {
+            // Use MongoTemplate directly to fetch the complete document from MongoDB
+            // This bypasses any potential caching and ensures we get all fileUploadeds
+            Query query = new Query(Criteria.where("_id").is(id));
+            Evenement evenement = mongoTemplate.findOne(query, Evenement.class);
+            
+            if (evenement == null) {
+                log.warn("Event not found for ID: {}", id);
+                return ResponseEntity.notFound().build();
+            }
+            
+            List<FileUploaded> files = evenement.getFileUploadeds();
+            if (files == null) {
+                files = new ArrayList<>();
+            }
+            
+            log.debug("Returning {} files for event {}", files.size(), id);
+            return ResponseEntity.ok(files);
+        } catch (Exception e) {
+            log.error("Error loading files for event {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 
     @RequestMapping( method = RequestMethod.POST)

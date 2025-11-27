@@ -332,6 +332,7 @@
         "ACCEPTED_FORMATS": "الصيغ المقبولة: الصور، الفيديوهات، PDF، المستندات، Excel، OpenOffice، الأرشيف",
         "SELECT_FILES": "اختيار الملفات",
 		"FILES": "الملفات",
+		"NO_FILES": "لا توجد ملفات",
 		"VIEW_DETAILS": "عرض التفاصيل",
 		"USER_DETAILS": "تفاصيل المستخدم",
 		"USER_INFO": "معلومات المستخدم",

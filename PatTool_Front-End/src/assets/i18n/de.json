@@ -334,6 +334,7 @@
         "ACCEPTED_FORMATS": "Akzeptierte Formate: Bilder, Videos, PDF, Dokumente, Excel, OpenOffice, Archive",
         "SELECT_FILES": "Dateien auswählen",
 		"FILES": "Dateien",
+		"NO_FILES": "Keine Dateien",
 		"VIEW_DETAILS": "Details anzeigen",
 		"USER_DETAILS": "Benutzerdetails",
 		"USER_INFO": "Benutzerinformationen",

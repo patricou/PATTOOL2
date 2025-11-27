@@ -63,8 +63,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private readonly CARDS_PER_PAGE = 8; // Number of cards to display at once
 	public nativeWindow: any;
 	public selectedEventPhotos: string[] = [];
-	public selectedEvent: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], []);
+	public selectedEvent: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], [], undefined);
 	public selectedEventName: string = '';
+	public isLoadingFiles: boolean = false;
 	public selectedImageUrl: SafeUrl | string = '';
 	public selectedImageAlt: string = '';
 	public selectedUser: Member | null = null;
@@ -117,6 +118,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private feedRequestToken = 0;
 	private prefetchTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	private streamingTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	private sseEventBatchTimeout: ReturnType<typeof setTimeout> | null = null;
 	private readonly prefetchThresholdMultiplier = 2;
 	private updateAverageColorTimeoutId: ReturnType<typeof setTimeout> | null = null;
 	private lastAverageRgb: { r: number; g: number; b: number } | null = null;
@@ -840,6 +842,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							this.filteredTotal = streamedEvent.data as number;
 							this.scheduleChangeDetection();
 						} else if (streamedEvent.type === 'event') {
+							
 							// New event received - add it to the buffer
 							const newEvent = streamedEvent.data as Evenement;
 							const newEventId = newEvent.id || this.getEventKey(newEvent);
@@ -868,23 +871,64 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 								this.allStreamedEvents.push(newEvent);
 							}
 							
-							// Display only first 8 events (or less if not enough)
-							this.updateDisplayedEvents();
+							// Always update hasMoreEvents during streaming
+							this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
 							
-		// Always update hasMoreEvents during streaming
-		this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
-							
-							// Use immediate change detection for initial cards to display them faster
-							// After initial cards, batch change detection for better performance
-							const isInitialCards = this.evenements.length <= this.INITIAL_CARDS_IMMEDIATE_DETECTION;
-							this.scheduleChangeDetection(isInitialCards);
+							// If we already have 8 events displayed, update immediately (no batching needed)
+							if (this.evenements.length >= this.CARDS_PER_PAGE) {
+								// Already have enough cards, just update the buffer
+								// Clear any pending batch timeout
+								if (this.sseEventBatchTimeout) {
+									clearTimeout(this.sseEventBatchTimeout);
+									this.sseEventBatchTimeout = null;
+								}
+								// Update displayed events immediately (in case of updates to existing events)
+								this.updateDisplayedEvents();
+								const isInitialCards = this.evenements.length <= this.INITIAL_CARDS_IMMEDIATE_DETECTION;
+								this.scheduleChangeDetection(isInitialCards);
+							} else {
+								// Batch SSE events: wait a very short time for more events to arrive before displaying
+								// This prevents delays between cards when SSE events arrive with gaps
+								if (this.sseEventBatchTimeout) {
+									clearTimeout(this.sseEventBatchTimeout);
+								}
+								
+								// If we have enough events to fill the page, display immediately
+								if (this.allStreamedEvents.length >= this.CARDS_PER_PAGE) {
+									// Clear timeout and display immediately
+									if (this.sseEventBatchTimeout) {
+										clearTimeout(this.sseEventBatchTimeout);
+										this.sseEventBatchTimeout = null;
+									}
+									this.updateDisplayedEvents();
+									const isInitialCards = this.evenements.length <= this.INITIAL_CARDS_IMMEDIATE_DETECTION;
+									this.scheduleChangeDetection(isInitialCards);
+								} else {
+									// Not enough events yet, batch with very short delay
+									this.sseEventBatchTimeout = setTimeout(() => {
+										// Display all available events up to CARDS_PER_PAGE
+										this.updateDisplayedEvents();
+										
+										// Use immediate change detection for initial cards to display them faster
+										const isInitialCards = this.evenements.length <= this.INITIAL_CARDS_IMMEDIATE_DETECTION;
+										this.scheduleChangeDetection(isInitialCards);
+										
+										this.sseEventBatchTimeout = null;
+									}, 5); // Very short delay (5ms) to batch rapid SSE events, but display quickly
+								}
+							}
 						} else if (streamedEvent.type === 'complete') {
 							// console.log('🎉 ✅ COMPLETE event received!');
 							
-							// Clear timeout since we got the complete event
+							// Clear timeouts since we got the complete event
 							if (this.streamingTimeoutId) {
 								clearTimeout(this.streamingTimeoutId);
 								this.streamingTimeoutId = null;
+							}
+							// Clear SSE batch timeout and display any remaining events immediately
+							if (this.sseEventBatchTimeout) {
+								clearTimeout(this.sseEventBatchTimeout);
+								this.sseEventBatchTimeout = null;
 							}
 							
 							// Streaming complete - ensure first 8 events are displayed
@@ -1526,7 +1570,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 
 	public isAnyFiles(evenement: Evenement): boolean {
-		return evenement.fileUploadeds && evenement.fileUploadeds.length > 0;
+		// Always return true to ensure button is visible for testing
+		// In production, this should check if files exist
+		const hasFiles = evenement.fileUploadeds && evenement.fileUploadeds.length > 0;
+		return true; // Temporarily always show button for debugging
 	}
 
 	public deleteEvenement(evenement: Evenement) {
@@ -1556,13 +1603,22 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 	}
 
-	public toggleFileList(evenement: Evenement) {
+	public toggleFileList(evenement: Evenement): void {
+		if (!evenement || !evenement.id) {
+			return;
+		}
+		
+		// Set selectedEvent with existing files (thumbnail) so they display immediately
 		this.selectedEvent = evenement;
 		this.selectedEventName = evenement.evenementName;
 		
-		// Load thumbnails when modal opens
-		this.loadFileThumbnails(evenement);
+		// Set loading state to show spinner while files are being loaded
+		this.isLoadingFiles = true;
 		
+		// Force change detection before opening modal
+		this.cdr.markForCheck();
+		
+		// Open modal immediately with spinner
 		this.modalService.open(this.filesModal, { 
 			size: 'lg',
 			backdrop: 'static',
@@ -1570,19 +1626,81 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			animation: true,
 			centered: true
 		});
+		
+		// Load all files on-demand in the background
+		// This avoids loading all files in the list query (only thumbnail is loaded)
+		if (!this._evenementsService) {
+			console.error('_evenementsService is not available!');
+			this.isLoadingFiles = false;
+			this.cdr.markForCheck();
+			return;
+		}
+		
+		this._evenementsService.getEventFiles(evenement.id).subscribe({
+			next: (files: UploadedFile[]) => {
+				// Create a new Evenement object with all files loaded
+				// This ensures Angular's change detection works properly with OnPush strategy
+				this.selectedEvent = new Evenement(
+					evenement.author,
+					evenement.closeInscriptionDate,
+					evenement.comments,
+					evenement.creationDate,
+					evenement.endEventDate,
+					evenement.beginEventDate,
+					evenement.evenementName,
+					evenement.id,
+					evenement.members,
+					evenement.openInscriptionDate,
+					evenement.status,
+					evenement.type,
+					files || [], // Use the loaded files instead of the original fileUploadeds
+					evenement.startHour,
+					evenement.diffculty,
+					evenement.startLocation,
+					evenement.durationEstimation,
+					evenement.ratingPlus,
+					evenement.ratingMinus,
+					evenement.visibility,
+					evenement.urlEvents,
+					evenement.commentaries,
+					evenement.thumbnail
+				);
+				
+				this.isLoadingFiles = false;
+				
+				// Force change detection after files are loaded
+				this.cdr.markForCheck();
+				
+				// Load thumbnails for all image files now that we have the complete list
+				setTimeout(() => {
+					this.loadFileThumbnails(this.selectedEvent);
+					// Force change detection again after thumbnails start loading
+					this.cdr.markForCheck();
+				}, 50);
+			},
+			error: (error) => {
+				console.error('Error loading event files:', error);
+				this.isLoadingFiles = false;
+				// If error, keep the original event with thumbnail only
+				this.selectedEvent = evenement;
+				this.loadFileThumbnails(this.selectedEvent);
+				this.cdr.markForCheck();
+			}
+		});
 	}
 	
-	// Load thumbnails for image files (only those with "thumbnail" in the name)
+	// Load thumbnails for image files
+	// When called from list view, only thumbnail files are present
+	// When called after loading all files, all image files are available
 	private loadFileThumbnails(evenement: Evenement): void {
 		if (!evenement.fileUploadeds || evenement.fileUploadeds.length === 0) {
 			return;
 		}
 		
-		// Filter image files that have "thumbnail" in the name and load their thumbnails
+		// Load thumbnails for all image files (not just those with "thumbnail" in name)
+		// This allows displaying thumbnails for all images when files modal is open
 		const imageFiles = evenement.fileUploadeds.filter(file => 
-			this.isImageFile(file.fileName) && 
-			file.fileName && 
-			file.fileName.toLowerCase().includes('thumbnail')
+			this.isImageFile(file.fileName)
 		);
 		
 		imageFiles.forEach(file => {
@@ -1917,12 +2035,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		}
 
-		// Chercher un fichier avec "thumbnail" dans le nom
-		const thumbnailFile = evenement.fileUploadeds?.find(file => 
-			file.fileName && file.fileName.toLowerCase().includes('thumbnail')
-		);
+		// Use the thumbnail field directly (set when file with "thumbnail" in name is uploaded)
+		const thumbnailFile = evenement.thumbnail;
 		
-		if (thumbnailFile) {
+		if (thumbnailFile && thumbnailFile.fieldId) {
 			// Check if already cached in element-evenement shared cache first
 			if (ElementEvenementComponent.isThumbnailCached(thumbnailFile.fieldId)) {
 				const cachedThumbnail = ElementEvenementComponent.getCachedThumbnail(thumbnailFile.fieldId);
@@ -1950,12 +2066,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	// Start loading thumbnail for an event (called in parallel for multiple events)
 	private startThumbnailLoad(evenement: Evenement, eventId: string): void {
-		// Find a file with "thumbnail" in the name
-		const thumbnailFile = evenement.fileUploadeds?.find(file => 
-			file.fileName && file.fileName.toLowerCase().includes('thumbnail')
-		);
+		// Use the thumbnail field directly (set when file with "thumbnail" in name is uploaded)
+		const thumbnailFile = evenement.thumbnail;
 		
-		if (thumbnailFile) {
+		if (thumbnailFile && thumbnailFile.fieldId) {
 			// Mark thumbnail load start
 			const loadingInfo = this.loadingEvents.get(eventId);
 			if (loadingInfo) {
@@ -2018,12 +2132,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				}
 			}
 			
-			// Find a file with "thumbnail" in the name
-			const thumbnailFile = evenement.fileUploadeds?.find(file => 
-				file.fileName && file.fileName.toLowerCase().includes('thumbnail')
-			);
+			// Use the thumbnail field directly (set when file with "thumbnail" in name is uploaded)
+			const thumbnailFile = evenement.thumbnail;
 			
-			if (thumbnailFile) {
+			if (thumbnailFile && thumbnailFile.fieldId) {
 				// Check if already cached in element-evenement shared cache
 				if (ElementEvenementComponent.isThumbnailCached(thumbnailFile.fieldId)) {
 					const cachedThumbnail = ElementEvenementComponent.getCachedThumbnail(thumbnailFile.fieldId);
@@ -2064,11 +2176,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						const objectUrl = this.nativeWindow.URL.createObjectURL(blob);
 						const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
 						
-						// Only cache blobs for files with "thumbnail" in the name
-						// Store the Blob in cache for potential recreation later (only for thumbnails)
-						if (thumbnailFile.fileName && thumbnailFile.fileName.toLowerCase().includes('thumbnail')) {
-							ElementEvenementComponent.setCachedBlob(thumbnailFile.fieldId, blob);
-						}
+						// Cache the blob for potential recreation later (thumbnails are always cached)
+						ElementEvenementComponent.setCachedBlob(thumbnailFile.fieldId, blob);
 						
 						// Cache in both places
 						this.eventThumbnails.set(eventId, safeUrl);
@@ -2781,17 +2890,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			clearTimeout(this.streamingTimeoutId);
 			this.streamingTimeoutId = null;
 		}
-		// Clear memory auto-refresh interval
-		if (this.memoryAutoRefreshInterval) {
-			clearInterval(this.memoryAutoRefreshInterval);
-			this.memoryAutoRefreshInterval = undefined;
+		// Clear SSE event batch timeout
+		if (this.sseEventBatchTimeout) {
+			clearTimeout(this.sseEventBatchTimeout);
+			this.sseEventBatchTimeout = null;
 		}
-		// Clear cache auto-refresh interval
-		if (this.cacheAutoRefreshInterval) {
-			clearInterval(this.cacheAutoRefreshInterval);
-			this.cacheAutoRefreshInterval = undefined;
-		}
-		
 		// Unblock scrolling if it was blocked
 		if (this.shouldBlockScroll) {
 			this.unblockPageScroll();
@@ -2814,18 +2917,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		if (this.debugInfoUpdateInterval) {
 			clearInterval(this.debugInfoUpdateInterval);
 			this.debugInfoUpdateInterval = undefined;
-		}
-		
-		// Clear memory auto-refresh interval
-		if (this.memoryAutoRefreshInterval) {
-			clearInterval(this.memoryAutoRefreshInterval);
-			this.memoryAutoRefreshInterval = undefined;
-		}
-		
-		// Clean up poll interval
-		if (this.pollIntervalId) {
-			clearInterval(this.pollIntervalId);
-			this.pollIntervalId = null;
 		}
 		
 		// Unsubscribe from all subscriptions
@@ -2894,7 +2985,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				}
 			} catch (error) {
 				// Ignorer les erreurs lors du nettoyage
-				// console.warn('Error cleaning up blob URL:', error);
 			}
 		});
 		this.eventThumbnails.clear();
@@ -2909,41 +2999,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					}
 				}
 			} catch (error) {
-				// console.warn('Error cleaning up file thumbnail blob URL:', error);
+				// Ignorer les erreurs
 			}
 		});
 		this.fileThumbnailsCache.clear();
 		this.fileThumbnailsLoading.clear();
-		
-		// Clean up static caches from ElementEvenementComponent
-		// Collect all fieldIds and eventIds currently displayed
-		const keepEventIds = new Set<string>();
-		const keepFieldIds = new Set<string>();
-		this.evenements.forEach(e => {
-			const eId = e.id || this.getEventKey(e);
-			if (eId) {
-				keepEventIds.add(eId);
-				// Collect fieldIds from thumbnail files
-				if (e.fileUploadeds) {
-					e.fileUploadeds.forEach(file => {
-						if (file.fileName && file.fileName.indexOf('thumbnail') !== -1 && file.fieldId) {
-							keepFieldIds.add(file.fieldId);
-						}
-					});
-				}
-			}
-		});
-		
-		// Clean up static caches, keeping only what's currently displayed
-		if (keepFieldIds.size > 0) {
-			ElementEvenementComponent.cleanupUnusedCaches(keepFieldIds);
-		} else {
-			// If no events displayed, clean all (component is being destroyed)
-			ElementEvenementComponent.cleanupUnusedCaches(new Set<string>());
-		}
-		ElementEvenementComponent.cleanupUnusedThumbnailCache(keepEventIds);
 	}
-	
+
+	// Show notification when SSE event arrives
 	// Scroll to top of the page
 	private scrollToTop(): void {
 		this.nativeWindow.scrollTo(0, 0);

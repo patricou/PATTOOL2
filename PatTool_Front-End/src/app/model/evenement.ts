@@ -27,6 +27,7 @@ export class Evenement {
         public ratingMinus: number,
         public visibility: string,
         public urlEvents: UrlEvent[],
-        public commentaries: Commentary[]
+        public commentaries: Commentary[],
+        public thumbnail?: UploadedFile // Thumbnail file (file with "thumbnail" in its name)
     ) { }
 }

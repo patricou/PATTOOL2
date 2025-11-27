@@ -336,6 +336,7 @@
         "ACCEPTED_FORMATS": "受け入れ可能な形式：画像、動画、PDF、文書、Excel、OpenOffice、アーカイブ",
         "SELECT_FILES": "ファイルを選択",
 		"FILES": "ファイル",
+		"NO_FILES": "ファイルなし",
 		"VIEW_DETAILS": "詳細を表示",
 		"USER_DETAILS": "ユーザー詳細",
 		"USER_INFO": "ユーザー情報",
