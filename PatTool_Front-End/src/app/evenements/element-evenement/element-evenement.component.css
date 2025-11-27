@@ -222,6 +222,18 @@
     align-self: flex-end !important;
 }
 
+/* White border for all footer buttons */
+.card-footer .btn,
+.card-footer a.btn,
+.card-footer button.btn,
+.card-footer a.btn-sm,
+.card-footer button.btn-sm,
+.card-footer .file-upload-wrapper label.btn {
+    border: 1px solid white !important;
+    border-width: 1px !important;
+    border-color: white !important;
+}
+
 .card-footer .btn,
 .card-footer a.btn,
 .card-footer button.btn,
@@ -633,6 +645,36 @@
     border-color: currentColor !important;
     background-color: rgba(0, 0, 0, 0.05) !important;
     opacity: 1 !important;
+}
+
+/* Files modal close button - styled like slideshow close button */
+.files-modal-close-btn {
+    border: 2px solid white !important;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: all 0.3s ease;
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    backdrop-filter: blur(5px);
+}
+
+.files-modal-close-btn:hover {
+    background-color: rgba(255, 255, 255, 0.25) !important;
+    border-color: white !important;
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.files-modal-close-btn:active {
+    transform: scale(0.95);
+}
+
+.files-modal-close-btn i {
+    color: white;
+    font-size: 1rem;
 }
 
 .card-block .card-text h5 .btn-outline-primary[title*="files list"]:hover,

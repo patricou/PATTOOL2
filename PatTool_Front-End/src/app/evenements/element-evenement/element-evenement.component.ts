@@ -10,8 +10,8 @@ import { NgbModal, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
 import * as JSZip from 'jszip';
 
-import { Observable, firstValueFrom, Subscription } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, firstValueFrom, Subscription, of } from 'rxjs';
+import { map, take, catchError } from 'rxjs/operators';
 import { UploadedFile } from '../../model/uploadedfile';
 import { Member } from '../../model/member';
 import { Evenement } from '../../model/evenement';
@@ -260,10 +260,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			// Use setTimeout to ensure this runs after Angular's change detection cycle
 			setTimeout(() => {
 				this.cardReady.emit(eventId);
+				// Files will be loaded on-demand when buttons are clicked
 			}, 0);
 		}
 	}
-
+	
 	constructor(
 		private sanitizer: DomSanitizer,
 		private _router: Router,
@@ -464,6 +465,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		count += this.getPhotoFromFsCount();
 		// Each web photo link counts as 1
 		count += this.getPhotosUrlLinks().length;
+		// If thumbnail exists, add 1
+		if (this.evenement.thumbnail) {
+			count += 1;
+		}
+		// If fileUploadeds has items, remove 1 (thumbnail is already counted in fileUploadeds)
+		if (this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0) {
+			count -= 1;
+		}
 		return count;
 	}
 
@@ -473,10 +482,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
         const webLinks = this.getPhotosUrlLinks();
         const hasAnyLinks = (fsLinks.length + webLinks.length) > 0;
 
-        if (!includeUploadedChoice && !hasAnyLinks) {
+        // If includeUploadedChoice is true, always open modal (even if files are still loading)
+        if (includeUploadedChoice) {
+            // Use the new photos selector modal component
+            if (this.photosSelectorModalComponent) {
+                this.photosSelectorModalComponent.evenement = this.evenement;
+                this.photosSelectorModalComponent.includeUploadedChoice = includeUploadedChoice;
+                this.photosSelectorModalComponent.user = this.user;
+                this.photosSelectorModalComponent.open();
+            }
             return;
         }
-        if (!includeUploadedChoice && fsLinks.length === 1 && webLinks.length === 0) {
+        
+        // If not including uploaded choice, check if we have links
+        if (!hasAnyLinks) {
+            return;
+        }
+        if (fsLinks.length === 1 && webLinks.length === 0) {
             this.openFsPhotosDiaporama(fsLinks[0].link, true);
             return;
         }
@@ -640,6 +662,39 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Unified photos opener (uploaded photos or FS photos)
 	public openPhotos(): void {
 		this.forceCloseTooltips();
+		
+		// Check what we have available (without needing files loaded)
+		const hasFs = this.getPhotoFromFsCount() > 0;
+		const hasPhotosWeb = this.getPhotosUrlLinks().length > 0;
+		
+		// If we have FS or web photos, open the selector modal immediately
+		// Files will be loaded in the background if needed
+		if (hasFs || hasPhotosWeb) {
+			// Open the photos selector modal FIRST
+			// Always include uploaded choice - files will load in background
+			this.openFsPhotosSelector(true);
+			
+			// Load files in background if not already loaded (non-blocking)
+			if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
+				this.loadFilesForSlideshow();
+			}
+			return;
+		}
+		
+		// No FS or web photos - check if we have uploaded images
+		// If files aren't loaded, we need to load them first before opening slideshow
+		if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
+			// Load files first, then open slideshow when complete
+			this.loadFilesForSlideshow();
+			return;
+		}
+		
+		// Files are loaded - proceed with opening slideshow
+		this.openPhotosWithFiles();
+	}
+	
+	// Open photos when files are already loaded
+	private openPhotosWithFiles(): void {
 		const hasFs = this.getPhotoFromFsCount() > 0;
 		const hasPhotosWeb = this.getPhotosUrlLinks().length > 0;
 		const hasUploaded = this.hasImageFiles(); // This checks for image files only
@@ -665,6 +720,34 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			// No images at all
 			alert('Aucune image trouvée dans cet événement.');
 		}
+	}
+	
+	// Load files asynchronously for slideshow
+	private loadFilesForSlideshow(): void {
+		if (!this.evenement || !this.evenement.id || !this._evenementsService) {
+			return;
+		}
+		
+		// Stream files using Server-Sent Events (SSE)
+		this._evenementsService.streamEventFiles(this.evenement.id).subscribe({
+			next: (streamedFile) => {
+				if (streamedFile.type === 'file') {
+					// File received - add to array
+					const file = streamedFile.data as UploadedFile;
+					if (!this.evenement.fileUploadeds) {
+						this.evenement.fileUploadeds = [];
+					}
+					this.evenement.fileUploadeds.push(file);
+				} else if (streamedFile.type === 'complete') {
+					// All files loaded - now open photos
+					this.openPhotosWithFiles();
+				}
+			},
+			error: (error) => {
+				console.error('Error loading files for slideshow:', error);
+				alert('Erreur lors du chargement des fichiers.');
+			}
+		});
 	}
 
 	// =========================
@@ -986,6 +1069,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					setTimeout(() => {
 						this.loadThumbnail();
 					}, 150);
+					
+					// Files will be loaded on-demand when buttons are clicked
 				}
 			}
 		}
@@ -2975,16 +3060,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return;
 		}
 		
-		if (!this._evenementsService) {
-			console.error('_evenementsService is not available!');
-			return;
-		}
-		
-		// Set loading state to show spinner while files are being loaded
-		this.isLoadingFiles = true;
-		
-		// Open the modal immediately with spinner
-		this.modalService.open(content, { 
+		// Open the modal FIRST - before doing anything else
+		const modalRef = this.modalService.open(content, { 
 			size: 'xl', 
 			centered: true, 
 			backdrop: 'static', 
@@ -2992,23 +3069,136 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			windowClass: 'files-management-modal'
 		});
 		
-		// Load all files on-demand in the background
-		// This avoids loading all files in the list query (only thumbnail is loaded)
-		this._evenementsService.getEventFiles(this.evenement.id).subscribe({
-			next: (files: UploadedFile[]) => {
-				// Update the evenement with all loaded files
-				if (files && files.length > 0) {
-					this.evenement.fileUploadeds = files;
+		// Check if files are already loaded in evenement.fileUploadeds (from previous modal open)
+		if (this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0) {
+			// Files are already loaded - just display them
+			this.isLoadingFiles = false;
+			console.log(`Using ${this.evenement.fileUploadeds.length} already loaded files for event ${this.evenement.id}`);
+			return;
+		}
+		
+		// Initialize empty array and show loading state AFTER modal is opened
+		this.isLoadingFiles = true;
+		
+		// Wait for modal to be fully rendered before initializing array and starting file load
+		setTimeout(() => {
+			// Initialize empty array after modal is rendered
+			this.evenement.fileUploadeds = [];
+			
+			if (!this._evenementsService) {
+				console.error('_evenementsService is not available!');
+				this.isLoadingFiles = false;
+				return;
+			}
+			
+			// Stream files using Server-Sent Events (SSE) - files appear as database finds them
+			this._evenementsService.streamEventFiles(this.evenement.id).subscribe({
+				next: (streamedFile) => {
+					if (streamedFile.type === 'total') {
+						// Total count received - can be used for progress indication
+						const totalCount = streamedFile.data as number;
+						console.log(`Streaming ${totalCount} files for event ${this.evenement.id}`);
+						// If total is 0, hide loading immediately
+						if (totalCount === 0) {
+							this.isLoadingFiles = false;
+						}
+					} else if (streamedFile.type === 'file') {
+						// File received from database - display it immediately
+						const file = streamedFile.data as UploadedFile;
+						
+						// Add file to the array immediately (Angular change detection will update the view)
+						this.evenement.fileUploadeds.push(file);
+						
+						// Load thumbnail for this file immediately (non-blocking, async)
+						// This starts the thumbnail download in parallel without blocking the UI
+						this.loadFileThumbnail(file);
+					} else if (streamedFile.type === 'complete') {
+						// All files have been streamed
+						this.isLoadingFiles = false;
+						console.log(`Completed streaming ${this.evenement.fileUploadeds.length} files`);
+					} else if (streamedFile.type === 'error') {
+						// Error received from server
+						console.error('Error from server:', streamedFile.data);
+						this.isLoadingFiles = false;
+					}
+				},
+				error: (error) => {
+					console.error('Error streaming files:', error);
+					this.isLoadingFiles = false;
+				},
+				complete: () => {
+					// Stream completed - ensure loading is hidden
+					this.isLoadingFiles = false;
 				}
-				
-				this.isLoadingFiles = false;
-				
-				// Load thumbnails for all files
-				this.loadFileThumbnails();
-			},
-			error: (error) => {
-				console.error('Error loading files:', error);
-				this.isLoadingFiles = false;
+			});
+		}, 100); // Small delay to ensure modal is fully rendered
+	}
+	
+	// Load thumbnail for a single file
+	private loadFileThumbnail(file: UploadedFile): void {
+		if (!file || !this.isImageFile(file.fileName) || !file.fileName) {
+			return;
+		}
+		
+		// Skip if already cached or loading
+		if (this.fileThumbnailsCache.has(file.fieldId) || this.fileThumbnailsLoading.has(file.fieldId)) {
+			return;
+		}
+		
+		// Check if already cached in shared cache
+		if (ElementEvenementComponent.isThumbnailCached(file.fieldId)) {
+			const cachedThumbnail = ElementEvenementComponent.getCachedThumbnail(file.fieldId);
+			if (cachedThumbnail) {
+				this.fileThumbnailsCache.set(file.fieldId, cachedThumbnail);
+				return;
+			}
+		}
+		
+		// Check if file is currently being loaded
+		if (ElementEvenementComponent.isFileLoading(file.fieldId) || this.fileThumbnailsLoading.has(file.fieldId)) {
+			return;
+		}
+		
+		// Mark as loading
+		this.fileThumbnailsLoading.add(file.fieldId);
+		ElementEvenementComponent.setFileLoading(file.fieldId);
+		
+		// Track loading start time
+		const loadStartTime = performance.now();
+		this.fileThumbnailsLoadTimes.set(file.fieldId, { start: loadStartTime, end: 0, fileName: file.fileName, displayed: false });
+		
+		// Load the file and create thumbnail URL
+		this._fileService.getFile(file.fieldId).pipe(
+			take(1),
+			catchError(error => {
+				console.error(`Error loading thumbnail for file ${file.fileName}:`, error);
+				this.fileThumbnailsLoading.delete(file.fieldId);
+				ElementEvenementComponent.clearFileLoading(file.fieldId);
+				return of(null);
+			})
+		).subscribe({
+			next: (blob: Blob | null) => {
+				if (blob) {
+					// Determine MIME type from file extension for proper image display
+					const mimeType = this.getImageMimeType(file.fileName);
+					const typedBlob = new Blob([blob], { type: mimeType || 'image/jpeg' });
+					const objectUrl = this.nativeWindow.URL.createObjectURL(typedBlob);
+					const safeUrl = this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+					
+					this.fileThumbnailsCache.set(file.fieldId, safeUrl);
+					ElementEvenementComponent.setCachedThumbnail(file.fieldId, safeUrl);
+					
+					// Track loading end time
+					const loadEndTime = performance.now();
+					const loadTime = loadEndTime - loadStartTime;
+					const loadTimeData = this.fileThumbnailsLoadTimes.get(file.fieldId);
+					if (loadTimeData) {
+						loadTimeData.end = loadEndTime;
+						loadTimeData.displayed = true;
+					}
+				}
+				this.fileThumbnailsLoading.delete(file.fieldId);
+				ElementEvenementComponent.clearFileLoading(file.fieldId);
 			}
 		});
 	}
@@ -4109,7 +4299,17 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	public getFilesCount(): number {
-		return this.evenement.fileUploadeds ? this.evenement.fileUploadeds.length : 0;
+		// Return the count from evenement.fileUploadeds
+		let count = this.evenement.fileUploadeds ? this.evenement.fileUploadeds.length : 0;
+		// If thumbnail exists, add 1
+		if (this.evenement.thumbnail) {
+			count += 1;
+		}
+		// If fileUploadeds has items, remove 1 (thumbnail is already counted in fileUploadeds)
+		if (this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0) {
+			count -= 1;
+		}
+		return count;
 	}
 
 	public getEventComments(): any[] {

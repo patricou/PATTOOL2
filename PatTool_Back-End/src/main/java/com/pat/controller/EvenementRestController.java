@@ -634,6 +634,120 @@ public class EvenementRestController {
         }
     }
 
+    /**
+     * Reactive streaming endpoint for files using Server-Sent Events (SSE)
+     * Streams files one by one as they are found in the database
+     * Sends data immediately when 1 file is available (truly reactive approach)
+     * Optimized to fetch only fileUploadeds field for faster response
+     */
+    @GetMapping(value = "/{id}/files/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamEventFiles(@PathVariable String id) {
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // No timeout
+        
+        CompletableFuture.runAsync(() -> {
+            try {
+                // Optimize query: only fetch fileUploadeds field to minimize data transfer
+                Query query = new Query(Criteria.where("_id").is(id));
+                query.fields().include("fileUploadeds"); // Only fetch fileUploadeds field
+                
+                Evenement evenement = mongoTemplate.findOne(query, Evenement.class);
+                
+                if (evenement == null) {
+                    log.warn("Event not found for ID: {}", id);
+                    try {
+                        emitter.send(SseEmitter.event()
+                            .name("error")
+                            .data("Event not found"));
+                        emitter.complete();
+                    } catch (Exception e) {
+                        emitter.completeWithError(new RuntimeException("Event not found"));
+                    }
+                    return;
+                }
+                
+                List<FileUploaded> files = evenement.getFileUploadeds();
+                if (files == null) {
+                    files = new ArrayList<>();
+                }
+                
+                // Send total count first (before any files)
+                try {
+                    emitter.send(SseEmitter.event()
+                        .name("total")
+                        .data(String.valueOf(files.size())));
+                } catch (IOException e) {
+                    log.debug("Client disconnected while sending total count", e);
+                    emitter.completeWithError(e);
+                    return;
+                }
+                
+                // Stream files one by one immediately - no delays
+                AtomicInteger sentCount = new AtomicInteger(0);
+                for (FileUploaded file : files) {
+                    try {
+                        // Pre-resolve DBRef for uploaderMember to avoid lazy loading during serialization
+                        if (file.getUploaderMember() != null) {
+                            file.getUploaderMember().getId(); // Trigger DBRef resolution
+                        }
+                        
+                        // Serialize file to JSON (fast operation)
+                        String fileJson = objectMapper.writeValueAsString(file);
+                        
+                        // Send file immediately - no artificial delays
+                        emitter.send(SseEmitter.event()
+                            .name("file")
+                            .data(fileJson));
+                        
+                        sentCount.incrementAndGet();
+                        
+                        // Log only for first file and last file to reduce logging overhead
+                        if (sentCount.get() == 1) {
+                            log.debug("Started streaming files for event {} (total: {})", id, files.size());
+                        }
+                        
+                    } catch (IOException e) {
+                        // Client disconnected
+                        log.debug("Client disconnected during file streaming at file {}", sentCount.get(), e);
+                        emitter.completeWithError(e);
+                        return;
+                    } catch (IllegalStateException e) {
+                        // Emitter already completed/closed
+                        log.debug("Emitter already closed, stopping file stream at file {}", sentCount.get(), e);
+                        return;
+                    } catch (Exception e) {
+                        log.error("Error sending file {}: {}", sentCount.get(), file.getFileName(), e);
+                        // Continue with next file instead of failing completely
+                    }
+                }
+                
+                // Send completion event
+                try {
+                    emitter.send(SseEmitter.event()
+                        .name("complete")
+                        .data(""));
+                    emitter.complete();
+                    log.debug("Completed streaming {} files for event {}", sentCount.get(), id);
+                } catch (Exception e) {
+                    log.debug("Error sending completion event", e);
+                    emitter.complete();
+                }
+                
+            } catch (Exception e) {
+                log.error("Error streaming files for event {}", id, e);
+                try {
+                    emitter.send(SseEmitter.event()
+                        .name("error")
+                        .data("Error loading files: " + e.getMessage()));
+                    emitter.complete();
+                } catch (Exception ex) {
+                    emitter.completeWithError(e);
+                }
+            }
+        }, executorService);
+        
+        return emitter;
+    }
+
     @RequestMapping( method = RequestMethod.POST)
     public ResponseEntity<Evenement> addEvenement(@RequestBody Evenement evenement){
 

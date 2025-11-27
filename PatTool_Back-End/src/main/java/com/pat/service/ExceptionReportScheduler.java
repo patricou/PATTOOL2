@@ -130,7 +130,7 @@ public class ExceptionReportScheduler {
         LocalDateTime reportStart = null;
         LocalDateTime reportEnd = null;
 
-        // Build user connections list grouped by user, date, and hour
+        // Build user connections list grouped by user, date (day only, not hour)
         Map<UserDateHourKey, GroupedUserConnection> groupedConnectionsMap = new LinkedHashMap<>();
         for (Map.Entry<String, List<ExceptionTrackingService.ConnectionInfo>> entry : connections.entrySet()) {
             String ipAddress = entry.getKey();
@@ -179,8 +179,8 @@ public class ExceptionReportScheduler {
         List<GroupedUserConnection> userConnectionRows = new ArrayList<>(groupedConnectionsMap.values());
         userConnectionRows.sort(Comparator.comparing(GroupedUserConnection::getFirstTimestamp).reversed());
 
-        // Build IP exception/attempt summary (grouped by IP with count)
-        Map<String, IPAttemptData> ipAttemptMap = new LinkedHashMap<>();
+        // Build IP exception/attempt summary (grouped by IP and date - day only, not hour)
+        Map<IPDateKey, GroupedIPAttempt> groupedIPAttemptsMap = new LinkedHashMap<>();
         
         // Add exceptions
         for (Map.Entry<String, List<ExceptionTrackingService.ExceptionInfo>> entry : exceptions.entrySet()) {
@@ -195,11 +195,6 @@ public class ExceptionReportScheduler {
             String location = formatLocation(ipInfo);
             String country = extractCountry(location);
 
-            IPAttemptData attemptData = ipAttemptMap.computeIfAbsent(
-                ipAddress,
-                k -> new IPAttemptData(ipAddress, domainName, location, country)
-            );
-
             for (ExceptionTrackingService.ExceptionInfo info : exceptionList) {
                 if (info == null) {
                     continue;
@@ -212,7 +207,18 @@ public class ExceptionReportScheduler {
                     if (reportEnd == null || timestamp.isAfter(reportEnd)) {
                         reportEnd = timestamp;
                     }
-                    attemptData.addTimestamp(timestamp);
+                    
+                    // Create key for grouping by IP and date (day only)
+                    IPDateKey key = new IPDateKey(ipAddress, timestamp);
+                    
+                    // Get or create grouped attempt
+                    GroupedIPAttempt groupedAttempt = groupedIPAttemptsMap.computeIfAbsent(
+                        key,
+                        k -> new GroupedIPAttempt(ipAddress, domainName, location, country, timestamp)
+                    );
+                    
+                    // Add this attempt to the group
+                    groupedAttempt.addAttempt(timestamp);
                 }
             }
         }
@@ -230,11 +236,6 @@ public class ExceptionReportScheduler {
             String location = formatLocation(ipInfo);
             String country = extractCountry(location);
 
-            IPAttemptData attemptData = ipAttemptMap.computeIfAbsent(
-                ipAddress,
-                k -> new IPAttemptData(ipAddress, domainName, location, country)
-            );
-
             for (ExceptionTrackingService.LogInfo info : logList) {
                 if (info == null) {
                     continue;
@@ -247,13 +248,25 @@ public class ExceptionReportScheduler {
                     if (reportEnd == null || timestamp.isAfter(reportEnd)) {
                         reportEnd = timestamp;
                     }
-                    attemptData.addTimestamp(timestamp);
+                    
+                    // Create key for grouping by IP and date (day only)
+                    IPDateKey key = new IPDateKey(ipAddress, timestamp);
+                    
+                    // Get or create grouped attempt
+                    GroupedIPAttempt groupedAttempt = groupedIPAttemptsMap.computeIfAbsent(
+                        key,
+                        k -> new GroupedIPAttempt(ipAddress, domainName, location, country, timestamp)
+                    );
+                    
+                    // Add this attempt to the group
+                    groupedAttempt.addAttempt(timestamp);
                 }
             }
         }
         
-        List<IPAttemptData> ipAttemptList = new ArrayList<>(ipAttemptMap.values());
-        ipAttemptList.sort(Comparator.comparingInt(IPAttemptData::getCount).reversed());
+        // Convert map to sorted list
+        List<GroupedIPAttempt> groupedIPAttemptList = new ArrayList<>(groupedIPAttemptsMap.values());
+        groupedIPAttemptList.sort(Comparator.comparing(GroupedIPAttempt::getFirstTimestamp).reversed());
 
         String reportFrom = reportStart != null ? escapeHtml(formatDateTime(reportStart)) : "N/A";
         String reportTo = reportEnd != null ? escapeHtml(formatDateTime(reportEnd)) : "N/A";
@@ -300,7 +313,7 @@ public class ExceptionReportScheduler {
             bodyBuilder.append("<table>");
             bodyBuilder.append("<tr>");
             bodyBuilder.append("<th>Utilisateur</th>");
-            bodyBuilder.append("<th>Date/Heure</th>");
+            bodyBuilder.append("<th>Date</th>");
             bodyBuilder.append("<th>Nombre</th>");
             bodyBuilder.append("<th>IP</th>");
             bodyBuilder.append("<th>Local</th>");
@@ -324,7 +337,7 @@ public class ExceptionReportScheduler {
         }
 
         // ========== SECTION 2: IP ATTEMPTS/EXCEPTIONS ==========
-        if (!ipAttemptList.isEmpty()) {
+        if (!groupedIPAttemptList.isEmpty()) {
             bodyBuilder.append("<div class='section exception-section'>");
             bodyBuilder.append("<div class='section-header'>🔴 IPs AVEC TENTATIVES/CONNEXIONS OU EXCEPTIONS</div>");
             bodyBuilder.append("<table>");
@@ -334,21 +347,17 @@ public class ExceptionReportScheduler {
             bodyBuilder.append("<th>Local</th>");
             bodyBuilder.append("<th>Pays</th>");
             bodyBuilder.append("<th>Domaine</th>");
-            bodyBuilder.append("<th>Date/Heure</th>");
             bodyBuilder.append("<th>Nombre</th>");
             bodyBuilder.append("</tr>");
             
-            for (IPAttemptData attemptData : ipAttemptList) {
-                String firstDate = attemptData.getFirstDate();
-                String allTimestamps = attemptData.formatTimestamps(this::formatDateTime, this::escapeHtml);
+            for (GroupedIPAttempt groupedAttempt : groupedIPAttemptList) {
                 bodyBuilder.append("<tr>");
-                bodyBuilder.append("<td>").append(escapeHtml(firstDate)).append("</td>");
-                bodyBuilder.append("<td>").append(escapeHtml(attemptData.getIp())).append("</td>");
-                bodyBuilder.append("<td>").append(escapeHtml(attemptData.getLocation())).append("</td>");
-                bodyBuilder.append("<td>").append(escapeHtml(attemptData.getCountry())).append("</td>");
-                bodyBuilder.append("<td>").append(escapeHtml(attemptData.getDomain())).append("</td>");
-                bodyBuilder.append("<td>").append(allTimestamps).append("</td>");
-                bodyBuilder.append("<td>").append(attemptData.getCount()).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(groupedAttempt.formatDate())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(groupedAttempt.getIp())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(groupedAttempt.getLocation())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(groupedAttempt.getCountry())).append("</td>");
+                bodyBuilder.append("<td>").append(escapeHtml(groupedAttempt.getDomain())).append("</td>");
+                bodyBuilder.append("<td><strong>").append(groupedAttempt.getAttemptCount()).append("</strong></td>");
                 bodyBuilder.append("</tr>");
             }
             bodyBuilder.append("</table>");
@@ -1144,7 +1153,7 @@ public class ExceptionReportScheduler {
     }
 
     /**
-     * Key class for grouping connections by user, IP, date, and hour
+     * Key class for grouping connections by user, IP, and date (day only, not hour)
      */
     private static class UserDateHourKey {
         private final String user;
@@ -1154,9 +1163,9 @@ public class ExceptionReportScheduler {
         UserDateHourKey(String user, String ip, LocalDateTime timestamp) {
             this.user = user != null ? user : "N/A";
             this.ip = ip != null ? ip : "N/A";
-            // Round down to the hour: set minutes, seconds, and nanoseconds to 0
+            // Round down to the day: set hour, minutes, seconds, and nanoseconds to 0
             if (timestamp != null) {
-                this.dateHour = timestamp.withMinute(0).withSecond(0).withNano(0);
+                this.dateHour = timestamp.withHour(0).withMinute(0).withSecond(0).withNano(0);
             } else {
                 this.dateHour = null;
             }
@@ -1179,7 +1188,7 @@ public class ExceptionReportScheduler {
     }
 
     /**
-     * Data class for grouped user connections by date/hour
+     * Data class for grouped user connections by date (day only, not hour)
      */
     private static class GroupedUserConnection {
         private final String user;
@@ -1243,9 +1252,106 @@ public class ExceptionReportScheduler {
             if (firstTimestamp == null) {
                 return "N/A";
             }
-            // Format as: dd-MM-yyyy HH:00 (rounded down to the hour)
-            LocalDateTime rounded = firstTimestamp.withMinute(0).withSecond(0).withNano(0);
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
+            // Format as: dd-MM-yyyy (day only, not hour)
+            LocalDateTime rounded = firstTimestamp.withHour(0).withMinute(0).withSecond(0).withNano(0);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+            return rounded.format(formatter);
+        }
+    }
+
+    /**
+     * Key class for grouping IP attempts by IP and date (day only, not hour)
+     */
+    private static class IPDateKey {
+        private final String ip;
+        private final LocalDateTime date;
+
+        IPDateKey(String ip, LocalDateTime timestamp) {
+            this.ip = ip != null ? ip : "N/A";
+            // Round down to the day: set hour, minutes, seconds, and nanoseconds to 0
+            if (timestamp != null) {
+                this.date = timestamp.withHour(0).withMinute(0).withSecond(0).withNano(0);
+            } else {
+                this.date = null;
+            }
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            IPDateKey that = (IPDateKey) o;
+            return Objects.equals(ip, that.ip) && Objects.equals(date, that.date);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(ip, date);
+        }
+    }
+
+    /**
+     * Data class for grouped IP attempts by date (day only, not hour)
+     */
+    private static class GroupedIPAttempt {
+        private final String ip;
+        private final String domain;
+        private final String location;
+        private final String country;
+        private final List<LocalDateTime> timestamps = new ArrayList<>();
+        private LocalDateTime firstTimestamp;
+
+        GroupedIPAttempt(String ip, String domain, String location, String country, LocalDateTime firstTimestamp) {
+            this.ip = ip != null ? ip : "N/A";
+            this.domain = domain != null ? domain : "N/A";
+            this.location = location != null ? location : "N/A";
+            this.country = country != null ? country : "N/A";
+            if (firstTimestamp != null) {
+                this.firstTimestamp = firstTimestamp;
+                timestamps.add(firstTimestamp);
+            }
+        }
+
+        public void addAttempt(LocalDateTime timestamp) {
+            if (timestamp != null) {
+                timestamps.add(timestamp);
+                if (firstTimestamp == null || timestamp.isBefore(firstTimestamp)) {
+                    this.firstTimestamp = timestamp;
+                }
+            }
+        }
+
+        public String getIp() {
+            return ip;
+        }
+
+        public String getDomain() {
+            return domain;
+        }
+
+        public String getLocation() {
+            return location;
+        }
+
+        public String getCountry() {
+            return country;
+        }
+
+        public int getAttemptCount() {
+            return timestamps.size();
+        }
+
+        public LocalDateTime getFirstTimestamp() {
+            return firstTimestamp;
+        }
+
+        public String formatDate() {
+            if (firstTimestamp == null) {
+                return "N/A";
+            }
+            // Format as: dd-MM-yyyy (day only, not hour)
+            LocalDateTime rounded = firstTimestamp.withHour(0).withMinute(0).withSecond(0).withNano(0);
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy");
             return rounded.format(formatter);
         }
     }

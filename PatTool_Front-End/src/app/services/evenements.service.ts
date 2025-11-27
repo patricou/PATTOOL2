@@ -11,6 +11,11 @@ export interface StreamedEvent {
 	data: any;
 }
 
+export interface StreamedFile {
+	type: 'total' | 'file' | 'complete' | 'error';
+	data: any;
+}
+
 
 @Injectable()
 export class EvenementsService {
@@ -87,6 +92,144 @@ export class EvenementsService {
 				throw error;
 			})
 		);
+	}
+
+	// Stream files using Server-Sent Events (SSE)
+	streamEventFiles(id: string): Observable<StreamedFile> {
+		const subject = new Subject<StreamedFile>();
+		
+		this.getHeaderWithToken().subscribe({
+			next: (headers) => {
+				const token = headers.get('Authorization') || '';
+				const url = this.API_URL + "even/" + id + "/files/stream";
+				
+				// Use fetch API since EventSource doesn't support custom headers
+				this.streamFilesWithFetch(url, token, subject).catch(err => {
+					subject.error(err);
+				});
+			},
+			error: (err) => {
+				subject.error(err);
+			}
+		});
+		
+		return subject.asObservable();
+	}
+
+	private async streamFilesWithFetch(
+		url: string, 
+		authToken: string, 
+		subject: Subject<StreamedFile>
+	): Promise<void> {
+		try {
+			const response = await fetch(url, {
+				headers: {
+					'Authorization': authToken,
+					'Accept': 'text/event-stream'
+				},
+				cache: 'no-cache'
+			});
+
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+
+			const reader = response.body?.getReader();
+			const decoder = new TextDecoder();
+			let buffer = '';
+
+			if (!reader) {
+				subject.error(new Error('No reader available'));
+				return;
+			}
+
+			let currentEventType: string | null = null;
+			let currentData: string = '';
+
+			while (true) {
+				const { done, value } = await reader.read();
+				
+				if (done) {
+					// Process any remaining data
+					if (currentEventType && currentData) {
+						this.processSSEFileEvent(currentEventType, currentData, subject);
+					}
+					subject.complete();
+					break;
+				}
+
+				buffer += decoder.decode(value, { stream: true });
+				const lines = buffer.split('\n');
+				buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+				for (const line of lines) {
+					if (line.trim() === '') {
+						// Empty line indicates end of event - process it
+						if (currentEventType && currentData) {
+							this.processSSEFileEvent(currentEventType, currentData, subject);
+							currentEventType = null;
+							currentData = '';
+						}
+						continue;
+					}
+					
+					if (line.startsWith('event:')) {
+						// Process previous event if exists
+						if (currentEventType && currentData) {
+							this.processSSEFileEvent(currentEventType, currentData, subject);
+						}
+						currentEventType = line.substring(6).trim();
+						currentData = '';
+						continue;
+					}
+					
+					if (line.startsWith('data:')) {
+						const data = line.substring(5).trim();
+						if (currentData) {
+							currentData += '\n' + data; // Handle multi-line data
+						} else {
+							currentData = data;
+						}
+					}
+				}
+			}
+		} catch (error) {
+			subject.error(error);
+		}
+	}
+
+	private processSSEFileEvent(eventType: string, data: string, subject: Subject<StreamedFile>): void {
+		if (eventType === 'total') {
+			subject.next({
+				type: 'total',
+				data: Number(data)
+			});
+		} else if (eventType === 'file') {
+			// Try to parse as JSON
+			try {
+				const parsed = JSON.parse(data);
+				subject.next({
+					type: 'file',
+					data: parsed
+				});
+			} catch (e) {
+				// If not JSON, send as string
+				subject.next({
+					type: 'file',
+					data: data
+				});
+			}
+		} else if (eventType === 'complete') {
+			subject.next({
+				type: 'complete',
+				data: null
+			});
+		} else if (eventType === 'error') {
+			subject.next({
+				type: 'error',
+				data: data
+			});
+		}
 	}
 
 	// POST

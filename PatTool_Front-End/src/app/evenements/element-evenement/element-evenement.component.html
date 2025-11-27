@@ -259,7 +259,7 @@
        placement="top" 
        ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"
        (mouseleave)="onTooltipMouseLeave($event)">
-        <i class="fa fa-download" aria-hidden="true"></i>
+        <i class="fa fa-download" aria-hidden="true"></i><span *ngIf="getFilesCount() > 0"> {{ getFilesCount() }}</span>
     </a>
 
     <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
@@ -476,7 +476,7 @@
         <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
             <i class="fa fa-files-o"></i> {{ 'EVENTELEM.FILES' | translate }} - {{ evenement.evenementName }} ({{ evenement.fileUploadeds.length }})
         </h5>
-        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white" (click)="c('Close click')" aria-label="Close">
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto files-modal-close-btn" (click)="c('Close click')" aria-label="Close">
             <i class="fa fa-times"></i>
         </button>
     </div>
