@@ -4,7 +4,7 @@
     <div class="debug-info-panel-content" *ngIf="!debugInfoCollapsed">
         <div class="debug-info-header">
             <h6 class="mb-0">{{ 'EVENTHOME.DEBUG_INFO' | translate }}</h6>
-            <button type="button" class="btn btn-sm btn-close-debug" (click)="debugInfoCollapsed = true" [attr.aria-label]="'COMMUN.CLOSE' | translate">
+            <button type="button" class="btn btn-sm btn-close-debug" (click)="toggleDebugInfo()" [attr.aria-label]="'COMMUN.CLOSE' | translate">
                 <i class="fa fa-times"></i>
             </button>
         </div>
@@ -189,7 +189,7 @@
                             </div>
                             <div class="mobile-quick-actions">
                                 <button class="btn btn-sm btn-outline-secondary me-1" 
-                                    (click)="debugInfoCollapsed = !debugInfoCollapsed">
+                                    (click)="toggleDebugInfo()">
                                     <i class="fa fa-info-circle"></i>
                                 </button>
                                 <div class="mobile-results-badge me-1"
@@ -215,7 +215,7 @@
                     <!-- Results Counter Section -->
                     <div class="results-section-redesigned">
                         <button class="btn btn-sm btn-outline-secondary me-2" 
-                            (click)="debugInfoCollapsed = !debugInfoCollapsed">
+                            (click)="toggleDebugInfo()">
                             <i class="fa fa-info-circle"></i>
                         </button>
                         <div class="results-counter-redesigned me-2"

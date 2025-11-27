@@ -186,14 +186,37 @@ public class DiskImageController {
                         String.format("%.1f", usagePercent));
                 // Fall through to serve original image without compression (streaming)
             } else {
-                // Load image into memory to compress (regardless of size, if memory is OK)
-                log.debug("[FSPhotos][IMAGE] Cache miss - loading image into memory for compression (size: {} MB)", 
+                // CRITICAL: Check image dimensions BEFORE loading into memory
+                // This prevents OutOfMemoryError for very large images
+                log.debug("[FSPhotos][IMAGE] Cache miss - checking image dimensions before loading (size: {} MB)", 
                         originalSize / (1024.0 * 1024.0));
                 byte[] fileBytes = null;
                 BufferedImage originalImage = null;
                 try {
                     fileBytes = Files.readAllBytes(file);
-                    originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
+                    
+                    // Check dimensions without loading full image
+                    int[] dimensions = ImageCompressionService.getImageDimensions(fileBytes);
+                    if (dimensions != null) {
+                        int width = dimensions[0];
+                        int height = dimensions[1];
+                        log.debug("[FSPhotos][IMAGE] Image dimensions: {}x{}", width, height);
+                        
+                        // Check if dimensions are too large (prevent OutOfMemoryError)
+                        if (width > 8000 || height > 8000) {
+                            log.warn("[FSPhotos][IMAGE] Image dimensions too large ({}x{}), skipping compression to prevent OutOfMemoryError. Serving original via streaming.", 
+                                    width, height);
+                            fileBytes = null; // Free memory
+                            // Fall through to serve original image without compression (streaming)
+                        } else {
+                            // Dimensions OK, proceed with loading
+                            originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
+                        }
+                    } else {
+                        // Cannot read dimensions, try loading anyway (may fail for very large images)
+                        log.debug("[FSPhotos][IMAGE] Cannot read dimensions, attempting to load image");
+                        originalImage = ImageIO.read(new ByteArrayInputStream(fileBytes));
+                    }
 
                     if (originalImage != null) {
                         try {
@@ -248,6 +271,15 @@ public class DiskImageController {
                             }
                             
                             return builder.body(resource);
+                        } catch (OutOfMemoryError e) {
+                            log.error("[FSPhotos][IMAGE] OutOfMemoryError during compression. Serving original via streaming.", e);
+                            // Free memory immediately
+                            if (originalImage != null) {
+                                originalImage.flush();
+                                originalImage = null;
+                            }
+                            fileBytes = null;
+                            // Fall through to serve original image without compression (streaming)
                         } catch (Exception e) {
                             log.debug("[FSPhotos][IMAGE] Compression failed, falling back to original. Reason: {}", e.getMessage());
                             // Free memory even if compression failed
@@ -256,13 +288,34 @@ public class DiskImageController {
                                 originalImage = null;
                             }
                             fileBytes = null;
+                            // Check if it's a dimension/memory related error - if so, serve original
+                            if (e.getMessage() != null && 
+                                (e.getMessage().contains("dimensions too large") || 
+                                 e.getMessage().contains("Insufficient memory") ||
+                                 e.getMessage().contains("OutOfMemoryError"))) {
+                                // Fall through to serve original image without compression (streaming)
+                            }
                         }
                     } else {
                         log.debug("[FSPhotos][IMAGE] Could not decode image for compression, serving original");
+                        fileBytes = null; // Free memory
                     }
                 } catch (OutOfMemoryError e) {
-                    log.error("[FSPhotos][IMAGE] OutOfMemoryError while processing image. Serving original via streaming.", e);
+                    log.error("[FSPhotos][IMAGE] OutOfMemoryError while loading image. Serving original via streaming.", e);
+                    // Free memory immediately
+                    if (fileBytes != null) {
+                        fileBytes = null;
+                    }
                     // Fall through to serve original image without compression (streaming)
+                } catch (IOException e) {
+                    // If IOException contains memory-related message, serve original
+                    if (e.getMessage() != null && e.getMessage().contains("OutOfMemoryError")) {
+                        log.error("[FSPhotos][IMAGE] Memory error while processing image. Serving original via streaming.", e);
+                        fileBytes = null;
+                        // Fall through to serve original image without compression (streaming)
+                    } else {
+                        throw e; // Re-throw other IOExceptions
+                    }
                 }
             }
         }

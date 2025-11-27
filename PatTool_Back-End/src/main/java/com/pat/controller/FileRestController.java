@@ -80,6 +80,9 @@ public class FileRestController {
     
     // In-memory storage for upload session logs (thread-safe)
     private final Map<String, List<String>> uploadLogs = new ConcurrentHashMap<>();
+    
+    // Maximum number of upload sessions to keep in memory
+    private static final int MAX_UPLOAD_SESSIONS = 100;
 
     @RequestMapping( value = "/api/file/test", method = RequestMethod.GET )
     public ResponseEntity<String> testFileEndpoint(){
@@ -116,6 +119,9 @@ public class FileRestController {
      * Helper method to add log to session
      */
     private void addUploadLog(String sessionId, String message) {
+        // Enforce size limit before adding
+        enforceUploadLogsSizeLimit();
+        
         uploadLogs.computeIfAbsent(sessionId, k -> Collections.synchronizedList(new ArrayList<>()))
                   .add(message);
     }
@@ -125,6 +131,19 @@ public class FileRestController {
      */
     private void clearUploadLogs(String sessionId) {
         uploadLogs.remove(sessionId);
+    }
+    
+    /**
+     * Enforce size limit on uploadLogs map to prevent memory leak
+     */
+    private void enforceUploadLogsSizeLimit() {
+        if (uploadLogs.size() >= MAX_UPLOAD_SESSIONS) {
+            // Remove oldest entries (simple FIFO - remove first entry found)
+            // In practice, sessions are cleaned up after 5 seconds, so this should rarely trigger
+            String firstKey = uploadLogs.keySet().iterator().next();
+            uploadLogs.remove(firstKey);
+            log.debug("Upload logs map size limit reached, removed oldest session: {}", firstKey);
+        }
     }
 
     @RequestMapping( value = "/api/file/debug/{fileId}", method = RequestMethod.GET )

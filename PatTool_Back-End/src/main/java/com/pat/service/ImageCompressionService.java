@@ -16,8 +16,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
 import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
+import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
@@ -50,6 +52,16 @@ public class ImageCompressionService {
     
     @Autowired(required = false)
     private MemoryMonitoringService memoryMonitoringService;
+
+    // Maximum dimensions to prevent OutOfMemoryError
+    // For TYPE_INT_RGB: width * height * 4 bytes per pixel
+    // 8000x8000 = 64M pixels * 4 bytes = 256 MB per image (before processing)
+    private static final int MAX_IMAGE_WIDTH = 8000;
+    private static final int MAX_IMAGE_HEIGHT = 8000;
+    
+    // Minimum free memory required (in bytes) before processing large images
+    // Require at least 500MB free to process images up to MAX dimensions
+    private static final long MIN_FREE_MEMORY_BYTES = 500L * 1024 * 1024;
 
     public static final class CompressionResult {
         private final byte[] data;
@@ -182,6 +194,14 @@ public class ImageCompressionService {
         byte[] originalFileBytes,
         Consumer<String> logConsumer
     ) throws IOException {
+        // Check memory before processing
+        if (memoryMonitoringService != null && !memoryMonitoringService.checkMemoryUsage()) {
+            double usagePercent = memoryMonitoringService.getMemoryUsagePercent();
+            String errorMsg = String.format("Cannot process image: Memory usage critical (%.1f%%)", usagePercent);
+            emitLog(logConsumer, "❌ " + errorMsg);
+            throw new IOException(errorMsg);
+        }
+
         Map<String, String> exifMetadata = collectExifMetadata(originalFileBytes);
         Map<String, String> enrichedExifMetadata = new LinkedHashMap<>(exifMetadata);
         enrichedExifMetadata.put("PatOriginalFileSizeBytes", Long.toString(originalSize));
@@ -203,18 +223,54 @@ public class ImageCompressionService {
         int originalHeight = imageWithOrientation.getHeight();
         emitLog(logConsumer, String.format("📏 Original image: %dx%d, %d KB", originalWidth, originalHeight, originalSize / 1024));
 
+        // Check dimensions before processing - prevent OutOfMemoryError
+        if (originalWidth > MAX_IMAGE_WIDTH || originalHeight > MAX_IMAGE_HEIGHT) {
+            String errorMsg = String.format("Image dimensions too large: %dx%d (max: %dx%d). Cannot process to prevent OutOfMemoryError.",
+                    originalWidth, originalHeight, MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT);
+            emitLog(logConsumer, "❌ " + errorMsg);
+            throw new IOException(errorMsg);
+        }
+
+        // Check available memory before creating BufferedImage
+        // TYPE_INT_RGB requires width * height * 4 bytes
+        long estimatedMemoryNeeded = (long) originalWidth * originalHeight * 4L;
+        long availableMemory = getAvailableMemory();
+        
+        if (availableMemory < MIN_FREE_MEMORY_BYTES || availableMemory < estimatedMemoryNeeded * 2) {
+            String errorMsg = String.format("Insufficient memory to process image. Required: ~%d MB, Available: %d MB",
+                    estimatedMemoryNeeded / (1024 * 1024), availableMemory / (1024 * 1024));
+            emitLog(logConsumer, "❌ " + errorMsg);
+            throw new IOException(errorMsg);
+        }
+
         BufferedImage imageToCompress;
-        if (imageWithOrientation.getType() == BufferedImage.TYPE_INT_RGB ||
-            imageWithOrientation.getType() == BufferedImage.TYPE_INT_ARGB) {
-            imageToCompress = imageWithOrientation;
-        } else {
-            int width = imageWithOrientation.getWidth();
-            int height = imageWithOrientation.getHeight();
-            imageToCompress = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
-            Graphics2D g = imageToCompress.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.drawImage(imageWithOrientation, 0, 0, null);
-            g.dispose();
+        try {
+            if (imageWithOrientation.getType() == BufferedImage.TYPE_INT_RGB ||
+                imageWithOrientation.getType() == BufferedImage.TYPE_INT_ARGB) {
+                imageToCompress = imageWithOrientation;
+            } else {
+                int width = imageWithOrientation.getWidth();
+                int height = imageWithOrientation.getHeight();
+                
+                // Double-check memory before creating new BufferedImage
+                long memoryForNewImage = (long) width * height * 4L;
+                if (getAvailableMemory() < memoryForNewImage * 2) {
+                    throw new IOException("Insufficient memory to convert image format");
+                }
+                
+                imageToCompress = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+                Graphics2D g = imageToCompress.createGraphics();
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.drawImage(imageWithOrientation, 0, 0, null);
+                g.dispose();
+            }
+        } catch (OutOfMemoryError e) {
+            emitLog(logConsumer, "❌ OutOfMemoryError while processing image");
+            // Free memory immediately
+            if (imageWithOrientation != originalImage) {
+                imageWithOrientation.flush();
+            }
+            throw new IOException("OutOfMemoryError: Image too large to process", e);
         }
 
         byte[] result = compressWithQuality(imageToCompress, format, 0.5f);
@@ -271,13 +327,30 @@ public class ImageCompressionService {
                 emitLog(logConsumer, String.format("🔄 Resizing to %dx%d", currentWidth, currentHeight));
             }
 
-            BufferedImage resizedImage = new BufferedImage(currentWidth, currentHeight, BufferedImage.TYPE_INT_RGB);
-            Graphics2D g = resizedImage.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.drawImage(imageToCompress, 0, 0, currentWidth, currentHeight, null);
-            g.dispose();
+            // Check memory before creating resized image
+            long memoryForResized = (long) currentWidth * currentHeight * 4L;
+            if (getAvailableMemory() < memoryForResized * 2) {
+                emitLog(logConsumer, String.format("⚠️ Insufficient memory for resize to %dx%d, using current result", currentWidth, currentHeight));
+                break; // Use current result instead of failing
+            }
+
+            BufferedImage resizedImage;
+            try {
+                resizedImage = new BufferedImage(currentWidth, currentHeight, BufferedImage.TYPE_INT_RGB);
+                Graphics2D g = resizedImage.createGraphics();
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g.drawImage(imageToCompress, 0, 0, currentWidth, currentHeight, null);
+                g.dispose();
+            } catch (OutOfMemoryError e) {
+                emitLog(logConsumer, String.format("❌ OutOfMemoryError while resizing to %dx%d", currentWidth, currentHeight));
+                // Free memory and use current result
+                if (imageToCompress != imageWithOrientation && imageToCompress != originalImage) {
+                    imageToCompress.flush();
+                }
+                throw new IOException("OutOfMemoryError during resize", e);
+            }
 
             float[] qualities = {0.4f, 0.3f, 0.2f};
 
@@ -321,11 +394,28 @@ public class ImageCompressionService {
                     }
                 }
 
-                BufferedImage finalResize = new BufferedImage(currentWidth, currentHeight, BufferedImage.TYPE_INT_RGB);
-                Graphics2D g = finalResize.createGraphics();
-                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
-                g.drawImage(imageToCompress, 0, 0, currentWidth, currentHeight, null);
-                g.dispose();
+                // Check memory before creating final resize
+                long memoryForFinalResize = (long) currentWidth * currentHeight * 4L;
+                if (getAvailableMemory() < memoryForFinalResize * 2) {
+                    emitLog(logConsumer, String.format("⚠️ Insufficient memory for final resize to %dx%d, using current result", currentWidth, currentHeight));
+                    break; // Use current result
+                }
+
+                BufferedImage finalResize;
+                try {
+                    finalResize = new BufferedImage(currentWidth, currentHeight, BufferedImage.TYPE_INT_RGB);
+                    Graphics2D g = finalResize.createGraphics();
+                    g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                    g.drawImage(imageToCompress, 0, 0, currentWidth, currentHeight, null);
+                    g.dispose();
+                } catch (OutOfMemoryError e) {
+                    emitLog(logConsumer, String.format("❌ OutOfMemoryError while final resizing to %dx%d", currentWidth, currentHeight));
+                    // Free memory and use current result
+                    if (imageToCompress != imageWithOrientation && imageToCompress != originalImage) {
+                        imageToCompress.flush();
+                    }
+                    throw new IOException("OutOfMemoryError during final resize", e);
+                }
 
                 result = compressWithQuality(finalResize, format, quality);
                 result = preserveExifMetadata(originalFileBytes, result, format, originalSize);
@@ -879,6 +969,75 @@ public class ImageCompressionService {
         }
         String haystack = new String(jpegBytes, StandardCharsets.ISO_8859_1);
         return haystack.contains("PatOriginalFileSizeBytes=");
+    }
+
+    /**
+     * Get available memory (free + potentially reclaimable)
+     * @return available memory in bytes
+     */
+    private long getAvailableMemory() {
+        try {
+            Runtime runtime = Runtime.getRuntime();
+            long maxMemory = runtime.maxMemory();
+            long totalMemory = runtime.totalMemory();
+            long freeMemory = runtime.freeMemory();
+            long usedMemory = totalMemory - freeMemory;
+            return maxMemory - usedMemory;
+        } catch (Exception e) {
+            log.debug("Error getting available memory", e);
+            return 0;
+        }
+    }
+
+    /**
+     * Read image dimensions without loading the full image into memory
+     * This prevents OutOfMemoryError for very large images
+     * @param fileBytes Image file bytes
+     * @return int array with [width, height], or null if cannot read
+     */
+    public static int[] getImageDimensions(byte[] fileBytes) {
+        if (fileBytes == null || fileBytes.length == 0) {
+            return null;
+        }
+        
+        ImageInputStream iis = null;
+        try {
+            iis = ImageIO.createImageInputStream(new ByteArrayInputStream(fileBytes));
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
+            
+            if (!readers.hasNext()) {
+                return null;
+            }
+            
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(iis, true, true);
+                int width = reader.getWidth(0);
+                int height = reader.getHeight(0);
+                return new int[]{width, height};
+            } finally {
+                reader.dispose();
+            }
+        } catch (IOException e) {
+            // Fallback: try loading with ImageIO (may fail for very large images)
+            try {
+                BufferedImage img = ImageIO.read(new ByteArrayInputStream(fileBytes));
+                if (img != null) {
+                    return new int[]{img.getWidth(), img.getHeight()};
+                }
+            } catch (IOException | OutOfMemoryError e2) {
+                // Ignore - cannot read dimensions
+            }
+            return null;
+        } finally {
+            if (iis != null) {
+                try {
+                    iis.close();
+                } catch (IOException e) {
+                    // Ignore
+                }
+            }
+        }
     }
 
     private byte[] injectPatExifSegment(byte[] jpegBytes, long originalSize) throws IOException {

@@ -2,6 +2,7 @@ package com.pat.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -31,6 +32,14 @@ public class ExceptionTrackingService {
     // Thread-safe map to store log messages with IP addresses
     // Key: IP address, Value: List of log messages
     private final Map<String, List<LogInfo>> logMap = new ConcurrentHashMap<>();
+    
+    // Maximum retention time for entries (default: 7 days)
+    @Value("${app.exception.tracking.retention-hours:168}")
+    private int retentionHours;
+    
+    // Maximum entries per IP address to prevent unbounded growth
+    @Value("${app.exception.tracking.max-entries-per-ip:1000}")
+    private int maxEntriesPerIp;
 
     /**
      * Store exception information with IP address
@@ -59,8 +68,12 @@ public class ExceptionTrackingService {
             logMessage
         );
 
-        exceptionMap.computeIfAbsent(ipAddress, k -> Collections.synchronizedList(new ArrayList<>()))
-                   .add(exceptionInfo);
+        List<ExceptionInfo> exceptions = exceptionMap.computeIfAbsent(ipAddress, k -> Collections.synchronizedList(new ArrayList<>()));
+        exceptions.add(exceptionInfo);
+        
+        // Cleanup old entries and enforce size limit
+        cleanupOldEntries(exceptions, retentionHours);
+        enforceSizeLimit(exceptions, maxEntriesPerIp);
 
         log.debug("Exception tracked for IP {}: {} - {}", ipAddress, exceptionType, message);
     }
@@ -92,8 +105,12 @@ public class ExceptionTrackingService {
             isNewUser
         );
 
-        connectionMap.computeIfAbsent(ipAddress, k -> Collections.synchronizedList(new ArrayList<>()))
-                    .add(connectionInfo);
+        List<ConnectionInfo> connections = connectionMap.computeIfAbsent(ipAddress, k -> Collections.synchronizedList(new ArrayList<>()));
+        connections.add(connectionInfo);
+        
+        // Cleanup old entries and enforce size limit
+        cleanupOldConnections(connections, retentionHours);
+        enforceConnectionSizeLimit(connections, maxEntriesPerIp);
 
         log.debug("Connection tracked for IP {}: User {} ({})", ipAddress, username, isNewUser ? "NEW" : "EXISTING");
     }
@@ -111,8 +128,12 @@ public class ExceptionTrackingService {
             logMessage
         );
 
-        logMap.computeIfAbsent(ipAddress, k -> Collections.synchronizedList(new ArrayList<>()))
-              .add(logInfo);
+        List<LogInfo> logs = logMap.computeIfAbsent(ipAddress, k -> Collections.synchronizedList(new ArrayList<>()));
+        logs.add(logInfo);
+        
+        // Cleanup old entries and enforce size limit
+        cleanupOldLogs(logs, retentionHours);
+        enforceLogSizeLimit(logs, maxEntriesPerIp);
 
         log.debug("Log tracked for IP {}: {}", ipAddress, logMessage);
     }
@@ -259,6 +280,96 @@ public class ExceptionTrackingService {
         return connectionMap.values().stream()
                            .mapToInt(List::size)
                            .sum();
+    }
+    
+    /**
+     * Cleanup old exception entries based on retention time
+     */
+    private void cleanupOldEntries(List<ExceptionInfo> exceptions, int retentionHours) {
+        if (exceptions == null || exceptions.isEmpty()) {
+            return;
+        }
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(retentionHours);
+        synchronized (exceptions) {
+            exceptions.removeIf(info -> info.getTimestamp().isBefore(cutoff));
+        }
+    }
+    
+    /**
+     * Enforce size limit on exception list
+     */
+    private void enforceSizeLimit(List<ExceptionInfo> exceptions, int maxSize) {
+        if (exceptions == null) {
+            return;
+        }
+        synchronized (exceptions) {
+            while (exceptions.size() > maxSize) {
+                exceptions.remove(0); // Remove oldest entries
+            }
+        }
+    }
+    
+    /**
+     * Cleanup old connection entries based on retention time
+     */
+    private void cleanupOldConnections(List<ConnectionInfo> connections, int retentionHours) {
+        if (connections == null || connections.isEmpty()) {
+            return;
+        }
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(retentionHours);
+        synchronized (connections) {
+            connections.removeIf(info -> info.getTimestamp().isBefore(cutoff));
+        }
+    }
+    
+    /**
+     * Enforce size limit on connection list
+     */
+    private void enforceConnectionSizeLimit(List<ConnectionInfo> connections, int maxSize) {
+        if (connections == null) {
+            return;
+        }
+        synchronized (connections) {
+            while (connections.size() > maxSize) {
+                connections.remove(0); // Remove oldest entries
+            }
+        }
+    }
+    
+    /**
+     * Cleanup old log entries based on retention time
+     */
+    private void cleanupOldLogs(List<LogInfo> logs, int retentionHours) {
+        if (logs == null || logs.isEmpty()) {
+            return;
+        }
+        LocalDateTime cutoff = LocalDateTime.now().minusHours(retentionHours);
+        synchronized (logs) {
+            logs.removeIf(info -> info.getTimestamp().isBefore(cutoff));
+        }
+    }
+    
+    /**
+     * Enforce size limit on log list
+     */
+    private void enforceLogSizeLimit(List<LogInfo> logs, int maxSize) {
+        if (logs == null) {
+            return;
+        }
+        synchronized (logs) {
+            while (logs.size() > maxSize) {
+                logs.remove(0); // Remove oldest entries
+            }
+        }
+    }
+    
+    /**
+     * Periodic cleanup of empty IP entries from maps
+     */
+    public void cleanupEmptyEntries() {
+        exceptionMap.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        connectionMap.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        logMap.entrySet().removeIf(entry -> entry.getValue().isEmpty());
     }
 
     /**

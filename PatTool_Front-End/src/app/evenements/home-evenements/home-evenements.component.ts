@@ -123,6 +123,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private lastAverageRgb: { r: number; g: number; b: number } | null = null;
 	private shouldBlockScroll: boolean = false;
 	private scrollCheckTimeoutId: ReturnType<typeof setTimeout> | null = null;
+	// Track which modals are currently open (only modals that should block scroll)
+	private openBlockingModals: Set<string> = new Set();
 	private pollIntervalId: ReturnType<typeof setInterval> | null = null;
 	private firebaseUnsubscribe?: () => void;
 	private activeTimeouts: Set<ReturnType<typeof setTimeout>> = new Set();
@@ -202,9 +204,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		// After reset, load specific event if needed (this will be handled in resetAndLoadEvents)
 		if (eventId) {
-			// Block scrolling until cards are ready
+			// Block scrolling until cards are ready (only if no blocking modal and debug panel allows it)
 			this.shouldBlockScroll = true;
-			this.blockPageScroll();
+			// Only block if no blocking modal is open and debug panel is closed
+			if (!this.hasBlockingModalOpen() && this.debugInfoCollapsed) {
+				this.blockPageScroll();
+			}
 			// Load the specific event first, but after reset
 			// Note: resetAndLoadEvents will preserve it if it exists
 			this.loadAndDisplayEventFirst(eventId);
@@ -216,6 +221,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.controlsCollapsed = true;
 		}
 		
+		// Ensure scroll is enabled on initialization (if no blocking modal and debug panel allows it)
+		if (!this.hasBlockingModalOpen() || !this.debugInfoCollapsed) {
+			this.forceUnblockPageScroll();
+		}
 	}
 
 	private startDebugInfoUpdates(): void {
@@ -592,14 +601,28 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 	}
 
+	// Toggle debug info panel with proper scroll handling
+	public toggleDebugInfo(): void {
+		this.debugInfoCollapsed = !this.debugInfoCollapsed;
+		// Ensure scroll is enabled when debug panel is toggled
+		// Debug panel should never block scroll
+		if (!this.debugInfoCollapsed) {
+			// Debug panel opened - ensure scroll is enabled
+			this.forceUnblockPageScroll();
+		} else {
+			// Debug panel closed - check if we should block scroll
+			this.unblockPageScroll();
+		}
+		this.scheduleChangeDetection();
+	}
+
 	@HostListener('window:keydown', ['$event'])
 	onKeyDown(event: KeyboardEvent): void {
 		// Toggle debug info panel with Ctrl+I (or Cmd+I on Mac)
 		// Use toLowerCase() to handle both 'i' and 'I' cases (case-insensitive)
 		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'i') {
 			event.preventDefault();
-			this.debugInfoCollapsed = !this.debugInfoCollapsed;
-			this.scheduleChangeDetection();
+			this.toggleDebugInfo();
 		}
 	}
 
@@ -629,8 +652,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						requestAnimationFrame(() => {
 							this.cardsReady = true;
 							this.scheduleChangeDetection();
-							// Always unblock scrolling once cards are ready
-							this.unblockPageScroll();
+							// Always unblock scrolling once cards are ready (if no blocking modal)
+							if (!this.hasBlockingModalOpen() || !this.debugInfoCollapsed) {
+								this.unblockPageScroll();
+							}
 							this.shouldBlockScroll = false;
 							// Check for stored card to scroll to after cards are ready
 							// Use another requestAnimationFrame for scroll operations
@@ -639,8 +664,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							});
 						});
 					} else if (this.patCards.length > 0 && this.cardsReady) {
-						// Cards are already ready, always unblock scrolling
-						this.unblockPageScroll();
+						// Cards are already ready, always unblock scrolling (if no blocking modal)
+						if (!this.hasBlockingModalOpen() || !this.debugInfoCollapsed) {
+							this.unblockPageScroll();
+						}
 						this.shouldBlockScroll = false;
 						// Cards are already ready, check for stored card
 						this.checkAndScrollToStoredCard();
@@ -650,17 +677,21 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Also check after a delay in case cards are already loaded
 		setTimeout(() => {
 			if (this.patCards && this.patCards.length > 0) {
-				// Always unblock scrolling if cards are loaded
-				this.unblockPageScroll();
+				// Always unblock scrolling if cards are loaded (if no blocking modal)
+				if (!this.hasBlockingModalOpen() || !this.debugInfoCollapsed) {
+					this.unblockPageScroll();
+				}
 				this.shouldBlockScroll = false;
 				this.checkAndScrollToStoredCard();
 			}
 		}, 1500);
 		
-		// Final guarantee: always unblock scroll after 3 seconds maximum
+		// Final guarantee: always unblock scroll after 3 seconds maximum (if no blocking modal)
 		// This ensures scroll is never permanently blocked
 		setTimeout(() => {
-			this.unblockPageScroll();
+			if (!this.hasBlockingModalOpen() || !this.debugInfoCollapsed) {
+				this.unblockPageScroll();
+			}
 			this.shouldBlockScroll = false;
 		}, 3000);
 	}
@@ -1612,6 +1643,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Force change detection before opening modal
 		this.cdr.markForCheck();
 		
+		// Track this as a blocking modal
+		this.openBlockingModals.add('filesModal');
+		
 		// Block body scroll when modal opens
 		this.blockPageScroll();
 		
@@ -1627,9 +1661,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		// Unblock body scroll when modal closes
 		modalRef.result.finally(() => {
+			this.openBlockingModals.delete('filesModal');
 			this.unblockPageScroll();
 		}).catch(() => {
 			// Handle dismissal
+			this.openBlockingModals.delete('filesModal');
 			this.unblockPageScroll();
 		});
 		
@@ -3018,8 +3054,23 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.nativeWindow.scrollTo(0, 0);
 	}
 	
-	// Block page scrolling
+	// Check if any blocking modal is open
+	private hasBlockingModalOpen(): boolean {
+		return this.openBlockingModals.size > 0;
+	}
+	
+	// Block page scrolling (only if no blocking modal is open and debug panel allows it)
 	private blockPageScroll(): void {
+		// Don't block scroll if debug info panel is open (it's not a modal and shouldn't block scroll)
+		if (!this.debugInfoCollapsed) {
+			return;
+		}
+		
+		// Only block if we have a blocking modal open
+		if (!this.hasBlockingModalOpen() && !this.shouldBlockScroll) {
+			return;
+		}
+		
 		if (document.body) {
 			document.body.style.overflow = 'hidden';
 		}
@@ -3028,8 +3079,24 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 	}
 	
-	// Unblock page scrolling
+	// Unblock page scrolling (only if no blocking modal is open)
 	private unblockPageScroll(): void {
+		// Always allow scroll if debug info panel is open (it's not a modal)
+		if (!this.debugInfoCollapsed) {
+			this.forceUnblockPageScroll();
+			return;
+		}
+		
+		// Only unblock if no blocking modal is open
+		if (this.hasBlockingModalOpen()) {
+			return; // Keep blocked if blocking modal is open
+		}
+		
+		this.forceUnblockPageScroll();
+	}
+	
+	// Force unblock page scrolling (used when debug panel is open or no blocking modals)
+	private forceUnblockPageScroll(): void {
 		if (document.body) {
 			document.body.style.overflow = '';
 			document.body.style.overflowX = '';
@@ -3058,10 +3125,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Force enable scroll - comprehensive method to ensure scroll always works
 	private forceEnableScroll(): void {
 		this.shouldBlockScroll = false;
-		this.unblockPageScroll();
+		// Only unblock if no blocking modal is open and debug panel allows it
+		if (!this.hasBlockingModalOpen() || !this.debugInfoCollapsed) {
+			this.unblockPageScroll();
+		}
 		// Use requestAnimationFrame to ensure DOM is ready
 		requestAnimationFrame(() => {
-			this.unblockPageScroll();
+			// Only unblock if no blocking modal is open and debug panel allows it
+			if (!this.hasBlockingModalOpen() || !this.debugInfoCollapsed) {
+				this.unblockPageScroll();
+			}
 			// Also check and reconnect observer if needed
 			if (!this.intersectionObserver && this.infiniteScrollAnchor?.nativeElement) {
 				this.setupInfiniteScrollObserver();

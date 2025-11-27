@@ -5,6 +5,8 @@ import com.pat.repo.ChatRequestRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -25,6 +27,11 @@ public class ChatService {
 
     @Value("${app.maxContextSize:10000}")
     private int maxContextSize;
+    
+    // Maximum number of chat history records to load from database (default: 100)
+    // This prevents loading entire history into memory
+    @Value("${app.chat.maxHistoryRecords:100}")
+    private int maxHistoryRecords;
 
     private final RestTemplate restTemplate;
     private final ChatRequestRepository chatRequestRepository;
@@ -42,8 +49,10 @@ public class ChatService {
             return "OpenAI API key is not configured. Please configure the 'openai.key' property in application.properties";
         }
         
-        // Récupérer tout l'historique des requêtes
-        List<ChatRequest> chatHistory = chatRequestRepository.findAll();
+        // Récupérer seulement les N derniers enregistrements pour éviter de charger tout l'historique en mémoire
+        // This prevents memory leak when chat history grows large
+        Pageable pageable = PageRequest.of(0, maxHistoryRecords);
+        List<ChatRequest> chatHistory = chatRequestRepository.findRecentChatRequests(pageable);
 
         // Construire le contexte de la conversation ( if without context it is less expensive )
         String context = withHistoricalContext ?

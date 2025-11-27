@@ -2,6 +2,7 @@ package com.pat.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -20,8 +21,31 @@ public class IpGeolocationService {
     private final RestTemplate restTemplate;
     
     // Cache to avoid repeated lookups for the same IP
-    private final Map<String, String> locationCache = new ConcurrentHashMap<>();
-    private final Map<String, String> domainCache = new ConcurrentHashMap<>();
+    // Using CacheEntry to store value with timestamp
+    private final Map<String, CacheEntry> locationCache = new ConcurrentHashMap<>();
+    private final Map<String, CacheEntry> domainCache = new ConcurrentHashMap<>();
+    
+    // Maximum cache size to prevent memory leak
+    @Value("${app.ip.geolocation.cache.max-size:5000}")
+    private int maxCacheSize;
+    
+    // Cache TTL in milliseconds (default: 24 hours)
+    @Value("${app.ip.geolocation.cache.ttl-hours:24}")
+    private long cacheTtlHours;
+    
+    private static class CacheEntry {
+        final String value;
+        final long timestamp;
+        
+        CacheEntry(String value) {
+            this.value = value;
+            this.timestamp = System.currentTimeMillis();
+        }
+        
+        boolean isExpired(long ttlMillis) {
+            return (System.currentTimeMillis() - timestamp) > ttlMillis;
+        }
+    }
     
     // Private/local IP addresses that don't need lookup
     private static final String[] PRIVATE_IP_PATTERNS = {
@@ -53,15 +77,26 @@ public class IpGeolocationService {
         }
 
         // Check cache first
-        if (locationCache.containsKey(ipAddress)) {
-            return locationCache.get(ipAddress);
+        CacheEntry cached = locationCache.get(ipAddress);
+        if (cached != null) {
+            long ttlMillis = cacheTtlHours * 60 * 60 * 1000;
+            if (!cached.isExpired(ttlMillis)) {
+                return cached.value;
+            } else {
+                // Remove expired entry
+                locationCache.remove(ipAddress);
+            }
         }
+        
+        // Enforce cache size limit
+        enforceCacheSizeLimit(locationCache);
 
         try {
             // Use ip-api.com free service (no API key required for basic usage)
             // Format: http://ip-api.com/json/{ip}?fields=status,message,country,regionName,city,isp
             String url = "http://ip-api.com/json/" + ipAddress + "?fields=status,message,country,regionName,city,isp,org";
             
+            @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
             
             if (response != null) {
@@ -101,7 +136,7 @@ public class IpGeolocationService {
                     String locationStr = location.length() > 0 ? location.toString() : "Unknown Location";
                     
                     // Cache the result
-                    locationCache.put(ipAddress, locationStr);
+                    locationCache.put(ipAddress, new CacheEntry(locationStr));
                     
                     log.debug("IP {} location: {}", ipAddress, locationStr);
                     return locationStr;
@@ -109,7 +144,7 @@ public class IpGeolocationService {
                     String message = (String) response.get("message");
                     log.warn("IP geolocation lookup failed for {}: {}", ipAddress, message);
                     String errorMsg = "Lookup failed: " + (message != null ? message : "Unknown error");
-                    locationCache.put(ipAddress, errorMsg);
+                    locationCache.put(ipAddress, new CacheEntry(errorMsg));
                     return errorMsg;
                 }
             }
@@ -139,10 +174,19 @@ public class IpGeolocationService {
         }
 
         // Check cache first
-        if (domainCache.containsKey(ipAddress)) {
-            String cached = domainCache.get(ipAddress);
-            return "N/A".equals(cached) ? null : cached;
+        CacheEntry cached = domainCache.get(ipAddress);
+        if (cached != null) {
+            long ttlMillis = cacheTtlHours * 60 * 60 * 1000;
+            if (!cached.isExpired(ttlMillis)) {
+                return "N/A".equals(cached.value) ? null : cached.value;
+            } else {
+                // Remove expired entry
+                domainCache.remove(ipAddress);
+            }
         }
+        
+        // Enforce cache size limit
+        enforceCacheSizeLimit(domainCache);
 
         try {
             InetAddress inetAddress = InetAddress.getByName(ipAddress);
@@ -150,18 +194,18 @@ public class IpGeolocationService {
             
             // If the hostname is the same as the IP, reverse DNS lookup failed
             if (hostName != null && !hostName.equals(ipAddress)) {
-                domainCache.put(ipAddress, hostName);
+                domainCache.put(ipAddress, new CacheEntry(hostName));
                 log.debug("IP {} domain: {}", ipAddress, hostName);
                 return hostName;
             } else {
                 // No reverse DNS record found
-                domainCache.put(ipAddress, "N/A");
+                domainCache.put(ipAddress, new CacheEntry("N/A"));
                 return null;
             }
         } catch (Exception e) {
             log.debug("Reverse DNS lookup failed for IP {}: {}", ipAddress, e.getMessage());
             // Cache the failure to avoid repeated attempts
-            domainCache.put(ipAddress, "N/A");
+            domainCache.put(ipAddress, new CacheEntry("N/A"));
             return null;
         }
     }
@@ -183,6 +227,28 @@ public class IpGeolocationService {
     public void clearCache() {
         locationCache.clear();
         domainCache.clear();
+    }
+    
+    /**
+     * Enforce cache size limit by removing oldest entries
+     */
+    private void enforceCacheSizeLimit(Map<String, CacheEntry> cache) {
+        if (cache.size() >= maxCacheSize) {
+            // Remove oldest entries (simple approach: remove first entry found)
+            // In practice, with TTL, entries expire naturally
+            String firstKey = cache.keySet().iterator().next();
+            cache.remove(firstKey);
+            log.debug("Cache size limit reached, removed entry: {}", firstKey);
+        }
+    }
+    
+    /**
+     * Cleanup expired entries from caches
+     */
+    public void cleanupExpiredEntries() {
+        long ttlMillis = cacheTtlHours * 60 * 60 * 1000;
+        locationCache.entrySet().removeIf(entry -> entry.getValue().isExpired(ttlMillis));
+        domainCache.entrySet().removeIf(entry -> entry.getValue().isExpired(ttlMillis));
     }
 
     /**
