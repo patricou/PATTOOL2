@@ -719,5 +719,74 @@
         "URLLINKS_JSON_DATA": "URL-Links JSON-Daten",
         "ELEMENTS": "Elemente",
         "CLOSE": "Schließen"
+    },
+    "SYSTEM": {
+        "TITLE": "System",
+        "REFRESH_ALL_STATS": "Alle Statistiken aktualisieren",
+        "CACHE_STATS": {
+            "TITLE": "Cache-Statistiken",
+            "BACKEND_TITLE": "Backend-Cache-Statistiken",
+            "FRONTEND_TITLE": "Frontend-Cache-Statistiken",
+            "REFRESH": "Statistiken aktualisieren",
+            "LOADING": "Laden...",
+            "ENABLED": "Cache aktiviert",
+            "ENTRY_COUNT": "Anzahl der Einträge",
+            "MAX_ENTRIES": "Maximale Einträge",
+            "TOTAL_SIZE": "Gesamtgröße",
+            "TOTAL_SIZE_BYTES": "Gesamtgröße (Bytes)",
+            "LOCAL_STORAGE": "Lokaler Speicher",
+            "SESSION_STORAGE": "Sitzungsspeicher",
+            "MEMORY": "Speichernutzung",
+            "USED_HEAP": "Verwendeter Heap",
+            "TOTAL_HEAP": "Gesamter Heap",
+            "HEAP_LIMIT": "Heap-Limit",
+            "ENTRIES": "Einträge",
+            "YES": "Ja",
+            "NO": "Nein"
+        },
+        "PERFORMANCE_STATS": {
+            "TITLE": "Leistungsstatistiken",
+            "PAGE_LOAD": "Seitenladezeit",
+            "DOM_READY": "DOM-Bereit-Zeit",
+            "CONNECTION_TYPE": "Verbindungstyp",
+            "SCREEN_RESOLUTION": "Bildschirmauflösung",
+            "USER_AGENT": "User Agent",
+            "LANGUAGE": "Sprache"
+        },
+        "SAVE_CACHE": {
+            "TITLE": "Cache speichern",
+            "DESC": "Komprimierte Bilder auf Festplatte speichern",
+            "BUTTON": "Speichern",
+            "SAVING": "Speichern..."
+        },
+        "LOAD_CACHE": {
+            "TITLE": "Cache laden",
+            "DESC": "Cache von Festplatte wiederherstellen",
+            "BUTTON": "Laden",
+            "LOADING": "Laden..."
+        },
+        "CLEAR_CACHE": {
+            "TITLE": "Cache leeren",
+            "DESC": "Alle gecachten Bilder entfernen",
+            "BUTTON": "Leeren",
+            "CLEARING": "Leeren..."
+        },
+        "SHUTDOWN": {
+            "TITLE": "Anwendung herunterfahren",
+            "DESC": "Cache speichern und Anwendung herunterfahren",
+            "BUTTON": "Herunterfahren",
+            "SHUTTING_DOWN": "Herunterfahren...",
+            "NOT_AUTHORIZED": "Sie sind nicht berechtigt, die Anwendung herunterzufahren"
+        },
+        "EXCEPTION_REPORT": {
+            "TITLE": "Ausnahme- und Verbindungsbericht",
+            "DESC": "Ausnahme- und Verbindungsberichte anzeigen und senden",
+            "SEND": "Bericht senden",
+            "VIEW": "Bericht anzeigen",
+            "SENDING": "Senden...",
+            "LOADING": "Laden...",
+            "REFRESH": "Aktualisieren",
+            "CLOSE": "Schließen"
+        }
     }
 }

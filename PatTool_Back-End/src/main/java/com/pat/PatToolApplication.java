@@ -2,6 +2,7 @@ package com.pat;
 
 import com.pat.repo.CategoryLinkRepository;
 import com.pat.repo.UrlLinkRepository;
+import com.pat.service.CachePersistenceService;
 import com.pat.service.SmtpMailSender;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +37,12 @@ public class PatToolApplication implements CommandLineRunner {
     @Autowired(required = false)
     private SmtpMailSender smtpMailSender;
     
+    @Autowired(required = false)
+    private CachePersistenceService cachePersistenceService;
+    
+    @Value("${app.cache.persistence.restore-on-startup:true}")
+    private Boolean restoreCacheOnStartup;
+    
     @Value("${app.mailsentfrom:}")
     private String mailSentFrom;
     
@@ -51,6 +58,32 @@ public class PatToolApplication implements CommandLineRunner {
     
     @EventListener(ApplicationReadyEvent.class)
     public void onApplicationReady() {
+        // Load cache from file system on startup (if enabled)
+        if (restoreCacheOnStartup != null && restoreCacheOnStartup && cachePersistenceService != null) {
+            log.info("Application is ready. Checking cache file existence...");
+            try {
+                // Check if cache file exists before attempting to load
+                if (cachePersistenceService.cacheFileExists()) {
+                    log.info("Cache file found. Loading cache from file system...");
+                    CachePersistenceService.CacheLoadResult loadResult = cachePersistenceService.loadCache();
+                    if (loadResult.isSuccess()) {
+                        log.info("Cache loaded successfully on startup: {} entries, {} bytes", 
+                                loadResult.getEntryCount(), loadResult.getLoadedSizeBytes());
+                    } else {
+                        log.info("Cache load on startup: {}", loadResult.getMessage());
+                    }
+                } else {
+                    log.info("Cache file does not exist. Skipping cache load on startup.");
+                }
+            } catch (Exception e) {
+                log.warn("Failed to load cache on startup: {}", e.getMessage());
+            }
+        } else {
+            if (restoreCacheOnStartup != null && !restoreCacheOnStartup) {
+                log.info("Cache restore on startup is disabled (app.cache.persistence.restore-on-startup=false)");
+            }
+        }
+        
         log.info("Application is ready. Preparing startup notification email...");
         
         if (sendmail != null && sendmail && smtpMailSender != null && 

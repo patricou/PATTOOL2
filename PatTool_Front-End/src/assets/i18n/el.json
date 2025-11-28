@@ -724,5 +724,74 @@
         "URLLINKS_JSON_DATA": "Δεδομένα JSON συνδέσμων URL",
         "ELEMENTS": "στοιχεία",
         "CLOSE": "Κλείσιμο"
+    },
+    "SYSTEM": {
+        "TITLE": "Σύστημα",
+        "REFRESH_ALL_STATS": "Ανανέωση όλων των στατιστικών",
+        "CACHE_STATS": {
+            "TITLE": "Στατιστικά Cache",
+            "BACKEND_TITLE": "Στατιστικά Cache Backend",
+            "FRONTEND_TITLE": "Στατιστικά Cache Frontend",
+            "REFRESH": "Ανανέωση Στατιστικών",
+            "LOADING": "Φόρτωση...",
+            "ENABLED": "Cache Ενεργό",
+            "ENTRY_COUNT": "Αριθμός Εγγραφών",
+            "MAX_ENTRIES": "Μέγιστες Εγγραφές",
+            "TOTAL_SIZE": "Συνολικό Μέγεθος",
+            "TOTAL_SIZE_BYTES": "Συνολικό Μέγεθος (Bytes)",
+            "LOCAL_STORAGE": "Τοπική Αποθήκευση",
+            "SESSION_STORAGE": "Αποθήκευση Συνεδρίας",
+            "MEMORY": "Χρήση Μνήμης",
+            "USED_HEAP": "Χρησιμοποιημένη Σωρός",
+            "TOTAL_HEAP": "Συνολική Σωρός",
+            "HEAP_LIMIT": "Όριο Σωρού",
+            "ENTRIES": "εγγραφές",
+            "YES": "Ναι",
+            "NO": "Όχι"
+        },
+        "PERFORMANCE_STATS": {
+            "TITLE": "Στατιστικά Απόδοσης",
+            "PAGE_LOAD": "Χρόνος Φόρτωσης",
+            "DOM_READY": "Χρόνος DOM Έτοιμο",
+            "CONNECTION_TYPE": "Τύπος Σύνδεσης",
+            "SCREEN_RESOLUTION": "Ανάλυση Οθόνης",
+            "USER_AGENT": "User Agent",
+            "LANGUAGE": "Γλώσσα"
+        },
+        "SAVE_CACHE": {
+            "TITLE": "Αποθήκευση Cache",
+            "DESC": "Αποθήκευση συμπιεσμένων εικόνων στο δίσκο",
+            "BUTTON": "Αποθήκευση",
+            "SAVING": "Αποθήκευση..."
+        },
+        "LOAD_CACHE": {
+            "TITLE": "Φόρτωση Cache",
+            "DESC": "Επαναφορά cache από δίσκο",
+            "BUTTON": "Φόρτωση",
+            "LOADING": "Φόρτωση..."
+        },
+        "CLEAR_CACHE": {
+            "TITLE": "Εκκαθάριση Cache",
+            "DESC": "Αφαίρεση όλων των εικόνων στο cache",
+            "BUTTON": "Εκκαθάριση",
+            "CLEARING": "Εκκαθάριση..."
+        },
+        "SHUTDOWN": {
+            "TITLE": "Τερματισμός Εφαρμογής",
+            "DESC": "Αποθήκευση cache και τερματισμός εφαρμογής",
+            "BUTTON": "Τερματισμός",
+            "SHUTTING_DOWN": "Τερματισμός...",
+            "NOT_AUTHORIZED": "Δεν έχετε εξουσιοδότηση να τερματίσετε την εφαρμογή"
+        },
+        "EXCEPTION_REPORT": {
+            "TITLE": "Αναφορά Εξαιρέσεων και Συνδέσεων",
+            "DESC": "Προβολή και αποστολή αναφορών εξαιρέσεων και συνδέσεων",
+            "SEND": "Αποστολή Αναφοράς",
+            "VIEW": "Προβολή Αναφοράς",
+            "SENDING": "Αποστολή...",
+            "LOADING": "Φόρτωση...",
+            "REFRESH": "Ανανέωση",
+            "CLOSE": "Κλείσιμο"
+        }
     }
 }

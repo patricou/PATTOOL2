@@ -1,0 +1,363 @@
+<!-- Standard Title Section -->
+<div class="pat-title">
+    <div class="title-header">
+        <h2>{{ 'SYSTEM.TITLE' | translate }}</h2>
+        <button (click)="refreshAllStats()" 
+                class="btn btn-sm btn-outline-primary btn-refresh-all-stats" 
+                [disabled]="isLoadingStats"
+                [title]="'SYSTEM.REFRESH_ALL_STATS' | translate">
+            <i class="fa" [class.fa-refresh]="!isLoadingStats" [class.fa-spinner]="isLoadingStats" [class.fa-spin]="isLoadingStats"></i>
+            <span>{{ 'SYSTEM.REFRESH_ALL_STATS' | translate }}</span>
+        </button>
+    </div>
+    <app-navigation-buttons></app-navigation-buttons>
+</div>
+
+<!-- Main Content -->
+<div class="container mt-0">
+    <div class="row justify-content-center">
+        <div class="col-12" style="max-width: 75%; margin: 0 auto;">
+            
+            <!-- Backend Cache Statistics Section -->
+            <div class="cache-stats-card">
+                <div class="stats-header">
+                    <div class="stats-icon">
+                        <i class="fa fa-server"></i>
+                    </div>
+                    <div class="stats-title">
+                        <h4>{{ 'SYSTEM.CACHE_STATS.BACKEND_TITLE' | translate }}</h4>
+                    </div>
+                    <button (click)="loadCacheStats()" 
+                            class="btn-refresh-stats" 
+                            [disabled]="isLoadingStats"
+                            [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
+                        <i class="fa" [class.fa-refresh]="!isLoadingStats" [class.fa-spinner]="isLoadingStats" [class.fa-spin]="isLoadingStats"></i>
+                    </button>
+                </div>
+                <div class="stats-content" *ngIf="!isLoadingStats && cacheStats && !statsError">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.ENABLED' | translate }}</div>
+                            <div class="stat-value" [class.enabled]="cacheStats.enabled" [class.disabled]="!cacheStats.enabled">
+                                {{ cacheStats.enabled ? ('SYSTEM.CACHE_STATS.YES' | translate) : ('SYSTEM.CACHE_STATS.NO' | translate) }}
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.ENTRY_COUNT' | translate }}</div>
+                            <div class="stat-value">{{ cacheStats.entryCount || 0 }} / {{ cacheStats.maxEntries || 0 }}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.TOTAL_SIZE' | translate }}</div>
+                            <div class="stat-value">{{ (cacheStats.totalSizeMB || 0).toFixed(2) }} MB</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.TOTAL_SIZE_BYTES' | translate }}</div>
+                            <div class="stat-value">{{ (cacheStats.totalSizeBytes || 0) | number }} bytes</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stats-loading" *ngIf="isLoadingStats">
+                    <i class="fa fa-spinner fa-spin"></i> {{ 'SYSTEM.CACHE_STATS.LOADING' | translate }}
+                </div>
+                <div class="stats-error" *ngIf="statsError && !isLoadingStats">
+                    <i class="fa fa-exclamation-triangle"></i> {{ statsError }}
+                </div>
+            </div>
+
+            <!-- Frontend Cache Statistics Section -->
+            <div class="cache-stats-card" *ngIf="frontendCacheStats">
+                <div class="stats-header">
+                    <div class="stats-icon frontend-icon">
+                        <i class="fa fa-desktop"></i>
+                    </div>
+                    <div class="stats-title">
+                        <h4>{{ 'SYSTEM.CACHE_STATS.FRONTEND_TITLE' | translate }}</h4>
+                    </div>
+                    <button (click)="calculateFrontendCacheStats()" 
+                            class="btn-refresh-stats" 
+                            [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
+                        <i class="fa fa-refresh"></i>
+                    </button>
+                </div>
+                <div class="stats-content" *ngIf="frontendCacheStats && !frontendCacheStats.error">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.LOCAL_STORAGE' | translate }}</div>
+                            <div class="stat-value">
+                                <span [class.enabled]="frontendCacheStats.localStorage?.enabled" [class.disabled]="!frontendCacheStats.localStorage?.enabled">
+                                    {{ frontendCacheStats.localStorage?.enabled ? ('SYSTEM.CACHE_STATS.YES' | translate) : ('SYSTEM.CACHE_STATS.NO' | translate) }}
+                                </span>
+                                <span *ngIf="frontendCacheStats.localStorage?.enabled" class="stat-detail">
+                                    - {{ frontendCacheStats.localStorage?.entryCount || 0 }} {{ 'SYSTEM.CACHE_STATS.ENTRIES' | translate }}
+                                    <span *ngIf="(frontendCacheStats.localStorage?.totalSizeMB || 0) >= 1">
+                                        ({{ (frontendCacheStats.localStorage?.totalSizeMB || 0).toFixed(2) }} MB)
+                                    </span>
+                                    <span *ngIf="(frontendCacheStats.localStorage?.totalSizeMB || 0) < 1 && (frontendCacheStats.localStorage?.totalSizeKB || 0) >= 1">
+                                        ({{ (frontendCacheStats.localStorage?.totalSizeKB || 0).toFixed(2) }} KB)
+                                    </span>
+                                    <span *ngIf="(frontendCacheStats.localStorage?.totalSizeKB || 0) < 1">
+                                        ({{ (frontendCacheStats.localStorage?.totalSizeBytes || 0) }} B)
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="stat-item" *ngIf="frontendCacheStats.sessionStorage">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.SESSION_STORAGE' | translate }}</div>
+                            <div class="stat-value">
+                                <span [class.enabled]="frontendCacheStats.sessionStorage?.enabled" [class.disabled]="!frontendCacheStats.sessionStorage?.enabled">
+                                    {{ frontendCacheStats.sessionStorage?.enabled ? ('SYSTEM.CACHE_STATS.YES' | translate) : ('SYSTEM.CACHE_STATS.NO' | translate) }}
+                                </span>
+                                <span *ngIf="frontendCacheStats.sessionStorage?.enabled" class="stat-detail">
+                                    - {{ frontendCacheStats.sessionStorage?.entryCount || 0 }} {{ 'SYSTEM.CACHE_STATS.ENTRIES' | translate }}
+                                    <span *ngIf="(frontendCacheStats.sessionStorage?.totalSizeMB || 0) >= 1">
+                                        ({{ (frontendCacheStats.sessionStorage?.totalSizeMB || 0).toFixed(2) }} MB)
+                                    </span>
+                                    <span *ngIf="(frontendCacheStats.sessionStorage?.totalSizeMB || 0) < 1 && (frontendCacheStats.sessionStorage?.totalSizeKB || 0) >= 1">
+                                        ({{ (frontendCacheStats.sessionStorage?.totalSizeKB || 0).toFixed(2) }} KB)
+                                    </span>
+                                    <span *ngIf="(frontendCacheStats.sessionStorage?.totalSizeKB || 0) < 1">
+                                        ({{ (frontendCacheStats.sessionStorage?.totalSizeBytes || 0) }} B)
+                                    </span>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="stat-item" *ngIf="frontendCacheStats.memory?.available">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.MEMORY' | translate }}</div>
+                            <div class="stat-value">
+                                {{ ((frontendCacheStats.memory?.usedJSHeapSize || 0) / (1024 * 1024)).toFixed(0) }} / 
+                                {{ ((frontendCacheStats.memory?.totalJSHeapSize || 0) / (1024 * 1024)).toFixed(0) }} MB
+                                <span class="stat-detail">(limit: {{ ((frontendCacheStats.memory?.jsHeapSizeLimit || 0) / (1024 * 1024)).toFixed(0) }} MB)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="stats-error" *ngIf="frontendCacheStats?.error">
+                    <i class="fa fa-exclamation-triangle"></i> {{ frontendCacheStats.error }}
+                </div>
+            </div>
+
+            <!-- Performance Statistics Section -->
+            <div class="cache-stats-card" *ngIf="performanceStats">
+                <div class="stats-header">
+                    <div class="stats-icon performance-icon">
+                        <i class="fa fa-tachometer"></i>
+                    </div>
+                    <div class="stats-title">
+                        <h4>{{ 'SYSTEM.PERFORMANCE_STATS.TITLE' | translate }}</h4>
+                    </div>
+                    <button (click)="collectPerformanceStats()" 
+                            class="btn-refresh-stats" 
+                            [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
+                        <i class="fa fa-refresh"></i>
+                    </button>
+                </div>
+                <div class="stats-content">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.PERFORMANCE_STATS.PAGE_LOAD' | translate }}</div>
+                            <div class="stat-value">{{ formatTime(performanceStats.pageLoadTime) }}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.PERFORMANCE_STATS.DOM_READY' | translate }}</div>
+                            <div class="stat-value">{{ formatTime(performanceStats.domReadyTime) }}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.PERFORMANCE_STATS.CONNECTION_TYPE' | translate }}</div>
+                            <div class="stat-value">{{ performanceStats.connectionType || 'N/A' }}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.PERFORMANCE_STATS.SCREEN_RESOLUTION' | translate }}</div>
+                            <div class="stat-value">{{ performanceStats.screenResolution || 'N/A' }}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.PERFORMANCE_STATS.USER_AGENT' | translate }}</div>
+                            <div class="stat-value stat-value-small">{{ performanceStats.userAgent || 'N/A' }}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.PERFORMANCE_STATS.LANGUAGE' | translate }}</div>
+                            <div class="stat-value">{{ performanceStats.language || 'N/A' }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Compact Cache Controls -->
+            <div class="cache-controls">
+                
+                <!-- Save Cache -->
+                <div class="cache-action-card compact">
+                    <div class="action-header-compact">
+                        <div class="action-icon-small save-icon">
+                            <i class="fa fa-save"></i>
+                        </div>
+                        <div class="action-info-compact">
+                            <h5>{{ 'SYSTEM.SAVE_CACHE.TITLE' | translate }}</h5>
+                            <p>{{ 'SYSTEM.SAVE_CACHE.DESC' | translate }}</p>
+                        </div>
+                        <button (click)="saveCache()" 
+                                class="btn-small btn-save" 
+                                [disabled]="isSaving || saveMessageVisible">
+                            <i class="fa" [class.fa-save]="!isSaving" [class.fa-spinner]="isSaving" [class.fa-spin]="isSaving"></i>
+                            <span>{{ isSaving ? ('SYSTEM.SAVE_CACHE.SAVING' | translate) : ('SYSTEM.SAVE_CACHE.BUTTON' | translate) }}</span>
+                        </button>
+                    </div>
+                    <div *ngIf="saveMessageVisible" class="action-message save-message">
+                        <i class="fa fa-info-circle"></i>
+                        <span>{{ saveMessage }}</span>
+                    </div>
+                </div>
+
+                <!-- Load Cache -->
+                <div class="cache-action-card compact">
+                    <div class="action-header-compact">
+                        <div class="action-icon-small load-icon">
+                            <i class="fa fa-upload"></i>
+                        </div>
+                        <div class="action-info-compact">
+                            <h5>{{ 'SYSTEM.LOAD_CACHE.TITLE' | translate }}</h5>
+                            <p>{{ 'SYSTEM.LOAD_CACHE.DESC' | translate }}</p>
+                        </div>
+                        <button (click)="loadCache()" 
+                                class="btn-small btn-load" 
+                                [disabled]="isLoading || loadMessageVisible">
+                            <i class="fa" [class.fa-upload]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
+                            <span>{{ isLoading ? ('SYSTEM.LOAD_CACHE.LOADING' | translate) : ('SYSTEM.LOAD_CACHE.BUTTON' | translate) }}</span>
+                        </button>
+                    </div>
+                    <div *ngIf="loadMessageVisible" class="action-message load-message">
+                        <i class="fa fa-info-circle"></i>
+                        <span>{{ loadMessage }}</span>
+                    </div>
+                </div>
+
+                <!-- Clear Cache -->
+                <div class="cache-action-card compact">
+                    <div class="action-header-compact">
+                        <div class="action-icon-small clear-icon">
+                            <i class="fa fa-trash"></i>
+                        </div>
+                        <div class="action-info-compact">
+                            <h5>{{ 'SYSTEM.CLEAR_CACHE.TITLE' | translate }}</h5>
+                            <p>{{ 'SYSTEM.CLEAR_CACHE.DESC' | translate }}</p>
+                        </div>
+                        <button (click)="clearCache()" 
+                                class="btn-small btn-clear" 
+                                [disabled]="isClearing || clearMessageVisible">
+                            <i class="fa" [class.fa-trash]="!isClearing" [class.fa-spinner]="isClearing" [class.fa-spin]="isClearing"></i>
+                            <span>{{ isClearing ? ('SYSTEM.CLEAR_CACHE.CLEARING' | translate) : ('SYSTEM.CLEAR_CACHE.BUTTON' | translate) }}</span>
+                        </button>
+                    </div>
+                    <div *ngIf="clearMessageVisible" class="action-message clear-message">
+                        <i class="fa fa-info-circle"></i>
+                        <span>{{ clearMessage }}</span>
+                    </div>
+                </div>
+
+                <!-- Shutdown Application -->
+                <div class="cache-action-card compact shutdown-card">
+                    <div class="action-header-compact">
+                        <div class="action-icon-small shutdown-icon">
+                            <i class="fa fa-power-off"></i>
+                        </div>
+                        <div class="action-info-compact">
+                            <h5>{{ 'SYSTEM.SHUTDOWN.TITLE' | translate }}</h5>
+                            <p>{{ 'SYSTEM.SHUTDOWN.DESC' | translate }}</p>
+                        </div>
+                        <button (click)="shutdownApplication()" 
+                                class="btn-small btn-shutdown" 
+                                [disabled]="!isShutdownAuthorized || isShuttingDown || shutdownMessageVisible"
+                                [title]="!isShutdownAuthorized ? ('SYSTEM.SHUTDOWN.NOT_AUTHORIZED' | translate) : ''">
+                            <i class="fa" [class.fa-power-off]="!isShuttingDown" [class.fa-spinner]="isShuttingDown" [class.fa-spin]="isShuttingDown"></i>
+                            <span>{{ isShuttingDown ? ('SYSTEM.SHUTDOWN.SHUTTING_DOWN' | translate) : ('SYSTEM.SHUTDOWN.BUTTON' | translate) }}</span>
+                        </button>
+                    </div>
+                    <div *ngIf="shutdownMessageVisible" class="action-message shutdown-message">
+                        <i class="fa fa-info-circle"></i>
+                        <span>{{ shutdownMessage }}</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Exception Report Section -->
+            <div class="cache-action-card exception-report-card">
+                <div class="action-header">
+                    <div class="action-icon report-icon">
+                        <i class="fa fa-bug"></i>
+                    </div>
+                    <div class="action-info">
+                        <h4>{{ 'SYSTEM.EXCEPTION_REPORT.TITLE' | translate }}</h4>
+                        <p>{{ 'SYSTEM.EXCEPTION_REPORT.DESC' | translate }}</p>
+                    </div>
+                </div>
+                <div class="report-actions">
+                    <button 
+                        type="button" 
+                        class="btn-small btn-report-send"
+                        (click)="sendExceptionReport()"
+                        [disabled]="isSendingReport">
+                        <i class="fa" [ngClass]="{'fa-envelope': !isSendingReport, 'fa-spinner': isSendingReport, 'fa-spin': isSendingReport}"></i>
+                        <span>{{ isSendingReport ? ('SYSTEM.EXCEPTION_REPORT.SENDING' | translate) : ('SYSTEM.EXCEPTION_REPORT.SEND' | translate) }}</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="btn-small btn-report-view"
+                        (click)="viewExceptionReport()"
+                        [disabled]="isLoadingPreview">
+                        <i class="fa" [ngClass]="{'fa-eye': !isLoadingPreview, 'fa-spinner': isLoadingPreview, 'fa-spin': isLoadingPreview}"></i>
+                        <span>{{ isLoadingPreview ? ('SYSTEM.EXCEPTION_REPORT.LOADING' | translate) : ('SYSTEM.EXCEPTION_REPORT.VIEW' | translate) }}</span>
+                    </button>
+                </div>
+                <div class="report-feedback">
+                    <div *ngIf="reportMessage" class="action-message report-success-message">
+                        <i class="fa fa-check-circle"></i>
+                        <span>{{ reportMessage }}</span>
+                    </div>
+                    <div *ngIf="reportError" class="action-message report-error-message">
+                        <i class="fa fa-exclamation-circle"></i>
+                        <span>{{ reportError }}</span>
+                    </div>
+                    <div *ngIf="previewError" class="action-message report-warning-message">
+                        <i class="fa fa-exclamation-triangle"></i>
+                        <span>{{ previewError }}</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Report Preview Overlay -->
+<div class="report-overlay" *ngIf="isPreviewVisible">
+    <div class="report-overlay-backdrop" (click)="closePreview()"></div>
+    <div class="report-overlay-panel">
+        <div class="report-overlay-header">
+            <div class="report-overlay-title">
+                <i class="fa fa-file-text-o"></i>
+                {{ 'SYSTEM.EXCEPTION_REPORT.TITLE' | translate }}
+            </div>
+            <div class="report-overlay-actions">
+                <button type="button"
+                        class="btn btn-sm report-btn report-btn-primary report-overlay-send"
+                        (click)="sendExceptionReport()"
+                        [disabled]="isSendingReport">
+                    <i class="fa" [ngClass]="{'fa-paper-plane': !isSendingReport, 'fa-spinner': isSendingReport, 'fa-spin': isSendingReport}"></i>
+                    <span>{{ isSendingReport ? ('SYSTEM.EXCEPTION_REPORT.SENDING' | translate) : ('SYSTEM.EXCEPTION_REPORT.SEND' | translate) }}</span>
+                </button>
+                <button type="button"
+                        class="btn btn-sm report-btn report-btn-warning report-overlay-refresh"
+                        (click)="refreshReport()"
+                        [disabled]="isLoadingPreview">
+                    <i class="fa" [ngClass]="{'fa-rotate-right': !isLoadingPreview, 'fa-spinner': isLoadingPreview, 'fa-spin': isLoadingPreview}"></i>
+                    <span>{{ isLoadingPreview ? ('SYSTEM.EXCEPTION_REPORT.LOADING' | translate) : ('SYSTEM.EXCEPTION_REPORT.REFRESH' | translate) }}</span>
+                </button>
+                <button type="button" class="btn btn-sm btn-light report-overlay-close" (click)="closePreview()">
+                    <i class="fa fa-times"></i>
+                    {{ 'SYSTEM.EXCEPTION_REPORT.CLOSE' | translate }}
+                </button>
+            </div>
+        </div>
+        <div class="report-overlay-body" [innerHTML]="reportHtml"></div>
+    </div>
+</div>

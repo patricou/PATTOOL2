@@ -726,5 +726,74 @@
         "URLLINKS_JSON_DATA": "Datos JSON de Enlaces URL",
         "ELEMENTS": "elementos",
         "CLOSE": "Cerrar"
+    },
+    "SYSTEM": {
+        "TITLE": "Sistema",
+        "REFRESH_ALL_STATS": "Actualizar todas las estadísticas",
+        "CACHE_STATS": {
+            "TITLE": "Estadísticas de Caché",
+            "BACKEND_TITLE": "Estadísticas de Caché Backend",
+            "FRONTEND_TITLE": "Estadísticas de Caché Frontend",
+            "REFRESH": "Actualizar Estadísticas",
+            "LOADING": "Cargando...",
+            "ENABLED": "Caché Activado",
+            "ENTRY_COUNT": "Número de Entradas",
+            "MAX_ENTRIES": "Entradas Máximas",
+            "TOTAL_SIZE": "Tamaño Total",
+            "TOTAL_SIZE_BYTES": "Tamaño Total (Bytes)",
+            "LOCAL_STORAGE": "Almacenamiento Local",
+            "SESSION_STORAGE": "Almacenamiento de Sesión",
+            "MEMORY": "Uso de Memoria",
+            "USED_HEAP": "Montón Usado",
+            "TOTAL_HEAP": "Montón Total",
+            "HEAP_LIMIT": "Límite del Montón",
+            "ENTRIES": "entradas",
+            "YES": "Sí",
+            "NO": "No"
+        },
+        "PERFORMANCE_STATS": {
+            "TITLE": "Estadísticas de Rendimiento",
+            "PAGE_LOAD": "Tiempo de Carga",
+            "DOM_READY": "Tiempo DOM Listo",
+            "CONNECTION_TYPE": "Tipo de Conexión",
+            "SCREEN_RESOLUTION": "Resolución de Pantalla",
+            "USER_AGENT": "User Agent",
+            "LANGUAGE": "Idioma"
+        },
+        "SAVE_CACHE": {
+            "TITLE": "Guardar Caché",
+            "DESC": "Guardar imágenes comprimidas en disco",
+            "BUTTON": "Guardar",
+            "SAVING": "Guardando..."
+        },
+        "LOAD_CACHE": {
+            "TITLE": "Cargar Caché",
+            "DESC": "Restaurar caché desde disco",
+            "BUTTON": "Cargar",
+            "LOADING": "Cargando..."
+        },
+        "CLEAR_CACHE": {
+            "TITLE": "Limpiar Caché",
+            "DESC": "Eliminar todas las imágenes en caché",
+            "BUTTON": "Limpiar",
+            "CLEARING": "Limpiando..."
+        },
+        "SHUTDOWN": {
+            "TITLE": "Apagar Aplicación",
+            "DESC": "Guardar caché y apagar la aplicación",
+            "BUTTON": "Apagar",
+            "SHUTTING_DOWN": "Apagando...",
+            "NOT_AUTHORIZED": "No está autorizado para apagar la aplicación"
+        },
+        "EXCEPTION_REPORT": {
+            "TITLE": "Informe de Excepciones y Conexiones",
+            "DESC": "Ver y enviar informes de excepciones y conexiones",
+            "SEND": "Enviar Informe",
+            "VIEW": "Ver Informe",
+            "SENDING": "Enviando...",
+            "LOADING": "Cargando...",
+            "REFRESH": "Actualizar",
+            "CLOSE": "Cerrar"
+        }
     }
 }

@@ -213,55 +213,6 @@
                             <p>{{ 'ABOUT.SSL_DESC' | translate }}</p>
                         </div>
                     </div>
-                    <div class="tech-item">
-                        <div class="tech-icon">
-                            <i class="fa fa-bug"></i>
-                        </div>
-                        <div class="tech-info">
-                            <h4>{{ 'ABOUT.EXCEPTION_REPORT_TITLE' | translate }}</h4>
-                            <p>{{ 'ABOUT.EXCEPTION_REPORT_DESC' | translate }}</p>
-                            <div class="report-control-panel">
-                                <div class="report-control-title">
-                                    <div class="report-control-icon">
-                                        <i class="fa fa-file-text-o"></i>
-                                    </div>
-                                    <div class="report-control-text">
-                                        <h5>{{ 'ABOUT.REPORT_ACTIONS_TITLE' | translate }}</h5>
-                                        <p>{{ 'ABOUT.REPORT_ACTIONS_SUBTITLE' | translate }}</p>
-                                    </div>
-                                </div>
-                                <div class="report-actions">
-                                    <button 
-                                        type="button" 
-                                        class="btn report-btn report-btn-primary"
-                                        (click)="sendExceptionReport()"
-                                        [disabled]="isSendingReport">
-                                        <i class="fa" [ngClass]="{'fa-spinner fa-spin': isSendingReport, 'fa-envelope': !isSendingReport}"></i>
-                                        <span>{{ isSendingReport ? ('ABOUT.SENDING' | translate) : ('ABOUT.SEND_REPORT_MAIL' | translate) }}</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        class="btn report-btn report-btn-secondary"
-                                        (click)="viewExceptionReport()"
-                                        [disabled]="isLoadingPreview">
-                                        <i class="fa" [ngClass]="{'fa-spinner fa-spin': isLoadingPreview, 'fa-eye': !isLoadingPreview}"></i>
-                                        <span>{{ isLoadingPreview ? ('ABOUT.LOADING' | translate) : ('ABOUT.VIEW_REPORT_SHORT' | translate) }}</span>
-                                    </button>
-                                </div>
-                                <div class="report-feedback">
-                                    <div *ngIf="reportMessage" class="alert alert-success alert-xs mb-0" role="alert">
-                                        <i class="fa fa-check-circle"></i> {{ reportMessage }}
-                                    </div>
-                                    <div *ngIf="reportError" class="alert alert-danger alert-xs mb-0" role="alert">
-                                        <i class="fa fa-exclamation-circle"></i> {{ reportError }}
-                                    </div>
-                                    <div *ngIf="previewError" class="alert alert-warning alert-xs mb-0" role="alert">
-                                        <i class="fa fa-exclamation-triangle"></i> {{ previewError }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -328,38 +279,4 @@
                 </div>
             </div>
         </div>
-</div>
-
-<div class="report-overlay" *ngIf="isPreviewVisible">
-    <div class="report-overlay-backdrop"></div>
-    <div class="report-overlay-panel">
-        <div class="report-overlay-header">
-            <div class="report-overlay-title">
-                <i class="fa fa-file-text-o"></i>
-                {{ 'ABOUT.REPORT_OVERLAY_TITLE' | translate }}
-            </div>
-            <div class="report-overlay-actions">
-                <button type="button"
-                        class="btn btn-sm report-btn report-btn-primary report-overlay-send"
-                        (click)="sendExceptionReport()"
-                        [disabled]="isSendingReport">
-                    <i class="fa"
-                       [ngClass]="{'fa-spinner fa-spin': isSendingReport, 'fa-paper-plane': !isSendingReport}"></i>
-                    <span>{{ isSendingReport ? ('ABOUT.SENDING' | translate) : ('ABOUT.SEND_REPORT_MAIL' | translate) }}</span>
-                </button>
-                <button type="button"
-                        class="btn btn-sm report-btn report-btn-warning report-overlay-refresh"
-                        (click)="refreshReport()"
-                        [disabled]="isLoadingPreview">
-                    <i class="fa" [ngClass]="{'fa-spinner fa-spin': isLoadingPreview, 'fa-rotate-right': !isLoadingPreview}"></i>
-                    <span>{{ isLoadingPreview ? ('ABOUT.LOADING' | translate) : ('ABOUT.REFRESH_REPORT' | translate) }}</span>
-                </button>
-                <button type="button" class="btn btn-sm btn-light report-overlay-close" (click)="closePreview()">
-                    <i class="fa fa-times"></i>
-                    {{ 'ABOUT.CLOSE_OVERLAY' | translate }}
-                </button>
-            </div>
-        </div>
-        <div class="report-overlay-body" [innerHTML]="reportHtml"></div>
-    </div>
 </div>

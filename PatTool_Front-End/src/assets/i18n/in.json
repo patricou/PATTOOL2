@@ -717,6 +717,75 @@
         "URLLINKS_JSON_DATA": "Urllinks JSON डेटा",
         "ELEMENTS": "तत्व",
         "CLOSE": "बंद करें"
+    },
+    "SYSTEM": {
+        "TITLE": "सिस्टम",
+        "REFRESH_ALL_STATS": "सभी आंकड़े ताज़ा करें",
+        "CACHE_STATS": {
+            "TITLE": "कैश सांख्यिकी",
+            "BACKEND_TITLE": "बैकएंड कैश सांख्यिकी",
+            "FRONTEND_TITLE": "फ्रंटएंड कैश सांख्यिकी",
+            "REFRESH": "सांख्यिकी ताज़ा करें",
+            "LOADING": "लोड हो रहा है...",
+            "ENABLED": "कैश सक्षम",
+            "ENTRY_COUNT": "प्रविष्टि संख्या",
+            "MAX_ENTRIES": "अधिकतम प्रविष्टियाँ",
+            "TOTAL_SIZE": "कुल आकार",
+            "TOTAL_SIZE_BYTES": "कुल आकार (बाइट्स)",
+            "LOCAL_STORAGE": "स्थानीय भंडारण",
+            "SESSION_STORAGE": "सत्र भंडारण",
+            "MEMORY": "मेमोरी उपयोग",
+            "USED_HEAP": "उपयोग की गई हीप",
+            "TOTAL_HEAP": "कुल हीप",
+            "HEAP_LIMIT": "हीप सीमा",
+            "ENTRIES": "प्रविष्टियाँ",
+            "YES": "हाँ",
+            "NO": "नहीं"
+        },
+        "PERFORMANCE_STATS": {
+            "TITLE": "प्रदर्शन सांख्यिकी",
+            "PAGE_LOAD": "पृष्ठ लोड समय",
+            "DOM_READY": "DOM तैयार समय",
+            "CONNECTION_TYPE": "कनेक्शन प्रकार",
+            "SCREEN_RESOLUTION": "स्क्रीन रिज़ॉल्यूशन",
+            "USER_AGENT": "User Agent",
+            "LANGUAGE": "भाषा"
+        },
+        "SAVE_CACHE": {
+            "TITLE": "कैश सहेजें",
+            "DESC": "संपीड़ित छवियों को डिस्क पर सहेजें",
+            "BUTTON": "सहेजें",
+            "SAVING": "सहेजा जा रहा है..."
+        },
+        "LOAD_CACHE": {
+            "TITLE": "कैश लोड करें",
+            "DESC": "डिस्क से कैश पुनर्स्थापित करें",
+            "BUTTON": "लोड करें",
+            "LOADING": "लोड हो रहा है..."
+        },
+        "CLEAR_CACHE": {
+            "TITLE": "कैश साफ़ करें",
+            "DESC": "सभी कैश की गई छवियों को हटाएं",
+            "BUTTON": "साफ़ करें",
+            "CLEARING": "साफ़ किया जा रहा है..."
+        },
+        "SHUTDOWN": {
+            "TITLE": "एप्लिकेशन बंद करें",
+            "DESC": "कैश सहेजें और एप्लिकेशन बंद करें",
+            "BUTTON": "बंद करें",
+            "SHUTTING_DOWN": "बंद हो रहा है...",
+            "NOT_AUTHORIZED": "आपको एप्लिकेशन बंद करने की अनुमति नहीं है"
+        },
+        "EXCEPTION_REPORT": {
+            "TITLE": "अपवाद और कनेक्शन रिपोर्ट",
+            "DESC": "अपवाद और कनेक्शन रिपोर्ट देखें और भेजें",
+            "SEND": "रिपोर्ट भेजें",
+            "VIEW": "रिपोर्ट देखें",
+            "SENDING": "भेजा जा रहा है...",
+            "LOADING": "लोड हो रहा है...",
+            "REFRESH": "ताज़ा करें",
+            "CLOSE": "बंद करें"
+        }
     }
 }
 

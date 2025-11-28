@@ -726,5 +726,74 @@
         "URLLINKS_JSON_DATA": "Dati JSON Link URL",
         "ELEMENTS": "elementi",
         "CLOSE": "Chiudi"
+    },
+    "SYSTEM": {
+        "TITLE": "Sistema",
+        "REFRESH_ALL_STATS": "Aggiorna tutte le statistiche",
+        "CACHE_STATS": {
+            "TITLE": "Statistiche Cache",
+            "BACKEND_TITLE": "Statistiche Cache Backend",
+            "FRONTEND_TITLE": "Statistiche Cache Frontend",
+            "REFRESH": "Aggiorna Statistiche",
+            "LOADING": "Caricamento...",
+            "ENABLED": "Cache Abilitato",
+            "ENTRY_COUNT": "Numero di Voci",
+            "MAX_ENTRIES": "Voci Massime",
+            "TOTAL_SIZE": "Dimensione Totale",
+            "TOTAL_SIZE_BYTES": "Dimensione Totale (Byte)",
+            "LOCAL_STORAGE": "Archiviazione Locale",
+            "SESSION_STORAGE": "Archiviazione Sessione",
+            "MEMORY": "Uso Memoria",
+            "USED_HEAP": "Heap Usato",
+            "TOTAL_HEAP": "Heap Totale",
+            "HEAP_LIMIT": "Limite Heap",
+            "ENTRIES": "voci",
+            "YES": "Sì",
+            "NO": "No"
+        },
+        "PERFORMANCE_STATS": {
+            "TITLE": "Statistiche di Prestazioni",
+            "PAGE_LOAD": "Tempo di Caricamento",
+            "DOM_READY": "Tempo DOM Pronto",
+            "CONNECTION_TYPE": "Tipo di Connessione",
+            "SCREEN_RESOLUTION": "Risoluzione Schermo",
+            "USER_AGENT": "User Agent",
+            "LANGUAGE": "Lingua"
+        },
+        "SAVE_CACHE": {
+            "TITLE": "Salva Cache",
+            "DESC": "Salva immagini compresse su disco",
+            "BUTTON": "Salva",
+            "SAVING": "Salvataggio..."
+        },
+        "LOAD_CACHE": {
+            "TITLE": "Carica Cache",
+            "DESC": "Ripristina cache da disco",
+            "BUTTON": "Carica",
+            "LOADING": "Caricamento..."
+        },
+        "CLEAR_CACHE": {
+            "TITLE": "Svuota Cache",
+            "DESC": "Rimuovi tutte le immagini in cache",
+            "BUTTON": "Svuota",
+            "CLEARING": "Svuotamento..."
+        },
+        "SHUTDOWN": {
+            "TITLE": "Arresta Applicazione",
+            "DESC": "Salva cache e arresta l'applicazione",
+            "BUTTON": "Arresta",
+            "SHUTTING_DOWN": "Arresto in corso...",
+            "NOT_AUTHORIZED": "Non sei autorizzato ad arrestare l'applicazione"
+        },
+        "EXCEPTION_REPORT": {
+            "TITLE": "Rapporto Eccezioni e Connessioni",
+            "DESC": "Visualizza e invia rapporti di eccezioni e connessioni",
+            "SEND": "Invia Rapporto",
+            "VIEW": "Visualizza Rapporto",
+            "SENDING": "Invio in corso...",
+            "LOADING": "Caricamento...",
+            "REFRESH": "Aggiorna",
+            "CLOSE": "Chiudi"
+        }
     }
 }

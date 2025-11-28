@@ -97,7 +97,7 @@ public class SecurityConfig {
                 .requestMatchers("/i18n/**", "/.well-known/**").permitAll()
                 // Angular routing paths (to be handled by WebConfig which forwards to index.html)
                 .requestMatchers("/even", "/neweven", "/updeven/**", "/details-evenement/**", 
-                                "/results", "/maps", "/links", "/links-admin", "/iot", "/patgpt").permitAll()
+                                "/results", "/maps", "/links", "/links-admin", "/iot", "/patgpt", "/system").permitAll()
                 
                 // ============================================
                 // AUTHENTICATED ENDPOINTS - Require authentication

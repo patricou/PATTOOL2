@@ -718,5 +718,74 @@
         "URLLINKS_JSON_DATA": "נתוני JSON של קישורי URL",
         "ELEMENTS": "פריטים",
         "CLOSE": "סגור"
+    },
+    "SYSTEM": {
+        "TITLE": "מערכת",
+        "REFRESH_ALL_STATS": "רענן את כל הסטטיסטיקות",
+        "CACHE_STATS": {
+            "TITLE": "סטטיסטיקות מטמון",
+            "BACKEND_TITLE": "סטטיסטיקות מטמון Backend",
+            "FRONTEND_TITLE": "סטטיסטיקות מטמון Frontend",
+            "REFRESH": "רענן סטטיסטיקות",
+            "LOADING": "טוען...",
+            "ENABLED": "מטמון מופעל",
+            "ENTRY_COUNT": "מספר רשומות",
+            "MAX_ENTRIES": "רשומות מקסימליות",
+            "TOTAL_SIZE": "גודל כולל",
+            "TOTAL_SIZE_BYTES": "גודל כולל (בתים)",
+            "LOCAL_STORAGE": "אחסון מקומי",
+            "SESSION_STORAGE": "אחסון סשן",
+            "MEMORY": "שימוש בזיכרון",
+            "USED_HEAP": "ערימה בשימוש",
+            "TOTAL_HEAP": "ערימה כוללת",
+            "HEAP_LIMIT": "מגבלת ערימה",
+            "ENTRIES": "רשומות",
+            "YES": "כן",
+            "NO": "לא"
+        },
+        "PERFORMANCE_STATS": {
+            "TITLE": "סטטיסטיקות ביצועים",
+            "PAGE_LOAD": "זמן טעינת עמוד",
+            "DOM_READY": "זמן DOM מוכן",
+            "CONNECTION_TYPE": "סוג חיבור",
+            "SCREEN_RESOLUTION": "רזולוציית מסך",
+            "USER_AGENT": "User Agent",
+            "LANGUAGE": "שפה"
+        },
+        "SAVE_CACHE": {
+            "TITLE": "שמור מטמון",
+            "DESC": "שמור תמונות דחוסות לדיסק",
+            "BUTTON": "שמור",
+            "SAVING": "שומר..."
+        },
+        "LOAD_CACHE": {
+            "TITLE": "טען מטמון",
+            "DESC": "שחזר מטמון מהדיסק",
+            "BUTTON": "טען",
+            "LOADING": "טוען..."
+        },
+        "CLEAR_CACHE": {
+            "TITLE": "נקה מטמון",
+            "DESC": "הסר את כל התמונות במטמון",
+            "BUTTON": "נקה",
+            "CLEARING": "מנקה..."
+        },
+        "SHUTDOWN": {
+            "TITLE": "כבה את האפליקציה",
+            "DESC": "שמור מטמון וכבה את האפליקציה",
+            "BUTTON": "כבה",
+            "SHUTTING_DOWN": "מכבה...",
+            "NOT_AUTHORIZED": "אין לך הרשאה לכבות את האפליקציה"
+        },
+        "EXCEPTION_REPORT": {
+            "TITLE": "דוח חריגות וחיבורים",
+            "DESC": "הצג ושלוח דוחות חריגות וחיבורים",
+            "SEND": "שלח דוח",
+            "VIEW": "הצג דוח",
+            "SENDING": "שולח...",
+            "LOADING": "טוען...",
+            "REFRESH": "רענן",
+            "CLOSE": "סגור"
+        }
     }
 }

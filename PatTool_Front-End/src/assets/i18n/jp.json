@@ -727,5 +727,74 @@
         "URLLINKS_JSON_DATA": "URLリンクJSONデータ",
         "ELEMENTS": "要素",
         "CLOSE": "閉じる"
+    },
+    "SYSTEM": {
+        "TITLE": "システム",
+        "REFRESH_ALL_STATS": "すべての統計を更新",
+        "CACHE_STATS": {
+            "TITLE": "キャッシュ統計",
+            "BACKEND_TITLE": "バックエンドキャッシュ統計",
+            "FRONTEND_TITLE": "フロントエンドキャッシュ統計",
+            "REFRESH": "統計を更新",
+            "LOADING": "読み込み中...",
+            "ENABLED": "キャッシュ有効",
+            "ENTRY_COUNT": "エントリ数",
+            "MAX_ENTRIES": "最大エントリ",
+            "TOTAL_SIZE": "合計サイズ",
+            "TOTAL_SIZE_BYTES": "合計サイズ（バイト）",
+            "LOCAL_STORAGE": "ローカルストレージ",
+            "SESSION_STORAGE": "セッションストレージ",
+            "MEMORY": "メモリ使用量",
+            "USED_HEAP": "使用済みヒープ",
+            "TOTAL_HEAP": "合計ヒープ",
+            "HEAP_LIMIT": "ヒープ制限",
+            "ENTRIES": "エントリ",
+            "YES": "はい",
+            "NO": "いいえ"
+        },
+        "PERFORMANCE_STATS": {
+            "TITLE": "パフォーマンス統計",
+            "PAGE_LOAD": "ページ読み込み時間",
+            "DOM_READY": "DOM準備時間",
+            "CONNECTION_TYPE": "接続タイプ",
+            "SCREEN_RESOLUTION": "画面解像度",
+            "USER_AGENT": "ユーザーエージェント",
+            "LANGUAGE": "言語"
+        },
+        "SAVE_CACHE": {
+            "TITLE": "キャッシュを保存",
+            "DESC": "圧縮された画像をディスクに保存",
+            "BUTTON": "保存",
+            "SAVING": "保存中..."
+        },
+        "LOAD_CACHE": {
+            "TITLE": "キャッシュを読み込む",
+            "DESC": "ディスクからキャッシュを復元",
+            "BUTTON": "読み込む",
+            "LOADING": "読み込み中..."
+        },
+        "CLEAR_CACHE": {
+            "TITLE": "キャッシュをクリア",
+            "DESC": "すべてのキャッシュされた画像を削除",
+            "BUTTON": "クリア",
+            "CLEARING": "クリア中..."
+        },
+        "SHUTDOWN": {
+            "TITLE": "アプリケーションをシャットダウン",
+            "DESC": "キャッシュを保存してアプリケーションをシャットダウン",
+            "BUTTON": "シャットダウン",
+            "SHUTTING_DOWN": "シャットダウン中...",
+            "NOT_AUTHORIZED": "アプリケーションをシャットダウンする権限がありません"
+        },
+        "EXCEPTION_REPORT": {
+            "TITLE": "例外と接続レポート",
+            "DESC": "例外と接続レポートを表示および送信",
+            "SEND": "レポートを送信",
+            "VIEW": "レポートを表示",
+            "SENDING": "送信中...",
+            "LOADING": "読み込み中...",
+            "REFRESH": "更新",
+            "CLOSE": "閉じる"
+        }
     }
 }

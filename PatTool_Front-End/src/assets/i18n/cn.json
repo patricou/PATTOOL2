@@ -725,5 +725,73 @@
         "URLLINKS_JSON_DATA": "URL链接JSON数据",
         "ELEMENTS": "元素",
         "CLOSE": "关闭"
+    },
+    "SYSTEM": {
+        "TITLE": "系统",
+        "REFRESH_ALL_STATS": "刷新所有统计信息",
+        "CACHE_STATS": {
+            "TITLE": "缓存统计",
+            "BACKEND_TITLE": "后端缓存统计",
+            "FRONTEND_TITLE": "前端缓存统计",
+            "REFRESH": "刷新统计",
+            "LOADING": "加载中...",
+            "ENABLED": "缓存已启用",
+            "ENTRY_COUNT": "条目数",
+            "MAX_ENTRIES": "最大条目",
+            "TOTAL_SIZE": "总大小",
+            "TOTAL_SIZE_BYTES": "总大小（字节）",
+            "LOCAL_STORAGE": "本地存储",
+            "SESSION_STORAGE": "会话存储",
+            "MEMORY": "内存使用",
+            "USED_HEAP": "已用堆",
+            "TOTAL_HEAP": "总堆",
+            "HEAP_LIMIT": "堆限制",
+            "YES": "是",
+            "NO": "否"
+        },
+        "PERFORMANCE_STATS": {
+            "TITLE": "性能统计",
+            "PAGE_LOAD": "页面加载时间",
+            "DOM_READY": "DOM就绪时间",
+            "CONNECTION_TYPE": "连接类型",
+            "SCREEN_RESOLUTION": "屏幕分辨率",
+            "USER_AGENT": "用户代理",
+            "LANGUAGE": "语言"
+        },
+        "SAVE_CACHE": {
+            "TITLE": "保存缓存",
+            "DESC": "将压缩图像保存到磁盘",
+            "BUTTON": "保存",
+            "SAVING": "保存中..."
+        },
+        "LOAD_CACHE": {
+            "TITLE": "加载缓存",
+            "DESC": "从磁盘恢复缓存",
+            "BUTTON": "加载",
+            "LOADING": "加载中..."
+        },
+        "CLEAR_CACHE": {
+            "TITLE": "清除缓存",
+            "DESC": "删除所有缓存的图像",
+            "BUTTON": "清除",
+            "CLEARING": "清除中..."
+        },
+        "SHUTDOWN": {
+            "TITLE": "关闭应用程序",
+            "DESC": "保存缓存并关闭应用程序",
+            "BUTTON": "关闭",
+            "SHUTTING_DOWN": "正在关闭...",
+            "NOT_AUTHORIZED": "您无权关闭应用程序"
+        },
+        "EXCEPTION_REPORT": {
+            "TITLE": "异常和连接报告",
+            "DESC": "查看和发送异常和连接报告",
+            "SEND": "发送报告",
+            "VIEW": "查看报告",
+            "SENDING": "发送中...",
+            "LOADING": "加载中...",
+            "REFRESH": "刷新",
+            "CLOSE": "关闭"
+        }
     }
 }

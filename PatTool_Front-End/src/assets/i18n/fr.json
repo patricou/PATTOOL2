@@ -726,6 +726,75 @@
         "URLLINKS_JSON_DATA": "Données JSON Liens URL",
         "ELEMENTS": "éléments",
         "CLOSE": "Fermer"
+    },
+    "SYSTEM": {
+        "TITLE": "Système",
+        "REFRESH_ALL_STATS": "Actualiser toutes les statistiques",
+        "CACHE_STATS": {
+            "TITLE": "Statistiques du Cache",
+            "BACKEND_TITLE": "Statistiques du Cache Backend",
+            "FRONTEND_TITLE": "Statistiques du Cache Frontend",
+            "REFRESH": "Actualiser les statistiques",
+            "LOADING": "Chargement...",
+            "ENABLED": "Cache Activé",
+            "ENTRY_COUNT": "Nombre d'Entrées",
+            "MAX_ENTRIES": "Entrées Max",
+            "TOTAL_SIZE": "Taille Totale",
+            "TOTAL_SIZE_BYTES": "Taille Totale (Octets)",
+            "LOCAL_STORAGE": "Stockage Local",
+            "SESSION_STORAGE": "Stockage de Session",
+            "MEMORY": "Utilisation Mémoire",
+            "USED_HEAP": "Tas Utilisé",
+            "TOTAL_HEAP": "Tas Total",
+            "HEAP_LIMIT": "Limite du Tas",
+            "ENTRIES": "entrées",
+            "YES": "Oui",
+            "NO": "Non"
+        },
+        "PERFORMANCE_STATS": {
+            "TITLE": "Statistiques de Performance",
+            "PAGE_LOAD": "Temps de Chargement",
+            "DOM_READY": "Temps DOM Prêt",
+            "CONNECTION_TYPE": "Type de Connexion",
+            "SCREEN_RESOLUTION": "Résolution d'Écran",
+            "USER_AGENT": "User Agent",
+            "LANGUAGE": "Langue"
+        },
+        "SAVE_CACHE": {
+            "TITLE": "Sauvegarder le Cache",
+            "DESC": "Sauvegarder les images compressées sur le disque",
+            "BUTTON": "Sauvegarder",
+            "SAVING": "Sauvegarde..."
+        },
+        "LOAD_CACHE": {
+            "TITLE": "Charger le Cache",
+            "DESC": "Restaurer le cache depuis le disque",
+            "BUTTON": "Charger",
+            "LOADING": "Chargement..."
+        },
+        "CLEAR_CACHE": {
+            "TITLE": "Vider le Cache",
+            "DESC": "Supprimer toutes les images en cache",
+            "BUTTON": "Vider",
+            "CLEARING": "Vidage..."
+        },
+        "SHUTDOWN": {
+            "TITLE": "Arrêter l'Application",
+            "DESC": "Sauvegarder le cache et arrêter l'application",
+            "BUTTON": "Arrêter",
+            "SHUTTING_DOWN": "Arrêt en cours...",
+            "NOT_AUTHORIZED": "Vous n'êtes pas autorisé à arrêter l'application"
+        },
+        "EXCEPTION_REPORT": {
+            "TITLE": "Rapport d'Exceptions et de Connexions",
+            "DESC": "Voir et envoyer les rapports d'exceptions et de connexions",
+            "SEND": "Envoyer le Rapport",
+            "VIEW": "Voir le Rapport",
+            "SENDING": "Envoi en cours...",
+            "LOADING": "Chargement...",
+            "REFRESH": "Actualiser",
+            "CLOSE": "Fermer"
+        }
     }
 }
 

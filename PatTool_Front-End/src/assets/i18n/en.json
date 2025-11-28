@@ -731,6 +731,75 @@
         "URLLINKS_JSON_DATA": "Urllinks JSON Data",
         "ELEMENTS": "elements",
         "CLOSE": "Close"
+    },
+    "SYSTEM": {
+        "TITLE": "System",
+        "REFRESH_ALL_STATS": "Refresh All Statistics",
+        "CACHE_STATS": {
+            "TITLE": "Cache Statistics",
+            "BACKEND_TITLE": "Backend Cache Statistics",
+            "FRONTEND_TITLE": "Frontend Cache Statistics",
+            "REFRESH": "Refresh Statistics",
+            "LOADING": "Loading...",
+            "ENABLED": "Cache Enabled",
+            "ENTRY_COUNT": "Entry Count",
+            "MAX_ENTRIES": "Max Entries",
+            "TOTAL_SIZE": "Total Size",
+            "TOTAL_SIZE_BYTES": "Total Size (Bytes)",
+            "LOCAL_STORAGE": "Local Storage",
+            "SESSION_STORAGE": "Session Storage",
+            "MEMORY": "Memory Usage",
+            "USED_HEAP": "Used Heap",
+            "TOTAL_HEAP": "Total Heap",
+            "HEAP_LIMIT": "Heap Limit",
+            "ENTRIES": "entries",
+            "YES": "Yes",
+            "NO": "No"
+        },
+        "PERFORMANCE_STATS": {
+            "TITLE": "Performance Statistics",
+            "PAGE_LOAD": "Page Load Time",
+            "DOM_READY": "DOM Ready Time",
+            "CONNECTION_TYPE": "Connection Type",
+            "SCREEN_RESOLUTION": "Screen Resolution",
+            "USER_AGENT": "User Agent",
+            "LANGUAGE": "Language"
+        },
+        "SAVE_CACHE": {
+            "TITLE": "Save Cache",
+            "DESC": "Save compressed images to disk",
+            "BUTTON": "Save",
+            "SAVING": "Saving..."
+        },
+        "LOAD_CACHE": {
+            "TITLE": "Load Cache",
+            "DESC": "Restore cache from disk",
+            "BUTTON": "Load",
+            "LOADING": "Loading..."
+        },
+        "CLEAR_CACHE": {
+            "TITLE": "Clear Cache",
+            "DESC": "Remove all cached images",
+            "BUTTON": "Clear",
+            "CLEARING": "Clearing..."
+        },
+        "SHUTDOWN": {
+            "TITLE": "Shutdown Application",
+            "DESC": "Save cache and shutdown the application",
+            "BUTTON": "Shutdown",
+            "SHUTTING_DOWN": "Shutting down...",
+            "NOT_AUTHORIZED": "You are not authorized to shutdown the application"
+        },
+        "EXCEPTION_REPORT": {
+            "TITLE": "Exception and Connection Report",
+            "DESC": "View and send exception and connection reports",
+            "SEND": "Send Report",
+            "VIEW": "View Report",
+            "SENDING": "Sending...",
+            "LOADING": "Loading...",
+            "REFRESH": "Refresh",
+            "CLOSE": "Close"
+        }
     }
 }
 

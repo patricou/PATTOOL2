@@ -41,6 +41,8 @@ import { SlideshowModalModule } from './shared/slideshow-modal/slideshow-modal.m
 import { LinksAdminModule } from './admin/links-admin/links-admin.module';
 import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
 import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
+import { SystemComponent } from './system/system.component';
+import { CacheService } from './services/cache.service';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -53,6 +55,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		PageNotFoundComponent,
 		IothomeComponent,
 		DetailsEvenementComponent,
+		SystemComponent,
 	],
 	imports: [
 		BrowserModule,
@@ -86,6 +89,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		{ path: 'links-admin', component: LinksAdminComponent },
 		{ path: 'iot', component: IothomeComponent },
 		{ path: 'patgpt', component: PatgptComponent },
+		{ path: 'system', component: SystemComponent },
 			{ path: 'home', component: HomePageComponent },
 			{ path: '**', component: PageNotFoundComponent }
 		]),
@@ -97,6 +101,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		FileService,
 		CommonvaluesService,
 		IotService,
+		CacheService,
 		// to be able to do F5 in prod		
 		{ provide: LocationStrategy, useClass: HashLocationStrategy },
 		{ provide: TranslateLoader, useFactory: HttpLoaderFactory, deps: [HttpClient] },

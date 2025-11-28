@@ -141,6 +141,11 @@
                     aria-labelledby="toolsDropdown"
                     (mouseenter)="showToolsDropdown = true"
                     (mouseleave)="onToolsMenuLeave($event)">
+                    <li [hidden]="!isAuthenticated()"><a class="dropdown-item" 
+                           [routerLink]="['system']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-cog"></i> System
+                    </a></li>
                     <li><a class="dropdown-item" 
                            [routerLink]="['maps']" 
                            (click)="closeMenu()">

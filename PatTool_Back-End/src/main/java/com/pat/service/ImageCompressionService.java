@@ -97,13 +97,21 @@ public class ImageCompressionService {
         }
     }
 
-    private static final class CacheEntry {
+    public static final class CacheEntry {
         private final CompressionResult result;
         private final long createdAt;
 
-        private CacheEntry(CompressionResult result, long createdAt) {
+        public CacheEntry(CompressionResult result, long createdAt) {
             this.result = result;
             this.createdAt = createdAt;
+        }
+        
+        public CompressionResult getResult() {
+            return result;
+        }
+        
+        public long getCreatedAt() {
+            return createdAt;
         }
     }
 
@@ -737,6 +745,33 @@ public class ImageCompressionService {
         return totalSize;
     }
 
+    /**
+     * Get all cache entries for persistence (exposes internal cache map)
+     * @return Map of cache key to CacheEntry
+     */
+    public Map<String, CacheEntry> getAllCacheEntries() {
+        return new LinkedHashMap<>(compressionCache);
+    }
+    
+    /**
+     * Clear all cache entries
+     */
+    public void clearAllCacheEntries() {
+        compressionCache.clear();
+    }
+    
+    /**
+     * Add cache entry (for loading from persistence)
+     * @param key Cache key
+     * @param result Compression result
+     * @param createdAt Creation timestamp
+     */
+    public void addCacheEntry(String key, CompressionResult result, long createdAt) {
+        if (key != null && result != null) {
+            compressionCache.put(key, new CacheEntry(result, createdAt));
+        }
+    }
+    
     /**
      * Get compression cache statistics
      * @return Map with cache entry count and total size in bytes
