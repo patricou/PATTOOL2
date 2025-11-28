@@ -53,7 +53,11 @@ export class CreateEvenementComponent implements OnInit {
 		{ value: "5", label: "EVENTCREATION.TYPE.BIKE" },
 		{ value: "8", label: "EVENTCREATION.TYPE.TRAVEL" },
 		{ value: "1", label: "EVENTCREATION.TYPE.VTT" },
-		{ value: "13", label: "EVENTCREATION.TYPE.WINE" }
+		{ value: "13", label: "EVENTCREATION.TYPE.WINE" },
+		{ value: "14", label: "EVENTCREATION.TYPE.OTHER" },
+		{ value: "15", label: "EVENTCREATION.TYPE.VISIT" },
+		{ value: "16", label: "EVENTCREATION.TYPE.WORK" },
+		{ value: "17", label: "EVENTCREATION.TYPE.FAMILY" }
 	];
 
 	// Commentary management

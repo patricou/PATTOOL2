@@ -273,6 +273,14 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 				"12", "FICHE", "EVENTCREATION.TYPE.FICHE");
 		registerType(map, "13", new String[]{"wine", "vin", "vino", "wein", "vino", "wijn", "вино", "ワイン", "葡萄酒", "יין", "κρασί", "نبيذ"},
 				"13", "WINE", "VIN", "EVENTCREATION.TYPE.WINE");
+		registerType(map, "14", new String[]{"other", "autre", "otro", "altro", "andere", "其他", "その他", "أخرى", "אחר", "अन्य", "Другое", "Άλλο"},
+				"14", "OTHER", "AUTRE", "EVENTCREATION.TYPE.OTHER");
+		registerType(map, "15", new String[]{"visit", "visite", "visita", "besuch", "访问", "訪問", "زيارة", "ביקור", "यात्रा", "Визит", "Επίσκεψη"},
+				"15", "VISIT", "VISITE", "EVENTCREATION.TYPE.VISIT");
+		registerType(map, "16", new String[]{"work", "travaux", "trabajos", "lavori", "arbeiten", "工作", "作業", "أعمال", "עבודה", "काम", "Работы", "Εργασίες"},
+				"16", "WORK", "TRAVAUX", "EVENTCREATION.TYPE.WORK");
+		registerType(map, "17", new String[]{"family", "famille", "familia", "famiglia", "familie", "家庭", "家族", "عائلة", "משפחה", "परिवार", "Семья", "Οικογένεια"},
+				"17", "FAMILY", "FAMILLE", "EVENTCREATION.TYPE.FAMILY");
 
 		return map;
 	}

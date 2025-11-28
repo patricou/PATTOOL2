@@ -317,7 +317,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       '5': 'EVENTCREATION.TYPE.BIKE',
       '8': 'EVENTCREATION.TYPE.TRAVEL',
       '1': 'EVENTCREATION.TYPE.VTT',
-      '13': 'EVENTCREATION.TYPE.WINE'
+      '13': 'EVENTCREATION.TYPE.WINE',
+      '14': 'EVENTCREATION.TYPE.OTHER',
+      '15': 'EVENTCREATION.TYPE.VISIT',
+      '16': 'EVENTCREATION.TYPE.WORK',
+      '17': 'EVENTCREATION.TYPE.FAMILY'
     };
     
     return typeMap[type] || 'EVENTCREATION.TYPE.OTHER';

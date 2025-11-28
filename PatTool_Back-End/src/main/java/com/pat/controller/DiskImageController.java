@@ -25,7 +25,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -81,18 +80,14 @@ public class DiskImageController {
                   .filter(p -> isImageFile(p.getFileName().toString()))
                   .forEach(paths::add);
         }
-        // Sorting
-        if (sort.isPresent() && sort.get().equalsIgnoreCase("mtime")) {
-            paths.sort((a, b) -> {
-                try {
-                    return Long.compare(Files.getLastModifiedTime(b).toMillis(), Files.getLastModifiedTime(a).toMillis());
-                } catch (IOException e) {
-                    return 0;
-                }
-            });
-        } else {
-            paths.sort(Comparator.comparing(p -> p.getFileName().toString().toLowerCase(Locale.ROOT)));
-        }
+        // Sorting by modification time (oldest first)
+        paths.sort((a, b) -> {
+            try {
+                return Long.compare(Files.getLastModifiedTime(a).toMillis(), Files.getLastModifiedTime(b).toMillis());
+            } catch (IOException e) {
+                return 0;
+            }
+        });
 
         // Apply limit (for faster first paint)
         int lim = limit.orElse(0);

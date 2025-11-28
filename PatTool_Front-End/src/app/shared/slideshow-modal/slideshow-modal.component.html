@@ -51,10 +51,10 @@
             <i class="fa fa-spinner fa-spin"></i>
           </div>
         </div>
-        <!-- Grid Overlay - follows image transform -->
+        <!-- Grid Overlay - follows image translation but not zoom -->
         <div *ngIf="showGrid && slideshowImages.length > 0 && (!showMapView || !currentMapUrl)" 
              class="slideshow-grid-overlay"
-             [style.transform]="'translate(-50%, -50%) translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0) scale(' + slideshowZoom + ')'"
+             [style.transform]="'translate(-50%, -50%) translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0)'"
              style="transform-origin:center center;"></div>
         
         <!-- Debug: Cross at visible image center (container center) -->
