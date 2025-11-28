@@ -534,11 +534,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       
       // Handle modal close event
       this.modalRef.result.finally(() => {
-        this.unblockPageScroll();
+        // Delay scroll restoration to ensure modal is fully removed from DOM
+        setTimeout(() => {
+          this.unblockPageScroll();
+        }, 150);
         this.cleanupAllMemory();
         this.closed.emit();
       }).catch(() => {
-        this.unblockPageScroll();
+        // Delay scroll restoration to ensure modal is fully removed from DOM
+        setTimeout(() => {
+          this.unblockPageScroll();
+        }, 150);
         this.cleanupAllMemory();
         this.closed.emit();
       });
@@ -3083,7 +3089,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Close handler
   public onSlideshowClose(cRef?: any): void {
-    this.unblockPageScroll();
     try {
       if (document.fullscreenElement) {
         document.exitFullscreen().catch(() => {});
@@ -3103,6 +3108,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Note: cleanupAllMemory() will be called automatically by modalRef.result handlers
     // No need to call it here to avoid double cleanup
+    
+    // Restore scroll after a short delay to ensure modal is fully closed and removed from DOM
+    setTimeout(() => {
+      this.unblockPageScroll();
+    }, 100);
   }
   
   // FS Downloads cleanup
@@ -4883,17 +4893,35 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Unblock page scrolling
   private unblockPageScroll(): void {
+    // Remove modal-open class that might be preventing scroll
     if (document.body) {
-      document.body.style.overflow = '';
-      document.body.style.overflowX = '';
-      document.body.style.overflowY = '';
+      document.body.classList.remove('modal-open');
+      // Use setProperty with important to override CSS !important rules
+      // Try setProperty first (modern browsers)
+      try {
+        document.body.style.setProperty('overflow', '', 'important');
+        document.body.style.setProperty('overflow-x', '', 'important');
+        document.body.style.setProperty('overflow-y', '', 'important');
+      } catch (e) {
+        // Fallback for browsers that don't support setProperty with important
+        document.body.style.overflow = '';
+        document.body.style.overflowX = '';
+        document.body.style.overflowY = '';
+      }
       document.body.style.position = '';
       document.body.style.height = '';
     }
     if (document.documentElement) {
-      document.documentElement.style.overflow = '';
-      document.documentElement.style.overflowX = '';
-      document.documentElement.style.overflowY = '';
+      try {
+        document.documentElement.style.setProperty('overflow', '', 'important');
+        document.documentElement.style.setProperty('overflow-x', '', 'important');
+        document.documentElement.style.setProperty('overflow-y', '', 'important');
+      } catch (e) {
+        // Fallback for browsers that don't support setProperty with important
+        document.documentElement.style.overflow = '';
+        document.documentElement.style.overflowX = '';
+        document.documentElement.style.overflowY = '';
+      }
     }
   }
 }
