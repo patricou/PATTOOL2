@@ -66,10 +66,27 @@
     overflow: hidden;
 }
 
-/* Prevent body scroll when slideshow modal is open */
+/* Scroll blocking removed - allow scrolling in both normal and mobile mode */
+/* Override Bootstrap's modal-open class to prevent scroll blocking and position changes */
+::ng-deep body.modal-open,
+::ng-deep html.modal-open,
 ::ng-deep body:has(.slideshow-modal-wide),
-::ng-deep body.modal-open:has(.slideshow-modal-wide) {
-    overflow: hidden !important;
+::ng-deep body.modal-open:has(.slideshow-modal-wide),
+::ng-deep body:has(.slideshow-modal-wide.show),
+::ng-deep body.modal-open:has(.slideshow-modal-wide.show),
+::ng-deep body:has(.modal.show .slideshow-modal-wide) {
+    overflow: auto !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    padding-right: 0 !important;
+    position: static !important;
+}
+
+::ng-deep html.modal-open {
+    overflow: auto !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    position: static !important;
 }
 
 .slideshow-header {

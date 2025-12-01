@@ -30,6 +30,9 @@ export class PhotosSelectorModalComponent implements OnInit {
   public selectedFsLink: string = '';
   public fsCompressionEnabled: boolean = true;
   private modalRef?: NgbModalRef;
+  
+  // Scroll position preservation - using CSS lock method
+  private savedScrollPosition: number = 0;
 
   constructor(
     private modalService: NgbModal,
@@ -58,8 +61,8 @@ export class PhotosSelectorModalComponent implements OnInit {
       return;
     }
 
-    // Block body scroll when modal opens
-    this.blockPageScroll();
+    // Lock scroll position before opening modal (prevents any movement)
+    this.lockScrollPosition();
     
     this.modalRef = this.modalService.open(this.photosSelectorModal, {
       centered: true,
@@ -113,10 +116,16 @@ export class PhotosSelectorModalComponent implements OnInit {
     setTimeout(applyWidth, 200);
 
     this.modalRef.result.finally(() => {
+      // Unblock scroll first
       this.unblockPageScroll();
+      // Then restore scroll position ONCE after a delay
+      this.unlockScrollPosition();
       this.closed.emit();
     }).catch(() => {
+      // Unblock scroll first
       this.unblockPageScroll();
+      // Then restore scroll position ONCE after a delay
+      this.unlockScrollPosition();
       this.closed.emit();
     });
   }
@@ -125,7 +134,10 @@ export class PhotosSelectorModalComponent implements OnInit {
     if (this.modalRef) {
       this.modalRef.close();
     }
+    // Unblock scroll first
     this.unblockPageScroll();
+    // Then restore scroll position ONCE after a delay
+    this.unlockScrollPosition();
   }
 
   public confirmSelection(modalRef?: any): void {
@@ -204,17 +216,46 @@ export class PhotosSelectorModalComponent implements OnInit {
     return this.evenement.author.userName.toLowerCase() === this.user.userName.toLowerCase();
   }
   
-  // Block page scrolling
-  private blockPageScroll(): void {
-    if (document.body) {
-      document.body.style.overflow = 'hidden';
-    }
-    if (document.documentElement) {
-      document.documentElement.style.overflow = 'hidden';
-    }
+  // Save scroll position (simple - no locking)
+  private lockScrollPosition(): void {
+    // Simply save the current scroll position
+    // Don't modify DOM - let Bootstrap handle modal normally
+    this.savedScrollPosition = window.scrollY || window.pageYOffset || 
+                               document.documentElement.scrollTop || 
+                               document.body.scrollTop || 0;
   }
   
-  // Unblock page scrolling
+  // Restore scroll position - single smooth restore after Bootstrap cleanup
+  private unlockScrollPosition(): void {
+    const scrollY = this.savedScrollPosition;
+    
+    // Single restore function - restore once after Bootstrap is completely done
+    const restoreScroll = () => {
+      // Restore to saved scroll position - single smooth operation
+      window.scrollTo({
+        top: scrollY,
+        left: 0,
+        behavior: 'auto' // Instant, no animation to avoid jumps
+      });
+      if (document.documentElement) {
+        document.documentElement.scrollTop = scrollY;
+      }
+      if (document.body) {
+        document.body.scrollTop = scrollY;
+      }
+    };
+    
+    // Wait for Bootstrap to finish all cleanup, then restore ONCE
+    // Use requestAnimationFrame to ensure DOM is ready, then restore
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Restore after Bootstrap cleanup is complete
+        setTimeout(restoreScroll, 300);
+      });
+    });
+  }
+  
+  // Unblock page scrolling (cleanup any remaining styles)
   private unblockPageScroll(): void {
     if (document.body) {
       document.body.style.overflow = '';

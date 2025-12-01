@@ -1,5 +1,6 @@
 package com.pat.controller;
 
+import com.pat.service.FilenameDateService;
 import com.pat.service.ImageCompressionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,6 +50,9 @@ public class DiskImageController {
     @Autowired(required = false)
     private com.pat.service.MemoryMonitoringService memoryMonitoringService;
 
+    @Autowired
+    private FilenameDateService filenameDateService;
+
     private static final Logger log = LoggerFactory.getLogger(DiskImageController.class);
 
     private static final Set<String> IMAGE_EXTENSIONS = Set.of(
@@ -80,9 +84,50 @@ public class DiskImageController {
                   .filter(p -> isImageFile(p.getFileName().toString()))
                   .forEach(paths::add);
         }
-        // Sorting by modification time (oldest first)
+        // Sorting by filename format (oldest first):
+        // 1. YYYYMMDD_HHMMSS format (e.g., 20251129_113012 = 2025-11-29 11:30:12)
+        // 2. PATnnnnn format (where nnnnn is a number, e.g., PAT00001)
+        // 3. If neither format matches, sort by filesystem modification date
         paths.sort((a, b) -> {
             try {
+                String fileNameA = a.getFileName().toString();
+                String fileNameB = b.getFileName().toString();
+                
+                // Remove file extension for comparison
+                String nameA = filenameDateService.removeExtension(fileNameA);
+                String nameB = filenameDateService.removeExtension(fileNameB);
+                
+                // Try to parse as YYYYMMDD_HHMMSS format
+                Long dateA = filenameDateService.parseDateFromFilename(nameA);
+                Long dateB = filenameDateService.parseDateFromFilename(nameB);
+                
+                if (dateA != null && dateB != null) {
+                    // Both are in date format, compare by date
+                    return dateA.compareTo(dateB);
+                } else if (dateA != null) {
+                    // A is date format, it comes first (older)
+                    return -1;
+                } else if (dateB != null) {
+                    // B is date format, it comes first (older)
+                    return 1;
+                }
+                
+                // Try to parse as PATnnnnn format
+                Integer patNumA = filenameDateService.parsePatNumber(nameA);
+                Integer patNumB = filenameDateService.parsePatNumber(nameB);
+                
+                if (patNumA != null && patNumB != null) {
+                    // Both are PAT format, compare by number
+                    return patNumA.compareTo(patNumB);
+                } else if (patNumA != null) {
+                    // A is PAT format, it comes first (older)
+                    return -1;
+                } else if (patNumB != null) {
+                    // B is PAT format, it comes first (older)
+                    return 1;
+                }
+                
+                // Neither format matches, sort by filesystem modification date
                 return Long.compare(Files.getLastModifiedTime(a).toMillis(), Files.getLastModifiedTime(b).toMillis());
             } catch (IOException e) {
                 return 0;
@@ -355,4 +400,5 @@ public class DiskImageController {
         name = name.replace("\\", "");
         return name;
     }
+
 }

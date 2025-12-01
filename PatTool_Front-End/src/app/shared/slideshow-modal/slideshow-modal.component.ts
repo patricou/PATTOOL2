@@ -198,6 +198,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private fsActiveSubs: Subscription[] = [];
   private fsQueue: string[] = [];
   
+  // MutationObserver to watch for Bootstrap adding scroll-blocking styles
+  private scrollUnblockObserver?: MutationObserver;
+  
+  // Scroll position preservation - save element position instead of scroll
+  private savedScrollPosition: number = 0;
+  private savedElementId: string | null = null;
+  
   // Image loading control
   private imageLoadActive: boolean = true;
   private imageLoadingSubs: Subscription[] = [];
@@ -270,7 +277,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   ngOnDestroy(): void {
     this.cleanupAllMemory();
+    this.removeScrollUnblockObserver();
+    // Unblock scroll first
     this.unblockPageScroll();
+    // Then restore scroll position
+    this.unlockScrollPosition();
   }
   
   // Centralized method to clean up all memory used by the slideshow
@@ -495,8 +506,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Remove any existing keyboard listener
     this.removeKeyboardListener();
     
-    // Block body scroll when modal opens
-    this.blockPageScroll();
+    // Lock scroll position before opening modal (prevents any movement)
+    this.lockScrollPosition();
+    
+    // Don't block body scroll - allow scrolling in both normal and mobile mode
     
     // Open the modal immediately
     try {
@@ -534,18 +547,20 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       
       // Handle modal close event
       this.modalRef.result.finally(() => {
-        // Delay scroll restoration to ensure modal is fully removed from DOM
-        setTimeout(() => {
-          this.unblockPageScroll();
-        }, 150);
+        // Cleanup memory first
         this.cleanupAllMemory();
+        // Unblock scroll first
+        this.unblockPageScroll();
+        // Then restore scroll position ONCE after a delay
+        this.unlockScrollPosition();
         this.closed.emit();
       }).catch(() => {
-        // Delay scroll restoration to ensure modal is fully removed from DOM
-        setTimeout(() => {
-          this.unblockPageScroll();
-        }, 150);
+        // Cleanup memory first
         this.cleanupAllMemory();
+        // Unblock scroll first
+        this.unblockPageScroll();
+        // Then restore scroll position ONCE after a delay
+        this.unlockScrollPosition();
         this.closed.emit();
       });
       
@@ -787,8 +802,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Handle image loaded - add to slideshow (thumbnail generation is decoupled)
   private handleImageLoaded(objectUrl: string, blob: Blob | null, imageIndex: number, metadata?: PatMetadata): void {
-    const slideshowIndex = this.slideshowImages.length;
-    this.slideshowImages.push(objectUrl);
+    // Insert image at its correct position in the sorted order (imageIndex)
+    // This ensures images appear in the correct order even if they load asynchronously
+    const slideshowIndex = imageIndex;
+    if (slideshowIndex < this.slideshowImages.length) {
+      this.slideshowImages[slideshowIndex] = objectUrl;
+    } else {
+      // Fallback: if array wasn't pre-allocated, extend it
+      while (this.slideshowImages.length <= slideshowIndex) {
+        this.slideshowImages.push('');
+      }
+      this.slideshowImages[slideshowIndex] = objectUrl;
+    }
 
     this.assignImageFileName(imageIndex, objectUrl);
 
@@ -845,12 +870,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       });
     }
 
-    if (this.slideshowImages.length > 1 && !this.showThumbnails && !this.userToggledThumbnails) {
+    // Count actually loaded images (non-empty strings)
+    const loadedImagesCount = this.slideshowImages.filter(url => url && url !== '').length;
+    
+    if (loadedImagesCount > 1 && !this.showThumbnails && !this.userToggledThumbnails) {
       this.showThumbnails = true;
     }
     
     // Reset zoom when first image loads
-    if (this.slideshowImages.length === 1) {
+    if (loadedImagesCount === 1 && imageIndex === 0) {
       setTimeout(() => {
         this.resetSlideshowZoom();
         this.updateContainerDimensions();
@@ -932,6 +960,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Initialize thumbnails array
     this.thumbnails = new Array(this.images.length).fill('');
     
+    // Pre-allocate slideshowImages array to maintain correct order
+    // Images will be inserted at their correct index position, not appended
+    this.slideshowImages = new Array(this.images.length).fill('');
+    
     // Queue all images for loading with priority (first images loaded first)
     this.images.forEach((imageSource, imageIndex) => {
       if (!imageSource) return;
@@ -969,6 +1001,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     
     const startIndex = this.images.length;
+    
+    // Extend slideshowImages array to accommodate new images
+    const newLength = startIndex + newImages.length;
+    while (this.slideshowImages.length < newLength) {
+      this.slideshowImages.push('');
+    }
+    // Extend thumbnails array as well
+    while (this.thumbnails.length < newLength) {
+      this.thumbnails.push('');
+    }
     
     newImages.forEach((imageSource, relativeIndex) => {
       const imageIndex = startIndex + relativeIndex;
@@ -3109,8 +3151,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Note: cleanupAllMemory() will be called automatically by modalRef.result handlers
     // No need to call it here to avoid double cleanup
     
-    // Restore scroll after a short delay to ensure modal is fully closed and removed from DOM
+    // Unlock scroll position and cleanup
     setTimeout(() => {
+      this.unlockScrollPosition();
+      this.unblockPageScroll();
+    }, 0);
+    setTimeout(() => {
+      this.unlockScrollPosition();
       this.unblockPageScroll();
     }, 100);
   }
@@ -4881,47 +4928,223 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     return 'image/jpeg';
   }
   
-  // Block page scrolling
+  // Block page scrolling - DISABLED: No longer blocking scroll
   private blockPageScroll(): void {
+    // Scroll blocking removed - allow scrolling in both normal and mobile mode
+    // Do nothing
+  }
+  
+  // Setup observer to prevent Bootstrap from blocking scroll
+  private setupScrollUnblockObserver(): void {
+    this.removeScrollUnblockObserver();
+    
+    this.scrollUnblockObserver = new MutationObserver(() => {
+      // If Bootstrap adds modal-open class or overflow:hidden, remove it immediately
+      if (document.body && document.body.classList.contains('modal-open')) {
+        // Don't remove the class if modal is actually open, but ensure overflow is not hidden
+        if (document.body.style.overflow === 'hidden') {
+          document.body.style.setProperty('overflow', 'auto', 'important');
+        }
+        if (document.body.style.overflowY === 'hidden') {
+          document.body.style.setProperty('overflow-y', 'auto', 'important');
+        }
+      }
+      
+      // Also check documentElement
+      if (document.documentElement.style.overflow === 'hidden') {
+        document.documentElement.style.setProperty('overflow', 'auto', 'important');
+      }
+      if (document.documentElement.style.overflowY === 'hidden') {
+        document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
+      }
+    });
+    
+    // Observe body and html for attribute and style changes
     if (document.body) {
-      document.body.style.overflow = 'hidden';
+      this.scrollUnblockObserver.observe(document.body, {
+        attributes: true,
+        attributeFilter: ['class', 'style'],
+        subtree: false
+      });
     }
     if (document.documentElement) {
-      document.documentElement.style.overflow = 'hidden';
+      this.scrollUnblockObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['class', 'style'],
+        subtree: false
+      });
     }
   }
   
-  // Unblock page scrolling
-  private unblockPageScroll(): void {
-    // Remove modal-open class that might be preventing scroll
-    if (document.body) {
-      document.body.classList.remove('modal-open');
-      // Use setProperty with important to override CSS !important rules
-      // Try setProperty first (modern browsers)
-      try {
-        document.body.style.setProperty('overflow', '', 'important');
-        document.body.style.setProperty('overflow-x', '', 'important');
-        document.body.style.setProperty('overflow-y', '', 'important');
-      } catch (e) {
-        // Fallback for browsers that don't support setProperty with important
-        document.body.style.overflow = '';
-        document.body.style.overflowX = '';
-        document.body.style.overflowY = '';
-      }
-      document.body.style.position = '';
-      document.body.style.height = '';
+  // Remove the scroll unblock observer
+  private removeScrollUnblockObserver(): void {
+    if (this.scrollUnblockObserver) {
+      this.scrollUnblockObserver.disconnect();
+      this.scrollUnblockObserver = undefined;
     }
-    if (document.documentElement) {
-      try {
-        document.documentElement.style.setProperty('overflow', '', 'important');
-        document.documentElement.style.setProperty('overflow-x', '', 'important');
-        document.documentElement.style.setProperty('overflow-y', '', 'important');
-      } catch (e) {
-        // Fallback for browsers that don't support setProperty with important
-        document.documentElement.style.overflow = '';
-        document.documentElement.style.overflowX = '';
-        document.documentElement.style.overflowY = '';
+  }
+  
+  // Save scroll position - simple save, no DOM manipulation
+  private lockScrollPosition(): void {
+    // Save scroll position BEFORE any modal operations
+    this.savedScrollPosition = window.scrollY || window.pageYOffset || 
+                               document.documentElement.scrollTop || 
+                               document.body.scrollTop || 0;
+    
+    // Also try to find and save the card element position
+    // Look for the card-wrapper that's currently in viewport center or near scroll position
+    const viewportCenter = window.innerHeight / 2;
+    const scrollY = this.savedScrollPosition;
+    const viewportTop = scrollY;
+    const viewportBottom = scrollY + window.innerHeight;
+    
+    // Find card-wrapper elements
+    const cards = document.querySelectorAll('.card-wrapper');
+    let closestCard: HTMLElement | null = null;
+    let closestDistance = Infinity;
+    
+    cards.forEach((card) => {
+      const htmlCard = card as HTMLElement;
+      if (!htmlCard) return;
+      
+      const rect = htmlCard.getBoundingClientRect();
+      const cardTop = rect.top + scrollY;
+      const cardCenter = cardTop + (rect.height / 2);
+      
+      // Check if card is in viewport
+      if (cardTop >= viewportTop && cardTop <= viewportBottom) {
+        const distance = Math.abs(cardCenter - (scrollY + viewportCenter));
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestCard = htmlCard;
+        }
       }
+    });
+    
+    // Save the closest card element
+    if (closestCard) {
+      const cardElement = closestCard as HTMLElement;
+      if (!cardElement.id) {
+        this.savedElementId = `scroll-restore-${Date.now()}`;
+        cardElement.id = this.savedElementId;
+      } else {
+        this.savedElementId = cardElement.id;
+      }
+    }
+  }
+  
+  // Restore scroll position - single smooth restore after Bootstrap cleanup
+  private unlockScrollPosition(): void {
+    const scrollY = this.savedScrollPosition;
+    
+    // Single restore function - restore once after Bootstrap is completely done
+    const restoreScroll = () => {
+      // Try to scroll to saved element first (more reliable)
+      if (this.savedElementId) {
+        const element = document.getElementById(this.savedElementId);
+        if (element) {
+          // Get element position relative to document using offsetTop
+          let elementTop = 0;
+          let currentElement: HTMLElement | null = element as HTMLElement;
+          while (currentElement) {
+            elementTop += currentElement.offsetTop;
+            currentElement = currentElement.offsetParent as HTMLElement;
+          }
+          
+          // Scroll to element position - single smooth operation
+          window.scrollTo({
+            top: elementTop,
+            left: 0,
+            behavior: 'auto' // Instant, no animation to avoid jumps
+          });
+          if (document.documentElement) {
+            document.documentElement.scrollTop = elementTop;
+          }
+          if (document.body) {
+            document.body.scrollTop = elementTop;
+          }
+          return;
+        }
+      }
+      
+      // Fallback: restore to saved scroll position - single smooth operation
+      window.scrollTo({
+        top: scrollY,
+        left: 0,
+        behavior: 'auto' // Instant, no animation to avoid jumps
+      });
+      if (document.documentElement) {
+        document.documentElement.scrollTop = scrollY;
+      }
+      if (document.body) {
+        document.body.scrollTop = scrollY;
+      }
+    };
+    
+    // Wait for Bootstrap to finish all cleanup, then restore ONCE
+    // Use requestAnimationFrame to ensure DOM is ready, then restore
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Restore after Bootstrap cleanup is complete
+        setTimeout(restoreScroll, 300);
+      });
+    });
+  }
+  
+  // Unblock page scrolling - Ensure no scroll blocking remains
+  private unblockPageScroll(): void {
+    // Force immediate cleanup
+    const forceUnblock = () => {
+      // Remove modal-open class that might be preventing scroll
+      if (document.body) {
+        document.body.classList.remove('modal-open');
+        document.body.classList.remove('slideshow-fullscreen-active');
+        
+        // Remove any modal backdrop that might still be present
+        const backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(backdrop => {
+          if (backdrop && backdrop.parentNode) {
+            backdrop.parentNode.removeChild(backdrop);
+          }
+        });
+        
+        // Force remove all scroll-blocking styles with !important
+        document.body.style.setProperty('overflow', 'auto', 'important');
+        document.body.style.setProperty('overflow-x', 'auto', 'important');
+        document.body.style.setProperty('overflow-y', 'auto', 'important');
+        document.body.style.removeProperty('position');
+        document.body.style.removeProperty('height');
+        document.body.style.removeProperty('width');
+        document.body.style.removeProperty('touch-action');
+        document.body.style.removeProperty('padding-right');
+      }
+      
+      if (document.documentElement) {
+        document.documentElement.style.setProperty('overflow', 'auto', 'important');
+        document.documentElement.style.setProperty('overflow-x', 'auto', 'important');
+        document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
+        document.documentElement.style.removeProperty('position');
+        document.documentElement.style.removeProperty('height');
+        document.documentElement.style.removeProperty('touch-action');
+      }
+      
+      // Force a reflow
+      void document.body.offsetHeight;
+      void document.documentElement.offsetHeight;
+    };
+    
+    // Execute immediately
+    forceUnblock();
+    
+    // Also execute after a short delay to catch any Bootstrap cleanup
+    setTimeout(forceUnblock, 50);
+    setTimeout(forceUnblock, 150);
+    setTimeout(forceUnblock, 300);
+    
+    // For mobile, add extra attempts
+    if (window.innerWidth <= 768) {
+      setTimeout(forceUnblock, 500);
+      setTimeout(forceUnblock, 800);
     }
   }
 }
