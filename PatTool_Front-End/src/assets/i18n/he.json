@@ -741,7 +741,16 @@
             "HEAP_LIMIT": "מגבלת ערימה",
             "ENTRIES": "רשומות",
             "YES": "כן",
-            "NO": "לא"
+            "NO": "לא",
+            "FILE_THUMBNAILS": "תמונות ממוזערות של קבצים",
+            "PENDING_THUMBNAIL_LOADS": "טעינות תמונות ממוזערות ממתינות",
+            "COMPRESSION_CACHE_PHOTOS": "תמונות מטמון דחיסה",
+            "COMPRESSION_CACHE_SIZE": "גודל מטמון דחיסה"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "סטטיסטיקות זיכרון",
+            "HOST_MEMORY": "זיכרון מערכת",
+            "JVM_MEMORY": "זיכרון JVM"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "סטטיסטיקות ביצועים",

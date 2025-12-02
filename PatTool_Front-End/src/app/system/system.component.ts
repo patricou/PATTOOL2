@@ -5,6 +5,12 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { TranslateService } from '@ngx-translate/core';
 import { MembersService } from '../services/members.service';
 import { Member } from '../model/member';
+import { ElementEvenementComponent } from '../evenements/element-evenement/element-evenement.component';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { KeycloakService } from '../keycloak/keycloak.service';
+import { environment } from '../../environments/environment';
+import { Observable, from, of } from 'rxjs';
+import { switchMap, catchError } from 'rxjs/operators';
 
 @Component({
   selector: 'app-system',
@@ -38,6 +44,18 @@ export class SystemComponent implements OnInit {
   performanceStats: any = null;
   private pageLoadStartTime: number = 0;
 
+  // Additional Debug Info (from home-evenements)
+  fileThumbnailsCacheCount: number = 0;
+  pendingThumbnailLoadsCount: number = 0;
+  compressionCacheCount: number = 0;
+  compressionCacheSizeMB: number = 0;
+  hostMemoryUsage: string = 'N/A';
+  hostMemoryUsagePercent: number = 0;
+  jvmMemoryUsage: string = 'N/A';
+  jvmMemoryUsagePercent: number = 0;
+  jvmStatus: string = 'OK';
+  isLoadingAdditionalStats: boolean = false;
+
   // Exception Report properties
   isSendingReport: boolean = false;
   reportMessage: string = '';
@@ -52,7 +70,9 @@ export class SystemComponent implements OnInit {
     private exceptionReportService: ExceptionReportService,
     private sanitizer: DomSanitizer,
     private translate: TranslateService,
-    private _memberService: MembersService
+    private _memberService: MembersService,
+    private _http: HttpClient,
+    private _keycloakService: KeycloakService
   ) { }
 
   ngOnInit() {
@@ -61,6 +81,7 @@ export class SystemComponent implements OnInit {
     this.loadCacheStats();
     this.pageLoadStartTime = performance.now();
     this.collectPerformanceStats();
+    this.loadAdditionalDebugInfo();
   }
 
   checkShutdownAuthorization(): void {
@@ -516,6 +537,162 @@ export class SystemComponent implements OnInit {
     this.loadCacheStats();
     this.calculateFrontendCacheStats();
     this.collectPerformanceStats();
+    this.loadAdditionalDebugInfo();
+  }
+
+  loadAdditionalDebugInfo(): void {
+    this.isLoadingAdditionalStats = true;
+    
+    // Get file thumbnails cache count from ElementEvenementComponent (static method, always current)
+    this.fileThumbnailsCacheCount = ElementEvenementComponent.getCachedThumbnailsCount();
+    
+    // Get pending thumbnail loads count from ElementEvenementComponent (static method, always current)
+    this.pendingThumbnailLoadsCount = ElementEvenementComponent.getPendingFileThumbnailLoadsCount();
+    
+    // Load compression cache stats from backend
+    this.loadCompressionCacheStats();
+    
+    // Load host memory (system RAM) from backend
+    this.loadHostMemoryUsage();
+    
+    // Load JVM memory from backend
+    this.loadJvmMemoryUsage();
+    
+    // Note: fileThumbnailsCacheCount and pendingThumbnailLoadsCount are from static methods
+    // so they're always current, but we update them here for consistency
+  }
+
+  private loadCompressionCacheStats(): void {
+    this.getCacheStatsFromBackend().subscribe({
+      next: (cacheInfo: any) => {
+        if (cacheInfo && !cacheInfo.error) {
+          this.compressionCacheCount = typeof cacheInfo.entryCount === 'number' 
+            ? cacheInfo.entryCount 
+            : parseInt(cacheInfo.entryCount, 10) || 0;
+          this.compressionCacheSizeMB = typeof cacheInfo.totalSizeMB === 'number' 
+            ? cacheInfo.totalSizeMB 
+            : parseFloat(cacheInfo.totalSizeMB) || 0;
+        } else {
+          this.compressionCacheCount = 0;
+          this.compressionCacheSizeMB = 0;
+        }
+        this.isLoadingAdditionalStats = false;
+      },
+      error: (error) => {
+        console.error('Error fetching compression cache stats:', error);
+        this.compressionCacheCount = 0;
+        this.compressionCacheSizeMB = 0;
+        this.isLoadingAdditionalStats = false;
+      }
+    });
+  }
+
+  private loadHostMemoryUsage(): void {
+    this.getSystemMemoryFromBackend().subscribe({
+      next: (memoryInfo: any) => {
+        if (memoryInfo && !memoryInfo.error) {
+          const usedMB = memoryInfo.usedMB || 0;
+          const totalMB = memoryInfo.totalMB || 0;
+          const totalGB = memoryInfo.totalGB || 0;
+          const usagePercent = memoryInfo.usagePercent || 0;
+          
+          this.hostMemoryUsagePercent = Math.round(usagePercent);
+          
+          // Format: "usedMB MB / totalMB MB (totalGB GB) - usagePercent%"
+          if (totalGB > 0) {
+            this.hostMemoryUsage = `${usedMB} MB / ${totalMB} MB (${totalGB} GB) - ${Math.round(usagePercent)}%`;
+          } else {
+            this.hostMemoryUsage = `${usedMB} MB / ${totalMB} MB - ${Math.round(usagePercent)}%`;
+          }
+        } else {
+          this.hostMemoryUsage = 'N/A';
+          this.hostMemoryUsagePercent = 0;
+        }
+      },
+      error: (error) => {
+        console.error('Error fetching host memory:', error);
+        this.hostMemoryUsage = 'N/A';
+        this.hostMemoryUsagePercent = 0;
+      }
+    });
+  }
+
+  private loadJvmMemoryUsage(): void {
+    this.getJvmMemoryFromBackend().subscribe({
+      next: (memoryInfo: any) => {
+        if (memoryInfo && !memoryInfo.error) {
+          const usedMB = memoryInfo.usedMB || 0;
+          const maxMB = memoryInfo.maxMB || 0;
+          const freeMB = memoryInfo.freeMB || 0;
+          const usagePercent = memoryInfo.usagePercent || 0;
+          const status = memoryInfo.status || 'OK';
+          
+          this.jvmMemoryUsagePercent = Math.round(usagePercent);
+          this.jvmStatus = status;
+          
+          // Format: "usedMB MB / maxMB MB (usagePercent%) - status"
+          this.jvmMemoryUsage = `${usedMB} MB / ${maxMB} MB (${Math.round(usagePercent)}%) - ${status}`;
+        } else {
+          this.jvmMemoryUsage = 'N/A';
+          this.jvmMemoryUsagePercent = 0;
+          this.jvmStatus = 'UNKNOWN';
+        }
+      },
+      error: (error) => {
+        console.error('Error fetching JVM memory:', error);
+        this.jvmMemoryUsage = 'N/A';
+        this.jvmMemoryUsagePercent = 0;
+        this.jvmStatus = 'ERROR';
+      }
+    });
+  }
+
+  private getCacheStatsFromBackend(): Observable<any> {
+    return from(this._keycloakService.getToken()).pipe(
+      switchMap((token: string) => {
+        const headers = new HttpHeaders({
+          'Accept': 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer ' + token
+        });
+        return this._http.get<any>(environment.API_URL + 'system/cache', { headers: headers });
+      }),
+      catchError((error) => {
+        return of({ error: error.message || 'Failed to retrieve cache statistics' });
+      })
+    );
+  }
+
+  private getSystemMemoryFromBackend(): Observable<any> {
+    return from(this._keycloakService.getToken()).pipe(
+      switchMap((token: string) => {
+        const headers = new HttpHeaders({
+          'Accept': 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer ' + token
+        });
+        return this._http.get<any>(environment.API_URL + 'system/memory', { headers: headers });
+      }),
+      catchError((error) => {
+        return of({ error: error.message || 'Failed to retrieve system memory' });
+      })
+    );
+  }
+
+  private getJvmMemoryFromBackend(): Observable<any> {
+    return from(this._keycloakService.getToken()).pipe(
+      switchMap((token: string) => {
+        const headers = new HttpHeaders({
+          'Accept': 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8',
+          'Authorization': 'Bearer ' + token
+        });
+        return this._http.get<any>(environment.API_URL + 'system/memory', { headers: headers });
+      }),
+      catchError((error) => {
+        return of({ error: error.message || 'Failed to retrieve JVM memory' });
+      })
+    );
   }
 
   collectPerformanceStats(): void {

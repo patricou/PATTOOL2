@@ -747,7 +747,16 @@
             "HEAP_LIMIT": "Όριο Σωρού",
             "ENTRIES": "εγγραφές",
             "YES": "Ναι",
-            "NO": "Όχι"
+            "NO": "Όχι",
+            "FILE_THUMBNAILS": "Μικρογραφίες Αρχείων",
+            "PENDING_THUMBNAIL_LOADS": "Εκκρεμείς Φορτώσεις Μικρογραφιών",
+            "COMPRESSION_CACHE_PHOTOS": "Φωτογραφίες Cache Συμπίεσης",
+            "COMPRESSION_CACHE_SIZE": "Μέγεθος Cache Συμπίεσης"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "Στατιστικά Μνήμης",
+            "HOST_MEMORY": "Μνήμη Συστήματος",
+            "JVM_MEMORY": "Μνήμη JVM"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "Στατιστικά Απόδοσης",

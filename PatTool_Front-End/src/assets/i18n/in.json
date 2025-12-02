@@ -740,7 +740,16 @@
             "HEAP_LIMIT": "हीप सीमा",
             "ENTRIES": "प्रविष्टियाँ",
             "YES": "हाँ",
-            "NO": "नहीं"
+            "NO": "नहीं",
+            "FILE_THUMBNAILS": "फ़ाइल थंबनेल",
+            "PENDING_THUMBNAIL_LOADS": "लंबित थंबनेल लोड",
+            "COMPRESSION_CACHE_PHOTOS": "संपीड़न कैश फ़ोटो",
+            "COMPRESSION_CACHE_SIZE": "संपीड़न कैश आकार"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "मेमोरी सांख्यिकी",
+            "HOST_MEMORY": "सिस्टम मेमोरी",
+            "JVM_MEMORY": "JVM मेमोरी"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "प्रदर्शन सांख्यिकी",

@@ -746,7 +746,16 @@
             "HEAP_LIMIT": "حد الذاكرة",
             "ENTRIES": "إدخالات",
             "YES": "نعم",
-            "NO": "لا"
+            "NO": "لا",
+            "FILE_THUMBNAILS": "صور مصغرة للملفات",
+            "PENDING_THUMBNAIL_LOADS": "تحميلات الصور المصغرة المعلقة",
+            "COMPRESSION_CACHE_PHOTOS": "صور ذاكرة التخزين المؤقت للضغط",
+            "COMPRESSION_CACHE_SIZE": "حجم ذاكرة التخزين المؤقت للضغط"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "إحصائيات الذاكرة",
+            "HOST_MEMORY": "ذاكرة النظام",
+            "JVM_MEMORY": "ذاكرة JVM"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "إحصائيات الأداء",

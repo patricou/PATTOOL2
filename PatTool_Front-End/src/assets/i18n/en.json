@@ -754,7 +754,16 @@
             "HEAP_LIMIT": "Heap Limit",
             "ENTRIES": "entries",
             "YES": "Yes",
-            "NO": "No"
+            "NO": "No",
+            "FILE_THUMBNAILS": "File Thumbnails",
+            "PENDING_THUMBNAIL_LOADS": "Pending Thumbnail Loads",
+            "COMPRESSION_CACHE_PHOTOS": "Compression Cache Photos",
+            "COMPRESSION_CACHE_SIZE": "Compression Cache Size"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "Memory Statistics",
+            "HOST_MEMORY": "Host Memory",
+            "JVM_MEMORY": "JVM Memory"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "Performance Statistics",

@@ -750,7 +750,16 @@
             "HEAP_LIMIT": "ヒープ制限",
             "ENTRIES": "エントリ",
             "YES": "はい",
-            "NO": "いいえ"
+            "NO": "いいえ",
+            "FILE_THUMBNAILS": "ファイルサムネイル",
+            "PENDING_THUMBNAIL_LOADS": "保留中のサムネイル読み込み",
+            "COMPRESSION_CACHE_PHOTOS": "圧縮キャッシュ写真",
+            "COMPRESSION_CACHE_SIZE": "圧縮キャッシュサイズ"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "メモリ統計",
+            "HOST_MEMORY": "システムメモリ",
+            "JVM_MEMORY": "JVMメモリ"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "パフォーマンス統計",

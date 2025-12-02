@@ -742,7 +742,16 @@
             "HEAP_LIMIT": "Heap-Limit",
             "ENTRIES": "Einträge",
             "YES": "Ja",
-            "NO": "Nein"
+            "NO": "Nein",
+            "FILE_THUMBNAILS": "Datei-Miniaturansichten",
+            "PENDING_THUMBNAIL_LOADS": "Ausstehende Miniaturansichten-Ladungen",
+            "COMPRESSION_CACHE_PHOTOS": "Komprimierungs-Cache-Fotos",
+            "COMPRESSION_CACHE_SIZE": "Komprimierungs-Cache-Größe"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "Speicherstatistiken",
+            "HOST_MEMORY": "System-Speicher",
+            "JVM_MEMORY": "JVM-Speicher"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "Leistungsstatistiken",

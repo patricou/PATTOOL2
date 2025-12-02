@@ -204,6 +204,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Scroll position preservation - save element position instead of scroll
   private savedScrollPosition: number = 0;
   private savedElementId: string | null = null;
+  private savedElementRect: { top: number; left: number } | null = null; // Save element position relative to viewport
+  private scrollRestoreAttempted: boolean = false; // Track if we've already attempted scroll restore
   
   // Image loading control
   private imageLoadActive: boolean = true;
@@ -549,18 +551,27 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.modalRef.result.finally(() => {
         // Cleanup memory first
         this.cleanupAllMemory();
-        // Unblock scroll first
+        // Unblock scroll immediately (synchronous, no delays)
         this.unblockPageScroll();
-        // Then restore scroll position ONCE after a delay
-        this.unlockScrollPosition();
+        // Then restore scroll position after DOM is stable
+        // Use requestAnimationFrame to ensure DOM updates are complete
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            this.unlockScrollPosition();
+          });
+        });
         this.closed.emit();
       }).catch(() => {
         // Cleanup memory first
         this.cleanupAllMemory();
-        // Unblock scroll first
+        // Unblock scroll immediately (synchronous, no delays)
         this.unblockPageScroll();
-        // Then restore scroll position ONCE after a delay
-        this.unlockScrollPosition();
+        // Then restore scroll position after DOM is stable
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            this.unlockScrollPosition();
+          });
+        });
         this.closed.emit();
       });
       
@@ -3151,15 +3162,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Note: cleanupAllMemory() will be called automatically by modalRef.result handlers
     // No need to call it here to avoid double cleanup
     
-    // Unlock scroll position and cleanup
-    setTimeout(() => {
-      this.unlockScrollPosition();
-      this.unblockPageScroll();
-    }, 0);
-    setTimeout(() => {
-      this.unlockScrollPosition();
-      this.unblockPageScroll();
-    }, 100);
+    // Unblock scroll immediately (removes Bootstrap blocking)
+    this.unblockPageScroll();
+    
+    // Unlock scroll position will be called by modalRef.result handlers after modal is fully closed
+    // Don't call it here to avoid race conditions
   }
   
   // FS Downloads cleanup
@@ -4986,10 +4993,28 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Save scroll position - simple save, no DOM manipulation
   private lockScrollPosition(): void {
+    // Reset restore flag when opening modal
+    this.scrollRestoreAttempted = false;
+    
     // Save scroll position BEFORE any modal operations
-    this.savedScrollPosition = window.scrollY || window.pageYOffset || 
-                               document.documentElement.scrollTop || 
-                               document.body.scrollTop || 0;
+    // On mobile, prefer pageYOffset and documentElement.scrollTop (more reliable)
+    const isMobile = this.isMobileDevice();
+    if (isMobile) {
+      // Mobile: use multiple fallbacks as different browsers report scroll differently
+      this.savedScrollPosition = window.pageYOffset || 
+                                 document.documentElement.scrollTop || 
+                                 document.body.scrollTop || 
+                                 window.scrollY || 0;
+    } else {
+      // Desktop: standard order
+      this.savedScrollPosition = window.scrollY || window.pageYOffset || 
+                                 document.documentElement.scrollTop || 
+                                 document.body.scrollTop || 0;
+    }
+    
+    // Reset saved element data
+    this.savedElementId = null;
+    this.savedElementRect = null;
     
     // Also try to find and save the card element position
     // Look for the card-wrapper that's currently in viewport center or near scroll position
@@ -4998,32 +5023,50 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const viewportTop = scrollY;
     const viewportBottom = scrollY + window.innerHeight;
     
-    // Find card-wrapper elements
-    const cards = document.querySelectorAll('.card-wrapper');
+    // Find card-wrapper elements - also try element-evenement if card-wrapper not found
+    const cardSelectors = ['.card-wrapper', 'element-evenement', '[class*="card"]'];
     let closestCard: HTMLElement | null = null;
     let closestDistance = Infinity;
     
-    cards.forEach((card) => {
-      const htmlCard = card as HTMLElement;
-      if (!htmlCard) return;
-      
-      const rect = htmlCard.getBoundingClientRect();
-      const cardTop = rect.top + scrollY;
-      const cardCenter = cardTop + (rect.height / 2);
-      
-      // Check if card is in viewport
-      if (cardTop >= viewportTop && cardTop <= viewportBottom) {
-        const distance = Math.abs(cardCenter - (scrollY + viewportCenter));
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestCard = htmlCard;
+    for (const selector of cardSelectors) {
+      const cards = document.querySelectorAll(selector);
+      cards.forEach((card) => {
+        const htmlCard = card as HTMLElement;
+        if (!htmlCard) return;
+        
+        const rect = htmlCard.getBoundingClientRect();
+        const cardTop = rect.top + scrollY;
+        const cardCenter = cardTop + (rect.height / 2);
+        
+        // Check if card is in viewport or close to it
+        const cardInViewport = rect.top >= 0 && rect.top <= window.innerHeight;
+        const cardNearViewport = rect.top >= -100 && rect.top <= window.innerHeight + 100;
+        
+        if (cardInViewport || cardNearViewport) {
+          const distance = Math.abs(rect.top - (viewportCenter - scrollY));
+          if (distance < closestDistance) {
+            closestDistance = distance;
+            closestCard = htmlCard;
+          }
         }
-      }
-    });
+      });
+      
+      // If we found a card, stop searching
+      if (closestCard) break;
+    }
     
-    // Save the closest card element
+    // Save the closest card element and its position relative to viewport
     if (closestCard) {
       const cardElement = closestCard as HTMLElement;
+      const rect = cardElement.getBoundingClientRect();
+      
+      // Save element position relative to viewport (this is more reliable than absolute position)
+      this.savedElementRect = {
+        top: rect.top,
+        left: rect.left
+      };
+      
+      // Save element ID for later retrieval
       if (!cardElement.id) {
         this.savedElementId = `scroll-restore-${Date.now()}`;
         cardElement.id = this.savedElementId;
@@ -5035,116 +5078,151 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Restore scroll position - single smooth restore after Bootstrap cleanup
   private unlockScrollPosition(): void {
-    const scrollY = this.savedScrollPosition;
+    // Prevent multiple restore attempts
+    if (this.scrollRestoreAttempted) {
+      return;
+    }
     
-    // Single restore function - restore once after Bootstrap is completely done
-    const restoreScroll = () => {
+    // Mark as attempted immediately to prevent any duplicate calls
+    this.scrollRestoreAttempted = true;
+    
+    const scrollY = this.savedScrollPosition;
+    const savedElementId = this.savedElementId;
+    const savedElementRect = this.savedElementRect;
+    
+    // Single restore function - execute once after DOM is stable
+    const performRestore = () => {
+      const isMobile = this.isMobileDevice();
+      
+      // Get current scroll position (different order for mobile)
+      const getCurrentScrollY = () => {
+        if (isMobile) {
+          return window.pageYOffset || 
+                 document.documentElement.scrollTop || 
+                 document.body.scrollTop || 
+                 window.scrollY || 0;
+        } else {
+          return window.scrollY || window.pageYOffset || 
+                 document.documentElement.scrollTop || 
+                 document.body.scrollTop || 0;
+        }
+      };
+      
       // Try to scroll to saved element first (more reliable)
-      if (this.savedElementId) {
-        const element = document.getElementById(this.savedElementId);
+      if (savedElementId && savedElementRect) {
+        const element = document.getElementById(savedElementId);
         if (element) {
-          // Get element position relative to document using offsetTop
-          let elementTop = 0;
-          let currentElement: HTMLElement | null = element as HTMLElement;
-          while (currentElement) {
-            elementTop += currentElement.offsetTop;
-            currentElement = currentElement.offsetParent as HTMLElement;
+          // Get current element position relative to document
+          const currentRect = element.getBoundingClientRect();
+          const currentScrollY = getCurrentScrollY();
+          
+          // Calculate target scroll position to restore the element to its original viewport position
+          const targetScrollY = currentScrollY + currentRect.top - savedElementRect.top;
+          
+          // Apply scroll directly in a single operation (no multiple calls)
+          // Use scrollTo as the primary method (single call, most reliable)
+          const finalScrollY = Math.max(0, targetScrollY);
+          
+          // On mobile, also set scrollTop directly as fallback
+          if (isMobile) {
+            document.documentElement.scrollTop = finalScrollY;
+            document.body.scrollTop = finalScrollY;
           }
           
-          // Scroll to element position - single smooth operation
           window.scrollTo({
-            top: elementTop,
+            top: finalScrollY,
             left: 0,
-            behavior: 'auto' // Instant, no animation to avoid jumps
+            behavior: 'auto'
           });
-          if (document.documentElement) {
-            document.documentElement.scrollTop = elementTop;
-          }
-          if (document.body) {
-            document.body.scrollTop = elementTop;
-          }
+          
           return;
         }
       }
       
-      // Fallback: restore to saved scroll position - single smooth operation
-      window.scrollTo({
-        top: scrollY,
-        left: 0,
-        behavior: 'auto' // Instant, no animation to avoid jumps
-      });
-      if (document.documentElement) {
-        document.documentElement.scrollTop = scrollY;
+      // Fallback: restore to saved scroll position
+      const finalScrollY = Math.max(0, scrollY);
+      
+      // On mobile, also set scrollTop directly as fallback
+      if (isMobile) {
+        document.documentElement.scrollTop = finalScrollY;
+        document.body.scrollTop = finalScrollY;
       }
-      if (document.body) {
-        document.body.scrollTop = scrollY;
+      
+      window.scrollTo({
+        top: finalScrollY,
+        left: 0,
+        behavior: 'auto'
+      });
+    };
+    
+    // Wait for Bootstrap cleanup to complete, then restore in single operation
+    // Use a simple delay instead of recursive checks to avoid multiple restores
+    const checkAndRestore = () => {
+      const isModalOpen = document.body && document.body.classList.contains('modal-open');
+      const hasBackdrop = document.querySelector('.modal-backdrop') !== null;
+      
+      if (isModalOpen || hasBackdrop) {
+        // Bootstrap still cleaning up, wait one more frame
+        requestAnimationFrame(checkAndRestore);
+      } else {
+        // Bootstrap cleanup complete, restore scroll in a single frame
+        requestAnimationFrame(() => {
+          requestAnimationFrame(performRestore);
+        });
       }
     };
     
-    // Wait for Bootstrap to finish all cleanup, then restore ONCE
-    // Use requestAnimationFrame to ensure DOM is ready, then restore
+    // Start checking after a brief delay to let Bootstrap start cleanup
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        // Restore after Bootstrap cleanup is complete
-        setTimeout(restoreScroll, 300);
-      });
+      requestAnimationFrame(checkAndRestore);
     });
   }
   
   // Unblock page scrolling - Ensure no scroll blocking remains
   private unblockPageScroll(): void {
-    // Force immediate cleanup
-    const forceUnblock = () => {
-      // Remove modal-open class that might be preventing scroll
-      if (document.body) {
-        document.body.classList.remove('modal-open');
-        document.body.classList.remove('slideshow-fullscreen-active');
-        
-        // Remove any modal backdrop that might still be present
-        const backdrops = document.querySelectorAll('.modal-backdrop');
-        backdrops.forEach(backdrop => {
-          if (backdrop && backdrop.parentNode) {
-            backdrop.parentNode.removeChild(backdrop);
-          }
-        });
-        
-        // Force remove all scroll-blocking styles with !important
-        document.body.style.setProperty('overflow', 'auto', 'important');
-        document.body.style.setProperty('overflow-x', 'auto', 'important');
-        document.body.style.setProperty('overflow-y', 'auto', 'important');
-        document.body.style.removeProperty('position');
-        document.body.style.removeProperty('height');
-        document.body.style.removeProperty('width');
-        document.body.style.removeProperty('touch-action');
-        document.body.style.removeProperty('padding-right');
-      }
+    // Single cleanup function - execute once synchronously
+    if (document.body) {
+      document.body.classList.remove('modal-open');
+      document.body.classList.remove('slideshow-fullscreen-active');
       
-      if (document.documentElement) {
-        document.documentElement.style.setProperty('overflow', 'auto', 'important');
-        document.documentElement.style.setProperty('overflow-x', 'auto', 'important');
-        document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
-        document.documentElement.style.removeProperty('position');
-        document.documentElement.style.removeProperty('height');
-        document.documentElement.style.removeProperty('touch-action');
-      }
+      // Remove any modal backdrop that might still be present
+      const backdrops = document.querySelectorAll('.modal-backdrop');
+      backdrops.forEach(backdrop => {
+        if (backdrop && backdrop.parentNode) {
+          backdrop.parentNode.removeChild(backdrop);
+        }
+      });
       
-      // Force a reflow
-      void document.body.offsetHeight;
-      void document.documentElement.offsetHeight;
-    };
+      // Force remove all scroll-blocking styles with !important
+      document.body.style.setProperty('overflow', 'auto', 'important');
+      document.body.style.setProperty('overflow-x', 'auto', 'important');
+      document.body.style.setProperty('overflow-y', 'auto', 'important');
+      document.body.style.removeProperty('position');
+      document.body.style.removeProperty('height');
+      document.body.style.removeProperty('width');
+      document.body.style.removeProperty('touch-action');
+      document.body.style.removeProperty('padding-right');
+      
+      // On mobile, ensure touch scrolling is enabled
+      if (this.isMobileDevice()) {
+        document.body.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
+        document.body.style.setProperty('touch-action', 'pan-y pinch-zoom', 'important');
+      }
+    }
     
-    // Execute immediately
-    forceUnblock();
-    
-    // Also execute after a short delay to catch any Bootstrap cleanup
-    setTimeout(forceUnblock, 50);
-    setTimeout(forceUnblock, 150);
-    setTimeout(forceUnblock, 300);
-    
-    // For mobile, add extra attempts
-    if (window.innerWidth <= 768) {
-      setTimeout(forceUnblock, 500);
-      setTimeout(forceUnblock, 800);
+    if (document.documentElement) {
+      document.documentElement.style.setProperty('overflow', 'auto', 'important');
+      document.documentElement.style.setProperty('overflow-x', 'auto', 'important');
+      document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
+      document.documentElement.style.removeProperty('position');
+      document.documentElement.style.removeProperty('height');
+      document.documentElement.style.removeProperty('touch-action');
+      
+      // On mobile, ensure touch scrolling is enabled on documentElement too
+      if (this.isMobileDevice()) {
+        document.documentElement.style.setProperty('-webkit-overflow-scrolling', 'touch', 'important');
+        document.documentElement.style.setProperty('touch-action', 'pan-y pinch-zoom', 'important');
+      }
     }
   }
 }

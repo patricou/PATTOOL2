@@ -743,7 +743,16 @@
             "HEAP_LIMIT": "Лимит кучи",
             "ENTRIES": "записей",
             "YES": "Да",
-            "NO": "Нет"
+            "NO": "Нет",
+            "FILE_THUMBNAILS": "Миниатюры Файлов",
+            "PENDING_THUMBNAIL_LOADS": "Ожидающие Загрузки Миниатюр",
+            "COMPRESSION_CACHE_PHOTOS": "Фото Кэша Сжатия",
+            "COMPRESSION_CACHE_SIZE": "Размер Кэша Сжатия"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "Статистика Памяти",
+            "HOST_MEMORY": "Память Системы",
+            "JVM_MEMORY": "Память JVM"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "Статистика производительности",

@@ -749,7 +749,16 @@
             "HEAP_LIMIT": "Limite Heap",
             "ENTRIES": "voci",
             "YES": "Sì",
-            "NO": "No"
+            "NO": "No",
+            "FILE_THUMBNAILS": "Miniature File",
+            "PENDING_THUMBNAIL_LOADS": "Caricamenti Miniature in Attesa",
+            "COMPRESSION_CACHE_PHOTOS": "Foto Cache Compressione",
+            "COMPRESSION_CACHE_SIZE": "Dimensione Cache Compressione"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "Statistiche Memoria",
+            "HOST_MEMORY": "Memoria Sistema",
+            "JVM_MEMORY": "Memoria JVM"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "Statistiche di Prestazioni",

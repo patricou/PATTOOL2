@@ -129,10 +129,77 @@
                                 <span class="stat-detail">(limit: {{ ((frontendCacheStats.memory?.jsHeapSizeLimit || 0) / (1024 * 1024)).toFixed(0) }} MB)</span>
                             </div>
                         </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.FILE_THUMBNAILS' | translate }}</div>
+                            <div class="stat-value">{{ fileThumbnailsCacheCount }}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.PENDING_THUMBNAIL_LOADS' | translate }}</div>
+                            <div class="stat-value" [class.text-warning]="pendingThumbnailLoadsCount > 0">
+                                {{ pendingThumbnailLoadsCount }}
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.COMPRESSION_CACHE_PHOTOS' | translate }}</div>
+                            <div class="stat-value">{{ compressionCacheCount }}</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.CACHE_STATS.COMPRESSION_CACHE_SIZE' | translate }}</div>
+                            <div class="stat-value">{{ compressionCacheSizeMB.toFixed(2) }} MB</div>
+                        </div>
                     </div>
                 </div>
                 <div class="stats-error" *ngIf="frontendCacheStats?.error">
                     <i class="fa fa-exclamation-triangle"></i> {{ frontendCacheStats.error }}
+                </div>
+            </div>
+
+            <!-- Memory Statistics Section -->
+            <div class="cache-stats-card">
+                <div class="stats-header">
+                    <div class="stats-icon performance-icon">
+                        <i class="fa fa-microchip"></i>
+                    </div>
+                    <div class="stats-title">
+                        <h4>{{ 'SYSTEM.MEMORY_STATS.TITLE' | translate }}</h4>
+                    </div>
+                    <button (click)="loadAdditionalDebugInfo()" 
+                            class="btn-refresh-stats" 
+                            [disabled]="isLoadingAdditionalStats"
+                            [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
+                        <i class="fa" [class.fa-refresh]="!isLoadingAdditionalStats" [class.fa-spinner]="isLoadingAdditionalStats" [class.fa-spin]="isLoadingAdditionalStats"></i>
+                    </button>
+                </div>
+                <div class="stats-content" *ngIf="!isLoadingAdditionalStats">
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.MEMORY_STATS.HOST_MEMORY' | translate }} (System RAM):</div>
+                            <div class="stat-value" 
+                                 [class.text-success]="hostMemoryUsagePercent < 50" 
+                                 [class.text-warning]="hostMemoryUsagePercent >= 50 && hostMemoryUsagePercent < 80"
+                                 [class.text-danger]="hostMemoryUsagePercent >= 80">
+                                {{ hostMemoryUsage }}
+                            </div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-label">{{ 'SYSTEM.MEMORY_STATS.JVM_MEMORY' | translate }} (Backend):</div>
+                            <div class="stat-value" 
+                                 [class.text-success]="jvmMemoryUsagePercent < 50" 
+                                 [class.text-warning]="jvmMemoryUsagePercent >= 50 && jvmMemoryUsagePercent < 85"
+                                 [class.text-danger]="jvmMemoryUsagePercent >= 85">
+                                {{ jvmMemoryUsage }}
+                            </div>
+                            <span class="badge ms-2" 
+                                  [class.bg-success]="jvmStatus === 'OK'"
+                                  [class.bg-warning]="jvmStatus === 'WARNING'"
+                                  [class.bg-danger]="jvmStatus === 'CRITICAL' || jvmStatus === 'ERROR'">
+                                {{ jvmStatus }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="stats-loading" *ngIf="isLoadingAdditionalStats">
+                    <i class="fa fa-spinner fa-spin"></i> {{ 'SYSTEM.CACHE_STATS.LOADING' | translate }}
                 </div>
             </div>
 

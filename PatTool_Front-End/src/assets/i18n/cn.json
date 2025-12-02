@@ -746,8 +746,18 @@
             "USED_HEAP": "已用堆",
             "TOTAL_HEAP": "总堆",
             "HEAP_LIMIT": "堆限制",
+            "ENTRIES": "条目",
             "YES": "是",
-            "NO": "否"
+            "NO": "否",
+            "FILE_THUMBNAILS": "文件缩略图",
+            "PENDING_THUMBNAIL_LOADS": "待加载缩略图",
+            "COMPRESSION_CACHE_PHOTOS": "压缩缓存照片",
+            "COMPRESSION_CACHE_SIZE": "压缩缓存大小"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "内存统计",
+            "HOST_MEMORY": "系统内存",
+            "JVM_MEMORY": "JVM内存"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "性能统计",

@@ -749,7 +749,16 @@
             "HEAP_LIMIT": "Límite del Montón",
             "ENTRIES": "entradas",
             "YES": "Sí",
-            "NO": "No"
+            "NO": "No",
+            "FILE_THUMBNAILS": "Miniaturas de Archivos",
+            "PENDING_THUMBNAIL_LOADS": "Cargas de Miniaturas Pendientes",
+            "COMPRESSION_CACHE_PHOTOS": "Fotos del Cache de Compresión",
+            "COMPRESSION_CACHE_SIZE": "Tamaño del Cache de Compresión"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "Estadísticas de Memoria",
+            "HOST_MEMORY": "Memoria del Sistema",
+            "JVM_MEMORY": "Memoria JVM"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "Estadísticas de Rendimiento",

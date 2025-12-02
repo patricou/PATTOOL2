@@ -749,7 +749,16 @@
             "HEAP_LIMIT": "Limite du Tas",
             "ENTRIES": "entrées",
             "YES": "Oui",
-            "NO": "Non"
+            "NO": "Non",
+            "FILE_THUMBNAILS": "Miniatures de Fichiers",
+            "PENDING_THUMBNAIL_LOADS": "Chargements de Miniatures en Attente",
+            "COMPRESSION_CACHE_PHOTOS": "Photos du Cache de Compression",
+            "COMPRESSION_CACHE_SIZE": "Taille du Cache de Compression"
+        },
+        "MEMORY_STATS": {
+            "TITLE": "Statistiques Mémoire",
+            "HOST_MEMORY": "Mémoire Système",
+            "JVM_MEMORY": "Mémoire JVM"
         },
         "PERFORMANCE_STATS": {
             "TITLE": "Statistiques de Performance",
