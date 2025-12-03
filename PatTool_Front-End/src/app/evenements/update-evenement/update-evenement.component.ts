@@ -247,6 +247,11 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 			// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
 			const typeUrl = this.newUrlEvent.typeUrl.trim().toUpperCase();
 			if (typeUrl === 'PHOTOFROMFS') {
+				// Check authorization before adding PHOTOFROMFS link
+				if (!this.canCreatePhotoFromFsLink()) {
+					alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED'));
+					return;
+				}
 				linkValue = this.addYearPrefixIfNeeded(linkValue);
 			}
 			
@@ -264,6 +269,15 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 			this.newUrlEvent = new UrlEvent("", new Date(), this.user.userName, "", "");
 			this.isAddingUrlEvent = false;
 		}
+	}
+	
+	// Check if user can create PHOTOFROMFS links
+	// This matches the backend authorization check using app.iot.userid
+	private canCreatePhotoFromFsLink(): boolean {
+		// Authorized user ID from application.properties (app.iot.userid)
+		// This should match the value in PatTool_Back-End/src/main/resources/application.properties
+		const authorizedUserId = "590091a706443312403f7c53";
+		return this.user.id === authorizedUserId;
 	}
 
 	// Handle folder selection for PHOTOFROMFS (new link form)
@@ -415,6 +429,11 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 			// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
 			const typeUrl = this.editingUrlEvent.typeUrl.trim().toUpperCase();
 			if (typeUrl === 'PHOTOFROMFS') {
+				// Check authorization before saving PHOTOFROMFS link edit
+				if (!this.canCreatePhotoFromFsLink()) {
+					alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED'));
+					return;
+				}
 				linkValue = this.addYearPrefixIfNeeded(linkValue);
 			}
 			
@@ -617,7 +636,13 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 				this.originalEvenement = JSON.parse(JSON.stringify(this.evenement));
 				this._router.navigate(['even']);
 			}, 
-			err => alert("Error when updating the Event" + err)
+			err => {
+				if (err.status === 403) {
+					alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED_UPDATE'));
+				} else {
+					alert("Error when updating the Event" + err);
+				}
+			}
 		);
 	}
 

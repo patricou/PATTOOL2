@@ -147,7 +147,16 @@ export class CreateEvenementComponent implements OnInit {
 		//console.log("Result : "+ JSON.stringify(this.evenement) + " " + isValid);
 		if (this.user.id == "") { alert("Not possible to save the event as the user.id is null, please logout/login") }
 		else {
-			this._evenementsService.postEvenement(this.evenement).subscribe(res => this._router.navigate(['even']), err => alert("Error when creating the Event : " + err));
+			this._evenementsService.postEvenement(this.evenement).subscribe(
+				res => this._router.navigate(['even']), 
+				err => {
+					if (err.status === 403) {
+						alert(this.translate.instant('EVENTCREATION.PHOTOFROMFS_UNAUTHORIZED_SAVE'));
+					} else {
+						alert("Error when creating the Event : " + err);
+					}
+				}
+			);
 		}
 	};
 
@@ -188,6 +197,11 @@ export class CreateEvenementComponent implements OnInit {
 			// For PHOTOFROMFS type, check if first 4 chars are a year (YYYY)
 			const typeUrl = this.newUrlEvent.typeUrl.trim().toUpperCase();
 			if (typeUrl === 'PHOTOFROMFS') {
+				// Check authorization before adding PHOTOFROMFS link
+				if (!this.canCreatePhotoFromFsLink()) {
+					alert(this.translate.instant('EVENTCREATION.PHOTOFROMFS_UNAUTHORIZED'));
+					return;
+				}
 				linkValue = this.addYearPrefixIfNeeded(linkValue);
 			}
 			
@@ -205,6 +219,15 @@ export class CreateEvenementComponent implements OnInit {
 			this.newUrlEvent = new UrlEvent("", new Date(), this.user.userName, "", "");
 			this.isAddingUrlEvent = false;
 		}
+	}
+	
+	// Check if user can create PHOTOFROMFS links
+	// This matches the backend authorization check using app.iot.userid
+	private canCreatePhotoFromFsLink(): boolean {
+		// Authorized user ID from application.properties (app.iot.userid)
+		// This should match the value in PatTool_Back-End/src/main/resources/application.properties
+		const authorizedUserId = "590091a706443312403f7c53";
+		return this.user.id === authorizedUserId;
 	}
 
 	// Handle folder selection for PHOTOFROMFS

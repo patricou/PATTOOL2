@@ -261,12 +261,16 @@
         "PUBLIC": "公开",
         "PRIVATE": "私人",
         "VISIBILITYERR": "可见性错误",
-        "VISIBILITYPLHD": "可见性范围"
+        "VISIBILITYPLHD": "可见性范围",
+        "PHOTOFROMFS_UNAUTHORIZED": "您无权创建类型为'来自文件系统的照片'的链接。只有授权用户可以创建此类链接。",
+        "PHOTOFROMFS_UNAUTHORIZED_SAVE": "错误：您无权创建带有'来自文件系统的照片'类型链接的活动。只有授权用户可以创建此类链接。"
     },
     "EVENTUPDT": {
         "TITLE": "修改活动",
         "SUBMIT": "修改",
-        "UNSAVED_CHANGES_CONFIRM": "您有未保存的更改。您确定要离开此页面吗？"
+        "UNSAVED_CHANGES_CONFIRM": "您有未保存的更改。您确定要离开此页面吗？",
+        "PHOTOFROMFS_UNAUTHORIZED": "您无权创建或编辑类型为'来自文件系统的照片'的链接。只有授权用户可以创建或编辑此类链接。",
+        "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "错误：您无权更新带有'来自文件系统的照片'类型链接的活动。只有授权用户可以修改此类链接。"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "确认删除活动：",

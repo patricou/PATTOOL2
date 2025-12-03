@@ -263,12 +263,16 @@
         "PUBLIC": "公開",
         "PRIVATE": "非公開",
         "VISIBILITYERR": "可視性エラー",
-        "VISIBILITYPLHD": "可視範囲"
+        "VISIBILITYPLHD": "可視範囲",
+        "PHOTOFROMFS_UNAUTHORIZED": "「ファイルシステムからの写真」タイプのリンクを作成する権限がありません。承認されたユーザーのみがこのタイプのリンクを作成できます。",
+        "PHOTOFROMFS_UNAUTHORIZED_SAVE": "エラー：「ファイルシステムからの写真」タイプのリンクを含むイベントを作成する権限がありません。承認されたユーザーのみがこのタイプのリンクを作成できます。"
     },
     "EVENTUPDT": {
         "TITLE": "活動の変更",
         "SUBMIT": "変更",
-        "UNSAVED_CHANGES_CONFIRM": "保存されていない変更があります。このページを離れてもよろしいですか？"
+        "UNSAVED_CHANGES_CONFIRM": "保存されていない変更があります。このページを離れてもよろしいですか？",
+        "PHOTOFROMFS_UNAUTHORIZED": "「ファイルシステムからの写真」タイプのリンクを作成または編集する権限がありません。承認されたユーザーのみがこのタイプのリンクを作成または編集できます。",
+        "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "エラー：「ファイルシステムからの写真」タイプのリンクを含むイベントを更新する権限がありません。承認されたユーザーのみがこのタイプのリンクを変更できます。"
     },
     "EVENTDEL": {
         "TITLEDELCONF": "活動の削除の確認：",

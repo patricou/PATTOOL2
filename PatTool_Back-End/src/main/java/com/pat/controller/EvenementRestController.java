@@ -7,6 +7,7 @@ import com.pat.repo.EvenementsRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.bson.types.ObjectId;
+import com.pat.repo.domain.UrlEvent;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -55,6 +57,9 @@ public class EvenementRestController {
     
     @Autowired
     private ObjectMapper objectMapper;
+    
+    @Value("${app.iot.userid}")
+    String authorizedUserId;
     
     // Use bounded thread pool to prevent memory leaks from unlimited thread creation
     // Max 50 threads, with 30 second keep-alive time for idle threads
@@ -761,6 +766,25 @@ public class EvenementRestController {
     @RequestMapping( method = RequestMethod.POST)
     public ResponseEntity<Evenement> addEvenement(@RequestBody Evenement evenement){
 
+        // Check if event contains PHOTOFROMFS links and validate authorization
+        if (evenement.getUrlEvents() != null && !evenement.getUrlEvents().isEmpty()) {
+            boolean hasPhotoFromFs = evenement.getUrlEvents().stream()
+                .anyMatch(urlEvent -> urlEvent != null && 
+                    "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl()));
+            
+            if (hasPhotoFromFs) {
+                // Check if the author is authorized
+                if (evenement.getAuthor() == null || 
+                    evenement.getAuthor().getId() == null ||
+                    !this.authorizedUserId.equals(evenement.getAuthor().getId())) {
+                    log.warn("Unauthorized attempt to create PHOTOFROMFS link. User ID: {}, Authorized ID: {}", 
+                        evenement.getAuthor() != null ? evenement.getAuthor().getId() : "null", 
+                        this.authorizedUserId);
+                    return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                }
+            }
+        }
+
         evenement.setId(null);
 
         Evenement eventSaved = evenementsRepository.save(evenement);
@@ -777,6 +801,25 @@ public class EvenementRestController {
 
     @RequestMapping( method = RequestMethod.PUT)
     public ResponseEntity<Evenement> updateEvenement(@RequestBody Evenement evenement){
+
+        // Check if event contains PHOTOFROMFS links and validate authorization
+        if (evenement.getUrlEvents() != null && !evenement.getUrlEvents().isEmpty()) {
+            boolean hasPhotoFromFs = evenement.getUrlEvents().stream()
+                .anyMatch(urlEvent -> urlEvent != null && 
+                    "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl()));
+            
+            if (hasPhotoFromFs) {
+                // Check if the author is authorized
+                if (evenement.getAuthor() == null || 
+                    evenement.getAuthor().getId() == null ||
+                    !this.authorizedUserId.equals(evenement.getAuthor().getId())) {
+                    log.warn("Unauthorized attempt to update PHOTOFROMFS link. User ID: {}, Authorized ID: {}", 
+                        evenement.getAuthor() != null ? evenement.getAuthor().getId() : "null", 
+                        this.authorizedUserId);
+                    return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                }
+            }
+        }
 
         Evenement eventSaved = evenementsRepository.save(evenement);
 

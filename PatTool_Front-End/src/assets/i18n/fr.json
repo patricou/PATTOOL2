@@ -245,12 +245,16 @@
         "PUBLIC": "Public",
         "PRIVATE": "Privé",
         "VISIBILITYERR": "Erreur dans la Visibilté",
-        "VISIBILITYPLHD": "Scope de la visibilité"
+        "VISIBILITYPLHD": "Scope de la visibilité",
+        "PHOTOFROMFS_UNAUTHORIZED": "Vous n'êtes pas autorisé à créer des liens de type 'Photo depuis le système de fichiers'. Seul l'utilisateur autorisé peut créer ce type de lien.",
+        "PHOTOFROMFS_UNAUTHORIZED_SAVE": "Erreur : Vous n'êtes pas autorisé à créer des événements avec des liens de type 'Photo depuis le système de fichiers'. Seul l'utilisateur autorisé peut créer ce type de lien."
     },
     "EVENTUPDT": {
         "TITLE": "Modification de l'Activité",
         "SUBMIT": "Modification",
-        "UNSAVED_CHANGES_CONFIRM": "Vous avez des modifications non sauvegardées. Êtes-vous sûr de vouloir quitter cette page ?"
+        "UNSAVED_CHANGES_CONFIRM": "Vous avez des modifications non sauvegardées. Êtes-vous sûr de vouloir quitter cette page ?",
+        "PHOTOFROMFS_UNAUTHORIZED": "Vous n'êtes pas autorisé à créer ou modifier des liens de type 'Photo depuis le système de fichiers'. Seul l'utilisateur autorisé peut créer ou modifier ce type de lien.",
+        "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Erreur : Vous n'êtes pas autorisé à mettre à jour des événements avec des liens de type 'Photo depuis le système de fichiers'. Seul l'utilisateur autorisé peut modifier ce type de lien."
     },
     "EVENTDEL": {
         "TITLEDELCONF": "Confirmation de la supression de l'Activité :",

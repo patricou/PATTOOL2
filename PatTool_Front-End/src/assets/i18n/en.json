@@ -256,12 +256,16 @@
         "PUBLIC": "Public",
         "PRIVATE": "Private",
         "VISIBILITYERR": "Visibilty Error",
-        "VISIBILITYPLHD": "Visibility Scope"
+        "VISIBILITYPLHD": "Visibility Scope",
+        "PHOTOFROMFS_UNAUTHORIZED": "You are not authorized to create links of type 'Photo from File System'. Only the authorized user can create this type of link.",
+        "PHOTOFROMFS_UNAUTHORIZED_SAVE": "Error: You are not authorized to create events with links of type 'Photo from File System'. Only the authorized user can create this type of link."
     },
     "EVENTUPDT": {
         "TITLE": "Activity Update",
         "SUBMIT": "Submit",
-        "UNSAVED_CHANGES_CONFIRM": "You have unsaved changes. Are you sure you want to leave this page?"
+        "UNSAVED_CHANGES_CONFIRM": "You have unsaved changes. Are you sure you want to leave this page?",
+        "PHOTOFROMFS_UNAUTHORIZED": "You are not authorized to create or edit links of type 'Photo from File System'. Only the authorized user can create or edit this type of link.",
+        "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Error: You are not authorized to update events with links of type 'Photo from File System'. Only the authorized user can modify this type of link."
     },
     "EVENTDEL": {
         "TITLEDELCONF": "Activity deletion Confirmation :",

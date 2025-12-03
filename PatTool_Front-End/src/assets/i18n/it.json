@@ -262,12 +262,16 @@
         "PUBLIC": "Pubblico",
         "PRIVATE": "Privato",
         "VISIBILITYERR": "Errore nella visibilità",
-        "VISIBILITYPLHD": "Ambito della visibilità"
+        "VISIBILITYPLHD": "Ambito della visibilità",
+        "PHOTOFROMFS_UNAUTHORIZED": "Non sei autorizzato a creare collegamenti di tipo 'Foto dal sistema di file'. Solo l'utente autorizzato può creare questo tipo di collegamento.",
+        "PHOTOFROMFS_UNAUTHORIZED_SAVE": "Errore: Non sei autorizzato a creare eventi con collegamenti di tipo 'Foto dal sistema di file'. Solo l'utente autorizzato può creare questo tipo di collegamento."
     },
     "EVENTUPDT": {
         "TITLE": "Modifica dell'Attività",
         "SUBMIT": "Modifica",
-        "UNSAVED_CHANGES_CONFIRM": "Hai modifiche non salvate. Sei sicuro di voler uscire da questa pagina?"
+        "UNSAVED_CHANGES_CONFIRM": "Hai modifiche non salvate. Sei sicuro di voler uscire da questa pagina?",
+        "PHOTOFROMFS_UNAUTHORIZED": "Non sei autorizzato a creare o modificare collegamenti di tipo 'Foto dal sistema di file'. Solo l'utente autorizzato può creare o modificare questo tipo di collegamento.",
+        "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Errore: Non sei autorizzato ad aggiornare eventi con collegamenti di tipo 'Foto dal sistema di file'. Solo l'utente autorizzato può modificare questo tipo di collegamento."
     },
     "EVENTDEL": {
         "TITLEDELCONF": "Conferma eliminazione dell'Attività:",

@@ -3006,6 +3006,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			// Files are already loaded - just display them
 			this.isLoadingFiles = false;
 			console.log(`Using ${this.evenement.fileUploadeds.length} already loaded files for event ${this.evenement.id}`);
+			// Auto-expand types with less than 4 elements
+			setTimeout(() => {
+				this.autoExpandFileTypesWithLessThanFour();
+			}, 150); // Small delay to ensure modal is fully rendered
 			return;
 		}
 		
@@ -3048,6 +3052,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						// All files have been streamed
 						this.isLoadingFiles = false;
 						console.log(`Completed streaming ${this.evenement.fileUploadeds.length} files`);
+						// Auto-expand types with less than 4 elements
+						setTimeout(() => {
+							this.autoExpandFileTypesWithLessThanFour();
+						}, 100);
 					} else if (streamedFile.type === 'error') {
 						// Error received from server
 						console.error('Error from server:', streamedFile.data);
@@ -3061,6 +3069,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				complete: () => {
 					// Stream completed - ensure loading is hidden
 					this.isLoadingFiles = false;
+					// Auto-expand types with less than 4 elements
+					setTimeout(() => {
+						this.autoExpandFileTypesWithLessThanFour();
+					}, 100);
 				}
 			});
 		}, 100); // Small delay to ensure modal is fully rendered
@@ -3760,6 +3772,20 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Check if a file type is expanded
 	public isFileTypeExpanded(typeKey: string): boolean {
 		return this.expandedFileTypes.get(typeKey) || false;
+	}
+
+	// Auto-expand file types that have less than 4 elements
+	private autoExpandFileTypesWithLessThanFour(): void {
+		const groupedFiles = this.getGroupedFiles();
+		const typeKeys = this.getSortedFileTypeKeys();
+		
+		typeKeys.forEach(typeKey => {
+			const files = groupedFiles[typeKey];
+			if (files && files.length > 0 && files.length < 4) {
+				// Expand this type if it has less than 4 elements
+				this.expandedFileTypes.set(typeKey, true);
+			}
+		});
 	}
 
 	// Commentary management methods
