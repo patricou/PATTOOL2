@@ -842,3 +842,78 @@
         height: 32px;
     }
 }
+
+/* File type grouping styles */
+.files-container {
+    padding: 0.5rem 0;
+}
+
+.file-type-group {
+    margin-bottom: 1.5rem;
+}
+
+.file-type-header {
+    margin-bottom: 0.75rem;
+}
+
+.file-type-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s ease;
+}
+
+.file-type-title i {
+    margin-right: 0.5rem;
+    color: #007bff;
+}
+
+.clickable-file-type-header {
+    user-select: none;
+    padding: 0.5rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.clickable-file-type-header:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+    color: #007bff;
+}
+
+.clickable-file-type-header i.fa-chevron-right,
+.clickable-file-type-header i.fa-chevron-down {
+    transition: transform 0.2s ease;
+    color: #007bff;
+}
+
+.file-type-title .badge {
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.file-type-divider {
+    margin: 0.5rem 0;
+    border-top: 2px solid rgba(0, 0, 0, 0.1);
+    opacity: 0.5;
+}
+
+.file-type-content {
+    margin-left: 0.5rem;
+    animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+    }
+    to {
+        opacity: 1;
+        max-height: 5000px;
+        overflow: visible;
+    }
+}

@@ -259,7 +259,7 @@
        placement="top" 
        ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"
        (mouseleave)="onTooltipMouseLeave($event)">
-        <i class="fa fa-download" aria-hidden="true"></i><span *ngIf="getFilesCount() > 0"> {{ getFilesCount() }}</span>
+        <i class="fa fa-download" aria-hidden="true"></i><span *ngIf="getFilesCount() > 1"> {{ getFilesCount() }}</span>
     </a>
 
     <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
@@ -486,10 +486,33 @@
             <p class="mt-2">{{ 'COMMUN.LOADING' | translate }}...</p>
         </div>
         <div *ngIf="!isLoadingFiles && evenement.fileUploadeds && evenement.fileUploadeds.length > 0; else noFilesTemplate">
-            <ul class="list-group files-list" 
-                [style.background-color]="getFilesListGradient()">
-                <li class="list-group-item d-flex justify-content-between align-items-center"
-                    *ngFor="let uploadedFile of evenement.fileUploadeds">
+            <div class="files-container">
+                <!-- Group files by type -->
+                <div *ngFor="let typeKey of getSortedFileTypeKeys()" class="file-type-group mb-4">
+                    <!-- Type Header -->
+                    <div class="file-type-header mb-3">
+                        <h6 class="file-type-title clickable-file-type-header"
+                            [ngbTooltip]="getFileTypeLabel(typeKey) | translate"
+                            placement="top"
+                            container="body"
+                            (click)="toggleFileTypeExpansion(typeKey)"
+                            (mouseleave)="onTooltipMouseLeave($event)"
+                            [style.cursor]="'pointer'">
+                            <i class="fa me-2" 
+                               [class.fa-chevron-right]="!isFileTypeExpanded(typeKey)"
+                               [class.fa-chevron-down]="isFileTypeExpanded(typeKey)"></i>
+                            <i class="fa fa-folder me-2"></i> {{ getFileTypeLabel(typeKey) | translate }}
+                            <span class="badge bg-secondary ms-2">{{ getGroupedFiles()[typeKey].length }}</span>
+                        </h6>
+                        <hr class="file-type-divider">
+                    </div>
+                    
+                    <!-- Files for this type -->
+                    <div class="file-type-content" *ngIf="isFileTypeExpanded(typeKey)">
+                        <ul class="list-group files-list" 
+                            [style.background-color]="getFilesListGradient()">
+                            <li class="list-group-item d-flex justify-content-between align-items-center"
+                                *ngFor="let uploadedFile of getGroupedFiles()[typeKey]">
                     <span class="file-name d-flex align-items-center">
                         <!-- Thumbnail for image files -->
                         <img *ngIf="isImageFile(uploadedFile.fileName) && getFileThumbnail(uploadedFile.fieldId)" 
@@ -590,6 +613,9 @@
                     </div>
                 </li>
             </ul>
+                    </div>
+                </div>
+            </div>
         </div>
         <ng-template #noFilesTemplate>
             <div class="text-center text-muted py-4">

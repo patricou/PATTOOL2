@@ -2585,7 +2585,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this.getSolidColor(0.9);
 	}
 
-	private getFileTypeKey(fileName: string): 'image' | 'video' | 'pdf' | 'other' {
+	private getFileTypeKey(fileName: string): 'image' | 'video' | 'pdf' | 'track' | 'other' {
 		if (this.isImageFile(fileName)) {
 			return 'image';
 		}
@@ -2594,6 +2594,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 		if (this.isPdfFile(fileName)) {
 			return 'pdf';
+		}
+		if (this.isTrackFile(fileName)) {
+			return 'track';
 		}
 		return 'other';
 	}
@@ -3708,6 +3711,55 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		const grouped = this.getGroupedUrlEvents();
 		const typeOrder = ['MAP', 'DOCUMENTATION', 'FICHE', 'WEBSITE', 'PHOTOS', 'Photos', 'OTHER'];
 		return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+	}
+
+	// File grouping methods
+	public getGroupedFiles(): { [key: string]: any[] } {
+		if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
+			return {};
+		}
+		
+		return this.evenement.fileUploadeds.reduce((groups: { [key: string]: any[] }, file) => {
+			const typeKey = this.getFileTypeKey(file.fileName || '');
+			if (!groups[typeKey]) {
+				groups[typeKey] = [];
+			}
+			groups[typeKey].push(file);
+			return groups;
+		}, {});
+	}
+
+	// Get sorted file type keys for consistent display order
+	public getSortedFileTypeKeys(): string[] {
+		const grouped = this.getGroupedFiles();
+		const typeOrder = ['image', 'video', 'pdf', 'track', 'other'];
+		return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+	}
+
+	// Get translated label for file type
+	public getFileTypeLabel(typeKey: string): string {
+		const labels: { [key: string]: string } = {
+			'image': 'EVENTELEM.FILE_TYPE_IMAGE',
+			'video': 'EVENTELEM.FILE_TYPE_VIDEO',
+			'pdf': 'EVENTELEM.FILE_TYPE_PDF',
+			'track': 'EVENTELEM.FILE_TYPE_TRACK',
+			'other': 'EVENTELEM.FILE_TYPE_OTHER'
+		};
+		return labels[typeKey] || 'EVENTELEM.FILE_TYPE_OTHER';
+	}
+
+	// File type expansion state management
+	private expandedFileTypes: Map<string, boolean> = new Map();
+
+	// Toggle expanded state for a file type
+	public toggleFileTypeExpansion(typeKey: string): void {
+		const currentState = this.expandedFileTypes.get(typeKey) || false;
+		this.expandedFileTypes.set(typeKey, !currentState);
+	}
+
+	// Check if a file type is expanded
+	public isFileTypeExpanded(typeKey: string): boolean {
+		return this.expandedFileTypes.get(typeKey) || false;
 	}
 
 	// Commentary management methods
