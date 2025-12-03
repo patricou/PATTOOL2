@@ -34,6 +34,56 @@ export class PhotosSelectorModalComponent implements OnInit {
   // Scroll position preservation - using CSS lock method
   private savedScrollPosition: number = 0;
 
+  // Section expansion state management
+  private expandedSections: Map<string, boolean> = new Map();
+
+  // Toggle expanded state for a section
+  public toggleSectionExpansion(sectionKey: string): void {
+    // Don't allow collapsing the "uploaded" section (Diaporama des Photos)
+    if (sectionKey === 'uploaded') {
+      return;
+    }
+    const currentState = this.expandedSections.get(sectionKey) || false;
+    this.expandedSections.set(sectionKey, !currentState);
+  }
+
+  // Check if a section is expanded
+  public isSectionExpanded(sectionKey: string): boolean {
+    // Always expand the "uploaded" section (Diaporama des Photos)
+    if (sectionKey === 'uploaded') {
+      return true;
+    }
+    
+    // If user has explicitly toggled the section, use that state
+    if (this.expandedSections.has(sectionKey)) {
+      return this.expandedSections.get(sectionKey) || false;
+    }
+    
+    // Check if section has less than 4 elements - if so, expand by default
+    const elementCount = this.getSectionElementCount(sectionKey);
+    if (elementCount > 0 && elementCount < 4) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  // Get the number of elements in a section
+  private getSectionElementCount(sectionKey: string): number {
+    if (!this.evenement) return 0;
+    
+    switch (sectionKey) {
+      case 'uploaded':
+        return this.getImageFilesCount();
+      case 'filesystem':
+        return this.getPhotoFromFsLinks().length;
+      case 'web':
+        return this.getPhotosUrlLinks().length;
+      default:
+        return 0;
+    }
+  }
+
   constructor(
     private modalService: NgbModal,
     private translateService: TranslateService,
@@ -173,13 +223,13 @@ export class PhotosSelectorModalComponent implements OnInit {
     const fsLinks = this.getPhotoFromFsLinks();
     const webLinks = this.getPhotosUrlLinks();
 
-    // Default selection priority: uploaded (if requested and available) -> first FS link -> first web photos link
-    if (this.includeUploadedChoice && this.hasImageFiles()) {
-      this.selectedFsLink = '__UPLOADED__';
-    } else if (fsLinks.length > 0) {
+    // Default selection priority: first FS link -> first web photos link -> uploaded photos
+    if (fsLinks.length > 0) {
       this.selectedFsLink = fsLinks[0].link;
     } else if (webLinks.length > 0) {
       this.selectedFsLink = 'PHOTOS:' + webLinks[0].link;
+    } else if (this.hasImageFiles()) {
+      this.selectedFsLink = '__UPLOADED__';
     }
   }
 

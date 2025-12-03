@@ -8,59 +8,96 @@
   </div>
   <div class="modal-body">
     <!-- Uploaded photos section (MongoDB) -->
-    <div *ngIf="hasImageFiles()" class="mb-3 p-2 border rounded">
-      <div class="d-flex align-items-center">
-        <input class="form-check-input me-2" type="radio" name="fsLink" id="fsLinkUploaded" value="__UPLOADED__" [(ngModel)]="selectedFsLink">
-        <label class="form-check-label flex-grow-1" for="fsLinkUploaded">
-          <div class="d-flex align-items-center">
-            <span class="badge bg-primary me-2">{{ 'EVENTELEM.SLIDESHOW' | translate }}</span>
-            <strong class="me-2">{{ 'EVENTELEM.PHOTOS' | translate }}</strong>
-            <small class="text-muted">({{ getImageFilesCount() }})</small>
-          </div>
-          <small class="text-muted d-block mt-1">{{ 'EVENTELEM.MONGODB_PHOTOS_DESC' | translate }}</small>
-        </label>
+    <div *ngIf="hasImageFiles()" class="mb-3">
+      <!-- Section Header -->
+      <div class="photo-section-header mb-2">
+        <div class="photo-section-title">
+          <span class="badge bg-primary me-2">{{ 'EVENTELEM.SLIDESHOW' | translate }}</span>
+          <strong class="me-2">{{ 'EVENTELEM.PHOTOS' | translate }}</strong>
+          <small class="text-muted">({{ getImageFilesCount() }})</small>
+        </div>
+        <hr class="photo-section-divider">
+      </div>
+      <!-- Section Content -->
+      <div *ngIf="isSectionExpanded('uploaded')" class="p-2 border rounded photo-section-content">
+        <div class="d-flex align-items-center">
+          <input class="form-check-input me-2" type="radio" name="fsLink" id="fsLinkUploaded" value="__UPLOADED__" [(ngModel)]="selectedFsLink">
+          <label class="form-check-label flex-grow-1" for="fsLinkUploaded">
+            <small class="text-muted d-block">{{ 'EVENTELEM.MONGODB_PHOTOS_DESC' | translate }}</small>
+          </label>
+        </div>
       </div>
     </div>
 
     <!-- Filesystem links list -->
     <div class="mb-2" *ngIf="getPhotoFromFsLinks().length > 0">
-      <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
-        <strong>{{ 'EVENTELEM.PHOTOS_FROM_FS_HEADING' | translate }}</strong>
-        <div class="form-check form-switch mb-0">
-          <input class="form-check-input" type="checkbox" id="fsCompressionToggle" [(ngModel)]="fsCompressionEnabled">
-          <label class="form-check-label small" for="fsCompressionToggle">
-            {{ 'EVENTELEM.FS_COMPRESSION_LABEL' | translate }}
+      <!-- Section Header -->
+      <div class="photo-section-header mb-2">
+        <div class="photo-section-title clickable-photo-section-header"
+             (click)="toggleSectionExpansion('filesystem')"
+             [style.cursor]="'pointer'">
+          <i class="fa me-2" 
+             [class.fa-chevron-right]="!isSectionExpanded('filesystem')"
+             [class.fa-chevron-down]="isSectionExpanded('filesystem')"></i>
+          <strong>{{ 'EVENTELEM.PHOTOS_FROM_FS_HEADING' | translate }}</strong>
+          <span class="badge bg-secondary ms-2">{{ getPhotoFromFsLinks().length }}</span>
+        </div>
+        <hr class="photo-section-divider">
+      </div>
+      <!-- Section Content -->
+      <div *ngIf="isSectionExpanded('filesystem')" class="photo-section-content">
+        <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="fsCompressionToggle" [(ngModel)]="fsCompressionEnabled">
+            <label class="form-check-label small" for="fsCompressionToggle">
+              {{ 'EVENTELEM.FS_COMPRESSION_LABEL' | translate }}
+            </label>
+          </div>
+        </div>
+        <div class="list-group">
+          <label class="list-group-item d-flex align-items-start" *ngFor="let link of getPhotoFromFsLinks(); let i = index">
+            <input class="form-check-input me-2 mt-1" type="radio" name="fsLink" [value]="link.link" [(ngModel)]="selectedFsLink">
+            <div class="flex-grow-1">
+              <div class="d-flex align-items-center">
+                <span class="badge bg-secondary me-2">{{ i + 1 }}</span>
+                <span class="text-break">{{ link.link }}</span>
+              </div>
+              <small class="text-muted d-block" *ngIf="link.urlDescription">{{ link.urlDescription }}</small>
+            </div>
           </label>
         </div>
-      </div>
-      <div class="list-group">
-        <label class="list-group-item d-flex align-items-start" *ngFor="let link of getPhotoFromFsLinks(); let i = index">
-          <input class="form-check-input me-2 mt-1" type="radio" name="fsLink" [value]="link.link" [(ngModel)]="selectedFsLink">
-          <div class="flex-grow-1">
-            <div class="d-flex align-items-center">
-              <span class="badge bg-secondary me-2">{{ i + 1 }}</span>
-              <span class="text-break">{{ link.link }}</span>
-            </div>
-            <small class="text-muted d-block" *ngIf="link.urlDescription">{{ link.urlDescription }}</small>
-          </div>
-        </label>
       </div>
     </div>
 
     <!-- Other Photos links (type PHOTOS) -->
     <div class="mb-2" *ngIf="getPhotosUrlLinks().length > 0">
-      <div class="mb-2"><strong>{{ 'EVENTELEM.OTHER_PHOTOS_LINKS' | translate }}</strong></div>
-      <div class="list-group">
-        <label class="list-group-item d-flex align-items-start" *ngFor="let link of getPhotosUrlLinks(); let j = index">
-          <input class="form-check-input me-2 mt-1" type="radio" name="fsLink" [value]="'PHOTOS:' + link.link" [(ngModel)]="selectedFsLink">
-          <div class="flex-grow-1">
-            <div class="d-flex align-items-center">
-              <span class="badge bg-info me-2">{{ j + 1 }}</span>
-              <span class="text-break">{{ link.link }}</span>
+      <!-- Section Header -->
+      <div class="photo-section-header mb-2">
+        <div class="photo-section-title clickable-photo-section-header"
+             (click)="toggleSectionExpansion('web')"
+             [style.cursor]="'pointer'">
+          <i class="fa me-2" 
+             [class.fa-chevron-right]="!isSectionExpanded('web')"
+             [class.fa-chevron-down]="isSectionExpanded('web')"></i>
+          <strong>{{ 'EVENTELEM.OTHER_PHOTOS_LINKS' | translate }}</strong>
+          <span class="badge bg-info ms-2">{{ getPhotosUrlLinks().length }}</span>
+        </div>
+        <hr class="photo-section-divider">
+      </div>
+      <!-- Section Content -->
+      <div *ngIf="isSectionExpanded('web')" class="photo-section-content">
+        <div class="list-group">
+          <label class="list-group-item d-flex align-items-start" *ngFor="let link of getPhotosUrlLinks(); let j = index">
+            <input class="form-check-input me-2 mt-1" type="radio" name="fsLink" [value]="'PHOTOS:' + link.link" [(ngModel)]="selectedFsLink">
+            <div class="flex-grow-1">
+              <div class="d-flex align-items-center">
+                <span class="badge bg-info me-2">{{ j + 1 }}</span>
+                <span class="text-break">{{ link.link }}</span>
+              </div>
+              <small class="text-muted d-block" *ngIf="link.urlDescription">{{ link.urlDescription }}</small>
             </div>
-            <small class="text-muted d-block" *ngIf="link.urlDescription">{{ link.urlDescription }}</small>
-          </div>
-        </label>
+          </label>
+        </div>
       </div>
     </div>
   </div>
