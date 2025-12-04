@@ -27,6 +27,7 @@
         "LOGIN": "Login",
         "LOGOUT": "Logout",
         "LINKS": "Urls",
+        "FRIENDS": "Friends",
         "TOOLS": "Tools",
         "IOT": "IoT",
         "IA": "AI",
@@ -255,6 +256,7 @@
         "VISIBILITY": "Visibilty",
         "PUBLIC": "Public",
         "PRIVATE": "Private",
+        "FRIENDS": "Friends",
         "VISIBILITYERR": "Visibilty Error",
         "VISIBILITYPLHD": "Visibility Scope",
         "PHOTOFROMFS_UNAUTHORIZED": "You are not authorized to create links of type 'Photo from File System'. Only the authorized user can create this type of link.",
@@ -818,6 +820,28 @@
             "REFRESH": "Refresh",
             "CLOSE": "Close"
         }
+    },
+    "FRIENDS": {
+        "TITLE": "Friends",
+        "ALL_USERS": "All Users",
+        "REQUESTS": "Friend Requests",
+        "MY_FRIENDS": "My Friends",
+        "SEARCH_PLACEHOLDER": "Search for a user...",
+        "SEND_REQUEST": "Send Request",
+        "PENDING_REQUEST": "Pending Request",
+        "REQUEST_SENT": "Request Sent",
+        "FRIEND": "Friend",
+        "APPROVE": "Approve",
+        "REJECT": "Reject",
+        "REMOVE_FRIEND": "Remove Friend",
+        "NO_USERS_FOUND": "No users found",
+        "NO_PENDING_REQUESTS": "No pending requests",
+        "NO_FRIENDS": "You don't have any friends yet",
+        "REQUESTED_ON": "Requested on",
+        "FRIENDS_SINCE": "Friends since",
+        "REGISTERED_ON": "Registered on",
+        "LAST_CONNECTION": "Last connection",
+        "LOADING": "Loading..."
     }
 }
 

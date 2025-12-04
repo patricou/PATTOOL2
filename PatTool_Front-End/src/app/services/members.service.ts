@@ -6,6 +6,7 @@ import { map, switchMap, catchError } from 'rxjs/operators';
 import { Member } from '../model/member';
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
+import { CommonvaluesService } from './commonvalues.service';
 
 
 @Injectable()
@@ -14,7 +15,11 @@ export class MembersService {
     private API_URL: string = environment.API_URL;
     private user: Member = new Member("", "", "", "", "", [], "");
 
-    constructor(private _http: HttpClient, private _keycloakService: KeycloakService) { }
+    constructor(
+        private _http: HttpClient, 
+        private _keycloakService: KeycloakService,
+        private _commonValuesService: CommonvaluesService
+    ) { }
 
     // GET  + {userName}
     setUser(member: Member) {
@@ -38,6 +43,8 @@ export class MembersService {
                 }),
                 switchMap(headers => {
                     let now = new Date();
+                    // Set the user's language preference before sending
+                    this.user.locale = this._commonValuesService.getLang();
                     // console.log("2|------------------> Just before user POST request : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds());
                     return this._http.post<any>(this.API_URL + 'memb/user', this.user, { headers: headers }).pipe(
                         map((res: any) => {

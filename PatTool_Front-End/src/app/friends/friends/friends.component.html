@@ -1,0 +1,224 @@
+<div class="friends-container">
+  <div class="friends-header">
+    <h2>
+      <i class="fa fa-users"></i>
+      {{ 'FRIENDS.TITLE' | translate }}
+    </h2>
+  </div>
+
+  <!-- Error Message -->
+  <div *ngIf="errorMessage" class="alert alert-danger" role="alert">
+    <i class="fa fa-exclamation-triangle"></i>
+    {{ errorMessage }}
+  </div>
+
+  <!-- Loading Indicator -->
+  <div *ngIf="loading" class="text-center">
+    <i class="fa fa-spinner fa-spin fa-3x"></i>
+    <p>{{ 'FRIENDS.LOADING' | translate }}</p>
+  </div>
+
+  <!-- Tabs -->
+  <ul class="nav nav-tabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button 
+        class="nav-link" 
+        [class.active]="activeTab === 'users'"
+        (click)="setActiveTab('users')"
+        type="button">
+        <i class="fa fa-user-plus"></i>
+        {{ 'FRIENDS.ALL_USERS' | translate }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button 
+        class="nav-link" 
+        [class.active]="activeTab === 'requests'"
+        (click)="setActiveTab('requests')"
+        type="button">
+        <i class="fa fa-envelope"></i>
+        {{ 'FRIENDS.REQUESTS' | translate }}
+        <span *ngIf="pendingRequests.length > 0" class="badge bg-danger">{{ pendingRequests.length }}</span>
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button 
+        class="nav-link" 
+        [class.active]="activeTab === 'friends'"
+        (click)="setActiveTab('friends')"
+        type="button">
+        <i class="fa fa-user-friends"></i>
+        {{ 'FRIENDS.MY_FRIENDS' | translate }}
+        <span *ngIf="friends.length > 0" class="badge bg-success">{{ friends.length }}</span>
+      </button>
+    </li>
+  </ul>
+
+  <!-- Tab Content: All Users -->
+  <div *ngIf="activeTab === 'users'" class="tab-content">
+    <div class="search-container">
+      <div class="input-group mb-3">
+        <span class="input-group-text">
+          <i class="fa fa-search"></i>
+        </span>
+        <input 
+          type="text" 
+          class="form-control" 
+          [(ngModel)]="searchFilter"
+          [placeholder]="'FRIENDS.SEARCH_PLACEHOLDER' | translate">
+      </div>
+    </div>
+
+    <div class="users-list">
+      <div *ngFor="let user of getFilteredUsers()" class="user-card">
+        <div class="user-info">
+          <div class="user-avatar">
+            <i class="fa fa-user-circle fa-3x"></i>
+          </div>
+          <div class="user-details">
+            <h5>{{ user.firstName }} {{ user.lastName }}</h5>
+            <p class="text-muted">
+              <i class="fa fa-at"></i> {{ user.userName }}
+            </p>
+            <p class="text-muted small">
+              <i class="fa fa-envelope"></i> {{ user.addressEmail }}
+            </p>
+            <p class="text-muted small" *ngIf="user.registrationDate">
+              <i class="fa fa-calendar-plus-o"></i> 
+              {{ 'FRIENDS.REGISTERED_ON' | translate }}: {{ user.registrationDate | date:'short' }}
+            </p>
+            <p class="text-muted small" *ngIf="user.lastConnectionDate">
+              <i class="fa fa-clock-o"></i> 
+              {{ 'FRIENDS.LAST_CONNECTION' | translate }}: {{ user.lastConnectionDate | date:'short' }}
+            </p>
+          </div>
+        </div>
+        <div class="user-actions">
+          <button 
+            *ngIf="getUserStatus(user) === 'none'"
+            class="btn btn-primary btn-sm"
+            (click)="sendFriendRequest(user.id)">
+            <i class="fa fa-user-plus"></i>
+            {{ 'FRIENDS.SEND_REQUEST' | translate }}
+          </button>
+          <button 
+            *ngIf="getUserStatus(user) === 'pending'"
+            class="btn btn-warning btn-sm"
+            disabled>
+            <i class="fa fa-clock"></i>
+            {{ 'FRIENDS.PENDING_REQUEST' | translate }}
+          </button>
+          <button 
+            *ngIf="getUserStatus(user) === 'sent'"
+            class="btn btn-info btn-sm"
+            disabled>
+            <i class="fa fa-paper-plane"></i>
+            {{ 'FRIENDS.REQUEST_SENT' | translate }}
+          </button>
+          <span 
+            *ngIf="getUserStatus(user) === 'friend'"
+            class="badge bg-success">
+            <i class="fa fa-check"></i>
+            {{ 'FRIENDS.FRIEND' | translate }}
+          </span>
+        </div>
+      </div>
+
+      <div *ngIf="getFilteredUsers().length === 0" class="no-results">
+        <i class="fa fa-search fa-3x"></i>
+        <p>{{ 'FRIENDS.NO_USERS_FOUND' | translate }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Content: Friend Requests -->
+  <div *ngIf="activeTab === 'requests'" class="tab-content">
+    <div *ngIf="pendingRequests.length === 0" class="no-results">
+      <i class="fa fa-inbox fa-3x"></i>
+      <p>{{ 'FRIENDS.NO_PENDING_REQUESTS' | translate }}</p>
+    </div>
+
+    <div *ngIf="pendingRequests.length > 0" class="requests-list">
+      <div *ngFor="let request of pendingRequests" class="request-card">
+        <div class="request-info">
+          <div class="user-avatar">
+            <i class="fa fa-user-circle fa-3x"></i>
+          </div>
+          <div class="request-details">
+            <h5>{{ request.requester.firstName }} {{ request.requester.lastName }}</h5>
+            <p class="text-muted">
+              <i class="fa fa-at"></i> {{ request.requester.userName }}
+            </p>
+            <p class="text-muted small" *ngIf="request.requester.registrationDate">
+              <i class="fa fa-calendar-plus-o"></i> 
+              {{ 'FRIENDS.REGISTERED_ON' | translate }}: {{ request.requester.registrationDate | date:'short' }}
+            </p>
+            <p class="text-muted small">
+              <i class="fa fa-clock"></i>
+              {{ 'FRIENDS.REQUESTED_ON' | translate }}: {{ request.requestDate | date:'short' }}
+            </p>
+          </div>
+        </div>
+        <div class="request-actions">
+          <button 
+            class="btn btn-success btn-sm"
+            (click)="approveRequest(request.id)">
+            <i class="fa fa-check"></i>
+            {{ 'FRIENDS.APPROVE' | translate }}
+          </button>
+          <button 
+            class="btn btn-danger btn-sm"
+            (click)="rejectRequest(request.id)">
+            <i class="fa fa-times"></i>
+            {{ 'FRIENDS.REJECT' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Content: My Friends -->
+  <div *ngIf="activeTab === 'friends'" class="tab-content">
+    <div *ngIf="friends.length === 0" class="no-results">
+      <i class="fa fa-user-friends fa-3x"></i>
+      <p>{{ 'FRIENDS.NO_FRIENDS' | translate }}</p>
+    </div>
+
+    <div *ngIf="friends.length > 0" class="friends-list">
+      <div *ngFor="let friend of friends" class="friend-card">
+        <div class="friend-info">
+          <div class="user-avatar">
+            <i class="fa fa-user-circle fa-3x"></i>
+          </div>
+          <div class="friend-details">
+            <h5>{{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }}</h5>
+            <p class="text-muted">
+              <i class="fa fa-at"></i> {{ getOtherUser(friend).userName }}
+            </p>
+            <p class="text-muted small" *ngIf="getOtherUser(friend).registrationDate">
+              <i class="fa fa-calendar-plus-o"></i> 
+              {{ 'FRIENDS.REGISTERED_ON' | translate }}: {{ getOtherUser(friend).registrationDate | date:'short' }}
+            </p>
+            <p class="text-muted small" *ngIf="getOtherUser(friend).lastConnectionDate">
+              <i class="fa fa-clock-o"></i> 
+              {{ 'FRIENDS.LAST_CONNECTION' | translate }}: {{ getOtherUser(friend).lastConnectionDate | date:'short' }}
+            </p>
+            <p class="text-muted small">
+              <i class="fa fa-calendar"></i>
+              {{ 'FRIENDS.FRIENDS_SINCE' | translate }}: {{ friend.friendshipDate | date:'short' }}
+            </p>
+          </div>
+        </div>
+        <div class="friend-actions">
+          <button 
+            class="btn btn-danger btn-sm"
+            (click)="removeFriend(friend.id)">
+            <i class="fa fa-user-times"></i>
+            {{ 'FRIENDS.REMOVE_FRIEND' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

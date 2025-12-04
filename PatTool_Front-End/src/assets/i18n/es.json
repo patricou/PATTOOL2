@@ -260,6 +260,7 @@
         "VISIBILITY": "Visibilidad",
         "PUBLIC": "Público",
         "PRIVATE": "Privado",
+        "FRIENDS": "Amigos",
         "VISIBILITYERR": "Error de visibilidad",
         "VISIBILITYPLHD": "Ámbito de visibilidad",
         "PHOTOFROMFS_UNAUTHORIZED": "No está autorizado a crear enlaces de tipo 'Foto desde el sistema de archivos'. Solo el usuario autorizado puede crear este tipo de enlace.",
@@ -813,5 +814,27 @@
             "REFRESH": "Actualizar",
             "CLOSE": "Cerrar"
         }
+    },
+    "FRIENDS": {
+        "TITLE": "Amigos",
+        "ALL_USERS": "Todos los Usuarios",
+        "REQUESTS": "Solicitudes de Amistad",
+        "MY_FRIENDS": "Mis Amigos",
+        "SEARCH_PLACEHOLDER": "Buscar un usuario...",
+        "SEND_REQUEST": "Enviar Solicitud",
+        "PENDING_REQUEST": "Solicitud Pendiente",
+        "REQUEST_SENT": "Solicitud Enviada",
+        "FRIEND": "Amigo",
+        "APPROVE": "Aprobar",
+        "REJECT": "Rechazar",
+        "REMOVE_FRIEND": "Eliminar Amigo",
+        "NO_USERS_FOUND": "No se encontraron usuarios",
+        "NO_PENDING_REQUESTS": "No hay solicitudes pendientes",
+        "NO_FRIENDS": "Aún no tienes amigos",
+        "REQUESTED_ON": "Solicitado el",
+        "FRIENDS_SINCE": "Amigos desde",
+        "REGISTERED_ON": "Registrado el",
+        "LAST_CONNECTION": "Última conexión",
+        "LOADING": "Cargando..."
     }
 }

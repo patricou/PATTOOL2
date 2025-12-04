@@ -43,6 +43,8 @@ import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
 import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
 import { SystemComponent } from './system/system.component';
 import { CacheService } from './services/cache.service';
+import { FriendsModule } from './friends/friends.module';
+import { FriendsComponent } from './friends/friends/friends.component';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -68,6 +70,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		LinksModule,
 		LinksAdminModule,
 		PatgptModule,
+		FriendsModule,
 		NavigationButtonsModule,
 		SlideshowModalModule,
 		TranslateModule.forRoot({
@@ -87,6 +90,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{ path: 'maps', component: AboutComponent },
 					{ path: 'links', component: LinksComponent },
 		{ path: 'links-admin', component: LinksAdminComponent },
+		{ path: 'friends', component: FriendsComponent },
 		{ path: 'iot', component: IothomeComponent },
 		{ path: 'patgpt', component: PatgptComponent },
 		{ path: 'system', component: SystemComponent },

@@ -59,6 +59,36 @@ public class MailController {
         log.debug("=== END MAIL SENDING ATTEMPT ===\n");
         return null;
     };
+
+    // Internal method for sending emails to a specific recipient (called from other controllers)
+    public String sendMailToRecipient(String recipientEmail, String subject, String body, boolean isHtml){
+        log.debug("=== MAIL SENDING ATTEMPT (TO SPECIFIC RECIPIENT) ===");
+        log.debug("Subject: {}", subject);
+        log.debug("To: {}", recipientEmail);
+        log.debug("From: {}", mailSentFrom);
+        log.debug("Mail enabled (app.sendmail): {}", sendmail);
+        log.debug("HTML format: {}", isHtml);
+        
+        try {
+            if (sendmail && recipientEmail != null && !recipientEmail.trim().isEmpty()) {
+                smtpMailSender.sendMail(mailSentFrom, recipientEmail, subject, body, isHtml);
+                log.debug("✓ Mail sent successfully to {} - Subject: '{}'", recipientEmail, subject);
+            } else {
+                if (!sendmail) {
+                    log.warn("✗ Mail sending skipped - app.sendmail is set to false");
+                } else {
+                    log.warn("✗ Mail sending skipped - recipient email is empty");
+                }
+            }
+        }catch(Exception e){
+            log.error("✗ ERROR sending mail to {} - Subject: '{}' - Error: {}", 
+                     recipientEmail, subject, e.getMessage(), e);
+            e.printStackTrace();
+        }
+        
+        log.debug("=== END MAIL SENDING ATTEMPT (TO SPECIFIC RECIPIENT) ===\n");
+        return null;
+    };
     
     // REST endpoint for sending emails via HTTP
     @PostMapping(value = "sendmail")

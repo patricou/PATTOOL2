@@ -17,6 +17,7 @@ import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
 
@@ -64,9 +65,22 @@ public class MemberRestController {
         Member memberWithId = membersRepository.findByUserName(member.getUserName());
         log.debug("User lookup result: {}", memberWithId != null ? "FOUND (existing user)" : "NOT FOUND (new user)");
         // Update the ID
+        Date now = new Date();
         if (memberWithId != null ) {
             log.debug("Existing user found - Member ID: {}", memberWithId.getId());
             member.setId(memberWithId.getId());
+            // Preserve registration date from existing member
+            if (memberWithId.getRegistrationDate() != null) {
+                member.setRegistrationDate(memberWithId.getRegistrationDate());
+            }
+            // Update last connection date
+            member.setLastConnectionDate(now);
+            // Update locale if provided, otherwise preserve existing
+            if (member.getLocale() == null || member.getLocale().trim().isEmpty()) {
+                if (memberWithId.getLocale() != null) {
+                    member.setLocale(memberWithId.getLocale());
+                }
+            }
 
             String ipAddress = request.getHeader("X-Forwarded-For");
             if (ipAddress == null) {
@@ -111,6 +125,9 @@ public class MemberRestController {
                 false // existing user
             );
         } else {
+            // New user - set registration date
+            member.setRegistrationDate(now);
+            member.setLastConnectionDate(now);
             // New user - still send email notification
             log.debug("New user connection detected - Username: {}", member.getUserName());
             

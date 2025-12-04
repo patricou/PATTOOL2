@@ -251,6 +251,7 @@
         "VISIBILITY": "दृश्यता",
         "PUBLIC": "सार्वजनिक",
         "PRIVATE": "निजी",
+        "FRIENDS": "दोस्त",
         "VISIBILITYERR": "दृश्यता त्रुटि",
         "VISIBILITYPLHD": "दृश्यता दायरा",
         "PHOTOFROMFS_UNAUTHORIZED": "आपको 'फ़ाइल सिस्टम से फ़ोटो' प्रकार के लिंक बनाने की अनुमति नहीं है। केवल अधिकृत उपयोगकर्ता ही इस प्रकार के लिंक बना सकता है।",
@@ -804,6 +805,28 @@
             "REFRESH": "ताज़ा करें",
             "CLOSE": "बंद करें"
         }
+    },
+    "FRIENDS": {
+        "TITLE": "दोस्त",
+        "ALL_USERS": "सभी उपयोगकर्ता",
+        "REQUESTS": "मित्रता अनुरोध",
+        "MY_FRIENDS": "मेरे दोस्त",
+        "SEARCH_PLACEHOLDER": "उपयोगकर्ता खोजें...",
+        "SEND_REQUEST": "अनुरोध भेजें",
+        "PENDING_REQUEST": "लंबित अनुरोध",
+        "REQUEST_SENT": "अनुरोध भेजा गया",
+        "FRIEND": "दोस्त",
+        "APPROVE": "अनुमोदन",
+        "REJECT": "अस्वीकार",
+        "REMOVE_FRIEND": "दोस्त हटाएं",
+        "NO_USERS_FOUND": "कोई उपयोगकर्ता नहीं मिला",
+        "NO_PENDING_REQUESTS": "कोई लंबित अनुरोध नहीं",
+        "NO_FRIENDS": "आपके पास अभी तक कोई दोस्त नहीं है",
+        "REQUESTED_ON": "अनुरोध किया गया",
+        "FRIENDS_SINCE": "दोस्त बने",
+        "REGISTERED_ON": "पंजीकृत",
+        "LAST_CONNECTION": "अंतिम कनेक्शन",
+        "LOADING": "लोड हो रहा है..."
     }
 }
 

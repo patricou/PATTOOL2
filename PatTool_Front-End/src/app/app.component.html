@@ -72,6 +72,15 @@
                 </ul>
             </li>
 
+            <!-- Friends -->
+            <li class="nav-item">
+                <a class="nav-link" 
+                   [routerLink]="['friends']" 
+                   (click)="closeMenu()">
+                    <i class="fa fa-users"></i> {{ 'MENU.FRIENDS' | translate }}
+                </a>
+            </li>
+
             <!-- AI Dropdown -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" 

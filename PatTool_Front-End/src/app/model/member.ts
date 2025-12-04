@@ -7,7 +7,10 @@
         public lastName: string,
         public userName: string,
         public roles : string[],
-        public keycloakId : string
+        public keycloakId : string,
+        public registrationDate?: Date,
+        public lastConnectionDate?: Date,
+        public locale?: string
     )
     {}
 }

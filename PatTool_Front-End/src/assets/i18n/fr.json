@@ -27,6 +27,7 @@
         "LOGIN": "Connexion",
         "LOGOUT": "Déconnexion",
         "LINKS": "Liens",
+        "FRIENDS": "Amis",
         "TOOLS": "Outils",
         "IOT": "IoT",
         "IA": "IA",
@@ -244,6 +245,7 @@
         "VISIBILITY": "Visibilité",
         "PUBLIC": "Public",
         "PRIVATE": "Privé",
+        "FRIENDS": "Amis",
         "VISIBILITYERR": "Erreur dans la Visibilté",
         "VISIBILITYPLHD": "Scope de la visibilité",
         "PHOTOFROMFS_UNAUTHORIZED": "Vous n'êtes pas autorisé à créer des liens de type 'Photo depuis le système de fichiers'. Seul l'utilisateur autorisé peut créer ce type de lien.",
@@ -813,6 +815,28 @@
             "REFRESH": "Actualiser",
             "CLOSE": "Fermer"
         }
+    },
+    "FRIENDS": {
+        "TITLE": "Amis",
+        "ALL_USERS": "Tous les Utilisateurs",
+        "REQUESTS": "Demandes d'Amitié",
+        "MY_FRIENDS": "Mes Amis",
+        "SEARCH_PLACEHOLDER": "Rechercher un utilisateur...",
+        "SEND_REQUEST": "Envoyer une Demande",
+        "PENDING_REQUEST": "Demande en Attente",
+        "REQUEST_SENT": "Demande Envoyée",
+        "FRIEND": "Ami",
+        "APPROVE": "Accepter",
+        "REJECT": "Refuser",
+        "REMOVE_FRIEND": "Retirer l'Ami",
+        "NO_USERS_FOUND": "Aucun utilisateur trouvé",
+        "NO_PENDING_REQUESTS": "Aucune demande en attente",
+        "NO_FRIENDS": "Vous n'avez pas encore d'amis",
+        "REQUESTED_ON": "Demandé le",
+        "FRIENDS_SINCE": "Amis depuis",
+        "REGISTERED_ON": "Inscrit le",
+        "LAST_CONNECTION": "Dernière connexion",
+        "LOADING": "Chargement..."
     }
 }
 

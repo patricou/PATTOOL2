@@ -262,6 +262,7 @@
         "VISIBILITY": "可視性",
         "PUBLIC": "公開",
         "PRIVATE": "非公開",
+        "FRIENDS": "友達",
         "VISIBILITYERR": "可視性エラー",
         "VISIBILITYPLHD": "可視範囲",
         "PHOTOFROMFS_UNAUTHORIZED": "「ファイルシステムからの写真」タイプのリンクを作成する権限がありません。承認されたユーザーのみがこのタイプのリンクを作成できます。",
@@ -814,5 +815,27 @@
             "REFRESH": "更新",
             "CLOSE": "閉じる"
         }
+    },
+    "FRIENDS": {
+        "TITLE": "友達",
+        "ALL_USERS": "すべてのユーザー",
+        "REQUESTS": "友達リクエスト",
+        "MY_FRIENDS": "私の友達",
+        "SEARCH_PLACEHOLDER": "ユーザーを検索...",
+        "SEND_REQUEST": "リクエストを送信",
+        "PENDING_REQUEST": "保留中のリクエスト",
+        "REQUEST_SENT": "リクエスト送信済み",
+        "FRIEND": "友達",
+        "APPROVE": "承認",
+        "REJECT": "拒否",
+        "REMOVE_FRIEND": "友達を削除",
+        "NO_USERS_FOUND": "ユーザーが見つかりません",
+        "NO_PENDING_REQUESTS": "保留中のリクエストはありません",
+        "NO_FRIENDS": "まだ友達がいません",
+        "REQUESTED_ON": "リクエスト日時",
+        "FRIENDS_SINCE": "友達になった日",
+        "REGISTERED_ON": "登録日",
+        "LAST_CONNECTION": "最終接続",
+        "LOADING": "読み込み中..."
     }
 }

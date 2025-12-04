@@ -1,6 +1,8 @@
 package com.pat.repo;
 
 import com.pat.repo.domain.Evenement;
+import com.pat.repo.domain.Friend;
+import com.pat.repo.domain.Member;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -26,6 +28,12 @@ import java.util.stream.Collectors;
 public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 
 	private final MongoTemplate mongoTemplate;
+	
+	@Autowired
+	private FriendRepository friendRepository;
+	
+	@Autowired
+	private MembersRepository membersRepository;
 
 	private static final Map<String, String> TYPE_ALIAS_LOOKUP = new HashMap<>();
 	private static final Map<String, List<String>> TYPE_KEYWORDS = buildTypeKeywords();
@@ -125,6 +133,11 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 
 		if (StringUtils.hasText(userId)) {
 			accessCriteria.add(buildAuthorCriteria(userId));
+			// Add friends visibility criteria
+			Criteria friendsCriteria = buildFriendsVisibilityCriteria(userId);
+			if (friendsCriteria != null) {
+				accessCriteria.add(friendsCriteria);
+			}
 		}
 
 		if (accessCriteria.size() == 1) {
@@ -132,6 +145,62 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		}
 
 		return new Criteria().orOperator(accessCriteria.toArray(new Criteria[0]));
+	}
+	
+	private Criteria buildFriendsVisibilityCriteria(String userId) {
+		try {
+			// Get current user
+			Member currentUser = membersRepository.findById(userId).orElse(null);
+			if (currentUser == null) {
+				return null;
+			}
+			
+			// Get all friends of current user
+			List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
+			if (friendships.isEmpty()) {
+				// No friends, so no friends visibility events should be shown
+				return null;
+			}
+			
+			// Collect all friend IDs (both user1 and user2 from friendships)
+			List<String> friendIds = new ArrayList<>();
+			for (Friend friendship : friendships) {
+				if (friendship.getUser1() != null && !friendship.getUser1().getId().equals(userId)) {
+					friendIds.add(friendship.getUser1().getId());
+				}
+				if (friendship.getUser2() != null && !friendship.getUser2().getId().equals(userId)) {
+					friendIds.add(friendship.getUser2().getId());
+				}
+			}
+			
+			if (friendIds.isEmpty()) {
+				return null;
+			}
+			
+			// Build criteria: visibility="friends" AND author is in friend list
+			List<Criteria> friendAuthorCriteria = new ArrayList<>();
+			for (String friendId : friendIds) {
+				try {
+					friendAuthorCriteria.add(Criteria.where("author.$id").is(new ObjectId(friendId)));
+				} catch (IllegalArgumentException ex) {
+					// Not an ObjectId, use string comparison
+					friendAuthorCriteria.add(Criteria.where("author.id").is(friendId));
+				}
+			}
+			
+			if (friendAuthorCriteria.isEmpty()) {
+				return null;
+			}
+			
+			Criteria authorInFriends = new Criteria().orOperator(friendAuthorCriteria.toArray(new Criteria[0]));
+			return new Criteria().andOperator(
+				Criteria.where("visibility").is("friends"),
+				authorInFriends
+			);
+		} catch (Exception e) {
+			// If any error occurs, return null (don't include friends visibility)
+			return null;
+		}
 	}
 
 	private Criteria buildAuthorCriteria(String userId) {

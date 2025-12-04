@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.Date;
+
 /**
  * Created by patricou on 4/20/2017.
  */
@@ -18,6 +20,9 @@ public class Member {
     private String keycloakId;
     @JsonIgnore
     private String roles;
+    private Date registrationDate;
+    private Date lastConnectionDate;
+    private String locale; // User's language preference (e.g., "fr", "en")
 
     public Member( String firstName, String lastName, String userName, String addressEmail){
         this.firstName = firstName;
@@ -83,6 +88,30 @@ public class Member {
 
     public void setRoles(String roles) {
         this.roles = roles;
+    }
+
+    public Date getRegistrationDate() {
+        return registrationDate;
+    }
+
+    public void setRegistrationDate(Date registrationDate) {
+        this.registrationDate = registrationDate;
+    }
+
+    public Date getLastConnectionDate() {
+        return lastConnectionDate;
+    }
+
+    public void setLastConnectionDate(Date lastConnectionDate) {
+        this.lastConnectionDate = lastConnectionDate;
+    }
+
+    public String getLocale() {
+        return locale;
+    }
+
+    public void setLocale(String locale) {
+        this.locale = locale;
     }
 }
 

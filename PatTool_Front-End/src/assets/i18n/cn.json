@@ -260,6 +260,7 @@
         "VISIBILITY": "可见性",
         "PUBLIC": "公开",
         "PRIVATE": "私人",
+        "FRIENDS": "朋友",
         "VISIBILITYERR": "可见性错误",
         "VISIBILITYPLHD": "可见性范围",
         "PHOTOFROMFS_UNAUTHORIZED": "您无权创建类型为'来自文件系统的照片'的链接。只有授权用户可以创建此类链接。",
@@ -812,5 +813,27 @@
             "REFRESH": "刷新",
             "CLOSE": "关闭"
         }
+    },
+    "FRIENDS": {
+        "TITLE": "朋友",
+        "ALL_USERS": "所有用户",
+        "REQUESTS": "好友请求",
+        "MY_FRIENDS": "我的好友",
+        "SEARCH_PLACEHOLDER": "搜索用户...",
+        "SEND_REQUEST": "发送请求",
+        "PENDING_REQUEST": "待处理请求",
+        "REQUEST_SENT": "请求已发送",
+        "FRIEND": "好友",
+        "APPROVE": "批准",
+        "REJECT": "拒绝",
+        "REMOVE_FRIEND": "移除好友",
+        "NO_USERS_FOUND": "未找到用户",
+        "NO_PENDING_REQUESTS": "没有待处理的请求",
+        "NO_FRIENDS": "您还没有好友",
+        "REQUESTED_ON": "请求于",
+        "FRIENDS_SINCE": "成为好友于",
+        "REGISTERED_ON": "注册于",
+        "LAST_CONNECTION": "最后连接",
+        "LOADING": "加载中..."
     }
 }

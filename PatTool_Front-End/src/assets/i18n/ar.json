@@ -259,6 +259,7 @@
         "VISIBILITY": "الظهور",
         "PUBLIC": "عام",
         "PRIVATE": "خاص",
+        "FRIENDS": "أصدقاء",
         "VISIBILITYERR": "خطأ في الظهور",
         "VISIBILITYPLHD": "نطاق الظهور",
         "PHOTOFROMFS_UNAUTHORIZED": "غير مصرح لك بإنشاء روابط من نوع 'صورة من نظام الملفات'. فقط المستخدم المصرح له يمكنه إنشاء هذا النوع من الروابط.",
@@ -810,5 +811,27 @@
             "REFRESH": "تحديث",
             "CLOSE": "إغلاق"
         }
+    },
+    "FRIENDS": {
+        "TITLE": "الأصدقاء",
+        "ALL_USERS": "جميع المستخدمين",
+        "REQUESTS": "طلبات الصداقة",
+        "MY_FRIENDS": "أصدقائي",
+        "SEARCH_PLACEHOLDER": "البحث عن مستخدم...",
+        "SEND_REQUEST": "إرسال طلب",
+        "PENDING_REQUEST": "طلب قيد الانتظار",
+        "REQUEST_SENT": "تم إرسال الطلب",
+        "FRIEND": "صديق",
+        "APPROVE": "موافقة",
+        "REJECT": "رفض",
+        "REMOVE_FRIEND": "إزالة الصديق",
+        "NO_USERS_FOUND": "لم يتم العثور على مستخدمين",
+        "NO_PENDING_REQUESTS": "لا توجد طلبات قيد الانتظار",
+        "NO_FRIENDS": "ليس لديك أصدقاء بعد",
+        "REQUESTED_ON": "تم الطلب في",
+        "FRIENDS_SINCE": "أصدقاء منذ",
+        "REGISTERED_ON": "مسجل في",
+        "LAST_CONNECTION": "آخر اتصال",
+        "LOADING": "جاري التحميل..."
     }
 }

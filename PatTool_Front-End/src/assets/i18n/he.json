@@ -253,6 +253,7 @@
         "VISIBILITY": "נראות",
         "PUBLIC": "ציבורי",
         "PRIVATE": "פרטי",
+        "FRIENDS": "חברים",
         "VISIBILITYERR": "שגיאה בנראות",
         "VISIBILITYPLHD": "היקף הנראות",
         "PHOTOFROMFS_UNAUTHORIZED": "אין לך הרשאה ליצור קישורים מסוג 'תמונה ממערכת הקבצים'. רק המשתמש המורשה יכול ליצור קישורים מסוג זה.",
@@ -805,5 +806,27 @@
             "REFRESH": "רענן",
             "CLOSE": "סגור"
         }
+    },
+    "FRIENDS": {
+        "TITLE": "חברים",
+        "ALL_USERS": "כל המשתמשים",
+        "REQUESTS": "בקשות חברות",
+        "MY_FRIENDS": "החברים שלי",
+        "SEARCH_PLACEHOLDER": "חפש משתמש...",
+        "SEND_REQUEST": "שלח בקשה",
+        "PENDING_REQUEST": "בקשה ממתינה",
+        "REQUEST_SENT": "בקשה נשלחה",
+        "FRIEND": "חבר",
+        "APPROVE": "אשר",
+        "REJECT": "דחה",
+        "REMOVE_FRIEND": "הסר חבר",
+        "NO_USERS_FOUND": "לא נמצאו משתמשים",
+        "NO_PENDING_REQUESTS": "אין בקשות ממתינות",
+        "NO_FRIENDS": "אין לך חברים עדיין",
+        "REQUESTED_ON": "התבקש ב",
+        "FRIENDS_SINCE": "חברים מאז",
+        "REGISTERED_ON": "נרשם ב",
+        "LAST_CONNECTION": "חיבור אחרון",
+        "LOADING": "טוען..."
     }
 }
