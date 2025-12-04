@@ -394,5 +394,58 @@ export class FriendsService {
             })
         );
     }
+
+    /**
+     * Check if an email address belongs to an existing member
+     */
+    checkEmail(email: string): Observable<{ exists: boolean; memberId?: string; userName?: string }> {
+        return from(this._keycloakService.getToken()).pipe(
+            map(token => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.get<{ exists: boolean; memberId?: string; userName?: string }>(
+                    this.API_URL + 'friends/check-email/' + encodeURIComponent(email),
+                    { headers: headers }
+                ).pipe(
+                    catchError((error: any) => {
+                        console.error('Error checking email:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Send invitation email to join PATTOOL
+     */
+    sendInvitation(email: string): Observable<{ message: string }> {
+        return from(this._keycloakService.getToken()).pipe(
+            map(token => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.post<{ message: string }>(
+                    this.API_URL + 'friends/invite',
+                    { email },
+                    { headers: headers }
+                ).pipe(
+                    catchError((error: any) => {
+                        console.error('Error sending invitation:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
 }
 

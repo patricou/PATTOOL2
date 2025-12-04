@@ -72,7 +72,10 @@
                     <div class="category-icon">
                         <i class="fa" [ngClass]="getCategoryIcon(c.categoryName)"></i>
                     </div>
-                    <h3 class="category-title">{{c.categoryName}}</h3>
+                    <h3 class="category-title">
+                        {{c.categoryName}}
+                        <span class="category-count">({{ getCategoryLinksCount(c) }})</span>
+                    </h3>
                     <div class="expand-icon">
                         <i class="fa" [ngClass]="isCategoryExpanded(i) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                     </div>
@@ -96,21 +99,19 @@
                                             </span>
                                         </div>
                                     </div>
-                                    <div class="link-actions" *ngIf="canEdit(u)" (click)="$event.stopPropagation()">
+                                    <div class="link-actions" *ngIf="canEdit(u)" (click)="$event.stopPropagation(); $event.preventDefault()">
                                         <div class="visibility-toggle">
-                                            <label class="toggle-switch">
-                                                <input type="checkbox" 
-                                                       [checked]="u.visibility === 'public'"
-                                                       (change)="submitVisibilityChange(u)">
-                                                <span class="toggle-slider">
-                                                    <span class="toggle-label public" *ngIf="u.visibility === 'public'">
-                                                        <i class="fa fa-globe"></i>
-                                                    </span>
-                                                    <span class="toggle-label private" *ngIf="u.visibility === 'private'">
-                                                        <i class="fa fa-lock"></i>
-                                                    </span>
-                                                </span>
-                                            </label>
+                                            <button type="button" 
+                                                    class="btn btn-sm visibility-btn"
+                                                    [class.btn-success]="u.visibility === 'public'"
+                                                    [class.btn-warning]="u.visibility === 'private'"
+                                                    [class.btn-info]="u.visibility === 'friends'"
+                                                    (click)="submitVisibilityChange(u, $event)"
+                                                    [title]="(u.visibility === 'public' ? ('LINKSADMIN.PUBLIC' | translate) : u.visibility === 'private' ? ('LINKSADMIN.PRIVATE' | translate) : ('LINKSADMIN.FRIENDS' | translate))">
+                                                <i class="fa fa-globe" *ngIf="u.visibility === 'public'"></i>
+                                                <i class="fa fa-lock" *ngIf="u.visibility === 'private'"></i>
+                                                <i class="fa fa-users" *ngIf="u.visibility === 'friends'"></i>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>

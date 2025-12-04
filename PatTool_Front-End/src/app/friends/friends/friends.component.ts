@@ -21,6 +21,11 @@ export class FriendsComponent implements OnInit {
   public activeTab: 'users' | 'requests' | 'friends' = 'users';
   public loading: boolean = false;
   public errorMessage: string = '';
+  public inviteEmail: string = '';
+  public checkingEmail: boolean = false;
+  public emailExists: boolean = false;
+  public emailCheckResult: { exists: boolean; memberId?: string; userName?: string } | null = null;
+  public sendingInvite: boolean = false;
 
   constructor(
     private _friendsService: FriendsService,
@@ -209,6 +214,70 @@ export class FriendsComponent implements OnInit {
   setActiveTab(tab: 'users' | 'requests' | 'friends') {
     this.activeTab = tab;
     this.searchFilter = ''; // Clear search when switching tabs
+    this.inviteEmail = ''; // Clear invite email
+    this.emailCheckResult = null;
+    this.emailExists = false;
+  }
+
+  checkEmailExists() {
+    if (!this.inviteEmail || !this.inviteEmail.trim()) {
+      return;
+    }
+
+    const email = this.inviteEmail.trim();
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      this.errorMessage = 'Please enter a valid email address';
+      return;
+    }
+
+    this.checkingEmail = true;
+    this.errorMessage = '';
+    this.emailCheckResult = null;
+    this.emailExists = false;
+
+    this._friendsService.checkEmail(email).subscribe(
+      result => {
+        this.emailCheckResult = result;
+        this.emailExists = result.exists;
+        this.checkingEmail = false;
+      },
+      error => {
+        console.error('Error checking email:', error);
+        this.errorMessage = 'Error checking email address';
+        this.checkingEmail = false;
+      }
+    );
+  }
+
+  sendInvitation() {
+    if (!this.inviteEmail || !this.inviteEmail.trim()) {
+      return;
+    }
+
+    const email = this.inviteEmail.trim();
+    this.sendingInvite = true;
+    this.errorMessage = '';
+
+    this._friendsService.sendInvitation(email).subscribe(
+      result => {
+        this.sendingInvite = false;
+        this.inviteEmail = '';
+        this.emailCheckResult = null;
+        this.emailExists = false;
+        alert(this._translateService.instant('FRIENDS.INVITATION_SENT'));
+      },
+      error => {
+        console.error('Error sending invitation:', error);
+        if (error.error && error.error.error === 'Email already registered') {
+          this.errorMessage = this._translateService.instant('FRIENDS.EMAIL_ALREADY_REGISTERED');
+        } else {
+          this.errorMessage = this._translateService.instant('FRIENDS.INVITATION_ERROR');
+        }
+        this.sendingInvite = false;
+      }
+    );
   }
 }
 

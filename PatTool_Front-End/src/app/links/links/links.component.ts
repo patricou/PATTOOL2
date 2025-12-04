@@ -62,18 +62,42 @@ export class LinksComponent implements OnInit {
     });
   }
 
-  submitVisibilityChange(urllink: any) {
-    // Convert the visibility to 'public' or 'private'
-    urllink.visibility = urllink.visibility === 'public' ? 'private' : 'public';
+  submitVisibilityChange(urllink: any, event?: Event) {
+    // Prevent any default behavior and stop propagation
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
+    // Cycle through visibility: public -> private -> friends -> public
+    // Handle null/undefined as public (default)
+    const currentVisibility = urllink.visibility || 'public';
+    
+    if (currentVisibility === 'public') {
+      urllink.visibility = 'private';
+    } else if (currentVisibility === 'private') {
+      urllink.visibility = 'friends';
+    } else {
+      // friends or any other value -> public
+      urllink.visibility = 'public';
+    }
 
     // Call your service to update the visibility in the database
     this._urlLinkService.updateVisibility(urllink).subscribe(
       response => {
+        // Update successful
+        console.log('Visibility updated to:', urllink.visibility);
       },
       error => {
         console.error('An error occurred while updating visibility', error);
+        // Revert on error
+        urllink.visibility = currentVisibility;
+        // Don't navigate on error - just show error in console
       }
     );
+    
+    // Explicitly return false to prevent any navigation
+    return false;
   }
 
   canEdit(u: urllink): boolean {
@@ -84,8 +108,9 @@ export class LinksComponent implements OnInit {
     if (!u || !u.author) {
       return false;
     }
-    let v = u.author.id === this.user.id || u.visibility === 'public';
-    return v;
+    // Backend already filters links, so if a link is in the list, it's visible
+    // This is just a safety check - links with friends visibility are already filtered by backend
+    return u.author.id === this.user.id || u.visibility === 'public' || u.visibility === 'friends';
   }
 
   getCategoryLinks(category: Category): urllink[] {
@@ -96,6 +121,15 @@ export class LinksComponent implements OnInit {
       return categoryMatch && visible && matchesSearch;
     });
     return filtered;
+  }
+
+  getCategoryLinksCount(category: Category): number {
+    // Count all visible links in this category (not filtered by search)
+    return this.urllinks.filter(u => {
+      const categoryMatch = u.categoryLinkID === category.categoryLinkID;
+      const visible = this.isVisible(u);
+      return categoryMatch && visible;
+    }).length;
   }
 
   isCategoryVisible(category: Category): boolean {

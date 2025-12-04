@@ -722,6 +722,7 @@
         "SELECT_CATEGORY": "Seleziona una categoria",
         "PUBLIC": "Pubblico",
         "PRIVATE": "Privato",
+        "FRIENDS": "Amici",
         "VISIBILITY": "Visibilità",
         "CATEGORY": "Categoria",
         "AUTHOR": "Autore",
@@ -835,6 +836,15 @@
         "FRIENDS_SINCE": "Amici dal",
         "REGISTERED_ON": "Registrato il",
         "LAST_CONNECTION": "Ultima connessione",
-        "LOADING": "Caricamento..."
+        "LOADING": "Caricamento...",
+        "INVITE_BY_EMAIL": "Invita tramite Email",
+        "ENTER_EMAIL": "Inserisci l'indirizzo email",
+        "CHECK_EMAIL": "Verifica",
+        "EMAIL_EXISTS": "Questa email è già registrata",
+        "EMAIL_NOT_REGISTERED": "Questa email non è registrata",
+        "INVITE_TO_PATTOOL": "Invita a usare PATTOOL",
+        "INVITATION_SENT": "Invito inviato con successo!",
+        "EMAIL_ALREADY_REGISTERED": "Questa email è già registrata",
+        "INVITATION_ERROR": "Errore nell'invio dell'invito"
     }
 }

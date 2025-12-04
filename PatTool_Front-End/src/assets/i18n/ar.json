@@ -719,6 +719,7 @@
         "SELECT_CATEGORY": "اختر فئة",
         "PUBLIC": "عام",
         "PRIVATE": "خاص",
+        "FRIENDS": "أصدقاء",
         "VISIBILITY": "الرؤية",
         "CATEGORY": "الفئة",
         "AUTHOR": "المؤلف",
@@ -832,6 +833,15 @@
         "FRIENDS_SINCE": "أصدقاء منذ",
         "REGISTERED_ON": "مسجل في",
         "LAST_CONNECTION": "آخر اتصال",
-        "LOADING": "جاري التحميل..."
+        "LOADING": "جاري التحميل...",
+        "INVITE_BY_EMAIL": "دعوة عبر البريد الإلكتروني",
+        "ENTER_EMAIL": "أدخل عنوان البريد الإلكتروني",
+        "CHECK_EMAIL": "التحقق",
+        "EMAIL_EXISTS": "هذا البريد الإلكتروني مسجل بالفعل",
+        "EMAIL_NOT_REGISTERED": "هذا البريد الإلكتروني غير مسجل",
+        "INVITE_TO_PATTOOL": "دعوة لاستخدام PATTOOL",
+        "INVITATION_SENT": "تم إرسال الدعوة بنجاح!",
+        "EMAIL_ALREADY_REGISTERED": "هذا البريد الإلكتروني مسجل بالفعل",
+        "INVITATION_ERROR": "خطأ في إرسال الدعوة"
     }
 }

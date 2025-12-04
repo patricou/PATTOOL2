@@ -720,6 +720,7 @@
         "SELECT_CATEGORY": "Επιλέξτε κατηγορία",
         "PUBLIC": "Δημόσιο",
         "PRIVATE": "Ιδιωτικό",
+        "FRIENDS": "Φίλοι",
         "VISIBILITY": "Ορατότητα",
         "CATEGORY": "Κατηγορία",
         "AUTHOR": "Συντάκτης",
@@ -833,6 +834,15 @@
         "FRIENDS_SINCE": "Φίλοι από",
         "REGISTERED_ON": "Εγγεγραμμένος στις",
         "LAST_CONNECTION": "Τελευταία σύνδεση",
-        "LOADING": "Φόρτωση..."
+        "LOADING": "Φόρτωση...",
+        "INVITE_BY_EMAIL": "Πρόσκληση μέσω Email",
+        "ENTER_EMAIL": "Εισάγετε τη διεύθυνση email",
+        "CHECK_EMAIL": "Έλεγχος",
+        "EMAIL_EXISTS": "Αυτό το email είναι ήδη εγγεγραμμένο",
+        "EMAIL_NOT_REGISTERED": "Αυτό το email δεν είναι εγγεγραμμένο",
+        "INVITE_TO_PATTOOL": "Πρόσκληση για χρήση PATTOOL",
+        "INVITATION_SENT": "Η πρόσκληση στάλθηκε επιτυχώς!",
+        "EMAIL_ALREADY_REGISTERED": "Αυτό το email είναι ήδη εγγεγραμμένο",
+        "INVITATION_ERROR": "Σφάλμα κατά την αποστολή της πρόσκλησης"
     }
 }

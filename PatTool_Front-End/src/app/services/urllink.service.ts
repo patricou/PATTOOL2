@@ -52,7 +52,7 @@ export class UrllinkService {
 	updateVisibility(urllink: urllink): Observable<any> {
 		return this.getHeaderWithToken().pipe(
 			switchMap(headers =>
-				this._http.put(this.API_URL + 'visibility/', urllink, { headers: headers })
+				this._http.put(this.API_URL + 'visibility', urllink, { headers: headers })
 			)
 		);
 	}

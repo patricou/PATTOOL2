@@ -32,7 +32,7 @@ public class CacheController {
     @Autowired
     private ApplicationContext applicationContext;
     
-    @Value("${app.iot.userid}")
+    @Value("${app.admin.userid}")
     private String authorizedUserId;
     
     /**

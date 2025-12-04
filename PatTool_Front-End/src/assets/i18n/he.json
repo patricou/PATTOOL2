@@ -714,6 +714,7 @@
         "SELECT_CATEGORY": "בחר קטגוריה",
         "PUBLIC": "ציבורי",
         "PRIVATE": "פרטי",
+        "FRIENDS": "חברים",
         "VISIBILITY": "נראות",
         "CATEGORY": "קטגוריה",
         "AUTHOR": "מחבר",
@@ -827,6 +828,15 @@
         "FRIENDS_SINCE": "חברים מאז",
         "REGISTERED_ON": "נרשם ב",
         "LAST_CONNECTION": "חיבור אחרון",
-        "LOADING": "טוען..."
+        "LOADING": "טוען...",
+        "INVITE_BY_EMAIL": "הזמן בדוא\"ל",
+        "ENTER_EMAIL": "הזן כתובת דוא\"ל",
+        "CHECK_EMAIL": "בדוק",
+        "EMAIL_EXISTS": "דוא\"ל זה כבר רשום",
+        "EMAIL_NOT_REGISTERED": "דוא\"ל זה לא רשום",
+        "INVITE_TO_PATTOOL": "הזמן להשתמש ב-PATTOOL",
+        "INVITATION_SENT": "ההזמנה נשלחה בהצלחה!",
+        "EMAIL_ALREADY_REGISTERED": "דוא\"ל זה כבר רשום",
+        "INVITATION_ERROR": "שגיאה בשליחת ההזמנה"
     }
 }

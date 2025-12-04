@@ -56,6 +56,54 @@
 
   <!-- Tab Content: All Users -->
   <div *ngIf="activeTab === 'users'" class="tab-content">
+    <!-- Invite by Email Section -->
+    <div class="invite-section mb-4 p-3 bg-light rounded">
+      <h5><i class="fa fa-envelope"></i> {{ 'FRIENDS.INVITE_BY_EMAIL' | translate }}</h5>
+      <div class="input-group mb-2">
+        <span class="input-group-text">
+          <i class="fa fa-at"></i>
+        </span>
+        <input 
+          type="email" 
+          class="form-control" 
+          [(ngModel)]="inviteEmail"
+          (blur)="checkEmailExists()"
+          (keyup.enter)="checkEmailExists()"
+          [placeholder]="'FRIENDS.ENTER_EMAIL' | translate"
+          [disabled]="checkingEmail || sendingInvite">
+        <button 
+          class="btn btn-outline-secondary" 
+          type="button"
+          (click)="checkEmailExists()"
+          [disabled]="!inviteEmail || checkingEmail || sendingInvite">
+          <i class="fa fa-search" *ngIf="!checkingEmail"></i>
+          <i class="fa fa-spinner fa-spin" *ngIf="checkingEmail"></i>
+          {{ 'FRIENDS.CHECK_EMAIL' | translate }}
+        </button>
+      </div>
+      
+      <!-- Email Check Result -->
+      <div *ngIf="emailCheckResult !== null" class="mt-2">
+        <div *ngIf="emailExists" class="alert alert-info">
+          <i class="fa fa-info-circle"></i>
+          {{ 'FRIENDS.EMAIL_EXISTS' | translate }}
+          <span *ngIf="emailCheckResult.userName"> ({{ emailCheckResult.userName }})</span>
+        </div>
+        <div *ngIf="!emailExists" class="alert alert-success">
+          <i class="fa fa-check-circle"></i>
+          {{ 'FRIENDS.EMAIL_NOT_REGISTERED' | translate }}
+          <button 
+            class="btn btn-success btn-sm ms-2"
+            (click)="sendInvitation()"
+            [disabled]="sendingInvite">
+            <i class="fa fa-paper-plane" *ngIf="!sendingInvite"></i>
+            <i class="fa fa-spinner fa-spin" *ngIf="sendingInvite"></i>
+            {{ 'FRIENDS.INVITE_TO_PATTOOL' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+
     <div class="search-container">
       <div class="input-group mb-3">
         <span class="input-group-text">

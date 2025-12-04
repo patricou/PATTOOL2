@@ -225,7 +225,9 @@ export class LinksAdminComponent implements OnInit {
 
   // Check if a link is visible to the current user
   isLinkVisible(link: urllink): boolean {
-    return link.author.id === this.user.id || link.visibility === 'public';
+    // Backend already filters links, so if a link is in the list, it's visible
+    // This is just for display purposes in admin - show all links user can see
+    return link.author.id === this.user.id || link.visibility === 'public' || link.visibility === 'friends';
   }
 
   // Get all visible links

@@ -24,6 +24,12 @@ public class FriendsRestController {
 
     @Autowired
     private FriendsService friendsService;
+    
+    @Autowired
+    private com.pat.repo.MembersRepository membersRepository;
+    
+    @Autowired
+    private com.pat.controller.MailController mailController;
 
     /**
      * Get all users from MongoDB (synced from Keycloak)
@@ -207,6 +213,205 @@ public class FriendsRestController {
             log.error("Error removing friend", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+    
+    /**
+     * Check if an email address belongs to an existing member
+     */
+    @GetMapping(value = "/check-email/{email}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> checkEmail(@PathVariable String email) {
+        try {
+            Member member = membersRepository.findByAddressEmail(email);
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("exists", member != null);
+            if (member != null) {
+                response.put("memberId", member.getId());
+                response.put("userName", member.getUserName());
+            }
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error checking email", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * Send invitation email to join PATTOOL
+     */
+    @PostMapping(value = "/invite", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, String>> sendInvitation(
+            @RequestBody Map<String, String> requestBody,
+            Authentication authentication) {
+        try {
+            String email = requestBody.get("email");
+            if (email == null || email.trim().isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+            
+            Member inviter = friendsService.getCurrentUser(authentication);
+            if (inviter == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            
+            // Check if email already exists
+            Member existingMember = membersRepository.findByAddressEmail(email);
+            if (existingMember != null) {
+                Map<String, String> response = new java.util.HashMap<>();
+                response.put("error", "Email already registered");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            // Send invitation email
+            sendInvitationEmail(inviter, email);
+            
+            Map<String, String> response = new java.util.HashMap<>();
+            response.put("message", "Invitation sent successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error sending invitation", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * Send invitation email to join PATTOOL
+     */
+    private void sendInvitationEmail(Member inviter, String recipientEmail) {
+        try {
+            if (recipientEmail == null || recipientEmail.trim().isEmpty()) {
+                log.debug("Cannot send invitation email - recipient email is empty");
+                return;
+            }
+            
+            // Determine language based on inviter's locale (default to English)
+            String language = "en";
+            boolean isFrench = false;
+            
+            String inviterLocale = inviter.getLocale();
+            if (inviterLocale != null && inviterLocale.toLowerCase().startsWith("fr")) {
+                isFrench = true;
+                language = "fr";
+            }
+            
+            String subject;
+            String body;
+            if (isFrench) {
+                subject = "Invitation à rejoindre PATTOOL de " + inviter.getFirstName() + " " + inviter.getLastName();
+                body = generateInvitationEmailHtml(inviter, recipientEmail, true);
+            } else {
+                subject = "Invitation to join PATTOOL from " + inviter.getFirstName() + " " + inviter.getLastName();
+                body = generateInvitationEmailHtml(inviter, recipientEmail, false);
+            }
+            
+            mailController.sendMailToRecipient(recipientEmail, subject, body, true);
+            log.debug("Invitation email sent to {} in language {}", recipientEmail, language);
+        } catch (Exception e) {
+            log.error("Error sending invitation email to {}: {}", recipientEmail, e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Generate HTML email body for invitation
+     */
+    private String generateInvitationEmailHtml(Member inviter, String recipientEmail, boolean isFrench) {
+        String headerTitle = isFrench ? "Invitation à PATTOOL" : "Invitation to PATTOOL";
+        String greeting = isFrench ? "Bonjour" : "Hello";
+        String messageText = isFrench ? 
+            " vous invite à rejoindre PATTOOL, une application pour partager et organiser vos activités." : 
+            " invites you to join PATTOOL, an application to share and organize your activities.";
+        String inviterInfo = isFrench ? "Invité par:" : "Invited by:";
+        String callToAction = isFrench ? 
+            "Rejoignez PATTOOL dès aujourd'hui et commencez à partager vos activités avec vos amis !" : 
+            "Join PATTOOL today and start sharing your activities with your friends!";
+        String siteUrl = "https://www.patrickdeschamps.com";
+        String buttonText = isFrench ? "Rejoindre PATTOOL" : "Join PATTOOL";
+        String footerText1 = isFrench ? 
+            "Cet email a été envoyé automatiquement par PATTOOL." : 
+            "This email was automatically sent by PATTOOL.";
+        String footerText2 = isFrench ? 
+            "Vous recevez cet email car " + inviter.getFirstName() + " " + inviter.getLastName() + " vous a invité à rejoindre l'application." : 
+            "You are receiving this email because " + inviter.getFirstName() + " " + inviter.getLastName() + " invited you to join the application.";
+        
+        StringBuilder bodyBuilder = new StringBuilder();
+        bodyBuilder.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
+        bodyBuilder.append("<style>");
+        bodyBuilder.append("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 15px; line-height: 1.8; color: #2c3e50; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 20px; }");
+        bodyBuilder.append(".container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }");
+        bodyBuilder.append(".header { background: linear-gradient(135deg, #007bff 0%, #0056b3 100%); color: white; padding: 25px; text-align: center; border-bottom: 4px solid #004085; }");
+        bodyBuilder.append(".header h1 { margin: 0; font-size: 24px; font-weight: 700; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); letter-spacing: 1px; }");
+        bodyBuilder.append(".header-icon { font-size: 32px; margin-bottom: 10px; }");
+        bodyBuilder.append(".content { padding: 30px; background: #fafafa; }");
+        bodyBuilder.append(".message { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #007bff; }");
+        bodyBuilder.append(".inviter-info { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }");
+        bodyBuilder.append(".inviter-info h3 { margin: 0 0 15px 0; color: #333; font-weight: 600; }");
+        bodyBuilder.append(".info-item { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 6px; }");
+        bodyBuilder.append(".info-label { font-weight: 700; color: #495057; margin-right: 10px; }");
+        bodyBuilder.append(".info-value { color: #212529; }");
+        bodyBuilder.append(".button-container { text-align: center; margin-top: 30px; }");
+        bodyBuilder.append(".button { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }");
+        bodyBuilder.append(".button:hover { background: linear-gradient(135deg, #218838 0%, #1ea080 100%); }");
+        bodyBuilder.append(".footer { background: #e9ecef; padding: 20px; text-align: center; color: #6c757d; font-size: 12px; }");
+        bodyBuilder.append("</style></head><body>");
+        bodyBuilder.append("<div class='container'>");
+        
+        // Header
+        bodyBuilder.append("<div class='header'>");
+        bodyBuilder.append("<div class='header-icon'>📧</div>");
+        bodyBuilder.append("<h1>").append(escapeHtml(headerTitle)).append("</h1>");
+        bodyBuilder.append("</div>");
+        
+        // Content
+        bodyBuilder.append("<div class='content'>");
+        bodyBuilder.append("<div class='message'>");
+        bodyBuilder.append("<p>").append(escapeHtml(greeting)).append(",</p>");
+        bodyBuilder.append("<p><strong>").append(escapeHtml(inviter.getFirstName())).append(" ").append(escapeHtml(inviter.getLastName())).append("</strong>").append(escapeHtml(messageText)).append("</p>");
+        bodyBuilder.append("</div>");
+        
+        // Inviter Information
+        bodyBuilder.append("<div class='inviter-info'>");
+        bodyBuilder.append("<h3>").append(escapeHtml(inviterInfo)).append("</h3>");
+        bodyBuilder.append("<div class='info-item'>");
+        bodyBuilder.append("<span class='info-label'>").append(escapeHtml(isFrench ? "Nom:" : "Name:")).append("</span>");
+        bodyBuilder.append("<span class='info-value'>").append(escapeHtml(inviter.getFirstName())).append(" ").append(escapeHtml(inviter.getLastName())).append("</span>");
+        bodyBuilder.append("</div>");
+        if (inviter.getAddressEmail() != null) {
+            bodyBuilder.append("<div class='info-item'>");
+            bodyBuilder.append("<span class='info-label'>").append(escapeHtml(isFrench ? "Email:" : "Email:")).append("</span>");
+            bodyBuilder.append("<span class='info-value'>").append(escapeHtml(inviter.getAddressEmail())).append("</span>");
+            bodyBuilder.append("</div>");
+        }
+        bodyBuilder.append("</div>");
+        
+        // Call to action with button
+        bodyBuilder.append("<div class='button-container'>");
+        bodyBuilder.append("<p>").append(escapeHtml(callToAction)).append("</p>");
+        bodyBuilder.append("<a href='").append(siteUrl).append("' class='button'>").append(escapeHtml(buttonText)).append("</a>");
+        bodyBuilder.append("</div>");
+        
+        bodyBuilder.append("</div>");
+        
+        // Footer
+        bodyBuilder.append("<div class='footer'>");
+        bodyBuilder.append("<p>").append(escapeHtml(footerText1)).append("</p>");
+        bodyBuilder.append("<p>").append(escapeHtml(footerText2)).append("</p>");
+        bodyBuilder.append("</div>");
+        
+        bodyBuilder.append("</div></body></html>");
+        return bodyBuilder.toString();
+    }
+    
+    /**
+     * Escape HTML special characters
+     */
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;")
+                   .replace("\"", "&quot;")
+                   .replace("'", "&#39;");
     }
 }
 

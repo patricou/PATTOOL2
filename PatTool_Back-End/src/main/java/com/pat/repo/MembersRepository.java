@@ -12,4 +12,6 @@ import org.springframework.data.rest.core.annotation.RepositoryRestResource;
 public interface MembersRepository  extends PagingAndSortingRepository<Member, String>, MongoRepository<Member,String>  {
 
     Member findByUserName(String userName);
+    
+    Member findByAddressEmail(String addressEmail);
 }

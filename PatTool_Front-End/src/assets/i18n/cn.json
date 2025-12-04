@@ -721,6 +721,7 @@
         "SELECT_CATEGORY": "选择分类",
         "PUBLIC": "公开",
         "PRIVATE": "私有",
+        "FRIENDS": "朋友",
         "VISIBILITY": "可见性",
         "CATEGORY": "分类",
         "AUTHOR": "作者",
@@ -834,6 +835,15 @@
         "FRIENDS_SINCE": "成为好友于",
         "REGISTERED_ON": "注册于",
         "LAST_CONNECTION": "最后连接",
-        "LOADING": "加载中..."
+        "LOADING": "加载中...",
+        "INVITE_BY_EMAIL": "通过电子邮件邀请",
+        "ENTER_EMAIL": "输入电子邮件地址",
+        "CHECK_EMAIL": "检查",
+        "EMAIL_EXISTS": "此电子邮件已注册",
+        "EMAIL_NOT_REGISTERED": "此电子邮件未注册",
+        "INVITE_TO_PATTOOL": "邀请使用 PATTOOL",
+        "INVITATION_SENT": "邀请发送成功！",
+        "EMAIL_ALREADY_REGISTERED": "此电子邮件已注册",
+        "INVITATION_ERROR": "发送邀请时出错"
     }
 }

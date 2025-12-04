@@ -1,12 +1,15 @@
 package com.pat.controller;
 
 import com.pat.repo.domain.UrlLink;
+import com.pat.repo.domain.Friend;
+import com.pat.repo.domain.Member;
 import com.pat.repo.UrlLinkRepository;
+import com.pat.repo.FriendRepository;
+import com.pat.repo.MembersRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Sort;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +27,12 @@ public class UrlLinkRestController {
 
     @Autowired
     UrlLinkRepository urlLinkRepository;
+    
+    @Autowired
+    FriendRepository friendRepository;
+    
+    @Autowired
+    MembersRepository membersRepository;
 
     @GetMapping(value="/urllink", produces = MediaType.APPLICATION_JSON_VALUE)
     public List<UrlLink> getUrlLink(@RequestHeader(value = "user-id", required = false) String userId){
@@ -31,8 +40,24 @@ public class UrlLinkRestController {
         Sort sort = Sort.by(Sort.Direction.ASC, "linkName");
         List<UrlLink> allLinks = urlLinkRepository.findAll(sort);
         
-        // Filter links: show public ones or those where user is author
+        // Filter links: show public ones, friends visibility ones, or those where user is author
         if (userId != null && !userId.isEmpty()) {
+            // Get current user and their friends for friends visibility check
+            Optional<Member> currentUserOpt = membersRepository.findById(userId);
+            List<String> friendIds = java.util.Collections.emptyList();
+            if (currentUserOpt.isPresent()) {
+                Member currentUser = currentUserOpt.get();
+                List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
+                friendIds = friendships.stream()
+                    .flatMap(friendship -> java.util.stream.Stream.of(
+                        friendship.getUser1() != null && !friendship.getUser1().getId().equals(userId) ? friendship.getUser1().getId() : null,
+                        friendship.getUser2() != null && !friendship.getUser2().getId().equals(userId) ? friendship.getUser2().getId() : null
+                    ))
+                    .filter(id -> id != null)
+                    .collect(Collectors.toList());
+            }
+            
+            final List<String> finalFriendIds = friendIds;
             return allLinks.stream()
                 .filter(link -> {
                     // If no visibility or public, show it
@@ -42,6 +67,13 @@ public class UrlLinkRestController {
                     // If private, only show if user is the author
                     if ("private".equals(link.getVisibility()) && link.getAuthor() != null) {
                         return userId.equals(link.getAuthor().getId());
+                    }
+                    // If friends visibility, show if user is author or if author is a friend
+                    if ("friends".equals(link.getVisibility()) && link.getAuthor() != null) {
+                        if (userId.equals(link.getAuthor().getId())) {
+                            return true; // User is the author
+                        }
+                        return finalFriendIds.contains(link.getAuthor().getId()); // Author is a friend
                     }
                     return false;
                 })
@@ -141,7 +173,6 @@ public class UrlLinkRestController {
     public ResponseEntity<UrlLink> updatevisibilty(@RequestBody UrlLink urlLink) {
         log.info("Update visibility :"+ urlLink.toString());
         UrlLink urlLink1 = urlLinkRepository.save(urlLink);
-        HttpHeaders httpHeaders = new HttpHeaders();
         return new ResponseEntity<>(urlLink1, HttpStatus.OK);
     }
 

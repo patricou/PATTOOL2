@@ -16,7 +16,7 @@ public class HomeIOTController {
 
     private static final Logger log = LoggerFactory.getLogger(HomeIOTController.class);
 
-    @Value("${app.iot.userid}")
+    @Value("${app.admin.userid}")
     String UserId;
 
     private final HomeIOTService homeIOTService;

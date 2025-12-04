@@ -236,6 +236,7 @@
                   <select class="form-control" [(ngModel)]="newUrllink.visibility">
                     <option value="public">{{ 'LINKSADMIN.PUBLIC' | translate }}</option>
                     <option value="private">{{ 'LINKSADMIN.PRIVATE' | translate }}</option>
+                    <option value="friends">{{ 'LINKSADMIN.FRIENDS' | translate }}</option>
                   </select>
                 </div>
                 <div class="col-md-3">
@@ -282,6 +283,7 @@
                   <select class="form-control" [(ngModel)]="selectedUrllink.visibility">
                     <option value="public">{{ 'LINKSADMIN.PUBLIC' | translate }}</option>
                     <option value="private">{{ 'LINKSADMIN.PRIVATE' | translate }}</option>
+                    <option value="friends">{{ 'LINKSADMIN.FRIENDS' | translate }}</option>
                   </select>
                 </div>
                 <div class="col-md-4">
@@ -365,7 +367,8 @@
                     <td>
                       <span class="badge" 
                             [class.bg-success]="link.visibility === 'public'"
-                            [class.bg-warning]="link.visibility === 'private'">
+                            [class.bg-warning]="link.visibility === 'private'"
+                            [class.bg-info]="link.visibility === 'friends'">
                         {{ link.visibility }}
                       </span>
                     </td>

@@ -67,7 +67,7 @@ public class EvenementRestController {
     @Autowired
     private MembersRepository membersRepository;
     
-    @Value("${app.iot.userid}")
+    @Value("${app.admin.userid}")
     String authorizedUserId;
     
     // Use bounded thread pool to prevent memory leaks from unlimited thread creation

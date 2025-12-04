@@ -723,6 +723,7 @@
         "SELECT_CATEGORY": "カテゴリを選択",
         "PUBLIC": "公開",
         "PRIVATE": "非公開",
+        "FRIENDS": "友達",
         "VISIBILITY": "表示設定",
         "CATEGORY": "カテゴリ",
         "AUTHOR": "作成者",
@@ -836,6 +837,15 @@
         "FRIENDS_SINCE": "友達になった日",
         "REGISTERED_ON": "登録日",
         "LAST_CONNECTION": "最終接続",
-        "LOADING": "読み込み中..."
+        "LOADING": "読み込み中...",
+        "INVITE_BY_EMAIL": "メールで招待",
+        "ENTER_EMAIL": "メールアドレスを入力",
+        "CHECK_EMAIL": "確認",
+        "EMAIL_EXISTS": "このメールは既に登録されています",
+        "EMAIL_NOT_REGISTERED": "このメールは登録されていません",
+        "INVITE_TO_PATTOOL": "PATTOOLへの招待",
+        "INVITATION_SENT": "招待を正常に送信しました！",
+        "EMAIL_ALREADY_REGISTERED": "このメールは既に登録されています",
+        "INVITATION_ERROR": "招待の送信エラー"
     }
 }

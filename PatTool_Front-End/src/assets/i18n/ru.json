@@ -716,6 +716,7 @@
         "SELECT_CATEGORY": "Выберите категорию",
         "PUBLIC": "Публичный",
         "PRIVATE": "Приватный",
+        "FRIENDS": "Друзья",
         "VISIBILITY": "Видимость",
         "CATEGORY": "Категория",
         "AUTHOR": "Автор",
@@ -829,6 +830,15 @@
         "FRIENDS_SINCE": "Друзья с",
         "REGISTERED_ON": "Зарегистрирован",
         "LAST_CONNECTION": "Последнее подключение",
-        "LOADING": "Загрузка..."
+        "LOADING": "Загрузка...",
+        "INVITE_BY_EMAIL": "Пригласить по Email",
+        "ENTER_EMAIL": "Введите адрес электронной почты",
+        "CHECK_EMAIL": "Проверить",
+        "EMAIL_EXISTS": "Этот email уже зарегистрирован",
+        "EMAIL_NOT_REGISTERED": "Этот email не зарегистрирован",
+        "INVITE_TO_PATTOOL": "Пригласить использовать PATTOOL",
+        "INVITATION_SENT": "Приглашение успешно отправлено!",
+        "EMAIL_ALREADY_REGISTERED": "Этот email уже зарегистрирован",
+        "INVITATION_ERROR": "Ошибка при отправке приглашения"
     }
 }
