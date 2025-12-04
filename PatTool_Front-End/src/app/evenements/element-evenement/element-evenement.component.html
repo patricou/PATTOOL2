@@ -147,6 +147,11 @@
                       [style.background-color]="getVisibilityBadgeGradient()"
                       [style.border-color]="'white'"
                       [style.color]="'white'">{{"EVENTCREATION.PRIVATE" | translate }}</span>
+                <span *ngSwitchCase="'friends'" 
+                      class="badge visibility-badge"
+                      [style.background-color]="getVisibilityBadgeGradient()"
+                      [style.border-color]="'white'"
+                      [style.color]="'white'">{{"EVENTCREATION.FRIENDS" | translate }}</span>
                 <span *ngSwitchDefault 
                       class="badge visibility-badge"
                       [style.background-color]="getVisibilityBadgeGradient()"
