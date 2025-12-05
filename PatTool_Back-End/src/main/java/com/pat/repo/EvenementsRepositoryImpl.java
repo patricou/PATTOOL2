@@ -2,7 +2,9 @@ package com.pat.repo;
 
 import com.pat.repo.domain.Evenement;
 import com.pat.repo.domain.Friend;
+import com.pat.repo.domain.FriendGroup;
 import com.pat.repo.domain.Member;
+import com.pat.repo.FriendGroupRepository;
 import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -34,6 +36,9 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 	
 	@Autowired
 	private MembersRepository membersRepository;
+	
+	@Autowired
+	private FriendGroupRepository friendGroupRepository;
 
 	private static final Map<String, String> TYPE_ALIAS_LOOKUP = new HashMap<>();
 	private static final Map<String, List<String>> TYPE_KEYWORDS = buildTypeKeywords();
@@ -138,6 +143,11 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 			if (friendsCriteria != null) {
 				accessCriteria.add(friendsCriteria);
 			}
+			// Add friend group visibility criteria
+			Criteria friendGroupCriteria = buildFriendGroupVisibilityCriteria(userId);
+			if (friendGroupCriteria != null) {
+				accessCriteria.add(friendGroupCriteria);
+			}
 		}
 
 		if (accessCriteria.size() == 1) {
@@ -203,6 +213,73 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		}
 	}
 
+	private Criteria buildFriendGroupVisibilityCriteria(String userId) {
+		try {
+			// Get current user
+			Member currentUser = membersRepository.findById(userId).orElse(null);
+			if (currentUser == null) {
+				return null;
+			}
+			
+			// Get all friend groups where the user is a member
+			List<FriendGroup> userFriendGroups = friendGroupRepository.findByMembersContaining(currentUser);
+			if (userFriendGroups.isEmpty()) {
+				// User is not a member of any friend group, so no friend group visibility events should be shown
+				return null;
+			}
+			
+			// Collect all friend group IDs where the user is a member
+			List<String> friendGroupIds = new ArrayList<>();
+			for (FriendGroup group : userFriendGroups) {
+				if (group.getId() != null) {
+					friendGroupIds.add(group.getId());
+				}
+			}
+			
+			if (friendGroupIds.isEmpty()) {
+				return null;
+			}
+			
+			// Build criteria: visibility is NOT "public", "private", or "friends" 
+			// AND friendGroupId is in the list of groups where user is a member
+			// OR visibility matches the friend group name (for backward compatibility)
+			List<Criteria> friendGroupCriteriaList = new ArrayList<>();
+			
+			// Match by friendGroupId
+			for (String groupId : friendGroupIds) {
+				try {
+					friendGroupCriteriaList.add(Criteria.where("friendGroupId").is(groupId));
+				} catch (Exception ex) {
+					// Skip invalid group ID
+				}
+			}
+			
+			// Also match by visibility matching the group name (for backward compatibility)
+			for (FriendGroup group : userFriendGroups) {
+				if (group.getName() != null && !group.getName().trim().isEmpty()) {
+					friendGroupCriteriaList.add(
+						Criteria.where("visibility").is(group.getName())
+					);
+				}
+			}
+			
+			if (friendGroupCriteriaList.isEmpty()) {
+				return null;
+			}
+			
+			Criteria friendGroupMatch = new Criteria().orOperator(friendGroupCriteriaList.toArray(new Criteria[0]));
+			
+			// Visibility should not be "public", "private", or "friends" (it should be the group name)
+			return new Criteria().andOperator(
+				Criteria.where("visibility").nin("public", "private", "friends"),
+				friendGroupMatch
+			);
+		} catch (Exception e) {
+			// If any error occurs, return null (don't include friend group visibility)
+			return null;
+		}
+	}
+	
 	private Criteria buildAuthorCriteria(String userId) {
 		List<Criteria> authorCriteria = new ArrayList<>();
 		try {

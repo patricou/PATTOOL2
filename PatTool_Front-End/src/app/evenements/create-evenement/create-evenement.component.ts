@@ -9,6 +9,8 @@ import { UrlEvent } from '../../model/url-event';
 import { Commentary } from '../../model/commentary';
 import { MembersService } from '../../services/members.service';
 import { EvenementsService } from '../../services/evenements.service';
+import { FriendsService } from '../../services/friends.service';
+import { FriendGroup } from '../../model/friend';
 
 @Component({
 	selector: 'app-create-evenement',
@@ -66,10 +68,15 @@ export class CreateEvenementComponent implements OnInit {
 	public editingCommentaryIndex: number = -1;
 	public editingCommentary: Commentary = new Commentary("", "", new Date());
 
+	// Friend groups for visibility
+	public friendGroups: FriendGroup[] = [];
+	public selectedFriendGroupId: string = '';
+
 	constructor(public _evenementsService: EvenementsService,
 		public _router: Router,
 		public _memberService: MembersService,
-		private translate: TranslateService) {
+		private translate: TranslateService,
+		private _friendsService: FriendsService) {
 	};
 
 	ngOnInit() {
@@ -94,6 +101,9 @@ export class CreateEvenementComponent implements OnInit {
 		
 		// Initialize newCommentary with current user as owner
 		this.newCommentary = new Commentary(this.user.userName, "", new Date());
+
+		// Load friend groups for visibility
+		this.loadFriendGroups();
 
 		/*this.beginEventDate = { date: { 
 										year: this.evenement.beginEventDate.getFullYear() , 
@@ -699,6 +709,47 @@ export class CreateEvenementComponent implements OnInit {
 	public formatCommentaryDate(date: Date): string {
 		if (!date) return '';
 		return new Date(date).toLocaleString();
+	}
+
+	// Load friend groups
+	private loadFriendGroups() {
+		this._friendsService.getFriendGroups().subscribe(
+			groups => {
+				this.friendGroups = groups;
+			},
+			error => {
+				console.error('Error loading friend groups:', error);
+			}
+		);
+	}
+
+	// Handle visibility change
+	public onVisibilityChange() {
+		// Check if the selected visibility is a friend group name
+		const selectedGroup = this.friendGroups.find(g => g.name === this.evenement.visibility);
+		if (selectedGroup) {
+			// Friend group selected - set both visibility and friendGroupId
+			this.evenement.friendGroupId = selectedGroup.id;
+			this.selectedFriendGroupId = selectedGroup.id;
+		} else {
+			// Standard visibility (public, private, friends) - clear friendGroupId
+			this.evenement.friendGroupId = undefined;
+			this.selectedFriendGroupId = '';
+		}
+	}
+
+	// Check if visibility is a friend group
+	public isFriendGroupVisibility(): boolean {
+		return this.friendGroups.some(g => g.name === this.evenement.visibility);
+	}
+
+	// Get friend group name for visibility display
+	public getFriendGroupName(): string {
+		if (this.evenement.friendGroupId) {
+			const group = this.friendGroups.find(g => g.id === this.evenement.friendGroupId);
+			return group ? group.name : this.evenement.visibility;
+		}
+		return this.evenement.visibility;
 	}
 
 }

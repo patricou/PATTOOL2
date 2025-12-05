@@ -22,6 +22,8 @@ import { WindowRefService } from '../../services/window-ref.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
 import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
 import { EvenementsService } from '../../services/evenements.service';
+import { FriendsService } from '../../services/friends.service';
+import { FriendGroup } from '../../model/friend';
 
 @Component({
 	selector: 'element-evenement',
@@ -52,6 +54,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Thumbnail image
 	public thumbnailUrl: any = ElementEvenementComponent.getDefaultPlaceholderImageUrl();
 	public selectedUser: Member | null = null;
+	// Friend groups for visibility
+	public friendGroups: FriendGroup[] = [];
+	// Visibility options for modal
+	public visibilityOptions: Array<{value: string, label: string, friendGroupId?: string}> = [];
 	// Dominant color for title background
 	public titleBackgroundColor: string = 'rgba(255, 255, 255, 0.6)';
 	// Inverse color for title border
@@ -212,6 +218,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	@ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
 	@ViewChild('qualitySelectionModal') qualitySelectionModal!: TemplateRef<any>;
 	@ViewChild('loadingStatsModal') loadingStatsModal!: TemplateRef<any>;
+	@ViewChild('visibilityModal') visibilityModal!: TemplateRef<any>;
 	@ViewChild('logContent') logContent: any;
 
 	@Input()
@@ -279,7 +286,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private winRef: WindowRefService,
 		private translateService: TranslateService,
 		private videoCompressionService: VideoCompressionService,
-		private _evenementsService: EvenementsService
+		private _evenementsService: EvenementsService,
+		private _friendsService: FriendsService
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -1046,6 +1054,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Setup tooltip auto-close on modal open
 		this.setupTooltipAutoClose();
+		
+		// Load friend groups for visibility selection
+		this.loadFriendGroups();
 	}
 	
 	ngOnChanges(changes: SimpleChanges): void {
@@ -2723,6 +2734,19 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.visibilityBadgeGradientCache = this.getButtonGradientForType('visibility', this.dominantR, this.dominantG, this.dominantB);
 		}
 		return this.visibilityBadgeGradientCache;
+	}
+
+	// Get visibility display text (for friend groups, shows the group name)
+	public getVisibilityDisplayText(): string {
+		// If visibility is a friend group name (not public, private, or friends), return it as-is
+		if (this.evenement.visibility && 
+		    this.evenement.visibility !== 'public' && 
+		    this.evenement.visibility !== 'private' && 
+		    this.evenement.visibility !== 'friends') {
+			return this.evenement.visibility;
+		}
+		// Fallback to visibility value
+		return this.evenement.visibility || '';
 	}
 	
 	// Get gradient for download all button - based on calculated color
@@ -5044,6 +5068,107 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		requestAnimationFrame(() => {
 			this.forceCloseTooltips();
 		});
+	}
+	
+	// Load friend groups for visibility selection
+	private loadFriendGroups(): void {
+		const sub = this._friendsService.getFriendGroups().subscribe(
+			groups => {
+				if (groups && Array.isArray(groups)) {
+					this.friendGroups = groups;
+				} else {
+					this.friendGroups = [];
+				}
+			},
+			error => {
+				console.error('Error loading friend groups:', error);
+				this.friendGroups = []; // Initialize as empty array on error
+			}
+		);
+		this.allSubscriptions.push(sub);
+	}
+	
+	// Change visibility (only for author)
+	public changeVisibility(newVisibility: string, friendGroupId?: string): void {
+		if (!this.isAuthor()) {
+			return;
+		}
+		
+		this.evenement.visibility = newVisibility;
+		if (friendGroupId) {
+			this.evenement.friendGroupId = friendGroupId;
+		} else {
+			this.evenement.friendGroupId = undefined;
+		}
+		
+		this.updateEvenement.emit(this.evenement);
+	}
+	
+	// Get available visibility options
+	public getVisibilityOptions(): Array<{value: string, label: string, friendGroupId?: string}> {
+		try {
+			const options: Array<{value: string, label: string, friendGroupId?: string}> = [
+				{ value: 'public', label: this.translateService.instant('EVENTCREATION.PUBLIC') },
+				{ value: 'private', label: this.translateService.instant('EVENTCREATION.PRIVATE') },
+				{ value: 'friends', label: this.translateService.instant('EVENTCREATION.FRIENDS') }
+			];
+			
+			// Add friend groups owned by the user
+			if (this.friendGroups && Array.isArray(this.friendGroups)) {
+				this.friendGroups.forEach(group => {
+					if (group && group.name && group.id) {
+						options.push({
+							value: group.name,
+							label: group.name,
+							friendGroupId: group.id
+						});
+					}
+				});
+			}
+			
+			return options;
+		} catch (error) {
+			console.error('Error getting visibility options:', error);
+			// Return basic options on error
+			return [
+				{ value: 'public', label: 'Public' },
+				{ value: 'private', label: 'Private' },
+				{ value: 'friends', label: 'Friends' }
+			];
+		}
+	}
+	
+	// Open visibility selection modal
+	public openVisibilityModal(): void {
+		if (!this.isAuthor()) {
+			return;
+		}
+		
+		try {
+			this.forceCloseTooltips();
+			
+			// Prepare visibility options before opening modal
+			this.visibilityOptions = this.getVisibilityOptions();
+			
+			if (!this.visibilityModal) {
+				console.error('Visibility modal template not found');
+				return;
+			}
+			
+			this.modalService.open(this.visibilityModal, { 
+				size: 'sm', 
+				centered: true, 
+				backdrop: 'static', 
+				keyboard: false 
+			});
+		} catch (error) {
+			console.error('Error opening visibility modal:', error);
+		}
+	}
+	
+	// Handle visibility selection
+	public onVisibilitySelected(option: {value: string, label: string, friendGroupId?: string}): void {
+		this.changeVisibility(option.value, option.friendGroupId);
 	}
 }
 

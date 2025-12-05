@@ -26,3 +26,13 @@ export class Friend {
     ) {}
 }
 
+export class FriendGroup {
+    constructor(
+        public id: string,
+        public name: string,
+        public members: Member[],
+        public owner: Member,
+        public creationDate: Date
+    ) {}
+}
+

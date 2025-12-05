@@ -70,6 +70,7 @@
     "EVENTHOME": {
         "EVENTSLIST": "Elenco delle Attività:",
         "EVENTFILTRE": "Filtro ....",
+        "FILTER_ALL": "Tutti",
         "NOEVENT": "Non ci sono Attività da mostrare ....",
         "NO_LINKS_ADDED": "Nessun link aggiunto per questo evento",
         "COMMENTARIES": "Commenti",
@@ -309,6 +310,7 @@
         "OPEN": "(Ri)apri Attività",
         "CANCEL": "Annulla Attività",
         "CHGTSTATUS": "Cambia Stato",
+        "CHANGE_VISIBILITY": "Cambia visibilità",
         "UPLOAD": "Carica un file (Tutti i tipi)",
         "PDF_DOCUMENTS": "Documenti PDF",
         "OPEN_PDF": "Apri",
@@ -845,6 +847,22 @@
         "INVITE_TO_PATTOOL": "Invita a usare PATTOOL",
         "INVITATION_SENT": "Invito inviato con successo!",
         "EMAIL_ALREADY_REGISTERED": "Questa email è già registrata",
-        "INVITATION_ERROR": "Errore nell'invio dell'invito"
+        "INVITATION_ERROR": "Errore nell'invio dell'invito",
+        "FRIEND_GROUPS": "Gruppi di Amici",
+        "CREATE_GROUP": "Crea Gruppo",
+        "CREATE_NEW_GROUP": "Crea Nuovo Gruppo",
+        "GROUP_NAME": "Nome del Gruppo",
+        "ENTER_GROUP_NAME": "Inserisci il nome del gruppo",
+        "SELECT_MEMBERS": "Seleziona Membri",
+        "NO_FRIENDS_TO_ADD": "Non hai amici da aggiungere al gruppo",
+        "CREATE": "Crea",
+        "CANCEL": "Annulla",
+        "NO_GROUPS": "Non hai ancora gruppi di amici",
+        "CREATED_ON": "Creato il",
+        "MEMBERS": "Membri",
+        "NO_MEMBERS": "Nessun membro in questo gruppo",
+        "EDIT": "Modifica",
+        "DELETE": "Elimina",
+        "SAVE": "Salva"
     }
 }

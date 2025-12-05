@@ -70,6 +70,7 @@
     "EVENTHOME": {
         "EVENTSLIST": "Veranstaltungsliste:",
         "EVENTFILTRE": "Filter ....",
+        "FILTER_ALL": "Alle",
         "NOEVENT": "Keine Veranstaltungen zum Anzeigen ....",
         "NO_LINKS_ADDED": "Keine Links für diese Veranstaltung hinzugefügt",
         "COMMENTARIES": "Kommentare",
@@ -308,6 +309,7 @@
         "OPEN": "Veranstaltung (wieder) öffnen",
         "CANCEL": "Veranstaltung absagen",
         "CHGTSTATUS": "Status ändern",
+        "CHANGE_VISIBILITY": "Sichtbarkeit ändern",
         "UPLOAD": "Datei hochladen (alle Typen)",
         "PDF_DOCUMENTS": "PDF-Dokumente",
         "OPEN_PDF": "Öffnen",
@@ -838,6 +840,22 @@
         "INVITE_TO_PATTOOL": "Zu PATTOOL einladen",
         "INVITATION_SENT": "Einladung erfolgreich gesendet!",
         "EMAIL_ALREADY_REGISTERED": "Diese E-Mail ist bereits registriert",
-        "INVITATION_ERROR": "Fehler beim Senden der Einladung"
+        "INVITATION_ERROR": "Fehler beim Senden der Einladung",
+        "FRIEND_GROUPS": "Freundesgruppen",
+        "CREATE_GROUP": "Gruppe Erstellen",
+        "CREATE_NEW_GROUP": "Neue Gruppe Erstellen",
+        "GROUP_NAME": "Gruppenname",
+        "ENTER_GROUP_NAME": "Gruppenname eingeben",
+        "SELECT_MEMBERS": "Mitglieder Auswählen",
+        "NO_FRIENDS_TO_ADD": "Sie haben keine Freunde, die Sie zur Gruppe hinzufügen können",
+        "CREATE": "Erstellen",
+        "CANCEL": "Abbrechen",
+        "NO_GROUPS": "Sie haben noch keine Freundesgruppen",
+        "CREATED_ON": "Erstellt am",
+        "MEMBERS": "Mitglieder",
+        "NO_MEMBERS": "Keine Mitglieder in dieser Gruppe",
+        "EDIT": "Bearbeiten",
+        "DELETE": "Löschen",
+        "SAVE": "Speichern"
     }
 }

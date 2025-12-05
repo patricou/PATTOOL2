@@ -70,6 +70,7 @@
     "EVENTHOME": {
         "EVENTSLIST": "قائمة الأنشطة :",
         "EVENTFILTRE": "فلتر ....",
+        "FILTER_ALL": "الكل",
         "NOEVENT": "لا يوجد نشاط لعرضه ....",
         "NO_LINKS_ADDED": "لم يتم إضافة روابط لهذا الحدث",
         "COMMENTARIES": "التعليقات",
@@ -307,6 +308,7 @@
         "OPEN": "(إعادة) فتح النشاط",
         "CANCEL": "إلغاء النشاط",
         "CHGTSTATUS": "تغيير الحالة",
+        "CHANGE_VISIBILITY": "تغيير الرؤية",
         "UPLOAD": "رفع ملف (جميع الأنواع)",
         "PDF_DOCUMENTS": "مستندات PDF",
         "OPEN_PDF": "فتح",
@@ -842,6 +844,22 @@
         "INVITE_TO_PATTOOL": "دعوة لاستخدام PATTOOL",
         "INVITATION_SENT": "تم إرسال الدعوة بنجاح!",
         "EMAIL_ALREADY_REGISTERED": "هذا البريد الإلكتروني مسجل بالفعل",
-        "INVITATION_ERROR": "خطأ في إرسال الدعوة"
+        "INVITATION_ERROR": "خطأ في إرسال الدعوة",
+        "FRIEND_GROUPS": "مجموعات الأصدقاء",
+        "CREATE_GROUP": "إنشاء مجموعة",
+        "CREATE_NEW_GROUP": "إنشاء مجموعة جديدة",
+        "GROUP_NAME": "اسم المجموعة",
+        "ENTER_GROUP_NAME": "أدخل اسم المجموعة",
+        "SELECT_MEMBERS": "اختر الأعضاء",
+        "NO_FRIENDS_TO_ADD": "ليس لديك أصدقاء لإضافتهم إلى المجموعة",
+        "CREATE": "إنشاء",
+        "CANCEL": "إلغاء",
+        "NO_GROUPS": "ليس لديك مجموعات أصدقاء بعد",
+        "CREATED_ON": "تم الإنشاء في",
+        "MEMBERS": "الأعضاء",
+        "NO_MEMBERS": "لا يوجد أعضاء في هذه المجموعة",
+        "EDIT": "تعديل",
+        "DELETE": "حذف",
+        "SAVE": "حفظ"
     }
 }

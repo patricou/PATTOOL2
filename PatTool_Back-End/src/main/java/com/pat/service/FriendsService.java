@@ -2,8 +2,10 @@ package com.pat.service;
 
 import com.pat.controller.MailController;
 import com.pat.repo.domain.Friend;
+import com.pat.repo.domain.FriendGroup;
 import com.pat.repo.domain.FriendRequest;
 import com.pat.repo.domain.Member;
+import com.pat.repo.FriendGroupRepository;
 import com.pat.repo.FriendRepository;
 import com.pat.repo.FriendRequestRepository;
 import com.pat.repo.MembersRepository;
@@ -31,6 +33,9 @@ public class FriendsService {
 
     @Autowired
     private FriendRepository friendRepository;
+
+    @Autowired
+    private FriendGroupRepository friendGroupRepository;
 
     @Autowired
     private MailController mailController;
@@ -389,6 +394,127 @@ public class FriendsService {
                    .replace(">", "&gt;")
                    .replace("\"", "&quot;")
                    .replace("'", "&#39;");
+    }
+
+    // ========== Friend Groups Methods ==========
+
+    /**
+     * Create a new friend group
+     */
+    public FriendGroup createFriendGroup(String name, List<String> memberIds, Member owner) {
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("Group name cannot be empty");
+        }
+
+        // Validate that all memberIds are friends of the owner
+        List<Member> members = new java.util.ArrayList<>();
+        for (String memberId : memberIds) {
+            Optional<Member> memberOpt = membersRepository.findById(memberId);
+            if (memberOpt.isEmpty()) {
+                throw new IllegalArgumentException("Member not found: " + memberId);
+            }
+            Member member = memberOpt.get();
+            
+            // Check if member is a friend of the owner
+            if (!areFriends(owner, member)) {
+                throw new IllegalStateException("Member " + member.getUserName() + " is not a friend of the owner");
+            }
+            
+            members.add(member);
+        }
+
+        FriendGroup group = new FriendGroup();
+        group.setName(name.trim());
+        group.setMembers(members);
+        group.setOwner(owner);
+        group.setCreationDate(new Date());
+
+        FriendGroup saved = friendGroupRepository.save(group);
+        log.debug("Friend group created: {} by {}", name, owner.getUserName());
+        return saved;
+    }
+
+    /**
+     * Get all friend groups for a user (owned by the user)
+     */
+    public List<FriendGroup> getFriendGroups(Member owner) {
+        return friendGroupRepository.findByOwner(owner);
+    }
+
+    /**
+     * Get a specific friend group by ID
+     */
+    public FriendGroup getFriendGroup(String groupId) {
+        Optional<FriendGroup> groupOpt = friendGroupRepository.findById(groupId);
+        if (groupOpt.isEmpty()) {
+            throw new IllegalArgumentException("Friend group not found");
+        }
+        return groupOpt.get();
+    }
+
+    /**
+     * Update a friend group
+     */
+    public FriendGroup updateFriendGroup(String groupId, String name, List<String> memberIds, Member owner) {
+        Optional<FriendGroup> groupOpt = friendGroupRepository.findById(groupId);
+        if (groupOpt.isEmpty()) {
+            throw new IllegalArgumentException("Friend group not found");
+        }
+
+        FriendGroup group = groupOpt.get();
+        
+        // Verify ownership
+        if (!group.getOwner().getId().equals(owner.getId())) {
+            throw new IllegalStateException("User is not the owner of this group");
+        }
+
+        if (name != null && !name.trim().isEmpty()) {
+            group.setName(name.trim());
+        }
+
+        // Validate and set members
+        if (memberIds != null) {
+            List<Member> members = new java.util.ArrayList<>();
+            for (String memberId : memberIds) {
+                Optional<Member> memberOpt = membersRepository.findById(memberId);
+                if (memberOpt.isEmpty()) {
+                    throw new IllegalArgumentException("Member not found: " + memberId);
+                }
+                Member member = memberOpt.get();
+                
+                // Check if member is a friend of the owner
+                if (!areFriends(owner, member)) {
+                    throw new IllegalStateException("Member " + member.getUserName() + " is not a friend of the owner");
+                }
+                
+                members.add(member);
+            }
+            group.setMembers(members);
+        }
+
+        FriendGroup saved = friendGroupRepository.save(group);
+        log.debug("Friend group updated: {} by {}", group.getName(), owner.getUserName());
+        return saved;
+    }
+
+    /**
+     * Delete a friend group
+     */
+    public void deleteFriendGroup(String groupId, Member owner) {
+        Optional<FriendGroup> groupOpt = friendGroupRepository.findById(groupId);
+        if (groupOpt.isEmpty()) {
+            throw new IllegalArgumentException("Friend group not found");
+        }
+
+        FriendGroup group = groupOpt.get();
+        
+        // Verify ownership
+        if (!group.getOwner().getId().equals(owner.getId())) {
+            throw new IllegalStateException("User is not the owner of this group");
+        }
+
+        friendGroupRepository.delete(group);
+        log.debug("Friend group deleted: {} by {}", group.getName(), owner.getUserName());
     }
 }
 

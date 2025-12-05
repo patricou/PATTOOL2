@@ -70,6 +70,7 @@
     "EVENTHOME": {
         "EVENTSLIST": "רשימת פעילויות:",
         "EVENTFILTRE": "סינון ....",
+        "FILTER_ALL": "הכל",
         "NOEVENT": "אין פעילויות להצגה ....",
         "NO_LINKS_ADDED": "לא נוספו קישורים לאירוע זה",
         "COMMENTARIES": "תגובות",
@@ -307,6 +308,7 @@
         "OPEN": "פתח מחדש את הפעילות",
         "CANCEL": "בטל את הפעילות",
         "CHGTSTATUS": "שנה את הסטטוס",
+        "CHANGE_VISIBILITY": "שנה את הנראות",
         "UPLOAD": "העלה קובץ (כל הסוגים)",
         "PDF_DOCUMENTS": "מסמכי PDF",
         "OPEN_PDF": "פתח",
@@ -837,6 +839,22 @@
         "INVITE_TO_PATTOOL": "הזמן להשתמש ב-PATTOOL",
         "INVITATION_SENT": "ההזמנה נשלחה בהצלחה!",
         "EMAIL_ALREADY_REGISTERED": "דוא\"ל זה כבר רשום",
-        "INVITATION_ERROR": "שגיאה בשליחת ההזמנה"
+        "INVITATION_ERROR": "שגיאה בשליחת ההזמנה",
+        "FRIEND_GROUPS": "קבוצות חברים",
+        "CREATE_GROUP": "צור קבוצה",
+        "CREATE_NEW_GROUP": "צור קבוצה חדשה",
+        "GROUP_NAME": "שם הקבוצה",
+        "ENTER_GROUP_NAME": "הזן שם קבוצה",
+        "SELECT_MEMBERS": "בחר חברים",
+        "NO_FRIENDS_TO_ADD": "אין לך חברים להוסיף לקבוצה",
+        "CREATE": "צור",
+        "CANCEL": "בטל",
+        "NO_GROUPS": "אין לך קבוצות חברים עדיין",
+        "CREATED_ON": "נוצר ב",
+        "MEMBERS": "חברים",
+        "NO_MEMBERS": "אין חברים בקבוצה זו",
+        "EDIT": "ערוך",
+        "DELETE": "מחק",
+        "SAVE": "שמור"
     }
 }

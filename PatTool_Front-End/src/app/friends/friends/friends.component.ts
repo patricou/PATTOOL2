@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Member } from '../../model/member';
-import { FriendRequest, FriendRequestStatus, Friend } from '../../model/friend';
+import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../../model/friend';
 import { FriendsService } from '../../services/friends.service';
 import { MembersService } from '../../services/members.service';
 import { TranslateService } from '@ngx-translate/core';
@@ -18,7 +18,7 @@ export class FriendsComponent implements OnInit {
   public sentRequests: FriendRequest[] = [];
   public currentUser: Member = new Member("", "", "", "", "", [], "");
   public searchFilter: string = '';
-  public activeTab: 'users' | 'requests' | 'friends' = 'users';
+  public activeTab: 'users' | 'requests' | 'friends' | 'groups' = 'users';
   public loading: boolean = false;
   public errorMessage: string = '';
   public inviteEmail: string = '';
@@ -26,6 +26,15 @@ export class FriendsComponent implements OnInit {
   public emailExists: boolean = false;
   public emailCheckResult: { exists: boolean; memberId?: string; userName?: string } | null = null;
   public sendingInvite: boolean = false;
+  
+  // Friend groups management
+  public friendGroups: FriendGroup[] = [];
+  public newGroupName: string = '';
+  public selectedGroupMembers: string[] = [];
+  public isCreatingGroup: boolean = false;
+  public editingGroupId: string | null = null;
+  public editingGroupName: string = '';
+  public editingGroupMembers: string[] = [];
 
   constructor(
     private _friendsService: FriendsService,
@@ -100,6 +109,16 @@ export class FriendsComponent implements OnInit {
       },
       error => {
         console.error('Error loading friends:', error);
+      }
+    );
+
+    // Load friend groups
+    this._friendsService.getFriendGroups().subscribe(
+      groups => {
+        this.friendGroups = groups;
+      },
+      error => {
+        console.error('Error loading friend groups:', error);
       }
     );
   }
@@ -211,12 +230,15 @@ export class FriendsComponent implements OnInit {
     return friend.user1;
   }
 
-  setActiveTab(tab: 'users' | 'requests' | 'friends') {
+  setActiveTab(tab: 'users' | 'requests' | 'friends' | 'groups') {
     this.activeTab = tab;
     this.searchFilter = ''; // Clear search when switching tabs
     this.inviteEmail = ''; // Clear invite email
     this.emailCheckResult = null;
     this.emailExists = false;
+    if (tab === 'groups') {
+      this.loadFriendGroups();
+    }
   }
 
   checkEmailExists() {
@@ -278,6 +300,165 @@ export class FriendsComponent implements OnInit {
         this.sendingInvite = false;
       }
     );
+  }
+
+  // Friend Groups Management Methods
+  loadFriendGroups() {
+    this.loading = true;
+    this._friendsService.getFriendGroups().subscribe(
+      groups => {
+        this.friendGroups = groups;
+        this.loading = false;
+      },
+      error => {
+        console.error('Error loading friend groups:', error);
+        this.errorMessage = 'Error loading friend groups';
+        this.loading = false;
+      }
+    );
+  }
+
+  startCreatingGroup() {
+    this.isCreatingGroup = true;
+    this.newGroupName = '';
+    this.selectedGroupMembers = [];
+  }
+
+  cancelCreatingGroup() {
+    this.isCreatingGroup = false;
+    this.newGroupName = '';
+    this.selectedGroupMembers = [];
+  }
+
+  toggleGroupMember(friendId: string) {
+    const index = this.selectedGroupMembers.indexOf(friendId);
+    if (index > -1) {
+      this.selectedGroupMembers.splice(index, 1);
+    } else {
+      this.selectedGroupMembers.push(friendId);
+    }
+  }
+
+  isMemberSelected(friendId: string): boolean {
+    return this.selectedGroupMembers.includes(friendId);
+  }
+
+  createFriendGroup() {
+    if (!this.newGroupName || !this.newGroupName.trim()) {
+      this.errorMessage = 'Please enter a group name';
+      return;
+    }
+
+    if (this.selectedGroupMembers.length === 0) {
+      this.errorMessage = 'Please select at least one friend';
+      return;
+    }
+
+    this.loading = true;
+    this.errorMessage = '';
+    this._friendsService.createFriendGroup(this.newGroupName.trim(), this.selectedGroupMembers).subscribe(
+      group => {
+        this.loadFriendGroups();
+        this.cancelCreatingGroup();
+        this.loading = false;
+      },
+      error => {
+        console.error('Error creating friend group:', error);
+        this.errorMessage = 'Error creating friend group';
+        this.loading = false;
+      }
+    );
+  }
+
+  startEditingGroup(group: FriendGroup) {
+    this.editingGroupId = group.id;
+    this.editingGroupName = group.name;
+    this.editingGroupMembers = group.members.map(m => m.id);
+  }
+
+  cancelEditingGroup() {
+    this.editingGroupId = null;
+    this.editingGroupName = '';
+    this.editingGroupMembers = [];
+  }
+
+  toggleEditingGroupMember(friendId: string) {
+    const index = this.editingGroupMembers.indexOf(friendId);
+    if (index > -1) {
+      this.editingGroupMembers.splice(index, 1);
+    } else {
+      this.editingGroupMembers.push(friendId);
+    }
+  }
+
+  isEditingMemberSelected(friendId: string): boolean {
+    return this.editingGroupMembers.includes(friendId);
+  }
+
+  updateFriendGroup() {
+    if (!this.editingGroupId) return;
+
+    if (!this.editingGroupName || !this.editingGroupName.trim()) {
+      this.errorMessage = 'Please enter a group name';
+      return;
+    }
+
+    if (this.editingGroupMembers.length === 0) {
+      this.errorMessage = 'Please select at least one friend';
+      return;
+    }
+
+    this.loading = true;
+    this.errorMessage = '';
+    this._friendsService.updateFriendGroup(
+      this.editingGroupId,
+      this.editingGroupName.trim(),
+      this.editingGroupMembers
+    ).subscribe(
+      group => {
+        this.loadFriendGroups();
+        this.cancelEditingGroup();
+        this.loading = false;
+      },
+      error => {
+        console.error('Error updating friend group:', error);
+        this.errorMessage = 'Error updating friend group';
+        this.loading = false;
+      }
+    );
+  }
+
+  deleteFriendGroup(groupId: string) {
+    if (confirm('Are you sure you want to delete this friend group?')) {
+      this.loading = true;
+      this._friendsService.deleteFriendGroup(groupId).subscribe(
+        () => {
+          this.loadFriendGroups();
+          this.loading = false;
+        },
+        error => {
+          console.error('Error deleting friend group:', error);
+          this.errorMessage = 'Error deleting friend group';
+          this.loading = false;
+        }
+      );
+    }
+  }
+
+  getFriendById(friendId: string): Member | null {
+    for (const friend of this.friends) {
+      if (friend.user1.id === friendId && friend.user1.id !== this.currentUser.id) {
+        return friend.user1;
+      }
+      if (friend.user2.id === friendId && friend.user2.id !== this.currentUser.id) {
+        return friend.user2;
+      }
+    }
+    return null;
+  }
+
+  getGroupMemberNames(group: FriendGroup): string {
+    return group.members.map(m => `${m.firstName} ${m.lastName}`).join(', ');
   }
 }
 

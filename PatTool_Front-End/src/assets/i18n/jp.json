@@ -70,6 +70,7 @@
     "EVENTHOME": {
         "EVENTSLIST": "活動リスト：",
         "EVENTFILTRE": "フィルター ....",
+        "FILTER_ALL": "すべて",
         "NOEVENT": "表示する活動はありません ....",
         "NO_LINKS_ADDED": "このイベントにリンクが追加されていません",
         "COMMENTARIES": "コメント",
@@ -310,6 +311,7 @@
         "OPEN": "活動を再開する",
         "CANCEL": "活動をキャンセル",
         "CHGTSTATUS": "ステータスを変更",
+        "CHANGE_VISIBILITY": "表示を変更",
         "UPLOAD": "ファイルをアップロード（すべての種類）",
         "PDF_DOCUMENTS": "PDF文書",
         "OPEN_PDF": "開く",
@@ -846,6 +848,22 @@
         "INVITE_TO_PATTOOL": "PATTOOLへの招待",
         "INVITATION_SENT": "招待を正常に送信しました！",
         "EMAIL_ALREADY_REGISTERED": "このメールは既に登録されています",
-        "INVITATION_ERROR": "招待の送信エラー"
+        "INVITATION_ERROR": "招待の送信エラー",
+        "FRIEND_GROUPS": "友達グループ",
+        "CREATE_GROUP": "グループを作成",
+        "CREATE_NEW_GROUP": "新しいグループを作成",
+        "GROUP_NAME": "グループ名",
+        "ENTER_GROUP_NAME": "グループ名を入力",
+        "SELECT_MEMBERS": "メンバーを選択",
+        "NO_FRIENDS_TO_ADD": "グループに追加する友達がいません",
+        "CREATE": "作成",
+        "CANCEL": "キャンセル",
+        "NO_GROUPS": "まだ友達グループがありません",
+        "CREATED_ON": "作成日",
+        "MEMBERS": "メンバー",
+        "NO_MEMBERS": "このグループにメンバーはいません",
+        "EDIT": "編集",
+        "DELETE": "削除",
+        "SAVE": "保存"
     }
 }

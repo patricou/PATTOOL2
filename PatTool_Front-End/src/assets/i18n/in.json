@@ -68,6 +68,7 @@
     "EVENTHOME": {
         "EVENTSLIST": "गतिविधियों की सूची :",
         "EVENTFILTRE": "फ़िल्टर करें ....",
+        "FILTER_ALL": "सभी",
         "NOEVENT": "दिखाने के लिए कोई गतिविधि नहीं है",
         "COMMENTARIES": "टिप्पणियाँ",
         "ADD_COMMENTARY": "टिप्पणी जोड़ें",
@@ -307,6 +308,7 @@
         "CANCEL": "घटना रद्द करें",
         "UPLOAD": "फ़ाइल अपलोड करें (सभी प्रकार)",
         "CHGTSTATUS": "स्थिति परिवर्तन",
+        "CHANGE_VISIBILITY": "दृश्यता बदलें",
         "PDF_DOCUMENTS": "PDF दस्तावेज़",
         "OPEN_PDF": "खोलें",
         "DOWNLOAD_PDF": "डाउनलोड",
@@ -836,7 +838,23 @@
         "INVITE_TO_PATTOOL": "PATTOOL का उपयोग करने के लिए आमंत्रित करें",
         "INVITATION_SENT": "आमंत्रण सफलतापूर्वक भेजा गया!",
         "EMAIL_ALREADY_REGISTERED": "यह ईमेल पहले से पंजीकृत है",
-        "INVITATION_ERROR": "आमंत्रण भेजने में त्रुटि"
+        "INVITATION_ERROR": "आमंत्रण भेजने में त्रुटि",
+        "FRIEND_GROUPS": "मित्र समूह",
+        "CREATE_GROUP": "समूह बनाएं",
+        "CREATE_NEW_GROUP": "नया समूह बनाएं",
+        "GROUP_NAME": "समूह का नाम",
+        "ENTER_GROUP_NAME": "समूह का नाम दर्ज करें",
+        "SELECT_MEMBERS": "सदस्य चुनें",
+        "NO_FRIENDS_TO_ADD": "आपके पास समूह में जोड़ने के लिए कोई मित्र नहीं है",
+        "CREATE": "बनाएं",
+        "CANCEL": "रद्द करें",
+        "NO_GROUPS": "आपके पास अभी तक कोई मित्र समूह नहीं है",
+        "CREATED_ON": "बनाया गया",
+        "MEMBERS": "सदस्य",
+        "NO_MEMBERS": "इस समूह में कोई सदस्य नहीं है",
+        "EDIT": "संपादित करें",
+        "DELETE": "हटाएं",
+        "SAVE": "सहेजें"
     }
 }
 

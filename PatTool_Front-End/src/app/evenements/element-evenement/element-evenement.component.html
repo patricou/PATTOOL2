@@ -156,7 +156,7 @@
                       class="badge visibility-badge"
                       [style.background-color]="getVisibilityBadgeGradient()"
                       [style.border-color]="'white'"
-                      [style.color]="'white'">{{evenement.visibility}}</span>
+                      [style.color]="'white'">{{getVisibilityDisplayText()}}</span>
             </span>
         </b>
     </div>
@@ -322,6 +322,16 @@
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-circle-o-notch"
             aria-hidden="true"></i></a>
+    <button class="btn btn-sm btn-info mb-1 me-1 dynamic-footer-btn" 
+            *ngIf="isAuthor()" 
+            [ngStyle]="getFooterButtonStyles('visibility')"
+            (click)="openVisibilityModal(); $event.stopPropagation(); $event.preventDefault()"
+            ngbTooltip="{{ 'EVENTELEM.CHANGE_VISIBILITY' | translate }}" 
+            placement="top"
+            (mouseleave)="onTooltipMouseLeave($event)"
+            type="button">
+        <i class="fa fa-lock" aria-hidden="true"></i>
+    </button>
     <a class="btn btn-sm btn-warning mb-1 me-1 dynamic-footer-btn" 
        [ngStyle]="getFooterButtonStyles('edit')"
        [routerLink]="['/updeven',evenement.id]"
@@ -329,15 +339,6 @@
        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" 
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
-
-    <button class="btn btn-sm btn-info mb-1 me-1 dynamic-footer-btn" 
-            [ngStyle]="getFooterButtonStyles('stats')"
-            (click)="collectAndDisplayLoadingStats()"
-            placement="top"
-            ngbTooltip="Loading Statistics"
-            (mouseleave)="onTooltipMouseLeave($event)">
-        <i class="fa fa-bar-chart" aria-hidden="true"></i>
-    </button>
 
 </div>
 <div class="text-center mt-1 mb-1" *ngIf="!titleOnly && getCurrentCardLoadTime() > 0" [style.color]="titleBorderColor">
@@ -930,6 +931,40 @@
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">
             <i class="fa fa-times"></i> Close
+        </button>
+    </div>
+</ng-template>
+
+<!-- Visibility Selection Modal -->
+<ng-template #visibilityModal let-c="close" let-d="dismiss">
+    <div class="modal-header bg-primary text-white border border-2 border-white rounded-top">
+        <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
+            <i class="fa fa-lock me-2"></i> {{ 'EVENTELEM.CHANGE_VISIBILITY' | translate }}
+        </h5>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white" (click)="d('Cross click')" aria-label="Close">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="visibility-options">
+            <div *ngFor="let option of visibilityOptions" 
+                 class="visibility-option mb-2 p-2 border rounded"
+                 [class.selected]="evenement.visibility === option.value"
+                 [style.cursor]="'pointer'"
+                 [style.background-color]="evenement.visibility === option.value ? getVisibilityBadgeGradient() : 'transparent'"
+                 [style.border-color]="evenement.visibility === option.value ? 'white' : '#dee2e6'"
+                 [style.color]="evenement.visibility === option.value ? 'white' : 'inherit'"
+                 (click)="onVisibilitySelected(option); c('Selected')">
+                <i class="fa me-2" 
+                   [class.fa-check-circle]="evenement.visibility === option.value"
+                   [class.fa-circle-o]="evenement.visibility !== option.value"></i>
+                {{ option.label }}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
         </button>
     </div>
 </ng-template>

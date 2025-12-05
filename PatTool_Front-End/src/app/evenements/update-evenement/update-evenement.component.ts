@@ -16,6 +16,8 @@ import { Observable, from, of, Subscription } from 'rxjs';
 import { map, concatMap, catchError, finalize } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { FriendsService } from '../../services/friends.service';
+import { FriendGroup } from '../../model/friend';
 
 @Component({
 	selector: 'update-evenement',
@@ -82,6 +84,10 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 	public editingCommentaryIndex: number = -1;
 	public editingCommentary: Commentary = new Commentary("", "", new Date());
 
+	// Friend groups for visibility
+	public friendGroups: FriendGroup[] = [];
+	public selectedFriendGroupId: string = '';
+
     // Image modal properties
     @ViewChild('imageModal') imageModal!: TemplateRef<any>;
     public selectedImageUrl: any = '';
@@ -127,7 +133,8 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		private _memberService: MembersService,
 		private _fileService: FileService,
 	private modalService: NgbModal,
-	private translate: TranslateService
+	private translate: TranslateService,
+	private _friendsService: FriendsService
 	) { }
 
 	ngOnInit() {
@@ -175,8 +182,12 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 				this.openInscriptionDateString = this.formatDateForInput(this.evenement.openInscriptionDate);
 				this.endEventDateString = this.formatDateForInput(this.evenement.endEventDate);
 				this.closeInscriptionDateString = this.formatDateForInput(this.evenement.closeInscriptionDate);
+
+				// Set selected friend group if visibility is a friend group
+				// This will be set after friend groups are loaded
+				this.loadFriendGroupsAndSetSelection();
 			}
-			)
+			);
 	}
 
 	// Sorted list of URL event types by translated label
@@ -743,6 +754,71 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 	public formatCommentaryDate(date: Date): string {
 		if (!date) return '';
 		return new Date(date).toLocaleString();
+	}
+
+	// Load friend groups
+	private loadFriendGroups() {
+		this._friendsService.getFriendGroups().subscribe(
+			groups => {
+				this.friendGroups = groups;
+			},
+			error => {
+				console.error('Error loading friend groups:', error);
+			}
+		);
+	}
+
+	// Load friend groups and set selection if visibility is a friend group
+	private loadFriendGroupsAndSetSelection() {
+		this._friendsService.getFriendGroups().subscribe(
+			groups => {
+				this.friendGroups = groups;
+				// Set selected friend group if visibility is a friend group
+				if (this.evenement.friendGroupId) {
+					this.selectedFriendGroupId = this.evenement.friendGroupId;
+				} else if (this.evenement.visibility) {
+					// Check if visibility matches a friend group name
+					const matchingGroup = groups.find(g => g.name === this.evenement.visibility);
+					if (matchingGroup) {
+						this.selectedFriendGroupId = matchingGroup.id;
+						this.evenement.friendGroupId = matchingGroup.id;
+					}
+				}
+			},
+			error => {
+				console.error('Error loading friend groups:', error);
+			}
+		);
+	}
+
+	// Handle visibility change
+	public onVisibilityChange() {
+		// Check if the selected visibility is a friend group name
+		const selectedGroup = this.friendGroups.find(g => g.name === this.evenement.visibility);
+		if (selectedGroup) {
+			// Friend group selected - set both visibility and friendGroupId
+			this.evenement.friendGroupId = selectedGroup.id;
+			this.selectedFriendGroupId = selectedGroup.id;
+		} else {
+			// Standard visibility (public, private, friends) - clear friendGroupId
+			this.evenement.friendGroupId = undefined;
+			this.selectedFriendGroupId = '';
+		}
+		this.updateUnsavedChangesFlag();
+	}
+
+	// Check if visibility is a friend group
+	public isFriendGroupVisibility(): boolean {
+		return this.friendGroups.some(g => g.name === this.evenement.visibility);
+	}
+
+	// Get friend group name for visibility display
+	public getFriendGroupName(): string {
+		if (this.evenement.friendGroupId) {
+			const group = this.friendGroups.find(g => g.id === this.evenement.friendGroupId);
+			return group ? group.name : this.evenement.visibility;
+		}
+		return this.evenement.visibility;
 	}
 
 	// File management methods

@@ -28,6 +28,7 @@ export class Evenement {
         public visibility: string,
         public urlEvents: UrlEvent[],
         public commentaries: Commentary[],
-        public thumbnail?: UploadedFile // Thumbnail file (file with "thumbnail" in its name)
+        public thumbnail?: UploadedFile, // Thumbnail file (file with "thumbnail" in its name)
+        public friendGroupId?: string // ID of the friend group for visibility (when visibility is a friend group)
     ) { }
 }

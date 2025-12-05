@@ -52,6 +52,17 @@
         <span *ngIf="friends.length > 0" class="badge bg-success">{{ friends.length }}</span>
       </button>
     </li>
+    <li class="nav-item" role="presentation">
+      <button 
+        class="nav-link" 
+        [class.active]="activeTab === 'groups'"
+        (click)="setActiveTab('groups')"
+        type="button">
+        <i class="fa fa-users"></i>
+        {{ 'FRIENDS.FRIEND_GROUPS' | translate }}
+        <span *ngIf="friendGroups.length > 0" class="badge bg-info">{{ friendGroups.length }}</span>
+      </button>
+    </li>
   </ul>
 
   <!-- Tab Content: All Users -->
@@ -264,6 +275,181 @@
             <i class="fa fa-user-times"></i>
             {{ 'FRIENDS.REMOVE_FRIEND' | translate }}
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Content: Friend Groups -->
+  <div *ngIf="activeTab === 'groups'" class="tab-content">
+    <div class="mb-3">
+      <button 
+        *ngIf="!isCreatingGroup && !editingGroupId"
+        class="btn btn-primary"
+        (click)="startCreatingGroup()">
+        <i class="fa fa-plus"></i>
+        {{ 'FRIENDS.CREATE_GROUP' | translate }}
+      </button>
+    </div>
+
+    <!-- Create Group Form -->
+    <div *ngIf="isCreatingGroup" class="card mb-3">
+      <div class="card-header">
+        <h5>{{ 'FRIENDS.CREATE_NEW_GROUP' | translate }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label for="newGroupName" class="form-label">{{ 'FRIENDS.GROUP_NAME' | translate }}</label>
+          <input 
+            type="text" 
+            class="form-control" 
+            id="newGroupName"
+            [(ngModel)]="newGroupName"
+            [placeholder]="'FRIENDS.ENTER_GROUP_NAME' | translate">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">{{ 'FRIENDS.SELECT_MEMBERS' | translate }}</label>
+          <div *ngIf="friends.length === 0" class="alert alert-info">
+            {{ 'FRIENDS.NO_FRIENDS_TO_ADD' | translate }}
+          </div>
+          <div *ngIf="friends.length > 0" class="friends-selection">
+            <div *ngFor="let friend of friends" class="form-check">
+              <input 
+                class="form-check-input" 
+                type="checkbox" 
+                [id]="'friend-' + (friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)"
+                [checked]="isMemberSelected(friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)"
+                (change)="toggleGroupMember(friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)">
+              <label 
+                class="form-check-label" 
+                [for]="'friend-' + (friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)">
+                {{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }} ({{ getOtherUser(friend).userName }})
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <button class="btn btn-success" (click)="createFriendGroup()" [disabled]="loading">
+            <i class="fa fa-check"></i>
+            {{ 'FRIENDS.CREATE' | translate }}
+          </button>
+          <button class="btn btn-secondary" (click)="cancelCreatingGroup()" [disabled]="loading">
+            <i class="fa fa-times"></i>
+            {{ 'FRIENDS.CANCEL' | translate }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Groups List -->
+    <div *ngIf="friendGroups.length === 0 && !isCreatingGroup" class="no-results">
+      <i class="fa fa-users fa-3x"></i>
+      <p>{{ 'FRIENDS.NO_GROUPS' | translate }}</p>
+    </div>
+
+    <div *ngIf="friendGroups.length > 0" class="groups-list">
+      <div *ngFor="let group of friendGroups" class="group-card card mb-3">
+        <div class="card-body">
+          <div *ngIf="editingGroupId !== group.id">
+            <div class="d-flex justify-content-between align-items-start">
+              <div>
+                <h5>{{ group.name }}</h5>
+                <p class="text-muted small">
+                  <i class="fa fa-calendar"></i>
+                  {{ 'FRIENDS.CREATED_ON' | translate }}: {{ group.creationDate | date:'short' }}
+                </p>
+                <div class="members-section mt-3">
+                  <h6>
+                    <i class="fa fa-users"></i>
+                    {{ group.members.length }} {{ 'FRIENDS.MEMBERS' | translate }}
+                  </h6>
+                  <div *ngIf="group.members.length === 0" class="text-muted small">
+                    {{ 'FRIENDS.NO_MEMBERS' | translate }}
+                  </div>
+                  <div *ngIf="group.members.length > 0" class="members-list mt-2">
+                    <div *ngFor="let member of group.members" class="member-item p-2 mb-2 border rounded">
+                      <div class="d-flex align-items-start">
+                        <div class="user-avatar me-3">
+                          <i class="fa fa-user-circle fa-2x text-muted"></i>
+                        </div>
+                        <div class="member-details flex-grow-1">
+                          <h6 class="mb-1">{{ member.firstName }} {{ member.lastName }}</h6>
+                          <p class="text-muted small mb-1">
+                            <i class="fa fa-at"></i> {{ member.userName }}
+                          </p>
+                          <p class="text-muted small mb-1" *ngIf="member.addressEmail">
+                            <i class="fa fa-envelope"></i> {{ member.addressEmail }}
+                          </p>
+                          <p class="text-muted small mb-1" *ngIf="member.registrationDate">
+                            <i class="fa fa-calendar-plus-o"></i> 
+                            {{ 'FRIENDS.REGISTERED_ON' | translate }}: {{ member.registrationDate | date:'short' }}
+                          </p>
+                          <p class="text-muted small mb-0" *ngIf="member.lastConnectionDate">
+                            <i class="fa fa-clock-o"></i> 
+                            {{ 'FRIENDS.LAST_CONNECTION' | translate }}: {{ member.lastConnectionDate | date:'short' }}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="d-flex gap-2">
+                <button 
+                  class="btn btn-sm btn-primary"
+                  (click)="startEditingGroup(group)">
+                  <i class="fa fa-edit"></i>
+                  {{ 'FRIENDS.EDIT' | translate }}
+                </button>
+                <button 
+                  class="btn btn-sm btn-danger"
+                  (click)="deleteFriendGroup(group.id)">
+                  <i class="fa fa-trash"></i>
+                  {{ 'FRIENDS.DELETE' | translate }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Edit Group Form -->
+          <div *ngIf="editingGroupId === group.id">
+            <div class="mb-3">
+              <label for="editingGroupName" class="form-label">{{ 'FRIENDS.GROUP_NAME' | translate }}</label>
+              <input 
+                type="text" 
+                class="form-control" 
+                id="editingGroupName"
+                [(ngModel)]="editingGroupName">
+            </div>
+            <div class="mb-3">
+              <label class="form-label">{{ 'FRIENDS.SELECT_MEMBERS' | translate }}</label>
+              <div *ngIf="friends.length > 0" class="friends-selection">
+                <div *ngFor="let friend of friends" class="form-check">
+                  <input 
+                    class="form-check-input" 
+                    type="checkbox" 
+                    [id]="'edit-friend-' + (friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)"
+                    [checked]="isEditingMemberSelected(friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)"
+                    (change)="toggleEditingGroupMember(friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)">
+                  <label 
+                    class="form-check-label" 
+                    [for]="'edit-friend-' + (friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)">
+                    {{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }} ({{ getOtherUser(friend).userName }})
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex gap-2">
+              <button class="btn btn-success btn-sm" (click)="updateFriendGroup()" [disabled]="loading">
+                <i class="fa fa-check"></i>
+                {{ 'FRIENDS.SAVE' | translate }}
+              </button>
+              <button class="btn btn-secondary btn-sm" (click)="cancelEditingGroup()" [disabled]="loading">
+                <i class="fa fa-times"></i>
+                {{ 'FRIENDS.CANCEL' | translate }}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

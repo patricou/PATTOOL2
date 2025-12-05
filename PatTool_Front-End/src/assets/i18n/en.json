@@ -66,6 +66,8 @@
     "EVENTHOME": {
         "EVENTSLIST": "Activities List :",
         "EVENTFILTRE": "Filter ....",
+        "FILTER_ALL": "All",
+        "VISIBILITY_FILTER": "Visibility filter",
         "NOEVENT": "There is no Activity to display",
         "NO_LINKS_ADDED": "No links added to this event",
         "COMMENTARIES": "Comments",
@@ -313,6 +315,7 @@
         "CANCEL": "Cancel Event",
         "UPLOAD": "Upload a File (all type)",
         "CHGTSTATUS": "Status Change",
+        "CHANGE_VISIBILITY": "Change Visibility",
         "PDF_DOCUMENTS": "PDF Documents",
         "OPEN_PDF": "Open",
         "DOWNLOAD_PDF": "Download",
@@ -851,7 +854,23 @@
         "INVITE_TO_PATTOOL": "Invite to use PATTOOL",
         "INVITATION_SENT": "Invitation sent successfully!",
         "EMAIL_ALREADY_REGISTERED": "This email is already registered",
-        "INVITATION_ERROR": "Error sending invitation"
+        "INVITATION_ERROR": "Error sending invitation",
+        "FRIEND_GROUPS": "Friend Groups",
+        "CREATE_GROUP": "Create Group",
+        "CREATE_NEW_GROUP": "Create New Group",
+        "GROUP_NAME": "Group Name",
+        "ENTER_GROUP_NAME": "Enter group name",
+        "SELECT_MEMBERS": "Select Members",
+        "NO_FRIENDS_TO_ADD": "You don't have any friends to add to the group",
+        "CREATE": "Create",
+        "CANCEL": "Cancel",
+        "NO_GROUPS": "You don't have any friend groups yet",
+        "CREATED_ON": "Created on",
+        "MEMBERS": "Members",
+        "NO_MEMBERS": "No members in this group",
+        "EDIT": "Edit",
+        "DELETE": "Delete",
+        "SAVE": "Save"
     }
 }
 

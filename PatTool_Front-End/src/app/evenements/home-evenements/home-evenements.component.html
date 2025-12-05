@@ -230,6 +230,25 @@
                         </div>
                     </div>
 
+                    <!-- Visibility Filter Section (includes friend groups) -->
+                    <div class="filter-section-redesigned me-2" style="flex: 0 0 auto;">
+                        <div class="filter-input-container-desktop visibility-filter-container">
+                            <i class="fa fa-filter search-icon"></i>
+                            <select class="filter-input filter-select" 
+                                [(ngModel)]="selectedVisibilityFilter"
+                                (ngModelChange)="onVisibilityFilterChange()"
+                                [title]="'EVENTCREATION.VISIBILITY' | translate">
+                                <option value="all">{{ 'EVENTHOME.FILTER_ALL' | translate }}</option>
+                                <option value="public">{{ 'EVENTCREATION.PUBLIC' | translate }}</option>
+                                <option value="private">{{ 'EVENTCREATION.PRIVATE' | translate }}</option>
+                                <option value="friends">{{ 'EVENTCREATION.FRIENDS' | translate }}</option>
+                                <option *ngFor="let group of friendGroups" [value]="group.id">
+                                    {{ group.name }}
+                                </option>
+                            </select>
+                        </div>
+                    </div>
+
                     <!-- Filter Section -->
                     <div class="filter-section-redesigned">
                         <div class="filter-input-container-desktop">
@@ -302,7 +321,7 @@
     <!-- Vue normale (cartes complètes) -->
     <div #cardsContainer class="row cards-container" *ngIf="!isCompactView" [class.cards-animated]="cardsReady">
         <div #patCard class="col-xl-3 col-lg-4 col-md-6 col-sm-12 card-group pat-card" 
-             *ngFor="let evenement of evenements; trackBy: trackEvent; let i = index"
+             *ngFor="let evenement of filteredEvents; trackBy: trackEvent; let i = index"
              [attr.data-event-id]="evenement.id">
             <element-evenement class="card" [user]="user" [evenement]="evenement" [titleOnly]="titleOnlyView"
                 (updateFileUploaded)="updateFileUploadedInEvent($event)" (addMember)="addMemberInEvent($event)"
@@ -318,7 +337,7 @@
 
     <!-- Vue compacte (liste) -->
     <div class="compact-view" *ngIf="isCompactView">
-        <div class="compact-card" *ngFor="let evenement of evenements; trackBy: trackEvent" 
+        <div class="compact-card" *ngFor="let evenement of filteredEvents; trackBy: trackEvent" 
              (click)="openEventDetails(evenement)">
             <div class="compact-image">
                 <img [src]="getEventThumbnail(evenement)" [alt]="evenement.evenementName"
@@ -343,6 +362,12 @@
                     </span>
                     <span *ngSwitchCase="'private'" class="badge bg-warning">
                         {{"EVENTCREATION.PRIVATE" | translate }}
+                    </span>
+                    <span *ngSwitchCase="'friends'" class="badge bg-info">
+                        {{"EVENTCREATION.FRIENDS" | translate }}
+                    </span>
+                    <span *ngSwitchDefault class="badge bg-secondary">
+                        {{getVisibilityDisplayText(evenement)}}
                     </span>
                 </div>
             </div>
@@ -407,6 +432,14 @@
                     <i class="fa fa-circle-o-notch" aria-hidden="true"></i>
                 </a>
 
+                <!-- Visibility Change Button -->
+                <button class="btn btn-sm btn-info me-1" [hidden]="!isAuthor(evenement)"
+                    (click)="openVisibilityModal(evenement); $event.stopPropagation()"
+                    ngbTooltip="{{ 'EVENTELEM.CHANGE_VISIBILITY' | translate }}" placement="top"
+                    type="button">
+                    <i class="fa fa-lock" aria-hidden="true"></i>
+                </button>
+
                 <!-- Edit Button -->
                 <a class="btn btn-sm btn-warning me-1" [routerLink]="['/updeven', evenement.id]"
                     ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" placement="top" 
@@ -462,7 +495,7 @@
     </div>
 </div>
 
-<div class="text-center text-muted my-3" *ngIf="!isLoading && !isLoadingNextPage && evenements.length === 0">
+<div class="text-center text-muted my-3" *ngIf="!isLoading && !isLoadingNextPage && filteredEvents.length === 0">
     <small>{{ 'EVENTHOME.EVENTS_FOUND' | translate }}: 0</small>
 </div>
 
@@ -867,6 +900,40 @@
                 <p>{{ 'EVENTHOME.NO_FILES_ADDED' | translate }}</p>
             </div>
         </ng-template>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+        </button>
+    </div>
+</ng-template>
+
+<!-- Visibility Selection Modal -->
+<ng-template #visibilityModal let-c="close" let-d="dismiss">
+    <div class="modal-header bg-primary text-white border border-2 border-white rounded-top">
+        <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
+            <i class="fa fa-lock me-2"></i> {{ 'EVENTELEM.CHANGE_VISIBILITY' | translate }}
+        </h5>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white" (click)="d('Cross click')" aria-label="Close">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="visibility-options">
+            <div *ngFor="let option of visibilityOptions" 
+                 class="visibility-option mb-2 p-2 border rounded"
+                 [class.selected]="selectedEventForVisibility && selectedEventForVisibility.visibility === option.value"
+                 [style.cursor]="'pointer'"
+                 [style.background-color]="selectedEventForVisibility && selectedEventForVisibility.visibility === option.value ? '#007bff' : 'transparent'"
+                 [style.border-color]="selectedEventForVisibility && selectedEventForVisibility.visibility === option.value ? 'white' : '#dee2e6'"
+                 [style.color]="selectedEventForVisibility && selectedEventForVisibility.visibility === option.value ? 'white' : 'inherit'"
+                 (click)="onVisibilitySelected(option); c('Selected')">
+                <i class="fa me-2" 
+                   [class.fa-check-circle]="selectedEventForVisibility && selectedEventForVisibility.visibility === option.value"
+                   [class.fa-circle-o]="!selectedEventForVisibility || selectedEventForVisibility.visibility !== option.value"></i>
+                {{ option.label }}
+            </div>
+        </div>
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">

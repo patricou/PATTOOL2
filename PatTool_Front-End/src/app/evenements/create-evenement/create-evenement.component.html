@@ -72,11 +72,12 @@
                                 <span class="required">*</span>
                             </label>
                             <select id="visibility" [style.color]="typeColor" #visibility="ngModel"
-                                [(ngModel)]="evenement.visibility" name="visibility" class="form-control" required>
+                                [(ngModel)]="evenement.visibility" name="visibility" class="form-control" required (change)="onVisibilityChange()">
                                 <option value="" disabled selected>{{"EVENTCREATION.VISIBILITYPLHD" | translate }}</option>
                                 <option value="public">{{"EVENTCREATION.PUBLIC" | translate }}</option>
                                 <option value="private">{{"EVENTCREATION.PRIVATE" | translate }}</option>
                                 <option value="friends">{{"EVENTCREATION.FRIENDS" | translate }}</option>
+                                <option *ngFor="let group of friendGroups" [value]="group.name">{{ group.name }}</option>
                             </select>
                             <div class="error-message" [hidden]="!visibility.invalid || !f.submitted">
                                 <i class="fa fa-exclamation-triangle"></i>

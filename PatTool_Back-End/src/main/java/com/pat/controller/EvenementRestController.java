@@ -4,8 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pat.repo.domain.Evenement;
 import com.pat.repo.domain.FileUploaded;
 import com.pat.repo.domain.Friend;
+import com.pat.repo.domain.FriendGroup;
 import com.pat.repo.domain.Member;
 import com.pat.repo.EvenementsRepository;
+import com.pat.repo.FriendGroupRepository;
 import com.pat.repo.FriendRepository;
 import com.pat.repo.MembersRepository;
 import org.slf4j.Logger;
@@ -66,6 +68,9 @@ public class EvenementRestController {
     
     @Autowired
     private MembersRepository membersRepository;
+    
+    @Autowired
+    private FriendGroupRepository friendGroupRepository;
     
     @Value("${app.admin.userid}")
     String authorizedUserId;
@@ -417,6 +422,11 @@ public class EvenementRestController {
             if (friendsCriteria != null) {
                 accessCriteria.add(friendsCriteria);
             }
+            // Add friend group visibility criteria
+            Criteria friendGroupCriteria = buildFriendGroupVisibilityCriteria(userId);
+            if (friendGroupCriteria != null) {
+                accessCriteria.add(friendGroupCriteria);
+            }
         }
         
         if (accessCriteria.size() == 1) {
@@ -480,6 +490,75 @@ public class EvenementRestController {
         } catch (Exception e) {
             // If any error occurs, return null (don't include friends visibility)
             log.debug("Error building friends visibility criteria: {}", e.getMessage());
+            return null;
+        }
+    }
+    
+    private Criteria buildFriendGroupVisibilityCriteria(String userId) {
+        try {
+            // Get current user
+            java.util.Optional<Member> currentUserOpt = membersRepository.findById(userId);
+            if (currentUserOpt.isEmpty()) {
+                return null;
+            }
+            Member currentUser = currentUserOpt.get();
+            
+            // Get all friend groups where the user is a member
+            java.util.List<FriendGroup> userFriendGroups = friendGroupRepository.findByMembersContaining(currentUser);
+            if (userFriendGroups.isEmpty()) {
+                // User is not a member of any friend group, so no friend group visibility events should be shown
+                return null;
+            }
+            
+            // Collect all friend group IDs where the user is a member
+            java.util.List<String> friendGroupIds = new java.util.ArrayList<>();
+            for (FriendGroup group : userFriendGroups) {
+                if (group.getId() != null) {
+                    friendGroupIds.add(group.getId());
+                }
+            }
+            
+            if (friendGroupIds.isEmpty()) {
+                return null;
+            }
+            
+            // Build criteria: visibility is NOT "public", "private", or "friends" 
+            // AND friendGroupId is in the list of groups where user is a member
+            // OR visibility matches the friend group name (for backward compatibility)
+            java.util.List<Criteria> friendGroupCriteriaList = new java.util.ArrayList<>();
+            
+            // Match by friendGroupId
+            for (String groupId : friendGroupIds) {
+                try {
+                    friendGroupCriteriaList.add(Criteria.where("friendGroupId").is(groupId));
+                } catch (Exception ex) {
+                    // Skip invalid group ID
+                }
+            }
+            
+            // Also match by visibility matching the group name (for backward compatibility)
+            for (FriendGroup group : userFriendGroups) {
+                if (group.getName() != null && !group.getName().trim().isEmpty()) {
+                    friendGroupCriteriaList.add(
+                        Criteria.where("visibility").is(group.getName())
+                    );
+                }
+            }
+            
+            if (friendGroupCriteriaList.isEmpty()) {
+                return null;
+            }
+            
+            Criteria friendGroupMatch = new Criteria().orOperator(friendGroupCriteriaList.toArray(new Criteria[0]));
+            
+            // Visibility should not be "public", "private", or "friends" (it should be the group name)
+            return new Criteria().andOperator(
+                Criteria.where("visibility").nin("public", "private", "friends"),
+                friendGroupMatch
+            );
+        } catch (Exception e) {
+            // If any error occurs, return null (don't include friend group visibility)
+            log.debug("Error building friend group visibility criteria: {}", e.getMessage());
             return null;
         }
     }
@@ -857,6 +936,29 @@ public class EvenementRestController {
             }
         }
 
+        // Validate friend group ownership if friendGroupId is set
+        if (evenement.getFriendGroupId() != null && !evenement.getFriendGroupId().trim().isEmpty()) {
+            if (evenement.getAuthor() == null || evenement.getAuthor().getId() == null) {
+                log.warn("Cannot validate friend group ownership: author is null");
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+            
+            java.util.Optional<FriendGroup> groupOpt = friendGroupRepository.findById(evenement.getFriendGroupId());
+            if (groupOpt.isEmpty()) {
+                log.warn("Friend group not found: {}", evenement.getFriendGroupId());
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+            
+            FriendGroup group = groupOpt.get();
+            if (group.getOwner() == null || !group.getOwner().getId().equals(evenement.getAuthor().getId())) {
+                log.warn("User {} attempted to use friend group {} owned by {}", 
+                    evenement.getAuthor().getId(), 
+                    evenement.getFriendGroupId(),
+                    group.getOwner() != null ? group.getOwner().getId() : "null");
+                return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+            }
+        }
+
         evenement.setId(null);
 
         Evenement eventSaved = evenementsRepository.save(evenement);
@@ -890,6 +992,29 @@ public class EvenementRestController {
                         this.authorizedUserId);
                     return new ResponseEntity<>(HttpStatus.FORBIDDEN);
                 }
+            }
+        }
+
+        // Validate friend group ownership if friendGroupId is set
+        if (evenement.getFriendGroupId() != null && !evenement.getFriendGroupId().trim().isEmpty()) {
+            if (evenement.getAuthor() == null || evenement.getAuthor().getId() == null) {
+                log.warn("Cannot validate friend group ownership: author is null");
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+            
+            java.util.Optional<FriendGroup> groupOpt = friendGroupRepository.findById(evenement.getFriendGroupId());
+            if (groupOpt.isEmpty()) {
+                log.warn("Friend group not found: {}", evenement.getFriendGroupId());
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+            
+            FriendGroup group = groupOpt.get();
+            if (group.getOwner() == null || !group.getOwner().getId().equals(evenement.getAuthor().getId())) {
+                log.warn("User {} attempted to use friend group {} owned by {}", 
+                    evenement.getAuthor().getId(), 
+                    evenement.getFriendGroupId(),
+                    group.getOwner() != null ? group.getOwner().getId() : "null");
+                return new ResponseEntity<>(HttpStatus.FORBIDDEN);
             }
         }
 

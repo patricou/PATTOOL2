@@ -413,5 +413,150 @@ public class FriendsRestController {
                    .replace("\"", "&quot;")
                    .replace("'", "&#39;");
     }
+
+    // ========== Friend Groups Endpoints ==========
+
+    /**
+     * Create a new friend group
+     */
+    @PostMapping(value = "/groups", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<com.pat.repo.domain.FriendGroup> createFriendGroup(
+            @RequestBody Map<String, Object> requestBody,
+            Authentication authentication) {
+        try {
+            Member owner = friendsService.getCurrentUser(authentication);
+            if (owner == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String name = (String) requestBody.get("name");
+            @SuppressWarnings("unchecked")
+            List<String> memberIds = (List<String>) requestBody.get("memberIds");
+
+            if (name == null || name.trim().isEmpty()) {
+                return ResponseEntity.badRequest().build();
+            }
+
+            com.pat.repo.domain.FriendGroup group = friendsService.createFriendGroup(name, memberIds != null ? memberIds : new java.util.ArrayList<>(), owner);
+            return ResponseEntity.ok(group);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (IllegalStateException e) {
+            log.error("Invalid state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            log.error("Error creating friend group", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Get all friend groups for the current user
+     */
+    @GetMapping(value = "/groups", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<com.pat.repo.domain.FriendGroup>> getFriendGroups(Authentication authentication) {
+        try {
+            Member currentUser = friendsService.getCurrentUser(authentication);
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            List<com.pat.repo.domain.FriendGroup> groups = friendsService.getFriendGroups(currentUser);
+            return ResponseEntity.ok(groups);
+        } catch (Exception e) {
+            log.error("Error getting friend groups", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Get a specific friend group by ID
+     */
+    @GetMapping(value = "/groups/{groupId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<com.pat.repo.domain.FriendGroup> getFriendGroup(
+            @PathVariable String groupId,
+            Authentication authentication) {
+        try {
+            Member currentUser = friendsService.getCurrentUser(authentication);
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            com.pat.repo.domain.FriendGroup group = friendsService.getFriendGroup(groupId);
+            
+            // Verify ownership
+            if (!group.getOwner().getId().equals(currentUser.getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+            return ResponseEntity.ok(group);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error getting friend group", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Update a friend group
+     */
+    @PutMapping(value = "/groups/{groupId}", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<com.pat.repo.domain.FriendGroup> updateFriendGroup(
+            @PathVariable String groupId,
+            @RequestBody Map<String, Object> requestBody,
+            Authentication authentication) {
+        try {
+            Member owner = friendsService.getCurrentUser(authentication);
+            if (owner == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String name = (String) requestBody.get("name");
+            @SuppressWarnings("unchecked")
+            List<String> memberIds = (List<String>) requestBody.get("memberIds");
+
+            com.pat.repo.domain.FriendGroup group = friendsService.updateFriendGroup(groupId, name, memberIds, owner);
+            return ResponseEntity.ok(group);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (IllegalStateException e) {
+            log.error("Invalid state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            log.error("Error updating friend group", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Delete a friend group
+     */
+    @DeleteMapping(value = "/groups/{groupId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> deleteFriendGroup(
+            @PathVariable String groupId,
+            Authentication authentication) {
+        try {
+            Member owner = friendsService.getCurrentUser(authentication);
+            if (owner == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            friendsService.deleteFriendGroup(groupId, owner);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            log.error("Invalid state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            log.error("Error deleting friend group", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
 }
 

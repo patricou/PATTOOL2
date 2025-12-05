@@ -23,6 +23,8 @@ import { EvenementsService, StreamedEvent } from '../../services/evenements.serv
 import { environment } from '../../../environments/environment';
 import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
 import { KeycloakService } from '../../keycloak/keycloak.service';
+import { FriendsService } from '../../services/friends.service';
+import { FriendGroup } from '../../model/friend';
 
 interface EventColorUpdate {
 	eventId: string;
@@ -51,6 +53,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public isLoading: boolean = false; // État de chargement
 	public user: Member = new Member("", "", "", "", "", [], "");
 	public dataFIlter: string = this._commonValuesService.getDataFilter();
+	public selectedVisibilityFilter: string = 'all'; // 'all', 'public', 'private', 'friends', or friend group id
+	public filteredEvents: Evenement[] = []; // Filtered events (computed property)
+	private lastFilterValue: string = 'all'; // Track last filter value to avoid unnecessary recalculations
+	private lastEventsLength: number = 0; // Track events array length
 	public averageColor!: string;
 	public averageTextColor!: string;
 	public averageBorderColor!: string;
@@ -72,6 +78,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public items: Observable<any> = new Observable();
 	public selectedFiles: File[] = [];
 	public API_URL4FILE: string = environment.API_URL4FILE;
+	// Friend groups for visibility
+	public friendGroups: FriendGroup[] = [];
+	public visibilityOptions: Array<{value: string, label: string, friendGroupId?: string}> = [];
+	public selectedEventForVisibility: Evenement | null = null;
 	// Upload logs
 	public uploadLogs: string[] = [];
 	public isUploading: boolean = false;
@@ -98,6 +108,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('photosModal') photosModal!: TemplateRef<any>;
 	@ViewChild('imageModal') imageModal!: TemplateRef<any>;
 	@ViewChild('urlsModal') urlsModal!: TemplateRef<any>;
+	@ViewChild('visibilityModal') visibilityModal!: TemplateRef<any>;
 	@ViewChild('chatModal') chatModal!: TemplateRef<any>;
 	@ViewChild('jsonModal') jsonModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
@@ -159,6 +170,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		private translateService: TranslateService,
 		private database: Database,
 		private cdr: ChangeDetectorRef,
+		private _friendsService: FriendsService,
 		private _http: HttpClient,
 		private _keycloakService: KeycloakService) {
 		this.nativeWindow = winRef.getNativeWindow();
@@ -171,6 +183,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	ngOnInit() {
 		this.user = this._memberService.getUser();
 		this.cardsReady = false;
+		
+		// Initialize filtered events
+		this.filteredEvents = [];
 		
 		// Initialize cached memory usage
 		this.updateCachedMemoryUsage();
@@ -186,6 +201,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		// Start real-time updates for debug info panel when visible
 		this.startDebugInfoUpdates();
+		
+		// Load friend groups for visibility selection
+		this.loadFriendGroups();
 		
 		// Check if we need to load a specific event first (when returning from update)
 		const storedDataStr = sessionStorage.getItem('lastViewedEventData');
@@ -780,6 +798,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			(this.evenements[0].id === eventId || this.getEventKey(this.evenements[0]) === eventId) 
 			? this.evenements[0] : null;
 		this.evenements = [];
+		this.lastFilterValue = '';
+		this.lastEventsLength = 0;
+		this.filteredEvents = [];
 		this.allStreamedEvents = []; // Clear streamed events buffer
 		this.loadingEvents.clear(); // Clear loading events set
 		if (firstEvent) {
@@ -1224,6 +1245,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				} else if (this.evenements.length === 0) {
 					// No events displayed yet, add the first one
 					this.evenements.push(this.allStreamedEvents[0]);
+					this.lastFilterValue = '';
+					this.lastEventsLength = 0;
 					const eId = firstStreamedId;
 					if (eId) {
 						const loadingInfo: LoadingEventInfo = {
@@ -1257,6 +1280,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				const eventId = event.id || this.getEventKey(event);
 				if (!eventId || !this.isEventAlreadyLoaded(event)) {
 					this.evenements.push(event);
+					this.lastFilterValue = '';
+					this.lastEventsLength = 0;
 					// Load thumbnail for new event
 					if (eventId) {
 						const loadingInfo: LoadingEventInfo = {
@@ -1272,6 +1297,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					// Removed loadFileThumbnails() call to avoid double loading - queueThumbnailLoad() already loads the thumbnail
 				}
 			});
+			// Recompute filtered events after adding new events
+			this.computeFilteredEvents();
 			// Use immediate change detection for initial cards to display them faster
 			const isInitialCards = this.evenements.length <= this.INITIAL_CARDS_IMMEDIATE_DETECTION;
 			this.scheduleChangeDetection(isInitialCards);
@@ -1590,6 +1617,110 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	public isParticipant(evenement: Evenement): boolean {
 		return evenement.members.some(member => member.userName == this.user.userName);
+	}
+	
+	// Load friend groups for visibility selection
+	private loadFriendGroups(): void {
+		this._friendsService.getFriendGroups().subscribe(
+			groups => {
+				if (groups && Array.isArray(groups)) {
+					this.friendGroups = groups;
+				} else {
+					this.friendGroups = [];
+				}
+			},
+			error => {
+				console.error('Error loading friend groups:', error);
+				this.friendGroups = [];
+			}
+		);
+	}
+	
+	// Get available visibility options
+	public getVisibilityOptions(): Array<{value: string, label: string, friendGroupId?: string}> {
+		try {
+			const options: Array<{value: string, label: string, friendGroupId?: string}> = [
+				{ value: 'public', label: this.translateService.instant('EVENTCREATION.PUBLIC') },
+				{ value: 'private', label: this.translateService.instant('EVENTCREATION.PRIVATE') },
+				{ value: 'friends', label: this.translateService.instant('EVENTCREATION.FRIENDS') }
+			];
+			
+			// Add friend groups owned by the user
+			if (this.friendGroups && Array.isArray(this.friendGroups)) {
+				this.friendGroups.forEach(group => {
+					if (group && group.name && group.id) {
+						options.push({
+							value: group.name,
+							label: group.name,
+							friendGroupId: group.id
+						});
+					}
+				});
+			}
+			
+			return options;
+		} catch (error) {
+			console.error('Error getting visibility options:', error);
+			return [
+				{ value: 'public', label: 'Public' },
+				{ value: 'private', label: 'Private' },
+				{ value: 'friends', label: 'Friends' }
+			];
+		}
+	}
+	
+	// Open visibility selection modal
+	public openVisibilityModal(evenement: Evenement): void {
+		if (!this.isAuthor(evenement)) {
+			return;
+		}
+		
+		this.selectedEventForVisibility = evenement;
+		this.visibilityOptions = this.getVisibilityOptions();
+		
+		if (!this.visibilityModal) {
+			console.error('Visibility modal template not found');
+			return;
+		}
+		
+		this.modalService.open(this.visibilityModal, { 
+			size: 'sm', 
+			centered: true, 
+			backdrop: 'static', 
+			keyboard: false 
+		});
+	}
+	
+	// Handle visibility selection
+	public onVisibilitySelected(option: {value: string, label: string, friendGroupId?: string}): void {
+		if (!this.selectedEventForVisibility) {
+			return;
+		}
+		
+		this.selectedEventForVisibility.visibility = option.value;
+		if (option.friendGroupId) {
+			this.selectedEventForVisibility.friendGroupId = option.friendGroupId;
+		} else {
+			this.selectedEventForVisibility.friendGroupId = undefined;
+		}
+		
+		this.updEvent(this.selectedEventForVisibility);
+		this.selectedEventForVisibility = null;
+	}
+	
+	// Get visibility display text (for friend groups)
+	public getVisibilityDisplayText(evenement: Evenement): string {
+		if (evenement.visibility === 'public') {
+			return this.translateService.instant('EVENTCREATION.PUBLIC');
+		} else if (evenement.visibility === 'private') {
+			return this.translateService.instant('EVENTCREATION.PRIVATE');
+		} else if (evenement.visibility === 'friends') {
+			return this.translateService.instant('EVENTCREATION.FRIENDS');
+		} else if (evenement.friendGroupId) {
+			const group = this.friendGroups.find(g => g.id === evenement.friendGroupId);
+			return group ? group.name : evenement.visibility;
+		}
+		return evenement.visibility || '';
 	}
 
 
@@ -3593,7 +3724,72 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Get loading events text with fallback
 	// Get visible events count (cards currently displayed)
 	public getVisibleEventsCount(): number {
-		return this.evenements.length;
+		this.computeFilteredEvents();
+		return this.filteredEvents.length;
+	}
+	
+	// Compute filtered events based on visibility filter (including friend groups)
+	// IMPORTANT: Only filters already-loaded events in memory (this.evenements), NO backend calls
+	private computeFilteredEvents(): void {
+		// Return cached result if filter hasn't changed and events array size is the same
+		if (this.selectedVisibilityFilter === this.lastFilterValue && 
+		    this.evenements.length === this.lastEventsLength &&
+		    this.filteredEvents.length > 0) {
+			return; // Use cached result
+		}
+		
+		// Filter only the already-loaded events in memory (NO backend call)
+		if (this.selectedVisibilityFilter === 'all') {
+			// No filter - return all already-loaded events
+			this.filteredEvents = this.evenements;
+		} else {
+			// Pre-compute selected group outside the filter loop for better performance
+			let selectedGroupName: string | null = null;
+			const selectedGroup = this.friendGroups.find(g => g.id === this.selectedVisibilityFilter);
+			if (selectedGroup) {
+				selectedGroupName = selectedGroup.name;
+			}
+			
+			// Filter the already-loaded events array
+			this.filteredEvents = this.evenements.filter(event => {
+				// Check if it's a standard visibility (public, private, friends)
+				if (event.visibility === this.selectedVisibilityFilter) {
+					return true;
+				}
+				
+				// Check if it's a friend group filter by ID
+				if (event.friendGroupId === this.selectedVisibilityFilter) {
+					return true;
+				}
+				
+				// Check if event.visibility matches the selected friend group name
+				if (selectedGroupName && event.visibility === selectedGroupName) {
+					return true;
+				}
+				
+				return false;
+			});
+		}
+		
+		this.lastFilterValue = this.selectedVisibilityFilter;
+		this.lastEventsLength = this.evenements.length;
+	}
+	
+	// Get filtered events (public method for template)
+	public getFilteredEvents(): Evenement[] {
+		this.computeFilteredEvents();
+		return this.filteredEvents;
+	}
+	
+	// Handle visibility filter change
+	public onVisibilityFilterChange(): void {
+		// Reset cache to force recalculation
+		this.lastFilterValue = '';
+		this.lastEventsLength = 0;
+		// Compute filtered events immediately (synchronous for instant feedback)
+		this.computeFilteredEvents();
+		// Trigger change detection immediately for instant UI update
+		this.cdr.markForCheck();
 	}
 	
 	// Get loading events count

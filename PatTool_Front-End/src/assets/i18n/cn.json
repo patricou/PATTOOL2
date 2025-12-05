@@ -70,6 +70,7 @@
     "EVENTHOME": {
         "EVENTSLIST": "活动列表：",
         "EVENTFILTRE": "过滤 ....",
+        "FILTER_ALL": "全部",
         "NOEVENT": "没有要显示的活动 ....",
         "NO_LINKS_ADDED": "此活动未添加链接",
         "COMMENTARIES": "评论",
@@ -308,6 +309,7 @@
         "OPEN": "（重新）打开活动",
         "CANCEL": "取消活动",
         "CHGTSTATUS": "更改状态",
+        "CHANGE_VISIBILITY": "更改可见性",
         "UPLOAD": "上传文件（所有类型）",
         "PDF_DOCUMENTS": "PDF文档",
         "OPEN_PDF": "打开",
@@ -844,6 +846,22 @@
         "INVITE_TO_PATTOOL": "邀请使用 PATTOOL",
         "INVITATION_SENT": "邀请发送成功！",
         "EMAIL_ALREADY_REGISTERED": "此电子邮件已注册",
-        "INVITATION_ERROR": "发送邀请时出错"
+        "INVITATION_ERROR": "发送邀请时出错",
+        "FRIEND_GROUPS": "好友群组",
+        "CREATE_GROUP": "创建群组",
+        "CREATE_NEW_GROUP": "创建新群组",
+        "GROUP_NAME": "群组名称",
+        "ENTER_GROUP_NAME": "输入群组名称",
+        "SELECT_MEMBERS": "选择成员",
+        "NO_FRIENDS_TO_ADD": "您没有好友可以添加到群组",
+        "CREATE": "创建",
+        "CANCEL": "取消",
+        "NO_GROUPS": "您还没有好友群组",
+        "CREATED_ON": "创建于",
+        "MEMBERS": "成员",
+        "NO_MEMBERS": "此组中没有成员",
+        "EDIT": "编辑",
+        "DELETE": "删除",
+        "SAVE": "保存"
     }
 }

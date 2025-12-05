@@ -4,7 +4,7 @@ import { Observable, from } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 
 import { Member } from '../model/member';
-import { FriendRequest, FriendRequestStatus, Friend } from '../model/friend';
+import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../model/friend';
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
 
@@ -441,6 +441,258 @@ export class FriendsService {
                 ).pipe(
                     catchError((error: any) => {
                         console.error('Error sending invitation:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Create a new friend group
+     */
+    createFriendGroup(name: string, memberIds: string[]): Observable<FriendGroup> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.post<FriendGroup>(
+                    this.API_URL + 'friends/groups',
+                    { name, memberIds },
+                    { headers: headers }
+                ).pipe(
+                    map((res: any) => {
+                        return new FriendGroup(
+                            res.id || '',
+                            res.name || '',
+                            (res.members || []).map((m: any) => new Member(
+                                m.id || '',
+                                m.addressEmail || '',
+                                m.firstName || '',
+                                m.lastName || '',
+                                m.userName || '',
+                                m.roles || [],
+                                m.keycloakId || '',
+                                m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                m.locale || undefined
+                            )),
+                            res.owner ? new Member(
+                                res.owner.id || '',
+                                res.owner.addressEmail || '',
+                                res.owner.firstName || '',
+                                res.owner.lastName || '',
+                                res.owner.userName || '',
+                                res.owner.roles || [],
+                                res.owner.keycloakId || '',
+                                res.owner.registrationDate ? new Date(res.owner.registrationDate) : undefined,
+                                res.owner.lastConnectionDate ? new Date(res.owner.lastConnectionDate) : undefined,
+                                res.owner.locale || undefined
+                            ) : new Member('', '', '', '', '', [], ''),
+                            res.creationDate ? new Date(res.creationDate) : new Date()
+                        );
+                    }),
+                    catchError((error: any) => {
+                        console.error('Error creating friend group:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Get all friend groups for the current user
+     */
+    getFriendGroups(): Observable<FriendGroup[]> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.get<FriendGroup[]>(this.API_URL + 'friends/groups', { headers: headers }).pipe(
+                    map((res: any) => {
+                        return res.map((group: any) => {
+                            return new FriendGroup(
+                                group.id || '',
+                                group.name || '',
+                                (group.members || []).map((m: any) => new Member(
+                                    m.id || '',
+                                    m.addressEmail || '',
+                                    m.firstName || '',
+                                    m.lastName || '',
+                                    m.userName || '',
+                                    m.roles || [],
+                                    m.keycloakId || '',
+                                    m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                    m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                    m.locale || undefined
+                                )),
+                                group.owner ? new Member(
+                                    group.owner.id || '',
+                                    group.owner.addressEmail || '',
+                                    group.owner.firstName || '',
+                                    group.owner.lastName || '',
+                                    group.owner.userName || '',
+                                    group.owner.roles || [],
+                                    group.owner.keycloakId || '',
+                                    group.owner.registrationDate ? new Date(group.owner.registrationDate) : undefined,
+                                    group.owner.lastConnectionDate ? new Date(group.owner.lastConnectionDate) : undefined,
+                                    group.owner.locale || undefined
+                                ) : new Member('', '', '', '', '', [], ''),
+                                group.creationDate ? new Date(group.creationDate) : new Date()
+                            );
+                        });
+                    }),
+                    catchError((error: any) => {
+                        console.error('Error getting friend groups:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Get a specific friend group by ID
+     */
+    getFriendGroup(groupId: string): Observable<FriendGroup> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.get<FriendGroup>(this.API_URL + 'friends/groups/' + groupId, { headers: headers }).pipe(
+                    map((res: any) => {
+                        return new FriendGroup(
+                            res.id || '',
+                            res.name || '',
+                            (res.members || []).map((m: any) => new Member(
+                                m.id || '',
+                                m.addressEmail || '',
+                                m.firstName || '',
+                                m.lastName || '',
+                                m.userName || '',
+                                m.roles || [],
+                                m.keycloakId || '',
+                                m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                m.locale || undefined
+                            )),
+                            res.owner ? new Member(
+                                res.owner.id || '',
+                                res.owner.addressEmail || '',
+                                res.owner.firstName || '',
+                                res.owner.lastName || '',
+                                res.owner.userName || '',
+                                res.owner.roles || [],
+                                res.owner.keycloakId || '',
+                                res.owner.registrationDate ? new Date(res.owner.registrationDate) : undefined,
+                                res.owner.lastConnectionDate ? new Date(res.owner.lastConnectionDate) : undefined,
+                                res.owner.locale || undefined
+                            ) : new Member('', '', '', '', '', [], ''),
+                            res.creationDate ? new Date(res.creationDate) : new Date()
+                        );
+                    }),
+                    catchError((error: any) => {
+                        console.error('Error getting friend group:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Update a friend group
+     */
+    updateFriendGroup(groupId: string, name: string, memberIds: string[]): Observable<FriendGroup> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.put<FriendGroup>(
+                    this.API_URL + 'friends/groups/' + groupId,
+                    { name, memberIds },
+                    { headers: headers }
+                ).pipe(
+                    map((res: any) => {
+                        return new FriendGroup(
+                            res.id || '',
+                            res.name || '',
+                            (res.members || []).map((m: any) => new Member(
+                                m.id || '',
+                                m.addressEmail || '',
+                                m.firstName || '',
+                                m.lastName || '',
+                                m.userName || '',
+                                m.roles || [],
+                                m.keycloakId || '',
+                                m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                m.locale || undefined
+                            )),
+                            res.owner ? new Member(
+                                res.owner.id || '',
+                                res.owner.addressEmail || '',
+                                res.owner.firstName || '',
+                                res.owner.lastName || '',
+                                res.owner.userName || '',
+                                res.owner.roles || [],
+                                res.owner.keycloakId || '',
+                                res.owner.registrationDate ? new Date(res.owner.registrationDate) : undefined,
+                                res.owner.lastConnectionDate ? new Date(res.owner.lastConnectionDate) : undefined,
+                                res.owner.locale || undefined
+                            ) : new Member('', '', '', '', '', [], ''),
+                            res.creationDate ? new Date(res.creationDate) : new Date()
+                        );
+                    }),
+                    catchError((error: any) => {
+                        console.error('Error updating friend group:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Delete a friend group
+     */
+    deleteFriendGroup(groupId: string): Observable<any> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.delete<any>(
+                    this.API_URL + 'friends/groups/' + groupId,
+                    { headers: headers }
+                ).pipe(
+                    catchError((error: any) => {
+                        console.error('Error deleting friend group:', error);
                         throw error;
                     })
                 );
