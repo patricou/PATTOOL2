@@ -889,6 +889,8 @@
         "NO_FRIENDS_TO_AUTHORIZE": "ليس لديك أصدقاء للترخيص",
         "AUTHORIZED": "مصرح",
         "AUTHORIZED_TO_USE": "مصرح بالاستخدام",
+        "MEMBER": "عضو",
+        "OWNER": "المالك",
         "REMOVE": "إزالة"
     }
 }

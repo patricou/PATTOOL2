@@ -445,7 +445,7 @@ public class FriendsService {
     }
 
     /**
-     * Get all friend groups for a user (owned by the user or where user is authorized)
+     * Get all friend groups for a user (owned by the user, where user is authorized, or where user is a member)
      */
     public List<FriendGroup> getFriendGroups(Member user) {
         // Get groups owned by user
@@ -454,11 +454,34 @@ public class FriendsService {
         // Get groups where user is authorized
         List<FriendGroup> authorizedGroups = friendGroupRepository.findByAuthorizedUsersContaining(user);
         
-        // Combine and remove duplicates
-        java.util.Set<FriendGroup> allGroups = new java.util.HashSet<>(ownedGroups);
-        allGroups.addAll(authorizedGroups);
+        // Get groups where user is a member
+        List<FriendGroup> memberGroups = friendGroupRepository.findByMembersContaining(user);
         
-        return new java.util.ArrayList<>(allGroups);
+        // Combine and remove duplicates by ID
+        java.util.Map<String, FriendGroup> allGroupsMap = new java.util.LinkedHashMap<>();
+        
+        // Add owned groups
+        for (FriendGroup group : ownedGroups) {
+            if (group.getId() != null) {
+                allGroupsMap.put(group.getId(), group);
+            }
+        }
+        
+        // Add authorized groups (won't overwrite if already present)
+        for (FriendGroup group : authorizedGroups) {
+            if (group.getId() != null && !allGroupsMap.containsKey(group.getId())) {
+                allGroupsMap.put(group.getId(), group);
+            }
+        }
+        
+        // Add member groups (won't overwrite if already present)
+        for (FriendGroup group : memberGroups) {
+            if (group.getId() != null && !allGroupsMap.containsKey(group.getId())) {
+                allGroupsMap.put(group.getId(), group);
+            }
+        }
+        
+        return new java.util.ArrayList<>(allGroupsMap.values());
     }
 
     /**

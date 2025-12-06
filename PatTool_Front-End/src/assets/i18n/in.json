@@ -883,6 +883,8 @@
         "NO_FRIENDS_TO_AUTHORIZE": "आपके पास अधिकृत करने के लिए कोई दोस्त नहीं है",
         "AUTHORIZED": "अधिकृत",
         "AUTHORIZED_TO_USE": "उपयोग के लिए अधिकृत",
+        "MEMBER": "सदस्य",
+        "OWNER": "मालिक",
         "REMOVE": "हटाएं"
     }
 }

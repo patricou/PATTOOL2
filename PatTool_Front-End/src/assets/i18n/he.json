@@ -884,6 +884,8 @@
         "NO_FRIENDS_TO_AUTHORIZE": "אין לך חברים לאשר",
         "AUTHORIZED": "מורשה",
         "AUTHORIZED_TO_USE": "מורשה לשימוש",
+        "MEMBER": "חבר",
+        "OWNER": "בעלים",
         "REMOVE": "הסר"
     }
 }

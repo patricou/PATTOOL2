@@ -899,6 +899,8 @@
         "NO_FRIENDS_TO_AUTHORIZE": "You don't have any friends to authorize",
         "AUTHORIZED": "Authorized",
         "AUTHORIZED_TO_USE": "Authorized to use",
+        "MEMBER": "Member",
+        "OWNER": "Owner",
         "REMOVE": "Remove"
     }
 }

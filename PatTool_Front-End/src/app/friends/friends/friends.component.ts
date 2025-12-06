@@ -469,6 +469,22 @@ export class FriendsComponent implements OnInit {
     return group.owner && group.owner.id === this.currentUser.id;
   }
 
+  // Check if current user is authorized (but not owner)
+  isGroupAuthorized(group: FriendGroup): boolean {
+    if (this.isGroupOwner(group)) {
+      return false;
+    }
+    return !!(group.authorizedUsers && group.authorizedUsers.some(u => u.id === this.currentUser.id));
+  }
+
+  // Check if current user is a member (but not owner and not authorized)
+  isGroupMember(group: FriendGroup): boolean {
+    if (this.isGroupOwner(group) || this.isGroupAuthorized(group)) {
+      return false;
+    }
+    return !!(group.members && group.members.some(m => m.id === this.currentUser.id));
+  }
+
   // Start managing authorized users for a group
   startManagingAuthorizedUsers(group: FriendGroup) {
     if (!this.isGroupOwner(group)) {

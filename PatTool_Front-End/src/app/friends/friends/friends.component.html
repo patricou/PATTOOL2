@@ -483,23 +483,33 @@
                   </div>
                 </div>
               </div>
-              <div class="d-flex gap-2" *ngIf="isGroupOwner(group)">
-                <button 
-                  class="btn btn-sm btn-primary"
-                  (click)="startEditingGroup(group)">
-                  <i class="fa fa-edit"></i>
-                  {{ 'FRIENDS.EDIT' | translate }}
-                </button>
-                <button 
-                  class="btn btn-sm btn-danger"
-                  (click)="deleteFriendGroup(group.id)">
-                  <i class="fa fa-trash"></i>
-                  {{ 'FRIENDS.DELETE' | translate }}
-                </button>
+              <div class="d-flex flex-column align-items-end">
+                <div class="d-flex gap-2" *ngIf="isGroupOwner(group)">
+                  <button 
+                    class="btn btn-sm btn-primary"
+                    (click)="startEditingGroup(group)">
+                    <i class="fa fa-edit"></i>
+                    {{ 'FRIENDS.EDIT' | translate }}
+                  </button>
+                  <button 
+                    class="btn btn-sm btn-danger"
+                    (click)="deleteFriendGroup(group.id)">
+                    <i class="fa fa-trash"></i>
+                    {{ 'FRIENDS.DELETE' | translate }}
+                  </button>
+                </div>
+                <div *ngIf="isGroupOwner(group)" class="badge bg-success mt-2">
+                  <i class="fa fa-crown"></i>
+                  {{ 'FRIENDS.OWNER' | translate }}
+                </div>
               </div>
-              <div *ngIf="!isGroupOwner(group)" class="badge bg-info">
+              <div *ngIf="isGroupAuthorized(group)" class="badge bg-info">
                 <i class="fa fa-user-check"></i>
                 {{ 'FRIENDS.AUTHORIZED_TO_USE' | translate }}
+              </div>
+              <div *ngIf="isGroupMember(group)" class="badge bg-secondary">
+                <i class="fa fa-user"></i>
+                {{ 'FRIENDS.MEMBER' | translate }}
               </div>
             </div>
           </div>

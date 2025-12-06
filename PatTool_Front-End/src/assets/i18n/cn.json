@@ -891,6 +891,8 @@
         "NO_FRIENDS_TO_AUTHORIZE": "您没有可授权的朋友",
         "AUTHORIZED": "已授权",
         "AUTHORIZED_TO_USE": "授权使用",
+        "MEMBER": "成员",
+        "OWNER": "所有者",
         "REMOVE": "移除"
     }
 }

@@ -893,6 +893,8 @@
         "NO_FRIENDS_TO_AUTHORIZE": "承認する友達がいません",
         "AUTHORIZED": "承認済み",
         "AUTHORIZED_TO_USE": "使用許可済み",
+        "MEMBER": "メンバー",
+        "OWNER": "所有者",
         "REMOVE": "削除"
     }
 }
