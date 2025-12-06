@@ -21,6 +21,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * System information controller
@@ -218,12 +219,28 @@ public class SystemController {
             List<UserConnectionLog> logs = userConnectionLogRepository
                     .findByConnectionDateBetweenOrderByConnectionDateDesc(start, end);
             
+            // Filter out connection logs with invalid IP addresses (containing 0:0:0:0:0:0, ::, etc.)
+            List<UserConnectionLog> filteredLogs = logs.stream()
+                    .filter(log -> {
+                        String ipAddress = log.getIpAddress();
+                        if (ipAddress == null || ipAddress.isEmpty()) {
+                            return true; // Keep logs with null/empty IP
+                        }
+                        // Exclude IPs containing invalid patterns
+                        return !ipAddress.contains("0:0:0:0:0:0") &&
+                               !ipAddress.equals("::") &&
+                               !ipAddress.equals("0:0:0:0:0:0:0:0") &&
+                               !ipAddress.equals("::1") &&
+                               !ipAddress.startsWith("0:0:0:0:0:0");
+                    })
+                    .collect(Collectors.toList());
+            
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("logs", logs);
+            response.put("logs", filteredLogs);
             response.put("startDate", start);
             response.put("endDate", end);
-            response.put("count", logs.size());
+            response.put("count", filteredLogs.size());
             
             return ResponseEntity.ok()
                     .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)

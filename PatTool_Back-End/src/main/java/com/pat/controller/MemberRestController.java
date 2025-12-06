@@ -185,28 +185,33 @@ public class MemberRestController {
         Member newMember = membersRepository.save(member);
         log.debug("Member saved - ID: {}", newMember.getId());
         
-        // Save connection log to MongoDB
+        // Save connection log to MongoDB (skip if IP contains 0:0:0:0:0:0 or similar invalid patterns)
         try {
             String ipAddress = request.getHeader("X-Forwarded-For");
             if (ipAddress == null) {
                 ipAddress = request.getRemoteAddr();
             }
             
-            // Get IP information (domain name and location)
-            IpGeolocationService.IPInfo ipInfo = ipGeolocationService.getCompleteIpInfo(ipAddress);
-            String domainName = ipInfo.getDomainName() != null ? ipInfo.getDomainName() : "N/A";
-            String location = ipInfo.getLocation() != null ? ipInfo.getLocation() : "N/A";
-            
-            // Create and save connection log
-            UserConnectionLog connectionLog = new UserConnectionLog(
-                newMember,
-                now,
-                ipAddress,
-                domainName,
-                location
-            );
-            userConnectionLogRepository.save(connectionLog);
-            log.debug("Connection log saved for user: {}", newMember.getUserName());
+            // Skip saving connection log if IP contains invalid patterns (0:0:0:0:0:0, ::, etc.)
+            if (shouldSkipConnectionLog(ipAddress)) {
+                log.debug("Skipping connection log save for user: {} - Invalid IP pattern: {}", newMember.getUserName(), ipAddress);
+            } else {
+                // Get IP information (domain name and location)
+                IpGeolocationService.IPInfo ipInfo = ipGeolocationService.getCompleteIpInfo(ipAddress);
+                String domainName = ipInfo.getDomainName() != null ? ipInfo.getDomainName() : "N/A";
+                String location = ipInfo.getLocation() != null ? ipInfo.getLocation() : "N/A";
+                
+                // Create and save connection log
+                UserConnectionLog connectionLog = new UserConnectionLog(
+                    newMember,
+                    now,
+                    ipAddress,
+                    domainName,
+                    location
+                );
+                userConnectionLogRepository.save(connectionLog);
+                log.debug("Connection log saved for user: {}", newMember.getUserName());
+            }
         } catch (Exception e) {
             log.error("Error saving connection log for user: {}", newMember.getUserName(), e);
             // Don't fail the connection if logging fails
@@ -415,6 +420,34 @@ public class MemberRestController {
             // Check if this IP should be excluded
             if ("192.168.1.33".equals(trimmedIp)) {
                 return true; // Exclude connection emails only, not reports
+            }
+        }
+        
+        return false;
+    }
+
+    /**
+     * Check if connection log should be skipped based on IP address
+     * Skips IPs containing invalid patterns like 0:0:0:0:0:0, ::, 0:0:0:0:0:0:0:0, etc.
+     * @param ipAddress The IP address to check (may contain multiple IPs separated by commas)
+     * @return true if connection log should be skipped, false otherwise
+     */
+    private boolean shouldSkipConnectionLog(String ipAddress) {
+        if (ipAddress == null || ipAddress.isEmpty()) {
+            return false;
+        }
+        
+        // Handle X-Forwarded-For which may contain multiple IPs separated by commas
+        String[] ips = ipAddress.split(",");
+        for (String ip : ips) {
+            String trimmedIp = ip.trim();
+            // Check for IPv6 patterns containing 0:0:0:0:0:0 or similar invalid patterns
+            if (trimmedIp.contains("0:0:0:0:0:0") || 
+                trimmedIp.equals("::") || 
+                trimmedIp.equals("0:0:0:0:0:0:0:0") ||
+                trimmedIp.equals("::1") ||
+                trimmedIp.startsWith("0:0:0:0:0:0")) {
+                return true;
             }
         }
         
