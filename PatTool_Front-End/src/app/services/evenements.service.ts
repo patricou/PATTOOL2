@@ -63,7 +63,9 @@ export class EvenementsService {
 							evenement.visibility,
 							evenement.urlEvents || [],
 							evenement.commentaries || [],
-							evenement.thumbnail
+							evenement.thumbnail,
+							evenement.friendGroupId,
+							evenement.discussionId
 						)
 					})
 				)
@@ -416,7 +418,9 @@ export class EvenementsService {
 					parsed.visibility || '',
 					parsed.urlEvents || [],
 					parsed.commentaries || [],
-					parsed.thumbnail
+					parsed.thumbnail,
+					parsed.friendGroupId,
+					parsed.discussionId
 				);
 				subject.next({
 					type: 'event',

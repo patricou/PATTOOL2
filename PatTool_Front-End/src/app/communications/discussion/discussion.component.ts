@@ -1,22 +1,24 @@
-// Discussion Component - Replaced Firebase with MongoDB backend
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+// Discussion Component - Reusable component for discussions
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { DiscussionService, Discussion, DiscussionMessage } from '../../services/discussion.service';
 import { Member } from '../../model/member';
 import { MembersService } from '../../services/members.service';
 import { Subscription } from 'rxjs';
 
 @Component({
-  selector: 'app-chat',
-  templateUrl: './chat.component.html',
-  styleUrls: ['./chat.component.css']
+  selector: 'app-discussion',
+  templateUrl: './discussion.component.html',
+  styleUrls: ['./discussion.component.css']
 })
-export class ChatComponent implements OnInit, OnDestroy {
+export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
+  @Input() discussionId: string | null = null; // ID of the discussion to load
+  @Input() title: string = ''; // Optional title for the discussion
+  @Input() showTitle: boolean = true; // Whether to show the title section
 
   public messages: DiscussionMessage[] = [];
   public msgVal: string = '';
   public user: Member = new Member("", "", "", "", "", [], "");
   public currentDiscussion: Discussion | null = null;
-  public discussions: Discussion[] = [];
   public selectedImage: File | null = null;
   public selectedVideo: File | null = null;
   public imagePreview: string | null = null;
@@ -40,85 +42,281 @@ export class ChatComponent implements OnInit, OnDestroy {
     public _memberService: MembersService
   ) {}
 
-  async ngOnInit() {
+  ngOnInit() {
+    const logMsg = '[DiscussionComponent] ngOnInit - Component initializing';
+    console.log(logMsg);
+    this.persistLog(logMsg);
+    
     try {
       this.user = this._memberService.getUser();
-      console.log('Discussion component initialized with user:', this.user);
-
-      // Load or create default discussion
-      await this.loadOrCreateDefaultDiscussion();
+      const userMsg = `[DiscussionComponent] ngOnInit - User: ${this.user?.userName}`;
+      console.log(userMsg);
+      this.persistLog(userMsg);
+      
+      const idMsg = `[DiscussionComponent] ngOnInit - discussionId input: ${this.discussionId}`;
+      console.log(idMsg);
+      this.persistLog(idMsg);
+      
+      // Load discussion immediately - no delay needed
+      const loadMsg = '[DiscussionComponent] ngOnInit - Starting loadDiscussion';
+      console.log(loadMsg);
+      this.persistLog(loadMsg);
+      
+      this.loadDiscussion();
     } catch (error) {
-      console.error('Error initializing discussion component:', error);
+      const errorMsg = `[DiscussionComponent] ngOnInit - Error during initialization: ${error}`;
+      console.error(errorMsg);
+      this.persistLog(errorMsg, 'ERROR');
+      // Don't let errors break the component
     }
   }
 
+  /**
+   * Persist log to localStorage so we can see it even after redirect
+   */
+  private persistLog(message: string, level: string = 'INFO') {
+    try {
+      const logs = JSON.parse(localStorage.getItem('discussionLogs') || '[]');
+      const timestamp = new Date().toISOString();
+      logs.push({ timestamp, level, message });
+      // Keep only last 100 logs
+      if (logs.length > 100) {
+        logs.shift();
+      }
+      localStorage.setItem('discussionLogs', JSON.stringify(logs));
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+  }
+
+  /**
+   * Get persisted logs - call this method from browser console: 
+   * localStorage.getItem('discussionLogs')
+   * or
+   * JSON.parse(localStorage.getItem('discussionLogs'))
+   */
+  public static getPersistedLogs(): any[] {
+    try {
+      return JSON.parse(localStorage.getItem('discussionLogs') || '[]');
+    } catch (e) {
+      return [];
+    }
+  }
+
+  /**
+   * Clear persisted logs
+   */
+  public static clearPersistedLogs(): void {
+    localStorage.removeItem('discussionLogs');
+  }
+
+  /**
+   * Display persisted logs in console - can be called from browser console
+   */
+  public static displayPersistedLogs(): any[] {
+    const logs = DiscussionComponent.getPersistedLogs();
+    console.group('📋 Discussion Component Logs');
+    logs.forEach((log: any) => {
+      const style = log.level === 'ERROR' ? 'color: red' : log.level === 'WARN' ? 'color: orange' : 'color: blue';
+      console.log(`%c[${log.level}] ${log.timestamp}`, style, log.message);
+    });
+    console.groupEnd();
+    return logs;
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    // Reload discussion if discussionId changes
+    if (changes['discussionId'] && !changes['discussionId'].firstChange) {
+      this.disconnectWebSocket();
+      this.loadDiscussion();
+    }
+  }
 
   ngOnDestroy() {
-    // Unsubscribe from WebSocket
+    this.disconnectWebSocket();
     if (this.messageSubscription) {
       this.messageSubscription.unsubscribe();
     }
     if (this.discussionsSubscription) {
       this.discussionsSubscription.unsubscribe();
     }
-    // Disconnect WebSocket
-    if (this.currentDiscussion?.id) {
-      this.discussionService.disconnectWebSocket();
+  }
+
+  /**
+   * Load discussion by ID or use default
+   */
+  private loadDiscussion() {
+    const msg = '[DiscussionComponent] loadDiscussion - Called';
+    console.log(msg);
+    this.persistLog(msg);
+    
+    const idMsg = `[DiscussionComponent] loadDiscussion - discussionId: ${this.discussionId}`;
+    console.log(idMsg);
+    this.persistLog(idMsg);
+    
+    try {
+      if (this.discussionId) {
+        // Load specific discussion by ID
+        const loadMsg = '[DiscussionComponent] loadDiscussion - Loading specific discussion by ID';
+        console.log(loadMsg);
+        this.persistLog(loadMsg);
+        this.loadDiscussionById(this.discussionId);
+      } else {
+        // Load default discussion
+        const defaultMsg = '[DiscussionComponent] loadDiscussion - Loading default discussion';
+        console.log(defaultMsg);
+        this.persistLog(defaultMsg);
+        this.loadOrCreateDefaultDiscussion();
+      }
+    } catch (error) {
+      const errorMsg = `[DiscussionComponent] loadDiscussion - Error in loadDiscussion: ${error}`;
+      console.error(errorMsg);
+      this.persistLog(errorMsg, 'ERROR');
+      // Don't let errors break the component
+      this.isLoading = false;
+      this.connectionStatus = 'Error loading discussion';
     }
+  }
+
+  /**
+   * Load a specific discussion by ID
+   */
+  private loadDiscussionById(id: string) {
+    console.log('[DiscussionComponent] loadDiscussionById - Starting, ID:', id);
+    this.isLoading = true;
+    this.connectionStatus = 'Loading discussion...';
+    
+    this.discussionsSubscription = this.discussionService.getDiscussionById(id).subscribe({
+      next: (discussion) => {
+        console.log('[DiscussionComponent] loadDiscussionById - Received discussion:', discussion);
+        if (discussion && discussion.id) {
+          console.log('[DiscussionComponent] loadDiscussionById - Discussion loaded, ID:', discussion.id);
+          this.currentDiscussion = discussion;
+          this.loadMessages();
+          console.log('[DiscussionComponent] loadDiscussionById - Calling connectWebSocket');
+          this.connectWebSocket();
+        } else {
+          console.warn('[DiscussionComponent] loadDiscussionById - Discussion not found or invalid');
+          this.connectionStatus = 'Discussion not found';
+          this.isLoading = false;
+        }
+      },
+      error: (error) => {
+        console.error('[DiscussionComponent] loadDiscussionById - Error loading discussion:', error);
+        this.connectionStatus = 'Error loading discussion';
+        this.isLoading = false;
+      }
+    });
   }
 
   /**
    * Load or create the default discussion
    */
   private async loadOrCreateDefaultDiscussion() {
+    console.log('[DiscussionComponent] loadOrCreateDefaultDiscussion - Starting');
     try {
       this.isLoading = true;
-      this.connectionStatus = 'Loading discussions...';
+      this.connectionStatus = 'Loading Discussion Generale...';
       
-      // Get all discussions
-      this.discussionsSubscription = this.discussionService.getAllDiscussions().subscribe({
-        next: (discussions) => {
-          this.discussions = discussions;
+      // Try to get the default discussion first
+      console.log('[DiscussionComponent] loadOrCreateDefaultDiscussion - Calling getDefaultDiscussion()');
+      this.discussionsSubscription = this.discussionService.getDefaultDiscussion().subscribe({
+        next: (discussion: Discussion) => {
+          const msg = `[DiscussionComponent] loadOrCreateDefaultDiscussion - Received discussion: ${JSON.stringify(discussion)}`;
+          console.log(msg);
+          this.persistLog(msg);
           
-          // Use the first discussion or create a new one
-          if (discussions.length > 0) {
-            this.currentDiscussion = discussions[0];
+          if (discussion && discussion.id) {
+            const loadedMsg = `[DiscussionComponent] loadOrCreateDefaultDiscussion - Discussion loaded, ID: ${discussion.id}`;
+            console.log(loadedMsg);
+            this.persistLog(loadedMsg);
+            this.currentDiscussion = discussion;
             this.loadMessages();
+            // Connect WebSocket immediately - no delay needed
+            // Note: isLoading will be set to false in loadMessages() after messages are loaded
+            const connectMsg = '[DiscussionComponent] loadOrCreateDefaultDiscussion - Calling connectWebSocket';
+            console.log(connectMsg);
+            this.persistLog(connectMsg);
             this.connectWebSocket();
           } else {
-            // Create a new default discussion
-            this.createDefaultDiscussion();
+            const warnMsg = '[DiscussionComponent] loadOrCreateDefaultDiscussion - Discussion not found or invalid, falling back';
+            console.warn(warnMsg);
+            this.persistLog(warnMsg, 'WARN');
+            // If default discussion not found, try to get all discussions as fallback
+            this.fallbackToFirstDiscussion();
           }
-          this.isLoading = false;
+          // Don't set isLoading = false here - let loadMessages() or fallbackToFirstDiscussion() handle it
         },
-        error: (error) => {
-          console.error('Error loading discussions:', error);
-          this.connectionStatus = 'Error loading discussions';
-          // Try to create a default discussion anyway
-          this.createDefaultDiscussion();
-          this.isLoading = false;
+        error: (error: any) => {
+          const errorMsg = `[DiscussionComponent] loadOrCreateDefaultDiscussion - Error loading default discussion: ${error?.status || 'unknown'} - ${error?.message || error}`;
+          console.error(errorMsg);
+          this.persistLog(errorMsg, 'ERROR');
+          
+          // If it's a 401, the interceptor will redirect to login, so don't try fallback
+          if (error?.status === 401) {
+            const authMsg = '[DiscussionComponent] loadOrCreateDefaultDiscussion - 401 Unauthorized - will be redirected to login';
+            console.error(authMsg);
+            this.persistLog(authMsg, 'ERROR');
+            this.isLoading = false;
+            return;
+          }
+          
+          // Fallback: try to get all discussions (like the old code did)
+          this.fallbackToFirstDiscussion();
         }
       });
     } catch (error) {
-      console.error('Error in loadOrCreateDefaultDiscussion:', error);
-      this.connectionStatus = 'Error initializing';
-      this.isLoading = false;
+      console.error('[DiscussionComponent] loadOrCreateDefaultDiscussion - Exception caught:', error);
+      // Fallback: try to get all discussions
+      this.fallbackToFirstDiscussion();
     }
+  }
+
+  /**
+   * Fallback method: get all discussions and use the first one, or create a new one
+   */
+  private fallbackToFirstDiscussion() {
+    this.connectionStatus = 'Loading discussions...';
+    this.discussionService.getAllDiscussions().subscribe({
+      next: (discussions) => {
+        if (discussions.length > 0) {
+          this.currentDiscussion = discussions[0];
+          this.loadMessages();
+          // Connect WebSocket after messages are loaded
+          this.connectWebSocket();
+        } else {
+          // Create a new default discussion
+          this.createDefaultDiscussion();
+        }
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading discussions:', error);
+        this.connectionStatus = 'Error loading discussions';
+        // Try to create a default discussion anyway
+        this.createDefaultDiscussion();
+        this.isLoading = false;
+      }
+    });
   }
 
   /**
    * Create a default discussion
    */
   private createDefaultDiscussion() {
+    this.connectionStatus = 'Creating default discussion...';
     this.discussionService.createDiscussion('Global Discussion').subscribe({
       next: (discussion) => {
         this.currentDiscussion = discussion;
-        this.discussions.push(discussion);
         this.loadMessages();
+        // Connect WebSocket after messages are loaded
+        // Note: isLoading will be set to false in loadMessages() after messages are loaded
         this.connectWebSocket();
       },
       error: (error) => {
         console.error('Error creating default discussion:', error);
+        this.connectionStatus = 'Error creating discussion';
+        this.isLoading = false; // Ensure loading is false on error
         alert('Error creating discussion: ' + (error.message || error));
       }
     });
@@ -129,6 +327,7 @@ export class ChatComponent implements OnInit, OnDestroy {
    */
   private loadMessages() {
     if (!this.currentDiscussion?.id) {
+      this.isLoading = false; // Ensure loading is false if no discussion ID
       return;
     }
 
@@ -141,9 +340,14 @@ export class ChatComponent implements OnInit, OnDestroy {
           return dateA - dateB; // Oldest first (ascending order)
         });
         this.scrollToBottom();
+        // IMPORTANT: Set isLoading to false after messages are loaded
+        this.isLoading = false;
+        console.log('[DiscussionComponent] loadMessages - Messages loaded, isLoading set to false');
       },
       error: (error) => {
-        console.error('Error loading messages:', error);
+        console.error('[DiscussionComponent] loadMessages - Error loading messages:', error);
+        // Don't let errors break the component - just log them
+        this.isLoading = false;
       }
     });
   }
@@ -152,25 +356,53 @@ export class ChatComponent implements OnInit, OnDestroy {
    * Connect to WebSocket for real-time updates
    */
   private connectWebSocket() {
+    console.log('[DiscussionComponent] connectWebSocket - Called');
+    console.log('[DiscussionComponent] connectWebSocket - currentDiscussion:', this.currentDiscussion);
+    console.log('[DiscussionComponent] connectWebSocket - currentDiscussion?.id:', this.currentDiscussion?.id);
+    
     if (!this.currentDiscussion?.id) {
+      console.warn('[DiscussionComponent] connectWebSocket - No discussion ID, aborting');
       return;
     }
 
+    console.log('[DiscussionComponent] connectWebSocket - Discussion ID found:', this.currentDiscussion.id);
     this.isConnecting = true;
     this.connectionStatus = 'Connecting';
 
     // Subscribe to real-time messages FIRST, before connecting
+    console.log('[DiscussionComponent] connectWebSocket - Subscribing to message observable');
     this.messageSubscription = this.discussionService.getMessageObservable().subscribe({
       next: (data) => {
-        // Handle status updates
+        console.log('[DiscussionComponent] connectWebSocket - Message received:', data);
+        
+        // Handle status updates - they may not have discussionId, so check action first
         if (data.action === 'status') {
+          // Status messages apply to current discussion if discussionId matches or is undefined
+          if (data.discussionId && data.discussionId !== this.currentDiscussion?.id) {
+            console.log('[DiscussionComponent] connectWebSocket - Status for different discussion, ignoring. Expected:', this.currentDiscussion?.id, 'Got:', data.discussionId);
+            return;
+          }
+          
+          console.log('[DiscussionComponent] connectWebSocket - Status update:', data.status);
           this.connectionStatus = data.status;
           if (data.status === 'Connected') {
+            console.log('[DiscussionComponent] connectWebSocket - Connected successfully!');
             this.isConnecting = false;
           } else if (data.status.includes('error') || data.status.includes('timeout') || data.status === 'Disconnected') {
+            console.warn('[DiscussionComponent] connectWebSocket - Connection error/timeout:', data.status);
             this.isConnecting = false;
           }
-        } else if (data.action === 'delete') {
+          return; // Status messages handled, don't process further
+        }
+        
+        // Only process other messages for the current discussion
+        if (data.discussionId !== this.currentDiscussion?.id) {
+          console.log('[DiscussionComponent] connectWebSocket - Message for different discussion, ignoring. Expected:', this.currentDiscussion?.id, 'Got:', data.discussionId);
+          return;
+        }
+
+        // Handle other message actions
+        if (data.action === 'delete') {
           // Remove deleted message
           this.messages = this.messages.filter(msg => msg.id !== data.messageId);
         } else if (data.action === 'update' && data.message) {
@@ -197,14 +429,16 @@ export class ChatComponent implements OnInit, OnDestroy {
         }
       },
       error: (error) => {
-        console.error('WebSocket error:', error);
+        console.error('[DiscussionComponent] connectWebSocket - Observable error:', error);
         this.isConnecting = false;
         this.connectionStatus = 'Connection error';
       }
     });
 
     // Connect to WebSocket AFTER subscribing to messages
+    console.log('[DiscussionComponent] connectWebSocket - Calling discussionService.connectWebSocket with ID:', this.currentDiscussion.id);
     this.discussionService.connectWebSocket(this.currentDiscussion.id);
+    console.log('[DiscussionComponent] connectWebSocket - connectWebSocket call completed');
 
     // Timeout after 10 seconds if still connecting
     setTimeout(() => {
@@ -213,6 +447,15 @@ export class ChatComponent implements OnInit, OnDestroy {
         this.connectionStatus = 'Connection timeout - messages may not update in real-time';
       }
     }, 10000);
+  }
+
+  /**
+   * Disconnect from WebSocket
+   */
+  private disconnectWebSocket() {
+    if (this.currentDiscussion?.id) {
+      this.discussionService.disconnectWebSocket();
+    }
   }
 
   /**
@@ -475,7 +718,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   /**
    * Track by function for ngFor
    */
-  trackByMessageId(index: number, item: DiscussionMessage): string {
+  public trackByMessageId(index: number, item: DiscussionMessage): string {
     return item.id || index.toString();
   }
 
@@ -584,3 +827,4 @@ export class ChatComponent implements OnInit, OnDestroy {
     ];
   }
 }
+

@@ -31,6 +31,8 @@ public class FriendGroup {
     
     @NotNull
     private Date creationDate;
+    
+    private String discussionId; // ID of the discussion associated with this friend group
 
     public FriendGroup() {
     }
@@ -88,6 +90,14 @@ public class FriendGroup {
 
     public void setAuthorizedUsers(List<Member> authorizedUsers) {
         this.authorizedUsers = authorizedUsers != null ? authorizedUsers : new ArrayList<>();
+    }
+
+    public String getDiscussionId() {
+        return discussionId;
+    }
+
+    public void setDiscussionId(String discussionId) {
+        this.discussionId = discussionId;
     }
 }
 

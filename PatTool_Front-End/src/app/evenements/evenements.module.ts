@@ -26,6 +26,7 @@ import { SlideshowModalModule } from '../shared/slideshow-modal/slideshow-modal.
 import { VideoshowModalModule } from '../shared/videoshow-modal/videoshow-modal.module';
 import { PhotosSelectorModalModule } from '../shared/photos-selector-modal/photos-selector-modal.module';
 import { TraceViewerModalModule } from '../shared/trace-viewer-modal/trace-viewer-modal.module';
+import { ChatModule } from '../communications/communications.module';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -52,7 +53,8 @@ export function HttpLoaderFactory(http: HttpClient) {
 		SlideshowModalModule,
 		VideoshowModalModule,
 		PhotosSelectorModalModule,
-		TraceViewerModalModule
+		TraceViewerModalModule,
+		ChatModule
 	],
 	declarations: [
 		HomeEvenementsComponent,
@@ -70,9 +72,9 @@ export function HttpLoaderFactory(http: HttpClient) {
 		EvenementsService,
 		WindowRefService,
 		CommonvaluesService,
-		// Firebase providers for this module
+		// Firebase providers for event-specific chats (not for global discussion)
 		provideFirebaseApp(() => initializeApp(environment.firebase)),
-    provideDatabase(() => getDatabase()),
+		provideDatabase(() => getDatabase()),
 		provideAuth(() => getAuth())
 	]
 })

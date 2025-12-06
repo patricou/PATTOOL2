@@ -8,6 +8,8 @@ import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
 import { FriendsService } from '../services/friends.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { ChatModule } from '../communications/communications.module';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -27,7 +29,9 @@ export function HttpLoaderFactory(http: HttpClient) {
         deps: [HttpClient]
       }
     }),
-    NavigationButtonsModule
+    NavigationButtonsModule,
+    NgbModule,
+    ChatModule
   ],
   declarations: [FriendsComponent],
   exports: [FriendsComponent],

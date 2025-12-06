@@ -515,6 +515,10 @@ public class FriendsService {
             group.setName(name.trim());
         }
 
+        // Preserve discussionId if it exists (don't overwrite it)
+        // discussionId should only be set when creating a discussion, not during group updates
+        // So we keep the existing discussionId if present
+
         // Validate and set members
         if (memberIds != null) {
             List<Member> members = new java.util.ArrayList<>();
@@ -526,7 +530,8 @@ public class FriendsService {
                 Member member = memberOpt.get();
                 
                 // Check if member is a friend of the owner
-                if (!areFriends(owner, member)) {
+                // Skip friendship check if the member is the owner themselves (owner can always be a member of their own group)
+                if (!member.getId().equals(owner.getId()) && !areFriends(owner, member)) {
                     throw new IllegalStateException("Member " + member.getUserName() + " is not a friend of the owner");
                 }
                 

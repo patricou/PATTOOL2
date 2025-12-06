@@ -1,4 +1,4 @@
-<!-- Chat Component - Modern Design -->
+<!-- Chat Component - Uses reusable discussion component -->
 <div class="chat-container">
     <!-- Header Section -->
     <div class="pat-title">
@@ -6,85 +6,14 @@
         <div class="pat-title-subtitle">{{ "RESULTS.SUBTITLE" | translate }}</div>
         <div class="chat-stats">
             <i class="fa fa-users"></i>
-            <span>{{ (items | async)?.length || 0 }} {{ "RESULTS.MESSAGES" | translate }}</span>
+            <span>{{ "RESULTS.MESSAGES" | translate }}</span>
         </div>
         <app-navigation-buttons></app-navigation-buttons>
     </div>
 
-    <!-- Input Section -->
-    <div class="input-container">
-        <div class="input-wrapper">
-            <div class="input-group">
-                <textarea 
-                    [(ngModel)]="msgVal" 
-                    type="text" 
-                    id="message" 
-                    placeholder="{{ 'RESULTS.MESSAGEPLHD' | translate }}"
-                    (keydown.enter)="Send()" 
-                    (keydown.enter.shift)="$event.preventDefault()"
-                    class="message-input"
-                    rows="1"
-                    #messageInput>
-                </textarea>
-                <button class="btn-send" 
-                        type="button" 
-                        (click)="Send()"
-                        [disabled]="!msgVal.trim()"
-                        title="Envoyer le message">
-                    <i class="fa fa-paper-plane"></i>
-                </button>
-            </div>
-            <div class="input-footer">
-                <small class="input-hint">
-                    <i class="fa fa-keyboard-o"></i>
-                    {{ "RESULTS.INPUT_HINT" | translate }}
-                </small>
-            </div>
-        </div>
-    </div>
-
-    <!-- Messages Container -->
-    <div class="messages-container">
-        <div class="messages-list" #messagesList>
-            <div class="message-item" 
-                 *ngFor="let item of items | async; trackBy: trackByMessageId"
-                 [class.own-message]="item.user.userName === user.userName">
-                
-                <!-- Message Header -->
-                <div class="message-header">
-                    <div class="user-info">
-                        <div class="user-avatar">
-                            <i class="fa fa-user"></i>
-                        </div>
-                        <div class="user-details">
-                            <span class="user-name">{{item.user.firstName}} {{item.user.lastName}}</span>
-                            <span class="message-time">{{item.date | date:'short'}} {{item.date | date:'shortTime'}}</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Message Content -->
-                <div class="message-content">
-                    <div class="message-text-container">
-                        <p class="message-text">{{item.message}}</p>
-                        <button class="btn-delete" 
-                                *ngIf="item.user.userName === user.userName"
-                                (click)="deleteMessage(item)"
-                                title="Supprimer le message">
-                            <i class="fa fa-trash"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Empty State -->
-            <div class="empty-state" *ngIf="!(items | async)?.length">
-                <div class="empty-icon">
-                    <i class="fa fa-comment-slash"></i>
-                </div>
-                <h3>Aucun message</h3>
-                <p>Soyez le premier à envoyer un message dans le chat global !</p>
-            </div>
-        </div>
+    <!-- Chat Content Container -->
+    <div class="chat-content-container">
+        <!-- Use the reusable discussion component -->
+        <app-discussion [showTitle]="false"></app-discussion>
     </div>
 </div>

@@ -307,6 +307,15 @@
             (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-comments" aria-hidden="true"></i> {{ getCommentsCount() }}
     </button>
+
+    <button class="btn btn-sm btn-outline-info mb-1 me-1 dynamic-footer-btn" 
+            [ngStyle]="getFooterButtonStyles('discussion')"
+            (click)="openDiscussionModal()" 
+            placement="top"
+            ngbTooltip="Ouvrir la discussion"
+            (mouseleave)="onTooltipMouseLeave($event)">
+        <i class="fa fa-comments" aria-hidden="true"></i>
+    </button>
     
     <a class="btn btn-sm btn-success mb-1 me-1 dynamic-footer-btn" 
        [ngStyle]="getFooterButtonStyles('participation')"

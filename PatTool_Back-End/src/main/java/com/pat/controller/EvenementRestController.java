@@ -1340,6 +1340,15 @@ public class EvenementRestController {
                     evenement.setThumbnail(existingEvent.getThumbnail());
                 }
                 
+                // Preserve discussionId if it exists and new one is not provided
+                // If a new discussionId is provided, it will be saved (don't overwrite with existing)
+                if (evenement.getDiscussionId() == null || evenement.getDiscussionId().trim().isEmpty()) {
+                    if (existingEvent.getDiscussionId() != null && !existingEvent.getDiscussionId().trim().isEmpty()) {
+                        evenement.setDiscussionId(existingEvent.getDiscussionId());
+                    }
+                }
+                // If evenement.getDiscussionId() is not null and not empty, it will be saved as-is
+                
                 // Preserve original author to prevent ownership changes
                 // This ensures that only the original owner can make changes
                 if (existingEvent.getAuthor() != null) {

@@ -484,6 +484,14 @@
                 </div>
               </div>
               <div class="d-flex flex-column align-items-end">
+                <div class="d-flex gap-2 mb-2">
+                  <button 
+                    class="btn btn-sm btn-info"
+                    (click)="openDiscussionModal(group)">
+                    <i class="fa fa-comment-dots"></i>
+                    Discussion
+                  </button>
+                </div>
                 <div class="d-flex gap-2" *ngIf="isGroupOwner(group)">
                   <button 
                     class="btn btn-sm btn-primary"

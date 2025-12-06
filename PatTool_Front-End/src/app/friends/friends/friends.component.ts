@@ -4,6 +4,9 @@ import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../../m
 import { FriendsService } from '../../services/friends.service';
 import { MembersService } from '../../services/members.service';
 import { TranslateService } from '@ngx-translate/core';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
+import { DiscussionService } from '../../services/discussion.service';
 
 @Component({
   selector: 'app-friends',
@@ -42,7 +45,9 @@ export class FriendsComponent implements OnInit {
   constructor(
     private _friendsService: FriendsService,
     private _memberService: MembersService,
-    private _translateService: TranslateService
+    private _translateService: TranslateService,
+    private modalService: NgbModal,
+    private _discussionService: DiscussionService
   ) { }
 
   ngOnInit() {
@@ -498,6 +503,179 @@ export class FriendsComponent implements OnInit {
   cancelManagingAuthorizedUsers() {
     this.managingAuthorizedUsersGroupId = null;
     this.selectedAuthorizedUsers = [];
+  }
+
+  // Open discussion modal for a friend group
+  openDiscussionModal(group: FriendGroup, discussionId?: string) {
+    try {
+      // Get or create discussion for this friend group
+      const groupDiscussionId = group.discussionId || discussionId;
+      const discussionTitle = 'Discussion - ' + group.name;
+      
+      // Get or create the discussion
+      this._discussionService.getOrCreateDiscussion(groupDiscussionId, discussionTitle).subscribe({
+        next: (discussion) => {
+          try {
+            // Update the group's discussionId if:
+            // 1. The group doesn't have a discussionId yet (first time creation), OR
+            // 2. The discussion ID is different from what we tried to get (meaning a new one was created because the old one didn't exist - 404 case)
+            // This condition handles both scenarios:
+            // - First time: group.discussionId is null/undefined, discussion.id is new ID → condition is true
+            // - Replacement: group.discussionId is old invalid ID, discussion.id is new ID → condition is true
+            // Open modal FIRST, then update group in background
+            // This ensures the modal opens immediately even if update fails
+            this.openDiscussionModalInternal(discussion, discussionTitle);
+            
+            // Update the group's discussionId if needed (do this in background)
+            if (discussion.id && (group.discussionId !== discussion.id)) {
+              const oldDiscussionId = group.discussionId;
+              group.discussionId = discussion.id;
+              console.log('Updating friend group discussionId:', oldDiscussionId, '→', discussion.id);
+              
+              // Safely map members to IDs, filtering out any invalid members
+              const memberIds = (group.members || [])
+                .filter(m => m && m.id)
+                .map(m => m.id);
+              
+              if (!group.id) {
+                console.error('Cannot update friend group: group.id is missing');
+                return;
+              }
+              
+              // Update the group in the backend (in background, don't block modal)
+              // Note: We only update the discussionId, so we pass the existing members
+              // The backend will automatically add the owner if not present
+              this._friendsService.updateFriendGroup(
+                group.id,
+                group.name || '',
+                memberIds,
+                discussion.id
+              ).subscribe({
+                next: (updatedGroup) => {
+              console.log('Friend group discussionId saved to backend:', discussion.id);
+              console.log('Updated group from backend - Full object:', JSON.stringify(updatedGroup, null, 2));
+              console.log('Updated group discussionId:', updatedGroup.discussionId);
+              
+              // Update the local group object with the fetched data
+              // This ensures the cache in the component is synchronized with the backend
+              const groupIndex = this.friendGroups.findIndex(g => g.id === group.id);
+              console.log('Group index in array:', groupIndex);
+              console.log('Current group discussionId before update:', group.discussionId);
+              
+              if (groupIndex !== -1) {
+                // Replace the entire group object in the array to ensure all properties are updated
+                // Create a new array reference to trigger Angular change detection
+                this.friendGroups = [
+                  ...this.friendGroups.slice(0, groupIndex),
+                  updatedGroup,
+                  ...this.friendGroups.slice(groupIndex + 1)
+                ];
+                // Also update the passed group object reference
+                group.id = updatedGroup.id;
+                group.name = updatedGroup.name;
+                group.members = updatedGroup.members;
+                group.owner = updatedGroup.owner;
+                group.creationDate = updatedGroup.creationDate;
+                group.authorizedUsers = updatedGroup.authorizedUsers;
+                group.discussionId = updatedGroup.discussionId;
+                console.log('Friend group cache synchronized with backend. discussionId:', updatedGroup.discussionId);
+                console.log('Group object after update - discussionId:', group.discussionId);
+                console.log('Array group after update - discussionId:', this.friendGroups[groupIndex].discussionId);
+              } else {
+                // If group not found in array, update the passed group object directly
+                group.id = updatedGroup.id;
+                group.name = updatedGroup.name;
+                group.members = updatedGroup.members;
+                group.owner = updatedGroup.owner;
+                group.creationDate = updatedGroup.creationDate;
+                group.authorizedUsers = updatedGroup.authorizedUsers;
+                group.discussionId = updatedGroup.discussionId;
+                console.log('Friend group object updated with backend data. discussionId:', updatedGroup.discussionId);
+              }
+              
+              // As an additional safeguard, reload the specific group from backend to ensure cache is fully synchronized
+              if (group.id) {
+                this._friendsService.getFriendGroup(group.id).subscribe({
+                  next: (reloadedGroup) => {
+                    console.log('Reloaded group from backend - discussionId:', reloadedGroup.discussionId);
+                    const reloadedIndex = this.friendGroups.findIndex(g => g.id === group.id);
+                    if (reloadedIndex !== -1) {
+                      // Create a new array reference to trigger Angular change detection
+                      this.friendGroups = [
+                        ...this.friendGroups.slice(0, reloadedIndex),
+                        reloadedGroup,
+                        ...this.friendGroups.slice(reloadedIndex + 1)
+                      ];
+                      // Update the passed group object
+                      group.id = reloadedGroup.id;
+                      group.name = reloadedGroup.name;
+                      group.members = reloadedGroup.members;
+                      group.owner = reloadedGroup.owner;
+                      group.creationDate = reloadedGroup.creationDate;
+                      group.authorizedUsers = reloadedGroup.authorizedUsers;
+                      group.discussionId = reloadedGroup.discussionId;
+                      console.log('Friend group reloaded from backend. discussionId:', reloadedGroup.discussionId);
+                    }
+                  },
+                  error: (error) => {
+                    console.error('Error reloading friend group:', error);
+                  }
+                });
+              }
+                },
+                error: (error) => {
+                  console.error('Error saving discussionId to friend group:', error);
+                  console.error('Error status:', error?.status);
+                  console.error('Error message:', error?.message);
+                  console.error('Error details:', JSON.stringify(error, null, 2));
+                  // Revert the local change if save failed
+                  group.discussionId = oldDiscussionId || undefined;
+                  // Modal already opened, just log the error
+                  console.log('Group update failed but modal is already open');
+                }
+              });
+            }
+            // If no update needed, modal was already opened above
+          } catch (error) {
+            console.error('Error in discussion next handler:', error);
+            console.error('Error details:', JSON.stringify(error, null, 2));
+            // Still try to open modal with the discussion
+            this.openDiscussionModalInternal(discussion, discussionTitle);
+          }
+        },
+        error: (error) => {
+          console.error('Error getting or creating discussion:', error);
+          console.error('Error details:', JSON.stringify(error, null, 2));
+          // Still open modal with null discussionId (will load default)
+          this.openDiscussionModalInternal(null, discussionTitle);
+        }
+      });
+    } catch (error) {
+      console.error('Error in openDiscussionModal:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      // Try to open modal anyway
+      const discussionTitle = 'Discussion - ' + (group?.name || 'Groupe');
+      this.openDiscussionModalInternal(null, discussionTitle);
+    }
+  }
+
+  // Helper method to open discussion modal (prevents code duplication and ensures modal always opens)
+  private openDiscussionModalInternal(discussion: any, title: string) {
+    try {
+      const modalRef = this.modalService.open(DiscussionModalComponent, { 
+        size: 'lg', 
+        centered: true, 
+        backdrop: 'static', 
+        keyboard: true,
+        windowClass: 'discussion-modal-window'
+      });
+      
+      modalRef.componentInstance.discussionId = discussion?.id || null;
+      modalRef.componentInstance.title = title;
+    } catch (error) {
+      console.error('Error opening discussion modal:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+    }
   }
 
   // Toggle authorized user selection

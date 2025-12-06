@@ -1,0 +1,22 @@
+<!-- Discussion Modal -->
+<div class="modal-header">
+    <h4 class="modal-title">{{ title }}</h4>
+    <button type="button" class="btn-close" aria-label="Close" (click)="close()">
+        <span aria-hidden="true">&times;</span>
+    </button>
+</div>
+<div class="modal-body p-0">
+    <app-discussion 
+        [discussionId]="discussionId" 
+        [title]="''"
+        [showTitle]="false">
+    </app-discussion>
+</div>
+<div class="modal-footer">
+    <div class="discussion-id" *ngIf="discussionId">
+        <span class="discussion-id-label">ID:</span>
+        <span class="discussion-id-value">{{ discussionId }}</span>
+    </div>
+    <button type="button" class="btn btn-secondary" (click)="close()">Fermer</button>
+</div>
+

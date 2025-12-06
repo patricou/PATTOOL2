@@ -4,12 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { HttpClientModule, HttpClient } from '@angular/common/http';
 import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
-import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
-import { getDatabase, provideDatabase } from '@angular/fire/database';
-import { getAuth, provideAuth } from '@angular/fire/auth';
-import { environment } from '../../environments/environment';
 import { ChatComponent } from './chat/chat.component';
+import { DiscussionComponent } from './discussion/discussion.component';
+import { DiscussionModalComponent } from './discussion-modal/discussion-modal.component';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
+import { DiscussionService } from '../services/discussion.service';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -28,15 +28,13 @@ export function HttpLoaderFactory(http: HttpClient) {
         deps: [HttpClient]
       }
     }),
-    NavigationButtonsModule
+    NavigationButtonsModule,
+    NgbModule
   ],
-  declarations: [ChatComponent],
-  exports: [ChatComponent],
+  declarations: [ChatComponent, DiscussionComponent, DiscussionModalComponent],
+  exports: [ChatComponent, DiscussionComponent, DiscussionModalComponent],
   providers: [
-    // Firebase providers for this module
-    provideFirebaseApp(() => initializeApp(environment.firebase)),
-    provideDatabase(() => getDatabase()),
-    provideAuth(() => getAuth())
+    DiscussionService
   ]
 })
 export class ChatModule { }

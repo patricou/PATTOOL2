@@ -506,7 +506,8 @@ export class FriendsService {
                                 m.registrationDate ? new Date(m.registrationDate) : undefined,
                                 m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                 m.locale || undefined
-                            ))
+                            )),
+                            res.discussionId
                         );
                     }),
                     catchError((error: any) => {
@@ -573,7 +574,8 @@ export class FriendsService {
                                     m.registrationDate ? new Date(m.registrationDate) : undefined,
                                     m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                     m.locale || undefined
-                                ))
+                                )),
+                                group.discussionId
                             );
                         });
                     }),
@@ -640,7 +642,8 @@ export class FriendsService {
                                 m.registrationDate ? new Date(m.registrationDate) : undefined,
                                 m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                 m.locale || undefined
-                            ))
+                            )),
+                            res.discussionId
                         );
                     }),
                     catchError((error: any) => {
@@ -655,7 +658,7 @@ export class FriendsService {
     /**
      * Update a friend group
      */
-    updateFriendGroup(groupId: string, name: string, memberIds: string[]): Observable<FriendGroup> {
+    updateFriendGroup(groupId: string, name: string, memberIds: string[], discussionId?: string): Observable<FriendGroup> {
         return from(this._keycloakService.getToken()).pipe(
             map((token: string) => {
                 return new HttpHeaders({
@@ -665,9 +668,13 @@ export class FriendsService {
                 });
             }),
             switchMap(headers => {
+                const body: any = { name, memberIds };
+                if (discussionId) {
+                    body.discussionId = discussionId;
+                }
                 return this._http.put<FriendGroup>(
                     this.API_URL + 'friends/groups/' + groupId,
-                    { name, memberIds },
+                    body,
                     { headers: headers }
                 ).pipe(
                     map((res: any) => {
@@ -710,7 +717,8 @@ export class FriendsService {
                                 m.registrationDate ? new Date(m.registrationDate) : undefined,
                                 m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                 m.locale || undefined
-                            ))
+                            )),
+                            res.discussionId
                         );
                     }),
                     catchError((error: any) => {
@@ -806,7 +814,8 @@ export class FriendsService {
                                 m.registrationDate ? new Date(m.registrationDate) : undefined,
                                 m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                 m.locale || undefined
-                            ))
+                            )),
+                            res.discussionId
                         );
                     }),
                     catchError((error: any) => {
@@ -875,7 +884,8 @@ export class FriendsService {
                                 m.registrationDate ? new Date(m.registrationDate) : undefined,
                                 m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                 m.locale || undefined
-                            ))
+                            )),
+                            res.discussionId
                         );
                     }),
                     catchError((error: any) => {

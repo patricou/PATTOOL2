@@ -33,7 +33,8 @@ export class FriendGroup {
         public members: Member[],
         public owner: Member,
         public creationDate: Date,
-        public authorizedUsers?: Member[] // Users authorized to use this group (but not to add members)
+        public authorizedUsers?: Member[], // Users authorized to use this group (but not to add members)
+        public discussionId?: string // ID of the discussion associated with this friend group
     ) {}
 }
 

@@ -1,0 +1,199 @@
+<!-- Discussion Component - Reusable -->
+<div class="discussion-container">
+    <!-- Header Section (optional) -->
+    <div class="discussion-header" *ngIf="showTitle">
+        <h3 *ngIf="title">{{ title }}</h3>
+        <div class="discussion-stats" *ngIf="!title">
+            <i class="fa fa-comments"></i>
+            <span>{{ messages.length }} messages</span>
+        </div>
+    </div>
+
+    <!-- Chat Content Container -->
+    <div class="discussion-content-container">
+        <!-- Messages Container -->
+        <div class="messages-container">
+            <div class="messages-list" #messagesList>
+                <div class="message-wrapper" 
+                     *ngFor="let item of messages; trackBy: trackByMessageId"
+                     [class.own-message]="isOwnMessage(item)">
+                    
+                    <div class="message-bubble">
+                        <!-- Avatar for received messages -->
+                        <div class="message-avatar" *ngIf="!isOwnMessage(item)">
+                            <div class="avatar-circle">
+                                <span>{{item.author?.firstName?.charAt(0) || item.author?.userName?.charAt(0) || 'U'}}</span>
+                            </div>
+                        </div>
+
+                        <!-- Message Content -->
+                        <div class="message-content-wrapper">
+                            <!-- Sender name for received messages -->
+                            <div class="message-sender" *ngIf="!isOwnMessage(item)">
+                                {{item.author?.firstName}} {{item.author?.lastName}} ({{item.author?.userName}})
+                            </div>
+                            
+                            <!-- Image -->
+                            <div *ngIf="item.imageUrl" class="message-media">
+                                <img [src]="getFileUrl(item, true)" 
+                                     [alt]="item.imageFileName || 'Image'"
+                                     class="message-image"
+                                     (error)="hideImageOnError($event)">
+                            </div>
+                            
+                            <!-- Video -->
+                            <div *ngIf="item.videoUrl" class="message-media">
+                                <video [src]="getFileUrl(item, false)" 
+                                       controls
+                                       class="message-video"
+                                       (error)="hideVideoOnError($event)">
+                                    Your browser does not support the video tag.
+                                </video>
+                            </div>
+                            
+                            <!-- Text Message -->
+                            <div class="message-text-wrapper" *ngIf="item.message">
+                                <p class="message-text">{{item.message}}</p>
+                            </div>
+                            
+                            <!-- Message Footer with timestamp and action buttons -->
+                            <div class="message-footer">
+                                <span class="message-time">{{item.dateTime | date:'HH:mm'}}</span>
+                                <div class="message-actions" *ngIf="isOwnMessage(item)">
+                                    <button class="btn-edit-message" 
+                                            (click)="editMessage(item)"
+                                            title="Modifier le message">
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+                                    <button class="btn-delete-message" 
+                                            (click)="deleteMessage(item)"
+                                            title="Supprimer le message">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Empty State -->
+                <div class="empty-state" *ngIf="messages.length === 0 && !isLoading">
+                    <div class="empty-icon">
+                        <i class="fa fa-comment-slash"></i>
+                    </div>
+                    <h3>Aucun message</h3>
+                    <p>Soyez le premier à envoyer un message dans la discussion !</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Section -->
+        <div class="input-container">
+            <!-- Connection Status -->
+            <div *ngIf="isConnecting || connectionStatus" class="connection-status-bar" 
+                 [class.connecting]="isConnecting"
+                 [class.connected]="connectionStatus === 'Connected'"
+                 [class.error]="connectionStatus.includes('error') || connectionStatus.includes('timeout')">
+                <i class="fa" 
+                   [class.fa-spinner]="isConnecting"
+                   [class.fa-spin]="isConnecting"
+                   [class.fa-check-circle]="connectionStatus === 'Connected'"
+                   [class.fa-exclamation-circle]="connectionStatus.includes('error') || connectionStatus.includes('timeout')"></i>
+                <span>{{ connectionStatus }}</span>
+            </div>
+
+            <!-- File Preview -->
+            <div *ngIf="imagePreview || videoPreview" class="file-preview-container">
+                <div class="file-preview">
+                    <img *ngIf="imagePreview" [src]="imagePreview" alt="Preview" class="preview-image">
+                    <video *ngIf="videoPreview" [src]="videoPreview" controls class="preview-video"></video>
+                    <button class="btn-remove-file" (click)="clearFileSelection()" title="Remove file">
+                        <i class="fa fa-times"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Input Box -->
+            <div class="input-box">
+                <button class="btn-attach" 
+                        type="button"
+                        (click)="triggerFileInput(); showEmojiPicker = false"
+                        title="Attach image or video">
+                    <i class="fa fa-paperclip"></i>
+                </button>
+                
+                <div class="input-field-wrapper">
+                    <textarea 
+                        [(ngModel)]="msgVal" 
+                        type="text" 
+                        id="message" 
+                        [placeholder]="editingMessageId ? 'Modifier le message...' : 'Tapez votre message...'"
+                        (keydown.enter)="Send()" 
+                        (keydown.enter.shift)="$event.preventDefault()"
+                        (click)="showEmojiPicker = false"
+                        (focus)="showEmojiPicker = false"
+                        class="message-input"
+                        rows="1"
+                        [disabled]="isLoading"
+                        #messageInput>
+                    </textarea>
+                </div>
+
+                <button class="btn-emoji" 
+                        type="button"
+                        (click)="toggleEmojiPicker(); $event.stopPropagation()"
+                        title="Add emoji">
+                    <span class="emoji-icon">😀</span>
+                </button>
+
+                <button class="btn-cancel-edit" 
+                        *ngIf="editingMessageId"
+                        type="button"
+                        (click)="cancelEdit()"
+                        title="Annuler la modification">
+                    <i class="fa fa-times"></i>
+                </button>
+
+                <button class="btn-send" 
+                        type="button" 
+                        (click)="Send(); showEmojiPicker = false"
+                        [disabled]="(!msgVal.trim() && !selectedImage && !selectedVideo) || isLoading"
+                        title="Envoyer le message">
+                    <i class="fa fa-paper-plane"></i>
+                </button>
+
+                <input type="file" 
+                       #fileInput
+                       (change)="onFileSelected($event)"
+                       accept="image/*,video/*"
+                       style="display: none;">
+            </div>
+            
+            <!-- Emoji Picker -->
+            <div class="emoji-picker-container" *ngIf="showEmojiPicker" (click)="$event.stopPropagation()">
+                <div class="emoji-picker" (click)="$event.stopPropagation()">
+                    <div class="emoji-picker-header">
+                        <span>Select Emoji</span>
+                        <button class="btn-close-emoji" (click)="showEmojiPicker = false; $event.stopPropagation()" title="Close">
+                            <i class="fa fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="emoji-grid" (click)="$event.stopPropagation()">
+                        <span *ngFor="let emoji of getCommonEmojis()" 
+                              class="emoji-item"
+                              (click)="insertEmoji(emoji); $event.stopPropagation()"
+                              [title]="emoji">
+                            {{ emoji }}
+                        </span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Help text below input box -->
+            <div class="input-help-text">
+                Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne
+            </div>
+        </div>
+    </div>
+</div>
+

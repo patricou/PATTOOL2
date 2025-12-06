@@ -6,9 +6,6 @@ import { RouterModule } from '@angular/router';
 import { TranslateModule, TranslateLoader } from '@ngx-translate/core';
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
-import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
-import { getDatabase, provideDatabase } from '@angular/fire/database';
-import { getAuth, provideAuth } from '@angular/fire/auth';
 import { HomeModule } from "./home/home.module";
 import { EvenementsModule } from './evenements/evenements.module';
 import { ChatModule } from './communications/communications.module';
@@ -116,11 +113,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		{ provide: LocationStrategy, useClass: HashLocationStrategy },
 		{ provide: TranslateLoader, useFactory: HttpLoaderFactory, deps: [HttpClient] },
 		// HTTP Interceptor
-		{ provide: HTTP_INTERCEPTORS, useClass: KeycloakHttpInterceptor, multi: true },
-		// Firebase providers
-		provideFirebaseApp(() => initializeApp(environment.firebase)),
-		provideDatabase(() => getDatabase()),
-		provideAuth(() => getAuth())
+		{ provide: HTTP_INTERCEPTORS, useClass: KeycloakHttpInterceptor, multi: true }
 	],
 	bootstrap: [AppComponent]
 })

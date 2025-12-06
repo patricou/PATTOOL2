@@ -18,7 +18,7 @@ export const environment = {
     API_URL4FILEONDISK: "/api/fsphotos",
     API_URL4UPLOADFILEONDISK: "/uploadondisk",
     IGN_API_KEY: "toto",
-    //fire base config
+    // Firebase config - still used for event-specific chats (not for global discussion)
     firebase: {
         apiKey: "AIzaSyBJFAKMyDO_lmqBYUwW6CWjBIMTHyFGZKc",
         authDomain: "sportpat-5e155.firebaseapp.com",

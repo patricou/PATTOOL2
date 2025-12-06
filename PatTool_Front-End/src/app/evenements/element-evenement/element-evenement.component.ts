@@ -24,6 +24,8 @@ import { VideoCompressionService, CompressionProgress } from '../../services/vid
 import { EvenementsService } from '../../services/evenements.service';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
+import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
+import { DiscussionService } from '../../services/discussion.service';
 
 @Component({
 	selector: 'element-evenement',
@@ -290,7 +292,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private translateService: TranslateService,
 		private videoCompressionService: VideoCompressionService,
 		private _evenementsService: EvenementsService,
-		private _friendsService: FriendsService
+		private _friendsService: FriendsService,
+		private _discussionService: DiscussionService
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -2926,6 +2929,93 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public openUrlsModal(content: any) {
 		this.forceCloseTooltips();
 		this.modalService.open(content, { size: 'lg', centered: true, backdrop: 'static', keyboard: false });
+	}
+
+	// open Discussion modal
+	public openDiscussionModal(discussionId?: string) {
+		this.forceCloseTooltips();
+		
+		// Get or create discussion for this event
+		const eventDiscussionId = this.evenement.discussionId || discussionId;
+		const discussionTitle = 'Discussion - ' + this.evenement.evenementName;
+		
+		// Get or create the discussion
+		this._discussionService.getOrCreateDiscussion(eventDiscussionId, discussionTitle).subscribe({
+			next: (discussion) => {
+				// Update the event's discussionId if:
+				// 1. The event doesn't have a discussionId yet (first time creation), OR
+				// 2. The discussion ID is different from what we tried to get (meaning a new one was created because the old one didn't exist - 404 case)
+				// This condition handles both scenarios:
+				// - First time: this.evenement.discussionId is null/undefined, discussion.id is new ID → condition is true
+				// - Replacement: this.evenement.discussionId is old invalid ID, discussion.id is new ID → condition is true
+				if (discussion.id && (this.evenement.discussionId !== discussion.id)) {
+					const oldDiscussionId = this.evenement.discussionId;
+					// Preserve friendGroupId to ensure friend group events maintain their visibility settings
+					const preservedFriendGroupId = this.evenement.friendGroupId;
+					this.evenement.discussionId = discussion.id;
+					console.log('Updating event discussionId:', oldDiscussionId, '→', discussion.id);
+					if (preservedFriendGroupId) {
+						console.log('Preserving friendGroupId:', preservedFriendGroupId);
+					}
+					
+					// Update the event in the backend
+					// Note: The entire event object is sent, which includes friendGroupId, so it will be preserved
+					this._evenementsService.putEvenement(this.evenement).subscribe({
+						next: () => {
+							console.log('Event discussionId saved to backend:', discussion.id);
+							// After successful save, fetch the updated event from backend to ensure cache is synchronized
+							// This ensures both the local component cache and parent component cache are updated
+							if (this.evenement.id) {
+								this._evenementsService.getEvenement(this.evenement.id).subscribe({
+									next: (updatedEvent) => {
+										// Update the local event object with the fetched data
+										// This ensures the cache in the parent component is also updated (since event is passed by reference)
+										// The updated event includes all fields including friendGroupId, so friend group visibility is preserved
+										Object.assign(this.evenement, updatedEvent);
+										console.log('Event cache synchronized with backend. discussionId:', updatedEvent.discussionId, 
+											updatedEvent.friendGroupId ? 'friendGroupId: ' + updatedEvent.friendGroupId : '');
+									},
+									error: (error) => {
+										console.error('Error fetching updated event after save:', error);
+									}
+								});
+							}
+						},
+						error: (error) => {
+							console.error('Error saving discussionId to event:', error);
+							// Revert the local change if save failed
+							this.evenement.discussionId = oldDiscussionId || undefined;
+							// friendGroupId is preserved in the original object, no need to revert it
+						}
+					});
+				}
+				
+				// Open the modal with the discussion
+				const modalRef = this.modalService.open(DiscussionModalComponent, { 
+					size: 'lg', 
+					centered: true, 
+					backdrop: 'static', 
+					keyboard: true,
+					windowClass: 'discussion-modal-window'
+				});
+				
+				modalRef.componentInstance.discussionId = discussion.id || null;
+				modalRef.componentInstance.title = discussionTitle;
+			},
+			error: (error) => {
+				console.error('Error getting or creating discussion:', error);
+				// Still open modal with null discussionId (will load default)
+				const modalRef = this.modalService.open(DiscussionModalComponent, { 
+					size: 'lg', 
+					centered: true, 
+					backdrop: 'static', 
+					keyboard: true,
+					windowClass: 'discussion-modal-window'
+				});
+				modalRef.componentInstance.discussionId = null;
+				modalRef.componentInstance.title = discussionTitle;
+			}
+		});
 	}
 	// call the modal window for del confirmation
 	public deleteEvenement() {

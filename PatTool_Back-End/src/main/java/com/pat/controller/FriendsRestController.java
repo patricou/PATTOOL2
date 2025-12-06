@@ -29,6 +29,9 @@ public class FriendsRestController {
     private com.pat.repo.MembersRepository membersRepository;
     
     @Autowired
+    private com.pat.repo.FriendGroupRepository friendGroupRepository;
+    
+    @Autowired
     private com.pat.controller.MailController mailController;
 
     /**
@@ -518,8 +521,15 @@ public class FriendsRestController {
             String name = (String) requestBody.get("name");
             @SuppressWarnings("unchecked")
             List<String> memberIds = (List<String>) requestBody.get("memberIds");
+            String discussionId = (String) requestBody.get("discussionId");
 
             com.pat.repo.domain.FriendGroup group = friendsService.updateFriendGroup(groupId, name, memberIds, owner);
+            
+            // Set discussionId if provided
+            if (discussionId != null && !discussionId.trim().isEmpty()) {
+                group.setDiscussionId(discussionId);
+                group = friendGroupRepository.save(group);
+            }
             return ResponseEntity.ok(group);
         } catch (IllegalArgumentException e) {
             log.error("Invalid request: {}", e.getMessage());
