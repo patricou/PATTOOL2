@@ -43,30 +43,11 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   ) {}
 
   ngOnInit() {
-    const logMsg = '[DiscussionComponent] ngOnInit - Component initializing';
-    console.log(logMsg);
-    this.persistLog(logMsg);
-    
     try {
       this.user = this._memberService.getUser();
-      const userMsg = `[DiscussionComponent] ngOnInit - User: ${this.user?.userName}`;
-      console.log(userMsg);
-      this.persistLog(userMsg);
-      
-      const idMsg = `[DiscussionComponent] ngOnInit - discussionId input: ${this.discussionId}`;
-      console.log(idMsg);
-      this.persistLog(idMsg);
-      
       // Load discussion immediately - no delay needed
-      const loadMsg = '[DiscussionComponent] ngOnInit - Starting loadDiscussion';
-      console.log(loadMsg);
-      this.persistLog(loadMsg);
-      
       this.loadDiscussion();
     } catch (error) {
-      const errorMsg = `[DiscussionComponent] ngOnInit - Error during initialization: ${error}`;
-      console.error(errorMsg);
-      this.persistLog(errorMsg, 'ERROR');
       // Don't let errors break the component
     }
   }
@@ -115,12 +96,6 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
    */
   public static displayPersistedLogs(): any[] {
     const logs = DiscussionComponent.getPersistedLogs();
-    console.group('📋 Discussion Component Logs');
-    logs.forEach((log: any) => {
-      const style = log.level === 'ERROR' ? 'color: red' : log.level === 'WARN' ? 'color: orange' : 'color: blue';
-      console.log(`%c[${log.level}] ${log.timestamp}`, style, log.message);
-    });
-    console.groupEnd();
     return logs;
   }
 
@@ -146,32 +121,15 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
    * Load discussion by ID or use default
    */
   private loadDiscussion() {
-    const msg = '[DiscussionComponent] loadDiscussion - Called';
-    console.log(msg);
-    this.persistLog(msg);
-    
-    const idMsg = `[DiscussionComponent] loadDiscussion - discussionId: ${this.discussionId}`;
-    console.log(idMsg);
-    this.persistLog(idMsg);
-    
     try {
       if (this.discussionId) {
         // Load specific discussion by ID
-        const loadMsg = '[DiscussionComponent] loadDiscussion - Loading specific discussion by ID';
-        console.log(loadMsg);
-        this.persistLog(loadMsg);
         this.loadDiscussionById(this.discussionId);
       } else {
         // Load default discussion
-        const defaultMsg = '[DiscussionComponent] loadDiscussion - Loading default discussion';
-        console.log(defaultMsg);
-        this.persistLog(defaultMsg);
         this.loadOrCreateDefaultDiscussion();
       }
     } catch (error) {
-      const errorMsg = `[DiscussionComponent] loadDiscussion - Error in loadDiscussion: ${error}`;
-      console.error(errorMsg);
-      this.persistLog(errorMsg, 'ERROR');
       // Don't let errors break the component
       this.isLoading = false;
       this.connectionStatus = 'Error loading discussion';
@@ -182,27 +140,21 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
    * Load a specific discussion by ID
    */
   private loadDiscussionById(id: string) {
-    console.log('[DiscussionComponent] loadDiscussionById - Starting, ID:', id);
     this.isLoading = true;
     this.connectionStatus = 'Loading discussion...';
     
     this.discussionsSubscription = this.discussionService.getDiscussionById(id).subscribe({
       next: (discussion) => {
-        console.log('[DiscussionComponent] loadDiscussionById - Received discussion:', discussion);
         if (discussion && discussion.id) {
-          console.log('[DiscussionComponent] loadDiscussionById - Discussion loaded, ID:', discussion.id);
           this.currentDiscussion = discussion;
           this.loadMessages();
-          console.log('[DiscussionComponent] loadDiscussionById - Calling connectWebSocket');
           this.connectWebSocket();
         } else {
-          console.warn('[DiscussionComponent] loadDiscussionById - Discussion not found or invalid');
           this.connectionStatus = 'Discussion not found';
           this.isLoading = false;
         }
       },
       error: (error) => {
-        console.error('[DiscussionComponent] loadDiscussionById - Error loading discussion:', error);
         this.connectionStatus = 'Error loading discussion';
         this.isLoading = false;
       }
@@ -213,50 +165,28 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
    * Load or create the default discussion
    */
   private async loadOrCreateDefaultDiscussion() {
-    console.log('[DiscussionComponent] loadOrCreateDefaultDiscussion - Starting');
     try {
       this.isLoading = true;
       this.connectionStatus = 'Loading Discussion Generale...';
       
       // Try to get the default discussion first
-      console.log('[DiscussionComponent] loadOrCreateDefaultDiscussion - Calling getDefaultDiscussion()');
       this.discussionsSubscription = this.discussionService.getDefaultDiscussion().subscribe({
         next: (discussion: Discussion) => {
-          const msg = `[DiscussionComponent] loadOrCreateDefaultDiscussion - Received discussion: ${JSON.stringify(discussion)}`;
-          console.log(msg);
-          this.persistLog(msg);
-          
           if (discussion && discussion.id) {
-            const loadedMsg = `[DiscussionComponent] loadOrCreateDefaultDiscussion - Discussion loaded, ID: ${discussion.id}`;
-            console.log(loadedMsg);
-            this.persistLog(loadedMsg);
             this.currentDiscussion = discussion;
             this.loadMessages();
             // Connect WebSocket immediately - no delay needed
             // Note: isLoading will be set to false in loadMessages() after messages are loaded
-            const connectMsg = '[DiscussionComponent] loadOrCreateDefaultDiscussion - Calling connectWebSocket';
-            console.log(connectMsg);
-            this.persistLog(connectMsg);
             this.connectWebSocket();
           } else {
-            const warnMsg = '[DiscussionComponent] loadOrCreateDefaultDiscussion - Discussion not found or invalid, falling back';
-            console.warn(warnMsg);
-            this.persistLog(warnMsg, 'WARN');
             // If default discussion not found, try to get all discussions as fallback
             this.fallbackToFirstDiscussion();
           }
           // Don't set isLoading = false here - let loadMessages() or fallbackToFirstDiscussion() handle it
         },
         error: (error: any) => {
-          const errorMsg = `[DiscussionComponent] loadOrCreateDefaultDiscussion - Error loading default discussion: ${error?.status || 'unknown'} - ${error?.message || error}`;
-          console.error(errorMsg);
-          this.persistLog(errorMsg, 'ERROR');
-          
           // If it's a 401, the interceptor will redirect to login, so don't try fallback
           if (error?.status === 401) {
-            const authMsg = '[DiscussionComponent] loadOrCreateDefaultDiscussion - 401 Unauthorized - will be redirected to login';
-            console.error(authMsg);
-            this.persistLog(authMsg, 'ERROR');
             this.isLoading = false;
             return;
           }
@@ -266,7 +196,6 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         }
       });
     } catch (error) {
-      console.error('[DiscussionComponent] loadOrCreateDefaultDiscussion - Exception caught:', error);
       // Fallback: try to get all discussions
       this.fallbackToFirstDiscussion();
     }
@@ -291,7 +220,6 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         this.isLoading = false;
       },
       error: (error) => {
-        console.error('Error loading discussions:', error);
         this.connectionStatus = 'Error loading discussions';
         // Try to create a default discussion anyway
         this.createDefaultDiscussion();
@@ -314,7 +242,6 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         this.connectWebSocket();
       },
       error: (error) => {
-        console.error('Error creating default discussion:', error);
         this.connectionStatus = 'Error creating discussion';
         this.isLoading = false; // Ensure loading is false on error
         alert('Error creating discussion: ' + (error.message || error));
@@ -342,11 +269,9 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         this.scrollToBottom();
         // IMPORTANT: Set isLoading to false after messages are loaded
         this.isLoading = false;
-        console.log('[DiscussionComponent] loadMessages - Messages loaded, isLoading set to false');
       },
       error: (error) => {
-        console.error('[DiscussionComponent] loadMessages - Error loading messages:', error);
-        // Don't let errors break the component - just log them
+        // Don't let errors break the component
         this.isLoading = false;
       }
     });
@@ -356,40 +281,27 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
    * Connect to WebSocket for real-time updates
    */
   private connectWebSocket() {
-    console.log('[DiscussionComponent] connectWebSocket - Called');
-    console.log('[DiscussionComponent] connectWebSocket - currentDiscussion:', this.currentDiscussion);
-    console.log('[DiscussionComponent] connectWebSocket - currentDiscussion?.id:', this.currentDiscussion?.id);
-    
     if (!this.currentDiscussion?.id) {
-      console.warn('[DiscussionComponent] connectWebSocket - No discussion ID, aborting');
       return;
     }
 
-    console.log('[DiscussionComponent] connectWebSocket - Discussion ID found:', this.currentDiscussion.id);
     this.isConnecting = true;
     this.connectionStatus = 'Connecting';
 
     // Subscribe to real-time messages FIRST, before connecting
-    console.log('[DiscussionComponent] connectWebSocket - Subscribing to message observable');
     this.messageSubscription = this.discussionService.getMessageObservable().subscribe({
       next: (data) => {
-        console.log('[DiscussionComponent] connectWebSocket - Message received:', data);
-        
         // Handle status updates - they may not have discussionId, so check action first
         if (data.action === 'status') {
           // Status messages apply to current discussion if discussionId matches or is undefined
           if (data.discussionId && data.discussionId !== this.currentDiscussion?.id) {
-            console.log('[DiscussionComponent] connectWebSocket - Status for different discussion, ignoring. Expected:', this.currentDiscussion?.id, 'Got:', data.discussionId);
             return;
           }
           
-          console.log('[DiscussionComponent] connectWebSocket - Status update:', data.status);
           this.connectionStatus = data.status;
           if (data.status === 'Connected') {
-            console.log('[DiscussionComponent] connectWebSocket - Connected successfully!');
             this.isConnecting = false;
           } else if (data.status.includes('error') || data.status.includes('timeout') || data.status === 'Disconnected') {
-            console.warn('[DiscussionComponent] connectWebSocket - Connection error/timeout:', data.status);
             this.isConnecting = false;
           }
           return; // Status messages handled, don't process further
@@ -397,7 +309,6 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         
         // Only process other messages for the current discussion
         if (data.discussionId !== this.currentDiscussion?.id) {
-          console.log('[DiscussionComponent] connectWebSocket - Message for different discussion, ignoring. Expected:', this.currentDiscussion?.id, 'Got:', data.discussionId);
           return;
         }
 
@@ -429,16 +340,13 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         }
       },
       error: (error) => {
-        console.error('[DiscussionComponent] connectWebSocket - Observable error:', error);
         this.isConnecting = false;
         this.connectionStatus = 'Connection error';
       }
     });
 
     // Connect to WebSocket AFTER subscribing to messages
-    console.log('[DiscussionComponent] connectWebSocket - Calling discussionService.connectWebSocket with ID:', this.currentDiscussion.id);
     this.discussionService.connectWebSocket(this.currentDiscussion.id);
-    console.log('[DiscussionComponent] connectWebSocket - connectWebSocket call completed');
 
     // Timeout after 10 seconds if still connecting
     setTimeout(() => {
@@ -495,7 +403,6 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
               resolve();
             },
             error: (error) => {
-              console.error('Error updating message:', error);
               alert('Error updating message: ' + (error.message || error));
               this.isLoading = false;
               reject(error);
@@ -529,7 +436,6 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
               resolve();
             },
             error: (error) => {
-              console.error('Error sending message:', error);
               alert('Error sending message: ' + (error.message || error));
               this.isLoading = false;
               reject(error);
@@ -538,7 +444,7 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         });
       }
     } catch (error) {
-      console.error('Error in Send:', error);
+      // Silent error handling
     }
   }
 
@@ -593,12 +499,11 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
           this.messages = this.messages.filter(m => m.id !== message.id);
         },
         error: (error) => {
-          console.error('Error deleting message:', error);
           alert('Error deleting message: ' + (error.message || error));
         }
       });
     } catch (error) {
-      console.error('Error in deleteMessage:', error);
+      // Silent error handling
     }
   }
 
@@ -760,7 +665,6 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
    * Insert emoji into message
    */
   insertEmoji(emoji: string) {
-    console.log('Inserting emoji:', emoji);
     if (this.msgVal === undefined || this.msgVal === null) {
       this.msgVal = '';
     }

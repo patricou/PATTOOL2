@@ -234,11 +234,7 @@ export class DiscussionService {
    * Connect to WebSocket for real-time updates
    */
   connectWebSocket(discussionId: string): void {
-    console.log('[DiscussionService] connectWebSocket - Called with discussionId:', discussionId);
-    console.log('[DiscussionService] connectWebSocket - Current state - connected:', this.connected, 'currentDiscussionId:', this.currentDiscussionId);
-    
     if (this.connected && this.currentDiscussionId === discussionId) {
-      console.log('[DiscussionService] connectWebSocket - Already connected to this discussion, emitting Connected status');
       // Already connected, but emit status so component knows it's connected
       this.messageSubject.next({ action: 'status', status: 'Connected', discussionId: discussionId });
       return; // Already connected to this discussion
@@ -246,7 +242,6 @@ export class DiscussionService {
 
     // Disconnect previous connection if exists
     if (this.stompClient) {
-      console.log('[DiscussionService] connectWebSocket - Disconnecting previous connection');
       this.disconnectWebSocket();
     }
 
@@ -265,39 +260,16 @@ export class DiscussionService {
     // Lazy load SockJS and Stomp to avoid import issues
     const SockJS = getSockJS();
     const StompClient = getStompClient();
-
-    console.log('[DiscussionService] connectWebSocket - WebSocket URL:', wsUrl);
-    console.log('[DiscussionService] connectWebSocket - baseUrl:', baseUrl);
-    console.log('[DiscussionService] connectWebSocket - environment.API_URL:', environment.API_URL);
-    console.log('[DiscussionService] connectWebSocket - environment.production:', environment.production);
     
     try {
-      console.log('[DiscussionService] connectWebSocket - Creating SockJS connection');
       this.socket = new SockJS(wsUrl);
-      
-      // Add socket event listeners for debugging
-      this.socket.onopen = () => {
-        console.log('[DiscussionService] connectWebSocket - SockJS connection opened');
-      };
-      
-      this.socket.onclose = (event: any) => {
-        console.log('[DiscussionService] connectWebSocket - SockJS connection closed', event);
-      };
-      
-      this.socket.onerror = (error: any) => {
-        console.error('[DiscussionService] connectWebSocket - SockJS error:', error);
-      };
       
       const StompClient = getStompClient();
       
-      console.log('[DiscussionService] connectWebSocket - Creating STOMP client');
       this.stompClient = new StompClient({
         webSocketFactory: () => this.socket,
         debug: (str: string) => {
-          // Only log important messages to reduce console noise
-          if (str.includes('ERROR') || str.includes('Connected') || str.includes('timeout') || str.includes('reconnection')) {
-            console.log('[DiscussionService] STOMP:', str);
-          }
+          // Silent debug - no logging
         },
         reconnectDelay: 5000,
         heartbeatIncoming: 4000,
@@ -306,32 +278,25 @@ export class DiscussionService {
       });
 
       this.stompClient.onConnect = (frame: any) => {
-        console.log('[DiscussionService] connectWebSocket - WebSocket connected successfully', frame);
         this.connected = true;
         this.currentDiscussionId = discussionId;
 
         // Emit connection status update
-        console.log('[DiscussionService] connectWebSocket - Emitting Connected status');
         this.messageSubject.next({ action: 'status', status: 'Connected', discussionId: discussionId });
 
         // Subscribe to discussion updates
         const topic = '/topic/discussion/' + discussionId;
-        console.log('[DiscussionService] connectWebSocket - Subscribing to topic:', topic);
         this.stompClient.subscribe(topic, (message: any) => {
-          console.log('[DiscussionService] connectWebSocket - Received message via WebSocket:', message);
           try {
             const data = JSON.parse(message.body);
-            console.log('[DiscussionService] connectWebSocket - Parsed message data:', data);
             this.messageSubject.next(data);
           } catch (error) {
-            console.error('[DiscussionService] connectWebSocket - Error parsing WebSocket message:', error);
+            // Silent error handling
           }
         });
-        console.log('[DiscussionService] connectWebSocket - Subscribed to', topic);
       };
 
       this.stompClient.onStompError = (frame: any) => {
-        console.error('WebSocket STOMP error:', frame);
         const currentId = this.currentDiscussionId;
         this.connected = false;
         this.currentDiscussionId = null;
@@ -340,7 +305,6 @@ export class DiscussionService {
       };
 
       this.stompClient.onWebSocketError = (event: any) => {
-        console.error('WebSocket error:', event);
         const currentId = this.currentDiscussionId;
         this.connected = false;
         this.currentDiscussionId = null;
@@ -348,7 +312,6 @@ export class DiscussionService {
       };
 
       this.stompClient.onWebSocketClose = (event: any) => {
-        console.log('WebSocket closed:', event);
         const currentId = this.currentDiscussionId;
         this.connected = false;
         this.currentDiscussionId = null;
@@ -362,7 +325,6 @@ export class DiscussionService {
       let connectionTimeoutId: any = null;
       connectionTimeoutId = setTimeout(() => {
         if (!this.connected) {
-          console.warn('WebSocket connection timeout - connection may have failed');
           this.messageSubject.next({ action: 'status', status: 'Connection timeout - messages may not update in real-time', discussionId: discussionId });
         }
       }, 15000); // 15 second timeout
@@ -380,11 +342,8 @@ export class DiscussionService {
       };
 
       // Activate the connection
-      console.log('[DiscussionService] connectWebSocket - Activating STOMP client');
       this.stompClient.activate();
-      console.log('[DiscussionService] connectWebSocket - WebSocket activation initiated');
     } catch (error) {
-      console.error('[DiscussionService] connectWebSocket - Error creating WebSocket connection:', error);
       this.connected = false;
       this.currentDiscussionId = null;
     }

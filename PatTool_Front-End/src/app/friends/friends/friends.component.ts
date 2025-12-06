@@ -530,7 +530,6 @@ export class FriendsComponent implements OnInit {
             if (discussion.id && (group.discussionId !== discussion.id)) {
               const oldDiscussionId = group.discussionId;
               group.discussionId = discussion.id;
-              console.log('Updating friend group discussionId:', oldDiscussionId, '→', discussion.id);
               
               // Safely map members to IDs, filtering out any invalid members
               const memberIds = (group.members || [])
@@ -538,7 +537,6 @@ export class FriendsComponent implements OnInit {
                 .map(m => m.id);
               
               if (!group.id) {
-                console.error('Cannot update friend group: group.id is missing');
                 return;
               }
               
@@ -552,15 +550,9 @@ export class FriendsComponent implements OnInit {
                 discussion.id
               ).subscribe({
                 next: (updatedGroup) => {
-              console.log('Friend group discussionId saved to backend:', discussion.id);
-              console.log('Updated group from backend - Full object:', JSON.stringify(updatedGroup, null, 2));
-              console.log('Updated group discussionId:', updatedGroup.discussionId);
-              
               // Update the local group object with the fetched data
               // This ensures the cache in the component is synchronized with the backend
               const groupIndex = this.friendGroups.findIndex(g => g.id === group.id);
-              console.log('Group index in array:', groupIndex);
-              console.log('Current group discussionId before update:', group.discussionId);
               
               if (groupIndex !== -1) {
                 // Replace the entire group object in the array to ensure all properties are updated
@@ -578,9 +570,6 @@ export class FriendsComponent implements OnInit {
                 group.creationDate = updatedGroup.creationDate;
                 group.authorizedUsers = updatedGroup.authorizedUsers;
                 group.discussionId = updatedGroup.discussionId;
-                console.log('Friend group cache synchronized with backend. discussionId:', updatedGroup.discussionId);
-                console.log('Group object after update - discussionId:', group.discussionId);
-                console.log('Array group after update - discussionId:', this.friendGroups[groupIndex].discussionId);
               } else {
                 // If group not found in array, update the passed group object directly
                 group.id = updatedGroup.id;
@@ -590,14 +579,12 @@ export class FriendsComponent implements OnInit {
                 group.creationDate = updatedGroup.creationDate;
                 group.authorizedUsers = updatedGroup.authorizedUsers;
                 group.discussionId = updatedGroup.discussionId;
-                console.log('Friend group object updated with backend data. discussionId:', updatedGroup.discussionId);
               }
               
               // As an additional safeguard, reload the specific group from backend to ensure cache is fully synchronized
               if (group.id) {
                 this._friendsService.getFriendGroup(group.id).subscribe({
                   next: (reloadedGroup) => {
-                    console.log('Reloaded group from backend - discussionId:', reloadedGroup.discussionId);
                     const reloadedIndex = this.friendGroups.findIndex(g => g.id === group.id);
                     if (reloadedIndex !== -1) {
                       // Create a new array reference to trigger Angular change detection
@@ -614,45 +601,32 @@ export class FriendsComponent implements OnInit {
                       group.creationDate = reloadedGroup.creationDate;
                       group.authorizedUsers = reloadedGroup.authorizedUsers;
                       group.discussionId = reloadedGroup.discussionId;
-                      console.log('Friend group reloaded from backend. discussionId:', reloadedGroup.discussionId);
                     }
                   },
                   error: (error) => {
-                    console.error('Error reloading friend group:', error);
+                    // Silent error handling
                   }
                 });
               }
                 },
                 error: (error) => {
-                  console.error('Error saving discussionId to friend group:', error);
-                  console.error('Error status:', error?.status);
-                  console.error('Error message:', error?.message);
-                  console.error('Error details:', JSON.stringify(error, null, 2));
                   // Revert the local change if save failed
                   group.discussionId = oldDiscussionId || undefined;
-                  // Modal already opened, just log the error
-                  console.log('Group update failed but modal is already open');
                 }
               });
             }
             // If no update needed, modal was already opened above
           } catch (error) {
-            console.error('Error in discussion next handler:', error);
-            console.error('Error details:', JSON.stringify(error, null, 2));
             // Still try to open modal with the discussion
             this.openDiscussionModalInternal(discussion, discussionTitle);
           }
         },
         error: (error) => {
-          console.error('Error getting or creating discussion:', error);
-          console.error('Error details:', JSON.stringify(error, null, 2));
           // Still open modal with null discussionId (will load default)
           this.openDiscussionModalInternal(null, discussionTitle);
         }
       });
     } catch (error) {
-      console.error('Error in openDiscussionModal:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
       // Try to open modal anyway
       const discussionTitle = 'Discussion - ' + (group?.name || 'Groupe');
       this.openDiscussionModalInternal(null, discussionTitle);
@@ -673,8 +647,7 @@ export class FriendsComponent implements OnInit {
       modalRef.componentInstance.discussionId = discussion?.id || null;
       modalRef.componentInstance.title = title;
     } catch (error) {
-      console.error('Error opening discussion modal:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
+      // Silent error handling
     }
   }
 
