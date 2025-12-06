@@ -269,7 +269,7 @@ export class EvenementsService {
 	}
 
 	// Stream events using Server-Sent Events (SSE)
-	streamEvents(name: string, userId: string): Observable<StreamedEvent> {
+	streamEvents(name: string, userId: string, visibilityFilter?: string): Observable<StreamedEvent> {
 		const subject = new Subject<StreamedEvent>();
 		
 		this.getHeaderWithToken().subscribe({
@@ -278,7 +278,7 @@ export class EvenementsService {
 				const url = this.API_URL + "even/stream/" + encodeURIComponent(name);
 				
 				// Use fetch API since EventSource doesn't support custom headers
-				this.streamWithFetch(url, token, userId, subject).catch(err => {
+				this.streamWithFetch(url, token, userId, subject, visibilityFilter).catch(err => {
 					subject.error(err);
 				});
 			},
@@ -293,16 +293,27 @@ export class EvenementsService {
 	private async streamWithFetch(
 		url: string, 
 		authToken: string, 
-		userId: string, 
-		subject: Subject<StreamedEvent>
+		userId: string,
+		subject: Subject<StreamedEvent>,
+		visibilityFilter?: string
 	): Promise<void> {
 		try {
+			const headers: { [key: string]: string } = {
+				'Authorization': authToken,
+				'user-id': userId || '',
+				'Accept': 'text/event-stream'
+			};
+			
+			// Add visibility filter header if provided
+			if (visibilityFilter && visibilityFilter.trim() !== '' && visibilityFilter !== 'all') {
+				headers['visibility-filter'] = visibilityFilter.trim();
+				console.log('[Visibility Filter] Sending visibility filter to backend:', visibilityFilter.trim());
+			} else {
+				console.log('[Visibility Filter] No visibility filter or filter is "all"');
+			}
+			
 			const response = await fetch(url, {
-				headers: {
-					'Authorization': authToken,
-					'user-id': userId || '',
-					'Accept': 'text/event-stream'
-				},
+				headers: headers,
 				cache: 'no-cache'
 			});
 

@@ -105,19 +105,36 @@ public class EvenementRestController {
      */
     @GetMapping(value = "/stream/{evenementName}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamEvenements(@PathVariable("evenementName") String evenementName,
-                                      @RequestHeader(value = "user-id", required = false) String userId) {
+                                      @RequestHeader(value = "user-id", required = false) String userId,
+                                      @RequestHeader(value = "visibility-filter", required = false) String visibilityFilter) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // No timeout
+        
+        log.info("Stream events request - filter: {}, visibilityFilter: {}, userId: {}", evenementName, visibilityFilter, userId);
         
         CompletableFuture.runAsync(() -> {
             try {
                 // Build query with access criteria (same as repository)
                 Query query = new Query();
                 
-                // Build all criteria first, then combine them properly
-                Criteria accessCriteria = buildAccessCriteria(userId);
-                
                 // Get normalized filter for matching (title, description, and type)
                 String normalizedFilter = normalizeFilter(evenementName);
+                
+                // Build access criteria - if visibility filter is provided, use filtered access criteria
+                Criteria accessCriteria;
+                if (visibilityFilter != null && !visibilityFilter.trim().isEmpty() && !"all".equals(visibilityFilter.trim())) {
+                    // Build access criteria that only includes the selected visibility type
+                    String filterValue = visibilityFilter.trim();
+                    log.info("Building access criteria for visibility filter: {}", filterValue);
+                    accessCriteria = buildAccessCriteriaForVisibility(filterValue, userId);
+                    log.info("Access criteria built for visibility filter: {}", filterValue);
+                } else {
+                    // Use standard access criteria (all visible events)
+                    accessCriteria = buildAccessCriteria(userId);
+                }
+                
+                // Build list of all criteria to combine with AND
+                java.util.List<Criteria> allCriteriaList = new java.util.ArrayList<>();
+                allCriteriaList.add(accessCriteria);
                 
                 // Build MongoDB query criteria for efficient database-level filtering
                 java.util.List<Criteria> filterCriteriaList = new java.util.ArrayList<>();
@@ -143,17 +160,21 @@ public class EvenementRestController {
                     
                     // Combine all filters with OR (match if text matches OR type matches)
                     Criteria combinedFilter = new Criteria().orOperator(filterCriteriaList.toArray(new Criteria[0]));
-                    
-                    // Combine access criteria AND filter criteria
-                    Criteria finalCriteria = new Criteria().andOperator(
-                        accessCriteria,
-                        combinedFilter
-                    );
-                    query.addCriteria(finalCriteria);
-                } else {
-                    // No filter, just use access criteria
-                    query.addCriteria(accessCriteria);
+                    allCriteriaList.add(combinedFilter);
                 }
+                
+                // Combine all criteria with AND
+                if (allCriteriaList.size() == 1) {
+                    query.addCriteria(allCriteriaList.get(0));
+                    log.info("Query criteria (single): {}", allCriteriaList.get(0).getCriteriaObject().toJson());
+                } else {
+                    Criteria finalCriteria = new Criteria().andOperator(allCriteriaList.toArray(new Criteria[0]));
+                    query.addCriteria(finalCriteria);
+                    log.info("Query criteria (combined): {}", finalCriteria.getCriteriaObject().toJson());
+                }
+                
+                // Log the full query for debugging
+                log.info("Full query: {}", query.getQueryObject().toJson());
                 
                 // Sort by beginEventDate descending (most recent first) - MongoDB will sort efficiently
                 // Events with null dates will be at the end of the sorted results
@@ -180,6 +201,104 @@ public class EvenementRestController {
                 // Limit size to prevent excessive memory usage (max 1000 null-dated events)
                 List<Evenement> nullDateEvents = new java.util.ArrayList<>(1000);
                 
+                // Count total matching events before streaming (for debugging)
+                long totalMatchingEvents = mongoTemplate.count(query, Evenement.class);
+                log.info("Total events matching query: {}", totalMatchingEvents);
+                
+                // Diagnostic: Check if there are ANY events with visibility="friends"
+                Query friendsOnlyQuery = new Query(Criteria.where("visibility").is("friends"));
+                long totalFriendsEvents = mongoTemplate.count(friendsOnlyQuery, Evenement.class);
+                log.info("Total events with visibility='friends' in database: {}", totalFriendsEvents);
+                
+                // Diagnostic: Get one friends visibility event to see its structure
+                if (totalFriendsEvents > 0) {
+                    log.info("Attempting to find sample friends event...");
+                    try {
+                        Evenement sampleEvent = mongoTemplate.findOne(friendsOnlyQuery, Evenement.class);
+                        if (sampleEvent != null) {
+                            log.info("Sample friends event found - id: {}, visibility: {}", 
+                                sampleEvent.getId(), 
+                                sampleEvent.getVisibility());
+                            if (sampleEvent.getAuthor() != null) {
+                                log.info("Sample event author is not null, author.id: {}", 
+                                    sampleEvent.getAuthor().getId() != null ? sampleEvent.getAuthor().getId() : "null");
+                            } else {
+                                log.info("Sample event author is null");
+                            }
+                            
+                            // Also check the raw document structure
+                            String collectionName = mongoTemplate.getCollectionName(Evenement.class);
+                            log.info("Collection name: {}", collectionName);
+                            org.bson.Document queryDoc = new org.bson.Document("visibility", "friends");
+                            org.bson.Document rawDoc = mongoTemplate.getCollection(collectionName)
+                                .find(queryDoc)
+                                .first();
+                            if (rawDoc != null) {
+                                Object authorObj = rawDoc.get("author");
+                                log.info("Raw author field: {}", authorObj);
+                                if (authorObj != null) {
+                                    log.info("Raw author field class: {}", authorObj.getClass().getName());
+                                    if (authorObj instanceof org.bson.Document) {
+                                        org.bson.Document authorDoc = (org.bson.Document) authorObj;
+                                        log.info("Author document: {}", authorDoc.toJson());
+                                    }
+                                }
+                            } else {
+                                log.warn("Raw document is null");
+                            }
+                        } else {
+                            log.warn("Sample event is null");
+                        }
+                    } catch (Exception e) {
+                        log.error("Error in diagnostic query: {}", e.getMessage(), e);
+                    }
+                } else {
+                    log.info("No friends events found for diagnostic");
+                }
+                
+                // Diagnostic: Check if there are events authored by the friends
+                if (visibilityFilter != null && visibilityFilter.trim().equals("friends") && userId != null) {
+                    try {
+                        java.util.Optional<Member> currentUserOpt = membersRepository.findById(userId);
+                        if (currentUserOpt.isPresent()) {
+                            Member currentUser = currentUserOpt.get();
+                            java.util.List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
+                            java.util.List<String> friendIds = new java.util.ArrayList<>();
+                            for (Friend friendship : friendships) {
+                                if (friendship.getUser1() != null && !friendship.getUser1().getId().equals(userId)) {
+                                    friendIds.add(friendship.getUser1().getId());
+                                }
+                                if (friendship.getUser2() != null && !friendship.getUser2().getId().equals(userId)) {
+                                    friendIds.add(friendship.getUser2().getId());
+                                }
+                            }
+                            for (String friendId : friendIds) {
+                                // Check all events by this friend
+                                java.util.List<Criteria> friendAuthorCriteria = new java.util.ArrayList<>();
+                                try {
+                                    friendAuthorCriteria.add(Criteria.where("author.$id").is(new ObjectId(friendId)));
+                                } catch (IllegalArgumentException ex) {
+                                }
+                                friendAuthorCriteria.add(Criteria.where("author.$id").is(friendId));
+                                friendAuthorCriteria.add(Criteria.where("author.id").is(friendId));
+                                Query friendAuthorQuery = new Query(new Criteria().orOperator(friendAuthorCriteria.toArray(new Criteria[0])));
+                                long friendEvents = mongoTemplate.count(friendAuthorQuery, Evenement.class);
+                                log.info("Events authored by friend {}: {}", friendId, friendEvents);
+                                
+                                // Check events by this friend with visibility="friends"
+                                Query friendFriendsQuery = new Query(new Criteria().andOperator(
+                                    new Criteria().orOperator(friendAuthorCriteria.toArray(new Criteria[0])),
+                                    Criteria.where("visibility").is("friends")
+                                ));
+                                long friendFriendsEvents = mongoTemplate.count(friendFriendsQuery, Evenement.class);
+                                log.info("Events authored by friend {} with visibility='friends': {}", friendId, friendFriendsEvents);
+                            }
+                        }
+                    } catch (Exception e) {
+                        log.debug("Error in diagnostic query: {}", e.getMessage());
+                    }
+                }
+                
                 // Use stream() which returns a Stream backed by a MongoDB cursor
                 // MongoDB will return results sorted by beginEventDate DESC (nulls last)
                 // With batch size 1, each document is fetched and sent immediately
@@ -188,6 +307,9 @@ public class EvenementRestController {
                     
                     // Process and send events immediately as they arrive from MongoDB
                     eventStream.forEach(event -> {
+                        log.debug("Processing event: id={}, visibility={}, author={}", 
+                            event.getId(), event.getVisibility(), 
+                            event.getAuthor() != null ? event.getAuthor().getId() : "null");
                         // Check if client is still connected before processing
                         if (!clientConnected.get()) {
                             return; // Stop processing if client disconnected
@@ -436,19 +558,218 @@ public class EvenementRestController {
         return new Criteria().orOperator(accessCriteria.toArray(new Criteria[0]));
     }
     
+    /**
+     * Build access criteria for a specific visibility type
+     * This is used when filtering by visibility - only returns events of the selected type that user can access
+     */
+    private Criteria buildAccessCriteriaForVisibility(String visibilityFilter, String userId) {
+        String filterValue = visibilityFilter.trim();
+        java.util.List<Criteria> accessCriteria = new java.util.ArrayList<>();
+        
+        if ("public".equals(filterValue)) {
+            // For public filter, only return public events
+            accessCriteria.add(Criteria.where("visibility").is("public"));
+        } else if ("private".equals(filterValue)) {
+            // For private filter, only return private events where user is the author
+            if (userId != null && !userId.isEmpty()) {
+                Criteria authorCriteria = buildAuthorCriteria(userId);
+                accessCriteria.add(new Criteria().andOperator(
+                    Criteria.where("visibility").is("private"),
+                    authorCriteria
+                ));
+            }
+        } else if ("friends".equals(filterValue)) {
+            // For friends filter, return friends visibility events authored by:
+            // 1. The user's friends (events created by friends with friends visibility)
+            // 2. The current user (user's own events with friends visibility)
+            if (userId != null && !userId.isEmpty()) {
+                java.util.List<Criteria> friendsCriteriaList = new java.util.ArrayList<>();
+                
+                // Add user's own events with friends visibility
+                Criteria userOwnEvents = new Criteria().andOperator(
+                    Criteria.where("visibility").is("friends"),
+                    buildAuthorCriteria(userId)
+                );
+                friendsCriteriaList.add(userOwnEvents);
+                
+                // Add friends' events with friends visibility
+                Criteria friendsEvents = buildFriendsVisibilityCriteria(userId);
+                if (friendsEvents != null) {
+                    friendsCriteriaList.add(friendsEvents);
+                }
+                
+                if (friendsCriteriaList.isEmpty()) {
+                    log.debug("User {} has no friends and no own events, returning no match for friends filter", userId);
+                    return Criteria.where("_id").is("__NO_MATCH__");
+                }
+                
+                // Combine with OR: user's own events OR friends' events
+                Criteria combinedCriteria = friendsCriteriaList.size() == 1
+                    ? friendsCriteriaList.get(0)
+                    : new Criteria().orOperator(friendsCriteriaList.toArray(new Criteria[0]));
+                
+                log.info("Built friends visibility criteria including user's own events and friends' events");
+                return combinedCriteria;
+            } else {
+                // No userId, can't show friends visibility events
+                log.debug("No userId provided for friends filter, returning no match");
+                return Criteria.where("_id").is("__NO_MATCH__");
+            }
+        } else {
+            // Assume it's a friend group ID or name
+            // Only return events for this specific friend group that user can access
+            log.info("Processing friend group filter: {}", filterValue);
+            if (userId != null && !userId.isEmpty()) {
+                // Get friend groups where user is a member
+                try {
+                    log.info("Looking up user {} for friend group filtering", userId);
+                    java.util.Optional<Member> currentUserOpt = membersRepository.findById(userId);
+                    if (currentUserOpt.isPresent()) {
+                        Member currentUser = currentUserOpt.get();
+                        log.info("User found, getting friend groups...");
+                        java.util.List<FriendGroup> userFriendGroups = friendGroupRepository.findByMembersContaining(currentUser);
+                        log.info("User is a member of {} friend groups", userFriendGroups.size());
+                        
+                        // Check if the filter value matches any of the user's friend groups (by ID or name)
+                        boolean isUserMember = false;
+                        String matchedGroupId = null;
+                        String matchedGroupName = null;
+                        
+                        for (FriendGroup group : userFriendGroups) {
+                            log.info("Checking friend group - id: {}, name: {}, filterValue: {}", 
+                                group.getId(), group.getName(), filterValue);
+                            // Check by ID first
+                            if (group.getId() != null && group.getId().equals(filterValue)) {
+                                isUserMember = true;
+                                matchedGroupId = group.getId();
+                                if (group.getName() != null) {
+                                    matchedGroupName = group.getName();
+                                }
+                                log.info("Matched friend group by ID: {}", matchedGroupId);
+                                break;
+                            }
+                            // Also check by name (for backward compatibility)
+                            if (group.getName() != null && group.getName().equals(filterValue)) {
+                                isUserMember = true;
+                                if (group.getId() != null) {
+                                    matchedGroupId = group.getId();
+                                }
+                                matchedGroupName = group.getName();
+                                log.info("Matched friend group by name: {}", matchedGroupName);
+                                break;
+                            }
+                        }
+                        
+                        log.info("isUserMember: {}, matchedGroupId: {}, matchedGroupName: {}", 
+                            isUserMember, matchedGroupId, matchedGroupName);
+                        
+                        // Try to find the group by ID even if user is not a member (for user's own events)
+                        if (!isUserMember) {
+                            log.info("User is not a member of any groups, trying to find group by ID: {}", filterValue);
+                            try {
+                                java.util.Optional<FriendGroup> groupOpt = friendGroupRepository.findById(filterValue);
+                                if (groupOpt.isPresent()) {
+                                    FriendGroup group = groupOpt.get();
+                                    matchedGroupId = group.getId();
+                                    if (group.getName() != null) {
+                                        matchedGroupName = group.getName();
+                                    }
+                                    log.info("Found group by ID - id: {}, name: {}", matchedGroupId, matchedGroupName);
+                                } else {
+                                    log.info("Group not found by ID: {}", filterValue);
+                                }
+                            } catch (Exception e) {
+                                log.debug("Error finding group by ID: {}", e.getMessage());
+                            }
+                        }
+                        
+                        // Build criteria for friend group events
+                        // Include events where friendGroupId matches OR visibility matches group name
+                        // Also include user's own events with this friendGroupId (even if not a member)
+                        java.util.List<Criteria> groupCriteriaList = new java.util.ArrayList<>();
+                        
+                        // Match by friendGroupId if we have it
+                        if (matchedGroupId != null) {
+                            groupCriteriaList.add(Criteria.where("friendGroupId").is(matchedGroupId));
+                            log.info("Added friendGroupId criteria: {}", matchedGroupId);
+                        }
+                        
+                        // Also match by visibility matching the group name (for backward compatibility)
+                        if (matchedGroupName != null) {
+                            groupCriteriaList.add(Criteria.where("visibility").is(matchedGroupName));
+                            log.info("Added visibility criteria for group name: {}", matchedGroupName);
+                        }
+                        
+                        // Also try direct match with filter value (in case events use the filter value directly)
+                        groupCriteriaList.add(Criteria.where("friendGroupId").is(filterValue));
+                        groupCriteriaList.add(Criteria.where("visibility").is(filterValue));
+                        log.info("Added direct match criteria for filter value: {}", filterValue);
+                        
+                        if (groupCriteriaList.isEmpty()) {
+                            // No valid criteria, return no match
+                            log.warn("No group criteria found, returning no match");
+                            return Criteria.where("_id").is("__NO_MATCH__");
+                        }
+                        
+                        // Combine all group criteria with OR (match if any of them match)
+                        Criteria groupCriteria = groupCriteriaList.size() == 1 
+                            ? groupCriteriaList.get(0)
+                            : new Criteria().orOperator(groupCriteriaList.toArray(new Criteria[0]));
+                        
+                        // Diagnostic: Check how many events match this group criteria
+                        Query groupQuery = new Query(groupCriteria);
+                        long groupEventsCount = mongoTemplate.count(groupQuery, Evenement.class);
+                        log.info("Events matching friend group criteria (friendGroupId={}, visibility={}): {}", 
+                            matchedGroupId, matchedGroupName, groupEventsCount);
+                        
+                        log.info("Built friend group criteria for filter: {}, matchedGroupId: {}, matchedGroupName: {}", 
+                            filterValue, matchedGroupId, matchedGroupName);
+                        
+                        return groupCriteria;
+                    } else {
+                        // User not found, return no match
+                        return Criteria.where("_id").is("__NO_MATCH__");
+                    }
+                } catch (Exception e) {
+                    log.debug("Error building friend group access criteria for visibility filter: {}", e.getMessage());
+                    // On error, return no match
+                    return Criteria.where("_id").is("__NO_MATCH__");
+                }
+            } else {
+                // No userId, can't show friend group events
+                return Criteria.where("_id").is("__NO_MATCH__");
+            }
+        }
+        
+        if (accessCriteria.isEmpty()) {
+            // No matching criteria, return a criteria that matches nothing
+            return Criteria.where("_id").is("__NO_MATCH__");
+        }
+        
+        if (accessCriteria.size() == 1) {
+            return accessCriteria.get(0);
+        }
+        
+        return new Criteria().orOperator(accessCriteria.toArray(new Criteria[0]));
+    }
+    
     private Criteria buildFriendsVisibilityCriteria(String userId) {
         try {
+            log.debug("Building friends visibility criteria for userId: {}", userId);
             // Get current user
             java.util.Optional<Member> currentUserOpt = membersRepository.findById(userId);
             if (currentUserOpt.isEmpty()) {
+                log.debug("User not found: {}", userId);
                 return null;
             }
             Member currentUser = currentUserOpt.get();
             
             // Get all friends of current user
             java.util.List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
+            log.debug("Found {} friendships for user {}", friendships.size(), userId);
             if (friendships.isEmpty()) {
                 // No friends, so no friends visibility events should be shown
+                log.debug("User {} has no friends", userId);
                 return null;
             }
             
@@ -463,33 +784,71 @@ public class EvenementRestController {
                 }
             }
             
+            log.debug("Collected {} friend IDs: {}", friendIds.size(), friendIds);
             if (friendIds.isEmpty()) {
+                log.debug("No friend IDs collected for user {}", userId);
                 return null;
             }
             
             // Build criteria: visibility="friends" AND author is in friend list
+            // The author field is stored as DBRef: { "$ref" : "members", "$id" : "..." }
+            // The $id can be stored as ObjectId or as string, so we need to try both
             java.util.List<Criteria> friendAuthorCriteria = new java.util.ArrayList<>();
             for (String friendId : friendIds) {
+                java.util.List<Criteria> friendIdCriteria = new java.util.ArrayList<>();
+                
+                // DBRef format: The $id in DBRef can be ObjectId or string
+                // Try ObjectId format first (most common)
                 try {
-                    friendAuthorCriteria.add(Criteria.where("author.$id").is(new ObjectId(friendId)));
+                    ObjectId friendObjectId = new ObjectId(friendId);
+                    // DBRef with ObjectId $id
+                    friendIdCriteria.add(Criteria.where("author.$id").is(friendObjectId));
+                    // DBRef with ObjectId $id and $ref check
+                    friendIdCriteria.add(new Criteria().andOperator(
+                        Criteria.where("author.$ref").is("members"),
+                        Criteria.where("author.$id").is(friendObjectId)
+                    ));
                 } catch (IllegalArgumentException ex) {
-                    // Not an ObjectId, use string comparison
-                    friendAuthorCriteria.add(Criteria.where("author.id").is(friendId));
+                    // Not a valid ObjectId format
+                }
+                
+                // Try string format for DBRef $id (in case it's stored as string)
+                friendIdCriteria.add(Criteria.where("author.$id").is(friendId));
+                // DBRef with string $id and $ref check
+                friendIdCriteria.add(new Criteria().andOperator(
+                    Criteria.where("author.$ref").is("members"),
+                    Criteria.where("author.$id").is(friendId)
+                ));
+                
+                // Combine all formats with OR (match if any format matches)
+                if (friendIdCriteria.size() == 1) {
+                    friendAuthorCriteria.add(friendIdCriteria.get(0));
+                } else {
+                    friendAuthorCriteria.add(new Criteria().orOperator(friendIdCriteria.toArray(new Criteria[0])));
                 }
             }
             
             if (friendAuthorCriteria.isEmpty()) {
+                log.warn("No friend author criteria built for user {}", userId);
                 return null;
             }
             
-            Criteria authorInFriends = new Criteria().orOperator(friendAuthorCriteria.toArray(new Criteria[0]));
-            return new Criteria().andOperator(
+            // Combine all friend author criteria with OR (match if author is any of the friends)
+            Criteria authorInFriends = friendAuthorCriteria.size() == 1 
+                ? friendAuthorCriteria.get(0)
+                : new Criteria().orOperator(friendAuthorCriteria.toArray(new Criteria[0]));
+            
+            // Final criteria: visibility="friends" AND author is in friend list
+            Criteria friendsCriteria = new Criteria().andOperator(
                 Criteria.where("visibility").is("friends"),
                 authorInFriends
             );
+            log.info("Built friends visibility criteria for user {} with {} friend IDs. Criteria: {}", 
+                userId, friendIds.size(), friendsCriteria.getCriteriaObject().toJson());
+            return friendsCriteria;
         } catch (Exception e) {
             // If any error occurs, return null (don't include friends visibility)
-            log.debug("Error building friends visibility criteria: {}", e.getMessage());
+            log.error("Error building friends visibility criteria for user {}: {}", userId, e.getMessage(), e);
             return null;
         }
     }

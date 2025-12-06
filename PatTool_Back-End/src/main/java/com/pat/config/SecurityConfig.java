@@ -137,6 +137,7 @@ public class SecurityConfig {
             "Access-Control-Request-Headers",
             "Cache-Control", // Required for SSE streaming
             "user-id", // Custom header used by your app
+            "visibility-filter", // Custom header for visibility filtering
             "Author",  // Custom header sent by frontend
             "User",    // Custom header sent by frontend (user data)
             "user"     // Custom header sent by frontend (lowercase variant)

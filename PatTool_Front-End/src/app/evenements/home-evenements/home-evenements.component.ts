@@ -877,7 +877,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			
 			// Stream all events
 			const subscription = this._evenementsService
-				.streamEvents(searchString, this.user.id)
+				.streamEvents(searchString, this.user.id, this.selectedVisibilityFilter)
 				.subscribe({
 					next: (streamedEvent: StreamedEvent) => {
 						if (requestToken !== this.feedRequestToken) {
@@ -3729,7 +3729,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 	
 	// Compute filtered events based on visibility filter (including friend groups)
-	// IMPORTANT: Only filters already-loaded events in memory (this.evenements), NO backend calls
+	// IMPORTANT: Backend now handles visibility filtering, so evenements already contains filtered results
+	// This method just syncs filteredEvents with evenements for template compatibility
 	private computeFilteredEvents(): void {
 		// Return cached result if filter hasn't changed and events array size is the same
 		if (this.selectedVisibilityFilter === this.lastFilterValue && 
@@ -3738,38 +3739,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			return; // Use cached result
 		}
 		
-		// Filter only the already-loaded events in memory (NO backend call)
-		if (this.selectedVisibilityFilter === 'all') {
-			// No filter - return all already-loaded events
-			this.filteredEvents = this.evenements;
-		} else {
-			// Pre-compute selected group outside the filter loop for better performance
-			let selectedGroupName: string | null = null;
-			const selectedGroup = this.friendGroups.find(g => g.id === this.selectedVisibilityFilter);
-			if (selectedGroup) {
-				selectedGroupName = selectedGroup.name;
-			}
-			
-			// Filter the already-loaded events array
-			this.filteredEvents = this.evenements.filter(event => {
-				// Check if it's a standard visibility (public, private, friends)
-				if (event.visibility === this.selectedVisibilityFilter) {
-					return true;
-				}
-				
-				// Check if it's a friend group filter by ID
-				if (event.friendGroupId === this.selectedVisibilityFilter) {
-					return true;
-				}
-				
-				// Check if event.visibility matches the selected friend group name
-				if (selectedGroupName && event.visibility === selectedGroupName) {
-					return true;
-				}
-				
-				return false;
-			});
-		}
+		// Backend already filtered the events, so just use evenements directly
+		// This matches the same logic as the word filter - backend does the filtering
+		this.filteredEvents = this.evenements;
 		
 		this.lastFilterValue = this.selectedVisibilityFilter;
 		this.lastEventsLength = this.evenements.length;
@@ -3786,10 +3758,17 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Reset cache to force recalculation
 		this.lastFilterValue = '';
 		this.lastEventsLength = 0;
-		// Compute filtered events immediately (synchronous for instant feedback)
-		this.computeFilteredEvents();
-		// Trigger change detection immediately for instant UI update
-		this.cdr.markForCheck();
+		
+		// Clear caches when filter changes (same as word filter)
+		this.clearCaches();
+		
+		// Ensure scroll is unblocked when filter changes
+		this.unblockPageScroll();
+		this.shouldBlockScroll = false;
+		
+		// Reset and reload events with the new visibility filter from backend
+		// This uses the same logic as the word filter - fetches from backend
+		this.resetAndLoadEvents();
 	}
 	
 	// Get loading events count
