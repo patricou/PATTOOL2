@@ -304,6 +304,7 @@
         "CANCEL": "Annuler l'Activité",
         "CHGTSTATUS": "Changer le Status",
         "CHANGE_VISIBILITY": "Changer la visibilité",
+        "CHANGE_TYPE": "Changer le type",
         "UPLOAD": "Uploader un fichier (Tous types)",
         "PDF_DOCUMENTS": "Documents PDF",
         "OPEN_PDF": "Ouvrir",
@@ -819,6 +820,24 @@
             "LOADING": "Chargement...",
             "REFRESH": "Actualiser",
             "CLOSE": "Fermer"
+        },
+        "CONNECTION_LOGS": {
+            "TITLE": "Journaux de Connexion Utilisateur",
+            "DESC": "Voir l'historique des connexions utilisateur avec IP, nom de domaine et localisation",
+            "VIEW": "Voir les Journaux de Connexion",
+            "CLOSE": "Fermer",
+            "FROM_DATE": "Date de Début",
+            "TO_DATE": "Date de Fin",
+            "FILTER": "Filtrer",
+            "LOADING": "Chargement des journaux de connexion...",
+            "TOTAL": "Total",
+            "CONNECTIONS": "connexion(s)",
+            "DATE_TIME": "Date/Heure",
+            "USER": "Utilisateur",
+            "IP_ADDRESS": "Adresse IP",
+            "DOMAIN_NAME": "Nom de Domaine",
+            "LOCATION": "Localisation",
+            "NO_LOGS": "Aucun journal de connexion trouvé pour la plage de dates sélectionnée."
         }
     },
     "FRIENDS": {
@@ -862,11 +881,21 @@
         "CANCEL": "Annuler",
         "NO_GROUPS": "Vous n'avez pas encore de groupes d'amis",
         "CREATED_ON": "Créé le",
+        "CREATED_BY": "Créé par",
         "MEMBERS": "Membres",
         "NO_MEMBERS": "Aucun membre dans ce groupe",
         "EDIT": "Modifier",
         "DELETE": "Supprimer",
-        "SAVE": "Enregistrer"
+        "SAVE": "Enregistrer",
+        "AUTHORIZED_USERS": "Utilisateurs Autorisés",
+        "MANAGE": "Gérer",
+        "NO_AUTHORIZED_USERS": "Aucun utilisateur autorisé",
+        "SELECT_AUTHORIZED_USERS": "Sélectionner les Utilisateurs Autorisés",
+        "AUTHORIZED_USERS_HELP": "Les utilisateurs autorisés peuvent utiliser ce groupe pour définir la visibilité des événements, mais ne peuvent pas ajouter de membres au groupe.",
+        "NO_FRIENDS_TO_AUTHORIZE": "Vous n'avez pas d'amis à autoriser",
+        "AUTHORIZED": "Autorisé",
+        "AUTHORIZED_TO_USE": "Autorisé à utiliser",
+        "REMOVE": "Retirer"
     }
 }
 

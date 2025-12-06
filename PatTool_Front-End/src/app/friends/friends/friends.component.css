@@ -76,6 +76,13 @@
   gap: 20px;
 }
 
+/* Friend Groups List - 2 columns on desktop */
+.groups-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
 .user-card,
 .request-card,
 .friend-card {
@@ -177,6 +184,10 @@
   .users-list,
   .requests-list,
   .friends-list {
+    grid-template-columns: 1fr;
+  }
+
+  .groups-list {
     grid-template-columns: 1fr;
   }
 

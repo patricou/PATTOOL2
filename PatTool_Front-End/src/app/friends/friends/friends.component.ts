@@ -35,6 +35,9 @@ export class FriendsComponent implements OnInit {
   public editingGroupId: string | null = null;
   public editingGroupName: string = '';
   public editingGroupMembers: string[] = [];
+  // Authorized users management
+  public managingAuthorizedUsersGroupId: string | null = null;
+  public selectedAuthorizedUsers: string[] = [];
 
   constructor(
     private _friendsService: FriendsService,
@@ -459,6 +462,129 @@ export class FriendsComponent implements OnInit {
 
   getGroupMemberNames(group: FriendGroup): string {
     return group.members.map(m => `${m.firstName} ${m.lastName}`).join(', ');
+  }
+
+  // Check if current user is the owner of a group
+  isGroupOwner(group: FriendGroup): boolean {
+    return group.owner && group.owner.id === this.currentUser.id;
+  }
+
+  // Start managing authorized users for a group
+  startManagingAuthorizedUsers(group: FriendGroup) {
+    if (!this.isGroupOwner(group)) {
+      return;
+    }
+    this.managingAuthorizedUsersGroupId = group.id;
+    this.selectedAuthorizedUsers = (group.authorizedUsers || []).map(u => u.id);
+  }
+
+  // Cancel managing authorized users
+  cancelManagingAuthorizedUsers() {
+    this.managingAuthorizedUsersGroupId = null;
+    this.selectedAuthorizedUsers = [];
+  }
+
+  // Toggle authorized user selection
+  toggleAuthorizedUser(friendId: string) {
+    const index = this.selectedAuthorizedUsers.indexOf(friendId);
+    if (index > -1) {
+      this.selectedAuthorizedUsers.splice(index, 1);
+    } else {
+      this.selectedAuthorizedUsers.push(friendId);
+    }
+  }
+
+  // Check if friend is selected as authorized user
+  isAuthorizedUserSelected(friendId: string): boolean {
+    return this.selectedAuthorizedUsers.includes(friendId);
+  }
+
+  // Check if user is already authorized
+  isUserAuthorized(group: FriendGroup, userId: string): boolean {
+    return !!(group.authorizedUsers && group.authorizedUsers.some(u => u.id === userId));
+  }
+
+  // Save authorized users
+  saveAuthorizedUsers() {
+    if (!this.managingAuthorizedUsersGroupId) {
+      return;
+    }
+
+    const group = this.friendGroups.find(g => g.id === this.managingAuthorizedUsersGroupId);
+    if (!group || !this.isGroupOwner(group)) {
+      return;
+    }
+
+    // Get currently authorized users
+    const currentAuthorizedUserIds = (group.authorizedUsers || []).map(u => u.id);
+    
+    // Find users to add (in selected but not in current)
+    const usersToAdd = this.selectedAuthorizedUsers.filter(id => !currentAuthorizedUserIds.includes(id));
+    
+    // Find users to remove (in current but not in selected)
+    const usersToRemove = currentAuthorizedUserIds.filter(id => !this.selectedAuthorizedUsers.includes(id));
+
+    this.loading = true;
+    this.errorMessage = '';
+
+    // Process all changes
+    const operations: Promise<any>[] = [];
+    
+    usersToAdd.forEach(userId => {
+      operations.push(
+        this._friendsService.authorizeUserForGroup(this.managingAuthorizedUsersGroupId!, userId).toPromise()
+      );
+    });
+    
+    usersToRemove.forEach(userId => {
+      operations.push(
+        this._friendsService.unauthorizeUserForGroup(this.managingAuthorizedUsersGroupId!, userId).toPromise()
+      );
+    });
+
+    Promise.all(operations).then(() => {
+      this.loadFriendGroups();
+      this.cancelManagingAuthorizedUsers();
+      this.loading = false;
+    }).catch(error => {
+      console.error('Error managing authorized users:', error);
+      this.errorMessage = 'Error managing authorized users';
+      this.loading = false;
+    });
+  }
+
+  // Authorize a single user
+  authorizeUser(groupId: string, userId: string) {
+    this.loading = true;
+    this.errorMessage = '';
+    this._friendsService.authorizeUserForGroup(groupId, userId).subscribe(
+      () => {
+        this.loadFriendGroups();
+        this.loading = false;
+      },
+      error => {
+        console.error('Error authorizing user:', error);
+        this.errorMessage = 'Error authorizing user';
+        this.loading = false;
+      }
+    );
+  }
+
+  // Unauthorize a single user
+  unauthorizeUser(groupId: string, userId: string) {
+    this.loading = true;
+    this.errorMessage = '';
+    this._friendsService.unauthorizeUserForGroup(groupId, userId).subscribe(
+      () => {
+        this.loadFriendGroups();
+        this.loading = false;
+      },
+      error => {
+        console.error('Error unauthorizing user:', error);
+        this.errorMessage = 'Error unauthorizing user';
+        this.loading = false;
+      }
+    );
   }
 }
 

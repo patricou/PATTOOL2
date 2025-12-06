@@ -311,6 +311,7 @@
         "CANCEL": "Annulla Attività",
         "CHGTSTATUS": "Cambia Stato",
         "CHANGE_VISIBILITY": "Cambia visibilità",
+        "CHANGE_TYPE": "Cambia tipo",
         "UPLOAD": "Carica un file (Tutti i tipi)",
         "PDF_DOCUMENTS": "Documenti PDF",
         "OPEN_PDF": "Apri",
@@ -816,6 +817,24 @@
             "LOADING": "Caricamento...",
             "REFRESH": "Aggiorna",
             "CLOSE": "Chiudi"
+        },
+        "CONNECTION_LOGS": {
+            "TITLE": "Registri di Connessione Utente",
+            "DESC": "Visualizza la cronologia delle connessioni utente con IP, nome di dominio e informazioni sulla posizione",
+            "VIEW": "Visualizza Registri di Connessione",
+            "CLOSE": "Chiudi",
+            "FROM_DATE": "Data Da",
+            "TO_DATE": "Data A",
+            "FILTER": "Filtra",
+            "LOADING": "Caricamento registri di connessione...",
+            "TOTAL": "Totale",
+            "CONNECTIONS": "connessione(i)",
+            "DATE_TIME": "Data/Ora",
+            "USER": "Utente",
+            "IP_ADDRESS": "Indirizzo IP",
+            "DOMAIN_NAME": "Nome di Dominio",
+            "LOCATION": "Posizione",
+            "NO_LOGS": "Nessun registro di connessione trovato per l'intervallo di date selezionato."
         }
     },
     "FRIENDS": {
@@ -859,10 +878,20 @@
         "CANCEL": "Annulla",
         "NO_GROUPS": "Non hai ancora gruppi di amici",
         "CREATED_ON": "Creato il",
+        "CREATED_BY": "Creato da",
         "MEMBERS": "Membri",
         "NO_MEMBERS": "Nessun membro in questo gruppo",
         "EDIT": "Modifica",
         "DELETE": "Elimina",
-        "SAVE": "Salva"
+        "SAVE": "Salva",
+        "AUTHORIZED_USERS": "Utenti Autorizzati",
+        "MANAGE": "Gestisci",
+        "NO_AUTHORIZED_USERS": "Nessun utente autorizzato",
+        "SELECT_AUTHORIZED_USERS": "Seleziona Utenti Autorizzati",
+        "AUTHORIZED_USERS_HELP": "Gli utenti autorizzati possono utilizzare questo gruppo per impostare la visibilità degli eventi, ma non possono aggiungere membri al gruppo.",
+        "NO_FRIENDS_TO_AUTHORIZE": "Non hai amici da autorizzare",
+        "AUTHORIZED": "Autorizzato",
+        "AUTHORIZED_TO_USE": "Autorizzato ad usare",
+        "REMOVE": "Rimuovi"
     }
 }

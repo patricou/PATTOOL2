@@ -62,16 +62,22 @@ public class MailController {
 
     // Internal method for sending emails to a specific recipient (called from other controllers)
     public String sendMailToRecipient(String recipientEmail, String subject, String body, boolean isHtml){
+        return sendMailToRecipient(recipientEmail, subject, body, isHtml, null);
+    }
+
+    // Internal method for sending emails to a specific recipient with BCC (called from other controllers)
+    public String sendMailToRecipient(String recipientEmail, String subject, String body, boolean isHtml, String bcc){
         log.debug("=== MAIL SENDING ATTEMPT (TO SPECIFIC RECIPIENT) ===");
         log.debug("Subject: {}", subject);
         log.debug("To: {}", recipientEmail);
+        log.debug("BCC: {}", bcc != null ? bcc : "none");
         log.debug("From: {}", mailSentFrom);
         log.debug("Mail enabled (app.sendmail): {}", sendmail);
         log.debug("HTML format: {}", isHtml);
         
         try {
             if (sendmail && recipientEmail != null && !recipientEmail.trim().isEmpty()) {
-                smtpMailSender.sendMail(mailSentFrom, recipientEmail, subject, body, isHtml);
+                smtpMailSender.sendMail(mailSentFrom, recipientEmail, bcc, subject, body, isHtml);
                 log.debug("✓ Mail sent successfully to {} - Subject: '{}'", recipientEmail, subject);
             } else {
                 if (!sendmail) {
@@ -131,5 +137,10 @@ public class MailController {
             return new String[0];
         }
         return recipients.split("\\s*,\\s*");
+    }
+
+    // Getter for mailSentTo (used for BCC in invitation emails)
+    public String getMailSentTo() {
+        return mailSentTo;
     }
 }

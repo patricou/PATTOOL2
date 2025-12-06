@@ -917,3 +917,21 @@
         overflow: visible;
     }
 }
+
+/* Type options - 2 per line on desktop, 1 per line on mobile */
+.type-options {
+    display: flex;
+    flex-direction: column;
+}
+
+@media (min-width: 768px) {
+    .type-options {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .type-option {
+        margin-bottom: 0 !important;
+    }
+}

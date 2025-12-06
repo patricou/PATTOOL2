@@ -316,6 +316,7 @@
         "UPLOAD": "Upload a File (all type)",
         "CHGTSTATUS": "Status Change",
         "CHANGE_VISIBILITY": "Change Visibility",
+        "CHANGE_TYPE": "Change Type",
         "PDF_DOCUMENTS": "PDF Documents",
         "OPEN_PDF": "Open",
         "DOWNLOAD_PDF": "Download",
@@ -823,6 +824,24 @@
             "LOADING": "Loading...",
             "REFRESH": "Refresh",
             "CLOSE": "Close"
+        },
+        "CONNECTION_LOGS": {
+            "TITLE": "User Connection Logs",
+            "DESC": "View user connection history with IP, domain name, and location information",
+            "VIEW": "View Connection Logs",
+            "CLOSE": "Close",
+            "FROM_DATE": "From Date",
+            "TO_DATE": "To Date",
+            "FILTER": "Filter",
+            "LOADING": "Loading connection logs...",
+            "TOTAL": "Total",
+            "CONNECTIONS": "connection(s)",
+            "DATE_TIME": "Date/Time",
+            "USER": "User",
+            "IP_ADDRESS": "IP Address",
+            "DOMAIN_NAME": "Domain Name",
+            "LOCATION": "Location",
+            "NO_LOGS": "No connection logs found for the selected date range."
         }
     },
     "FRIENDS": {
@@ -866,11 +885,21 @@
         "CANCEL": "Cancel",
         "NO_GROUPS": "You don't have any friend groups yet",
         "CREATED_ON": "Created on",
+        "CREATED_BY": "Created by",
         "MEMBERS": "Members",
         "NO_MEMBERS": "No members in this group",
         "EDIT": "Edit",
         "DELETE": "Delete",
-        "SAVE": "Save"
+        "SAVE": "Save",
+        "AUTHORIZED_USERS": "Authorized Users",
+        "MANAGE": "Manage",
+        "NO_AUTHORIZED_USERS": "No authorized users",
+        "SELECT_AUTHORIZED_USERS": "Select Authorized Users",
+        "AUTHORIZED_USERS_HELP": "Authorized users can use this group to set event visibility, but cannot add members to the group.",
+        "NO_FRIENDS_TO_AUTHORIZE": "You don't have any friends to authorize",
+        "AUTHORIZED": "Authorized",
+        "AUTHORIZED_TO_USE": "Authorized to use",
+        "REMOVE": "Remove"
     }
 }
 

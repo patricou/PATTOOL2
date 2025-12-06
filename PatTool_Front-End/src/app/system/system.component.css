@@ -627,7 +627,7 @@
 
 .report-overlay-panel {
     position: relative;
-    width: min(1200px, 95vw);
+    width: min(1400px, 95vw);
     height: 90vh;
     border-radius: 16px;
     overflow: hidden;
@@ -637,6 +637,12 @@
     flex-direction: column;
     pointer-events: auto;
     animation: slideIn 0.25s ease-out;
+    z-index: 1051;
+}
+
+.connection-logs-panel {
+    width: min(1400px, 95vw);
+    max-width: 95vw;
 }
 
 .report-overlay-header {
@@ -659,6 +665,15 @@
 
 .report-overlay-title i {
     font-size: 1.1rem;
+}
+
+.connection-count-badge {
+    margin-left: 0.5rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
+    font-size: 0.85rem;
+    font-weight: 600;
 }
 
 .report-overlay-close {
@@ -783,5 +798,227 @@
     .report-overlay-panel {
         width: 95vw;
         height: 95vh;
+    }
+}
+
+/* Connection Logs Styles */
+.connection-logs-card {
+    margin-top: 0.6rem;
+}
+
+.connection-logs-icon {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.btn-connection-logs {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.btn-connection-logs:not(:disabled):hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+}
+
+.connection-logs-panel {
+    max-width: 1400px;
+}
+
+.connection-logs-body {
+    flex: 1 1 auto;
+    overflow: auto;
+    background: #f8f9fa;
+    padding: 1.5rem;
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.connection-logs-filter {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.filter-row {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.filter-item {
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-item label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: #374151;
+    font-size: 0.875rem;
+}
+
+.filter-item .form-control {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.875rem;
+}
+
+.filter-item button {
+    width: 100%;
+    padding: 0.5rem 1rem;
+}
+
+.filter-info {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    font-size: 0.875rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.connection-logs-loading,
+.connection-logs-error {
+    text-align: center;
+    padding: 2rem;
+    background: white;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+}
+
+.connection-logs-loading {
+    color: #6b7280;
+}
+
+.connection-logs-loading i {
+    margin-right: 0.5rem;
+}
+
+.connection-logs-error {
+    color: #ef4444;
+    background: #fee2e2;
+    border: 1px solid #fca5a5;
+}
+
+.connection-logs-error i {
+    margin-right: 0.5rem;
+}
+
+.connection-logs-grid-container {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 10;
+}
+
+.connection-logs-ag-grid {
+    width: 100%;
+    height: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+.ag-theme-alpine {
+    width: 100% !important;
+    height: 100% !important;
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    z-index: 10;
+}
+
+.ag-grid-container {
+    width: 100%;
+    height: 100%;
+}
+
+/* AG Grid Theme Customization */
+.ag-theme-alpine {
+    --ag-header-background-color: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --ag-header-foreground-color: white;
+    --ag-border-color: #e5e7eb;
+    --ag-row-hover-color: #f9fafb;
+    --ag-font-size: 0.875rem;
+}
+
+.ag-theme-alpine .ag-header {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.8rem;
+}
+
+.ag-theme-alpine .ag-header-cell {
+    border-right: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ag-theme-alpine .ag-row {
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.ag-theme-alpine .ag-row:hover {
+    background-color: #f9fafb;
+}
+
+.connection-logs-empty {
+    text-align: center;
+    padding: 3rem;
+    color: #6b7280;
+    font-size: 0.875rem;
+}
+
+.connection-logs-empty i {
+    margin-right: 0.5rem;
+    font-size: 1.25rem;
+    color: #9ca3af;
+}
+
+/* Responsive Design for Connection Logs */
+@media (max-width: 768px) {
+    .connection-logs-table {
+        font-size: 0.75rem;
+    }
+
+    .connection-logs-table thead th,
+    .connection-logs-table tbody td {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .filter-row {
+        flex-direction: column;
+    }
+
+    .filter-item {
+        min-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .connection-logs-body {
+        padding: 1rem;
+    }
+
+    .connection-logs-filter {
+        padding: 0.75rem;
+    }
+
+    .connection-log-card {
+        padding: 0.75rem;
     }
 }

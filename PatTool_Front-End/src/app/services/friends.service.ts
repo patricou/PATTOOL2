@@ -494,7 +494,19 @@ export class FriendsService {
                                 res.owner.lastConnectionDate ? new Date(res.owner.lastConnectionDate) : undefined,
                                 res.owner.locale || undefined
                             ) : new Member('', '', '', '', '', [], ''),
-                            res.creationDate ? new Date(res.creationDate) : new Date()
+                            res.creationDate ? new Date(res.creationDate) : new Date(),
+                            (res.authorizedUsers || []).map((m: any) => new Member(
+                                m.id || '',
+                                m.addressEmail || '',
+                                m.firstName || '',
+                                m.lastName || '',
+                                m.userName || '',
+                                m.roles || [],
+                                m.keycloakId || '',
+                                m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                m.locale || undefined
+                            ))
                         );
                     }),
                     catchError((error: any) => {
@@ -549,7 +561,19 @@ export class FriendsService {
                                     group.owner.lastConnectionDate ? new Date(group.owner.lastConnectionDate) : undefined,
                                     group.owner.locale || undefined
                                 ) : new Member('', '', '', '', '', [], ''),
-                                group.creationDate ? new Date(group.creationDate) : new Date()
+                                group.creationDate ? new Date(group.creationDate) : new Date(),
+                                (group.authorizedUsers || []).map((m: any) => new Member(
+                                    m.id || '',
+                                    m.addressEmail || '',
+                                    m.firstName || '',
+                                    m.lastName || '',
+                                    m.userName || '',
+                                    m.roles || [],
+                                    m.keycloakId || '',
+                                    m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                    m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                    m.locale || undefined
+                                ))
                             );
                         });
                     }),
@@ -604,7 +628,19 @@ export class FriendsService {
                                 res.owner.lastConnectionDate ? new Date(res.owner.lastConnectionDate) : undefined,
                                 res.owner.locale || undefined
                             ) : new Member('', '', '', '', '', [], ''),
-                            res.creationDate ? new Date(res.creationDate) : new Date()
+                            res.creationDate ? new Date(res.creationDate) : new Date(),
+                            (res.authorizedUsers || []).map((m: any) => new Member(
+                                m.id || '',
+                                m.addressEmail || '',
+                                m.firstName || '',
+                                m.lastName || '',
+                                m.userName || '',
+                                m.roles || [],
+                                m.keycloakId || '',
+                                m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                m.locale || undefined
+                            ))
                         );
                     }),
                     catchError((error: any) => {
@@ -662,7 +698,19 @@ export class FriendsService {
                                 res.owner.lastConnectionDate ? new Date(res.owner.lastConnectionDate) : undefined,
                                 res.owner.locale || undefined
                             ) : new Member('', '', '', '', '', [], ''),
-                            res.creationDate ? new Date(res.creationDate) : new Date()
+                            res.creationDate ? new Date(res.creationDate) : new Date(),
+                            (res.authorizedUsers || []).map((m: any) => new Member(
+                                m.id || '',
+                                m.addressEmail || '',
+                                m.firstName || '',
+                                m.lastName || '',
+                                m.userName || '',
+                                m.roles || [],
+                                m.keycloakId || '',
+                                m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                m.locale || undefined
+                            ))
                         );
                     }),
                     catchError((error: any) => {
@@ -693,6 +741,145 @@ export class FriendsService {
                 ).pipe(
                     catchError((error: any) => {
                         console.error('Error deleting friend group:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Authorize a user to use a friend group (but not to add members)
+     */
+    authorizeUserForGroup(groupId: string, userId: string): Observable<FriendGroup> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.post<FriendGroup>(
+                    this.API_URL + 'friends/groups/' + groupId + '/authorize/' + userId,
+                    {},
+                    { headers: headers }
+                ).pipe(
+                    map((res: any) => {
+                        return new FriendGroup(
+                            res.id || '',
+                            res.name || '',
+                            (res.members || []).map((m: any) => new Member(
+                                m.id || '',
+                                m.addressEmail || '',
+                                m.firstName || '',
+                                m.lastName || '',
+                                m.userName || '',
+                                m.roles || [],
+                                m.keycloakId || '',
+                                m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                m.locale || undefined
+                            )),
+                            res.owner ? new Member(
+                                res.owner.id || '',
+                                res.owner.addressEmail || '',
+                                res.owner.firstName || '',
+                                res.owner.lastName || '',
+                                res.owner.userName || '',
+                                res.owner.roles || [],
+                                res.owner.keycloakId || '',
+                                res.owner.registrationDate ? new Date(res.owner.registrationDate) : undefined,
+                                res.owner.lastConnectionDate ? new Date(res.owner.lastConnectionDate) : undefined,
+                                res.owner.locale || undefined
+                            ) : new Member('', '', '', '', '', [], ''),
+                            res.creationDate ? new Date(res.creationDate) : new Date(),
+                            (res.authorizedUsers || []).map((m: any) => new Member(
+                                m.id || '',
+                                m.addressEmail || '',
+                                m.firstName || '',
+                                m.lastName || '',
+                                m.userName || '',
+                                m.roles || [],
+                                m.keycloakId || '',
+                                m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                m.locale || undefined
+                            ))
+                        );
+                    }),
+                    catchError((error: any) => {
+                        console.error('Error authorizing user for group:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Remove authorization for a user from a friend group
+     */
+    unauthorizeUserForGroup(groupId: string, userId: string): Observable<FriendGroup> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.delete<FriendGroup>(
+                    this.API_URL + 'friends/groups/' + groupId + '/authorize/' + userId,
+                    { headers: headers }
+                ).pipe(
+                    map((res: any) => {
+                        return new FriendGroup(
+                            res.id || '',
+                            res.name || '',
+                            (res.members || []).map((m: any) => new Member(
+                                m.id || '',
+                                m.addressEmail || '',
+                                m.firstName || '',
+                                m.lastName || '',
+                                m.userName || '',
+                                m.roles || [],
+                                m.keycloakId || '',
+                                m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                m.locale || undefined
+                            )),
+                            res.owner ? new Member(
+                                res.owner.id || '',
+                                res.owner.addressEmail || '',
+                                res.owner.firstName || '',
+                                res.owner.lastName || '',
+                                res.owner.userName || '',
+                                res.owner.roles || [],
+                                res.owner.keycloakId || '',
+                                res.owner.registrationDate ? new Date(res.owner.registrationDate) : undefined,
+                                res.owner.lastConnectionDate ? new Date(res.owner.lastConnectionDate) : undefined,
+                                res.owner.locale || undefined
+                            ) : new Member('', '', '', '', '', [], ''),
+                            res.creationDate ? new Date(res.creationDate) : new Date(),
+                            (res.authorizedUsers || []).map((m: any) => new Member(
+                                m.id || '',
+                                m.addressEmail || '',
+                                m.firstName || '',
+                                m.lastName || '',
+                                m.userName || '',
+                                m.roles || [],
+                                m.keycloakId || '',
+                                m.registrationDate ? new Date(m.registrationDate) : undefined,
+                                m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                                m.locale || undefined
+                            ))
+                        );
+                    }),
+                    catchError((error: any) => {
+                        console.error('Error unauthorizing user for group:', error);
                         throw error;
                     })
                 );

@@ -309,6 +309,7 @@
         "CANCEL": "בטל את הפעילות",
         "CHGTSTATUS": "שנה את הסטטוס",
         "CHANGE_VISIBILITY": "שנה את הנראות",
+        "CHANGE_TYPE": "שנה סוג",
         "UPLOAD": "העלה קובץ (כל הסוגים)",
         "PDF_DOCUMENTS": "מסמכי PDF",
         "OPEN_PDF": "פתח",
@@ -808,6 +809,24 @@
             "LOADING": "טוען...",
             "REFRESH": "רענן",
             "CLOSE": "סגור"
+        },
+        "CONNECTION_LOGS": {
+            "TITLE": "יומני חיבור משתמשים",
+            "DESC": "הצגת היסטוריית חיבורי משתמשים עם IP, שם דומיין ומידע מיקום",
+            "VIEW": "הצג יומני חיבור",
+            "CLOSE": "סגור",
+            "FROM_DATE": "מתאריך",
+            "TO_DATE": "עד תאריך",
+            "FILTER": "סנן",
+            "LOADING": "טוען יומני חיבור...",
+            "TOTAL": "סה\"כ",
+            "CONNECTIONS": "חיבור(ים)",
+            "DATE_TIME": "תאריך/שעה",
+            "USER": "משתמש",
+            "IP_ADDRESS": "כתובת IP",
+            "DOMAIN_NAME": "שם דומיין",
+            "LOCATION": "מיקום",
+            "NO_LOGS": "לא נמצאו יומני חיבור לטווח התאריכים שנבחר."
         }
     },
     "FRIENDS": {
@@ -851,10 +870,20 @@
         "CANCEL": "בטל",
         "NO_GROUPS": "אין לך קבוצות חברים עדיין",
         "CREATED_ON": "נוצר ב",
+        "CREATED_BY": "נוצר על ידי",
         "MEMBERS": "חברים",
         "NO_MEMBERS": "אין חברים בקבוצה זו",
         "EDIT": "ערוך",
         "DELETE": "מחק",
-        "SAVE": "שמור"
+        "SAVE": "שמור",
+        "AUTHORIZED_USERS": "משתמשים מורשים",
+        "MANAGE": "נהל",
+        "NO_AUTHORIZED_USERS": "אין משתמשים מורשים",
+        "SELECT_AUTHORIZED_USERS": "בחר משתמשים מורשים",
+        "AUTHORIZED_USERS_HELP": "משתמשים מורשים יכולים להשתמש בקבוצה זו כדי להגדיר את הנראות של אירועים, אך אינם יכולים להוסיף חברים לקבוצה.",
+        "NO_FRIENDS_TO_AUTHORIZE": "אין לך חברים לאשר",
+        "AUTHORIZED": "מורשה",
+        "AUTHORIZED_TO_USE": "מורשה לשימוש",
+        "REMOVE": "הסר"
     }
 }

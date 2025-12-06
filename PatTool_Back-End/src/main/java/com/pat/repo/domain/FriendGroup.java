@@ -26,6 +26,9 @@ public class FriendGroup {
     @DBRef
     private Member owner;
     
+    @DBRef
+    private List<Member> authorizedUsers = new ArrayList<>(); // Users authorized to use this group (but not to add members)
+    
     @NotNull
     private Date creationDate;
 
@@ -77,6 +80,14 @@ public class FriendGroup {
 
     public void setCreationDate(Date creationDate) {
         this.creationDate = creationDate;
+    }
+
+    public List<Member> getAuthorizedUsers() {
+        return authorizedUsers;
+    }
+
+    public void setAuthorizedUsers(List<Member> authorizedUsers) {
+        this.authorizedUsers = authorizedUsers != null ? authorizedUsers : new ArrayList<>();
     }
 }
 

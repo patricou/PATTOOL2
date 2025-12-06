@@ -31,12 +31,21 @@ public class SmtpMailSender {
 
     @Async
     public void sendMail(String from,String to, String subject, String body, boolean isHtml){
+        sendMail(from, to, null, subject, body, isHtml);
+    }
+
+    @Async
+    public void sendMail(String from, String to, String bcc, String subject, String body, boolean isHtml){
         String[] recipients = parseRecipients(to);
         for (String recipient : recipients) {
             MimeMessage mail = javaMailSender.createMimeMessage();
             try {
                 MimeMessageHelper helper = new MimeMessageHelper(mail, true, "UTF-8");
                 helper.setTo(recipient);
+                if (bcc != null && !bcc.trim().isEmpty()) {
+                    String[] bccRecipients = parseRecipients(bcc);
+                    helper.setBcc(bccRecipients);
+                }
                 helper.setReplyTo(from);
                 helper.setFrom(from);
                 helper.setSubject(subject);

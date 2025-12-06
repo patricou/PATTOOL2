@@ -355,6 +355,10 @@
               <div>
                 <h5>{{ group.name }}</h5>
                 <p class="text-muted small">
+                  <i class="fa fa-user"></i>
+                  {{ 'FRIENDS.CREATED_BY' | translate }}: <strong>{{ group.owner.firstName }} {{ group.owner.lastName }}</strong> (<i class="fa fa-at"></i> {{ group.owner.userName }})
+                </p>
+                <p class="text-muted small">
                   <i class="fa fa-calendar"></i>
                   {{ 'FRIENDS.CREATED_ON' | translate }}: {{ group.creationDate | date:'short' }}
                 </p>
@@ -393,8 +397,93 @@
                     </div>
                   </div>
                 </div>
+                <!-- Authorized Users Section (only for owner) -->
+                <div *ngIf="isGroupOwner(group)" class="authorized-users-section mt-3">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6>
+                      <i class="fa fa-user-check"></i>
+                      {{ 'FRIENDS.AUTHORIZED_USERS' | translate }}
+                      <span *ngIf="group.authorizedUsers && group.authorizedUsers.length > 0" class="badge bg-info">
+                        {{ group.authorizedUsers.length }}
+                      </span>
+                    </h6>
+                    <button 
+                      *ngIf="managingAuthorizedUsersGroupId !== group.id"
+                      class="btn btn-sm btn-outline-primary"
+                      (click)="startManagingAuthorizedUsers(group)">
+                      <i class="fa fa-edit"></i>
+                      {{ 'FRIENDS.MANAGE' | translate }}
+                    </button>
+                  </div>
+                  <div *ngIf="managingAuthorizedUsersGroupId !== group.id">
+                    <div *ngIf="!group.authorizedUsers || group.authorizedUsers.length === 0" class="text-muted small">
+                      {{ 'FRIENDS.NO_AUTHORIZED_USERS' | translate }}
+                    </div>
+                    <div *ngIf="group.authorizedUsers && group.authorizedUsers.length > 0" class="authorized-users-list mt-2">
+                      <div *ngFor="let authorizedUser of group.authorizedUsers" class="authorized-user-item p-2 mb-2 border rounded bg-light">
+                        <div class="d-flex align-items-center justify-content-between">
+                          <div class="d-flex align-items-center">
+                            <div class="user-avatar me-3">
+                              <i class="fa fa-user-check fa-2x text-success"></i>
+                            </div>
+                            <div>
+                              <h6 class="mb-0">{{ authorizedUser.firstName }} {{ authorizedUser.lastName }}</h6>
+                              <p class="text-muted small mb-0">
+                                <i class="fa fa-at"></i> {{ authorizedUser.userName }}
+                              </p>
+                            </div>
+                          </div>
+                          <button 
+                            class="btn btn-sm btn-danger"
+                            (click)="unauthorizeUser(group.id, authorizedUser.id)">
+                            <i class="fa fa-times"></i>
+                            {{ 'FRIENDS.REMOVE' | translate }}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <!-- Manage Authorized Users Form -->
+                  <div *ngIf="managingAuthorizedUsersGroupId === group.id" class="manage-authorized-users-form mt-3 p-3 border rounded bg-light">
+                    <h6 class="mb-3">{{ 'FRIENDS.SELECT_AUTHORIZED_USERS' | translate }}</h6>
+                    <p class="text-muted small mb-3">
+                      {{ 'FRIENDS.AUTHORIZED_USERS_HELP' | translate }}
+                    </p>
+                    <div *ngIf="friends.length === 0" class="alert alert-info">
+                      {{ 'FRIENDS.NO_FRIENDS_TO_AUTHORIZE' | translate }}
+                    </div>
+                    <div *ngIf="friends.length > 0" class="friends-selection">
+                      <div *ngFor="let friend of friends" class="form-check mb-2">
+                        <input 
+                          class="form-check-input" 
+                          type="checkbox" 
+                          [id]="'authorize-' + group.id + '-' + (friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)"
+                          [checked]="isAuthorizedUserSelected(friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)"
+                          (change)="toggleAuthorizedUser(friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)">
+                        <label 
+                          class="form-check-label" 
+                          [for]="'authorize-' + group.id + '-' + (friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)">
+                          {{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }} ({{ getOtherUser(friend).userName }})
+                          <span *ngIf="isUserAuthorized(group, friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)" class="badge bg-success ms-2">
+                            {{ 'FRIENDS.AUTHORIZED' | translate }}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="d-flex gap-2 mt-3">
+                      <button class="btn btn-success btn-sm" (click)="saveAuthorizedUsers()" [disabled]="loading">
+                        <i class="fa fa-check"></i>
+                        {{ 'FRIENDS.SAVE' | translate }}
+                      </button>
+                      <button class="btn btn-secondary btn-sm" (click)="cancelManagingAuthorizedUsers()" [disabled]="loading">
+                        <i class="fa fa-times"></i>
+                        {{ 'FRIENDS.CANCEL' | translate }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="d-flex gap-2">
+              <div class="d-flex gap-2" *ngIf="isGroupOwner(group)">
                 <button 
                   class="btn btn-sm btn-primary"
                   (click)="startEditingGroup(group)">
@@ -407,6 +496,10 @@
                   <i class="fa fa-trash"></i>
                   {{ 'FRIENDS.DELETE' | translate }}
                 </button>
+              </div>
+              <div *ngIf="!isGroupOwner(group)" class="badge bg-info">
+                <i class="fa fa-user-check"></i>
+                {{ 'FRIENDS.AUTHORIZED_TO_USE' | translate }}
               </div>
             </div>
           </div>

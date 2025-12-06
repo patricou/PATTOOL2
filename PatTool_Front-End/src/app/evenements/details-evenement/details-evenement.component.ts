@@ -151,11 +151,27 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   // Prepare photo gallery with comments overlay
   private preparePhotoGallery(): void {
-    if (!this.evenement || !this.evenement.fileUploadeds) {
+    if (!this.evenement) {
       return;
     }
 
-    const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
+    // Start with image files from fileUploadeds
+    const imageFiles = (this.evenement.fileUploadeds || []).filter(file => this.isImageFile(file.fileName));
+    
+    // Check if thumbnail exists and is not already in fileUploadeds
+    if (this.evenement.thumbnail && 
+        this.evenement.thumbnail.fieldId && 
+        this.isImageFile(this.evenement.thumbnail.fileName)) {
+      // Check if thumbnail is already in fileUploadeds by comparing fieldId
+      const isThumbnailInFileUploadeds = imageFiles.some(
+        file => file.fieldId === this.evenement!.thumbnail!.fieldId
+      );
+      
+      // If thumbnail is not in fileUploadeds, add it to the beginning of the list
+      if (!isThumbnailInFileUploadeds) {
+        imageFiles.unshift(this.evenement.thumbnail);
+      }
+    }
     
     this.photoItems = imageFiles.map(file => ({
       file: file,

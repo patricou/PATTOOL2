@@ -5,12 +5,14 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { TranslateService } from '@ngx-translate/core';
 import { MembersService } from '../services/members.service';
 import { Member } from '../model/member';
+import { UserConnectionLog } from '../model/user-connection-log';
 import { ElementEvenementComponent } from '../evenements/element-evenement/element-evenement.component';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { environment } from '../../environments/environment';
 import { Observable, from, of } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
+import { ColDef, GridOptions, GridReadyEvent } from 'ag-grid-community';
 
 @Component({
   selector: 'app-system',
@@ -75,6 +77,33 @@ export class SystemComponent implements OnInit {
     private _keycloakService: KeycloakService
   ) { }
 
+  // Connection Logs properties
+  isConnectionLogsVisible: boolean = false;
+  isLoadingConnectionLogs: boolean = false;
+  connectionLogs: UserConnectionLog[] = [];
+  connectionLogsError: string = '';
+  connectionLogsStartDate: Date = new Date();
+  connectionLogsEndDate: Date = new Date();
+  connectionLogsCount: number = 0;
+  
+  // AG Grid properties
+  connectionLogsColumnDefs: ColDef[] = [];
+  connectionLogsGridOptions: GridOptions = {
+    defaultColDef: {
+      sortable: true,
+      filter: true,
+      resizable: true,
+      flex: 1,
+      minWidth: 150
+    },
+    pagination: true,
+    paginationPageSize: 20,
+    paginationPageSizeSelector: [10, 20, 50, 100],
+    animateRows: true,
+    rowSelection: 'single',
+    suppressRowClickSelection: false
+  };
+
   ngOnInit() {
     this.user = this._memberService.getUser();
     this.checkShutdownAuthorization();
@@ -82,6 +111,68 @@ export class SystemComponent implements OnInit {
     this.pageLoadStartTime = performance.now();
     this.collectPerformanceStats();
     this.loadAdditionalDebugInfo();
+    
+    // Initialize connection logs date range (5 days ago to now)
+    this.connectionLogsEndDate = new Date();
+    this.connectionLogsStartDate = new Date();
+    this.connectionLogsStartDate.setDate(this.connectionLogsStartDate.getDate() - 5);
+    
+    // Initialize AG Grid column definitions
+    this.initializeConnectionLogsColumns();
+  }
+  
+  initializeConnectionLogsColumns(): void {
+    this.connectionLogsColumnDefs = [
+      {
+        field: 'connectionDate',
+        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.DATE_TIME'),
+        width: 200,
+        valueFormatter: (params) => {
+          return params.value ? this.formatConnectionDate(params.value) : 'N/A';
+        },
+        comparator: (valueA, valueB) => {
+          const dateA = valueA ? new Date(valueA).getTime() : 0;
+          const dateB = valueB ? new Date(valueB).getTime() : 0;
+          return dateA - dateB;
+        }
+      },
+      {
+        field: 'member',
+        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.USER'),
+        width: 200,
+        valueGetter: (params) => {
+          if (params.data?.member) {
+            return params.data.member.userName;
+          }
+          return 'N/A';
+        },
+        cellRenderer: (params: any) => {
+          if (params.data?.member) {
+            const userName = params.data.member.userName || 'N/A';
+            const firstName = params.data.member.firstName || '';
+            const lastName = params.data.member.lastName || '';
+            return `<div><strong>${userName}</strong><br><small style="color: #6b7280;">${firstName} ${lastName}</small></div>`;
+          }
+          return 'N/A';
+        }
+      },
+      {
+        field: 'ipAddress',
+        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.IP_ADDRESS'),
+        width: 150
+      },
+      {
+        field: 'domainName',
+        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.DOMAIN_NAME'),
+        width: 200
+      },
+      {
+        field: 'location',
+        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.LOCATION'),
+        width: 250,
+        flex: 2
+      }
+    ];
   }
 
   checkShutdownAuthorization(): void {
@@ -756,6 +847,124 @@ export class SystemComponent implements OnInit {
       return `${ms.toFixed(2)} ms`;
     } else {
       return `${(ms / 1000).toFixed(2)} s`;
+    }
+  }
+
+  viewConnectionLogs(): void {
+    this.isConnectionLogsVisible = true;
+    // Ensure columns are initialized before loading data
+    if (this.connectionLogsColumnDefs.length === 0) {
+      this.initializeConnectionLogsColumns();
+    }
+    this.loadConnectionLogs();
+  }
+
+  closeConnectionLogs(): void {
+    this.isConnectionLogsVisible = false;
+    this.connectionLogs = [];
+    this.connectionLogsError = '';
+  }
+
+  loadConnectionLogs(): void {
+    this.isLoadingConnectionLogs = true;
+    this.connectionLogsError = '';
+    
+    this._cacheService.getConnectionLogs(this.connectionLogsStartDate, this.connectionLogsEndDate).subscribe(
+      (response: any) => {
+        let responseData = response;
+        // Handle different response formats
+        if (response && typeof response === 'object' && '_body' in response) {
+          responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+        } else if (response && typeof response === 'object') {
+          responseData = response;
+        }
+        
+        if (responseData && responseData.success !== false) {
+          this.connectionLogs = responseData.logs || [];
+          this.connectionLogsCount = responseData.count || this.connectionLogs.length;
+          
+          console.log('Connection logs loaded:', this.connectionLogs.length, 'logs');
+          console.log('Column definitions:', this.connectionLogsColumnDefs.length);
+          
+          // Convert date strings to Date objects
+          this.connectionLogs = this.connectionLogs.map((log: any) => {
+            if (log.connectionDate && typeof log.connectionDate === 'string') {
+              log.connectionDate = new Date(log.connectionDate);
+            }
+            return log;
+          });
+          
+          // Update column headers with translations
+          this.updateColumnHeaders();
+        } else {
+          this.connectionLogsError = responseData.error || 'Failed to load connection logs';
+          this.connectionLogs = [];
+        }
+        this.isLoadingConnectionLogs = false;
+      },
+      error => {
+        this.connectionLogsError = error.error?.error || error.message || 'Error loading connection logs';
+        this.connectionLogs = [];
+        this.isLoadingConnectionLogs = false;
+      }
+    );
+  }
+  
+  updateColumnHeaders(): void {
+    this.connectionLogsColumnDefs.forEach(col => {
+      if (col.field === 'connectionDate') {
+        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.DATE_TIME');
+      } else if (col.field === 'member') {
+        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.USER');
+      } else if (col.field === 'ipAddress') {
+        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.IP_ADDRESS');
+      } else if (col.field === 'domainName') {
+        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.DOMAIN_NAME');
+      } else if (col.field === 'location') {
+        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.LOCATION');
+      }
+    });
+  }
+  
+  onGridReady(event: GridReadyEvent): void {
+    console.log('AG Grid ready', event);
+    if (event.api) {
+      event.api.sizeColumnsToFit();
+      console.log('Grid columns fitted, row count:', event.api.getDisplayedRowCount());
+    }
+  }
+
+  applyConnectionLogsFilter(): void {
+    this.loadConnectionLogs();
+  }
+
+  formatConnectionDate(date: Date | string | undefined): string {
+    if (!date) return 'N/A';
+    const d = typeof date === 'string' ? new Date(date) : date;
+    return d.toLocaleString();
+  }
+
+  getDateTimeLocalString(date: Date): string {
+    if (!date) return '';
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  }
+
+  onStartDateChange(event: any): void {
+    const value = event.target.value;
+    if (value) {
+      this.connectionLogsStartDate = new Date(value);
+    }
+  }
+
+  onEndDateChange(event: any): void {
+    const value = event.target.value;
+    if (value) {
+      this.connectionLogsEndDate = new Date(value);
     }
   }
 }

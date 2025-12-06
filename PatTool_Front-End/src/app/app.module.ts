@@ -45,6 +45,11 @@ import { SystemComponent } from './system/system.component';
 import { CacheService } from './services/cache.service';
 import { FriendsModule } from './friends/friends.module';
 import { FriendsComponent } from './friends/friends/friends.component';
+import { AgGridModule } from 'ag-grid-angular';
+import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
+
+// Register AG Grid modules
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 // AoT requires an exported function for factories
 export function HttpLoaderFactory(http: HttpClient) {
@@ -73,6 +78,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		FriendsModule,
 		NavigationButtonsModule,
 		SlideshowModalModule,
+		AgGridModule,
 		TranslateModule.forRoot({
 			loader: {
 				provide: TranslateLoader,

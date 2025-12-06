@@ -58,6 +58,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public friendGroups: FriendGroup[] = [];
 	// Visibility options for modal
 	public visibilityOptions: Array<{value: string, label: string, friendGroupId?: string}> = [];
+	// Type options for modal
+	public typeOptions: Array<{value: string, label: string}> = [];
 	// Dominant color for title background
 	public titleBackgroundColor: string = 'rgba(255, 255, 255, 0.6)';
 	// Inverse color for title border
@@ -219,6 +221,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	@ViewChild('qualitySelectionModal') qualitySelectionModal!: TemplateRef<any>;
 	@ViewChild('loadingStatsModal') loadingStatsModal!: TemplateRef<any>;
 	@ViewChild('visibilityModal') visibilityModal!: TemplateRef<any>;
+	@ViewChild('typeModal') typeModal!: TemplateRef<any>;
 	@ViewChild('logContent') logContent: any;
 
 	@Input()
@@ -2966,6 +2969,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	};
 	// Change Status
 	public changeStatusEvent(status: string) {
+		// Only allow status changes if user is the owner
+		if (!this.isAuthor()) {
+			console.warn("Only the owner can change the status of an event");
+			return;
+		}
+		
 		if (status == "Closed") {
 			this.evenement.status = "Cancel"
 		} else
@@ -3003,6 +3012,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	public isLoadingFiles: boolean = false;
+	private fileStreamSubscription: Subscription | null = null;
 	
 	public onFilesButtonClick(content: any): void {
 		this.openFilesModal(content);
@@ -3016,6 +3026,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return;
 		}
 		
+		// Cancel any existing file stream subscription to avoid conflicts
+		if (this.fileStreamSubscription) {
+			this.fileStreamSubscription.unsubscribe();
+			this.fileStreamSubscription = null;
+		}
+		
 		// Open the modal FIRST - before doing anything else
 		const modalRef = this.modalService.open(content, { 
 			size: 'xl', 
@@ -3025,25 +3041,30 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			windowClass: 'files-management-modal'
 		});
 		
-		// Check if files are already loaded in evenement.fileUploadeds (from previous modal open)
-		if (this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0) {
-			// Files are already loaded - just display them
-			this.isLoadingFiles = false;
-			console.log(`Using ${this.evenement.fileUploadeds.length} already loaded files for event ${this.evenement.id}`);
-			// Auto-expand types with less than 4 elements
-			setTimeout(() => {
-				this.autoExpandFileTypesWithLessThanFour();
-			}, 150); // Small delay to ensure modal is fully rendered
-			return;
-		}
+		// Clean up subscription when modal is closed
+		modalRef.result.finally(() => {
+			if (this.fileStreamSubscription) {
+				this.fileStreamSubscription.unsubscribe();
+				this.fileStreamSubscription = null;
+			}
+		}).catch(() => {
+			// Modal was dismissed, subscription already cleaned up
+		});
 		
-		// Initialize empty array and show loading state AFTER modal is opened
+		// Always reload files from the database to ensure we have the latest data
+		// This fixes the issue where new files added after the event was loaded don't appear
 		this.isLoadingFiles = true;
 		
 		// Wait for modal to be fully rendered before initializing array and starting file load
 		setTimeout(() => {
-			// Initialize empty array after modal is rendered
-			this.evenement.fileUploadeds = [];
+			// Clear existing files and initialize empty array after modal is rendered
+			// This ensures we always get fresh data from the database
+			if (!this.evenement.fileUploadeds) {
+				this.evenement.fileUploadeds = [];
+			} else {
+				// Clear the array but keep the reference for Angular change detection
+				this.evenement.fileUploadeds.length = 0;
+			}
 			
 			if (!this._evenementsService) {
 				console.error('_evenementsService is not available!');
@@ -3052,12 +3073,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			}
 			
 			// Stream files using Server-Sent Events (SSE) - files appear as database finds them
-			this._evenementsService.streamEventFiles(this.evenement.id).subscribe({
+			this.fileStreamSubscription = this._evenementsService.streamEventFiles(this.evenement.id).subscribe({
 				next: (streamedFile) => {
 					if (streamedFile.type === 'total') {
 						// Total count received - can be used for progress indication
 						const totalCount = streamedFile.data as number;
-						console.log(`Streaming ${totalCount} files for event ${this.evenement.id}`);
 						// If total is 0, hide loading immediately
 						if (totalCount === 0) {
 							this.isLoadingFiles = false;
@@ -3066,16 +3086,29 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						// File received from database - display it immediately
 						const file = streamedFile.data as UploadedFile;
 						
-						// Add file to the array immediately (Angular change detection will update the view)
-						this.evenement.fileUploadeds.push(file);
+						// Ensure array exists
+						if (!this.evenement.fileUploadeds) {
+							this.evenement.fileUploadeds = [];
+						}
 						
-						// Load thumbnail for this file immediately (non-blocking, async)
-						// This starts the thumbnail download in parallel without blocking the UI
-						this.loadFileThumbnail(file);
+						// Check if file already exists (avoid duplicates)
+						const exists = this.evenement.fileUploadeds.some(f => 
+							f.fieldId === file.fieldId || 
+							(f.fileName === file.fileName && f.fieldId === file.fieldId)
+						);
+						
+						if (!exists) {
+							// Add file to the array immediately (Angular change detection will update the view)
+							this.evenement.fileUploadeds.push(file);
+							
+							// Load thumbnail for this file immediately (non-blocking, async)
+							// This starts the thumbnail download in parallel without blocking the UI
+							this.loadFileThumbnail(file);
+						}
 					} else if (streamedFile.type === 'complete') {
 						// All files have been streamed
 						this.isLoadingFiles = false;
-						console.log(`Completed streaming ${this.evenement.fileUploadeds.length} files`);
+						console.log(`Completed streaming ${this.evenement.fileUploadeds.length} files for event ${this.evenement.id}`);
 						// Auto-expand types with less than 4 elements
 						setTimeout(() => {
 							this.autoExpandFileTypesWithLessThanFour();
@@ -3087,8 +3120,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					}
 				},
 				error: (error) => {
-					console.error('Error streaming files:', error);
-					this.isLoadingFiles = false;
+					console.error('Error streaming files for event', this.evenement.id, ':', error);
+					// Fallback to non-streaming endpoint if streaming fails
+					if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
+						console.log('Streaming failed, trying fallback endpoint...');
+						this.loadFilesFallback();
+					} else {
+						this.isLoadingFiles = false;
+					}
 				},
 				complete: () => {
 					// Stream completed - ensure loading is hidden
@@ -3100,6 +3139,48 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				}
 			});
 		}, 100); // Small delay to ensure modal is fully rendered
+	}
+	
+	// Fallback method to load files using non-streaming endpoint
+	private loadFilesFallback(): void {
+		if (!this._evenementsService || !this.evenement || !this.evenement.id) {
+			this.isLoadingFiles = false;
+			return;
+		}
+		
+		this._evenementsService.getEventFiles(this.evenement.id).subscribe({
+			next: (files: UploadedFile[]) => {
+				if (files && files.length > 0) {
+					// Ensure array exists
+					if (!this.evenement.fileUploadeds) {
+						this.evenement.fileUploadeds = [];
+					} else {
+						this.evenement.fileUploadeds.length = 0;
+					}
+					
+					// Add all files
+					files.forEach(file => {
+						this.evenement.fileUploadeds.push(file);
+						this.loadFileThumbnail(file);
+					});
+					
+					console.log(`Loaded ${files.length} files via fallback endpoint for event ${this.evenement.id}`);
+					this.isLoadingFiles = false;
+					
+					// Auto-expand types with less than 4 elements
+					setTimeout(() => {
+						this.autoExpandFileTypesWithLessThanFour();
+					}, 100);
+				} else {
+					console.log(`No files found for event ${this.evenement.id} via fallback endpoint`);
+					this.isLoadingFiles = false;
+				}
+			},
+			error: (error) => {
+				console.error('Error loading files via fallback endpoint:', error);
+				this.isLoadingFiles = false;
+			}
+		});
 	}
 	
 	// Load thumbnail for a single file
@@ -5088,20 +5169,52 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.allSubscriptions.push(sub);
 	}
 	
-	// Change visibility (only for author)
+	// Check if user is authorized to use a friend group (owner or authorized user)
+	private isAuthorizedForGroup(group: FriendGroup): boolean {
+		if (!group || !this.user) {
+			return false;
+		}
+		// Check if user is the owner
+		if (group.owner && group.owner.userName && 
+			group.owner.userName.toLowerCase() === this.user.userName.toLowerCase()) {
+			return true;
+		}
+		// Check if user is in authorizedUsers list
+		if (group.authorizedUsers && Array.isArray(group.authorizedUsers)) {
+			return group.authorizedUsers.some(u => 
+				u && u.userName && u.userName.toLowerCase() === this.user.userName.toLowerCase()
+			);
+		}
+		return false;
+	}
+
+	// Change visibility (for author or authorized user of the selected group)
 	public changeVisibility(newVisibility: string, friendGroupId?: string): void {
-		if (!this.isAuthor()) {
+		// Allow if user is the author
+		if (this.isAuthor()) {
+			this.evenement.visibility = newVisibility;
+			if (friendGroupId) {
+				this.evenement.friendGroupId = friendGroupId;
+			} else {
+				this.evenement.friendGroupId = undefined;
+			}
+			this.updateEvenement.emit(this.evenement);
 			return;
 		}
 		
-		this.evenement.visibility = newVisibility;
+		// Allow if user is authorized for the selected group
 		if (friendGroupId) {
-			this.evenement.friendGroupId = friendGroupId;
-		} else {
-			this.evenement.friendGroupId = undefined;
+			const selectedGroup = this.friendGroups.find(g => g.id === friendGroupId);
+			if (selectedGroup && this.isAuthorizedForGroup(selectedGroup)) {
+				this.evenement.visibility = newVisibility;
+				this.evenement.friendGroupId = friendGroupId;
+				this.updateEvenement.emit(this.evenement);
+				return;
+			}
 		}
 		
-		this.updateEvenement.emit(this.evenement);
+		// Not authorized
+		console.warn("User is not authorized to change visibility");
 	}
 	
 	// Get available visibility options
@@ -5113,10 +5226,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				{ value: 'friends', label: this.translateService.instant('EVENTCREATION.FRIENDS') }
 			];
 			
-			// Add friend groups owned by the user
+			// Add friend groups where user is owner or authorized
 			if (this.friendGroups && Array.isArray(this.friendGroups)) {
 				this.friendGroups.forEach(group => {
-					if (group && group.name && group.id) {
+					if (group && group.name && group.id && this.isAuthorizedForGroup(group)) {
 						options.push({
 							value: group.name,
 							label: group.name,
@@ -5138,9 +5251,28 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 	}
 	
+	// Check if user can change visibility (author or authorized for current group)
+	public canChangeVisibility(): boolean {
+		// Author can always change visibility
+		if (this.isAuthor()) {
+			return true;
+		}
+		
+		// Check if user is authorized for the current group
+		if (this.evenement.friendGroupId) {
+			const currentGroup = this.friendGroups.find(g => g.id === this.evenement.friendGroupId);
+			if (currentGroup && this.isAuthorizedForGroup(currentGroup)) {
+				return true;
+			}
+		}
+		
+		return false;
+	}
+
 	// Open visibility selection modal
 	public openVisibilityModal(): void {
-		if (!this.isAuthor()) {
+		// Allow if user is author or authorized for current group
+		if (!this.canChangeVisibility()) {
 			return;
 		}
 		
@@ -5169,6 +5301,77 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Handle visibility selection
 	public onVisibilitySelected(option: {value: string, label: string, friendGroupId?: string}): void {
 		this.changeVisibility(option.value, option.friendGroupId);
+	}
+	
+	// Get sorted event types for modal
+	public getSortedEventTypes(): {value: string, label: string}[] {
+		const eventTypes: {value: string, label: string}[] = [
+			{ value: "1", label: this.eventTypeLabels['1'] },
+			{ value: "2", label: this.eventTypeLabels['2'] },
+			{ value: "3", label: this.eventTypeLabels['3'] },
+			{ value: "4", label: this.eventTypeLabels['4'] },
+			{ value: "5", label: this.eventTypeLabels['5'] },
+			{ value: "6", label: this.eventTypeLabels['6'] },
+			{ value: "7", label: this.eventTypeLabels['7'] },
+			{ value: "8", label: this.eventTypeLabels['8'] },
+			{ value: "9", label: this.eventTypeLabels['9'] },
+			{ value: "10", label: this.eventTypeLabels['10'] },
+			{ value: "11", label: this.eventTypeLabels['11'] },
+			{ value: "12", label: this.eventTypeLabels['12'] },
+			{ value: "13", label: this.eventTypeLabels['13'] },
+			{ value: "14", label: this.eventTypeLabels['14'] },
+			{ value: "15", label: this.eventTypeLabels['15'] },
+			{ value: "16", label: this.eventTypeLabels['16'] },
+			{ value: "17", label: this.eventTypeLabels['17'] }
+		];
+		
+		// Sort by translated label
+		return eventTypes.sort((a, b) =>
+			this.translateService.instant(a.label).localeCompare(this.translateService.instant(b.label))
+		);
+	}
+	
+	// Open type change modal
+	public openTypeModal(): void {
+		if (!this.isAuthor()) {
+			return;
+		}
+		
+		try {
+			this.forceCloseTooltips();
+			
+			// Prepare type options before opening modal
+			this.typeOptions = this.getSortedEventTypes();
+			
+			if (!this.typeModal) {
+				console.error('Type modal template not found');
+				return;
+			}
+			
+			this.modalService.open(this.typeModal, { 
+				size: 'sm', 
+				centered: true, 
+				backdrop: 'static', 
+				keyboard: false 
+			});
+		} catch (error) {
+			console.error('Error opening type modal:', error);
+		}
+	}
+	
+	// Handle type selection
+	public onTypeSelected(type: {value: string, label: string}): void {
+		this.changeType(type.value);
+	}
+	
+	// Change event type
+	public changeType(newType: string): void {
+		if (!this.isAuthor()) {
+			return;
+		}
+		
+		this.evenement.type = newType;
+		this.updateEvenement.emit(this.evenement);
 	}
 }
 

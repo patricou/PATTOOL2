@@ -654,6 +654,15 @@ public class FileRestController {
                 log.debug("Evenement not found: " + evenementid);
                 return new ResponseEntity<>(null, null, HttpStatus.BAD_REQUEST);
             }
+            
+            // CRITICAL: Ensure fileUploadeds list is initialized
+            if (evenement.getFileUploadeds() == null) {
+                evenement.setFileUploadeds(new ArrayList<>());
+                log.warn("fileUploadeds was null for event {}, initializing new list before upload", evenementid);
+            }
+            
+            int filesBeforeUpload = evenement.getFileUploadeds().size();
+            log.info("Event {} found. Current files in event: {}", evenementid, filesBeforeUpload);
 
             // Process each file
             for (int fileIndex = 0; fileIndex < files.length; fileIndex++) {
@@ -773,8 +782,16 @@ public class FileRestController {
                 FileUploaded fileUploaded = new FileUploaded(fieldId, filedata.getOriginalFilename(), contentType, uploaderMember);
                 uploadedFiles.add(fileUploaded);
                 
+                // Ensure fileUploadeds list is still initialized (defensive check)
+                if (evenement.getFileUploadeds() == null) {
+                    evenement.setFileUploadeds(new ArrayList<>());
+                    log.error("fileUploadeds became null during upload for event {}! Re-initializing.", evenementid);
+                }
+                
                 // Add file to evenement
                 evenement.getFileUploadeds().add(fileUploaded);
+                log.debug("Added file {} (fieldId: {}) to event {}. Total files in event now: {}", 
+                    filedata.getOriginalFilename(), fieldId, evenementid, evenement.getFileUploadeds().size());
                 
                 // If file name contains "thumbnail", also set it as the thumbnail
                 String fileName = filedata.getOriginalFilename();
@@ -787,9 +804,30 @@ public class FileRestController {
                 }
             }
 
+            // Ensure fileUploadeds list is initialized
+            if (evenement.getFileUploadeds() == null) {
+                evenement.setFileUploadeds(new ArrayList<>());
+                log.warn("fileUploadeds was null for event {}, initializing new list", evenementid);
+            }
+            
             // Save the evenement updated with all files
+            log.info("About to save event {} with {} files in fileUploadeds array", 
+                evenementid, evenement.getFileUploadeds() != null ? evenement.getFileUploadeds().size() : 0);
+            
             Evenement eventSaved = evenementsRepository.save(evenement);
-            log.debug("Evenement saved with " + uploadedFiles.size() + " files");
+            
+            // Immediately verify the save worked by re-reading from database
+            Evenement verifyEvent = evenementsRepository.findById(evenementid).orElse(null);
+            int savedFileCount = verifyEvent != null && verifyEvent.getFileUploadeds() != null 
+                ? verifyEvent.getFileUploadeds().size() : 0;
+            log.info("Evenement {} saved. Verification: {} files in database (expected: {})", 
+                evenementid, savedFileCount, uploadedFiles.size());
+            
+            if (savedFileCount != uploadedFiles.size()) {
+                log.error("CRITICAL: File count mismatch! Expected {} files but database has {} files for event {}. " +
+                    "This indicates files were not properly saved to the database.", 
+                    uploadedFiles.size(), savedFileCount, evenementid);
+            }
 
             if (finalSessionId != null) {
                 addUploadLog(finalSessionId, String.format("✅ Upload completed! %d file(s) saved", uploadedFiles.size()));
@@ -812,7 +850,10 @@ public class FileRestController {
             return new ResponseEntity<List<FileUploaded>>(uploadedFiles, httpHeaders, HttpStatus.CREATED);
 
         }catch (Exception e ){
-            log.debug(" Exception error " + e);
+            log.error("Exception error during file upload for event {}: {}", evenementid, e.getMessage(), e);
+            if (finalSessionId != null) {
+                addUploadLog(finalSessionId, "❌ Upload failed: " + e.getMessage());
+            }
         }
 
         return new ResponseEntity<>(null,null,HttpStatus.INTERNAL_SERVER_ERROR);

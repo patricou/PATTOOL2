@@ -1,19 +1,25 @@
 package com.pat.controller;
 
+import com.pat.repo.UserConnectionLogRepository;
+import com.pat.repo.domain.UserConnectionLog;
 import com.pat.service.MemoryMonitoringService;
 import com.pat.service.ImageCompressionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -31,6 +37,9 @@ public class SystemController {
     
     @Autowired(required = false)
     private ImageCompressionService imageCompressionService;
+    
+    @Autowired
+    private UserConnectionLogRepository userConnectionLogRepository;
     
     /**
      * Get JVM memory information
@@ -178,6 +187,56 @@ public class SystemController {
         } catch (Exception e) {
             log.error("Error generating speed test data", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * Get user connection logs with optional date filtering
+     * @param startDate Optional start date (defaults to 5 days ago if not provided)
+     * @param endDate Optional end date (defaults to now if not provided)
+     * @return List of connection logs
+     */
+    @GetMapping("/connection-logs")
+    public ResponseEntity<Map<String, Object>> getConnectionLogs(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Date startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Date endDate) {
+        try {
+            Date start = startDate;
+            Date end = endDate;
+            
+            // Default to 5 days ago if startDate is not provided
+            if (start == null) {
+                long fiveDaysAgo = System.currentTimeMillis() - (5L * 24 * 60 * 60 * 1000);
+                start = new Date(fiveDaysAgo);
+            }
+            
+            // Default to now if endDate is not provided
+            if (end == null) {
+                end = new Date();
+            }
+            
+            List<UserConnectionLog> logs = userConnectionLogRepository
+                    .findByConnectionDateBetweenOrderByConnectionDateDesc(start, end);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("logs", logs);
+            response.put("startDate", start);
+            response.put("endDate", end);
+            response.put("count", logs.size());
+            
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
+                    .header(HttpHeaders.PRAGMA, "no-cache")
+                    .header(HttpHeaders.EXPIRES, "0")
+                    .body(response);
+        } catch (Exception e) {
+            log.error("Error retrieving connection logs", e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", "Failed to retrieve connection logs: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }
 }

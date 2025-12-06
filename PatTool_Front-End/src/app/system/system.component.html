@@ -391,6 +391,28 @@
                 </div>
             </div>
 
+            <!-- Connection Logs Section -->
+            <div class="cache-action-card connection-logs-card">
+                <div class="action-header">
+                    <div class="action-icon connection-logs-icon">
+                        <i class="fa fa-users"></i>
+                    </div>
+                    <div class="action-info">
+                        <h4>{{ 'SYSTEM.CONNECTION_LOGS.TITLE' | translate }}</h4>
+                        <p>{{ 'SYSTEM.CONNECTION_LOGS.DESC' | translate }}</p>
+                    </div>
+                </div>
+                <div class="report-actions">
+                    <button 
+                        type="button" 
+                        class="btn-small btn-connection-logs"
+                        (click)="viewConnectionLogs()">
+                        <i class="fa fa-list"></i>
+                        <span>{{ 'SYSTEM.CONNECTION_LOGS.VIEW' | translate }}</span>
+                    </button>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -426,5 +448,83 @@
             </div>
         </div>
         <div class="report-overlay-body" [innerHTML]="reportHtml"></div>
+    </div>
+</div>
+
+<!-- Connection Logs Overlay -->
+<div class="report-overlay" *ngIf="isConnectionLogsVisible">
+    <div class="report-overlay-backdrop" (click)="closeConnectionLogs()"></div>
+    <div class="report-overlay-panel connection-logs-panel">
+        <div class="report-overlay-header">
+            <div class="report-overlay-title">
+                <i class="fa fa-users"></i>
+                {{ 'SYSTEM.CONNECTION_LOGS.TITLE' | translate }}
+                <span *ngIf="connectionLogsCount > 0" class="connection-count-badge">
+                    ({{ connectionLogsCount }})
+                </span>
+            </div>
+            <div class="report-overlay-actions">
+                <button type="button" class="btn btn-sm btn-light report-overlay-close" (click)="closeConnectionLogs()">
+                    <i class="fa fa-times"></i>
+                    {{ 'SYSTEM.CONNECTION_LOGS.CLOSE' | translate }}
+                </button>
+            </div>
+        </div>
+        <div class="connection-logs-body">
+            <!-- Date Filter Section -->
+            <div class="connection-logs-filter">
+                <div class="filter-row">
+                    <div class="filter-item">
+                        <label>{{ 'SYSTEM.CONNECTION_LOGS.FROM_DATE' | translate }}:</label>
+                        <input type="datetime-local" 
+                               [value]="getDateTimeLocalString(connectionLogsStartDate)"
+                               (change)="onStartDateChange($event)"
+                               class="form-control">
+                    </div>
+                    <div class="filter-item">
+                        <label>{{ 'SYSTEM.CONNECTION_LOGS.TO_DATE' | translate }}:</label>
+                        <input type="datetime-local" 
+                               [value]="getDateTimeLocalString(connectionLogsEndDate)"
+                               (change)="onEndDateChange($event)"
+                               class="form-control">
+                    </div>
+                    <div class="filter-item">
+                        <button type="button" 
+                                class="btn btn-primary"
+                                (click)="applyConnectionLogsFilter()"
+                                [disabled]="isLoadingConnectionLogs">
+                            <i class="fa" [ngClass]="{'fa-search': !isLoadingConnectionLogs, 'fa-spinner': isLoadingConnectionLogs, 'fa-spin': isLoadingConnectionLogs}"></i>
+                            {{ 'SYSTEM.CONNECTION_LOGS.FILTER' | translate }}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div *ngIf="isLoadingConnectionLogs" class="connection-logs-loading">
+                <i class="fa fa-spinner fa-spin"></i> {{ 'SYSTEM.CONNECTION_LOGS.LOADING' | translate }}
+            </div>
+
+            <!-- Error State -->
+            <div *ngIf="connectionLogsError && !isLoadingConnectionLogs" class="connection-logs-error">
+                <i class="fa fa-exclamation-triangle"></i> {{ connectionLogsError }}
+            </div>
+
+            <!-- Connection Logs AG Grid -->
+            <div *ngIf="!isLoadingConnectionLogs && !connectionLogsError" class="connection-logs-grid-container">
+                <div *ngIf="connectionLogs.length > 0" class="ag-theme-alpine" style="width: 100%; height: 100%; min-height: 500px;">
+                    <ag-grid-angular
+                        [rowData]="connectionLogs"
+                        [columnDefs]="connectionLogsColumnDefs"
+                        [gridOptions]="connectionLogsGridOptions"
+                        (gridReady)="onGridReady($event)"
+                        style="width: 100%; height: 100%; position: relative; z-index: 10;">
+                    </ag-grid-angular>
+                </div>
+                <div *ngIf="connectionLogs.length === 0" class="connection-logs-empty">
+                    <i class="fa fa-info-circle"></i> {{ 'SYSTEM.CONNECTION_LOGS.NO_LOGS' | translate }}
+                </div>
+            </div>
+        </div>
     </div>
 </div>

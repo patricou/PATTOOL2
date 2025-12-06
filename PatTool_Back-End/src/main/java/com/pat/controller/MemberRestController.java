@@ -1,7 +1,9 @@
 package com.pat.controller;
 
 import com.pat.repo.domain.Member;
+import com.pat.repo.domain.UserConnectionLog;
 import com.pat.repo.MembersRepository;
+import com.pat.repo.UserConnectionLogRepository;
 import com.pat.service.ExceptionTrackingService;
 import com.pat.service.IpGeolocationService;
 import org.slf4j.Logger;
@@ -41,6 +43,9 @@ public class MemberRestController {
 
     @Autowired
     private IpGeolocationService ipGeolocationService;
+
+    @Autowired
+    private UserConnectionLogRepository userConnectionLogRepository;
 
     @Value("${app.connection.email.enabled:false}")
     private boolean connectionEmailEnabled;
@@ -179,6 +184,34 @@ public class MemberRestController {
         log.debug("Saving member to database...");
         Member newMember = membersRepository.save(member);
         log.debug("Member saved - ID: {}", newMember.getId());
+        
+        // Save connection log to MongoDB
+        try {
+            String ipAddress = request.getHeader("X-Forwarded-For");
+            if (ipAddress == null) {
+                ipAddress = request.getRemoteAddr();
+            }
+            
+            // Get IP information (domain name and location)
+            IpGeolocationService.IPInfo ipInfo = ipGeolocationService.getCompleteIpInfo(ipAddress);
+            String domainName = ipInfo.getDomainName() != null ? ipInfo.getDomainName() : "N/A";
+            String location = ipInfo.getLocation() != null ? ipInfo.getLocation() : "N/A";
+            
+            // Create and save connection log
+            UserConnectionLog connectionLog = new UserConnectionLog(
+                newMember,
+                now,
+                ipAddress,
+                domainName,
+                location
+            );
+            userConnectionLogRepository.save(connectionLog);
+            log.debug("Connection log saved for user: {}", newMember.getUserName());
+        } catch (Exception e) {
+            log.error("Error saving connection log for user: {}", newMember.getUserName(), e);
+            // Don't fail the connection if logging fails
+        }
+        
         log.debug("=== END USER CONNECTION REQUEST ===\n");
         return newMember;
     }

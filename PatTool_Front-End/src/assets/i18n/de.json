@@ -310,6 +310,7 @@
         "CANCEL": "Veranstaltung absagen",
         "CHGTSTATUS": "Status ändern",
         "CHANGE_VISIBILITY": "Sichtbarkeit ändern",
+        "CHANGE_TYPE": "Typ ändern",
         "UPLOAD": "Datei hochladen (alle Typen)",
         "PDF_DOCUMENTS": "PDF-Dokumente",
         "OPEN_PDF": "Öffnen",
@@ -809,6 +810,24 @@
             "LOADING": "Laden...",
             "REFRESH": "Aktualisieren",
             "CLOSE": "Schließen"
+        },
+        "CONNECTION_LOGS": {
+            "TITLE": "Benutzer-Verbindungsprotokolle",
+            "DESC": "Benutzer-Verbindungsverlauf mit IP, Domainname und Standortinformationen anzeigen",
+            "VIEW": "Verbindungsprotokolle Anzeigen",
+            "CLOSE": "Schließen",
+            "FROM_DATE": "Von Datum",
+            "TO_DATE": "Bis Datum",
+            "FILTER": "Filtern",
+            "LOADING": "Verbindungsprotokolle werden geladen...",
+            "TOTAL": "Gesamt",
+            "CONNECTIONS": "Verbindung(en)",
+            "DATE_TIME": "Datum/Zeit",
+            "USER": "Benutzer",
+            "IP_ADDRESS": "IP-Adresse",
+            "DOMAIN_NAME": "Domainname",
+            "LOCATION": "Standort",
+            "NO_LOGS": "Keine Verbindungsprotokolle für den ausgewählten Datumsbereich gefunden."
         }
     },
     "FRIENDS": {
@@ -852,10 +871,20 @@
         "CANCEL": "Abbrechen",
         "NO_GROUPS": "Sie haben noch keine Freundesgruppen",
         "CREATED_ON": "Erstellt am",
+        "CREATED_BY": "Erstellt von",
         "MEMBERS": "Mitglieder",
         "NO_MEMBERS": "Keine Mitglieder in dieser Gruppe",
         "EDIT": "Bearbeiten",
         "DELETE": "Löschen",
-        "SAVE": "Speichern"
+        "SAVE": "Speichern",
+        "AUTHORIZED_USERS": "Autorisierte Benutzer",
+        "MANAGE": "Verwalten",
+        "NO_AUTHORIZED_USERS": "Keine autorisierten Benutzer",
+        "SELECT_AUTHORIZED_USERS": "Autorisierte Benutzer auswählen",
+        "AUTHORIZED_USERS_HELP": "Autorisierte Benutzer können diese Gruppe verwenden, um die Sichtbarkeit von Ereignissen festzulegen, können jedoch keine Mitglieder zur Gruppe hinzufügen.",
+        "NO_FRIENDS_TO_AUTHORIZE": "Sie haben keine Freunde zum Autorisieren",
+        "AUTHORIZED": "Autorisiert",
+        "AUTHORIZED_TO_USE": "Autorisiert zu verwenden",
+        "REMOVE": "Entfernen"
     }
 }

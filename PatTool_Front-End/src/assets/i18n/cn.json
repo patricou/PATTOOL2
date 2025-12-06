@@ -310,6 +310,7 @@
         "CANCEL": "取消活动",
         "CHGTSTATUS": "更改状态",
         "CHANGE_VISIBILITY": "更改可见性",
+        "CHANGE_TYPE": "更改类型",
         "UPLOAD": "上传文件（所有类型）",
         "PDF_DOCUMENTS": "PDF文档",
         "OPEN_PDF": "打开",
@@ -815,6 +816,24 @@
             "LOADING": "加载中...",
             "REFRESH": "刷新",
             "CLOSE": "关闭"
+        },
+        "CONNECTION_LOGS": {
+            "TITLE": "用户连接日志",
+            "DESC": "查看用户连接历史记录，包括IP地址、域名和位置信息",
+            "VIEW": "查看连接日志",
+            "CLOSE": "关闭",
+            "FROM_DATE": "开始日期",
+            "TO_DATE": "结束日期",
+            "FILTER": "筛选",
+            "LOADING": "正在加载连接日志...",
+            "TOTAL": "总计",
+            "CONNECTIONS": "连接",
+            "DATE_TIME": "日期/时间",
+            "USER": "用户",
+            "IP_ADDRESS": "IP地址",
+            "DOMAIN_NAME": "域名",
+            "LOCATION": "位置",
+            "NO_LOGS": "未找到所选日期范围的连接日志。"
         }
     },
     "FRIENDS": {
@@ -858,10 +877,20 @@
         "CANCEL": "取消",
         "NO_GROUPS": "您还没有好友群组",
         "CREATED_ON": "创建于",
+        "CREATED_BY": "创建者",
         "MEMBERS": "成员",
         "NO_MEMBERS": "此组中没有成员",
         "EDIT": "编辑",
         "DELETE": "删除",
-        "SAVE": "保存"
+        "SAVE": "保存",
+        "AUTHORIZED_USERS": "授权用户",
+        "MANAGE": "管理",
+        "NO_AUTHORIZED_USERS": "没有授权用户",
+        "SELECT_AUTHORIZED_USERS": "选择授权用户",
+        "AUTHORIZED_USERS_HELP": "授权用户可以使用此组来设置事件可见性，但不能向组中添加成员。",
+        "NO_FRIENDS_TO_AUTHORIZE": "您没有可授权的朋友",
+        "AUTHORIZED": "已授权",
+        "AUTHORIZED_TO_USE": "授权使用",
+        "REMOVE": "移除"
     }
 }

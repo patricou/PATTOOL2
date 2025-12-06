@@ -275,8 +275,9 @@ public class FriendsService {
                 body = generateFriendRequestEmailHtml(requester, recipient, false);
             }
             
-            mailController.sendMailToRecipient(recipient.getAddressEmail(), subject, body, true);
-            log.debug("Friend request email sent to {} in language {}", recipient.getAddressEmail(), language);
+            // Send friend request email with BCC to app.mailsentto
+            mailController.sendMailToRecipient(recipient.getAddressEmail(), subject, body, true, mailController.getMailSentTo());
+            log.debug("Friend request email sent to {} in language {} (BCC: {})", recipient.getAddressEmail(), language, mailController.getMailSentTo());
         } catch (Exception e) {
             log.error("Error sending friend request email to {}: {}", recipient.getAddressEmail(), e.getMessage(), e);
             // Don't throw exception - email failure shouldn't break the friend request
@@ -423,6 +424,15 @@ public class FriendsService {
             members.add(member);
         }
 
+        // CRITICAL FIX: Automatically add the owner/creator as a member if not already included
+        // This ensures the creator can see events that use this group when "all" filter is selected
+        boolean ownerIsMember = members.stream()
+            .anyMatch(m -> m.getId() != null && m.getId().equals(owner.getId()));
+        if (!ownerIsMember) {
+            members.add(owner);
+            log.debug("Owner {} automatically added as member of group {}", owner.getUserName(), name);
+        }
+
         FriendGroup group = new FriendGroup();
         group.setName(name.trim());
         group.setMembers(members);
@@ -430,15 +440,25 @@ public class FriendsService {
         group.setCreationDate(new Date());
 
         FriendGroup saved = friendGroupRepository.save(group);
-        log.debug("Friend group created: {} by {}", name, owner.getUserName());
+        log.debug("Friend group created: {} by {} with {} members", name, owner.getUserName(), members.size());
         return saved;
     }
 
     /**
-     * Get all friend groups for a user (owned by the user)
+     * Get all friend groups for a user (owned by the user or where user is authorized)
      */
-    public List<FriendGroup> getFriendGroups(Member owner) {
-        return friendGroupRepository.findByOwner(owner);
+    public List<FriendGroup> getFriendGroups(Member user) {
+        // Get groups owned by user
+        List<FriendGroup> ownedGroups = friendGroupRepository.findByOwner(user);
+        
+        // Get groups where user is authorized
+        List<FriendGroup> authorizedGroups = friendGroupRepository.findByAuthorizedUsersContaining(user);
+        
+        // Combine and remove duplicates
+        java.util.Set<FriendGroup> allGroups = new java.util.HashSet<>(ownedGroups);
+        allGroups.addAll(authorizedGroups);
+        
+        return new java.util.ArrayList<>(allGroups);
     }
 
     /**
@@ -489,6 +509,16 @@ public class FriendsService {
                 
                 members.add(member);
             }
+            
+            // CRITICAL FIX: Automatically add the owner/creator as a member if not already included
+            // This ensures the creator can see events that use this group when "all" filter is selected
+            boolean ownerIsMember = members.stream()
+                .anyMatch(m -> m.getId() != null && m.getId().equals(owner.getId()));
+            if (!ownerIsMember) {
+                members.add(owner);
+                log.debug("Owner {} automatically added as member when updating group {}", owner.getUserName(), group.getName());
+            }
+            
             group.setMembers(members);
         }
 
@@ -515,6 +545,74 @@ public class FriendsService {
 
         friendGroupRepository.delete(group);
         log.debug("Friend group deleted: {} by {}", group.getName(), owner.getUserName());
+    }
+
+    /**
+     * Authorize a user to use a friend group (but not to add members)
+     */
+    public FriendGroup authorizeUserForGroup(String groupId, String userId, Member owner) {
+        Optional<FriendGroup> groupOpt = friendGroupRepository.findById(groupId);
+        if (groupOpt.isEmpty()) {
+            throw new IllegalArgumentException("Friend group not found");
+        }
+
+        FriendGroup group = groupOpt.get();
+        
+        // Verify ownership
+        if (!group.getOwner().getId().equals(owner.getId())) {
+            throw new IllegalStateException("User is not the owner of this group");
+        }
+
+        Optional<Member> userOpt = membersRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            throw new IllegalArgumentException("User not found: " + userId);
+        }
+
+        Member userToAuthorize = userOpt.get();
+        
+        // Check if user is already authorized
+        if (group.getAuthorizedUsers() != null && 
+            group.getAuthorizedUsers().stream().anyMatch(u -> u.getId().equals(userId))) {
+            return group; // Already authorized
+        }
+
+        // Add to authorized users
+        if (group.getAuthorizedUsers() == null) {
+            group.setAuthorizedUsers(new java.util.ArrayList<>());
+        }
+        group.getAuthorizedUsers().add(userToAuthorize);
+
+        FriendGroup saved = friendGroupRepository.save(group);
+        log.debug("User {} authorized for group {} by {}", userToAuthorize.getUserName(), group.getName(), owner.getUserName());
+        return saved;
+    }
+
+    /**
+     * Remove authorization for a user from a friend group
+     */
+    public FriendGroup unauthorizeUserForGroup(String groupId, String userId, Member owner) {
+        Optional<FriendGroup> groupOpt = friendGroupRepository.findById(groupId);
+        if (groupOpt.isEmpty()) {
+            throw new IllegalArgumentException("Friend group not found");
+        }
+
+        FriendGroup group = groupOpt.get();
+        
+        // Verify ownership
+        if (!group.getOwner().getId().equals(owner.getId())) {
+            throw new IllegalStateException("User is not the owner of this group");
+        }
+
+        if (group.getAuthorizedUsers() == null || group.getAuthorizedUsers().isEmpty()) {
+            return group; // No authorized users to remove
+        }
+
+        // Remove user from authorized users
+        group.getAuthorizedUsers().removeIf(u -> u.getId().equals(userId));
+
+        FriendGroup saved = friendGroupRepository.save(group);
+        log.debug("User {} unauthorized for group {} by {}", userId, group.getName(), owner.getUserName());
+        return saved;
     }
 }
 

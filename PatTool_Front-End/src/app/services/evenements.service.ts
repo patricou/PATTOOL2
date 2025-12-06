@@ -307,9 +307,6 @@ export class EvenementsService {
 			// Add visibility filter header if provided
 			if (visibilityFilter && visibilityFilter.trim() !== '' && visibilityFilter !== 'all') {
 				headers['visibility-filter'] = visibilityFilter.trim();
-				console.log('[Visibility Filter] Sending visibility filter to backend:', visibilityFilter.trim());
-			} else {
-				console.log('[Visibility Filter] No visibility filter or filter is "all"');
 			}
 			
 			const response = await fetch(url, {

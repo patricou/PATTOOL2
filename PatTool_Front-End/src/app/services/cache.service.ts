@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { environment } from '../../environments/environment';
 import { Observable, from } from 'rxjs';
@@ -78,6 +78,24 @@ export class CacheService {
       switchMap(headers =>
         this._http.get(this.API_URL + "cache/stats", { headers: headers })
       )
+    );
+  }
+
+  getConnectionLogs(startDate?: Date, endDate?: Date): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        let params = new HttpParams();
+        if (startDate) {
+          params = params.set('startDate', startDate.toISOString());
+        }
+        if (endDate) {
+          params = params.set('endDate', endDate.toISOString());
+        }
+        return this._http.get(this.API_URL + "system/connection-logs", { 
+          headers: headers,
+          params: params
+        });
+      })
     );
   }
 }

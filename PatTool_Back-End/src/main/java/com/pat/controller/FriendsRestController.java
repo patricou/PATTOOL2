@@ -303,8 +303,9 @@ public class FriendsRestController {
                 body = generateInvitationEmailHtml(inviter, recipientEmail, false);
             }
             
-            mailController.sendMailToRecipient(recipientEmail, subject, body, true);
-            log.debug("Invitation email sent to {} in language {}", recipientEmail, language);
+            // Send invitation email with BCC to app.mailsentto
+            mailController.sendMailToRecipient(recipientEmail, subject, body, true, mailController.getMailSentTo());
+            log.debug("Invitation email sent to {} in language {} (BCC: {})", recipientEmail, language, mailController.getMailSentTo());
         } catch (Exception e) {
             log.error("Error sending invitation email to {}: {}", recipientEmail, e.getMessage(), e);
         }
@@ -555,6 +556,62 @@ public class FriendsRestController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception e) {
             log.error("Error deleting friend group", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Authorize a user to use a friend group (but not to add members)
+     */
+    @PostMapping(value = "/groups/{groupId}/authorize/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<com.pat.repo.domain.FriendGroup> authorizeUserForGroup(
+            @PathVariable String groupId,
+            @PathVariable String userId,
+            Authentication authentication) {
+        try {
+            Member owner = friendsService.getCurrentUser(authentication);
+            if (owner == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            com.pat.repo.domain.FriendGroup group = friendsService.authorizeUserForGroup(groupId, userId, owner);
+            return ResponseEntity.ok(group);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (IllegalStateException e) {
+            log.error("Invalid state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            log.error("Error authorizing user for group", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Remove authorization for a user from a friend group
+     */
+    @DeleteMapping(value = "/groups/{groupId}/authorize/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<com.pat.repo.domain.FriendGroup> unauthorizeUserForGroup(
+            @PathVariable String groupId,
+            @PathVariable String userId,
+            Authentication authentication) {
+        try {
+            Member owner = friendsService.getCurrentUser(authentication);
+            if (owner == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            com.pat.repo.domain.FriendGroup group = friendsService.unauthorizeUserForGroup(groupId, userId, owner);
+            return ResponseEntity.ok(group);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (IllegalStateException e) {
+            log.error("Invalid state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            log.error("Error unauthorizing user for group", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

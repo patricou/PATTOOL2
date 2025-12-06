@@ -312,6 +312,7 @@
         "CANCEL": "活動をキャンセル",
         "CHGTSTATUS": "ステータスを変更",
         "CHANGE_VISIBILITY": "表示を変更",
+        "CHANGE_TYPE": "タイプを変更",
         "UPLOAD": "ファイルをアップロード（すべての種類）",
         "PDF_DOCUMENTS": "PDF文書",
         "OPEN_PDF": "開く",
@@ -817,6 +818,24 @@
             "LOADING": "読み込み中...",
             "REFRESH": "更新",
             "CLOSE": "閉じる"
+        },
+        "CONNECTION_LOGS": {
+            "TITLE": "ユーザー接続ログ",
+            "DESC": "IP、ドメイン名、位置情報を含むユーザー接続履歴を表示",
+            "VIEW": "接続ログを表示",
+            "CLOSE": "閉じる",
+            "FROM_DATE": "開始日",
+            "TO_DATE": "終了日",
+            "FILTER": "フィルター",
+            "LOADING": "接続ログを読み込み中...",
+            "TOTAL": "合計",
+            "CONNECTIONS": "接続",
+            "DATE_TIME": "日付/時刻",
+            "USER": "ユーザー",
+            "IP_ADDRESS": "IPアドレス",
+            "DOMAIN_NAME": "ドメイン名",
+            "LOCATION": "場所",
+            "NO_LOGS": "選択した日付範囲の接続ログが見つかりませんでした。"
         }
     },
     "FRIENDS": {
@@ -860,10 +879,20 @@
         "CANCEL": "キャンセル",
         "NO_GROUPS": "まだ友達グループがありません",
         "CREATED_ON": "作成日",
+        "CREATED_BY": "作成者",
         "MEMBERS": "メンバー",
         "NO_MEMBERS": "このグループにメンバーはいません",
         "EDIT": "編集",
         "DELETE": "削除",
-        "SAVE": "保存"
+        "SAVE": "保存",
+        "AUTHORIZED_USERS": "承認済みユーザー",
+        "MANAGE": "管理",
+        "NO_AUTHORIZED_USERS": "承認済みユーザーはいません",
+        "SELECT_AUTHORIZED_USERS": "承認済みユーザーを選択",
+        "AUTHORIZED_USERS_HELP": "承認済みユーザーはこのグループを使用してイベントの表示設定を行うことができますが、グループにメンバーを追加することはできません。",
+        "NO_FRIENDS_TO_AUTHORIZE": "承認する友達がいません",
+        "AUTHORIZED": "承認済み",
+        "AUTHORIZED_TO_USE": "使用許可済み",
+        "REMOVE": "削除"
     }
 }

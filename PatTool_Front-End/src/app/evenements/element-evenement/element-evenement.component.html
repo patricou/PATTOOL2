@@ -315,7 +315,7 @@
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-user-o" aria-hidden="true"></i></a>
     <a class="btn btn-sm btn-primary mb-1 me-1 dynamic-footer-btn" 
-       [hidden]="!isAuthor()" 
+       *ngIf="isAuthor()"
        [ngStyle]="getFooterButtonStyles('status')"
        (click)="changeStatusEvent(evenement.status)"
        ngbTooltip="{{ 'EVENTELEM.CHGTSTATUS' | translate }}" 
@@ -323,7 +323,7 @@
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-circle-o-notch"
             aria-hidden="true"></i></a>
     <button class="btn btn-sm btn-info mb-1 me-1 dynamic-footer-btn" 
-            *ngIf="isAuthor()" 
+            *ngIf="canChangeVisibility()" 
             [ngStyle]="getFooterButtonStyles('visibility')"
             (click)="openVisibilityModal(); $event.stopPropagation(); $event.preventDefault()"
             ngbTooltip="{{ 'EVENTELEM.CHANGE_VISIBILITY' | translate }}" 
@@ -331,6 +331,16 @@
             (mouseleave)="onTooltipMouseLeave($event)"
             type="button">
         <i class="fa fa-lock" aria-hidden="true"></i>
+    </button>
+    <button class="btn btn-sm btn-warning mb-1 me-1 dynamic-footer-btn" 
+            *ngIf="isAuthor()" 
+            [ngStyle]="getFooterButtonStyles('type')"
+            (click)="openTypeModal(); $event.stopPropagation(); $event.preventDefault()"
+            ngbTooltip="{{ 'EVENTELEM.CHANGE_TYPE' | translate }}" 
+            placement="top"
+            (mouseleave)="onTooltipMouseLeave($event)"
+            type="button">
+        <i class="fa fa-list-alt" aria-hidden="true"></i>
     </button>
     <a class="btn btn-sm btn-warning mb-1 me-1 dynamic-footer-btn" 
        [ngStyle]="getFooterButtonStyles('edit')"
@@ -964,7 +974,42 @@
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">
-            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+            <i class="fa fa-times"></i> Close
+        </button>
+    </div>
+</ng-template>
+
+<!-- Type Selection Modal -->
+<ng-template #typeModal let-c="close" let-d="dismiss">
+    <div class="modal-header bg-warning text-white border border-2 border-white rounded-top">
+        <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
+            <i class="fa fa-list-alt me-2"></i> {{ 'EVENTELEM.CHANGE_TYPE' | translate }}
+        </h5>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white" (click)="d('Cross click')" aria-label="Close">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <div class="type-options">
+            <div *ngFor="let type of typeOptions" 
+                 class="type-option mb-2 p-2 border rounded"
+                 [class.selected]="evenement.type === type.value"
+                 [style.cursor]="'pointer'"
+                 [style.background-color]="evenement.type === type.value ? getStatusBadgeGradient() : 'transparent'"
+                 [style.border-color]="evenement.type === type.value ? 'white' : '#dee2e6'"
+                 [style.color]="evenement.type === type.value ? 'white' : 'inherit'"
+                 [style.font-size]="'0.875rem'"
+                 (click)="onTypeSelected(type); c('Selected')">
+                <i class="fa me-2" 
+                   [class.fa-check-circle]="evenement.type === type.value"
+                   [class.fa-circle-o]="evenement.type !== type.value"></i>
+                {{ type.label | translate }}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            <i class="fa fa-times"></i> Close
         </button>
     </div>
 </ng-template>

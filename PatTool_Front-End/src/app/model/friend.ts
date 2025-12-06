@@ -32,7 +32,8 @@ export class FriendGroup {
         public name: string,
         public members: Member[],
         public owner: Member,
-        public creationDate: Date
+        public creationDate: Date,
+        public authorizedUsers?: Member[] // Users authorized to use this group (but not to add members)
     ) {}
 }
 
