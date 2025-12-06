@@ -21,7 +21,7 @@
         "EVENTS": "Activités",
         "EVENTSLIST": "Liste des Activités",
         "EVENTSCREATION": "Création d'une Activité",
-        "RESULTS": "Discussion",
+        "RESULTS": "WhatsPat",
         "MAPS": "A Propos",
         "MEMBERS": "Membres",
         "LOGIN": "Connexion",
@@ -551,12 +551,29 @@
         "NEXT_PAGE": "Page suivante"
     },
     "RESULTS": {
-        "TITLE": "Dicussion Génèrale",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "Communiquez avec votre équipe en temps réel",
         "MESSAGES": "messages",
         "MESSAGEPLHD": "Entrez un Message ou Commentaire ici .... ",
         "SEND": "Envoyez",
-        "INPUT_HINT": "Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne"
+        "INPUT_HINT": "Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne",
+        "DISCUSSIONS": "discussions"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "Chargement des discussions...",
+        "NO_DISCUSSIONS": "Aucune discussion disponible",
+        "NO_DISCUSSIONS_DESC": "Les discussions apparaîtront ici lorsqu'elles seront créées.",
+        "NO_FILTER_RESULTS": "Aucun résultat trouvé",
+        "NO_FILTER_RESULTS_DESC": "Aucune discussion ne correspond à votre recherche.",
+        "FILTER_PLACEHOLDER": "Rechercher une discussion...",
+        "TYPE_GENERAL": "Générale",
+        "TYPE_EVENT": "Événement",
+        "TYPE_GROUP": "Groupe",
+        "MEMBERS": "membres",
+        "OWNER": "Propriétaire",
+        "GENERAL_DISCUSSION_DESC": "Discussion générale pour tous les utilisateurs",
+        "MESSAGE": "message",
+        "MESSAGES": "messages"
     },
     "MAP": {
         "TITLE": "Caractéristiques",

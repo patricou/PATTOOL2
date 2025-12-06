@@ -1,19 +1,154 @@
-<!-- Chat Component - Uses reusable discussion component -->
+<!-- Chat Component - Displays all available discussions -->
 <div class="chat-container">
     <!-- Header Section -->
     <div class="pat-title">
         <h2>{{ "RESULTS.TITLE" | translate }}</h2>
         <div class="pat-title-subtitle">{{ "RESULTS.SUBTITLE" | translate }}</div>
         <div class="chat-stats">
-            <i class="fa fa-users"></i>
-            <span>{{ "RESULTS.MESSAGES" | translate }}</span>
+            <i class="fa fa-comments"></i>
+            <span>{{ filteredDiscussions.length }} {{ "RESULTS.DISCUSSIONS" | translate }}</span>
         </div>
         <app-navigation-buttons></app-navigation-buttons>
     </div>
 
-    <!-- Chat Content Container -->
-    <div class="chat-content-container">
-        <!-- Use the reusable discussion component -->
-        <app-discussion [showTitle]="false"></app-discussion>
+    <!-- Filter Section -->
+    <div class="filter-container">
+        <div class="filter-section-redesigned">
+            <div class="filter-input-container-desktop">
+                <i class="fa fa-search search-icon"></i>
+                <input type="text" 
+                       [(ngModel)]="dataFIlter" 
+                       (ngModelChange)="applyFilter()"
+                       placeholder="{{ 'CHAT.FILTER_PLACEHOLDER' | translate }}" 
+                       class="filter-input" />
+                <button class="filter-clear-btn" 
+                        (click)="clearFilter()" 
+                        type="button"
+                        [ngbTooltip]="('COMMUN.CLEAR_FILTER' | translate)" 
+                        placement="bottom"
+                        container="body"
+                        [class.disabled]="!dataFIlter || dataFIlter.trim() === ''">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="discussions-loading">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p>{{ connectionStatus || ("CHAT.LOADING_DISCUSSIONS" | translate) }}</p>
+    </div>
+
+    <!-- Discussions List -->
+    <div *ngIf="!isLoading" class="discussions-list">
+        <!-- Empty State -->
+        <div *ngIf="availableDiscussions.length === 0" class="empty-state">
+            <i class="fa fa-comments empty-icon"></i>
+            <h3>{{ "CHAT.NO_DISCUSSIONS" | translate }}</h3>
+            <p>{{ "CHAT.NO_DISCUSSIONS_DESC" | translate }}</p>
+        </div>
+
+        <!-- No Results from Filter -->
+        <div *ngIf="availableDiscussions.length > 0 && filteredDiscussions.length === 0" class="empty-state">
+            <i class="fa fa-search empty-icon"></i>
+            <h3>{{ "CHAT.NO_FILTER_RESULTS" | translate }}</h3>
+            <p>{{ "CHAT.NO_FILTER_RESULTS_DESC" | translate }}</p>
+        </div>
+
+        <!-- Discussion Cards -->
+        <div *ngIf="availableDiscussions.length > 0" class="discussions-grid">
+            <div *ngFor="let discussion of filteredDiscussions" 
+                 class="discussion-card"
+                 [attr.data-type]="discussion.type"
+                 (click)="openDiscussionModal(discussion)">
+                <div class="discussion-card-header">
+                    <div class="discussion-icon">
+                        <i *ngIf="discussion.type === 'general'" class="fa fa-globe"></i>
+                        <i *ngIf="discussion.type === 'event'" class="fa fa-calendar"></i>
+                        <i *ngIf="discussion.type === 'friendGroup'" class="fa fa-users"></i>
+                    </div>
+                    <div class="discussion-title-wrapper">
+                        <h4 class="discussion-title">{{ discussion.title }}</h4>
+                        <div class="discussion-type-badge" [ngClass]="'type-' + discussion.type">
+                            <span *ngIf="discussion.type === 'general'">{{ "CHAT.TYPE_GENERAL" | translate }}</span>
+                            <span *ngIf="discussion.type === 'event'">{{ "CHAT.TYPE_EVENT" | translate }}</span>
+                            <span *ngIf="discussion.type === 'friendGroup'">{{ "CHAT.TYPE_GROUP" | translate }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="discussion-card-body">
+                        <!-- Event Info -->
+                        <div *ngIf="discussion.type === 'event' && discussion.event" class="discussion-info">
+                            <p class="discussion-info-item">
+                                <i class="fa fa-user"></i>
+                                <span>{{ discussion.event.author.firstName }} {{ discussion.event.author.lastName }} ({{ discussion.event.author.userName }})</span>
+                            </p>
+                            <p class="discussion-info-item" *ngIf="discussion.event.beginEventDate">
+                                <i class="fa fa-calendar"></i>
+                                <span>{{ discussion.event.beginEventDate | date:'short' }}</span>
+                            </p>
+                            <p class="discussion-info-item" *ngIf="discussion.event.startLocation">
+                                <i class="fa fa-map-marker"></i>
+                                <span>{{ discussion.event.startLocation }}</span>
+                            </p>
+                            <p class="discussion-info-item" *ngIf="discussion.event.visibility">
+                                <i class="fa fa-eye"></i>
+                                <span>{{ "EVENTCREATION.VISIBILITY" | translate }}: 
+                                    <ng-container *ngIf="isStandardVisibility(discussion.event.visibility)">
+                                        {{ getVisibilityLabel(discussion.event.visibility) | translate }}
+                                    </ng-container>
+                                    <ng-container *ngIf="!isStandardVisibility(discussion.event.visibility)">
+                                        {{ discussion.event.visibility }}
+                                    </ng-container>
+                                </span>
+                            </p>
+                            <p class="discussion-info-item" *ngIf="discussion.event.status">
+                                <i class="fa fa-info-circle"></i>
+                                <span>{{ "EVENTCREATION.EVENTSTATUS" | translate }}: {{ getStatusLabel(discussion.event.status) | translate }}</span>
+                            </p>
+                        </div>
+
+                        <!-- Friend Group Info -->
+                        <div *ngIf="discussion.type === 'friendGroup' && discussion.friendGroup" class="discussion-info">
+                            <p class="discussion-info-item">
+                                <i class="fa fa-users"></i>
+                                <span>{{ getGroupMembersCount(discussion.friendGroup) }} {{ "CHAT.MEMBERS" | translate }}</span>
+                            </p>
+                            <p class="discussion-info-item" *ngIf="getGroupMembersList(discussion.friendGroup).length > 0">
+                                <i class="fa fa-user"></i>
+                                <span class="members-list">{{ getGroupMembersList(discussion.friendGroup).join(', ') }}</span>
+                            </p>
+                    </div>
+
+                    <!-- General Discussion Info -->
+                    <div *ngIf="discussion.type === 'general'" class="discussion-info">
+                        <p class="discussion-info-item">
+                            <i class="fa fa-info-circle"></i>
+                            <span>{{ "CHAT.GENERAL_DISCUSSION_DESC" | translate }}</span>
+                        </p>
+                    </div>
+                </div>
+
+                <div class="discussion-card-footer">
+                    <div class="discussion-stats">
+                        <span *ngIf="discussion.messageCount !== undefined" class="message-count">
+                            <i class="fa fa-comment"></i>
+                            {{ discussion.messageCount }} {{ (discussion.messageCount !== 1 ? "CHAT.MESSAGES" : "CHAT.MESSAGE") | translate }}
+                        </span>
+                        <span *ngIf="discussion.lastMessageDate" class="last-message-date">
+                            <i class="fa fa-clock-o"></i>
+                            {{ discussion.lastMessageDate | date:'short' }}
+                        </span>
+                    </div>
+                    <div class="discussion-action">
+                        <i class="fa fa-arrow-right"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>

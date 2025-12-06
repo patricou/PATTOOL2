@@ -21,7 +21,7 @@
         "EVENTS": "Activities",
         "EVENTSLIST": "Activities List",
         "EVENTSCREATION": "Create activity",
-        "RESULTS": "Chat",
+        "RESULTS": "WhatsPat",
         "MAPS": "About",
         "MEMBERS": "Members",
         "LOGIN": "Login",
@@ -555,12 +555,29 @@
         "NEXT_PAGE": "Next page"
     },
     "RESULTS": {
-        "TITLE": "Global Real Time Chat",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "Communicate with your team in real time",
         "MESSAGES": "messages",
         "MESSAGEPLHD": "Enter a message or commentary here .... ",
         "SEND": "Enter",
-        "INPUT_HINT": "Press Enter to send, Shift+Enter for a new line"
+        "INPUT_HINT": "Press Enter to send, Shift+Enter for a new line",
+        "DISCUSSIONS": "discussions"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "Loading discussions...",
+        "NO_DISCUSSIONS": "No discussions available",
+        "NO_DISCUSSIONS_DESC": "Discussions will appear here when they are created.",
+        "NO_FILTER_RESULTS": "No results found",
+        "NO_FILTER_RESULTS_DESC": "No discussions match your search.",
+        "FILTER_PLACEHOLDER": "Search discussions...",
+        "TYPE_GENERAL": "General",
+        "TYPE_EVENT": "Event",
+        "TYPE_GROUP": "Group",
+        "MEMBERS": "members",
+        "OWNER": "Owner",
+        "GENERAL_DISCUSSION_DESC": "General discussion for all users",
+        "MESSAGE": "message",
+        "MESSAGES": "messages"
     },
     "MAP": {
         "TITLE": "Main Features",

@@ -3,7 +3,25 @@ import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/co
 import { DiscussionService, Discussion, DiscussionMessage } from '../../services/discussion.service';
 import { Member } from '../../model/member';
 import { MembersService } from '../../services/members.service';
-import { Subscription } from 'rxjs';
+import { Subscription, forkJoin, of, Observable } from 'rxjs';
+import { EvenementsService } from '../../services/evenements.service';
+import { FriendsService } from '../../services/friends.service';
+import { Evenement } from '../../model/evenement';
+import { FriendGroup } from '../../model/friend';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { DiscussionModalComponent } from '../discussion-modal/discussion-modal.component';
+import { catchError, map, timeout } from 'rxjs/operators';
+
+export interface DiscussionItem {
+  id: string;
+  title: string;
+  type: 'general' | 'event' | 'friendGroup';
+  event?: Evenement;
+  friendGroup?: FriendGroup;
+  discussion?: Discussion;
+  lastMessageDate?: Date;
+  messageCount?: number;
+}
 
 @Component({
   selector: 'app-chat',
@@ -17,6 +35,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   public user: Member = new Member("", "", "", "", "", [], "");
   public currentDiscussion: Discussion | null = null;
   public discussions: Discussion[] = [];
+  public availableDiscussions: DiscussionItem[] = [];
   public selectedImage: File | null = null;
   public selectedVideo: File | null = null;
   public imagePreview: string | null = null;
@@ -27,6 +46,10 @@ export class ChatComponent implements OnInit, OnDestroy {
   public showEmojiPicker: boolean = false;
   private shouldScrollToBottom: boolean = true;
   public editingMessageId: string | null = null;
+  public allEvents: Evenement[] = [];
+  public allFriendGroups: FriendGroup[] = [];
+  public dataFIlter: string = '';
+  public filteredDiscussions: DiscussionItem[] = [];
 
   @ViewChild('messagesList', { static: false }) messagesList!: ElementRef;
   @ViewChild('fileInput', { static: false }) fileInput!: ElementRef;
@@ -34,21 +57,25 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   private messageSubscription: Subscription | null = null;
   private discussionsSubscription: Subscription | null = null;
+  private eventsSubscription: Subscription | null = null;
 
   constructor(
     private discussionService: DiscussionService,
-    public _memberService: MembersService
+    public _memberService: MembersService,
+    private evenementsService: EvenementsService,
+    private friendsService: FriendsService,
+    private modalService: NgbModal
   ) {}
 
   async ngOnInit() {
     try {
       this.user = this._memberService.getUser();
-      console.log('Discussion component initialized with user:', this.user);
+      console.log('Chat component initialized with user:', this.user);
 
-      // Load or create default discussion
-      await this.loadOrCreateDefaultDiscussion();
+      // Load all available discussions
+      await this.loadAllAvailableDiscussions();
     } catch (error) {
-      console.error('Error initializing discussion component:', error);
+      console.error('Error initializing chat component:', error);
     }
   }
 
@@ -61,6 +88,9 @@ export class ChatComponent implements OnInit, OnDestroy {
     if (this.discussionsSubscription) {
       this.discussionsSubscription.unsubscribe();
     }
+    if (this.eventsSubscription) {
+      this.eventsSubscription.unsubscribe();
+    }
     // Disconnect WebSocket
     if (this.currentDiscussion?.id) {
       this.discussionService.disconnectWebSocket();
@@ -68,60 +98,517 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Load or create the default discussion
+   * Load all available discussions (from events, friend groups, and general)
    */
-  private async loadOrCreateDefaultDiscussion() {
+  private async loadAllAvailableDiscussions() {
     try {
       this.isLoading = true;
       this.connectionStatus = 'Loading discussions...';
       
-      // Get all discussions
-      this.discussionsSubscription = this.discussionService.getAllDiscussions().subscribe({
-        next: (discussions) => {
-          this.discussions = discussions;
+      // Load general discussion and friend groups first (fast, don't wait for events)
+      // Events will be loaded progressively after initial display
+      forkJoin({
+        friendGroups: this.friendsService.getFriendGroups().pipe(
+          catchError(error => {
+            console.error('Error loading friend groups:', error);
+            return of([]);
+          })
+        ),
+        generalDiscussion: this.discussionService.getDefaultDiscussion().pipe(
+          catchError(error => {
+            console.error('Error loading general discussion:', error);
+            return of(null);
+          })
+        )
+      }).subscribe({
+        next: (results) => {
+          this.allFriendGroups = results.friendGroups || [];
           
-          // Use the first discussion or create a new one
-          if (discussions.length > 0) {
-            this.currentDiscussion = discussions[0];
-            this.loadMessages();
-            this.connectWebSocket();
-          } else {
-            // Create a new default discussion
-            this.createDefaultDiscussion();
+          // Build initial list with general and friend groups (fast)
+          this.availableDiscussions = [];
+          
+          // Add general discussion immediately
+          if (results.generalDiscussion) {
+            this.availableDiscussions.push({
+              id: results.generalDiscussion.id || '',
+              title: results.generalDiscussion.title || 'Discussion Générale',
+              type: 'general',
+              discussion: results.generalDiscussion
+            });
           }
+          
+          // Add friend group discussions immediately
+          this.allFriendGroups.forEach(group => {
+            if (group.discussionId && this.canAccessFriendGroup(group)) {
+              this.availableDiscussions.push({
+                id: group.discussionId,
+                title: `Discussion - ${group.name}`,
+                type: 'friendGroup',
+                friendGroup: group
+              });
+            }
+          });
+          
+          // Stop loading state to show what we have so far (progressive loading)
           this.isLoading = false;
+          this.connectionStatus = '';
+          
+          // Initialize filtered discussions
+          this.filteredDiscussions = [...this.availableDiscussions];
+          
+          // Load details for what we have
+          this.loadDiscussionDetails();
+          
+          // Apply initial filter
+          this.applyFilter();
+          
+          // Now load events asynchronously and add them as they come (progressive loading)
+          this.loadEventDiscussions();
         },
         error: (error) => {
           console.error('Error loading discussions:', error);
           this.connectionStatus = 'Error loading discussions';
-          // Try to create a default discussion anyway
-          this.createDefaultDiscussion();
           this.isLoading = false;
         }
       });
     } catch (error) {
-      console.error('Error in loadOrCreateDefaultDiscussion:', error);
+      console.error('Error in loadAllAvailableDiscussions:', error);
       this.connectionStatus = 'Error initializing';
       this.isLoading = false;
     }
   }
 
   /**
-   * Create a default discussion
+   * Load event discussions asynchronously and add them as they arrive
    */
-  private createDefaultDiscussion() {
-    this.discussionService.createDiscussion('Global Discussion').subscribe({
-      next: (discussion) => {
-        this.currentDiscussion = discussion;
-        this.discussions.push(discussion);
-        this.loadMessages();
-        this.connectWebSocket();
+  private loadEventDiscussions() {
+    const events: Evenement[] = [];
+    let completed = false;
+    let timeoutId: any = null;
+    
+    // Set a shorter timeout: 5 seconds for faster response
+    timeoutId = setTimeout(() => {
+      if (!completed) {
+        completed = true;
+        this.addEventDiscussions(events);
+      }
+    }, 5000);
+    
+    this.eventsSubscription = this.evenementsService.streamEvents('*', this.user.id || '', 'all').subscribe({
+      next: (streamedEvent) => {
+        if (streamedEvent.type === 'event' && streamedEvent.data) {
+          // Only add events that have a discussionId
+          if (streamedEvent.data.discussionId) {
+            // Check for duplicates
+            const existingIndex = events.findIndex(e => e.id === streamedEvent.data.id);
+            if (existingIndex >= 0) {
+              events[existingIndex] = streamedEvent.data;
+            } else {
+              events.push(streamedEvent.data);
+              // Add to discussions immediately as events arrive (progressive loading)
+              this.addEventToDiscussions(streamedEvent.data);
+            }
+          }
+        } else if (streamedEvent.type === 'complete') {
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          if (!completed) {
+            completed = true;
+            this.addEventDiscussions(events);
+          }
+        }
       },
       error: (error) => {
-        console.error('Error creating default discussion:', error);
-        alert('Error creating discussion: ' + (error.message || error));
+        if (!completed) {
+          completed = true;
+          if (timeoutId) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+          }
+          console.error('Error loading events:', error);
+          this.addEventDiscussions(events);
+        }
       }
     });
+  }
+
+  /**
+   * Add a single event to discussions list immediately
+   */
+  private addEventToDiscussions(event: Evenement) {
+    if (!event || !event.id || !event.discussionId) {
+      return;
+    }
+    
+    if (this.canSeeEvent(event)) {
+      // Check for duplicates
+      const existing = this.availableDiscussions.find(d => d.id === event.discussionId);
+      if (!existing) {
+        this.availableDiscussions.push({
+          id: event.discussionId,
+          title: `Discussion - ${event.evenementName}`,
+          type: 'event',
+          event: event
+        });
+        // Load details asynchronously (don't block)
+        this.loadDiscussionDetailsForItem(this.availableDiscussions[this.availableDiscussions.length - 1]);
+      }
+    }
+  }
+
+  /**
+   * Add all event discussions at once (used when stream completes)
+   */
+  private addEventDiscussions(events: Evenement[]) {
+    let added = 0;
+    events.forEach(event => {
+      if (!event || !event.id) {
+        return;
+      }
+      
+      if (event.discussionId && this.canSeeEvent(event)) {
+        // Check for duplicates
+        const existing = this.availableDiscussions.find(d => d.id === event.discussionId);
+        if (!existing) {
+          this.availableDiscussions.push({
+            id: event.discussionId,
+            title: `Discussion - ${event.evenementName}`,
+            type: 'event',
+            event: event
+          });
+          added++;
+        }
+      }
+    });
+    
+    console.log(`Added ${added} event discussions (total: ${this.availableDiscussions.length})`);
+    
+    // Load details for all discussions asynchronously
+    this.loadDiscussionDetails();
+    
+    // Apply filter after adding all events
+    this.applyFilter();
+  }
+
+  /**
+   * Load details (message count, last message date) for a single discussion
+   */
+  private loadDiscussionDetailsForItem(discussionItem: DiscussionItem) {
+    this.discussionService.getMessages(discussionItem.id).pipe(
+      map(messages => {
+        discussionItem.messageCount = messages.length;
+        if (messages.length > 0) {
+          const sortedMessages = messages.sort((a, b) => {
+            const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
+            const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
+            return dateB - dateA;
+          });
+          discussionItem.lastMessageDate = sortedMessages[0].dateTime ? new Date(sortedMessages[0].dateTime) : undefined;
+        }
+        return discussionItem;
+      }),
+      catchError(error => {
+        console.error(`Error loading messages for discussion ${discussionItem.id}:`, error);
+        discussionItem.messageCount = 0;
+        discussionItem.lastMessageDate = undefined;
+        return of(discussionItem);
+      }),
+      timeout(5000)
+    ).subscribe();
+  }
+
+  /**
+   * Load details (message count, last message date) for each discussion
+   * Optimized to load in parallel with timeout
+   */
+  private loadDiscussionDetails() {
+    // Load all discussions in parallel with timeout
+    const detailObservables = this.availableDiscussions.map(discussionItem => {
+      return this.discussionService.getMessages(discussionItem.id).pipe(
+        map(messages => {
+          discussionItem.messageCount = messages.length;
+          if (messages.length > 0) {
+            // Sort by date and get the last message
+            const sortedMessages = messages.sort((a, b) => {
+              const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
+              const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
+              return dateB - dateA; // Newest first
+            });
+            discussionItem.lastMessageDate = sortedMessages[0].dateTime ? new Date(sortedMessages[0].dateTime) : undefined;
+          }
+          return discussionItem;
+        }),
+        catchError(error => {
+          console.error(`Error loading messages for discussion ${discussionItem.id}:`, error);
+          // Set defaults on error
+          discussionItem.messageCount = 0;
+          discussionItem.lastMessageDate = undefined;
+          return of(discussionItem);
+        }),
+        // Add timeout of 5 seconds per discussion
+        timeout(5000)
+      );
+    });
+
+    // Load all in parallel, but don't block UI
+    if (detailObservables.length > 0) {
+      forkJoin(detailObservables).pipe(
+        catchError(error => {
+          console.error('Error loading some discussion details:', error);
+          return of([]);
+        })
+      ).subscribe({
+        next: () => {
+          console.log('All discussion details loaded');
+        },
+        error: (error) => {
+          console.error('Error loading discussion details:', error);
+        }
+      });
+    }
+  }
+
+  /**
+   * Check if user can see an event
+   * Note: Backend already filters events by visibility, so if an event is in the list,
+   * the user should be able to see it. We only do additional checks for friend groups.
+   */
+  private canSeeEvent(event: Evenement): boolean {
+    if (!event || !this.user || !this.user.id) {
+      return false;
+    }
+    
+    // If visibility is a friend group, we need to check if user is in that group
+    // For other visibility types (public, private, friends), backend already filtered
+    if (event.friendGroupId) {
+      const group = this.allFriendGroups.find(g => g.id === event.friendGroupId);
+      if (group) {
+        return this.canAccessFriendGroup(group);
+      }
+      // If group not found, assume user can't access (shouldn't happen if backend filtered correctly)
+      return false;
+    }
+    
+    // Check if visibility matches a friend group name (legacy support)
+    if (event.visibility && 
+        event.visibility !== 'public' && 
+        event.visibility !== 'private' && 
+        event.visibility !== 'friends') {
+      const group = this.allFriendGroups.find(g => g.name === event.visibility);
+      if (group) {
+        return this.canAccessFriendGroup(group);
+      }
+      // If visibility is a group name but group not found, assume user can't access
+      return false;
+    }
+    
+    // For public, private, friends - backend already filtered, so user can see it
+    return true;
+  }
+
+  /**
+   * Check if user can access a friend group (is member or owner)
+   */
+  private canAccessFriendGroup(group: FriendGroup): boolean {
+    if (!group || !this.user || !this.user.id) {
+      return false;
+    }
+    
+    // Owner can always access
+    if (group.owner && group.owner.id === this.user.id) {
+      return true;
+    }
+    
+    // Check if user is a member
+    if (group.members && group.members.some(m => m.id === this.user.id)) {
+      return true;
+    }
+    
+    // Check if user is authorized
+    if (group.authorizedUsers && group.authorizedUsers.some(m => m.id === this.user.id)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  /**
+   * Apply filter to discussions
+   */
+  public applyFilter() {
+    if (!this.dataFIlter || this.dataFIlter.trim() === '') {
+      this.filteredDiscussions = [...this.availableDiscussions];
+      return;
+    }
+    
+    const filterLower = this.dataFIlter.toLowerCase().trim();
+    this.filteredDiscussions = this.availableDiscussions.filter(discussion => {
+      // Filter by title
+      if (discussion.title.toLowerCase().includes(filterLower)) {
+        return true;
+      }
+      
+      // Filter by event name
+      if (discussion.type === 'event' && discussion.event?.evenementName?.toLowerCase().includes(filterLower)) {
+        return true;
+      }
+      
+      // Filter by friend group name
+      if (discussion.type === 'friendGroup' && discussion.friendGroup?.name?.toLowerCase().includes(filterLower)) {
+        return true;
+      }
+      
+      // Filter by author name (for events)
+      if (discussion.type === 'event' && discussion.event?.author) {
+        const authorName = `${discussion.event.author.firstName} ${discussion.event.author.lastName}`.toLowerCase();
+        if (authorName.includes(filterLower)) {
+          return true;
+        }
+      }
+      
+      return false;
+    });
+  }
+
+  /**
+   * Clear filter
+   */
+  public clearFilter() {
+    this.dataFIlter = '';
+    this.applyFilter();
+  }
+
+  /**
+   * Get all members of a friend group (including owner if not already in members)
+   */
+  public getGroupMembersList(group: FriendGroup): string[] {
+    if (!group) {
+      return [];
+    }
+    
+    const membersList: Member[] = [];
+    
+    // Add owner if not already in members
+    if (group.owner) {
+      const ownerInMembers = group.members && group.members.some(m => m.id === group.owner.id);
+      if (!ownerInMembers) {
+        membersList.push(group.owner);
+      }
+    }
+    
+    // Add all members
+    if (group.members && group.members.length > 0) {
+      membersList.push(...group.members);
+    }
+    
+    // Format as "firstName lastName (userName)"
+    return membersList.map(member => 
+      `${member.firstName} ${member.lastName} (${member.userName})`
+    );
+  }
+
+  /**
+   * Get total count of members in a friend group (including owner if not already in members)
+   */
+  public getGroupMembersCount(group: FriendGroup): number {
+    if (!group) {
+      return 0;
+    }
+    
+    let count = group.members ? group.members.length : 0;
+    
+    // Add owner if not already in members
+    if (group.owner) {
+      const ownerInMembers = group.members && group.members.some(m => m.id === group.owner.id);
+      if (!ownerInMembers) {
+        count++;
+      }
+    }
+    
+    return count;
+  }
+
+  /**
+   * Check if visibility is a standard value (public, private, friends)
+   */
+  public isStandardVisibility(visibility: string): boolean {
+    if (!visibility) {
+      return false;
+    }
+    return visibility === 'public' || visibility === 'private' || visibility === 'friends';
+  }
+
+  /**
+   * Get visibility label (returns translation key for standard values)
+   */
+  public getVisibilityLabel(visibility: string): string {
+    if (!visibility) {
+      return '';
+    }
+    
+    // Check if it's a standard visibility (public, private, friends)
+    if (visibility === 'public') {
+      return 'EVENTCREATION.PUBLIC';
+    } else if (visibility === 'private') {
+      return 'EVENTCREATION.PRIVATE';
+    } else if (visibility === 'friends') {
+      return 'EVENTCREATION.FRIENDS';
+    }
+    
+    // Should not reach here if used with isStandardVisibility check
+    return visibility;
+  }
+
+  /**
+   * Get status label (returns translation key)
+   * Status values in database are: "Open", "Closed", "Cancel"
+   */
+  public getStatusLabel(status: string): string {
+    if (!status) {
+      return '';
+    }
+    
+    // Map status to translation keys
+    // Status values are stored as "Open", "Closed", "Cancel" (with capital letter)
+    const statusTrimmed = status.trim();
+    const statusLower = statusTrimmed.toLowerCase();
+    
+    // Check for "Open" (exact match or lowercase)
+    // Status values in database are: "Open", "Closed", "Cancel" (with capital letter)
+    if (statusTrimmed === 'Open' || statusTrimmed === 'OPEN' || statusLower === 'open' || statusLower === 'ouvert') {
+      return 'COMMUN.STATUSOPEN';
+    } 
+    // Check for "Closed" (exact match or lowercase variations)
+    else if (statusTrimmed === 'Closed' || statusTrimmed === 'CLOSED' || 
+             statusLower === 'closed' || statusLower === 'close' || statusLower === 'fermé' || statusLower === 'ferme') {
+      return 'COMMUN.STATUSCLOSE';
+    } 
+    // Check for "Cancel" (exact match or lowercase variations)
+    else if (statusTrimmed === 'Cancel' || statusTrimmed === 'CANCEL' || 
+             statusLower === 'cancel' || statusLower === 'cancelled' || statusLower === 'annulé' || statusLower === 'annule') {
+      return 'COMMUN.STATUSCANCEL';
+    }
+    
+    // Return status as is if no translation found (will be displayed as-is)
+    return status;
+  }
+
+  /**
+   * Open discussion modal
+   */
+  public openDiscussionModal(discussionItem: DiscussionItem) {
+    const modalRef = this.modalService.open(DiscussionModalComponent, {
+      size: 'lg',
+      centered: true,
+      backdrop: 'static',
+      keyboard: true,
+      windowClass: 'discussion-modal-window'
+    });
+    
+    modalRef.componentInstance.discussionId = discussionItem.id;
+    modalRef.componentInstance.title = discussionItem.title;
   }
 
   /**

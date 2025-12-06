@@ -21,7 +21,7 @@
         "EVENTS": "活动",
         "EVENTSLIST": "活动列表",
         "EVENTSCREATION": "创建活动",
-        "RESULTS": "讨论",
+        "RESULTS": "WhatsPat",
         "MAPS": "关于",
         "MEMBERS": "成员",
         "LOGIN": "登录",
@@ -556,12 +556,26 @@
         "NEXT_PAGE": "下一页"
     },
     "RESULTS": {
-        "TITLE": "一般讨论",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "与您的团队实时沟通",
         "MESSAGES": "消息",
         "MESSAGEPLHD": "在此输入消息或评论 .... ",
         "SEND": "发送",
-        "INPUT_HINT": "按Enter发送，Shift+Enter换行"
+        "INPUT_HINT": "按Enter发送，Shift+Enter换行",
+        "DISCUSSIONS": "讨论"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "正在加载讨论...",
+        "NO_DISCUSSIONS": "没有可用的讨论",
+        "NO_DISCUSSIONS_DESC": "创建讨论后将在此处显示。",
+        "TYPE_GENERAL": "一般",
+        "TYPE_EVENT": "活动",
+        "TYPE_GROUP": "组",
+        "MEMBERS": "成员",
+        "OWNER": "所有者",
+        "GENERAL_DISCUSSION_DESC": "所有用户的通用讨论",
+        "MESSAGE": "消息",
+        "MESSAGES": "消息"
     },
     "MAP": {
         "TITLE": "特点",

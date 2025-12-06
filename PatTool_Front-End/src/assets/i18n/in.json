@@ -29,7 +29,7 @@
         "EVENTS": "गतिविधियाँ",
         "EVENTSLIST": "गतिविधियों की सूची",
         "EVENTSCREATION": "गतिविधि बनाएं",
-        "RESULTS": "चैट",
+        "RESULTS": "WhatsPat",
         "MAPS": "के बारे में",
         "MEMBERS": "सदस्य",
         "LOGIN": "लॉगिन",
@@ -539,12 +539,26 @@
         "NEXT_PAGE": "अगला पृष्ठ"
     },
     "RESULTS": {
-        "TITLE": "वैश्विक वास्तविक समय चैट",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "वास्तविक समय में अपनी टीम के साथ संवाद करें",
         "MESSAGES": "संदेश",
         "MESSAGEPLHD": "यहाँ एक संदेश या टिप्पणी दर्ज करें .... ",
         "SEND": "भेजें",
-        "INPUT_HINT": "भेजने के लिए Enter दबाएं, नई पंक्ति के लिए Shift+Enter"
+        "INPUT_HINT": "भेजने के लिए Enter दबाएं, नई पंक्ति के लिए Shift+Enter",
+        "DISCUSSIONS": "चर्चाएं"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "चर्चाएं लोड हो रही हैं...",
+        "NO_DISCUSSIONS": "कोई चर्चा उपलब्ध नहीं",
+        "NO_DISCUSSIONS_DESC": "चर्चाएं यहाँ तब दिखाई देंगी जब वे बनाई जाएंगी।",
+        "TYPE_GENERAL": "सामान्य",
+        "TYPE_EVENT": "घटना",
+        "TYPE_GROUP": "समूह",
+        "MEMBERS": "सदस्य",
+        "OWNER": "मालिक",
+        "GENERAL_DISCUSSION_DESC": "सभी उपयोगकर्ताओं के लिए सामान्य चर्चा",
+        "MESSAGE": "संदेश",
+        "MESSAGES": "संदेश"
     },
     "MAP": {
         "TITLE": "मुख्य विशेषताएं",

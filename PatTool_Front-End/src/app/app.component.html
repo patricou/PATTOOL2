@@ -72,6 +72,15 @@
                 </ul>
             </li>
 
+            <!-- WhatsPat -->
+            <li class="nav-item">
+                <a class="nav-link" 
+                   [routerLink]="['results']" 
+                   (click)="closeMenu()">
+                    <i class="fa fa-comments"></i> {{ 'MENU.RESULTS' | translate }}
+                </a>
+            </li>
+
             <!-- Friends -->
             <li class="nav-item">
                 <a class="nav-link" 
@@ -159,11 +168,6 @@
                            [routerLink]="['maps']" 
                            (click)="closeMenu()">
                         <i class="fa fa-map"></i> {{ 'MENU.MAPS' | translate }}
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['results']" 
-                           (click)="closeMenu()">
-                        <i class="fa fa-comments"></i> {{ 'MENU.RESULTS' | translate }}
                     </a></li>
                     <li [hidden]="!isAuthenticated()"><a class="dropdown-item" 
                            (click)="open(uploadfilecontent); closeMenu(); $event.preventDefault()">

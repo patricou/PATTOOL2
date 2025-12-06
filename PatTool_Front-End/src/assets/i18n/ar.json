@@ -21,7 +21,7 @@
         "EVENTS": "الأنشطة",
         "EVENTSLIST": "قائمة الأنشطة",
         "EVENTSCREATION": "إنشاء نشاط",
-        "RESULTS": "المناقشة",
+        "RESULTS": "WhatsPat",
         "MAPS": "حول",
         "MEMBERS": "الأعضاء",
         "LOGIN": "تسجيل الدخول",
@@ -554,12 +554,26 @@
         "NEXT_PAGE": "الصفحة التالية"
     },
     "RESULTS": {
-        "TITLE": "مناقشة عامة",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "تواصل مع فريقك في الوقت الفعلي",
         "MESSAGES": "رسائل",
         "MESSAGEPLHD": "أدخل رسالة أو تعليق هنا .... ",
         "SEND": "إرسال",
-        "INPUT_HINT": "اضغط Enter للإرسال، Shift+Enter لسطر جديد"
+        "INPUT_HINT": "اضغط Enter للإرسال، Shift+Enter لسطر جديد",
+        "DISCUSSIONS": "مناقشات"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "جارٍ تحميل المناقشات...",
+        "NO_DISCUSSIONS": "لا توجد مناقشات متاحة",
+        "NO_DISCUSSIONS_DESC": "ستظهر المناقشات هنا عند إنشائها.",
+        "TYPE_GENERAL": "عامة",
+        "TYPE_EVENT": "حدث",
+        "TYPE_GROUP": "مجموعة",
+        "MEMBERS": "أعضاء",
+        "OWNER": "المالك",
+        "GENERAL_DISCUSSION_DESC": "مناقشة عامة لجميع المستخدمين",
+        "MESSAGE": "رسالة",
+        "MESSAGES": "رسائل"
     },
     "MAP": {
         "TITLE": "الخصائص",

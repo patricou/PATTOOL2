@@ -29,7 +29,7 @@
         "EVENTS": "Мероприятия",
         "EVENTSLIST": "Список мероприятий",
         "EVENTSCREATION": "Создание мероприятия",
-        "RESULTS": "Обсуждение",
+        "RESULTS": "WhatsPat",
         "MAPS": "О нас",
         "MEMBERS": "Члены",
         "LOGIN": "Войти",
@@ -551,12 +551,26 @@
         "NEXT_PAGE": "Следующая страница"
     },
     "RESULTS": {
-        "TITLE": "Общая дискуссия",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "Общайтесь с вашей командой в реальном времени",
         "MESSAGES": "сообщений",
         "MESSAGEPLHD": "Введите сообщение или комментарий здесь .... ",
         "SEND": "Отправить",
-        "INPUT_HINT": "Нажмите Enter для отправки, Shift+Enter для новой строки"
+        "INPUT_HINT": "Нажмите Enter для отправки, Shift+Enter для новой строки",
+        "DISCUSSIONS": "обсуждения"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "Загрузка обсуждений...",
+        "NO_DISCUSSIONS": "Нет доступных обсуждений",
+        "NO_DISCUSSIONS_DESC": "Обсуждения появятся здесь после их создания.",
+        "TYPE_GENERAL": "Общее",
+        "TYPE_EVENT": "Событие",
+        "TYPE_GROUP": "Группа",
+        "MEMBERS": "участники",
+        "OWNER": "Владелец",
+        "GENERAL_DISCUSSION_DESC": "Общее обсуждение для всех пользователей",
+        "MESSAGE": "сообщение",
+        "MESSAGES": "сообщений"
     },
     "MAP": {
         "TITLE": "Характеристики",

@@ -21,7 +21,7 @@
         "EVENTS": "Veranstaltungen",
         "EVENTSLIST": "Veranstaltungsliste",
         "EVENTSCREATION": "Veranstaltung erstellen",
-        "RESULTS": "Diskussion",
+        "RESULTS": "WhatsPat",
         "MAPS": "Über",
         "MEMBERS": "Mitglieder",
         "LOGIN": "Anmelden",
@@ -550,12 +550,26 @@
         "NEXT_PAGE": "Nächste Seite"
     },
     "RESULTS": {
-        "TITLE": "Allgemeine Diskussion",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "Kommunizieren Sie mit Ihrem Team in Echtzeit",
         "MESSAGES": "Nachrichten",
         "MESSAGEPLHD": "Geben Sie hier eine Nachricht oder einen Kommentar ein .... ",
         "SEND": "Senden",
-        "INPUT_HINT": "Enter drücken zum Senden, Shift+Enter für eine neue Zeile"
+        "INPUT_HINT": "Enter drücken zum Senden, Shift+Enter für eine neue Zeile",
+        "DISCUSSIONS": "Diskussionen"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "Diskussionen werden geladen...",
+        "NO_DISCUSSIONS": "Keine Diskussionen verfügbar",
+        "NO_DISCUSSIONS_DESC": "Diskussionen werden hier angezeigt, wenn sie erstellt werden.",
+        "TYPE_GENERAL": "Allgemein",
+        "TYPE_EVENT": "Ereignis",
+        "TYPE_GROUP": "Gruppe",
+        "MEMBERS": "Mitglieder",
+        "OWNER": "Eigentümer",
+        "GENERAL_DISCUSSION_DESC": "Allgemeine Diskussion für alle Benutzer",
+        "MESSAGE": "Nachricht",
+        "MESSAGES": "Nachrichten"
     },
     "MAP": {
         "TITLE": "Eigenschaften",

@@ -21,7 +21,7 @@
         "EVENTS": "Δραστηριότητες",
         "EVENTSLIST": "Λίστα Δραστηριοτήτων",
         "EVENTSCREATION": "Δημιουργία Δραστηριότητας",
-        "RESULTS": "Συζήτηση",
+        "RESULTS": "WhatsPat",
         "MAPS": "Σχετικά",
         "MEMBERS": "Μέλη",
         "LOGIN": "Σύνδεση",
@@ -555,12 +555,26 @@
         "NEXT_PAGE": "Επόμενη σελίδα"
     },
     "RESULTS": {
-        "TITLE": "Γενική Συζήτηση",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "Επικοινωνήστε με την ομάδα σας σε πραγματικό χρόνο",
         "MESSAGES": "μηνύματα",
         "MESSAGEPLHD": "Εισάγετε ένα Μήνυμα ή Σχόλιο εδώ .... ",
         "SEND": "Αποστολή",
-        "INPUT_HINT": "Πατήστε Enter για αποστολή, Shift+Enter για νέα γραμμή"
+        "INPUT_HINT": "Πατήστε Enter για αποστολή, Shift+Enter για νέα γραμμή",
+        "DISCUSSIONS": "συζητήσεις"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "Φόρτωση συζητήσεων...",
+        "NO_DISCUSSIONS": "Δεν υπάρχουν διαθέσιμες συζητήσεις",
+        "NO_DISCUSSIONS_DESC": "Οι συζητήσεις θα εμφανιστούν εδώ όταν δημιουργηθούν.",
+        "TYPE_GENERAL": "Γενική",
+        "TYPE_EVENT": "Εκδήλωση",
+        "TYPE_GROUP": "Ομάδα",
+        "MEMBERS": "μέλη",
+        "OWNER": "Ιδιοκτήτης",
+        "GENERAL_DISCUSSION_DESC": "Γενική συζήτηση για όλους τους χρήστες",
+        "MESSAGE": "μήνυμα",
+        "MESSAGES": "μηνύματα"
     },
     "MAP": {
         "TITLE": "Χαρακτηριστικά",

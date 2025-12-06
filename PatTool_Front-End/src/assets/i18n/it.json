@@ -21,7 +21,7 @@
         "EVENTS": "Attività",
         "EVENTSLIST": "Elenco delle Attività",
         "EVENTSCREATION": "Creazione di un'Attività",
-        "RESULTS": "Discussione",
+        "RESULTS": "WhatsPat",
         "MAPS": "Informazioni",
         "MEMBERS": "Membri",
         "LOGIN": "Accesso",
@@ -557,12 +557,26 @@
         "NEXT_PAGE": "Pagina successiva"
     },
     "RESULTS": {
-        "TITLE": "Discussione Generale",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "Comunica con il tuo team in tempo reale",
         "MESSAGES": "messaggi",
         "MESSAGEPLHD": "Inserisci un messaggio o un commento qui .... ",
         "SEND": "Invia",
-        "INPUT_HINT": "Premi Invio per inviare, Maiusc+Invio per una nuova riga"
+        "INPUT_HINT": "Premi Invio per inviare, Maiusc+Invio per una nuova riga",
+        "DISCUSSIONS": "discussioni"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "Caricamento discussioni...",
+        "NO_DISCUSSIONS": "Nessuna discussione disponibile",
+        "NO_DISCUSSIONS_DESC": "Le discussioni appariranno qui quando verranno create.",
+        "TYPE_GENERAL": "Generale",
+        "TYPE_EVENT": "Evento",
+        "TYPE_GROUP": "Gruppo",
+        "MEMBERS": "membri",
+        "OWNER": "Proprietario",
+        "GENERAL_DISCUSSION_DESC": "Discussione generale per tutti gli utenti",
+        "MESSAGE": "messaggio",
+        "MESSAGES": "messaggi"
     },
     "MAP": {
         "TITLE": "Caratteristiche",

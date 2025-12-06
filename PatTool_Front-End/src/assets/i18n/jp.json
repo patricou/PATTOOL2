@@ -21,7 +21,7 @@
         "EVENTS": "活動",
         "EVENTSLIST": "活動リスト",
         "EVENTSCREATION": "活動の作成",
-        "RESULTS": "ディスカッション",
+        "RESULTS": "WhatsPat",
         "MAPS": "概要",
         "MEMBERS": "メンバー",
         "LOGIN": "ログイン",
@@ -558,12 +558,26 @@
         "NEXT_PAGE": "次のページ"
     },
     "RESULTS": {
-        "TITLE": "一般的なディスカッション",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "チームとリアルタイムでコミュニケーション",
         "MESSAGES": "メッセージ",
         "MESSAGEPLHD": "ここにメッセージやコメントを入力 .... ",
         "SEND": "送信",
-        "INPUT_HINT": "送信するにはEnterを押し、新しい行にはShift+Enterを押してください"
+        "INPUT_HINT": "送信するにはEnterを押し、新しい行にはShift+Enterを押してください",
+        "DISCUSSIONS": "ディスカッション"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "ディスカッションを読み込み中...",
+        "NO_DISCUSSIONS": "利用可能なディスカッションがありません",
+        "NO_DISCUSSIONS_DESC": "ディスカッションが作成されると、ここに表示されます。",
+        "TYPE_GENERAL": "一般",
+        "TYPE_EVENT": "イベント",
+        "TYPE_GROUP": "グループ",
+        "MEMBERS": "メンバー",
+        "OWNER": "所有者",
+        "GENERAL_DISCUSSION_DESC": "すべてのユーザー向けの一般的なディスカッション",
+        "MESSAGE": "メッセージ",
+        "MESSAGES": "メッセージ"
     },
     "MAP": {
         "TITLE": "特徴",

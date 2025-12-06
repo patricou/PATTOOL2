@@ -21,7 +21,7 @@
         "EVENTS": "Actividades",
         "EVENTSLIST": "Lista de actividades",
         "EVENTSCREATION": "Crear actividad",
-        "RESULTS": "Chat",
+        "RESULTS": "WhatsPat",
         "MAPS": "Acerca de",
         "MEMBERS": "Miembros",
         "LOGIN": "Iniciar sesión",
@@ -557,12 +557,26 @@
         "NEXT_PAGE": "Página siguiente"
     },
     "RESULTS": {
-        "TITLE": "Chat global en tiempo real",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "Comunícate con tu equipo en tiempo real",
         "MESSAGES": "mensajes",
         "MESSAGEPLHD": "Ingrese un mensaje o comentario aquí .... ",
         "SEND": "Enviar",
-        "INPUT_HINT": "Presiona Enter para enviar, Shift+Enter para una nueva línea"
+        "INPUT_HINT": "Presiona Enter para enviar, Shift+Enter para una nueva línea",
+        "DISCUSSIONS": "discusiones"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "Cargando discusiones...",
+        "NO_DISCUSSIONS": "No hay discusiones disponibles",
+        "NO_DISCUSSIONS_DESC": "Las discusiones aparecerán aquí cuando se creen.",
+        "TYPE_GENERAL": "General",
+        "TYPE_EVENT": "Evento",
+        "TYPE_GROUP": "Grupo",
+        "MEMBERS": "miembros",
+        "OWNER": "Propietario",
+        "GENERAL_DISCUSSION_DESC": "Discusión general para todos los usuarios",
+        "MESSAGE": "mensaje",
+        "MESSAGES": "mensajes"
     },
     "MAP": {
         "TITLE": "Características principales",

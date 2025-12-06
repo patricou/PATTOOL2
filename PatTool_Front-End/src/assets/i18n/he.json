@@ -21,7 +21,7 @@
         "EVENTS": "פעילויות",
         "EVENTSLIST": "רשימת פעילויות",
         "EVENTSCREATION": "יצירת פעילות",
-        "RESULTS": "דיון",
+        "RESULTS": "WhatsPat",
         "MAPS": "אודות",
         "MEMBERS": "חברים",
         "LOGIN": "התחברות",
@@ -549,12 +549,26 @@
         "NEXT_PAGE": "עמוד הבא"
     },
     "RESULTS": {
-        "TITLE": "דיון כללי",
+        "TITLE": "WhatsPat",
         "SUBTITLE": "תקשרו עם הצוות שלכם בזמן אמת",
         "MESSAGES": "הודעות",
         "MESSAGEPLHD": "הכנס הודעה או תגובה כאן...",
         "SEND": "שלח",
-        "INPUT_HINT": "לחץ Enter לשליחה, Shift+Enter לשורה חדשה"
+        "INPUT_HINT": "לחץ Enter לשליחה, Shift+Enter לשורה חדשה",
+        "DISCUSSIONS": "דיונים"
+    },
+    "CHAT": {
+        "LOADING_DISCUSSIONS": "טוען דיונים...",
+        "NO_DISCUSSIONS": "אין דיונים זמינים",
+        "NO_DISCUSSIONS_DESC": "דיונים יופיעו כאן כאשר הם נוצרים.",
+        "TYPE_GENERAL": "כללי",
+        "TYPE_EVENT": "אירוע",
+        "TYPE_GROUP": "קבוצה",
+        "MEMBERS": "חברים",
+        "OWNER": "בעלים",
+        "GENERAL_DISCUSSION_DESC": "דיון כללי עבור כל המשתמשים",
+        "MESSAGE": "הודעה",
+        "MESSAGES": "הודעות"
     },
     "MAP": {
         "TITLE": "מאפיינים",
