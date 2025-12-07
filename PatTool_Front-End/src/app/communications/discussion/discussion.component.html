@@ -89,8 +89,8 @@
 
         <!-- Input Section -->
         <div class="input-container">
-            <!-- Connection Status -->
-            <div *ngIf="isConnecting || connectionStatus" class="connection-status-bar" 
+            <!-- Connection Status - Hidden when used in modal (shown in modal footer instead) -->
+            <div *ngIf="(isConnecting || connectionStatus) && showTitle" class="connection-status-bar" 
                  [class.connecting]="isConnecting"
                  [class.connected]="connectionStatus === 'Connected'"
                  [class.error]="connectionStatus.includes('error') || connectionStatus.includes('timeout')">

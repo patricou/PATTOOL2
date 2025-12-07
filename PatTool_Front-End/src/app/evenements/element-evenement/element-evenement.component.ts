@@ -56,8 +56,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Thumbnail image
 	public thumbnailUrl: any = ElementEvenementComponent.getDefaultPlaceholderImageUrl();
 	public selectedUser: Member | null = null;
-	// Friend groups for visibility
-	public friendGroups: FriendGroup[] = [];
+	// Friend groups for visibility (now received as @Input from parent)
 	// Visibility options for modal
 	public visibilityOptions: Array<{value: string, label: string, friendGroupId?: string}> = [];
 	// Type options for modal
@@ -234,6 +233,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	@Input()
 	titleOnly: boolean = false;
+
+	@Input()
+	friendGroups: FriendGroup[] = [];
 
 	@Output()
 	addMember: EventEmitter<Evenement> = new EventEmitter<Evenement>();
@@ -1061,8 +1063,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Setup tooltip auto-close on modal open
 		this.setupTooltipAutoClose();
 		
-		// Load friend groups for visibility selection
-		this.loadFriendGroups();
+		// Friend groups are now passed as @Input from parent component to avoid redundant API calls
+		// If not provided, initialize as empty array
+		if (!this.friendGroups) {
+			this.friendGroups = [];
+		}
 	}
 	
 	ngOnChanges(changes: SimpleChanges): void {
@@ -5241,8 +5246,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		});
 	}
 	
-	// Load friend groups for visibility selection
+	// Friend groups are now passed as @Input from parent component to avoid redundant API calls
+	// This method is kept for backward compatibility but should not be called
+	// @deprecated Use @Input() friendGroups instead
 	private loadFriendGroups(): void {
+		console.warn('loadFriendGroups() is deprecated. Friend groups should be passed as @Input from parent component.');
 		const sub = this._friendsService.getFriendGroups().subscribe(
 			groups => {
 				if (groups && Array.isArray(groups)) {

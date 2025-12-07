@@ -807,19 +807,22 @@
             "TITLE": "Sauvegarder le Cache",
             "DESC": "Sauvegarder les images compressées sur le disque",
             "BUTTON": "Sauvegarder",
-            "SAVING": "Sauvegarde..."
+            "SAVING": "Sauvegarde...",
+            "NOT_AUTHORIZED": "Vous n'êtes pas autorisé à sauvegarder le cache"
         },
         "LOAD_CACHE": {
             "TITLE": "Charger le Cache",
             "DESC": "Restaurer le cache depuis le disque",
             "BUTTON": "Charger",
-            "LOADING": "Chargement..."
+            "LOADING": "Chargement...",
+            "NOT_AUTHORIZED": "Vous n'êtes pas autorisé à charger le cache"
         },
         "CLEAR_CACHE": {
             "TITLE": "Vider le Cache",
             "DESC": "Supprimer toutes les images en cache",
             "BUTTON": "Vider",
-            "CLEARING": "Vidage..."
+            "CLEARING": "Vidage...",
+            "NOT_AUTHORIZED": "Vous n'êtes pas autorisé à vider le cache"
         },
         "SHUTDOWN": {
             "TITLE": "Arrêter l'Application",
@@ -850,11 +853,33 @@
             "TOTAL": "Total",
             "CONNECTIONS": "connexion(s)",
             "DATE_TIME": "Date/Heure",
+            "TYPE": "Type",
             "USER": "Utilisateur",
+            "DISCUSSION_TITLE": "Discussion",
+            "DISCUSSION_ID": "ID Discussion",
             "IP_ADDRESS": "Adresse IP",
             "DOMAIN_NAME": "Nom de Domaine",
             "LOCATION": "Localisation",
-            "NO_LOGS": "Aucun journal de connexion trouvé pour la plage de dates sélectionnée."
+            "NO_LOGS": "Aucun journal de connexion trouvé pour la plage de dates sélectionnée.",
+            "DELETE_ALL": "Tout Supprimer",
+            "DELETE_CONFIRM": "Êtes-vous sûr de vouloir supprimer tous les journaux de connexion ? Cette action ne peut pas être annulée.",
+            "DELETE_SUCCESS": "{count} journal(s) de connexion supprimé(s) avec succès",
+            "DELETE_ERROR": "Échec de la suppression des journaux de connexion",
+            "NOT_AUTHORIZED": "Vous n'êtes pas autorisé à supprimer les journaux de connexion"
+        },
+        "ACTIVE_DISCUSSION_CONNECTIONS": {
+            "TITLE": "Connexions de Discussion Actives",
+            "ACTIVE_CONNECTIONS": "Connexions Actives",
+            "NO_CONNECTIONS": "Aucune connexion de discussion active",
+            "LOADING": "Chargement des connexions actives...",
+            "USER": "Utilisateur",
+            "CONNECTED_AT": "Connecté À",
+            "DISCUSSION": "Discussion",
+            "DISCUSSION_ID": "ID Discussion",
+            "IP_ADDRESS": "Adresse IP",
+            "DOMAIN": "Domaine",
+            "LOCATION": "Localisation",
+            "UNKNOWN": "Inconnu"
         }
     },
     "FRIENDS": {
@@ -863,6 +888,7 @@
         "REQUESTS": "Demandes d'Amitié",
         "MY_FRIENDS": "Mes Amis",
         "SEARCH_PLACEHOLDER": "Rechercher un utilisateur...",
+        "SEARCH_GROUPS_PLACEHOLDER": "Rechercher un Groupe d'amis...",
         "SEND_REQUEST": "Envoyer une Demande",
         "PENDING_REQUEST": "Demande en Attente",
         "REQUEST_SENT": "Demande Envoyée",
@@ -897,6 +923,7 @@
         "CREATE": "Créer",
         "CANCEL": "Annuler",
         "NO_GROUPS": "Vous n'avez pas encore de groupes d'amis",
+        "NO_GROUPS_FOUND": "Aucun groupe trouvé",
         "CREATED_ON": "Créé le",
         "CREATED_BY": "Créé par",
         "MEMBERS": "Membres",

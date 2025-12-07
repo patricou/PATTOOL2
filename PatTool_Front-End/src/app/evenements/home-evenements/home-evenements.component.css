@@ -605,10 +605,7 @@
 }
 
 /* Réduire l'espace entre le titre et les contrôles */
-.pat-title {
-    margin-bottom: 0.5rem !important;
-    padding-bottom: 0.5rem !important;
-}
+/* pat-title uses global styles - no override needed */
 
 /* ===== CONTROLS BAR - Style professionnel et responsive ===== */
 .controls-bar {

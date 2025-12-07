@@ -263,7 +263,8 @@
                         </div>
                         <button (click)="saveCache()" 
                                 class="btn-small btn-save" 
-                                [disabled]="isSaving || saveMessageVisible">
+                                [disabled]="!isSaveCacheAuthorized || isSaving || saveMessageVisible"
+                                [title]="!isSaveCacheAuthorized ? ('SYSTEM.SAVE_CACHE.NOT_AUTHORIZED' | translate) : ''">
                             <i class="fa" [class.fa-save]="!isSaving" [class.fa-spinner]="isSaving" [class.fa-spin]="isSaving"></i>
                             <span>{{ isSaving ? ('SYSTEM.SAVE_CACHE.SAVING' | translate) : ('SYSTEM.SAVE_CACHE.BUTTON' | translate) }}</span>
                         </button>
@@ -286,7 +287,8 @@
                         </div>
                         <button (click)="loadCache()" 
                                 class="btn-small btn-load" 
-                                [disabled]="isLoading || loadMessageVisible">
+                                [disabled]="!isLoadCacheAuthorized || isLoading || loadMessageVisible"
+                                [title]="!isLoadCacheAuthorized ? ('SYSTEM.LOAD_CACHE.NOT_AUTHORIZED' | translate) : ''">
                             <i class="fa" [class.fa-upload]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
                             <span>{{ isLoading ? ('SYSTEM.LOAD_CACHE.LOADING' | translate) : ('SYSTEM.LOAD_CACHE.BUTTON' | translate) }}</span>
                         </button>
@@ -308,8 +310,9 @@
                             <p>{{ 'SYSTEM.CLEAR_CACHE.DESC' | translate }}</p>
                         </div>
                         <button (click)="clearCache()" 
-                                class="btn-small btn-clear" 
-                                [disabled]="isClearing || clearMessageVisible">
+                                class="btn-small btn-clear"
+                                [disabled]="!isClearCacheAuthorized || isClearing || clearMessageVisible"
+                                [title]="!isClearCacheAuthorized ? ('SYSTEM.CLEAR_CACHE.NOT_AUTHORIZED' | translate) : ''">
                             <i class="fa" [class.fa-trash]="!isClearing" [class.fa-spinner]="isClearing" [class.fa-spin]="isClearing"></i>
                             <span>{{ isClearing ? ('SYSTEM.CLEAR_CACHE.CLEARING' | translate) : ('SYSTEM.CLEAR_CACHE.BUTTON' | translate) }}</span>
                         </button>
@@ -413,6 +416,73 @@
                 </div>
             </div>
 
+            <!-- Active Discussion Connections Section -->
+            <div class="cache-stats-card">
+                <div class="stats-header">
+                    <div class="stats-icon">
+                        <i class="fa fa-comments"></i>
+                    </div>
+                    <div class="stats-title">
+                        <h4>{{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.TITLE' | translate }}</h4>
+                    </div>
+                    <button (click)="loadActiveDiscussionConnections()" 
+                            class="btn-refresh-stats" 
+                            [disabled]="isLoadingActiveConnections"
+                            [title]="'SYSTEM.CACHE_STATS.REFRESH' | translate">
+                        <i class="fa" [class.fa-refresh]="!isLoadingActiveConnections" [class.fa-spinner]="isLoadingActiveConnections" [class.fa-spin]="isLoadingActiveConnections"></i>
+                    </button>
+                </div>
+                <div class="stats-content" *ngIf="!isLoadingActiveConnections && !activeConnectionsError">
+                    <div class="stat-item" style="margin-bottom: 15px;">
+                        <div class="stat-label">{{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.ACTIVE_CONNECTIONS' | translate }}:</div>
+                        <div class="stat-value" style="font-size: 1.2em; font-weight: bold; color: #28a745;">
+                            {{ activeConnectionsCount }}
+                        </div>
+                    </div>
+                    <div *ngIf="activeDiscussionConnections.length > 0" class="active-connections-list">
+                        <table class="table table-sm table-hover">
+                            <thead>
+                                <tr>
+                                    <th>{{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.USER' | translate }}</th>
+                                    <th>{{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.CONNECTED_AT' | translate }}</th>
+                                    <th>{{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.DISCUSSION' | translate }}</th>
+                                    <th>{{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.DISCUSSION_ID' | translate }}</th>
+                                    <th>{{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.IP_ADDRESS' | translate }}</th>
+                                    <th>{{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.DOMAIN' | translate }}</th>
+                                    <th>{{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.LOCATION' | translate }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let conn of activeDiscussionConnections">
+                                    <td>
+                                        <strong>{{ conn.userName }}</strong>
+                                        <br *ngIf="conn.member">
+                                        <small *ngIf="conn.member" style="color: #6b7280;">
+                                            {{ conn.member.firstName }} {{ conn.member.lastName }}
+                                        </small>
+                                    </td>
+                                    <td>{{ formatConnectionDateTime(conn.connectedAt) }}</td>
+                                    <td><strong>{{ conn.discussionTitle || ('SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.UNKNOWN' | translate) }}</strong></td>
+                                    <td><code style="font-size: 0.85em;">{{ conn.discussionId }}</code></td>
+                                    <td>{{ conn.ipAddress }}</td>
+                                    <td>{{ conn.domain }}</td>
+                                    <td>{{ conn.location }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div *ngIf="activeDiscussionConnections.length === 0" class="stats-empty">
+                        <i class="fa fa-info-circle"></i> {{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.NO_CONNECTIONS' | translate }}
+                    </div>
+                </div>
+                <div class="stats-loading" *ngIf="isLoadingActiveConnections">
+                    <i class="fa fa-spinner fa-spin"></i> {{ 'SYSTEM.ACTIVE_DISCUSSION_CONNECTIONS.LOADING' | translate }}
+                </div>
+                <div class="stats-error" *ngIf="activeConnectionsError && !isLoadingActiveConnections">
+                    <i class="fa fa-exclamation-triangle"></i> {{ activeConnectionsError }}
+                </div>
+            </div>
+
         </div>
     </div>
 </div>
@@ -464,6 +534,14 @@
                 </span>
             </div>
             <div class="report-overlay-actions">
+                <button type="button" 
+                        class="btn btn-sm btn-danger" 
+                        (click)="deleteAllConnectionLogs()"
+                        [disabled]="!isDeleteConnectionLogsAuthorized || isDeletingConnectionLogs || isLoadingConnectionLogs"
+                        [title]="!isDeleteConnectionLogsAuthorized ? ('SYSTEM.CONNECTION_LOGS.NOT_AUTHORIZED' | translate) : ('SYSTEM.CONNECTION_LOGS.DELETE_ALL' | translate)">
+                    <i class="fa" [ngClass]="{'fa-trash': !isDeletingConnectionLogs, 'fa-spinner': isDeletingConnectionLogs, 'fa-spin': isDeletingConnectionLogs}"></i>
+                    {{ 'SYSTEM.CONNECTION_LOGS.DELETE_ALL' | translate }}
+                </button>
                 <button type="button" class="btn btn-sm btn-light report-overlay-close" (click)="closeConnectionLogs()">
                     <i class="fa fa-times"></i>
                     {{ 'SYSTEM.CONNECTION_LOGS.CLOSE' | translate }}
@@ -510,15 +588,25 @@
                 <i class="fa fa-exclamation-triangle"></i> {{ connectionLogsError }}
             </div>
 
+            <!-- Delete Message -->
+            <div *ngIf="deleteConnectionLogsMessageVisible" 
+                 class="connection-logs-message"
+                 [class.connection-logs-success]="deleteConnectionLogsMessage.includes('Success') || deleteConnectionLogsMessage.includes('success')"
+                 [class.connection-logs-error]="!deleteConnectionLogsMessage.includes('Success') && !deleteConnectionLogsMessage.includes('success')">
+                <i class="fa" [ngClass]="{'fa-check-circle': deleteConnectionLogsMessage.includes('Success') || deleteConnectionLogsMessage.includes('success'), 'fa-exclamation-circle': !deleteConnectionLogsMessage.includes('Success') && !deleteConnectionLogsMessage.includes('success')}"></i>
+                {{ deleteConnectionLogsMessage }}
+            </div>
+
             <!-- Connection Logs AG Grid -->
             <div *ngIf="!isLoadingConnectionLogs && !connectionLogsError" class="connection-logs-grid-container">
-                <div *ngIf="connectionLogs.length > 0" class="ag-theme-alpine" style="width: 100%; height: 100%; min-height: 500px;">
+                <div *ngIf="connectionLogs.length > 0" class="ag-theme-alpine connection-logs-ag-grid-wrapper">
                     <ag-grid-angular
                         [rowData]="connectionLogs"
                         [columnDefs]="connectionLogsColumnDefs"
                         [gridOptions]="connectionLogsGridOptions"
                         (gridReady)="onGridReady($event)"
-                        style="width: 100%; height: 100%; position: relative; z-index: 10;">
+                        class="ag-theme-alpine"
+                        style="width: 100%; height: 100%; min-height: 500px;">
                     </ag-grid-angular>
                 </div>
                 <div *ngIf="connectionLogs.length === 0" class="connection-logs-empty">

@@ -13,6 +13,7 @@ import { environment } from '../../environments/environment';
 import { Observable, from, of } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
 import { ColDef, GridOptions, GridReadyEvent } from 'ag-grid-community';
+import { DiscussionService } from '../services/discussion.service';
 
 @Component({
   selector: 'app-system',
@@ -34,6 +35,10 @@ export class SystemComponent implements OnInit {
   shutdownMessage: string = '';
   shutdownMessageVisible: boolean = false;
   isShutdownAuthorized: boolean = false;
+  isClearCacheAuthorized: boolean = false;
+  isDeleteConnectionLogsAuthorized: boolean = false;
+  isSaveCacheAuthorized: boolean = false;
+  isLoadCacheAuthorized: boolean = false;
   user: Member = new Member("", "", "", "", "", [], "");
 
   // Cache Statistics
@@ -74,7 +79,8 @@ export class SystemComponent implements OnInit {
     private translate: TranslateService,
     private _memberService: MembersService,
     private _http: HttpClient,
-    private _keycloakService: KeycloakService
+    private _keycloakService: KeycloakService,
+    private discussionService: DiscussionService
   ) { }
 
   // Connection Logs properties
@@ -85,6 +91,15 @@ export class SystemComponent implements OnInit {
   connectionLogsStartDate: Date = new Date();
   connectionLogsEndDate: Date = new Date();
   connectionLogsCount: number = 0;
+  isDeletingConnectionLogs: boolean = false;
+  deleteConnectionLogsMessage: string = '';
+  deleteConnectionLogsMessageVisible: boolean = false;
+
+  // Active Discussion Connections properties
+  activeDiscussionConnections: any[] = [];
+  isLoadingActiveConnections: boolean = false;
+  activeConnectionsError: string = '';
+  activeConnectionsCount: number = 0;
   
   // AG Grid properties
   connectionLogsColumnDefs: ColDef[] = [];
@@ -94,7 +109,10 @@ export class SystemComponent implements OnInit {
       filter: true,
       resizable: true,
       flex: 1,
-      minWidth: 150
+      minWidth: 150,
+      cellStyle: { display: 'flex', alignItems: 'center', verticalAlign: 'middle' },
+      wrapText: true,
+      autoHeight: true
     },
     pagination: true,
     paginationPageSize: 20,
@@ -107,6 +125,10 @@ export class SystemComponent implements OnInit {
   ngOnInit() {
     this.user = this._memberService.getUser();
     this.checkShutdownAuthorization();
+    this.checkClearCacheAuthorization();
+    this.checkDeleteConnectionLogsAuthorization();
+    this.checkSaveCacheAuthorization();
+    this.checkLoadCacheAuthorization();
     this.loadCacheStats();
     this.pageLoadStartTime = performance.now();
     this.collectPerformanceStats();
@@ -119,6 +141,9 @@ export class SystemComponent implements OnInit {
     
     // Initialize AG Grid column definitions
     this.initializeConnectionLogsColumns();
+    
+    // Load active discussion connections on init
+    this.loadActiveDiscussionConnections();
   }
   
   initializeConnectionLogsColumns(): void {
@@ -137,6 +162,18 @@ export class SystemComponent implements OnInit {
         }
       },
       {
+        field: 'type',
+        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.TYPE') || 'Type',
+        width: 80,
+        cellStyle: { display: 'flex', justifyContent: 'center', alignItems: 'center', textAlign: 'center' },
+        cellClass: 'type-column-cell',
+        cellRenderer: (params: any) => {
+          const type = params.value || 'login';
+          const badgeClass = type === 'discussion' ? 'badge bg-info' : 'badge bg-primary';
+          return `<span class="${badgeClass}">${type}</span>`;
+        }
+      },
+      {
         field: 'member',
         headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.USER'),
         width: 200,
@@ -145,15 +182,28 @@ export class SystemComponent implements OnInit {
             return params.data.member.userName;
           }
           return 'N/A';
-        },
+        }
+      },
+      {
+        field: 'discussionTitle',
+        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.DISCUSSION_TITLE') || 'Discussion',
+        width: 250,
         cellRenderer: (params: any) => {
-          if (params.data?.member) {
-            const userName = params.data.member.userName || 'N/A';
-            const firstName = params.data.member.firstName || '';
-            const lastName = params.data.member.lastName || '';
-            return `<div><strong>${userName}</strong><br><small style="color: #6b7280;">${firstName} ${lastName}</small></div>`;
+          if (params.data?.type === 'discussion' && params.value) {
+            return `<div><strong>${params.value}</strong></div>`;
           }
-          return 'N/A';
+          return params.data?.type === 'discussion' ? '<em>No title</em>' : '-';
+        }
+      },
+      {
+        field: 'discussionId',
+        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.DISCUSSION_ID') || 'Discussion ID',
+        width: 200,
+        cellRenderer: (params: any) => {
+          if (params.data?.type === 'discussion' && params.value) {
+            return `<code style="font-size: 0.85em;">${params.value}</code>`;
+          }
+          return '-';
         }
       },
       {
@@ -200,6 +250,126 @@ export class SystemComponent implements OnInit {
         error => {
           console.error('Error getting user ID:', error);
           this.isShutdownAuthorized = false;
+        }
+      );
+    }
+  }
+
+  checkClearCacheAuthorization(): void {
+    if (this.user && this.user.id) {
+      this._cacheService.isClearCacheAuthorized(this.user).subscribe(
+        response => {
+          let responseData = response;
+          if (response._body) {
+            responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+          }
+          this.isClearCacheAuthorized = responseData.authorized === true;
+        },
+        error => {
+          console.error('Error checking clear cache authorization:', error);
+          this.isClearCacheAuthorized = false;
+        }
+      );
+    } else {
+      // If user not loaded yet, try to get it
+      this._memberService.getUserId().subscribe(
+        (member: Member) => {
+          this.user = member;
+          this.checkClearCacheAuthorization();
+        },
+        error => {
+          console.error('Error getting user ID:', error);
+          this.isClearCacheAuthorized = false;
+        }
+      );
+    }
+  }
+
+  checkDeleteConnectionLogsAuthorization(): void {
+    if (this.user && this.user.id) {
+      this._cacheService.isDeleteConnectionLogsAuthorized(this.user).subscribe(
+        response => {
+          let responseData = response;
+          if (response._body) {
+            responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+          }
+          this.isDeleteConnectionLogsAuthorized = responseData.authorized === true;
+        },
+        error => {
+          console.error('Error checking delete connection logs authorization:', error);
+          this.isDeleteConnectionLogsAuthorized = false;
+        }
+      );
+    } else {
+      // If user not loaded yet, try to get it
+      this._memberService.getUserId().subscribe(
+        (member: Member) => {
+          this.user = member;
+          this.checkDeleteConnectionLogsAuthorization();
+        },
+        error => {
+          console.error('Error getting user ID:', error);
+          this.isDeleteConnectionLogsAuthorized = false;
+        }
+      );
+    }
+  }
+
+  checkSaveCacheAuthorization(): void {
+    if (this.user && this.user.id) {
+      this._cacheService.isSaveCacheAuthorized(this.user).subscribe(
+        response => {
+          let responseData = response;
+          if (response._body) {
+            responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+          }
+          this.isSaveCacheAuthorized = responseData.authorized === true;
+        },
+        error => {
+          console.error('Error checking save cache authorization:', error);
+          this.isSaveCacheAuthorized = false;
+        }
+      );
+    } else {
+      // If user not loaded yet, try to get it
+      this._memberService.getUserId().subscribe(
+        (member: Member) => {
+          this.user = member;
+          this.checkSaveCacheAuthorization();
+        },
+        error => {
+          console.error('Error getting user ID:', error);
+          this.isSaveCacheAuthorized = false;
+        }
+      );
+    }
+  }
+
+  checkLoadCacheAuthorization(): void {
+    if (this.user && this.user.id) {
+      this._cacheService.isLoadCacheAuthorized(this.user).subscribe(
+        response => {
+          let responseData = response;
+          if (response._body) {
+            responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+          }
+          this.isLoadCacheAuthorized = responseData.authorized === true;
+        },
+        error => {
+          console.error('Error checking load cache authorization:', error);
+          this.isLoadCacheAuthorized = false;
+        }
+      );
+    } else {
+      // If user not loaded yet, try to get it
+      this._memberService.getUserId().subscribe(
+        (member: Member) => {
+          this.user = member;
+          this.checkLoadCacheAuthorization();
+        },
+        error => {
+          console.error('Error getting user ID:', error);
+          this.isLoadCacheAuthorized = false;
         }
       );
     }
@@ -332,9 +502,19 @@ export class SystemComponent implements OnInit {
   }
 
   saveCache(): void {
+    if (!this.isSaveCacheAuthorized) {
+      this.saveMessage = 'You are not authorized to save the cache.';
+      this.saveMessageVisible = true;
+      setTimeout(() => {
+        this.saveMessageVisible = false;
+        this.saveMessage = '';
+      }, 5000);
+      return;
+    }
+    
     this.isSaving = true;
     this.saveMessageVisible = false;
-    this._cacheService.saveCache().subscribe(
+    this._cacheService.saveCache(this.user).subscribe(
       response => {
         console.log("Cache save response: " + JSON.stringify(response));
         let responseData = response;
@@ -372,6 +552,16 @@ export class SystemComponent implements OnInit {
   }
 
   loadCache(): void {
+    if (!this.isLoadCacheAuthorized) {
+      this.loadMessage = 'You are not authorized to load the cache.';
+      this.loadMessageVisible = true;
+      setTimeout(() => {
+        this.loadMessageVisible = false;
+        this.loadMessage = '';
+      }, 5000);
+      return;
+    }
+    
     this.isLoading = true;
     this.loadMessageVisible = false;
     
@@ -395,7 +585,7 @@ export class SystemComponent implements OnInit {
         }
         
         // File exists, proceed with loading
-        this._cacheService.loadCache().subscribe(
+        this._cacheService.loadCache(this.user).subscribe(
           response => {
             console.log("Cache load response: " + JSON.stringify(response));
             let responseData = response;
@@ -443,13 +633,23 @@ export class SystemComponent implements OnInit {
   }
 
   clearCache(): void {
+    if (!this.isClearCacheAuthorized) {
+      this.clearMessage = 'You are not authorized to clear the cache.';
+      this.clearMessageVisible = true;
+      setTimeout(() => {
+        this.clearMessageVisible = false;
+        this.clearMessage = '';
+      }, 5000);
+      return;
+    }
+    
     if (!confirm('Are you sure you want to clear the cache? This will remove all cached images from memory and the file system.')) {
       return;
     }
 
     this.isClearing = true;
     this.clearMessageVisible = false;
-    this._cacheService.clearCache().subscribe(
+    this._cacheService.clearCache(this.user).subscribe(
       response => {
         console.log("Cache clear response: " + JSON.stringify(response));
         let responseData = response;
@@ -914,8 +1114,14 @@ export class SystemComponent implements OnInit {
     this.connectionLogsColumnDefs.forEach(col => {
       if (col.field === 'connectionDate') {
         col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.DATE_TIME');
+      } else if (col.field === 'type') {
+        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.TYPE') || 'Type';
       } else if (col.field === 'member') {
         col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.USER');
+      } else if (col.field === 'discussionTitle') {
+        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.DISCUSSION_TITLE') || 'Discussion';
+      } else if (col.field === 'discussionId') {
+        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.DISCUSSION_ID') || 'Discussion ID';
       } else if (col.field === 'ipAddress') {
         col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.IP_ADDRESS');
       } else if (col.field === 'domainName') {
@@ -929,8 +1135,11 @@ export class SystemComponent implements OnInit {
   onGridReady(event: GridReadyEvent): void {
     console.log('AG Grid ready', event);
     if (event.api) {
-      event.api.sizeColumnsToFit();
-      console.log('Grid columns fitted, row count:', event.api.getDisplayedRowCount());
+      // Auto-size columns to fit
+      setTimeout(() => {
+        event.api.sizeColumnsToFit();
+        console.log('Grid columns fitted, row count:', event.api.getDisplayedRowCount());
+      }, 100);
     }
   }
 
@@ -966,6 +1175,97 @@ export class SystemComponent implements OnInit {
     if (value) {
       this.connectionLogsEndDate = new Date(value);
     }
+  }
+
+  loadActiveDiscussionConnections(): void {
+    this.isLoadingActiveConnections = true;
+    this.activeConnectionsError = '';
+    
+    this.discussionService.getActiveConnections().subscribe({
+      next: (connections) => {
+        this.activeDiscussionConnections = connections || [];
+        this.activeConnectionsCount = this.activeDiscussionConnections.length;
+        this.isLoadingActiveConnections = false;
+      },
+      error: (error) => {
+        this.activeConnectionsError = error.error?.error || error.message || 'Error loading active connections';
+        this.activeDiscussionConnections = [];
+        this.activeConnectionsCount = 0;
+        this.isLoadingActiveConnections = false;
+      }
+    });
+  }
+
+  formatConnectionDateTime(dateTime: string | Date): string {
+    if (!dateTime) return 'N/A';
+    const d = typeof dateTime === 'string' ? new Date(dateTime) : dateTime;
+    return d.toLocaleString();
+  }
+
+  deleteAllConnectionLogs(): void {
+    if (!this.isDeleteConnectionLogsAuthorized) {
+      this.deleteConnectionLogsMessage = this.translate.instant('SYSTEM.CONNECTION_LOGS.NOT_AUTHORIZED') || 'You are not authorized to delete connection logs.';
+      this.deleteConnectionLogsMessageVisible = true;
+      setTimeout(() => {
+        this.deleteConnectionLogsMessageVisible = false;
+        this.deleteConnectionLogsMessage = '';
+      }, 5000);
+      return;
+    }
+    
+    if (!confirm(this.translate.instant('SYSTEM.CONNECTION_LOGS.DELETE_CONFIRM') || 'Are you sure you want to delete all connection logs? This action cannot be undone.')) {
+      return;
+    }
+
+    this.isDeletingConnectionLogs = true;
+    this.deleteConnectionLogsMessageVisible = false;
+    this.deleteConnectionLogsMessage = '';
+
+    this._cacheService.deleteAllConnectionLogs(this.user).subscribe({
+      next: (response: any) => {
+        let responseData = response;
+        if (response && typeof response === 'object' && '_body' in response) {
+          responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
+        } else if (response && typeof response === 'object') {
+          responseData = response;
+        }
+
+        this.isDeletingConnectionLogs = false;
+
+        if (responseData && responseData.success) {
+          const deletedCount = responseData.deletedCount || 0;
+          const successMessage = this.translate.instant('SYSTEM.CONNECTION_LOGS.DELETE_SUCCESS') || 'Successfully deleted {count} connection log(s)';
+          this.deleteConnectionLogsMessage = successMessage.replace('{count}', deletedCount.toString());
+          this.deleteConnectionLogsMessageVisible = true;
+          
+          // Reload the connection logs to show empty state
+          this.loadConnectionLogs();
+          
+          setTimeout(() => {
+            this.deleteConnectionLogsMessageVisible = false;
+            this.deleteConnectionLogsMessage = '';
+          }, 5000);
+        } else {
+          this.deleteConnectionLogsMessage = responseData.error || this.translate.instant('SYSTEM.CONNECTION_LOGS.DELETE_ERROR') || 'Failed to delete connection logs';
+          this.deleteConnectionLogsMessageVisible = true;
+          
+          setTimeout(() => {
+            this.deleteConnectionLogsMessageVisible = false;
+            this.deleteConnectionLogsMessage = '';
+          }, 5000);
+        }
+      },
+      error: (error) => {
+        this.isDeletingConnectionLogs = false;
+        this.deleteConnectionLogsMessage = error.error?.error || error.message || this.translate.instant('SYSTEM.CONNECTION_LOGS.DELETE_ERROR') || 'Error deleting connection logs';
+        this.deleteConnectionLogsMessageVisible = true;
+        
+        setTimeout(() => {
+          this.deleteConnectionLogsMessageVisible = false;
+          this.deleteConnectionLogsMessage = '';
+        }, 5000);
+      }
+    });
   }
 }
 

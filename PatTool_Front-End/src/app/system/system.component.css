@@ -918,11 +918,12 @@
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     width: 100%;
     flex: 1;
-    min-height: 0;
+    min-height: 500px;
     display: flex;
     flex-direction: column;
     position: relative;
     z-index: 10;
+    overflow: visible;
 }
 
 .connection-logs-ag-grid {
@@ -932,48 +933,264 @@
     min-height: 0;
 }
 
-.ag-theme-alpine {
-    width: 100% !important;
-    height: 100% !important;
-    flex: 1;
-    min-height: 0;
-    position: relative;
-    z-index: 10;
-}
-
 .ag-grid-container {
     width: 100%;
     height: 100%;
 }
 
 /* AG Grid Theme Customization */
-.ag-theme-alpine {
-    --ag-header-background-color: linear-gradient(135deg, #10b981 0%, #059669 100%);
+.connection-logs-ag-grid-wrapper {
+    width: 100%;
+    height: 100%;
+    min-height: 500px;
+    display: flex;
+    flex-direction: column;
+    overflow: visible !important;
+}
+
+/* AG Grid Theme Customization - Using :host ::ng-deep to penetrate view encapsulation */
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine {
+    --ag-header-background-color: #10b981;
     --ag-header-foreground-color: white;
     --ag-border-color: #e5e7eb;
     --ag-row-hover-color: #f9fafb;
     --ag-font-size: 0.875rem;
+    --ag-font-family: inherit;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 500px !important;
 }
 
-.ag-theme-alpine .ag-header {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    color: white;
-    font-weight: 600;
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-header {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    color: white !important;
+    font-weight: 600 !important;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    font-size: 0.8rem;
+    font-size: 0.8rem !important;
 }
 
-.ag-theme-alpine .ag-header-cell {
-    border-right: 1px solid rgba(255, 255, 255, 0.2);
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-header-cell {
+    border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
-.ag-theme-alpine .ag-row {
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-header-cell-label {
+    color: white !important;
+    font-weight: 600 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    height: 100% !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-header-cell {
+    display: flex !important;
+    align-items: center !important;
+    height: 100% !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-row {
     border-bottom: 1px solid #e5e7eb;
 }
 
-.ag-theme-alpine .ag-row:hover {
-    background-color: #f9fafb;
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-row:hover {
+    background-color: #f9fafb !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell {
+    font-size: 0.875rem;
+    line-height: 1.5 !important;
+    padding: 0.5rem !important;
+    display: flex !important;
+    align-items: center !important;
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    word-break: break-word !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell-wrapper {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-height: 100% !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell-value {
+    display: flex !important;
+    align-items: center !important;
+    width: 100% !important;
+    min-height: 100% !important;
+}
+
+/* For cells with div content (multi-line), center vertically */
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell > div {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
+    width: 100% !important;
+    line-height: normal !important;
+}
+
+/* For badge elements */
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell .badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    line-height: normal !important;
+    margin: 0 auto !important;
+}
+
+/* Center badge in type column specifically */
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell.type-column-cell {
+    justify-content: center !important;
+    text-align: center !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell.type-column-cell .ag-cell-wrapper {
+    justify-content: center !important;
+    width: 100% !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell.type-column-cell .ag-cell-value {
+    justify-content: center !important;
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell.type-column-cell .badge {
+    margin: 0 auto !important;
+}
+
+/* For code elements */
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell code {
+    display: inline-block !important;
+    line-height: normal !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-root-wrapper {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: visible !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-body-viewport {
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-body-horizontal-scroll {
+    overflow-x: auto !important;
+}
+
+/* Pagination Styles */
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-panel {
+    background: #ffffff !important;
+    border-top: 1px solid #e5e7eb !important;
+    padding: 0.75rem 1rem !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+    font-size: 0.875rem !important;
+    color: #374151 !important;
+    position: relative !important;
+    z-index: 100 !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    min-height: 50px !important;
+    overflow: visible !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-row-summary-panel {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    color: #6b7280 !important;
+    font-weight: 500 !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-page-summary-panel {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    color: #6b7280 !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-button {
+    background: #ffffff !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    padding: 0.375rem 0.75rem !important;
+    color: #374151 !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    min-width: 36px !important;
+    height: 36px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-button:hover:not(:disabled) {
+    background: #f9fafb !important;
+    border-color: #10b981 !important;
+    color: #10b981 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.1) !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-button:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    background: #f3f4f6 !important;
+    color: #9ca3af !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-button.ag-disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+    background: #f3f4f6 !important;
+    color: #9ca3af !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-page-size {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-page-size select {
+    background: #ffffff !important;
+    border: 1px solid #d1d5db !important;
+    border-radius: 6px !important;
+    padding: 0.375rem 0.75rem !important;
+    color: #374151 !important;
+    font-size: 0.875rem !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    min-width: 80px !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-page-size select:hover {
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
+}
+
+:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-page-size select:focus {
+    outline: none !important;
+    border-color: #10b981 !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
 }
 
 .connection-logs-empty {
@@ -987,6 +1204,42 @@
     margin-right: 0.5rem;
     font-size: 1.25rem;
     color: #9ca3af;
+}
+
+.connection-logs-message {
+    margin-bottom: 1rem;
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: slideIn 0.3s ease-out;
+}
+
+.connection-logs-message i {
+    flex-shrink: 0;
+    font-size: 1rem;
+}
+
+.connection-logs-success {
+    background: #d1fae5;
+    border: 1px solid #10b981;
+    color: #065f46;
+}
+
+.connection-logs-success i {
+    color: #10b981;
+}
+
+.connection-logs-error {
+    background: #fee2e2;
+    border: 1px solid #ef4444;
+    color: #991b1b;
+}
+
+.connection-logs-error i {
+    color: #ef4444;
 }
 
 /* Responsive Design for Connection Logs */

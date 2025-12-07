@@ -837,11 +837,32 @@
             "TOTAL": "Gesamt",
             "CONNECTIONS": "Verbindung(en)",
             "DATE_TIME": "Datum/Zeit",
+            "TYPE": "Typ",
             "USER": "Benutzer",
+            "DISCUSSION_TITLE": "Diskussion",
+            "DISCUSSION_ID": "Diskussions-ID",
             "IP_ADDRESS": "IP-Adresse",
             "DOMAIN_NAME": "Domainname",
             "LOCATION": "Standort",
-            "NO_LOGS": "Keine Verbindungsprotokolle für den ausgewählten Datumsbereich gefunden."
+            "NO_LOGS": "Keine Verbindungsprotokolle für den ausgewählten Datumsbereich gefunden.",
+            "DELETE_ALL": "Alle Löschen",
+            "DELETE_CONFIRM": "Sind Sie sicher, dass Sie alle Verbindungsprotokolle löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+            "DELETE_SUCCESS": "{count} Verbindungsprotokoll(e) erfolgreich gelöscht",
+            "DELETE_ERROR": "Fehler beim Löschen der Verbindungsprotokolle"
+        },
+        "ACTIVE_DISCUSSION_CONNECTIONS": {
+            "TITLE": "Aktive Diskussionsverbindungen",
+            "ACTIVE_CONNECTIONS": "Aktive Verbindungen",
+            "NO_CONNECTIONS": "Keine aktiven Diskussionsverbindungen",
+            "LOADING": "Aktive Verbindungen werden geladen...",
+            "USER": "Benutzer",
+            "CONNECTED_AT": "Verbunden Um",
+            "DISCUSSION": "Diskussion",
+            "DISCUSSION_ID": "Diskussions-ID",
+            "IP_ADDRESS": "IP-Adresse",
+            "DOMAIN": "Domäne",
+            "LOCATION": "Standort",
+            "UNKNOWN": "Unbekannt"
         }
     },
     "FRIENDS": {
@@ -850,6 +871,7 @@
         "REQUESTS": "Freundschaftsanfragen",
         "MY_FRIENDS": "Meine Freunde",
         "SEARCH_PLACEHOLDER": "Benutzer suchen...",
+        "SEARCH_GROUPS_PLACEHOLDER": "Freundesgruppe suchen...",
         "SEND_REQUEST": "Anfrage Senden",
         "PENDING_REQUEST": "Ausstehende Anfrage",
         "REQUEST_SENT": "Anfrage Gesendet",

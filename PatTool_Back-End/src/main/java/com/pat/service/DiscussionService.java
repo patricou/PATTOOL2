@@ -109,7 +109,7 @@ public class DiscussionService {
         
         discussionRepository.save(discussion);
         
-        log.info("Message added to discussion {} by user {}", discussionId, authorUserName);
+        log.debug("Message added to discussion {} by user {}", discussionId, authorUserName);
         return discussionMessage;
     }
 
@@ -138,7 +138,7 @@ public class DiscussionService {
             messageToDelete.getAuthor().getUserName().equals(userName)) {
             discussion.getMessages().remove(messageToDelete);
             discussionRepository.save(discussion);
-            log.info("Message {} deleted from discussion {} by user {}", messageId, discussionId, userName);
+            log.debug("Message {} deleted from discussion {} by user {}", messageId, discussionId, userName);
             return true;
         }
 

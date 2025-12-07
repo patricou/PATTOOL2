@@ -324,6 +324,7 @@
              *ngFor="let evenement of filteredEvents; trackBy: trackEvent; let i = index"
              [attr.data-event-id]="evenement.id">
             <element-evenement class="card" [user]="user" [evenement]="evenement" [titleOnly]="titleOnlyView"
+                [friendGroups]="friendGroups"
                 (updateFileUploaded)="updateFileUploadedInEvent($event)" (addMember)="addMemberInEvent($event)"
                 (delMember)="delMemberInEvent($event)" (updateEvenement)="updEvent($event)"
                 (delEvenement)="delEvent($event)" (openPhotosModal)="openPhotosModal($event)"

@@ -1,14 +1,22 @@
 /* Discussion Modal Styles */
-:host ::ng-deep .modal-content {
+:host ::ng-deep .discussion-modal-window .modal-content,
+:host ::ng-deep .modal.show .discussion-modal-window .modal-content,
+:host ::ng-deep .modal-dialog.discussion-modal-window .modal-content,
+:host ::ng-deep .modal.show .modal-dialog.discussion-modal-window .modal-content,
+:host ::ng-deep .discussion-modal-window.modal-dialog .modal-content,
+:host ::ng-deep .modal.show .discussion-modal-window.modal-dialog .modal-content {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    height: 80vh;
     max-height: 80vh;
+    min-height: 500px;
+    border: 4px solid #ffffff !important;
+    border-radius: 8px !important;
 }
 
 .modal-header {
-    background: #f0f2f5;
-    border-bottom: 1px solid #e9edef;
+    background: #28a745 !important;
+    border-bottom: 1px solid #1e7e34;
     padding: 12px 16px;
     flex-shrink: 0;
 }
@@ -17,7 +25,7 @@
     margin: 0;
     font-size: 18px;
     font-weight: 600;
-    color: #111b21;
+    color: #ffffff !important;
 }
 
 .btn-close {
@@ -25,7 +33,7 @@
     border: none;
     font-size: 24px;
     line-height: 1;
-    color: #667781;
+    color: #ffffff !important;
     cursor: pointer;
     padding: 0;
     width: 30px;
@@ -38,7 +46,7 @@
 }
 
 .btn-close:hover {
-    background: rgba(0, 0, 0, 0.05);
+    background: rgba(255, 255, 255, 0.2);
 }
 
 .modal-body {
@@ -47,7 +55,8 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    min-height: 400px; /* Minimum height even with one message */
+    max-height: calc(80vh - 120px); /* Subtract header and footer height */
     pointer-events: auto;
 }
 
@@ -59,6 +68,8 @@
     pointer-events: auto;
     position: relative;
     z-index: 1;
+    min-height: 400px; /* Minimum height even with one message */
+    overflow: hidden;
 }
 
 .modal-footer {
@@ -69,6 +80,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
+}
+
+.footer-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
 }
 
 .discussion-id {
@@ -88,25 +107,127 @@
     font-family: monospace;
 }
 
+/* Connection Status Bar in Footer */
+.modal-footer .connection-status-bar {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.modal-footer .connection-status-bar.connecting {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+}
+
+.modal-footer .connection-status-bar.reconnecting {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffc107;
+    animation: pulse-reconnecting 2s ease-in-out infinite;
+}
+
+@keyframes pulse-reconnecting {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.modal-footer .connection-status-bar.connected {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #28a745;
+}
+
+.modal-footer .connection-status-bar.disconnected {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #dc3545;
+}
+
+.modal-footer .connection-status-bar.error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #dc3545;
+}
+
+.modal-footer .connection-status-bar i {
+    font-size: 0.8rem;
+}
+
+.footer-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
 /* Custom modal window class */
 :host ::ng-deep .discussion-modal-window .modal-dialog {
     max-width: 900px;
     height: 80vh;
+    max-height: 80vh;
+    min-height: 500px;
     display: flex;
     flex-direction: column;
+    margin: 1.75rem auto;
 }
 
 :host ::ng-deep .discussion-modal-window .modal-content {
-    height: 100%;
+    height: 80vh;
+    max-height: 80vh;
+    min-height: 500px;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
+    border: 4px solid #ffffff !important;
+    border-radius: 8px !important;
+}
+
+/* Prevent body scroll when modal is open */
+:host ::ng-deep body.modal-open {
+    overflow: hidden !important;
+}
+
+/* Ensure modal backdrop prevents scrolling */
+:host ::ng-deep .modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1040;
+    width: 100vw;
+    height: 100vh;
 }
 
 /* Responsive */
 @media (max-width: 768px) {
-    .modal-body {
-        height: 500px;
+    :host ::ng-deep .discussion-modal-window .modal-dialog {
+        height: 70vh;
         max-height: 70vh;
+        min-height: 400px;
+    }
+    
+    :host ::ng-deep .discussion-modal-window .modal-content {
+        height: 70vh;
+        max-height: 70vh;
+        min-height: 400px;
+    }
+    
+    .modal-body {
+        min-height: 300px; /* Minimum height on mobile even with one message */
+        max-height: calc(70vh - 120px);
+    }
+    
+    .modal-body app-discussion {
+        min-height: 300px; /* Minimum height on mobile even with one message */
     }
 }
 

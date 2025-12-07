@@ -1,12 +1,13 @@
 <div class="friends-container">
-  <div class="friends-header">
-    <h2>
-      <i class="fa fa-users"></i>
-      {{ 'FRIENDS.TITLE' | translate }}
-    </h2>
+  <!-- Header Section -->
+  <div class="pat-title">
+    <h2>{{ 'FRIENDS.TITLE' | translate }}</h2>
+    <app-navigation-buttons></app-navigation-buttons>
   </div>
 
-  <!-- Error Message -->
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Error Message -->
   <div *ngIf="errorMessage" class="alert alert-danger" role="alert">
     <i class="fa fa-exclamation-triangle"></i>
     {{ errorMessage }}
@@ -47,7 +48,7 @@
         [class.active]="activeTab === 'friends'"
         (click)="setActiveTab('friends')"
         type="button">
-        <i class="fa fa-user-friends"></i>
+        <i class="fa fa-heart"></i>
         {{ 'FRIENDS.MY_FRIENDS' | translate }}
         <span *ngIf="friends.length > 0" class="badge bg-success">{{ friends.length }}</span>
       </button>
@@ -341,18 +342,55 @@
       </div>
     </div>
 
+    <!-- Search Filter for Groups -->
+    <div *ngIf="!isCreatingGroup && !editingGroupId" class="search-container mb-3">
+      <div class="input-group">
+        <span class="input-group-text">
+          <i class="fa fa-search"></i>
+        </span>
+        <input 
+          type="text" 
+          class="form-control" 
+          [(ngModel)]="searchFilter"
+          [placeholder]="'FRIENDS.SEARCH_GROUPS_PLACEHOLDER' | translate">
+      </div>
+    </div>
+
     <!-- Groups List -->
-    <div *ngIf="friendGroups.length === 0 && !isCreatingGroup" class="no-results">
+    <div *ngIf="getFilteredGroups().length === 0 && !isCreatingGroup && friendGroups.length === 0" class="no-results">
       <i class="fa fa-users fa-3x"></i>
       <p>{{ 'FRIENDS.NO_GROUPS' | translate }}</p>
     </div>
 
-    <div *ngIf="friendGroups.length > 0" class="groups-list">
-      <div *ngFor="let group of friendGroups" class="group-card card mb-3">
+    <!-- No Results from Filter -->
+    <div *ngIf="friendGroups.length > 0 && getFilteredGroups().length === 0 && !isCreatingGroup" class="no-results">
+      <i class="fa fa-search fa-3x"></i>
+      <p>{{ 'FRIENDS.NO_GROUPS_FOUND' | translate }}</p>
+    </div>
+
+    <div *ngIf="getFilteredGroups().length > 0" class="groups-list">
+      <div *ngFor="let group of getFilteredGroups()" class="group-card card mb-3">
         <div class="card-body">
           <div *ngIf="editingGroupId !== group.id">
             <div class="d-flex justify-content-between align-items-start">
-              <div>
+              <div class="flex-grow-1">
+                <!-- Action buttons for owner - Top of card -->
+                <div *ngIf="isGroupOwner(group)" class="d-flex gap-2 mb-3">
+                  <button 
+                    class="btn btn-outline-primary btn-sm"
+                    (click)="startEditingGroup(group)"
+                    title="{{ 'FRIENDS.EDIT' | translate }}">
+                    <i class="fa fa-edit me-1"></i>
+                    {{ 'FRIENDS.EDIT' | translate }}
+                  </button>
+                  <button 
+                    class="btn btn-outline-danger btn-sm"
+                    (click)="deleteFriendGroup(group.id)"
+                    title="{{ 'FRIENDS.DELETE' | translate }}">
+                    <i class="fa fa-trash me-1"></i>
+                    {{ 'FRIENDS.DELETE' | translate }}
+                  </button>
+                </div>
                 <h5>{{ group.name }}</h5>
                 <p class="text-muted small">
                   <i class="fa fa-user"></i>
@@ -484,29 +522,7 @@
                 </div>
               </div>
               <div class="d-flex flex-column align-items-end">
-                <div class="d-flex gap-2 mb-2">
-                  <button 
-                    class="btn btn-sm btn-info"
-                    (click)="openDiscussionModal(group)">
-                    <i class="fa fa-comment-dots"></i>
-                    Discussion
-                  </button>
-                </div>
-                <div class="d-flex gap-2" *ngIf="isGroupOwner(group)">
-                  <button 
-                    class="btn btn-sm btn-primary"
-                    (click)="startEditingGroup(group)">
-                    <i class="fa fa-edit"></i>
-                    {{ 'FRIENDS.EDIT' | translate }}
-                  </button>
-                  <button 
-                    class="btn btn-sm btn-danger"
-                    (click)="deleteFriendGroup(group.id)">
-                    <i class="fa fa-trash"></i>
-                    {{ 'FRIENDS.DELETE' | translate }}
-                  </button>
-                </div>
-                <div *ngIf="isGroupOwner(group)" class="badge bg-success mt-2">
+                <div *ngIf="isGroupOwner(group)" class="badge bg-success mb-2">
                   <i class="fa fa-crown"></i>
                   {{ 'FRIENDS.OWNER' | translate }}
                 </div>
@@ -562,8 +578,18 @@
             </div>
           </div>
         </div>
+        <!-- Discussion Button - At the bottom -->
+        <div class="card-footer bg-transparent border-top-0 pt-2 pb-2">
+          <button 
+            class="btn btn-primary w-100"
+            (click)="openDiscussionModal(group)">
+            <i class="fa fa-comments me-2"></i>
+            Discussion
+          </button>
+        </div>
       </div>
     </div>
+  </div>
   </div>
 </div>
 

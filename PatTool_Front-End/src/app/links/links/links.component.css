@@ -19,6 +19,11 @@
     gap: 20px;
 }
 
+.admin-button {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
 .search-input-wrapper {
     position: relative;
     max-width: 400px;

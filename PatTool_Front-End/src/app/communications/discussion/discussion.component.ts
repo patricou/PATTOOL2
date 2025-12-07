@@ -120,7 +120,7 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   /**
    * Load discussion by ID or use default
    */
-  private loadDiscussion() {
+  public loadDiscussion() {
     try {
       if (this.discussionId) {
         // Load specific discussion by ID
@@ -285,8 +285,17 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       return;
     }
 
-    this.isConnecting = true;
-    this.connectionStatus = 'Connecting';
+    // Check if already connected - if so, set status immediately
+    // Otherwise, show "Connecting" status
+    if (this.discussionService.isConnected()) {
+      // Already connected, set status immediately
+      this.isConnecting = false;
+      this.connectionStatus = 'Connected';
+    } else {
+      // Not connected yet, show connecting status
+      this.isConnecting = true;
+      this.connectionStatus = 'Connecting';
+    }
 
     // Subscribe to real-time messages FIRST, before connecting
     this.messageSubscription = this.discussionService.getMessageObservable().subscribe({
@@ -303,6 +312,9 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
             this.isConnecting = false;
           } else if (data.status.includes('error') || data.status.includes('timeout') || data.status === 'Disconnected') {
             this.isConnecting = false;
+          } else if (data.status === 'Connecting' || data.status.startsWith('Reconnecting')) {
+            // If status is "Connecting" or "Reconnecting...", ensure isConnecting is true
+            this.isConnecting = true;
           }
           return; // Status messages handled, don't process further
         }

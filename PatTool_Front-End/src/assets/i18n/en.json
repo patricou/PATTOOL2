@@ -811,19 +811,22 @@
             "TITLE": "Save Cache",
             "DESC": "Save compressed images to disk",
             "BUTTON": "Save",
-            "SAVING": "Saving..."
+            "SAVING": "Saving...",
+            "NOT_AUTHORIZED": "You are not authorized to save the cache"
         },
         "LOAD_CACHE": {
             "TITLE": "Load Cache",
             "DESC": "Restore cache from disk",
             "BUTTON": "Load",
-            "LOADING": "Loading..."
+            "LOADING": "Loading...",
+            "NOT_AUTHORIZED": "You are not authorized to load the cache"
         },
         "CLEAR_CACHE": {
             "TITLE": "Clear Cache",
             "DESC": "Remove all cached images",
             "BUTTON": "Clear",
-            "CLEARING": "Clearing..."
+            "CLEARING": "Clearing...",
+            "NOT_AUTHORIZED": "You are not authorized to clear the cache"
         },
         "SHUTDOWN": {
             "TITLE": "Shutdown Application",
@@ -854,11 +857,33 @@
             "TOTAL": "Total",
             "CONNECTIONS": "connection(s)",
             "DATE_TIME": "Date/Time",
+            "TYPE": "Type",
             "USER": "User",
+            "DISCUSSION_TITLE": "Discussion",
+            "DISCUSSION_ID": "Discussion ID",
             "IP_ADDRESS": "IP Address",
             "DOMAIN_NAME": "Domain Name",
             "LOCATION": "Location",
-            "NO_LOGS": "No connection logs found for the selected date range."
+            "NO_LOGS": "No connection logs found for the selected date range.",
+            "DELETE_ALL": "Delete All",
+            "DELETE_CONFIRM": "Are you sure you want to delete all connection logs? This action cannot be undone.",
+            "DELETE_SUCCESS": "Successfully deleted {count} connection log(s)",
+            "DELETE_ERROR": "Failed to delete connection logs",
+            "NOT_AUTHORIZED": "You are not authorized to delete connection logs"
+        },
+        "ACTIVE_DISCUSSION_CONNECTIONS": {
+            "TITLE": "Active Discussion Connections",
+            "ACTIVE_CONNECTIONS": "Active Connections",
+            "NO_CONNECTIONS": "No active discussion connections",
+            "LOADING": "Loading active connections...",
+            "USER": "User",
+            "CONNECTED_AT": "Connected At",
+            "DISCUSSION": "Discussion",
+            "DISCUSSION_ID": "Discussion ID",
+            "IP_ADDRESS": "IP Address",
+            "DOMAIN": "Domain",
+            "LOCATION": "Location",
+            "UNKNOWN": "Unknown"
         }
     },
     "FRIENDS": {
@@ -867,6 +892,7 @@
         "REQUESTS": "Friend Requests",
         "MY_FRIENDS": "My Friends",
         "SEARCH_PLACEHOLDER": "Search for a user...",
+        "SEARCH_GROUPS_PLACEHOLDER": "Search for a Friend Group...",
         "SEND_REQUEST": "Send Request",
         "PENDING_REQUEST": "Pending Request",
         "REQUEST_SENT": "Request Sent",
@@ -901,6 +927,7 @@
         "CREATE": "Create",
         "CANCEL": "Cancel",
         "NO_GROUPS": "You don't have any friend groups yet",
+        "NO_GROUPS_FOUND": "No groups found",
         "CREATED_ON": "Created on",
         "CREATED_BY": "Created by",
         "MEMBERS": "Members",

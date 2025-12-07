@@ -844,11 +844,32 @@
             "TOTAL": "Total",
             "CONNECTIONS": "conexión(es)",
             "DATE_TIME": "Fecha/Hora",
+            "TYPE": "Tipo",
             "USER": "Usuario",
+            "DISCUSSION_TITLE": "Discusión",
+            "DISCUSSION_ID": "ID de Discusión",
             "IP_ADDRESS": "Dirección IP",
             "DOMAIN_NAME": "Nombre de Dominio",
             "LOCATION": "Ubicación",
-            "NO_LOGS": "No se encontraron registros de conexión para el rango de fechas seleccionado."
+            "NO_LOGS": "No se encontraron registros de conexión para el rango de fechas seleccionado.",
+            "DELETE_ALL": "Eliminar Todo",
+            "DELETE_CONFIRM": "¿Está seguro de que desea eliminar todos los registros de conexión? Esta acción no se puede deshacer.",
+            "DELETE_SUCCESS": "Se eliminaron {count} registro(s) de conexión exitosamente",
+            "DELETE_ERROR": "Error al eliminar los registros de conexión"
+        },
+        "ACTIVE_DISCUSSION_CONNECTIONS": {
+            "TITLE": "Conexiones de Discusión Activas",
+            "ACTIVE_CONNECTIONS": "Conexiones Activas",
+            "NO_CONNECTIONS": "No hay conexiones de discusión activas",
+            "LOADING": "Cargando conexiones activas...",
+            "USER": "Usuario",
+            "CONNECTED_AT": "Conectado En",
+            "DISCUSSION": "Discusión",
+            "DISCUSSION_ID": "ID de Discusión",
+            "IP_ADDRESS": "Dirección IP",
+            "DOMAIN": "Dominio",
+            "LOCATION": "Ubicación",
+            "UNKNOWN": "Desconocido"
         }
     },
     "FRIENDS": {
@@ -857,6 +878,7 @@
         "REQUESTS": "Solicitudes de Amistad",
         "MY_FRIENDS": "Mis Amigos",
         "SEARCH_PLACEHOLDER": "Buscar un usuario...",
+        "SEARCH_GROUPS_PLACEHOLDER": "Buscar un Grupo de Amigos...",
         "SEND_REQUEST": "Enviar Solicitud",
         "PENDING_REQUEST": "Solicitud Pendiente",
         "REQUEST_SENT": "Solicitud Enviada",

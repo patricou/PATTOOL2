@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ApplicationContext;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -36,16 +37,83 @@ public class CacheController {
     private String authorizedUserId;
     
     /**
+     * Check if current user is authorized to save the cache.
+     */
+    @PostMapping("/save/authorized")
+    public ResponseEntity<Map<String, Object>> isSaveCacheAuthorized(@RequestBody Member member) {
+        log.info("Save cache authorization check requested for user: {}", member.getId());
+        try {
+            boolean isAuthorized = this.authorizedUserId.equals(member.getId());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("authorized", isAuthorized);
+            response.put("success", true);
+            
+            if (!isAuthorized) {
+                response.put("message", member.getUserName() + " : You are not authorized to save the cache");
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error checking save cache authorization", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("authorized", false);
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
+    /**
+     * Check if current user is authorized to load the cache.
+     */
+    @PostMapping("/load/authorized")
+    public ResponseEntity<Map<String, Object>> isLoadCacheAuthorized(@RequestBody Member member) {
+        log.info("Load cache authorization check requested for user: {}", member.getId());
+        try {
+            boolean isAuthorized = this.authorizedUserId.equals(member.getId());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("authorized", isAuthorized);
+            response.put("success", true);
+            
+            if (!isAuthorized) {
+                response.put("message", member.getUserName() + " : You are not authorized to load the cache");
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error checking load cache authorization", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("authorized", false);
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
+    /**
      * Save cache to file system.
      */
     @PostMapping("/save")
-    public ResponseEntity<Map<String, Object>> saveCache() {
-        log.info("Cache save requested via REST API");
+    public ResponseEntity<Map<String, Object>> saveCache(@RequestBody Member member) {
+        log.info("Cache save requested via REST API by user: {}", member.getId());
         try {
+            // Check authorization
+            if (!this.authorizedUserId.equals(member.getId())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("authorized", false);
+                response.put("message", member.getUserName() + " : You are not authorized to save the cache");
+                log.warn("Unauthorized cache save attempt by user: {}", member.getId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
             CachePersistenceService.CacheSaveResult result = cachePersistenceService.saveCache();
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", result.isSuccess());
+            response.put("authorized", true);
             response.put("entryCount", result.getEntryCount());
             response.put("savedSizeBytes", result.getSavedSizeBytes());
             response.put("fileSizeBytes", result.getFileSizeBytes());
@@ -71,13 +139,24 @@ public class CacheController {
      * Load cache from file system.
      */
     @PostMapping("/load")
-    public ResponseEntity<Map<String, Object>> loadCache() {
-        log.info("Cache load requested via REST API");
+    public ResponseEntity<Map<String, Object>> loadCache(@RequestBody Member member) {
+        log.info("Cache load requested via REST API by user: {}", member.getId());
         try {
+            // Check authorization
+            if (!this.authorizedUserId.equals(member.getId())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("authorized", false);
+                response.put("message", member.getUserName() + " : You are not authorized to load the cache");
+                log.warn("Unauthorized cache load attempt by user: {}", member.getId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
             CachePersistenceService.CacheLoadResult result = cachePersistenceService.loadCache();
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", result.isSuccess());
+            response.put("authorized", true);
             response.put("entryCount", result.getEntryCount());
             response.put("loadedSizeBytes", result.getLoadedSizeBytes());
             response.put("message", result.getMessage());
@@ -100,13 +179,24 @@ public class CacheController {
      * Clear cache from both memory and file system.
      */
     @PostMapping("/clear")
-    public ResponseEntity<Map<String, Object>> clearCache() {
-        log.info("Cache clear requested via REST API");
+    public ResponseEntity<Map<String, Object>> clearCache(@RequestBody Member member) {
+        log.info("Cache clear requested via REST API by user: {}", member.getId());
         try {
+            // Check authorization
+            if (!this.authorizedUserId.equals(member.getId())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("authorized", false);
+                response.put("message", member.getUserName() + " : You are not authorized to clear the cache");
+                log.warn("Unauthorized cache clear attempt by user: {}", member.getId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
             CachePersistenceService.CacheClearResult result = cachePersistenceService.clearCache();
             
             Map<String, Object> response = new HashMap<>();
             response.put("success", result.isSuccess());
+            response.put("authorized", true);
             response.put("memoryEntries", result.getMemoryEntries());
             response.put("fileDeleted", result.isFileDeleted());
             response.put("message", result.getMessage());
@@ -143,6 +233,34 @@ public class CacheController {
             log.error("Error checking cache file existence via REST API", e);
             Map<String, Object> response = new HashMap<>();
             response.put("exists", false);
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
+    /**
+     * Check if current user is authorized to clear the cache.
+     */
+    @PostMapping("/clear/authorized")
+    public ResponseEntity<Map<String, Object>> isClearCacheAuthorized(@RequestBody Member member) {
+        log.info("Clear cache authorization check requested for user: {}", member.getId());
+        try {
+            boolean isAuthorized = this.authorizedUserId.equals(member.getId());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("authorized", isAuthorized);
+            response.put("success", true);
+            
+            if (!isAuthorized) {
+                response.put("message", member.getUserName() + " : You are not authorized to clear the cache");
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error checking clear cache authorization", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("authorized", false);
             response.put("success", false);
             response.put("message", "Error: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);

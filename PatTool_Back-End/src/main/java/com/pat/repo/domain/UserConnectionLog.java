@@ -27,6 +27,12 @@ public class UserConnectionLog {
 
     private String location;
 
+    private String type; // "login" or "discussion"
+
+    private String discussionId; // ID of the discussion (if type is "discussion")
+
+    private String discussionTitle; // Title of the discussion (if type is "discussion")
+
     public UserConnectionLog() {
     }
 
@@ -36,6 +42,18 @@ public class UserConnectionLog {
         this.ipAddress = ipAddress;
         this.domainName = domainName;
         this.location = location;
+        this.type = "login"; // Default to login for backward compatibility
+    }
+
+    public UserConnectionLog(Member member, Date connectionDate, String ipAddress, String domainName, String location, String type, String discussionId, String discussionTitle) {
+        this.member = member;
+        this.connectionDate = connectionDate;
+        this.ipAddress = ipAddress;
+        this.domainName = domainName;
+        this.location = location;
+        this.type = type;
+        this.discussionId = discussionId;
+        this.discussionTitle = discussionTitle;
     }
 
     public String getId() {
@@ -84,6 +102,30 @@ public class UserConnectionLog {
 
     public void setLocation(String location) {
         this.location = location;
+    }
+
+    public String getType() {
+        return type;
+    }
+
+    public void setType(String type) {
+        this.type = type;
+    }
+
+    public String getDiscussionId() {
+        return discussionId;
+    }
+
+    public void setDiscussionId(String discussionId) {
+        this.discussionId = discussionId;
+    }
+
+    public String getDiscussionTitle() {
+        return discussionTitle;
+    }
+
+    public void setDiscussionTitle(String discussionTitle) {
+        this.discussionTitle = discussionTitle;
     }
 }
 

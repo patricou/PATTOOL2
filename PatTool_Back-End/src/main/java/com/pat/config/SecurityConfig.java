@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -25,6 +27,12 @@ public class SecurityConfig {
 
     @Value("${app.cors.allowed-origins:http://localhost:4200,http://localhost:8000}")
     private String allowedOrigins;
+
+    @Bean
+    public JwtDecoder jwtDecoder() {
+        String jwkSetUri = keycloakAuthServerUrl + "/realms/" + keycloakRealm + "/protocol/openid-connect/certs";
+        return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {

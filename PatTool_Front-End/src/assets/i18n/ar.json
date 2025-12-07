@@ -841,11 +841,32 @@
             "TOTAL": "الإجمالي",
             "CONNECTIONS": "اتصال(ات)",
             "DATE_TIME": "التاريخ/الوقت",
+            "TYPE": "النوع",
             "USER": "المستخدم",
+            "DISCUSSION_TITLE": "مناقشة",
+            "DISCUSSION_ID": "معرف المناقشة",
             "IP_ADDRESS": "عنوان IP",
             "DOMAIN_NAME": "اسم النطاق",
             "LOCATION": "الموقع",
-            "NO_LOGS": "لم يتم العثور على سجلات اتصال للنطاق الزمني المحدد."
+            "NO_LOGS": "لم يتم العثور على سجلات اتصال للنطاق الزمني المحدد.",
+            "DELETE_ALL": "حذف الكل",
+            "DELETE_CONFIRM": "هل أنت متأكد من أنك تريد حذف جميع سجلات الاتصال؟ لا يمكن التراجع عن هذا الإجراء.",
+            "DELETE_SUCCESS": "تم حذف {count} سجل(ات) اتصال بنجاح",
+            "DELETE_ERROR": "فشل في حذف سجلات الاتصال"
+        },
+        "ACTIVE_DISCUSSION_CONNECTIONS": {
+            "TITLE": "اتصالات المناقشة النشطة",
+            "ACTIVE_CONNECTIONS": "الاتصالات النشطة",
+            "NO_CONNECTIONS": "لا توجد اتصالات مناقشة نشطة",
+            "LOADING": "جاري تحميل الاتصالات النشطة...",
+            "USER": "المستخدم",
+            "CONNECTED_AT": "متصل في",
+            "DISCUSSION": "مناقشة",
+            "DISCUSSION_ID": "معرف المناقشة",
+            "IP_ADDRESS": "عنوان IP",
+            "DOMAIN": "النطاق",
+            "LOCATION": "الموقع",
+            "UNKNOWN": "غير معروف"
         }
     },
     "FRIENDS": {
@@ -854,6 +875,7 @@
         "REQUESTS": "طلبات الصداقة",
         "MY_FRIENDS": "أصدقائي",
         "SEARCH_PLACEHOLDER": "البحث عن مستخدم...",
+        "SEARCH_GROUPS_PLACEHOLDER": "البحث عن مجموعة أصدقاء...",
         "SEND_REQUEST": "إرسال طلب",
         "PENDING_REQUEST": "طلب قيد الانتظار",
         "REQUEST_SENT": "تم إرسال الطلب",

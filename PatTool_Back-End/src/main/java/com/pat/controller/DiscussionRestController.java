@@ -2,6 +2,7 @@ package com.pat.controller;
 
 import com.pat.repo.domain.Discussion;
 import com.pat.repo.domain.DiscussionMessage;
+import com.pat.service.DiscussionConnectionService;
 import com.pat.service.DiscussionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,9 @@ public class DiscussionRestController {
 
     @Autowired
     private DiscussionService discussionService;
+
+    @Autowired
+    private DiscussionConnectionService connectionService;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -329,6 +333,22 @@ public class DiscussionRestController {
             return ResponseEntity.ok().headers(headers).body(fileContent);
         } catch (Exception e) {
             log.error("Error serving file {}/{}/{}", discussionId, subfolder, filename, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Get active WebSocket connections for discussions
+     */
+    @GetMapping("/active-connections")
+    public ResponseEntity<List<DiscussionConnectionService.ActiveConnectionDTO>> getActiveConnections() {
+        try {
+            List<DiscussionConnectionService.ActiveConnectionDTO> connections = connectionService.getActiveConnections();
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json; charset=UTF-8");
+            return ResponseEntity.ok().headers(headers).body(connections);
+        } catch (Exception e) {
+            log.error("Error getting active connections", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

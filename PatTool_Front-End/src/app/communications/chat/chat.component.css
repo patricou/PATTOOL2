@@ -1,14 +1,18 @@
 /* Chat Component - WhatsApp Style Design */
 
 .chat-container {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    max-height: 100vh;
-    background: #ffffff;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    margin: -20px -15px;
+    min-height: 100vh;
+    background: #f8f9fa;
     padding: 0;
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Main Content */
+.main-content {
+    padding: 20px 15px;
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
 /* Filter Container */
@@ -16,6 +20,9 @@
     padding: 15px 20px;
     background: #f8f9fa;
     border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    gap: 20px;
 }
 
 .filter-section-redesigned {
@@ -105,24 +112,26 @@
     cursor: not-allowed;
 }
 
-/* Header Section */
+/* Chat Stats - Now in filter container */
 .chat-stats {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 8px;
-    background: rgba(255, 255, 255, 0.15);
+    background: #ffffff;
     padding: 8px 16px;
-    border-radius: 20px;
+    border-radius: 8px;
     font-size: 0.9rem;
     font-weight: 500;
-    margin-top: 10px;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #495057;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .chat-stats i {
     font-size: 1rem;
+    color: #007bff;
 }
 
 

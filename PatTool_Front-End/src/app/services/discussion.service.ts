@@ -4,6 +4,7 @@ import { KeycloakService } from '../keycloak/keycloak.service';
 import { environment } from '../../environments/environment';
 import { Observable, from, Subject, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
+import { firstValueFrom } from 'rxjs';
 
 // WebSocket imports - using dynamic require to avoid build-time issues
 const getSockJS = () => {
@@ -54,6 +55,11 @@ export class DiscussionService {
   private connected = false;
   private currentDiscussionId: string | null = null;
   private socket: any = null;
+  private isReconnecting = false;
+  private reconnectAttempts = 0;
+  private tokenCache: string | null = null;
+  private tokenCacheTime: number = 0;
+  private readonly TOKEN_CACHE_DURATION = 60000; // 1 minute cache
 
   constructor(
     private _http: HttpClient,
@@ -245,6 +251,42 @@ export class DiscussionService {
       this.disconnectWebSocket();
     }
 
+    // Emit "Connecting" status when starting a new connection
+    this.messageSubject.next({ action: 'status', status: 'Connecting', discussionId: discussionId });
+
+    // Get authentication token (use cache if available and recent)
+    const now = Date.now();
+    if (this.tokenCache && (now - this.tokenCacheTime) < this.TOKEN_CACHE_DURATION) {
+      // Use cached token
+      console.log('Using cached token for WebSocket connection');
+      this.connectWebSocketWithToken(discussionId, this.tokenCache);
+    } else {
+      // Get fresh token asynchronously (non-blocking)
+      // Use Promise to avoid blocking the browser
+      this._keycloakService.getToken().then((token: string) => {
+        if (token) {
+          console.log('Token retrieved for WebSocket connection, length:', token.length);
+          // Cache the token
+          this.tokenCache = token;
+          this.tokenCacheTime = Date.now();
+          this.connectWebSocketWithToken(discussionId, token);
+        } else {
+          console.warn('Token is null, connecting without token');
+          this.connectWebSocketWithToken(discussionId, null);
+        }
+      }).catch((error) => {
+        console.warn('Could not get token for WebSocket connection, connecting without token', error);
+        // Connect without token - backend will handle anonymous users
+        this.connectWebSocketWithToken(discussionId, null);
+      });
+    }
+  }
+
+  /**
+   * Internal method to connect with token
+   */
+  private connectWebSocketWithToken(discussionId: string, token: string | null): void {
+
     // Determine WebSocket URL based on environment
     // Extract base URL from API_URL
     let baseUrl = '';
@@ -255,7 +297,15 @@ export class DiscussionService {
         baseUrl = match[1];
       }
     }
-    const wsUrl = baseUrl ? `${baseUrl}/ws` : '/ws';
+    
+    // Add token as query parameter for SockJS (since it doesn't support custom headers)
+    let wsUrl = baseUrl ? `${baseUrl}/ws` : '/ws';
+    if (token) {
+      wsUrl += '?token=' + encodeURIComponent(token);
+      console.log('WebSocket URL with token (length):', wsUrl.substring(0, 50) + '...');
+    } else {
+      console.warn('WebSocket connecting without token!');
+    }
 
     // Lazy load SockJS and Stomp to avoid import issues
     const SockJS = getSockJS();
@@ -264,10 +314,18 @@ export class DiscussionService {
     try {
       this.socket = new SockJS(wsUrl);
       
-      const StompClient = getStompClient();
+      // Prepare connect headers with token
+      const connectHeaders: any = {};
+      if (token) {
+        connectHeaders['Authorization'] = 'Bearer ' + token;
+        console.log('STOMP connect headers include Authorization token');
+      } else {
+        console.warn('STOMP connect headers do NOT include Authorization token!');
+      }
       
       this.stompClient = new StompClient({
         webSocketFactory: () => this.socket,
+        connectHeaders: connectHeaders,
         debug: (str: string) => {
           // Silent debug - no logging
         },
@@ -280,6 +338,8 @@ export class DiscussionService {
       this.stompClient.onConnect = (frame: any) => {
         this.connected = true;
         this.currentDiscussionId = discussionId;
+        this.isReconnecting = false;
+        this.reconnectAttempts = 0;
 
         // Emit connection status update
         this.messageSubject.next({ action: 'status', status: 'Connected', discussionId: discussionId });
@@ -299,25 +359,50 @@ export class DiscussionService {
       this.stompClient.onStompError = (frame: any) => {
         const currentId = this.currentDiscussionId;
         this.connected = false;
-        this.currentDiscussionId = null;
         const errorMessage = frame.headers?.['message'] || 'Connection error';
+        // Don't clear currentDiscussionId if we're reconnecting
+        if (!this.isReconnecting) {
+          this.currentDiscussionId = null;
+        }
         this.messageSubject.next({ action: 'status', status: `Connection error: ${errorMessage}`, discussionId: currentId });
       };
 
       this.stompClient.onWebSocketError = (event: any) => {
         const currentId = this.currentDiscussionId;
         this.connected = false;
-        this.currentDiscussionId = null;
+        // Don't clear currentDiscussionId if we're reconnecting
+        if (!this.isReconnecting) {
+          this.currentDiscussionId = null;
+        }
         this.messageSubject.next({ action: 'status', status: 'Connection error', discussionId: currentId });
       };
 
       this.stompClient.onWebSocketClose = (event: any) => {
         const currentId = this.currentDiscussionId;
+        const wasConnected = this.connected;
         this.connected = false;
-        this.currentDiscussionId = null;
-        // Only emit disconnected status if it wasn't a clean close during reconnection
-        if (!event.wasClean || event.code !== 1000) {
+        
+        // If we were connected and this is an unexpected close, show disconnection
+        // Also show disconnection for non-clean closes
+        if (wasConnected && (!event.wasClean || event.code !== 1000)) {
           this.messageSubject.next({ action: 'status', status: 'Disconnected', discussionId: currentId });
+          // Set reconnecting flag for automatic reconnection
+          this.isReconnecting = true;
+          this.reconnectAttempts++;
+          // Show reconnecting status after a short delay (to allow reconnection to start)
+          setTimeout(() => {
+            if (this.isReconnecting && !this.connected) {
+              this.messageSubject.next({ action: 'status', status: `Reconnecting... (attempt ${this.reconnectAttempts})`, discussionId: currentId });
+            }
+          }, 1000);
+        } else if (wasConnected && event.wasClean && event.code === 1000) {
+          // Clean close - still show disconnection but don't set reconnecting
+          this.messageSubject.next({ action: 'status', status: 'Disconnected', discussionId: currentId });
+          this.currentDiscussionId = null;
+        } else if (!wasConnected && this.isReconnecting) {
+          // Already reconnecting, update status
+          this.reconnectAttempts++;
+          this.messageSubject.next({ action: 'status', status: `Reconnecting... (attempt ${this.reconnectAttempts})`, discussionId: currentId });
         }
       };
 
@@ -346,6 +431,7 @@ export class DiscussionService {
     } catch (error) {
       this.connected = false;
       this.currentDiscussionId = null;
+      this.messageSubject.next({ action: 'status', status: 'Connection error: Failed to initialize WebSocket', discussionId: discussionId });
     }
   }
 
@@ -353,6 +439,10 @@ export class DiscussionService {
    * Disconnect from WebSocket
    */
   disconnectWebSocket(): void {
+    // Reset reconnection state when explicitly disconnecting
+    this.isReconnecting = false;
+    this.reconnectAttempts = 0;
+    
     if (this.stompClient) {
       if (this.connected) {
         this.stompClient.deactivate();
@@ -387,6 +477,17 @@ export class DiscussionService {
   getFileUrl(discussionId: string, subfolder: string, filename: string): string {
     const baseUrl = environment.production ? '' : 'http://localhost:8000';
     return `${baseUrl}/api/discussions/files/${discussionId}/${subfolder}/${filename}`;
+  }
+
+  /**
+   * Get active WebSocket connections for discussions
+   */
+  getActiveConnections(): Observable<any[]> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<any[]>(this.API_URL + 'discussions/active-connections', { headers: headers })
+      )
+    );
   }
 }
 

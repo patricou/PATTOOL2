@@ -6,13 +6,17 @@ import com.pat.service.MemoryMonitoringService;
 import com.pat.service.ImageCompressionService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import com.pat.repo.domain.Member;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -41,6 +45,9 @@ public class SystemController {
     
     @Autowired
     private UserConnectionLogRepository userConnectionLogRepository;
+    
+    @Value("${app.admin.userid}")
+    private String authorizedUserId;
     
     /**
      * Get JVM memory information
@@ -253,6 +260,75 @@ public class SystemController {
             Map<String, Object> error = new HashMap<>();
             error.put("success", false);
             error.put("error", "Failed to retrieve connection logs: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
+    }
+    
+    /**
+     * Check if current user is authorized to delete connection logs.
+     */
+    @PostMapping("/connection-logs/authorized")
+    public ResponseEntity<Map<String, Object>> isDeleteConnectionLogsAuthorized(@RequestBody Member member) {
+        log.info("Delete connection logs authorization check requested for user: {}", member.getId());
+        try {
+            boolean isAuthorized = this.authorizedUserId.equals(member.getId());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("authorized", isAuthorized);
+            response.put("success", true);
+            
+            if (!isAuthorized) {
+                response.put("message", member.getUserName() + " : You are not authorized to delete connection logs");
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error checking delete connection logs authorization", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("authorized", false);
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
+    /**
+     * Delete all user connection logs from the database
+     * @return Response indicating success or failure
+     */
+    @PostMapping("/connection-logs/delete")
+    public ResponseEntity<Map<String, Object>> deleteAllConnectionLogs(@RequestBody Member member) {
+        log.info("Delete connection logs requested by user: {}", member.getId());
+        try {
+            // Check authorization
+            if (!this.authorizedUserId.equals(member.getId())) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("authorized", false);
+                response.put("error", member.getUserName() + " : You are not authorized to delete connection logs");
+                log.warn("Unauthorized delete connection logs attempt by user: {}", member.getId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            long countBefore = userConnectionLogRepository.count();
+            userConnectionLogRepository.deleteAll();
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("authorized", true);
+            response.put("deletedCount", countBefore);
+            response.put("message", "Successfully deleted " + countBefore + " connection log(s)");
+            
+            log.info("Deleted {} connection logs from database by user: {}", countBefore, member.getId());
+            
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+                    .body(response);
+        } catch (Exception e) {
+            log.error("Error deleting connection logs", e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("success", false);
+            error.put("error", "Failed to delete connection logs: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
         }
     }

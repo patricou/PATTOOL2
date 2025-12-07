@@ -835,11 +835,32 @@
             "TOTAL": "कुल",
             "CONNECTIONS": "कनेक्शन",
             "DATE_TIME": "तिथि/समय",
+            "TYPE": "प्रकार",
             "USER": "उपयोगकर्ता",
+            "DISCUSSION_TITLE": "चर्चा",
+            "DISCUSSION_ID": "चर्चा ID",
             "IP_ADDRESS": "IP पता",
             "DOMAIN_NAME": "डोमेन नाम",
             "LOCATION": "स्थान",
-            "NO_LOGS": "चयनित तिथि सीमा के लिए कोई कनेक्शन लॉग नहीं मिला।"
+            "NO_LOGS": "चयनित तिथि सीमा के लिए कोई कनेक्शन लॉग नहीं मिला।",
+            "DELETE_ALL": "सभी हटाएं",
+            "DELETE_CONFIRM": "क्या आप वाकई सभी कनेक्शन लॉग हटाना चाहते हैं? यह कार्रवाई पूर्ववत नहीं की जा सकती।",
+            "DELETE_SUCCESS": "{count} कनेक्शन लॉग सफलतापूर्वक हटाए गए",
+            "DELETE_ERROR": "कनेक्शन लॉग हटाने में विफल"
+        },
+        "ACTIVE_DISCUSSION_CONNECTIONS": {
+            "TITLE": "सक्रिय चर्चा कनेक्शन",
+            "ACTIVE_CONNECTIONS": "सक्रिय कनेक्शन",
+            "NO_CONNECTIONS": "कोई सक्रिय चर्चा कनेक्शन नहीं",
+            "LOADING": "सक्रिय कनेक्शन लोड हो रहे हैं...",
+            "USER": "उपयोगकर्ता",
+            "CONNECTED_AT": "कनेक्ट हुआ",
+            "DISCUSSION": "चर्चा",
+            "DISCUSSION_ID": "चर्चा ID",
+            "IP_ADDRESS": "IP पता",
+            "DOMAIN": "डोमेन",
+            "LOCATION": "स्थान",
+            "UNKNOWN": "अज्ञात"
         }
     },
     "FRIENDS": {
@@ -848,6 +869,7 @@
         "REQUESTS": "मित्रता अनुरोध",
         "MY_FRIENDS": "मेरे दोस्त",
         "SEARCH_PLACEHOLDER": "उपयोगकर्ता खोजें...",
+        "SEARCH_GROUPS_PLACEHOLDER": "मित्र समूह खोजें...",
         "SEND_REQUEST": "अनुरोध भेजें",
         "PENDING_REQUEST": "लंबित अनुरोध",
         "REQUEST_SENT": "अनुरोध भेजा गया",

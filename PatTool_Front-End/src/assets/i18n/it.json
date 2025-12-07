@@ -844,11 +844,32 @@
             "TOTAL": "Totale",
             "CONNECTIONS": "connessione(i)",
             "DATE_TIME": "Data/Ora",
+            "TYPE": "Tipo",
             "USER": "Utente",
+            "DISCUSSION_TITLE": "Discussione",
+            "DISCUSSION_ID": "ID Discussione",
             "IP_ADDRESS": "Indirizzo IP",
             "DOMAIN_NAME": "Nome di Dominio",
             "LOCATION": "Posizione",
-            "NO_LOGS": "Nessun registro di connessione trovato per l'intervallo di date selezionato."
+            "NO_LOGS": "Nessun registro di connessione trovato per l'intervallo di date selezionato.",
+            "DELETE_ALL": "Elimina Tutto",
+            "DELETE_CONFIRM": "Sei sicuro di voler eliminare tutti i registri di connessione? Questa azione non può essere annullata.",
+            "DELETE_SUCCESS": "{count} registro(i) di connessione eliminato(i) con successo",
+            "DELETE_ERROR": "Errore durante l'eliminazione dei registri di connessione"
+        },
+        "ACTIVE_DISCUSSION_CONNECTIONS": {
+            "TITLE": "Connessioni di Discussione Attive",
+            "ACTIVE_CONNECTIONS": "Connessioni Attive",
+            "NO_CONNECTIONS": "Nessuna connessione di discussione attiva",
+            "LOADING": "Caricamento connessioni attive...",
+            "USER": "Utente",
+            "CONNECTED_AT": "Connesso Alle",
+            "DISCUSSION": "Discussione",
+            "DISCUSSION_ID": "ID Discussione",
+            "IP_ADDRESS": "Indirizzo IP",
+            "DOMAIN": "Dominio",
+            "LOCATION": "Posizione",
+            "UNKNOWN": "Sconosciuto"
         }
     },
     "FRIENDS": {
@@ -857,6 +878,7 @@
         "REQUESTS": "Richieste di Amicizia",
         "MY_FRIENDS": "I Miei Amici",
         "SEARCH_PLACEHOLDER": "Cerca un utente...",
+        "SEARCH_GROUPS_PLACEHOLDER": "Cerca un Gruppo di Amici...",
         "SEND_REQUEST": "Invia Richiesta",
         "PENDING_REQUEST": "Richiesta in Attesa",
         "REQUEST_SENT": "Richiesta Inviata",

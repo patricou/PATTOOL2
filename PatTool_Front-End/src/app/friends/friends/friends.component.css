@@ -1,21 +1,15 @@
 .friends-container {
-  padding: 20px;
-  max-width: 1200px;
+  min-height: 100vh;
+  background: #f8f9fa;
+  padding: 0;
+  margin: 0;
+}
+
+/* Main Content */
+.main-content {
+  padding: 20px 15px;
+  max-width: 1400px;
   margin: 0 auto;
-}
-
-.friends-header {
-  margin-bottom: 20px;
-}
-
-.friends-header h2 {
-  color: #333;
-  font-weight: bold;
-}
-
-.friends-header h2 i {
-  margin-right: 10px;
-  color: #007bff;
 }
 
 /* Tabs */
@@ -76,10 +70,10 @@
   gap: 20px;
 }
 
-/* Friend Groups List - 2 columns on desktop */
+/* Friend Groups List - 4 columns on desktop, 1 on mobile */
 .groups-list {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 20px;
 }
 
@@ -232,5 +226,80 @@
 
 .alert i {
   margin-right: 8px;
+}
+
+/* Members List - Scrollable when needed */
+.members-list {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.members-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.members-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.members-list::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.members-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Authorized Users List - Scrollable when needed */
+.authorized-users-list {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.authorized-users-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.authorized-users-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.authorized-users-list::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.authorized-users-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+/* Friends Selection - Scrollable when needed */
+.friends-selection {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.friends-selection::-webkit-scrollbar {
+  width: 8px;
+}
+
+.friends-selection::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.friends-selection::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.friends-selection::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 

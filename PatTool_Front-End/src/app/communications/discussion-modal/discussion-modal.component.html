@@ -7,16 +7,48 @@
 </div>
 <div class="modal-body p-0">
     <app-discussion 
+        #discussionComponent
         [discussionId]="discussionId" 
         [title]="''"
         [showTitle]="false">
     </app-discussion>
 </div>
 <div class="modal-footer">
-    <div class="discussion-id" *ngIf="discussionId">
-        <span class="discussion-id-label">ID:</span>
-        <span class="discussion-id-value">{{ discussionId }}</span>
+    <div class="footer-left">
+        <!-- Connection Status -->
+        <div *ngIf="discussionComponent && (discussionComponent.isConnecting || discussionComponent.connectionStatus)" 
+             class="connection-status-bar" 
+             [class.connecting]="discussionComponent.isConnecting && !discussionComponent.connectionStatus.startsWith('Reconnecting')"
+             [class.reconnecting]="discussionComponent.connectionStatus.startsWith('Reconnecting')"
+             [class.connected]="discussionComponent.connectionStatus === 'Connected'"
+             [class.disconnected]="discussionComponent.connectionStatus === 'Disconnected'"
+             [class.error]="discussionComponent.connectionStatus && (discussionComponent.connectionStatus.includes('error') || discussionComponent.connectionStatus.includes('timeout'))">
+            <i class="fa" 
+               [class.fa-spinner]="discussionComponent.isConnecting || discussionComponent.connectionStatus.startsWith('Reconnecting')"
+               [class.fa-spin]="discussionComponent.isConnecting || discussionComponent.connectionStatus.startsWith('Reconnecting')"
+               [class.fa-check-circle]="discussionComponent.connectionStatus === 'Connected'"
+               [class.fa-times-circle]="discussionComponent.connectionStatus === 'Disconnected'"
+               [class.fa-exclamation-circle]="discussionComponent.connectionStatus && (discussionComponent.connectionStatus.includes('error') || discussionComponent.connectionStatus.includes('timeout'))"></i>
+            <span>{{ discussionComponent.connectionStatus }}</span>
+        </div>
+        <!-- Discussion ID -->
+        <div class="discussion-id" *ngIf="discussionId">
+            <span class="discussion-id-label">ID:</span>
+            <span class="discussion-id-value">{{ discussionId }}</span>
+        </div>
     </div>
-    <button type="button" class="btn btn-secondary" (click)="close()">Fermer</button>
+    <div class="footer-right">
+        <button type="button" 
+                class="btn btn-outline-primary btn-sm" 
+                (click)="refreshDiscussion()" 
+                [disabled]="discussionComponent && discussionComponent.isLoading"
+                title="Rafraîchir la discussion">
+            <i class="fa" 
+               [class.fa-refresh]="!discussionComponent || !discussionComponent.isLoading"
+               [class.fa-spinner]="discussionComponent && discussionComponent.isLoading"
+               [class.fa-spin]="discussionComponent && discussionComponent.isLoading"></i>
+        </button>
+        <button type="button" class="btn btn-secondary" (click)="close()">Fermer</button>
+    </div>
 </div>
 

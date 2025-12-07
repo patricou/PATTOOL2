@@ -231,6 +231,27 @@ export class FriendsComponent implements OnInit {
     });
   }
 
+  getFilteredGroups(): FriendGroup[] {
+    if (!this.searchFilter || !this.searchFilter.trim()) {
+      return this.friendGroups;
+    }
+
+    const searchTerm = this.searchFilter.toLowerCase().trim();
+    return this.friendGroups.filter(group => {
+      const groupName = (group.name || '').toLowerCase();
+      const ownerName = group.owner ? 
+        ((group.owner.firstName || '') + ' ' + (group.owner.lastName || '') + ' ' + (group.owner.userName || '')).toLowerCase() : '';
+      const memberNames = (group.members || [])
+        .map(m => `${m.firstName || ''} ${m.lastName || ''} ${m.userName || ''}`)
+        .join(' ')
+        .toLowerCase();
+
+      return groupName.includes(searchTerm) ||
+             ownerName.includes(searchTerm) ||
+             memberNames.includes(searchTerm);
+    });
+  }
+
   getOtherUser(friend: Friend): Member {
     if (friend.user1.id === this.currentUser.id) {
       return friend.user2;

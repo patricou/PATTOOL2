@@ -170,12 +170,15 @@ public class GlobalExceptionHandler {
                 shortMessage = shortMessage.substring(shortMessage.indexOf(": ") + 2);
             }
             logMessage = "Client closed connection during async request (likely normal) from IP [" + clientIp + "]: " + shortMessage;
-            log.info(logMessage); // Log as info WITHOUT stack trace
+            log.debug(logMessage); // Log as debug - normal client disconnection, no need to log at INFO level
         } else {
             logMessage = "AsyncRequestNotUsableException from IP [" + clientIp + "]: " + message;
             log.info(logMessage); // Log as info WITHOUT stack trace
         }
-        exceptionTrackingService.addLog(clientIp, logMessage);
+        // Don't track normal connection closures in exception tracking service
+        if (!isConnectionAbort) {
+            exceptionTrackingService.addLog(clientIp, logMessage);
+        }
         
         // Return void response - connection is already closed
         return null;
@@ -191,8 +194,8 @@ public class GlobalExceptionHandler {
         String message = exc.getMessage();
         String logMessage = "Client aborted connection (likely normal) from IP [" + clientIp + "]"
             + (message != null ? ": " + message : "");
-        log.info(logMessage);
-        exceptionTrackingService.addLog(clientIp, logMessage);
+        log.debug(logMessage); // Log as debug - normal client disconnection, no need to log at INFO level
+        // Don't track normal connection closures in exception tracking service
         return null;
     }
 
@@ -285,8 +288,8 @@ public class GlobalExceptionHandler {
                                  message.contains("Une connexion établie a été abandonnée par un logiciel de votre ordinateur hôte"))) {
             // This is normal when client closes connection (e.g., closing photo slideshow)
             String logMessage = "Client closed connection during file transfer (likely normal) from IP [" + clientIp + "]: " + message;
-            log.info(logMessage);
-            exceptionTrackingService.addLog(clientIp, logMessage);
+            log.debug(logMessage); // Log as debug - normal client disconnection, no need to log at INFO level
+            // Don't track normal connection closures in exception tracking service
             return null; // Connection already closed, return void
         }
         
@@ -339,16 +342,16 @@ public class GlobalExceptionHandler {
         
         if (isConnectionAbort) {
             String logMessage = "Client closed connection (likely normal) from IP [" + clientIp + "]: " + (message != null ? message : causeMessage);
-            log.info(logMessage); // Log as info without stack trace
-            exceptionTrackingService.addLog(clientIp, logMessage);
+            log.debug(logMessage); // Log as debug - normal client disconnection, no need to log at INFO level
+            // Don't track normal connection closures in exception tracking service
             return null; // Connection already closed
         }
         
         if (hasClientAbortCause(exc)) {
             String logMessage = "Client aborted connection (wrapped exception) from IP [" + clientIp + "]: "
                 + (message != null ? message : exc.getClass().getSimpleName());
-            log.info(logMessage); // Log as info without stack trace
-            exceptionTrackingService.addLog(clientIp, logMessage);
+            log.debug(logMessage); // Log as debug - normal client disconnection, no need to log at INFO level
+            // Don't track normal connection closures in exception tracking service
             return null;
         }
 
@@ -358,7 +361,7 @@ public class GlobalExceptionHandler {
         
         String logMessage = "Unexpected error occurred from IP [" + clientIp + "]: " + exc.getMessage();
         if (isConnectionAbortException) {
-            log.info(logMessage); // Log as info without stack trace for connection abort
+            log.debug(logMessage); // Log as debug - normal client disconnection, no need to log at INFO level
         } else {
             log.error(logMessage, exc); // Log with stack trace for other exceptions
         }

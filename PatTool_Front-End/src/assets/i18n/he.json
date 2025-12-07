@@ -836,11 +836,32 @@
             "TOTAL": "סה\"כ",
             "CONNECTIONS": "חיבור(ים)",
             "DATE_TIME": "תאריך/שעה",
+            "TYPE": "סוג",
             "USER": "משתמש",
+            "DISCUSSION_TITLE": "דיון",
+            "DISCUSSION_ID": "מזהה דיון",
             "IP_ADDRESS": "כתובת IP",
             "DOMAIN_NAME": "שם דומיין",
             "LOCATION": "מיקום",
-            "NO_LOGS": "לא נמצאו יומני חיבור לטווח התאריכים שנבחר."
+            "NO_LOGS": "לא נמצאו יומני חיבור לטווח התאריכים שנבחר.",
+            "DELETE_ALL": "מחק הכל",
+            "DELETE_CONFIRM": "האם אתה בטוח שברצונך למחוק את כל יומני החיבור? פעולה זו לא ניתנת לביטול.",
+            "DELETE_SUCCESS": "נמחקו בהצלחה {count} יומן(י) חיבור",
+            "DELETE_ERROR": "שגיאה במחיקת יומני החיבור"
+        },
+        "ACTIVE_DISCUSSION_CONNECTIONS": {
+            "TITLE": "חיבורי דיון פעילים",
+            "ACTIVE_CONNECTIONS": "חיבורים פעילים",
+            "NO_CONNECTIONS": "אין חיבורי דיון פעילים",
+            "LOADING": "טוען חיבורים פעילים...",
+            "USER": "משתמש",
+            "CONNECTED_AT": "מחובר ב",
+            "DISCUSSION": "דיון",
+            "DISCUSSION_ID": "מזהה דיון",
+            "IP_ADDRESS": "כתובת IP",
+            "DOMAIN": "דומיין",
+            "LOCATION": "מיקום",
+            "UNKNOWN": "לא ידוע"
         }
     },
     "FRIENDS": {
@@ -849,6 +870,7 @@
         "REQUESTS": "בקשות חברות",
         "MY_FRIENDS": "החברים שלי",
         "SEARCH_PLACEHOLDER": "חפש משתמש...",
+        "SEARCH_GROUPS_PLACEHOLDER": "חפש קבוצת חברים...",
         "SEND_REQUEST": "שלח בקשה",
         "PENDING_REQUEST": "בקשה ממתינה",
         "REQUEST_SENT": "בקשה נשלחה",

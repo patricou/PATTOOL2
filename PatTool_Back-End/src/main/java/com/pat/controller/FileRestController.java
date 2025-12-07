@@ -662,7 +662,7 @@ public class FileRestController {
             }
             
             int filesBeforeUpload = evenement.getFileUploadeds().size();
-            log.info("Event {} found. Current files in event: {}", evenementid, filesBeforeUpload);
+            log.debug("Event {} found. Current files in event: {}", evenementid, filesBeforeUpload);
 
             // Process each file
             for (int fileIndex = 0; fileIndex < files.length; fileIndex++) {
@@ -811,7 +811,7 @@ public class FileRestController {
             }
             
             // Save the evenement updated with all files
-            log.info("About to save event {} with {} files in fileUploadeds array", 
+            log.debug("About to save event {} with {} files in fileUploadeds array", 
                 evenementid, evenement.getFileUploadeds() != null ? evenement.getFileUploadeds().size() : 0);
             
             Evenement eventSaved = evenementsRepository.save(evenement);
@@ -820,7 +820,7 @@ public class FileRestController {
             Evenement verifyEvent = evenementsRepository.findById(evenementid).orElse(null);
             int savedFileCount = verifyEvent != null && verifyEvent.getFileUploadeds() != null 
                 ? verifyEvent.getFileUploadeds().size() : 0;
-            log.info("Evenement {} saved. Verification: {} files in database (expected: {})", 
+            log.debug("Evenement {} saved. Verification: {} files in database (expected: {})", 
                 evenementid, savedFileCount, uploadedFiles.size());
             
             if (savedFileCount != uploadedFiles.size()) {

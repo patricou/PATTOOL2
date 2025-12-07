@@ -25,26 +25,50 @@ export class CacheService {
     );
   }
 
-  saveCache(): Observable<any> {
+  isSaveCacheAuthorized(user: any): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
-        this._http.post(this.API_URL + "cache/save", {}, { headers: headers })
+        this._http.post(this.API_URL + "cache/save/authorized", user, { headers: headers })
       )
     );
   }
 
-  loadCache(): Observable<any> {
+  isLoadCacheAuthorized(user: any): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
-        this._http.post(this.API_URL + "cache/load", {}, { headers: headers })
+        this._http.post(this.API_URL + "cache/load/authorized", user, { headers: headers })
       )
     );
   }
 
-  clearCache(): Observable<any> {
+  saveCache(user: any): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
-        this._http.post(this.API_URL + "cache/clear", {}, { headers: headers })
+        this._http.post(this.API_URL + "cache/save", user, { headers: headers })
+      )
+    );
+  }
+
+  loadCache(user: any): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "cache/load", user, { headers: headers })
+      )
+    );
+  }
+
+  isClearCacheAuthorized(user: any): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "cache/clear/authorized", user, { headers: headers })
+      )
+    );
+  }
+
+  clearCache(user: any): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "cache/clear", user, { headers: headers })
       )
     );
   }
@@ -94,6 +118,24 @@ export class CacheService {
         return this._http.get(this.API_URL + "system/connection-logs", { 
           headers: headers,
           params: params
+        });
+      })
+    );
+  }
+
+  isDeleteConnectionLogsAuthorized(user: any): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "system/connection-logs/authorized", user, { headers: headers })
+      )
+    );
+  }
+
+  deleteAllConnectionLogs(user: any): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        return this._http.post(this.API_URL + "system/connection-logs/delete", user, { 
+          headers: headers
         });
       })
     );

@@ -2,21 +2,19 @@
     <!-- Hero Section -->
     <div class="pat-title">
         <h2>{{ "LINKS.TITLE" | translate }}</h2>
-        <div class="title-actions">
-            <button class="btn btn-primary btn-sm" 
-                    (click)="navigateToLinksAdmin()"
-                    title="{{ 'LINKS.ADMIN_BUTTON' | translate }}">
-                <i class="fa fa-cog"></i>
-                <span>{{ 'LINKS.ADMIN_BUTTON' | translate }}</span>
-            </button>
-            <app-navigation-buttons></app-navigation-buttons>
-        </div>
+        <app-navigation-buttons></app-navigation-buttons>
     </div>
 
     <!-- Main Content -->
     <div class="main-content">
         <!-- Search Filter -->
         <div class="search-container">
+            <button class="btn btn-primary btn-sm admin-button" 
+                    (click)="navigateToLinksAdmin()"
+                    title="{{ 'LINKS.ADMIN_BUTTON' | translate }}">
+                <i class="fa fa-cog"></i>
+                <span>{{ 'LINKS.ADMIN_BUTTON' | translate }}</span>
+            </button>
             <div class="search-input-wrapper">
                 <input type="text" 
                        class="search-input" 

@@ -843,11 +843,32 @@
             "TOTAL": "总计",
             "CONNECTIONS": "连接",
             "DATE_TIME": "日期/时间",
+            "TYPE": "类型",
             "USER": "用户",
+            "DISCUSSION_TITLE": "讨论",
+            "DISCUSSION_ID": "讨论ID",
             "IP_ADDRESS": "IP地址",
             "DOMAIN_NAME": "域名",
             "LOCATION": "位置",
-            "NO_LOGS": "未找到所选日期范围的连接日志。"
+            "NO_LOGS": "未找到所选日期范围的连接日志。",
+            "DELETE_ALL": "删除全部",
+            "DELETE_CONFIRM": "您确定要删除所有连接日志吗？此操作无法撤销。",
+            "DELETE_SUCCESS": "成功删除 {count} 条连接日志",
+            "DELETE_ERROR": "删除连接日志失败"
+        },
+        "ACTIVE_DISCUSSION_CONNECTIONS": {
+            "TITLE": "活动讨论连接",
+            "ACTIVE_CONNECTIONS": "活动连接",
+            "NO_CONNECTIONS": "没有活动讨论连接",
+            "LOADING": "正在加载活动连接...",
+            "USER": "用户",
+            "CONNECTED_AT": "连接时间",
+            "DISCUSSION": "讨论",
+            "DISCUSSION_ID": "讨论ID",
+            "IP_ADDRESS": "IP地址",
+            "DOMAIN": "域名",
+            "LOCATION": "位置",
+            "UNKNOWN": "未知"
         }
     },
     "FRIENDS": {
@@ -856,6 +877,7 @@
         "REQUESTS": "好友请求",
         "MY_FRIENDS": "我的好友",
         "SEARCH_PLACEHOLDER": "搜索用户...",
+        "SEARCH_GROUPS_PLACEHOLDER": "搜索好友组...",
         "SEND_REQUEST": "发送请求",
         "PENDING_REQUEST": "待处理请求",
         "REQUEST_SENT": "请求已发送",

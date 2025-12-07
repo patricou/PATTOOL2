@@ -809,6 +809,16 @@ body > .tooltip {
     border-radius: 0.5rem !important;
 }
 
+/* Ensure discussion modal has white border - override global black border */
+::ng-deep .discussion-modal-window .modal-content,
+::ng-deep .modal-dialog.discussion-modal-window .modal-content,
+::ng-deep .modal.show .discussion-modal-window .modal-content,
+::ng-deep .modal.show .modal-dialog.discussion-modal-window .modal-content,
+::ng-deep .modal.show .discussion-modal-window.modal-dialog .modal-content {
+    border: 4px solid #ffffff !important;
+    border-radius: 8px !important;
+}
+
 .modal-content::after {
     content: '';
     position: absolute;

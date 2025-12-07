@@ -1,6 +1,7 @@
 // Discussion Modal Component - Opens discussion in a modal
 import { Component, Input, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { DiscussionComponent } from '../discussion/discussion.component';
 
 @Component({
   selector: 'app-discussion-modal',
@@ -10,6 +11,7 @@ import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 export class DiscussionModalComponent implements OnInit, OnDestroy {
   @Input() discussionId: string | null = null;
   @Input() title: string = 'Discussion';
+  @ViewChild(DiscussionComponent) discussionComponent!: DiscussionComponent;
 
   constructor(public activeModal: NgbActiveModal) {}
 
@@ -25,6 +27,13 @@ export class DiscussionModalComponent implements OnInit, OnDestroy {
 
   close() {
     this.activeModal.close();
+  }
+
+  refreshDiscussion() {
+    if (this.discussionComponent) {
+      // Reload the discussion
+      this.discussionComponent.loadDiscussion();
+    }
   }
 }
 

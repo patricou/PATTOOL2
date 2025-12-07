@@ -3,16 +3,17 @@
     <!-- Header Section -->
     <div class="pat-title">
         <h2>{{ "RESULTS.TITLE" | translate }}</h2>
-        <div class="pat-title-subtitle">{{ "RESULTS.SUBTITLE" | translate }}</div>
+        <app-navigation-buttons></app-navigation-buttons>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Filter Section -->
+    <div class="filter-container">
         <div class="chat-stats">
             <i class="fa fa-comments"></i>
             <span>{{ filteredDiscussions.length }} {{ "RESULTS.DISCUSSIONS" | translate }}</span>
         </div>
-        <app-navigation-buttons></app-navigation-buttons>
-    </div>
-
-    <!-- Filter Section -->
-    <div class="filter-container">
         <div class="filter-section-redesigned">
             <div class="filter-input-container-desktop">
                 <i class="fa fa-search search-icon"></i>
@@ -150,5 +151,6 @@
                 </div>
             </div>
         </div>
+    </div>
     </div>
 </div>

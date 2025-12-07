@@ -39,6 +39,16 @@ img, video, canvas {
     border-radius: 0.5rem !important;
 }
 
+/* Global style for discussion modal with white border */
+::ng-deep .discussion-modal-window .modal-content,
+::ng-deep .modal-dialog.discussion-modal-window .modal-content,
+::ng-deep .modal.show .discussion-modal-window .modal-content,
+::ng-deep .modal.show .modal-dialog.discussion-modal-window .modal-content,
+::ng-deep .modal.show .discussion-modal-window.modal-dialog .modal-content {
+    border: 4px solid #ffffff !important;
+    border-radius: 8px !important;
+}
+
 /* Prevent body scroll when photos selector modal is open */
 ::ng-deep body:has(.fs-selector-modal),
 ::ng-deep body.modal-open:has(.fs-selector-modal) {
@@ -455,6 +465,11 @@ input#message {
     overflow: visible !important;
     z-index: 1 !important;
     isolation: isolate;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }
 
 .pat-title::before {

@@ -845,11 +845,32 @@
             "TOTAL": "合計",
             "CONNECTIONS": "接続",
             "DATE_TIME": "日付/時刻",
+            "TYPE": "タイプ",
             "USER": "ユーザー",
+            "DISCUSSION_TITLE": "ディスカッション",
+            "DISCUSSION_ID": "ディスカッションID",
             "IP_ADDRESS": "IPアドレス",
             "DOMAIN_NAME": "ドメイン名",
             "LOCATION": "場所",
-            "NO_LOGS": "選択した日付範囲の接続ログが見つかりませんでした。"
+            "NO_LOGS": "選択した日付範囲の接続ログが見つかりませんでした。",
+            "DELETE_ALL": "すべて削除",
+            "DELETE_CONFIRM": "すべての接続ログを削除してもよろしいですか？この操作は元に戻せません。",
+            "DELETE_SUCCESS": "{count} 件の接続ログを正常に削除しました",
+            "DELETE_ERROR": "接続ログの削除に失敗しました"
+        },
+        "ACTIVE_DISCUSSION_CONNECTIONS": {
+            "TITLE": "アクティブなディスカッション接続",
+            "ACTIVE_CONNECTIONS": "アクティブな接続",
+            "NO_CONNECTIONS": "アクティブなディスカッション接続はありません",
+            "LOADING": "アクティブな接続を読み込み中...",
+            "USER": "ユーザー",
+            "CONNECTED_AT": "接続時刻",
+            "DISCUSSION": "ディスカッション",
+            "DISCUSSION_ID": "ディスカッションID",
+            "IP_ADDRESS": "IPアドレス",
+            "DOMAIN": "ドメイン",
+            "LOCATION": "場所",
+            "UNKNOWN": "不明"
         }
     },
     "FRIENDS": {
@@ -858,6 +879,7 @@
         "REQUESTS": "友達リクエスト",
         "MY_FRIENDS": "私の友達",
         "SEARCH_PLACEHOLDER": "ユーザーを検索...",
+        "SEARCH_GROUPS_PLACEHOLDER": "友達グループを検索...",
         "SEND_REQUEST": "リクエストを送信",
         "PENDING_REQUEST": "保留中のリクエスト",
         "REQUEST_SENT": "リクエスト送信済み",
