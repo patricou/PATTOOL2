@@ -880,6 +880,7 @@
         "SEND_REQUEST": "Αποστολή Αιτήματος",
         "PENDING_REQUEST": "Εκκρεμές Αίτημα",
         "REQUEST_SENT": "Αίτημα Στάλθηκε",
+        "RESEND_REQUEST": "Επανάληψη Αίτησης",
         "FRIEND": "Φίλος",
         "APPROVE": "Έγκριση",
         "REJECT": "Απόρριψη",

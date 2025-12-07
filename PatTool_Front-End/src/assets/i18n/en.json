@@ -896,6 +896,7 @@
         "SEND_REQUEST": "Send Request",
         "PENDING_REQUEST": "Pending Request",
         "REQUEST_SENT": "Request Sent",
+        "RESEND_REQUEST": "Resend Request",
         "FRIEND": "Friend",
         "APPROVE": "Approve",
         "REJECT": "Reject",

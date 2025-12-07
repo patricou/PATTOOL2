@@ -112,7 +112,12 @@ public class FriendsService {
         Optional<FriendRequest> existingRequest = friendRequestRepository
                 .findByRequesterAndRecipientAndStatus(requester, recipient, "PENDING");
         if (existingRequest.isPresent()) {
-            return existingRequest.get();
+            // Update the request date to "resend" it
+            FriendRequest request = existingRequest.get();
+            request.setRequestDate(new Date());
+            FriendRequest saved = friendRequestRepository.save(request);
+            log.debug("Friend request date updated (resent): {} -> {}", requester.getUserName(), recipient.getUserName());
+            return saved;
         }
 
         // Check if reverse request exists
@@ -209,6 +214,28 @@ public class FriendsService {
         friendRequestRepository.save(request);
 
         log.debug("Friend request rejected: {} -> {}", 
+                request.getRequester().getUserName(), 
+                request.getRecipient().getUserName());
+    }
+
+    /**
+     * Cancel a sent friend request (by the requester)
+     */
+    public void cancelSentFriendRequest(String requestId, Member currentUser) {
+        Optional<FriendRequest> requestOpt = friendRequestRepository.findById(requestId);
+        if (requestOpt.isEmpty()) {
+            throw new IllegalArgumentException("Friend request not found");
+        }
+
+        FriendRequest request = requestOpt.get();
+        if (!request.getRequester().getId().equals(currentUser.getId())) {
+            throw new IllegalStateException("User is not the requester of this request");
+        }
+
+        // Delete the request instead of just marking it as rejected
+        friendRequestRepository.delete(request);
+
+        log.debug("Sent friend request canceled: {} -> {}", 
                 request.getRequester().getUserName(), 
                 request.getRecipient().getUserName());
     }

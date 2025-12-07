@@ -876,6 +876,7 @@
         "SEND_REQUEST": "Отправить запрос",
         "PENDING_REQUEST": "Ожидающий запрос",
         "REQUEST_SENT": "Запрос отправлен",
+        "RESEND_REQUEST": "Отправить запрос снова",
         "FRIEND": "Друг",
         "APPROVE": "Одобрить",
         "REJECT": "Отклонить",

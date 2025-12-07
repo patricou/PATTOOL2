@@ -173,6 +173,33 @@ public class FriendsRestController {
     }
 
     /**
+     * Cancel a sent friend request (by the requester)
+     */
+    @DeleteMapping(value = "/request/{requestId}/cancel", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Void> cancelSentFriendRequest(
+            @PathVariable String requestId,
+            Authentication authentication) {
+        try {
+            Member currentUser = friendsService.getCurrentUser(authentication);
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            friendsService.cancelSentFriendRequest(requestId, currentUser);
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            log.error("Invalid state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            log.error("Error canceling sent friend request", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
      * Get all friends of the current user
      */
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)

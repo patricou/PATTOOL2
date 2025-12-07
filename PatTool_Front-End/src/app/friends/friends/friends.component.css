@@ -66,15 +66,73 @@
 .requests-list,
 .friends-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 12px;
 }
 
 /* Friend Groups List - 4 columns on desktop, 1 on mobile */
 .groups-list {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  gap: 12px;
+}
+
+/* Compact card styles */
+.group-card {
+  font-size: 0.875rem;
+}
+
+.compact-card-body {
+  padding: 0.75rem !important;
+}
+
+.compact-badge {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+.compact-btn {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.btn-xs {
+  padding: 0.2rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.compact-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.compact-subtitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.compact-text {
+  font-size: 0.75rem;
+  margin-bottom: 0.25rem;
+  line-height: 1.3;
+}
+
+.compact-member {
+  font-size: 0.75rem;
+}
+
+.compact-avatar {
+  font-size: 1.25rem !important;
+}
+
+.compact-alert {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .user-card,
@@ -89,6 +147,11 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+}
+
+.compact-user-card {
+  padding: 0.75rem !important;
+  font-size: 0.875rem;
 }
 
 .user-card:hover,
@@ -106,9 +169,23 @@
   margin-bottom: 15px;
 }
 
+.compact-user-card .user-info,
+.compact-user-card .request-info,
+.compact-user-card .friend-info {
+  margin-bottom: 0.75rem;
+}
+
 .user-avatar {
   margin-right: 15px;
   color: #6c757d;
+}
+
+.compact-user-card .user-avatar {
+  margin-right: 0.75rem;
+}
+
+.compact-avatar {
+  font-size: 1.75rem !important;
 }
 
 .user-details,
@@ -125,10 +202,24 @@
   font-weight: 600;
 }
 
+.compact-user-card .user-details h5,
+.compact-user-card .request-details h5,
+.compact-user-card .friend-details h5 {
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
 .user-details p,
 .request-details p,
 .friend-details p {
   margin: 5px 0;
+}
+
+.compact-user-card .user-details p,
+.compact-user-card .request-details p,
+.compact-user-card .friend-details p {
+  margin: 0.25rem 0;
+  font-size: 0.75rem;
 }
 
 .user-actions,
@@ -138,6 +229,14 @@
   gap: 10px;
   justify-content: flex-end;
   margin-top: 10px;
+}
+
+.compact-user-card .user-actions,
+.compact-user-card .request-actions,
+.compact-user-card .friend-actions {
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  justify-content: center;
 }
 
 .user-actions button,
@@ -174,6 +273,32 @@
 }
 
 /* Responsive */
+@media (min-width: 1400px) {
+  .users-list,
+  .requests-list,
+  .friends-list {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  }
+}
+
+@media (max-width: 1200px) {
+  .groups-list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
+  .groups-list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .users-list,
+  .requests-list,
+  .friends-list {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
   .users-list,
   .requests-list,
@@ -183,12 +308,28 @@
 
   .groups-list {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  .compact-card-body {
+    padding: 0.5rem !important;
   }
 
   .user-card,
   .request-card,
   .friend-card {
     padding: 15px;
+  }
+  
+  .compact-user-card {
+    padding: 0.5rem !important;
+  }
+  
+  .users-list,
+  .requests-list,
+  .friends-list {
+    grid-template-columns: 1fr;
+    gap: 10px;
   }
 
   .user-info,
@@ -230,7 +371,7 @@
 
 /* Members List - Scrollable when needed */
 .members-list {
-  max-height: 300px;
+  max-height: 150px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -255,7 +396,7 @@
 
 /* Authorized Users List - Scrollable when needed */
 .authorized-users-list {
-  max-height: 300px;
+  max-height: 150px;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -280,7 +421,7 @@
 
 /* Friends Selection - Scrollable when needed */
 .friends-selection {
-  max-height: 300px;
+  max-height: 150px;
   overflow-y: auto;
   overflow-x: hidden;
 }

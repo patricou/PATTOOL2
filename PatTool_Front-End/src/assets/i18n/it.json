@@ -882,6 +882,7 @@
         "SEND_REQUEST": "Invia Richiesta",
         "PENDING_REQUEST": "Richiesta in Attesa",
         "REQUEST_SENT": "Richiesta Inviata",
+        "RESEND_REQUEST": "Invia di nuovo la richiesta",
         "FRIEND": "Amico",
         "APPROVE": "Approva",
         "REJECT": "Rifiuta",

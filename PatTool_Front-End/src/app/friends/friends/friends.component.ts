@@ -76,17 +76,27 @@ export class FriendsComponent implements OnInit {
     this.loading = true;
     this.errorMessage = '';
 
+    let completedRequests = 0;
+    const totalRequests = 5;
+
+    const checkComplete = () => {
+      completedRequests++;
+      if (completedRequests >= totalRequests) {
+        this.loading = false;
+      }
+    };
+
     // Load all users
     this._friendsService.getAllUsers().subscribe(
       users => {
         // Filter out current user
         this.allUsers = users.filter(u => u.id !== this.currentUser.id);
-        this.loading = false;
+        checkComplete();
       },
       error => {
         console.error('Error loading users:', error);
         this.errorMessage = 'Error loading users';
-        this.loading = false;
+        checkComplete();
       }
     );
 
@@ -94,9 +104,11 @@ export class FriendsComponent implements OnInit {
     this._friendsService.getPendingRequests().subscribe(
       requests => {
         this.pendingRequests = requests;
+        checkComplete();
       },
       error => {
         console.error('Error loading pending requests:', error);
+        checkComplete();
       }
     );
 
@@ -104,9 +116,11 @@ export class FriendsComponent implements OnInit {
     this._friendsService.getSentRequests().subscribe(
       requests => {
         this.sentRequests = requests;
+        checkComplete();
       },
       error => {
         console.error('Error loading sent requests:', error);
+        checkComplete();
       }
     );
 
@@ -114,9 +128,11 @@ export class FriendsComponent implements OnInit {
     this._friendsService.getFriends().subscribe(
       friends => {
         this.friends = friends;
+        checkComplete();
       },
       error => {
         console.error('Error loading friends:', error);
+        checkComplete();
       }
     );
 
@@ -124,9 +140,11 @@ export class FriendsComponent implements OnInit {
     this._friendsService.getFriendGroups().subscribe(
       groups => {
         this.friendGroups = groups;
+        checkComplete();
       },
       error => {
         console.error('Error loading friend groups:', error);
+        checkComplete();
       }
     );
   }
@@ -135,12 +153,49 @@ export class FriendsComponent implements OnInit {
     this.loading = true;
     this._friendsService.sendFriendRequest(userId).subscribe(
       request => {
-        this.loadData(); // Reload data
+        this.loadAllUsers(); // Reload only users
         this.loading = false;
       },
       error => {
         console.error('Error sending friend request:', error);
         this.errorMessage = 'Error sending friend request';
+        this.loading = false;
+      }
+    );
+  }
+
+  cancelSentRequest(userId: string) {
+    // Find the sent request for this user
+    const sentRequest = this.sentRequests.find(r => r.recipient.id === userId);
+    if (sentRequest) {
+      this.loading = true;
+      // Use rejectFriendRequest to cancel our own sent request
+      this._friendsService.rejectFriendRequest(sentRequest.id).subscribe(
+        () => {
+          this.loadAllUsers(); // Reload only users
+          this.loading = false;
+        },
+        error => {
+          console.error('Error canceling sent request:', error);
+          this.errorMessage = 'Error canceling sent request';
+          this.loading = false;
+        }
+      );
+    }
+  }
+
+  resendFriendRequest(userId: string) {
+    // Simply send the request - the backend will update the existing one if it exists
+    // This is simpler and more efficient than canceling then sending
+    this.loading = true;
+    this._friendsService.sendFriendRequest(userId).subscribe(
+      request => {
+        this.loadAllUsers(); // Reload only users
+        this.loading = false;
+      },
+      error => {
+        console.error('Error resending friend request:', error);
+        this.errorMessage = 'Error resending friend request';
         this.loading = false;
       }
     );
@@ -212,43 +267,90 @@ export class FriendsComponent implements OnInit {
     return 'none';
   }
 
+  getSentRequestDate(user: Member): Date | null {
+    const sentRequest = this.sentRequests.find(r => r.recipient.id === user.id);
+    return sentRequest?.requestDate || null;
+  }
+
+  getFriendshipDate(user: Member): Date | null {
+    const friendship = this.friends.find(f => 
+      (f.user1.id === user.id && f.user2.id === this.currentUser.id) ||
+      (f.user2.id === user.id && f.user1.id === this.currentUser.id)
+    );
+    return friendship?.friendshipDate || null;
+  }
+
   getFilteredUsers(): Member[] {
-    if (!this.searchFilter || !this.searchFilter.trim()) {
-      return this.allUsers;
+    let filtered = [...this.allUsers];
+    
+    if (this.searchFilter && this.searchFilter.trim()) {
+      const searchTerm = this.searchFilter.toLowerCase().trim();
+      filtered = this.allUsers.filter(user => {
+        const firstName = (user.firstName || '').toLowerCase();
+        const lastName = (user.lastName || '').toLowerCase();
+        const userName = (user.userName || '').toLowerCase();
+        const email = (user.addressEmail || '').toLowerCase();
+
+        return firstName.includes(searchTerm) ||
+               lastName.includes(searchTerm) ||
+               userName.includes(searchTerm) ||
+               email.includes(searchTerm);
+      });
     }
-
-    const searchTerm = this.searchFilter.toLowerCase().trim();
-    return this.allUsers.filter(user => {
-      const firstName = (user.firstName || '').toLowerCase();
-      const lastName = (user.lastName || '').toLowerCase();
-      const userName = (user.userName || '').toLowerCase();
-      const email = (user.addressEmail || '').toLowerCase();
-
-      return firstName.includes(searchTerm) ||
-             lastName.includes(searchTerm) ||
-             userName.includes(searchTerm) ||
-             email.includes(searchTerm);
+    
+    // Sort by name (firstName + lastName)
+    return filtered.sort((a, b) => {
+      const nameA = ((a.firstName || '') + ' ' + (a.lastName || '')).toLowerCase().trim();
+      const nameB = ((b.firstName || '') + ' ' + (b.lastName || '')).toLowerCase().trim();
+      return nameA.localeCompare(nameB);
     });
   }
 
   getFilteredGroups(): FriendGroup[] {
-    if (!this.searchFilter || !this.searchFilter.trim()) {
-      return this.friendGroups;
+    let filtered = [...this.friendGroups];
+    
+    if (this.searchFilter && this.searchFilter.trim()) {
+      const searchTerm = this.searchFilter.toLowerCase().trim();
+      filtered = this.friendGroups.filter(group => {
+        const groupName = (group.name || '').toLowerCase();
+        const ownerName = group.owner ? 
+          ((group.owner.firstName || '') + ' ' + (group.owner.lastName || '') + ' ' + (group.owner.userName || '')).toLowerCase() : '';
+        const memberNames = (group.members || [])
+          .map(m => `${m.firstName || ''} ${m.lastName || ''} ${m.userName || ''}`)
+          .join(' ')
+          .toLowerCase();
+
+        return groupName.includes(searchTerm) ||
+               ownerName.includes(searchTerm) ||
+               memberNames.includes(searchTerm);
+      });
     }
-
-    const searchTerm = this.searchFilter.toLowerCase().trim();
-    return this.friendGroups.filter(group => {
-      const groupName = (group.name || '').toLowerCase();
-      const ownerName = group.owner ? 
-        ((group.owner.firstName || '') + ' ' + (group.owner.lastName || '') + ' ' + (group.owner.userName || '')).toLowerCase() : '';
-      const memberNames = (group.members || [])
-        .map(m => `${m.firstName || ''} ${m.lastName || ''} ${m.userName || ''}`)
-        .join(' ')
-        .toLowerCase();
-
-      return groupName.includes(searchTerm) ||
-             ownerName.includes(searchTerm) ||
-             memberNames.includes(searchTerm);
+    
+    // Sort by group name
+    return filtered.sort((a, b) => {
+      const nameA = (a.name || '').toLowerCase().trim();
+      const nameB = (b.name || '').toLowerCase().trim();
+      return nameA.localeCompare(nameB);
+    });
+  }
+  
+  getSortedPendingRequests(): FriendRequest[] {
+    // Sort by requester name (firstName + lastName)
+    return [...this.pendingRequests].sort((a, b) => {
+      const nameA = ((a.requester.firstName || '') + ' ' + (a.requester.lastName || '')).toLowerCase().trim();
+      const nameB = ((b.requester.firstName || '') + ' ' + (b.requester.lastName || '')).toLowerCase().trim();
+      return nameA.localeCompare(nameB);
+    });
+  }
+  
+  getSortedFriends(): Friend[] {
+    // Sort by other user's name (firstName + lastName)
+    return [...this.friends].sort((a, b) => {
+      const userA = this.getOtherUser(a);
+      const userB = this.getOtherUser(b);
+      const nameA = ((userA.firstName || '') + ' ' + (userA.lastName || '')).toLowerCase().trim();
+      const nameB = ((userB.firstName || '') + ' ' + (userB.lastName || '')).toLowerCase().trim();
+      return nameA.localeCompare(nameB);
     });
   }
 
@@ -265,8 +367,20 @@ export class FriendsComponent implements OnInit {
     this.inviteEmail = ''; // Clear invite email
     this.emailCheckResult = null;
     this.emailExists = false;
-    if (tab === 'groups') {
-      this.loadFriendGroups();
+    // Refresh only the data for the selected tab
+    switch(tab) {
+      case 'users':
+        this.loadAllUsers();
+        break;
+      case 'requests':
+        this.loadPendingRequests();
+        break;
+      case 'friends':
+        this.loadFriends();
+        break;
+      case 'groups':
+        this.loadFriendGroups();
+        break;
     }
   }
 
@@ -332,8 +446,90 @@ export class FriendsComponent implements OnInit {
   }
 
   // Friend Groups Management Methods
+  loadAllUsers() {
+    this.loading = true;
+    this.errorMessage = '';
+    
+    // Load users
+    this._friendsService.getAllUsers().subscribe(
+      users => {
+        // Filter out current user
+        this.allUsers = users.filter(u => u.id !== this.currentUser.id);
+        this.loading = false;
+      },
+      error => {
+        console.error('Error loading users:', error);
+        this.errorMessage = 'Error loading users';
+        this.loading = false;
+      }
+    );
+    
+    // Also load sent requests to determine user status
+    this._friendsService.getSentRequests().subscribe(
+      requests => {
+        this.sentRequests = requests;
+      },
+      error => {
+        console.error('Error loading sent requests:', error);
+      }
+    );
+    
+    // Also load pending requests to determine user status
+    this._friendsService.getPendingRequests().subscribe(
+      requests => {
+        this.pendingRequests = requests;
+      },
+      error => {
+        console.error('Error loading pending requests:', error);
+      }
+    );
+    
+    // Also load friends to determine user status
+    this._friendsService.getFriends().subscribe(
+      friends => {
+        this.friends = friends;
+      },
+      error => {
+        console.error('Error loading friends:', error);
+      }
+    );
+  }
+
+  loadPendingRequests() {
+    this.loading = true;
+    this.errorMessage = '';
+    this._friendsService.getPendingRequests().subscribe(
+      requests => {
+        this.pendingRequests = requests;
+        this.loading = false;
+      },
+      error => {
+        console.error('Error loading pending requests:', error);
+        this.errorMessage = 'Error loading pending requests';
+        this.loading = false;
+      }
+    );
+  }
+
+  loadFriends() {
+    this.loading = true;
+    this.errorMessage = '';
+    this._friendsService.getFriends().subscribe(
+      friends => {
+        this.friends = friends;
+        this.loading = false;
+      },
+      error => {
+        console.error('Error loading friends:', error);
+        this.errorMessage = 'Error loading friends';
+        this.loading = false;
+      }
+    );
+  }
+
   loadFriendGroups() {
     this.loading = true;
+    this.errorMessage = '';
     this._friendsService.getFriendGroups().subscribe(
       groups => {
         this.friendGroups = groups;

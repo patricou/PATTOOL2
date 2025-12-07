@@ -315,6 +315,32 @@ export class FriendsService {
     }
 
     /**
+     * Cancel a sent friend request (by the requester)
+     */
+    cancelSentFriendRequest(requestId: string): Observable<any> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.delete<any>(
+                    this.API_URL + 'friends/request/' + requestId + '/cancel',
+                    { headers: headers }
+                ).pipe(
+                    catchError((error: any) => {
+                        console.error('Error canceling sent friend request:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
      * Get all friends of the current user
      */
     getFriends(): Observable<Friend[]> {

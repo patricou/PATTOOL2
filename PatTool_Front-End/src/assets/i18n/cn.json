@@ -881,6 +881,7 @@
         "SEND_REQUEST": "发送请求",
         "PENDING_REQUEST": "待处理请求",
         "REQUEST_SENT": "请求已发送",
+        "RESEND_REQUEST": "重新发送请求",
         "FRIEND": "好友",
         "APPROVE": "批准",
         "REJECT": "拒绝",

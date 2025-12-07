@@ -874,6 +874,7 @@
         "SEND_REQUEST": "שלח בקשה",
         "PENDING_REQUEST": "בקשה ממתינה",
         "REQUEST_SENT": "בקשה נשלחה",
+        "RESEND_REQUEST": "שלח בקשה מחדש",
         "FRIEND": "חבר",
         "APPROVE": "אשר",
         "REJECT": "דחה",

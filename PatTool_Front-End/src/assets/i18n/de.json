@@ -875,6 +875,7 @@
         "SEND_REQUEST": "Anfrage Senden",
         "PENDING_REQUEST": "Ausstehende Anfrage",
         "REQUEST_SENT": "Anfrage Gesendet",
+        "RESEND_REQUEST": "Anfrage erneut senden",
         "FRIEND": "Freund",
         "APPROVE": "Genehmigen",
         "REJECT": "Ablehnen",

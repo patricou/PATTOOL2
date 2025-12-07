@@ -882,6 +882,7 @@
         "SEND_REQUEST": "Enviar Solicitud",
         "PENDING_REQUEST": "Solicitud Pendiente",
         "REQUEST_SENT": "Solicitud Enviada",
+        "RESEND_REQUEST": "Reenviar Solicitud",
         "FRIEND": "Amigo",
         "APPROVE": "Aprobar",
         "REJECT": "Rechazar",

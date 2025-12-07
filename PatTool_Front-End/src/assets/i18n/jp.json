@@ -883,6 +883,7 @@
         "SEND_REQUEST": "リクエストを送信",
         "PENDING_REQUEST": "保留中のリクエスト",
         "REQUEST_SENT": "リクエスト送信済み",
+        "RESEND_REQUEST": "リクエストを再送信",
         "FRIEND": "友達",
         "APPROVE": "承認",
         "REJECT": "拒否",

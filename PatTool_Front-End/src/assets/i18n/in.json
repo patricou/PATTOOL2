@@ -873,6 +873,7 @@
         "SEND_REQUEST": "अनुरोध भेजें",
         "PENDING_REQUEST": "लंबित अनुरोध",
         "REQUEST_SENT": "अनुरोध भेजा गया",
+        "RESEND_REQUEST": "अनुरोध पुनः भेजें",
         "FRIEND": "दोस्त",
         "APPROVE": "अनुमोदन",
         "REJECT": "अस्वीकार",

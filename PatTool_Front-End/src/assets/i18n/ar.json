@@ -879,6 +879,7 @@
         "SEND_REQUEST": "إرسال طلب",
         "PENDING_REQUEST": "طلب قيد الانتظار",
         "REQUEST_SENT": "تم إرسال الطلب",
+        "RESEND_REQUEST": "إعادة إرسال الطلب",
         "FRIEND": "صديق",
         "APPROVE": "موافقة",
         "REJECT": "رفض",
