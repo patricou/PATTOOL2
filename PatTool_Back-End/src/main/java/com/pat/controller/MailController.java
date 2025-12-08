@@ -67,9 +67,15 @@ public class MailController {
 
     // Internal method for sending emails to a specific recipient with BCC (called from other controllers)
     public String sendMailToRecipient(String recipientEmail, String subject, String body, boolean isHtml, String bcc){
+        return sendMailToRecipient(recipientEmail, subject, body, isHtml, null, bcc);
+    }
+
+    // Internal method for sending emails to a specific recipient with CC and BCC (called from other controllers)
+    public String sendMailToRecipient(String recipientEmail, String subject, String body, boolean isHtml, String cc, String bcc){
         log.debug("=== MAIL SENDING ATTEMPT (TO SPECIFIC RECIPIENT) ===");
         log.debug("Subject: {}", subject);
         log.debug("To: {}", recipientEmail);
+        log.debug("CC: {}", cc != null ? cc : "none");
         log.debug("BCC: {}", bcc != null ? bcc : "none");
         log.debug("From: {}", mailSentFrom);
         log.debug("Mail enabled (app.sendmail): {}", sendmail);
@@ -77,7 +83,7 @@ public class MailController {
         
         try {
             if (sendmail && recipientEmail != null && !recipientEmail.trim().isEmpty()) {
-                smtpMailSender.sendMail(mailSentFrom, recipientEmail, bcc, subject, body, isHtml);
+                smtpMailSender.sendMail(mailSentFrom, recipientEmail, cc, bcc, subject, body, isHtml);
                 log.debug("✓ Mail sent successfully to {} - Subject: '{}'", recipientEmail, subject);
             } else {
                 if (!sendmail) {
@@ -142,5 +148,21 @@ public class MailController {
     // Getter for mailSentTo (used for BCC in invitation emails)
     public String getMailSentTo() {
         return mailSentTo;
+    }
+
+    /**
+     * Validate email address format
+     * @param email the email address to validate
+     * @return true if the email format is valid, false otherwise
+     */
+    public boolean isValidEmail(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return false;
+        }
+        
+        // Standard email regex pattern
+        // Matches: user@domain.com, user.name@domain.co.uk, etc.
+        String emailPattern = "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$";
+        return email.matches(emailPattern);
     }
 }

@@ -333,9 +333,19 @@ public class FriendsRestController {
                 body = generateInvitationEmailHtml(inviter, recipientEmail, false);
             }
             
-            // Send invitation email with BCC to app.mailsentto
-            mailController.sendMailToRecipient(recipientEmail, subject, body, true, mailController.getMailSentTo());
-            log.debug("Invitation email sent to {} in language {} (BCC: {})", recipientEmail, language, mailController.getMailSentTo());
+            // Determine CC recipient (inviter's email if it exists and is valid)
+            String ccRecipient = null;
+            if (inviter.getAddressEmail() != null && !inviter.getAddressEmail().trim().isEmpty()) {
+                if (mailController.isValidEmail(inviter.getAddressEmail())) {
+                    ccRecipient = inviter.getAddressEmail();
+                } else {
+                    log.warn("Inviter email address '{}' has invalid format, skipping CC", inviter.getAddressEmail());
+                }
+            }
+            
+            // Send invitation email with CC to inviter (if valid) and BCC to app.mailsentto
+            mailController.sendMailToRecipient(recipientEmail, subject, body, true, ccRecipient, mailController.getMailSentTo());
+            log.debug("Invitation email sent to {} in language {} (CC: {}, BCC: {})", recipientEmail, language, ccRecipient != null ? ccRecipient : "none", mailController.getMailSentTo());
         } catch (Exception e) {
             log.error("Error sending invitation email to {}: {}", recipientEmail, e.getMessage(), e);
         }

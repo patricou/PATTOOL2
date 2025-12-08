@@ -692,5 +692,10 @@
     .messages-list {
         padding: 10px 5px;
     }
+    
+    /* Hide help text in mobile mode */
+    .input-help-text {
+        display: none;
+    }
 }
 

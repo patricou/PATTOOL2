@@ -19,6 +19,9 @@
     border-bottom: 1px solid #1e7e34;
     padding: 12px 16px;
     flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .modal-title {
@@ -210,24 +213,35 @@
 /* Responsive */
 @media (max-width: 768px) {
     :host ::ng-deep .discussion-modal-window .modal-dialog {
-        height: 70vh;
-        max-height: 70vh;
+        height: 85vh;
+        max-height: 85vh;
         min-height: 400px;
     }
     
     :host ::ng-deep .discussion-modal-window .modal-content {
-        height: 70vh;
-        max-height: 70vh;
+        height: 85vh;
+        max-height: 85vh;
         min-height: 400px;
     }
     
     .modal-body {
         min-height: 300px; /* Minimum height on mobile even with one message */
-        max-height: calc(70vh - 120px);
+        max-height: calc(85vh - 120px);
     }
     
     .modal-body app-discussion {
         min-height: 300px; /* Minimum height on mobile even with one message */
+    }
+    
+    /* Hide discussion ID in mobile mode */
+    .discussion-id {
+        display: none !important;
+    }
+    
+    /* Adjust connection status for mobile */
+    .modal-footer .connection-status-bar {
+        font-size: 0.7rem;
+        padding: 3px 8px;
     }
 }
 

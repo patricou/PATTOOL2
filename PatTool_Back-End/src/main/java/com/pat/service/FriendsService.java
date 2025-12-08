@@ -117,6 +117,10 @@ public class FriendsService {
             request.setRequestDate(new Date());
             FriendRequest saved = friendRequestRepository.save(request);
             log.debug("Friend request date updated (resent): {} -> {}", requester.getUserName(), recipient.getUserName());
+            
+            // Send email notification to recipient when resending
+            sendFriendRequestEmail(requester, recipient);
+            
             return saved;
         }
 
@@ -302,9 +306,19 @@ public class FriendsService {
                 body = generateFriendRequestEmailHtml(requester, recipient, false);
             }
             
-            // Send friend request email with BCC to app.mailsentto
-            mailController.sendMailToRecipient(recipient.getAddressEmail(), subject, body, true, mailController.getMailSentTo());
-            log.debug("Friend request email sent to {} in language {} (BCC: {})", recipient.getAddressEmail(), language, mailController.getMailSentTo());
+            // Determine CC recipient (requester's email if it exists and is valid)
+            String ccRecipient = null;
+            if (requester.getAddressEmail() != null && !requester.getAddressEmail().trim().isEmpty()) {
+                if (mailController.isValidEmail(requester.getAddressEmail())) {
+                    ccRecipient = requester.getAddressEmail();
+                } else {
+                    log.warn("Requester email address '{}' has invalid format, skipping CC", requester.getAddressEmail());
+                }
+            }
+            
+            // Send friend request email with CC to requester (if valid) and BCC to app.mailsentto
+            mailController.sendMailToRecipient(recipient.getAddressEmail(), subject, body, true, ccRecipient, mailController.getMailSentTo());
+            log.debug("Friend request email sent to {} in language {} (CC: {}, BCC: {})", recipient.getAddressEmail(), language, ccRecipient != null ? ccRecipient : "none", mailController.getMailSentTo());
         } catch (Exception e) {
             log.error("Error sending friend request email to {}: {}", recipient.getAddressEmail(), e.getMessage(), e);
             // Don't throw exception - email failure shouldn't break the friend request

@@ -11,6 +11,9 @@ import org.springframework.stereotype.Component;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
+import org.springframework.mail.MailException;
+import org.springframework.mail.MailSendException;
+import org.springframework.mail.MailAuthenticationException;
 import java.io.File;
 
 /**
@@ -36,12 +39,21 @@ public class SmtpMailSender {
 
     @Async
     public void sendMail(String from, String to, String bcc, String subject, String body, boolean isHtml){
+        sendMail(from, to, null, bcc, subject, body, isHtml);
+    }
+
+    @Async
+    public void sendMail(String from, String to, String cc, String bcc, String subject, String body, boolean isHtml){
         String[] recipients = parseRecipients(to);
         for (String recipient : recipients) {
             MimeMessage mail = javaMailSender.createMimeMessage();
             try {
                 MimeMessageHelper helper = new MimeMessageHelper(mail, true, "UTF-8");
                 helper.setTo(recipient);
+                if (cc != null && !cc.trim().isEmpty()) {
+                    String[] ccRecipients = parseRecipients(cc);
+                    helper.setCc(ccRecipients);
+                }
                 if (bcc != null && !bcc.trim().isEmpty()) {
                     String[] bccRecipients = parseRecipients(bcc);
                     helper.setBcc(bccRecipients);
@@ -71,14 +83,47 @@ public class SmtpMailSender {
                     mail.setHeader("Message-ID", generateMessageId());
                 }
                 
-                log.debug("Sending email via SMTP - To: {}, Subject: {}, HTML: {}", recipient, subject, isHtml);
+                log.info("Sending email via SMTP - From: {}, To: {}, Subject: {}, HTML: {}", from, recipient, subject, isHtml);
                 javaMailSender.send(mail);
-                log.debug("Email sent successfully to {}", recipient);
-            } catch (MessagingException e) {
-                log.error("MessagingException while sending email to {}: {}", recipient, e.getMessage(), e);
+                log.info("Email sent successfully to {} - Subject: '{}'", recipient, subject);
+            } catch (MailAuthenticationException e) {
+                log.error("MailAuthenticationException - SMTP authentication failed. Check username/password for sending email to {} from {}. Error: {}", 
+                    recipient, from, e.getMessage(), e);
+                if (e.getCause() != null) {
+                    log.error("Root cause: {}", e.getCause().getMessage());
+                }
+                throw new RuntimeException("SMTP authentication failed: " + e.getMessage(), e);
+            } catch (MailSendException e) {
+                String errorMsg = String.format("MailSendException - Failed to send email to %s from %s. Error: %s", 
+                    recipient, from, e.getMessage());
+                if (e.getFailedMessages() != null && !e.getFailedMessages().isEmpty()) {
+                    errorMsg += String.format(". Failed messages: %d", e.getFailedMessages().size());
+                }
+                if (e.getCause() != null) {
+                    errorMsg += String.format(". Root cause: %s", e.getCause().getMessage());
+                }
+                log.error(errorMsg, e);
+                throw new RuntimeException("Failed to send email: " + e.getMessage(), e);
+            } catch (MailException e) {
+                String errorDetails = String.format("MailException while sending email to %s from %s. Error: %s", 
+                    recipient, from, e.getMessage());
+                if (e.getCause() != null) {
+                    Throwable cause = e.getCause();
+                    errorDetails += String.format(". Cause: %s (%s)", cause.getClass().getSimpleName(), cause.getMessage());
+                    // Check for common network issues
+                    if (cause.getMessage() != null) {
+                        String causeMsg = cause.getMessage().toLowerCase();
+                        if (causeMsg.contains("timeout") || causeMsg.contains("timed out")) {
+                            errorDetails += " [TIMEOUT - Mail server may be slow or unreachable]";
+                        } else if (causeMsg.contains("connection refused") || causeMsg.contains("connect")) {
+                            errorDetails += " [CONNECTION ERROR - Cannot reach mail server]";
+                        }
+                    }
+                }
+                log.error(errorDetails, e);
                 throw new RuntimeException("Failed to send email: " + e.getMessage(), e);
             } catch (Exception e) {
-                log.error("Exception while sending email to {}: {}", recipient, e.getMessage(), e);
+                log.error("Unexpected exception while sending email to {} from {}: {}", recipient, from, e.getMessage(), e);
                 throw new RuntimeException("Failed to send email: " + e.getMessage(), e);
             }
         }
