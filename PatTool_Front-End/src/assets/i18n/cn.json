@@ -593,7 +593,10 @@
         "FIRSTNAME": "名字",
         "LASTNAME": "姓氏",
         "USERNAME": "用户名",
-        "KEYCLOAKID": "KeycloakId"
+        "KEYCLOAKID": "KeycloakId",
+        "ROLES": "角色",
+        "LOADING_ROLES": "正在加载角色...",
+        "NO_ROLES": "未分配角色"
     },
     "UPLOADFILE": {
         "MENU": "下载",
@@ -930,6 +933,7 @@
         "AUTHORIZED_TO_USE": "授权使用",
         "MEMBER": "成员",
         "OWNER": "所有者",
-        "REMOVE": "移除"
+        "REMOVE": "移除",
+        "ROLE": "角色"
     }
 }

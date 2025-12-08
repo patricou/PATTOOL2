@@ -592,7 +592,10 @@
         "FIRSTNAME": "Όνομα",
         "LASTNAME": "Επίθετο",
         "USERNAME": "Ψευδώνυμο",
-        "KEYCLOAKID": "KeycloakId"
+        "KEYCLOAKID": "KeycloakId",
+        "ROLES": "Ρόλοι",
+        "LOADING_ROLES": "Φόρτωση ρόλων...",
+        "NO_ROLES": "Δεν έχουν ανατεθεί ρόλοι"
     },
     "UPLOADFILE": {
         "MENU": "Λήψη",
@@ -929,6 +932,7 @@
         "AUTHORIZED_TO_USE": "Εξουσιοδοτημένος για χρήση",
         "MEMBER": "Μέλος",
         "OWNER": "Ιδιοκτήτης",
-        "REMOVE": "Αφαίρεση"
+        "REMOVE": "Αφαίρεση",
+        "ROLE": "Ρόλος"
     }
 }

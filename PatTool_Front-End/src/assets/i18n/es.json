@@ -594,7 +594,10 @@
         "FIRSTNAME": "Nombre",
         "LASTNAME": "Apellido",
         "USERNAME": "Nombre de usuario",
-        "KEYCLOAKID": "KeycloakId"
+        "KEYCLOAKID": "KeycloakId",
+        "ROLES": "Roles",
+        "LOADING_ROLES": "Cargando roles...",
+        "NO_ROLES": "No hay roles asignados"
     },
     "UPLOADFILE": {
         "MENU": "Subir",
@@ -931,6 +934,7 @@
         "AUTHORIZED_TO_USE": "Autorizado para usar",
         "MEMBER": "Miembro",
         "OWNER": "Propietario",
-        "REMOVE": "Eliminar"
+        "REMOVE": "Eliminar",
+        "ROLE": "Rol"
     }
 }

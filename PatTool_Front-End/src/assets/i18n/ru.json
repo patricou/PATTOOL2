@@ -588,7 +588,10 @@
         "FIRSTNAME": "Имя",
         "LASTNAME": "Фамилия",
         "USERNAME": "Имя пользователя",
-        "KEYCLOAKID": "KeycloakId"
+        "KEYCLOAKID": "KeycloakId",
+        "ROLES": "Роли",
+        "LOADING_ROLES": "Загрузка ролей...",
+        "NO_ROLES": "Роли не назначены"
     },
     "UPLOADFILE": {
         "MENU": "Загрузить",
@@ -925,6 +928,7 @@
         "AUTHORIZED_TO_USE": "Авторизован для использования",
         "MEMBER": "Участник",
         "OWNER": "Владелец",
-        "REMOVE": "Удалить"
+        "REMOVE": "Удалить",
+        "ROLE": "Роль"
     }
 }

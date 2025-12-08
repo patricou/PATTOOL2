@@ -130,12 +130,15 @@
 
     <div class="users-list">
       <div *ngFor="let user of getFilteredUsers()" class="user-card compact-user-card">
+        <!-- Card Header with User Name -->
+        <div class="user-header">
+          <h6 class="mb-0">
+            <i class="fa fa-user-circle me-2"></i>
+            {{ user.firstName }} {{ user.lastName }}
+          </h6>
+        </div>
         <div class="user-info">
-          <div class="user-avatar">
-            <i class="fa fa-user-circle compact-avatar"></i>
-          </div>
           <div class="user-details">
-            <h6 class="compact-title mb-1">{{ user.firstName }} {{ user.lastName }}</h6>
             <p class="text-muted compact-text mb-1">
               <i class="fa fa-at"></i> {{ user.userName }}
             </p>
@@ -150,6 +153,13 @@
               <i class="fa fa-clock-o"></i> 
               {{ user.lastConnectionDate | date:'short' }}
             </p>
+            <div class="text-muted compact-text mb-1" *ngIf="getUserRoles(user) && getUserRoles(user).length > 0">
+              <i class="fa fa-shield"></i> 
+              {{ 'FRIENDS.ROLE' | translate }}: 
+              <span *ngFor="let role of getUserRoles(user); let last = last">
+                <span class="badge me-1" [ngClass]="getRoleBadgeClass(role)">{{ role }}</span>
+              </span>
+            </div>
             <p class="text-muted compact-text mb-0" *ngIf="getUserStatus(user) === 'sent' && getSentRequestDate(user)">
               <i class="fa fa-paper-plane"></i>
               {{ 'FRIENDS.REQUEST_SENT' | translate }}: {{ getSentRequestDate(user) | date:'short' }}
@@ -208,12 +218,15 @@
 
     <div *ngIf="pendingRequests.length > 0" class="requests-list">
       <div *ngFor="let request of getSortedPendingRequests()" class="request-card compact-user-card">
+        <!-- Card Header with User Name -->
+        <div class="request-header">
+          <h6 class="mb-0">
+            <i class="fa fa-user-circle me-2"></i>
+            {{ request.requester.firstName }} {{ request.requester.lastName }}
+          </h6>
+        </div>
         <div class="request-info">
-          <div class="user-avatar">
-            <i class="fa fa-user-circle compact-avatar"></i>
-          </div>
           <div class="request-details">
-            <h6 class="compact-title mb-1">{{ request.requester.firstName }} {{ request.requester.lastName }}</h6>
             <p class="text-muted compact-text mb-1">
               <i class="fa fa-at"></i> {{ request.requester.userName }}
             </p>
@@ -254,12 +267,15 @@
 
     <div *ngIf="friends.length > 0" class="friends-list">
       <div *ngFor="let friend of getSortedFriends()" class="friend-card compact-user-card">
+        <!-- Card Header with User Name -->
+        <div class="friend-header">
+          <h6 class="mb-0">
+            <i class="fa fa-user-circle me-2"></i>
+            {{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }}
+          </h6>
+        </div>
         <div class="friend-info">
-          <div class="user-avatar">
-            <i class="fa fa-user-circle compact-avatar"></i>
-          </div>
           <div class="friend-details">
-            <h6 class="compact-title mb-1">{{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }}</h6>
             <p class="text-muted compact-text mb-1">
               <i class="fa fa-at"></i> {{ getOtherUser(friend).userName }}
             </p>
@@ -378,6 +394,13 @@
 
     <div *ngIf="getFilteredGroups().length > 0" class="groups-list">
       <div *ngFor="let group of getFilteredGroups()" class="group-card card mb-2">
+        <!-- Card Header with Group Name -->
+        <div class="card-header">
+          <h5 class="mb-0">
+            <i class="fa fa-users me-2"></i>
+            {{ group.name }}
+          </h5>
+        </div>
         <div class="card-body compact-card-body">
           <!-- Badge at the top of the card -->
           <div class="d-flex justify-content-center mb-2">
@@ -423,7 +446,6 @@
                     Discussion
                   </button>
                 </div>
-                <h6 class="compact-title mb-1">{{ group.name }}</h6>
                 <p class="text-muted compact-text mb-1">
                   <i class="fa fa-user"></i>
                   <strong>{{ group.owner.firstName }} {{ group.owner.lastName }}</strong> (<i class="fa fa-at"></i> {{ group.owner.userName }})

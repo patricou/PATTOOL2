@@ -586,7 +586,10 @@
         "FIRSTNAME": "שם פרטי",
         "LASTNAME": "שם משפחה",
         "USERNAME": "כינוי",
-        "KEYCLOAKID": "מזהה Keycloak"
+        "KEYCLOAKID": "מזהה Keycloak",
+        "ROLES": "תפקידים",
+        "LOADING_ROLES": "טוען תפקידים...",
+        "NO_ROLES": "לא הוקצו תפקידים"
     },
     "UPLOADFILE": {
         "MENU": "העלה",
@@ -923,6 +926,7 @@
         "AUTHORIZED_TO_USE": "מורשה לשימוש",
         "MEMBER": "חבר",
         "OWNER": "בעלים",
-        "REMOVE": "הסר"
+        "REMOVE": "הסר",
+        "ROLE": "תפקיד"
     }
 }

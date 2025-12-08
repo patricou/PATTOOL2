@@ -576,7 +576,10 @@
         "FIRSTNAME": "प्रथम नाम",
         "LASTNAME": "अंतिम नाम",
         "USERNAME": "उपयोगकर्ता नाम",
-        "KEYCLOAKID": "KeycloakId"
+        "KEYCLOAKID": "KeycloakId",
+        "ROLES": "भूमिकाएं",
+        "LOADING_ROLES": "भूमिकाएं लोड हो रही हैं...",
+        "NO_ROLES": "कोई भूमिका निर्दिष्ट नहीं"
     },
     "UPLOADFILE": {
         "MENU": "अपलोड",
@@ -922,7 +925,8 @@
         "AUTHORIZED_TO_USE": "उपयोग के लिए अधिकृत",
         "MEMBER": "सदस्य",
         "OWNER": "मालिक",
-        "REMOVE": "हटाएं"
+        "REMOVE": "हटाएं",
+        "ROLE": "भूमिका"
     }
 }
 

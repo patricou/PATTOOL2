@@ -280,6 +280,62 @@ export class FriendsComponent implements OnInit {
     return friendship?.friendshipDate || null;
   }
 
+  /**
+   * Get user roles as an array (parse from comma-separated string if needed)
+   * @param user The user member
+   * @return Array of role names, or empty array if no roles
+   */
+  getUserRoles(user: Member): string[] {
+    if (!user) {
+      return [];
+    }
+    
+    // Check if roles exist (could be string from backend or array)
+    const roles = (user as any).roles;
+    
+    if (!roles) {
+      return [];
+    }
+    
+    // If it's already an array, return it
+    if (Array.isArray(roles)) {
+      return roles.filter((r: string) => r && r.trim().length > 0);
+    }
+    
+    // If it's a string (comma-separated), parse it
+    if (typeof roles === 'string' && roles.trim().length > 0) {
+      return roles.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+    }
+    
+    return [];
+  }
+
+  /**
+   * Get badge color class based on role
+   * @param role The role name
+   * @return Badge color class (bg-danger for admin, bg-success for user, bg-primary for others)
+   */
+  getRoleBadgeClass(role: string): string {
+    if (!role) {
+      return 'bg-primary';
+    }
+    
+    const roleLower = role.toLowerCase().trim();
+    
+    // Admin role: red badge
+    if (roleLower === 'admin' || roleLower === 'administrator') {
+      return 'bg-danger';
+    }
+    
+    // User role: green badge
+    if (roleLower === 'user') {
+      return 'bg-success';
+    }
+    
+    // All other roles: blue badge
+    return 'bg-primary';
+  }
+
   getFilteredUsers(): Member[] {
     let filtered = [...this.allUsers];
     

@@ -1,6 +1,5 @@
 package com.pat.repo.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -18,8 +17,7 @@ public class Member {
     private String addressEmail;
     private String userName;
     private String keycloakId;
-    @JsonIgnore
-    private String roles;
+    private String roles; // User roles from Keycloak (comma-separated)
     private Date registrationDate;
     private Date lastConnectionDate;
     private String locale; // User's language preference (e.g., "fr", "en")

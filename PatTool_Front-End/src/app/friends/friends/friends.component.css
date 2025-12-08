@@ -154,6 +154,27 @@
   font-size: 0.875rem;
 }
 
+.user-header,
+.request-header,
+.friend-header {
+  background: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  padding: 0.5rem 0.75rem;
+  margin: -0.75rem -0.75rem 0.75rem -0.75rem;
+  border-radius: 8px 8px 0 0;
+}
+
+.user-header h6,
+.request-header h6,
+.friend-header h6 {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  display: flex;
+  align-items: center;
+}
+
 .user-card:hover,
 .request-card:hover,
 .friend-card:hover {

@@ -350,6 +350,31 @@
                         <div class="info-value">{{user.id}}</div>
                     </div>
                 </div>
+                
+                <div class="user-info-item">
+                    <div class="info-icon">
+                        <i class="fa fa-shield"></i>
+                    </div>
+                    <div class="info-content">
+                        <div class="info-label">{{"USERINFO.ROLES" | translate}}</div>
+                        <div class="info-value">
+                            <div *ngIf="isLoadingRoles" class="d-flex align-items-center">
+                                <div class="spinner-border spinner-border-sm text-primary me-2" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <span>{{"USERINFO.LOADING_ROLES" | translate}}</span>
+                            </div>
+                            <div *ngIf="!isLoadingRoles && userRoles && userRoles.length > 0" class="roles-container">
+                                <span *ngFor="let role of userRoles; let last = last" class="badge me-1 mb-1" [ngClass]="getRoleBadgeClass(role)">
+                                    {{role}}
+                                </span>
+                            </div>
+                            <div *ngIf="!isLoadingRoles && (!userRoles || userRoles.length === 0)" class="text-muted">
+                                {{"USERINFO.NO_ROLES" | translate}}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         

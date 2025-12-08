@@ -6,10 +6,14 @@ import com.pat.repo.MembersRepository;
 import com.pat.repo.UserConnectionLogRepository;
 import com.pat.service.ExceptionTrackingService;
 import com.pat.service.IpGeolocationService;
+import com.pat.service.KeycloakService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 
@@ -19,6 +23,7 @@ import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
@@ -46,6 +51,9 @@ public class MemberRestController {
 
     @Autowired
     private UserConnectionLogRepository userConnectionLogRepository;
+
+    @Autowired
+    private KeycloakService keycloakService;
 
     @Value("${app.connection.email.enabled:false}")
     private boolean connectionEmailEnabled;
@@ -86,6 +94,9 @@ public class MemberRestController {
                     member.setLocale(memberWithId.getLocale());
                 }
             }
+            
+            // Fetch and update roles from Keycloak if keycloakId is available
+            updateMemberRolesFromKeycloak(member);
 
             String ipAddress = request.getHeader("X-Forwarded-For");
             if (ipAddress == null) {
@@ -133,6 +144,10 @@ public class MemberRestController {
             // New user - set registration date
             member.setRegistrationDate(now);
             member.setLastConnectionDate(now);
+            
+            // Fetch and update roles from Keycloak if keycloakId is available
+            updateMemberRolesFromKeycloak(member);
+            
             // New user - still send email notification
             log.debug("New user connection detected - Username: {}", member.getUserName());
             
@@ -230,6 +245,74 @@ public class MemberRestController {
         log.debug("Get Member : " +  id );
         return membersRepository.findById(id).orElse(null);
     }
+
+    /**
+     * Update member roles from Keycloak
+     * Primary method: Extract from JWT token (more reliable, no additional config needed)
+     * Fallback: Try Admin API if JWT doesn't have roles
+     * @param member The member to update
+     */
+    private void updateMemberRolesFromKeycloak(Member member) {
+        if (member.getKeycloakId() == null || member.getKeycloakId().trim().isEmpty()) {
+            log.debug("No Keycloak ID available, skipping role update");
+            member.setRoles("");
+            return;
+        }
+
+        List<String> roles = new ArrayList<>();
+        
+        // PRIMARY METHOD: Try to extract from JWT token first (most reliable)
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof Jwt) {
+                Jwt jwt = (Jwt) authentication.getPrincipal();
+                log.debug("Attempting to extract roles from JWT token for user: {}", member.getKeycloakId());
+                List<String> jwtRoles = keycloakService.extractRolesFromJwt(jwt);
+                if (jwtRoles != null && !jwtRoles.isEmpty()) {
+                    roles = jwtRoles;
+                    log.debug("Successfully extracted {} roles from JWT token: {}", roles.size(), roles);
+                } else {
+                    log.warn("JWT token contains no roles for user: {}", member.getKeycloakId());
+                }
+            } else {
+                log.debug("No JWT token available in SecurityContext for user: {}", member.getKeycloakId());
+            }
+        } catch (Exception e) {
+            log.error("Error extracting roles from JWT token for user {}: {}", member.getKeycloakId(), e.getMessage(), e);
+        }
+        
+        // FALLBACK: If JWT didn't provide roles, try Admin API (requires service account configuration)
+        if (roles.isEmpty()) {
+            try {
+                log.debug("JWT extraction failed, attempting to fetch roles from Keycloak Admin API for user: {}", member.getKeycloakId());
+                List<String> adminRoles = keycloakService.getUserRoles(member.getKeycloakId());
+                if (adminRoles != null && !adminRoles.isEmpty()) {
+                    roles = adminRoles;
+                    log.debug("Successfully fetched {} roles from Admin API: {}", roles.size(), roles);
+                } else {
+                    log.warn("Admin API returned no roles for user: {}", member.getKeycloakId());
+                }
+            } catch (Exception e) {
+                log.warn("Admin API failed for user {} (this is expected if service account is not configured): {}", 
+                        member.getKeycloakId(), e.getMessage());
+                // Don't log full stack trace for 401 errors as they're expected without proper config
+                if (!e.getMessage().contains("401") && !e.getMessage().contains("Unauthorized")) {
+                    log.error("Unexpected error from Admin API: {}", e.getMessage(), e);
+                }
+            }
+        }
+        
+        // Update member roles
+        if (!roles.isEmpty()) {
+            String rolesString = String.join(", ", roles);
+            member.setRoles(rolesString);
+            log.debug("Updated member roles for user {}: {}", member.getKeycloakId(), rolesString);
+        } else {
+            log.warn("No roles found for user {} - ensure roles are included in JWT token or configure Admin API service account", member.getKeycloakId());
+            member.setRoles("");
+        }
+    }
+
 
     private String getIp(){
         try{

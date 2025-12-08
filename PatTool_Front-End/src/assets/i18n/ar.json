@@ -591,7 +591,10 @@
         "FIRSTNAME": "الاسم الأول",
         "LASTNAME": "اسم العائلة",
         "USERNAME": "اسم المستخدم",
-        "KEYCLOAKID": "معرف Keycloak"
+        "KEYCLOAKID": "معرف Keycloak",
+        "ROLES": "الأدوار",
+        "LOADING_ROLES": "جاري تحميل الأدوار...",
+        "NO_ROLES": "لا توجد أدوار معينة"
     },
     "UPLOADFILE": {
         "MENU": "تحميل",
@@ -928,6 +931,7 @@
         "AUTHORIZED_TO_USE": "مصرح بالاستخدام",
         "MEMBER": "عضو",
         "OWNER": "المالك",
-        "REMOVE": "إزالة"
+        "REMOVE": "إزالة",
+        "ROLE": "دور"
     }
 }

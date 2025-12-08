@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild, HostListener } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, HostListener, TemplateRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { TranslateService, LangChangeEvent } from '@ngx-translate/core';
 import { KeycloakService } from './keycloak/keycloak.service';
@@ -17,7 +17,11 @@ import * as piexif from 'piexifjs';
 })
 export class AppComponent implements OnInit {
 
+    @ViewChild('usercontent') usercontent!: TemplateRef<any>;
+
     public user: Member = new Member("", "", "", "", "", [], "");
+    public userRoles: string[] = []; // User roles from Keycloak
+    public isLoadingRoles: boolean = false; // Loading state for roles
     public selectedFiles: File[] = [];
     public fileInfoMap: Map<string, { originalSize: number; compressedSize?: number; isCompressed: boolean }> = new Map();
     public resultSaveOndisk: string = "";
@@ -110,6 +114,16 @@ export class AppComponent implements OnInit {
         this._membersService.getUserId().subscribe(member => {
             // console.log("1/1|------------------> UserId from AppComponent ok : user.is :  " + member.id + " / " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
             this.user.id = member.id;
+            // Update user object with member data (including roles)
+            this.user = { ...this.user, ...member };
+            // Parse roles from member if available (roles are stored as comma-separated string in backend)
+            if ((member as any).roles) {
+                const rolesStr = (member as any).roles;
+                if (rolesStr && typeof rolesStr === 'string' && rolesStr.trim().length > 0) {
+                    this.userRoles = rolesStr.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+                    console.log("Roles parsed from member on connection:", this.userRoles);
+                }
+            }
             // reset the user in the service ( with id ) otherwyse it is not present ( which is strange )
             this._membersService.setUser(this.user);
         },
@@ -121,12 +135,69 @@ export class AppComponent implements OnInit {
 
     public open(content: any) {
         this.resultSaveOndisk = "";
+        
+        // If opening user content modal, fetch roles
+        if (content === this.usercontent) {
+            this.loadUserRoles();
+        }
 
         this.modalService.open(content, { backdrop: 'static', keyboard: false }).result.then((result) => {
             this.closeResult = `Closed with: ${result}`;
         }, (reason) => {
             this.closeResult = `Dismissed ${this.getDismissReason(reason)}`;
         });
+    }
+
+    /**
+     * Load user roles from member object (which is updated on connection)
+     */
+    private loadUserRoles(): void {
+        this.isLoadingRoles = false; // No loading needed, data is already available
+        this.userRoles = [];
+        
+        // Get roles from member object (roles are stored as comma-separated string in backend)
+        if (this.user && (this.user as any).roles) {
+            const rolesStr = (this.user as any).roles;
+            if (rolesStr && typeof rolesStr === 'string' && rolesStr.trim().length > 0) {
+                // Parse comma-separated string into array
+                this.userRoles = rolesStr.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+                console.log("Roles loaded from member:", this.userRoles);
+            } else if (Array.isArray(rolesStr)) {
+                // If it's already an array (shouldn't happen but handle it)
+                this.userRoles = rolesStr;
+                console.log("Roles loaded from member (array):", this.userRoles);
+            }
+        }
+        
+        if (this.userRoles.length === 0) {
+            console.warn("No roles found in member object");
+        }
+    }
+
+    /**
+     * Get badge color class based on role
+     * @param role The role name
+     * @return Badge color class (bg-danger for admin, bg-success for user, bg-primary for others)
+     */
+    getRoleBadgeClass(role: string): string {
+        if (!role) {
+            return 'bg-primary';
+        }
+        
+        const roleLower = role.toLowerCase().trim();
+        
+        // Admin role: red badge
+        if (roleLower === 'admin' || roleLower === 'administrator') {
+            return 'bg-danger';
+        }
+        
+        // User role: green badge
+        if (roleLower === 'user') {
+            return 'bg-success';
+        }
+        
+        // All other roles: blue badge
+        return 'bg-primary';
     }
 
     public getDismissReason(reason: any): string {

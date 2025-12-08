@@ -45,8 +45,18 @@ export class MembersService {
                     let now = new Date();
                     // Set the user's language preference before sending
                     this.user.locale = this._commonValuesService.getLang();
+                    
+                    // Convert roles array to comma-separated string for backend (backend expects String, not array)
+                    const userToSend = { ...this.user };
+                    if (userToSend.roles && Array.isArray(userToSend.roles)) {
+                        (userToSend as any).roles = userToSend.roles.join(', ');
+                    } else if (!userToSend.roles || (typeof (userToSend as any).roles !== 'string')) {
+                        // If roles is not an array or string, set to empty string
+                        (userToSend as any).roles = '';
+                    }
+                    
                     // console.log("2|------------------> Just before user POST request : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds());
-                    return this._http.post<any>(this.API_URL + 'memb/user', this.user, { headers: headers }).pipe(
+                    return this._http.post<any>(this.API_URL + 'memb/user', userToSend, { headers: headers }).pipe(
                         map((res: any) => {
                             let now = new Date();
                             // console.log("3|------------------> OK : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds() );

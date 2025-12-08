@@ -595,7 +595,10 @@
         "FIRSTNAME": "名前",
         "LASTNAME": "苗字",
         "USERNAME": "ユーザー名",
-        "KEYCLOAKID": "KeycloakId"
+        "KEYCLOAKID": "KeycloakId",
+        "ROLES": "役割",
+        "LOADING_ROLES": "役割を読み込み中...",
+        "NO_ROLES": "役割が割り当てられていません"
     },
     "UPLOADFILE": {
         "MENU": "ダウンロード",
@@ -932,6 +935,7 @@
         "AUTHORIZED_TO_USE": "使用許可済み",
         "MEMBER": "メンバー",
         "OWNER": "所有者",
-        "REMOVE": "削除"
+        "REMOVE": "削除",
+        "ROLE": "役割"
     }
 }
