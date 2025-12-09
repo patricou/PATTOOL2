@@ -3,17 +3,23 @@ package com.pat.config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
-import java.util.Arrays;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
@@ -28,10 +34,64 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origins:http://localhost:4200,http://localhost:8000}")
     private String allowedOrigins;
 
+    @Value("${keycloak.client-id:tutorial-frontend}")
+    private String keycloakClientId;
+
     @Bean
     public JwtDecoder jwtDecoder() {
         String jwkSetUri = keycloakAuthServerUrl + "/realms/" + keycloakRealm + "/protocol/openid-connect/certs";
         return NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+    }
+
+    /**
+     * JWT Authentication Converter to extract roles from Keycloak JWT tokens
+     * Extracts roles from both realm_access.roles and resource_access.{clientId}.roles
+     */
+    @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(new KeycloakJwtGrantedAuthoritiesConverter());
+        return converter;
+    }
+
+    /**
+     * Custom converter to extract roles from Keycloak JWT tokens
+     */
+    private class KeycloakJwtGrantedAuthoritiesConverter implements Converter<Jwt, Collection<GrantedAuthority>> {
+        @Override
+        public Collection<GrantedAuthority> convert(Jwt jwt) {
+            Collection<GrantedAuthority> authorities = new ArrayList<>();
+
+            // Extract realm-level roles from realm_access.roles
+            Map<String, Object> realmAccess = jwt.getClaimAsMap("realm_access");
+            if (realmAccess != null) {
+                @SuppressWarnings("unchecked")
+                List<String> realmRoles = (List<String>) realmAccess.get("roles");
+                if (realmRoles != null) {
+                    authorities.addAll(realmRoles.stream()
+                            .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                            .collect(Collectors.toList()));
+                }
+            }
+
+            // Extract client-level roles from resource_access.{clientId}.roles
+            Map<String, Object> resourceAccess = jwt.getClaimAsMap("resource_access");
+            if (resourceAccess != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get(keycloakClientId);
+                if (clientAccess != null) {
+                    @SuppressWarnings("unchecked")
+                    List<String> clientRoles = (List<String>) clientAccess.get("roles");
+                    if (clientRoles != null) {
+                        authorities.addAll(clientRoles.stream()
+                                .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                                .collect(Collectors.toList()));
+                    }
+                }
+            }
+
+            return authorities;
+        }
     }
 
     @Bean
@@ -76,53 +136,71 @@ public class SecurityConfig {
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwt -> jwt
                     .jwkSetUri(jwkSetUri)
+                    .jwtAuthenticationConverter(jwtAuthenticationConverter())
                 )
             )
             .authorizeHttpRequests(authz -> authz
-                // WebSocket endpoint - must be permitted first
-                .requestMatchers("/ws/**").permitAll()
                 // ============================================
-                // SECURITY BLOCKS - Explicitly deny access
+                // SECURITY BLOCKS - Explicitly deny access first
                 // ============================================
                 .requestMatchers("/.git/**", "*.php").denyAll()
                 
                 // ============================================
-                // PUBLIC ENDPOINTS - No authentication required
+                // PUBLIC STATIC RESOURCES - Required for app initialization
+                // These must be accessible for Angular to load and initialize Keycloak
                 // ============================================
+                // Health check endpoint (monitoring)
                 .requestMatchers("/actuator/health").permitAll()
                 
-                // ============================================
-                // STATIC FILES - Allow access without authentication
-                // These files must be accessible for Angular to load and initialize Keycloak
-                // ============================================
                 // Root and index files
                 .requestMatchers("/", "/index.html", "/favicon.ico", "/robots.txt").permitAll()
-                // All assets directory
-                .requestMatchers("/assets/**").permitAll()
-                // JavaScript files (Angular bundles)
-                .requestMatchers("/*.js", "/*.js.map").permitAll()
-                // CSS files
-                .requestMatchers("/*.css", "/*.css.map").permitAll()
-                // Other static resources
-                .requestMatchers("/i18n/**", "/.well-known/**").permitAll()
-                // Angular routing paths (to be handled by WebConfig which forwards to index.html)
-                .requestMatchers("/even", "/neweven", "/updeven/**", "/details-evenement/**", 
-                                "/results", "/maps", "/links", "/links-admin", "/friends", "/iot", "/patgpt", "/system").permitAll()
                 
-                // ============================================
-                // AUTHENTICATED ENDPOINTS - Require authentication
-                // ============================================
-                // Discussion file serving endpoint - allow public access for images/videos
-                .requestMatchers("/api/discussions/files/**").permitAll()
-                .requestMatchers("/api/**").authenticated()
-                .requestMatchers("/database/**").authenticated()
-                .requestMatchers("/uploadfile/**").authenticated()
-                .requestMatchers("/uploadondisk/**").authenticated()
-                // WebSocket endpoint - allow for real-time discussions
+                // Static assets (JavaScript, CSS, images, fonts, etc.)
+                .requestMatchers("/assets/**", "/*.js", "/*.js.map", "/*.css", "/*.css.map", 
+                                "/i18n/**", "/.well-known/**").permitAll()
+                
+                // WebSocket endpoint (for real-time features)
                 .requestMatchers("/ws/**").permitAll()
                 
-                // All other requests - permit all (will be handled by Angular routing)
-                // Note: API endpoints above are protected, static files are permitted above
+                // ============================================
+                // PUBLIC API ENDPOINTS - Only what's necessary for app connection
+                // ============================================
+                // Discussion files (public images/videos - needed for display)
+                .requestMatchers("/api/discussions/files/**").permitAll()
+                
+                // ============================================
+                // ROLE-BASED API ENDPOINTS - Require specific roles
+                // ============================================
+                // IoT endpoints - require Iot role
+                .requestMatchers("/iot", "/api/testarduino", "/api/opcl").hasRole("Iot")
+                
+                // ============================================
+                // AUTHENTICATED API ENDPOINTS - Default: All APIs require authentication
+                // ============================================
+                // All API endpoints require authentication by default
+                // Note: More specific API rules (role-based) are defined above and checked first
+                // IMPORTANT: This rule MUST come before .anyRequest() to protect all /api/** endpoints
+                .requestMatchers("/api/**").authenticated()
+                
+                // Other authenticated endpoints (non-API)
+                .requestMatchers("/database/**", "/uploadfile/**", "/uploadondisk/**").authenticated()
+                
+                // ============================================
+                // FRONTEND ROUTING - Angular routes (permit for SPA routing)
+                // ============================================
+                // Angular routing paths (to be handled by WebConfig which forwards to index.html)
+                // Note: /iot is protected above and requires Iot role
+                .requestMatchers("/even", "/neweven", "/updeven/**", "/details-evenement/**", 
+                                "/results", "/maps", "/links", "/links-admin",
+                                "/friends", "/patgpt", "/system").permitAll()
+                
+                // ============================================
+                // DEFAULT - Permit for Angular SPA routing
+                // ============================================
+                // SECURITY NOTE: This permits all other requests for Angular routing.
+                // All API endpoints are protected above via /api/** rule.
+                // Any new API endpoints MUST be under /api/** or explicitly protected above.
+                // Frontend routes are safe to permit as they only serve index.html.
                 .anyRequest().permitAll()
             );
         

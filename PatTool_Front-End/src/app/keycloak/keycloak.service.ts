@@ -149,4 +149,136 @@ export class KeycloakService {
     return member;
 
   }
+
+  /**
+   * Check if the current user has a specific role
+   * @param role The role name to check (without ROLE_ prefix)
+   * @returns true if user has the role, false otherwise
+   */
+  hasRole(role: string): boolean {
+    if (!KeycloakService.auth.authz) {
+      console.warn('Keycloak not initialized in hasRole check');
+      return false;
+    }
+    
+    const authz = KeycloakService.auth.authz;
+    
+    // Check realm roles using hasRealmRole method
+    if (authz.hasRealmRole && typeof authz.hasRealmRole === 'function') {
+      if (authz.hasRealmRole(role)) {
+        return true;
+      }
+    }
+    
+    // Check resource roles (client roles) using hasResourceRole method
+    if (authz.hasResourceRole && typeof authz.hasResourceRole === 'function') {
+      // Try with explicit clientId
+      if (authz.hasResourceRole(role, 'tutorial-frontend')) {
+        return true;
+      }
+      // Try without clientId (uses default)
+      if (authz.hasResourceRole(role)) {
+        return true;
+      }
+    }
+    
+    // Fallback: Check token directly if methods don't work
+    if (authz.tokenParsed) {
+      const tokenParsed = authz.tokenParsed;
+      
+      // Check realm_access.roles (case-insensitive comparison)
+      if (tokenParsed.realm_access && tokenParsed.realm_access.roles) {
+        const realmRoles = tokenParsed.realm_access.roles;
+        if (Array.isArray(realmRoles)) {
+          for (const realmRole of realmRoles) {
+            if (realmRole && realmRole.toLowerCase() === role.toLowerCase()) {
+              return true;
+            }
+          }
+        }
+      }
+      
+      // Check resource_access.{clientId}.roles (case-insensitive comparison)
+      if (tokenParsed.resource_access) {
+        const clientId = authz.clientId || 'tutorial-frontend';
+        const clientAccess = tokenParsed.resource_access[clientId];
+        if (clientAccess && clientAccess.roles) {
+          const clientRoles = clientAccess.roles;
+          if (Array.isArray(clientRoles)) {
+            for (const clientRole of clientRoles) {
+              if (clientRole && clientRole.toLowerCase() === role.toLowerCase()) {
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Check if the current user has Iot role
+   * @returns true if user has Iot role, false otherwise
+   */
+  hasIotRole(): boolean {
+    // Check both "Iot" and "iot" (case-insensitive)
+    return this.hasRole('Iot') || this.hasRole('iot');
+  }
+
+  /**
+   * Check if the current user has Admin role
+   * @returns true if user has Admin role, false otherwise
+   */
+  hasAdminRole(): boolean {
+    // Check both "Admin" and "admin" (case-insensitive)
+    return this.hasRole('Admin') || this.hasRole('admin');
+  }
+
+  /**
+   * Check if the current user has FileSystem role
+   * @returns true if user has FileSystem role, false otherwise
+   */
+  hasFileSystemRole(): boolean {
+    // Check both "FileSystem" and "filesystem" (case-insensitive)
+    return this.hasRole('FileSystem') || this.hasRole('filesystem');
+  }
+
+  /**
+   * Get all roles for the current user (for debugging)
+   * @returns Array of role names
+   */
+  getAllRoles(): string[] {
+    const roles: string[] = [];
+    
+    if (!KeycloakService.auth.authz) {
+      console.warn('Keycloak not initialized in getAllRoles');
+      return roles;
+    }
+    
+    const authz = KeycloakService.auth.authz;
+    
+    // Get realm roles from token
+    if (authz.tokenParsed && authz.tokenParsed.realm_access && authz.tokenParsed.realm_access.roles) {
+      const realmRoles = authz.tokenParsed.realm_access.roles;
+      if (Array.isArray(realmRoles)) {
+        roles.push(...realmRoles);
+      }
+    }
+    
+    // Get resource roles from token
+    if (authz.tokenParsed && authz.tokenParsed.resource_access) {
+      const clientId = authz.clientId || 'tutorial-frontend';
+      const clientAccess = authz.tokenParsed.resource_access[clientId];
+      if (clientAccess && clientAccess.roles) {
+        const clientRoles = clientAccess.roles;
+        if (Array.isArray(clientRoles)) {
+          roles.push(...clientRoles);
+        }
+      }
+    }
+    
+    return roles;
+  }
 }

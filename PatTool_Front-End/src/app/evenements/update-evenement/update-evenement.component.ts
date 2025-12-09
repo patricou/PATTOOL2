@@ -18,6 +18,7 @@ import { environment } from '../../../environments/environment';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 
 @Component({
 	selector: 'update-evenement',
@@ -52,6 +53,18 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		{id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO"},
 		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
 	];
+
+	/**
+	 * Get available URL event types based on user permissions
+	 * Filters out PHOTOFROMFS if user doesn't have FileSystem role
+	 */
+	public getAvailableUrlEventTypes(): {id: string, label: string}[] {
+		if (this._keycloakService.hasFileSystemRole()) {
+			return this.urlEventTypes;
+		}
+		// Filter out PHOTOFROMFS if user doesn't have FileSystem role
+		return this.urlEventTypes.filter(type => type.id !== 'PHOTOFROMFS');
+	}
 	public eventTypes: {value: string, label: string}[] = [
 		{ value: "11", label: "EVENTCREATION.TYPE.DOCUMENTS" },
 		{ value: "12", label: "EVENTCREATION.TYPE.FICHE" },
@@ -134,7 +147,8 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		private _fileService: FileService,
 	private modalService: NgbModal,
 	private translate: TranslateService,
-	private _friendsService: FriendsService
+	private _friendsService: FriendsService,
+	private _keycloakService: KeycloakService
 	) { }
 
 	ngOnInit() {
@@ -192,7 +206,7 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 
 	// Sorted list of URL event types by translated label
 	public getSortedUrlEventTypes(): {id: string, label: string}[] {
-		return [...this.urlEventTypes].sort((a, b) =>
+		return [...this.getAvailableUrlEventTypes()].sort((a, b) =>
 			this.translate.instant(a.label).localeCompare(this.translate.instant(b.label))
 		);
 	}
@@ -283,12 +297,9 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 	}
 	
 	// Check if user can create PHOTOFROMFS links
-	// This matches the backend authorization check using app.iot.userid
+	// Requires FileSystem role (matches backend authorization check)
 	private canCreatePhotoFromFsLink(): boolean {
-		// Authorized user ID from application.properties (app.iot.userid)
-		// This should match the value in PatTool_Back-End/src/main/resources/application.properties
-		const authorizedUserId = "590091a706443312403f7c53";
-		return this.user.id === authorizedUserId;
+		return this._keycloakService.hasFileSystemRole();
 	}
 
 	// Handle folder selection for PHOTOFROMFS (new link form)
@@ -882,9 +893,10 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 
         this.modalService.open(this.userModal, {
             centered: true,
-            size: 'lg',
+            size: 'md',
             backdrop: 'static',
-            keyboard: false
+            keyboard: false,
+            windowClass: 'user-modal-dialog'
         });
     }
 

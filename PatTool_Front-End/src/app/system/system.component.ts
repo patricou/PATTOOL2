@@ -104,6 +104,7 @@ export class SystemComponent implements OnInit {
   // AG Grid properties
   connectionLogsColumnDefs: ColDef[] = [];
   connectionLogsGridOptions: GridOptions = {
+    theme: 'legacy', // Use legacy CSS theme to avoid conflict with new Theming API
     defaultColDef: {
       sortable: true,
       filter: true,
@@ -124,11 +125,8 @@ export class SystemComponent implements OnInit {
 
   ngOnInit() {
     this.user = this._memberService.getUser();
-    this.checkShutdownAuthorization();
-    this.checkClearCacheAuthorization();
-    this.checkDeleteConnectionLogsAuthorization();
-    this.checkSaveCacheAuthorization();
-    this.checkLoadCacheAuthorization();
+    // Check authorization based on roles (Iot or Admin)
+    this.checkAuthorizations();
     this.loadCacheStats();
     this.pageLoadStartTime = performance.now();
     this.collectPerformanceStats();
@@ -144,6 +142,32 @@ export class SystemComponent implements OnInit {
     
     // Load active discussion connections on init
     this.loadActiveDiscussionConnections();
+  }
+
+  /**
+   * Check all authorizations based on user roles (Admin role for system operations)
+   */
+  checkAuthorizations(): void {
+    // Check Admin role
+    const hasAdminAccess = this._keycloakService.hasAdminRole();
+    
+    this.isShutdownAuthorized = hasAdminAccess;
+    this.isClearCacheAuthorized = hasAdminAccess;
+    this.isDeleteConnectionLogsAuthorized = hasAdminAccess;
+    this.isSaveCacheAuthorized = hasAdminAccess;
+    this.isLoadCacheAuthorized = hasAdminAccess;
+    
+    // Also check again after a short delay in case Keycloak wasn't fully initialized
+    setTimeout(() => {
+      const hasAdminAccessDelayed = this._keycloakService.hasAdminRole();
+      if (hasAdminAccessDelayed !== hasAdminAccess) {
+        this.isShutdownAuthorized = hasAdminAccessDelayed;
+        this.isClearCacheAuthorized = hasAdminAccessDelayed;
+        this.isDeleteConnectionLogsAuthorized = hasAdminAccessDelayed;
+        this.isSaveCacheAuthorized = hasAdminAccessDelayed;
+        this.isLoadCacheAuthorized = hasAdminAccessDelayed;
+      }
+    }, 500);
   }
   
   initializeConnectionLogsColumns(): void {
@@ -225,155 +249,6 @@ export class SystemComponent implements OnInit {
     ];
   }
 
-  checkShutdownAuthorization(): void {
-    if (this.user && this.user.id) {
-      this._cacheService.isShutdownAuthorized(this.user).subscribe(
-        response => {
-          let responseData = response;
-          if (response._body) {
-            responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
-          }
-          this.isShutdownAuthorized = responseData.authorized === true;
-        },
-        error => {
-          console.error('Error checking shutdown authorization:', error);
-          this.isShutdownAuthorized = false;
-        }
-      );
-    } else {
-      // If user not loaded yet, try to get it
-      this._memberService.getUserId().subscribe(
-        (member: Member) => {
-          this.user = member;
-          this.checkShutdownAuthorization();
-        },
-        error => {
-          console.error('Error getting user ID:', error);
-          this.isShutdownAuthorized = false;
-        }
-      );
-    }
-  }
-
-  checkClearCacheAuthorization(): void {
-    if (this.user && this.user.id) {
-      this._cacheService.isClearCacheAuthorized(this.user).subscribe(
-        response => {
-          let responseData = response;
-          if (response._body) {
-            responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
-          }
-          this.isClearCacheAuthorized = responseData.authorized === true;
-        },
-        error => {
-          console.error('Error checking clear cache authorization:', error);
-          this.isClearCacheAuthorized = false;
-        }
-      );
-    } else {
-      // If user not loaded yet, try to get it
-      this._memberService.getUserId().subscribe(
-        (member: Member) => {
-          this.user = member;
-          this.checkClearCacheAuthorization();
-        },
-        error => {
-          console.error('Error getting user ID:', error);
-          this.isClearCacheAuthorized = false;
-        }
-      );
-    }
-  }
-
-  checkDeleteConnectionLogsAuthorization(): void {
-    if (this.user && this.user.id) {
-      this._cacheService.isDeleteConnectionLogsAuthorized(this.user).subscribe(
-        response => {
-          let responseData = response;
-          if (response._body) {
-            responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
-          }
-          this.isDeleteConnectionLogsAuthorized = responseData.authorized === true;
-        },
-        error => {
-          console.error('Error checking delete connection logs authorization:', error);
-          this.isDeleteConnectionLogsAuthorized = false;
-        }
-      );
-    } else {
-      // If user not loaded yet, try to get it
-      this._memberService.getUserId().subscribe(
-        (member: Member) => {
-          this.user = member;
-          this.checkDeleteConnectionLogsAuthorization();
-        },
-        error => {
-          console.error('Error getting user ID:', error);
-          this.isDeleteConnectionLogsAuthorized = false;
-        }
-      );
-    }
-  }
-
-  checkSaveCacheAuthorization(): void {
-    if (this.user && this.user.id) {
-      this._cacheService.isSaveCacheAuthorized(this.user).subscribe(
-        response => {
-          let responseData = response;
-          if (response._body) {
-            responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
-          }
-          this.isSaveCacheAuthorized = responseData.authorized === true;
-        },
-        error => {
-          console.error('Error checking save cache authorization:', error);
-          this.isSaveCacheAuthorized = false;
-        }
-      );
-    } else {
-      // If user not loaded yet, try to get it
-      this._memberService.getUserId().subscribe(
-        (member: Member) => {
-          this.user = member;
-          this.checkSaveCacheAuthorization();
-        },
-        error => {
-          console.error('Error getting user ID:', error);
-          this.isSaveCacheAuthorized = false;
-        }
-      );
-    }
-  }
-
-  checkLoadCacheAuthorization(): void {
-    if (this.user && this.user.id) {
-      this._cacheService.isLoadCacheAuthorized(this.user).subscribe(
-        response => {
-          let responseData = response;
-          if (response._body) {
-            responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
-          }
-          this.isLoadCacheAuthorized = responseData.authorized === true;
-        },
-        error => {
-          console.error('Error checking load cache authorization:', error);
-          this.isLoadCacheAuthorized = false;
-        }
-      );
-    } else {
-      // If user not loaded yet, try to get it
-      this._memberService.getUserId().subscribe(
-        (member: Member) => {
-          this.user = member;
-          this.checkLoadCacheAuthorization();
-        },
-        error => {
-          console.error('Error getting user ID:', error);
-          this.isLoadCacheAuthorized = false;
-        }
-      );
-    }
-  }
 
   loadCacheStats(): void {
     this.isLoadingStats = true;
@@ -1133,12 +1008,10 @@ export class SystemComponent implements OnInit {
   }
   
   onGridReady(event: GridReadyEvent): void {
-    console.log('AG Grid ready', event);
     if (event.api) {
       // Auto-size columns to fit
       setTimeout(() => {
         event.api.sizeColumnsToFit();
-        console.log('Grid columns fitted, row count:', event.api.getDisplayedRowCount());
       }, 100);
     }
   }

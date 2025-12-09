@@ -4,7 +4,9 @@ import com.pat.repo.domain.Member;
 import com.pat.service.HomeIOTService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -16,10 +18,21 @@ public class HomeIOTController {
 
     private static final Logger log = LoggerFactory.getLogger(HomeIOTController.class);
 
-    @Value("${app.admin.userid}")
-    String UserId;
-
     private final HomeIOTService homeIOTService;
+    
+    /**
+     * Check if the current user has Iot role (case-insensitive)
+     */
+    private boolean hasIotRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Iot") || 
+                                     authority.equalsIgnoreCase("ROLE_iot"));
+    }
 
     public HomeIOTController(HomeIOTService homeIOTService) {
         this.homeIOTService = homeIOTService;
@@ -28,12 +41,12 @@ public class HomeIOTController {
     @PostMapping(value = "/opcl")
     public Map<String, Object> openOrCLosePortail(@RequestBody Member member) {
 
-        log.info(String.format(String.format("Open or close Portail / user id : %s ",member.getId() )));
-        if (this.UserId.equals(member.getId()))
+        log.info(String.format("Open or close Portail / user id : %s ", member.getId()));
+        if (hasIotRole()) {
             return homeIOTService.openOrClosePortail();
-        else {
-            Map map = new HashMap();
-            map.put("Unauthorized",member.getUserName() + " : You are not Authorized to Open/Close the external Gate ");
+        } else {
+            Map<String, Object> map = new HashMap<>();
+            map.put("Unauthorized", member.getUserName() + " : You are not Authorized to Open/Close the external Gate. Iot role required.");
             return map;
         }
     }
@@ -42,11 +55,11 @@ public class HomeIOTController {
     public Map<String, Object> testEthernetShield2(@RequestBody Member member) {
         log.info(String.format("Test Ethernet shield 2 / User id : %s ", member.getId()));
 
-        if (this.UserId.equals(member.getId()))
+        if (hasIotRole()) {
             return homeIOTService.testEthernetShield2();
-        else {
-            Map map = new HashMap();
-            map.put("Unauthorized",member.getUserName() + " : You are not Authorized to Test the Arduino ");
+        } else {
+            Map<String, Object> map = new HashMap<>();
+            map.put("Unauthorized", member.getUserName() + " : You are not Authorized to Test the Arduino. Iot role required.");
             return map;
         }
     }

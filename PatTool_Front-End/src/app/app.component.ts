@@ -22,6 +22,7 @@ export class AppComponent implements OnInit {
     public user: Member = new Member("", "", "", "", "", [], "");
     public userRoles: string[] = []; // User roles from Keycloak
     public isLoadingRoles: boolean = false; // Loading state for roles
+    public hasIotRole: boolean = false; // Check if user has Iot role for menu visibility
     public selectedFiles: File[] = [];
     public fileInfoMap: Map<string, { originalSize: number; compressedSize?: number; isCompressed: boolean }> = new Map();
     public resultSaveOndisk: string = "";
@@ -71,6 +72,8 @@ export class AppComponent implements OnInit {
 
     ngOnInit() {
         this.getUserInfo();
+        // Check Iot role for menu visibility
+        this.checkIotRole();
         // init translator
         this._translate.addLangs(environment.langs);
         this._translate.setDefaultLang('fr');
@@ -82,6 +85,19 @@ export class AppComponent implements OnInit {
             this._commonValuesServices.setLang(event.lang);
             //console.log("Change language : " + event.lang + " / c.v.s. getLang : " + this._commonValuesServices.getLang());
         });
+    }
+
+    /**
+     * Check if the current user has Iot role for menu visibility
+     */
+    checkIotRole(): void {
+        // Check immediately
+        this.hasIotRole = this._kc.hasIotRole();
+        
+        // Also check after a short delay in case Keycloak isn't fully initialized
+        setTimeout(() => {
+            this.hasIotRole = this._kc.hasIotRole();
+        }, 500);
     }
 
     logout() {
@@ -105,6 +121,8 @@ export class AppComponent implements OnInit {
     getUserInfo() {
         //Retrieve user info from Keycloak
         this.user = this._kc.getUserAsMember();
+        // Check Iot role immediately from Keycloak
+        this.hasIotRole = this._kc.hasIotRole();
         // Retrive the MLAB user (member) id from MLAB
         this._membersService.setUser(this.user);
         //this.user = this._membersService.getUser();
@@ -120,10 +138,19 @@ export class AppComponent implements OnInit {
             if ((member as any).roles) {
                 const rolesStr = (member as any).roles;
                 if (rolesStr && typeof rolesStr === 'string' && rolesStr.trim().length > 0) {
-                    this.userRoles = rolesStr.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
-                    console.log("Roles parsed from member on connection:", this.userRoles);
+                    // Filter out UMA-related roles (uma_protection, uma_authorization)
+                    this.userRoles = rolesStr.split(',').map((r: string) => r.trim()).filter((r: string) => 
+                        r.length > 0 && r !== 'uma_protection' && r !== 'uma_authorization'
+                    );
+                } else if (Array.isArray(rolesStr)) {
+                    // If roles is already an array, filter out UMA-related roles
+                    this.userRoles = rolesStr.filter((r: string) => 
+                        r && r !== 'uma_protection' && r !== 'uma_authorization'
+                    );
                 }
             }
+            // Check Iot role again after user info is loaded (in case Keycloak wasn't ready)
+            this.hasIotRole = this._kc.hasIotRole();
             // reset the user in the service ( with id ) otherwyse it is not present ( which is strange )
             this._membersService.setUser(this.user);
         },
@@ -159,12 +186,16 @@ export class AppComponent implements OnInit {
         if (this.user && (this.user as any).roles) {
             const rolesStr = (this.user as any).roles;
             if (rolesStr && typeof rolesStr === 'string' && rolesStr.trim().length > 0) {
-                // Parse comma-separated string into array
-                this.userRoles = rolesStr.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+                // Parse comma-separated string into array and filter out UMA-related roles
+                this.userRoles = rolesStr.split(',').map((r: string) => r.trim()).filter((r: string) => 
+                    r.length > 0 && r !== 'uma_protection' && r !== 'uma_authorization'
+                );
                 console.log("Roles loaded from member:", this.userRoles);
             } else if (Array.isArray(rolesStr)) {
-                // If it's already an array (shouldn't happen but handle it)
-                this.userRoles = rolesStr;
+                // If it's already an array, filter out UMA-related roles
+                this.userRoles = rolesStr.filter((r: string) => 
+                    r && r !== 'uma_protection' && r !== 'uma_authorization'
+                );
                 console.log("Roles loaded from member (array):", this.userRoles);
             }
         }
@@ -172,6 +203,23 @@ export class AppComponent implements OnInit {
         if (this.userRoles.length === 0) {
             console.warn("No roles found in member object");
         }
+    }
+
+    /**
+     * Get filtered user roles for display (excludes UMA roles)
+     * Filters out: uma_protection, uma_authorization
+     * @returns Array of roles excluding UMA-related roles
+     */
+    getDisplayRoles(): string[] {
+        if (!this.userRoles || this.userRoles.length === 0) {
+            return [];
+        }
+        // Filter out UMA-related roles (uma_protection, uma_authorization)
+        return this.userRoles.filter((role: string) => 
+            role && 
+            role !== 'uma_protection' && 
+            role !== 'uma_authorization'
+        );
     }
 
     /**

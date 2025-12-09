@@ -1728,8 +1728,47 @@ textarea.form-control {
     max-width: 40% !important;
 }
 
-/* Make upload logs modal wider */
-::ng-deep .modal-dialog:not(:has(.modal-header.bg-danger)) {
+/* Exclude user modal from the wide modal rule - user modal should use default Bootstrap sizing */
+/* Target modals using the custom windowClass and also by content */
+::ng-deep .user-modal-dialog.modal-dialog,
+::ng-deep .modal.show .user-modal-dialog.modal-dialog,
+::ng-deep .modal-dialog:has(.user-details),
+::ng-deep .modal.show .modal-dialog:has(.user-details),
+::ng-deep .modal-dialog:has(.modal-body .user-details),
+::ng-deep .modal.show .modal-dialog:has(.modal-body .user-details),
+::ng-deep .modal-lg:has(.user-details),
+::ng-deep .modal-md:has(.user-details) {
+    max-width: 500px !important;
+    width: 500px !important;
+    margin: 1.75rem auto !important;
+}
+
+/* Ensure modal content matches dialog width for user modal - no extra white space */
+::ng-deep .user-modal-dialog.modal-dialog .modal-content,
+::ng-deep .modal.show .user-modal-dialog.modal-dialog .modal-content,
+::ng-deep .modal-dialog:has(.user-details) .modal-content,
+::ng-deep .modal.show .modal-dialog:has(.user-details) .modal-content,
+::ng-deep .modal-dialog:has(.modal-body .user-details) .modal-content,
+::ng-deep .modal.show .modal-dialog:has(.modal-body .user-details) .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 auto !important;
+    box-sizing: border-box !important;
+}
+
+/* Ensure modal body doesn't create extra width */
+::ng-deep .user-modal-dialog.modal-dialog .modal-body,
+::ng-deep .modal.show .user-modal-dialog.modal-dialog .modal-body,
+::ng-deep .modal-dialog:has(.user-details) .modal-body,
+::ng-deep .modal.show .modal-dialog:has(.user-details) .modal-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Make upload logs modal wider - target it specifically by windowClass */
+::ng-deep .upload-logs-modal.modal-dialog,
+::ng-deep .modal.show .upload-logs-modal.modal-dialog {
     max-width: 80% !important;
     margin: 1.75rem auto !important;
 }
@@ -1738,7 +1777,16 @@ textarea.form-control {
     ::ng-deep .modal-dialog:has(.modal-header.bg-danger) {
         max-width: 35% !important;
     }
-    ::ng-deep .modal-dialog:not(:has(.modal-header.bg-danger)) {
+    ::ng-deep .user-modal-dialog.modal-dialog,
+    ::ng-deep .modal.show .user-modal-dialog.modal-dialog,
+    ::ng-deep .modal-dialog:has(.user-details),
+    ::ng-deep .modal.show .modal-dialog:has(.user-details),
+    ::ng-deep .modal-dialog:has(.modal-body .user-details) {
+        max-width: 500px !important;
+        width: 500px !important;
+    }
+    ::ng-deep .upload-logs-modal.modal-dialog,
+    ::ng-deep .modal.show .upload-logs-modal.modal-dialog {
         max-width: 70% !important;
     }
 }
@@ -1747,7 +1795,16 @@ textarea.form-control {
     ::ng-deep .modal-dialog:has(.modal-header.bg-danger) {
         max-width: 30% !important;
     }
-    ::ng-deep .modal-dialog:not(:has(.modal-header.bg-danger)) {
+    ::ng-deep .user-modal-dialog.modal-dialog,
+    ::ng-deep .modal.show .user-modal-dialog.modal-dialog,
+    ::ng-deep .modal-dialog:has(.user-details),
+    ::ng-deep .modal.show .modal-dialog:has(.user-details),
+    ::ng-deep .modal-dialog:has(.modal-body .user-details) {
+        max-width: 500px !important;
+        width: 500px !important;
+    }
+    ::ng-deep .upload-logs-modal.modal-dialog,
+    ::ng-deep .modal.show .upload-logs-modal.modal-dialog {
         max-width: 60% !important;
     }
 }
@@ -1756,19 +1813,37 @@ textarea.form-control {
     ::ng-deep .modal-dialog:has(.modal-header.bg-danger) {
         max-width: 90% !important;
     }
-    ::ng-deep .modal-dialog:not(:has(.modal-header.bg-danger)) {
+    ::ng-deep .user-modal-dialog.modal-dialog,
+    ::ng-deep .modal.show .user-modal-dialog.modal-dialog,
+    ::ng-deep .modal-dialog:has(.user-details),
+    ::ng-deep .modal.show .modal-dialog:has(.user-details),
+    ::ng-deep .modal-dialog:has(.modal-body .user-details) {
+        max-width: 90% !important;
+        width: 90% !important;
+        margin: 0.5rem auto !important;
+    }
+    ::ng-deep .upload-logs-modal.modal-dialog,
+    ::ng-deep .modal.show .upload-logs-modal.modal-dialog {
         max-width: 95% !important;
         margin: 0.5rem auto !important;
     }
 }
 
 @media (max-width: 576px) {
-    ::ng-deep .modal-dialog {
-        max-width: 100% !important;
-        margin: 0 !important;
+    ::ng-deep .user-modal-dialog.modal-dialog,
+    ::ng-deep .modal.show .user-modal-dialog.modal-dialog,
+    ::ng-deep .modal-dialog:has(.user-details),
+    ::ng-deep .modal.show .modal-dialog:has(.user-details),
+    ::ng-deep .modal-dialog:has(.modal-body .user-details) {
+        max-width: 95% !important;
+        width: 95% !important;
+        margin: 0.5rem auto !important;
     }
     
-    ::ng-deep .modal-dialog:not(:has(.modal-header.bg-danger)) {
+    ::ng-deep .upload-logs-modal.modal-dialog,
+    ::ng-deep .modal.show .upload-logs-modal.modal-dialog {
+        max-width: 100% !important;
+        margin: 0 !important;
         height: 100vh;
     }
     
@@ -1776,7 +1851,8 @@ textarea.form-control {
         border-radius: 0 !important;
     }
     
-    ::ng-deep .modal-dialog:not(:has(.modal-header.bg-danger)) .modal-content {
+    ::ng-deep .upload-logs-modal.modal-dialog .modal-content,
+    ::ng-deep .modal.show .upload-logs-modal.modal-dialog .modal-content {
         height: 100vh;
     }
 }

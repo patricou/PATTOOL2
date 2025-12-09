@@ -11,6 +11,7 @@ import { MembersService } from '../../services/members.service';
 import { EvenementsService } from '../../services/evenements.service';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 
 @Component({
 	selector: 'app-create-evenement',
@@ -41,6 +42,18 @@ export class CreateEvenementComponent implements OnInit {
 		{id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO"},
 		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
 	];
+
+	/**
+	 * Get available URL event types based on user permissions
+	 * Filters out PHOTOFROMFS if user doesn't have FileSystem role
+	 */
+	public getAvailableUrlEventTypes(): {id: string, label: string}[] {
+		if (this._keycloakService.hasFileSystemRole()) {
+			return this.urlEventTypes;
+		}
+		// Filter out PHOTOFROMFS if user doesn't have FileSystem role
+		return this.urlEventTypes.filter(type => type.id !== 'PHOTOFROMFS');
+	}
 
 	public eventTypes: {value: string, label: string}[] = [
 		{ value: "11", label: "EVENTCREATION.TYPE.DOCUMENTS" },
@@ -76,7 +89,8 @@ export class CreateEvenementComponent implements OnInit {
 		public _router: Router,
 		public _memberService: MembersService,
 		private translate: TranslateService,
-		private _friendsService: FriendsService) {
+		private _friendsService: FriendsService,
+		private _keycloakService: KeycloakService) {
 	};
 
 	ngOnInit() {
@@ -128,7 +142,7 @@ export class CreateEvenementComponent implements OnInit {
 
 	// Sorted list of URL event types by translated label
 	public getSortedUrlEventTypes(): {id: string, label: string}[] {
-		return [...this.urlEventTypes].sort((a, b) =>
+		return [...this.getAvailableUrlEventTypes()].sort((a, b) =>
 			this.translate.instant(a.label).localeCompare(this.translate.instant(b.label))
 		);
 	}
@@ -232,12 +246,9 @@ export class CreateEvenementComponent implements OnInit {
 	}
 	
 	// Check if user can create PHOTOFROMFS links
-	// This matches the backend authorization check using app.iot.userid
+	// Requires FileSystem role (matches backend authorization check)
 	private canCreatePhotoFromFsLink(): boolean {
-		// Authorized user ID from application.properties (app.iot.userid)
-		// This should match the value in PatTool_Back-End/src/main/resources/application.properties
-		const authorizedUserId = "590091a706443312403f7c53";
-		return this.user.id === authorizedUserId;
+		return this._keycloakService.hasFileSystemRole();
 	}
 
 	// Handle folder selection for PHOTOFROMFS

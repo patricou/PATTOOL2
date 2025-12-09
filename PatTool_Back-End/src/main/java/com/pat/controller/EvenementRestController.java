@@ -13,7 +13,6 @@ import com.pat.repo.MembersRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -26,6 +25,9 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -72,8 +74,34 @@ public class EvenementRestController {
     @Autowired
     private FriendGroupRepository friendGroupRepository;
     
-    @Value("${app.admin.userid}")
-    String authorizedUserId;
+    /**
+     * Check if the current user has Admin role (case-insensitive)
+     */
+    private boolean hasAdminRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin") || 
+                                     authority.equalsIgnoreCase("ROLE_admin"));
+    }
+
+    /**
+     * Check if the current user has FileSystem role (case-insensitive)
+     */
+    private boolean hasFileSystemRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_FileSystem") || 
+                                     authority.equalsIgnoreCase("ROLE_filesystem") ||
+                                     authority.equalsIgnoreCase("ROLE_FileSystem"));
+    }
     
     // Use bounded thread pool to prevent memory leaks from unlimited thread creation
     // Max 50 threads, with 30 second keep-alive time for idle threads
@@ -1265,13 +1293,9 @@ public class EvenementRestController {
                     "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl()));
             
             if (hasPhotoFromFs) {
-                // Check if the author is authorized
-                if (evenement.getAuthor() == null || 
-                    evenement.getAuthor().getId() == null ||
-                    !this.authorizedUserId.equals(evenement.getAuthor().getId())) {
-                    log.warn("Unauthorized attempt to create PHOTOFROMFS link. User ID: {}, Authorized ID: {}", 
-                        evenement.getAuthor() != null ? evenement.getAuthor().getId() : "null", 
-                        this.authorizedUserId);
+                // Check if the user has FileSystem role
+                if (!hasFileSystemRole()) {
+                    log.warn("Unauthorized attempt to create PHOTOFROMFS link. User does not have FileSystem role.");
                     return new ResponseEntity<>(HttpStatus.FORBIDDEN);
                 }
             }
@@ -1384,13 +1408,9 @@ public class EvenementRestController {
                     "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl()));
             
             if (hasPhotoFromFs) {
-                // Check if the author is authorized
-                if (evenement.getAuthor() == null || 
-                    evenement.getAuthor().getId() == null ||
-                    !this.authorizedUserId.equals(evenement.getAuthor().getId())) {
-                    log.warn("Unauthorized attempt to update PHOTOFROMFS link. User ID: {}, Authorized ID: {}", 
-                        evenement.getAuthor() != null ? evenement.getAuthor().getId() : "null", 
-                        this.authorizedUserId);
+                // Check if the user has FileSystem role
+                if (!hasFileSystemRole()) {
+                    log.warn("Unauthorized attempt to update PHOTOFROMFS link. User does not have FileSystem role.");
                     return new ResponseEntity<>(HttpStatus.FORBIDDEN);
                 }
             }

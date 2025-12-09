@@ -135,8 +135,8 @@
                 </ul>
             </li>
 
-            <!-- IoT -->
-            <li class="nav-item">
+            <!-- IoT (only visible if user has Iot role) -->
+            <li class="nav-item" *ngIf="hasIotRole">
                 <a class="nav-link" 
                    [routerLink]="['iot']" 
                    (click)="closeMenu()">
@@ -364,12 +364,12 @@
                                 </div>
                                 <span>{{"USERINFO.LOADING_ROLES" | translate}}</span>
                             </div>
-                            <div *ngIf="!isLoadingRoles && userRoles && userRoles.length > 0" class="roles-container">
-                                <span *ngFor="let role of userRoles; let last = last" class="badge me-1 mb-1" [ngClass]="getRoleBadgeClass(role)">
+                            <div *ngIf="!isLoadingRoles && getDisplayRoles() && getDisplayRoles().length > 0" class="roles-container">
+                                <span *ngFor="let role of getDisplayRoles(); let last = last" class="badge me-1 mb-1" [ngClass]="getRoleBadgeClass(role)">
                                     {{role}}
                                 </span>
                             </div>
-                            <div *ngIf="!isLoadingRoles && (!userRoles || userRoles.length === 0)" class="text-muted">
+                            <div *ngIf="!isLoadingRoles && (!getDisplayRoles() || getDisplayRoles().length === 0)" class="text-muted">
                                 {{"USERINFO.NO_ROLES" | translate}}
                             </div>
                         </div>

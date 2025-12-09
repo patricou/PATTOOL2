@@ -5,11 +5,13 @@ import com.pat.service.CachePersistenceService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -33,8 +35,19 @@ public class CacheController {
     @Autowired
     private ApplicationContext applicationContext;
     
-    @Value("${app.admin.userid}")
-    private String authorizedUserId;
+    /**
+     * Check if the current user has Admin role (case-insensitive)
+     */
+    private boolean hasAdminRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin") || 
+                                     authority.equalsIgnoreCase("ROLE_admin"));
+    }
     
     /**
      * Check if current user is authorized to save the cache.
@@ -43,14 +56,14 @@ public class CacheController {
     public ResponseEntity<Map<String, Object>> isSaveCacheAuthorized(@RequestBody Member member) {
         log.info("Save cache authorization check requested for user: {}", member.getId());
         try {
-            boolean isAuthorized = this.authorizedUserId.equals(member.getId());
+            boolean isAuthorized = hasAdminRole();
             
             Map<String, Object> response = new HashMap<>();
             response.put("authorized", isAuthorized);
             response.put("success", true);
             
             if (!isAuthorized) {
-                response.put("message", member.getUserName() + " : You are not authorized to save the cache");
+                response.put("message", member.getUserName() + " : You are not authorized to save the cache. Admin role required.");
             }
             
             return ResponseEntity.ok(response);
@@ -71,14 +84,14 @@ public class CacheController {
     public ResponseEntity<Map<String, Object>> isLoadCacheAuthorized(@RequestBody Member member) {
         log.info("Load cache authorization check requested for user: {}", member.getId());
         try {
-            boolean isAuthorized = this.authorizedUserId.equals(member.getId());
+            boolean isAuthorized = hasAdminRole();
             
             Map<String, Object> response = new HashMap<>();
             response.put("authorized", isAuthorized);
             response.put("success", true);
             
             if (!isAuthorized) {
-                response.put("message", member.getUserName() + " : You are not authorized to load the cache");
+                response.put("message", member.getUserName() + " : You are not authorized to load the cache. Admin role required.");
             }
             
             return ResponseEntity.ok(response);
@@ -99,12 +112,12 @@ public class CacheController {
     public ResponseEntity<Map<String, Object>> saveCache(@RequestBody Member member) {
         log.info("Cache save requested via REST API by user: {}", member.getId());
         try {
-            // Check authorization
-            if (!this.authorizedUserId.equals(member.getId())) {
+            // Check authorization - must have Admin role
+            if (!hasAdminRole()) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
                 response.put("authorized", false);
-                response.put("message", member.getUserName() + " : You are not authorized to save the cache");
+                response.put("message", member.getUserName() + " : You are not authorized to save the cache. Admin role required.");
                 log.warn("Unauthorized cache save attempt by user: {}", member.getId());
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
             }
@@ -142,12 +155,12 @@ public class CacheController {
     public ResponseEntity<Map<String, Object>> loadCache(@RequestBody Member member) {
         log.info("Cache load requested via REST API by user: {}", member.getId());
         try {
-            // Check authorization
-            if (!this.authorizedUserId.equals(member.getId())) {
+            // Check authorization - must have Admin role
+            if (!hasAdminRole()) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
                 response.put("authorized", false);
-                response.put("message", member.getUserName() + " : You are not authorized to load the cache");
+                response.put("message", member.getUserName() + " : You are not authorized to load the cache. Admin role required.");
                 log.warn("Unauthorized cache load attempt by user: {}", member.getId());
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
             }
@@ -182,12 +195,12 @@ public class CacheController {
     public ResponseEntity<Map<String, Object>> clearCache(@RequestBody Member member) {
         log.info("Cache clear requested via REST API by user: {}", member.getId());
         try {
-            // Check authorization
-            if (!this.authorizedUserId.equals(member.getId())) {
+            // Check authorization - must have Admin role
+            if (!hasAdminRole()) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
                 response.put("authorized", false);
-                response.put("message", member.getUserName() + " : You are not authorized to clear the cache");
+                response.put("message", member.getUserName() + " : You are not authorized to clear the cache. Admin role required.");
                 log.warn("Unauthorized cache clear attempt by user: {}", member.getId());
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
             }
@@ -246,14 +259,14 @@ public class CacheController {
     public ResponseEntity<Map<String, Object>> isClearCacheAuthorized(@RequestBody Member member) {
         log.info("Clear cache authorization check requested for user: {}", member.getId());
         try {
-            boolean isAuthorized = this.authorizedUserId.equals(member.getId());
+            boolean isAuthorized = hasAdminRole();
             
             Map<String, Object> response = new HashMap<>();
             response.put("authorized", isAuthorized);
             response.put("success", true);
             
             if (!isAuthorized) {
-                response.put("message", member.getUserName() + " : You are not authorized to clear the cache");
+                response.put("message", member.getUserName() + " : You are not authorized to clear the cache. Admin role required.");
             }
             
             return ResponseEntity.ok(response);
@@ -274,14 +287,14 @@ public class CacheController {
     public ResponseEntity<Map<String, Object>> isShutdownAuthorized(@RequestBody Member member) {
         log.info("Shutdown authorization check requested for user: {}", member.getId());
         try {
-            boolean isAuthorized = this.authorizedUserId.equals(member.getId());
+            boolean isAuthorized = hasAdminRole();
             
             Map<String, Object> response = new HashMap<>();
             response.put("authorized", isAuthorized);
             response.put("success", true);
             
             if (!isAuthorized) {
-                response.put("message", member.getUserName() + " : You are not authorized to shutdown the application");
+                response.put("message", member.getUserName() + " : You are not authorized to shutdown the application. Admin role required.");
             }
             
             return ResponseEntity.ok(response);
@@ -302,13 +315,13 @@ public class CacheController {
     public ResponseEntity<Map<String, Object>> shutdownApplication(@RequestBody Member member) {
         log.info("Application shutdown requested via REST API by user: {}", member.getId());
         
-        // Check authorization
-        if (!this.authorizedUserId.equals(member.getId())) {
+        // Check authorization - must have Admin role
+        if (!hasAdminRole()) {
             log.warn("Unauthorized shutdown attempt by user: {} ({})", member.getUserName(), member.getId());
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("authorized", false);
-            response.put("message", member.getUserName() + " : You are not authorized to shutdown the application");
+            response.put("message", member.getUserName() + " : You are not authorized to shutdown the application. Admin role required.");
             return ResponseEntity.status(403).body(response);
         }
         

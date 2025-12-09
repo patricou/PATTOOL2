@@ -8,12 +8,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.pat.repo.domain.Member;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -46,8 +48,19 @@ public class SystemController {
     @Autowired
     private UserConnectionLogRepository userConnectionLogRepository;
     
-    @Value("${app.admin.userid}")
-    private String authorizedUserId;
+    /**
+     * Check if the current user has Admin role (case-insensitive)
+     */
+    private boolean hasAdminRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin") || 
+                                     authority.equalsIgnoreCase("ROLE_admin"));
+    }
     
     /**
      * Get JVM memory information
@@ -271,14 +284,14 @@ public class SystemController {
     public ResponseEntity<Map<String, Object>> isDeleteConnectionLogsAuthorized(@RequestBody Member member) {
         log.info("Delete connection logs authorization check requested for user: {}", member.getId());
         try {
-            boolean isAuthorized = this.authorizedUserId.equals(member.getId());
+            boolean isAuthorized = hasAdminRole();
             
             Map<String, Object> response = new HashMap<>();
             response.put("authorized", isAuthorized);
             response.put("success", true);
             
             if (!isAuthorized) {
-                response.put("message", member.getUserName() + " : You are not authorized to delete connection logs");
+                response.put("message", member.getUserName() + " : You are not authorized to delete connection logs. Admin role required.");
             }
             
             return ResponseEntity.ok(response);
@@ -300,12 +313,12 @@ public class SystemController {
     public ResponseEntity<Map<String, Object>> deleteAllConnectionLogs(@RequestBody Member member) {
         log.info("Delete connection logs requested by user: {}", member.getId());
         try {
-            // Check authorization
-            if (!this.authorizedUserId.equals(member.getId())) {
+            // Check authorization - must have Admin role
+            if (!hasAdminRole()) {
                 Map<String, Object> response = new HashMap<>();
                 response.put("success", false);
                 response.put("authorized", false);
-                response.put("error", member.getUserName() + " : You are not authorized to delete connection logs");
+                response.put("error", member.getUserName() + " : You are not authorized to delete connection logs. Admin role required.");
                 log.warn("Unauthorized delete connection logs attempt by user: {}", member.getId());
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
             }
