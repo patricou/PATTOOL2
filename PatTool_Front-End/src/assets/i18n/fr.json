@@ -946,6 +946,9 @@
         "MEMBER": "Membre",
         "OWNER": "Propriétaire",
         "REMOVE": "Retirer",
+        "STATUS": "Statut",
+        "ONLINE": "En ligne",
+        "OFFLINE": "Hors ligne",
         "ROLE": "Rôle"
     }
 }

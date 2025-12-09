@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, from } from 'rxjs';
+import { Observable, from, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 
 import { Member } from '../model/member';
@@ -917,6 +917,33 @@ export class FriendsService {
                     catchError((error: any) => {
                         console.error('Error unauthorizing user for group:', error);
                         throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Get user status (online/offline) from Keycloak
+     */
+    getUserStatus(userId: string): Observable<{ online: boolean; status: string }> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.get<{ online: boolean; status: string }>(
+                    this.API_URL + 'friends/users/' + userId + '/status',
+                    { headers: headers }
+                ).pipe(
+                    catchError((error: any) => {
+                        console.error('Error getting user status:', error);
+                        // Return offline status on error
+                        return of({ online: false, status: 'unknown' });
                     })
                 );
             })

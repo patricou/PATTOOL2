@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { Member } from '../../model/member';
 import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../../model/friend';
 import { FriendsService } from '../../services/friends.service';
@@ -41,13 +41,16 @@ export class FriendsComponent implements OnInit {
   // Authorized users management
   public managingAuthorizedUsersGroupId: string | null = null;
   public selectedAuthorizedUsers: string[] = [];
+  // User statuses (online/offline from Keycloak)
+  public userStatuses: Map<string, { online: boolean; status: string }> = new Map();
 
   constructor(
     private _friendsService: FriendsService,
     private _memberService: MembersService,
     private _translateService: TranslateService,
     private modalService: NgbModal,
-    private _discussionService: DiscussionService
+    private _discussionService: DiscussionService,
+    private cdr: ChangeDetectorRef
   ) { }
 
   ngOnInit() {
@@ -91,6 +94,8 @@ export class FriendsComponent implements OnInit {
       users => {
         // Filter out current user
         this.allUsers = users.filter(u => u.id !== this.currentUser.id);
+        // Load statuses for all users
+        this.loadUserStatuses();
         checkComplete();
       },
       error => {
@@ -128,6 +133,8 @@ export class FriendsComponent implements OnInit {
     this._friendsService.getFriends().subscribe(
       friends => {
         this.friends = friends;
+        // Load statuses for all friends
+        this.loadFriendStatuses();
         checkComplete();
       },
       error => {
@@ -573,6 +580,8 @@ export class FriendsComponent implements OnInit {
     this._friendsService.getFriends().subscribe(
       friends => {
         this.friends = friends;
+        // Load statuses for all friends
+        this.loadFriendStatuses();
         this.loading = false;
       },
       error => {
@@ -581,6 +590,78 @@ export class FriendsComponent implements OnInit {
         this.loading = false;
       }
     );
+  }
+
+  /**
+   * Load status for all users (in All Users tab)
+   */
+  loadUserStatuses() {
+    this.allUsers.forEach(user => {
+      if (user && user.id) {
+        // Initialize with offline status immediately so it shows up right away
+        if (!this.userStatuses.has(user.id)) {
+          this.userStatuses.set(user.id, { online: false, status: 'offline' });
+        }
+        
+        this._friendsService.getUserStatus(user.id).subscribe(
+          status => {
+            this.userStatuses.set(user.id, status);
+            // Trigger change detection to update the UI
+            this.cdr.detectChanges();
+          },
+          error => {
+            // Set default status on error
+            this.userStatuses.set(user.id, { online: false, status: 'offline' });
+            // Trigger change detection to update the UI
+            this.cdr.detectChanges();
+          }
+        );
+      }
+    });
+    // Trigger change detection after initializing all statuses
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Load status for all friends
+   */
+  loadFriendStatuses() {
+    this.friends.forEach(friend => {
+      const otherUser = this.getOtherUser(friend);
+      if (otherUser && otherUser.id) {
+        // Initialize with offline status immediately so it shows up right away
+        if (!this.userStatuses.has(otherUser.id)) {
+          this.userStatuses.set(otherUser.id, { online: false, status: 'offline' });
+        }
+        
+        this._friendsService.getUserStatus(otherUser.id).subscribe(
+          status => {
+            this.userStatuses.set(otherUser.id, status);
+            // Trigger change detection to update the UI
+            this.cdr.detectChanges();
+          },
+          error => {
+            // Set default status on error
+            this.userStatuses.set(otherUser.id, { online: false, status: 'offline' });
+            // Trigger change detection to update the UI
+            this.cdr.detectChanges();
+          }
+        );
+      }
+    });
+    // Trigger change detection after initializing all statuses
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Get user online status from Keycloak
+   */
+  getUserOnlineStatus(userId: string): { online: boolean; status: string } {
+    if (!userId) {
+      return { online: false, status: 'offline' };
+    }
+    const status = this.userStatuses.get(userId) || { online: false, status: 'offline' };
+    return status;
   }
 
   loadFriendGroups() {

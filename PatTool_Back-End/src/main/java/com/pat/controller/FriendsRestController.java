@@ -33,6 +33,9 @@ public class FriendsRestController {
     
     @Autowired
     private com.pat.controller.MailController mailController;
+    
+    @Autowired
+    private com.pat.service.KeycloakService keycloakService;
 
     /**
      * Get all users from MongoDB (synced from Keycloak)
@@ -660,6 +663,42 @@ public class FriendsRestController {
         } catch (Exception e) {
             log.error("Error unauthorizing user for group", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Get user status (online/offline) from Keycloak
+     */
+    @GetMapping(value = "/users/{userId}/status", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> getUserStatus(
+            @PathVariable String userId,
+            Authentication authentication) {
+        try {
+            Member member = membersRepository.findById(userId).orElse(null);
+            if (member == null) {
+                return ResponseEntity.notFound().build();
+            }
+
+            String keycloakId = member.getKeycloakId();
+            if (keycloakId == null || keycloakId.trim().isEmpty()) {
+                Map<String, Object> response = new java.util.HashMap<>();
+                response.put("online", false);
+                response.put("status", "unknown");
+                return ResponseEntity.ok(response);
+            }
+
+            boolean isOnline = keycloakService.isUserOnline(keycloakId);
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("online", isOnline);
+            response.put("status", isOnline ? "online" : "offline");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error getting user status", e);
+            Map<String, Object> response = new java.util.HashMap<>();
+            response.put("online", false);
+            response.put("status", "unknown");
+            return ResponseEntity.ok(response); // Return unknown status instead of error
         }
     }
 }

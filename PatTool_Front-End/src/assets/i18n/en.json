@@ -950,7 +950,10 @@
         "MEMBER": "Member",
         "OWNER": "Owner",
         "REMOVE": "Remove",
-        "ROLE": "Role"
+        "ROLE": "Role",
+        "STATUS": "Status",
+        "ONLINE": "Online",
+        "OFFLINE": "Offline"
     }
 }
 

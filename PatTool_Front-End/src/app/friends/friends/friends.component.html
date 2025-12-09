@@ -132,9 +132,15 @@
       <div *ngFor="let user of getFilteredUsers()" class="user-card compact-user-card">
         <!-- Card Header with User Name -->
         <div class="user-header">
-          <h6 class="mb-0">
-            <i class="fa fa-user-circle me-2"></i>
-            {{ user.firstName }} {{ user.lastName }}
+          <h6 class="mb-0" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>
+              <i class="fa fa-user-circle me-2"></i>
+              {{ user.firstName }} {{ user.lastName }}
+            </span>
+            <span class="status-indicator" 
+                  [style.background-color]="getUserOnlineStatus(user.id).online ? '#28a745' : '#ffffff'"
+                  [style.border]="getUserOnlineStatus(user.id).online ? '2px solid #28a745' : '2px solid #6c757d'"
+                  style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0;"></span>
           </h6>
         </div>
         <div class="user-info">
@@ -269,9 +275,15 @@
       <div *ngFor="let friend of getSortedFriends()" class="friend-card compact-user-card">
         <!-- Card Header with User Name -->
         <div class="friend-header">
-          <h6 class="mb-0">
-            <i class="fa fa-user-circle me-2"></i>
-            {{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }}
+          <h6 class="mb-0" style="display: flex; justify-content: space-between; align-items: center;">
+            <span>
+              <i class="fa fa-user-circle me-2"></i>
+              {{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }}
+            </span>
+            <span class="status-indicator" 
+                  [style.background-color]="getUserOnlineStatus(getOtherUser(friend).id).online ? '#28a745' : '#ffffff'"
+                  [style.border]="getUserOnlineStatus(getOtherUser(friend).id).online ? '2px solid #28a745' : '2px solid #6c757d'"
+                  style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0;"></span>
           </h6>
         </div>
         <div class="friend-info">

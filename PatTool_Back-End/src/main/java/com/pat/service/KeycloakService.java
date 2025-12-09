@@ -396,5 +396,63 @@ public class KeycloakService {
         
         return roles;
     }
+
+    /**
+     * Check if a user is online (has active sessions) in Keycloak
+     * @param keycloakId The Keycloak user ID
+     * @return true if user has active sessions (online), false otherwise
+     */
+    public boolean isUserOnline(String keycloakId) {
+        if (keycloakId == null || keycloakId.trim().isEmpty()) {
+            log.debug("Keycloak ID is null or empty, cannot check user status");
+            return false;
+        }
+
+        try {
+            // Create Keycloak admin client
+            Keycloak keycloak = KeycloakBuilder.builder()
+                    .serverUrl(keycloakServerUrl)
+                    .realm(realm)
+                    .clientId(clientId)
+                    .clientSecret(clientSecret)
+                    .grantType("client_credentials")
+                    .build();
+
+            // Get realm resource
+            RealmResource realmResource = keycloak.realm(realm);
+
+            // Get user resource
+            UserResource userResource = realmResource.users().get(keycloakId);
+            
+            // Check if user has active sessions
+            // If getUserSessions() returns a non-empty list, user is online
+            try {
+                List<?> sessions = userResource.getUserSessions();
+                
+                boolean isOnline = sessions != null && !sessions.isEmpty();
+                log.debug("User {} status: {} ({} active sessions)", keycloakId, isOnline ? "ONLINE" : "OFFLINE", 
+                        sessions != null ? sessions.size() : 0);
+                return isOnline;
+            } catch (Exception e) {
+                // If we can't get sessions, assume offline
+                log.debug("Could not get user sessions for {}: {}", keycloakId, e.getMessage());
+                return false;
+            }
+
+        } catch (Exception e) {
+            // Check if it's an authentication/authorization error
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "";
+            boolean isAuthError = errorMsg.contains("401") || errorMsg.contains("403") || 
+                                 errorMsg.contains("Unauthorized") || errorMsg.contains("Forbidden");
+            
+            if (isAuthError) {
+                log.debug("Admin API authentication failed while checking user status (expected): {}", 
+                        e.getClass().getSimpleName());
+            } else {
+                log.error("Error checking user status for {}: {}", keycloakId, e.getMessage(), e);
+            }
+            return false;
+        }
+    }
 }
 

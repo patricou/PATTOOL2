@@ -163,12 +163,6 @@ public class SecurityConfig {
                 .requestMatchers("/ws/**").permitAll()
                 
                 // ============================================
-                // PUBLIC API ENDPOINTS - Only what's necessary for app connection
-                // ============================================
-                // Discussion files (public images/videos - needed for display)
-                .requestMatchers("/api/discussions/files/**").permitAll()
-                
-                // ============================================
                 // ROLE-BASED API ENDPOINTS - Require specific roles
                 // ============================================
                 // IoT endpoints - require Iot role
