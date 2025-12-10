@@ -71,6 +71,7 @@
         "COMMENT": "...",
         "TEST": "Тестирование IoT",
         "TEST_DESCRIPTION": "Тест подключения Ethernet Shield для проверки связи с Arduino.",
+        "PORTAIL": "Портал",
         "PORTAIL_DESCRIPTION": "Управление автоматическими воротами - Дистанционное открытие и закрытие.",
         "TEST_RESULT": "Результат теста",
         "PORTAIL_STATUS": "Статус ворот"

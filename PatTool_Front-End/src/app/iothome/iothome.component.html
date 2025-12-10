@@ -7,77 +7,56 @@
 <!-- Main Content -->
 <div class="container mt-0">
     <div class="row justify-content-center">
-        <div class="col-lg-10 col-xl-8">
+        <div class="col-12">
             
-            <!-- IoT Controls Grid -->
-            <div class="iot-controls">
-                
-                <!-- Test Ethernet Shield Card -->
-                <div class="control-card">
-                    <div class="card-header">
-                        <i class="fa fa-flask"></i>
-                        <h3>{{ "IOT.TEST" | translate }}</h3>
-                        <div class="card-status">
+            <!-- Portail Container -->
+            <div class="portail-container">
+                <h3 class="portail-title">{{ "IOT.PORTAIL" | translate }}</h3>
+                <div class="iot-controls">
+                    <!-- Test Ethernet Shield Card -->
+                    <div class="control-card">
+                        <div class="card-header">
+                            <i class="fa fa-flask"></i>
+                            <h3>{{ "IOT.TEST" | translate }}</h3>
                             <span class="status-indicator" [class.active]="messageTestVisible"></span>
                         </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="control-description">
-                            <p>{{ "IOT.TEST_DESCRIPTION" | translate }}</p>
-                        </div>
-                        <div class="button-section">
+                        <div class="card-body">
+                            <p class="control-description">{{ "IOT.TEST_DESCRIPTION" | translate }}</p>
                             <button (click)="testEthernetShield()" 
                                     class="btn btn-primary iot-button" 
                                     [disabled]="messageTestVisible">
                                 <i class="fa fa-play"></i>
                                 {{ "IOT.TEST" | translate }}
                             </button>
-                        </div>
-                        <div *ngIf="messageTestVisible" class="iot-message test-message">
-                            <div class="message-header">
-                                <i class="fa fa-info-circle"></i>
-                                <strong>{{ "IOT.TEST_RESULT" | translate }}</strong>
-                            </div>
-                            <div class="message-content">
-                                {{ iotTestResponse }}
+                            <div *ngIf="messageTestVisible" class="iot-message test-message">
+                                <strong>{{ "IOT.TEST_RESULT" | translate }}:</strong>
+                                <div>{{ iotTestResponse }}</div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Portail Control Card -->
-                <div class="control-card">
-                    <div class="card-header">
-                        <i class="fa fa-door-open"></i>
-                        <h3>{{ "IOT.OPCLG" | translate }}</h3>
-                        <div class="card-status">
+                    <!-- Portail Control Card -->
+                    <div class="control-card">
+                        <div class="card-header">
+                            <i class="fa fa-door-open"></i>
+                            <h3>{{ "IOT.OPCLG" | translate }}</h3>
                             <span class="status-indicator" [class.active]="messageVisible"></span>
                         </div>
-                    </div>
-                    <div class="card-body">
-                        <div class="control-description">
-                            <p>{{ "IOT.PORTAIL_DESCRIPTION" | translate }}</p>
-                        </div>
-                        <div class="button-section">
+                        <div class="card-body">
+                            <p class="control-description">{{ "IOT.PORTAIL_DESCRIPTION" | translate }}</p>
                             <button (click)="openOrCLosePortail()" 
                                     class="btn btn-success iot-button" 
                                     [disabled]="messageVisible">
                                 <i class="fa fa-power-off"></i>
                                 {{ "IOT.OPCLG" | translate }}
                             </button>
-                        </div>
-                        <div *ngIf="messageVisible" class="iot-message portail-message">
-                            <div class="message-header">
-                                <i class="fa fa-exclamation-triangle"></i>
-                                <strong>{{ "IOT.PORTAIL_STATUS" | translate }}</strong>
-                            </div>
-                            <div class="message-content">
-                                {{ iotResponse }}
+                            <div *ngIf="messageVisible" class="iot-message portail-message">
+                                <strong>{{ "IOT.PORTAIL_STATUS" | translate }}:</strong>
+                                <div>{{ iotResponse }}</div>
                             </div>
                         </div>
                     </div>
                 </div>
-
             </div>
 
         </div>

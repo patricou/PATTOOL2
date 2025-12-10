@@ -63,6 +63,7 @@
         "COMMENT": "...",
         "TEST": "IOT-Tests",
         "TEST_DESCRIPTION": "Ethernet Shield Konnektivitätstest zur Überprüfung der Kommunikation mit Arduino.",
+        "PORTAIL": "Portal",
         "PORTAIL_DESCRIPTION": "Automatische Torsteuerung - Fernöffnung und -schließung.",
         "TEST_RESULT": "Testergebnis",
         "PORTAIL_STATUS": "Torstatus"

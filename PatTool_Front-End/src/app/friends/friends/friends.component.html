@@ -29,6 +29,7 @@
         type="button">
         <i class="fa fa-user-plus"></i>
         {{ 'FRIENDS.ALL_USERS' | translate }}
+        <span *ngIf="allUsers.length > 0" class="badge bg-primary">{{ allUsers.length }}</span>
       </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -39,7 +40,7 @@
         type="button">
         <i class="fa fa-envelope"></i>
         {{ 'FRIENDS.REQUESTS' | translate }}
-        <span *ngIf="pendingRequests.length > 0" class="badge bg-danger">{{ pendingRequests.length }}</span>
+        <span class="badge bg-danger">{{ pendingRequests.length }}</span>
       </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -117,6 +118,7 @@
           <i class="fa fa-check-circle"></i>
           {{ 'FRIENDS.EMAIL_NOT_REGISTERED' | translate }}
           <button 
+            *ngIf="!showCustomMessagePrompt && !showCustomMessageInput"
             class="btn btn-success btn-sm ms-2"
             (click)="sendInvitation()"
             [disabled]="sendingInvite">
@@ -124,6 +126,61 @@
             <i class="fa fa-spinner fa-spin" *ngIf="sendingInvite"></i>
             {{ 'FRIENDS.INVITE_TO_PATTOOL' | translate }}
           </button>
+        </div>
+        
+        <!-- Custom Message Prompt -->
+        <div *ngIf="showCustomMessagePrompt && !emailExists" class="alert alert-info mt-2">
+          <i class="fa fa-question-circle"></i>
+          <strong>{{ 'FRIENDS.ADD_CUSTOM_MESSAGE' | translate }}</strong>
+          <div class="mt-2 d-flex gap-2">
+            <button 
+              class="btn btn-primary btn-sm"
+              (click)="confirmAddCustomMessage()">
+              <i class="fa fa-check"></i>
+              {{ 'FRIENDS.YES' | translate }}
+            </button>
+            <button 
+              class="btn btn-secondary btn-sm"
+              (click)="skipCustomMessage()"
+              [disabled]="sendingInvite">
+              <i class="fa fa-times"></i>
+              {{ 'FRIENDS.NO' | translate }}
+            </button>
+          </div>
+        </div>
+        
+        <!-- Custom Message Input -->
+        <div *ngIf="showCustomMessageInput && !emailExists" class="alert alert-info mt-2">
+          <div class="mb-2">
+            <label for="customMessage" class="form-label">
+              <i class="fa fa-envelope"></i>
+              <strong>{{ 'FRIENDS.CUSTOM_MESSAGE' | translate }}</strong>
+            </label>
+            <textarea 
+              id="customMessage"
+              class="form-control" 
+              rows="4"
+              [(ngModel)]="customMessage"
+              [placeholder]="'FRIENDS.CUSTOM_MESSAGE_PLACEHOLDER' | translate"
+              [disabled]="sendingInvite"></textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button 
+              class="btn btn-success btn-sm"
+              (click)="sendInvitation()"
+              [disabled]="sendingInvite || !customMessage.trim()">
+              <i class="fa fa-paper-plane" *ngIf="!sendingInvite"></i>
+              <i class="fa fa-spinner fa-spin" *ngIf="sendingInvite"></i>
+              {{ 'FRIENDS.SEND_INVITATION' | translate }}
+            </button>
+            <button 
+              class="btn btn-secondary btn-sm"
+              (click)="cancelCustomMessage()"
+              [disabled]="sendingInvite">
+              <i class="fa fa-times"></i>
+              {{ 'FRIENDS.CANCEL' | translate }}
+            </button>
+          </div>
         </div>
       </div>
     </div>

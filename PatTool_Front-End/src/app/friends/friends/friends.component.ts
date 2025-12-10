@@ -29,6 +29,9 @@ export class FriendsComponent implements OnInit {
   public emailExists: boolean = false;
   public emailCheckResult: { exists: boolean; memberId?: string; userName?: string } | null = null;
   public sendingInvite: boolean = false;
+  public showCustomMessagePrompt: boolean = false;
+  public customMessage: string = '';
+  public showCustomMessageInput: boolean = false;
   
   // Friend groups management
   public friendGroups: FriendGroup[] = [];
@@ -430,6 +433,9 @@ export class FriendsComponent implements OnInit {
     this.inviteEmail = ''; // Clear invite email
     this.emailCheckResult = null;
     this.emailExists = false;
+    this.showCustomMessagePrompt = false;
+    this.showCustomMessageInput = false;
+    this.customMessage = '';
     // Refresh only the data for the selected tab
     switch(tab) {
       case 'users':
@@ -484,6 +490,56 @@ export class FriendsComponent implements OnInit {
       return;
     }
 
+    // If we haven't asked about custom message yet, ask first
+    if (!this.showCustomMessagePrompt && !this.showCustomMessageInput) {
+      this.showCustomMessagePrompt = true;
+      return;
+    }
+
+    // If user is in custom message input mode but hasn't entered a message, don't proceed
+    if (this.showCustomMessageInput && !this.customMessage.trim()) {
+      return;
+    }
+
+    // Proceed with sending invitation
+    const email = this.inviteEmail.trim();
+    const message = this.showCustomMessageInput ? (this.customMessage.trim() || undefined) : undefined;
+    this.sendingInvite = true;
+    this.errorMessage = '';
+
+    this._friendsService.sendInvitation(email, message).subscribe(
+      result => {
+        this.sendingInvite = false;
+        this.inviteEmail = '';
+        this.emailCheckResult = null;
+        this.emailExists = false;
+        this.showCustomMessagePrompt = false;
+        this.showCustomMessageInput = false;
+        this.customMessage = '';
+        alert(this._translateService.instant('FRIENDS.INVITATION_SENT'));
+      },
+      error => {
+        console.error('Error sending invitation:', error);
+        if (error.error && error.error.error === 'Email already registered') {
+          this.errorMessage = this._translateService.instant('FRIENDS.EMAIL_ALREADY_REGISTERED');
+        } else {
+          this.errorMessage = this._translateService.instant('FRIENDS.INVITATION_ERROR');
+        }
+        this.sendingInvite = false;
+      }
+    );
+  }
+
+  confirmAddCustomMessage() {
+    this.showCustomMessageInput = true;
+    this.showCustomMessagePrompt = false;
+  }
+
+  skipCustomMessage() {
+    this.showCustomMessageInput = false;
+    this.showCustomMessagePrompt = false;
+    this.customMessage = '';
+    // Proceed with sending invitation without custom message
     const email = this.inviteEmail.trim();
     this.sendingInvite = true;
     this.errorMessage = '';
@@ -506,6 +562,12 @@ export class FriendsComponent implements OnInit {
         this.sendingInvite = false;
       }
     );
+  }
+
+  cancelCustomMessage() {
+    this.showCustomMessagePrompt = false;
+    this.showCustomMessageInput = false;
+    this.customMessage = '';
   }
 
   // Friend Groups Management Methods

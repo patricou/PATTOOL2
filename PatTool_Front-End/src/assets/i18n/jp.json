@@ -63,6 +63,7 @@
         "COMMENT": "...",
         "TEST": "IoTテスト",
         "TEST_DESCRIPTION": "Arduinoとの通信を確認するためのEthernet Shield接続テスト。",
+        "PORTAIL": "ポータル",
         "PORTAIL_DESCRIPTION": "自動ゲート制御 - リモート開閉。",
         "TEST_RESULT": "テスト結果",
         "PORTAIL_STATUS": "ゲートステータス"

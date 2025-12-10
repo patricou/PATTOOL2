@@ -63,6 +63,7 @@
         "COMMENT": "...",
         "TEST": "Δοκιμές ΙοΤ",
         "TEST_DESCRIPTION": "Δοκιμή συνδεσιμότητας Ethernet Shield για επαλήθευση επικοινωνίας με Arduino.",
+        "PORTAIL": "Πύλη",
         "PORTAIL_DESCRIPTION": "Έλεγχος αυτόματης πύλης - Απομακρυσμένο άνοιγμα και κλείσιμο.",
         "TEST_RESULT": "Αποτέλεσμα δοκιμής",
         "PORTAIL_STATUS": "Κατάσταση πύλης"

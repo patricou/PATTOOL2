@@ -63,6 +63,7 @@
         "COMMENT": "...",
         "TEST": "اختبار إنترنت الأشياء",
         "TEST_DESCRIPTION": "اختبار اتصال Ethernet Shield للتحقق من التواصل مع Arduino.",
+        "PORTAIL": "بوابة",
         "PORTAIL_DESCRIPTION": "التحكم في البوابة التلقائية - الفتح والإغلاق عن بُعد.",
         "TEST_RESULT": "نتيجة الاختبار",
         "PORTAIL_STATUS": "حالة البوابة"

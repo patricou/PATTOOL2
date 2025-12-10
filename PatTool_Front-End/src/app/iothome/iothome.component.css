@@ -1,132 +1,100 @@
-/* IoT Component - Modern Style */
+/* IoT Component - Compact Style */
 
 /* IoT Controls Grid */
 .iot-controls {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-    gap: 2rem;
-    margin-bottom: 2rem;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
 }
 
-/* Control Cards - Modern Style */
+/* Control Cards - Compact Style */
 .control-card {
     background: white;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     overflow: hidden;
-    transition: all 0.3s ease;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.2s ease;
+    border: 1px solid #e5e7eb;
 }
 
 .control-card:hover {
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 /* Card Header */
 .card-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 1rem 1.5rem;
-    border-bottom: none;
+    padding: 0.5rem 0.75rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    position: relative;
-    overflow: hidden;
-}
-
-.card-header::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(45deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
-    pointer-events: none;
+    gap: 0.5rem;
 }
 
 .card-header h3 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 0.95rem;
     font-weight: 600;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-    position: relative;
-    z-index: 1;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
 }
 
 .card-header i {
-    font-size: 1.3rem;
-    opacity: 0.9;
-}
-
-.card-status {
-    position: relative;
-    z-index: 1;
+    font-size: 1rem;
 }
 
 .status-indicator {
-    width: 12px;
-    height: 12px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.3);
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.6);
     transition: all 0.3s ease;
+    flex-shrink: 0;
 }
 
 .status-indicator.active {
     background: #4ade80;
     border-color: #22c55e;
-    box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+    box-shadow: 0 0 6px rgba(74, 222, 128, 0.6);
 }
 
 /* Card Body */
 .card-body {
-    padding: 1.5rem;
+    padding: 0.75rem;
 }
 
 /* Control Description */
 .control-description {
-    margin-bottom: 1.5rem;
-}
-
-.control-description p {
     color: #6b7280;
-    font-size: 0.9rem;
-    line-height: 1.5;
-    margin: 0;
+    font-size: 0.75rem;
+    line-height: 1.4;
+    margin: 0 0 0.75rem 0;
     font-style: italic;
 }
 
-/* Button Section */
-.button-section {
-    margin-bottom: 1.5rem;
-}
-
+/* Button */
 .iot-button {
     width: 100%;
-    padding: 0.75rem 1.5rem;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 1rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 0.85rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
-    transition: all 0.3s ease;
-    border: 2px solid transparent;
-    text-transform: none;
-    letter-spacing: 0.025em;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+    border: none;
+    margin-bottom: 0.75rem;
 }
 
 .iot-button:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
 }
 
 .iot-button:disabled {
@@ -137,81 +105,90 @@
 
 .iot-button.btn-primary {
     background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-    border-color: #3b82f6;
     color: white;
 }
 
 .iot-button.btn-primary:hover:not(:disabled) {
     background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-    border-color: #2563eb;
 }
 
 .iot-button.btn-success {
     background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    border-color: #10b981;
     color: white;
 }
 
 .iot-button.btn-success:hover:not(:disabled) {
     background: linear-gradient(135deg, #059669 0%, #047857 100%);
-    border-color: #059669;
 }
 
-/* IoT Messages - Modern Style */
+/* IoT Messages - Compact Style */
 .iot-message {
-    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    background: #f0f9ff;
     border: 1px solid #bae6fd;
-    border-radius: 8px;
-    padding: 1rem;
-    animation: slideInUp 0.4s ease-out;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border-radius: 6px;
+    padding: 0.5rem 0.75rem;
+    animation: slideInUp 0.3s ease-out;
+    font-size: 0.8rem;
+    line-height: 1.4;
 }
 
-.message-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.75rem;
+.iot-message strong {
+    display: block;
+    margin-bottom: 0.25rem;
     color: #0369a1;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
 }
 
-.message-header i {
-    font-size: 1rem;
-}
-
-.message-content {
+.iot-message div {
     color: #0c4a6e;
-    font-size: 0.95rem;
-    line-height: 1.5;
-    font-weight: 500;
 }
 
 /* Test Message Specific */
 .test-message {
-    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    background: #fef3c7;
     border-color: #f59e0b;
 }
 
-.test-message .message-header {
+.test-message strong {
     color: #92400e;
 }
 
-.test-message .message-content {
+.test-message div {
     color: #78350f;
+}
+
+/* Portail Container */
+.portail-container {
+    margin: 2rem auto;
+    padding: 1.5rem;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    width: 75vw;
+    max-width: 1200px;
+    box-sizing: border-box;
+}
+
+.portail-title {
+    margin: 0 0 1rem 0;
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1f2937;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #e5e7eb;
 }
 
 /* Portail Message Specific */
 .portail-message {
-    background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
+    background: #d1fae5;
     border-color: #10b981;
 }
 
-.portail-message .message-header {
+.portail-message strong {
     color: #065f46;
 }
 
-.portail-message .message-content {
+.portail-message div {
     color: #064e3b;
 }
 
@@ -219,7 +196,7 @@
 @keyframes slideInUp {
     from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(10px);
     }
     to {
         opacity: 1;
@@ -232,7 +209,7 @@
         opacity: 1;
     }
     50% {
-        opacity: 0.5;
+        opacity: 0.6;
     }
 }
 
@@ -242,73 +219,62 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
-    .iot-controls {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
+    .portail-container {
+        width: 95vw;
+        margin: 1.5rem auto;
+        padding: 1rem;
     }
 
-    .card-header {
-        flex-direction: column;
-        align-items: flex-start;
+    .iot-controls {
+        grid-template-columns: 1fr;
         gap: 0.75rem;
     }
 
-    .card-header h3 {
-        font-size: 1.1rem;
-    }
-
-    .card-status {
-        align-self: flex-end;
-    }
-
     .card-body {
-        padding: 1.25rem;
-    }
-
-    .iot-button {
-        padding: 0.625rem 1.25rem;
-        font-size: 0.9rem;
+        padding: 0.625rem;
     }
 }
 
 @media (max-width: 480px) {
+    .portail-container {
+        width: calc(100vw - 2rem);
+        margin: 1rem auto;
+        padding: 0.75rem;
+    }
+
     .iot-controls {
-        grid-template-columns: 1fr;
-        gap: 1rem;
+        gap: 0.5rem;
     }
 
     .control-card {
-        border-radius: 8px;
+        border-radius: 6px;
     }
 
     .card-header {
-        padding: 1rem;
+        padding: 0.5rem;
     }
 
     .card-body {
-        padding: 1rem;
+        padding: 0.5rem;
     }
 
     .iot-button {
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
     }
 
     .iot-message {
-        padding: 0.75rem;
+        padding: 0.4rem 0.6rem;
+        font-size: 0.75rem;
     }
 }
 
 /* Loading States */
-.iot-button:disabled {
-    position: relative;
-}
-
 .iot-button:disabled::after {
     content: '';
     position: absolute;
-    width: 16px;
-    height: 16px;
+    width: 12px;
+    height: 12px;
     margin: auto;
     border: 2px solid transparent;
     border-top-color: currentColor;

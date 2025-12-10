@@ -450,7 +450,7 @@ export class FriendsService {
     /**
      * Send invitation email to join PATTOOL
      */
-    sendInvitation(email: string): Observable<{ message: string }> {
+    sendInvitation(email: string, customMessage?: string): Observable<{ message: string }> {
         return from(this._keycloakService.getToken()).pipe(
             map(token => {
                 return new HttpHeaders({
@@ -460,9 +460,13 @@ export class FriendsService {
                 });
             }),
             switchMap(headers => {
+                const body: any = { email };
+                if (customMessage && customMessage.trim()) {
+                    body.customMessage = customMessage.trim();
+                }
                 return this._http.post<{ message: string }>(
                     this.API_URL + 'friends/invite',
-                    { email },
+                    body,
                     { headers: headers }
                 ).pipe(
                     catchError((error: any) => {

@@ -281,6 +281,12 @@ public class FriendsRestController {
                 return ResponseEntity.badRequest().build();
             }
             
+            // Get optional custom message
+            String customMessage = requestBody.get("customMessage");
+            if (customMessage != null && customMessage.trim().isEmpty()) {
+                customMessage = null;
+            }
+            
             Member inviter = friendsService.getCurrentUser(authentication);
             if (inviter == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
@@ -294,8 +300,8 @@ public class FriendsRestController {
                 return ResponseEntity.badRequest().body(response);
             }
             
-            // Send invitation email
-            sendInvitationEmail(inviter, email);
+            // Send invitation email with optional custom message
+            sendInvitationEmail(inviter, email, customMessage);
             
             Map<String, String> response = new java.util.HashMap<>();
             response.put("message", "Invitation sent successfully");
@@ -309,7 +315,7 @@ public class FriendsRestController {
     /**
      * Send invitation email to join PATTOOL
      */
-    private void sendInvitationEmail(Member inviter, String recipientEmail) {
+    private void sendInvitationEmail(Member inviter, String recipientEmail, String customMessage) {
         try {
             if (recipientEmail == null || recipientEmail.trim().isEmpty()) {
                 log.debug("Cannot send invitation email - recipient email is empty");
@@ -330,10 +336,10 @@ public class FriendsRestController {
             String body;
             if (isFrench) {
                 subject = "Invitation à rejoindre PATTOOL de " + inviter.getFirstName() + " " + inviter.getLastName();
-                body = generateInvitationEmailHtml(inviter, recipientEmail, true);
+                body = generateInvitationEmailHtml(inviter, recipientEmail, true, customMessage);
             } else {
                 subject = "Invitation to join PATTOOL from " + inviter.getFirstName() + " " + inviter.getLastName();
-                body = generateInvitationEmailHtml(inviter, recipientEmail, false);
+                body = generateInvitationEmailHtml(inviter, recipientEmail, false, customMessage);
             }
             
             // Determine CC recipient (inviter's email if it exists and is valid)
@@ -348,7 +354,9 @@ public class FriendsRestController {
             
             // Send invitation email with CC to inviter (if valid) and BCC to app.mailsentto
             mailController.sendMailToRecipient(recipientEmail, subject, body, true, ccRecipient, mailController.getMailSentTo());
-            log.debug("Invitation email sent to {} in language {} (CC: {}, BCC: {})", recipientEmail, language, ccRecipient != null ? ccRecipient : "none", mailController.getMailSentTo());
+            log.debug("Invitation email sent to {} in language {} with custom message: {} (CC: {}, BCC: {})", 
+                recipientEmail, language, customMessage != null ? "yes" : "no", 
+                ccRecipient != null ? ccRecipient : "none", mailController.getMailSentTo());
         } catch (Exception e) {
             log.error("Error sending invitation email to {}: {}", recipientEmail, e.getMessage(), e);
         }
@@ -357,7 +365,7 @@ public class FriendsRestController {
     /**
      * Generate HTML email body for invitation
      */
-    private String generateInvitationEmailHtml(Member inviter, String recipientEmail, boolean isFrench) {
+    private String generateInvitationEmailHtml(Member inviter, String recipientEmail, boolean isFrench, String customMessage) {
         String headerTitle = isFrench ? "Invitation à PATTOOL" : "Invitation to PATTOOL";
         String greeting = isFrench ? "Bonjour" : "Hello";
         String messageText = isFrench ? 
@@ -386,6 +394,8 @@ public class FriendsRestController {
         bodyBuilder.append(".header-icon { font-size: 32px; margin-bottom: 10px; }");
         bodyBuilder.append(".content { padding: 30px; background: #fafafa; }");
         bodyBuilder.append(".message { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #007bff; }");
+        bodyBuilder.append(".custom-message { background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107; font-style: italic; }");
+        bodyBuilder.append(".custom-message p { margin: 0; white-space: pre-wrap; }");
         bodyBuilder.append(".inviter-info { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }");
         bodyBuilder.append(".inviter-info h3 { margin: 0 0 15px 0; color: #333; font-weight: 600; }");
         bodyBuilder.append(".info-item { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 6px; }");
@@ -410,6 +420,16 @@ public class FriendsRestController {
         bodyBuilder.append("<p>").append(escapeHtml(greeting)).append(",</p>");
         bodyBuilder.append("<p><strong>").append(escapeHtml(inviter.getFirstName())).append(" ").append(escapeHtml(inviter.getLastName())).append("</strong>").append(escapeHtml(messageText)).append("</p>");
         bodyBuilder.append("</div>");
+        
+        // Custom Message Section (if provided)
+        if (customMessage != null && !customMessage.trim().isEmpty()) {
+            bodyBuilder.append("<div class='custom-message'>");
+            bodyBuilder.append("<p><strong>").append(escapeHtml(isFrench ? "Message personnel:" : "Personal message:")).append("</strong></p>");
+            // Convert newlines to <br> tags for better email client compatibility
+            String formattedMessage = escapeHtml(customMessage).replace("\n", "<br>");
+            bodyBuilder.append("<p>").append(formattedMessage).append("</p>");
+            bodyBuilder.append("</div>");
+        }
         
         // Inviter Information
         bodyBuilder.append("<div class='inviter-info'>");

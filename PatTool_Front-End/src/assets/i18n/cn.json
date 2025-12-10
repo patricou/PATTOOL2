@@ -63,6 +63,7 @@
         "COMMENT": "...",
         "TEST": " 物联网测试",
         "TEST_DESCRIPTION": "测试以太网盾连接以验证与Arduino的通信。",
+        "PORTAIL": "门户",
         "PORTAIL_DESCRIPTION": "自动门控制 - 远程开关。",
         "TEST_RESULT": "测试结果",
         "PORTAIL_STATUS": "门状态"

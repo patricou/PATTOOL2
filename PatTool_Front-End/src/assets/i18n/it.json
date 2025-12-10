@@ -63,6 +63,7 @@
         "COMMENT": "...",
         "TEST": "Test IoT",
         "TEST_DESCRIPTION": "Test di connettività Ethernet Shield per verificare la comunicazione con Arduino.",
+        "PORTAIL": "Portale",
         "PORTAIL_DESCRIPTION": "Controllo cancello automatico - Apertura e chiusura a distanza.",
         "TEST_RESULT": "Risultato del test",
         "PORTAIL_STATUS": "Stato del cancello"

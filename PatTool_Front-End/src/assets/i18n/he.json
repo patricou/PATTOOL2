@@ -63,6 +63,7 @@
         "COMMENT": "...",
         "TEST": "בדיקות IoT",
         "TEST_DESCRIPTION": "בדיקת חיבור Ethernet Shield לאימות תקשורת עם Arduino.",
+        "PORTAIL": "פורטל",
         "PORTAIL_DESCRIPTION": "שליטה בשער אוטומטי - פתיחה וסגירה מרחוק.",
         "TEST_RESULT": "תוצאת הבדיקה",
         "PORTAIL_STATUS": "סטטוס השער"
