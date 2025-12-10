@@ -338,6 +338,34 @@ public class DiscussionRestController {
     }
 
     /**
+     * Delete a discussion
+     */
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteDiscussion(
+            @PathVariable String id,
+            Authentication authentication) {
+        try {
+            String userName = extractUserName(authentication);
+            if (userName == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            boolean deleted = discussionService.deleteDiscussion(id, userName);
+            if (deleted) {
+                return ResponseEntity.noContent().build();
+            } else {
+                return ResponseEntity.notFound().build();
+            }
+        } catch (SecurityException e) {
+            log.warn("Unauthorized delete attempt: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            log.error("Error deleting discussion {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
      * Get active WebSocket connections for discussions
      */
     @GetMapping("/active-connections")

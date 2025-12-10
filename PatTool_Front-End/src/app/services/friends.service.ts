@@ -699,9 +699,9 @@ export class FriendsService {
             }),
             switchMap(headers => {
                 const body: any = { name, memberIds };
-                if (discussionId) {
-                    body.discussionId = discussionId;
-                }
+                // Always include discussionId in body (even if undefined) so backend can clear it
+                // Use null for JSON serialization when undefined
+                body.discussionId = discussionId !== undefined ? discussionId : null;
                 return this._http.put<FriendGroup>(
                     this.API_URL + 'friends/groups/' + groupId,
                     body,

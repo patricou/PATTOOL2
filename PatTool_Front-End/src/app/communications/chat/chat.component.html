@@ -79,55 +79,62 @@
                             <span *ngIf="discussion.type === 'friendGroup'">{{ "CHAT.TYPE_GROUP" | translate }}</span>
                         </div>
                     </div>
+                    <div class="discussion-actions" *ngIf="isDiscussionOwner(discussion)">
+                        <button class="btn btn-sm btn-danger delete-discussion-btn" 
+                                (click)="deleteDiscussion(discussion, $event)"
+                                [attr.aria-label]="'Delete discussion'"
+                                [ngbTooltip]="'Delete discussion'"
+                                placement="top">
+                            <i class="fa fa-trash"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="discussion-card-body">
+                    <div class="discussion-info">
+                        <!-- Discussion Owner (shown for all types) -->
+                        <p class="discussion-info-item" *ngIf="getDiscussionOwnerName(discussion)">
+                            <i class="fa fa-user-circle"></i>
+                            <span><strong>{{ "CHAT.OWNER" | translate }}:</strong> {{ getDiscussionOwnerName(discussion) }}</span>
+                        </p>
+
                         <!-- Event Info -->
-                        <div *ngIf="discussion.type === 'event' && discussion.event" class="discussion-info">
-                            <p class="discussion-info-item">
-                                <i class="fa fa-user"></i>
-                                <span>{{ discussion.event.author.firstName }} {{ discussion.event.author.lastName }} ({{ discussion.event.author.userName }})</span>
-                            </p>
-                            <p class="discussion-info-item" *ngIf="discussion.event.beginEventDate">
-                                <i class="fa fa-calendar"></i>
-                                <span>{{ discussion.event.beginEventDate | date:'short' }}</span>
-                            </p>
-                            <p class="discussion-info-item" *ngIf="discussion.event.startLocation">
-                                <i class="fa fa-map-marker"></i>
-                                <span>{{ discussion.event.startLocation }}</span>
-                            </p>
-                            <p class="discussion-info-item" *ngIf="discussion.event.visibility">
-                                <i class="fa fa-eye"></i>
-                                <span>{{ "EVENTCREATION.VISIBILITY" | translate }}: 
-                                    <ng-container *ngIf="isStandardVisibility(discussion.event.visibility)">
-                                        {{ getVisibilityLabel(discussion.event.visibility) | translate }}
-                                    </ng-container>
-                                    <ng-container *ngIf="!isStandardVisibility(discussion.event.visibility)">
-                                        {{ discussion.event.visibility }}
-                                    </ng-container>
-                                </span>
-                            </p>
-                            <p class="discussion-info-item" *ngIf="discussion.event.status">
-                                <i class="fa fa-info-circle"></i>
-                                <span>{{ "EVENTCREATION.EVENTSTATUS" | translate }}: {{ getStatusLabel(discussion.event.status) | translate }}</span>
-                            </p>
-                        </div>
+                        <p class="discussion-info-item" *ngIf="discussion.type === 'event' && discussion.event && discussion.event.beginEventDate">
+                            <i class="fa fa-calendar"></i>
+                            <span><strong>{{ "CHAT.EVENT_DATE" | translate }}:</strong> {{ discussion.event.beginEventDate | date:'short' }}</span>
+                        </p>
+                        <p class="discussion-info-item" *ngIf="discussion.type === 'event' && discussion.event && discussion.event.startLocation">
+                            <i class="fa fa-map-marker"></i>
+                            <span><strong>{{ "CHAT.EVENT_LOCATION" | translate }}:</strong> {{ discussion.event.startLocation }}</span>
+                        </p>
+                        <p class="discussion-info-item" *ngIf="discussion.type === 'event' && discussion.event && discussion.event.visibility">
+                            <i class="fa fa-eye"></i>
+                            <span><strong>{{ "CHAT.EVENT_VISIBILITY" | translate }}:</strong> 
+                                <ng-container *ngIf="isStandardVisibility(discussion.event.visibility)">
+                                    {{ getVisibilityLabel(discussion.event.visibility) | translate }}
+                                </ng-container>
+                                <ng-container *ngIf="!isStandardVisibility(discussion.event.visibility)">
+                                    {{ discussion.event.visibility }}
+                                </ng-container>
+                            </span>
+                        </p>
+                        <p class="discussion-info-item" *ngIf="discussion.type === 'event' && discussion.event && discussion.event.status">
+                            <i class="fa fa-info-circle"></i>
+                            <span><strong>{{ "CHAT.EVENT_STATUS" | translate }}:</strong> {{ getStatusLabel(discussion.event.status) | translate }}</span>
+                        </p>
 
                         <!-- Friend Group Info -->
-                        <div *ngIf="discussion.type === 'friendGroup' && discussion.friendGroup" class="discussion-info">
-                            <p class="discussion-info-item">
-                                <i class="fa fa-users"></i>
-                                <span>{{ getGroupMembersCount(discussion.friendGroup) }} {{ "CHAT.MEMBERS" | translate }}</span>
-                            </p>
-                            <p class="discussion-info-item" *ngIf="getGroupMembersList(discussion.friendGroup).length > 0">
-                                <i class="fa fa-user"></i>
-                                <span class="members-list">{{ getGroupMembersList(discussion.friendGroup).join(', ') }}</span>
-                            </p>
-                    </div>
+                        <p class="discussion-info-item" *ngIf="discussion.type === 'friendGroup' && discussion.friendGroup">
+                            <i class="fa fa-users"></i>
+                            <span><strong>{{ "CHAT.MEMBERS_COUNT" | translate }}:</strong> {{ getGroupMembersCount(discussion.friendGroup) }} {{ "CHAT.MEMBERS" | translate }}</span>
+                        </p>
+                        <p class="discussion-info-item" *ngIf="discussion.type === 'friendGroup' && discussion.friendGroup && getGroupMembersList(discussion.friendGroup).length > 0">
+                            <i class="fa fa-user"></i>
+                            <span><strong>{{ "CHAT.MEMBERS_LIST" | translate }}:</strong> <span class="members-list">{{ getGroupMembersList(discussion.friendGroup).join(', ') }}</span></span>
+                        </p>
 
-                    <!-- General Discussion Info -->
-                    <div *ngIf="discussion.type === 'general'" class="discussion-info">
-                        <p class="discussion-info-item">
+                        <!-- General Discussion Info -->
+                        <p class="discussion-info-item" *ngIf="discussion.type === 'general'">
                             <i class="fa fa-info-circle"></i>
                             <span>{{ "CHAT.GENERAL_DISCUSSION_DESC" | translate }}</span>
                         </p>
@@ -143,6 +150,18 @@
                         <span *ngIf="discussion.lastMessageDate" class="last-message-date">
                             <i class="fa fa-clock-o"></i>
                             {{ discussion.lastMessageDate | date:'short' }}
+                        </span>
+                        <span class="discussion-id" *ngIf="hasAdminRole()">
+                            <i class="fa fa-hashtag"></i>
+                            <strong>{{ "CHAT.ID" | translate }}:</strong> {{ discussion.id }}
+                        </span>
+                        <span class="discussion-id" *ngIf="hasAdminRole() && discussion.type === 'event' && discussion.event && discussion.event.id">
+                            <i class="fa fa-calendar"></i>
+                            <strong>{{ "CHAT.EVENT_ID" | translate }}:</strong> {{ discussion.event.id }}
+                        </span>
+                        <span class="discussion-id" *ngIf="hasAdminRole() && discussion.type === 'friendGroup' && discussion.friendGroup && discussion.friendGroup.id">
+                            <i class="fa fa-users"></i>
+                            <strong>{{ "CHAT.GROUP_ID" | translate }}:</strong> {{ discussion.friendGroup.id }}
                         </span>
                     </div>
                     <div class="discussion-action">

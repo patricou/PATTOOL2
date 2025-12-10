@@ -824,6 +824,43 @@
     min-width: 0;
 }
 
+.discussion-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.delete-discussion-btn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: none;
+    background: #dc3545;
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+}
+
+.delete-discussion-btn:hover {
+    background: #c82333;
+    transform: scale(1.1);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+}
+
+.delete-discussion-btn:active {
+    transform: scale(0.95);
+}
+
+.delete-discussion-btn i {
+    pointer-events: none;
+}
+
 .discussion-title {
     font-size: 16px;
     font-weight: 600;
@@ -912,10 +949,21 @@
 }
 
 .message-count,
-.last-message-date {
+.last-message-date,
+.discussion-id {
     display: flex;
     align-items: center;
     gap: 4px;
+}
+
+.discussion-id {
+    font-size: 11px;
+    color: #8696a0;
+    font-family: monospace;
+}
+
+.discussion-id i {
+    font-size: 10px;
 }
 
 .message-count i,

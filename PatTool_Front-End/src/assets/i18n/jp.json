@@ -578,7 +578,18 @@
         "OWNER": "所有者",
         "GENERAL_DISCUSSION_DESC": "すべてのユーザー向けの一般的なディスカッション",
         "MESSAGE": "メッセージ",
-        "MESSAGES": "メッセージ"
+        "MESSAGES": "メッセージ",
+        "EVENT_DATE": "イベント日付",
+        "EVENT_LOCATION": "場所",
+        "EVENT_VISIBILITY": "公開設定",
+        "EVENT_STATUS": "ステータス",
+        "MEMBERS_COUNT": "メンバー",
+        "MEMBERS_LIST": "メンバーリスト",
+        "CONFIRM_DELETE_WITH_MESSAGES": "このディスカッションには {{count}} 件のメッセージが含まれています。このディスカッションを削除してもよろしいですか？これにより、ディスカッションとそのすべてのメッセージが永続的に削除されます。この操作は元に戻せません。",
+        "CONFIRM_DELETE_EMPTY": "このディスカッションを削除してもよろしいですか？この操作は元に戻せません。",
+        "ID": "ID",
+        "EVENT_ID": "イベントID",
+        "GROUP_ID": "グループID"
     },
     "MAP": {
         "TITLE": "特徴",
@@ -936,6 +947,7 @@
         "AUTHORIZED_TO_USE": "使用許可済み",
         "MEMBER": "メンバー",
         "OWNER": "所有者",
+        "GROUP_OWNER": "グループ所有者",
         "REMOVE": "削除",
         "ROLE": "役割"
     }

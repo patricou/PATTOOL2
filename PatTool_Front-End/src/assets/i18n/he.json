@@ -569,7 +569,18 @@
         "OWNER": "בעלים",
         "GENERAL_DISCUSSION_DESC": "דיון כללי עבור כל המשתמשים",
         "MESSAGE": "הודעה",
-        "MESSAGES": "הודעות"
+        "MESSAGES": "הודעות",
+        "EVENT_DATE": "תאריך האירוע",
+        "EVENT_LOCATION": "מיקום",
+        "EVENT_VISIBILITY": "נראות",
+        "EVENT_STATUS": "סטטוס",
+        "MEMBERS_COUNT": "חברים",
+        "MEMBERS_LIST": "רשימת חברים",
+        "CONFIRM_DELETE_WITH_MESSAGES": "דיון זה מכיל {{count}} הודעה/ות. האם אתה בטוח שברצונך למחוק את הדיון הזה? זה ימחק לצמיתות את הדיון ואת כל ההודעות שלו. פעולה זו אינה ניתנת לביטול.",
+        "CONFIRM_DELETE_EMPTY": "האם אתה בטוח שברצונך למחוק את הדיון הזה? פעולה זו אינה ניתנת לביטול.",
+        "ID": "ID",
+        "EVENT_ID": "מזהה אירוע",
+        "GROUP_ID": "מזהה קבוצה"
     },
     "MAP": {
         "TITLE": "מאפיינים",
@@ -927,6 +938,7 @@
         "AUTHORIZED_TO_USE": "מורשה לשימוש",
         "MEMBER": "חבר",
         "OWNER": "בעלים",
+        "GROUP_OWNER": "בעלים של הקבוצה",
         "REMOVE": "הסר",
         "ROLE": "תפקיד"
     }

@@ -570,7 +570,18 @@
         "OWNER": "Eigentümer",
         "GENERAL_DISCUSSION_DESC": "Allgemeine Diskussion für alle Benutzer",
         "MESSAGE": "Nachricht",
-        "MESSAGES": "Nachrichten"
+        "MESSAGES": "Nachrichten",
+        "EVENT_DATE": "Ereignisdatum",
+        "EVENT_LOCATION": "Ort",
+        "EVENT_VISIBILITY": "Sichtbarkeit",
+        "EVENT_STATUS": "Status",
+        "MEMBERS_COUNT": "Mitglieder",
+        "MEMBERS_LIST": "Mitgliederliste",
+        "CONFIRM_DELETE_WITH_MESSAGES": "Diese Diskussion enthält {{count}} Nachricht(en). Sind Sie sicher, dass Sie diese Diskussion löschen möchten? Dies wird die Diskussion und alle ihre Nachrichten dauerhaft löschen. Diese Aktion kann nicht rückgängig gemacht werden.",
+        "CONFIRM_DELETE_EMPTY": "Sind Sie sicher, dass Sie diese Diskussion löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "ID": "ID",
+        "EVENT_ID": "Ereignis-ID",
+        "GROUP_ID": "Gruppen-ID"
     },
     "MAP": {
         "TITLE": "Eigenschaften",
@@ -928,6 +939,7 @@
         "AUTHORIZED_TO_USE": "Autorisiert zu verwenden",
         "MEMBER": "Mitglied",
         "OWNER": "Eigentümer",
+        "GROUP_OWNER": "Gruppeneigentümer",
         "REMOVE": "Entfernen",
         "ROLE": "Rolle"
     }

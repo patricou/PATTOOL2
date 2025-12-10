@@ -577,7 +577,18 @@
         "OWNER": "Proprietario",
         "GENERAL_DISCUSSION_DESC": "Discussione generale per tutti gli utenti",
         "MESSAGE": "messaggio",
-        "MESSAGES": "messaggi"
+        "MESSAGES": "messaggi",
+        "EVENT_DATE": "Data dell'evento",
+        "EVENT_LOCATION": "Posizione",
+        "EVENT_VISIBILITY": "Visibilità",
+        "EVENT_STATUS": "Stato",
+        "MEMBERS_COUNT": "Membri",
+        "MEMBERS_LIST": "Elenco membri",
+        "CONFIRM_DELETE_WITH_MESSAGES": "Questa discussione contiene {{count}} messaggio/i. Sei sicuro di voler eliminare questa discussione? Questo eliminerà definitivamente la discussione e tutti i suoi messaggi. Questa azione non può essere annullata.",
+        "CONFIRM_DELETE_EMPTY": "Sei sicuro di voler eliminare questa discussione? Questa azione non può essere annullata.",
+        "ID": "ID",
+        "EVENT_ID": "ID Evento",
+        "GROUP_ID": "ID Gruppo"
     },
     "MAP": {
         "TITLE": "Caratteristiche",
@@ -935,6 +946,7 @@
         "AUTHORIZED_TO_USE": "Autorizzato ad usare",
         "MEMBER": "Membro",
         "OWNER": "Proprietario",
+        "GROUP_OWNER": "Proprietario del Gruppo",
         "REMOVE": "Rimuovi",
         "ROLE": "Ruolo"
     }

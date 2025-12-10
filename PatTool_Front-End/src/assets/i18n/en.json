@@ -578,7 +578,18 @@
         "OWNER": "Owner",
         "GENERAL_DISCUSSION_DESC": "General discussion for all users",
         "MESSAGE": "message",
-        "MESSAGES": "messages"
+        "MESSAGES": "messages",
+        "EVENT_DATE": "Event Date",
+        "EVENT_LOCATION": "Location",
+        "EVENT_VISIBILITY": "Visibility",
+        "EVENT_STATUS": "Status",
+        "MEMBERS_COUNT": "Members",
+        "MEMBERS_LIST": "Members List",
+        "CONFIRM_DELETE_WITH_MESSAGES": "This discussion contains {{count}} message(s). Are you sure you want to delete this discussion? This will permanently delete the discussion and all its messages. This action cannot be undone.",
+        "CONFIRM_DELETE_EMPTY": "Are you sure you want to delete this discussion? This action cannot be undone.",
+        "ID": "ID",
+        "EVENT_ID": "Event ID",
+        "GROUP_ID": "Group ID"
     },
     "MAP": {
         "TITLE": "Main Features",
@@ -956,6 +967,7 @@
         "AUTHORIZED_TO_USE": "Authorized to use",
         "MEMBER": "Member",
         "OWNER": "Owner",
+        "GROUP_OWNER": "Group Owner",
         "REMOVE": "Remove",
         "ROLE": "Role",
         "STATUS": "Status",

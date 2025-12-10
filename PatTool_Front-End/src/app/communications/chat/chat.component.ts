@@ -11,6 +11,8 @@ import { FriendGroup } from '../../model/friend';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { DiscussionModalComponent } from '../discussion-modal/discussion-modal.component';
 import { catchError, map, timeout } from 'rxjs/operators';
+import { TranslateService } from '@ngx-translate/core';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 
 export interface DiscussionItem {
   id: string;
@@ -64,7 +66,9 @@ export class ChatComponent implements OnInit, OnDestroy {
     public _memberService: MembersService,
     private evenementsService: EvenementsService,
     private friendsService: FriendsService,
-    private modalService: NgbModal
+    private modalService: NgbModal,
+    private translate: TranslateService,
+    private keycloakService: KeycloakService
   ) {}
 
   async ngOnInit() {
@@ -140,12 +144,15 @@ export class ChatComponent implements OnInit, OnDestroy {
           // Add friend group discussions immediately
           this.allFriendGroups.forEach(group => {
             if (group.discussionId && this.canAccessFriendGroup(group)) {
-              this.availableDiscussions.push({
+              const discussionItem: DiscussionItem = {
                 id: group.discussionId,
                 title: `Discussion - ${group.name}`,
                 type: 'friendGroup',
                 friendGroup: group
-              });
+              };
+              this.availableDiscussions.push(discussionItem);
+              // Immediately start loading the full discussion object to get createdBy
+              this.loadDiscussionDetailsForItem(discussionItem);
             }
           });
           
@@ -293,11 +300,27 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Load details (message count, last message date) for a single discussion
+   * Load details (message count, last message date, and full discussion with createdBy) for a single discussion
    */
   private loadDiscussionDetailsForItem(discussionItem: DiscussionItem) {
-    this.discussionService.getMessages(discussionItem.id).pipe(
-      map(messages => {
+    // Load both messages and full discussion in parallel
+    forkJoin({
+      messages: this.discussionService.getMessages(discussionItem.id).pipe(
+        catchError(error => {
+          console.error(`Error loading messages for discussion ${discussionItem.id}:`, error);
+          return of([]);
+        })
+      ),
+      discussion: this.discussionService.getDiscussionById(discussionItem.id).pipe(
+        catchError(error => {
+          console.error(`Error loading discussion ${discussionItem.id}:`, error);
+          return of(null);
+        })
+      )
+    }).pipe(
+      map(results => {
+        // Update message count and last message date
+        const messages = results.messages;
         discussionItem.messageCount = messages.length;
         if (messages.length > 0) {
           const sortedMessages = messages.sort((a, b) => {
@@ -307,27 +330,48 @@ export class ChatComponent implements OnInit, OnDestroy {
           });
           discussionItem.lastMessageDate = sortedMessages[0].dateTime ? new Date(sortedMessages[0].dateTime) : undefined;
         }
+        // Always update discussion object with createdBy - this is critical for owner check
+        if (results.discussion) {
+          discussionItem.discussion = results.discussion;
+          console.log(`Discussion ${discussionItem.id} loaded with owner:`, results.discussion.createdBy?.userName);
+        } else {
+          console.warn(`Discussion ${discussionItem.id} could not be loaded - owner check will fail`);
+        }
         return discussionItem;
       }),
       catchError(error => {
-        console.error(`Error loading messages for discussion ${discussionItem.id}:`, error);
-        discussionItem.messageCount = 0;
-        discussionItem.lastMessageDate = undefined;
+        console.error(`Error in loadDiscussionDetailsForItem for ${discussionItem.id}:`, error);
         return of(discussionItem);
       }),
-      timeout(5000)
+      timeout(10000) // Increased timeout to 10 seconds
     ).subscribe();
   }
 
   /**
-   * Load details (message count, last message date) for each discussion
+   * Load details (message count, last message date, and full discussion with createdBy) for each discussion
    * Optimized to load in parallel with timeout
    */
   private loadDiscussionDetails() {
     // Load all discussions in parallel with timeout
     const detailObservables = this.availableDiscussions.map(discussionItem => {
-      return this.discussionService.getMessages(discussionItem.id).pipe(
-        map(messages => {
+      // Load both messages and full discussion in parallel
+      return forkJoin({
+        messages: this.discussionService.getMessages(discussionItem.id).pipe(
+          catchError(error => {
+            console.error(`Error loading messages for discussion ${discussionItem.id}:`, error);
+            return of([]);
+          })
+        ),
+        discussion: this.discussionService.getDiscussionById(discussionItem.id).pipe(
+          catchError(error => {
+            console.error(`Error loading discussion ${discussionItem.id}:`, error);
+            return of(null);
+          })
+        )
+      }).pipe(
+        map(results => {
+          // Update message count and last message date
+          const messages = results.messages;
           discussionItem.messageCount = messages.length;
           if (messages.length > 0) {
             // Sort by date and get the last message
@@ -338,17 +382,21 @@ export class ChatComponent implements OnInit, OnDestroy {
             });
             discussionItem.lastMessageDate = sortedMessages[0].dateTime ? new Date(sortedMessages[0].dateTime) : undefined;
           }
+          // Always update discussion object with createdBy - this is critical for owner check
+          if (results.discussion) {
+            discussionItem.discussion = results.discussion;
+            console.log(`Discussion ${discussionItem.id} loaded with owner:`, results.discussion.createdBy?.userName);
+          } else {
+            console.warn(`Discussion ${discussionItem.id} could not be loaded - owner check will fail`);
+          }
           return discussionItem;
         }),
         catchError(error => {
-          console.error(`Error loading messages for discussion ${discussionItem.id}:`, error);
-          // Set defaults on error
-          discussionItem.messageCount = 0;
-          discussionItem.lastMessageDate = undefined;
+          console.error(`Error in loadDiscussionDetails for ${discussionItem.id}:`, error);
           return of(discussionItem);
         }),
-        // Add timeout of 5 seconds per discussion
-        timeout(5000)
+        // Add timeout of 10 seconds per discussion (increased for reliability)
+        timeout(10000)
       );
     });
 
@@ -360,8 +408,19 @@ export class ChatComponent implements OnInit, OnDestroy {
           return of([]);
         })
       ).subscribe({
-        next: () => {
-          console.log('All discussion details loaded');
+        next: (items) => {
+          console.log(`All discussion details loaded (${items.length} discussions)`);
+          // Verify that discussions have been loaded
+          const discussionsWithoutOwner = this.availableDiscussions.filter(d => !d.discussion || !d.discussion.createdBy);
+          if (discussionsWithoutOwner.length > 0) {
+            console.warn(`${discussionsWithoutOwner.length} discussions missing owner information:`, 
+              discussionsWithoutOwner.map(d => d.id));
+            // Retry loading for discussions without owner info
+            discussionsWithoutOwner.forEach(d => {
+              console.log(`Retrying load for discussion ${d.id}`);
+              this.loadDiscussionDetailsForItem(d);
+            });
+          }
         },
         error: (error) => {
           console.error('Error loading discussion details:', error);
@@ -971,6 +1030,158 @@ export class ChatComponent implements OnInit, OnDestroy {
    */
   isOwnMessage(message: DiscussionMessage): boolean {
     return message.author?.userName === this.user.userName;
+  }
+
+  /**
+   * Check if current user has admin role
+   */
+  hasAdminRole(): boolean {
+    return this.keycloakService.hasAdminRole();
+  }
+
+  /**
+   * Get the owner name of a discussion
+   */
+  getDiscussionOwnerName(discussionItem: DiscussionItem): string {
+    if (!discussionItem) {
+      return '';
+    }
+    
+    // Check if discussion has createdBy field
+    if (discussionItem.discussion && discussionItem.discussion.createdBy) {
+      const owner = discussionItem.discussion.createdBy;
+      if (owner.firstName && owner.lastName) {
+        return `${owner.firstName} ${owner.lastName} (${owner.userName || ''})`;
+      } else if (owner.userName) {
+        return owner.userName;
+      }
+    }
+    
+    return '';
+  }
+
+  /**
+   * Check if current user is the owner of a discussion
+   */
+  isDiscussionOwner(discussionItem: DiscussionItem): boolean {
+    if (!this.user || !this.user.userName || !discussionItem) {
+      return false;
+    }
+    
+    // Check if discussion has createdBy field
+    if (discussionItem.discussion && discussionItem.discussion.createdBy) {
+      const isOwner = discussionItem.discussion.createdBy.userName === this.user.userName;
+      return isOwner;
+    }
+    
+    // If discussion object is not loaded yet, try to load it
+    if (!discussionItem.discussion) {
+      console.warn(`Discussion ${discussionItem.id} not loaded yet, attempting to load...`);
+      this.loadDiscussionDetailsForItem(discussionItem);
+    }
+    
+    return false;
+  }
+
+  /**
+   * Delete a discussion
+   */
+  async deleteDiscussion(discussionItem: DiscussionItem, event: Event) {
+    // Prevent the card click event from firing
+    event.stopPropagation();
+    
+    if (!discussionItem || !discussionItem.id) {
+      return;
+    }
+
+    // Check if discussion has messages
+    const hasMessages = discussionItem.messageCount && discussionItem.messageCount > 0;
+    
+    // Build confirmation message based on whether there are messages
+    let confirmMessage: string;
+    if (hasMessages) {
+      const messageCount = discussionItem.messageCount || 0;
+      // Get translated confirmation message with message count
+      confirmMessage = this.translate.instant('CHAT.CONFIRM_DELETE_WITH_MESSAGES', { count: messageCount });
+    } else {
+      // Get translated confirmation message for empty discussion
+      confirmMessage = this.translate.instant('CHAT.CONFIRM_DELETE_EMPTY');
+    }
+
+    // Confirm deletion
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      this.isLoading = true;
+      
+      // First, delete the discussion
+      await new Promise<void>((resolve, reject) => {
+        this.discussionService.deleteDiscussion(discussionItem.id).subscribe({
+          next: async () => {
+            // After successful deletion, update the associated event or friend group
+            try {
+              if (discussionItem.type === 'event' && discussionItem.event) {
+                // Update event to remove discussionId
+                // Need to explicitly set to null (not undefined) so it's included in JSON
+                const event = { ...discussionItem.event };
+                event.discussionId = null as any; // Set to null so it's serialized in JSON
+                await new Promise<void>((eventResolve, eventReject) => {
+                  this.evenementsService.putEvenement(event).subscribe({
+                    next: () => {
+                      console.log(`Event ${event.id} updated: discussionId removed`);
+                      eventResolve();
+                    },
+                    error: (eventError) => {
+                      console.error('Error updating event after discussion deletion:', eventError);
+                      // Don't fail the whole operation if event update fails
+                      eventResolve();
+                    }
+                  });
+                });
+              } else if (discussionItem.type === 'friendGroup' && discussionItem.friendGroup) {
+                // Update friend group to remove discussionId
+                const group = discussionItem.friendGroup;
+                const memberIds = group.members ? group.members.map(m => m.id || '').filter(id => id) : [];
+                // Pass undefined to clear discussionId (backend will handle it)
+                await new Promise<void>((groupResolve, groupReject) => {
+                  this.friendsService.updateFriendGroup(group.id, group.name, memberIds, undefined).subscribe({
+                    next: () => {
+                      console.log(`Friend group ${group.id} updated: discussionId removed`);
+                      groupResolve();
+                    },
+                    error: (groupError) => {
+                      console.error('Error updating friend group after discussion deletion:', groupError);
+                      // Don't fail the whole operation if group update fails
+                      groupResolve();
+                    }
+                  });
+                });
+              }
+            } catch (updateError) {
+              console.error('Error updating associated entity:', updateError);
+              // Continue even if update fails
+            }
+            
+            // Remove the discussion from the list
+            this.availableDiscussions = this.availableDiscussions.filter(d => d.id !== discussionItem.id);
+            this.filteredDiscussions = this.filteredDiscussions.filter(d => d.id !== discussionItem.id);
+            this.isLoading = false;
+            resolve();
+          },
+          error: (error) => {
+            console.error('Error deleting discussion:', error);
+            alert('Error deleting discussion: ' + (error.message || error));
+            this.isLoading = false;
+            reject(error);
+          }
+        });
+      });
+    } catch (error) {
+      console.error('Error in deleteDiscussion:', error);
+      this.isLoading = false;
+    }
   }
 
   /**

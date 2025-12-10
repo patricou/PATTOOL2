@@ -186,5 +186,25 @@ public class DiscussionService {
         
         return discussion.getMessages() != null ? discussion.getMessages() : new java.util.ArrayList<>();
     }
+
+    /**
+     * Delete a discussion
+     * Only the creator can delete the discussion
+     */
+    public boolean deleteDiscussion(String discussionId, String userName) {
+        Discussion discussion = discussionRepository.findById(discussionId)
+                .orElseThrow(() -> new IllegalArgumentException("Discussion not found: " + discussionId));
+
+        // Only allow deletion if the user is the creator
+        if (discussion.getCreatedBy() != null && 
+            discussion.getCreatedBy().getUserName() != null &&
+            discussion.getCreatedBy().getUserName().equals(userName)) {
+            discussionRepository.delete(discussion);
+            log.info("Discussion {} deleted by user {}", discussionId, userName);
+            return true;
+        }
+
+        throw new SecurityException("User not authorized to delete this discussion");
+    }
 }
 

@@ -237,6 +237,20 @@ export class DiscussionService {
   }
 
   /**
+   * Delete a discussion
+   */
+  deleteDiscussion(discussionId: string): Observable<void> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete<void>(
+          this.API_URL + 'discussions/' + discussionId,
+          { headers: headers }
+        )
+      )
+    );
+  }
+
+  /**
    * Connect to WebSocket for real-time updates
    */
   connectWebSocket(discussionId: string): void {

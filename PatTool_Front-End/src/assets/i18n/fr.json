@@ -574,7 +574,18 @@
         "OWNER": "Propriétaire",
         "GENERAL_DISCUSSION_DESC": "Discussion générale pour tous les utilisateurs",
         "MESSAGE": "message",
-        "MESSAGES": "messages"
+        "MESSAGES": "messages",
+        "EVENT_DATE": "Date de l'événement",
+        "EVENT_LOCATION": "Lieu",
+        "EVENT_VISIBILITY": "Visibilité",
+        "EVENT_STATUS": "Statut",
+        "MEMBERS_COUNT": "Membres",
+        "MEMBERS_LIST": "Liste des membres",
+        "CONFIRM_DELETE_WITH_MESSAGES": "Cette discussion contient {{count}} message(s). Êtes-vous sûr de vouloir supprimer cette discussion ? Cela supprimera définitivement la discussion et tous ses messages. Cette action est irréversible.",
+        "CONFIRM_DELETE_EMPTY": "Êtes-vous sûr de vouloir supprimer cette discussion ? Cette action est irréversible.",
+        "ID": "ID",
+        "EVENT_ID": "ID Événement",
+        "GROUP_ID": "ID Groupe"
     },
     "MAP": {
         "TITLE": "Caractéristiques",
@@ -952,6 +963,7 @@
         "AUTHORIZED_TO_USE": "Autorisé à utiliser",
         "MEMBER": "Membre",
         "OWNER": "Propriétaire",
+        "GROUP_OWNER": "Propriétaire",
         "REMOVE": "Retirer",
         "STATUS": "Statut",
         "ONLINE": "En ligne",

@@ -576,7 +576,18 @@
         "OWNER": "所有者",
         "GENERAL_DISCUSSION_DESC": "所有用户的通用讨论",
         "MESSAGE": "消息",
-        "MESSAGES": "消息"
+        "MESSAGES": "消息",
+        "EVENT_DATE": "活动日期",
+        "EVENT_LOCATION": "地点",
+        "EVENT_VISIBILITY": "可见性",
+        "EVENT_STATUS": "状态",
+        "MEMBERS_COUNT": "成员",
+        "MEMBERS_LIST": "成员列表",
+        "CONFIRM_DELETE_WITH_MESSAGES": "此讨论包含 {{count}} 条消息。您确定要删除此讨论吗？这将永久删除讨论及其所有消息。此操作无法撤消。",
+        "CONFIRM_DELETE_EMPTY": "您确定要删除此讨论吗？此操作无法撤消。",
+        "ID": "ID",
+        "EVENT_ID": "活动ID",
+        "GROUP_ID": "组ID"
     },
     "MAP": {
         "TITLE": "特点",
@@ -934,6 +945,7 @@
         "AUTHORIZED_TO_USE": "授权使用",
         "MEMBER": "成员",
         "OWNER": "所有者",
+        "GROUP_OWNER": "组所有者",
         "REMOVE": "移除",
         "ROLE": "角色"
     }

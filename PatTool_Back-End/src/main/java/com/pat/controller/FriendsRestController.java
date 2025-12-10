@@ -585,9 +585,15 @@ public class FriendsRestController {
 
             com.pat.repo.domain.FriendGroup group = friendsService.updateFriendGroup(groupId, name, memberIds, owner);
             
-            // Set discussionId if provided
-            if (discussionId != null && !discussionId.trim().isEmpty()) {
-                group.setDiscussionId(discussionId);
+            // Set or clear discussionId if provided
+            if (requestBody.containsKey("discussionId")) {
+                // If discussionId is explicitly provided (even if empty/null), update it
+                if (discussionId != null && !discussionId.trim().isEmpty()) {
+                    group.setDiscussionId(discussionId);
+                } else {
+                    // Clear discussionId if empty string or null is explicitly provided
+                    group.setDiscussionId(null);
+                }
                 group = friendGroupRepository.save(group);
             }
             return ResponseEntity.ok(group);

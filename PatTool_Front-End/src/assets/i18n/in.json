@@ -559,7 +559,18 @@
         "OWNER": "मालिक",
         "GENERAL_DISCUSSION_DESC": "सभी उपयोगकर्ताओं के लिए सामान्य चर्चा",
         "MESSAGE": "संदेश",
-        "MESSAGES": "संदेश"
+        "MESSAGES": "संदेश",
+        "EVENT_DATE": "घटना की तारीख",
+        "EVENT_LOCATION": "स्थान",
+        "EVENT_VISIBILITY": "दृश्यता",
+        "EVENT_STATUS": "स्थिति",
+        "MEMBERS_COUNT": "सदस्य",
+        "MEMBERS_LIST": "सदस्य सूची",
+        "CONFIRM_DELETE_WITH_MESSAGES": "इस चर्चा में {{count}} संदेश हैं। क्या आप वाकई इस चर्चा को हटाना चाहते हैं? यह चर्चा और इसके सभी संदेशों को स्थायी रूप से हटा देगा। इस क्रिया को पूर्ववत नहीं किया जा सकता।",
+        "CONFIRM_DELETE_EMPTY": "क्या आप वाकई इस चर्चा को हटाना चाहते हैं? इस क्रिया को पूर्ववत नहीं किया जा सकता।",
+        "ID": "ID",
+        "EVENT_ID": "घटना ID",
+        "GROUP_ID": "समूह ID"
     },
     "MAP": {
         "TITLE": "मुख्य विशेषताएं",
@@ -926,6 +937,7 @@
         "AUTHORIZED_TO_USE": "उपयोग के लिए अधिकृत",
         "MEMBER": "सदस्य",
         "OWNER": "मालिक",
+        "GROUP_OWNER": "समूह मालिक",
         "REMOVE": "हटाएं",
         "ROLE": "भूमिका"
     }
