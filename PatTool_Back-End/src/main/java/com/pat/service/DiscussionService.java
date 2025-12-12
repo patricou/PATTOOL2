@@ -245,9 +245,9 @@ public class DiscussionService {
                 for (com.pat.repo.domain.Evenement event : events) {
                     event.setDiscussionId(null);
                     evenementsRepository.save(event);
-                    log.info("Removed discussionId {} from event {}", discussionId, event.getId());
+                    log.debug("Removed discussionId {} from event {}", discussionId, event.getId());
                 }
-                log.info("Updated {} event(s) to remove discussionId {}", events.size(), discussionId);
+                log.debug("Updated {} event(s) to remove discussionId {}", events.size(), discussionId);
             }
             
             // Find all friend groups with this discussionId and remove it
@@ -256,9 +256,9 @@ public class DiscussionService {
                 for (com.pat.repo.domain.FriendGroup group : friendGroups) {
                     group.setDiscussionId(null);
                     friendGroupRepository.save(group);
-                    log.info("Removed discussionId {} from friend group {}", discussionId, group.getId());
+                    log.debug("Removed discussionId {} from friend group {}", discussionId, group.getId());
                 }
-                log.info("Updated {} friend group(s) to remove discussionId {}", friendGroups.size(), discussionId);
+                log.debug("Updated {} friend group(s) to remove discussionId {}", friendGroups.size(), discussionId);
             }
             
             // Find all user connection logs with this discussionId and remove it
@@ -268,14 +268,14 @@ public class DiscussionService {
                     logEntry.setDiscussionId(null);
                     logEntry.setDiscussionTitle(null);
                     userConnectionLogRepository.save(logEntry);
-                    log.info("Removed discussionId {} from user connection log {}", discussionId, logEntry.getId());
+                    log.debug("Removed discussionId {} from user connection log {}", discussionId, logEntry.getId());
                 }
-                log.info("Updated {} user connection log(s) to remove discussionId {}", connectionLogs.size(), discussionId);
+                log.debug("Updated {} user connection log(s) to remove discussionId {}", connectionLogs.size(), discussionId);
             }
             
             // Delete the discussion
             discussionRepository.delete(discussion);
-            log.info("Discussion {} deleted by user {}", discussionId, userName);
+            log.debug("Discussion {} deleted by user {}", discussionId, userName);
             return true;
         }
 

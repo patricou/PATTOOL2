@@ -119,7 +119,7 @@ public class DiscussionConnectionService {
 
             // Save to database
             userConnectionLogRepository.save(connectionLog);
-            log.info("Logged discussion connection - User: {}, Discussion: {} ({})", 
+            log.debug("Logged discussion connection - User: {}, Discussion: {} ({})", 
                 info.userName, discussionTitle, discussionId);
         } catch (Exception e) {
             log.error("Error logging discussion connection for session {}: {}", sessionId, e.getMessage(), e);
