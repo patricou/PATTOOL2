@@ -24,5 +24,10 @@ public interface FriendGroupRepository extends MongoRepository<FriendGroup, Stri
      * Find friend groups where a specific member is in the authorizedUsers list
      */
     List<FriendGroup> findByAuthorizedUsersContaining(Member member);
+    
+    /**
+     * Find all friend groups with a specific discussionId
+     */
+    List<FriendGroup> findByDiscussionId(String discussionId);
 }
 

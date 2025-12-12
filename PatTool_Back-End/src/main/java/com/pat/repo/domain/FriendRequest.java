@@ -28,6 +28,8 @@ public class FriendRequest {
     private Date requestDate;
     
     private Date responseDate;
+    
+    private String message; // Optional custom message from requester
 
     public FriendRequest() {
     }
@@ -85,6 +87,14 @@ public class FriendRequest {
 
     public void setResponseDate(Date responseDate) {
         this.responseDate = responseDate;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
     }
 }
 

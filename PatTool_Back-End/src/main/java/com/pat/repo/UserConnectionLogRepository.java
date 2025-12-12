@@ -24,5 +24,12 @@ public interface UserConnectionLogRepository extends MongoRepository<UserConnect
      * @return List of all connection logs
      */
     List<UserConnectionLog> findAllByOrderByConnectionDateDesc();
+    
+    /**
+     * Find all connection logs with a specific discussionId
+     * @param discussionId The discussion ID to search for
+     * @return List of connection logs with the specified discussionId
+     */
+    List<UserConnectionLog> findByDiscussionId(String discussionId);
 }
 

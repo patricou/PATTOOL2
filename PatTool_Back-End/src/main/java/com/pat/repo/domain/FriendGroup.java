@@ -34,6 +34,8 @@ public class FriendGroup {
     
     private String discussionId; // ID of the discussion associated with this friend group
 
+    private String whatsappLink; // WhatsApp group link or invite link for this friend group
+
     public FriendGroup() {
     }
 
@@ -98,6 +100,14 @@ public class FriendGroup {
 
     public void setDiscussionId(String discussionId) {
         this.discussionId = discussionId;
+    }
+
+    public String getWhatsappLink() {
+        return whatsappLink;
+    }
+
+    public void setWhatsappLink(String whatsappLink) {
+        this.whatsappLink = whatsappLink;
     }
 }
 

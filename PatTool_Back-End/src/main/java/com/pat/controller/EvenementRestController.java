@@ -74,6 +74,9 @@ public class EvenementRestController {
     @Autowired
     private FriendGroupRepository friendGroupRepository;
     
+    @Autowired
+    private com.pat.service.DiscussionService discussionService;
+    
     /**
      * Check if the current user has Admin role (case-insensitive)
      */
@@ -1093,7 +1096,29 @@ public class EvenementRestController {
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)
     public Evenement getEvenement(@PathVariable String id) {
         //log.info("Get evenement {id} : " + id );
-        return evenementsRepository.findById(id).orElse(null);
+        Evenement evenement = evenementsRepository.findById(id).orElse(null);
+        
+        // Handle discussionId: if it exists but the discussion doesn't, create it (like for FriendGroup)
+        if (evenement != null && evenement.getDiscussionId() != null && !evenement.getDiscussionId().trim().isEmpty()) {
+            if (evenement.getAuthor() != null && evenement.getAuthor().getUserName() != null) {
+                // Check if discussion exists
+                com.pat.repo.domain.Discussion discussion = discussionService.getDiscussionById(evenement.getDiscussionId());
+                if (discussion == null) {
+                    // Discussion doesn't exist, create it and update the event
+                    log.warn("Discussion {} for event {} does not exist, creating new one", evenement.getDiscussionId(), evenement.getEvenementName());
+                    String discussionTitle = "Discussion - " + (evenement.getEvenementName() != null ? evenement.getEvenementName() : "Event");
+                    String creatorUserName = evenement.getAuthor().getUserName();
+                    com.pat.repo.domain.Discussion newDiscussion = discussionService.getOrCreateDiscussion(null, creatorUserName, discussionTitle);
+                    
+                    // Update the event with the new discussionId
+                    evenement.setDiscussionId(newDiscussion.getId());
+                    evenementsRepository.save(evenement);
+                    log.info("Created discussion {} for event {} and updated event", newDiscussion.getId(), evenement.getEvenementName());
+                }
+            }
+        }
+        
+        return evenement;
     }
     
     /**
@@ -1329,6 +1354,28 @@ public class EvenementRestController {
             }
         }
 
+        // Handle discussionId: if it exists but the discussion doesn't, create it (like for FriendGroup)
+        if (evenement.getDiscussionId() != null && !evenement.getDiscussionId().trim().isEmpty()) {
+            if (evenement.getAuthor() == null || evenement.getAuthor().getUserName() == null) {
+                log.warn("Cannot create discussion: author is null or has no userName");
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+            
+            // Check if discussion exists
+            com.pat.repo.domain.Discussion discussion = discussionService.getDiscussionById(evenement.getDiscussionId());
+            if (discussion == null) {
+                // Discussion doesn't exist, create it and update the event
+                log.warn("Discussion {} for event {} does not exist, creating new one", evenement.getDiscussionId(), evenement.getEvenementName());
+                String discussionTitle = "Discussion - " + (evenement.getEvenementName() != null ? evenement.getEvenementName() : "Event");
+                String creatorUserName = evenement.getAuthor().getUserName();
+                com.pat.repo.domain.Discussion newDiscussion = discussionService.getOrCreateDiscussion(null, creatorUserName, discussionTitle);
+                
+                // Update the event with the new discussionId
+                evenement.setDiscussionId(newDiscussion.getId());
+                log.info("Created discussion {} for event {} and updated event", newDiscussion.getId(), evenement.getEvenementName());
+            }
+        }
+
         evenement.setId(null);
 
         Evenement eventSaved = evenementsRepository.save(evenement);
@@ -1437,6 +1484,28 @@ public class EvenementRestController {
                     evenement.getFriendGroupId(),
                     group.getOwner() != null ? group.getOwner().getId() : "null");
                 return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+            }
+        }
+
+        // Handle discussionId: if it exists but the discussion doesn't, create it (like for FriendGroup)
+        if (evenement.getDiscussionId() != null && !evenement.getDiscussionId().trim().isEmpty()) {
+            if (evenement.getAuthor() == null || evenement.getAuthor().getUserName() == null) {
+                log.warn("Cannot create discussion: author is null or has no userName");
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+            
+            // Check if discussion exists
+            com.pat.repo.domain.Discussion discussion = discussionService.getDiscussionById(evenement.getDiscussionId());
+            if (discussion == null) {
+                // Discussion doesn't exist, create it and update the event
+                log.warn("Discussion {} for event {} does not exist, creating new one", evenement.getDiscussionId(), evenement.getEvenementName());
+                String discussionTitle = "Discussion - " + (evenement.getEvenementName() != null ? evenement.getEvenementName() : "Event");
+                String creatorUserName = evenement.getAuthor().getUserName();
+                com.pat.repo.domain.Discussion newDiscussion = discussionService.getOrCreateDiscussion(null, creatorUserName, discussionTitle);
+                
+                // Update the event with the new discussionId
+                evenement.setDiscussionId(newDiscussion.getId());
+                log.info("Created discussion {} for event {} and updated event", newDiscussion.getId(), evenement.getEvenementName());
             }
         }
 

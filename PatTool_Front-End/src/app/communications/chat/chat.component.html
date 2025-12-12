@@ -64,7 +64,7 @@
             <div *ngFor="let discussion of filteredDiscussions" 
                  class="discussion-card"
                  [attr.data-type]="discussion.type"
-                 (click)="openDiscussionModal(discussion)">
+                 [class.no-click]="true">
                 <div class="discussion-card-header">
                     <div class="discussion-icon">
                         <i *ngIf="discussion.type === 'general'" class="fa fa-globe"></i>
@@ -78,15 +78,6 @@
                             <span *ngIf="discussion.type === 'event'">{{ "CHAT.TYPE_EVENT" | translate }}</span>
                             <span *ngIf="discussion.type === 'friendGroup'">{{ "CHAT.TYPE_GROUP" | translate }}</span>
                         </div>
-                    </div>
-                    <div class="discussion-actions" *ngIf="isDiscussionOwner(discussion)">
-                        <button class="btn btn-sm btn-danger delete-discussion-btn" 
-                                (click)="deleteDiscussion(discussion, $event)"
-                                [attr.aria-label]="'Delete discussion'"
-                                [ngbTooltip]="'Delete discussion'"
-                                placement="top">
-                            <i class="fa fa-trash"></i>
-                        </button>
                     </div>
                 </div>
                 
@@ -139,10 +130,9 @@
                             <span>{{ "CHAT.GENERAL_DISCUSSION_DESC" | translate }}</span>
                         </p>
                     </div>
-                </div>
-
-                <div class="discussion-card-footer">
-                    <div class="discussion-stats">
+                    
+                    <!-- Stats above footer -->
+                    <div class="discussion-stats-above-footer">
                         <span *ngIf="discussion.messageCount !== undefined" class="message-count">
                             <i class="fa fa-comment"></i>
                             {{ discussion.messageCount }} {{ (discussion.messageCount !== 1 ? "CHAT.MESSAGES" : "CHAT.MESSAGE") | translate }}
@@ -164,8 +154,36 @@
                             <strong>{{ "CHAT.GROUP_ID" | translate }}:</strong> {{ discussion.friendGroup.id }}
                         </span>
                     </div>
-                    <div class="discussion-action">
-                        <i class="fa fa-arrow-right"></i>
+                </div>
+
+                <div class="discussion-card-footer">
+                    <div class="discussion-actions-footer">
+                        <!-- Open Discussion button for all types -->
+                        <button class="btn btn-sm btn-primary discussion-action-btn" 
+                                (click)="openDiscussionModal(discussion); $event.stopPropagation()"
+                                [attr.aria-label]="'Open Discussion'"
+                                [ngbTooltip]="'Open Discussion'"
+                                placement="top">
+                            <i class="fa fa-comments"></i>
+                        </button>
+                        <!-- WhatsApp button for friend groups -->
+                        <button *ngIf="discussion.type === 'friendGroup' && hasWhatsAppLink(discussion.friendGroup)" 
+                                class="btn btn-sm btn-success discussion-action-btn" 
+                                (click)="openWhatsAppLink(discussion.friendGroup); $event.stopPropagation()"
+                                [attr.aria-label]="'Open WhatsApp Group'"
+                                [ngbTooltip]="'Open WhatsApp Group'"
+                                placement="top">
+                            <i class="fa fa-whatsapp"></i>
+                        </button>
+                        <!-- Delete button for owner -->
+                        <button *ngIf="isDiscussionOwner(discussion)"
+                                class="btn btn-sm btn-danger delete-discussion-btn" 
+                                (click)="deleteDiscussion(discussion, $event)"
+                                [attr.aria-label]="'Delete discussion'"
+                                [ngbTooltip]="'Delete discussion'"
+                                placement="top">
+                            <i class="fa fa-trash"></i>
+                        </button>
                     </div>
                 </div>
             </div>

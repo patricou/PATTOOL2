@@ -20,5 +20,7 @@ public interface EvenementsRepository extends PagingAndSortingRepository<Eveneme
     // Additional methods for the controller
     List<Evenement> findByAuthorId(String authorId);
     List<Evenement> findByEvenementNameContainingIgnoreCase(String name);
+    java.util.Optional<Evenement> findByDiscussionId(String discussionId);
+    List<Evenement> findAllByDiscussionId(String discussionId);
 }
 

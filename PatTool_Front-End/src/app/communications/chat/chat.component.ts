@@ -143,16 +143,49 @@ export class ChatComponent implements OnInit, OnDestroy {
           
           // Add friend group discussions immediately
           this.allFriendGroups.forEach(group => {
-            if (group.discussionId && this.canAccessFriendGroup(group)) {
-              const discussionItem: DiscussionItem = {
-                id: group.discussionId,
-                title: `Discussion - ${group.name}`,
-                type: 'friendGroup',
-                friendGroup: group
-              };
-              this.availableDiscussions.push(discussionItem);
-              // Immediately start loading the full discussion object to get createdBy
-              this.loadDiscussionDetailsForItem(discussionItem);
+            const hasDiscussionId = !!group.discussionId;
+            const canAccess = this.canAccessFriendGroup(group);
+            
+            // Log for debugging
+            if (hasDiscussionId && !canAccess) {
+              console.warn(`Friend group "${group.name}" has discussionId (${group.discussionId}) but user cannot access it. User is owner: ${group.owner?.id === this.user.id}, is member: ${group.members?.some(m => m.id === this.user.id)}, is authorized: ${group.authorizedUsers?.some(m => m.id === this.user.id)}`);
+            } else if (!hasDiscussionId && canAccess) {
+              console.log(`Friend group "${group.name}" is accessible but has no discussionId - creating discussion`);
+            }
+            
+            if (this.canAccessFriendGroup(group)) {
+              if (group.discussionId) {
+                // Group has discussionId - verify the discussion exists before adding it
+                this.discussionService.getDiscussionById(group.discussionId).pipe(
+                  catchError(error => {
+                    console.warn(`Discussion ${group.discussionId} for group "${group.name}" does not exist or cannot be accessed:`, error);
+                    return of(null);
+                  })
+                ).subscribe(discussion => {
+                  if (discussion) {
+                    const discussionItem: DiscussionItem = {
+                      id: group.discussionId!,
+                      title: `Discussion - ${group.name}`,
+                      type: 'friendGroup',
+                      friendGroup: group,
+                      discussion: discussion
+                    };
+                    this.availableDiscussions.push(discussionItem);
+                    console.log(`Added friend group discussion: ${group.name} (ID: ${group.discussionId})`);
+                    // Load details for the discussion
+                    this.loadDiscussionDetailsForItem(discussionItem);
+                    // Update filtered discussions
+                    this.applyFilter();
+                  } else {
+                    console.warn(`Discussion ${group.discussionId} for group "${group.name}" does not exist - creating new one and updating group`);
+                    // Discussion doesn't exist, create it and update the group with the new discussionId
+                    this.createDiscussionForGroupAndUpdate(group);
+                  }
+                });
+              } else {
+                // Group doesn't have discussionId - create discussion automatically
+                this.createDiscussionForGroup(group);
+              }
             }
           });
           
@@ -494,6 +527,160 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Create a discussion for a friend group and update the group with the discussionId
+   */
+  private createDiscussionForGroup(group: FriendGroup) {
+    const discussionTitle = `Discussion - ${group.name}`;
+    
+    // Get or create the discussion
+    this.discussionService.getOrCreateDiscussion(null, discussionTitle).subscribe({
+      next: (discussion) => {
+        if (discussion && discussion.id && typeof discussion.id === 'string') {
+          const discussionId: string = discussion.id; // Store in a variable to ensure it's not undefined
+          
+          // Update the group's discussionId
+          const memberIds = (group.members || [])
+            .filter(m => m && m.id)
+            .map(m => m.id!);
+          
+          // Update the friend group with the new discussionId
+          this.friendsService.updateFriendGroup(
+            group.id,
+            group.name,
+            memberIds,
+            discussionId,
+            group.whatsappLink
+          ).subscribe({
+            next: (updatedGroup) => {
+              // Update the local group object
+              group.discussionId = discussionId;
+              
+              // Add the discussion to the available discussions
+              const discussionItem: DiscussionItem = {
+                id: discussionId,
+                title: discussionTitle,
+                type: 'friendGroup',
+                friendGroup: updatedGroup,
+                discussion: discussion
+              };
+              this.availableDiscussions.push(discussionItem);
+              console.log(`Created and added friend group discussion: ${group.name} (ID: ${discussionId})`);
+              
+              // Load details for the discussion
+              this.loadDiscussionDetailsForItem(discussionItem);
+              
+              // Update filtered discussions
+              this.applyFilter();
+            },
+            error: (error) => {
+              console.error(`Error updating friend group ${group.id} with discussionId:`, error);
+              // Still add the discussion even if group update fails
+              const discussionItem: DiscussionItem = {
+                id: discussionId,
+                title: discussionTitle,
+                type: 'friendGroup',
+                friendGroup: group,
+                discussion: discussion
+              };
+              this.availableDiscussions.push(discussionItem);
+              this.loadDiscussionDetailsForItem(discussionItem);
+              this.applyFilter();
+            }
+          });
+        }
+      },
+      error: (error) => {
+        console.error(`Error creating discussion for group "${group.name}":`, error);
+      }
+    });
+  }
+
+  /**
+   * Create a discussion for a friend group that has an invalid discussionId and update the group with the new discussionId
+   */
+  private createDiscussionForGroupAndUpdate(group: FriendGroup) {
+    const discussionTitle = `Discussion - ${group.name}`;
+    const oldDiscussionId = group.discussionId; // Store the old (invalid) discussionId
+    
+    // Get or create the discussion (pass null to create a new one)
+    this.discussionService.getOrCreateDiscussion(null, discussionTitle).subscribe({
+      next: (discussion) => {
+        if (discussion && discussion.id && typeof discussion.id === 'string') {
+          const newDiscussionId: string = discussion.id;
+          
+          // Only update if the new discussionId is different from the old one
+          if (oldDiscussionId !== newDiscussionId) {
+            // Update the group's discussionId
+            const memberIds = (group.members || [])
+              .filter(m => m && m.id)
+              .map(m => m.id!);
+            
+            // Update the friend group with the new discussionId
+            this.friendsService.updateFriendGroup(
+              group.id,
+              group.name,
+              memberIds,
+              newDiscussionId,
+              group.whatsappLink
+            ).subscribe({
+              next: (updatedGroup) => {
+                // Update the local group object
+                group.discussionId = newDiscussionId;
+                
+                // Add the discussion to the available discussions
+                const discussionItem: DiscussionItem = {
+                  id: newDiscussionId,
+                  title: discussionTitle,
+                  type: 'friendGroup',
+                  friendGroup: updatedGroup,
+                  discussion: discussion
+                };
+                this.availableDiscussions.push(discussionItem);
+                console.log(`Created new discussion for group "${group.name}" (old ID: ${oldDiscussionId}, new ID: ${newDiscussionId}) and updated group`);
+                
+                // Load details for the discussion
+                this.loadDiscussionDetailsForItem(discussionItem);
+                
+                // Update filtered discussions
+                this.applyFilter();
+              },
+              error: (error) => {
+                console.error(`Error updating friend group ${group.id} with new discussionId:`, error);
+                // Still add the discussion even if group update fails
+                const discussionItem: DiscussionItem = {
+                  id: newDiscussionId,
+                  title: discussionTitle,
+                  type: 'friendGroup',
+                  friendGroup: group,
+                  discussion: discussion
+                };
+                this.availableDiscussions.push(discussionItem);
+                this.loadDiscussionDetailsForItem(discussionItem);
+                this.applyFilter();
+              }
+            });
+          } else {
+            // Same ID, just add the discussion
+            const discussionItem: DiscussionItem = {
+              id: newDiscussionId,
+              title: discussionTitle,
+              type: 'friendGroup',
+              friendGroup: group,
+              discussion: discussion
+            };
+            this.availableDiscussions.push(discussionItem);
+            this.loadDiscussionDetailsForItem(discussionItem);
+            this.applyFilter();
+          }
+        }
+      },
+      error: (error) => {
+        console.error(`Error creating discussion for group "${group.name}":`, error);
+      }
+    });
+  }
+
+  /**
    * Apply filter to discussions
    */
   public applyFilter() {
@@ -652,6 +839,16 @@ export class ChatComponent implements OnInit, OnDestroy {
     
     // Return status as is if no translation found (will be displayed as-is)
     return status;
+  }
+
+  /**
+   * Handle card click - only open modal for non-friendGroup discussions
+   */
+  public handleCardClick(discussionItem: DiscussionItem) {
+    // For friend groups, don't open on card click (use button instead)
+    if (discussionItem.type !== 'friendGroup') {
+      this.openDiscussionModal(discussionItem);
+    }
   }
 
   /**
@@ -1230,6 +1427,22 @@ export class ChatComponent implements OnInit, OnDestroy {
         this.messageInput.nativeElement.setSelectionRange(length, length);
       }
     }, 50);
+  }
+
+  /**
+   * Check if friend group has a WhatsApp link
+   */
+  hasWhatsAppLink(group: FriendGroup | undefined): boolean {
+    return !!(group && group.whatsappLink && group.whatsappLink.trim().length > 0);
+  }
+
+  /**
+   * Open WhatsApp link for a friend group
+   */
+  openWhatsAppLink(group: FriendGroup | undefined): void {
+    if (group && group.whatsappLink) {
+      window.open(group.whatsappLink, '_blank');
+    }
   }
 
   /**

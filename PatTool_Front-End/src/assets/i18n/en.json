@@ -930,7 +930,7 @@
         "EMAIL_EXISTS": "This email is already registered",
         "EMAIL_NOT_REGISTERED": "This email is not registered",
         "INVITE_TO_PATTOOL": "Invite to use PATTOOL",
-        "ADD_CUSTOM_MESSAGE": "Do you want to add a specific message to the invitation email?",
+        "ADD_CUSTOM_MESSAGE": "Do you want to add a specific message to the friend request?",
         "YES": "Yes",
         "NO": "No",
         "CUSTOM_MESSAGE": "Custom Message",

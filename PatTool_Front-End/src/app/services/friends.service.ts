@@ -60,7 +60,7 @@ export class FriendsService {
     /**
      * Send a friend request
      */
-    sendFriendRequest(recipientId: string): Observable<FriendRequest> {
+    sendFriendRequest(recipientId: string, message?: string): Observable<FriendRequest> {
         return from(this._keycloakService.getToken()).pipe(
             map((token: string) => {
                 return new HttpHeaders({
@@ -70,9 +70,13 @@ export class FriendsService {
                 });
             }),
             switchMap(headers => {
+                const body: any = { recipientId: recipientId };
+                if (message && message.trim()) {
+                    body.message = message.trim();
+                }
                 return this._http.post<FriendRequest>(
                     this.API_URL + 'friends/request',
-                    { recipientId: recipientId },
+                    body,
                     { headers: headers }
                 ).pipe(
                     map((res: any) => {
@@ -104,7 +108,8 @@ export class FriendsService {
                             ) : new Member('', '', '', '', '', [], ''),
                             res.status || FriendRequestStatus.PENDING,
                             res.requestDate ? new Date(res.requestDate) : new Date(),
-                            res.responseDate ? new Date(res.responseDate) : undefined
+                            res.responseDate ? new Date(res.responseDate) : undefined,
+                            res.message
                         );
                     }),
                     catchError((error: any) => {
@@ -160,7 +165,8 @@ export class FriendsService {
                                 ) : new Member('', '', '', '', '', [], ''),
                                 req.status || FriendRequestStatus.PENDING,
                                 req.requestDate ? new Date(req.requestDate) : new Date(),
-                                req.responseDate ? new Date(req.responseDate) : undefined
+                                req.responseDate ? new Date(req.responseDate) : undefined,
+                                req.message
                             );
                         });
                     }),
@@ -217,7 +223,8 @@ export class FriendsService {
                                 ) : new Member('', '', '', '', '', [], ''),
                                 req.status || FriendRequestStatus.PENDING,
                                 req.requestDate ? new Date(req.requestDate) : new Date(),
-                                req.responseDate ? new Date(req.responseDate) : undefined
+                                req.responseDate ? new Date(req.responseDate) : undefined,
+                                req.message
                             );
                         });
                     }),
@@ -537,7 +544,8 @@ export class FriendsService {
                                 m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                 m.locale || undefined
                             )),
-                            res.discussionId
+                            res.discussionId,
+                            res.whatsappLink
                         );
                     }),
                     catchError((error: any) => {
@@ -605,7 +613,8 @@ export class FriendsService {
                                     m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                     m.locale || undefined
                                 )),
-                                group.discussionId
+                                group.discussionId,
+                                group.whatsappLink
                             );
                         });
                     }),
@@ -673,7 +682,8 @@ export class FriendsService {
                                 m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                 m.locale || undefined
                             )),
-                            res.discussionId
+                            res.discussionId,
+                            res.whatsappLink
                         );
                     }),
                     catchError((error: any) => {
@@ -688,7 +698,7 @@ export class FriendsService {
     /**
      * Update a friend group
      */
-    updateFriendGroup(groupId: string, name: string, memberIds: string[], discussionId?: string): Observable<FriendGroup> {
+    updateFriendGroup(groupId: string, name: string, memberIds: string[], discussionId?: string, whatsappLink?: string): Observable<FriendGroup> {
         return from(this._keycloakService.getToken()).pipe(
             map((token: string) => {
                 return new HttpHeaders({
@@ -702,6 +712,10 @@ export class FriendsService {
                 // Always include discussionId in body (even if undefined) so backend can clear it
                 // Use null for JSON serialization when undefined
                 body.discussionId = discussionId !== undefined ? discussionId : null;
+                // Include whatsappLink if provided
+                if (whatsappLink !== undefined) {
+                    body.whatsappLink = whatsappLink;
+                }
                 return this._http.put<FriendGroup>(
                     this.API_URL + 'friends/groups/' + groupId,
                     body,
@@ -748,7 +762,8 @@ export class FriendsService {
                                 m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                 m.locale || undefined
                             )),
-                            res.discussionId
+                            res.discussionId,
+                            res.whatsappLink
                         );
                     }),
                     catchError((error: any) => {
@@ -845,7 +860,8 @@ export class FriendsService {
                                 m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                 m.locale || undefined
                             )),
-                            res.discussionId
+                            res.discussionId,
+                            res.whatsappLink
                         );
                     }),
                     catchError((error: any) => {
@@ -915,7 +931,8 @@ export class FriendsService {
                                 m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
                                 m.locale || undefined
                             )),
-                            res.discussionId
+                            res.discussionId,
+                            res.whatsappLink
                         );
                     }),
                     catchError((error: any) => {

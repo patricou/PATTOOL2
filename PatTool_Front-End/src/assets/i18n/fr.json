@@ -926,7 +926,7 @@
         "EMAIL_EXISTS": "Cet email est déjà enregistré",
         "EMAIL_NOT_REGISTERED": "Cet email n'est pas enregistré",
         "INVITE_TO_PATTOOL": "Inviter à utiliser PATTOOL",
-        "ADD_CUSTOM_MESSAGE": "Voulez-vous ajouter un message spécifique à l'email d'invitation ?",
+        "ADD_CUSTOM_MESSAGE": "Voulez-vous ajouter un message spécifique à la demande d'ami ?",
         "YES": "Oui",
         "NO": "Non",
         "CUSTOM_MESSAGE": "Message Personnalisé",

@@ -13,7 +13,8 @@ export class FriendRequest {
         public recipient: Member,
         public status: FriendRequestStatus,
         public requestDate: Date,
-        public responseDate?: Date
+        public responseDate?: Date,
+        public message?: string // Optional custom message from requester
     ) {}
 }
 
@@ -34,7 +35,8 @@ export class FriendGroup {
         public owner: Member,
         public creationDate: Date,
         public authorizedUsers?: Member[], // Users authorized to use this group (but not to add members)
-        public discussionId?: string // ID of the discussion associated with this friend group
+        public discussionId?: string, // ID of the discussion associated with this friend group
+        public whatsappLink?: string // WhatsApp group link or invite link for this friend group
     ) {}
 }
 

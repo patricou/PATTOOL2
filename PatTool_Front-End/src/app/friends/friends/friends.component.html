@@ -223,14 +223,22 @@
                 <span class="badge me-1" [ngClass]="getRoleBadgeClass(role)">{{ role }}</span>
               </span>
             </div>
-            <p class="text-muted compact-text mb-0" *ngIf="getUserStatus(user) === 'sent' && getSentRequestDate(user)">
+            <p class="text-muted compact-text mb-1" *ngIf="getUserStatus(user) === 'sent' && getSentRequestDate(user)">
               <i class="fa fa-paper-plane"></i>
               {{ 'FRIENDS.REQUEST_SENT' | translate }}: {{ getSentRequestDate(user) | date:'short' }}
             </p>
-            <p class="text-muted compact-text mb-0" *ngIf="getUserStatus(user) === 'friend' && getFriendshipDate(user)">
+            <p class="text-muted compact-text mb-1" *ngIf="getUserStatus(user) === 'friend' && getFriendshipDate(user)">
               <i class="fa fa-heart"></i>
               {{ 'FRIENDS.FRIENDS_SINCE' | translate }}: {{ getFriendshipDate(user) | date:'short' }}
             </p>
+            <div class="compact-text mb-1" *ngIf="hasAdminRole()" style="color: #007bff;">
+              <i class="fa fa-id-card"></i> 
+              ID: {{ user.id }}
+            </div>
+            <div class="compact-text mb-1" *ngIf="hasAdminRole() && user.keycloakId" style="color: #007bff;">
+              <i class="fa fa-key"></i> 
+              Keycloak ID: {{ user.keycloakId }}
+            </div>
           </div>
         </div>
         <div class="user-actions">
@@ -262,6 +270,63 @@
             <i class="fa fa-check"></i>
             {{ 'FRIENDS.FRIEND' | translate }}
           </span>
+        </div>
+        
+        <!-- Custom Message Prompt for Friend Request -->
+        <div *ngIf="friendRequestMessagePrompts.get(user.id) && (getUserStatus(user) === 'none' || getUserStatus(user) === 'sent')" class="alert alert-info mt-2">
+          <i class="fa fa-question-circle"></i>
+          <strong>{{ 'FRIENDS.ADD_CUSTOM_MESSAGE' | translate }}</strong>
+          <div class="mt-2 d-flex gap-2">
+            <button 
+              class="btn btn-primary btn-sm"
+              (click)="confirmAddFriendRequestMessage(user.id)">
+              <i class="fa fa-check"></i>
+              {{ 'FRIENDS.YES' | translate }}
+            </button>
+            <button 
+              class="btn btn-secondary btn-sm"
+              (click)="skipFriendRequestMessage(user.id)"
+              [disabled]="loading">
+              <i class="fa fa-times"></i>
+              {{ 'FRIENDS.NO' | translate }}
+            </button>
+          </div>
+        </div>
+        
+        <!-- Custom Message Input for Friend Request -->
+        <div *ngIf="friendRequestMessageInputs.get(user.id) && (getUserStatus(user) === 'none' || getUserStatus(user) === 'sent')" class="alert alert-info mt-2">
+          <div class="mb-2">
+            <label [for]="'friendRequestMessage-' + user.id" class="form-label">
+              <i class="fa fa-envelope"></i>
+              <strong>{{ 'FRIENDS.CUSTOM_MESSAGE' | translate }}</strong>
+            </label>
+            <textarea 
+              [id]="'friendRequestMessage-' + user.id"
+              class="form-control" 
+              rows="4"
+              [value]="getFriendRequestMessage(user.id)"
+              (input)="setFriendRequestMessage(user.id, $any($event.target).value)"
+              [placeholder]="'FRIENDS.CUSTOM_MESSAGE_PLACEHOLDER' | translate"
+              [disabled]="loading"></textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button 
+              class="btn btn-success btn-sm"
+              (click)="sendFriendRequest(user.id)"
+              [disabled]="loading || !getFriendRequestMessage(user.id)?.trim()">
+              <i class="fa fa-paper-plane" *ngIf="!loading"></i>
+              <i class="fa fa-spinner fa-spin" *ngIf="loading"></i>
+              <span *ngIf="getUserStatus(user) === 'none'">{{ 'FRIENDS.SEND_REQUEST' | translate }}</span>
+              <span *ngIf="getUserStatus(user) === 'sent'">{{ 'FRIENDS.RESEND_REQUEST' | translate }}</span>
+            </button>
+            <button 
+              class="btn btn-secondary btn-sm"
+              (click)="cancelFriendRequestMessage(user.id)"
+              [disabled]="loading">
+              <i class="fa fa-times"></i>
+              {{ 'FRIENDS.CANCEL' | translate }}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -297,10 +362,15 @@
               <i class="fa fa-calendar-plus-o"></i> 
               {{ request.requester.registrationDate | date:'short' }}
             </p>
-            <p class="text-muted compact-text mb-0">
+            <p class="text-muted compact-text mb-1">
               <i class="fa fa-clock"></i>
               {{ request.requestDate | date:'short' }}
             </p>
+            <div *ngIf="request.message" class="alert alert-info compact-text mb-0 mt-2">
+              <i class="fa fa-envelope me-1"></i>
+              <strong>{{ 'FRIENDS.CUSTOM_MESSAGE' | translate }}:</strong>
+              <p class="mb-0 mt-1" style="white-space: pre-wrap;">{{ request.message }}</p>
+            </div>
           </div>
         </div>
         <div class="request-actions">
@@ -506,14 +576,39 @@
                     <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.DELETE' | translate }}</span>
                   </button>
                 </div>
-                <!-- Discussion Button - Below action buttons -->
-                <div class="d-flex justify-content-center mb-2">
+                <!-- Discussion and WhatsApp Buttons - Below action buttons -->
+                <div class="d-flex justify-content-center gap-1 mb-2 flex-wrap">
+                  <!-- Discussion Button -->
                   <button 
                     class="btn btn-primary btn-xs compact-btn"
-                    (click)="openDiscussionModal(group)">
+                    (click)="openDiscussionModal(group); $event.stopPropagation()"
+                    title="Open Discussion">
                     <i class="fa fa-comments me-1"></i>
                     Discussion
                   </button>
+                  <!-- WhatsApp Button (if link exists) -->
+                  <button 
+                    *ngIf="hasWhatsAppLink(group)"
+                    class="btn btn-success btn-xs compact-btn"
+                    (click)="openWhatsAppLink(group); $event.stopPropagation()"
+                    title="Open WhatsApp Group">
+                    <i class="fa fa-whatsapp me-1"></i>
+                    WhatsApp
+                  </button>
+                </div>
+                <!-- Discussion Link Display (if exists) -->
+                <div *ngIf="group.discussionId" class="mb-2">
+                  <p class="text-muted compact-text mb-0">
+                    <i class="fa fa-comments me-1"></i>
+                    <strong>Discussion:</strong> 
+                    <a 
+                      href="#" 
+                      (click)="openDiscussionModal(group); $event.preventDefault()" 
+                      class="text-decoration-none text-primary"
+                      title="Click to open discussion">
+                      {{ group.discussionId }}
+                    </a>
+                  </p>
                 </div>
                 <p class="text-muted compact-text mb-1">
                   <i class="fa fa-crown"></i>
@@ -644,6 +739,21 @@
                 class="form-control form-control-sm"
                 id="editingGroupName"
                 [(ngModel)]="editingGroupName">
+            </div>
+            <div class="mb-2">
+              <label for="editingGroupWhatsappLink" class="form-label compact-text">
+                <i class="fa fa-whatsapp me-1"></i>
+                WhatsApp Group Link
+              </label>
+              <input 
+                type="url" 
+                class="form-control form-control-sm"
+                id="editingGroupWhatsappLink"
+                [(ngModel)]="editingGroupWhatsappLink"
+                placeholder="https://chat.whatsapp.com/...">
+              <small class="form-text text-muted compact-text">
+                Enter the WhatsApp group invite link (optional)
+              </small>
             </div>
             <div class="mb-2">
               <label class="form-label compact-text">{{ 'FRIENDS.SELECT_MEMBERS' | translate }}</label>

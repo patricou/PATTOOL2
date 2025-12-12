@@ -981,6 +981,63 @@
     transform: translateX(4px);
 }
 
+/* Stats above footer */
+.discussion-stats-above-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #667781;
+    padding-top: 12px;
+    border-top: 1px solid #e9edef;
+    margin-top: 8px;
+}
+
+/* Action buttons for friend groups */
+.discussion-actions-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.discussion-actions-footer {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.discussion-action-btn {
+    padding: 6px 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.discussion-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.discussion-action-btn i {
+    margin: 0;
+}
+
+/* Prevent card click for all discussions */
+.discussion-card.no-click {
+    cursor: default;
+}
+
+.discussion-card.no-click:hover {
+    transform: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .message-bubble {

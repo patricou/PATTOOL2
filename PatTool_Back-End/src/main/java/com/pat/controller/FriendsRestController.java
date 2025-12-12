@@ -64,12 +64,18 @@ public class FriendsRestController {
                 return ResponseEntity.badRequest().build();
             }
 
+            // Get optional custom message
+            String message = requestBody.get("message");
+            if (message != null && message.trim().isEmpty()) {
+                message = null;
+            }
+
             Member requester = friendsService.getCurrentUser(authentication);
             if (requester == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
 
-            FriendRequest friendRequest = friendsService.sendFriendRequest(recipientId, requester);
+            FriendRequest friendRequest = friendsService.sendFriendRequest(recipientId, requester, message);
             return ResponseEntity.ok(friendRequest);
         } catch (IllegalArgumentException e) {
             log.error("Invalid request: {}", e.getMessage());
@@ -582,6 +588,7 @@ public class FriendsRestController {
             @SuppressWarnings("unchecked")
             List<String> memberIds = (List<String>) requestBody.get("memberIds");
             String discussionId = (String) requestBody.get("discussionId");
+            String whatsappLink = (String) requestBody.get("whatsappLink");
 
             com.pat.repo.domain.FriendGroup group = friendsService.updateFriendGroup(groupId, name, memberIds, owner);
             
@@ -594,6 +601,21 @@ public class FriendsRestController {
                     // Clear discussionId if empty string or null is explicitly provided
                     group.setDiscussionId(null);
                 }
+            }
+            
+            // Set or clear whatsappLink if provided
+            if (requestBody.containsKey("whatsappLink")) {
+                // If whatsappLink is explicitly provided (even if empty/null), update it
+                if (whatsappLink != null && !whatsappLink.trim().isEmpty()) {
+                    group.setWhatsappLink(whatsappLink.trim());
+                } else {
+                    // Clear whatsappLink if empty string or null is explicitly provided
+                    group.setWhatsappLink(null);
+                }
+            }
+            
+            // Save if any optional fields were updated
+            if (requestBody.containsKey("discussionId") || requestBody.containsKey("whatsappLink")) {
                 group = friendGroupRepository.save(group);
             }
             return ResponseEntity.ok(group);

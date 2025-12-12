@@ -7,6 +7,7 @@ import { TranslateService } from '@ngx-translate/core';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
 import { DiscussionService } from '../../services/discussion.service';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 
 @Component({
   selector: 'app-friends',
@@ -32,6 +33,10 @@ export class FriendsComponent implements OnInit {
   public showCustomMessagePrompt: boolean = false;
   public customMessage: string = '';
   public showCustomMessageInput: boolean = false;
+  // For friend requests (per user)
+  public friendRequestMessagePrompts: Map<string, boolean> = new Map(); // userId -> show prompt
+  public friendRequestMessageInputs: Map<string, boolean> = new Map(); // userId -> show input
+  public friendRequestMessages: Map<string, string> = new Map(); // userId -> message
   
   // Friend groups management
   public friendGroups: FriendGroup[] = [];
@@ -41,6 +46,7 @@ export class FriendsComponent implements OnInit {
   public editingGroupId: string | null = null;
   public editingGroupName: string = '';
   public editingGroupMembers: string[] = [];
+  public editingGroupWhatsappLink: string = '';
   // Authorized users management
   public managingAuthorizedUsersGroupId: string | null = null;
   public selectedAuthorizedUsers: string[] = [];
@@ -53,7 +59,8 @@ export class FriendsComponent implements OnInit {
     private _translateService: TranslateService,
     private modalService: NgbModal,
     private _discussionService: DiscussionService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private _keycloakService: KeycloakService
   ) { }
 
   ngOnInit() {
@@ -160,9 +167,28 @@ export class FriendsComponent implements OnInit {
   }
 
   sendFriendRequest(userId: string) {
+    // If we haven't asked about custom message yet, ask first
+    if (!this.friendRequestMessagePrompts.get(userId) && !this.friendRequestMessageInputs.get(userId)) {
+      this.friendRequestMessagePrompts.set(userId, true);
+      return;
+    }
+
+    // If user is in custom message input mode but hasn't entered a message, don't proceed
+    if (this.friendRequestMessageInputs.get(userId) && !this.friendRequestMessages.get(userId)?.trim()) {
+      return;
+    }
+
+    // Proceed with sending friend request
+    const message = this.friendRequestMessageInputs.get(userId) ? 
+      (this.friendRequestMessages.get(userId)?.trim() || undefined) : undefined;
+    
     this.loading = true;
-    this._friendsService.sendFriendRequest(userId).subscribe(
+    this._friendsService.sendFriendRequest(userId, message).subscribe(
       request => {
+        // Clear message state for this user
+        this.friendRequestMessagePrompts.delete(userId);
+        this.friendRequestMessageInputs.delete(userId);
+        this.friendRequestMessages.delete(userId);
         this.loadAllUsers(); // Reload only users
         this.loading = false;
       },
@@ -195,11 +221,35 @@ export class FriendsComponent implements OnInit {
   }
 
   resendFriendRequest(userId: string) {
+    // If we haven't asked about custom message yet, ask first
+    if (!this.friendRequestMessagePrompts.get(userId) && !this.friendRequestMessageInputs.get(userId)) {
+      // Pre-fill with existing message if available
+      const sentRequest = this.sentRequests.find(r => r.recipient.id === userId);
+      if (sentRequest && sentRequest.message) {
+        this.friendRequestMessages.set(userId, sentRequest.message);
+      }
+      this.friendRequestMessagePrompts.set(userId, true);
+      return;
+    }
+
+    // If user is in custom message input mode but hasn't entered a message, don't proceed
+    if (this.friendRequestMessageInputs.get(userId) && !this.friendRequestMessages.get(userId)?.trim()) {
+      return;
+    }
+
+    // Proceed with resending friend request
+    const message = this.friendRequestMessageInputs.get(userId) ? 
+      (this.friendRequestMessages.get(userId)?.trim() || undefined) : undefined;
+    
     // Simply send the request - the backend will update the existing one if it exists
     // This is simpler and more efficient than canceling then sending
     this.loading = true;
-    this._friendsService.sendFriendRequest(userId).subscribe(
+    this._friendsService.sendFriendRequest(userId, message).subscribe(
       request => {
+        // Clear message state for this user
+        this.friendRequestMessagePrompts.delete(userId);
+        this.friendRequestMessageInputs.delete(userId);
+        this.friendRequestMessages.delete(userId);
         this.loadAllUsers(); // Reload only users
         this.loading = false;
       },
@@ -436,6 +486,10 @@ export class FriendsComponent implements OnInit {
     this.showCustomMessagePrompt = false;
     this.showCustomMessageInput = false;
     this.customMessage = '';
+    // Clear friend request message states
+    this.friendRequestMessagePrompts.clear();
+    this.friendRequestMessageInputs.clear();
+    this.friendRequestMessages.clear();
     // Refresh only the data for the selected tab
     switch(tab) {
       case 'users':
@@ -568,6 +622,45 @@ export class FriendsComponent implements OnInit {
     this.showCustomMessagePrompt = false;
     this.showCustomMessageInput = false;
     this.customMessage = '';
+  }
+
+  confirmAddFriendRequestMessage(userId: string) {
+    this.friendRequestMessageInputs.set(userId, true);
+    this.friendRequestMessagePrompts.set(userId, false);
+  }
+
+  skipFriendRequestMessage(userId: string) {
+    this.friendRequestMessageInputs.set(userId, false);
+    this.friendRequestMessagePrompts.set(userId, false);
+    this.friendRequestMessages.delete(userId);
+    // Proceed with sending friend request without custom message
+    const message = undefined;
+    this.loading = true;
+    this._friendsService.sendFriendRequest(userId, message).subscribe(
+      request => {
+        this.loadAllUsers(); // Reload only users
+        this.loading = false;
+      },
+      error => {
+        console.error('Error sending friend request:', error);
+        this.errorMessage = 'Error sending friend request';
+        this.loading = false;
+      }
+    );
+  }
+
+  cancelFriendRequestMessage(userId: string) {
+    this.friendRequestMessagePrompts.delete(userId);
+    this.friendRequestMessageInputs.delete(userId);
+    this.friendRequestMessages.delete(userId);
+  }
+
+  getFriendRequestMessage(userId: string): string {
+    return this.friendRequestMessages.get(userId) || '';
+  }
+
+  setFriendRequestMessage(userId: string, message: string) {
+    this.friendRequestMessages.set(userId, message);
   }
 
   // Friend Groups Management Methods
@@ -798,12 +891,14 @@ export class FriendsComponent implements OnInit {
     this.editingGroupId = group.id;
     this.editingGroupName = group.name;
     this.editingGroupMembers = group.members.map(m => m.id);
+    this.editingGroupWhatsappLink = group.whatsappLink || '';
   }
 
   cancelEditingGroup() {
     this.editingGroupId = null;
     this.editingGroupName = '';
     this.editingGroupMembers = [];
+    this.editingGroupWhatsappLink = '';
   }
 
   toggleEditingGroupMember(friendId: string) {
@@ -837,7 +932,9 @@ export class FriendsComponent implements OnInit {
     this._friendsService.updateFriendGroup(
       this.editingGroupId,
       this.editingGroupName.trim(),
-      this.editingGroupMembers
+      this.editingGroupMembers,
+      undefined, // discussionId - preserve existing
+      this.editingGroupWhatsappLink.trim() || undefined // whatsappLink
     ).subscribe(
       group => {
         this.loadFriendGroups();
@@ -963,7 +1060,8 @@ export class FriendsComponent implements OnInit {
                 group.id,
                 group.name || '',
                 memberIds,
-                discussion.id
+                discussion.id,
+                group.whatsappLink // preserve whatsappLink
               ).subscribe({
                 next: (updatedGroup) => {
               // Update the local group object with the fetched data
@@ -1168,6 +1266,31 @@ export class FriendsComponent implements OnInit {
         this.loading = false;
       }
     );
+  }
+
+  /**
+   * Check if current user has admin role
+   * @returns true if user has Admin role, false otherwise
+   */
+  public hasAdminRole(): boolean {
+    return this._keycloakService.hasAdminRole();
+  }
+
+  /**
+   * Open WhatsApp link for a friend group
+   */
+  public openWhatsAppLink(group: FriendGroup): void {
+    if (group.whatsappLink) {
+      // Open WhatsApp link in a new tab
+      window.open(group.whatsappLink, '_blank');
+    }
+  }
+
+  /**
+   * Check if group has a WhatsApp link
+   */
+  public hasWhatsAppLink(group: FriendGroup): boolean {
+    return !!(group.whatsappLink && group.whatsappLink.trim().length > 0);
   }
 }
 

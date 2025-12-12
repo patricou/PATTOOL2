@@ -40,6 +40,9 @@ public class FriendsService {
     @Autowired
     private MailController mailController;
 
+    @Autowired
+    private com.pat.service.DiscussionService discussionService;
+
     /**
      * Get all users from MongoDB (synced from Keycloak)
      */
@@ -95,7 +98,7 @@ public class FriendsService {
     /**
      * Send a friend request
      */
-    public FriendRequest sendFriendRequest(String recipientId, Member requester) {
+    public FriendRequest sendFriendRequest(String recipientId, Member requester, String message) {
         // Get recipient
         Optional<Member> recipientOpt = membersRepository.findById(recipientId);
         if (recipientOpt.isEmpty()) {
@@ -112,14 +115,33 @@ public class FriendsService {
         Optional<FriendRequest> existingRequest = friendRequestRepository
                 .findByRequesterAndRecipientAndStatus(requester, recipient, "PENDING");
         if (existingRequest.isPresent()) {
-            // Update the request date to "resend" it
+            // Update the request date and message to "resend" it
             FriendRequest request = existingRequest.get();
+            // Get existing message BEFORE updating (to preserve it if new message is null)
+            String existingMessage = request.getMessage();
             request.setRequestDate(new Date());
+            
+            // Update message only if a new one is provided, otherwise keep existing
+            String messageToUse;
+            if (message != null && !message.trim().isEmpty()) {
+                // New message provided - use it
+                request.setMessage(message);
+                messageToUse = message;
+            } else {
+                // No new message - keep existing message (if any)
+                messageToUse = existingMessage;
+            }
+            
             FriendRequest saved = friendRequestRepository.save(request);
-            log.debug("Friend request date updated (resent): {} -> {}", requester.getUserName(), recipient.getUserName());
+            log.debug("Friend request date updated (resent): {} -> {} with message: {} (existing: {}, new: {})", 
+                    requester.getUserName(), recipient.getUserName(), 
+                    messageToUse != null && !messageToUse.trim().isEmpty() ? "yes" : "no",
+                    existingMessage != null && !existingMessage.trim().isEmpty() ? "yes" : "no",
+                    message != null && !message.trim().isEmpty() ? "yes" : "no");
             
             // Send email notification to recipient when resending
-            sendFriendRequestEmail(requester, recipient);
+            // Use messageToUse to ensure we have the correct message (existing or new)
+            sendFriendRequestEmail(requester, recipient, messageToUse);
             
             return saved;
         }
@@ -143,12 +165,15 @@ public class FriendsService {
         friendRequest.setRecipient(recipient);
         friendRequest.setStatus("PENDING");
         friendRequest.setRequestDate(new Date());
+        if (message != null) {
+            friendRequest.setMessage(message);
+        }
 
         FriendRequest saved = friendRequestRepository.save(friendRequest);
         log.debug("Friend request created: {} -> {}", requester.getUserName(), recipient.getUserName());
         
         // Send email notification to recipient
-        sendFriendRequestEmail(requester, recipient);
+        sendFriendRequestEmail(requester, recipient, saved.getMessage());
         
         return saved;
     }
@@ -275,7 +300,7 @@ public class FriendsService {
     /**
      * Send email notification when a friend request is received
      */
-    private void sendFriendRequestEmail(Member requester, Member recipient) {
+    private void sendFriendRequestEmail(Member requester, Member recipient, String customMessage) {
         try {
             if (recipient.getAddressEmail() == null || recipient.getAddressEmail().trim().isEmpty()) {
                 log.debug("Cannot send friend request email - recipient {} has no email address", recipient.getUserName());
@@ -293,17 +318,14 @@ public class FriendsService {
                 language = "fr";
             }
             
-            log.debug("Friend request email language for recipient {}: {} (locale: {})", 
-                    recipient.getUserName(), language, recipientLocale);
-            
             String subject;
             String body;
             if (isFrench) {
                 subject = "Nouvelle demande d'ami de " + requester.getFirstName() + " " + requester.getLastName();
-                body = generateFriendRequestEmailHtml(requester, recipient, true);
+                body = generateFriendRequestEmailHtml(requester, recipient, true, customMessage);
             } else {
                 subject = "New friend request from " + requester.getFirstName() + " " + requester.getLastName();
-                body = generateFriendRequestEmailHtml(requester, recipient, false);
+                body = generateFriendRequestEmailHtml(requester, recipient, false, customMessage);
             }
             
             // Determine CC recipient (requester's email if it exists and is valid)
@@ -318,7 +340,9 @@ public class FriendsService {
             
             // Send friend request email with CC to requester (if valid) and BCC to app.mailsentto
             mailController.sendMailToRecipient(recipient.getAddressEmail(), subject, body, true, ccRecipient, mailController.getMailSentTo());
-            log.debug("Friend request email sent to {} in language {} (CC: {}, BCC: {})", recipient.getAddressEmail(), language, ccRecipient != null ? ccRecipient : "none", mailController.getMailSentTo());
+            log.debug("Friend request email sent to {} in language {} (CC: {}, BCC: {})", 
+                    recipient.getAddressEmail(), language, 
+                    ccRecipient != null ? ccRecipient : "none", mailController.getMailSentTo());
         } catch (Exception e) {
             log.error("Error sending friend request email to {}: {}", recipient.getAddressEmail(), e.getMessage(), e);
             // Don't throw exception - email failure shouldn't break the friend request
@@ -328,8 +352,9 @@ public class FriendsService {
     /**
      * Generate HTML email body for friend request notification
      * @param isFrench true for French, false for English
+     * @param customMessage optional custom message from requester
      */
-    private String generateFriendRequestEmailHtml(Member requester, Member recipient, boolean isFrench) {
+    private String generateFriendRequestEmailHtml(Member requester, Member recipient, boolean isFrench, String customMessage) {
         // Language-specific strings
         String headerTitle = isFrench ? "Nouvelle Demande d'Ami" : "New Friend Request";
         String greeting = isFrench ? "Bonjour" : "Hello";
@@ -362,6 +387,8 @@ public class FriendsService {
         bodyBuilder.append(".header-icon { font-size: 32px; margin-bottom: 10px; }");
         bodyBuilder.append(".content { padding: 30px; background: #fafafa; }");
         bodyBuilder.append(".message { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #007bff; }");
+        bodyBuilder.append(".custom-message { background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107; font-style: italic; }");
+        bodyBuilder.append(".custom-message p { margin: 0; white-space: pre-wrap; }");
         bodyBuilder.append(".user-info { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }");
         bodyBuilder.append(".user-info h3 { margin: 0 0 15px 0; color: #333; font-weight: 600; }");
         bodyBuilder.append(".info-item { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 6px; }");
@@ -386,6 +413,16 @@ public class FriendsService {
         bodyBuilder.append("<p>").append(escapeHtml(greeting)).append(" <strong>").append(escapeHtml(recipient.getFirstName())).append(" ").append(escapeHtml(recipient.getLastName())).append("</strong>,</p>");
         bodyBuilder.append("<p><strong>").append(escapeHtml(requester.getFirstName())).append(" ").append(escapeHtml(requester.getLastName())).append("</strong>").append(escapeHtml(messageText)).append("</p>");
         bodyBuilder.append("</div>");
+        
+        // Custom Message Section (if provided)
+        if (customMessage != null && !customMessage.trim().isEmpty()) {
+            bodyBuilder.append("<div class='custom-message' style='background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107; font-style: italic;'>");
+            bodyBuilder.append("<p style='margin: 0 0 10px 0;'><strong>").append(escapeHtml(isFrench ? "Message personnel:" : "Personal message:")).append("</strong></p>");
+            // Convert newlines to <br> tags for better email client compatibility
+            String formattedMessage = escapeHtml(customMessage).replace("\n", "<br>");
+            bodyBuilder.append("<p style='margin: 0; white-space: pre-wrap;'>").append(formattedMessage).append("</p>");
+            bodyBuilder.append("</div>");
+        }
         
         // User Information
         bodyBuilder.append("<div class='user-info'>");
@@ -522,7 +559,31 @@ public class FriendsService {
             }
         }
         
-        return new java.util.ArrayList<>(allGroupsMap.values());
+        // Ensure all groups with discussionId have valid discussions (creates if missing)
+        List<FriendGroup> result = new java.util.ArrayList<>();
+        for (FriendGroup group : allGroupsMap.values()) {
+            if (group.getDiscussionId() != null && !group.getDiscussionId().trim().isEmpty()) {
+                // Check if discussion exists
+                com.pat.repo.domain.Discussion discussion = discussionService.getDiscussionById(group.getDiscussionId());
+                if (discussion == null) {
+                    // Discussion doesn't exist, create it and update the group
+                    log.warn("Discussion {} for group {} does not exist, creating new one", group.getDiscussionId(), group.getName());
+                    String discussionTitle = "Discussion - " + group.getName();
+                    String creatorUserName = group.getOwner() != null && group.getOwner().getUserName() != null 
+                        ? group.getOwner().getUserName() 
+                        : user.getUserName();
+                    com.pat.repo.domain.Discussion newDiscussion = discussionService.getOrCreateDiscussion(null, creatorUserName, discussionTitle);
+                    
+                    // Update the group with the new discussionId
+                    group.setDiscussionId(newDiscussion.getId());
+                    friendGroupRepository.save(group);
+                    log.info("Created discussion {} for group {} and updated group", newDiscussion.getId(), group.getName());
+                }
+            }
+            result.add(group);
+        }
+        
+        return result;
     }
 
     /**
