@@ -95,6 +95,14 @@ public class MemberRestController {
                 }
             }
             
+            // Preserve whatsappLink from existing member if incoming member doesn't have it set
+            // This prevents the whatsappLink from being cleared when user logs in/connects
+            if (member.getWhatsappLink() == null || member.getWhatsappLink().trim().isEmpty()) {
+                if (memberWithId.getWhatsappLink() != null) {
+                    member.setWhatsappLink(memberWithId.getWhatsappLink());
+                }
+            }
+            
             // Fetch and update roles from Keycloak if keycloakId is available
             updateMemberRolesFromKeycloak(member);
 

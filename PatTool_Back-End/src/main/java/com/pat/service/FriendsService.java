@@ -296,6 +296,30 @@ public class FriendsService {
                 friend.getUser1().getUserName(), 
                 friend.getUser2().getUserName());
     }
+    
+    /**
+     * Update WhatsApp link for a friend
+     */
+    public Member updateMemberWhatsappLink(String memberId, String whatsappLink, Member currentUser) {
+        // Verify that the user is only updating their own WhatsApp link
+        if (!currentUser.getId().equals(memberId)) {
+            throw new IllegalStateException("User can only update their own WhatsApp link");
+        }
+
+        Optional<Member> memberOpt = membersRepository.findById(memberId);
+        if (memberOpt.isEmpty()) {
+            throw new IllegalArgumentException("Member not found");
+        }
+
+        Member member = memberOpt.get();
+        String normalizedLink = whatsappLink != null && whatsappLink.trim().isEmpty() ? null : whatsappLink;
+        member.setWhatsappLink(normalizedLink);
+        
+        Member savedMember = membersRepository.save(member);
+        log.debug("WhatsApp link updated for member: {} - Link: {}", savedMember.getUserName(), savedMember.getWhatsappLink());
+        
+        return savedMember;
+    }
 
     /**
      * Send email notification when a friend request is received

@@ -22,7 +22,13 @@ export class FriendsComponent implements OnInit {
   public sentRequests: FriendRequest[] = [];
   public currentUser: Member = new Member("", "", "", "", "", [], "");
   public searchFilter: string = '';
-  public activeTab: 'users' | 'requests' | 'friends' | 'groups' = 'users';
+  public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'myuser';
+  public selectedFriendIndex: number | null = null;
+  
+  // WhatsApp link editing for current user
+  public editingMyWhatsappLink: boolean = false;
+  public myWhatsappLink: string = '';
+  public detectedCountryCode: string = ''; // Country code for flag display
   public loading: boolean = false;
   public errorMessage: string = '';
   public inviteEmail: string = '';
@@ -52,6 +58,10 @@ export class FriendsComponent implements OnInit {
   public selectedAuthorizedUsers: string[] = [];
   // User statuses (online/offline from Keycloak)
   public userStatuses: Map<string, { online: boolean; status: string }> = new Map();
+  
+  // WhatsApp link editing - separate for each user
+  public editingWhatsappLinks: Map<string, 'user1' | 'user2' | null> = new Map(); // friendId -> which user is editing (null if not editing)
+  public whatsappLinks: { [key: string]: string } = {}; // friendId -> whatsapp link value being edited
 
   constructor(
     private _friendsService: FriendsService,
@@ -88,6 +98,13 @@ export class FriendsComponent implements OnInit {
   loadData() {
     this.loading = true;
     this.errorMessage = '';
+
+    // Refresh currentUser from service to ensure we have the latest data including whatsappLink
+    const serviceUser = this._memberService.getUser();
+    if (serviceUser && serviceUser.id === this.currentUser.id) {
+      this.currentUser = serviceUser;
+      console.log('CurrentUser refreshed from service - whatsappLink:', this.currentUser.whatsappLink);
+    }
 
     let completedRequests = 0;
     const totalRequests = 5;
@@ -375,25 +392,25 @@ export class FriendsComponent implements OnInit {
    * @param role The role name
    * @return Badge color class (bg-danger for admin, bg-success for user, bg-primary for others)
    */
-  getRoleBadgeClass(role: string): string {
+  getRoleTagClass(role: string): string {
     if (!role) {
-      return 'bg-primary';
+      return 'role-tag-default';
     }
     
     const roleLower = role.toLowerCase().trim();
     
-    // Admin role: red badge
+    // Admin role: red tag
     if (roleLower === 'admin' || roleLower === 'administrator') {
-      return 'bg-danger';
+      return 'role-tag-admin';
     }
     
-    // User role: green badge
+    // User role: green tag
     if (roleLower === 'user') {
-      return 'bg-success';
+      return 'role-tag-user';
     }
     
-    // All other roles: blue badge
-    return 'bg-primary';
+    // All other roles: blue tag
+    return 'role-tag-default';
   }
 
   getFilteredUsers(): Member[] {
@@ -477,7 +494,104 @@ export class FriendsComponent implements OnInit {
     return friend.user1;
   }
 
-  setActiveTab(tab: 'users' | 'requests' | 'friends' | 'groups') {
+  /**
+   * Get friendship origin information for a friend
+   * Returns an object with type ('direct' | 'both') and group names if applicable
+   * Note: We only show direct friends, so type can only be 'direct' or 'both' (direct + groups)
+   */
+  /**
+   * Get all members from friend groups who are not direct friends
+   */
+  getGroupMembersNotFriends(): Array<{ member: Member, groups: string[] }> {
+    const directFriendIds = new Set(this.friends.map(f => {
+      const otherUser = this.getOtherUser(f);
+      return otherUser.id;
+    }));
+    
+    const groupMembersMap = new Map<string, { member: Member, groups: string[] }>();
+    
+    for (const group of this.friendGroups) {
+      if (!group || !group.members) continue;
+      
+      const currentUserInGroup = (group.members && group.members.some(m => m && m.id === this.currentUser.id)) || 
+                                 (group.owner && group.owner.id === this.currentUser.id) ||
+                                 (group.authorizedUsers && group.authorizedUsers.some(u => u && u.id === this.currentUser.id));
+      
+      if (!currentUserInGroup) continue;
+      
+      // Helper function to add a member to the map without duplicates
+      const addMemberToMap = (member: Member, groupName: string) => {
+        if (!member || member.id === this.currentUser.id || directFriendIds.has(member.id)) {
+          return;
+        }
+        const existing = groupMembersMap.get(member.id);
+        if (existing) {
+          // Only add if group name is not already in the list
+          if (!existing.groups.includes(groupName)) {
+            existing.groups.push(groupName);
+          }
+        } else {
+          groupMembersMap.set(member.id, { member: member, groups: [groupName] });
+        }
+      };
+      
+      // Add owner if not current user and not a direct friend
+      if (group.owner) {
+        addMemberToMap(group.owner, group.name);
+      }
+      
+      // Add members if not current user and not a direct friend
+      if (group.members) {
+        for (const member of group.members) {
+          addMemberToMap(member, group.name);
+        }
+      }
+      
+      // Add authorized users if not current user and not a direct friend
+      if (group.authorizedUsers) {
+        for (const authorizedUser of group.authorizedUsers) {
+          addMemberToMap(authorizedUser, group.name);
+        }
+      }
+    }
+    
+    return Array.from(groupMembersMap.values()).sort((a, b) => {
+      const nameA = ((a.member.firstName || '') + ' ' + (a.member.lastName || '')).toLowerCase().trim();
+      const nameB = ((b.member.firstName || '') + ' ' + (b.member.lastName || '')).toLowerCase().trim();
+      return nameA.localeCompare(nameB);
+    });
+  }
+
+  getFriendshipOrigin(friend: Friend): { type: 'direct' | 'both', groups?: string[] } {
+    const otherUserId = this.getOtherUser(friend).id;
+    const groups: string[] = [];
+
+    // Check if we're both members of any friend groups
+    for (const group of this.friendGroups) {
+      if (!group || !group.members) continue;
+      
+      const currentUserInGroup = (group.members && group.members.some(m => m && m.id === this.currentUser.id)) || 
+                                 (group.owner && group.owner.id === this.currentUser.id) ||
+                                 (group.authorizedUsers && group.authorizedUsers.some(u => u && u.id === this.currentUser.id));
+      const otherUserInGroup = (group.members && group.members.some(m => m && m.id === otherUserId)) || 
+                               (group.owner && group.owner.id === otherUserId) ||
+                               (group.authorizedUsers && group.authorizedUsers.some(u => u && u.id === otherUserId));
+      
+      if (currentUserInGroup && otherUserInGroup && group.name) {
+        groups.push(group.name);
+      }
+    }
+
+    // Since we only display direct friends, type can only be 'direct' or 'both'
+    if (groups.length > 0) {
+      // We have a direct friendship AND groups in common
+      return { type: 'both', groups: groups };
+    }
+    // Only direct friendship (no common groups)
+    return { type: 'direct' };
+  }
+
+  setActiveTab(tab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser') {
     this.activeTab = tab;
     this.searchFilter = ''; // Clear search when switching tabs
     this.inviteEmail = ''; // Clear invite email
@@ -1277,12 +1391,18 @@ export class FriendsComponent implements OnInit {
   }
 
   /**
-   * Open WhatsApp link for a friend group
+   * Open WhatsApp link (for friend groups or individual friends)
    */
-  public openWhatsAppLink(group: FriendGroup): void {
-    if (group.whatsappLink) {
-      // Open WhatsApp link in a new tab
-      window.open(group.whatsappLink, '_blank');
+  public openWhatsAppLink(urlOrGroup: string | FriendGroup): void {
+    let url: string | null = null;
+    if (typeof urlOrGroup === 'string') {
+      url = urlOrGroup;
+    } else if (urlOrGroup && urlOrGroup.whatsappLink) {
+      url = urlOrGroup.whatsappLink;
+    }
+    
+    if (url && url.trim().length > 0) {
+      window.open(url, '_blank');
     }
   }
 
@@ -1291,6 +1411,244 @@ export class FriendsComponent implements OnInit {
    */
   public hasWhatsAppLink(group: FriendGroup): boolean {
     return !!(group.whatsappLink && group.whatsappLink.trim().length > 0);
+  }
+
+
+  /**
+   * Start editing WhatsApp link for a friend (for a specific user: user1 or user2)
+   */
+  startEditingWhatsappLink(friendId: string, userType: 'user1' | 'user2') {
+    const friend = this.friends.find(f => f.id === friendId);
+    if (friend) {
+      // Extract phone number from WhatsApp link if it exists
+      let phoneNumber = '';
+      const member = userType === 'user1' ? friend.user1 : friend.user2;
+      const whatsappLink = member?.whatsappLink;
+      if (whatsappLink) {
+        // Extract number from https://wa.me/XXXXXXXXXX format
+        const match = whatsappLink.match(/wa\.me\/([0-9]+)/);
+        if (match && match[1]) {
+          phoneNumber = match[1];
+        } else {
+          // If it's already just a number, use it
+          phoneNumber = whatsappLink.replace(/[^0-9]/g, '');
+        }
+      }
+      this.whatsappLinks[friendId] = phoneNumber;
+      this.editingWhatsappLinks.set(friendId, userType);
+    }
+  }
+
+  /**
+   * Cancel editing WhatsApp link
+   */
+  cancelEditingWhatsappLink(friendId: string) {
+    this.editingWhatsappLinks.delete(friendId);
+    delete this.whatsappLinks[friendId];
+  }
+
+  /**
+   * Check if editing WhatsApp link for a specific user
+   */
+  isEditingWhatsappLink(friendId: string, userType: 'user1' | 'user2'): boolean {
+    return this.editingWhatsappLinks.get(friendId) === userType;
+  }
+
+  /**
+   * Validate phone number (only digits)
+   */
+  isValidPhoneNumber(phoneNumber: string | undefined): boolean {
+    if (!phoneNumber || phoneNumber.trim().length === 0) {
+      return false;
+    }
+    // Only digits allowed
+    return /^[0-9]+$/.test(phoneNumber.trim());
+  }
+
+  /**
+   * Handle keypress to allow only numbers
+   */
+  onPhoneNumberKeyPress(event: KeyboardEvent): boolean {
+    const char = String.fromCharCode(event.which || event.keyCode);
+    // Allow only digits
+    if (!/[0-9]/.test(char)) {
+      event.preventDefault();
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Save WhatsApp link for a friend (for the specified user type)
+   */
+  saveWhatsappLink(friendId: string) {
+    const friend = this.friends.find(f => f.id === friendId);
+    if (!friend) return;
+
+    const editingUserType = this.editingWhatsappLinks.get(friendId);
+    if (!editingUserType) return;
+
+    // Verify that the current user is only updating their own WhatsApp link
+    const isUser1 = friend.user1.id === this.currentUser.id;
+    const isUser2 = friend.user2.id === this.currentUser.id;
+    
+    if (!isUser1 && !isUser2) {
+      this.errorMessage = this._translateService.instant('FRIENDS.UNAUTHORIZED_WHATSAPP_UPDATE');
+      return;
+    }
+    
+    // Verify that the user is editing their own link
+    if ((editingUserType === 'user1' && !isUser1) || (editingUserType === 'user2' && !isUser2)) {
+      this.errorMessage = this._translateService.instant('FRIENDS.UNAUTHORIZED_WHATSAPP_UPDATE');
+      return;
+    }
+
+    let phoneNumber = (this.whatsappLinks[friendId] || '').trim();
+    
+    // Remove leading "00" if present
+    if (phoneNumber.startsWith('00')) {
+      phoneNumber = phoneNumber.substring(2);
+    }
+    
+    // Validate phone number
+    if (!this.isValidPhoneNumber(phoneNumber)) {
+      this.errorMessage = this._translateService.instant('FRIENDS.INVALID_PHONE_NUMBER');
+      return;
+    }
+    
+    // Get the member ID to update
+    const memberId = editingUserType === 'user1' ? friend.user1.id : friend.user2.id;
+
+    // Build WhatsApp link with https://wa.me/ prefix
+    const whatsappLink = `https://wa.me/${phoneNumber}`;
+    
+    this.loading = true;
+    this._friendsService.updateMemberWhatsappLink(memberId, whatsappLink).subscribe(
+      (updatedMember) => {
+        // Update the member in the friend object
+        const index = this.friends.findIndex(f => f.id === friendId);
+        if (index !== -1) {
+          if (editingUserType === 'user1') {
+            this.friends[index].user1 = updatedMember;
+          } else {
+            this.friends[index].user2 = updatedMember;
+          }
+        }
+        this.cancelEditingWhatsappLink(friendId);
+        this.loading = false;
+        this.errorMessage = '';
+      },
+      error => {
+        console.error('Error updating WhatsApp link:', error);
+        this.errorMessage = this._translateService.instant('FRIENDS.WHATSAPP_UPDATE_ERROR');
+        this.loading = false;
+      }
+    );
+  }
+
+  /**
+   * Get WhatsApp link for a specific user in a friendship
+   */
+  getWhatsappLink(friend: Friend, userType: 'user1' | 'user2'): string | undefined {
+    const member = userType === 'user1' ? friend.user1 : friend.user2;
+    return member?.whatsappLink;
+  }
+
+  /**
+   * Check if current user is user1 or user2 in a friendship
+   */
+  getCurrentUserType(friend: Friend): 'user1' | 'user2' | null {
+    if (friend.user1.id === this.currentUser.id) return 'user1';
+    if (friend.user2.id === this.currentUser.id) return 'user2';
+    return null;
+  }
+
+  /**
+   * Start editing WhatsApp link for current user
+   */
+  startEditingMyWhatsappLink() {
+    // Extract phone number from WhatsApp link if it exists
+    let phoneNumber = '';
+    if (this.currentUser.whatsappLink) {
+      // Extract number from https://wa.me/XXXXXXXXXX format
+      const match = this.currentUser.whatsappLink.match(/wa\.me\/([0-9]+)/);
+      if (match && match[1]) {
+        phoneNumber = match[1];
+      } else {
+        // If it's already just a number, use it
+        phoneNumber = this.currentUser.whatsappLink.replace(/[^0-9]/g, '');
+      }
+    }
+    this.myWhatsappLink = phoneNumber;
+    this.editingMyWhatsappLink = true;
+  }
+
+  /**
+   * Cancel editing WhatsApp link for current user
+   */
+  cancelEditingMyWhatsappLink() {
+    this.editingMyWhatsappLink = false;
+    this.myWhatsappLink = '';
+  }
+
+  /**
+   * Save WhatsApp link for current user
+   */
+  saveMyWhatsappLink() {
+    if (!this.currentUser || !this.currentUser.id) {
+      this.errorMessage = this._translateService.instant('FRIENDS.ERROR_USER_NOT_LOADED');
+      return;
+    }
+    
+    let phoneNumber = (this.myWhatsappLink || '').trim();
+    
+    // Remove leading "00" if present
+    if (phoneNumber.startsWith('00')) {
+      phoneNumber = phoneNumber.substring(2);
+    }
+    
+    // Validate phone number
+    if (!this.isValidPhoneNumber(phoneNumber)) {
+      this.errorMessage = this._translateService.instant('FRIENDS.INVALID_PHONE_NUMBER');
+      return;
+    }
+    
+    // Build WhatsApp link with https://wa.me/ prefix
+    const whatsappLink = `https://wa.me/${phoneNumber}`;
+    
+    this.loading = true;
+    this._friendsService.updateMemberWhatsappLink(this.currentUser.id, whatsappLink).subscribe(
+      (updatedMember) => {
+        // Update the current user
+        this.currentUser = updatedMember;
+        // Also update the user in the MembersService
+        this._memberService.setUser(updatedMember);
+        // Force change detection to update the view
+        this.cdr.detectChanges();
+        this.cancelEditingMyWhatsappLink();
+        this.loading = false;
+        this.errorMessage = '';
+      },
+      error => {
+        console.error('Error updating WhatsApp link:', error);
+        this.errorMessage = this._translateService.instant('FRIENDS.WHATSAPP_UPDATE_ERROR');
+        this.loading = false;
+      }
+    );
+  }
+
+  /**
+   * Extract phone number from WhatsApp link
+   */
+  getPhoneNumberFromLink(whatsappLink: string): string {
+    if (!whatsappLink) return '';
+    // Extract number from https://wa.me/XXXXXXXXXX format
+    const match = whatsappLink.match(/wa\.me\/([0-9]+)/);
+    if (match && match[1]) {
+      return match[1];
+    }
+    // If it's already just a number, return it
+    return whatsappLink.replace(/[^0-9]/g, '');
   }
 }
 

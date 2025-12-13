@@ -21,6 +21,7 @@ public class Member {
     private Date registrationDate;
     private Date lastConnectionDate;
     private String locale; // User's language preference (e.g., "fr", "en")
+    private String whatsappLink; // WhatsApp link for this member
 
     public Member( String firstName, String lastName, String userName, String addressEmail){
         this.firstName = firstName;
@@ -110,6 +111,14 @@ public class Member {
 
     public void setLocale(String locale) {
         this.locale = locale;
+    }
+    
+    public String getWhatsappLink() {
+        return whatsappLink;
+    }
+    
+    public void setWhatsappLink(String whatsappLink) {
+        this.whatsappLink = whatsappLink;
     }
 }
 

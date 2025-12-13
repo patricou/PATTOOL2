@@ -60,7 +60,24 @@ export class MembersService {
                         map((res: any) => {
                             let now = new Date();
                             // console.log("3|------------------> OK : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds() );
-                            return res;
+                            // Create a proper Member object with all fields including whatsappLink
+                            const rolesArray = res.roles ? (typeof res.roles === 'string' ? res.roles.split(',').map((r: string) => r.trim()) : res.roles) : [];
+                            const member = new Member(
+                                res.id || '',
+                                res.addressEmail || '',
+                                res.firstName || '',
+                                res.lastName || '',
+                                res.userName || '',
+                                rolesArray,
+                                res.keycloakId || '',
+                                res.registrationDate ? new Date(res.registrationDate) : undefined,
+                                res.lastConnectionDate ? new Date(res.lastConnectionDate) : undefined,
+                                res.locale || undefined,
+                                res.whatsappLink || undefined
+                            );
+                            // Update the internal user object
+                            this.user = member;
+                            return member;
                         }),
                         catchError((error: any) => {
                             console.error("¦=================> Error:", error);

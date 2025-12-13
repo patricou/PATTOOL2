@@ -255,6 +255,35 @@ public class FriendsRestController {
     }
     
     /**
+     * Update WhatsApp link for a member
+     */
+    @PutMapping(value = "/members/{memberId}/whatsapp", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Member> updateMemberWhatsappLink(
+            @PathVariable String memberId,
+            @RequestBody Map<String, String> requestBody,
+            Authentication authentication) {
+        try {
+            Member currentUser = friendsService.getCurrentUser(authentication);
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            String whatsappLink = requestBody.get("whatsappLink");
+            Member updatedMember = friendsService.updateMemberWhatsappLink(memberId, whatsappLink, currentUser);
+            return ResponseEntity.ok(updatedMember);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            log.error("Invalid state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            log.error("Error updating member WhatsApp link", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
      * Check if an email address belongs to an existing member
      */
     @GetMapping(value = "/check-email/{email}", produces = MediaType.APPLICATION_JSON_VALUE)

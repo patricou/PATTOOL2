@@ -24,6 +24,16 @@
     <li class="nav-item" role="presentation">
       <button 
         class="nav-link" 
+        [class.active]="activeTab === 'myuser'"
+        (click)="setActiveTab('myuser')"
+        type="button">
+        <i class="fa fa-user"></i>
+        {{ 'FRIENDS.MY_USER' | translate }}
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button 
+        class="nav-link" 
         [class.active]="activeTab === 'users'"
         (click)="setActiveTab('users')"
         type="button">
@@ -220,7 +230,7 @@
               <i class="fa fa-shield"></i> 
               {{ 'FRIENDS.ROLE' | translate }}: 
               <span *ngFor="let role of getUserRoles(user); let last = last">
-                <span class="badge me-1" [ngClass]="getRoleBadgeClass(role)">{{ role }}</span>
+                <span class="role-tag me-1" [ngClass]="getRoleTagClass(role)">{{ role }}</span>
               </span>
             </div>
             <p class="text-muted compact-text mb-1" *ngIf="getUserStatus(user) === 'sent' && getSentRequestDate(user)">
@@ -242,34 +252,45 @@
           </div>
         </div>
         <div class="user-actions">
-          <button 
-            *ngIf="getUserStatus(user) === 'none'"
-            class="btn btn-primary btn-xs compact-btn"
-            (click)="sendFriendRequest(user.id)">
-            <i class="fa fa-user-plus"></i>
-            <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.SEND_REQUEST' | translate }}</span>
-          </button>
-          <button 
-            *ngIf="getUserStatus(user) === 'pending'"
-            class="btn btn-warning btn-xs compact-btn"
-            disabled>
-            <i class="fa fa-clock"></i>
-            <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.PENDING_REQUEST' | translate }}</span>
-          </button>
-          <button 
-            *ngIf="getUserStatus(user) === 'sent'"
-            class="btn btn-info btn-xs compact-btn"
-            (click)="resendFriendRequest(user.id)"
-            title="{{ 'FRIENDS.RESEND_REQUEST' | translate }}">
-            <i class="fa fa-paper-plane"></i>
-            <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.RESEND_REQUEST' | translate }}</span>
-          </button>
-          <span 
-            *ngIf="getUserStatus(user) === 'friend'"
-            class="badge bg-success compact-badge">
-            <i class="fa fa-check"></i>
-            {{ 'FRIENDS.FRIEND' | translate }}
-          </span>
+          <div class="d-flex gap-2 flex-wrap align-items-center">
+            <!-- WhatsApp Link button -->
+            <button 
+              *ngIf="user.whatsappLink"
+              class="btn btn-xs btn-success compact-btn"
+              (click)="openWhatsAppLink(user.whatsappLink!)"
+              [ngbTooltip]="'FRIENDS.OPEN_WHATSAPP' | translate"
+              placement="top">
+              <i class="fa fa-whatsapp"></i>
+            </button>
+            <button 
+              *ngIf="getUserStatus(user) === 'none'"
+              class="btn btn-primary btn-xs compact-btn"
+              (click)="sendFriendRequest(user.id)">
+              <i class="fa fa-user-plus"></i>
+              <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.SEND_REQUEST' | translate }}</span>
+            </button>
+            <button 
+              *ngIf="getUserStatus(user) === 'pending'"
+              class="btn btn-warning btn-xs compact-btn"
+              disabled>
+              <i class="fa fa-clock"></i>
+              <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.PENDING_REQUEST' | translate }}</span>
+            </button>
+            <button 
+              *ngIf="getUserStatus(user) === 'sent'"
+              class="btn btn-info btn-xs compact-btn"
+              (click)="resendFriendRequest(user.id)"
+              title="{{ 'FRIENDS.RESEND_REQUEST' | translate }}">
+              <i class="fa fa-paper-plane"></i>
+              <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.RESEND_REQUEST' | translate }}</span>
+            </button>
+            <span 
+              *ngIf="getUserStatus(user) === 'friend'"
+              class="friend-status-tag">
+              <i class="fa fa-heart text-success"></i>
+              <span class="ms-1">{{ 'FRIENDS.FRIEND' | translate }}</span>
+            </span>
+          </div>
         </div>
         
         <!-- Custom Message Prompt for Friend Request -->
@@ -313,7 +334,7 @@
             <button 
               class="btn btn-success btn-sm"
               (click)="sendFriendRequest(user.id)"
-              [disabled]="loading || !getFriendRequestMessage(user.id)?.trim()">
+               [disabled]="loading || !getFriendRequestMessage(user.id).trim()">
               <i class="fa fa-paper-plane" *ngIf="!loading"></i>
               <i class="fa fa-spinner fa-spin" *ngIf="loading"></i>
               <span *ngIf="getUserStatus(user) === 'none'">{{ 'FRIENDS.SEND_REQUEST' | translate }}</span>
@@ -433,12 +454,347 @@
           </div>
         </div>
         <div class="friend-actions">
-          <button 
-            class="btn btn-danger btn-xs compact-btn"
-            (click)="removeFriend(friend.id)">
-            <i class="fa fa-user-times"></i>
-            <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.REMOVE_FRIEND' | translate }}</span>
-          </button>
+          <div class="d-flex gap-2 flex-wrap">
+            <!-- WhatsApp Link for the friend (other user) only -->
+            <button 
+              *ngIf="getOtherUser(friend).whatsappLink"
+              class="btn btn-xs btn-success compact-btn"
+              (click)="openWhatsAppLink(getOtherUser(friend).whatsappLink!)"
+              [ngbTooltip]="'FRIENDS.OPEN_WHATSAPP' | translate"
+              placement="top">
+              <i class="fa fa-whatsapp"></i>
+            </button>
+            <button 
+              class="btn btn-danger btn-xs compact-btn"
+              (click)="removeFriend(friend.id)">
+              <i class="fa fa-user-times"></i>
+              <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.REMOVE_FRIEND' | translate }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab Content: My User -->
+  <div *ngIf="activeTab === 'myuser'" class="tab-content">
+    <div class="myuser-grid-container">
+      <!-- Left: User Profile -->
+      <div class="myuser-grid-left">
+        <div class="user-profile-section">
+          <div class="user-card compact-user-card">
+        <div class="friend-header">
+          <h5 class="mb-3">
+            <i class="fa fa-user-circle me-2"></i>
+            {{ 'FRIENDS.MY_PROFILE' | translate }}
+          </h5>
+        </div>
+        <div class="friend-info">
+          <div class="friend-details">
+            <p class="text-muted compact-text mb-1" *ngIf="currentUser.whatsappLink">
+              <i class="fa fa-phone"></i> 
+              <strong>{{ 'FRIENDS.PHONE_NUMBER' | translate }}:</strong> 
+              {{ getPhoneNumberFromLink(currentUser.whatsappLink) }}
+            </p>
+            <p class="text-muted compact-text mb-1">
+              <i class="fa fa-user"></i> 
+              <strong>{{ 'FRIENDS.NAME' | translate }}:</strong> 
+              {{ currentUser.firstName }} {{ currentUser.lastName }}
+            </p>
+            <p class="text-muted compact-text mb-1">
+              <i class="fa fa-at"></i> 
+              <strong>{{ 'FRIENDS.USERNAME' | translate }}:</strong> 
+              {{ currentUser.userName }}
+            </p>
+            <p class="text-muted compact-text mb-1">
+              <i class="fa fa-envelope"></i> 
+              <strong>{{ 'FRIENDS.EMAIL' | translate }}:</strong> 
+              {{ currentUser.addressEmail }}
+            </p>
+            <p class="text-muted compact-text mb-1" *ngIf="currentUser.registrationDate">
+              <i class="fa fa-calendar-plus-o"></i> 
+              <strong>{{ 'FRIENDS.REGISTERED_ON' | translate }}:</strong> 
+              {{ currentUser.registrationDate | date:'short' }}
+            </p>
+            <p class="text-muted compact-text mb-1" *ngIf="currentUser.lastConnectionDate">
+              <i class="fa fa-clock-o"></i> 
+              <strong>{{ 'FRIENDS.LAST_CONNECTION' | translate }}:</strong> 
+              {{ currentUser.lastConnectionDate | date:'short' }}
+            </p>
+            <p class="text-muted compact-text mb-1" *ngIf="currentUser.locale">
+              <i class="fa fa-language"></i> 
+              <strong>{{ 'FRIENDS.LANGUAGE' | translate }}:</strong> 
+              {{ currentUser.locale | uppercase }}
+            </p>
+            <div class="text-muted compact-text mb-1" *ngIf="getUserRoles(currentUser) && getUserRoles(currentUser).length > 0">
+              <i class="fa fa-shield"></i> 
+              <strong>{{ 'FRIENDS.ROLE' | translate }}:</strong> 
+              <span *ngFor="let role of getUserRoles(currentUser); let last = last">
+                <span class="role-tag me-1" [ngClass]="getRoleTagClass(role)">{{ role }}</span>
+              </span>
+            </div>
+            <p class="text-muted compact-text mb-1">
+              <i class="fa fa-heart"></i> 
+              <strong>{{ 'FRIENDS.MY_FRIENDS' | translate }}:</strong> 
+              {{ friends.length }}
+            </p>
+            <p class="text-muted compact-text mb-1">
+              <i class="fa fa-users"></i> 
+              <strong>{{ 'FRIENDS.FRIEND_GROUPS' | translate }}:</strong> 
+              {{ friendGroups.length }}
+            </p>
+            <div class="compact-text mb-1" *ngIf="hasAdminRole()" style="color: #007bff;">
+              <i class="fa fa-id-card"></i> 
+              <strong>{{ 'FRIENDS.USER_ID' | translate }}:</strong> {{ currentUser.id }}
+            </div>
+            <div class="compact-text mb-1" *ngIf="hasAdminRole() && currentUser.keycloakId" style="color: #007bff;">
+              <i class="fa fa-key"></i> 
+              <strong>{{ 'FRIENDS.KEYCLOAK_ID' | translate }}:</strong> {{ currentUser.keycloakId }}
+            </div>
+            
+            <!-- WhatsApp Link Section -->
+            <div class="whatsapp-link-section mt-3 pt-3 border-top">
+              <h6 class="mb-2">
+                <i class="fa fa-whatsapp"></i> 
+                {{ 'FRIENDS.WHATSAPP_PHONE' | translate }}
+              </h6>
+              
+              <!-- Display WhatsApp Link -->
+              <div *ngIf="!editingMyWhatsappLink" class="whatsapp-display">
+                <div class="d-flex gap-2 align-items-center mb-2">
+                  <button 
+                    *ngIf="currentUser.whatsappLink"
+                    class="btn btn-xs btn-success compact-btn"
+                    (click)="openWhatsAppLink(currentUser.whatsappLink!)"
+                    [ngbTooltip]="'FRIENDS.OPEN_WHATSAPP' | translate"
+                    placement="top">
+                    <i class="fa fa-whatsapp"></i>
+                  </button>
+                  <button 
+                    class="btn btn-xs btn-outline-success compact-btn"
+                    (click)="startEditingMyWhatsappLink()">
+                    <i class="fa fa-edit"></i>
+                    <span class="d-none d-sm-inline ms-1">{{ currentUser.whatsappLink ? ('FRIENDS.EDIT_WHATSAPP_LINK' | translate) : ('FRIENDS.ADD_WHATSAPP_LINK' | translate) }}</span>
+                  </button>
+                  <small *ngIf="!currentUser.whatsappLink" class="text-muted">
+                    {{ 'FRIENDS.NO_WHATSAPP_LINK' | translate }}
+                  </small>
+                </div>
+                <small class="text-muted d-block">
+                  <i class="fa fa-info-circle"></i> 
+                  {{ 'FRIENDS.USER_PHONE_NUMBER' | translate }}
+                </small>
+              </div>
+              
+              <!-- Edit WhatsApp Link Form -->
+              <div *ngIf="editingMyWhatsappLink" class="whatsapp-link-edit">
+                <div class="input-group mb-2">
+                  <span class="input-group-text">
+                    <i class="fa fa-whatsapp"></i>
+                  </span>
+                  <input 
+                    type="text" 
+                    class="form-control form-control-sm"
+                    [(ngModel)]="myWhatsappLink"
+                    (keypress)="onPhoneNumberKeyPress($event)"
+                    [placeholder]="'FRIENDS.WHATSAPP_PHONE_PLACEHOLDER' | translate"
+                    pattern="[0-9]*"
+                    inputmode="numeric">
+                </div>
+                <small class="text-muted d-block mb-2">
+                  <i class="fa fa-info-circle"></i>
+                  {{ 'FRIENDS.WHATSAPP_PHONE_NOTE' | translate }}
+                </small>
+                <div class="d-flex gap-2">
+                  <button 
+                    type="button"
+                    class="btn btn-xs btn-success compact-btn"
+                    (click)="saveMyWhatsappLink()"
+                    [disabled]="loading || !isValidPhoneNumber(myWhatsappLink)">
+                    <i class="fa fa-save"></i>
+                    <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.SAVE' | translate }}</span>
+                  </button>
+                  <button 
+                    class="btn btn-xs btn-secondary compact-btn"
+                    (click)="cancelEditingMyWhatsappLink()">
+                    <i class="fa fa-times"></i>
+                    <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.CANCEL' | translate }}</span>
+                  </button>
+                </div>
+                <small class="text-muted" *ngIf="myWhatsappLink && !isValidPhoneNumber(myWhatsappLink)">
+                  {{ 'FRIENDS.INVALID_PHONE_NUMBER' | translate }}
+                </small>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+      </div>
+      </div>
+
+      <!-- Right: Friends Grid with Origin Info -->
+      <div class="myuser-grid-right">
+        <div *ngIf="friends.length === 0" class="no-results">
+          <i class="fa fa-user-friends fa-3x"></i>
+          <p>{{ 'FRIENDS.NO_FRIENDS' | translate }}</p>
+        </div>
+
+        <div *ngIf="friends.length > 0 || getGroupMembersNotFriends().length > 0" class="friends-grid-section">
+          <!-- Direct Friends Section -->
+          <div *ngIf="friends.length > 0" class="mb-4">
+            <h6 class="mb-3">
+              <i class="fa fa-heart me-2"></i>
+              {{ 'FRIENDS.MY_FRIENDS' | translate }} ({{ friends.length }})
+            </h6>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm friends-grid-table">
+                <thead>
+                  <tr>
+                    <th>{{ 'FRIENDS.NAME' | translate }}</th>
+                    <th>{{ 'FRIENDS.USERNAME' | translate }}</th>
+                    <th>{{ 'FRIENDS.ORIGIN' | translate }}</th>
+                    <th>{{ 'FRIENDS.ACTIONS' | translate }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let friend of getSortedFriends(); let i = index" 
+                      [class.table-active]="selectedFriendIndex === i"
+                      (click)="selectedFriendIndex = i"
+                      style="cursor: pointer;">
+                    <td>
+                      <i class="fa fa-user-circle me-2"></i>
+                      {{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }}
+                      <span class="status-indicator ms-2" 
+                            [style.background-color]="getUserOnlineStatus(getOtherUser(friend).id).online ? '#28a745' : '#ffffff'"
+                            [style.border]="getUserOnlineStatus(getOtherUser(friend).id).online ? '2px solid #28a745' : '2px solid #6c757d'"
+                            style="width: 10px; height: 10px; border-radius: 50%; display: inline-block;"></span>
+                    </td>
+                    <td>
+                      <i class="fa fa-at"></i> {{ getOtherUser(friend).userName }}
+                    </td>
+                    <td>
+                      <span *ngIf="getFriendshipOrigin(friend).type === 'direct'" class="origin-badge direct-badge">
+                        <i class="fa fa-heart me-1"></i>{{ 'FRIENDS.DIRECT_FRIENDSHIP' | translate }}
+                      </span>
+                      <span *ngIf="getFriendshipOrigin(friend).type === 'both' && getFriendshipOrigin(friend).groups && getFriendshipOrigin(friend).groups!.length > 0" class="origin-badge both-badge">
+                        <i class="fa fa-heart me-1"></i>{{ 'FRIENDS.DIRECT_FRIENDSHIP' | translate }} + 
+                        <i class="fa fa-users me-1"></i>
+                        <span *ngFor="let groupName of getFriendshipOrigin(friend).groups; let last = last">
+                          {{ groupName }}<span *ngIf="!last">, </span>
+                        </span>
+                      </span>
+                    </td>
+                    <td>
+                      <button 
+                        *ngIf="getOtherUser(friend).whatsappLink"
+                        class="btn btn-xs btn-success compact-btn"
+                        (click)="openWhatsAppLink(getOtherUser(friend).whatsappLink!); $event.stopPropagation()"
+                        [ngbTooltip]="'FRIENDS.OPEN_WHATSAPP' | translate"
+                        placement="top">
+                        <i class="fa fa-whatsapp"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Group Members (Not Friends) Section -->
+          <div *ngIf="getGroupMembersNotFriends().length > 0">
+            <h6 class="mb-3">
+              <i class="fa fa-users me-2"></i>
+              {{ 'FRIENDS.GROUP_MEMBERS_NOT_FRIENDS' | translate }} ({{ getGroupMembersNotFriends().length }})
+            </h6>
+            <div class="table-responsive">
+              <table class="table table-hover table-sm friends-grid-table">
+                <thead>
+                  <tr>
+                    <th>{{ 'FRIENDS.NAME' | translate }}</th>
+                    <th>{{ 'FRIENDS.USERNAME' | translate }}</th>
+                    <th>{{ 'FRIENDS.GROUPS' | translate }}</th>
+                    <th>{{ 'FRIENDS.ACTIONS' | translate }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let item of getGroupMembersNotFriends()" 
+                      style="cursor: pointer;">
+                    <td>
+                      <i class="fa fa-user-circle me-2"></i>
+                      {{ item.member.firstName }} {{ item.member.lastName }}
+                      <span class="status-indicator ms-2" 
+                            [style.background-color]="getUserOnlineStatus(item.member.id).online ? '#28a745' : '#ffffff'"
+                            [style.border]="getUserOnlineStatus(item.member.id).online ? '2px solid #28a745' : '2px solid #6c757d'"
+                            style="width: 10px; height: 10px; border-radius: 50%; display: inline-block;"></span>
+                    </td>
+                    <td>
+                      <i class="fa fa-at"></i> {{ item.member.userName }}
+                    </td>
+                    <td>
+                      <span class="origin-badge group-badge">
+                        <i class="fa fa-users me-1"></i>
+                        <span *ngFor="let groupName of item.groups; let last = last">
+                          {{ groupName }}<span *ngIf="!last">, </span>
+                        </span>
+                      </span>
+                    </td>
+                    <td>
+                      <button 
+                        *ngIf="item.member.whatsappLink"
+                        class="btn btn-xs btn-success compact-btn"
+                        (click)="openWhatsAppLink(item.member.whatsappLink!)"
+                        [ngbTooltip]="'FRIENDS.OPEN_WHATSAPP' | translate"
+                        placement="top">
+                        <i class="fa fa-whatsapp"></i>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Friendship Origin Info -->
+          <div class="friendship-origin-card mt-3" *ngIf="selectedFriendIndex !== null && getSortedFriends()[selectedFriendIndex]">
+            <h6 class="mb-3">
+              <i class="fa fa-info-circle me-2"></i>
+              {{ 'FRIENDS.FRIENDSHIP_ORIGIN' | translate }}
+            </h6>
+            <div *ngIf="getSortedFriends()[selectedFriendIndex]">
+              <p class="mb-2">
+                <strong>{{ getOtherUser(getSortedFriends()[selectedFriendIndex]).firstName }} {{ getOtherUser(getSortedFriends()[selectedFriendIndex]).lastName }}</strong>
+              </p>
+              <div *ngIf="getFriendshipOrigin(getSortedFriends()[selectedFriendIndex]).type === 'direct'" class="origin-info">
+                <p class="text-success">
+                  <i class="fa fa-heart me-2"></i>
+                  {{ 'FRIENDS.DIRECT_FRIENDSHIP' | translate }}
+                </p>
+                <p class="text-muted compact-text">
+                  {{ 'FRIENDS.FRIENDS_SINCE' | translate }}: {{ getSortedFriends()[selectedFriendIndex].friendshipDate | date:'short' }}
+                </p>
+              </div>
+              <div *ngIf="getFriendshipOrigin(getSortedFriends()[selectedFriendIndex]).type === 'both'" class="origin-info">
+                <p class="text-success">
+                  <i class="fa fa-heart me-2"></i>
+                  {{ 'FRIENDS.DIRECT_FRIENDSHIP' | translate }}
+                </p>
+                <p class="text-muted compact-text mb-2">
+                  {{ 'FRIENDS.FRIENDS_SINCE' | translate }}: {{ getSortedFriends()[selectedFriendIndex].friendshipDate | date:'short' }}
+                </p>
+                <p class="text-info">
+                  <i class="fa fa-users me-2"></i>
+                  {{ 'FRIENDS.COMMON_GROUPS' | translate }}
+                </p>
+                <div *ngIf="getFriendshipOrigin(getSortedFriends()[selectedFriendIndex]).groups && getFriendshipOrigin(getSortedFriends()[selectedFriendIndex]).groups!.length > 0">
+                  <ul class="group-list">
+                    <li *ngFor="let groupName of getFriendshipOrigin(getSortedFriends()[selectedFriendIndex]).groups">
+                      <i class="fa fa-users me-1"></i>{{ groupName }}
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -542,18 +898,18 @@
         </div>
         <div class="card-body compact-card-body">
           <!-- Badge at the top of the card -->
-          <div class="d-flex justify-content-center mb-2">
-            <div *ngIf="isGroupOwner(group)" class="badge bg-success compact-badge">
-              <i class="fa fa-crown"></i>
-              {{ 'FRIENDS.OWNER' | translate }}
+          <div class="d-flex justify-content-center mb-2 gap-2">
+            <div *ngIf="isGroupOwner(group)" class="group-status-tag owner-tag">
+              <i class="fa fa-crown text-warning"></i>
+              <span class="ms-1">{{ 'FRIENDS.OWNER' | translate }}</span>
             </div>
-            <div *ngIf="isGroupAuthorized(group)" class="badge bg-info compact-badge">
-              <i class="fa fa-user-check"></i>
-              {{ 'FRIENDS.AUTHORIZED_TO_USE' | translate }}
+            <div *ngIf="isGroupAuthorized(group)" class="group-status-tag authorized-tag">
+              <i class="fa fa-user-check text-info"></i>
+              <span class="ms-1">{{ 'FRIENDS.AUTHORIZED_TO_USE' | translate }}</span>
             </div>
-            <div *ngIf="isGroupMember(group)" class="badge bg-secondary compact-badge">
-              <i class="fa fa-user"></i>
-              {{ 'FRIENDS.MEMBER' | translate }}
+            <div *ngIf="isGroupMember(group)" class="group-status-tag member-tag">
+              <i class="fa fa-user text-secondary"></i>
+              <span class="ms-1">{{ 'FRIENDS.MEMBER' | translate }}</span>
             </div>
           </div>
           <div *ngIf="editingGroupId !== group.id">
@@ -591,9 +947,9 @@
                     *ngIf="hasWhatsAppLink(group)"
                     class="btn btn-success btn-xs compact-btn"
                     (click)="openWhatsAppLink(group); $event.stopPropagation()"
-                    title="Open WhatsApp Group">
-                    <i class="fa fa-whatsapp me-1"></i>
-                    WhatsApp
+                    [ngbTooltip]="'FRIENDS.OPEN_WHATSAPP' | translate"
+                    placement="top">
+                    <i class="fa fa-whatsapp"></i>
                   </button>
                 </div>
                 <!-- Discussion Link Display (if exists) -->
@@ -648,7 +1004,7 @@
                     <h6 class="compact-subtitle mb-0">
                       <i class="fa fa-user-check"></i>
                       {{ 'FRIENDS.AUTHORIZED_USERS' | translate }}
-                      <span *ngIf="group.authorizedUsers && group.authorizedUsers.length > 0" class="badge bg-info compact-badge">
+                      <span *ngIf="group.authorizedUsers && group.authorizedUsers.length > 0" class="authorized-count-tag">
                         {{ group.authorizedUsers.length }}
                       </span>
                     </h6>
@@ -708,8 +1064,9 @@
                           class="form-check-label compact-text" 
                           [for]="'authorize-' + group.id + '-' + (friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)">
                           {{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }} ({{ getOtherUser(friend).userName }})
-                          <span *ngIf="isUserAuthorized(group, friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)" class="badge bg-success ms-1 compact-badge">
-                            {{ 'FRIENDS.AUTHORIZED' | translate }}
+                          <span *ngIf="isUserAuthorized(group, friend.user1.id === currentUser.id ? friend.user2.id : friend.user1.id)" class="authorized-user-tag ms-1">
+                            <i class="fa fa-check-circle text-success"></i>
+                            <span class="ms-1">{{ 'FRIENDS.AUTHORIZED' | translate }}</span>
                           </span>
                         </label>
                       </div>
@@ -787,7 +1144,6 @@
         </div>
       </div>
     </div>
-  </div>
   </div>
 </div>
 
