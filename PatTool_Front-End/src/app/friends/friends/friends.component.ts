@@ -1,4 +1,5 @@
-import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { NgbDropdown } from '@ng-bootstrap/ng-bootstrap';
 import { Member } from '../../model/member';
 import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../../model/friend';
 import { FriendsService } from '../../services/friends.service';
@@ -28,8 +29,97 @@ export class FriendsComponent implements OnInit {
   // WhatsApp link editing for current user
   public editingMyWhatsappLink: boolean = false;
   public myWhatsappLink: string = '';
-  public detectedCountryCode: string = ''; // Country code for flag display
+  public selectedCountryCode: string = '+33'; // Default to France
   public loading: boolean = false;
+  
+  // Country codes with flags (using flag-icons library like in language menu)
+  public countryCodes: Array<{code: string, flag: string, name: string}> = [
+    {code: '+33', flag: 'fr', name: 'France'},
+    {code: '+1', flag: 'us', name: 'USA/Canada'},
+    {code: '+44', flag: 'gb', name: 'UK'},
+    {code: '+49', flag: 'de', name: 'Germany'},
+    {code: '+39', flag: 'it', name: 'Italy'},
+    {code: '+34', flag: 'es', name: 'Spain'},
+    {code: '+32', flag: 'be', name: 'Belgium'},
+    {code: '+41', flag: 'ch', name: 'Switzerland'},
+    {code: '+31', flag: 'nl', name: 'Netherlands'},
+    {code: '+351', flag: 'pt', name: 'Portugal'},
+    {code: '+212', flag: 'ma', name: 'Morocco'},
+    {code: '+213', flag: 'dz', name: 'Algeria'},
+    {code: '+216', flag: 'tn', name: 'Tunisia'},
+    {code: '+221', flag: 'sn', name: 'Senegal'},
+    {code: '+225', flag: 'ci', name: 'Ivory Coast'},
+    {code: '+229', flag: 'bj', name: 'Benin'},
+    {code: '+226', flag: 'bf', name: 'Burkina Faso'},
+    {code: '+227', flag: 'ne', name: 'Niger'},
+    {code: '+228', flag: 'tg', name: 'Togo'},
+    {code: '+230', flag: 'mu', name: 'Mauritius'},
+    {code: '+242', flag: 'cg', name: 'Congo'},
+    {code: '+243', flag: 'cd', name: 'DRC'},
+    {code: '+237', flag: 'cm', name: 'Cameroon'},
+    {code: '+235', flag: 'td', name: 'Chad'},
+    {code: '+236', flag: 'cf', name: 'CAR'},
+    {code: '+240', flag: 'gq', name: 'Equatorial Guinea'},
+    {code: '+241', flag: 'ga', name: 'Gabon'},
+    {code: '+250', flag: 'rw', name: 'Rwanda'},
+    {code: '+251', flag: 'et', name: 'Ethiopia'},
+    {code: '+254', flag: 'ke', name: 'Kenya'},
+    {code: '+255', flag: 'tz', name: 'Tanzania'},
+    {code: '+256', flag: 'ug', name: 'Uganda'},
+    {code: '+257', flag: 'bi', name: 'Burundi'},
+    {code: '+258', flag: 'mz', name: 'Mozambique'},
+    {code: '+260', flag: 'zm', name: 'Zambia'},
+    {code: '+261', flag: 'mg', name: 'Madagascar'},
+    {code: '+262', flag: 're', name: 'Réunion'},
+    {code: '+269', flag: 'km', name: 'Comoros'},
+    {code: '+7', flag: 'ru', name: 'Russia'},
+    {code: '+86', flag: 'cn', name: 'China'},
+    {code: '+81', flag: 'jp', name: 'Japan'},
+    {code: '+82', flag: 'kr', name: 'South Korea'},
+    {code: '+91', flag: 'in', name: 'India'},
+    {code: '+61', flag: 'au', name: 'Australia'},
+    {code: '+64', flag: 'nz', name: 'New Zealand'},
+    {code: '+55', flag: 'br', name: 'Brazil'},
+    {code: '+52', flag: 'mx', name: 'Mexico'},
+    {code: '+54', flag: 'ar', name: 'Argentina'},
+    {code: '+56', flag: 'cl', name: 'Chile'},
+    {code: '+57', flag: 'co', name: 'Colombia'},
+    {code: '+51', flag: 'pe', name: 'Peru'},
+    {code: '+20', flag: 'eg', name: 'Egypt'},
+    {code: '+27', flag: 'za', name: 'South Africa'},
+    {code: '+90', flag: 'tr', name: 'Turkey'},
+    {code: '+966', flag: 'sa', name: 'Saudi Arabia'},
+    {code: '+971', flag: 'ae', name: 'UAE'},
+    {code: '+972', flag: 'il', name: 'Israel'},
+    {code: '+961', flag: 'lb', name: 'Lebanon'},
+    {code: '+962', flag: 'jo', name: 'Jordan'},
+    {code: '+974', flag: 'qa', name: 'Qatar'},
+    {code: '+965', flag: 'kw', name: 'Kuwait'},
+    {code: '+973', flag: 'bh', name: 'Bahrain'},
+    {code: '+968', flag: 'om', name: 'Oman'},
+    {code: '+60', flag: 'my', name: 'Malaysia'},
+    {code: '+65', flag: 'sg', name: 'Singapore'},
+    {code: '+66', flag: 'th', name: 'Thailand'},
+    {code: '+62', flag: 'id', name: 'Indonesia'},
+    {code: '+63', flag: 'ph', name: 'Philippines'},
+    {code: '+84', flag: 'vn', name: 'Vietnam'},
+    {code: '+880', flag: 'bd', name: 'Bangladesh'},
+    {code: '+92', flag: 'pk', name: 'Pakistan'},
+    {code: '+94', flag: 'lk', name: 'Sri Lanka'},
+    {code: '+95', flag: 'mm', name: 'Myanmar'},
+    {code: '+353', flag: 'ie', name: 'Ireland'},
+    {code: '+46', flag: 'se', name: 'Sweden'},
+    {code: '+47', flag: 'no', name: 'Norway'},
+    {code: '+45', flag: 'dk', name: 'Denmark'},
+    {code: '+358', flag: 'fi', name: 'Finland'},
+    {code: '+48', flag: 'pl', name: 'Poland'},
+    {code: '+420', flag: 'cz', name: 'Czech Republic'},
+    {code: '+36', flag: 'hu', name: 'Hungary'},
+    {code: '+40', flag: 'ro', name: 'Romania'},
+    {code: '+30', flag: 'gr', name: 'Greece'},
+    {code: '+380', flag: 'ua', name: 'Ukraine'},
+    {code: '+7', flag: 'kz', name: 'Kazakhstan'},
+  ];
   public errorMessage: string = '';
   public inviteEmail: string = '';
   public checkingEmail: boolean = false;
@@ -62,6 +152,14 @@ export class FriendsComponent implements OnInit {
   // WhatsApp link editing - separate for each user
   public editingWhatsappLinks: Map<string, 'user1' | 'user2' | null> = new Map(); // friendId -> which user is editing (null if not editing)
   public whatsappLinks: { [key: string]: string } = {}; // friendId -> whatsapp link value being edited
+  
+  // Admin user selection and update
+  public selectedUserForUpdate: Member | null = null;
+  public editingSelectedUser: boolean = false;
+  public selectedUserWhatsappLink: string = '';
+  public selectedUserCountryCode: string = '+33'; // Default to France
+  public availableLocales: string[] = ['ar', 'cn', 'de', 'el', 'en', 'es', 'fr', 'he', 'it', 'jp', 'ru'];
+  public selectedUserFriends: Friend[] = []; // Friends of the selected user (for admin view)
 
   constructor(
     private _friendsService: FriendsService,
@@ -104,6 +202,8 @@ export class FriendsComponent implements OnInit {
     if (serviceUser && serviceUser.id === this.currentUser.id) {
       this.currentUser = serviceUser;
       console.log('CurrentUser refreshed from service - whatsappLink:', this.currentUser.whatsappLink);
+      // Initialize country code from existing WhatsApp link
+      this.initializeCountryCodeFromLink();
     }
 
     let completedRequests = 0;
@@ -864,62 +964,52 @@ export class FriendsComponent implements OnInit {
   /**
    * Load status for all users (in All Users tab)
    */
+  /**
+   * Load status for all users (batch request - single API call)
+   */
   loadUserStatuses() {
-    this.allUsers.forEach(user => {
-      if (user && user.id) {
-        // Initialize with offline status immediately so it shows up right away
-        if (!this.userStatuses.has(user.id)) {
-          this.userStatuses.set(user.id, { online: false, status: 'offline' });
-        }
-        
-        this._friendsService.getUserStatus(user.id).subscribe(
-          status => {
-            this.userStatuses.set(user.id, status);
-            // Trigger change detection to update the UI
-            this.cdr.detectChanges();
-          },
-          error => {
-            // Set default status on error
-            this.userStatuses.set(user.id, { online: false, status: 'offline' });
-            // Trigger change detection to update the UI
-            this.cdr.detectChanges();
+    this._friendsService.getAllUsersStatus().subscribe(
+      statusMap => {
+        console.log('Loaded user statuses:', statusMap.size, 'users');
+        // Update all statuses from the batch response
+        statusMap.forEach((status, userId) => {
+          this.userStatuses.set(userId, status);
+          if (status.online) {
+            console.log('User', userId, 'is ONLINE');
           }
-        );
+        });
+        console.log('Total statuses in map:', this.userStatuses.size);
+        // Trigger change detection to update the UI
+        this.cdr.detectChanges();
+      },
+      error => {
+        console.error('Error loading all users status:', error);
+        // Initialize all users with offline status on error
+        this.allUsers.forEach(user => {
+          if (user && user.id && !this.userStatuses.has(user.id)) {
+            this.userStatuses.set(user.id, { online: false, status: 'offline' });
+          }
+        });
+        this.cdr.detectChanges();
       }
-    });
-    // Trigger change detection after initializing all statuses
-    this.cdr.detectChanges();
+    );
   }
 
   /**
-   * Load status for all friends
+   * Load status for all friends (uses the same batch request)
+   * This method is kept for compatibility but now relies on loadUserStatuses
    */
   loadFriendStatuses() {
-    this.friends.forEach(friend => {
-      const otherUser = this.getOtherUser(friend);
-      if (otherUser && otherUser.id) {
-        // Initialize with offline status immediately so it shows up right away
-        if (!this.userStatuses.has(otherUser.id)) {
-          this.userStatuses.set(otherUser.id, { online: false, status: 'offline' });
-        }
-        
-        this._friendsService.getUserStatus(otherUser.id).subscribe(
-          status => {
-            this.userStatuses.set(otherUser.id, status);
-            // Trigger change detection to update the UI
-            this.cdr.detectChanges();
-          },
-          error => {
-            // Set default status on error
-            this.userStatuses.set(otherUser.id, { online: false, status: 'offline' });
-            // Trigger change detection to update the UI
-            this.cdr.detectChanges();
-          }
-        );
-      }
-    });
-    // Trigger change detection after initializing all statuses
-    this.cdr.detectChanges();
+    // Statuses are already loaded by loadUserStatuses() which loads all users
+    // This method is kept for compatibility but doesn't need to do anything
+    // as all statuses are already loaded in userStatuses map
+  }
+
+  /**
+   * Refresh connection status for all users
+   */
+  refreshConnectionStatus() {
+    this.loadUserStatuses();
   }
 
   /**
@@ -929,7 +1019,11 @@ export class FriendsComponent implements OnInit {
     if (!userId) {
       return { online: false, status: 'offline' };
     }
-    const status = this.userStatuses.get(userId) || { online: false, status: 'offline' };
+    const status = this.userStatuses.get(userId);
+    if (!status) {
+      // If status not found, return offline
+      return { online: false, status: 'offline' };
+    }
     return status;
   }
 
@@ -1569,17 +1663,33 @@ export class FriendsComponent implements OnInit {
   startEditingMyWhatsappLink() {
     // Extract phone number from WhatsApp link if it exists
     let phoneNumber = '';
+    let detectedCode = '+33'; // Default to France
     if (this.currentUser.whatsappLink) {
       // Extract number from https://wa.me/XXXXXXXXXX format
       const match = this.currentUser.whatsappLink.match(/wa\.me\/([0-9]+)/);
       if (match && match[1]) {
-        phoneNumber = match[1];
+        const fullNumber = match[1];
+        // Try to detect country code (sort by length descending to match longer codes first)
+        const sortedCodes = [...this.countryCodes].sort((a, b) => b.code.length - a.code.length);
+        for (const country of sortedCodes) {
+          const codeDigits = country.code.substring(1); // Remove + from code
+          if (fullNumber.startsWith(codeDigits)) {
+            detectedCode = country.code;
+            phoneNumber = fullNumber.substring(codeDigits.length); // Remove country code
+            break;
+          }
+        }
+        // If no code detected, use full number
+        if (phoneNumber === '') {
+          phoneNumber = fullNumber;
+        }
       } else {
         // If it's already just a number, use it
         phoneNumber = this.currentUser.whatsappLink.replace(/[^0-9]/g, '');
       }
     }
     this.myWhatsappLink = phoneNumber;
+    this.selectedCountryCode = detectedCode;
     this.editingMyWhatsappLink = true;
   }
 
@@ -1607,14 +1717,23 @@ export class FriendsComponent implements OnInit {
       phoneNumber = phoneNumber.substring(2);
     }
     
+    // Remove leading + if present (shouldn't happen but just in case)
+    if (phoneNumber.startsWith('+')) {
+      phoneNumber = phoneNumber.substring(1);
+    }
+    
     // Validate phone number
     if (!this.isValidPhoneNumber(phoneNumber)) {
       this.errorMessage = this._translateService.instant('FRIENDS.INVALID_PHONE_NUMBER');
       return;
     }
     
+    // Combine country code with phone number (remove + from country code)
+    const countryCodeDigits = this.selectedCountryCode.substring(1); // Remove +
+    const fullPhoneNumber = countryCodeDigits + phoneNumber;
+    
     // Build WhatsApp link with https://wa.me/ prefix
-    const whatsappLink = `https://wa.me/${phoneNumber}`;
+    const whatsappLink = `https://wa.me/${fullPhoneNumber}`;
     
     this.loading = true;
     this._friendsService.updateMemberWhatsappLink(this.currentUser.id, whatsappLink).subscribe(
@@ -1649,6 +1768,349 @@ export class FriendsComponent implements OnInit {
     }
     // If it's already just a number, return it
     return whatsappLink.replace(/[^0-9]/g, '');
+  }
+
+  /**
+   * Initialize country code from existing WhatsApp link or user locale
+   */
+  private initializeCountryCodeFromLink() {
+    if (this.currentUser.whatsappLink) {
+      // Extract number from https://wa.me/XXXXXXXXXX format
+      const match = this.currentUser.whatsappLink.match(/wa\.me\/([0-9]+)/);
+      if (match && match[1]) {
+        const fullNumber = match[1];
+        // Try to detect country code (sort by length descending to match longer codes first)
+        const sortedCodes = [...this.countryCodes].sort((a, b) => b.code.length - a.code.length);
+        for (const country of sortedCodes) {
+          const codeDigits = country.code.substring(1); // Remove + from code
+          if (fullNumber.startsWith(codeDigits)) {
+            this.selectedCountryCode = country.code;
+            return;
+          }
+        }
+      }
+    }
+    // Try to detect from user locale
+    if (this.currentUser.locale) {
+      const localeToCountryCode: {[key: string]: string} = {
+        'fr': '+33', 'en': '+1', 'es': '+34', 'de': '+49', 'it': '+39',
+        'ar': '+212', 'cn': '+86', 'jp': '+81', 'ru': '+7', 'he': '+972',
+        'el': '+30', 'pt': '+351', 'nl': '+31', 'be': '+32', 'ch': '+41'
+      };
+      const langCode = this.currentUser.locale.toLowerCase().substring(0, 2);
+      if (localeToCountryCode[langCode]) {
+        this.selectedCountryCode = localeToCountryCode[langCode];
+        return;
+      }
+    }
+    // Default to France if no link or code not detected
+    this.selectedCountryCode = '+33';
+  }
+
+  /**
+   * Get the selected country object
+   */
+  getSelectedCountry(): {code: string, flag: string, name: string} | undefined {
+    return this.countryCodes.find(c => c.code === this.selectedCountryCode);
+  }
+
+  /**
+   * Select a country code and close the dropdown
+   */
+  selectCountryCode(code: string, dropdown: NgbDropdown) {
+    this.selectedCountryCode = code;
+    if (dropdown) {
+      dropdown.close();
+    }
+    // Trigger change detection
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Admin: Select a user to update
+   */
+  onUserSelectedForUpdate(userId: string | null) {
+    if (!userId || userId === '' || userId === null) {
+      this.selectedUserForUpdate = null;
+      this.editingSelectedUser = false;
+      this.selectedUserWhatsappLink = '';
+      this.selectedUserCountryCode = '+33';
+      this.selectedUserFriends = [];
+      return;
+    }
+    const user = this.allUsers.find(u => u.id === userId);
+    if (user) {
+      // Create a copy to avoid modifying the original
+      this.selectedUserForUpdate = new Member(
+        user.id,
+        user.addressEmail,
+        user.firstName,
+        user.lastName,
+        user.userName,
+        [...(user.roles || [])],
+        user.keycloakId,
+        user.registrationDate,
+        user.lastConnectionDate,
+        user.locale,
+        user.whatsappLink
+      );
+      this.editingSelectedUser = true;
+      
+      // Load friends of the selected user
+      this.loadSelectedUserFriends(user.id);
+      
+      // Initialize WhatsApp link fields
+      if (user.whatsappLink) {
+        const phoneNumber = this.getPhoneNumberFromLink(user.whatsappLink);
+        this.selectedUserWhatsappLink = phoneNumber;
+        // Extract country code from link or default
+        const countryCodeMatch = user.whatsappLink.match(/https:\/\/wa\.me\/(\d+)/);
+        if (countryCodeMatch && countryCodeMatch[1]) {
+          const fullNumber = countryCodeMatch[1];
+          // Try to find matching country code
+          const matchedCountry = this.countryCodes.find(c => fullNumber.startsWith(c.code.replace('+', '')));
+          if (matchedCountry) {
+            this.selectedUserCountryCode = matchedCountry.code;
+            this.selectedUserWhatsappLink = fullNumber.substring(matchedCountry.code.replace('+', '').length);
+          } else {
+            this.selectedUserCountryCode = '+33';
+            this.selectedUserWhatsappLink = phoneNumber;
+          }
+        } else {
+          this.selectedUserCountryCode = '+33';
+          this.selectedUserWhatsappLink = phoneNumber;
+        }
+      } else {
+        this.selectedUserWhatsappLink = '';
+        this.selectedUserCountryCode = '+33';
+      }
+    } else {
+      this.selectedUserForUpdate = null;
+      this.editingSelectedUser = false;
+      this.selectedUserWhatsappLink = '';
+      this.selectedUserCountryCode = '+33';
+    }
+  }
+
+  /**
+   * Admin: Save updated user
+   */
+  saveUpdatedUser() {
+    if (!this.selectedUserForUpdate) {
+      return;
+    }
+    
+    // Build WhatsApp link if phone number is provided
+    if (this.selectedUserWhatsappLink && this.selectedUserWhatsappLink.trim()) {
+      const countryCode = this.selectedUserCountryCode.replace('+', '');
+      const phoneNumber = this.selectedUserWhatsappLink.replace(/\D/g, ''); // Remove non-digits
+      this.selectedUserForUpdate.whatsappLink = `https://wa.me/${countryCode}${phoneNumber}`;
+    } else {
+      this.selectedUserForUpdate.whatsappLink = undefined;
+    }
+    
+    this.loading = true;
+    this._friendsService.updateMember(this.selectedUserForUpdate).subscribe(
+      updatedUser => {
+        // Update in allUsers array
+        const index = this.allUsers.findIndex(u => u.id === updatedUser.id);
+        if (index !== -1) {
+          this.allUsers[index] = updatedUser;
+        }
+        // If it's the current user, update currentUser too
+        if (updatedUser.id === this.currentUser.id) {
+          this.currentUser = updatedUser;
+        }
+        this.loading = false;
+        this.editingSelectedUser = false;
+        // Reset selected user to return to current user view
+        this.selectedUserForUpdate = null;
+        this.selectedUserFriends = [];
+        this.selectedUserWhatsappLink = '';
+        this.selectedUserCountryCode = '+33';
+        this.loadData(); // Reload all data to refresh
+      },
+      error => {
+        console.error('Error updating user:', error);
+        this.errorMessage = 'Error updating user';
+        this.loading = false;
+      }
+    );
+  }
+
+  /**
+   * Admin: Cancel editing selected user
+   */
+  cancelEditingSelectedUser() {
+    this.selectedUserForUpdate = null;
+    this.editingSelectedUser = false;
+    this.selectedUserWhatsappLink = '';
+    this.selectedUserCountryCode = '+33';
+    this.selectedUserFriends = [];
+  }
+
+  /**
+   * Load friends of the selected user (for admin view)
+   */
+  loadSelectedUserFriends(userId: string) {
+    if (!this.hasAdminRole()) {
+      this.selectedUserFriends = [];
+      return;
+    }
+    
+    this.loading = true;
+    this._friendsService.getFriendsForUser(userId).subscribe(
+      friends => {
+        this.selectedUserFriends = friends;
+        this.loading = false;
+        console.log(`Loaded ${friends.length} friends for selected user ${userId}`);
+      },
+      error => {
+        console.error('Error loading friends for selected user:', error);
+        this.selectedUserFriends = [];
+        this.loading = false;
+      }
+    );
+  }
+
+  /**
+   * Get friends to display in the grid (current user's friends or selected user's friends for admin)
+   */
+  getFriendsForDisplay(): Friend[] {
+    if (this.hasAdminRole() && this.selectedUserForUpdate && this.editingSelectedUser) {
+      return this.selectedUserFriends;
+    }
+    return this.friends;
+  }
+
+  /**
+   * Get sorted friends for display
+   */
+  getSortedFriendsForDisplay(): Friend[] {
+    const friendsToSort = this.getFriendsForDisplay();
+    const referenceUser = (this.hasAdminRole() && this.selectedUserForUpdate && this.editingSelectedUser) ? this.selectedUserForUpdate : this.currentUser;
+    
+    // Filter out invalid friends (where we can't determine the other user)
+    const validFriends = friendsToSort.filter(friend => {
+      const otherUser = this.getOtherUserFromFriend(friend, referenceUser);
+      return otherUser && otherUser.id && (otherUser.firstName || otherUser.lastName || otherUser.userName);
+    });
+    
+    return [...validFriends].sort((a, b) => {
+      const userA = this.getOtherUserFromFriend(a, referenceUser);
+      const userB = this.getOtherUserFromFriend(b, referenceUser);
+      
+      // Sort by firstName first
+      if (userA.firstName && userB.firstName) {
+        const firstNameCompare = userA.firstName.localeCompare(userB.firstName);
+        if (firstNameCompare !== 0) return firstNameCompare;
+      } else if (userA.firstName) return -1;
+      else if (userB.firstName) return 1;
+      
+      // Then by lastName
+      if (userA.lastName && userB.lastName) {
+        const lastNameCompare = userA.lastName.localeCompare(userB.lastName);
+        if (lastNameCompare !== 0) return lastNameCompare;
+      } else if (userA.lastName) return -1;
+      else if (userB.lastName) return 1;
+      
+      // Finally by userName
+      if (userA.userName && userB.userName) {
+        return userA.userName.localeCompare(userB.userName);
+      } else if (userA.userName) return -1;
+      else if (userB.userName) return 1;
+      
+      return 0;
+    });
+  }
+
+  /**
+   * Get the other user from a friend relationship, given a reference user
+   */
+  getOtherUserFromFriend(friend: Friend, referenceUser: Member): Member {
+    if (!friend || !referenceUser || !referenceUser.id) {
+      return new Member('', '', '', '', '', [], '');
+    }
+    
+    // Check if referenceUser is user1
+    if (friend.user1 && friend.user1.id && friend.user1.id === referenceUser.id) {
+      return friend.user2 && friend.user2.id ? friend.user2 : new Member('', '', '', '', '', [], '');
+    }
+    
+    // Check if referenceUser is user2
+    if (friend.user2 && friend.user2.id && friend.user2.id === referenceUser.id) {
+      return friend.user1 && friend.user1.id ? friend.user1 : new Member('', '', '', '', '', [], '');
+    }
+    
+    // If referenceUser is neither user1 nor user2, this shouldn't happen in normal flow
+    // But return the first available user as fallback
+    if (friend.user1 && friend.user1.id) {
+      return friend.user1;
+    }
+    if (friend.user2 && friend.user2.id) {
+      return friend.user2;
+    }
+    
+    return new Member('', '', '', '', '', [], '');
+  }
+
+  /**
+   * Get sorted users for admin select box (sorted by firstName, then lastName, then userName)
+   */
+  getSortedUsersForAdmin(): Member[] {
+    return [...this.allUsers].sort((a, b) => {
+      // Sort by firstName first
+      if (a.firstName && b.firstName) {
+        const firstNameCompare = a.firstName.localeCompare(b.firstName);
+        if (firstNameCompare !== 0) return firstNameCompare;
+      } else if (a.firstName) return -1;
+      else if (b.firstName) return 1;
+      
+      // Then by lastName
+      if (a.lastName && b.lastName) {
+        const lastNameCompare = a.lastName.localeCompare(b.lastName);
+        if (lastNameCompare !== 0) return lastNameCompare;
+      } else if (a.lastName) return -1;
+      else if (b.lastName) return 1;
+      
+      // Finally by userName
+      if (a.userName && b.userName) {
+        return a.userName.localeCompare(b.userName);
+      } else if (a.userName) return -1;
+      else if (b.userName) return 1;
+      
+      return 0;
+    });
+  }
+
+  /**
+   * Get the selected country object for admin form
+   */
+  getSelectedCountryForAdmin(): {code: string, flag: string, name: string} | undefined {
+    return this.countryCodes.find(c => c.code === this.selectedUserCountryCode);
+  }
+
+  /**
+   * Select a country code for admin form and close the dropdown
+   */
+  selectCountryCodeForAdmin(code: string, dropdown: NgbDropdown) {
+    this.selectedUserCountryCode = code;
+    if (dropdown) {
+      dropdown.close();
+    }
+    // Trigger change detection
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Get translated role name
+   */
+  getTranslatedRole(role: string): string {
+    if (!role) return role;
+    const roleKey = 'FRIENDS.ROLE_' + role.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+    const translated = this._translateService.instant(roleKey);
+    // If translation doesn't exist, return the original role
+    return translated !== roleKey ? translated : role;
   }
 }
 

@@ -277,6 +277,19 @@ public class FriendsService {
     }
 
     /**
+     * Get all friends of a specific user (admin only)
+     */
+    public List<Friend> getFriendsForUser(String userId) {
+        Optional<Member> userOpt = membersRepository.findById(userId);
+        if (userOpt.isEmpty()) {
+            log.warn("User not found with id: {}", userId);
+            return List.of();
+        }
+        Member user = userOpt.get();
+        return friendRepository.findByUser1OrUser2(user, user);
+    }
+
+    /**
      * Remove a friend
      */
     public void removeFriend(String friendId, Member currentUser) {

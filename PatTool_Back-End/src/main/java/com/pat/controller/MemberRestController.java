@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -27,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.Enumeration;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Created by patricou on 4/20/2017.
@@ -58,6 +60,46 @@ public class MemberRestController {
     @Value("${app.connection.email.enabled:false}")
     private boolean connectionEmailEnabled;
 
+    /**
+     * Check if the current user has Admin role (case-insensitive)
+     */
+    private boolean hasAdminRole() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin") || 
+                                     authority.equalsIgnoreCase("ROLE_admin"));
+    }
+
+    /**
+     * Get current user ID from authentication token
+     */
+    private String getCurrentUserId() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof Jwt) {
+                Jwt jwt = (Jwt) authentication.getPrincipal();
+                String keycloakId = jwt.getSubject();
+                if (keycloakId != null) {
+                    // Find member by keycloakId
+                    List<Member> members = membersRepository.findAll();
+                    Optional<Member> memberOpt = members.stream()
+                            .filter(m -> keycloakId.equals(m.getKeycloakId()))
+                            .findFirst();
+                    if (memberOpt.isPresent()) {
+                        return memberOpt.get().getId();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Error getting current user ID: {}", e.getMessage());
+        }
+        return null;
+    }
+
     @RequestMapping(method = RequestMethod.GET)
     public List<Member> getListMembers(){
         return membersRepository.findAll();
@@ -82,20 +124,64 @@ public class MemberRestController {
         if (memberWithId != null ) {
             log.debug("Existing user found - Member ID: {}", memberWithId.getId());
             member.setId(memberWithId.getId());
-            // Preserve registration date from existing member
+            
+            // Preserve registration date from existing member (never overwrite)
             if (memberWithId.getRegistrationDate() != null) {
                 member.setRegistrationDate(memberWithId.getRegistrationDate());
             }
-            // Update last connection date
-            member.setLastConnectionDate(now);
-            // Update locale if provided, otherwise preserve existing
+            
+            // Preserve keycloakId from existing member if not provided in request
+            if (member.getKeycloakId() == null || member.getKeycloakId().trim().isEmpty()) {
+                if (memberWithId.getKeycloakId() != null) {
+                    member.setKeycloakId(memberWithId.getKeycloakId());
+                }
+            }
+            
+            // Preserve firstName from existing member if not provided in request
+            if (member.getFirstName() == null || member.getFirstName().trim().isEmpty()) {
+                if (memberWithId.getFirstName() != null) {
+                    member.setFirstName(memberWithId.getFirstName());
+                }
+            }
+            
+            // Preserve lastName from existing member if not provided in request
+            if (member.getLastName() == null || member.getLastName().trim().isEmpty()) {
+                if (memberWithId.getLastName() != null) {
+                    member.setLastName(memberWithId.getLastName());
+                }
+            }
+            
+            // Preserve addressEmail from existing member if not provided in request
+            if (member.getAddressEmail() == null || member.getAddressEmail().trim().isEmpty()) {
+                if (memberWithId.getAddressEmail() != null) {
+                    member.setAddressEmail(memberWithId.getAddressEmail());
+                }
+            }
+            
+            // Update last connection date only if this is a real user connection (not an admin update)
+            // If it's an admin update and the user being updated is different from the current user,
+            // preserve the existing lastConnectionDate
+            boolean isAdminUpdate = hasAdminRole() && 
+                                   (member.getId() != null && !member.getId().equals(getCurrentUserId()));
+            if (!isAdminUpdate) {
+                // Normal user connection - update last connection date
+                member.setLastConnectionDate(now);
+            } else {
+                // Admin updating another user - preserve existing lastConnectionDate
+                if (memberWithId.getLastConnectionDate() != null) {
+                    member.setLastConnectionDate(memberWithId.getLastConnectionDate());
+                }
+                log.debug("Admin update detected - preserving lastConnectionDate for user {}", member.getUserName());
+            }
+            
+            // Preserve locale from existing member if not provided in request
             if (member.getLocale() == null || member.getLocale().trim().isEmpty()) {
                 if (memberWithId.getLocale() != null) {
                     member.setLocale(memberWithId.getLocale());
                 }
             }
             
-            // Preserve whatsappLink from existing member if incoming member doesn't have it set
+            // Preserve whatsappLink from existing member if not provided in request
             // This prevents the whatsappLink from being cleared when user logs in/connects
             if (member.getWhatsappLink() == null || member.getWhatsappLink().trim().isEmpty()) {
                 if (memberWithId.getWhatsappLink() != null) {
@@ -103,8 +189,18 @@ public class MemberRestController {
                 }
             }
             
-            // Fetch and update roles from Keycloak if keycloakId is available
-            updateMemberRolesFromKeycloak(member);
+            // Handle roles: preserve from request if provided (admin update), otherwise preserve existing or fetch from Keycloak
+            if (member.getRoles() != null && !member.getRoles().trim().isEmpty()) {
+                // Roles are provided in the request (likely from admin update), preserve them
+                log.debug("Preserving roles from request for user {}: {}", member.getUserName(), member.getRoles());
+            } else if (memberWithId.getRoles() != null && !memberWithId.getRoles().trim().isEmpty()) {
+                // No roles in request but existing member has roles, preserve existing roles
+                member.setRoles(memberWithId.getRoles());
+                log.debug("Preserving existing roles for user {}: {}", member.getUserName(), member.getRoles());
+            } else {
+                // No roles in request and no existing roles, fetch from Keycloak (normal user connection)
+                updateMemberRolesFromKeycloak(member);
+            }
 
             String ipAddress = request.getHeader("X-Forwarded-For");
             if (ipAddress == null) {
@@ -153,8 +249,14 @@ public class MemberRestController {
             member.setRegistrationDate(now);
             member.setLastConnectionDate(now);
             
-            // Fetch and update roles from Keycloak if keycloakId is available
-            updateMemberRolesFromKeycloak(member);
+            // Handle roles: preserve from request if provided (admin creating user), otherwise fetch from Keycloak
+            if (member.getRoles() != null && !member.getRoles().trim().isEmpty()) {
+                // Roles are provided in the request (likely from admin), preserve them
+                log.debug("Preserving roles from request for new user {}: {}", member.getUserName(), member.getRoles());
+            } else {
+                // No roles in request, fetch from Keycloak (normal new user connection)
+                updateMemberRolesFromKeycloak(member);
+            }
             
             // New user - still send email notification
             log.debug("New user connection detected - Username: {}", member.getUserName());

@@ -610,7 +610,11 @@
         "KEYCLOAKID": "KeycloakId",
         "ROLES": "Roles",
         "LOADING_ROLES": "Loading roles...",
-        "NO_ROLES": "No roles assigned"
+        "NO_ROLES": "No roles assigned",
+        "ROLE_MANAGER": "Manager",
+        "ROLE_ADMIN": "Administrator",
+        "ROLE_UM_AUTHORIZATION": "UM Authorization",
+        "ROLE_USER": "User"
     },
     "UPLOADFILE": {
         "MENU": "Upload",
@@ -949,7 +953,12 @@
         "ALSO_DIRECT_FRIEND": "Also Direct Friend",
         "ORIGIN": "Origin",
         "ACTIONS": "Actions",
+        "REFRESH": "Refresh",
+        "REFRESH_STATUS": "Refresh connection status",
+        "ONLINE": "Online",
+        "OFFLINE": "Offline",
         "GROUPS": "Groups",
+        "ROLES": "Roles",
         "GROUP_MEMBERS_NOT_FRIENDS": "Group Members (Not Friends)",
         "ADMIN_INFO": "Admin Information",
         "FRIENDSHIP_ID": "Friendship ID",

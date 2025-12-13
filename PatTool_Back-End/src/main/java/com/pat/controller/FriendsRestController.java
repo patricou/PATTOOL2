@@ -228,6 +228,39 @@ public class FriendsRestController {
     }
 
     /**
+     * Get all friends of a specific user (admin only)
+     */
+    @GetMapping(value = "/users/{userId}/friends", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<Friend>> getFriendsForUser(
+            @PathVariable String userId,
+            Authentication authentication) {
+        try {
+            // Check if user has admin role
+            if (!hasAdminRole(authentication)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+            }
+
+            List<Friend> friends = friendsService.getFriendsForUser(userId);
+            return ResponseEntity.ok(friends);
+        } catch (Exception e) {
+            log.error("Error getting friends for user {}", userId, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Check if the current user has Admin role (case-insensitive)
+     */
+    private boolean hasAdminRole(Authentication authentication) {
+        if (authentication == null) {
+            return false;
+        }
+        return authentication.getAuthorities().stream()
+                .anyMatch(authority -> authority.getAuthority().equalsIgnoreCase("ROLE_Admin") ||
+                                     authority.getAuthority().equalsIgnoreCase("ROLE_admin"));
+    }
+
+    /**
      * Remove a friend
      */
     @DeleteMapping(value = "/{friendId}", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -776,6 +809,71 @@ public class FriendsRestController {
             response.put("online", false);
             response.put("status", "unknown");
             return ResponseEntity.ok(response); // Return unknown status instead of error
+        }
+    }
+
+    /**
+     * Get status for all users (batch request)
+     * Returns a map of userId -> {online: boolean, status: string}
+     * Uses lastConnectionDate to determine if user is online (connected within last 5 minutes)
+     */
+    @GetMapping(value = "/users/status", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Map<String, Object>>> getAllUsersStatus(Authentication authentication) {
+        try {
+            List<Member> allMembers = membersRepository.findAll();
+            Map<String, Map<String, Object>> statusMap = new java.util.HashMap<>();
+            
+            // Current time
+            long currentTime = System.currentTimeMillis();
+            // Consider user online if connected within last 5 minutes (300000 milliseconds)
+            long onlineThreshold = 5 * 60 * 1000; // 5 minutes in milliseconds
+            
+            for (Member member : allMembers) {
+                if (member == null || member.getId() == null || member.getId().trim().isEmpty()) {
+                    continue; // Skip invalid members
+                }
+                
+                Map<String, Object> status = new java.util.HashMap<>();
+                boolean isOnline = false;
+                
+                // Check lastConnectionDate to determine if user is online
+                if (member.getLastConnectionDate() != null) {
+                    long lastConnectionTime = member.getLastConnectionDate().getTime();
+                    long timeSinceLastConnection = currentTime - lastConnectionTime;
+                    
+                    // User is considered online if connected within last 5 minutes
+                    isOnline = timeSinceLastConnection <= onlineThreshold;
+                    
+                    if (isOnline) {
+                        log.debug("User {} ({}) is ONLINE (last connection: {} ms ago)", 
+                                member.getId(), member.getUserName(), timeSinceLastConnection);
+                    }
+                } else {
+                    // No connection date, try Keycloak API as fallback
+                    if (member.getKeycloakId() != null && !member.getKeycloakId().trim().isEmpty()) {
+                        try {
+                            isOnline = keycloakService.isUserOnline(member.getKeycloakId());
+                            if (isOnline) {
+                                log.debug("User {} ({}) is ONLINE (via Keycloak API)", 
+                                        member.getId(), member.getUserName());
+                            }
+                        } catch (Exception e) {
+                            log.debug("Keycloak API check failed for user {} ({}), using offline status", 
+                                    member.getId(), member.getUserName());
+                        }
+                    }
+                }
+                
+                status.put("online", isOnline);
+                status.put("status", isOnline ? "online" : "offline");
+                statusMap.put(member.getId(), status);
+            }
+            
+            log.debug("Status check completed: {} users processed", statusMap.size());
+            return ResponseEntity.ok(statusMap);
+        } catch (Exception e) {
+            log.error("Error getting all users status", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 }

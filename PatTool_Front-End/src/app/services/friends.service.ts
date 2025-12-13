@@ -34,13 +34,23 @@ export class FriendsService {
                 return this._http.get<Member[]>(this.API_URL + 'friends/users', { headers: headers }).pipe(
                     map((res: any) => {
                         return res.map((user: any) => {
+                            // Convert roles from string to array if needed
+                            let rolesArray: string[] = [];
+                            if (user.roles) {
+                                if (typeof user.roles === 'string') {
+                                    // Split comma-separated string and trim each role
+                                    rolesArray = user.roles.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+                                } else if (Array.isArray(user.roles)) {
+                                    rolesArray = user.roles;
+                                }
+                            }
                             return new Member(
                                 user.id || '',
                                 user.addressEmail || '',
                                 user.firstName || '',
                                 user.lastName || '',
                                 user.userName || '',
-                                user.roles || [],
+                                rolesArray,
                                 user.keycloakId || '',
                                 user.registrationDate ? new Date(user.registrationDate) : undefined,
                                 user.lastConnectionDate ? new Date(user.lastConnectionDate) : undefined,
@@ -372,6 +382,18 @@ export class FriendsService {
                 return this._http.get<Friend[]>(this.API_URL + 'friends', { headers: headers }).pipe(
                     map((res: any) => {
                         return res.map((friend: any) => {
+                            // Helper function to convert roles
+                            const convertRoles = (roles: any): string[] => {
+                                if (!roles) return [];
+                                if (typeof roles === 'string') {
+                                    return roles.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+                                }
+                                if (Array.isArray(roles)) {
+                                    return roles;
+                                }
+                                return [];
+                            };
+                            
                             return new Friend(
                                 friend.id || '',
                                 friend.user1 ? new Member(
@@ -380,7 +402,7 @@ export class FriendsService {
                                     friend.user1.firstName || '',
                                     friend.user1.lastName || '',
                                     friend.user1.userName || '',
-                                    friend.user1.roles || [],
+                                    convertRoles(friend.user1.roles),
                                     friend.user1.keycloakId || '',
                                     friend.user1.registrationDate ? new Date(friend.user1.registrationDate) : undefined,
                                     friend.user1.lastConnectionDate ? new Date(friend.user1.lastConnectionDate) : undefined,
@@ -393,7 +415,7 @@ export class FriendsService {
                                     friend.user2.firstName || '',
                                     friend.user2.lastName || '',
                                     friend.user2.userName || '',
-                                    friend.user2.roles || [],
+                                    convertRoles(friend.user2.roles),
                                     friend.user2.keycloakId || '',
                                     friend.user2.registrationDate ? new Date(friend.user2.registrationDate) : undefined,
                                     friend.user2.lastConnectionDate ? new Date(friend.user2.lastConnectionDate) : undefined,
@@ -1026,6 +1048,164 @@ export class FriendsService {
                         console.error('Error getting user status:', error);
                         // Return offline status on error
                         return of({ online: false, status: 'unknown' });
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Get status for all users (batch request)
+     * Returns a map of userId -> {online: boolean, status: string}
+     */
+    getAllUsersStatus(): Observable<Map<string, { online: boolean; status: string }>> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.get<{ [key: string]: { online: boolean; status: string } }>(
+                    this.API_URL + 'friends/users/status',
+                    { headers: headers }
+                ).pipe(
+                    map((response: { [key: string]: { online: boolean; status: string } }) => {
+                        const statusMap = new Map<string, { online: boolean; status: string }>();
+                        Object.keys(response).forEach(userId => {
+                            statusMap.set(userId, response[userId]);
+                        });
+                        return statusMap;
+                    }),
+                    catchError((error: any) => {
+                        console.error('Error getting all users status:', error);
+                        return of(new Map<string, { online: boolean; status: string }>());
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Get friends of a specific user (admin only)
+     */
+    getFriendsForUser(userId: string): Observable<Friend[]> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.get<Friend[]>(this.API_URL + 'friends/users/' + userId + '/friends', { headers: headers }).pipe(
+                    map((res: any) => {
+                        return res.map((friend: any) => {
+                            // Helper function to convert roles
+                            const convertRoles = (roles: any): string[] => {
+                                if (!roles) return [];
+                                if (typeof roles === 'string') {
+                                    return roles.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+                                }
+                                if (Array.isArray(roles)) {
+                                    return roles;
+                                }
+                                return [];
+                            };
+                            
+                            return new Friend(
+                                friend.id || '',
+                                friend.user1 ? new Member(
+                                    friend.user1.id || '',
+                                    friend.user1.addressEmail || '',
+                                    friend.user1.firstName || '',
+                                    friend.user1.lastName || '',
+                                    friend.user1.userName || '',
+                                    convertRoles(friend.user1.roles),
+                                    friend.user1.keycloakId || '',
+                                    friend.user1.registrationDate ? new Date(friend.user1.registrationDate) : undefined,
+                                    friend.user1.lastConnectionDate ? new Date(friend.user1.lastConnectionDate) : undefined,
+                                    friend.user1.locale || undefined,
+                                    friend.user1.whatsappLink || undefined
+                                ) : new Member('', '', '', '', '', [], '', undefined, undefined, undefined, undefined),
+                                friend.user2 ? new Member(
+                                    friend.user2.id || '',
+                                    friend.user2.addressEmail || '',
+                                    friend.user2.firstName || '',
+                                    friend.user2.lastName || '',
+                                    friend.user2.userName || '',
+                                    convertRoles(friend.user2.roles),
+                                    friend.user2.keycloakId || '',
+                                    friend.user2.registrationDate ? new Date(friend.user2.registrationDate) : undefined,
+                                    friend.user2.lastConnectionDate ? new Date(friend.user2.lastConnectionDate) : undefined,
+                                    friend.user2.locale || undefined,
+                                    friend.user2.whatsappLink || undefined
+                            ) : new Member('', '', '', '', '', [], '', undefined, undefined, undefined, undefined),
+                            friend.friendshipDate ? new Date(friend.friendshipDate) : new Date()
+                        );
+                    });
+                }),
+                    catchError((error: any) => {
+                        console.error('Error getting friends for user:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
+
+    /**
+     * Update a member (admin only)
+     * Uses the memb/user endpoint which handles member updates
+     */
+    updateMember(member: Member): Observable<Member> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                // Convert roles array to comma-separated string for backend
+                const memberToSend = { ...member };
+                if (memberToSend.roles && Array.isArray(memberToSend.roles)) {
+                    // Filter out empty strings and join with comma
+                    const validRoles = memberToSend.roles.filter((r: string) => r && r.trim().length > 0);
+                    (memberToSend as any).roles = validRoles.join(', ');
+                } else if (memberToSend.roles && typeof memberToSend.roles === 'string') {
+                    // Already a string, use as is
+                    (memberToSend as any).roles = memberToSend.roles;
+                } else {
+                    // No roles or invalid format
+                    (memberToSend as any).roles = '';
+                }
+                
+                // Use the memb/user endpoint which handles member updates
+                return this._http.post<any>(this.API_URL + 'memb/user', memberToSend, { headers: headers }).pipe(
+                    map((res: any) => {
+                        const rolesArray = res.roles ? (typeof res.roles === 'string' ? res.roles.split(',').map((r: string) => r.trim()) : res.roles) : [];
+                        return new Member(
+                            res.id || '',
+                            res.addressEmail || '',
+                            res.firstName || '',
+                            res.lastName || '',
+                            res.userName || '',
+                            rolesArray,
+                            res.keycloakId || '',
+                            res.registrationDate ? new Date(res.registrationDate) : undefined,
+                            res.lastConnectionDate ? new Date(res.lastConnectionDate) : undefined,
+                            res.locale || undefined,
+                            res.whatsappLink || undefined
+                        );
+                    }),
+                    catchError((error: any) => {
+                        console.error('Error updating member:', error);
+                        throw error;
                     })
                 );
             })

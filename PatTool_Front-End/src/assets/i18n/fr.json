@@ -606,7 +606,11 @@
         "KEYCLOAKID": "KeycloakId",
         "ROLES": "Rôles",
         "LOADING_ROLES": "Chargement des rôles...",
-        "NO_ROLES": "Aucun rôle assigné"
+        "NO_ROLES": "Aucun rôle assigné",
+        "ROLE_MANAGER": "Gestionnaire",
+        "ROLE_ADMIN": "Administrateur",
+        "ROLE_UM_AUTHORIZATION": "Autorisation UM",
+        "ROLE_USER": "Utilisateur"
     },
     "UPLOADFILE": {
         "MENU": "Télécharger",
@@ -945,7 +949,12 @@
         "ALSO_DIRECT_FRIEND": "Également ami direct",
         "ORIGIN": "Origine",
         "ACTIONS": "Actions",
+        "REFRESH": "Actualiser",
+        "REFRESH_STATUS": "Actualiser le statut de connexion",
+        "ONLINE": "En ligne",
+        "OFFLINE": "Hors ligne",
         "GROUPS": "Groupes",
+        "ROLES": "Rôles",
         "GROUP_MEMBERS_NOT_FRIENDS": "Membres de Groupes (Non Amis)",
         "ADMIN_INFO": "Informations Administrateur",
         "FRIENDSHIP_ID": "ID de l'Amitié",

@@ -205,9 +205,11 @@
               {{ user.firstName }} {{ user.lastName }}
             </span>
             <span class="status-indicator" 
-                  [style.background-color]="getUserOnlineStatus(user.id).online ? '#28a745' : '#ffffff'"
-                  [style.border]="getUserOnlineStatus(user.id).online ? '2px solid #28a745' : '2px solid #6c757d'"
-                  style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0;"></span>
+                  [style.background-color]="getUserOnlineStatus(user.id).online ? '#28a745' : '#dc3545'"
+                  [style.border]="getUserOnlineStatus(user.id).online ? '2px solid #28a745' : '2px solid #dc3545'"
+                  style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0;"
+                  [ngbTooltip]="getUserOnlineStatus(user.id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
+                  placement="top"></span>
           </h6>
         </div>
         <div class="user-info">
@@ -294,18 +296,18 @@
         </div>
         
         <!-- Custom Message Prompt for Friend Request -->
-        <div *ngIf="friendRequestMessagePrompts.get(user.id) && (getUserStatus(user) === 'none' || getUserStatus(user) === 'sent')" class="alert alert-info mt-2">
+        <div *ngIf="friendRequestMessagePrompts.get(user.id) && (getUserStatus(user) === 'none' || getUserStatus(user) === 'sent')" class="alert alert-info compact-alert mt-2">
           <i class="fa fa-question-circle"></i>
-          <strong>{{ 'FRIENDS.ADD_CUSTOM_MESSAGE' | translate }}</strong>
+          <span class="compact-text">{{ 'FRIENDS.ADD_CUSTOM_MESSAGE' | translate }}</span>
           <div class="mt-2 d-flex gap-2">
             <button 
-              class="btn btn-primary btn-sm"
+              class="btn btn-primary btn-xs compact-btn"
               (click)="confirmAddFriendRequestMessage(user.id)">
               <i class="fa fa-check"></i>
               {{ 'FRIENDS.YES' | translate }}
             </button>
             <button 
-              class="btn btn-secondary btn-sm"
+              class="btn btn-secondary btn-xs compact-btn"
               (click)="skipFriendRequestMessage(user.id)"
               [disabled]="loading">
               <i class="fa fa-times"></i>
@@ -315,15 +317,15 @@
         </div>
         
         <!-- Custom Message Input for Friend Request -->
-        <div *ngIf="friendRequestMessageInputs.get(user.id) && (getUserStatus(user) === 'none' || getUserStatus(user) === 'sent')" class="alert alert-info mt-2">
+        <div *ngIf="friendRequestMessageInputs.get(user.id) && (getUserStatus(user) === 'none' || getUserStatus(user) === 'sent')" class="alert alert-info compact-alert mt-2">
           <div class="mb-2">
-            <label [for]="'friendRequestMessage-' + user.id" class="form-label">
+            <label [for]="'friendRequestMessage-' + user.id" class="compact-text">
               <i class="fa fa-envelope"></i>
               <strong>{{ 'FRIENDS.CUSTOM_MESSAGE' | translate }}</strong>
             </label>
             <textarea 
               [id]="'friendRequestMessage-' + user.id"
-              class="form-control" 
+              class="form-control form-control-sm" 
               rows="4"
               [value]="getFriendRequestMessage(user.id)"
               (input)="setFriendRequestMessage(user.id, $any($event.target).value)"
@@ -332,7 +334,7 @@
           </div>
           <div class="d-flex gap-2">
             <button 
-              class="btn btn-success btn-sm"
+              class="btn btn-success btn-xs compact-btn"
               (click)="sendFriendRequest(user.id)"
                [disabled]="loading || !getFriendRequestMessage(user.id).trim()">
               <i class="fa fa-paper-plane" *ngIf="!loading"></i>
@@ -341,7 +343,7 @@
               <span *ngIf="getUserStatus(user) === 'sent'">{{ 'FRIENDS.RESEND_REQUEST' | translate }}</span>
             </button>
             <button 
-              class="btn btn-secondary btn-sm"
+              class="btn btn-secondary btn-xs compact-btn"
               (click)="cancelFriendRequestMessage(user.id)"
               [disabled]="loading">
               <i class="fa fa-times"></i>
@@ -489,22 +491,170 @@
             {{ 'FRIENDS.MY_PROFILE' | translate }}
           </h5>
         </div>
+        
+        <!-- Admin: Select user to update -->
+        <div *ngIf="hasAdminRole()" class="admin-user-select mb-3 p-2 border rounded bg-light">
+          <label class="form-label compact-text mb-2">
+            <i class="fa fa-user-cog me-2"></i>
+            <strong>Admin: Select User to Update</strong>
+          </label>
+          <select 
+            class="form-select form-select-sm" 
+            [ngModel]="selectedUserForUpdate?.id || ''"
+            (ngModelChange)="onUserSelectedForUpdate($event)">
+            <option value="">-- Select a user --</option>
+            <option *ngFor="let user of getSortedUsersForAdmin()" [value]="user.id">
+              {{ user.firstName }} {{ user.lastName }} ({{ user.userName }})
+            </option>
+          </select>
+        </div>
+
         <div class="friend-info">
           <div class="friend-details">
+            <!-- Display selected user for admin or current user -->
+            <ng-container *ngIf="hasAdminRole() && selectedUserForUpdate && editingSelectedUser; else currentUserView">
+              <p class="compact-text mb-1">
+                <strong>{{ selectedUserForUpdate.firstName }} {{ selectedUserForUpdate.lastName }}</strong>
+              </p>
+              <p class="compact-text mb-1">
+                <strong>{{ selectedUserForUpdate.userName }}</strong>
+              </p>
+              <p class="text-muted compact-text mb-1" *ngIf="selectedUserForUpdate.roles && selectedUserForUpdate.roles.length > 0">
+                <i class="fa fa-shield"></i> 
+                <strong>{{ 'FRIENDS.ROLES' | translate }}:</strong> 
+                <span class="ms-2">
+                  <span *ngFor="let role of selectedUserForUpdate.roles; let last = last" 
+                        class="role-tag me-1 mb-1" 
+                        [ngClass]="getRoleTagClass(role)">
+                    {{ getTranslatedRole(role) }}
+                  </span>
+                </span>
+              </p>
+              <p class="text-muted compact-text mb-1">
+                <i class="fa fa-envelope"></i> 
+                <strong>{{ 'FRIENDS.EMAIL' | translate }}:</strong> 
+                <input 
+                  type="email" 
+                  class="form-control form-control-sm d-inline-block" 
+                  style="width: auto; min-width: 200px;"
+                  [(ngModel)]="selectedUserForUpdate.addressEmail">
+              </p>
+              <p class="text-muted compact-text mb-1">
+                <i class="fa fa-user"></i> 
+                <strong>{{ 'FRIENDS.NAME' | translate }}:</strong> 
+                <input 
+                  type="text" 
+                  class="form-control form-control-sm d-inline-block" 
+                  style="width: auto; min-width: 150px;"
+                  [(ngModel)]="selectedUserForUpdate.firstName"
+                  placeholder="First Name">
+                <input 
+                  type="text" 
+                  class="form-control form-control-sm d-inline-block ms-2" 
+                  style="width: auto; min-width: 150px;"
+                  [(ngModel)]="selectedUserForUpdate.lastName"
+                  placeholder="Last Name">
+              </p>
+              <p class="text-muted compact-text mb-1">
+                <i class="fa fa-at"></i> 
+                <strong>{{ 'FRIENDS.USERNAME' | translate }}:</strong> 
+                <input 
+                  type="text" 
+                  class="form-control form-control-sm d-inline-block" 
+                  style="width: auto; min-width: 150px;"
+                  [(ngModel)]="selectedUserForUpdate.userName">
+              </p>
+              <p class="text-muted compact-text mb-1">
+                <i class="fa fa-language"></i> 
+                <strong>{{ 'FRIENDS.LANGUAGE' | translate }}:</strong> 
+                <select 
+                  class="form-select form-select-sm d-inline-block" 
+                  style="width: auto; min-width: 150px;"
+                  [(ngModel)]="selectedUserForUpdate.locale">
+                  <option value="">-- Select language --</option>
+                  <option value="ar">Arabic (ar)</option>
+                  <option value="cn">Chinese (cn)</option>
+                  <option value="de">German (de)</option>
+                  <option value="el">Greek (el)</option>
+                  <option value="en">English (en)</option>
+                  <option value="es">Spanish (es)</option>
+                  <option value="fr">French (fr)</option>
+                  <option value="he">Hebrew (he)</option>
+                  <option value="it">Italian (it)</option>
+                  <option value="jp">Japanese (jp)</option>
+                  <option value="ru">Russian (ru)</option>
+                </select>
+              </p>
+              <div class="text-muted compact-text mb-1">
+                <i class="fa fa-whatsapp"></i> 
+                <strong>{{ 'FRIENDS.WHATSAPP_PHONE' | translate }}:</strong> 
+                <div class="input-group d-inline-flex" style="width: auto; min-width: 250px;">
+                  <div class="btn-group" ngbDropdown #adminCountryDropdown="ngbDropdown" role="group">
+                    <button 
+                      type="button" 
+                      class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                      style="min-width: 100px; text-align: left;"
+                      ngbDropdownToggle
+                      id="adminCountryCodeDropdown">
+                      <ng-container *ngIf="getSelectedCountryForAdmin() as selectedCountry; else noAdminCountry">
+                        <span class="fi fi-{{ selectedCountry.flag }}" style="margin-right: 5px;"></span>
+                        <span>{{ selectedCountry.code }}</span>
+                      </ng-container>
+                      <ng-template #noAdminCountry>
+                        <span>+33</span>
+                      </ng-template>
+                    </button>
+                    <div class="dropdown-menu" ngbDropdownMenu aria-labelledby="adminCountryCodeDropdown" style="max-height: 300px; overflow-y: auto; font-size: 0.875rem;">
+                      <button 
+                        *ngFor="let country of countryCodes" 
+                        class="dropdown-item"
+                        type="button"
+                        (click)="selectCountryCodeForAdmin(country.code, adminCountryDropdown)"
+                        style="display: flex; align-items: center; font-size: 0.875rem; padding: 0.375rem 0.75rem;">
+                        <span class="fi fi-{{ country.flag }}" style="margin-right: 8px; font-size: 1em;"></span>
+                        <span>{{ country.code }} - {{ country.name }}</span>
+                      </button>
+                    </div>
+                  </div>
+                  <input 
+                    type="text" 
+                    class="form-control form-control-sm"
+                    [(ngModel)]="selectedUserWhatsappLink"
+                    (keypress)="onPhoneNumberKeyPress($event)"
+                    [placeholder]="'FRIENDS.WHATSAPP_PHONE_PLACEHOLDER' | translate"
+                    pattern="[0-9]*"
+                    inputmode="numeric">
+                </div>
+              </div>
+              <div class="d-flex gap-2 mt-3">
+                <button 
+                  class="btn btn-success btn-xs compact-btn"
+                  (click)="saveUpdatedUser()"
+                  [disabled]="loading">
+                  <i class="fa fa-save"></i>
+                  <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.SAVE' | translate }}</span>
+                </button>
+                <button 
+                  class="btn btn-secondary btn-xs compact-btn"
+                  (click)="cancelEditingSelectedUser()"
+                  [disabled]="loading">
+                  <i class="fa fa-times"></i>
+                  <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.CANCEL' | translate }}</span>
+                </button>
+              </div>
+            </ng-container>
+            
+            <ng-template #currentUserView>
+            <p class="compact-text mb-1">
+              <strong>{{ currentUser.firstName }} {{ currentUser.lastName }}</strong>
+            </p>
+            <p class="compact-text mb-1">
+              <strong>{{ currentUser.userName }}</strong>
+            </p>
             <p class="text-muted compact-text mb-1" *ngIf="currentUser.whatsappLink">
               <i class="fa fa-phone"></i> 
               <strong>{{ 'FRIENDS.PHONE_NUMBER' | translate }}:</strong> 
               {{ getPhoneNumberFromLink(currentUser.whatsappLink) }}
-            </p>
-            <p class="text-muted compact-text mb-1">
-              <i class="fa fa-user"></i> 
-              <strong>{{ 'FRIENDS.NAME' | translate }}:</strong> 
-              {{ currentUser.firstName }} {{ currentUser.lastName }}
-            </p>
-            <p class="text-muted compact-text mb-1">
-              <i class="fa fa-at"></i> 
-              <strong>{{ 'FRIENDS.USERNAME' | translate }}:</strong> 
-              {{ currentUser.userName }}
             </p>
             <p class="text-muted compact-text mb-1">
               <i class="fa fa-envelope"></i> 
@@ -554,7 +704,7 @@
             
             <!-- WhatsApp Link Section -->
             <div class="whatsapp-link-section mt-3 pt-3 border-top">
-              <h6 class="mb-2">
+              <h6 class="compact-subtitle mb-2">
                 <i class="fa fa-whatsapp"></i> 
                 {{ 'FRIENDS.WHATSAPP_PHONE' | translate }}
               </h6>
@@ -571,14 +721,11 @@
                     <i class="fa fa-whatsapp"></i>
                   </button>
                   <button 
-                    class="btn btn-xs btn-outline-success compact-btn"
+                    class="btn btn-xs btn-success compact-btn"
                     (click)="startEditingMyWhatsappLink()">
                     <i class="fa fa-edit"></i>
                     <span class="d-none d-sm-inline ms-1">{{ currentUser.whatsappLink ? ('FRIENDS.EDIT_WHATSAPP_LINK' | translate) : ('FRIENDS.ADD_WHATSAPP_LINK' | translate) }}</span>
                   </button>
-                  <small *ngIf="!currentUser.whatsappLink" class="text-muted">
-                    {{ 'FRIENDS.NO_WHATSAPP_LINK' | translate }}
-                  </small>
                 </div>
                 <small class="text-muted d-block">
                   <i class="fa fa-info-circle"></i> 
@@ -592,6 +739,33 @@
                   <span class="input-group-text">
                     <i class="fa fa-whatsapp"></i>
                   </span>
+                  <div class="btn-group" ngbDropdown #countryDropdown="ngbDropdown" role="group">
+                    <button 
+                      type="button" 
+                      class="btn btn-outline-secondary btn-sm dropdown-toggle"
+                      style="min-width: 150px; text-align: left;"
+                      ngbDropdownToggle
+                      id="countryCodeDropdown">
+                      <ng-container *ngIf="getSelectedCountry() as selectedCountry; else noCountry">
+                        <span class="fi fi-{{ selectedCountry.flag }}" style="margin-right: 5px;"></span>
+                        <span>{{ selectedCountry.code }}</span>
+                      </ng-container>
+                      <ng-template #noCountry>
+                        <span>Select Country</span>
+                      </ng-template>
+                    </button>
+                    <div class="dropdown-menu" ngbDropdownMenu aria-labelledby="countryCodeDropdown" style="max-height: 300px; overflow-y: auto; font-size: 0.875rem;">
+                      <button 
+                        *ngFor="let country of countryCodes" 
+                        class="dropdown-item"
+                        type="button"
+                        (click)="selectCountryCode(country.code, countryDropdown)"
+                        style="display: flex; align-items: center; font-size: 0.875rem; padding: 0.375rem 0.75rem;">
+                        <span class="fi fi-{{ country.flag }}" style="margin-right: 8px; font-size: 1em;"></span>
+                        <span>{{ country.code }} - {{ country.name }}</span>
+                      </button>
+                    </div>
+                  </div>
                   <input 
                     type="text" 
                     class="form-control form-control-sm"
@@ -626,6 +800,7 @@
                 </small>
               </div>
             </div>
+            </ng-template>
           </div>
         </div>
         </div>
@@ -634,22 +809,33 @@
 
       <!-- Right: Friends Grid with Origin Info -->
       <div class="myuser-grid-right">
-        <div *ngIf="friends.length === 0" class="no-results">
+        <div *ngIf="getFriendsForDisplay().length === 0" class="no-results">
           <i class="fa fa-user-friends fa-3x"></i>
           <p>{{ 'FRIENDS.NO_FRIENDS' | translate }}</p>
         </div>
 
-        <div *ngIf="friends.length > 0 || getGroupMembersNotFriends().length > 0" class="friends-grid-section">
+        <div *ngIf="getFriendsForDisplay().length > 0 || getGroupMembersNotFriends().length > 0" class="friends-grid-section">
           <!-- Direct Friends Section -->
-          <div *ngIf="friends.length > 0" class="mb-4">
-            <h6 class="mb-3">
-              <i class="fa fa-heart me-2"></i>
-              {{ 'FRIENDS.MY_FRIENDS' | translate }} ({{ friends.length }})
+          <div *ngIf="getFriendsForDisplay().length > 0" class="mb-4">
+            <h6 class="mb-3 d-flex justify-content-between align-items-center">
+              <span>
+                <i class="fa fa-heart me-2"></i>
+                {{ 'FRIENDS.MY_FRIENDS' | translate }} ({{ getFriendsForDisplay().length }})
+              </span>
+              <button 
+                class="btn btn-sm btn-outline-primary"
+                (click)="refreshConnectionStatus()"
+                [ngbTooltip]="'FRIENDS.REFRESH_STATUS' | translate"
+                placement="top">
+                <i class="fa fa-refresh me-1"></i>
+                {{ 'FRIENDS.REFRESH' | translate }}
+              </button>
             </h6>
             <div class="table-responsive">
               <table class="table table-hover table-sm friends-grid-table">
                 <thead>
                   <tr>
+                    <th style="width: 30px;"></th>
                     <th>{{ 'FRIENDS.NAME' | translate }}</th>
                     <th>{{ 'FRIENDS.USERNAME' | translate }}</th>
                     <th>{{ 'FRIENDS.ORIGIN' | translate }}</th>
@@ -657,20 +843,24 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let friend of getSortedFriends(); let i = index" 
+                  <tr *ngFor="let friend of getSortedFriendsForDisplay(); let i = index" 
                       [class.table-active]="selectedFriendIndex === i"
                       (click)="selectedFriendIndex = i"
                       style="cursor: pointer;">
-                    <td>
-                      <i class="fa fa-user-circle me-2"></i>
-                      {{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }}
-                      <span class="status-indicator ms-2" 
-                            [style.background-color]="getUserOnlineStatus(getOtherUser(friend).id).online ? '#28a745' : '#ffffff'"
-                            [style.border]="getUserOnlineStatus(getOtherUser(friend).id).online ? '2px solid #28a745' : '2px solid #6c757d'"
-                            style="width: 10px; height: 10px; border-radius: 50%; display: inline-block;"></span>
+                    <td style="text-align: center; vertical-align: middle;">
+                      <span class="status-indicator" 
+                            [style.background-color]="getUserOnlineStatus(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).id).online ? '#28a745' : '#dc3545'"
+                            [style.border]="getUserOnlineStatus(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).id).online ? '2px solid #28a745' : '2px solid #dc3545'"
+                            style="width: 12px; height: 12px; border-radius: 50%; display: inline-block;"
+                            [ngbTooltip]="getUserOnlineStatus(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
+                            placement="top"></span>
                     </td>
                     <td>
-                      <i class="fa fa-at"></i> {{ getOtherUser(friend).userName }}
+                      <i class="fa fa-user-circle me-2"></i>
+                      {{ getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).firstName }} {{ getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).lastName }}
+                    </td>
+                    <td>
+                      <i class="fa fa-at"></i> {{ getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).userName }}
                     </td>
                     <td>
                       <span *ngIf="getFriendshipOrigin(friend).type === 'direct'" class="origin-badge direct-badge">
@@ -686,9 +876,9 @@
                     </td>
                     <td>
                       <button 
-                        *ngIf="getOtherUser(friend).whatsappLink"
+                        *ngIf="getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).whatsappLink"
                         class="btn btn-xs btn-success compact-btn"
-                        (click)="openWhatsAppLink(getOtherUser(friend).whatsappLink!); $event.stopPropagation()"
+                        (click)="openWhatsAppLink(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).whatsappLink!); $event.stopPropagation()"
                         [ngbTooltip]="'FRIENDS.OPEN_WHATSAPP' | translate"
                         placement="top">
                         <i class="fa fa-whatsapp"></i>
@@ -710,6 +900,7 @@
               <table class="table table-hover table-sm friends-grid-table">
                 <thead>
                   <tr>
+                    <th style="width: 30px;"></th>
                     <th>{{ 'FRIENDS.NAME' | translate }}</th>
                     <th>{{ 'FRIENDS.USERNAME' | translate }}</th>
                     <th>{{ 'FRIENDS.GROUPS' | translate }}</th>
@@ -719,13 +910,17 @@
                 <tbody>
                   <tr *ngFor="let item of getGroupMembersNotFriends()" 
                       style="cursor: pointer;">
+                    <td style="text-align: center; vertical-align: middle;">
+                      <span class="status-indicator" 
+                            [style.background-color]="getUserOnlineStatus(item.member.id).online ? '#28a745' : '#dc3545'"
+                            [style.border]="getUserOnlineStatus(item.member.id).online ? '2px solid #28a745' : '2px solid #dc3545'"
+                            style="width: 12px; height: 12px; border-radius: 50%; display: inline-block;"
+                            [ngbTooltip]="getUserOnlineStatus(item.member.id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
+                            placement="top"></span>
+                    </td>
                     <td>
                       <i class="fa fa-user-circle me-2"></i>
                       {{ item.member.firstName }} {{ item.member.lastName }}
-                      <span class="status-indicator ms-2" 
-                            [style.background-color]="getUserOnlineStatus(item.member.id).online ? '#28a745' : '#ffffff'"
-                            [style.border]="getUserOnlineStatus(item.member.id).online ? '2px solid #28a745' : '2px solid #6c757d'"
-                            style="width: 10px; height: 10px; border-radius: 50%; display: inline-block;"></span>
                     </td>
                     <td>
                       <i class="fa fa-at"></i> {{ item.member.userName }}
@@ -755,39 +950,39 @@
           </div>
 
           <!-- Friendship Origin Info -->
-          <div class="friendship-origin-card mt-3" *ngIf="selectedFriendIndex !== null && getSortedFriends()[selectedFriendIndex]">
+          <div class="friendship-origin-card mt-3" *ngIf="selectedFriendIndex !== null && getSortedFriendsForDisplay()[selectedFriendIndex]">
             <h6 class="mb-3">
               <i class="fa fa-info-circle me-2"></i>
               {{ 'FRIENDS.FRIENDSHIP_ORIGIN' | translate }}
             </h6>
-            <div *ngIf="getSortedFriends()[selectedFriendIndex]">
+            <div *ngIf="getSortedFriendsForDisplay()[selectedFriendIndex]">
               <p class="mb-2">
-                <strong>{{ getOtherUser(getSortedFriends()[selectedFriendIndex]).firstName }} {{ getOtherUser(getSortedFriends()[selectedFriendIndex]).lastName }}</strong>
+                <strong>{{ getOtherUserFromFriend(getSortedFriendsForDisplay()[selectedFriendIndex], hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).firstName }} {{ getOtherUserFromFriend(getSortedFriendsForDisplay()[selectedFriendIndex], hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).lastName }}</strong>
               </p>
-              <div *ngIf="getFriendshipOrigin(getSortedFriends()[selectedFriendIndex]).type === 'direct'" class="origin-info">
+              <div *ngIf="getFriendshipOrigin(getSortedFriendsForDisplay()[selectedFriendIndex]).type === 'direct'" class="origin-info">
                 <p class="text-success">
                   <i class="fa fa-heart me-2"></i>
                   {{ 'FRIENDS.DIRECT_FRIENDSHIP' | translate }}
                 </p>
                 <p class="text-muted compact-text">
-                  {{ 'FRIENDS.FRIENDS_SINCE' | translate }}: {{ getSortedFriends()[selectedFriendIndex].friendshipDate | date:'short' }}
+                  {{ 'FRIENDS.FRIENDS_SINCE' | translate }}: {{ getSortedFriendsForDisplay()[selectedFriendIndex].friendshipDate | date:'short' }}
                 </p>
               </div>
-              <div *ngIf="getFriendshipOrigin(getSortedFriends()[selectedFriendIndex]).type === 'both'" class="origin-info">
+              <div *ngIf="getFriendshipOrigin(getSortedFriendsForDisplay()[selectedFriendIndex]).type === 'both'" class="origin-info">
                 <p class="text-success">
                   <i class="fa fa-heart me-2"></i>
                   {{ 'FRIENDS.DIRECT_FRIENDSHIP' | translate }}
                 </p>
                 <p class="text-muted compact-text mb-2">
-                  {{ 'FRIENDS.FRIENDS_SINCE' | translate }}: {{ getSortedFriends()[selectedFriendIndex].friendshipDate | date:'short' }}
+                  {{ 'FRIENDS.FRIENDS_SINCE' | translate }}: {{ getSortedFriendsForDisplay()[selectedFriendIndex].friendshipDate | date:'short' }}
                 </p>
                 <p class="text-info">
                   <i class="fa fa-users me-2"></i>
                   {{ 'FRIENDS.COMMON_GROUPS' | translate }}
                 </p>
-                <div *ngIf="getFriendshipOrigin(getSortedFriends()[selectedFriendIndex]).groups && getFriendshipOrigin(getSortedFriends()[selectedFriendIndex]).groups!.length > 0">
+                <div *ngIf="getFriendshipOrigin(getSortedFriendsForDisplay()[selectedFriendIndex]).groups && getFriendshipOrigin(getSortedFriendsForDisplay()[selectedFriendIndex]).groups!.length > 0">
                   <ul class="group-list">
-                    <li *ngFor="let groupName of getFriendshipOrigin(getSortedFriends()[selectedFriendIndex]).groups">
+                    <li *ngFor="let groupName of getFriendshipOrigin(getSortedFriendsForDisplay()[selectedFriendIndex]).groups">
                       <i class="fa fa-users me-1"></i>{{ groupName }}
                     </li>
                   </ul>
