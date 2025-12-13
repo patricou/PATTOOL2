@@ -474,14 +474,24 @@ export class FriendsComponent implements OnInit {
       return [];
     }
     
-    // If it's already an array, return it
+    // If it's already an array, return it (filter out uma_authorization and empty roles)
     if (Array.isArray(roles)) {
-      return roles.filter((r: string) => r && r.trim().length > 0);
+      return roles.filter((r: string) => {
+        if (!r || r.trim().length === 0) return false;
+        const roleLower = r.toLowerCase().trim();
+        // Filter out uma_authorization and um_authorization
+        return roleLower !== 'uma_authorization' && roleLower !== 'um_authorization';
+      });
     }
     
-    // If it's a string (comma-separated), parse it
+    // If it's a string (comma-separated), parse it (filter out uma_authorization and um_authorization)
     if (typeof roles === 'string' && roles.trim().length > 0) {
-      return roles.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+      return roles.split(',').map((r: string) => r.trim()).filter((r: string) => {
+        if (r.length === 0) return false;
+        const roleLower = r.toLowerCase().trim();
+        // Filter out uma_authorization and um_authorization
+        return roleLower !== 'uma_authorization' && roleLower !== 'um_authorization';
+      });
     }
     
     return [];
@@ -603,8 +613,18 @@ export class FriendsComponent implements OnInit {
    * Get all members from friend groups who are not direct friends
    */
   getGroupMembersNotFriends(): Array<{ member: Member, groups: string[] }> {
-    const directFriendIds = new Set(this.friends.map(f => {
-      const otherUser = this.getOtherUser(f);
+    // Determine the reference user (selected user for admin, or current user)
+    const referenceUser = (this.hasAdminRole() && this.selectedUserForUpdate && this.editingSelectedUser) 
+      ? this.selectedUserForUpdate 
+      : this.currentUser;
+    
+    // Use the appropriate friends list
+    const friendsToUse = (this.hasAdminRole() && this.selectedUserForUpdate && this.editingSelectedUser)
+      ? this.selectedUserFriends
+      : this.friends;
+    
+    const directFriendIds = new Set(friendsToUse.map(f => {
+      const otherUser = this.getOtherUserFromFriend(f, referenceUser);
       return otherUser.id;
     }));
     
@@ -613,15 +633,15 @@ export class FriendsComponent implements OnInit {
     for (const group of this.friendGroups) {
       if (!group || !group.members) continue;
       
-      const currentUserInGroup = (group.members && group.members.some(m => m && m.id === this.currentUser.id)) || 
-                                 (group.owner && group.owner.id === this.currentUser.id) ||
-                                 (group.authorizedUsers && group.authorizedUsers.some(u => u && u.id === this.currentUser.id));
+      const currentUserInGroup = (group.members && group.members.some(m => m && m.id === referenceUser.id)) || 
+                                 (group.owner && group.owner.id === referenceUser.id) ||
+                                 (group.authorizedUsers && group.authorizedUsers.some(u => u && u.id === referenceUser.id));
       
       if (!currentUserInGroup) continue;
       
       // Helper function to add a member to the map without duplicates
       const addMemberToMap = (member: Member, groupName: string) => {
-        if (!member || member.id === this.currentUser.id || directFriendIds.has(member.id)) {
+        if (!member || member.id === referenceUser.id || directFriendIds.has(member.id)) {
           return;
         }
         const existing = groupMembersMap.get(member.id);
@@ -663,21 +683,27 @@ export class FriendsComponent implements OnInit {
   }
 
   getFriendshipOrigin(friend: Friend): { type: 'direct' | 'both', groups?: string[] } {
-    const otherUserId = this.getOtherUser(friend).id;
+    // Determine the reference user (selected user for admin, or current user)
+    const referenceUser = (this.hasAdminRole() && this.selectedUserForUpdate && this.editingSelectedUser) 
+      ? this.selectedUserForUpdate 
+      : this.currentUser;
+    
+    const otherUser = this.getOtherUserFromFriend(friend, referenceUser);
+    const otherUserId = otherUser.id;
     const groups: string[] = [];
 
     // Check if we're both members of any friend groups
     for (const group of this.friendGroups) {
       if (!group || !group.members) continue;
       
-      const currentUserInGroup = (group.members && group.members.some(m => m && m.id === this.currentUser.id)) || 
-                                 (group.owner && group.owner.id === this.currentUser.id) ||
-                                 (group.authorizedUsers && group.authorizedUsers.some(u => u && u.id === this.currentUser.id));
+      const referenceUserInGroup = (group.members && group.members.some(m => m && m.id === referenceUser.id)) || 
+                                   (group.owner && group.owner.id === referenceUser.id) ||
+                                   (group.authorizedUsers && group.authorizedUsers.some(u => u && u.id === referenceUser.id));
       const otherUserInGroup = (group.members && group.members.some(m => m && m.id === otherUserId)) || 
                                (group.owner && group.owner.id === otherUserId) ||
                                (group.authorizedUsers && group.authorizedUsers.some(u => u && u.id === otherUserId));
       
-      if (currentUserInGroup && otherUserInGroup && group.name) {
+      if (referenceUserInGroup && otherUserInGroup && group.name) {
         groups.push(group.name);
       }
     }
@@ -2111,6 +2137,21 @@ export class FriendsComponent implements OnInit {
     const translated = this._translateService.instant(roleKey);
     // If translation doesn't exist, return the original role
     return translated !== roleKey ? translated : role;
+  }
+
+  /**
+   * Filter out uma_authorization and um_authorization roles
+   */
+  getFilteredRoles(roles: string[] | undefined): string[] {
+    if (!roles || !Array.isArray(roles)) {
+      return [];
+    }
+    return roles.filter((r: string) => {
+      if (!r || r.trim().length === 0) return false;
+      const roleLower = r.toLowerCase().trim();
+      // Filter out uma_authorization and um_authorization
+      return roleLower !== 'uma_authorization' && roleLower !== 'um_authorization';
+    });
   }
 }
 

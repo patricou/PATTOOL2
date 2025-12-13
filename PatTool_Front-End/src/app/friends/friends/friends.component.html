@@ -519,11 +519,11 @@
               <p class="compact-text mb-1">
                 <strong>{{ selectedUserForUpdate.userName }}</strong>
               </p>
-              <p class="text-muted compact-text mb-1" *ngIf="selectedUserForUpdate.roles && selectedUserForUpdate.roles.length > 0">
+              <p class="text-muted compact-text mb-1" *ngIf="getFilteredRoles(selectedUserForUpdate.roles).length > 0">
                 <i class="fa fa-shield"></i> 
                 <strong>{{ 'FRIENDS.ROLES' | translate }}:</strong> 
                 <span class="ms-2">
-                  <span *ngFor="let role of selectedUserForUpdate.roles; let last = last" 
+                  <span *ngFor="let role of getFilteredRoles(selectedUserForUpdate.roles); let last = last" 
                         class="role-tag me-1 mb-1" 
                         [ngClass]="getRoleTagClass(role)">
                     {{ getTranslatedRole(role) }}
