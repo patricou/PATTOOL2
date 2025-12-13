@@ -973,6 +973,32 @@
         "STATUS": "Status",
         "ONLINE": "Online",
         "OFFLINE": "Offline"
+    },
+    "STATISTICS": {
+        "TITLE": "Discussion Statistics",
+        "LOADING": "Loading statistics...",
+        "ERROR": "Error loading statistics",
+        "TOTAL_USERS": "Total Users",
+        "FILTER_BY_USER": "Filter by User",
+        "ALL_USERS": "All Users",
+        "CLEAR": "Clear",
+        "USER": "User",
+        "TOTAL_DISCUSSIONS": "Total Discussions",
+        "DETAILS": "Details",
+        "UNKNOWN": "Unknown",
+        "ID": "ID",
+        "EVENT": "Event",
+        "GROUP": "Group",
+        "CLOSE": "Close",
+        "REFRESH": "Refresh",
+        "CREATOR": "Creator",
+        "GENERAL_DISCUSSION": "General Discussion",
+        "EVENT_OWNER": "Event Owner",
+        "PUBLIC_EVENT": "Public Event",
+        "FRIEND_OF_AUTHOR": "Friend of Author",
+        "GROUP_OWNER": "Group Owner",
+        "GROUP_MEMBER": "Group Member",
+        "GROUP_AUTHORIZED": "Group Authorized"
     }
 }
 

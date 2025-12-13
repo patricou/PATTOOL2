@@ -47,6 +47,17 @@ export interface DiscussionMessage {
   videoFileName?: string;
 }
 
+export interface DiscussionItem {
+  id: string;
+  title: string;
+  type: 'general' | 'event' | 'friendGroup';
+  discussion?: Discussion;
+  event?: any; // Evenement type
+  friendGroup?: any; // FriendGroup type
+  messageCount?: number;
+  lastMessageDate?: Date;
+}
+
 @Injectable()
 export class DiscussionService {
   private API_URL: string = environment.API_URL;
@@ -120,6 +131,19 @@ export class DiscussionService {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
         this._http.get<Discussion>(this.API_URL + 'discussions/default', { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Get all accessible discussions for the current user
+   * Returns discussions for events and friend groups the user can access
+   * Backend validates and creates missing discussions automatically
+   */
+  getAccessibleDiscussions(): Observable<DiscussionItem[]> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<DiscussionItem[]>(this.API_URL + 'discussions/accessible', { headers: headers })
       )
     );
   }
@@ -503,5 +527,39 @@ export class DiscussionService {
       )
     );
   }
+
+  /**
+   * Get discussion statistics for all users (Admin only)
+   * @param userId Optional filter to get statistics for a specific user only
+   */
+  getDiscussionStatistics(userId?: string): Observable<DiscussionStatistics[]> {
+    let url = this.API_URL + 'discussions/statistics';
+    if (userId) {
+      url += '?userId=' + encodeURIComponent(userId);
+    }
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<DiscussionStatistics[]>(url, { headers: headers })
+      )
+    );
+  }
+}
+
+export interface DiscussionStatistics {
+  userId: string;
+  userName: string;
+  firstName?: string;
+  lastName?: string;
+  totalDiscussions: number;
+  discussions: DiscussionAccessInfo[];
+}
+
+export interface DiscussionAccessInfo {
+  discussionId: string;
+  discussionTitle: string;
+  type: 'general' | 'event' | 'friendGroup';
+  accessReasons: string[];
+  eventName?: string;
+  friendGroupName?: string;
 }
 

@@ -969,6 +969,32 @@
         "ONLINE": "En ligne",
         "OFFLINE": "Hors ligne",
         "ROLE": "Rôle"
+    },
+    "STATISTICS": {
+        "TITLE": "Statistiques des Discussions",
+        "LOADING": "Chargement des statistiques...",
+        "ERROR": "Erreur lors du chargement des statistiques",
+        "TOTAL_USERS": "Total des Utilisateurs",
+        "FILTER_BY_USER": "Filtrer par Utilisateur",
+        "ALL_USERS": "Tous les Utilisateurs",
+        "CLEAR": "Effacer",
+        "USER": "Utilisateur",
+        "TOTAL_DISCUSSIONS": "Total des Discussions",
+        "DETAILS": "Détails",
+        "UNKNOWN": "Inconnu",
+        "ID": "ID",
+        "EVENT": "Événement",
+        "GROUP": "Groupe",
+        "CLOSE": "Fermer",
+        "REFRESH": "Actualiser",
+        "CREATOR": "Créateur",
+        "GENERAL_DISCUSSION": "Discussion Générale",
+        "EVENT_OWNER": "Propriétaire de l'Événement",
+        "PUBLIC_EVENT": "Événement Public",
+        "FRIEND_OF_AUTHOR": "Ami de l'Auteur",
+        "GROUP_OWNER": "Propriétaire du Groupe",
+        "GROUP_MEMBER": "Membre du Groupe",
+        "GROUP_AUTHORIZED": "Autorisé dans le Groupe"
     }
 }
 

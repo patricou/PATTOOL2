@@ -955,5 +955,31 @@
         "GROUP_OWNER": "Proprietario del Gruppo",
         "REMOVE": "Rimuovi",
         "ROLE": "Ruolo"
+    },
+    "STATISTICS": {
+        "TITLE": "Statistiche delle Discussioni",
+        "LOADING": "Caricamento statistiche...",
+        "ERROR": "Errore nel caricamento delle statistiche",
+        "TOTAL_USERS": "Totale Utenti",
+        "FILTER_BY_USER": "Filtra per Utente",
+        "ALL_USERS": "Tutti gli Utenti",
+        "CLEAR": "Cancella",
+        "USER": "Utente",
+        "TOTAL_DISCUSSIONS": "Totale Discussioni",
+        "DETAILS": "Dettagli",
+        "UNKNOWN": "Sconosciuto",
+        "ID": "ID",
+        "EVENT": "Evento",
+        "GROUP": "Gruppo",
+        "CLOSE": "Chiudi",
+        "REFRESH": "Aggiorna",
+        "CREATOR": "Creatore",
+        "GENERAL_DISCUSSION": "Discussione Generale",
+        "EVENT_OWNER": "Proprietario dell'Evento",
+        "PUBLIC_EVENT": "Evento Pubblico",
+        "FRIEND_OF_AUTHOR": "Amico dell'Autore",
+        "GROUP_OWNER": "Proprietario del Gruppo",
+        "GROUP_MEMBER": "Membro del Gruppo",
+        "GROUP_AUTHORIZED": "Autorizzato nel Gruppo"
     }
 }

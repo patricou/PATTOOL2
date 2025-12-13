@@ -948,5 +948,31 @@
         "GROUP_OWNER": "Gruppeneigentümer",
         "REMOVE": "Entfernen",
         "ROLE": "Rolle"
+    },
+    "STATISTICS": {
+        "TITLE": "Diskussionsstatistiken",
+        "LOADING": "Statistiken werden geladen...",
+        "ERROR": "Fehler beim Laden der Statistiken",
+        "TOTAL_USERS": "Gesamtbenutzer",
+        "FILTER_BY_USER": "Nach Benutzer filtern",
+        "ALL_USERS": "Alle Benutzer",
+        "CLEAR": "Löschen",
+        "USER": "Benutzer",
+        "TOTAL_DISCUSSIONS": "Gesamtdiskussionen",
+        "DETAILS": "Details",
+        "UNKNOWN": "Unbekannt",
+        "ID": "ID",
+        "EVENT": "Ereignis",
+        "GROUP": "Gruppe",
+        "CLOSE": "Schließen",
+        "REFRESH": "Aktualisieren",
+        "CREATOR": "Ersteller",
+        "GENERAL_DISCUSSION": "Allgemeine Diskussion",
+        "EVENT_OWNER": "Ereignisbesitzer",
+        "PUBLIC_EVENT": "Öffentliches Ereignis",
+        "FRIEND_OF_AUTHOR": "Freund des Autors",
+        "GROUP_OWNER": "Gruppenbesitzer",
+        "GROUP_MEMBER": "Gruppenmitglied",
+        "GROUP_AUTHORIZED": "In Gruppe autorisiert"
     }
 }

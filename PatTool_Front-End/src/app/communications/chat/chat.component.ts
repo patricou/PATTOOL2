@@ -10,7 +10,8 @@ import { Evenement } from '../../model/evenement';
 import { FriendGroup } from '../../model/friend';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { DiscussionModalComponent } from '../discussion-modal/discussion-modal.component';
-import { catchError, map, timeout } from 'rxjs/operators';
+import { DiscussionStatisticsModalComponent } from '../discussion-statistics-modal/discussion-statistics-modal.component';
+import { catchError } from 'rxjs/operators';
 import { TranslateService } from '@ngx-translate/core';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 
@@ -48,7 +49,6 @@ export class ChatComponent implements OnInit, OnDestroy {
   public showEmojiPicker: boolean = false;
   private shouldScrollToBottom: boolean = true;
   public editingMessageId: string | null = null;
-  public allEvents: Evenement[] = [];
   public allFriendGroups: FriendGroup[] = [];
   public dataFIlter: string = '';
   public filteredDiscussions: DiscussionItem[] = [];
@@ -59,7 +59,6 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   private messageSubscription: Subscription | null = null;
   private discussionsSubscription: Subscription | null = null;
-  private eventsSubscription: Subscription | null = null;
 
   constructor(
     private discussionService: DiscussionService,
@@ -92,9 +91,6 @@ export class ChatComponent implements OnInit, OnDestroy {
     if (this.discussionsSubscription) {
       this.discussionsSubscription.unsubscribe();
     }
-    if (this.eventsSubscription) {
-      this.eventsSubscription.unsubscribe();
-    }
     // Disconnect WebSocket
     if (this.currentDiscussion?.id) {
       this.discussionService.disconnectWebSocket();
@@ -103,112 +99,48 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   /**
    * Load all available discussions (from events, friend groups, and general)
+   * Uses the new backend endpoint that handles all validation and filtering
    */
   private async loadAllAvailableDiscussions() {
     try {
       this.isLoading = true;
       this.connectionStatus = 'Loading discussions...';
       
-      // Load general discussion and friend groups first (fast, don't wait for events)
-      // Events will be loaded progressively after initial display
-      forkJoin({
-        friendGroups: this.friendsService.getFriendGroups().pipe(
-          catchError(error => {
-            console.error('Error loading friend groups:', error);
-            return of([]);
-          })
-        ),
-        generalDiscussion: this.discussionService.getDefaultDiscussion().pipe(
-          catchError(error => {
-            console.error('Error loading general discussion:', error);
-            return of(null);
-          })
-        )
-      }).subscribe({
-        next: (results) => {
-          this.allFriendGroups = results.friendGroups || [];
+      // Use the new backend endpoint that handles everything
+      this.discussionService.getAccessibleDiscussions().pipe(
+        catchError(error => {
+          console.error('Error loading accessible discussions:', error);
+          this.connectionStatus = 'Error loading discussions';
+          this.isLoading = false;
+          return of([]);
+        })
+      ).subscribe({
+        next: (discussions) => {
+          // Convert backend DiscussionItem to frontend DiscussionItem format
+          this.availableDiscussions = discussions.map(item => ({
+            id: item.id,
+            title: item.title,
+            type: item.type,
+            discussion: item.discussion,
+            event: item.event,
+            friendGroup: item.friendGroup,
+            messageCount: item.messageCount,
+            lastMessageDate: item.lastMessageDate
+          }));
           
-          // Build initial list with general and friend groups (fast)
-          this.availableDiscussions = [];
+          // Extract friend groups for other uses
+          this.allFriendGroups = discussions
+            .filter(item => item.friendGroup)
+            .map(item => item.friendGroup);
           
-          // Add general discussion immediately
-          if (results.generalDiscussion) {
-            this.availableDiscussions.push({
-              id: results.generalDiscussion.id || '',
-              title: results.generalDiscussion.title || 'Discussion Générale',
-              type: 'general',
-              discussion: results.generalDiscussion
-            });
-          }
-          
-          // Add friend group discussions immediately
-          this.allFriendGroups.forEach(group => {
-            const hasDiscussionId = !!group.discussionId;
-            const canAccess = this.canAccessFriendGroup(group);
-            
-            // Log for debugging
-            if (hasDiscussionId && !canAccess) {
-              console.warn(`Friend group "${group.name}" has discussionId (${group.discussionId}) but user cannot access it. User is owner: ${group.owner?.id === this.user.id}, is member: ${group.members?.some(m => m.id === this.user.id)}, is authorized: ${group.authorizedUsers?.some(m => m.id === this.user.id)}`);
-            } else if (!hasDiscussionId && canAccess) {
-              console.log(`Friend group "${group.name}" is accessible but has no discussionId - creating discussion`);
-            }
-            
-            if (this.canAccessFriendGroup(group)) {
-              if (group.discussionId) {
-                // Group has discussionId - verify the discussion exists before adding it
-                this.discussionService.getDiscussionById(group.discussionId).pipe(
-                  catchError(error => {
-                    console.warn(`Discussion ${group.discussionId} for group "${group.name}" does not exist or cannot be accessed:`, error);
-                    return of(null);
-                  })
-                ).subscribe(discussion => {
-                  if (discussion) {
-                    const discussionItem: DiscussionItem = {
-                      id: group.discussionId!,
-                      title: `Discussion - ${group.name}`,
-                      type: 'friendGroup',
-                      friendGroup: group,
-                      discussion: discussion
-                    };
-                    this.availableDiscussions.push(discussionItem);
-                    console.log(`Added friend group discussion: ${group.name} (ID: ${group.discussionId})`);
-                    // Load details for the discussion
-                    this.loadDiscussionDetailsForItem(discussionItem);
-                    // Update filtered discussions
-                    this.applyFilter();
-                  } else {
-                    console.warn(`Discussion ${group.discussionId} for group "${group.name}" does not exist - creating new one and updating group`);
-                    // Discussion doesn't exist, create it and update the group with the new discussionId
-                    this.createDiscussionForGroupAndUpdate(group);
-                  }
-                });
-              } else {
-                // Group doesn't have discussionId - create discussion automatically
-                this.createDiscussionForGroup(group);
-              }
-            }
-          });
-          
-          // Stop loading state to show what we have so far (progressive loading)
           this.isLoading = false;
           this.connectionStatus = '';
           
           // Initialize filtered discussions
           this.filteredDiscussions = [...this.availableDiscussions];
           
-          // Load details for what we have
-          this.loadDiscussionDetails();
-          
           // Apply initial filter
           this.applyFilter();
-          
-          // Now load events asynchronously and add them as they come (progressive loading)
-          this.loadEventDiscussions();
-        },
-        error: (error) => {
-          console.error('Error loading discussions:', error);
-          this.connectionStatus = 'Error loading discussions';
-          this.isLoading = false;
         }
       });
     } catch (error) {
@@ -218,467 +150,6 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
   }
 
-  /**
-   * Load event discussions asynchronously and add them as they arrive
-   */
-  private loadEventDiscussions() {
-    const events: Evenement[] = [];
-    let completed = false;
-    let timeoutId: any = null;
-    
-    // Set a shorter timeout: 5 seconds for faster response
-    timeoutId = setTimeout(() => {
-      if (!completed) {
-        completed = true;
-        this.addEventDiscussions(events);
-      }
-    }, 5000);
-    
-    this.eventsSubscription = this.evenementsService.streamEvents('*', this.user.id || '', 'all').subscribe({
-      next: (streamedEvent) => {
-        if (streamedEvent.type === 'event' && streamedEvent.data) {
-          // Only add events that have a discussionId
-          if (streamedEvent.data.discussionId) {
-            // Check for duplicates
-            const existingIndex = events.findIndex(e => e.id === streamedEvent.data.id);
-            if (existingIndex >= 0) {
-              events[existingIndex] = streamedEvent.data;
-            } else {
-              events.push(streamedEvent.data);
-              // Add to discussions immediately as events arrive (progressive loading)
-              this.addEventToDiscussions(streamedEvent.data);
-            }
-          }
-        } else if (streamedEvent.type === 'complete') {
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-            timeoutId = null;
-          }
-          if (!completed) {
-            completed = true;
-            this.addEventDiscussions(events);
-          }
-        }
-      },
-      error: (error) => {
-        if (!completed) {
-          completed = true;
-          if (timeoutId) {
-            clearTimeout(timeoutId);
-            timeoutId = null;
-          }
-          console.error('Error loading events:', error);
-          this.addEventDiscussions(events);
-        }
-      }
-    });
-  }
-
-  /**
-   * Add a single event to discussions list immediately
-   */
-  private addEventToDiscussions(event: Evenement) {
-    if (!event || !event.id || !event.discussionId) {
-      return;
-    }
-    
-    if (this.canSeeEvent(event)) {
-      // Check for duplicates
-      const existing = this.availableDiscussions.find(d => d.id === event.discussionId);
-      if (!existing) {
-        this.availableDiscussions.push({
-          id: event.discussionId,
-          title: `Discussion - ${event.evenementName}`,
-          type: 'event',
-          event: event
-        });
-        // Load details asynchronously (don't block)
-        this.loadDiscussionDetailsForItem(this.availableDiscussions[this.availableDiscussions.length - 1]);
-      }
-    }
-  }
-
-  /**
-   * Add all event discussions at once (used when stream completes)
-   */
-  private addEventDiscussions(events: Evenement[]) {
-    let added = 0;
-    events.forEach(event => {
-      if (!event || !event.id) {
-        return;
-      }
-      
-      if (event.discussionId && this.canSeeEvent(event)) {
-        // Check for duplicates
-        const existing = this.availableDiscussions.find(d => d.id === event.discussionId);
-        if (!existing) {
-          this.availableDiscussions.push({
-            id: event.discussionId,
-            title: `Discussion - ${event.evenementName}`,
-            type: 'event',
-            event: event
-          });
-          added++;
-        }
-      }
-    });
-    
-    console.log(`Added ${added} event discussions (total: ${this.availableDiscussions.length})`);
-    
-    // Load details for all discussions asynchronously
-    this.loadDiscussionDetails();
-    
-    // Apply filter after adding all events
-    this.applyFilter();
-  }
-
-  /**
-   * Load details (message count, last message date, and full discussion with createdBy) for a single discussion
-   */
-  private loadDiscussionDetailsForItem(discussionItem: DiscussionItem) {
-    // Load both messages and full discussion in parallel
-    forkJoin({
-      messages: this.discussionService.getMessages(discussionItem.id).pipe(
-        catchError(error => {
-          console.error(`Error loading messages for discussion ${discussionItem.id}:`, error);
-          return of([]);
-        })
-      ),
-      discussion: this.discussionService.getDiscussionById(discussionItem.id).pipe(
-        catchError(error => {
-          console.error(`Error loading discussion ${discussionItem.id}:`, error);
-          return of(null);
-        })
-      )
-    }).pipe(
-      map(results => {
-        // Update message count and last message date
-        const messages = results.messages;
-        discussionItem.messageCount = messages.length;
-        if (messages.length > 0) {
-          const sortedMessages = messages.sort((a, b) => {
-            const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
-            const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
-            return dateB - dateA;
-          });
-          discussionItem.lastMessageDate = sortedMessages[0].dateTime ? new Date(sortedMessages[0].dateTime) : undefined;
-        }
-        // Always update discussion object with createdBy - this is critical for owner check
-        if (results.discussion) {
-          discussionItem.discussion = results.discussion;
-          console.log(`Discussion ${discussionItem.id} loaded with owner:`, results.discussion.createdBy?.userName);
-        } else {
-          console.warn(`Discussion ${discussionItem.id} could not be loaded - owner check will fail`);
-        }
-        return discussionItem;
-      }),
-      catchError(error => {
-        console.error(`Error in loadDiscussionDetailsForItem for ${discussionItem.id}:`, error);
-        return of(discussionItem);
-      }),
-      timeout(10000) // Increased timeout to 10 seconds
-    ).subscribe();
-  }
-
-  /**
-   * Load details (message count, last message date, and full discussion with createdBy) for each discussion
-   * Optimized to load in parallel with timeout
-   */
-  private loadDiscussionDetails() {
-    // Load all discussions in parallel with timeout
-    const detailObservables = this.availableDiscussions.map(discussionItem => {
-      // Load both messages and full discussion in parallel
-      return forkJoin({
-        messages: this.discussionService.getMessages(discussionItem.id).pipe(
-          catchError(error => {
-            console.error(`Error loading messages for discussion ${discussionItem.id}:`, error);
-            return of([]);
-          })
-        ),
-        discussion: this.discussionService.getDiscussionById(discussionItem.id).pipe(
-          catchError(error => {
-            console.error(`Error loading discussion ${discussionItem.id}:`, error);
-            return of(null);
-          })
-        )
-      }).pipe(
-        map(results => {
-          // Update message count and last message date
-          const messages = results.messages;
-          discussionItem.messageCount = messages.length;
-          if (messages.length > 0) {
-            // Sort by date and get the last message
-            const sortedMessages = messages.sort((a, b) => {
-              const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
-              const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
-              return dateB - dateA; // Newest first
-            });
-            discussionItem.lastMessageDate = sortedMessages[0].dateTime ? new Date(sortedMessages[0].dateTime) : undefined;
-          }
-          // Always update discussion object with createdBy - this is critical for owner check
-          if (results.discussion) {
-            discussionItem.discussion = results.discussion;
-            console.log(`Discussion ${discussionItem.id} loaded with owner:`, results.discussion.createdBy?.userName);
-          } else {
-            console.warn(`Discussion ${discussionItem.id} could not be loaded - owner check will fail`);
-          }
-          return discussionItem;
-        }),
-        catchError(error => {
-          console.error(`Error in loadDiscussionDetails for ${discussionItem.id}:`, error);
-          return of(discussionItem);
-        }),
-        // Add timeout of 10 seconds per discussion (increased for reliability)
-        timeout(10000)
-      );
-    });
-
-    // Load all in parallel, but don't block UI
-    if (detailObservables.length > 0) {
-      forkJoin(detailObservables).pipe(
-        catchError(error => {
-          console.error('Error loading some discussion details:', error);
-          return of([]);
-        })
-      ).subscribe({
-        next: (items) => {
-          console.log(`All discussion details loaded (${items.length} discussions)`);
-          // Verify that discussions have been loaded
-          const discussionsWithoutOwner = this.availableDiscussions.filter(d => !d.discussion || !d.discussion.createdBy);
-          if (discussionsWithoutOwner.length > 0) {
-            console.warn(`${discussionsWithoutOwner.length} discussions missing owner information:`, 
-              discussionsWithoutOwner.map(d => d.id));
-            // Retry loading for discussions without owner info
-            discussionsWithoutOwner.forEach(d => {
-              console.log(`Retrying load for discussion ${d.id}`);
-              this.loadDiscussionDetailsForItem(d);
-            });
-          }
-        },
-        error: (error) => {
-          console.error('Error loading discussion details:', error);
-        }
-      });
-    }
-  }
-
-  /**
-   * Check if user can see an event
-   * Note: Backend already filters events by visibility, so if an event is in the list,
-   * the user should be able to see it. We only do additional checks for friend groups.
-   */
-  private canSeeEvent(event: Evenement): boolean {
-    if (!event || !this.user || !this.user.id) {
-      return false;
-    }
-    
-    // If visibility is a friend group, we need to check if user is in that group
-    // For other visibility types (public, private, friends), backend already filtered
-    if (event.friendGroupId) {
-      const group = this.allFriendGroups.find(g => g.id === event.friendGroupId);
-      if (group) {
-        return this.canAccessFriendGroup(group);
-      }
-      // If group not found, assume user can't access (shouldn't happen if backend filtered correctly)
-      return false;
-    }
-    
-    // Check if visibility matches a friend group name (legacy support)
-    if (event.visibility && 
-        event.visibility !== 'public' && 
-        event.visibility !== 'private' && 
-        event.visibility !== 'friends') {
-      const group = this.allFriendGroups.find(g => g.name === event.visibility);
-      if (group) {
-        return this.canAccessFriendGroup(group);
-      }
-      // If visibility is a group name but group not found, assume user can't access
-      return false;
-    }
-    
-    // For public, private, friends - backend already filtered, so user can see it
-    return true;
-  }
-
-  /**
-   * Check if user can access a friend group (is member or owner)
-   */
-  private canAccessFriendGroup(group: FriendGroup): boolean {
-    if (!group || !this.user || !this.user.id) {
-      return false;
-    }
-    
-    // Owner can always access
-    if (group.owner && group.owner.id === this.user.id) {
-      return true;
-    }
-    
-    // Check if user is a member
-    if (group.members && group.members.some(m => m.id === this.user.id)) {
-      return true;
-    }
-    
-    // Check if user is authorized
-    if (group.authorizedUsers && group.authorizedUsers.some(m => m.id === this.user.id)) {
-      return true;
-    }
-    
-    return false;
-  }
-
-  /**
-   * Create a discussion for a friend group and update the group with the discussionId
-   */
-  private createDiscussionForGroup(group: FriendGroup) {
-    const discussionTitle = `Discussion - ${group.name}`;
-    
-    // Get or create the discussion
-    this.discussionService.getOrCreateDiscussion(null, discussionTitle).subscribe({
-      next: (discussion) => {
-        if (discussion && discussion.id && typeof discussion.id === 'string') {
-          const discussionId: string = discussion.id; // Store in a variable to ensure it's not undefined
-          
-          // Update the group's discussionId
-          const memberIds = (group.members || [])
-            .filter(m => m && m.id)
-            .map(m => m.id!);
-          
-          // Update the friend group with the new discussionId
-          this.friendsService.updateFriendGroup(
-            group.id,
-            group.name,
-            memberIds,
-            discussionId,
-            group.whatsappLink
-          ).subscribe({
-            next: (updatedGroup) => {
-              // Update the local group object
-              group.discussionId = discussionId;
-              
-              // Add the discussion to the available discussions
-              const discussionItem: DiscussionItem = {
-                id: discussionId,
-                title: discussionTitle,
-                type: 'friendGroup',
-                friendGroup: updatedGroup,
-                discussion: discussion
-              };
-              this.availableDiscussions.push(discussionItem);
-              console.log(`Created and added friend group discussion: ${group.name} (ID: ${discussionId})`);
-              
-              // Load details for the discussion
-              this.loadDiscussionDetailsForItem(discussionItem);
-              
-              // Update filtered discussions
-              this.applyFilter();
-            },
-            error: (error) => {
-              console.error(`Error updating friend group ${group.id} with discussionId:`, error);
-              // Still add the discussion even if group update fails
-              const discussionItem: DiscussionItem = {
-                id: discussionId,
-                title: discussionTitle,
-                type: 'friendGroup',
-                friendGroup: group,
-                discussion: discussion
-              };
-              this.availableDiscussions.push(discussionItem);
-              this.loadDiscussionDetailsForItem(discussionItem);
-              this.applyFilter();
-            }
-          });
-        }
-      },
-      error: (error) => {
-        console.error(`Error creating discussion for group "${group.name}":`, error);
-      }
-    });
-  }
-
-  /**
-   * Create a discussion for a friend group that has an invalid discussionId and update the group with the new discussionId
-   */
-  private createDiscussionForGroupAndUpdate(group: FriendGroup) {
-    const discussionTitle = `Discussion - ${group.name}`;
-    const oldDiscussionId = group.discussionId; // Store the old (invalid) discussionId
-    
-    // Get or create the discussion (pass null to create a new one)
-    this.discussionService.getOrCreateDiscussion(null, discussionTitle).subscribe({
-      next: (discussion) => {
-        if (discussion && discussion.id && typeof discussion.id === 'string') {
-          const newDiscussionId: string = discussion.id;
-          
-          // Only update if the new discussionId is different from the old one
-          if (oldDiscussionId !== newDiscussionId) {
-            // Update the group's discussionId
-            const memberIds = (group.members || [])
-              .filter(m => m && m.id)
-              .map(m => m.id!);
-            
-            // Update the friend group with the new discussionId
-            this.friendsService.updateFriendGroup(
-              group.id,
-              group.name,
-              memberIds,
-              newDiscussionId,
-              group.whatsappLink
-            ).subscribe({
-              next: (updatedGroup) => {
-                // Update the local group object
-                group.discussionId = newDiscussionId;
-                
-                // Add the discussion to the available discussions
-                const discussionItem: DiscussionItem = {
-                  id: newDiscussionId,
-                  title: discussionTitle,
-                  type: 'friendGroup',
-                  friendGroup: updatedGroup,
-                  discussion: discussion
-                };
-                this.availableDiscussions.push(discussionItem);
-                console.log(`Created new discussion for group "${group.name}" (old ID: ${oldDiscussionId}, new ID: ${newDiscussionId}) and updated group`);
-                
-                // Load details for the discussion
-                this.loadDiscussionDetailsForItem(discussionItem);
-                
-                // Update filtered discussions
-                this.applyFilter();
-              },
-              error: (error) => {
-                console.error(`Error updating friend group ${group.id} with new discussionId:`, error);
-                // Still add the discussion even if group update fails
-                const discussionItem: DiscussionItem = {
-                  id: newDiscussionId,
-                  title: discussionTitle,
-                  type: 'friendGroup',
-                  friendGroup: group,
-                  discussion: discussion
-                };
-                this.availableDiscussions.push(discussionItem);
-                this.loadDiscussionDetailsForItem(discussionItem);
-                this.applyFilter();
-              }
-            });
-          } else {
-            // Same ID, just add the discussion
-            const discussionItem: DiscussionItem = {
-              id: newDiscussionId,
-              title: discussionTitle,
-              type: 'friendGroup',
-              friendGroup: group,
-              discussion: discussion
-            };
-            this.availableDiscussions.push(discussionItem);
-            this.loadDiscussionDetailsForItem(discussionItem);
-            this.applyFilter();
-          }
-        }
-      },
-      error: (error) => {
-        console.error(`Error creating discussion for group "${group.name}":`, error);
-      }
-    });
-  }
 
   /**
    * Apply filter to discussions
@@ -1237,6 +708,18 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Open statistics modal (Admin only)
+   */
+  openStatisticsModal() {
+    const modalRef = this.modalService.open(DiscussionStatisticsModalComponent, {
+      size: 'xl',
+      centered: true,
+      backdrop: 'static',
+      windowClass: 'discussion-statistics-modal'
+    });
+  }
+
+  /**
    * Get the owner name of a discussion
    */
   getDiscussionOwnerName(discussionItem: DiscussionItem): string {
@@ -1274,7 +757,16 @@ export class ChatComponent implements OnInit, OnDestroy {
     // If discussion object is not loaded yet, try to load it
     if (!discussionItem.discussion) {
       console.warn(`Discussion ${discussionItem.id} not loaded yet, attempting to load...`);
-      this.loadDiscussionDetailsForItem(discussionItem);
+      this.discussionService.getDiscussionById(discussionItem.id).subscribe({
+        next: (discussion) => {
+          if (discussion) {
+            discussionItem.discussion = discussion;
+          }
+        },
+        error: (error) => {
+          console.error(`Error loading discussion ${discussionItem.id}:`, error);
+        }
+      });
     }
     
     return false;

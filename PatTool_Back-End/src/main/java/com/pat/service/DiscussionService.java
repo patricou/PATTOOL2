@@ -3,11 +3,15 @@ package com.pat.service;
 import com.pat.repo.DiscussionRepository;
 import com.pat.repo.EvenementsRepository;
 import com.pat.repo.FriendGroupRepository;
+import com.pat.repo.FriendRepository;
 import com.pat.repo.MembersRepository;
 import com.pat.repo.UserConnectionLogRepository;
 import com.pat.repo.domain.Discussion;
+import com.pat.repo.domain.DiscussionItemDTO;
 import com.pat.repo.domain.DiscussionMessage;
 import com.pat.repo.domain.Member;
+import com.pat.repo.domain.Friend;
+import com.pat.repo.domain.DiscussionStatisticsDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,6 +44,9 @@ public class DiscussionService {
 
     @Autowired
     private UserConnectionLogRepository userConnectionLogRepository;
+
+    @Autowired
+    private FriendRepository friendRepository;
 
     @Value("${app.discussion.default.id:}")
     private String defaultDiscussionId;
@@ -197,9 +204,10 @@ public class DiscussionService {
         Discussion discussion = discussionRepository.findById(discussionId).orElse(null);
         
         if (discussion == null) {
-            // Discussion doesn't exist, try to find associated event and create it
-            log.warn("Discussion {} does not exist, attempting to find associated event and create discussion", discussionId);
+            // Discussion doesn't exist, try to find associated event or friend group and create it
+            log.warn("Discussion {} does not exist, attempting to find associated event or friend group and create discussion", discussionId);
             
+            // First, try to find an associated event
             java.util.Optional<com.pat.repo.domain.Evenement> eventOpt = evenementsRepository.findByDiscussionId(discussionId);
             if (eventOpt.isPresent()) {
                 com.pat.repo.domain.Evenement event = eventOpt.get();
@@ -218,7 +226,27 @@ public class DiscussionService {
                     throw new IllegalArgumentException("Cannot create discussion: event author is null or has no userName");
                 }
             } else {
-                throw new IllegalArgumentException("Discussion not found: " + discussionId + " and no associated event found");
+                // If no event found, try to find an associated friend group
+                List<com.pat.repo.domain.FriendGroup> friendGroups = friendGroupRepository.findByDiscussionId(discussionId);
+                if (friendGroups != null && !friendGroups.isEmpty()) {
+                    com.pat.repo.domain.FriendGroup group = friendGroups.get(0); // Use the first one found
+                    if (group.getOwner() != null && group.getOwner().getUserName() != null) {
+                        String discussionTitle = "Discussion - " + (group.getName() != null ? group.getName() : "Friend Group");
+                        String creatorUserName = group.getOwner().getUserName();
+                        Discussion newDiscussion = createDiscussion(creatorUserName, discussionTitle);
+                        
+                        // Update the friend group with the new discussionId
+                        group.setDiscussionId(newDiscussion.getId());
+                        friendGroupRepository.save(group);
+                        
+                        log.info("Created discussion {} for friend group {} and updated friend group", newDiscussion.getId(), group.getName());
+                        discussion = newDiscussion;
+                    } else {
+                        throw new IllegalArgumentException("Cannot create discussion: friend group owner is null or has no userName");
+                    }
+                } else {
+                    throw new IllegalArgumentException("Discussion not found: " + discussionId + " and no associated event or friend group found");
+                }
             }
         }
         
@@ -301,6 +329,804 @@ public class DiscussionService {
         
         // Create a new discussion
         return createDiscussion(createdByUserName, title);
+    }
+
+    /**
+     * Get all accessible discussions for a user
+     * Validates discussionIds in events and friend groups, creates missing discussions
+     * Filters based on user visibility (events and friend groups)
+     * Ignores discussions without associated event or friend group (except default/general discussion)
+     */
+    public List<DiscussionItemDTO> getAccessibleDiscussions(Member user) {
+        List<DiscussionItemDTO> result = new java.util.ArrayList<>();
+        // Track discussion IDs already added to avoid duplicates
+        java.util.Set<String> addedDiscussionIds = new java.util.HashSet<>();
+        
+        // Get user's friend groups for access checking
+        List<com.pat.repo.domain.FriendGroup> userFriendGroups = friendGroupRepository.findByMembersContaining(user);
+        List<com.pat.repo.domain.FriendGroup> userOwnedGroups = friendGroupRepository.findByOwner(user);
+        List<com.pat.repo.domain.FriendGroup> userAuthorizedGroups = friendGroupRepository.findByAuthorizedUsersContaining(user);
+        
+        // Combine all accessible friend groups
+        java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroupsMap = new java.util.HashMap<>();
+        for (com.pat.repo.domain.FriendGroup group : userFriendGroups) {
+            if (group.getId() != null) {
+                accessibleGroupsMap.put(group.getId(), group);
+            }
+        }
+        for (com.pat.repo.domain.FriendGroup group : userOwnedGroups) {
+            if (group.getId() != null) {
+                accessibleGroupsMap.put(group.getId(), group);
+            }
+        }
+        for (com.pat.repo.domain.FriendGroup group : userAuthorizedGroups) {
+            if (group.getId() != null && !accessibleGroupsMap.containsKey(group.getId())) {
+                accessibleGroupsMap.put(group.getId(), group);
+            }
+        }
+        
+        // Get user's friends for event visibility checking
+        List<Friend> friendships = friendRepository.findByUser1OrUser2(user, user);
+        java.util.Set<String> friendIds = new java.util.HashSet<>();
+        for (Friend friendship : friendships) {
+            if (friendship.getUser1() != null && !friendship.getUser1().getId().equals(user.getId())) {
+                friendIds.add(friendship.getUser1().getId());
+            }
+            if (friendship.getUser2() != null && !friendship.getUser2().getId().equals(user.getId())) {
+                friendIds.add(friendship.getUser2().getId());
+            }
+        }
+        
+        // Get default discussion (general discussion)
+        Discussion defaultDiscussion = getDefaultDiscussion();
+        if (defaultDiscussion != null) {
+            DiscussionItemDTO defaultItem = new DiscussionItemDTO(
+                defaultDiscussion.getId(),
+                defaultDiscussion.getTitle() != null ? defaultDiscussion.getTitle() : "Discussion Générale",
+                "general",
+                defaultDiscussion
+            );
+            defaultItem.setMessageCount(defaultDiscussion.getMessages() != null ? (long) defaultDiscussion.getMessages().size() : 0L);
+            if (defaultDiscussion.getMessages() != null && !defaultDiscussion.getMessages().isEmpty()) {
+                defaultItem.setLastMessageDate(defaultDiscussion.getMessages().stream()
+                    .max((a, b) -> {
+                        if (a.getDateTime() == null) return -1;
+                        if (b.getDateTime() == null) return 1;
+                        return a.getDateTime().compareTo(b.getDateTime());
+                    })
+                    .map(DiscussionMessage::getDateTime)
+                    .orElse(null));
+            }
+            result.add(defaultItem);
+            addedDiscussionIds.add(defaultDiscussion.getId());
+        }
+        
+        // Process all events with discussionId
+        List<com.pat.repo.domain.Evenement> allEvents = evenementsRepository.findAll();
+        for (com.pat.repo.domain.Evenement event : allEvents) {
+            if (event.getDiscussionId() == null || event.getDiscussionId().trim().isEmpty()) {
+                continue; // Skip events without discussionId
+            }
+            
+            // Check if user can access this event
+            if (!canUserAccessEvent(event, user, friendIds, accessibleGroupsMap)) {
+                continue; // User cannot access this event
+            }
+            
+            // Validate discussion exists
+            Discussion discussion = discussionRepository.findById(event.getDiscussionId()).orElse(null);
+            if (discussion == null) {
+                // Discussion doesn't exist, create it
+                log.warn("Discussion {} for event {} does not exist, creating new one", event.getDiscussionId(), event.getEvenementName());
+                String discussionTitle = "Discussion - " + (event.getEvenementName() != null ? event.getEvenementName() : "Event");
+                String creatorUserName = event.getAuthor() != null && event.getAuthor().getUserName() != null 
+                    ? event.getAuthor().getUserName() 
+                    : user.getUserName();
+                discussion = createDiscussion(creatorUserName, discussionTitle);
+                
+                // Update the event with the new discussionId
+                event.setDiscussionId(discussion.getId());
+                evenementsRepository.save(event);
+                log.info("Created discussion {} for event {} and updated event", discussion.getId(), event.getEvenementName());
+            }
+            
+            // Add to result
+            DiscussionItemDTO item = new DiscussionItemDTO(
+                discussion.getId(),
+                "Discussion - " + (event.getEvenementName() != null ? event.getEvenementName() : "Event"),
+                "event",
+                discussion
+            );
+            item.setEvent(event);
+            item.setMessageCount(discussion.getMessages() != null ? (long) discussion.getMessages().size() : 0L);
+            if (discussion.getMessages() != null && !discussion.getMessages().isEmpty()) {
+                item.setLastMessageDate(discussion.getMessages().stream()
+                    .max((a, b) -> {
+                        if (a.getDateTime() == null) return -1;
+                        if (b.getDateTime() == null) return 1;
+                        return a.getDateTime().compareTo(b.getDateTime());
+                    })
+                    .map(DiscussionMessage::getDateTime)
+                    .orElse(null));
+            }
+            result.add(item);
+        }
+        
+        // Process all friend groups with discussionId
+        // Get all friend groups and check access for each one (similar to events)
+        List<com.pat.repo.domain.FriendGroup> allFriendGroups = friendGroupRepository.findAll();
+        for (com.pat.repo.domain.FriendGroup group : allFriendGroups) {
+            if (group.getDiscussionId() == null || group.getDiscussionId().trim().isEmpty()) {
+                continue; // Skip groups without discussionId
+            }
+            
+            // Check if user can access this friend group (owner, member, or authorized)
+            if (!canUserAccessFriendGroup(group, user)) {
+                continue; // User cannot access this group
+            }
+            
+            // Validate discussion exists
+            Discussion discussion = discussionRepository.findById(group.getDiscussionId()).orElse(null);
+            if (discussion == null) {
+                // Discussion doesn't exist, create it
+                log.warn("Discussion {} for group {} does not exist, creating new one", group.getDiscussionId(), group.getName());
+                String discussionTitle = "Discussion - " + (group.getName() != null ? group.getName() : "Friend Group");
+                String creatorUserName = group.getOwner() != null && group.getOwner().getUserName() != null 
+                    ? group.getOwner().getUserName() 
+                    : user.getUserName();
+                discussion = createDiscussion(creatorUserName, discussionTitle);
+                
+                // Update the group with the new discussionId
+                group.setDiscussionId(discussion.getId());
+                friendGroupRepository.save(group);
+                log.info("Created discussion {} for friend group {} and updated group", discussion.getId(), group.getName());
+            }
+            
+            // Skip if already added (avoid duplicates)
+            if (addedDiscussionIds.contains(discussion.getId())) {
+                continue;
+            }
+            
+            // Add to result
+            DiscussionItemDTO item = new DiscussionItemDTO(
+                discussion.getId(),
+                "Discussion - " + (group.getName() != null ? group.getName() : "Friend Group"),
+                "friendGroup",
+                discussion
+            );
+            item.setFriendGroup(group);
+            item.setMessageCount(discussion.getMessages() != null ? (long) discussion.getMessages().size() : 0L);
+            if (discussion.getMessages() != null && !discussion.getMessages().isEmpty()) {
+                item.setLastMessageDate(discussion.getMessages().stream()
+                    .max((a, b) -> {
+                        if (a.getDateTime() == null) return -1;
+                        if (b.getDateTime() == null) return 1;
+                        return a.getDateTime().compareTo(b.getDateTime());
+                    })
+                    .map(DiscussionMessage::getDateTime)
+                    .orElse(null));
+            }
+            result.add(item);
+            addedDiscussionIds.add(discussion.getId());
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Check if user can access an event based on visibility rules
+     * Creators (authors) can always see their own events regardless of visibility
+     * Public events are accessible to everyone (even without user authentication)
+     */
+    private boolean canUserAccessEvent(com.pat.repo.domain.Evenement event, Member user, 
+                                      java.util.Set<String> friendIds, 
+                                      java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroups) {
+        if (event == null) {
+            return false;
+        }
+        
+        String visibility = event.getVisibility();
+        
+        // Public events are accessible to everyone (even if user is null)
+        if (visibility == null || "public".equals(visibility)) {
+            return true;
+        }
+        
+        // For non-public events, user must be provided
+        if (user == null) {
+            return false;
+        }
+        
+        // Creators (authors) can always see their own events
+        if (event.getAuthor() != null && event.getAuthor().getId() != null 
+            && event.getAuthor().getId().equals(user.getId())) {
+            return true;
+        }
+        
+        // Private events: only author can see (already handled above)
+        if ("private".equals(visibility)) {
+            return false;
+        }
+        
+        // Friends visibility: author must be a friend
+        if ("friends".equals(visibility)) {
+            if (event.getAuthor() == null || event.getAuthor().getId() == null) {
+                return false;
+            }
+            return friendIds.contains(event.getAuthor().getId());
+        }
+        
+        // Friend group visibility: user must be in the friend group (as member, owner, or authorized)
+        if (event.getFriendGroupId() != null && !event.getFriendGroupId().trim().isEmpty()) {
+            // First check if already in accessible groups map
+            if (accessibleGroups.containsKey(event.getFriendGroupId())) {
+                return true;
+            }
+            // If not in map, directly check the group to ensure we check members and authorizedUsers
+            java.util.Optional<com.pat.repo.domain.FriendGroup> groupOpt = friendGroupRepository.findById(event.getFriendGroupId());
+            if (groupOpt.isPresent()) {
+                com.pat.repo.domain.FriendGroup group = groupOpt.get();
+                // Check if user is owner
+                if (group.getOwner() != null && group.getOwner().getId() != null && user != null
+                    && group.getOwner().getId().equals(user.getId())) {
+                    return true;
+                }
+                // Check if user is a member
+                if (group.getMembers() != null && user != null) {
+                    for (Member member : group.getMembers()) {
+                        if (member != null && member.getId() != null && member.getId().equals(user.getId())) {
+                            return true;
+                        }
+                    }
+                }
+                // Check if user is authorized
+                if (group.getAuthorizedUsers() != null && user != null) {
+                    for (Member authorizedUser : group.getAuthorizedUsers()) {
+                        if (authorizedUser != null && authorizedUser.getId() != null && authorizedUser.getId().equals(user.getId())) {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+        
+        // If visibility matches a friend group name (backward compatibility)
+        // Check if any of the accessible groups have this name
+        if (visibility != null && !"public".equals(visibility) && !"private".equals(visibility) && !"friends".equals(visibility)) {
+            for (com.pat.repo.domain.FriendGroup group : accessibleGroups.values()) {
+                if (group.getName() != null && group.getName().equals(visibility)) {
+                    // User already has access to this group (it's in accessibleGroups)
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Check if user can access a friend group
+     * User can access if they are owner, member, or authorized user
+     */
+    private boolean canUserAccessFriendGroup(com.pat.repo.domain.FriendGroup group, Member user) {
+        if (group == null || user == null) {
+            return false;
+        }
+        
+        // Check if user is owner
+        if (group.getOwner() != null && group.getOwner().getId() != null 
+            && group.getOwner().getId().equals(user.getId())) {
+            return true;
+        }
+        
+        // Check if user is a member
+        if (group.getMembers() != null) {
+            for (Member member : group.getMembers()) {
+                if (member != null && member.getId() != null && member.getId().equals(user.getId())) {
+                    return true;
+                }
+            }
+        }
+        
+        // Check if user is authorized
+        if (group.getAuthorizedUsers() != null) {
+            for (Member authorizedUser : group.getAuthorizedUsers()) {
+                if (authorizedUser != null && authorizedUser.getId() != null 
+                    && authorizedUser.getId().equals(user.getId())) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Get discussion statistics for all users
+     * Returns a list showing for each user: how many discussions they can see and why
+     * Fully optimized version that pre-loads ALL data and processes in-memory
+     * @param userId Optional filter to get statistics for a specific user only (null = all users)
+     */
+    public List<DiscussionStatisticsDTO> getDiscussionStatisticsForAllUsers(String userId) {
+        List<DiscussionStatisticsDTO> result = new java.util.ArrayList<>();
+        
+        // Get all users or filter by userId if provided
+        List<Member> allUsers;
+        if (userId != null && !userId.trim().isEmpty()) {
+            java.util.Optional<Member> userOpt = membersRepository.findById(userId);
+            if (userOpt.isPresent()) {
+                allUsers = java.util.Collections.singletonList(userOpt.get());
+            } else {
+                return result;
+            }
+        } else {
+            allUsers = membersRepository.findAll();
+        }
+        
+        // Pre-load ALL data once - this is the key optimization
+        List<Discussion> allDiscussions = discussionRepository.findAll();
+        List<com.pat.repo.domain.Evenement> allEvents = evenementsRepository.findAll();
+        List<com.pat.repo.domain.FriendGroup> allFriendGroups = friendGroupRepository.findAll();
+        List<Friend> allFriendships = friendRepository.findAll(); // Load all friendships at once
+        
+        // Build comprehensive maps for O(1) lookups
+        java.util.Map<String, Discussion> discussionMap = new java.util.HashMap<>();
+        for (Discussion d : allDiscussions) {
+            if (d.getId() != null) {
+                discussionMap.put(d.getId(), d);
+            }
+        }
+        
+        // Map: discussionId -> event
+        java.util.Map<String, com.pat.repo.domain.Evenement> eventByDiscussionIdMap = new java.util.HashMap<>();
+        // Map: eventId -> event
+        java.util.Map<String, com.pat.repo.domain.Evenement> eventByIdMap = new java.util.HashMap<>();
+        for (com.pat.repo.domain.Evenement e : allEvents) {
+            if (e.getId() != null) {
+                eventByIdMap.put(e.getId(), e);
+            }
+            if (e.getDiscussionId() != null) {
+                eventByDiscussionIdMap.put(e.getDiscussionId(), e);
+            }
+        }
+        
+        // Map: discussionId -> friendGroup
+        java.util.Map<String, com.pat.repo.domain.FriendGroup> friendGroupByDiscussionIdMap = new java.util.HashMap<>();
+        // Map: groupId -> friendGroup
+        java.util.Map<String, com.pat.repo.domain.FriendGroup> friendGroupByIdMap = new java.util.HashMap<>();
+        for (com.pat.repo.domain.FriendGroup g : allFriendGroups) {
+            if (g.getId() != null) {
+                friendGroupByIdMap.put(g.getId(), g);
+            }
+            if (g.getDiscussionId() != null) {
+                friendGroupByDiscussionIdMap.put(g.getDiscussionId(), g);
+            }
+        }
+        
+        // Build user -> friends map (bidirectional)
+        java.util.Map<String, java.util.Set<String>> userFriendsMap = new java.util.HashMap<>();
+        for (Member user : allUsers) {
+            if (user != null && user.getId() != null) {
+                userFriendsMap.put(user.getId(), new java.util.HashSet<>());
+            }
+        }
+        for (Friend friendship : allFriendships) {
+            if (friendship.getUser1() != null && friendship.getUser2() != null) {
+                String id1 = friendship.getUser1().getId();
+                String id2 = friendship.getUser2().getId();
+                if (id1 != null && id2 != null) {
+                    userFriendsMap.computeIfAbsent(id1, k -> new java.util.HashSet<>()).add(id2);
+                    userFriendsMap.computeIfAbsent(id2, k -> new java.util.HashSet<>()).add(id1);
+                }
+            }
+        }
+        
+        // Build user -> accessible groups map (member, owner, authorized)
+        java.util.Map<String, java.util.Map<String, com.pat.repo.domain.FriendGroup>> userAccessibleGroupsMap = new java.util.HashMap<>();
+        for (Member user : allUsers) {
+            if (user != null && user.getId() != null) {
+                userAccessibleGroupsMap.put(user.getId(), new java.util.HashMap<>());
+            }
+        }
+        // Process all groups once and build reverse indexes
+        for (com.pat.repo.domain.FriendGroup group : allFriendGroups) {
+            if (group.getId() == null) continue;
+            
+            // Check owner
+            if (group.getOwner() != null && group.getOwner().getId() != null) {
+                userAccessibleGroupsMap.computeIfAbsent(group.getOwner().getId(), k -> new java.util.HashMap<>())
+                    .put(group.getId(), group);
+            }
+            
+            // Check members
+            if (group.getMembers() != null) {
+                for (Member member : group.getMembers()) {
+                    if (member != null && member.getId() != null) {
+                        userAccessibleGroupsMap.computeIfAbsent(member.getId(), k -> new java.util.HashMap<>())
+                            .put(group.getId(), group);
+                    }
+                }
+            }
+            
+            // Check authorized users
+            if (group.getAuthorizedUsers() != null) {
+                for (Member authorized : group.getAuthorizedUsers()) {
+                    if (authorized != null && authorized.getId() != null) {
+                        userAccessibleGroupsMap.computeIfAbsent(authorized.getId(), k -> new java.util.HashMap<>())
+                            .put(group.getId(), group);
+                    }
+                }
+            }
+        }
+        
+        // Get default discussion once
+        Discussion defaultDiscussion = getDefaultDiscussion();
+        
+        // Process each user using pre-loaded data (NO database queries in loop)
+        for (Member user : allUsers) {
+            if (user == null || user.getId() == null) {
+                continue;
+            }
+            
+            String userIdStr = user.getId();
+            java.util.Set<String> friendIds = userFriendsMap.getOrDefault(userIdStr, new java.util.HashSet<>());
+            java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroups = userAccessibleGroupsMap.getOrDefault(userIdStr, new java.util.HashMap<>());
+            
+            // Build accessible discussions in-memory
+            java.util.Set<String> addedDiscussionIds = new java.util.HashSet<>();
+            List<DiscussionStatisticsDTO.DiscussionAccessInfo> accessInfoList = new java.util.ArrayList<>();
+            
+            // Add default discussion
+            if (defaultDiscussion != null && defaultDiscussion.getId() != null) {
+                DiscussionStatisticsDTO.DiscussionAccessInfo defaultInfo = new DiscussionStatisticsDTO.DiscussionAccessInfo(
+                    defaultDiscussion.getId(),
+                    defaultDiscussion.getTitle() != null ? defaultDiscussion.getTitle() : "Discussion Générale",
+                    "general",
+                    java.util.Arrays.asList("general")
+                );
+                accessInfoList.add(defaultInfo);
+                addedDiscussionIds.add(defaultDiscussion.getId());
+            }
+            
+            // Process events
+            for (com.pat.repo.domain.Evenement event : allEvents) {
+                if (event.getDiscussionId() == null || event.getDiscussionId().trim().isEmpty()) {
+                    continue;
+                }
+                
+                // Check access using pre-loaded data
+                if (!canUserAccessEventOptimized(event, user, friendIds, accessibleGroups)) {
+                    continue;
+                }
+                
+                String discussionId = event.getDiscussionId();
+                Discussion discussion = discussionMap.get(discussionId);
+                if (discussion == null) {
+                    // Discussion doesn't exist - skip for statistics (don't create here)
+                    continue;
+                }
+                
+                if (addedDiscussionIds.contains(discussionId)) {
+                    continue;
+                }
+                
+                List<String> accessReasons = determineAccessReasonsOptimized(
+                    discussion, event, null, user, friendIds, accessibleGroups, null);
+                
+                DiscussionStatisticsDTO.DiscussionAccessInfo accessInfo = new DiscussionStatisticsDTO.DiscussionAccessInfo(
+                    discussionId,
+                    "Discussion - " + (event.getEvenementName() != null ? event.getEvenementName() : "Event"),
+                    "event",
+                    accessReasons
+                );
+                accessInfo.setEventName(event.getEvenementName());
+                accessInfoList.add(accessInfo);
+                addedDiscussionIds.add(discussionId);
+            }
+            
+            // Process friend groups
+            for (com.pat.repo.domain.FriendGroup group : allFriendGroups) {
+                if (group.getDiscussionId() == null || group.getDiscussionId().trim().isEmpty()) {
+                    continue;
+                }
+                
+                // Check access using pre-loaded data
+                if (!canUserAccessFriendGroupOptimized(group, user)) {
+                    continue;
+                }
+                
+                String discussionId = group.getDiscussionId();
+                Discussion discussion = discussionMap.get(discussionId);
+                if (discussion == null) {
+                    // Discussion doesn't exist - skip for statistics
+                    continue;
+                }
+                
+                if (addedDiscussionIds.contains(discussionId)) {
+                    continue;
+                }
+                
+                List<String> accessReasons = determineAccessReasonsOptimized(
+                    discussion, null, group, user, friendIds, accessibleGroups, group.getName());
+                
+                DiscussionStatisticsDTO.DiscussionAccessInfo accessInfo = new DiscussionStatisticsDTO.DiscussionAccessInfo(
+                    discussionId,
+                    "Discussion - " + (group.getName() != null ? group.getName() : "Friend Group"),
+                    "friendGroup",
+                    accessReasons
+                );
+                accessInfo.setFriendGroupName(group.getName());
+                accessInfoList.add(accessInfo);
+                addedDiscussionIds.add(discussionId);
+            }
+            
+            DiscussionStatisticsDTO stats = new DiscussionStatisticsDTO(
+                user.getId(),
+                user.getUserName() != null ? user.getUserName() : "Unknown",
+                user.getFirstName() != null ? user.getFirstName() : "",
+                user.getLastName() != null ? user.getLastName() : "",
+                (long) accessInfoList.size(),
+                accessInfoList
+            );
+            
+            result.add(stats);
+        }
+        
+        // Sort by username
+        result.sort((a, b) -> {
+            String nameA = a.getUserName() != null ? a.getUserName() : "";
+            String nameB = b.getUserName() != null ? b.getUserName() : "";
+            return nameA.compareToIgnoreCase(nameB);
+        });
+        
+        return result;
+    }
+    
+    /**
+     * Optimized version of canUserAccessEvent that uses pre-loaded data
+     */
+    private boolean canUserAccessEventOptimized(com.pat.repo.domain.Evenement event, Member user,
+            java.util.Set<String> friendIds, java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroups) {
+        if (event == null || user == null) {
+            return false;
+        }
+        
+        // Public events are accessible to everyone
+        String visibility = event.getVisibility();
+        if (visibility == null || "public".equals(visibility)) {
+            return true;
+        }
+        
+        // Creators can always see their own events
+        if (event.getAuthor() != null && event.getAuthor().getId() != null 
+            && event.getAuthor().getId().equals(user.getId())) {
+            return true;
+        }
+        
+        // Private events: only author can see (already handled above)
+        if ("private".equals(visibility)) {
+            return false;
+        }
+        
+        // Friends visibility: author must be a friend
+        if ("friends".equals(visibility)) {
+            if (event.getAuthor() != null && event.getAuthor().getId() != null) {
+                return friendIds.contains(event.getAuthor().getId());
+            }
+            return false;
+        }
+        
+        // Friend group visibility: user must be in the friend group
+        if (event.getFriendGroupId() != null && !event.getFriendGroupId().trim().isEmpty()) {
+            return accessibleGroups.containsKey(event.getFriendGroupId());
+        }
+        
+        // If visibility matches a friend group name (backward compatibility)
+        if (visibility != null && !"public".equals(visibility) && !"private".equals(visibility) && !"friends".equals(visibility)) {
+            return accessibleGroups.values().stream()
+                .anyMatch(g -> g.getName() != null && g.getName().equals(visibility));
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Optimized version of canUserAccessFriendGroup that uses pre-loaded data
+     */
+    private boolean canUserAccessFriendGroupOptimized(com.pat.repo.domain.FriendGroup group, Member user) {
+        if (group == null || user == null) {
+            return false;
+        }
+        
+        // Check if user is owner
+        if (group.getOwner() != null && group.getOwner().getId() != null 
+            && group.getOwner().getId().equals(user.getId())) {
+            return true;
+        }
+        
+        // Check if user is a member
+        if (group.getMembers() != null) {
+            for (Member member : group.getMembers()) {
+                if (member != null && member.getId() != null && member.getId().equals(user.getId())) {
+                    return true;
+                }
+            }
+        }
+        
+        // Check if user is authorized
+        if (group.getAuthorizedUsers() != null) {
+            for (Member authorizedUser : group.getAuthorizedUsers()) {
+                if (authorizedUser != null && authorizedUser.getId() != null 
+                    && authorizedUser.getId().equals(user.getId())) {
+                    return true;
+                }
+            }
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Optimized version of determineAccessReasons that uses pre-loaded data
+     */
+    private List<String> determineAccessReasonsOptimized(
+            Discussion discussion,
+            com.pat.repo.domain.Evenement event,
+            com.pat.repo.domain.FriendGroup friendGroup,
+            Member user,
+            java.util.Set<String> friendIds,
+            java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroups,
+            String groupName) {
+        List<String> reasons = new java.util.ArrayList<>();
+        
+        // Check if user is creator
+        if (discussion.getCreatedBy() != null && discussion.getCreatedBy().getId() != null 
+            && discussion.getCreatedBy().getId().equals(user.getId())) {
+            reasons.add("creator");
+        }
+        
+        if (event != null) {
+            // Check if user is event author
+            if (event.getAuthor() != null && event.getAuthor().getId() != null 
+                && event.getAuthor().getId().equals(user.getId())) {
+                reasons.add("event_owner");
+            }
+            
+            // Check visibility
+            String visibility = event.getVisibility();
+            if (visibility == null || "public".equals(visibility)) {
+                reasons.add("public");
+            } else if ("friends".equals(visibility)) {
+                if (event.getAuthor() != null && event.getAuthor().getId() != null 
+                    && friendIds.contains(event.getAuthor().getId())) {
+                    reasons.add("friend_of_author");
+                }
+            } else if (event.getFriendGroupId() != null && !event.getFriendGroupId().trim().isEmpty()) {
+                com.pat.repo.domain.FriendGroup group = accessibleGroups.get(event.getFriendGroupId());
+                if (group != null) {
+                    String gName = group.getName() != null ? group.getName() : "Unknown Group";
+                    if (group.getOwner() != null && group.getOwner().getId() != null 
+                        && group.getOwner().getId().equals(user.getId())) {
+                        reasons.add("group_owner:" + gName);
+                    } else if (group.getMembers() != null && group.getMembers().stream()
+                        .anyMatch(m -> m != null && m.getId() != null && m.getId().equals(user.getId()))) {
+                        reasons.add("group_member:" + gName);
+                    } else if (group.getAuthorizedUsers() != null && group.getAuthorizedUsers().stream()
+                        .anyMatch(m -> m != null && m.getId() != null && m.getId().equals(user.getId()))) {
+                        reasons.add("group_authorized:" + gName);
+                    }
+                }
+            }
+        } else if (friendGroup != null) {
+            String gName = groupName != null ? groupName : (friendGroup.getName() != null ? friendGroup.getName() : "Unknown Group");
+            if (friendGroup.getOwner() != null && friendGroup.getOwner().getId() != null 
+                && friendGroup.getOwner().getId().equals(user.getId())) {
+                reasons.add("group_owner:" + gName);
+            }
+            if (friendGroup.getMembers() != null && friendGroup.getMembers().stream()
+                .anyMatch(m -> m != null && m.getId() != null && m.getId().equals(user.getId()))) {
+                reasons.add("group_member:" + gName);
+            }
+            if (friendGroup.getAuthorizedUsers() != null && friendGroup.getAuthorizedUsers().stream()
+                .anyMatch(m -> m != null && m.getId() != null && m.getId().equals(user.getId()))) {
+                reasons.add("group_authorized:" + gName);
+            }
+        } else {
+            // General discussion
+            reasons.add("general");
+        }
+        
+        return reasons;
+    }
+    
+    /**
+     * Determine why a user can access a specific discussion
+     */
+    private List<String> determineAccessReasons(DiscussionItemDTO item, Member user) {
+        List<String> reasons = new java.util.ArrayList<>();
+        
+        if (item.getDiscussion() != null && item.getDiscussion().getCreatedBy() != null) {
+            if (item.getDiscussion().getCreatedBy().getId() != null && 
+                item.getDiscussion().getCreatedBy().getId().equals(user.getId())) {
+                reasons.add("creator");
+            }
+        }
+        
+        if ("general".equals(item.getType())) {
+            reasons.add("general");
+        } else if ("event".equals(item.getType()) && item.getEvent() != null) {
+            com.pat.repo.domain.Evenement event = item.getEvent();
+            
+            // Check if user is event author
+            if (event.getAuthor() != null && event.getAuthor().getId() != null 
+                && event.getAuthor().getId().equals(user.getId())) {
+                reasons.add("event_owner");
+            }
+            
+            // Check visibility
+            String visibility = event.getVisibility();
+            if (visibility == null || "public".equals(visibility)) {
+                reasons.add("public");
+            } else if ("private".equals(visibility)) {
+                // Already handled by event_owner check above
+            } else if ("friends".equals(visibility)) {
+                // Check if author is a friend
+                List<Friend> friendships = friendRepository.findByUser1OrUser2(user, user);
+                java.util.Set<String> friendIds = new java.util.HashSet<>();
+                for (Friend friendship : friendships) {
+                    if (friendship.getUser1() != null && !friendship.getUser1().getId().equals(user.getId())) {
+                        friendIds.add(friendship.getUser1().getId());
+                    }
+                    if (friendship.getUser2() != null && !friendship.getUser2().getId().equals(user.getId())) {
+                        friendIds.add(friendship.getUser2().getId());
+                    }
+                }
+                if (event.getAuthor() != null && event.getAuthor().getId() != null 
+                    && friendIds.contains(event.getAuthor().getId())) {
+                    reasons.add("friend_of_author");
+                }
+            } else if (event.getFriendGroupId() != null && !event.getFriendGroupId().trim().isEmpty()) {
+                // Check if user is in the friend group
+                java.util.Optional<com.pat.repo.domain.FriendGroup> groupOpt = friendGroupRepository.findById(event.getFriendGroupId());
+                if (groupOpt.isPresent()) {
+                    com.pat.repo.domain.FriendGroup group = groupOpt.get();
+                    String groupName = group.getName() != null ? group.getName() : "Unknown Group";
+                    if (canUserAccessFriendGroup(group, user)) {
+                        if (group.getOwner() != null && group.getOwner().getId() != null 
+                            && group.getOwner().getId().equals(user.getId())) {
+                            reasons.add("group_owner:" + groupName);
+                        } else if (group.getMembers() != null && group.getMembers().stream()
+                            .anyMatch(m -> m != null && m.getId() != null && m.getId().equals(user.getId()))) {
+                            reasons.add("group_member:" + groupName);
+                        } else if (group.getAuthorizedUsers() != null && group.getAuthorizedUsers().stream()
+                            .anyMatch(m -> m != null && m.getId() != null && m.getId().equals(user.getId()))) {
+                            reasons.add("group_authorized:" + groupName);
+                        }
+                    }
+                }
+            }
+        } else if ("friendGroup".equals(item.getType()) && item.getFriendGroup() != null) {
+            com.pat.repo.domain.FriendGroup group = item.getFriendGroup();
+            String groupName = group.getName() != null ? group.getName() : "Unknown Group";
+            
+            if (group.getOwner() != null && group.getOwner().getId() != null 
+                && group.getOwner().getId().equals(user.getId())) {
+                reasons.add("group_owner:" + groupName);
+            }
+            
+            if (group.getMembers() != null && group.getMembers().stream()
+                .anyMatch(m -> m != null && m.getId() != null && m.getId().equals(user.getId()))) {
+                reasons.add("group_member:" + groupName);
+            }
+            
+            if (group.getAuthorizedUsers() != null && group.getAuthorizedUsers().stream()
+                .anyMatch(m -> m != null && m.getId() != null && m.getId().equals(user.getId()))) {
+                reasons.add("group_authorized:" + groupName);
+            }
+        }
+        
+        return reasons;
     }
 }
 

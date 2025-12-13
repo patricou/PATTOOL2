@@ -954,5 +954,31 @@
         "GROUP_OWNER": "组所有者",
         "REMOVE": "移除",
         "ROLE": "角色"
+    },
+    "STATISTICS": {
+        "TITLE": "讨论统计",
+        "LOADING": "正在载入统计...",
+        "ERROR": "载入统计时出错",
+        "TOTAL_USERS": "总用户数",
+        "FILTER_BY_USER": "按用户过滤",
+        "ALL_USERS": "所有用户",
+        "CLEAR": "清除",
+        "USER": "用户",
+        "TOTAL_DISCUSSIONS": "总讨论数",
+        "DETAILS": "详细信息",
+        "UNKNOWN": "未知",
+        "ID": "ID",
+        "EVENT": "事件",
+        "GROUP": "组",
+        "CLOSE": "关闭",
+        "REFRESH": "刷新",
+        "CREATOR": "创建者",
+        "GENERAL_DISCUSSION": "一般讨论",
+        "EVENT_OWNER": "事件所有者",
+        "PUBLIC_EVENT": "公开事件",
+        "FRIEND_OF_AUTHOR": "作者朋友",
+        "GROUP_OWNER": "组所有者",
+        "GROUP_MEMBER": "组成员",
+        "GROUP_AUTHORIZED": "组中的授权"
     }
 }

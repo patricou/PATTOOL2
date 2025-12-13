@@ -946,6 +946,32 @@
         "GROUP_OWNER": "समूह मालिक",
         "REMOVE": "हटाएं",
         "ROLE": "भूमिका"
+    },
+    "STATISTICS": {
+        "TITLE": "चर्चा सांख्यिकी",
+        "LOADING": "सांख्यिकी लोड हो रही है...",
+        "ERROR": "सांख्यिकी लोड करने में त्रुटि",
+        "TOTAL_USERS": "कुल उपयोगकर्ता",
+        "FILTER_BY_USER": "उपयोगकर्ता द्वारा फ़िल्टर करें",
+        "ALL_USERS": "सभी उपयोगकर्ता",
+        "CLEAR": "साफ़ करें",
+        "USER": "उपयोगकर्ता",
+        "TOTAL_DISCUSSIONS": "कुल चर्चाएं",
+        "DETAILS": "विवरण",
+        "UNKNOWN": "अज्ञात",
+        "ID": "ID",
+        "EVENT": "घटना",
+        "GROUP": "समूह",
+        "CLOSE": "बंद करें",
+        "REFRESH": "रीफ़्रेश",
+        "CREATOR": "रचनाकार",
+        "GENERAL_DISCUSSION": "सामान्य चर्चा",
+        "EVENT_OWNER": "घटना मालिक",
+        "PUBLIC_EVENT": "सार्वजनिक घटना",
+        "FRIEND_OF_AUTHOR": "लेखक का मित्र",
+        "GROUP_OWNER": "समूह मालिक",
+        "GROUP_MEMBER": "समूह सदस्य",
+        "GROUP_AUTHORIZED": "समूह में अधिकृत"
     }
 }
 

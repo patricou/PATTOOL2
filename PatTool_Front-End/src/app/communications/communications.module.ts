@@ -7,6 +7,7 @@ import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { ChatComponent } from './chat/chat.component';
 import { DiscussionComponent } from './discussion/discussion.component';
 import { DiscussionModalComponent } from './discussion-modal/discussion-modal.component';
+import { DiscussionStatisticsModalComponent } from './discussion-statistics-modal/discussion-statistics-modal.component';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { DiscussionService } from '../services/discussion.service';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
@@ -31,8 +32,8 @@ export function HttpLoaderFactory(http: HttpClient) {
     NavigationButtonsModule,
     NgbModule
   ],
-  declarations: [ChatComponent, DiscussionComponent, DiscussionModalComponent],
-  exports: [ChatComponent, DiscussionComponent, DiscussionModalComponent],
+  declarations: [ChatComponent, DiscussionComponent, DiscussionModalComponent, DiscussionStatisticsModalComponent],
+  exports: [ChatComponent, DiscussionComponent, DiscussionModalComponent, DiscussionStatisticsModalComponent],
   providers: [
     DiscussionService
   ]

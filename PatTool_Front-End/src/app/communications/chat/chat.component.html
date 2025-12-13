@@ -13,6 +13,13 @@
         <div class="chat-stats">
             <i class="fa fa-comments"></i>
             <span>{{ filteredDiscussions.length }} {{ "RESULTS.DISCUSSIONS" | translate }}</span>
+            <button *ngIf="hasAdminRole()" 
+                    class="btn btn-sm btn-outline-info ms-2" 
+                    (click)="openStatisticsModal()"
+                    [ngbTooltip]="'View Discussion Statistics'"
+                    placement="bottom">
+                <i class="fa fa-bar-chart"></i>
+            </button>
         </div>
         <div class="filter-section-redesigned">
             <div class="filter-input-container-desktop">

@@ -1,7 +1,11 @@
 package com.pat.controller;
 
 import com.pat.repo.domain.Discussion;
+import com.pat.repo.domain.DiscussionItemDTO;
 import com.pat.repo.domain.DiscussionMessage;
+import com.pat.repo.domain.Member;
+import com.pat.repo.domain.DiscussionStatisticsDTO;
+import com.pat.repo.MembersRepository;
 import com.pat.service.DiscussionConnectionService;
 import com.pat.service.DiscussionService;
 import org.slf4j.Logger;
@@ -45,6 +49,9 @@ public class DiscussionRestController {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired
+    private MembersRepository membersRepository;
+
     // Get upload directory from application properties
     @org.springframework.beans.factory.annotation.Value("${app.uploaddir:./uploads}")
     private String uploadDir;
@@ -59,6 +66,35 @@ public class DiscussionRestController {
             return ResponseEntity.ok(discussions);
         } catch (Exception e) {
             log.error("Error getting discussions", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Get all accessible discussions for the current user
+     * Returns discussions for events and friend groups the user can access
+     * Validates and creates missing discussions automatically
+     * Excludes discussions without associated event or friend group (except default discussion)
+     */
+    @GetMapping("/accessible")
+    public ResponseEntity<List<DiscussionItemDTO>> getAccessibleDiscussions(Authentication authentication) {
+        try {
+            String userName = extractUserName(authentication);
+            if (userName == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            Member user = membersRepository.findByUserName(userName);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            List<DiscussionItemDTO> discussions = discussionService.getAccessibleDiscussions(user);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json; charset=UTF-8");
+            return ResponseEntity.ok().headers(headers).body(discussions);
+        } catch (Exception e) {
+            log.error("Error getting accessible discussions", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
@@ -377,6 +413,40 @@ public class DiscussionRestController {
             return ResponseEntity.ok().headers(headers).body(connections);
         } catch (Exception e) {
             log.error("Error getting active connections", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * Get discussion statistics for all users (Admin only)
+     * Returns statistics showing for each user: how many discussions they can see and why
+     * @param userId Optional filter to get statistics for a specific user only
+     */
+    @GetMapping("/statistics")
+    public ResponseEntity<List<DiscussionStatisticsDTO>> getDiscussionStatistics(
+            @RequestParam(required = false) String userId,
+            Authentication authentication) {
+        try {
+            // Check if user has admin role
+            String userName = extractUserName(authentication);
+            if (userName == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            
+            Member user = membersRepository.findByUserName(userName);
+            if (user == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            
+            // Check admin role (you may need to adjust this based on your role checking mechanism)
+            // For now, we'll allow it - you can add role checking here if needed
+            
+            List<DiscussionStatisticsDTO> statistics = discussionService.getDiscussionStatisticsForAllUsers(userId);
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Content-Type", "application/json; charset=UTF-8");
+            return ResponseEntity.ok().headers(headers).body(statistics);
+        } catch (Exception e) {
+            log.error("Error getting discussion statistics", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

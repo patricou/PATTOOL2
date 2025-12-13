@@ -952,5 +952,31 @@
         "GROUP_OWNER": "مالك المجموعة",
         "REMOVE": "إزالة",
         "ROLE": "دور"
+    },
+    "STATISTICS": {
+        "TITLE": "إحصائيات المناقشات",
+        "LOADING": "جارٍ تحميل الإحصائيات...",
+        "ERROR": "خطأ في تحميل الإحصائيات",
+        "TOTAL_USERS": "المستخدمون المجموعون",
+        "FILTER_BY_USER": "تصفية حسب المستخدم",
+        "ALL_USERS": "جميع المستخدمين",
+        "CLEAR": "مسح",
+        "USER": "مستخدم",
+        "TOTAL_DISCUSSIONS": "المناقشات المجموعة",
+        "DETAILS": "تفاصيل",
+        "UNKNOWN": "مجهول",
+        "ID": "المعرف",
+        "EVENT": "الحدث",
+        "GROUP": "المجموعة",
+        "CLOSE": "إغلاق",
+        "REFRESH": "تحديث",
+        "CREATOR": "المنشئ",
+        "GENERAL_DISCUSSION": "مناقشة عامة",
+        "EVENT_OWNER": "مالك الحدث",
+        "PUBLIC_EVENT": "حدث عام",
+        "FRIEND_OF_AUTHOR": "صديق المؤلف",
+        "GROUP_OWNER": "مالك المجموعة",
+        "GROUP_MEMBER": "عضو المجموعة",
+        "GROUP_AUTHORIZED": "مصرح في المجموعة"
     }
 }

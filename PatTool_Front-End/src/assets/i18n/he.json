@@ -947,5 +947,31 @@
         "GROUP_OWNER": "בעלים של הקבוצה",
         "REMOVE": "הסר",
         "ROLE": "תפקיד"
+    },
+    "STATISTICS": {
+        "TITLE": "סטטיסטיקת דיונים",
+        "LOADING": "טוען סטטיסטיקות...",
+        "ERROR": "שגיאה בטעינת הסטטיסטיקות",
+        "TOTAL_USERS": "סה\"כ משתמשים",
+        "FILTER_BY_USER": "סנן לפי משתמש",
+        "ALL_USERS": "כל המשתמשים",
+        "CLEAR": "נקה",
+        "USER": "משתמש",
+        "TOTAL_DISCUSSIONS": "סה\"כ דיונים",
+        "DETAILS": "פרטים",
+        "UNKNOWN": "לא ידוע",
+        "ID": "מזהה",
+        "EVENT": "אירוע",
+        "GROUP": "קבוצה",
+        "CLOSE": "סגור",
+        "REFRESH": "רענן",
+        "CREATOR": "יוצר",
+        "GENERAL_DISCUSSION": "דיון כללי",
+        "EVENT_OWNER": "בעל האירוע",
+        "PUBLIC_EVENT": "אירוע ציבורי",
+        "FRIEND_OF_AUTHOR": "חבר של המחבר",
+        "GROUP_OWNER": "בעלים של הקבוצה",
+        "GROUP_MEMBER": "חבר בקבוצה",
+        "GROUP_AUTHORIZED": "מורשה בקבוצה"
     }
 }

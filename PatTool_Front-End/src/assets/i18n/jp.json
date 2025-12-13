@@ -956,5 +956,31 @@
         "GROUP_OWNER": "グループ所有者",
         "REMOVE": "削除",
         "ROLE": "役割"
+    },
+    "STATISTICS": {
+        "TITLE": "議論統計",
+        "LOADING": "統計を読み込み中...",
+        "ERROR": "統計を読み込む際にエラーが発生しました",
+        "TOTAL_USERS": "総ユーザー数",
+        "FILTER_BY_USER": "ユーザーでフィルター",
+        "ALL_USERS": "すべてのユーザー",
+        "CLEAR": "クリア",
+        "USER": "ユーザー",
+        "TOTAL_DISCUSSIONS": "総議論数",
+        "DETAILS": "詳細",
+        "UNKNOWN": "不明",
+        "ID": "ID",
+        "EVENT": "イベント",
+        "GROUP": "グループ",
+        "CLOSE": "閉じる",
+        "REFRESH": "更新",
+        "CREATOR": "作成者",
+        "GENERAL_DISCUSSION": "一般的な議論",
+        "EVENT_OWNER": "イベント所有者",
+        "PUBLIC_EVENT": "公開イベント",
+        "FRIEND_OF_AUTHOR": "作者の友達",
+        "GROUP_OWNER": "グループ所有者",
+        "GROUP_MEMBER": "グループメンバー",
+        "GROUP_AUTHORIZED": "グループで許可された"
     }
 }
