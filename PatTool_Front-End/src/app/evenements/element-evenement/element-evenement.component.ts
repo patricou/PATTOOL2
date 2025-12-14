@@ -2736,8 +2736,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Returns dark color if background is bright, light gray if background is dark
 	public getInverseTextColor(): string {
 		const brightness = this.getColorBrightness(this.dominantR, this.dominantG, this.dominantB);
-		const isBright = brightness > 175;
+		const isBright = brightness > 150;
 		return isBright ? '#020617' : '#e8e8e8';
+	}
+	
+	// Get inverse background color (opposite of text color)
+	public getInverseBackgroundColor(): string {
+		const brightness = this.getColorBrightness(this.dominantR, this.dominantG, this.dominantB);
+		const isBright = brightness > 150;
+		return isBright ? '#e8e8e8' : '#020617';
+	}
+	
+	// Get inverse background color with 70% transparency
+	public getInverseBackgroundColorTransparent(): string {
+		const brightness = this.getColorBrightness(this.dominantR, this.dominantG, this.dominantB);
+		const isBright = brightness > 150;
+		// Return rgba with 0.3 opacity (70% transparent)
+		return isBright ? 'rgba(232, 232, 232, 0.3)' : 'rgba(2, 6, 23, 0.3)';
 	}
 	
 	// Get text color for badges - uses unified method
@@ -2798,18 +2813,43 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return this.evenement.visibility || '';
 	}
 	
-	// Get the friend group for this event (if it has a friendGroupId)
+	// Get the friend group for this event (if it has a friendGroupId or visibility matches a group name)
 	public getEventFriendGroup(): FriendGroup | undefined {
-		if (!this.evenement.friendGroupId || !this.friendGroups) {
+		if (!this.friendGroups || this.friendGroups.length === 0) {
 			return undefined;
 		}
-		return this.friendGroups.find(g => g.id === this.evenement.friendGroupId);
+		
+		// First, try to find by friendGroupId
+		if (this.evenement.friendGroupId) {
+			const groupById = this.friendGroups.find(g => g.id === this.evenement.friendGroupId);
+			if (groupById) {
+				return groupById;
+			}
+		}
+		
+		// If not found by ID, try to find by visibility (which might be the group name)
+		if (this.evenement.visibility && this.evenement.visibility !== 'public' && this.evenement.visibility !== 'private' && this.evenement.visibility !== 'friends') {
+			const groupByName = this.friendGroups.find(g => g.name === this.evenement.visibility);
+			if (groupByName) {
+				return groupByName;
+			}
+		}
+		
+		return undefined;
 	}
 	
 	// Check if the event's friend group has a WhatsApp link
 	public hasFriendGroupWhatsAppLink(): boolean {
+		if (!this.friendGroups || this.friendGroups.length === 0) {
+			return false;
+		}
+		
 		const group = this.getEventFriendGroup();
-		return !!(group && group.whatsappLink && group.whatsappLink.trim().length > 0);
+		if (!group) {
+			return false;
+		}
+		
+		return !!(group.whatsappLink && group.whatsappLink.trim().length > 0);
 	}
 	
 	// Get the WhatsApp link for the event's friend group
