@@ -109,6 +109,7 @@
         "URL_TYPE_PHOTOFROMFS": "फ़ाइल सिस्टम से फोटो",
         "URL_TYPE_VIDEO": "वीडियो",
         "URL_TYPE_WEBSITE": "वेबसाइट",
+        "URL_TYPE_WHATSAPP": "WhatsApp",
         "BASIC_INFO": "मूल जानकारी",
         "DEBUG_INFO": "डिबग जानकारी",
         "DEBUG_SHOW": "जानकारी दिखाएं",

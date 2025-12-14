@@ -111,6 +111,7 @@
         "URL_TYPE_PHOTOFROMFS": "صورة من نظام الملفات",
         "URL_TYPE_VIDEO": "فيديو",
         "URL_TYPE_WEBSITE": "موقع ويب",
+        "URL_TYPE_WHATSAPP": "WhatsApp",
         "BASIC_INFO": "المعلومات الأساسية",
         "DEBUG_INFO": "معلومات التصحيح",
         "DEBUG_SHOW": "إظهار المعلومات",

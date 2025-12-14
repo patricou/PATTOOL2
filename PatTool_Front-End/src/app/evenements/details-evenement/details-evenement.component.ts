@@ -565,7 +565,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       {id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS", aliases: ["PHOTO", "PHOTOS", "IMAGES", "PICTURES", "照片", "صور"]},
       {id: "PHOTOFROMFS", label: "EVENTHOME.URL_TYPE_PHOTOFROMFS", aliases: ["PHOTO FS", "PHOTO FROM FS", "DISK PHOTO", "FICHIER"]},
       {id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO", aliases: ["VIDEO", "VIDÉO", "YOUTUBE", "VIMEO"]},
-      {id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]}
+      {id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE", aliases: ["SITE", "WEB", "SITIO", "网站", "موقع"]},
+      {id: "WHATSAPP", label: "EVENTHOME.URL_TYPE_WHATSAPP", aliases: ["WA", "WHATS", "واتساب"]}
     ];
     
     // Search first by exact ID
@@ -591,6 +592,14 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     }
     
     return type ? type.label : normalizedType;
+  }
+
+  // Get URL event icon based on urlEvent object
+  public getUrlEventIcon(urlEvent: any): string {
+    if (!urlEvent || !urlEvent.typeUrl) {
+      return 'fa fa-external-link';
+    }
+    return this.getUrlTypeIcon(urlEvent.typeUrl);
   }
 
   // Get URL type icon
@@ -625,6 +634,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     // Check for VIDEO
     if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'YOUTUBE' || normalizedType === 'VIMEO') {
       return 'fa fa-video-camera';
+    }
+    
+    // Check for WHATSAPP
+    if (normalizedType === 'WHATSAPP' || normalizedType === 'WA') {
+      return 'fa fa-whatsapp';
     }
     
     // Default

@@ -112,6 +112,7 @@
         "URL_TYPE_PHOTOFROMFS": "Φωτογραφία από το σύστημα αρχείων",
         "URL_TYPE_VIDEO": "Βίντεο",
         "URL_TYPE_WEBSITE": "Ιστότοπος",
+        "URL_TYPE_WHATSAPP": "WhatsApp",
         "BASIC_INFO": "Βασικές πληροφορίες",
         "DEBUG_INFO": "Πληροφορίες αποσφαλμάτωσης",
         "DEBUG_SHOW": "Εμφάνιση πληροφοριών",

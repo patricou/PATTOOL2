@@ -103,6 +103,7 @@
         "URL_TYPE_PHOTOFROMFS": "Photo depuis le système de fichiers",
         "URL_TYPE_VIDEO": "Vidéo",
         "URL_TYPE_WEBSITE": "Site Web",
+        "URL_TYPE_WHATSAPP": "WhatsApp",
         "BASIC_INFO": "Informations de base",
         "REGISTRATION_DATES": "Dates d'inscription",
         "NO_LINKS_ADDED": "Aucun lien ajouté pour cet événement",

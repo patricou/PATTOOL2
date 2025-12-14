@@ -108,6 +108,7 @@
         "URL_TYPE_PHOTOFROMFS": "Photo from File System",
         "URL_TYPE_VIDEO": "Video",
         "URL_TYPE_WEBSITE": "Website",
+        "URL_TYPE_WHATSAPP": "WhatsApp",
         "BASIC_INFO": "Basic Information",
         "DEBUG_INFO": "Debug Information",
         "DEBUG_SHOW": "Show information",

@@ -51,7 +51,8 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		{id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
 		{id: "PHOTOFROMFS", label: "EVENTHOME.URL_TYPE_PHOTOFROMFS"},
 		{id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO"},
-		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"}
+		{id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"},
+		{id: "WHATSAPP", label: "EVENTHOME.URL_TYPE_WHATSAPP"}
 	];
 
 	/**
@@ -609,6 +610,53 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 	getUrlTypeLabel(typeId: string): string {
 		const type = this.urlEventTypes.find(t => t.id === typeId);
 		return type ? type.label : typeId;
+	}
+
+	// Get URL event icon based on type
+	getUrlEventIcon(urlEvent: UrlEvent): string {
+		if (!urlEvent || !urlEvent.typeUrl) {
+			return 'fa fa-external-link';
+		}
+		
+		const normalizedType = urlEvent.typeUrl.trim().toUpperCase();
+		
+		// Check for MAP
+		if (normalizedType === 'MAP' || normalizedType === 'CARTE') {
+			return 'fa fa-map';
+		}
+		
+		// Check for WEBSITE
+		if (normalizedType === 'WEBSITE' || normalizedType === 'SITE' || normalizedType === 'WEB') {
+			return 'fa fa-globe';
+		}
+		
+		// Check for DOCUMENTATION
+		if (normalizedType === 'DOCUMENTATION' || normalizedType === 'DOC') {
+			return 'fa fa-file-alt';
+		}
+		
+		// Check for PHOTOS
+		if (normalizedType === 'PHOTOS' || normalizedType === 'PHOTO') {
+			return 'fa fa-images';
+		}
+		
+		// Check for PHOTOFROMFS
+		if (normalizedType === 'PHOTOFROMFS') {
+			return 'fa fa-image';
+		}
+		
+		// Check for VIDEO
+		if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'YOUTUBE' || normalizedType === 'VIMEO') {
+			return 'fa fa-video-camera';
+		}
+		
+		// Check for WHATSAPP
+		if (normalizedType === 'WHATSAPP' || normalizedType === 'WA') {
+			return 'fa fa-whatsapp';
+		}
+		
+		// Default
+		return 'fa fa-external-link';
 	}
 
 	// Method to group URL Events by typeUrl

@@ -357,7 +357,7 @@
                         <i class="fa fa-exclamation-triangle"></i> {{"COMMUN.STATUSCANCEL" | translate }}
                     </span>
                 </div>
-                <div class="status-badge" [ngSwitch]="evenement.visibility">
+                <div class="status-badge d-inline-flex align-items-center" [ngSwitch]="evenement.visibility">
                     <span *ngSwitchCase="'public'" class="badge bg-success">
                         {{"EVENTCREATION.PUBLIC" | translate }}
                     </span>
@@ -370,6 +370,16 @@
                     <span *ngSwitchDefault class="badge bg-secondary">
                         {{getVisibilityDisplayText(evenement)}}
                     </span>
+                    <!-- WhatsApp button for friend groups with WhatsApp link -->
+                    <button *ngIf="evenement.friendGroupId && hasFriendGroupWhatsAppLink(evenement)"
+                            type="button"
+                            class="btn btn-sm btn-success ms-2"
+                            (click)="openFriendGroupWhatsAppLink(evenement); $event.stopPropagation()"
+                            ngbTooltip="{{ 'FRIENDS.OPEN_WHATSAPP' | translate }}"
+                            placement="top"
+                            style="padding: 0.25rem 0.5rem; line-height: 1;">
+                        <i class="fa fa-whatsapp"></i>
+                    </button>
                 </div>
             </div>
             <div class="compact-content">
@@ -644,7 +654,7 @@
                                         <div class="url-event-link">
                                             <a [href]="urlEvent.link" target="_blank"
                                                 class="btn btn-outline-primary btn-sm">
-                                                <i class="fa fa-external-link"></i> {{ urlEvent.link }}
+                                                <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i> {{ urlEvent.link }}
                                             </a>
                                         </div>
                                         <div class="url-event-description flex-grow-1" *ngIf="urlEvent.urlDescription">

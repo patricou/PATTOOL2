@@ -360,7 +360,7 @@
                                                        [href]="urlEvent.link" 
                                                        target="_blank" 
                                                        class="btn btn-outline-primary btn-sm url-link-button">
-                                                        <i class="fa fa-external-link"></i> {{ urlEvent.link }}
+                                                        <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i> {{ urlEvent.link }}
                                                     </a>
                                                 </div>
                                                 <div class="url-event-description" *ngIf="urlEvent.urlDescription">

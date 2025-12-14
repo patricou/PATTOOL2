@@ -17,21 +17,21 @@
         <div *ngIf="isCardSlideshowActive" class="card-slideshow-display">
             <!-- Photo counter in bottom left -->
             <div class="card-slideshow-counter"
-                 [style.color]="titleBorderColor"
+                 [style.color]="getInverseTextColor()"
                  [style.background-color]="titleBackgroundColor">
                 {{ currentCardSlideIndex + 1 }} / {{ cardSlideImages.length }}
             </div>
             
             <!-- Image name in bottom center -->
             <div class="card-slideshow-filename"
-                 [style.color]="titleBorderColor"
+                 [style.color]="getInverseTextColor()"
                  [style.background-color]="titleBackgroundColor">
                 {{ getCurrentCardSlideFileName() }}
             </div>
             
             <!-- RGB values in bottom right -->
             <div class="card-slideshow-rgb"
-                 [style.color]="titleBorderColor"
+                 [style.color]="getInverseTextColor()"
                  [style.background-color]="titleBackgroundColor">
                 {{ calculatedRgbValues }}
             </div>
@@ -47,31 +47,31 @@
             <!-- Pause/Play toggle button - visible when playing -->
             <button *ngIf="!cardSlideshowPaused" 
                     class="btn btn-sm btn-outline-light card-slideshow-control-btn"
-                    [style.border-color]="titleBorderColor"
+                    [style.border-color]="getInverseTextColor()"
                     (click)="toggleCardSlideshowPause(); $event.stopPropagation()">
-                <i class="fa fa-pause"></i>
+                <i class="fa fa-pause" [style.color]="getInverseTextColor()"></i>
             </button>
             
             <!-- Play button in center when paused -->
             <button *ngIf="cardSlideshowPaused" 
                     class="btn btn-sm btn-outline-light card-slideshow-control-btn"
-                    [style.border-color]="titleBorderColor"
+                    [style.border-color]="getInverseTextColor()"
                     (click)="toggleCardSlideshowPause(); $event.stopPropagation()">
-                <i class="fa fa-play"></i>
+                <i class="fa fa-play" [style.color]="getInverseTextColor()"></i>
             </button>
             
             <!-- Prev button on the left - always visible -->
             <button class="btn btn-sm btn-outline-light card-nav-btn card-nav-left"
-                    [style.border-color]="titleBorderColor"
+                    [style.border-color]="getInverseTextColor()"
                     (click)="previousCardSlide(); $event.stopPropagation()">
-                <i class="fa fa-chevron-left"></i>
+                <i class="fa fa-chevron-left" [style.color]="getInverseTextColor()"></i>
             </button>
             
             <!-- Next button on the right - always visible -->
             <button class="btn btn-sm btn-outline-light card-nav-btn card-nav-right"
-                    [style.border-color]="titleBorderColor"
+                    [style.border-color]="getInverseTextColor()"
                     (click)="nextCardSlide(); $event.stopPropagation()">
-                <i class="fa fa-chevron-right"></i>
+                <i class="fa fa-chevron-right" [style.color]="getInverseTextColor()"></i>
             </button>
         </div>
         
@@ -79,23 +79,23 @@
         <div class="card-img-overlay">
             <h4 class="card-title text-center pat-card" 
                 [style.background-color]="'transparent'"
-                [style.color]="titleBorderColor">
+                [style.color]="getInverseTextColor()">
                 <b>{{evenement.evenementName}}</b>
             </h4>
             <!-- Play button in title to start slideshow -->
             <button *ngIf="hasImageFiles() && !isCardSlideshowActive" 
                     class="btn btn-sm btn-outline-light play-in-title-btn"
-                    [style.border-color]="titleBorderColor"
+                    [style.border-color]="getInverseTextColor()"
                     (click)="startCardSlideshow(); $event.stopPropagation()">
-                <i class="fa fa-play"></i>
+                <i class="fa fa-play" [style.color]="getInverseTextColor()"></i>
             </button>
         </div>
     </div>
-<div class="card-block pat-card-block" [style.color]="titleBorderColor">
+<div class="card-block pat-card-block" [style.color]="getInverseTextColor()">
     <div class="alert alert-warning small pat-alert text-center"
          [style.background-color]="descriptionBackgroundColor"
-         [style.color]="titleBorderColor"
-         [style.border-color]="titleBorderColor">
+         [style.color]="getInverseTextColor()"
+         [style.border-color]="getInverseTextColor()">
         {{evenement.comments}}
     </div>
     <div class="text-center mt-2" *ngIf="!titleOnly">
@@ -103,64 +103,106 @@
               (click)="addRateMinus()" 
               placement="left"
               [style.background-color]="getRatingBadgeGradient()"
-              [style.border-color]="'white'"
-              [style.color]="'white'"
+              [style.border-color]="getInverseTextColor()"
+              [style.color]="getInverseTextColor()"
               ngbTooltip="{{ 'COMMUN.IDONTLIKE' | translate }}"
               (mouseleave)="onTooltipMouseLeave($event)"> {{evenement.ratingMinus || 0}}</span>
-        <ngb-rating [(rate)]="currentRate">
+        <ngb-rating [(rate)]="currentRate" [style.color]="getInverseTextColor()">
         </ngb-rating>
         <span class="badge rounded-pill rating-badge" 
               (click)="addRatePlus()" 
               placement="right"
               [style.background-color]="getRatingBadgeGradient()"
-              [style.border-color]="'white'"
-              [style.color]="'white'"
+              [style.border-color]="getInverseTextColor()"
+              [style.color]="getInverseTextColor()"
               ngbTooltip="{{ 'COMMUN.ILIKE' | translate }}"
               (mouseleave)="onTooltipMouseLeave($event)">{{evenement.ratingPlus || 0}}</span>
     </div>
-    <div class="card-text text-center" [ngSwitch]="evenement.status" *ngIf="!titleOnly">
+    <div class="card-text text-center" [ngSwitch]="evenement.status" *ngIf="!titleOnly" style="margin-top: 0.5rem;">
         <!--{{"EVENTELEM.STATUS" | translate }} :-->
         <b>
             <span *ngSwitchCase="'Closed'" 
                   class="badge status-badge me-2"
                   [style.background-color]="getStatusBadgeGradient()"
-                  [style.border-color]="'white'"
-                  [style.color]="'white'">{{"COMMUN.STATUSCLOSE" | translate }}</span>
+                  [style.border-color]="getInverseTextColor()"
+                  [style.color]="getInverseTextColor()"
+                  [style.border-width]="'2px'"
+                  [style.border-style]="'solid'"
+                  [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
+                  [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{"COMMUN.STATUSCLOSE" | translate }}</span>
             <span *ngSwitchCase="'Open'" 
                   class="badge status-badge me-2"
                   [style.background-color]="getStatusBadgeGradient()"
-                  [style.border-color]="'white'"
-                  [style.color]="'white'">{{"COMMUN.STATUSOPEN" | translate }}</span>
+                  [style.border-color]="getInverseTextColor()"
+                  [style.color]="getInverseTextColor()"
+                  [style.border-width]="'2px'"
+                  [style.border-style]="'solid'"
+                  [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
+                  [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{"COMMUN.STATUSOPEN" | translate }}</span>
             <span *ngSwitchCase="'Cancel'" 
                   class="badge status-badge me-2"
                   [style.background-color]="getStatusBadgeGradient()"
-                  [style.border-color]="'white'"
-                  [style.color]="'white'">{{"COMMUN.STATUSCANCEL" | translate }}</span>
-            <span [ngSwitch]="evenement.visibility">
-                <span *ngSwitchCase="'public'" 
-                      class="badge visibility-badge"
-                      [style.background-color]="getVisibilityBadgeGradient()"
-                      [style.border-color]="'white'"
-                      [style.color]="'white'">{{"EVENTCREATION.PUBLIC" | translate }}</span>
-                <span *ngSwitchCase="'private'" 
-                      class="badge visibility-badge"
-                      [style.background-color]="getVisibilityBadgeGradient()"
-                      [style.border-color]="'white'"
-                      [style.color]="'white'">{{"EVENTCREATION.PRIVATE" | translate }}</span>
-                <span *ngSwitchCase="'friends'" 
-                      class="badge visibility-badge"
-                      [style.background-color]="getVisibilityBadgeGradient()"
-                      [style.border-color]="'white'"
-                      [style.color]="'white'">{{"EVENTCREATION.FRIENDS" | translate }}</span>
-                <span *ngSwitchDefault 
-                      class="badge visibility-badge"
-                      [style.background-color]="getVisibilityBadgeGradient()"
-                      [style.border-color]="'white'"
-                      [style.color]="'white'">{{getVisibilityDisplayText()}}</span>
+                  [style.border-color]="getInverseTextColor()"
+                  [style.color]="getInverseTextColor()"
+                  [style.border-width]="'2px'"
+                  [style.border-style]="'solid'"
+                  [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
+                  [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{"COMMUN.STATUSCANCEL" | translate }}</span>
+            <span class="d-inline-flex align-items-center">
+                <span [ngSwitch]="evenement.visibility">
+                    <span *ngSwitchCase="'public'" 
+                          class="badge visibility-badge"
+                          [style.background-color]="getVisibilityBadgeGradient()"
+                          [style.border-color]="getInverseTextColor()"
+                          [style.color]="getInverseTextColor()"
+                          [style.border-width]="'2px'"
+                          [style.border-style]="'solid'"
+                          [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
+                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{"EVENTCREATION.PUBLIC" | translate }}</span>
+                    <span *ngSwitchCase="'private'" 
+                          class="badge visibility-badge"
+                          [style.background-color]="getVisibilityBadgeGradient()"
+                          [style.border-color]="getInverseTextColor()"
+                          [style.color]="getInverseTextColor()"
+                          [style.border-width]="'2px'"
+                          [style.border-style]="'solid'"
+                          [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
+                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{"EVENTCREATION.PRIVATE" | translate }}</span>
+                    <span *ngSwitchCase="'friends'" 
+                          class="badge visibility-badge"
+                          [style.background-color]="getVisibilityBadgeGradient()"
+                          [style.border-color]="getInverseTextColor()"
+                          [style.color]="getInverseTextColor()"
+                          [style.border-width]="'2px'"
+                          [style.border-style]="'solid'"
+                          [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
+                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{"EVENTCREATION.FRIENDS" | translate }}</span>
+                    <span *ngSwitchDefault 
+                          class="badge visibility-badge"
+                          [style.background-color]="getVisibilityBadgeGradient()"
+                          [style.border-color]="getInverseTextColor()"
+                          [style.color]="getInverseTextColor()"
+                          [style.border-width]="'2px'"
+                          [style.border-style]="'solid'"
+                          [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
+                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{getVisibilityDisplayText()}}</span>
+                </span>
+                <!-- WhatsApp button for friend groups with WhatsApp link -->
+                <button *ngIf="evenement.friendGroupId && hasFriendGroupWhatsAppLink()"
+                        type="button"
+                        class="btn btn-sm ms-2 dynamic-footer-btn"
+                        [ngStyle]="getWhatsAppButtonStyles()"
+                        (click)="openFriendGroupWhatsAppLink(); $event.stopPropagation()"
+                        ngbTooltip="{{ 'FRIENDS.OPEN_WHATSAPP' | translate }}"
+                        placement="top"
+                        (mouseleave)="onTooltipMouseLeave($event)"
+                        style="padding: 0.25rem 0.5rem; line-height: 1;">
+                    <i class="fa fa-whatsapp"></i>
+                </button>
             </span>
         </b>
     </div>
-    <small class="mb-2 proprietaire-line text-center" [style.color]="titleBorderColor" *ngIf="!titleOnly">
+    <small class="mb-2 proprietaire-line text-center" [style.color]="getInverseTextColor()" *ngIf="!titleOnly">
         <i>{{ "EVENTELEM.OWNER_LABEL" | translate }} : {{ evenement.author.firstName }} {{ evenement.author.lastName }} / {{ evenement.author.userName }}</i>
     </small>
     <div class="card-info-box" [style.background-color]="getSolidColor(0.22)" [style.border-color]="getSolidColor(0.35)" *ngIf="!titleOnly">
@@ -236,7 +278,7 @@
                 </span>
             </div>
             <ng-template #noParticipantsTemplate>
-                <div class="text-muted text-center py-2" [style.color]="titleBorderColor">
+                <div class="text-muted text-center py-2" [style.color]="getInverseTextColor()">
                     <i class="fa fa-users"></i> Aucun participant pour le moment
                 </div>
             </ng-template>
@@ -245,7 +287,7 @@
 </div>
 
 <ng-container *ngIf="!titleOnly">
-<div class="card-footer card-text text-center" [style.color]="titleBorderColor">
+<div class="card-footer card-text text-center" [style.color]="getInverseTextColor()">
     <button class="btn btn-sm btn-outline-success mb-1 me-1 dynamic-footer-btn" 
             [hidden]="!(hasImageFiles() || getPhotoFromFsCount() > 0)" 
             [ngStyle]="getFooterButtonStyles('photos')"
@@ -360,7 +402,7 @@
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
 
 </div>
-<div class="text-center mt-1 mb-1" *ngIf="!titleOnly && getCurrentCardLoadTime() > 0" [style.color]="titleBorderColor">
+<div class="text-center mt-1 mb-1" *ngIf="!titleOnly && getCurrentCardLoadTime() > 0" [style.color]="getInverseTextColor()">
     <small style="opacity: 0.7; font-size: 0.7rem;">
         <i class="fa fa-clock-o me-1"></i>Load time: {{ formatTimeForCard(getCurrentCardLoadTime()) }}
     </small>
@@ -467,7 +509,7 @@
                                                target="_blank"
                                                class="btn btn-outline-primary btn-sm"
                                                [title]="urlEvent.link">
-                                                <i class="fa fa-external-link"></i> {{ getTruncatedUrl(urlEvent.link) }}
+                                                <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i> {{ getTruncatedUrl(urlEvent.link) }}
                                             </a>
                                         </div>
                                         <div class="url-event-description flex-grow-1" *ngIf="urlEvent.urlDescription">
@@ -558,8 +600,8 @@
                         <span class="badge"
                               [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)"
                               [style.background-color]="getFileBadgeColor(uploadedFile.fileName)"
-                              [style.border-color]="'white'"
-                              [style.color]="getFileBadgeTextColor(uploadedFile.fileName)"
+                              [style.border-color]="getInverseTextColor()"
+                              [style.color]="getInverseTextColor()"
                               [title]="uploadedFile.fileName"
                               ngbTooltip="{{uploadedFile.fileName}}" 
                               placement="top"
@@ -568,7 +610,7 @@
                               [style.cursor]="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
                             {{getTruncatedFileName(uploadedFile.fileName)}}
                         </span>
-                        <small class="text-muted ms-2 clickable-user" [style.color]="titleBorderColor" 
+                        <small class="text-muted ms-2 clickable-user" [style.color]="getInverseTextColor()" 
                                (click)="openUserModal(uploadedFile.uploaderMember)"
                                title="Cliquer pour voir les détails de l'utilisateur">
                             {{uploadedFile.uploaderMember.userName}}
@@ -581,8 +623,8 @@
                                 ngbTooltip="{{ 'EVENTELEM.SET_AS_CARD_IMAGE' | translate }}"
                                 (click)="setFileAsThumbnail(uploadedFile)"
                                 [style.background-color]="getFileActionButtonGradient()"
-                                [style.border-color]="'white'"
-                                [style.color]="'white'"
+                                [style.border-color]="getInverseTextColor()"
+                                [style.color]="getInverseTextColor()"
                                 (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-star" aria-hidden="true"></i>
                         </button>
@@ -591,8 +633,8 @@
                                 ngbTooltip="{{ 'EVENTELEM.VIEW_TRACK' | translate }}"
                                 (click)="openTrackFile(uploadedFile)"
                                 [style.background-color]="getFileActionButtonGradient()"
-                                [style.border-color]="'white'"
-                                [style.color]="'white'"
+                                [style.border-color]="getInverseTextColor()"
+                                [style.color]="getInverseTextColor()"
                                 (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-eye" aria-hidden="true"></i>
                         </button>
@@ -601,8 +643,8 @@
                                 ngbTooltip="{{ 'EVENTELEM.CLICK_TO_VIEW_VIDEO' | translate }}"
                                 (click)="openSingleVideoInVideoshow(uploadedFile.fieldId, uploadedFile.fileName)"
                                 [style.background-color]="getFileActionButtonGradient()"
-                                [style.border-color]="'white'"
-                                [style.color]="'white'"
+                                [style.border-color]="getInverseTextColor()"
+                                [style.color]="getInverseTextColor()"
                                 (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-video-camera" aria-hidden="true"></i>
                         </button>
@@ -611,8 +653,8 @@
                                 ngbTooltip="{{ 'EVENTELEM.CLICK_TO_OPEN_PDF' | translate }}"
                                 (click)="openPdfFile(uploadedFile.fieldId, uploadedFile.fileName)"
                                 [style.background-color]="getFileActionButtonGradient()"
-                                [style.border-color]="'white'"
-                                [style.color]="'white'"
+                                [style.border-color]="getInverseTextColor()"
+                                [style.color]="getInverseTextColor()"
                                 (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-eye" aria-hidden="true"></i>
                         </button>
@@ -620,8 +662,8 @@
                             ngbTooltip="{{ 'COMMUN.DOWNLOAD' | translate }}"
                             (click)="openWindows(uploadedFile.fieldId, uploadedFile.fileName)"
                             [style.background-color]="getFileActionButtonGradient()"
-                            [style.border-color]="'white'"
-                            [style.color]="'white'"
+                            [style.border-color]="getInverseTextColor()"
+                            [style.color]="getInverseTextColor()"
                             (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-files-o" aria-hidden="true"></i>
                         </button>
@@ -630,8 +672,8 @@
                             [disabled]="!isFileOwner(uploadedFile.uploaderMember)"
                             (click)="delFile(uploadedFile.fieldId)"
                             [style.background-color]="getFileActionButtonGradient()"
-                            [style.border-color]="'white'"
-                            [style.color]="'white'"
+                            [style.border-color]="getInverseTextColor()"
+                            [style.color]="getInverseTextColor()"
                             (mouseleave)="onTooltipMouseLeave($event)">
                             <i class="fa fa-trash" aria-hidden="true"></i>
                         </button>
@@ -654,8 +696,8 @@
                 *ngIf="evenement.fileUploadeds && evenement.fileUploadeds.length > 0"
                 (click)="downloadAllFiles()"
                 [style.background-color]="getDownloadAllButtonGradient()"
-                [style.border-color]="'white'"
-                [style.color]="'white'">
+                [style.border-color]="getInverseTextColor()"
+                [style.color]="getInverseTextColor()">
             <i class="fa fa-download"></i> {{ 'COMMUN.DOWNLOAD_ALL' | translate }}
         </button>
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">
@@ -971,8 +1013,8 @@
                  [class.selected]="evenement.visibility === option.value"
                  [style.cursor]="'pointer'"
                  [style.background-color]="evenement.visibility === option.value ? getVisibilityBadgeGradient() : 'transparent'"
-                 [style.border-color]="evenement.visibility === option.value ? 'white' : '#dee2e6'"
-                 [style.color]="evenement.visibility === option.value ? 'white' : 'inherit'"
+                 [style.border-color]="evenement.visibility === option.value ? getInverseTextColor() : '#dee2e6'"
+                 [style.color]="evenement.visibility === option.value ? getInverseTextColor() : 'inherit'"
                  (click)="onVisibilitySelected(option); c('Selected')">
                 <i class="fa me-2" 
                    [class.fa-check-circle]="evenement.visibility === option.value"
@@ -1005,8 +1047,8 @@
                  [class.selected]="evenement.type === type.value"
                  [style.cursor]="'pointer'"
                  [style.background-color]="evenement.type === type.value ? getStatusBadgeGradient() : 'transparent'"
-                 [style.border-color]="evenement.type === type.value ? 'white' : '#dee2e6'"
-                 [style.color]="evenement.type === type.value ? 'white' : 'inherit'"
+                 [style.border-color]="evenement.type === type.value ? getInverseTextColor() : '#dee2e6'"
+                 [style.color]="evenement.type === type.value ? getInverseTextColor() : 'inherit'"
                  [style.font-size]="'0.875rem'"
                  (click)="onTypeSelected(type); c('Selected')">
                 <i class="fa me-2" 

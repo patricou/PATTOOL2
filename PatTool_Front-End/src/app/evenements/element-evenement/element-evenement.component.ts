@@ -1843,7 +1843,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			
 			// Reset to default color if no thumbnail found and no cached version available
 			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
-			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
+			// Use unified inverse text color for default (medium brightness = bright, so dark text)
+			this.titleBorderColor = 'rgba(2, 6, 23, 0.95)';
 			this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
 			this.calculatedRgbValues = 'RGB(255, 255, 255)';
 			this.dominantR = 128;
@@ -2227,24 +2228,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				bgAlpha
 			);
 
-			// Start with white or black as base, then tint with the average color
-			// Mix 82% base color (white/black) with 18% average color for a subtle tint
-			let tintR: number, tintG: number, tintB: number;
-			
-			if (brightness < 128) {
-				// Dark image: use white as base, tinted with average color
-				tintR = Math.floor(255 * 0.82 + r * 0.18);
-				tintG = Math.floor(255 * 0.82 + g * 0.18);
-				tintB = Math.floor(255 * 0.82 + b * 0.18);
+			// Use unified inverse text color logic based on dominant color brightness
+			const dominantBrightness = this.getColorBrightness(this.dominantR, this.dominantG, this.dominantB);
+			const isBright = dominantBrightness > 175;
+			if (isBright) {
+				// Dark text for bright background: #020617 -> rgba(2, 6, 23, 0.95)
+				this.titleBorderColor = 'rgba(2, 6, 23, 0.95)';
 			} else {
-				// Light image: use black as base, tinted with average color
-				tintR = Math.floor(0 * 0.82 + r * 0.18);
-				tintG = Math.floor(0 * 0.82 + g * 0.18);
-				tintB = Math.floor(0 * 0.82 + b * 0.18);
+				// Light gray text for dark background: #e8e8e8 -> rgba(232, 232, 232, 0.95)
+				this.titleBorderColor = 'rgba(232, 232, 232, 0.95)';
 			}
-			
-			// Use the lightly tinted color for border and text
-			this.titleBorderColor = `rgba(${tintR}, ${tintG}, ${tintB}, 0.95)`;
 		}
 		
 		this.invalidateColorCaches();
@@ -2256,7 +2249,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private setDefaultColors(): void {
 		this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
 		this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
-		this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
+		// Use unified inverse text color for default (medium brightness = bright, so dark text)
+		this.titleBorderColor = 'rgba(2, 6, 23, 0.95)';
 		this.dominantR = 128;
 		this.dominantG = 128;
 		this.dominantB = 128;
@@ -2532,8 +2526,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			const brightness = this.getColorBrightness(this.dominantR, this.dominantG, this.dominantB);
 			const isBright = brightness > 175;
 
-			const textColor = isBright ? '#020617' : '#fdfcff';
-			const borderColor = this.buildAdjustedColor(isBright ? -145 : 140, 0.97);
+			const textColor = this.getInverseTextColor();
+			const borderColor = this.getInverseTextColor();
 			const hoverBrightness = isBright ? 0.82 : 1.24;
 			const activeBrightness = isBright ? 0.78 : 1.32;
 			const shadowColor = isBright ? 'rgba(15, 23, 42, 0.32)' : 'rgba(15, 23, 42, 0.42)';
@@ -2675,15 +2669,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	public getFileBadgeTextColor(fileName: string): string {
-		const cacheKey = fileName || '';
-		let cached = this.fileBadgeTextColorCache.get(cacheKey);
-		if (!cached) {
-			const { r, g, b } = this.getFileBadgeColorComponents(fileName);
-			const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
-			cached = brightness > 160 ? 'rgba(0, 0, 0, 0.85)' : 'white';
-			this.fileBadgeTextColorCache.set(cacheKey, cached);
-		}
-		return cached;
+		// Use unified method based on dominant color
+		return this.getInverseTextColor();
 	}
 
 	public getParticipantButtonStyles(isRemove: boolean): { [key: string]: string } {
@@ -2703,15 +2690,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	private getParticipantButtonBorder(isRemove: boolean): string {
-		const delta = isRemove ? -40 : 75;
-		const { r, g, b } = this.getAdjustedDominantColor(delta);
-		return this.buildColorString(r, g, b, 1);
+		// Use unified method based on dominant color
+		return this.getInverseTextColor();
 	}
 
 	private getParticipantButtonTextColor(isRemove: boolean): string {
-		const delta = isRemove ? -70 : 55;
-		const { r, g, b } = this.getAdjustedDominantColor(delta);
-		return this.getColorBrightness(r, g, b) > 160 ? 'rgba(0, 0, 0, 0.85)' : 'white';
+		// Use unified method based on dominant color
+		return this.getInverseTextColor();
 	}
 
 	public getParticipantBadgeStyles(): { [key: string]: string } {
@@ -2730,13 +2715,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	private getParticipantBadgeBorderColor(): string {
-		const { r, g, b } = this.getAdjustedDominantColor(55);
-		return this.buildColorString(r, g, b, 1);
+		// Use unified method based on dominant color
+		return this.getInverseTextColor();
 	}
 
 	private getParticipantBadgeTextColor(): string {
-		const { r, g, b } = this.getAdjustedDominantColor(35);
-		return this.getColorBrightness(r, g, b) > 160 ? 'rgba(0, 0, 0, 0.85)' : 'white';
+		// Use unified method based on dominant color
+		return this.getInverseTextColor();
 	}
 
 	// Get gradient for visibility badges - based on calculated color
@@ -2745,6 +2730,59 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.visibilityBadgeGradientCache = this.getButtonGradientForType('visibility', this.dominantR, this.dominantG, this.dominantB);
 		}
 		return this.visibilityBadgeGradientCache;
+	}
+	
+	// Single unified method to get inverse text color based on dominant color brightness
+	// Returns dark color if background is bright, light gray if background is dark
+	public getInverseTextColor(): string {
+		const brightness = this.getColorBrightness(this.dominantR, this.dominantG, this.dominantB);
+		const isBright = brightness > 175;
+		return isBright ? '#020617' : '#e8e8e8';
+	}
+	
+	// Get text color for badges - uses unified method
+	public getBadgeTextColor(): string {
+		return this.getInverseTextColor();
+	}
+	
+	// Get text color for status badges
+	public getStatusBadgeTextColor(): string {
+		return this.getInverseTextColor();
+	}
+	
+	// Get text color for visibility badges
+	public getVisibilityBadgeTextColor(): string {
+		return this.getInverseTextColor();
+	}
+	
+	// Get text color for rating badges
+	public getRatingBadgeTextColor(): string {
+		return this.getInverseTextColor();
+	}
+	
+	// Get styles for WhatsApp button - matching footer buttons styling
+	public getWhatsAppButtonStyles(): { [key: string]: string } {
+		const baseColor = this.getVisibilityBadgeGradient();
+		const brightness = this.getColorBrightness(this.dominantR, this.dominantG, this.dominantB);
+		const isBright = brightness > 175;
+		
+		const textColor = this.getInverseTextColor();
+		const borderColor = this.getInverseTextColor();
+		const hoverBrightness = isBright ? 0.82 : 1.24;
+		const activeBrightness = isBright ? 0.78 : 1.32;
+		const shadowColor = isBright ? 'rgba(15, 23, 42, 0.32)' : 'rgba(15, 23, 42, 0.42)';
+		
+		return {
+			'background-color': baseColor,
+			'color': textColor,
+			'border-color': borderColor,
+			'--btn-bg': baseColor,
+			'--btn-color': textColor,
+			'--btn-border-color': borderColor,
+			'--btn-hover-brightness': hoverBrightness.toString(),
+			'--btn-active-brightness': activeBrightness.toString(),
+			'--btn-shadow-color': shadowColor
+		};
 	}
 
 	// Get visibility display text (for friend groups, shows the group name)
@@ -2758,6 +2796,34 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 		// Fallback to visibility value
 		return this.evenement.visibility || '';
+	}
+	
+	// Get the friend group for this event (if it has a friendGroupId)
+	public getEventFriendGroup(): FriendGroup | undefined {
+		if (!this.evenement.friendGroupId || !this.friendGroups) {
+			return undefined;
+		}
+		return this.friendGroups.find(g => g.id === this.evenement.friendGroupId);
+	}
+	
+	// Check if the event's friend group has a WhatsApp link
+	public hasFriendGroupWhatsAppLink(): boolean {
+		const group = this.getEventFriendGroup();
+		return !!(group && group.whatsappLink && group.whatsappLink.trim().length > 0);
+	}
+	
+	// Get the WhatsApp link for the event's friend group
+	public getFriendGroupWhatsAppLink(): string | undefined {
+		const group = this.getEventFriendGroup();
+		return group?.whatsappLink;
+	}
+	
+	// Open WhatsApp link for the friend group
+	public openFriendGroupWhatsAppLink(): void {
+		const whatsappLink = this.getFriendGroupWhatsAppLink();
+		if (whatsappLink) {
+			window.open(whatsappLink, '_blank');
+		}
 	}
 	
 	// Get gradient for download all button - based on calculated color
@@ -3805,7 +3871,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.thumbnailUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
 			// Reset to default color
 			this.titleBackgroundColor = 'rgba(255, 255, 255, 0.6)';
-			this.titleBorderColor = 'rgba(0, 0, 0, 0.8)';
+			// Use unified inverse text color for default (medium brightness = bright, so dark text)
+			this.titleBorderColor = 'rgba(2, 6, 23, 0.95)';
 			this.descriptionBackgroundColor = 'rgba(255, 255, 255, 1)';
 			this.calculatedRgbValues = 'RGB(255, 255, 255)';
 			// Try to detect color from default image
@@ -3855,6 +3922,53 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 		
 		return type ? type.label : normalizedType;
+	}
+
+	// Get URL event icon based on type
+	public getUrlEventIcon(urlEvent: any): string {
+		if (!urlEvent || !urlEvent.typeUrl) {
+			return 'fa fa-external-link';
+		}
+		
+		const normalizedType = urlEvent.typeUrl.trim().toUpperCase();
+		
+		// Check for MAP
+		if (normalizedType === 'MAP' || normalizedType === 'CARTE') {
+			return 'fa fa-map';
+		}
+		
+		// Check for WEBSITE
+		if (normalizedType === 'WEBSITE' || normalizedType === 'SITE' || normalizedType === 'WEB') {
+			return 'fa fa-globe';
+		}
+		
+		// Check for DOCUMENTATION
+		if (normalizedType === 'DOCUMENTATION' || normalizedType === 'DOC') {
+			return 'fa fa-file-alt';
+		}
+		
+		// Check for PHOTOS
+		if (normalizedType === 'PHOTOS' || normalizedType === 'PHOTO') {
+			return 'fa fa-images';
+		}
+		
+		// Check for PHOTOFROMFS
+		if (normalizedType === 'PHOTOFROMFS') {
+			return 'fa fa-image';
+		}
+		
+		// Check for VIDEO
+		if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'YOUTUBE' || normalizedType === 'VIMEO') {
+			return 'fa fa-video-camera';
+		}
+		
+		// Check for WHATSAPP
+		if (normalizedType === 'WHATSAPP' || normalizedType === 'WA') {
+			return 'fa fa-whatsapp';
+		}
+		
+		// Default
+		return 'fa fa-external-link';
 	}
 
 	// Group URLs by type for better display

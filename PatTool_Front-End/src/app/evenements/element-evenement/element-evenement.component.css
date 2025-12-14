@@ -222,17 +222,7 @@
     align-self: flex-end !important;
 }
 
-/* White border for all footer buttons */
-.card-footer .btn,
-.card-footer a.btn,
-.card-footer button.btn,
-.card-footer a.btn-sm,
-.card-footer button.btn-sm,
-.card-footer .file-upload-wrapper label.btn {
-    border: 1px solid white !important;
-    border-width: 1px !important;
-    border-color: white !important;
-}
+/* Border colors are now dynamically set via inline styles using getInverseTextColor() */
 
 .card-footer .btn,
 .card-footer a.btn,
@@ -303,23 +293,28 @@
 }
 
 /* Boutons du footer avec styles simplifiés */
-.card-footer .dynamic-footer-btn {
+.card-footer .dynamic-footer-btn,
+.dynamic-footer-btn {
     background-color: var(--btn-bg, inherit) !important;
     color: var(--btn-color, inherit) !important;
     border-color: var(--btn-border-color, currentColor) !important;
     filter: brightness(1);
     box-shadow: none !important;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.2s ease !important;
 }
 
 .card-footer .dynamic-footer-btn:hover,
-.card-footer .dynamic-footer-btn:focus {
+.card-footer .dynamic-footer-btn:focus,
+.dynamic-footer-btn:hover,
+.dynamic-footer-btn:focus {
     filter: brightness(var(--btn-hover-brightness, 0.9));
     transform: translateY(-2px) scale(1.02);
     box-shadow:
         0 5px 16px var(--btn-shadow-color, rgba(15, 23, 42, 0.28)) !important;
 }
 
-.card-footer .dynamic-footer-btn:active {
+.card-footer .dynamic-footer-btn:active,
+.dynamic-footer-btn:active {
     filter: brightness(var(--btn-active-brightness, 0.82));
     transform: translateY(1px) scale(0.995);
     box-shadow:
@@ -738,10 +733,11 @@
 }
 
 /* Badges avec gradient basé sur la couleur calculée */
+/* Border colors are now dynamically set via inline styles using getInverseTextColor() */
 .status-badge,
 .visibility-badge,
 .rating-badge {
-    border: 1px solid white !important;
+    /* border and border-color are set dynamically via inline styles */
     transition: all 0.3s ease !important;
     font-weight: 600 !important;
 }

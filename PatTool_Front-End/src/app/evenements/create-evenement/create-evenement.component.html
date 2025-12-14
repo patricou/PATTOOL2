@@ -351,7 +351,7 @@
                                             <div class="url-event-content">
                                                 <div class="url-event-link">
                                                     <a [href]="urlEvent.link" target="_blank" class="url-link">
-                                                        <i class="fa fa-external-link"></i> {{ urlEvent.link }}
+                                                        <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i> {{ urlEvent.link }}
                                                     </a>
                                                 </div>
                                                 <div class="url-event-description" *ngIf="urlEvent.urlDescription">

@@ -111,6 +111,7 @@
         "URL_TYPE_PHOTOFROMFS": "来自文件系统的照片",
         "URL_TYPE_VIDEO": "视频",
         "URL_TYPE_WEBSITE": "网站",
+        "URL_TYPE_WHATSAPP": "WhatsApp",
         "BASIC_INFO": "基本信息",
         "DEBUG_INFO": "调试信息",
         "DEBUG_SHOW": "显示信息",

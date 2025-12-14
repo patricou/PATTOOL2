@@ -1723,6 +1723,33 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		return evenement.visibility || '';
 	}
 
+	// Get the friend group for an event (if it has a friendGroupId)
+	public getEventFriendGroup(evenement: Evenement): FriendGroup | undefined {
+		if (!evenement.friendGroupId || !this.friendGroups) {
+			return undefined;
+		}
+		return this.friendGroups.find(g => g.id === evenement.friendGroupId);
+	}
+
+	// Check if the event's friend group has a WhatsApp link
+	public hasFriendGroupWhatsAppLink(evenement: Evenement): boolean {
+		const group = this.getEventFriendGroup(evenement);
+		return !!(group && group.whatsappLink && group.whatsappLink.trim().length > 0);
+	}
+
+	// Get the WhatsApp link for the event's friend group
+	public getFriendGroupWhatsAppLink(evenement: Evenement): string | undefined {
+		const group = this.getEventFriendGroup(evenement);
+		return group?.whatsappLink;
+	}
+
+	// Open WhatsApp link for the friend group
+	public openFriendGroupWhatsAppLink(evenement: Evenement): void {
+		const whatsappLink = this.getFriendGroupWhatsAppLink(evenement);
+		if (whatsappLink) {
+			window.open(whatsappLink, '_blank');
+		}
+	}
 
 
 	public isAnyFiles(evenement: Evenement): boolean {
@@ -2024,6 +2051,53 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 		
 		return type ? type.label : normalizedType;
+	}
+
+	// Get URL event icon based on type
+	public getUrlEventIcon(urlEvent: any): string {
+		if (!urlEvent || !urlEvent.typeUrl) {
+			return 'fa fa-external-link';
+		}
+		
+		const normalizedType = urlEvent.typeUrl.trim().toUpperCase();
+		
+		// Check for MAP
+		if (normalizedType === 'MAP' || normalizedType === 'CARTE') {
+			return 'fa fa-map';
+		}
+		
+		// Check for WEBSITE
+		if (normalizedType === 'WEBSITE' || normalizedType === 'SITE' || normalizedType === 'WEB') {
+			return 'fa fa-globe';
+		}
+		
+		// Check for DOCUMENTATION
+		if (normalizedType === 'DOCUMENTATION' || normalizedType === 'DOC') {
+			return 'fa fa-file-alt';
+		}
+		
+		// Check for PHOTOS
+		if (normalizedType === 'PHOTOS' || normalizedType === 'PHOTO') {
+			return 'fa fa-images';
+		}
+		
+		// Check for PHOTOFROMFS
+		if (normalizedType === 'PHOTOFROMFS') {
+			return 'fa fa-image';
+		}
+		
+		// Check for VIDEO
+		if (normalizedType === 'VIDEO' || normalizedType === 'VIDÉO' || normalizedType === 'YOUTUBE' || normalizedType === 'VIMEO') {
+			return 'fa fa-video-camera';
+		}
+		
+		// Check for WHATSAPP
+		if (normalizedType === 'WHATSAPP' || normalizedType === 'WA') {
+			return 'fa fa-whatsapp';
+		}
+		
+		// Default
+		return 'fa fa-external-link';
 	}
 
 	// Group URLs by type for better display
