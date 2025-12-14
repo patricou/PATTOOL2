@@ -1,5 +1,7 @@
 package com.pat.repo.domain;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.pat.converter.RolesDeserializer;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
@@ -17,6 +19,7 @@ public class Member {
     private String addressEmail;
     private String userName;
     private String keycloakId;
+    @JsonDeserialize(using = RolesDeserializer.class)
     private String roles; // User roles from Keycloak (comma-separated)
     private Date registrationDate;
     private Date lastConnectionDate;
