@@ -510,11 +510,20 @@ export class DiscussionService {
   }
 
   /**
-   * Get file URL for images/videos
+   * Get file URL for images/videos (returns authenticated blob URL)
    */
-  getFileUrl(discussionId: string, subfolder: string, filename: string): string {
+  getFileUrl(discussionId: string, subfolder: string, filename: string): Observable<string> {
     const baseUrl = environment.production ? '' : 'http://localhost:8000';
-    return `${baseUrl}/api/discussions/files/${discussionId}/${subfolder}/${filename}`;
+    const url = `${baseUrl}/api/discussions/files/${discussionId}/${subfolder}/${filename}`;
+    
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(url, { headers: headers, responseType: 'blob' })
+      ),
+      map((blob: Blob) => {
+        return URL.createObjectURL(blob);
+      })
+    );
   }
 
   /**

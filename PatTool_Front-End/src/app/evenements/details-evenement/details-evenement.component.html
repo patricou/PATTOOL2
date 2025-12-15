@@ -19,239 +19,378 @@
 </div>
 
 <!-- Slideshow Modal Component (always available) -->
-<app-slideshow-modal #slideshowModalComponent></app-slideshow-modal>
+<app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()"></app-slideshow-modal>
 
-<!-- Event Details -->
-<div *ngIf="evenement && !loading && !error">
+<!-- Artistic Event Details Page -->
+<div *ngIf="evenement && !loading && !error" class="artistic-event-page">
   
-  <!-- Standard Title Section -->
-  <div class="pat-title">
-    <h2>{{ evenement.evenementName }}</h2>
-    <div class="pat-title-subtitle">
-      {{ formatEventDateTime(evenement.beginEventDate, evenement.startHour) }} - {{ evenement.author.firstName }} {{ evenement.author.lastName }}
-    </div>
-    <app-navigation-buttons></app-navigation-buttons>
-  </div>
-
-  <!-- Main Content -->
-  <div class="container mt-0">
-    <div class="row justify-content-center">
-      <div class="col-12 col-lg-12 col-xl-11">
-
-  <!-- Description -->
-  <div class="description" *ngIf="evenement.comments">
-    <p>{{ evenement.comments }}</p>
-  </div>
-
-  <!-- Photo Gallery -->
-  <div class="photo-gallery" *ngIf="photoItemsList.length > 0">
-    <div class="carousel-container">
-      <div class="carousel-wrapper">
-        <!-- Navigation Arrows -->
-        <button class="carousel-nav carousel-prev" (click)="previousSlide()" *ngIf="photoItemsList.length > 1">
-          <i class="fa fa-chevron-left"></i>
-        </button>
-        <button class="carousel-nav carousel-next" (click)="nextSlide()" *ngIf="photoItemsList.length > 1">
-          <i class="fa fa-chevron-right"></i>
-        </button>
-        
-        <!-- Auto-play Toggle Button -->
-        <button class="carousel-autoplay-btn" 
-                (click)="toggleAutoPlay()" 
-                *ngIf="photoItemsList.length > 1"
-                [class.active]="autoPlay"
-                title="{{ autoPlay ? ('CAROUSEL.STOP_AUTOPLAY' | translate) : ('CAROUSEL.START_AUTOPLAY' | translate) }}">
-          <i class="fa" [class.fa-pause]="autoPlay" [class.fa-play]="!autoPlay"></i>
-        </button>
-        
-        <div class="carousel-slides" [style.transform]="'translateX(-' + (currentSlide * 100) + '%)'">
-          <div class="carousel-slide" *ngFor="let photoItem of photoItemsList">
-            <img [src]="photoItem.imageUrl" 
-                 [alt]="photoItem.file.fileName" 
-                 class="carousel-image"
-                 (click)="openSingleImageInSlideshow(photoItem.file.fieldId, photoItem.file.fileName)"
-                 (error)="onImageError($event)">
-          </div>
-        </div>
-        
-        <!-- Dots Indicator -->
-        <div class="carousel-dots" *ngIf="photoItemsList.length > 1">
-          <span class="dot" 
-                *ngFor="let photoItem of photoItemsList; let i = index"
-                [class.active]="i === currentSlide"
-                (click)="goToSlide(i)">
+  <!-- Navigation Buttons - Below menu on the left -->
+  <app-navigation-buttons></app-navigation-buttons>
+  
+  <!-- Background Image Layer -->
+  <div class="background-image-layer" [style.background-image]="getMainBackgroundImage()"></div>
+  
+  <!-- Blur Overlay Layer -->
+  <div class="blur-overlay-layer"></div>
+  
+  <!-- Content Layer -->
+  <div class="content-layer">
+    
+    <!-- Header Section -->
+    <header class="artistic-header">
+      <div class="header-content">
+        <h1 class="event-title">{{ evenement.evenementName }}</h1>
+        <div class="event-meta">
+          <span class="meta-item">
+            <i class="fa fa-calendar"></i>
+            <span *ngIf="evenement.beginEventDate">
+              {{ 'COMMUN.FROM' | translate }} {{ formatEventDateTime(evenement.beginEventDate, evenement.startHour) }}
+            </span>
+            <span *ngIf="evenement.endEventDate && evenement.endEventDate !== evenement.beginEventDate">
+              {{ 'COMMUN.TO' | translate }} {{ formatEventDateTime(evenement.endEventDate, '') }}
+            </span>
+            <span *ngIf="evenement.endEventDate && evenement.endEventDate === evenement.beginEventDate && evenement.startHour">
+              {{ formatEventDateTime(evenement.beginEventDate, evenement.startHour) }}
+            </span>
+          </span>
+          <span class="meta-item">
+            <i class="fa fa-user"></i>
+            {{ evenement.author.firstName }} {{ evenement.author.lastName }}
           </span>
         </div>
       </div>
-    </div>
-  </div>
+    </header>
 
-  <!-- General Comments -->
-  <div class="general-comments" *ngIf="getEventComments().length > 0">
-    <h3>
-      {{ 'EVENTHOME.COMMENTARIES' | translate }}
-      <span class="badge bg-secondary ms-2">{{ getEventComments().length }}</span>
-    </h3>
-    <div class="comments-list">
-      <div class="comment" *ngFor="let comment of getEventComments()">
-        <div class="comment-header">
-          <strong>{{ comment.commentOwner }}</strong>
-          <span class="comment-date">{{ formatCommentaryDate(comment.dateCreation) }}</span>
+    <!-- Main Content Container - Dynamic Grid -->
+    <div class="dynamic-grid-container">
+
+      <!-- Description Card - Small Horizontal -->
+      <div class="dynamic-card card-small card-horizontal" *ngIf="evenement.comments">
+        <div class="card-icon"><i class="fa fa-quote-left"></i></div>
+        <div class="card-content">
+          <h3 class="card-title-small">Description</h3>
+          <p class="card-text-small">{{ evenement.comments }}</p>
         </div>
-        <p class="comment-text">{{ comment.commentary }}</p>
       </div>
-    </div>
-  </div>
 
-  <!-- Links -->
-  <div class="links-section" *ngIf="evenement.urlEvents && evenement.urlEvents.length > 0">
-    <h3>
-      {{ 'EVENTELEM.URLS' | translate }}
-      <span class="badge bg-secondary ms-2">{{ evenement.urlEvents.length }}</span>
-    </h3>
-    
-    <!-- Group URLs by type -->
-    <div *ngFor="let typeKey of getSortedTypeKeys()" class="url-type-group">
-      <!-- Type Header -->
-      <div class="url-type-header">
-        <h4 class="url-type-title">
-          <i class="fa {{ getUrlTypeIcon(typeKey) }}"></i> {{ getUrlTypeLabel(typeKey) | translate }}
-          <span class="badge bg-secondary ms-2">{{ getGroupedUrlEvents()[typeKey].length }}</span>
-        </h4>
-      </div>
-      
-      <!-- URLs for this type -->
-      <div class="url-type-content">
-        <div class="url-event-item" *ngFor="let urlEvent of getGroupedUrlEvents()[typeKey]">
-          <div class="url-card">
-            <div class="url-card-header">
-              <div class="url-event-meta">
-                <small class="text-muted">
-                  <i class="fa fa-user"></i> {{ urlEvent.owner }} | 
-                  <i class="fa fa-calendar"></i> {{ formatCommentaryDate(urlEvent.dateCreation) }}
-                </small>
+      <!-- Visibility Card - Small Vertical -->
+      <div class="dynamic-card card-small card-vertical">
+        <div class="card-icon"><i class="fa fa-eye"></i></div>
+        <div class="card-content">
+          <h3 class="card-title-small">{{ 'EVENTCREATION.VISIBILITY' | translate }}</h3>
+          <span class="visibility-badge-compact" [ngSwitch]="evenement.visibility">
+            <span *ngSwitchCase="'public'" class="badge-compact badge-public-compact">
+              <i class="fa fa-globe"></i> {{ 'EVENTCREATION.PUBLIC' | translate }}
+            </span>
+            <span *ngSwitchCase="'private'" class="badge-compact badge-private-compact">
+              <i class="fa fa-lock"></i> {{ 'EVENTCREATION.PRIVATE' | translate }}
+            </span>
+            <span *ngSwitchCase="'friends'" class="badge-compact badge-friends-compact">
+              <i class="fa fa-users"></i> {{ 'EVENTCREATION.FRIENDS' | translate }}
+            </span>
+            <span *ngSwitchDefault class="badge-compact badge-group-compact">
+              <i class="fa fa-group"></i> {{ evenement.visibility }}
+            </span>
+          </span>
+          <button class="btn-compact btn-whatsapp-compact" 
+                  *ngIf="hasFriendGroupWhatsAppLink()" 
+                  (click)="openFriendGroupWhatsAppLink()"
+                  title="{{ 'FRIENDS.OPEN_WHATSAPP' | translate }}">
+            <i class="fa fa-whatsapp"></i> {{ 'FRIENDS.OPEN_WHATSAPP' | translate }}
+          </button>
+          
+          <!-- Friend Group Members (when visibility is a friend group and friend group is loaded) -->
+          <ng-container *ngIf="evenement.friendGroupId && getCurrentFriendGroup() && getCurrentFriendGroup()!.members && getCurrentFriendGroup()!.members.length > 0">
+            <div class="members-compact">
+              <small class="members-count">
+                {{ getCurrentFriendGroup()!.members.length }} {{ 'EVENTELEM.MEMBERS' | translate }} 
+                <span *ngIf="getCurrentFriendGroup()!.name">({{ getCurrentFriendGroup()!.name }})</span>
+              </small>
+              <div class="members-tags-compact">
+                <span class="member-tag-compact" *ngFor="let member of getFirstFriendGroupMembers()">
+                  {{ member.firstName }} {{ member.lastName }}
+                </span>
+                <span class="member-tag-compact" *ngIf="getRemainingFriendGroupMembersCount() > 0">+{{ getRemainingFriendGroupMembersCount() }}</span>
               </div>
             </div>
-            <div class="url-card-body">
-              <div class="url-event-content">
-                <!-- Photo From FS Content Display -->
-                <div class="fs-photos-content" *ngIf="urlEvent.typeUrl && (urlEvent.typeUrl.toUpperCase().trim() === 'PHOTOFROMFS')">
-                  <div class="row align-items-center mb-3">
-                    <div class="col">
-                      <h5 class="fs-photos-title mb-0" *ngIf="urlEvent.urlDescription">
-                        {{ urlEvent.urlDescription }}
-                      </h5>
-                      <h5 class="fs-photos-title mb-0" *ngIf="!urlEvent.urlDescription">
-                        {{ 'EVENTHOME.URL_TYPE_PHOTOFROMFS' | translate }}
-                      </h5>
-                    </div>
-                  </div>
-                  
-                  <div class="fs-photos-preview">
-                    <div class="preview-card">
-                      <div class="preview-info">
-                        <div class="preview-path">{{ urlEvent.link }}</div>
-                      </div>
-                      
-                      <div class="preview-actions">
-                        <button class="btn btn-primary" (click)="openFsPhotosDiaporama(urlEvent.link)">
-                          <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          </ng-container>
+          
+          <!-- Event Members (always show if they exist and friend group members are not shown) -->
+          <ng-container *ngIf="hasEventMembers() && (!evenement.friendGroupId || !getCurrentFriendGroup() || !getCurrentFriendGroup()?.members || getCurrentFriendGroup()!.members.length === 0)">
+            <div class="members-compact">
+              <small class="members-count">{{ evenement.members.length }} {{ 'EVENTELEM.MEMBERS' | translate }}</small>
+              <div class="members-tags-compact">
+                <span class="member-tag-compact" *ngFor="let member of getFirstMembers()">
+                  {{ member.firstName }} {{ member.lastName }}
+                </span>
+                <span class="member-tag-compact" *ngIf="getRemainingMembersCount() > 0">+{{ getRemainingMembersCount() }}</span>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </div>
 
-                <!-- Website Content Display with Description on the side -->
-                <div class="website-content" *ngIf="urlEvent.link && (!urlEvent.typeUrl || urlEvent.typeUrl.toUpperCase().trim() !== 'PHOTOFROMFS')">
-                                    <div class="row align-items-center mb-3">
-                    <!-- Website title / Description -->
-                    <div class="col">
-                      <h5 class="website-title mb-0" *ngIf="!urlEvent.urlDescription">
-                        {{ 'EVENTELEM.WEBSITE_CONTENT' | translate }}
-                      </h5>
-                      <h5 class="website-title mb-0" *ngIf="urlEvent.urlDescription">
-                        {{ urlEvent.urlDescription }}
-                      </h5>
-                    </div>
-                  </div>
-                  
-                  <!-- Website Preview -->
-                  <div class="website-preview">
-                    <div class="preview-card">
-                      <div class="preview-info">
-                        <h5 class="preview-title">{{ getWebsiteTitle(urlEvent.link) }}</h5>
-                        <p class="preview-description">{{ getWebsiteDescription(urlEvent.link) }}</p>
-                        <div class="preview-url">{{ urlEvent.link }}</div>
-                      </div>
-                      
-                      <div class="preview-actions">
-                        <a [href]="urlEvent.link" target="_blank" class="btn btn-primary">
-                          <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i> {{ 'EVENTELEM.OPEN_WEBSITE' | translate }}
-                        </a>
-                        <button class="btn btn-outline-secondary" (click)="copyUrlToClipboard(urlEvent.link)">
-                          <i class="fa fa-copy"></i> {{ 'EVENTELEM.COPY_LINK' | translate }}
-                        </button>
-                      </div>
-                    </div>
+      <!-- Event Info Card - Small Horizontal -->
+      <div class="dynamic-card card-small card-horizontal">
+        <div class="card-icon"><i class="fa fa-info-circle"></i></div>
+        <div class="card-content">
+          <h3 class="card-title-small">{{ 'EVENTELEM.TYPE' | translate }}</h3>
+          <div class="info-list-compact">
+            <div class="info-item-compact">
+              <span class="info-label">{{ 'EVENTELEM.TYPE' | translate }}:</span>
+              <span class="info-value">{{ getEventTypeLabel(evenement.type) | translate }}</span>
+            </div>
+            <div class="info-item-compact" *ngIf="evenement.status">
+              <span class="info-label">{{ 'EVENTELEM.STATUS' | translate }}:</span>
+              <span class="status-badge-compact" [ngSwitch]="evenement.status">
+                <span *ngSwitchCase="'Open'" class="badge-compact badge-status-open">{{ 'COMMUN.STATUSOPEN' | translate }}</span>
+                <span *ngSwitchCase="'Closed'" class="badge-compact badge-status-closed">{{ 'COMMUN.STATUSCLOSE' | translate }}</span>
+                <span *ngSwitchCase="'Cancel'" class="badge-compact badge-status-cancel">{{ 'COMMUN.STATUSCANCEL' | translate }}</span>
+              </span>
+            </div>
+            <div class="info-item-compact" *ngIf="evenement.diffculty">
+              <span class="info-label">{{ 'EVENTELEM.DIFF' | translate }}:</span>
+              <span class="info-value">{{ getDifficultyLabel(evenement.diffculty) | translate }}</span>
+            </div>
+            <div class="info-item-compact" *ngIf="evenement.startLocation">
+              <span class="info-label">{{ 'EVENTELEM.STARTLOCATION' | translate }}:</span>
+              <span class="info-value">{{ evenement.startLocation }}</span>
+            </div>
+            <div class="info-item-compact" *ngIf="evenement.durationEstimation">
+              <span class="info-label">Duration:</span>
+              <span class="info-value">{{ evenement.durationEstimation }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Rating Card - Small Vertical -->
+      <div class="dynamic-card card-small card-vertical">
+        <div class="card-icon"><i class="fa fa-star"></i></div>
+        <div class="card-content">
+          <h3 class="card-title-small">{{ 'COMMUN.RATINGS' | translate }}</h3>
+          <div class="rating-compact">
+            <button type="button" 
+                    class="rating-badge-compact rating-plus btn-rating" 
+                    (click)="addRatePlus()"
+                    [ngbTooltip]="'COMMUN.ILIKE' | translate"
+                    placement="top">
+              <i class="fa fa-thumbs-up"></i> {{ evenement.ratingPlus || 0 }}
+            </button>
+            <button type="button" 
+                    class="rating-badge-compact rating-minus btn-rating" 
+                    (click)="addRateMinus()"
+                    [ngbTooltip]="'COMMUN.IDONTLIKE' | translate"
+                    placement="top">
+              <i class="fa fa-thumbs-down"></i> {{ evenement.ratingMinus || 0 }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Discussion Card - Large Vertical -->
+      <div class="dynamic-card card-large card-vertical discussion-card" *ngIf="hasDiscussion()">
+        <div class="card-header-compact">
+          <i class="fa fa-comments"></i>
+          <span>Discussion</span>
+          <button type="button" class="btn-compact btn-primary-compact ms-auto" (click)="openDiscussion(); $event.stopPropagation()" title="Open full discussion">
+            <i class="fa fa-external-link"></i>
+          </button>
+        </div>
+        
+        <!-- Loading State -->
+        <div *ngIf="isLoadingDiscussion" class="discussion-loading-compact">
+          <i class="fa fa-spinner fa-spin"></i>
+          <span>Loading messages...</span>
+        </div>
+        
+        <!-- Error State -->
+        <div *ngIf="discussionError && !isLoadingDiscussion" class="discussion-error-compact">
+          <i class="fa fa-exclamation-triangle"></i>
+          <span>{{ discussionError }}</span>
+        </div>
+        
+        <!-- Messages List -->
+        <div *ngIf="!isLoadingDiscussion && !discussionError" class="discussion-messages-compact">
+          <div *ngIf="discussionMessages.length === 0" class="discussion-empty-compact">
+            <i class="fa fa-comments"></i>
+            <p>No messages yet</p>
+          </div>
+          
+          <div *ngIf="discussionMessages.length > 0" class="discussion-messages-list-compact">
+            <div class="discussion-message-compact" *ngFor="let message of discussionMessages">
+              <div class="message-header-compact">
+                <div class="message-author-compact">
+                  <i class="fa fa-user-circle"></i>
+                  <strong>{{ message.author?.firstName }} {{ message.author?.lastName }}</strong>
+                  <span class="message-username-compact">{{ '@' + message.author?.userName }}</span>
+                </div>
+                <div class="message-date-compact">{{ formatDiscussionDate(message.dateTime) }}</div>
+              </div>
+              
+              <div class="message-content-compact">
+                <p class="message-text-compact" *ngIf="message.message">{{ message.message }}</p>
+                
+                <!-- Message Image -->
+                <div class="message-image-compact" *ngIf="message.imageUrl">
+                  <img *ngIf="hasDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl)"
+                       [src]="getDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl)" 
+                       [alt]="message.imageFileName || 'Image'"
+                       class="discussion-image-compact"
+                       (error)="onImageError($event)"
+                       (click)="openImageInModal(getDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl))">
+                  <div *ngIf="!hasDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl)" class="discussion-message-loading">
+                    <i class="fa fa-spinner fa-spin"></i> Chargement de l'image...
                   </div>
                 </div>
                 
-                <!-- Description only (when no website content) -->
-                <div class="url-event-description" *ngIf="!urlEvent.link && urlEvent.urlDescription">
-                  <p class="text-muted mb-0">{{ urlEvent.urlDescription }}</p>
+                <!-- Message Video -->
+                <div class="message-video-compact" *ngIf="message.videoUrl">
+                  <video *ngIf="hasDiscussionFileUrl(message.videoFileName || '', 'videos', message.videoUrl)"
+                         [src]="getDiscussionFileUrl(message.videoFileName || '', 'videos', message.videoUrl)" 
+                         controls
+                         class="discussion-video-compact">
+                    Your browser does not support the video tag.
+                  </video>
+                  <div *ngIf="!hasDiscussionFileUrl(message.videoFileName || '', 'videos', message.videoUrl)" class="discussion-message-loading">
+                    <i class="fa fa-spinner fa-spin"></i> Chargement de la vidéo...
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </div>
 
-  <!-- Documents PDF Section -->
-  <div class="pdf-documents" *ngIf="getPdfFiles().length > 0">
-    <h3>
-      <i class="fa fa-file-pdf-o me-2"></i>
-      {{ 'EVENTELEM.PDF_DOCUMENTS' | translate }}
-      <span class="badge bg-secondary ms-2">{{ getPdfFiles().length }}</span>
-    </h3>
-    <div class="pdf-list">
-      <div class="pdf-item" *ngFor="let pdfFile of getPdfFiles()">
-        <div class="pdf-info">
-          <div class="pdf-icon">
-            <i class="fa fa-file-pdf-o"></i>
+      <!-- Photo Gallery - Large Horizontal -->
+      <div class="dynamic-card card-large card-horizontal photos-card" *ngIf="photoItemsList.length > 0">
+        <div class="card-header-compact">
+          <i class="fa fa-camera"></i>
+          <span>Photos ({{ photoItemsList.length }})</span>
+        </div>
+        <div class="photo-gallery">
+          <div class="photo-viewer">
+            <div class="photo-slider" [style.transform]="'translateX(-' + (currentPhotoIndex * 100) + '%)'">
+              <div class="photo-frame" *ngFor="let photoItem of photoItemsList">
+                <img [src]="photoItem.imageUrl" 
+                     [alt]="photoItem.file.fileName" 
+                     class="photo-img"
+                     (click)="openSingleImageInSlideshow(photoItem.file.fieldId, photoItem.file.fileName)"
+                     (error)="onImageError($event)">
+              </div>
+            </div>
           </div>
-          <div class="pdf-details">
-            <h5 class="pdf-name">{{ pdfFile.fileName }}</h5>
-            <p class="pdf-meta">
-              <span class="pdf-type">Document PDF</span>
-            </p>
-            <div class="pdf-owner d-flex align-items-center">
-              <i class="fa fa-user"></i> {{ pdfFile.uploaderMember.firstName }} {{ pdfFile.uploaderMember.lastName }} ({{ pdfFile.uploaderMember.userName }})
-              <button class="btn btn-xs btn-outline-primary ms-2" 
-                      style="padding: 0.1rem 0.25rem; font-size: 0.6rem;"
-                      (click)="sendEmail(pdfFile.uploaderMember.addressEmail)"
-                      title="{{ 'EVENTELEM.SEND_EMAIL' | translate }}">
-                <i class="fa fa-envelope"></i>
+          <button class="photo-nav prev" (click)="prevPhoto()" *ngIf="photoItemsList.length > 1">
+            <i class="fa fa-chevron-left"></i>
+          </button>
+          <button class="photo-nav next" (click)="nextPhoto()" *ngIf="photoItemsList.length > 1">
+            <i class="fa fa-chevron-right"></i>
+          </button>
+          <div class="photo-indicators" *ngIf="photoItemsList.length > 1">
+            <span *ngFor="let photoItem of photoItemsList; let i = index" 
+                  class="photo-indicator" 
+                  [class.active]="i === currentPhotoIndex"
+                  (click)="goToPhoto(i)">
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Comments - Medium Vertical -->
+      <div class="dynamic-card card-medium card-vertical comments-card" *ngIf="getEventComments().length > 0">
+        <div class="card-header-compact">
+          <i class="fa fa-comments"></i>
+          <span>{{ 'EVENTHOME.COMMENTARIES' | translate }} ({{ getEventComments().length }})</span>
+        </div>
+        <div class="comments-list-compact">
+          <div class="comment-item-compact" *ngFor="let comment of getEventComments()">
+            <div class="comment-author-compact">{{ comment.commentOwner }}</div>
+            <div class="comment-date-compact">{{ formatCommentaryDate(comment.dateCreation) }}</div>
+            <div class="comment-text-compact">{{ comment.commentary }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- URLs - Medium Vertical -->
+      <div class="dynamic-card card-medium card-vertical urls-card" *ngIf="evenement.urlEvents && evenement.urlEvents.length > 0">
+        <div class="card-header-compact">
+          <i class="fa fa-link"></i>
+          <span>{{ 'EVENTELEM.URLS' | translate }} ({{ evenement.urlEvents.length }})</span>
+        </div>
+        <div class="urls-list-compact">
+          <div *ngFor="let typeKey of getSortedTypeKeys()" class="url-type-compact">
+            <div class="url-type-header-compact">
+              <i class="fa {{ getUrlTypeIcon(typeKey) }}"></i>
+              {{ getUrlTypeLabel(typeKey) | translate }} ({{ getGroupedUrlEvents()[typeKey].length }})
+            </div>
+            <div class="url-items-compact">
+              <div class="url-item-compact" *ngFor="let urlEvent of getGroupedUrlEvents()[typeKey]">
+                <div class="url-link-compact" *ngIf="urlEvent.link">
+                  <a [href]="urlEvent.link" target="_blank" class="url-link-text">
+                    <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i>
+                    {{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}
+                  </a>
+                  <small class="url-meta-compact">{{ urlEvent.owner }} • {{ formatCommentaryDate(urlEvent.dateCreation) }}</small>
+                </div>
+                <button class="btn-compact btn-fs-compact" *ngIf="urlEvent.typeUrl && (urlEvent.typeUrl.toUpperCase().trim() === 'PHOTOFROMFS')" (click)="openFsPhotosDiaporama(urlEvent.link)">
+                  <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PDFs - Small Vertical -->
+      <div class="dynamic-card card-small card-vertical pdfs-card" *ngIf="getPdfFiles().length > 0">
+        <div class="card-header-compact">
+          <i class="fa fa-file-pdf-o"></i>
+          <span>{{ 'EVENTELEM.PDF_DOCUMENTS' | translate }} ({{ getPdfFiles().length }})</span>
+        </div>
+        <div class="pdfs-list-compact">
+          <div class="pdf-item-compact" *ngFor="let pdfFile of getPdfFiles()">
+            <div class="pdf-name-compact">{{ pdfFile.fileName }}</div>
+            <div class="pdf-actions-compact">
+              <button class="btn-compact btn-primary-compact" (click)="openPdfInPage(pdfFile)" title="{{ 'EVENTELEM.OPEN_PDF' | translate }}">
+                <i class="fa fa-eye"></i>
+              </button>
+              <button class="btn-compact btn-secondary-compact" (click)="downloadPdf(pdfFile)" title="{{ 'EVENTELEM.DOWNLOAD_PDF' | translate }}">
+                <i class="fa fa-download"></i>
               </button>
             </div>
           </div>
         </div>
-        <div class="pdf-actions">
-          <button class="btn btn-primary" (click)="openPdfInPage(pdfFile)">
-            <i class="fa fa-eye"></i> {{ 'EVENTELEM.OPEN_PDF' | translate }}
-          </button>
-          <button class="btn btn-outline-secondary" (click)="downloadPdf(pdfFile)">
-            <i class="fa fa-download"></i> {{ 'EVENTELEM.DOWNLOAD_PDF' | translate }}
-          </button>
+      </div>
+
+      <!-- File Upload - Small Vertical -->
+      <div class="dynamic-card card-small card-vertical upload-card" *ngIf="user && evenement">
+        <div class="card-header-compact">
+          <i class="fa fa-upload"></i>
+          <span>{{ 'EVENTELEM.UPLOAD' | translate }}</span>
+        </div>
+        <div class="upload-section-compact">
+          <div class="file-upload-wrapper">
+            <label [for]="'file-upload-input-' + evenement.id" 
+                   class="btn-compact btn-success-compact">
+              <i class="fa fa-upload"></i> {{ 'EVENTELEM.UPLOAD' | translate }}
+            </label>
+            <input type="file" 
+                   [id]="'file-upload-input-' + evenement.id" 
+                   #fileInput 
+                   (change)="onFileSelected($event)" 
+                   multiple 
+                   accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar" 
+                   style="display: none;" />
+          </div>
         </div>
       </div>
-    </div>
-  </div>
 
+    </div>
+    <!-- End Dynamic Grid -->
   </div>
+  <!-- End Content Layer -->
 </div>
+<!-- End Artistic Event Page -->
 
 <!-- Image Modal -->
 <ng-template #imageModal let-c="close">
@@ -274,6 +413,37 @@
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-secondary" (click)="c()">{{ 'COMMUN.CLOSE' | translate }}</button>
+  </div>
+</ng-template>
+
+<!-- Upload Logs Modal -->
+<ng-template #uploadLogsModal let-modal>
+  <div class="modal-header bg-primary text-white">
+    <h5 class="modal-title">
+      <i class="fa fa-upload me-2"></i>
+      {{ 'EVENTELEM.UPLOAD_PROGRESS' | translate }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <div class="upload-logs-content">
+      <div class="log-content" #logContent>
+        <div class="log-entry" 
+             *ngFor="let log of uploadLogs"
+             [class.log-success]="log.startsWith('SUCCESS:')"
+             [class.log-error]="log.startsWith('ERROR:')">
+          {{ log }}
+        </div>
+        <div *ngIf="uploadLogs.length === 0" class="text-center text-muted">
+          {{ 'EVENTELEM.WAITING_FOR_UPLOAD' | translate }}
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')" [disabled]="isUploading">
+      {{ 'COMMUN.CLOSE' | translate }}
+    </button>
   </div>
 </ng-template>
 

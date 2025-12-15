@@ -32,7 +32,7 @@
             <span>{{ 'EVENTELEM.MAP_LOADING' | translate }}</span>
           </div>
         </div>
-        <img #slideshowImgEl *ngIf="slideshowImages.length > 0 && (!showMapView || !currentMapUrl)" 
+        <img #slideshowImgEl *ngIf="slideshowImages.length > 0 && getCurrentSlideshowImage() && (!showMapView || !currentMapUrl)" 
              [src]="getCurrentSlideshowImage()" 
              alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
              crossorigin="anonymous"
@@ -45,10 +45,19 @@
              (load)="onImageLoad()"
              [class.fullscreen-image]="isFullscreen"
              />
+        <!-- Loading spinner for filesystem variants -->
         <div *ngIf="slideshowImages.length > 0 && isCurrentFilesystemVariantLoading()"
              class="slideshow-filesystem-loading">
           <div class="slideshow-filesystem-loading-content">
             <i class="fa fa-spinner fa-spin"></i>
+          </div>
+        </div>
+        <!-- Loading spinner for fileId-based images (when current image URL is empty or loading) -->
+        <div *ngIf="slideshowImages.length > 0 && isCurrentImageLoading() && !isCurrentFilesystemVariantLoading() && (!showMapView || !currentMapUrl)"
+             class="slideshow-filesystem-loading">
+          <div class="slideshow-filesystem-loading-content">
+            <i class="fa fa-spinner fa-spin"></i>
+            <p>{{ 'EVENTELEM.LOADING_IMAGES' | translate }}</p>
           </div>
         </div>
         <!-- Grid Overlay - follows image translation but not zoom -->

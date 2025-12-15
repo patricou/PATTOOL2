@@ -3,6 +3,38 @@
     display: flex;
     gap: 0.5rem;
     align-items: center;
+    position: fixed;
+    top: 72px; /* Below navbar (56px) + margin (16px) */
+    left: 1rem;
+    z-index: 1000;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(8px);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* When inside .pat-title, integrate buttons in the title flow (not fixed) */
+/* Use ::ng-deep to pierce Angular's view encapsulation */
+::ng-deep .pat-title .navigation-buttons {
+    position: absolute !important;
+    left: 1rem !important;
+    top: 50% !important;
+    bottom: auto !important;
+    right: auto !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    height: fit-content !important;
+    padding: 0.5rem !important;
+    z-index: 10 !important;
+    background: rgba(0, 0, 0, 0.2) !important;
+    backdrop-filter: blur(8px) !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 .nav-btn {
@@ -10,24 +42,26 @@
     align-items: center;
     gap: 0.3rem;
     padding: 0.4rem 0.8rem;
-    border-radius: 6px;
+    border-radius: 15px;
     font-size: 0.8rem;
     font-weight: 500;
     transition: all 0.3s ease;
-    border: 2px solid #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     color: #ffffff;
-    background: rgba(0, 123, 255, 0.8);
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
     min-width: 80px;
     justify-content: center;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
 }
 
 .nav-btn:hover:not(:disabled) {
-    background: rgba(0, 123, 255, 1);
+    background: rgba(255, 255, 255, 0.15);
     color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
-    border-color: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(0, 0, 0, 0.35);
+    border-color: rgba(255, 255, 255, 0.25);
 }
 
 .nav-btn:disabled {
@@ -66,6 +100,22 @@
 @media (max-width: 768px) {
     .navigation-buttons {
         gap: 0.3rem;
+        top: 72px; /* Below navbar + margin */
+        left: 0.5rem;
+        padding: 0.3rem;
+    }
+    
+    /* When inside .pat-title on mobile, adjust positioning */
+    ::ng-deep .pat-title .navigation-buttons {
+        position: absolute !important;
+        left: 0.5rem !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        margin: 0 !important;
+    }
+    
+    .pat-title {
+        padding-left: 150px !important; /* Less space on mobile */
     }
     
     .nav-btn {

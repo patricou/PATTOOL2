@@ -34,21 +34,27 @@
                             </div>
                             
                             <!-- Image -->
-                            <div *ngIf="item.imageUrl" class="message-media">
+                            <div *ngIf="item.imageUrl && hasFileUrl(item, true)" class="message-media">
                                 <img [src]="getFileUrl(item, true)" 
                                      [alt]="item.imageFileName || 'Image'"
                                      class="message-image"
                                      (error)="hideImageOnError($event)">
                             </div>
+                            <div *ngIf="item.imageUrl && !hasFileUrl(item, true)" class="message-media-loading">
+                                <i class="fa fa-spinner fa-spin"></i> Chargement de l'image...
+                            </div>
                             
                             <!-- Video -->
-                            <div *ngIf="item.videoUrl" class="message-media">
+                            <div *ngIf="item.videoUrl && hasFileUrl(item, false)" class="message-media">
                                 <video [src]="getFileUrl(item, false)" 
                                        controls
                                        class="message-video"
                                        (error)="hideVideoOnError($event)">
                                     Your browser does not support the video tag.
                                 </video>
+                            </div>
+                            <div *ngIf="item.videoUrl && !hasFileUrl(item, false)" class="message-media-loading">
+                                <i class="fa fa-spinner fa-spin"></i> Chargement de la vidéo...
                             </div>
                             
                             <!-- Text Message -->
@@ -58,7 +64,7 @@
                             
                             <!-- Message Footer with timestamp and action buttons -->
                             <div class="message-footer">
-                                <span class="message-time">{{item.dateTime | date:'HH:mm'}}</span>
+                                <span class="message-time">{{formatMessageTime(item.dateTime)}}</span>
                                 <div class="message-actions" *ngIf="isOwnMessage(item)">
                                     <button class="btn-edit-message" 
                                             (click)="editMessage(item)"

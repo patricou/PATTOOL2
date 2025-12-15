@@ -2883,6 +2883,32 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     return this.slideshowImages[this.currentSlideshowIndex];
   }
+
+  // Check if current image is loading (for fileId-based images)
+  public isCurrentImageLoading(): boolean {
+    if (this.slideshowImages.length === 0 || this.currentSlideshowIndex >= this.slideshowImages.length) {
+      return false;
+    }
+    
+    const currentImageUrl = this.getCurrentSlideshowImage();
+    // If current image URL is empty, it's loading
+    if (!currentImageUrl || currentImageUrl.trim() === '') {
+      return true;
+    }
+    
+    // Check if the current image is in the loading set
+    if (this.images && this.images.length > this.currentSlideshowIndex) {
+      const currentImageSource = this.images[this.currentSlideshowIndex];
+      if (currentImageSource) {
+        const cacheKey = this.getImageCacheKey(currentImageSource);
+        if (cacheKey && this.loadingImageKeys.has(cacheKey)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }
   
   public getCurrentImageFileName(): string {
     const currentImageUrl = this.getCurrentSlideshowImage();

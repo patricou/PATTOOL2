@@ -48,6 +48,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   public connectionStatus: string = '';
   public showEmojiPicker: boolean = false;
   private shouldScrollToBottom: boolean = true;
+  private imageUrlCache: Map<string, string> = new Map(); // Cache for blob URLs
   public editingMessageId: string | null = null;
   public allFriendGroups: FriendGroup[] = [];
   public dataFIlter: string = '';
@@ -84,6 +85,13 @@ export class ChatComponent implements OnInit, OnDestroy {
 
 
   ngOnDestroy() {
+    // Clean up blob URLs to prevent memory leaks
+    this.imageUrlCache.forEach((blobUrl) => {
+      if (blobUrl && blobUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    });
+    this.imageUrlCache.clear();
     // Unsubscribe from WebSocket
     if (this.messageSubscription) {
       this.messageSubscription.unsubscribe();
@@ -644,22 +652,46 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get file URL for display
+   * Get file URL for display (returns blob URL with authentication)
    */
   getFileUrl(message: DiscussionMessage, isImage: boolean): string {
     if (!this.currentDiscussion?.id) {
       return '';
     }
 
+    let cacheKey = '';
+    let filename = '';
+
     if (isImage && message.imageUrl) {
       // Extract filename from URL
-      const filename = message.imageUrl.split('/').pop() || '';
-      return this.discussionService.getFileUrl(this.currentDiscussion.id, 'images', filename);
+      filename = message.imageUrl.split('/').pop() || '';
+      if (!filename) return '';
+      cacheKey = `${this.currentDiscussion.id}/images/${filename}`;
     } else if (!isImage && message.videoUrl) {
       // Extract filename from URL
-      const filename = message.videoUrl.split('/').pop() || '';
-      return this.discussionService.getFileUrl(this.currentDiscussion.id, 'videos', filename);
+      filename = message.videoUrl.split('/').pop() || '';
+      if (!filename) return '';
+      cacheKey = `${this.currentDiscussion.id}/videos/${filename}`;
+    } else {
+      return '';
     }
+
+    // Check cache first
+    if (this.imageUrlCache.has(cacheKey)) {
+      return this.imageUrlCache.get(cacheKey)!;
+    }
+
+    // If not in cache, trigger loading (will be cached when ready)
+    const subfolder = isImage ? 'images' : 'videos';
+    this.discussionService.getFileUrl(this.currentDiscussion.id, subfolder, filename).subscribe({
+      next: (blobUrl: string) => {
+        this.imageUrlCache.set(cacheKey, blobUrl);
+      },
+      error: (error) => {
+        console.error('Error loading file:', error);
+      }
+    });
+
     return '';
   }
 

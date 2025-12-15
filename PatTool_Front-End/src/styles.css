@@ -261,17 +261,39 @@ img, video, canvas {
 .pat-title {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
     margin-bottom: 1rem;
     padding: 1rem 0;
     border-bottom: 1px solid #e9ecef;
     position: relative;
+    min-height: 60px; /* Ensure enough height for buttons */
 }
 
 .pat-title h2 {
     margin: 0;
     flex: 1;
     text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1.2;
+    padding-left: 180px; /* Space for navigation buttons on the left */
+    padding-right: 180px; /* Balance for centering */
+}
+
+/* Ensure navigation buttons are positioned before h2 in visual order */
+.pat-title app-navigation-buttons {
+    order: -1;
+}
+
+/* Navigation buttons inside .pat-title should scroll with the title */
+.pat-title .navigation-buttons {
+    position: absolute !important;
+    left: 1rem !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
+    z-index: 10 !important;
 }
 
 .pat-title-subtitle {
@@ -280,15 +302,6 @@ img, video, canvas {
     margin-top: 0.25rem;
 }
 
-/* Navigation buttons positioned absolutely */
-.pat-title .navigation-buttons {
-    position: absolute;
-    left: 40px;
-    top: 50%;
-    transform: translateY(-50%);
-    margin-left: 0;
-    z-index: 10;
-}
 
 /* Responsive Navigation Title */
 @media (max-width: 768px) {
@@ -301,13 +314,16 @@ img, video, canvas {
     .pat-title h2 {
         font-size: 1.5rem;
         text-align: center;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
     
     .pat-title .navigation-buttons {
-        position: static;
-        transform: none;
-        margin-top: 0.5rem;
-        margin-left: 40px;
+        position: absolute !important;
+        left: 0.5rem !important;
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+        margin: 0 !important;
     }
 }
 

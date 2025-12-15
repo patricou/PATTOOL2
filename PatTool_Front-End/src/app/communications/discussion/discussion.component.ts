@@ -1,9 +1,11 @@
 // Discussion Component - Reusable component for discussions
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, Input, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, Input, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
 import { DiscussionService, Discussion, DiscussionMessage } from '../../services/discussion.service';
 import { Member } from '../../model/member';
 import { MembersService } from '../../services/members.service';
+import { TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
+import * as piexif from 'piexifjs';
 
 @Component({
   selector: 'app-discussion',
@@ -29,6 +31,7 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   public showEmojiPicker: boolean = false;
   private shouldScrollToBottom: boolean = true;
   public editingMessageId: string | null = null;
+  private imageUrlCache: Map<string, string> = new Map(); // Cache for blob URLs
 
   @ViewChild('messagesList', { static: false }) messagesList!: ElementRef;
   @ViewChild('fileInput', { static: false }) fileInput!: ElementRef;
@@ -39,7 +42,9 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
 
   constructor(
     private discussionService: DiscussionService,
-    public _memberService: MembersService
+    public _memberService: MembersService,
+    private cdr: ChangeDetectorRef,
+    private translateService: TranslateService
   ) {}
 
   ngOnInit() {
@@ -115,6 +120,13 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     if (this.discussionsSubscription) {
       this.discussionsSubscription.unsubscribe();
     }
+    // Clean up blob URLs to prevent memory leaks
+    this.imageUrlCache.forEach((blobUrl) => {
+      if (blobUrl && blobUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(blobUrl);
+      }
+    });
+    this.imageUrlCache.clear();
   }
 
   /**
@@ -260,12 +272,23 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
 
     this.discussionService.getMessages(this.currentDiscussion.id).subscribe({
       next: (messages) => {
+        // Convert dateTime strings to Date objects if needed
+        messages.forEach(message => {
+          if (message.dateTime && typeof message.dateTime === 'string') {
+            message.dateTime = new Date(message.dateTime);
+          }
+        });
+        
         // Sort messages by date (oldest first, newest at bottom)
         this.messages = messages.sort((a, b) => {
           const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
           const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
           return dateA - dateB; // Oldest first (ascending order)
         });
+        
+        // Load images for messages that have images
+        this.loadMessageImages();
+        
         this.scrollToBottom();
         // IMPORTANT: Set isLoading to false after messages are loaded
         this.isLoading = false;
@@ -273,6 +296,122 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       error: (error) => {
         // Don't let errors break the component
         this.isLoading = false;
+      }
+    });
+  }
+
+  /**
+   * Load image/video for a single message
+   */
+  private loadMessageImage(message: DiscussionMessage) {
+    if (!this.currentDiscussion?.id) {
+      return;
+    }
+
+    const discussionId = this.currentDiscussion.id;
+
+    if (message.imageUrl) {
+      const filename = message.imageUrl.split('/').pop() || '';
+      if (!filename) return;
+      
+      const cacheKey = `${discussionId}/images/${filename}`;
+      
+      // Skip if already cached
+      if (this.imageUrlCache.has(cacheKey)) {
+        return;
+      }
+
+      // Load image with authentication
+      this.discussionService.getFileUrl(discussionId, 'images', filename).subscribe({
+        next: (blobUrl: string) => {
+          this.imageUrlCache.set(cacheKey, blobUrl);
+        },
+        error: (error) => {
+          console.error('Error loading image:', error);
+        }
+      });
+    }
+    
+    if (message.videoUrl) {
+      const filename = message.videoUrl.split('/').pop() || '';
+      if (!filename) return;
+      
+      const cacheKey = `${discussionId}/videos/${filename}`;
+      
+      // Skip if already cached
+      if (this.imageUrlCache.has(cacheKey)) {
+        return;
+      }
+
+      // Load video with authentication
+      this.discussionService.getFileUrl(discussionId, 'videos', filename).subscribe({
+        next: (blobUrl: string) => {
+          this.imageUrlCache.set(cacheKey, blobUrl);
+        },
+        error: (error) => {
+          console.error('Error loading video:', error);
+        }
+      });
+    }
+  }
+
+  /**
+   * Load images for messages that have images
+   */
+  private loadMessageImages() {
+    if (!this.currentDiscussion?.id) {
+      return;
+    }
+
+    const discussionId = this.currentDiscussion.id;
+
+    this.messages.forEach((message) => {
+      if (message.imageUrl) {
+        const filename = message.imageUrl.split('/').pop() || '';
+        if (!filename) return;
+        
+        const cacheKey = `${discussionId}/images/${filename}`;
+        
+        // Skip if already cached
+        if (this.imageUrlCache.has(cacheKey)) {
+          return;
+        }
+
+        // Load image with authentication
+        this.discussionService.getFileUrl(discussionId, 'images', filename).subscribe({
+          next: (blobUrl: string) => {
+            this.imageUrlCache.set(cacheKey, blobUrl);
+            // Trigger change detection to update the view
+            this.cdr.detectChanges();
+          },
+          error: (error) => {
+            console.error('Error loading image:', error);
+          }
+        });
+      }
+      
+      if (message.videoUrl) {
+        const filename = message.videoUrl.split('/').pop() || '';
+        if (!filename) return;
+        
+        const cacheKey = `${discussionId}/videos/${filename}`;
+        
+        // Skip if already cached
+        if (this.imageUrlCache.has(cacheKey)) {
+          return;
+        }
+
+        // Load video with authentication
+        this.discussionService.getFileUrl(discussionId, 'videos', filename).subscribe({
+          next: (blobUrl: string) => {
+            this.imageUrlCache.set(cacheKey, blobUrl);
+            // Trigger change detection to update the view
+            this.cdr.detectChanges();
+          },
+          error: (error) => {
+            console.error('Error loading video:', error);
+          }
+        });
       }
     });
   }
@@ -347,6 +486,8 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
               const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
               return dateA - dateB; // Oldest first
             });
+            // Load image/video for the new message if it has one
+            this.loadMessageImage(message);
             this.scrollToBottom();
           }
         }
@@ -423,14 +564,38 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         });
       } else {
         // Create new message
+        // Compress image if needed before sending
+        let imageToSend: File | undefined = undefined;
+        if (this.selectedImage) {
+          try {
+            // Compress image to ~300KB if it's larger than that
+            if (this.selectedImage.size > 300 * 1024) {
+              imageToSend = await this.compressImageToTargetSize(this.selectedImage, 300 * 1024);
+              console.log('Image compressed for discussion:', this.selectedImage.name, 
+                'Original:', this.formatFileSize(this.selectedImage.size), 
+                'Compressed:', this.formatFileSize(imageToSend.size));
+            } else {
+              imageToSend = this.selectedImage;
+            }
+          } catch (error) {
+            console.error('Error compressing image:', error);
+            // Use original image if compression fails
+            imageToSend = this.selectedImage;
+          }
+        }
+
         await new Promise<void>((resolve, reject) => {
           this.discussionService.addMessage(
             this.currentDiscussion!.id!,
             messageText,
-            this.selectedImage || undefined,
+            imageToSend,
             this.selectedVideo || undefined
           ).subscribe({
             next: (message) => {
+              // Convert dateTime string to Date object if needed
+              if (message.dateTime && typeof message.dateTime === 'string') {
+                message.dateTime = new Date(message.dateTime);
+              }
               // Message will be added via WebSocket, but we can add it immediately for better UX
               if (!this.messages.find(m => m.id === message.id)) {
                 this.messages.push(message);
@@ -490,6 +655,50 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     if (this.messageInput) {
       this.messageInput.nativeElement.focus();
     }
+  }
+
+  /**
+   * Format message time to display date and time (dd mmm yyyy, HH:mm)
+   */
+  formatMessageTime(dateTime: Date | string | undefined): string {
+    if (!dateTime) {
+      return '';
+    }
+    
+    const date = typeof dateTime === 'string' ? new Date(dateTime) : dateTime;
+    if (isNaN(date.getTime())) {
+      return '';
+    }
+    
+    // Use the current language for formatting
+    const currentLang = this.translateService.currentLang || 'fr';
+    const localeMap: { [key: string]: string } = {
+      'fr': 'fr-FR',
+      'en': 'en-US',
+      'es': 'es-ES',
+      'de': 'de-DE',
+      'it': 'it-IT',
+      'ru': 'ru-RU',
+      'jp': 'ja-JP',
+      'cn': 'zh-CN',
+      'ar': 'ar-SA',
+      'in': 'hi-IN', // Hindi
+      'el': 'el-GR', // Greek
+      'he': 'he-IL'  // Hebrew
+    };
+    const locale = localeMap[currentLang] || 'fr-FR';
+    
+    // Format as dd mmm yyyy, HH:mm
+    const options: Intl.DateTimeFormatOptions = {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false // Use 24-hour format
+    };
+    
+    return date.toLocaleString(locale, options);
   }
 
   /**
@@ -590,23 +799,76 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   /**
-   * Get file URL for display
+   * Get file URL for display (returns blob URL with authentication)
    */
   getFileUrl(message: DiscussionMessage, isImage: boolean): string {
     if (!this.currentDiscussion?.id) {
       return '';
     }
 
+    let cacheKey = '';
+    let filename = '';
+
     if (isImage && message.imageUrl) {
       // Extract filename from URL
-      const filename = message.imageUrl.split('/').pop() || '';
-      return this.discussionService.getFileUrl(this.currentDiscussion.id, 'images', filename);
+      filename = message.imageUrl.split('/').pop() || '';
+      if (!filename) return '';
+      cacheKey = `${this.currentDiscussion.id}/images/${filename}`;
     } else if (!isImage && message.videoUrl) {
       // Extract filename from URL
-      const filename = message.videoUrl.split('/').pop() || '';
-      return this.discussionService.getFileUrl(this.currentDiscussion.id, 'videos', filename);
+      filename = message.videoUrl.split('/').pop() || '';
+      if (!filename) return '';
+      cacheKey = `${this.currentDiscussion.id}/videos/${filename}`;
+    } else {
+      return '';
     }
+
+    // Check cache first
+    if (this.imageUrlCache.has(cacheKey)) {
+      return this.imageUrlCache.get(cacheKey)!;
+    }
+
+    // If not in cache, trigger loading (will be cached when ready)
+    // This will be called again when the cache is updated
+    const subfolder = isImage ? 'images' : 'videos';
+    this.discussionService.getFileUrl(this.currentDiscussion.id, subfolder, filename).subscribe({
+      next: (blobUrl: string) => {
+        this.imageUrlCache.set(cacheKey, blobUrl);
+        // Trigger change detection to update the view
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading file:', error);
+      }
+    });
+
     return '';
+  }
+
+  /**
+   * Check if file URL is available in cache
+   */
+  hasFileUrl(message: DiscussionMessage, isImage: boolean): boolean {
+    if (!this.currentDiscussion?.id) {
+      return false;
+    }
+
+    let cacheKey = '';
+    let filename = '';
+
+    if (isImage && message.imageUrl) {
+      filename = message.imageUrl.split('/').pop() || '';
+      if (!filename) return false;
+      cacheKey = `${this.currentDiscussion.id}/images/${filename}`;
+    } else if (!isImage && message.videoUrl) {
+      filename = message.videoUrl.split('/').pop() || '';
+      if (!filename) return false;
+      cacheKey = `${this.currentDiscussion.id}/videos/${filename}`;
+    } else {
+      return false;
+    }
+
+    return this.imageUrlCache.has(cacheKey);
   }
 
   /**
@@ -741,6 +1003,201 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛', '🕜', '🕝', '🕞',
       '🕟', '🕠', '🕡', '🕢', '🕣', '🕤', '🕥', '🕦', '🕧'
     ];
+  }
+
+  /**
+   * Format file size for display
+   */
+  private formatFileSize(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  /**
+   * Compress image to target size (in bytes)
+   */
+  private async compressImageToTargetSize(file: File, targetSizeBytes: number): Promise<File> {
+    return new Promise((resolve, reject) => {
+      // Check if file is JPEG (EXIF is mainly in JPEG files)
+      const isJPEG = file.type === 'image/jpeg' || file.type === 'image/jpg' || 
+                     file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
+      
+      // Extract EXIF data if JPEG
+      let exifData: any = null;
+      if (isJPEG) {
+        const exifReader = new FileReader();
+        exifReader.onload = (exifEvent: any) => {
+          try {
+            const exifString = exifEvent.target.result;
+            exifData = piexif.load(exifString);
+          } catch (exifError) {
+            exifData = null;
+          }
+          this.performImageCompression(file, targetSizeBytes, exifData, resolve, reject);
+        };
+        exifReader.onerror = () => {
+          this.performImageCompression(file, targetSizeBytes, null, resolve, reject);
+        };
+        exifReader.readAsBinaryString(file);
+      } else {
+        this.performImageCompression(file, targetSizeBytes, null, resolve, reject);
+      }
+    });
+  }
+
+  /**
+   * Perform image compression
+   */
+  private performImageCompression(
+    file: File, 
+    targetSizeBytes: number, 
+    exifData: any, 
+    resolve: (file: File) => void, 
+    reject: (error: Error) => void
+  ): void {
+    const reader = new FileReader();
+    
+    reader.onload = (e: any) => {
+      const img = new Image();
+      
+      img.onload = () => {
+        let quality = 0.9;
+        let minQuality = 0.1;
+        let maxQuality = 0.95;
+        let attempts = 0;
+        const maxAttempts = 10;
+        const isJPEG = file.type === 'image/jpeg' || file.type === 'image/jpg' || 
+                       file.name.toLowerCase().endsWith('.jpg') || file.name.toLowerCase().endsWith('.jpeg');
+        
+        const displayedW = img.width;
+        const displayedH = img.height;
+        
+        const processBlobWithEXIF = (blob: Blob, q: number, callback: (finalBlob: Blob) => void): void => {
+          if (isJPEG && exifData) {
+            try {
+              const blobReader = new FileReader();
+              blobReader.onload = (blobEvent: any) => {
+                try {
+                  const binaryString = blobEvent.target.result;
+                  const modifiedExifData = JSON.parse(JSON.stringify(exifData));
+                  if (modifiedExifData['0th']) {
+                    modifiedExifData['0th'][piexif.ImageIFD.Orientation] = 1;
+                  }
+                  const exifString = piexif.dump(modifiedExifData);
+                  const newBinaryString = piexif.insert(exifString, binaryString);
+                  const byteArray = new Uint8Array(newBinaryString.length);
+                  for (let i = 0; i < newBinaryString.length; i++) {
+                    byteArray[i] = newBinaryString.charCodeAt(i);
+                  }
+                  const finalBlob = new Blob([byteArray], { type: file.type });
+                  callback(finalBlob);
+                } catch (exifInsertError) {
+                  callback(blob);
+                }
+              };
+              blobReader.onerror = () => callback(blob);
+              blobReader.readAsBinaryString(blob);
+            } catch (exifError) {
+              callback(blob);
+            }
+          } else {
+            callback(blob);
+          }
+        };
+        
+        const tryCompress = (q: number): void => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          const sourceWidth = displayedW;
+          const sourceHeight = displayedH;
+          const maxDimension = 1920;
+          
+          let finalWidth = sourceWidth;
+          let finalHeight = sourceHeight;
+          if (sourceWidth > maxDimension || sourceHeight > maxDimension) {
+            if (sourceWidth > sourceHeight) {
+              finalHeight = (sourceHeight / sourceWidth) * maxDimension;
+              finalWidth = maxDimension;
+            } else {
+              finalWidth = (sourceWidth / sourceHeight) * maxDimension;
+              finalHeight = maxDimension;
+            }
+          }
+          
+          canvas.width = finalWidth;
+          canvas.height = finalHeight;
+          ctx.clearRect(0, 0, finalWidth, finalHeight);
+          ctx.drawImage(img, 0, 0, finalWidth, finalHeight);
+          
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              reject(new Error('Failed to create blob'));
+              return;
+            }
+            
+            processBlobWithEXIF(blob, q, (finalBlob) => {
+              attempts++;
+              
+              if (finalBlob.size <= targetSizeBytes * 1.1 || attempts >= maxAttempts) {
+                const compressedFile = new File([finalBlob], file.name, {
+                  type: file.type,
+                  lastModified: Date.now()
+                });
+                resolve(compressedFile);
+                return;
+              }
+              
+              if (finalBlob.size > targetSizeBytes) {
+                maxQuality = q;
+                const newQuality = (q + minQuality) / 2;
+                if (Math.abs(newQuality - q) < 0.01 || newQuality <= minQuality) {
+                  const compressedFile = new File([finalBlob], file.name, {
+                    type: file.type,
+                    lastModified: Date.now()
+                  });
+                  resolve(compressedFile);
+                  return;
+                }
+                tryCompress(newQuality);
+              } else {
+                minQuality = q;
+                const newQuality = (q + maxQuality) / 2;
+                if (Math.abs(newQuality - q) < 0.01 || newQuality >= maxQuality) {
+                  const compressedFile = new File([finalBlob], file.name, {
+                    type: file.type,
+                    lastModified: Date.now()
+                  });
+                  resolve(compressedFile);
+                  return;
+                }
+                tryCompress(newQuality);
+              }
+            });
+          }, file.type, q);
+        };
+        
+        tryCompress(quality);
+      };
+      
+      img.onerror = () => {
+        reject(new Error('Failed to load image'));
+      };
+      
+      img.src = e.target.result as string;
+    };
+    
+    reader.onerror = () => {
+      reject(new Error('Failed to read file'));
+    };
+    
+    reader.readAsDataURL(file);
   }
 }
 
