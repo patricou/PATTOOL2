@@ -3,7 +3,7 @@ import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slid
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { TranslateService } from '@ngx-translate/core';
-import { Observable, Subscription } from 'rxjs';
+import { Observable, Subscription, of } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 
@@ -74,6 +74,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   
   // Cache for discussion file URLs (blob URLs)
   private discussionFileUrlCache: Map<string, string> = new Map();
+  // Store blobs separately to recreate blob URLs if needed
+  private discussionFileBlobCache: Map<string, Blob> = new Map();
+  // Cache for video URLs (blob URLs)
+  private videoUrlCache: Map<string, SafeUrl> = new Map();
   
   // Track active HTTP subscriptions to cancel them on destroy
   private activeSubscriptions = new Set<Subscription>();
@@ -81,6 +85,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   @ViewChild('imageModal') imageModal!: TemplateRef<any>;
   @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
   @ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
+  @ViewChild('discussionMessagesContainer', { read: ElementRef }) discussionMessagesContainer!: ElementRef;
 
   // Slideshow properties (now handled by SlideshowModalComponent - kept for backward compatibility but not used)
 
@@ -101,6 +106,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   public discussionMessages: DiscussionMessage[] = [];
   public isLoadingDiscussion: boolean = false;
   public discussionError: string | null = null;
+  
+  // Video URLs for display
+  public videoUrls: Map<string, SafeUrl> = new Map();
   
   // File upload properties
   public selectedFiles: File[] = [];
@@ -187,6 +195,83 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       }
     });
     this.discussionFileUrlCache.clear();
+    this.discussionFileBlobCache.clear();
+    
+    // Clean up video URLs
+    this.videoUrlCache.forEach((safeUrl) => {
+      const url = (safeUrl as any).changingThisBreaksApplicationSecurity;
+      if (url && url.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          // Ignore errors when revoking
+        }
+      }
+    });
+    this.videoUrlCache.clear();
+    this.videoUrls.clear();
+    
+    // Clean up photo items blob URLs
+    this.photoItems.forEach((item) => {
+      const url = (item.imageUrl as any).changingThisBreaksApplicationSecurity;
+      if (url && url.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (e) {
+          // Ignore errors when revoking
+        }
+      }
+    });
+    
+    // Clear all data arrays and objects
+    this.photoItems = [];
+    this.discussionMessages = [];
+    this.isLoadingDiscussion = false;
+    this.discussionError = null;
+    this.evenement = null;
+    this.user = null;
+    this.friendGroups = [];
+    this.friendGroupsLoaded = false;
+    
+    // Clear upload related data
+    this.selectedFiles = [];
+    this.uploadLogs = [];
+    this.isUploading = false;
+    this.pendingVideoFiles = [];
+    this.videoCountForModal = 0;
+    
+    // Clear FS subscriptions
+    this.fsActiveSubs.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.fsActiveSubs = [];
+    this.fsSlideshowSubs.forEach(sub => {
+      if (sub && !sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.fsSlideshowSubs = [];
+    this.fsQueue = [];
+    this.fsDownloadsActive = false;
+    this.fsSlideshowLoadingActive = false;
+    
+    // Clear timeouts
+    this.activeTimeouts.forEach(timeout => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    });
+    this.activeTimeouts.clear();
+    
+    // Clear error and loading states
+    this.error = null;
+    this.loading = true;
+    
+    // Reset photo gallery
+    this.currentPhotoIndex = 0;
+    this.isFullscreen = false;
   }
 
   private loadEventDetails(): void {
@@ -206,6 +291,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       next: (evenement: Evenement) => {
         this.evenement = evenement;
         this.preparePhotoGallery();
+        // Load video URLs
+        this.loadVideoUrls();
         this.loading = false;
         // Load discussion messages if discussionId exists
         if (evenement.discussionId) {
@@ -396,6 +483,32 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Open discussion maximized
+  public openDiscussionMaximized(): void {
+    if (!this.evenement?.discussionId) {
+      console.warn('No discussion ID available');
+      return;
+    }
+
+    try {
+      const modalRef = this.modalService.open(DiscussionModalComponent, {
+        size: 'xl',
+        centered: true,
+        backdrop: 'static',
+        keyboard: true,
+        windowClass: 'discussion-maximized-modal',
+        scrollable: true
+      });
+      
+      if (modalRef && modalRef.componentInstance) {
+        modalRef.componentInstance.discussionId = this.evenement.discussionId;
+        modalRef.componentInstance.title = this.evenement.evenementName || 'Discussion';
+      }
+    } catch (error) {
+      console.error('Error opening discussion modal:', error);
+    }
+  }
+
   // Open discussion if available
   public openDiscussion(): void {
     if (!this.evenement?.discussionId) {
@@ -444,6 +557,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.isLoadingDiscussion = false;
         // Load images for messages that have images
         this.loadDiscussionMessageImages();
+        // Scroll to bottom after messages are loaded
+        setTimeout(() => this.scrollDiscussionToBottom(), 100);
+        // Scroll to bottom after messages are loaded
+        setTimeout(() => this.scrollDiscussionToBottom(), 100);
       },
       error: (error: any) => {
         // If it's a 401, the interceptor will redirect to login
@@ -493,6 +610,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
             this.discussionFileUrlCache.set(cacheKey, blobUrl);
             // Trigger change detection to update the view
             this.cdr.detectChanges();
+            // Scroll to bottom after image is loaded
+            setTimeout(() => this.scrollDiscussionToBottom(), 50);
           },
           error: (error) => {
             // Don't log 401/404 errors as they will trigger redirect via interceptor or are expected
@@ -528,6 +647,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
             this.discussionFileUrlCache.set(cacheKey, blobUrl);
             // Trigger change detection to update the view
             this.cdr.detectChanges();
+            // Scroll to bottom after video is loaded
+            setTimeout(() => this.scrollDiscussionToBottom(), 50);
           },
           error: (error) => {
             // Don't log 401/404 errors as they will trigger redirect via interceptor or are expected
@@ -539,6 +660,17 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           }
         });
         this.trackSubscription(subscription);
+      }
+    });
+  }
+
+  // Scroll discussion messages container to bottom
+  private scrollDiscussionToBottom(): void {
+    // Use requestAnimationFrame to ensure DOM is updated
+    requestAnimationFrame(() => {
+      if (this.discussionMessagesContainer?.nativeElement) {
+        const container = this.discussionMessagesContainer.nativeElement;
+        container.scrollTop = container.scrollHeight;
       }
     });
   }
@@ -844,6 +976,16 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     return imageExtensions.some(ext => lowerFileName.endsWith(ext));
   }
 
+  // Check if file is a video based on extension
+  public isVideoFile(fileName: string): boolean {
+    if (!fileName) return false;
+    
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.ogv', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'];
+    const lowerFileName = fileName.toLowerCase();
+    
+    return videoExtensions.some(ext => lowerFileName.endsWith(ext));
+  }
+
   // Check if file is a PDF based on extension
   public isPdfFile(fileName: string): boolean {
     if (!fileName) return false;
@@ -993,12 +1135,36 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.router.navigate(['/even']);
   }
 
+  // Handle image load - detect portrait orientation
+  public onImageLoad(event: any): void {
+    const target = event.target as HTMLImageElement;
+    if (target) {
+      const naturalHeight = target.naturalHeight;
+      const naturalWidth = target.naturalWidth;
+      
+      // If image is portrait (height > width), add class to constrain height
+      if (naturalHeight > naturalWidth) {
+        target.classList.add('portrait-image');
+        // Also add class to parent frame
+        const frame = target.closest('.photo-frame');
+        if (frame) {
+          frame.classList.add('portrait-frame');
+        }
+      }
+    }
+  }
+
   // Handle image error
   public onImageError(event: any): void {
     const target = event.target as HTMLImageElement;
     if (target) {
       target.src = ElementEvenementComponent.getDefaultPlaceholderImageUrl(); // Fallback image
     }
+  }
+
+  // Handle video loading errors
+  public onVideoError(event: any, videoFile: UploadedFile): void {
+    console.error('Error loading video:', videoFile.fileName, event);
   }
 
   // Get URL type label
@@ -1273,6 +1439,82 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     );
   }
 
+  // Get video files
+  public getVideoFiles(): UploadedFile[] {
+    if (!this.evenement?.fileUploadeds) {
+      return [];
+    }
+    return this.evenement.fileUploadeds.filter(file => this.isVideoFile(file.fileName));
+  }
+
+  // Load all video URLs
+  private loadVideoUrls(): void {
+    const videoFiles = this.getVideoFiles();
+    videoFiles.forEach((file) => {
+      if (!file?.fieldId) {
+        return;
+      }
+      
+      // Check cache first
+      if (this.videoUrlCache.has(file.fieldId)) {
+        this.videoUrls.set(file.fieldId, this.videoUrlCache.get(file.fieldId)!);
+        return;
+      }
+      
+      // Load video and create blob URL with correct MIME type
+      const subscription = this.fileService.getFile(file.fieldId).subscribe({
+        next: (blob: Blob) => {
+          // Determine video MIME type from file extension
+          let videoType = 'video/mp4'; // default
+          const fileName = file.fileName.toLowerCase();
+          if (fileName.endsWith('.webm')) {
+            videoType = 'video/webm';
+          } else if (fileName.endsWith('.ogg') || fileName.endsWith('.ogv')) {
+            videoType = 'video/ogg';
+          } else if (fileName.endsWith('.mov')) {
+            videoType = 'video/quicktime';
+          } else if (fileName.endsWith('.avi')) {
+            videoType = 'video/x-msvideo';
+          } else if (fileName.endsWith('.wmv')) {
+            videoType = 'video/x-ms-wmv';
+          } else if (fileName.endsWith('.flv')) {
+            videoType = 'video/x-flv';
+          } else if (fileName.endsWith('.mkv')) {
+            videoType = 'video/x-matroska';
+          } else if (fileName.endsWith('.m4v') || fileName.endsWith('.3gp')) {
+            videoType = 'video/mp4';
+          }
+          
+          // Create a new blob with the correct MIME type if the current type is wrong
+          let videoBlob = blob;
+          if (blob.type !== videoType && (blob.type === 'application/octet-stream' || !blob.type)) {
+            videoBlob = new Blob([blob], { type: videoType });
+          }
+          
+          const blobUrl = URL.createObjectURL(videoBlob);
+          const safeUrl = this.sanitizer.bypassSecurityTrustUrl(blobUrl);
+          this.videoUrlCache.set(file.fieldId, safeUrl);
+          this.videoUrls.set(file.fieldId, safeUrl);
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error('Error loading video:', file.fileName, error);
+        }
+      });
+      this.trackSubscription(subscription);
+    });
+  }
+
+  // Get video URL for playback (from loaded URLs)
+  public getVideoUrl(file: UploadedFile): SafeUrl {
+    if (!file?.fieldId) {
+      return this.sanitizer.bypassSecurityTrustUrl('');
+    }
+    
+    // Return from loaded URLs map
+    return this.videoUrls.get(file.fieldId) || this.sanitizer.bypassSecurityTrustUrl('');
+  }
+
   // Open PDF in new tab (same method as element-evenement)
   public openPdfInPage(pdfFile: UploadedFile): void {
     console.log('Opening PDF file:', pdfFile.fileName, 'with ID:', pdfFile.fieldId);
@@ -1430,6 +1672,22 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // =========================
 
   // Open a single image in slideshow modal
+  // Open all photos in maximized slideshow
+  public openPhotosMaximized(): void {
+    if (!this.slideshowModalComponent || !this.evenement || this.photoItemsList.length === 0) {
+      return;
+    }
+    
+    // Convert photoItems to SlideshowImageSource array
+    const imageSources: SlideshowImageSource[] = this.photoItemsList.map(photoItem => ({
+      fileId: photoItem.file.fieldId,
+      blobUrl: undefined,
+      fileName: photoItem.file.fileName
+    }));
+    
+    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true);
+  }
+
   public openSingleImageInSlideshow(fileId: string, fileName: string): void {
     if (!this.slideshowModalComponent || !this.evenement) {
       console.error('Slideshow modal component or event not available');
@@ -1964,12 +2222,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     });
   }
 
-  private isVideoFile(fileName: string): boolean {
-    if (!fileName) return false;
-    const videoExtensions = ['.mp4', '.webm', '.ogg', '.ogv', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'];
-    const lowerFileName = fileName.toLowerCase();
-    return videoExtensions.some(ext => lowerFileName.endsWith(ext));
-  }
 
   // =========================
   // Slideshow methods (now handled by SlideshowModalComponent)

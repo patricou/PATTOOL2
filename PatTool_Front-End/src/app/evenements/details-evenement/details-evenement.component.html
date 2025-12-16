@@ -211,7 +211,7 @@
         </div>
         
         <!-- Messages List -->
-        <div *ngIf="!isLoadingDiscussion && !discussionError" class="discussion-messages-compact">
+        <div #discussionMessagesContainer *ngIf="!isLoadingDiscussion && !discussionError" class="discussion-messages-compact">
           <div *ngIf="discussionMessages.length === 0" class="discussion-empty-compact">
             <i class="fa fa-comments"></i>
             <p>No messages yet</p>
@@ -267,6 +267,9 @@
         <div class="card-header-compact">
           <i class="fa fa-camera"></i>
           <span>Photos ({{ photoItemsList.length }})</span>
+          <button type="button" class="btn-compact btn-primary-compact ms-auto" (click)="openPhotosMaximized(); $event.stopPropagation()" title="Maximiser">
+            <i class="fa fa-external-link"></i>
+          </button>
         </div>
         <div class="photo-gallery">
           <div class="photo-viewer">
@@ -276,6 +279,7 @@
                      [alt]="photoItem.file.fileName" 
                      class="photo-img"
                      (click)="openSingleImageInSlideshow(photoItem.file.fieldId, photoItem.file.fileName)"
+                     (load)="onImageLoad($event)"
                      (error)="onImageError($event)">
               </div>
             </div>
@@ -359,6 +363,25 @@
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Video Cards - One card per video -->
+      <div class="dynamic-card card-medium card-vertical video-card" *ngFor="let videoFile of getVideoFiles(); let i = index">
+        <div class="card-header-compact">
+          <i class="fa fa-video-camera"></i>
+          <span>{{ videoFile.fileName }}</span>
+        </div>
+        <div class="video-container-compact">
+          <video 
+            [src]="getVideoUrl(videoFile)"
+            controls
+            autoplay
+            loop
+            class="video-player-compact"
+            (error)="onVideoError($event, videoFile)">
+            Votre navigateur ne supporte pas la lecture de vidéos.
+          </video>
         </div>
       </div>
 
