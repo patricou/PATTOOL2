@@ -24,7 +24,10 @@ export class KeycloakService {
     KeycloakService.auth.loggedIn = false;
 
     return new Promise((resolve, reject) => {
-      keycloakAuth.init({ onLoad: 'login-required' })
+      keycloakAuth.init({ 
+        onLoad: 'login-required',
+        checkLoginIframe: false  // Disable login status iframe to prevent stuck loading state
+      })
         .success(() => {
           KeycloakService.auth.loggedIn = true;
           KeycloakService.auth.authz = keycloakAuth;
