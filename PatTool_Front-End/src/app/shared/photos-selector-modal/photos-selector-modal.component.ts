@@ -1,4 +1,4 @@
-import { Component, OnInit, Input, Output, EventEmitter, ViewChild, TemplateRef } from '@angular/core';
+import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitter, ViewChild, TemplateRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateService } from '@ngx-translate/core';
@@ -17,7 +17,7 @@ export interface PhotosSelectionResult {
   templateUrl: './photos-selector-modal.component.html',
   styleUrls: ['./photos-selector-modal.component.css']
 })
-export class PhotosSelectorModalComponent implements OnInit {
+export class PhotosSelectorModalComponent implements OnInit, OnChanges {
   @Input() evenement!: Evenement;
   @Input() includeUploadedChoice: boolean = false;
   @Input() user!: Member;
@@ -95,6 +95,16 @@ export class PhotosSelectorModalComponent implements OnInit {
     this.initializeDefaultSelection();
   }
 
+  ngOnChanges(changes: SimpleChanges): void {
+    // When evenement data changes (e.g., files are loaded), check and select single option
+    if (changes['evenement'] && !changes['evenement'].firstChange) {
+      // Data has changed after initial load - check if we need to auto-select
+      setTimeout(() => {
+        this.checkAndSelectSingleOption();
+      }, 100);
+    }
+  }
+
   public open(): void {
     if (!this.evenement) {
       console.warn('No event provided to photos selector');
@@ -104,6 +114,8 @@ export class PhotosSelectorModalComponent implements OnInit {
     // Reset selection
     this.selectedFsLink = '';
     this.fsCompressionEnabled = true;
+    
+    // Initialize default selection - if there's only one option, it will be automatically selected
     this.initializeDefaultSelection();
 
     if (!this.photosSelectorModal) {
@@ -178,6 +190,17 @@ export class PhotosSelectorModalComponent implements OnInit {
       this.unlockScrollPosition();
       this.closed.emit();
     });
+
+    // Check and auto-select if there's only one option after modal is opened
+    // Use setTimeout to ensure modal is fully rendered and data might be loaded
+    setTimeout(() => {
+      this.checkAndSelectSingleOption();
+    }, 100);
+    
+    // Also check again after a longer delay in case files are still loading
+    setTimeout(() => {
+      this.checkAndSelectSingleOption();
+    }, 500);
   }
 
   public close(): void {
@@ -191,7 +214,20 @@ export class PhotosSelectorModalComponent implements OnInit {
   }
 
   public confirmSelection(modalRef?: any): void {
-    if (!this.selectedFsLink) {
+    // Validate that a selection has been made
+    if (!this.selectedFsLink || typeof this.selectedFsLink !== 'string' || this.selectedFsLink.trim() === '') {
+      // Show alert to user that they must select an option
+      let message = 'Veuillez sélectionner une option avant de continuer.';
+      try {
+        const translated = this.translateService.instant('EVENTELEM.PHOTOS_SELECTION_REQUIRED');
+        // If translation exists and is different from the key, use it
+        if (translated && translated !== 'EVENTELEM.PHOTOS_SELECTION_REQUIRED') {
+          message = translated;
+        }
+      } catch (e) {
+        // Use default message if translation fails
+      }
+      alert(message);
       return;
     }
 
@@ -215,6 +251,63 @@ export class PhotosSelectorModalComponent implements OnInit {
     }
   }
 
+  // Check if a valid selection has been made
+  public hasValidSelection(): boolean {
+    if (!this.selectedFsLink) {
+      return false;
+    }
+    if (typeof this.selectedFsLink !== 'string') {
+      return false;
+    }
+    return this.selectedFsLink.trim() !== '';
+  }
+
+  // Check if any photo options are available
+  public hasAnyPhotoOptions(): boolean {
+    return this.hasImageFiles() || 
+           this.getPhotoFromFsLinks().length > 0 || 
+           this.getPhotosUrlLinks().length > 0;
+  }
+
+  // Get message when no photos are available
+  public getNoPhotosAvailableMessage(): string {
+    try {
+      const translated = this.translateService.instant('EVENTELEM.NO_PHOTOS_AVAILABLE');
+      // If translation exists and is different from the key, use it
+      if (translated && translated !== 'EVENTELEM.NO_PHOTOS_AVAILABLE') {
+        return translated;
+      }
+    } catch (e) {
+      // Use default message if translation fails
+    }
+    return 'Aucune photo disponible pour cet événement.';
+  }
+
+  // Count total number of photo options available
+  private getTotalPhotoOptionsCount(): number {
+    let count = 0;
+    if (this.includeUploadedChoice && this.hasImageFiles()) {
+      count += 1; // Uploaded photos count as 1 option
+    }
+    count += this.getPhotoFromFsLinks().length;
+    count += this.getPhotosUrlLinks().length;
+    return count;
+  }
+
+  // Check if there's only one option and automatically select it
+  public checkAndSelectSingleOption(): void {
+    if (!this.evenement) {
+      return;
+    }
+
+    const totalOptions = this.getTotalPhotoOptionsCount();
+    
+    // If there's exactly one option and nothing is selected yet, select it automatically
+    if (totalOptions === 1 && (!this.selectedFsLink || this.selectedFsLink.trim() === '')) {
+      this.initializeDefaultSelection();
+    }
+  }
+
   private initializeDefaultSelection(): void {
     if (!this.evenement) {
       return;
@@ -223,12 +316,12 @@ export class PhotosSelectorModalComponent implements OnInit {
     const fsLinks = this.getPhotoFromFsLinks();
     const webLinks = this.getPhotosUrlLinks();
 
-    // Default selection priority: first FS link -> first web photos link -> uploaded photos
+    // Default selection priority: first FS link -> first web photos link -> uploaded photos (if includeUploadedChoice is true)
     if (fsLinks.length > 0) {
       this.selectedFsLink = fsLinks[0].link;
     } else if (webLinks.length > 0) {
       this.selectedFsLink = 'PHOTOS:' + webLinks[0].link;
-    } else if (this.hasImageFiles()) {
+    } else if (this.includeUploadedChoice && this.hasImageFiles()) {
       this.selectedFsLink = '__UPLOADED__';
     }
   }

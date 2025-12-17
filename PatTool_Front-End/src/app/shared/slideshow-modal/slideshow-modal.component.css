@@ -61,7 +61,7 @@
 ::ng-deep .modal.show:has(.slideshow-body) .modal-content,
 ::ng-deep .modal-smooth-animation .modal-content:has(.slideshow-header),
 ::ng-deep .modal-smooth-animation .modal-content:has(.slideshow-body) {
-    border: 4px solid white !important;
+    border: 4px solid var(--slideshow-border, white) !important;
     border-radius: 8px;
     overflow: hidden;
 }
@@ -90,8 +90,8 @@
 }
 
 .slideshow-header {
-    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
-    color: white;
+    background: var(--slideshow-header-bg, linear-gradient(135deg, #28a745 0%, #20c997 100%));
+    color: var(--slideshow-header-text, white);
     border: none;
     position: relative;
     z-index: 20000;
@@ -99,7 +99,7 @@
 }
 
 .slideshow-header .modal-title {
-    color: white;
+    color: var(--slideshow-header-text, white);
     font-weight: 600;
 }
 
@@ -1037,6 +1037,19 @@
     pointer-events: auto;
 }
 
+.slideshow-header .btn-outline-light,
+.slideshow-header .btn-outline-info {
+    border-color: var(--slideshow-button-border, rgba(255, 255, 255, 0.5)) !important;
+    color: var(--slideshow-button-text, white) !important;
+}
+
+.slideshow-header .btn-outline-light:hover,
+.slideshow-header .btn-outline-info:hover {
+    background: var(--slideshow-button-hover-bg, rgba(255, 255, 255, 0.1)) !important;
+    border-color: var(--slideshow-button-border, rgba(255, 255, 255, 0.8)) !important;
+    color: var(--slideshow-button-text, white) !important;
+}
+
 .slideshow-controls .btn:hover:not(:disabled) {
     background: rgba(255, 255, 255, 0.3);
     transform: scale(1.1);
@@ -1055,8 +1068,8 @@
 /* Les boutons sont masqués par défaut même en plein écran et s'affichent uniquement au survol */
 
 .slideshow-footer {
-    background: #2c3e50;
-    border-top: 1px solid #34495e;
+    background: var(--slideshow-footer-bg, #2c3e50);
+    border-top: 1px solid var(--slideshow-footer-border, #34495e);
     padding: 10px 12px;
     position: relative;
     z-index: 10001;
@@ -1074,7 +1087,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
     width: 100vw !important;
     max-width: 100vw !important;
     z-index: 999999 !important;
-    background: #2c3e50 !important;
+    background: var(--slideshow-footer-bg, #2c3e50) !important;
 }
 
 /* Also handle when slideshow-container is directly fullscreen */
@@ -1089,7 +1102,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
     width: 100vw !important;
     max-width: 100vw !important;
     z-index: 999999 !important;
-    background: #2c3e50 !important;
+    background: var(--slideshow-footer-bg, #2c3e50) !important;
 }
 
 .slideshow-footer .d-flex {
@@ -1101,10 +1114,10 @@ body.slideshow-fullscreen-active .slideshow-footer {
 
 .slideshow-footer .btn {
     white-space: nowrap;
-    background: rgba(40, 167, 69, 0.3) !important; /* Vert transparent */
+    background: var(--slideshow-footer-button-bg, rgba(40, 167, 69, 0.3)) !important;
     background-color: transparent !important;
-    border-color: rgba(255, 255, 255, 0.3) !important;
-    color: rgba(255, 255, 255, 0.9) !important;
+    border-color: var(--slideshow-footer-button-border, rgba(255, 255, 255, 0.3)) !important;
+    color: var(--slideshow-footer-button-text, rgba(255, 255, 255, 0.9)) !important;
     transition: all 0.3s ease;
     font-size: 0.85rem;
     padding: 0.35rem 0.65rem;
@@ -1116,22 +1129,22 @@ body.slideshow-fullscreen-active .slideshow-footer {
 }
 
 .slideshow-footer .btn:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.1) !important;
-    background-color: rgba(255, 255, 255, 0.1) !important;
-    border-color: rgba(255, 255, 255, 0.5) !important;
-    color: rgba(255, 255, 255, 1) !important;
+    background: var(--slideshow-footer-button-hover-bg, rgba(255, 255, 255, 0.1)) !important;
+    background-color: var(--slideshow-footer-button-hover-bg, rgba(255, 255, 255, 0.1)) !important;
+    border-color: var(--slideshow-footer-button-border, rgba(255, 255, 255, 0.5)) !important;
+    color: var(--slideshow-footer-button-text, rgba(255, 255, 255, 1)) !important;
 }
 
 .slideshow-footer .btn.btn-info {
-    border-color: rgba(66, 165, 245, 0.5) !important;
-    color: rgba(66, 165, 245, 0.9) !important;
+    border-color: var(--slideshow-footer-button-border, rgba(66, 165, 245, 0.5)) !important;
+    color: var(--slideshow-footer-button-text, rgba(66, 165, 245, 0.9)) !important;
 }
 
 .slideshow-footer .btn.btn-info:hover:not(:disabled) {
-    background: rgba(66, 165, 245, 0.2) !important;
-    background-color: rgba(66, 165, 245, 0.2) !important;
-    border-color: rgba(66, 165, 245, 0.8) !important;
-    color: rgba(66, 165, 245, 1) !important;
+    background: var(--slideshow-footer-button-hover-bg, rgba(66, 165, 245, 0.2)) !important;
+    background-color: var(--slideshow-footer-button-hover-bg, rgba(66, 165, 245, 0.2)) !important;
+    border-color: var(--slideshow-footer-button-border, rgba(66, 165, 245, 0.8)) !important;
+    color: var(--slideshow-footer-button-text, rgba(66, 165, 245, 1)) !important;
 }
 
 .slideshow-footer .btn:disabled {

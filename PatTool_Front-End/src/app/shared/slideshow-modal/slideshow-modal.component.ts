@@ -52,6 +52,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   @Output() closed = new EventEmitter<void>();
   @Output() openLocationInTrace = new EventEmitter<SlideshowLocationEvent>();
   
+  // Event color for styling
+  private eventColor: { r: number; g: number; b: number } | null = null;
+  
   @ViewChild('slideshowModal') slideshowModal!: TemplateRef<any>;
   @ViewChild('slideshowContainer') slideshowContainerRef!: ElementRef;
   @ViewChild('slideshowImgEl') slideshowImgElRef!: ElementRef<HTMLImageElement>;
@@ -436,7 +439,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Open the slideshow modal
-  public open(images: SlideshowImageSource[], eventName: string = '', loadFromFileService: boolean = false, retryCount: number = 0): void {
+  public open(images: SlideshowImageSource[], eventName: string = '', loadFromFileService: boolean = false, retryCount: number = 0, eventColor?: { r: number; g: number; b: number }): void {
     // Allow opening with empty array for dynamic loading
     if (!images) {
       images = [];
@@ -450,6 +453,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.images = images;
     this.eventName = eventName;
     this.loadFromFileService = loadFromFileService;
+    
+    // Store event color if provided
+    if (eventColor) {
+      this.eventColor = eventColor;
+      this.applyEventColorToSlideshow();
+    } else {
+      this.eventColor = null;
+      this.resetSlideshowColors();
+    }
     
     // Initialize slideshow state
     this.slideshowImages = [];
@@ -533,6 +545,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.setupKeyboardListener();
         this.setupResizeListener();
         this.updateContainerDimensions();
+        // Apply event color after modal is rendered (with additional delay to ensure DOM is ready)
+        if (this.eventColor) {
+          setTimeout(() => {
+            this.applyEventColorToSlideshow();
+          }, 100);
+        }
         
         // Fix accessibility: Remove focus from elements outside modal that have aria-hidden
         // This prevents the "Blocked aria-hidden on an element because its descendant retained focus" error
@@ -1922,6 +1940,127 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.updateImageDimensions();
       this.updateContainerDimensions();
     }, 0);
+  }
+  
+  // Apply event color to slideshow styling
+  private applyEventColorToSlideshow(): void {
+    if (!this.eventColor) {
+      return;
+    }
+    
+    const color = this.eventColor;
+    // Calculate brightness to determine if we need lighter or darker variants
+    const brightness = (0.299 * color.r + 0.587 * color.g + 0.114 * color.b);
+    const isBright = brightness > 128;
+    
+    // Header background - use gradient based on event color
+    const headerBgR = Math.min(255, color.r + 20);
+    const headerBgG = Math.min(255, color.g + 20);
+    const headerBgB = Math.min(255, color.b + 20);
+    const headerBg2R = Math.max(0, color.r - 10);
+    const headerBg2G = Math.max(0, color.g - 10);
+    const headerBg2B = Math.max(0, color.b - 10);
+    
+    // Header text color - inverse based on brightness
+    const headerTextColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+    
+    // Button colors - use event color with adjustments
+    const buttonBorderR = Math.min(255, color.r + 30);
+    const buttonBorderG = Math.min(255, color.g + 30);
+    const buttonBorderB = Math.min(255, color.b + 30);
+    const buttonTextColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+    const buttonHoverBgR = Math.min(255, color.r + 40);
+    const buttonHoverBgG = Math.min(255, color.g + 40);
+    const buttonHoverBgB = Math.min(255, color.b + 40);
+    
+    // Border color - use event color
+    const borderColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    
+    // Footer background - use darker variant of event color
+    const footerBgR = Math.max(0, color.r - 30);
+    const footerBgG = Math.max(0, color.g - 30);
+    const footerBgB = Math.max(0, color.b - 30);
+    const footerBorderR = Math.max(0, color.r - 20);
+    const footerBorderG = Math.max(0, color.g - 20);
+    const footerBorderB = Math.max(0, color.b - 20);
+    
+    // Footer button colors - use event color with adjustments
+    const footerButtonBgR = Math.min(255, color.r + 10);
+    const footerButtonBgG = Math.min(255, color.g + 10);
+    const footerButtonBgB = Math.min(255, color.b + 10);
+    const footerButtonBorderR = Math.min(255, color.r + 20);
+    const footerButtonBorderG = Math.min(255, color.g + 20);
+    const footerButtonBorderB = Math.min(255, color.b + 20);
+    const footerButtonTextColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+    const footerButtonHoverBgR = Math.min(255, color.r + 30);
+    const footerButtonHoverBgG = Math.min(255, color.g + 30);
+    const footerButtonHoverBgB = Math.min(255, color.b + 30);
+    
+    // Apply CSS variables to the modal element - try multiple selectors for compatibility
+    // Try multiple times with different selectors and delays to ensure modal is in DOM
+    const applyColors = (attempt: number = 0) => {
+      let modalElement = document.querySelector('.modal.show .modal-content.slideshow-modal-wide') as HTMLElement;
+      if (!modalElement) {
+        modalElement = document.querySelector('.modal.show .modal-content') as HTMLElement;
+      }
+      if (!modalElement) {
+        modalElement = document.querySelector('.slideshow-modal-wide .modal-content') as HTMLElement;
+      }
+      if (!modalElement && this.modalRef) {
+        // Try to get element from modalRef
+        const modalElementRef = (this.modalRef as any).componentInstance?.elementRef?.nativeElement?.querySelector('.modal-content');
+        if (modalElementRef) {
+          modalElement = modalElementRef;
+        }
+      }
+      
+      if (modalElement) {
+        modalElement.style.setProperty('--slideshow-header-bg', `linear-gradient(135deg, rgb(${headerBgR}, ${headerBgG}, ${headerBgB}) 0%, rgb(${headerBg2R}, ${headerBg2G}, ${headerBg2B}) 100%)`);
+        modalElement.style.setProperty('--slideshow-header-text', headerTextColor);
+        modalElement.style.setProperty('--slideshow-button-border', `rgb(${buttonBorderR}, ${buttonBorderG}, ${buttonBorderB})`);
+        modalElement.style.setProperty('--slideshow-button-text', buttonTextColor);
+        modalElement.style.setProperty('--slideshow-button-hover-bg', `rgba(${buttonHoverBgR}, ${buttonHoverBgG}, ${buttonHoverBgB}, 0.2)`);
+        modalElement.style.setProperty('--slideshow-border', borderColor);
+        
+        // Footer colors
+        modalElement.style.setProperty('--slideshow-footer-bg', `rgb(${footerBgR}, ${footerBgG}, ${footerBgB})`);
+        modalElement.style.setProperty('--slideshow-footer-border', `rgb(${footerBorderR}, ${footerBorderG}, ${footerBorderB})`);
+        modalElement.style.setProperty('--slideshow-footer-button-bg', `rgba(${footerButtonBgR}, ${footerButtonBgG}, ${footerButtonBgB}, 0.3)`);
+        modalElement.style.setProperty('--slideshow-footer-button-border', `rgba(${footerButtonBorderR}, ${footerButtonBorderG}, ${footerButtonBorderB}, 0.5)`);
+        modalElement.style.setProperty('--slideshow-footer-button-text', footerButtonTextColor);
+        modalElement.style.setProperty('--slideshow-footer-button-hover-bg', `rgba(${footerButtonHoverBgR}, ${footerButtonHoverBgG}, ${footerButtonHoverBgB}, 0.2)`);
+      } else if (attempt < 5) {
+        // Retry if modal not found yet
+        setTimeout(() => applyColors(attempt + 1), 50 * (attempt + 1));
+      }
+    };
+    
+    applyColors();
+  }
+  
+  // Reset slideshow colors to default
+  private resetSlideshowColors(): void {
+    let modalElement = document.querySelector('.modal.show .modal-content.slideshow-modal-wide') as HTMLElement;
+    if (!modalElement) {
+      modalElement = document.querySelector('.modal.show .modal-content') as HTMLElement;
+    }
+    if (!modalElement) {
+      modalElement = document.querySelector('.slideshow-modal-wide .modal-content') as HTMLElement;
+    }
+    if (modalElement) {
+      modalElement.style.removeProperty('--slideshow-header-bg');
+      modalElement.style.removeProperty('--slideshow-header-text');
+      modalElement.style.removeProperty('--slideshow-button-border');
+      modalElement.style.removeProperty('--slideshow-button-text');
+      modalElement.style.removeProperty('--slideshow-button-hover-bg');
+      modalElement.style.removeProperty('--slideshow-border');
+      modalElement.style.removeProperty('--slideshow-footer-bg');
+      modalElement.style.removeProperty('--slideshow-footer-border');
+      modalElement.style.removeProperty('--slideshow-footer-button-bg');
+      modalElement.style.removeProperty('--slideshow-footer-button-border');
+      modalElement.style.removeProperty('--slideshow-footer-button-text');
+      modalElement.style.removeProperty('--slideshow-footer-button-hover-bg');
+    }
   }
   
   // Helper function to center image on the saved point (container coordinates)

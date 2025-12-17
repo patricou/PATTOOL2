@@ -3,8 +3,8 @@ import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slid
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { TranslateService } from '@ngx-translate/core';
-import { Observable, Subscription, of } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { Observable, Subscription, of, EMPTY } from 'rxjs';
+import { map, catchError } from 'rxjs/operators';
 import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 
 import { Evenement } from '../../model/evenement';
@@ -23,6 +23,7 @@ import { VideoCompressionService, CompressionProgress } from '../../services/vid
 import { environment } from '../../../environments/environment';
 import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
 import { FriendGroup } from '../../model/friend';
+import { EventColorService } from '../../services/event-color.service';
 
 @Component({
   selector: 'app-details-evenement',
@@ -78,6 +79,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   private discussionFileBlobCache: Map<string, Blob> = new Map();
   // Cache for video URLs (blob URLs)
   private videoUrlCache: Map<string, SafeUrl> = new Map();
+  // Track videos that have successfully loaded to avoid false error logs
+  private videoLoadSuccess: Set<string> = new Set();
   
   // Track active HTTP subscriptions to cancel them on destroy
   private activeSubscriptions = new Set<Subscription>();
@@ -101,6 +104,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // Friend groups for WhatsApp links
   public friendGroups: FriendGroup[] = [];
   private friendGroupsLoaded: boolean = false;
+
 
   // Discussion messages
   public discussionMessages: DiscussionMessage[] = [];
@@ -135,14 +139,141 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     private friendsService: FriendsService,
     private discussionService: DiscussionService,
     private videoCompressionService: VideoCompressionService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private eventColorService: EventColorService
   ) {
     this.nativeWindow = winRef.getNativeWindow();
   }
 
   ngOnInit(): void {
+    // Display any stored errors from previous page load
+    this.displayStoredErrors();
+    
     this.loadFriendGroups();
     this.loadEventDetails();
+    
+    // Get color from service and apply it
+    this.applyEventColor();
+  }
+
+  // Get color from service and apply it to buttons and all text
+  private applyEventColor(): void {
+    this.route.params.subscribe(params => {
+      const eventId = params['id'];
+      if (eventId) {
+        const color = this.eventColorService.getEventColor(eventId);
+        if (color) {
+          // Calculate brightness to determine if we need lighter or darker variants
+          // Using luminance formula: 0.299*R + 0.587*G + 0.114*B
+          const brightness = (0.299 * color.r + 0.587 * color.g + 0.114 * color.b);
+          const isBright = brightness > 128;
+          
+          // Inverse color for badges and card titles (white if dark, dark if bright)
+          const badgeTitleColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+          document.documentElement.style.setProperty('--badge-title-color', badgeTitleColor);
+          
+          // Inverse colors for all text based on brightness for better visibility
+          // If calculated color is bright, use dark text; if dark, use light text
+          // Primary text (main content, titles, headers)
+          const primaryTextColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+          document.documentElement.style.setProperty('--text-color-primary', primaryTextColor);
+          
+          // Light variant (for emphasis, important text like event title, description)
+          const lightTextColor = isBright ? 'rgb(10, 20, 35)' : 'rgb(245, 245, 245)';
+          document.documentElement.style.setProperty('--text-color-light', lightTextColor);
+          
+          // Dark variant (for secondary text, labels) - slightly less contrast
+          const darkTextColor = isBright ? 'rgb(60, 70, 90)' : 'rgb(200, 200, 200)';
+          document.documentElement.style.setProperty('--text-color-dark', darkTextColor);
+          
+          // Very light variant (for subtle text, empty states) - medium contrast
+          const veryLightTextColor = isBright ? 'rgb(40, 50, 70)' : 'rgb(220, 220, 220)';
+          document.documentElement.style.setProperty('--text-color-very-light', veryLightTextColor);
+          
+          // Very dark variant (for low contrast text like empty stars) - lower contrast
+          const veryDarkTextColor = isBright ? 'rgb(100, 110, 130)' : 'rgb(150, 150, 150)';
+          document.documentElement.style.setProperty('--text-color-very-dark', veryDarkTextColor);
+          
+          // Button text color - use the calculated color for buttons (they have their own background)
+          document.documentElement.style.setProperty('--btn-text-color', `rgb(${color.r}, ${color.g}, ${color.b})`);
+        }
+      }
+    });
+  }
+
+  // Display stored errors from localStorage
+  private displayStoredErrors(): void {
+    try {
+      const errors: any[] = [];
+      
+      // Check for video errors
+      const videoError = localStorage.getItem('last_video_error');
+      if (videoError) {
+        errors.push({ type: 'Video Load Error', ...JSON.parse(videoError) });
+      }
+      
+      // Check for image errors
+      const imageError = localStorage.getItem('last_image_error');
+      if (imageError) {
+        errors.push({ type: 'Image Load Error', ...JSON.parse(imageError) });
+      }
+      
+      // Check for discussion errors
+      const discussionError = localStorage.getItem('last_discussion_error');
+      if (discussionError) {
+        errors.push({ type: 'Discussion File Error', ...JSON.parse(discussionError) });
+      }
+      
+      // Check for discussion image errors history
+      const discussionImageErrors = localStorage.getItem('discussion_image_errors');
+      if (discussionImageErrors) {
+        const history = JSON.parse(discussionImageErrors);
+        if (history.length > 0) {
+          errors.push({ type: 'Discussion Image Errors History', count: history.length, errors: history });
+        }
+      }
+      
+      // Check for discussion video errors history
+      const discussionVideoErrors = localStorage.getItem('discussion_video_errors');
+      if (discussionVideoErrors) {
+        const history = JSON.parse(discussionVideoErrors);
+        if (history.length > 0) {
+          errors.push({ type: 'Discussion Video Errors History', count: history.length, errors: history });
+        }
+      }
+      
+      // Check for discussion messages errors
+      const discussionMessagesError = localStorage.getItem('last_discussion_messages_error');
+      if (discussionMessagesError) {
+        errors.push({ type: 'Discussion Messages Error', ...JSON.parse(discussionMessagesError) });
+      }
+      
+      // Check for event load errors
+      const eventError = localStorage.getItem('last_event_error');
+      if (eventError) {
+        errors.push({ type: 'Event Load Error', ...JSON.parse(eventError) });
+      }
+      
+      // Check for video error history
+      const videoErrorHistory = localStorage.getItem('video_error_history');
+      if (videoErrorHistory) {
+        const history = JSON.parse(videoErrorHistory);
+        if (history.length > 0) {
+          errors.push({ type: 'Video Error History', count: history.length, errors: history });
+        }
+      }
+      
+      // Display all errors in console
+      if (errors.length > 0) {
+        console.group('🔴 ERRORS FROM PREVIOUS PAGE LOAD (stored in localStorage)');
+        errors.forEach((error, index) => {
+          console.error(`[${index + 1}] ${error.type}:`, error);
+        });
+        console.groupEnd();
+      }
+    } catch (e) {
+      // Ignore errors in error display
+    }
   }
 
   // Load friend groups for WhatsApp links
@@ -156,12 +287,14 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.friendGroups = groups || [];
         this.friendGroupsLoaded = true;
         // Force change detection to update the view when friend groups load
-        // This ensures members are displayed correctly when friend groups load asynchronously
+        // This ensures members and WhatsApp links are displayed correctly when friend groups load asynchronously
+        this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Error loading friend groups:', error);
         this.friendGroups = [];
         this.friendGroupsLoaded = true;
+        this.cdr.detectChanges();
       }
     });
     this.trackSubscription(subscription);
@@ -210,6 +343,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     });
     this.videoUrlCache.clear();
     this.videoUrls.clear();
+    this.videoLoadSuccess.clear();
     
     // Clean up photo items blob URLs
     this.photoItems.forEach((item) => {
@@ -291,16 +425,37 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       next: (evenement: Evenement) => {
         this.evenement = evenement;
         this.preparePhotoGallery();
-        // Load video URLs
-        this.loadVideoUrls();
         this.loading = false;
+        // Load video URLs with a small delay to ensure authentication is ready
+        // This prevents 401 errors that could trigger redirects
+        setTimeout(() => {
+          this.loadVideoUrls();
+        }, 100);
         // Load discussion messages if discussionId exists
         if (evenement.discussionId) {
           this.loadDiscussionMessages();
         }
       },
       error: (error: any) => {
-        console.error('Error loading event:', error);
+        // Log to localStorage FIRST so it persists even if redirect happens
+        const errorInfo = {
+          type: 'event_load_error',
+          status: error?.status,
+          statusText: error?.statusText,
+          message: error?.message,
+          url: error?.url,
+          timestamp: new Date().toISOString(),
+          fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+        };
+        
+        try {
+          localStorage.setItem('last_event_error', JSON.stringify(errorInfo));
+        } catch (e) {
+          // Ignore storage errors
+        }
+        
+        console.error('[EVENT LOAD ERROR]', errorInfo);
+        
         // If it's a 401, the interceptor will redirect to login
         // Don't set error message as user will be redirected
         if (error?.status === 401) {
@@ -352,6 +507,32 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // Load image with authentication
   private loadImageFromFile(fileId: string): void {
     const subscription = this.fileService.getFile(fileId).pipe(
+      catchError((error) => {
+        // Catch ALL errors in the pipe to prevent interceptor from redirecting
+        // Log to localStorage FIRST (before console) so it persists even after redirect
+        const errorInfo = {
+          type: 'image_load_error',
+          fileId: fileId,
+          status: error?.status,
+          statusText: error?.statusText,
+          message: error?.message,
+          url: error?.url,
+          timestamp: new Date().toISOString(),
+          fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+        };
+        
+        try {
+          localStorage.setItem('last_image_error', JSON.stringify(errorInfo));
+        } catch (e) {
+          // Ignore storage errors
+        }
+        
+        // Log to console with detailed info
+        console.error('[IMAGE LOAD ERROR]', errorInfo);
+        
+        // Return empty to prevent any redirects
+        return EMPTY;
+      }),
       map((res: any) => {
         const blob = new Blob([res], { type: 'application/octet-stream' });
         const objectUrl = URL.createObjectURL(blob);
@@ -372,6 +553,18 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       error: (error) => {
         // Remove subscription from active set on error
         this.activeSubscriptions.delete(subscription);
+          
+          // If it's a 401, don't propagate - interceptor will handle redirect
+          if (error?.status === 401) {
+            // Don't log or propagate - just use default image
+            const defaultUrl = ElementEvenementComponent.getDefaultPlaceholderImage(this.sanitizer);
+            this.imageCache.set(fileId, defaultUrl);
+            const photoItem = this.photoItems.find(item => item.file.fieldId === fileId);
+            if (photoItem) {
+              photoItem.imageUrl = defaultUrl;
+            }
+            return;
+          }
         
         // Ignore errors caused by cancellation (common when closing modal)
         if (error.name === 'AbortError' || error.status === 0) {
@@ -457,21 +650,49 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     return !!(this.evenement?.friendGroupId && this.getCurrentFriendGroup());
   }
 
+  // Get the event's friend group
+  public getEventFriendGroup(): FriendGroup | undefined {
+    if (!this.friendGroups || this.friendGroups.length === 0) {
+      return undefined;
+    }
+    
+    // First, try to find by friendGroupId
+    if (this.evenement?.friendGroupId) {
+      const groupById = this.friendGroups.find(g => g.id === this.evenement!.friendGroupId);
+      if (groupById) {
+        return groupById;
+      }
+    }
+    
+    // Fallback: try to find by visibility (if visibility is a friend group name)
+    if (this.evenement?.visibility && this.evenement.visibility !== 'public' && 
+        this.evenement.visibility !== 'private' && this.evenement.visibility !== 'friends') {
+      const groupByVisibility = this.friendGroups.find(g => g.name === this.evenement!.visibility);
+      if (groupByVisibility) {
+        return groupByVisibility;
+      }
+    }
+    
+    return undefined;
+  }
+
   // Check if the event's friend group has a WhatsApp link
   public hasFriendGroupWhatsAppLink(): boolean {
-    if (!this.evenement || !this.evenement.friendGroupId) {
+    if (!this.friendGroups || this.friendGroups.length === 0) {
       return false;
     }
-    const group = this.friendGroups.find(g => g.id === this.evenement!.friendGroupId);
-    return !!(group?.whatsappLink && group.whatsappLink.trim().length > 0);
+    
+    const group = this.getEventFriendGroup();
+    if (!group) {
+      return false;
+    }
+    
+    return !!(group.whatsappLink && group.whatsappLink.trim().length > 0);
   }
 
   // Get the WhatsApp link for the event's friend group
   public getFriendGroupWhatsAppLink(): string | undefined {
-    if (!this.evenement || !this.evenement.friendGroupId) {
-      return undefined;
-    }
-    const group = this.friendGroups.find(g => g.id === this.evenement!.friendGroupId);
+    const group = this.getEventFriendGroup();
     return group?.whatsappLink;
   }
 
@@ -486,7 +707,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // Open discussion maximized
   public openDiscussionMaximized(): void {
     if (!this.evenement?.discussionId) {
-      console.warn('No discussion ID available');
       return;
     }
 
@@ -503,6 +723,13 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       if (modalRef && modalRef.componentInstance) {
         modalRef.componentInstance.discussionId = this.evenement.discussionId;
         modalRef.componentInstance.title = this.evenement.evenementName || 'Discussion';
+        
+        // Get event color for modal styling
+        const eventId = this.evenement.id || '';
+        const eventColor = this.eventColorService.getEventColor(eventId);
+        if (eventColor) {
+          modalRef.componentInstance.eventColor = eventColor;
+        }
       }
     } catch (error) {
       console.error('Error opening discussion modal:', error);
@@ -512,7 +739,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // Open discussion if available
   public openDiscussion(): void {
     if (!this.evenement?.discussionId) {
-      console.warn('No discussion ID available');
       return;
     }
 
@@ -529,6 +755,19 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         // Set the discussion ID and title
         modalRef.componentInstance.discussionId = this.evenement.discussionId;
         modalRef.componentInstance.title = this.evenement.evenementName || 'Discussion';
+        
+        // Get event color for modal styling
+        const eventId = this.evenement.id || '';
+        const eventColor = this.eventColorService.getEventColor(eventId);
+        if (eventColor) {
+          modalRef.componentInstance.eventColor = eventColor;
+          // Force color application after a short delay to ensure modal is rendered
+          setTimeout(() => {
+            if (modalRef.componentInstance) {
+              modalRef.componentInstance.applyEventColorToModal();
+            }
+          }, 300);
+        }
       } else {
         console.error('Failed to open discussion modal - modalRef or componentInstance is null');
       }
@@ -551,7 +790,35 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.isLoadingDiscussion = true;
     this.discussionError = null;
 
-    const subscription = this.discussionService.getMessages(this.evenement.discussionId).subscribe({
+    this.discussionService.getMessages(this.evenement.discussionId).pipe(
+      catchError((error) => {
+        // Log to localStorage FIRST so it persists even if redirect happens
+        const errorInfo = {
+          type: 'discussion_messages_error',
+          discussionId: this.evenement?.discussionId,
+          status: error?.status,
+          statusText: error?.statusText,
+          message: error?.message,
+          url: error?.url,
+          timestamp: new Date().toISOString(),
+          fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+        };
+        
+        try {
+          localStorage.setItem('last_discussion_messages_error', JSON.stringify(errorInfo));
+        } catch (e) {
+          // Ignore storage errors
+        }
+        
+        console.error('[DISCUSSION MESSAGES ERROR]', errorInfo);
+        
+        // Return empty to prevent redirects
+        this.discussionError = 'Error loading discussion';
+        this.isLoadingDiscussion = false;
+        this.discussionMessages = [];
+        return EMPTY;
+      })
+    ).subscribe({
       next: (messages: DiscussionMessage[]) => {
         this.discussionMessages = messages || [];
         this.isLoadingDiscussion = false;
@@ -559,24 +826,14 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.loadDiscussionMessageImages();
         // Scroll to bottom after messages are loaded
         setTimeout(() => this.scrollDiscussionToBottom(), 100);
-        // Scroll to bottom after messages are loaded
-        setTimeout(() => this.scrollDiscussionToBottom(), 100);
       },
       error: (error: any) => {
-        // If it's a 401, the interceptor will redirect to login
-        // Don't set error message as user will be redirected
-        if (error?.status === 401) {
-          this.isLoadingDiscussion = false;
-          // Interceptor will handle redirect, just return
-          return;
-        }
-        console.error('Error loading discussion messages:', error);
-        this.discussionError = 'Error loading discussion';
+        // Should not reach here as errors are caught in pipe
+        // But just in case, handle silently
         this.isLoadingDiscussion = false;
         this.discussionMessages = [];
       }
     });
-    this.trackSubscription(subscription);
   }
 
   // Load images for discussion messages
@@ -589,9 +846,21 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
     this.discussionMessages.forEach((message) => {
       if (message.imageUrl) {
-        // Extract the real filename from imageUrl (format: /api/discussions/files/{discussionId}/images/{realFilename})
+        // ALWAYS extract filename from imageUrl first (it contains the real filename with timestamp)
+        // The backend saves files as {timestamp}_{originalFilename}, so imageUrl has the correct name
+        // imageFileName only contains the original filename without timestamp
+        let realFilename: string | undefined = undefined;
+        
+        if (message.imageUrl) {
+          // Extract the real filename from imageUrl (format: /api/discussions/files/{discussionId}/images/{timestamp}_{realFilename})
         const urlParts = message.imageUrl.split('/');
-        const realFilename = urlParts.length > 0 ? urlParts[urlParts.length - 1] : null;
+          realFilename = urlParts.length > 0 ? urlParts[urlParts.length - 1] : undefined;
+        }
+        
+        // Fallback to imageFileName only if imageUrl extraction failed
+        if (!realFilename && message.imageFileName) {
+          realFilename = message.imageFileName;
+        }
         
         if (!realFilename) {
           return;
@@ -601,34 +870,89 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         
         // Skip if already cached
         if (this.discussionFileUrlCache.has(cacheKey)) {
+          this.cdr.detectChanges();
           return;
         }
 
         // Load image with authentication using the real filename from URL
-        const subscription = this.discussionService.getFileUrl(discussionId, 'images', realFilename).subscribe({
+        this.discussionService.getFileUrl(discussionId, 'images', realFilename).pipe(
+          catchError((error) => {
+            // Catch ALL errors in the pipe to prevent interceptor from redirecting
+            // Log to localStorage FIRST (before console) so it persists even after redirect
+            const errorInfo = {
+              type: 'discussion_image_error',
+              filename: realFilename,
+              discussionId: discussionId,
+              status: error?.status,
+              statusText: error?.statusText,
+              message: error?.message,
+              url: error?.url,
+              timestamp: new Date().toISOString(),
+              fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+            };
+            
+            try {
+              localStorage.setItem('last_discussion_error', JSON.stringify(errorInfo));
+              // Also append to an array to keep history
+              const errorHistory = JSON.parse(localStorage.getItem('discussion_image_errors') || '[]');
+              errorHistory.push(errorInfo);
+              // Keep only last 50 errors
+              if (errorHistory.length > 50) {
+                errorHistory.shift();
+              }
+              localStorage.setItem('discussion_image_errors', JSON.stringify(errorHistory));
+            } catch (e) {
+              // Ignore storage errors
+            }
+            
+            // Log to console with detailed info
+            console.error('[DISCUSSION IMAGE LOAD ERROR]', errorInfo);
+            
+            // Return empty to prevent any redirects
+            return EMPTY;
+          })
+        ).subscribe({
           next: (blobUrl: string) => {
+            if (blobUrl) {
             this.discussionFileUrlCache.set(cacheKey, blobUrl);
+              // Also fetch and store the blob for slideshow use
+              fetch(blobUrl)
+                .then(response => response.blob())
+                .then(blob => {
+                  this.discussionFileBlobCache.set(cacheKey, blob);
+                })
+                .catch(error => {
+                  // Silently fail - blob URL will be re-fetched if needed
+                });
             // Trigger change detection to update the view
             this.cdr.detectChanges();
             // Scroll to bottom after image is loaded
             setTimeout(() => this.scrollDiscussionToBottom(), 50);
+            }
           },
           error: (error) => {
-            // Don't log 401/404 errors as they will trigger redirect via interceptor or are expected
-            // Only log other errors to avoid console spam
-            if (error?.status !== 401 && error?.status !== 404) {
-              console.error('Error loading discussion image:', error);
-            }
-            // Don't throw or propagate the error to avoid triggering redirects
+            // Should not reach here as errors are caught in pipe
+            // But just in case, handle silently
           }
         });
-        this.trackSubscription(subscription);
       }
       
       if (message.videoUrl) {
-        // Extract the real filename from videoUrl (format: /api/discussions/files/{discussionId}/videos/{realFilename})
+        // ALWAYS extract filename from videoUrl first (it contains the real filename with timestamp)
+        // The backend saves files as {timestamp}_{originalFilename}, so videoUrl has the correct name
+        // videoFileName only contains the original filename without timestamp
+        let realFilename: string | undefined = undefined;
+        
+        if (message.videoUrl) {
+          // Extract the real filename from videoUrl (format: /api/discussions/files/{discussionId}/videos/{timestamp}_{realFilename})
         const urlParts = message.videoUrl.split('/');
-        const realFilename = urlParts.length > 0 ? urlParts[urlParts.length - 1] : null;
+          realFilename = urlParts.length > 0 ? urlParts[urlParts.length - 1] : undefined;
+        }
+        
+        // Fallback to videoFileName only if videoUrl extraction failed
+        if (!realFilename && message.videoFileName) {
+          realFilename = message.videoFileName;
+        }
         
         if (!realFilename) {
           return;
@@ -638,28 +962,62 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         
         // Skip if already cached
         if (this.discussionFileUrlCache.has(cacheKey)) {
+          this.cdr.detectChanges();
           return;
         }
 
         // Load video with authentication using the real filename from URL
-        const subscription = this.discussionService.getFileUrl(discussionId, 'videos', realFilename).subscribe({
+        this.discussionService.getFileUrl(discussionId, 'videos', realFilename).pipe(
+          catchError((error) => {
+            // Catch ALL errors in the pipe to prevent interceptor from redirecting
+            // Log to localStorage FIRST (before console) so it persists even after redirect
+            const errorInfo = {
+              type: 'discussion_video_error',
+              filename: realFilename,
+              discussionId: discussionId,
+              status: error?.status,
+              statusText: error?.statusText,
+              message: error?.message,
+              url: error?.url,
+              timestamp: new Date().toISOString(),
+              fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+            };
+            
+            try {
+              localStorage.setItem('last_discussion_error', JSON.stringify(errorInfo));
+              // Also append to an array to keep history
+              const errorHistory = JSON.parse(localStorage.getItem('discussion_video_errors') || '[]');
+              errorHistory.push(errorInfo);
+              // Keep only last 50 errors
+              if (errorHistory.length > 50) {
+                errorHistory.shift();
+              }
+              localStorage.setItem('discussion_video_errors', JSON.stringify(errorHistory));
+            } catch (e) {
+              // Ignore storage errors
+            }
+            
+            // Log to console with detailed info
+            console.error('[DISCUSSION VIDEO LOAD ERROR]', errorInfo);
+            
+            // Return empty to prevent any redirects
+            return EMPTY;
+          })
+        ).subscribe({
           next: (blobUrl: string) => {
+            if (blobUrl) {
             this.discussionFileUrlCache.set(cacheKey, blobUrl);
             // Trigger change detection to update the view
             this.cdr.detectChanges();
             // Scroll to bottom after video is loaded
             setTimeout(() => this.scrollDiscussionToBottom(), 50);
+            }
           },
           error: (error) => {
-            // Don't log 401/404 errors as they will trigger redirect via interceptor or are expected
-            // Only log other errors to avoid console spam
-            if (error?.status !== 401 && error?.status !== 404) {
-              console.error('Error loading discussion video:', error);
-            }
-            // Don't throw or propagate the error to avoid triggering redirects
+            // Should not reach here as errors are caught in pipe
+            // But just in case, handle silently
           }
         });
-        this.trackSubscription(subscription);
       }
     });
   }
@@ -708,15 +1066,17 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   }
 
   // Get discussion file URL (returns blob URL with authentication)
-  // filename can be either the actual filename or imageFileName from message
-  // If imageUrl is provided, extract the real filename from it
+  // IMPORTANT: Always use imageUrl to extract the real filename (contains timestamp)
+  // The backend saves files as {timestamp}_{originalFilename}, so imageUrl has the correct name
+  // imageFileName only contains the original filename without timestamp
+  // If imageUrl is provided, extract the real filename from it (PRIORITY)
   public getDiscussionFileUrl(filename: string, subfolder: 'images' | 'videos', imageUrl?: string): string {
     if (!this.evenement?.discussionId || !filename) {
       return '';
     }
 
-    // If imageUrl is provided, extract the real filename from the URL
-    // The URL format is: /api/discussions/files/{discussionId}/{subfolder}/{realFilename}
+    // ALWAYS extract filename from imageUrl first (it contains the real filename with timestamp)
+    // The URL format is: /api/discussions/files/{discussionId}/{subfolder}/{timestamp}_{realFilename}
     let realFilename = filename;
     if (imageUrl) {
       const urlParts = imageUrl.split('/');
@@ -733,7 +1093,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     }
 
     // If not in cache, trigger loading (will be cached when ready)
-    const subscription = this.discussionService.getFileUrl(this.evenement.discussionId, subfolder, realFilename).subscribe({
+    this.discussionService.getFileUrl(this.evenement.discussionId, subfolder, realFilename).subscribe({
       next: (blobUrl: string) => {
         this.discussionFileUrlCache.set(cacheKey, blobUrl);
         // Trigger change detection to update the view
@@ -748,20 +1108,22 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         // Don't throw or propagate the error to avoid triggering redirects
       }
     });
-    this.trackSubscription(subscription);
 
     return '';
   }
   
   // Check if discussion file URL is available in cache
-  // filename can be either the actual filename or imageFileName from message
-  // If imageUrl is provided, extract the real filename from it
+  // IMPORTANT: Always use imageUrl to extract the real filename (contains timestamp)
+  // The backend saves files as {timestamp}_{originalFilename}, so imageUrl has the correct name
+  // imageFileName only contains the original filename without timestamp
+  // If imageUrl is provided, extract the real filename from it (PRIORITY)
   public hasDiscussionFileUrl(filename: string, subfolder: 'images' | 'videos', imageUrl?: string): boolean {
     if (!this.evenement?.discussionId || !filename) {
       return false;
     }
     
-    // If imageUrl is provided, extract the real filename from the URL
+    // ALWAYS extract filename from imageUrl first (it contains the real filename with timestamp)
+    // The URL format is: /api/discussions/files/{discussionId}/{subfolder}/{timestamp}_{realFilename}
     let realFilename = filename;
     if (imageUrl) {
       const urlParts = imageUrl.split('/');
@@ -774,11 +1136,143 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     return this.discussionFileUrlCache.has(cacheKey);
   }
 
-  // Open image in modal
-  public openImageInModal(imageUrl: string): void {
-    if (!imageUrl) return;
-    // You can implement image modal here or use existing slideshow modal
-    window.open(imageUrl, '_blank');
+  // Open image in modal - now opens slideshow with all discussion images
+  public openImageInModal(clickedMessage: DiscussionMessage): void {
+    if (!clickedMessage || !this.evenement?.discussionId || !this.slideshowModalComponent) {
+      return;
+    }
+
+    // Collect all discussion messages that have images
+    const imageMessages = this.discussionMessages.filter(msg => msg.imageUrl);
+    
+    if (imageMessages.length === 0) {
+      return;
+    }
+
+    // Find the clicked image index
+    let clickedIndex = 0;
+    const discussionId = this.evenement.discussionId;
+    
+    // Prepare image sources and find clicked index
+    const imageSourcesPromises = imageMessages.map(async (message, index) => {
+      if (!message.imageUrl || !message.imageFileName) {
+        return null;
+      }
+
+      // Extract real filename from imageUrl
+      const urlParts = message.imageUrl.split('/');
+      const realFilename = urlParts.length > 0 ? urlParts[urlParts.length - 1] : message.imageFileName;
+      
+      const cacheKey = `${discussionId}/images/${realFilename}`;
+      
+      // Check if this is the clicked message
+      if (message === clickedMessage) {
+        clickedIndex = index;
+      }
+
+      // Get or fetch blob - always create fresh blob URL from stored blob
+      let blob: Blob | undefined;
+
+      // Check if blob is cached
+      if (this.discussionFileBlobCache.has(cacheKey)) {
+        blob = this.discussionFileBlobCache.get(cacheKey);
+      } else {
+        // Need to fetch the image and store the blob
+        blob = await this.fetchDiscussionImageBlob(discussionId, realFilename, cacheKey);
+      }
+
+      // Ensure we have a valid blob before creating URL
+      if (!blob) {
+        return null;
+      }
+
+      // At this point, TypeScript knows blob is defined, but we'll be explicit
+      const validBlob: Blob = blob;
+
+      // Always create a fresh blob URL from the blob object
+      // This ensures the URL is valid even if previous URLs expired
+      const blobUrl = URL.createObjectURL(validBlob);
+
+      return {
+        blobUrl: blobUrl,
+        blob: validBlob, // Store the blob so slideshow can recreate URL if needed
+        fileName: message.imageFileName || realFilename
+      } as SlideshowImageSource;
+    });
+
+    // Wait for all images to be prepared
+    Promise.all(imageSourcesPromises).then(imageSources => {
+      const validImageSources = imageSources.filter((source): source is SlideshowImageSource => source !== null);
+      
+      if (validImageSources.length === 0) {
+        return;
+      }
+
+      // Get event color for slideshow styling
+      const eventId = this.evenement!.id || '';
+      let eventColor = this.eventColorService.getEventColor(eventId);
+      
+      // If color not found, try with evenementName as fallback
+      if (!eventColor && this.evenement!.evenementName) {
+        eventColor = this.eventColorService.getEventColor(this.evenement!.evenementName);
+      }
+      
+      // Open slideshow with all discussion images
+      this.slideshowModalComponent.open(validImageSources, this.evenement!.evenementName, false, 0, eventColor || undefined);
+      
+      // Set the clicked image as the starting image
+      // Use setTimeout to ensure slideshow is fully initialized
+      setTimeout(() => {
+        if (clickedIndex >= 0 && clickedIndex < validImageSources.length && this.slideshowModalComponent) {
+          this.slideshowModalComponent.onThumbnailClick(clickedIndex);
+        }
+      }, 100);
+    });
+  }
+
+  // Fetch discussion image blob (returns Promise<Blob | undefined>)
+  private async fetchDiscussionImageBlob(discussionId: string, filename: string, cacheKey: string): Promise<Blob | undefined> {
+    return new Promise((resolve) => {
+      // Always fetch fresh from the service to ensure we have a valid blob
+      // Don't try to reuse expired blob URLs
+      this.fetchNewDiscussionImageBlob(discussionId, filename, cacheKey, resolve);
+    });
+  }
+
+  // Helper to fetch a new discussion image blob
+  private fetchNewDiscussionImageBlob(discussionId: string, filename: string, cacheKey: string, resolve: (blob: Blob | undefined) => void): void {
+    const subscription = this.discussionService.getFileUrl(discussionId, 'images', filename).subscribe({
+      next: (blobUrl: string) => {
+        // Get the blob from the blob URL
+        fetch(blobUrl)
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.blob();
+          })
+          .then(blob => {
+            // Store blob in cache (this is what we really need)
+            this.discussionFileBlobCache.set(cacheKey, blob);
+            // Also update URL cache for display purposes, but we'll recreate URLs from blobs when needed
+            this.discussionFileUrlCache.set(cacheKey, blobUrl);
+            resolve(blob);
+          })
+          .catch(error => {
+            console.error('Error fetching blob from URL:', error);
+            // If fetch fails, try to get blob from service again
+            // This handles cases where blob URL expired immediately
+            resolve(undefined);
+          });
+      },
+      error: (error) => {
+        if (error?.status !== 401 && error?.status !== 404) {
+          console.error('Error loading discussion image:', error);
+        }
+        resolve(undefined);
+      }
+    });
+    this.trackSubscription(subscription);
   }
 
   // Add rating plus
@@ -790,7 +1284,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     const subscription = this.evenementsService.putEvenement(this.evenement).subscribe({
       next: () => {
         // Rating updated successfully
-        console.log('Rating plus added');
       },
       error: (error: any) => {
         console.error('Error updating rating:', error);
@@ -810,7 +1303,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     const subscription = this.evenementsService.putEvenement(this.evenement).subscribe({
       next: () => {
         // Rating updated successfully
-        console.log('Rating minus added');
       },
       error: (error: any) => {
         console.error('Error updating rating:', error);
@@ -819,6 +1311,41 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       }
     });
     this.trackSubscription(subscription);
+  }
+
+  // Calculate overall rating (0-5 stars) based on ratingPlus and ratingMinus
+  public getOverallRating(): number {
+    if (!this.evenement) return 0;
+    
+    const plus = this.evenement.ratingPlus || 0;
+    const minus = this.evenement.ratingMinus || 0;
+    const total = plus + minus;
+    
+    if (total === 0) return 0;
+    
+    // Calculate rating: (plus / total) * 5 stars
+    // This gives a 0-5 star rating based on the ratio of positive to total votes
+    const rating = (plus / total) * 5;
+    return Math.min(5, Math.max(0, rating));
+  }
+
+  // Get star rating array for display (5 stars, each can be 1, 0.5, or 0)
+  public getStarRating(): number[] {
+    const overallRating = this.getOverallRating();
+    const stars: number[] = [];
+    
+    for (let i = 0; i < 5; i++) {
+      const starValue = overallRating - i;
+      if (starValue >= 1) {
+        stars.push(1); // Full star
+      } else if (starValue >= 0.5) {
+        stars.push(0.5); // Half star
+      } else {
+        stars.push(0); // Empty star
+      }
+    }
+    
+    return stars;
   }
 
   // Get main background image URL for artistic display
@@ -848,6 +1375,14 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     
     // Default fallback
     return 'url("assets/images/images.jpg")';
+  }
+
+
+  // Helper to build color string
+  private buildColorString(r: number, g: number, b: number, alpha: number = 1): string {
+    const clamp = (value: number) => Math.max(0, Math.min(255, Math.round(value)));
+    const clampedAlpha = Math.max(0, Math.min(1, alpha));
+    return `rgba(${clamp(r)}, ${clamp(g)}, ${clamp(b)}, ${clampedAlpha})`;
   }
 
   // Get comments related to a specific file (you might need to implement this logic)
@@ -1162,9 +1697,113 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     }
   }
 
+  // Handle video successfully loaded
+  public onVideoLoaded(event: any, videoFile: UploadedFile): void {
+    // Mark this video as successfully loaded
+    if (videoFile?.fieldId) {
+      this.videoLoadSuccess.add(videoFile.fieldId);
+    }
+  }
+
   // Handle video loading errors
   public onVideoError(event: any, videoFile: UploadedFile): void {
-    console.error('Error loading video:', videoFile.fileName, event);
+    const videoElement = event.target as HTMLVideoElement;
+    
+    if (!videoElement || !videoFile?.fieldId) {
+      return;
+    }
+    
+    // If video already loaded successfully, ignore this error (might be a false positive)
+    if (this.videoLoadSuccess.has(videoFile.fieldId)) {
+      return;
+    }
+    
+    // Check if video URL is actually available in our cache
+    // If not, the video element shouldn't have been rendered (hasVideoUrl check)
+    // But if it was, don't log error - it's just waiting for the URL to load
+    if (!this.hasVideoUrl(videoFile)) {
+      // Video URL not loaded yet - don't log error, it will load when ready
+      return;
+    }
+    
+    // Check if video has a valid source - if src is empty or invalid, it might just be loading
+    const videoSrc = videoElement.src || videoElement.currentSrc;
+    if (!videoSrc || videoSrc === '' || videoSrc === window.location.href) {
+      // No valid source yet - might be waiting for blob URL to be set
+      // Don't log error yet, wait a bit for the source to be set
+      setTimeout(() => {
+        // Check again after delay
+        if (videoElement && !this.videoLoadSuccess.has(videoFile.fieldId)) {
+          const delayedSrc = videoElement.src || videoElement.currentSrc;
+          const delayedNetworkState = videoElement.networkState;
+          
+          // Only log if still no source and in error state AND we have the URL in cache
+          if (this.hasVideoUrl(videoFile) && 
+              (!delayedSrc || delayedSrc === '' || delayedSrc === window.location.href) && 
+              delayedNetworkState === 3) {
+            console.error('Error loading video - no source found:', videoFile.fileName);
+          }
+        }
+      }, 1000);
+      return;
+    }
+    
+    // Check if this is actually an error or just a loading issue
+    // networkState values:
+    // 0 = NETWORK_EMPTY - no data loaded yet (initial state)
+    // 1 = NETWORK_IDLE - loaded and ready
+    // 2 = NETWORK_LOADING - currently loading
+    // 3 = NETWORK_NO_SOURCE - no source found (actual error)
+    
+    const networkState = videoElement.networkState;
+    
+    // Only log if it's a real error (no source found) AND we have a valid src
+    // Don't log if it's just initializing (NETWORK_EMPTY) or still loading
+    if (networkState === 3) { // NETWORK_NO_SOURCE
+      // Wait a bit to see if video recovers or loads successfully
+      // This handles timing issues where blob URL hasn't loaded yet
+      setTimeout(() => {
+        // Check if video loaded successfully in the meantime
+        if (this.videoLoadSuccess.has(videoFile.fieldId)) {
+          return; // Video loaded successfully - don't log
+        }
+        
+        if (!videoElement) {
+          return;
+        }
+        
+        const finalNetworkState = videoElement.networkState;
+        const finalSrc = videoElement.src || videoElement.currentSrc;
+        const readyState = videoElement.readyState;
+        
+        // Only log if:
+        // 1. Still in error state after delay
+        // 2. We have a valid src (meaning it tried to load but failed)
+        // 3. Video has no data loaded (readyState === 0 means HAVE_NOTHING)
+        // 4. Video hasn't been marked as successfully loaded
+        if (finalNetworkState === 3 && 
+            finalSrc && finalSrc !== '' && finalSrc !== window.location.href &&
+            readyState === 0) { // HAVE_NOTHING - no data loaded at all
+          // This is likely a real error - no data loaded
+          console.error('Error loading video - no source found:', videoFile.fileName);
+        }
+        // If readyState > 0, it means some data was loaded, so video is working - don't log
+      }, 3000); // Wait 3 seconds to give blob URL time to load
+    } else if (networkState === 2) { // NETWORK_LOADING
+      // Still loading - might be a temporary issue, wait a bit before logging
+      // Use a timeout to check if it eventually fails
+      setTimeout(() => {
+        // Check again after delay - if still in error state and not marked as successful, it's a real error
+        if (videoElement && videoElement.networkState === 3 && !this.videoLoadSuccess.has(videoFile.fieldId)) {
+          const finalSrc = videoElement.src || videoElement.currentSrc;
+          if (finalSrc && finalSrc !== '' && finalSrc !== window.location.href) {
+            console.error('Error loading video after retry:', videoFile.fileName);
+          }
+        }
+        // If video loaded successfully in the meantime, it will be in videoLoadSuccess set - don't log
+      }, 3000);
+    }
+    // If networkState is 0 (NETWORK_EMPTY) or 1 (NETWORK_IDLE), don't log - it's either initializing or loaded successfully
   }
 
   // Get URL type label
@@ -1450,6 +2089,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // Load all video URLs
   private loadVideoUrls(): void {
     const videoFiles = this.getVideoFiles();
+    
+    if (videoFiles.length === 0) {
+      return;
+    }
+    
     videoFiles.forEach((file) => {
       if (!file?.fieldId) {
         return;
@@ -1457,13 +2101,59 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       
       // Check cache first
       if (this.videoUrlCache.has(file.fieldId)) {
-        this.videoUrls.set(file.fieldId, this.videoUrlCache.get(file.fieldId)!);
+        const cachedUrl = this.videoUrlCache.get(file.fieldId);
+        if (cachedUrl) {
+          this.videoUrls.set(file.fieldId, cachedUrl);
+          this.cdr.detectChanges();
+        }
         return;
       }
       
       // Load video and create blob URL with correct MIME type
-      const subscription = this.fileService.getFile(file.fieldId).subscribe({
+      // Use catchError in pipe to prevent errors from triggering redirects
+      this.fileService.getFile(file.fieldId).pipe(
+        catchError((error) => {
+          // Catch ALL errors in the pipe to prevent interceptor from redirecting
+          // Log to localStorage FIRST (before console) so it persists even after redirect
+          const errorInfo = {
+            type: 'video_load_error',
+            fileName: file.fileName,
+            fieldId: file.fieldId,
+            status: error?.status,
+            statusText: error?.statusText,
+            message: error?.message,
+            url: error?.url,
+            timestamp: new Date().toISOString(),
+            fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+          };
+          
+          try {
+            localStorage.setItem('last_video_error', JSON.stringify(errorInfo));
+            // Also append to an array to keep history
+            const errorHistory = JSON.parse(localStorage.getItem('video_error_history') || '[]');
+            errorHistory.push(errorInfo);
+            // Keep only last 20 errors
+            if (errorHistory.length > 20) {
+              errorHistory.shift();
+            }
+            localStorage.setItem('video_error_history', JSON.stringify(errorHistory));
+          } catch (e) {
+            // Ignore storage errors
+          }
+          
+          // Log to console with detailed info
+          console.error('[VIDEO LOAD ERROR]', errorInfo);
+          
+          // Return empty to prevent any redirects
+          // Videos will just not load, which is better than redirecting
+          return EMPTY;
+        })
+      ).subscribe({
         next: (blob: Blob) => {
+          if (!blob || blob.size === 0) {
+            return;
+          }
+          
           // Determine video MIME type from file extension
           let videoType = 'video/mp4'; // default
           const fileName = file.fileName.toLowerCase();
@@ -1498,10 +2188,13 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         },
         error: (error) => {
-          console.error('Error loading video:', file.fileName, error);
+          // Only non-401 errors reach here (401s are caught in pipe)
+          // Ignore cancellation errors
+          if (error.name === 'AbortError' || error.status === 0) {
+            return;
+          }
         }
       });
-      this.trackSubscription(subscription);
     });
   }
 
@@ -1515,20 +2208,23 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     return this.videoUrls.get(file.fieldId) || this.sanitizer.bypassSecurityTrustUrl('');
   }
 
+  // Check if video URL is available
+  public hasVideoUrl(file: UploadedFile): boolean {
+    if (!file?.fieldId) {
+      return false;
+    }
+    return this.videoUrls.has(file.fieldId);
+  }
+
   // Open PDF in new tab (same method as element-evenement)
   public openPdfInPage(pdfFile: UploadedFile): void {
-    console.log('Opening PDF file:', pdfFile.fileName, 'with ID:', pdfFile.fieldId);
-    const subscription = this.getFileBlobUrl(pdfFile.fieldId).subscribe({
+    this.getFileBlobUrl(pdfFile.fieldId).subscribe({
       next: (blob: any) => {
-        this.activeSubscriptions.delete(subscription);
-        console.log('Blob received:', blob);
-        
         // Create a new blob with proper MIME type for PDF
         const pdfBlob = new Blob([blob], { type: 'application/pdf' });
         
         // Create object URL for the blob
         const objectUrl = URL.createObjectURL(pdfBlob);
-        console.log('Object URL created:', objectUrl);
         
         // Open PDF in new tab with optimized parameters
         const newWindow = window.open(objectUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
@@ -1544,29 +2240,22 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         }, 10000);
       },
       error: (error) => {
-        this.activeSubscriptions.delete(subscription);
         if (error.name !== 'AbortError' && error.status !== 0) {
           console.error('Error loading PDF file:', error);
         }
       }
     });
-    this.trackSubscription(subscription);
   }
 
   // Download PDF file (same method as element-evenement)
   public downloadPdf(pdfFile: UploadedFile): void {
-    console.log('Downloading PDF file:', pdfFile.fileName, 'with ID:', pdfFile.fieldId);
-    const subscription = this.getFileBlobUrl(pdfFile.fieldId).subscribe({
+    this.getFileBlobUrl(pdfFile.fieldId).subscribe({
       next: (blob: any) => {
-        this.activeSubscriptions.delete(subscription);
-        console.log('Blob received for download:', blob);
-        
         // Create a new blob with proper MIME type for PDF
         const pdfBlob = new Blob([blob], { type: 'application/pdf' });
         
         // Create object URL for the blob
         const objectUrl = URL.createObjectURL(pdfBlob);
-        console.log('Object URL created for download:', objectUrl);
         
         // Create a temporary anchor element for download
         const link = document.createElement('a');
@@ -1585,13 +2274,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         }, 1000);
       },
       error: (error) => {
-        this.activeSubscriptions.delete(subscription);
         if (error.name !== 'AbortError' && error.status !== 0) {
           console.error('Error downloading PDF file:', error);
         }
       }
     });
-    this.trackSubscription(subscription);
   }
 
   // Get file URL for download
@@ -1604,7 +2291,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(url).then(() => {
         // You could add a toast notification here
-        console.log('URL copied to clipboard');
       });
     } else {
       // Fallback for older browsers
@@ -1673,7 +2359,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   // Open a single image in slideshow modal
   // Open all photos in maximized slideshow
-  public openPhotosMaximized(): void {
+  public openPhotosMaximized(startIndex: number = 0): void {
     if (!this.slideshowModalComponent || !this.evenement || this.photoItemsList.length === 0) {
       return;
     }
@@ -1685,7 +2371,23 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       fileName: photoItem.file.fileName
     }));
     
-    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true);
+    // Get event color for slideshow styling
+    const eventId = this.evenement.id || '';
+    const eventColor = this.eventColorService.getEventColor(eventId);
+    
+    // If color not found, try with evenementName as fallback
+    const finalEventColor = eventColor || (this.evenement.evenementName ? this.eventColorService.getEventColor(this.evenement.evenementName) : null);
+    
+    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, finalEventColor || undefined);
+    
+    // Set the starting image index if provided
+    if (startIndex >= 0 && startIndex < imageSources.length) {
+      setTimeout(() => {
+        if (this.slideshowModalComponent) {
+          this.slideshowModalComponent.onThumbnailClick(startIndex);
+        }
+      }, 100);
+    }
   }
 
   public openSingleImageInSlideshow(fileId: string, fileName: string): void {
@@ -1702,7 +2404,111 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     };
 
     // Open the slideshow modal with just this one image
-    this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true);
+    // Get event color for slideshow styling
+    const eventId = this.evenement.id || '';
+    let eventColor = this.eventColorService.getEventColor(eventId);
+    
+    // If color not found, try with evenementName as fallback
+    if (!eventColor && this.evenement.evenementName) {
+      eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+    }
+    
+    this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined);
+  }
+
+  // Check if URL event is PHOTOFROMFS type
+  public isPhotoFromFs(urlEvent: UrlEvent): boolean {
+    return (urlEvent.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS';
+  }
+
+  // Get styles for event title with calculated color background
+  public getEventTitleStyles(): { [key: string]: string } {
+    if (!this.evenement) {
+      return {};
+    }
+
+    const eventId = this.evenement.id || '';
+    let eventColor = this.eventColorService.getEventColor(eventId);
+    
+    // If color not found, try with evenementName as fallback
+    if (!eventColor && this.evenement.evenementName) {
+      eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+    }
+
+    if (!eventColor) {
+      // Default styles if no color found
+      return {
+        'background-color': 'rgba(40, 167, 69, 0.6)',
+        'color': '#ffffff',
+        'padding': '0.5rem 1rem',
+        'border-radius': '8px',
+        'display': 'inline-block'
+      };
+    }
+
+    // Calculate brightness to determine text color
+    const brightness = (0.299 * eventColor.r + 0.587 * eventColor.g + 0.114 * eventColor.b);
+    const isBright = brightness > 128;
+    const textColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+
+    // Create gradient background with event color
+    const bgR1 = Math.min(255, eventColor.r + 20);
+    const bgG1 = Math.min(255, eventColor.g + 20);
+    const bgB1 = Math.min(255, eventColor.b + 20);
+    const bgR2 = Math.max(0, eventColor.r - 10);
+    const bgG2 = Math.max(0, eventColor.g - 10);
+    const bgB2 = Math.max(0, eventColor.b - 10);
+
+    return {
+      'background': `linear-gradient(135deg, rgba(${bgR1}, ${bgG1}, ${bgB1}, 0.8) 0%, rgba(${bgR2}, ${bgG2}, ${bgB2}, 0.8) 100%)`,
+      'color': textColor,
+      'padding': '0.5rem 1rem',
+      'border-radius': '8px',
+      'display': 'inline-block',
+      'box-shadow': `0 2px 8px rgba(${eventColor.r}, ${eventColor.g}, ${eventColor.b}, 0.3)`
+    };
+  }
+
+  // Get calculated color for display
+  public getCalculatedColor(): { r: number; g: number; b: number } | null {
+    if (!this.evenement) {
+      return null;
+    }
+
+    const eventId = this.evenement.id || '';
+    let eventColor = this.eventColorService.getEventColor(eventId);
+    
+    // If color not found, try with evenementName as fallback
+    if (!eventColor && this.evenement.evenementName) {
+      eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+    }
+
+    return eventColor;
+  }
+
+  // Get styles for color badge
+  public getColorBadgeStyles(): { [key: string]: string } {
+    const color = this.getCalculatedColor();
+    if (!color) {
+      return {};
+    }
+
+    // Calculate brightness to determine text color
+    const brightness = (0.299 * color.r + 0.587 * color.g + 0.114 * color.b);
+    const isBright = brightness > 128;
+    const textColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+
+    return {
+      'background-color': `rgba(${color.r}, ${color.g}, ${color.b}, 0.9)`,
+      'color': textColor,
+      'padding': '0.25rem 0.5rem',
+      'border-radius': '4px',
+      'font-size': '0.75rem',
+      'font-weight': '600',
+      'margin-left': '0.75rem',
+      'display': 'inline-block',
+      'vertical-align': 'middle'
+    };
   }
 
   public openFsPhotosDiaporama(relativePath: string, compress: boolean = true): void {
@@ -1715,8 +2521,17 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     // Reset slideshow loading state
     this.fsSlideshowLoadingActive = true;
     
+    // Get event color for slideshow styling
+    const eventId = this.evenement.id || '';
+    let eventColor = this.eventColorService.getEventColor(eventId);
+    
+    // If color not found, try with evenementName as fallback
+    if (!eventColor && this.evenement.evenementName) {
+      eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+    }
+    
     // Open modal immediately with empty array
-    this.slideshowModalComponent.open([], this.evenement.evenementName, false);
+    this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined);
     
     // Then list and load images dynamically
     const listSub = this.fileService.listImagesFromDisk(relativePath).subscribe({
@@ -1922,9 +2737,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     const uploadUrl = `${this.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
     
     // Create FormData
+    // IMPORTANT: Backend expects 'file' (singular), not 'files' (plural)
     const formData = new FormData();
     processedFiles.forEach(file => {
-      formData.append('files', file);
+      formData.append('file', file);
     });
 
     // Subscribe to upload logs
@@ -1957,11 +2773,14 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     const uploadSubscription = this.fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId)
       .subscribe({
         next: (response: any) => {
+          // Wait a bit for final logs (matching element-evenement pattern)
+          const cleanupTimeout = setTimeout(() => {
           try {
-            const fileCount = response?.length || processedFiles.length;
+              const fileCount = Array.isArray(response) ? response.length : (response ? 1 : processedFiles.length);
             this.addSuccessLog(`✅ Upload successful! ${fileCount} file(s) processed`);
             
             // The response should contain the uploaded file information directly
+              // Files are already saved to database by the upload endpoint
             this.handleUploadResponse(response);
             
             // Reset file input
@@ -1973,33 +2792,86 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
             // Reset selected files
             this.selectedFiles = [];
             
-            // Reload event to get updated file list
-            this.loadEventDetails();
+              // Reload event from database to get the latest files
+              // This ensures we have the most up-to-date data after upload
+              const eventId = this.evenement!.id;
             
+              // Use a small delay to ensure backend has finished saving
             setTimeout(() => {
+                const reloadSubscription = this.evenementsService.getEvenement(eventId).subscribe({
+                  next: (updatedEvent: Evenement) => {
+                    this.evenement = updatedEvent;
+                    
+                    // Update photo gallery and video URLs with new files
+                    try {
+                      this.preparePhotoGallery();
+                      this.loadVideoUrls();
               this.isUploading = false;
-            }, 1000);
+                      this.addSuccessLog(`✅ Files are now visible in the event (${updatedEvent.fileUploadeds?.length || 0} total files)`);
+                    } catch (uiError) {
+                      this.addErrorLog(`❌ Error updating UI: ${uiError}`);
+                      this.isUploading = false;
+                    }
+                  },
+                  error: (reloadError) => {
+                    // Don't redirect on 401 - just log and continue with response data
+                    if (reloadError?.status === 401) {
+                      this.addErrorLog('⚠️ Could not reload event (authentication issue), but files were uploaded');
+                    } else {
+                      this.addErrorLog(`⚠️ Could not reload event: ${reloadError?.message || 'Unknown error'}`);
+                    }
+                    
+                    // Fallback: try to update UI with response data anyway
+                    try {
+                      this.preparePhotoGallery();
+                      this.loadVideoUrls();
+                      this.isUploading = false;
+                    } catch (uiError) {
+                      this.isUploading = false;
+                    }
+                  }
+                });
+                this.trackSubscription(reloadSubscription);
+              }, 500); // Small delay to ensure backend has finished saving
           } catch (error) {
-            console.error('Error processing upload response:', error);
-            this.addErrorLog(`❌ Error processing upload response`);
+            this.addErrorLog(`❌ CRITICAL ERROR processing upload response: ${error}`);
             setTimeout(() => {
               this.isUploading = false;
             }, 1000);
           }
-        },
-        error: (error) => {
-          console.error('File upload error:', error);
+          }, 500); // Wait 500ms for final logs (matching element-evenement)
           
+          // Store timeout to clean up if needed
+          setTimeout(() => {
+            // Cleanup after timeout
+          }, 600);
+        },
+        error: (error: any) => {
           let errorMessage = "Error uploading files.";
-          if (error.status === 403) {
+          
+          if (error.status === 0) {
+            errorMessage = "Unable to connect to server. Please check that the backend service is running.";
+          } else if (error.status === 401) {
+            errorMessage = "Authentication failed. Please log in again.";
+            // Log error before any potential redirect
+            this.addErrorLog(`❌ Upload error: ${errorMessage} (Status: ${error.status})`);
+            // Don't redirect here - let interceptor handle it
+            // But don't continue processing
+            setTimeout(() => {
+              this.isUploading = false;
+            }, 1000);
+            return;
+          } else if (error.status === 403) {
             errorMessage = "Access denied. You don't have permission to upload files.";
           } else if (error.status === 413) {
             errorMessage = "File too large. Please select smaller files.";
-          } else if (error.status === 0) {
-            errorMessage = "Network error. Please check your connection.";
+          } else if (error.status >= 500) {
+            errorMessage = "Server error. Please try again later.";
+          } else if (error.error && error.error.message) {
+            errorMessage = error.error.message;
           }
           
-          this.addErrorLog(`❌ Upload error: ${errorMessage}`);
+          this.addErrorLog(`❌ Upload error: ${errorMessage} (Status: ${error.status || 'unknown'})`);
           
           setTimeout(() => {
             this.isUploading = false;
@@ -2059,22 +2931,32 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.createUploadedFileEntries();
       }
     } catch (error) {
-      console.error('Error processing upload response:', error);
-      this.createUploadedFileEntries();
+      this.addErrorLog(`❌ CRITICAL ERROR in handleUploadResponse: ${error}`);
+      // Don't call createUploadedFileEntries on error - it might cause more issues
+      // The files are already uploaded, we just couldn't process the response
     }
   }
 
   private addUploadedFilesToEvent(uploadedFilesData: any[]): void {
-    if (!this.evenement) return;
+    try {
+      if (!this.evenement) {
+        return;
+      }
+      
+      if (!Array.isArray(uploadedFilesData)) {
+        return;
+      }
     
     let hasThumbnailFile = false;
     let thumbnailFile: UploadedFile | null = null;
+      let hasModifiedFiles = false;
     
     if (!this.evenement.fileUploadeds) {
       this.evenement.fileUploadeds = [];
     }
     
     for (let fileData of uploadedFilesData) {
+        try {
       const uploadedFile = new UploadedFile(
         fileData.fieldId || fileData.id || this.generateFileId(),
         fileData.fileName || fileData.name,
@@ -2090,6 +2972,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       const existingFile = this.evenement.fileUploadeds.find(f => f.fieldId === uploadedFile.fieldId);
       if (!existingFile) {
         this.evenement.fileUploadeds.push(uploadedFile);
+          }
+        } catch (fileError) {
+          // Silently skip invalid file data
       }
     }
     
@@ -2104,20 +2989,23 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         if (!isNewFile && fileUploaded.fileName && fileUploaded.fileName.toLowerCase().includes('thumbnail')) {
           const newName = fileUploaded.fileName.replace(/thumbnail/gi, '').replace(/\s+/g, '');
           fileUploaded.fileName = newName;
-        }
-      });
+            hasModifiedFiles = true;
+          }
+        });
+      }
       
-      const subscription = this.evenementsService.putEvenement(this.evenement).subscribe({
-        next: () => {
-          this.loadEventDetails();
-        },
-        error: (error) => {
-          console.error('Error updating event:', error);
-        }
-      });
-      this.trackSubscription(subscription);
-    } else {
-      this.loadEventDetails();
+      // Files are already saved to database by the upload endpoint
+      // We don't need to call putEvenement - the upload endpoint already saved everything
+      // Just update the UI to reflect the new files
+      try {
+        this.preparePhotoGallery();
+        this.loadVideoUrls();
+      } catch (uiError) {
+        throw uiError; // Re-throw to be caught by outer try-catch
+      }
+    } catch (error) {
+      this.addErrorLog(`❌ CRITICAL ERROR in addUploadedFilesToEvent: ${error}`);
+      // Don't re-throw - we want to continue even if UI update fails
     }
   }
 
@@ -2160,17 +3048,15 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         }
       });
       
-      const subscription = this.evenementsService.putEvenement(this.evenement).subscribe({
-        next: () => {
-          this.loadEventDetails();
-        },
-        error: (error) => {
-          console.error('Error updating event:', error);
-        }
-      });
-      this.trackSubscription(subscription);
+      // Files are already saved to database by the upload endpoint
+      // We don't need to call putEvenement - the upload endpoint already saved everything
+      // Just update the UI to reflect the new files
+      this.preparePhotoGallery();
+      this.loadVideoUrls();
     } else {
-      this.loadEventDetails();
+      // Update photo gallery and video URLs with new files
+      this.preparePhotoGallery();
+      this.loadVideoUrls();
     }
   }
 

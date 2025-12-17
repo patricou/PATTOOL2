@@ -7,6 +7,12 @@
     <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
   </div>
   <div class="modal-body">
+    <!-- Message when no options are available -->
+    <div *ngIf="!hasAnyPhotoOptions()" class="text-center py-4">
+      <i class="fa fa-image fa-3x text-muted mb-3"></i>
+      <p class="text-muted">{{ getNoPhotosAvailableMessage() }}</p>
+    </div>
+
     <!-- Uploaded photos section (MongoDB) -->
     <div *ngIf="hasImageFiles()" class="mb-3">
       <!-- Section Header -->
@@ -102,7 +108,7 @@
     </div>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-primary" [disabled]="!selectedFsLink" (click)="confirmSelection(modal)">
+    <button type="button" class="btn btn-primary" [disabled]="!hasValidSelection()" (click)="confirmSelection(modal)">
       <i class="fa fa-play"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
     </button>
     <button type="button" class="btn btn-secondary ms-auto" (click)="modal.dismiss('Cancel')">

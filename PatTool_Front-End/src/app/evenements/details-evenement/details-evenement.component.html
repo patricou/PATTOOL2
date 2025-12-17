@@ -1,7 +1,7 @@
 <!-- Loading Spinner -->
 <div *ngIf="loading" class="loading-container">
   <div class="spinner-border text-primary" role="status">
-    <span class="visually-hidden">Chargement...</span>
+    <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
   </div>
   <p class="mt-3 text-muted">{{ 'COMMUN.LOADING' | translate }}</p>
 </div>
@@ -39,7 +39,12 @@
     <!-- Header Section -->
     <header class="artistic-header">
       <div class="header-content">
-        <h1 class="event-title">{{ evenement.evenementName }}</h1>
+        <h1 class="event-title" [ngStyle]="getEventTitleStyles()">
+          {{ evenement.evenementName }}
+          <span class="event-color-badge" *ngIf="getCalculatedColor()" [ngStyle]="getColorBadgeStyles()">
+            RGB({{ getCalculatedColor()?.r }}, {{ getCalculatedColor()?.g }}, {{ getCalculatedColor()?.b }})
+          </span>
+        </h1>
         <div class="event-meta">
           <span class="meta-item">
             <i class="fa fa-calendar"></i>
@@ -68,8 +73,8 @@
       <div class="dynamic-card card-small card-horizontal" *ngIf="evenement.comments">
         <div class="card-icon"><i class="fa fa-quote-left"></i></div>
         <div class="card-content">
-          <h3 class="card-title-small">Description</h3>
-          <p class="card-text-small">{{ evenement.comments }}</p>
+          <h3 class="card-title-small">{{ 'EVENTELEM.DESCRIPTION' | translate }}</h3>
+          <p class="description-text-beautiful">{{ evenement.comments }}</p>
         </div>
       </div>
 
@@ -157,7 +162,7 @@
               <span class="info-value">{{ evenement.startLocation }}</span>
             </div>
             <div class="info-item-compact" *ngIf="evenement.durationEstimation">
-              <span class="info-label">Duration:</span>
+              <span class="info-label">{{ 'EVENTELEM.DURATION' | translate }}:</span>
               <span class="info-value">{{ evenement.durationEstimation }}</span>
             </div>
           </div>
@@ -169,6 +174,22 @@
         <div class="card-icon"><i class="fa fa-star"></i></div>
         <div class="card-content">
           <h3 class="card-title-small">{{ 'COMMUN.RATINGS' | translate }}</h3>
+          <!-- Star Rating Display -->
+          <div class="star-rating-display-compact">
+            <span *ngFor="let star of getStarRating(); let i = index" 
+                  class="star-icon-compact"
+                  [class.star-filled]="star === 1"
+                  [class.star-half]="star === 0.5"
+                  [class.star-empty]="star === 0">
+              <i class="fa" 
+                 [class.fa-star]="star === 1"
+                 [class.fa-star-half-o]="star === 0.5"
+                 [class.fa-star-o]="star === 0"></i>
+            </span>
+            <span class="star-rating-value-compact" *ngIf="getOverallRating() > 0">
+              {{ getOverallRating() | number:'1.1-1' }}
+            </span>
+          </div>
           <div class="rating-compact">
             <button type="button" 
                     class="rating-badge-compact rating-plus btn-rating" 
@@ -192,8 +213,8 @@
       <div class="dynamic-card card-large card-vertical discussion-card" *ngIf="hasDiscussion()">
         <div class="card-header-compact">
           <i class="fa fa-comments"></i>
-          <span>Discussion</span>
-          <button type="button" class="btn-compact btn-primary-compact ms-auto" (click)="openDiscussion(); $event.stopPropagation()" title="Open full discussion">
+          <span>{{ 'EVENTELEM.CHAT' | translate }}</span>
+          <button type="button" class="btn-compact btn-primary-compact ms-auto" (click)="openDiscussion(); $event.stopPropagation()" [title]="'EVENTELEM.OPEN_DISCUSSION' | translate">
             <i class="fa fa-external-link"></i>
           </button>
         </div>
@@ -201,7 +222,7 @@
         <!-- Loading State -->
         <div *ngIf="isLoadingDiscussion" class="discussion-loading-compact">
           <i class="fa fa-spinner fa-spin"></i>
-          <span>Loading messages...</span>
+          <span>{{ 'COMMUN.LOADING' | translate }}</span>
         </div>
         
         <!-- Error State -->
@@ -214,7 +235,7 @@
         <div #discussionMessagesContainer *ngIf="!isLoadingDiscussion && !discussionError" class="discussion-messages-compact">
           <div *ngIf="discussionMessages.length === 0" class="discussion-empty-compact">
             <i class="fa fa-comments"></i>
-            <p>No messages yet</p>
+            <p>{{ 'EVENTELEM.NO_MESSAGES_YET' | translate }}</p>
           </div>
           
           <div *ngIf="discussionMessages.length > 0" class="discussion-messages-list-compact">
@@ -238,9 +259,9 @@
                        [alt]="message.imageFileName || 'Image'"
                        class="discussion-image-compact"
                        (error)="onImageError($event)"
-                       (click)="openImageInModal(getDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl))">
+                       (click)="openImageInModal(message)">
                   <div *ngIf="!hasDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl)" class="discussion-message-loading">
-                    <i class="fa fa-spinner fa-spin"></i> Chargement de l'image...
+                    <i class="fa fa-spinner fa-spin"></i> {{ 'EVENTELEM.LOADING_IMAGES' | translate }}
                   </div>
                 </div>
                 
@@ -249,11 +270,12 @@
                   <video *ngIf="hasDiscussionFileUrl(message.videoFileName || '', 'videos', message.videoUrl)"
                          [src]="getDiscussionFileUrl(message.videoFileName || '', 'videos', message.videoUrl)" 
                          controls
+                         autoplay
                          class="discussion-video-compact">
                     Your browser does not support the video tag.
                   </video>
                   <div *ngIf="!hasDiscussionFileUrl(message.videoFileName || '', 'videos', message.videoUrl)" class="discussion-message-loading">
-                    <i class="fa fa-spinner fa-spin"></i> Chargement de la vidéo...
+                    <i class="fa fa-spinner fa-spin"></i> {{ 'EVENTELEM.LOADING_VIDEOS' | translate }}
                   </div>
                 </div>
               </div>
@@ -266,19 +288,19 @@
       <div class="dynamic-card card-large card-horizontal photos-card" *ngIf="photoItemsList.length > 0">
         <div class="card-header-compact">
           <i class="fa fa-camera"></i>
-          <span>Photos ({{ photoItemsList.length }})</span>
-          <button type="button" class="btn-compact btn-primary-compact ms-auto" (click)="openPhotosMaximized(); $event.stopPropagation()" title="Maximiser">
+          <span>{{ 'EVENTELEM.PHOTOS' | translate }} ({{ photoItemsList.length }})</span>
+          <button type="button" class="btn-compact btn-primary-compact ms-auto" (click)="openPhotosMaximized(); $event.stopPropagation()" [title]="'EVENTELEM.MAXIMIZE' | translate">
             <i class="fa fa-external-link"></i>
           </button>
         </div>
         <div class="photo-gallery">
           <div class="photo-viewer">
             <div class="photo-slider" [style.transform]="'translateX(-' + (currentPhotoIndex * 100) + '%)'">
-              <div class="photo-frame" *ngFor="let photoItem of photoItemsList">
+              <div class="photo-frame" *ngFor="let photoItem of photoItemsList; let i = index">
                 <img [src]="photoItem.imageUrl" 
                      [alt]="photoItem.file.fileName" 
                      class="photo-img"
-                     (click)="openSingleImageInSlideshow(photoItem.file.fieldId, photoItem.file.fileName)"
+                     (click)="openPhotosMaximized(i)"
                      (load)="onImageLoad($event)"
                      (error)="onImageError($event)">
               </div>
@@ -330,13 +352,19 @@
             <div class="url-items-compact">
               <div class="url-item-compact" *ngFor="let urlEvent of getGroupedUrlEvents()[typeKey]">
                 <div class="url-link-compact" *ngIf="urlEvent.link">
-                  <a [href]="urlEvent.link" target="_blank" class="url-link-text">
+                  <!-- For PHOTOFROMFS, show description as plain text (not clickable) -->
+                  <span *ngIf="isPhotoFromFs(urlEvent)" class="url-link-text">
+                    <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i>
+                    {{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}
+                  </span>
+                  <!-- For other types, show as clickable link -->
+                  <a *ngIf="!isPhotoFromFs(urlEvent)" [href]="urlEvent.link" target="_blank" class="url-link-text">
                     <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i>
                     {{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}
                   </a>
                   <small class="url-meta-compact">{{ urlEvent.owner }} • {{ formatCommentaryDate(urlEvent.dateCreation) }}</small>
                 </div>
-                <button class="btn-compact btn-fs-compact" *ngIf="urlEvent.typeUrl && (urlEvent.typeUrl.toUpperCase().trim() === 'PHOTOFROMFS')" (click)="openFsPhotosDiaporama(urlEvent.link)">
+                <button class="btn-compact btn-fs-compact" *ngIf="isPhotoFromFs(urlEvent)" (click)="openFsPhotosDiaporama(urlEvent.link)">
                   <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
                 </button>
               </div>
@@ -373,14 +401,20 @@
           <span>{{ videoFile.fileName }}</span>
         </div>
         <div class="video-container-compact">
+          <div *ngIf="!hasVideoUrl(videoFile)" class="video-loading-compact">
+            <i class="fa fa-spinner fa-spin"></i>
+            <span>{{ 'COMMUN.LOADING' | translate }}</span>
+          </div>
           <video 
+            *ngIf="hasVideoUrl(videoFile)"
             [src]="getVideoUrl(videoFile)"
             controls
             autoplay
             loop
             class="video-player-compact"
-            (error)="onVideoError($event, videoFile)">
-            Votre navigateur ne supporte pas la lecture de vidéos.
+            (error)="onVideoError($event, videoFile)"
+            (loadeddata)="onVideoLoaded($event, videoFile)">
+            {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
           </video>
         </div>
       </div>

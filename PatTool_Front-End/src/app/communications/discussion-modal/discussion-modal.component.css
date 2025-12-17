@@ -10,13 +10,13 @@
     height: 80vh;
     max-height: 80vh;
     min-height: 500px;
-    border: 4px solid #ffffff !important;
+    border: 4px solid var(--discussion-border, #ffffff) !important;
     border-radius: 8px !important;
 }
 
 .modal-header {
-    background: #28a745 !important;
-    border-bottom: 1px solid #1e7e34;
+    background: var(--discussion-header-bg, #28a745) !important;
+    border-bottom: 1px solid var(--discussion-header-border, #1e7e34);
     padding: 12px 16px;
     flex-shrink: 0;
     display: flex;
@@ -28,7 +28,7 @@
     margin: 0;
     font-size: 18px;
     font-weight: 600;
-    color: #ffffff !important;
+    color: var(--discussion-header-text, #ffffff) !important;
 }
 
 .btn-close {
@@ -36,7 +36,7 @@
     border: none;
     font-size: 24px;
     line-height: 1;
-    color: #ffffff !important;
+    color: var(--discussion-header-text, #ffffff) !important;
     cursor: pointer;
     padding: 0;
     width: 30px;
@@ -76,8 +76,8 @@
 }
 
 .modal-footer {
-    background: #f0f2f5;
-    border-top: 1px solid #e9edef;
+    background: var(--discussion-footer-bg, #f0f2f5);
+    border-top: 1px solid var(--discussion-footer-border, #e9edef);
     padding: 8px 16px;
     flex-shrink: 0;
     display: flex;
@@ -173,6 +173,42 @@
     gap: 8px;
 }
 
+.modal-footer .btn:not(.btn-secondary) {
+    border-color: var(--discussion-footer-button-border, rgba(0, 123, 255, 0.5)) !important;
+    color: var(--discussion-footer-button-text, rgba(0, 123, 255, 0.9)) !important;
+}
+
+.modal-footer .btn:not(.btn-secondary):hover:not(:disabled) {
+    background: var(--discussion-footer-button-hover-bg, rgba(0, 123, 255, 0.1)) !important;
+    border-color: var(--discussion-footer-button-border, rgba(0, 123, 255, 0.8)) !important;
+    color: var(--discussion-footer-button-text, rgba(0, 123, 255, 1)) !important;
+}
+
+/* Fermer button specific styling - override Bootstrap btn-secondary */
+:host ::ng-deep .modal-footer .btn-fermer,
+:host ::ng-deep .modal-footer .btn-secondary.btn-fermer,
+:host ::ng-deep .modal-footer button.btn-secondary.btn-fermer,
+.modal-footer .btn-fermer,
+.modal-footer .btn-secondary.btn-fermer,
+.modal-footer button.btn-secondary.btn-fermer {
+    background-color: #6c757d !important;
+    background: #6c757d !important;
+    border-color: #6c757d !important;
+    color: #ffffff !important;
+}
+
+:host ::ng-deep .modal-footer .btn-fermer:hover:not(:disabled),
+:host ::ng-deep .modal-footer .btn-secondary.btn-fermer:hover:not(:disabled),
+:host ::ng-deep .modal-footer button.btn-secondary.btn-fermer:hover:not(:disabled),
+.modal-footer .btn-fermer:hover:not(:disabled),
+.modal-footer .btn-secondary.btn-fermer:hover:not(:disabled),
+.modal-footer button.btn-secondary.btn-fermer:hover:not(:disabled) {
+    background-color: #5a6268 !important;
+    background: #5a6268 !important;
+    border-color: #545b62 !important;
+    color: #ffffff !important;
+}
+
 /* Custom modal window class */
 :host ::ng-deep .discussion-modal-window .modal-dialog {
     max-width: 900px;
@@ -191,7 +227,7 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border: 4px solid #ffffff !important;
+    border: 4px solid var(--discussion-border, #ffffff) !important;
     border-radius: 8px !important;
 }
 

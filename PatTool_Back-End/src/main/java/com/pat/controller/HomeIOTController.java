@@ -7,6 +7,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -38,7 +39,7 @@ public class HomeIOTController {
         this.homeIOTService = homeIOTService;
     }
 
-    @PostMapping(value = "/opcl")
+    @PostMapping(value = "/opcl", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> openOrCLosePortail(@RequestBody Member member) {
 
         log.info(String.format("Open or close Portail / user id : %s ", member.getId()));
@@ -51,7 +52,7 @@ public class HomeIOTController {
         }
     }
 
-    @PostMapping(value = "/testarduino")
+    @PostMapping(value = "/testarduino", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> testEthernetShield2(@RequestBody Member member) {
         log.info(String.format("Test Ethernet shield 2 / User id : %s ", member.getId()));
 

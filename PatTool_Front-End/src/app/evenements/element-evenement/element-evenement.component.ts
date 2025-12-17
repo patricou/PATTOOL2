@@ -26,6 +26,7 @@ import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
 import { DiscussionService } from '../../services/discussion.service';
+import { EventColorService } from '../../services/event-color.service';
 
 @Component({
 	selector: 'element-evenement',
@@ -295,7 +296,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private videoCompressionService: VideoCompressionService,
 		private _evenementsService: EvenementsService,
 		private _friendsService: FriendsService,
-		private _discussionService: DiscussionService
+		private _discussionService: DiscussionService,
+		private eventColorService: EventColorService
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -680,34 +682,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public openPhotos(): void {
 		this.forceCloseTooltips();
 		
-		// Check what we have available (without needing files loaded)
-		const hasFs = this.getPhotoFromFsCount() > 0;
-		const hasPhotosWeb = this.getPhotosUrlLinks().length > 0;
+		// ALWAYS open the photos selector modal first, regardless of photo count
+		// This ensures the user always sees the "Selection de Photo" modal
+		this.openFsPhotosSelector(true);
 		
-		// If we have FS or web photos, open the selector modal immediately
-		// Files will be loaded in the background if needed
-		if (hasFs || hasPhotosWeb) {
-			// Open the photos selector modal FIRST
-			// Always include uploaded choice - files will load in background
-			this.openFsPhotosSelector(true);
-			
-			// Load files in background if not already loaded (non-blocking)
-			if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
-				this.loadFilesForSlideshow();
-			}
-			return;
-		}
-		
-		// No FS or web photos - check if we have uploaded images
-		// If files aren't loaded, we need to load them first before opening slideshow
+		// Load files in background if not already loaded (non-blocking)
 		if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
-			// Load files first, then open slideshow when complete
 			this.loadFilesForSlideshow();
-			return;
 		}
-		
-		// Files are loaded - proceed with opening slideshow
-		this.openPhotosWithFiles();
 	}
 	
 	// Open photos when files are already loaded
@@ -755,7 +737,19 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						this.evenement.fileUploadeds = [];
 					}
 					this.evenement.fileUploadeds.push(file);
+					// Trigger change detection for photos selector modal if it's open
+					if (this.photosSelectorModalComponent) {
+						setTimeout(() => {
+							this.photosSelectorModalComponent.checkAndSelectSingleOption();
+						}, 100);
+					}
 				} else if (streamedFile.type === 'complete') {
+					// All files loaded - check if we need to auto-select in modal
+					if (this.photosSelectorModalComponent) {
+						setTimeout(() => {
+							this.photosSelectorModalComponent.checkAndSelectSingleOption();
+						}, 100);
+					}
 					// All files loaded - now open photos
 					this.openPhotosWithFiles();
 				}
@@ -2067,13 +2061,20 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return;
 		}
 
+		const color = {
+			r: clamp(this.dominantR),
+			g: clamp(this.dominantG),
+			b: clamp(this.dominantB)
+		};
+
+		// Store color in service for details-evenement to use
+		if (this.evenement?.id) {
+			this.eventColorService.setEventColor(this.evenement.id, color);
+		}
+
 		this.colorComputed.emit({
 			eventId: eventKey,
-			color: {
-				r: clamp(this.dominantR),
-				g: clamp(this.dominantG),
-				b: clamp(this.dominantB)
-			}
+			color: color
 		});
 	}
 
