@@ -2808,6 +2808,79 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     );
   }
 
+  // Check if current user is the uploader/owner of a file
+  public isFileOwner(uploaderMember?: Member | null): boolean {
+    return !!this.user?.userName && !!uploaderMember?.userName &&
+      this.user.userName.toLowerCase() === uploaderMember.userName.toLowerCase();
+  }
+
+  // Extract a displayable upload/creation date from an uploaded file (backend fields vary)
+  public getUploadedFileDate(file: any): any | null {
+    if (!file) return null;
+    return (
+      file.dateCreation ||
+      file.uploadDate ||
+      file.dateUpload ||
+      file.createdAt ||
+      file.created_on ||
+      null
+    );
+  }
+
+  // Delete an uploaded file linked to the event (same flow as element-evenement)
+  public delFile(fieldId: string): void {
+    if (!this.evenement || !this.user) {
+      return;
+    }
+
+    const fileToDelete = this.evenement.fileUploadeds?.find(f => f.fieldId === fieldId);
+    if (!fileToDelete) {
+      return;
+    }
+
+    // Permission guard (UI already hides button, but keep a hard check)
+    if (!this.isFileOwner(fileToDelete.uploaderMember)) {
+      alert("Vous n'avez pas l'autorisation de supprimer ce fichier.");
+      return;
+    }
+
+    const confirmMsg =
+      this.translateService.instant('EVENTELEM.DELETEFILE_CONFIRM') ||
+      this.translateService.instant('EVENTELEM.DELETEFILE') ||
+      'Supprimer ce fichier ?';
+
+    if (!confirm(confirmMsg)) {
+      return;
+    }
+
+    const evenementToUpdate: any = { ...this.evenement };
+    evenementToUpdate.fileUploadeds = (this.evenement.fileUploadeds || []).filter(f => f.fieldId !== fieldId);
+
+    const updateSubscription = this.fileService.updateFile(evenementToUpdate, this.user).subscribe({
+      next: () => {
+        // Update local state
+        this.evenement!.fileUploadeds = evenementToUpdate.fileUploadeds;
+
+        // If deleted file was a video, remove cached URL
+        if (this.videoUrls.has(fieldId)) {
+          this.videoUrls.delete(fieldId);
+        }
+        if (this.videoUrlCache.has(fieldId)) {
+          this.videoUrlCache.delete(fieldId);
+        }
+
+        // Trigger UI refresh
+        this.cdr.detectChanges();
+      },
+      error: (error: any) => {
+        console.error('Error deleting file from MongoDB:', error);
+        alert('Error deleting file from database. Please try again.');
+      }
+    });
+
+    this.activeSubscriptions.add(updateSubscription);
+  }
+
   // Get video files
   public getVideoFiles(): UploadedFile[] {
     if (!this.evenement?.fileUploadeds) {
@@ -3693,6 +3766,12 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         fileData.fileType || fileData.type || 'unknown',
         this.user!
       );
+
+      // Preserve backend metadata if present (not typed on UploadedFile model)
+      (uploadedFile as any).dateCreation = fileData.dateCreation || (uploadedFile as any).dateCreation;
+      (uploadedFile as any).uploadDate = fileData.uploadDate || fileData.uploadedAt || (uploadedFile as any).uploadDate;
+      (uploadedFile as any).dateUpload = fileData.dateUpload || (uploadedFile as any).dateUpload;
+      (uploadedFile as any).createdAt = fileData.createdAt || (uploadedFile as any).createdAt;
       
       if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
         hasThumbnailFile = true;

@@ -590,12 +590,29 @@
         <div class="pdfs-list-compact">
           <div class="pdf-item-compact" *ngFor="let pdfFile of getPdfFiles()">
             <div class="pdf-name-compact">{{ pdfFile.fileName }}</div>
+            <div class="pdf-meta-compact" *ngIf="pdfFile.uploaderMember?.userName || getUploadedFileDate($any(pdfFile))">
+              <ng-container *ngIf="pdfFile.uploaderMember?.userName">
+                <i class="fa fa-user"></i>
+                <span class="pdf-owner-compact">{{ pdfFile.uploaderMember.userName }}</span>
+              </ng-container>
+              <span class="pdf-sep-compact" *ngIf="pdfFile.uploaderMember?.userName && getUploadedFileDate($any(pdfFile))">•</span>
+              <span class="pdf-date-compact" *ngIf="getUploadedFileDate($any(pdfFile))">
+                <i class="fa fa-calendar"></i>
+                {{ getUploadedFileDate($any(pdfFile)) | date:'short' }}
+              </span>
+            </div>
             <div class="pdf-actions-compact">
               <button class="btn-compact btn-primary-compact" (click)="openPdfInPage(pdfFile)" title="{{ 'EVENTELEM.OPEN_PDF' | translate }}">
                 <i class="fa fa-eye"></i>
               </button>
               <button class="btn-compact btn-secondary-compact" (click)="downloadPdf(pdfFile)" title="{{ 'EVENTELEM.DOWNLOAD_PDF' | translate }}">
                 <i class="fa fa-download"></i>
+              </button>
+              <button *ngIf="isFileOwner(pdfFile.uploaderMember)"
+                      class="btn-compact btn-danger-compact"
+                      (click)="delFile(pdfFile.fieldId)"
+                      title="{{ 'EVENTELEM.DELETEFILE' | translate }}">
+                <i class="fa fa-trash"></i>
               </button>
             </div>
           </div>
@@ -604,9 +621,28 @@
 
       <!-- Video Cards - One card per video -->
       <div class="dynamic-card card-medium card-vertical video-card" *ngFor="let videoFile of getVideoFiles(); let i = index">
-        <div class="card-header-compact">
-          <i class="fa fa-video-camera"></i>
-          <span>{{ videoFile.fileName }}</span>
+        <div class="card-header-compact video-header-compact">
+          <div class="video-header-left">
+            <i class="fa fa-video-camera"></i>
+            <span>{{ videoFile.fileName }}</span>
+          </div>
+          <button *ngIf="isFileOwner(videoFile.uploaderMember)"
+                  class="btn-compact btn-danger-compact"
+                  (click)="delFile(videoFile.fieldId)"
+                  title="{{ 'EVENTELEM.DELETEFILE' | translate }}">
+            <i class="fa fa-trash"></i>
+          </button>
+        </div>
+        <div class="video-meta-compact" *ngIf="videoFile.uploaderMember?.userName || getUploadedFileDate($any(videoFile))">
+          <ng-container *ngIf="videoFile.uploaderMember?.userName">
+            <i class="fa fa-user"></i>
+            <span class="video-owner-compact">{{ videoFile.uploaderMember.userName }}</span>
+          </ng-container>
+          <span class="video-sep-compact" *ngIf="videoFile.uploaderMember?.userName && getUploadedFileDate($any(videoFile))">•</span>
+          <span class="video-date-compact" *ngIf="getUploadedFileDate($any(videoFile))">
+            <i class="fa fa-calendar"></i>
+            {{ getUploadedFileDate($any(videoFile)) | date:'short' }}
+          </span>
         </div>
         <div class="video-container-compact">
           <div *ngIf="!hasVideoUrl(videoFile)" class="video-loading-compact">

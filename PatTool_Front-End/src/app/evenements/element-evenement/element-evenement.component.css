@@ -303,6 +303,17 @@
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.2s ease !important;
 }
 
+/* Make "Voir les détails" (eye) button intentionally 2x wider than other footer buttons */
+.card-footer .eye-button.dynamic-footer-btn {
+    width: 62px !important;      /* 2 * 31px */
+    min-width: 62px !important;
+    max-width: 62px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+}
+
 .card-footer .dynamic-footer-btn:hover,
 .card-footer .dynamic-footer-btn:focus,
 .dynamic-footer-btn:hover,
