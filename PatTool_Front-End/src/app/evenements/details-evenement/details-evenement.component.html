@@ -210,7 +210,10 @@
       </div>
 
       <!-- Discussion Card - Large Vertical -->
-      <div class="dynamic-card card-large card-vertical discussion-card" *ngIf="hasDiscussion()">
+      <div class="dynamic-card card-large card-vertical discussion-card"
+           *ngIf="hasDiscussion()"
+           [ngClass]="getCardLayoutClasses('discussion')"
+           [style.order]="getCardOrder('discussion')">
         <div class="card-header-compact">
           <i class="fa fa-comments"></i>
           <span>{{ 'EVENTELEM.CHAT' | translate }}</span>
@@ -239,7 +242,10 @@
           </div>
           
           <div *ngIf="discussionMessages.length > 0" class="discussion-messages-list-compact">
-            <div class="discussion-message-compact" *ngFor="let message of discussionMessages">
+            <div class="discussion-message-row-compact"
+                 *ngFor="let message of discussionMessages"
+                 [class.is-own]="isOwnDiscussionMessage(message)">
+              <div class="discussion-message-compact">
               <div class="message-header-compact">
                 <div class="message-author-compact">
                   <i class="fa fa-user-circle"></i>
@@ -280,12 +286,16 @@
                 </div>
               </div>
             </div>
+            </div>
           </div>
         </div>
       </div>
 
       <!-- Photo Gallery - Large Horizontal -->
-      <div class="dynamic-card card-large card-horizontal photos-card" *ngIf="photoItemsList.length > 0">
+      <div class="dynamic-card card-large card-horizontal photos-card"
+           *ngIf="photoItemsList.length > 0"
+           [ngClass]="getCardLayoutClasses('photos')"
+           [style.order]="getCardOrder('photos')">
         <div class="card-header-compact">
           <i class="fa fa-camera"></i>
           <span>{{ 'EVENTELEM.PHOTOS' | translate }} ({{ photoItemsList.length }})</span>
@@ -323,27 +333,156 @@
       </div>
 
       <!-- Comments - Medium Vertical -->
-      <div class="dynamic-card card-medium card-vertical comments-card" *ngIf="getEventComments().length > 0">
+      <div class="dynamic-card card-medium card-vertical comments-card"
+           *ngIf="evenement"
+           [ngClass]="getCardLayoutClasses('comments')"
+           [style.order]="getCardOrder('comments')">
         <div class="card-header-compact">
           <i class="fa fa-comments"></i>
           <span>{{ 'EVENTHOME.COMMENTARIES' | translate }} ({{ getEventComments().length }})</span>
+          <button type="button"
+                  class="btn-compact btn-primary-compact ms-auto"
+                  *ngIf="!isAddingCommentary"
+                  (click)="startAddCommentary(); $event.stopPropagation()"
+                  [title]="'EVENTHOME.ADD_COMMENTARY' | translate">
+            <i class="fa fa-plus"></i>
+          </button>
         </div>
+
+        <!-- Add commentary form -->
+        <div class="compact-form" *ngIf="isAddingCommentary">
+          <textarea [(ngModel)]="newCommentary.commentary"
+                    name="newCommentary"
+                    class="compact-textarea"
+                    rows="3"
+                    placeholder="{{ 'EVENTHOME.COMMENTARY_PLACEHOLDER' | translate }}"></textarea>
+          <div class="compact-form-actions">
+            <button type="button" class="btn-compact btn-success-compact" (click)="addCommentary()">
+              <i class="fa fa-check"></i> {{ 'EVENTHOME.SAVE_COMMENTARY' | translate }}
+            </button>
+            <button type="button" class="btn-compact btn-secondary-compact" (click)="cancelAddCommentary()">
+              <i class="fa fa-times"></i> {{ 'EVENTHOME.CANCEL_COMMENTARY' | translate }}
+            </button>
+          </div>
+        </div>
+
         <div class="comments-list-compact">
-          <div class="comment-item-compact" *ngFor="let comment of getEventComments()">
-            <div class="comment-author-compact">{{ comment.commentOwner }}</div>
-            <div class="comment-date-compact">{{ formatCommentaryDate(comment.dateCreation) }}</div>
-            <div class="comment-text-compact">{{ comment.commentary }}</div>
+          <div *ngIf="getEventComments().length === 0" class="empty-state-compact">
+            <i class="fa fa-comments-o"></i>
+            <p>{{ 'EVENTHOME.NO_COMMENTARIES_ADDED' | translate }}</p>
+          </div>
+
+          <div class="comment-item-compact" *ngFor="let comment of getEventComments(); let i = index">
+            <!-- Display mode -->
+            <ng-container *ngIf="editingCommentaryIndex !== i; else editCommentaryTpl">
+              <div class="comment-author-compact">{{ comment.commentOwner }}</div>
+              <div class="comment-date-compact">{{ formatCommentaryDate(comment.dateCreation) }}</div>
+              <div class="comment-text-compact">{{ comment.commentary }}</div>
+
+              <div class="compact-item-actions" *ngIf="canEditCommentary(comment) || canDeleteCommentary(comment)">
+                <button type="button"
+                        class="btn-compact btn-primary-compact"
+                        *ngIf="canEditCommentary(comment)"
+                        (click)="startEditCommentary(i)"
+                        [title]="'EVENTHOME.EDIT_LINK' | translate">
+                  <i class="fa fa-edit"></i>
+                </button>
+                <button type="button"
+                        class="btn-compact btn-secondary-compact"
+                        *ngIf="canDeleteCommentary(comment)"
+                        (click)="deleteCommentary(i)"
+                        [title]="'EVENTHOME.REMOVE_URL_EVENT' | translate">
+                  <i class="fa fa-trash"></i>
+                </button>
+              </div>
+            </ng-container>
+
+            <!-- Edit mode -->
+            <ng-template #editCommentaryTpl>
+              <textarea [(ngModel)]="editingCommentary.commentary"
+                        name="editCommentary-{{i}}"
+                        class="compact-textarea"
+                        rows="3"></textarea>
+              <div class="compact-form-actions">
+                <button type="button" class="btn-compact btn-success-compact" (click)="saveCommentaryEdit(i)">
+                  <i class="fa fa-check"></i>
+                </button>
+                <button type="button" class="btn-compact btn-secondary-compact" (click)="cancelEditCommentary()">
+                  <i class="fa fa-times"></i>
+                </button>
+              </div>
+            </ng-template>
           </div>
         </div>
       </div>
 
       <!-- URLs - Medium Vertical -->
-      <div class="dynamic-card card-medium card-vertical urls-card" *ngIf="evenement.urlEvents && evenement.urlEvents.length > 0">
+      <div class="dynamic-card card-medium card-vertical urls-card"
+           *ngIf="evenement"
+           [ngClass]="getCardLayoutClasses('urls')"
+           [style.order]="getCardOrder('urls')">
         <div class="card-header-compact">
           <i class="fa fa-link"></i>
           <span>{{ 'EVENTELEM.URLS' | translate }} ({{ evenement.urlEvents.length }})</span>
+          <button type="button"
+                  class="btn-compact btn-primary-compact ms-auto"
+                  *ngIf="!isAddingUrlEvent"
+                  (click)="startAddUrlEvent(); $event.stopPropagation()"
+                  [title]="'EVENTHOME.ADD_URL_EVENT' | translate">
+            <i class="fa fa-plus"></i>
+          </button>
         </div>
+
+        <!-- Add link form -->
+        <div class="compact-form" *ngIf="isAddingUrlEvent">
+          <div class="compact-grid">
+            <select [(ngModel)]="newUrlEvent.typeUrl" name="newUrlType" class="compact-input">
+              <option value="">{{ 'EVENTHOME.TYPE_URL' | translate }}</option>
+              <option *ngFor="let type of getSortedUrlEventTypes()" [value]="type.id">{{ type.label | translate }}</option>
+            </select>
+
+            <div class="compact-input-group">
+              <input [(ngModel)]="newUrlEvent.link"
+                     name="newUrlLink"
+                     type="text"
+                     class="compact-input"
+                     placeholder="https://example.com"
+                     (input)="onNewLinkInputChange($any($event.target).value)"
+                     (blur)="onNewLinkBlur()">
+              <button *ngIf="newUrlEvent.typeUrl === 'PHOTOFROMFS'"
+                      type="button"
+                      class="btn-compact btn-secondary-compact"
+                      (click)="selectDirectory()"
+                      [title]="'EVENTHOME.CHOOSE_FOLDER' | translate">
+                <i class="fa fa-folder-open"></i>
+              </button>
+            </div>
+
+            <input #directoryInput type="file" webkitdirectory style="display:none" (change)="onDirectorySelected($event)">
+
+            <input [(ngModel)]="newUrlEvent.urlDescription"
+                   name="newUrlDesc"
+                   type="text"
+                   class="compact-input compact-full-row"
+                   placeholder="{{ 'EVENTHOME.LINK_DESCRIPTION_PLACEHOLDER' | translate }}">
+          </div>
+
+          <div class="compact-form-actions">
+            <button type="button" class="btn-compact btn-success-compact" (click)="addUrlEvent()">
+              <i class="fa fa-check"></i> {{ 'EVENTHOME.SAVE_URL_EVENT' | translate }}
+            </button>
+            <button type="button" class="btn-compact btn-secondary-compact" (click)="cancelAddUrlEvent()">
+              <i class="fa fa-times"></i> {{ 'EVENTHOME.CANCEL_URL_EVENT' | translate }}
+            </button>
+          </div>
+        </div>
+
         <div class="urls-list-compact">
+          <div *ngIf="!evenement.urlEvents || evenement.urlEvents.length === 0" class="empty-state-compact">
+            <i class="fa fa-link"></i>
+            <p>{{ 'EVENTHOME.NO_LINKS_ADDED' | translate }}</p>
+          </div>
+
           <div *ngFor="let typeKey of getSortedTypeKeys()" class="url-type-compact">
             <div class="url-type-header-compact">
               <i class="fa {{ getUrlTypeIcon(typeKey) }}"></i>
@@ -351,22 +490,88 @@
             </div>
             <div class="url-items-compact">
               <div class="url-item-compact" *ngFor="let urlEvent of getGroupedUrlEvents()[typeKey]">
-                <div class="url-link-compact" *ngIf="urlEvent.link">
-                  <!-- For PHOTOFROMFS, show description as plain text (not clickable) -->
-                  <span *ngIf="isPhotoFromFs(urlEvent)" class="url-link-text">
-                    <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i>
-                    {{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}
-                  </span>
-                  <!-- For other types, show as clickable link -->
-                  <a *ngIf="!isPhotoFromFs(urlEvent)" [href]="urlEvent.link" target="_blank" class="url-link-text">
-                    <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i>
-                    {{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}
-                  </a>
-                  <small class="url-meta-compact">{{ urlEvent.owner }} • {{ formatCommentaryDate(urlEvent.dateCreation) }}</small>
-                </div>
-                <button class="btn-compact btn-fs-compact" *ngIf="isPhotoFromFs(urlEvent)" (click)="openFsPhotosDiaporama(urlEvent.link)">
-                  <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
-                </button>
+
+                <!-- Display mode -->
+                <ng-container *ngIf="editingUrlEventIndex !== evenement.urlEvents.indexOf(urlEvent); else editUrlTpl">
+                  <div class="url-link-compact" *ngIf="urlEvent.link">
+                    <span *ngIf="isPhotoFromFs(urlEvent)" class="url-link-text">
+                      <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i>
+                      {{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}
+                    </span>
+                    <a *ngIf="!isPhotoFromFs(urlEvent)" [href]="urlEvent.link" target="_blank" class="url-link-text">
+                      <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i>
+                      {{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}
+                    </a>
+                    <small class="url-meta-compact">{{ urlEvent.owner }} • {{ formatCommentaryDate(urlEvent.dateCreation) }}</small>
+                  </div>
+
+                  <button class="btn-compact btn-fs-compact"
+                          *ngIf="isPhotoFromFs(urlEvent)"
+                          (click)="openFsPhotosDiaporama(urlEvent.link)">
+                    <i class="fa fa-picture-o"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
+                  </button>
+
+                  <div class="compact-item-actions" *ngIf="canEditUrlEvent(urlEvent) || canDeleteUrlEvent(urlEvent)">
+                    <button type="button"
+                            class="btn-compact btn-primary-compact"
+                            *ngIf="canEditUrlEvent(urlEvent)"
+                            (click)="startEditUrlEvent(urlEvent)"
+                            [title]="'EVENTHOME.EDIT_LINK' | translate">
+                      <i class="fa fa-edit"></i>
+                    </button>
+                    <button type="button"
+                            class="btn-compact btn-secondary-compact"
+                            *ngIf="canDeleteUrlEvent(urlEvent)"
+                            (click)="removeUrlEvent(urlEvent)"
+                            [title]="'EVENTHOME.REMOVE_URL_EVENT' | translate">
+                      <i class="fa fa-trash"></i>
+                    </button>
+                  </div>
+                </ng-container>
+
+                <!-- Edit mode -->
+                <ng-template #editUrlTpl>
+                  <div class="compact-grid">
+                    <select [(ngModel)]="editingUrlEvent.typeUrl" name="editUrlType" class="compact-input">
+                      <option value="">{{ 'EVENTHOME.TYPE_URL' | translate }}</option>
+                      <option *ngFor="let type of getSortedUrlEventTypes()" [value]="type.id">{{ type.label | translate }}</option>
+                    </select>
+
+                    <div class="compact-input-group">
+                      <input [(ngModel)]="editingUrlEvent.link"
+                             name="editUrlLink"
+                             type="text"
+                             class="compact-input"
+                             placeholder="https://example.com"
+                             (input)="onEditLinkInputChange($any($event.target).value)"
+                             (blur)="onEditLinkBlur()">
+                      <button *ngIf="editingUrlEvent.typeUrl === 'PHOTOFROMFS'"
+                              type="button"
+                              class="btn-compact btn-secondary-compact"
+                              (click)="selectDirectoryForEdit()"
+                              [title]="'EVENTHOME.CHOOSE_FOLDER' | translate">
+                        <i class="fa fa-folder-open"></i>
+                      </button>
+                    </div>
+
+                    <input #editDirectoryInput type="file" webkitdirectory style="display:none" (change)="onDirectorySelectedForEdit($event)">
+
+                    <input [(ngModel)]="editingUrlEvent.urlDescription"
+                           name="editUrlDesc"
+                           type="text"
+                           class="compact-input compact-full-row"
+                           placeholder="{{ 'EVENTHOME.LINK_DESCRIPTION_PLACEHOLDER' | translate }}">
+                  </div>
+
+                  <div class="compact-form-actions">
+                    <button type="button" class="btn-compact btn-success-compact" (click)="saveUrlEventEdit()">
+                      <i class="fa fa-check"></i>
+                    </button>
+                    <button type="button" class="btn-compact btn-secondary-compact" (click)="cancelEditUrlEvent()">
+                      <i class="fa fa-times"></i>
+                    </button>
+                  </div>
+                </ng-template>
               </div>
             </div>
           </div>
@@ -374,7 +579,10 @@
       </div>
 
       <!-- PDFs - Small Vertical -->
-      <div class="dynamic-card card-small card-vertical pdfs-card" *ngIf="getPdfFiles().length > 0">
+      <div class="dynamic-card card-small card-vertical pdfs-card"
+           *ngIf="getPdfFiles().length > 0"
+           [ngClass]="getCardLayoutClasses('pdfs')"
+           [style.order]="getCardOrder('pdfs')">
         <div class="card-header-compact">
           <i class="fa fa-file-pdf-o"></i>
           <span>{{ 'EVENTELEM.PDF_DOCUMENTS' | translate }} ({{ getPdfFiles().length }})</span>
@@ -420,7 +628,10 @@
       </div>
 
       <!-- File Upload - Small Vertical -->
-      <div class="dynamic-card card-small card-vertical upload-card" *ngIf="user && evenement">
+      <div class="dynamic-card card-small card-vertical upload-card"
+           *ngIf="user && evenement"
+           [ngClass]="getCardLayoutClasses('upload')"
+           [style.order]="getCardOrder('upload')">
         <div class="card-header-compact">
           <i class="fa fa-upload"></i>
           <span>{{ 'EVENTELEM.UPLOAD' | translate }}</span>
@@ -500,6 +711,41 @@
   <div class="modal-footer">
     <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')" [disabled]="isUploading">
       {{ 'COMMUN.CLOSE' | translate }}
+    </button>
+  </div>
+</ng-template>
+
+<!-- Video Compression Quality Selection Modal (aligned with element-evenement) -->
+<ng-template #qualitySelectionModal let-modal>
+  <div class="modal-header bg-primary text-white">
+    <h5 class="modal-title">
+      <i class="fa fa-video-camera me-2"></i>
+      {{ 'EVENTELEM.VIDEO_COMPRESSION_TITLE' | translate }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" (click)="cancelQualitySelection()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <p>{{ 'EVENTELEM.VIDEO_COMPRESSION_MESSAGE' | translate: {count: videoCountForModal} }}</p>
+    <div class="form-group mb-3">
+      <label class="form-label fw-bold">{{ 'EVENTELEM.QUALITY' | translate }}:</label>
+      <select class="form-select" [(ngModel)]="selectedCompressionQuality">
+        <option value="low">{{ 'EVENTELEM.QUALITY_LOW' | translate }} - {{ 'EVENTELEM.QUALITY_LOW_DESC' | translate }}</option>
+        <option value="medium">{{ 'EVENTELEM.QUALITY_MEDIUM' | translate }} - {{ 'EVENTELEM.QUALITY_MEDIUM_DESC' | translate }}</option>
+        <option value="high">{{ 'EVENTELEM.QUALITY_HIGH' | translate }} - {{ 'EVENTELEM.QUALITY_HIGH_DESC' | translate }}</option>
+      </select>
+    </div>
+    <div class="alert alert-info small">
+      <strong>{{ 'EVENTELEM.QUALITY_LOW' | translate }}:</strong> {{ 'EVENTELEM.QUALITY_LOW_DETAILS' | translate }}<br>
+      <strong>{{ 'EVENTELEM.QUALITY_MEDIUM' | translate }}:</strong> {{ 'EVENTELEM.QUALITY_MEDIUM_DETAILS' | translate }}<br>
+      <strong>{{ 'EVENTELEM.QUALITY_HIGH' | translate }}:</strong> {{ 'EVENTELEM.QUALITY_HIGH_DETAILS' | translate }}
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="cancelQualitySelection()">
+      {{ 'EVENTELEM.CANCEL' | translate }}
+    </button>
+    <button type="button" class="btn btn-primary" (click)="confirmQualitySelection()">
+      {{ 'EVENTELEM.CONFIRM' | translate }}
     </button>
   </div>
 </ng-template>

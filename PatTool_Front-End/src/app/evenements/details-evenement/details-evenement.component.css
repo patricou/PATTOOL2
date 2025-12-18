@@ -155,6 +155,33 @@
   order: 3;
 }
 
+/* ============================================
+   Dynamic span for Comments card
+   ============================================ */
+
+.comments-span-1 {
+  grid-row: span 1 !important;
+}
+
+.comments-span-2 {
+  grid-row: span 2 !important;
+}
+
+.comments-span-3 {
+  grid-row: span 3 !important;
+}
+
+/* ============================================
+   Generic "smart layout" spans
+   ============================================ */
+
+.span-row-1 { grid-row: span 1 !important; }
+.span-row-2 { grid-row: span 2 !important; }
+.span-row-3 { grid-row: span 3 !important; }
+
+.span-col-1 { grid-column: span 1 !important; }
+.span-col-2 { grid-column: span 2 !important; }
+
 /* Card Orientations */
 .card-horizontal {
   flex-direction: row;
@@ -700,6 +727,100 @@
   overflow-y: auto;
 }
 
+/* ============================================
+   ADD/EDIT FORMS (COMMENTS + URLS)
+   ============================================ */
+
+.compact-form {
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  margin-bottom: 0.75rem;
+}
+
+.compact-form-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.compact-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.5rem;
+}
+
+@media (min-width: 768px) {
+  .compact-grid {
+    grid-template-columns: 1fr 2fr;
+  }
+}
+
+/* Make a field span the full card width inside compact-grid */
+.compact-full-row {
+  grid-column: 1 / -1;
+}
+
+.compact-input,
+.compact-textarea {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.95));
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.compact-input::placeholder,
+.compact-textarea::placeholder {
+  color: var(--text-color-dark, rgba(255, 255, 255, 0.7));
+}
+
+.compact-input:focus,
+.compact-textarea:focus {
+  border-color: rgba(255, 215, 0, 0.7);
+  box-shadow: 0 0 0 3px rgba(255, 215, 0, 0.15);
+}
+
+.compact-textarea {
+  resize: vertical;
+  min-height: 70px;
+}
+
+.compact-input-group {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.compact-item-actions {
+  display: flex;
+  gap: 0.4rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.empty-state-compact {
+  text-align: center;
+  padding: 1rem;
+  color: var(--text-color-dark, rgba(255, 255, 255, 0.7));
+  opacity: 0.85;
+}
+
+.empty-state-compact i {
+  font-size: 1.6rem;
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text-color-very-dark, rgba(255, 255, 255, 0.5));
+}
+
 .comment-item-compact {
   padding: 0.75rem;
   background: rgba(255, 255, 255, 0.06);
@@ -956,6 +1077,15 @@
   gap: 1rem;
 }
 
+.discussion-message-row-compact {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.discussion-message-row-compact.is-own {
+  justify-content: flex-end;
+}
+
 .discussion-message-compact {
   padding: 0.75rem;
   background: rgba(255, 255, 255, 0.06);
@@ -963,11 +1093,30 @@
   border-radius: 12px;
   border-left: 3px solid rgba(255, 215, 0, 0.5);
   transition: all 0.2s ease;
+  width: 75%;
+  max-width: 75%;
+}
+
+.discussion-message-row-compact.is-own .discussion-message-compact {
+  border-left: none;
+  border-right: 3px solid rgba(40, 167, 69, 0.6);
+  background: rgba(40, 167, 69, 0.12);
 }
 
 .discussion-message-compact:hover {
   background: rgba(255, 255, 255, 0.1);
   transform: translateX(3px);
+}
+
+.discussion-message-row-compact.is-own .discussion-message-compact:hover {
+  transform: translateX(-3px);
+}
+
+@media (max-width: 768px) {
+  .discussion-message-compact {
+    width: 92%;
+    max-width: 92%;
+  }
 }
 
 .message-header-compact {

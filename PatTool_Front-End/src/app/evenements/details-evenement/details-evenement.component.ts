@@ -24,6 +24,7 @@ import { environment } from '../../../environments/environment';
 import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
 import { FriendGroup } from '../../model/friend';
 import { EventColorService } from '../../services/event-color.service';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 
 @Component({
   selector: 'app-details-evenement',
@@ -88,7 +89,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   @ViewChild('imageModal') imageModal!: TemplateRef<any>;
   @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
   @ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
+  @ViewChild('qualitySelectionModal') qualitySelectionModal!: TemplateRef<any>;
   @ViewChild('discussionMessagesContainer', { read: ElementRef }) discussionMessagesContainer!: ElementRef;
+  @ViewChild('directoryInput') directoryInput!: any;
+  @ViewChild('editDirectoryInput') editDirectoryInput!: any;
 
   // Slideshow properties (now handled by SlideshowModalComponent - kept for backward compatibility but not used)
 
@@ -126,6 +130,36 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   private activeTimeouts = new Set<any>();
   @ViewChild('logContent') logContent!: ElementRef;
 
+  // ==============================
+  // URL Events (Links) management
+  // ==============================
+
+  public urlEventTypes: {id: string, label: string}[] = [
+    {id: "MAP", label: "EVENTHOME.URL_TYPE_CARTE"},
+    {id: "DOCUMENTATION", label: "EVENTHOME.URL_TYPE_DOCUMENTATION"},
+    {id: "FICHE", label: "EVENTHOME.URL_TYPE_FICHE"},
+    {id: "OTHER", label: "EVENTHOME.URL_TYPE_OTHER"},
+    {id: "PHOTOS", label: "EVENTHOME.URL_TYPE_PHOTOS"},
+    {id: "PHOTOFROMFS", label: "EVENTHOME.URL_TYPE_PHOTOFROMFS"},
+    {id: "VIDEO", label: "EVENTHOME.URL_TYPE_VIDEO"},
+    {id: "WEBSITE", label: "EVENTHOME.URL_TYPE_WEBSITE"},
+    {id: "WHATSAPP", label: "EVENTHOME.URL_TYPE_WHATSAPP"}
+  ];
+
+  public newUrlEvent: UrlEvent = new UrlEvent("", new Date(), "", "", "");
+  public isAddingUrlEvent: boolean = false;
+  public editingUrlEvent: UrlEvent = new UrlEvent("", new Date(), "", "", "");
+  public editingUrlEventIndex: number = -1;
+
+  // ==============================
+  // Commentaries management
+  // ==============================
+
+  public newCommentary: Commentary = new Commentary("", "", new Date());
+  public isAddingCommentary: boolean = false;
+  public editingCommentaryIndex: number = -1;
+  public editingCommentary: Commentary = new Commentary("", "", new Date());
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -140,7 +174,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     private discussionService: DiscussionService,
     private videoCompressionService: VideoCompressionService,
     private cdr: ChangeDetectorRef,
-    private eventColorService: EventColorService
+    private eventColorService: EventColorService,
+    private keycloakService: KeycloakService
   ) {
     this.nativeWindow = winRef.getNativeWindow();
   }
@@ -424,6 +459,19 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.evenementsService.getEvenement(eventId).subscribe({
       next: (evenement: Evenement) => {
         this.evenement = evenement;
+
+        // Ensure arrays exist so we can add links/comments from the details view
+        if (!this.evenement.urlEvents) {
+          this.evenement.urlEvents = [];
+        }
+        if (!this.evenement.commentaries) {
+          this.evenement.commentaries = [];
+        }
+
+        // Initialize "new" forms with current user
+        this.newUrlEvent = new UrlEvent("", new Date(), this.user?.userName || "", "", "");
+        this.newCommentary = new Commentary(this.user?.userName || "", "", new Date());
+
         this.preparePhotoGallery();
         this.loading = false;
         // Load video URLs with a small delay to ensure authentication is ready
@@ -466,6 +514,587 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.loading = false;
       }
     });
+  }
+
+  // ==============================
+  // Persist changes (links/comments)
+  // ==============================
+
+  private persistEventChanges(): void {
+    if (!this.evenement) {
+      return;
+    }
+
+    const subscription = this.evenementsService.putEvenement(this.evenement).subscribe({
+      next: () => {
+        // Keep user on details page; UI already updated optimistically
+      },
+      error: (err: any) => {
+        if (err?.status === 403) {
+          alert(this.translateService.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED_UPDATE'));
+        } else {
+          alert(this.translateService.instant('COMMUN.ERROR') || 'Erreur');
+        }
+        // Reload event to restore server state if needed
+        this.loadEventDetails();
+      }
+    });
+
+    this.activeSubscriptions.add(subscription);
+  }
+
+  // ==============================
+  // URL Events (Links) CRUD
+  // ==============================
+
+  public getAvailableUrlEventTypes(): {id: string, label: string}[] {
+    if (this.keycloakService.hasFileSystemRole()) {
+      return this.urlEventTypes;
+    }
+    return this.urlEventTypes.filter(type => type.id !== 'PHOTOFROMFS');
+  }
+
+  public getSortedUrlEventTypes(): {id: string, label: string}[] {
+    return [...this.getAvailableUrlEventTypes()].sort((a, b) =>
+      this.translateService.instant(a.label).localeCompare(this.translateService.instant(b.label))
+    );
+  }
+
+  private canCreatePhotoFromFsLink(): boolean {
+    return this.keycloakService.hasFileSystemRole();
+  }
+
+  public canEditUrlEvent(urlEvent: UrlEvent): boolean {
+    return !!this.user?.userName && !!urlEvent?.owner &&
+      this.user.userName.toLowerCase() === urlEvent.owner.toLowerCase();
+  }
+
+  public canDeleteUrlEvent(urlEvent: UrlEvent): boolean {
+    return this.canEditUrlEvent(urlEvent);
+  }
+
+  public startAddUrlEvent(): void {
+    if (!this.user) {
+      this.user = this.membersService.getUser();
+    }
+    this.isAddingUrlEvent = true;
+    this.newUrlEvent = new UrlEvent("", new Date(), this.user?.userName || "", "", "");
+  }
+
+  public cancelAddUrlEvent(): void {
+    this.isAddingUrlEvent = false;
+    this.newUrlEvent = new UrlEvent("", new Date(), this.user?.userName || "", "", "");
+  }
+
+  public addUrlEvent(): void {
+    if (!this.evenement) return;
+    if (!this.evenement.urlEvents) this.evenement.urlEvents = [];
+
+    const typeUrl = (this.newUrlEvent.typeUrl || '').trim();
+    const link = (this.newUrlEvent.link || '').trim();
+    if (!typeUrl || !link) return;
+
+    const normalizedType = typeUrl.toUpperCase();
+    let linkValue = link;
+    if (normalizedType === 'PHOTOFROMFS') {
+      if (!this.canCreatePhotoFromFsLink()) {
+        alert(this.translateService.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED'));
+        return;
+      }
+      linkValue = this.addYearPrefixIfNeeded(linkValue);
+    }
+
+    const urlEvent = new UrlEvent(
+      typeUrl,
+      new Date(),
+      this.user?.userName || this.newUrlEvent.owner || '',
+      linkValue,
+      (this.newUrlEvent.urlDescription || '').trim()
+    );
+
+    this.evenement.urlEvents.push(urlEvent);
+    this.persistEventChanges();
+    this.cancelAddUrlEvent();
+  }
+
+  public startEditUrlEvent(urlEvent: UrlEvent): void {
+    if (!this.evenement?.urlEvents) return;
+    const idx = this.evenement.urlEvents.indexOf(urlEvent);
+    if (idx < 0) return;
+
+    this.editingUrlEventIndex = idx;
+    this.editingUrlEvent = new UrlEvent(
+      urlEvent.typeUrl,
+      urlEvent.dateCreation,
+      urlEvent.owner,
+      urlEvent.link,
+      urlEvent.urlDescription
+    );
+  }
+
+  public cancelEditUrlEvent(): void {
+    this.editingUrlEventIndex = -1;
+    this.editingUrlEvent = new UrlEvent("", new Date(), "", "", "");
+  }
+
+  public saveUrlEventEdit(): void {
+    if (!this.evenement?.urlEvents) return;
+    if (this.editingUrlEventIndex < 0 || this.editingUrlEventIndex >= this.evenement.urlEvents.length) return;
+
+    const typeUrl = (this.editingUrlEvent.typeUrl || '').trim();
+    const link = (this.editingUrlEvent.link || '').trim();
+    if (!typeUrl || !link) return;
+
+    const normalizedType = typeUrl.toUpperCase();
+    let linkValue = link;
+    if (normalizedType === 'PHOTOFROMFS') {
+      if (!this.canCreatePhotoFromFsLink()) {
+        alert(this.translateService.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED'));
+        return;
+      }
+      linkValue = this.addYearPrefixIfNeeded(linkValue);
+    }
+
+    const original = this.evenement.urlEvents[this.editingUrlEventIndex];
+    original.typeUrl = typeUrl;
+    original.link = linkValue;
+    original.urlDescription = (this.editingUrlEvent.urlDescription || '').trim();
+
+    this.persistEventChanges();
+    this.cancelEditUrlEvent();
+  }
+
+  public removeUrlEvent(urlEvent: UrlEvent): void {
+    if (!this.evenement?.urlEvents) return;
+    const idx = this.evenement.urlEvents.indexOf(urlEvent);
+    if (idx < 0) return;
+
+    if (!this.canDeleteUrlEvent(urlEvent)) {
+      alert("Vous n'avez pas l'autorisation de supprimer ce lien.");
+      return;
+    }
+
+    if (!confirm(this.translateService.instant('EVENTHOME.DELETE_LINK_CONFIRM') || 'Supprimer ce lien ?')) {
+      return;
+    }
+
+    this.evenement.urlEvents.splice(idx, 1);
+    this.persistEventChanges();
+  }
+
+  public onNewLinkInputChange(value: string): void {
+    this.newUrlEvent.link = value;
+    const isPhotoFromFs = (this.newUrlEvent.typeUrl || '').trim().toUpperCase() === 'PHOTOFROMFS';
+    if (isPhotoFromFs && value && value.length >= 4) {
+      const processed = this.addYearPrefixIfNeeded(value);
+      if (processed !== value) {
+        setTimeout(() => {
+          this.newUrlEvent.link = processed;
+        }, 0);
+      }
+    }
+  }
+
+  public onNewLinkBlur(): void {
+    const isPhotoFromFs = (this.newUrlEvent.typeUrl || '').trim().toUpperCase() === 'PHOTOFROMFS';
+    if (isPhotoFromFs && this.newUrlEvent.link) {
+      this.newUrlEvent.link = this.addYearPrefixIfNeeded(this.newUrlEvent.link);
+    }
+  }
+
+  public onEditLinkInputChange(value: string): void {
+    this.editingUrlEvent.link = value;
+    const isPhotoFromFs = (this.editingUrlEvent.typeUrl || '').trim().toUpperCase() === 'PHOTOFROMFS';
+    if (isPhotoFromFs && value && value.length >= 4) {
+      const processed = this.addYearPrefixIfNeeded(value);
+      if (processed !== value) {
+        setTimeout(() => {
+          this.editingUrlEvent.link = processed;
+        }, 0);
+      }
+    }
+  }
+
+  public onEditLinkBlur(): void {
+    const isPhotoFromFs = (this.editingUrlEvent.typeUrl || '').trim().toUpperCase() === 'PHOTOFROMFS';
+    if (isPhotoFromFs && this.editingUrlEvent.link) {
+      this.editingUrlEvent.link = this.addYearPrefixIfNeeded(this.editingUrlEvent.link);
+    }
+  }
+
+  public async selectDirectory(): Promise<void> {
+    if ('showDirectoryPicker' in window) {
+      try {
+        const directoryHandle = await (window as any).showDirectoryPicker();
+        const dirName = directoryHandle.name;
+        if ((this.newUrlEvent.typeUrl || '').trim().toUpperCase() === 'PHOTOFROMFS') {
+          this.newUrlEvent.link = this.addYearPrefixIfNeeded(dirName);
+        } else {
+          this.newUrlEvent.link = dirName;
+        }
+        return;
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          console.error('Error selecting directory:', error);
+        }
+      }
+    }
+
+    if (this.directoryInput?.nativeElement) {
+      this.directoryInput.nativeElement.click();
+    }
+  }
+
+  public onDirectorySelected(event: any): void {
+    const files: FileList = event?.target?.files;
+    const directoryPath = this.resolveDirectoryPathFromSelection(files);
+    if (directoryPath) {
+      if ((this.newUrlEvent.typeUrl || '').trim().toUpperCase() === 'PHOTOFROMFS') {
+        this.newUrlEvent.link = this.addYearPrefixIfNeeded(directoryPath);
+      } else {
+        this.newUrlEvent.link = directoryPath;
+      }
+    }
+
+    if (event?.target) {
+      event.target.value = '';
+    }
+  }
+
+  public async selectDirectoryForEdit(): Promise<void> {
+    if ('showDirectoryPicker' in window) {
+      try {
+        const directoryHandle = await (window as any).showDirectoryPicker();
+        const dirName = directoryHandle.name;
+        if ((this.editingUrlEvent.typeUrl || '').trim().toUpperCase() === 'PHOTOFROMFS') {
+          this.editingUrlEvent.link = this.addYearPrefixIfNeeded(dirName);
+        } else {
+          this.editingUrlEvent.link = dirName;
+        }
+        return;
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          console.error('Error selecting directory:', error);
+        }
+      }
+    }
+
+    if (this.editDirectoryInput?.nativeElement) {
+      this.editDirectoryInput.nativeElement.click();
+    }
+  }
+
+  public onDirectorySelectedForEdit(event: any): void {
+    const files: FileList = event?.target?.files;
+    const directoryPath = this.resolveDirectoryPathFromSelection(files);
+    if (directoryPath) {
+      if ((this.editingUrlEvent.typeUrl || '').trim().toUpperCase() === 'PHOTOFROMFS') {
+        this.editingUrlEvent.link = this.addYearPrefixIfNeeded(directoryPath);
+      } else {
+        this.editingUrlEvent.link = directoryPath;
+      }
+    }
+
+    if (event?.target) {
+      event.target.value = '';
+    }
+  }
+
+  private addYearPrefixIfNeeded(link: string): string {
+    if (!link) return link;
+    const trimmedLink = link.trim();
+    if (trimmedLink.length < 4) return trimmedLink;
+
+    const firstFour = trimmedLink.substring(0, 4);
+    const isYear = /^\d{4}$/.test(firstFour);
+    if (isYear) {
+      const year = parseInt(firstFour, 10);
+      if (year >= 1900 && year <= 2100) {
+        const yearWithSlash = firstFour + '/';
+        const yearWithBackslash = firstFour + '\\';
+        const doubleYear = firstFour + '/' + firstFour;
+
+        if (!trimmedLink.startsWith(yearWithSlash) &&
+            !trimmedLink.startsWith(yearWithBackslash) &&
+            !trimmedLink.startsWith(doubleYear)) {
+          return firstFour + '/' + trimmedLink;
+        }
+      }
+    }
+
+    return trimmedLink;
+  }
+
+  // ==============================
+  // Helpers: directory path from folder selection (PHOTOFROMFS)
+  // Copied from update-evenement to keep identical behavior.
+  // ==============================
+
+  private resolveDirectoryPathFromSelection(files: FileList | null | undefined): string {
+    if (!files || files.length === 0) {
+      return '';
+    }
+
+    const fullPath = this.extractFullPathFromFiles(files);
+    if (fullPath) {
+      return fullPath;
+    }
+
+    const relativePath = this.extractRelativeDirectoryFromFiles(files);
+    return this.finalizePath(relativePath);
+  }
+
+  private extractFullPathFromFiles(files: FileList): string {
+    const fileArray = Array.from(files) as any[];
+
+    if (fileArray.length === 0) {
+      return '';
+    }
+
+    const candidates = fileArray.filter(file => !!(file?.path || file?.mozFullPath));
+    if (candidates.length === 0) {
+      return '';
+    }
+
+    const firstFile = candidates[0];
+    const rawFilePath: string = firstFile.path || firstFile.mozFullPath;
+    if (!rawFilePath) {
+      return '';
+    }
+
+    const normalizedFilePath = this.normalizePath(rawFilePath);
+    const relativePaths = this.getRelativePaths(fileArray);
+    const relativeDirectory = this.getRelativeDirectoryPrefix(relativePaths);
+    const firstRelative = this.normalizePath(firstFile.webkitRelativePath || firstFile.name || '');
+
+    let basePath = this.stripSuffix(normalizedFilePath, firstRelative);
+    if (!basePath) {
+      basePath = this.stripFilenameFromPath(normalizedFilePath);
+    }
+
+    if (relativeDirectory) {
+      const combined = this.joinPaths(basePath, relativeDirectory);
+      return this.finalizePath(combined);
+    }
+
+    return this.finalizePath(basePath);
+  }
+
+  private getRelativePaths(files: any[]): string[] {
+    return files
+      .map(file => this.normalizePath(file?.webkitRelativePath || file?.relativePath || file?.name || ''))
+      .filter(path => !!path);
+  }
+
+  private getRelativeDirectoryPrefix(paths: string[]): string {
+    if (paths.length === 0) {
+      return '';
+    }
+
+    const splitPaths = paths.map(path => path.split('/').filter(segment => segment.length > 0));
+    const firstPathParts = splitPaths[0];
+    let minLength = firstPathParts.length;
+
+    for (let i = 1; i < splitPaths.length; i++) {
+      minLength = Math.min(minLength, splitPaths[i].length);
+    }
+
+    const commonParts: string[] = [];
+
+    for (let i = 0; i < minLength; i++) {
+      const segment = firstPathParts[i];
+      const allMatch = splitPaths.every(parts => parts[i] === segment);
+      if (allMatch) {
+        commonParts.push(segment);
+      } else {
+        break;
+      }
+    }
+
+    // Avoid returning the filename when only one file is present
+    if (commonParts.length === firstPathParts.length) {
+      commonParts.pop();
+    }
+
+    return commonParts.join('/');
+  }
+
+  private extractRelativeDirectoryFromFiles(files: FileList): string {
+    const relativePaths = this.getRelativePaths(Array.from(files) as any[]);
+    const relativeDirectory = this.getRelativeDirectoryPrefix(relativePaths);
+    return this.normalizePath(relativeDirectory);
+  }
+
+  private stripFilenameFromPath(pathWithFile: string): string {
+    if (!pathWithFile) {
+      return '';
+    }
+
+    const normalized = this.normalizePath(pathWithFile);
+    const lastSlash = normalized.lastIndexOf('/');
+
+    if (lastSlash === -1) {
+      return normalized;
+    }
+
+    return normalized.substring(0, lastSlash);
+  }
+
+  private stripSuffix(value: string, suffix: string): string {
+    if (!value || !suffix) {
+      return value;
+    }
+
+    if (!value.endsWith(suffix)) {
+      return value;
+    }
+
+    return value.substring(0, value.length - suffix.length);
+  }
+
+  private normalizePath(path: string): string {
+    if (!path) {
+      return '';
+    }
+
+    const isUnc = path.startsWith('\\\\') || path.startsWith('//');
+    let normalized = path.replace(/\\/g, '/');
+
+    if (isUnc) {
+      normalized = '//' + normalized.replace(/^\/+/, '');
+    } else {
+      normalized = normalized.replace(/\/{2,}/g, '/');
+    }
+
+    return normalized;
+  }
+
+  private joinPaths(base: string, relative: string): string {
+    const normalizedBase = this.normalizePath(base).replace(/\/+$/, '');
+    const normalizedRelative = this.normalizePath(relative).replace(/^\/+/, '');
+
+    if (!normalizedRelative) {
+      return normalizedBase;
+    }
+
+    if (!normalizedBase) {
+      return normalizedRelative;
+    }
+
+    if (normalizedBase.endsWith(':')) {
+      return `${normalizedBase}/${normalizedRelative}`;
+    }
+
+    return `${normalizedBase}/${normalizedRelative}`;
+  }
+
+  private finalizePath(path: string): string {
+    if (!path) {
+      return '';
+    }
+
+    const normalized = this.normalizePath(path);
+
+    if (this.isWindowsPlatform()) {
+      if (normalized.startsWith('//')) {
+        return '\\\\' + normalized.substring(2).replace(/\//g, '\\');
+      }
+
+      return normalized.replace(/\//g, '\\');
+    }
+
+    return normalized;
+  }
+
+  private isWindowsPlatform(): boolean {
+    if (typeof navigator === 'undefined' || !navigator) {
+      return false;
+    }
+
+    const platform = (navigator as any).userAgentData?.platform || navigator.platform || '';
+    return platform.toLowerCase().includes('win');
+  }
+
+  // ==============================
+  // Commentaries CRUD
+  // ==============================
+
+  public canEditCommentary(commentary: Commentary): boolean {
+    return !!this.user?.userName && !!commentary?.commentOwner &&
+      this.user.userName.toLowerCase() === commentary.commentOwner.toLowerCase();
+  }
+
+  public canDeleteCommentary(commentary: Commentary): boolean {
+    return this.canEditCommentary(commentary);
+  }
+
+  public startAddCommentary(): void {
+    if (!this.user) {
+      this.user = this.membersService.getUser();
+    }
+    this.isAddingCommentary = true;
+    this.newCommentary = new Commentary(this.user?.userName || "", "", new Date());
+  }
+
+  public cancelAddCommentary(): void {
+    this.isAddingCommentary = false;
+    this.newCommentary = new Commentary(this.user?.userName || "", "", new Date());
+  }
+
+  public addCommentary(): void {
+    if (!this.evenement) return;
+    if (!this.evenement.commentaries) this.evenement.commentaries = [];
+    const text = (this.newCommentary.commentary || '').trim();
+    if (!text) return;
+
+    const commentary = new Commentary(this.user?.userName || this.newCommentary.commentOwner || '', text, new Date());
+    this.evenement.commentaries.push(commentary);
+    this.persistEventChanges();
+    this.cancelAddCommentary();
+  }
+
+  public startEditCommentary(index: number): void {
+    if (!this.evenement?.commentaries) return;
+    if (index < 0 || index >= this.evenement.commentaries.length) return;
+
+    this.editingCommentaryIndex = index;
+    const c = this.evenement.commentaries[index];
+    this.editingCommentary = new Commentary(c.commentOwner, c.commentary, c.dateCreation);
+  }
+
+  public cancelEditCommentary(): void {
+    this.editingCommentaryIndex = -1;
+    this.editingCommentary = new Commentary("", "", new Date());
+  }
+
+  public saveCommentaryEdit(index: number): void {
+    if (!this.evenement?.commentaries) return;
+    if (index < 0 || index >= this.evenement.commentaries.length) return;
+
+    const text = (this.editingCommentary.commentary || '').trim();
+    if (!text) return;
+
+    this.evenement.commentaries[index].commentary = text;
+    this.persistEventChanges();
+    this.cancelEditCommentary();
+  }
+
+  public deleteCommentary(index: number): void {
+    if (!this.evenement?.commentaries) return;
+    if (index < 0 || index >= this.evenement.commentaries.length) return;
+
+    const c = this.evenement.commentaries[index];
+    if (!this.canDeleteCommentary(c)) {
+      alert("Vous n'avez pas l'autorisation de supprimer ce commentaire.");
+      return;
+    }
+
+    if (!confirm(this.translateService.instant('EVENTHOME.DELETE_COMMENTARY_CONFIRM') || 'Supprimer ce commentaire ?')) {
+      return;
+    }
+
+    this.evenement.commentaries.splice(index, 1);
+    this.persistEventChanges();
   }
 
   // Prepare photo gallery with comments overlay
@@ -1063,6 +1692,16 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  // True if the discussion message was authored by the current user (for left/right alignment)
+  public isOwnDiscussionMessage(message: DiscussionMessage | null | undefined): boolean {
+    const current = this.user?.userName;
+    const author = message?.author?.userName;
+    if (!current || !author) {
+      return false;
+    }
+    return current.toLowerCase() === author.toLowerCase();
   }
 
   // Get discussion file URL (returns blob URL with authentication)
@@ -2015,6 +2654,97 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       const dateB = new Date(b.dateCreation).getTime();
       return dateB - dateA;
     });
+  }
+
+  // Dynamic sizing for the comments card (grid-row span)
+  public getCommentsCardSpanClass(): string {
+    const count = this.getEventComments().length;
+    if (count <= 0) return 'comments-span-1';
+    if (count <= 2) return 'comments-span-1';
+    if (count <= 6) return 'comments-span-2';
+    return 'comments-span-3';
+  }
+
+  // ==============================
+  // "Smart" layout helpers for grid packing
+  // (order + row/col span) based on content.
+  // ==============================
+
+  private clamp(n: number, min: number, max: number): number {
+    return Math.max(min, Math.min(max, n));
+  }
+
+  private spanRowClass(span: number): string {
+    return `span-row-${this.clamp(span, 1, 3)}`;
+  }
+
+  private spanColClass(span: number): string {
+    return `span-col-${this.clamp(span, 1, 2)}`;
+  }
+
+  public getCardLayoutClasses(cardId: 'discussion' | 'photos' | 'urls' | 'comments' | 'pdfs' | 'upload'): string[] {
+    const urlsCount = this.evenement?.urlEvents?.length || 0;
+    const commentsCount = this.getEventComments().length;
+    const photosCount = this.photoItemsList?.length || 0;
+    const pdfCount = this.getPdfFiles().length;
+
+    switch (cardId) {
+      case 'photos': {
+        // photos are very visual -> keep large; more photos => bigger
+        const rowSpan = photosCount > 8 ? 3 : 2;
+        const colSpan = 2;
+        return [this.spanRowClass(rowSpan), this.spanColClass(colSpan)];
+      }
+      case 'discussion': {
+        // discussion benefits from space; if a lot of messages, keep large
+        const rowSpan = this.discussionMessages.length > 6 ? 3 : 2;
+        const colSpan = 2;
+        return [this.spanRowClass(rowSpan), this.spanColClass(colSpan)];
+      }
+      case 'urls': {
+        // few links -> small; many -> bigger
+        const rowSpan = urlsCount === 0 ? 1 : (urlsCount <= 4 ? 1 : 2);
+        return [this.spanRowClass(rowSpan), this.spanColClass(1)];
+      }
+      case 'comments': {
+        // few comments -> small; many -> bigger
+        const rowSpan = commentsCount <= 2 ? 1 : (commentsCount <= 6 ? 2 : 3);
+        return [this.spanRowClass(rowSpan), this.spanColClass(1)];
+      }
+      case 'pdfs': {
+        const rowSpan = pdfCount <= 2 ? 1 : 2;
+        return [this.spanRowClass(rowSpan), this.spanColClass(1)];
+      }
+      case 'upload': {
+        return [this.spanRowClass(1), this.spanColClass(1)];
+      }
+      default:
+        return [];
+    }
+  }
+
+  public getCardOrder(cardId: 'discussion' | 'photos' | 'urls' | 'comments' | 'pdfs' | 'upload'): number {
+    // Smaller number = earlier placement; grid-auto-flow:dense will pack.
+    const photosCount = this.photoItemsList?.length || 0;
+    const urlsCount = this.evenement?.urlEvents?.length || 0;
+    const commentsCount = this.getEventComments().length;
+
+    switch (cardId) {
+      case 'photos':
+        return photosCount > 0 ? 20 : 80;
+      case 'discussion':
+        return this.hasDiscussion() ? 25 : 90;
+      case 'urls':
+        return urlsCount > 0 ? 40 : 85;
+      case 'comments':
+        return commentsCount > 0 ? 45 : 88;
+      case 'pdfs':
+        return this.getPdfFiles().length > 0 ? 55 : 95;
+      case 'upload':
+        return 70;
+      default:
+        return 99;
+    }
   }
 
   // Get non-image files
@@ -3090,22 +3820,55 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   private askForCompressionQuality(videoCount: number): Promise<'low' | 'medium' | 'high' | null> {
     return new Promise((resolve) => {
-      this.selectedCompressionQuality = 'high';
-      this.videoCountForModal = videoCount;
-      
-      const choice = prompt(
-        this.translateService.instant('EVENTELEM.COMPRESSION_QUALITY_TITLE', { count: videoCount }) + '\n' +
-        '1. ' + this.translateService.instant('EVENTELEM.COMPRESSION_QUALITY_LOW') + '\n' +
-        '2. ' + this.translateService.instant('EVENTELEM.COMPRESSION_QUALITY_MEDIUM') + '\n' +
-        '3. ' + this.translateService.instant('EVENTELEM.COMPRESSION_QUALITY_HIGH') + '\n\n' +
-        this.translateService.instant('EVENTELEM.COMPRESSION_QUALITY_PROMPT')
-      );
-      
-      if (choice === '1') resolve('low');
-      else if (choice === '2') resolve('medium');
-      else if (choice === '3') resolve('high');
-      else resolve(null);
+      this.selectedCompressionQuality = 'high'; // Default to best quality
+      this.videoCountForModal = videoCount; // Used by template
+
+      if (this.qualitySelectionModal) {
+        this.qualityModalRef = this.modalService.open(this.qualitySelectionModal, {
+          centered: true,
+          backdrop: 'static',
+          keyboard: false,
+          size: 'md'
+        });
+
+        this.qualityModalRef.result.then(
+          (result: 'low' | 'medium' | 'high') => {
+            this.qualityModalRef = null;
+            resolve(result);
+          },
+          () => {
+            this.qualityModalRef = null;
+            resolve(null); // dismissed
+          }
+        );
+      } else {
+        // Fallback (should not happen once template exists)
+        const choice = prompt(
+          `Choisissez la qualité de compression pour ${videoCount} vidéo(s):\n` +
+          `1. Basse (petite taille)\n` +
+          `2. Moyenne (taille moyenne)\n` +
+          `3. Haute (grande taille)\n\n` +
+          `Entrez 1, 2 ou 3:`
+        );
+
+        if (choice === '1') resolve('low');
+        else if (choice === '2') resolve('medium');
+        else if (choice === '3') resolve('high');
+        else resolve(null);
+      }
     });
+  }
+
+  public confirmQualitySelection(): void {
+    if (this.qualityModalRef) {
+      this.qualityModalRef.close(this.selectedCompressionQuality);
+    }
+  }
+
+  public cancelQualitySelection(): void {
+    if (this.qualityModalRef) {
+      this.qualityModalRef.dismiss();
+    }
   }
 
 

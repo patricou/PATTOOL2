@@ -300,7 +300,8 @@
         <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getTotalPhotosCount() }}
     </button>
     
-    <a class="btn btn-sm btn-outline-primary mb-1 me-1 dynamic-footer-btn" 
+    <a *ngIf="isAuthor()"
+       class="btn btn-sm btn-outline-primary mb-1 me-1 dynamic-footer-btn" 
        [hidden]="!isAnyFiles()" 
        [ngStyle]="getFooterButtonStyles('download')"
        (click)="onFilesButtonClick(filesModal); $event.stopPropagation()"
@@ -310,7 +311,8 @@
         <i class="fa fa-download" aria-hidden="true"></i><span *ngIf="getFilesCount() > 1"> {{ getFilesCount() }}</span>
     </a>
 
-    <div class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
+    <div *ngIf="isAuthor()"
+         class="file-upload-wrapper me-1" placement="top" ngbTooltip="{{ 'EVENTELEM.UPLOAD' | translate }}"
          (mouseleave)="onTooltipMouseLeave($event)">
         <label [for]="'file-upload-input-' + evenement.id" 
                class="btn btn-sm btn-success mb-1 dynamic-footer-btn"
@@ -375,7 +377,7 @@
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-circle-o-notch"
             aria-hidden="true"></i></a>
     <button class="btn btn-sm btn-info mb-1 me-1 dynamic-footer-btn" 
-            *ngIf="canChangeVisibility()" 
+            *ngIf="isAuthor() && canChangeVisibility()" 
             [ngStyle]="getFooterButtonStyles('visibility')"
             (click)="openVisibilityModal(); $event.stopPropagation(); $event.preventDefault()"
             ngbTooltip="{{ 'EVENTELEM.CHANGE_VISIBILITY' | translate }}" 
@@ -394,7 +396,8 @@
             type="button">
         <i class="fa fa-list-alt" aria-hidden="true"></i>
     </button>
-    <a class="btn btn-sm btn-warning mb-1 me-1 dynamic-footer-btn" 
+    <a *ngIf="isAuthor()"
+       class="btn btn-sm btn-warning mb-1 me-1 dynamic-footer-btn" 
        [ngStyle]="getFooterButtonStyles('edit')"
        [routerLink]="['/updeven',evenement.id]"
        (click)="storeEventIdForReturn()"
