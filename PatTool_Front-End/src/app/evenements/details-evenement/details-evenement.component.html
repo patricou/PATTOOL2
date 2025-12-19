@@ -19,7 +19,10 @@
 </div>
 
 <!-- Slideshow Modal Component (always available) -->
-<app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()"></app-slideshow-modal>
+<app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()" (openLocationInTrace)="onSlideshowLocationInTrace($event)"></app-slideshow-modal>
+
+<!-- Trace Viewer Modal Component -->
+<app-trace-viewer-modal #traceViewerModalComponent (closed)="onTraceViewerClosed()"></app-trace-viewer-modal>
 
 <!-- Artistic Event Details Page -->
 <div *ngIf="evenement && !loading && !error" class="artistic-event-page">

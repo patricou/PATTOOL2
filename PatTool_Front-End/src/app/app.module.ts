@@ -35,6 +35,7 @@ import { IothomeComponent } from './iothome/iothome.component';
 import { IotService } from './services/iot.service';
 import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from './shared/slideshow-modal/slideshow-modal.module';
+import { TraceViewerModalModule } from './shared/trace-viewer-modal/trace-viewer-modal.module';
 import { LinksAdminModule } from './admin/links-admin/links-admin.module';
 import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
 import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
@@ -75,6 +76,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		FriendsModule,
 		NavigationButtonsModule,
 		SlideshowModalModule,
+		TraceViewerModalModule,
 		AgGridModule,
 		TranslateModule.forRoot({
 			loader: {

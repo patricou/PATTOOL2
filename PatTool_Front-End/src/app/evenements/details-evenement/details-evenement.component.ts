@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, TemplateRef, ElementRef, ChangeDetectorRef } from '@angular/core';
-import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { TranslateService } from '@ngx-translate/core';
@@ -88,6 +89,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   
   @ViewChild('imageModal') imageModal!: TemplateRef<any>;
   @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
+  @ViewChild('traceViewerModalComponent') traceViewerModalComponent!: TraceViewerModalComponent;
   @ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
   @ViewChild('qualitySelectionModal') qualitySelectionModal!: TemplateRef<any>;
   @ViewChild('discussionMessagesContainer', { read: ElementRef }) discussionMessagesContainer!: ElementRef;
@@ -1881,13 +1883,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       }
 
       // Get event color for slideshow styling
-      const eventId = this.evenement!.id || '';
-      let eventColor = this.eventColorService.getEventColor(eventId);
-      
-      // If color not found, try with evenementName as fallback
-      if (!eventColor && this.evenement!.evenementName) {
-        eventColor = this.eventColorService.getEventColor(this.evenement!.evenementName);
-      }
+      const eventColor = this.getCalculatedColor();
       
       // Open slideshow with all discussion images
       this.slideshowModalComponent.open(validImageSources, this.evenement!.evenementName, false, 0, eventColor || undefined);
@@ -3208,13 +3204,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     }));
     
     // Get event color for slideshow styling
-    const eventId = this.evenement.id || '';
-    const eventColor = this.eventColorService.getEventColor(eventId);
+    const eventColor = this.getCalculatedColor();
     
-    // If color not found, try with evenementName as fallback
-    const finalEventColor = eventColor || (this.evenement.evenementName ? this.eventColorService.getEventColor(this.evenement.evenementName) : null);
-    
-    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, finalEventColor || undefined);
+    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined);
     
     // Set the starting image index if provided
     if (startIndex >= 0 && startIndex < imageSources.length) {
@@ -3241,13 +3233,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
     // Open the slideshow modal with just this one image
     // Get event color for slideshow styling
-    const eventId = this.evenement.id || '';
-    let eventColor = this.eventColorService.getEventColor(eventId);
-    
-    // If color not found, try with evenementName as fallback
-    if (!eventColor && this.evenement.evenementName) {
-      eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
-    }
+    const eventColor = this.getCalculatedColor();
     
     this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined);
   }
@@ -3358,13 +3344,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.fsSlideshowLoadingActive = true;
     
     // Get event color for slideshow styling
-    const eventId = this.evenement.id || '';
-    let eventColor = this.eventColorService.getEventColor(eventId);
-    
-    // If color not found, try with evenementName as fallback
-    if (!eventColor && this.evenement.evenementName) {
-      eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
-    }
+    const eventColor = this.getCalculatedColor();
     
     // Open modal immediately with empty array
     this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined);
@@ -3452,6 +3432,40 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.fsSlideshowSubs = [];
   }
 
+  public onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
+    if (!event || typeof event.lat !== 'number' || typeof event.lng !== 'number') {
+      return;
+    }
+
+    const labelParts: string[] = [];
+    if (this.evenement?.evenementName) {
+      labelParts.push(this.evenement.evenementName);
+    }
+    if (event.label) {
+      labelParts.push(event.label);
+    }
+
+    const label = labelParts.length > 0
+      ? labelParts.join(' • ')
+      : this.translateService.instant('EVENTELEM.SEE_LOCATION');
+
+    // Use event color from slideshow if available, otherwise get from service
+    const eventColor = event.eventColor || this.getCalculatedColor();
+
+    if (this.slideshowModalComponent) {
+      this.slideshowModalComponent.setTraceViewerOpen(true);
+    }
+
+    if (this.traceViewerModalComponent) {
+      this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, eventColor || undefined);
+    }
+  }
+
+  public onTraceViewerClosed(): void {
+    if (this.slideshowModalComponent) {
+      this.slideshowModalComponent.setTraceViewerOpen(false);
+    }
+  }
 
   private cancelFsDownloads(): void {
     this.fsDownloadsActive = false;

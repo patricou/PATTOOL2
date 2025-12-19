@@ -37,6 +37,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public trackStats: TraceStatistics | null = null;
 	public isFullscreen = false;
 
+	// Event color for styling
+	private eventColor: { r: number; g: number; b: number } | null = null;
+
 	private readonly destroy$ = new Subject<void>();
 	private modalRef?: NgbModalRef;
 	private map?: L.Map;
@@ -158,21 +161,40 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
-	public openFromFile(fileId: string, fileName: string): void {
+	public openFromFile(fileId: string, fileName: string, eventColor?: { r: number; g: number; b: number }): void {
+		// Store event color if provided
+		if (eventColor) {
+			this.eventColor = eventColor;
+		} else {
+			this.eventColor = null;
+		}
 		this.open({ fileId, fileName });
 	}
 
-	public openFromBlob(blob: Blob, fileName: string): void {
+	public openFromBlob(blob: Blob, fileName: string, eventColor?: { r: number; g: number; b: number }): void {
+		// Store event color if provided
+		if (eventColor) {
+			this.eventColor = eventColor;
+		} else {
+			this.eventColor = null;
+		}
 		this.open({ blob, fileName });
 	}
 
-	public openAtLocation(lat: number, lng: number, label?: string): void {
+	public openAtLocation(lat: number, lng: number, label?: string, eventColor?: { r: number; g: number; b: number }): void {
 		if (Number.isNaN(lat) || Number.isNaN(lng)) {
 			return;
 		}
 
 		const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 		const fileName = label && label.trim().length > 0 ? label : fallback;
+
+		// Store event color if provided
+		if (eventColor) {
+			this.eventColor = eventColor;
+		} else {
+			this.eventColor = null;
+		}
 
 		this.open({
 			fileName,
@@ -239,6 +261,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.registerFullscreenListener();
 		this.registerEscapeKeydownListener();
 
+		// Apply event color after modal is rendered
+		if (this.eventColor) {
+			setTimeout(() => {
+				this.applyEventColorToTraceViewer();
+			}, 100);
+		} else {
+			this.resetTraceViewerColors();
+		}
+
 		if (this.pendingLocation) {
 			this.scheduleMapInitialization();
 		}
@@ -283,6 +314,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.ensureMapInitialization();
 		this.tryRenderPendingTrack();
 		this.tryRenderPendingLocation();
+
+		// Apply event color after modal is fully shown
+		if (this.eventColor) {
+			setTimeout(() => {
+				this.applyEventColorToTraceViewer();
+			}, 150);
+		}
 
 		setTimeout(() => {
 			this.map?.invalidateSize();
@@ -1012,6 +1050,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.isFullscreenInfoVisible = false;
 		this.destroyMap();
 		this.cleanupFullscreenListener();
+		this.resetTraceViewerColors();
 		if (this.document.fullscreenElement) {
 			this.document.exitFullscreen().catch(() => {});
 		}
@@ -1020,6 +1059,156 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.hasEmittedClosed = true;
 			this.closed.emit();
 		}
+	}
+
+	// Apply event color to trace viewer styling (similar to slideshow)
+	private applyEventColorToTraceViewer(): void {
+		if (!this.eventColor) {
+			return;
+		}
+
+		const color = this.eventColor;
+		// Calculate brightness to determine if we need lighter or darker variants
+		const brightness = (0.299 * color.r + 0.587 * color.g + 0.114 * color.b);
+		const isBright = brightness > 128;
+
+		// Header background - use gradient based on event color
+		const headerBgR = Math.min(255, color.r + 20);
+		const headerBgG = Math.min(255, color.g + 20);
+		const headerBgB = Math.min(255, color.b + 20);
+		const headerBg2R = Math.max(0, color.r - 10);
+		const headerBg2G = Math.max(0, color.g - 10);
+		const headerBg2B = Math.max(0, color.b - 10);
+
+		// Header text color - inverse based on brightness
+		const headerTextColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+
+		// Button colors - use event color with adjustments
+		const buttonBorderR = Math.min(255, color.r + 30);
+		const buttonBorderG = Math.min(255, color.g + 30);
+		const buttonBorderB = Math.min(255, color.b + 30);
+		const buttonTextColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+		const buttonHoverBgR = Math.min(255, color.r + 40);
+		const buttonHoverBgG = Math.min(255, color.g + 40);
+		const buttonHoverBgB = Math.min(255, color.b + 40);
+
+		// Border color - use event color
+		const borderColor = `rgb(${color.r}, ${color.g}, ${color.b})`;
+
+		// Footer background - use darker variant of event color
+		const footerBgR = Math.max(0, color.r - 30);
+		const footerBgG = Math.max(0, color.g - 30);
+		const footerBgB = Math.max(0, color.b - 30);
+		const footerBorderR = Math.max(0, color.r - 20);
+		const footerBorderG = Math.max(0, color.g - 20);
+		const footerBorderB = Math.max(0, color.b - 20);
+
+		// Footer button colors - use event color with adjustments
+		const footerButtonBgR = Math.min(255, color.r + 10);
+		const footerButtonBgG = Math.min(255, color.g + 10);
+		const footerButtonBgB = Math.min(255, color.b + 10);
+		const footerButtonBorderR = Math.min(255, color.r + 20);
+		const footerButtonBorderG = Math.min(255, color.g + 20);
+		const footerButtonBorderB = Math.min(255, color.b + 20);
+		const footerButtonTextColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+		const footerButtonHoverBgR = Math.min(255, color.r + 30);
+		const footerButtonHoverBgG = Math.min(255, color.g + 30);
+		const footerButtonHoverBgB = Math.min(255, color.b + 30);
+
+		// Apply CSS variables to the modal element - try multiple selectors for compatibility
+		const applyColors = (attempt: number = 0) => {
+			let modalElement: HTMLElement | null = null;
+			
+			// Try multiple ways to find the modal element
+			modalElement = document.querySelector('.modal.show .modal-content.slideshow-modal-wide') as HTMLElement;
+			if (!modalElement) {
+				modalElement = document.querySelector('.modal.show .modal-content:has(.trace-viewer-body)') as HTMLElement;
+			}
+			if (!modalElement) {
+				modalElement = document.querySelector('.modal.show .modal-content') as HTMLElement;
+			}
+			if (!modalElement) {
+				modalElement = document.querySelector('.slideshow-modal-wide .modal-content') as HTMLElement;
+			}
+			if (!modalElement && this.modalRef) {
+				// Try to get element from modalRef
+				const modalRefAny = this.modalRef as any;
+				if (modalRefAny._windowCmptRef?.location?.nativeElement) {
+					modalElement = modalRefAny._windowCmptRef.location.nativeElement.querySelector('.modal-content');
+				}
+				if (!modalElement && modalRefAny._backdropCmptRef?.location?.nativeElement) {
+					const backdrop = modalRefAny._backdropCmptRef.location.nativeElement;
+					modalElement = backdrop.nextElementSibling?.querySelector('.modal-content') || backdrop.closest('.modal')?.querySelector('.modal-content');
+				}
+			}
+
+			if (modalElement) {
+				modalElement.style.setProperty('--slideshow-header-bg', `linear-gradient(135deg, rgb(${headerBgR}, ${headerBgG}, ${headerBgB}) 0%, rgb(${headerBg2R}, ${headerBg2G}, ${headerBg2B}) 100%)`);
+				modalElement.style.setProperty('--slideshow-header-text', headerTextColor);
+				modalElement.style.setProperty('--slideshow-button-border', `rgb(${buttonBorderR}, ${buttonBorderG}, ${buttonBorderB})`);
+				modalElement.style.setProperty('--slideshow-button-text', buttonTextColor);
+				modalElement.style.setProperty('--slideshow-button-hover-bg', `rgba(${buttonHoverBgR}, ${buttonHoverBgG}, ${buttonHoverBgB}, 0.2)`);
+				modalElement.style.setProperty('--slideshow-border', borderColor);
+
+				// Footer colors
+				modalElement.style.setProperty('--slideshow-footer-bg', `rgb(${footerBgR}, ${footerBgG}, ${footerBgB})`);
+				modalElement.style.setProperty('--slideshow-footer-border', `rgb(${footerBorderR}, ${footerBorderG}, ${footerBorderB})`);
+				modalElement.style.setProperty('--slideshow-footer-button-bg', `rgba(${footerButtonBgR}, ${footerButtonBgG}, ${footerButtonBgB}, 0.3)`);
+				modalElement.style.setProperty('--slideshow-footer-button-border', `rgba(${footerButtonBorderR}, ${footerButtonBorderG}, ${footerButtonBorderB}, 0.5)`);
+				modalElement.style.setProperty('--slideshow-footer-button-text', footerButtonTextColor);
+				modalElement.style.setProperty('--slideshow-footer-button-hover-bg', `rgba(${footerButtonHoverBgR}, ${footerButtonHoverBgG}, ${footerButtonHoverBgB}, 0.2)`);
+			} else if (attempt < 10) {
+				// Retry if modal not found yet (increased attempts)
+				setTimeout(() => applyColors(attempt + 1), 100 * (attempt + 1));
+			} else {
+				console.warn('[TraceViewer] Could not find modal element to apply colors after', attempt, 'attempts');
+			}
+		};
+
+		applyColors();
+	}
+
+	// Reset trace viewer colors to default (only from trace viewer modal, not slideshow)
+	private resetTraceViewerColors(): void {
+		// Only target the trace viewer modal (one that contains .trace-viewer-body)
+		let modalElement = document.querySelector('.modal.show .modal-content:has(.trace-viewer-body)') as HTMLElement;
+		if (!modalElement && this.modalRef) {
+			// Try to get element from modalRef
+			const modalRefAny = this.modalRef as any;
+			if (modalRefAny._windowCmptRef?.location?.nativeElement) {
+				const element = modalRefAny._windowCmptRef.location.nativeElement.querySelector('.modal-content');
+				if (element && element.querySelector('.trace-viewer-body')) {
+					modalElement = element;
+				}
+			}
+		}
+		
+		// Only reset colors from the trace viewer modal, not the slideshow
+		if (modalElement && modalElement.querySelector('.trace-viewer-body')) {
+			modalElement.style.removeProperty('--slideshow-header-bg');
+			modalElement.style.removeProperty('--slideshow-header-text');
+			modalElement.style.removeProperty('--slideshow-button-border');
+			modalElement.style.removeProperty('--slideshow-button-text');
+			modalElement.style.removeProperty('--slideshow-button-hover-bg');
+			modalElement.style.removeProperty('--slideshow-border');
+			modalElement.style.removeProperty('--slideshow-footer-bg');
+			modalElement.style.removeProperty('--slideshow-footer-border');
+			modalElement.style.removeProperty('--slideshow-footer-button-bg');
+			modalElement.style.removeProperty('--slideshow-footer-button-border');
+			modalElement.style.removeProperty('--slideshow-footer-button-text');
+			modalElement.style.removeProperty('--slideshow-footer-button-hover-bg');
+		}
+		
+		// Reapply slideshow colors if slideshow is still open
+		this.reapplySlideshowColors();
+	}
+	
+	// Reapply slideshow colors after trace viewer closes
+	// Note: The actual reapplication is handled by the slideshow component via setTraceViewerOpen(false)
+	// This method is kept for potential future use but the slideshow component handles the color reapplication
+	private reapplySlideshowColors(): void {
+		// The slideshow component will handle reapplying colors when setTraceViewerOpen(false) is called
+		// This happens in the parent component's onTraceViewerClosed() method
 	}
 }
 

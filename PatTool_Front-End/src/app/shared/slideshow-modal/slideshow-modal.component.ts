@@ -31,6 +31,7 @@ export interface SlideshowLocationEvent {
   lat: number;
   lng: number;
   label?: string;
+  eventColor?: { r: number; g: number; b: number };
 }
 
 interface PatMetadata {
@@ -3482,7 +3483,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.openLocationInTrace.emit({
       lat: this.currentImageLocation.lat,
       lng: this.currentImageLocation.lng,
-      label
+      label,
+      eventColor: this.eventColor || undefined
     });
   }
 
@@ -3523,6 +3525,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
 
   public setTraceViewerOpen(isOpen: boolean): void {
     this.traceViewerOpen = isOpen;
+    // When trace viewer closes, reapply slideshow colors if slideshow is still open
+    if (!isOpen && this.eventColor && this.modalRef) {
+      setTimeout(() => {
+        this.applyEventColorToSlideshow();
+      }, 100);
+    }
   }
   
   public toggleThumbnails(): void {

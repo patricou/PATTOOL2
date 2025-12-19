@@ -552,8 +552,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Reset slideshow loading state
 		this.fsSlideshowLoadingActive = true;
 		
+		// Get event color for slideshow
+		let eventColor = this.evenement?.id ? this.eventColorService.getEventColor(this.evenement.id) : null;
+		if (!eventColor && this.evenement?.evenementName) {
+			eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+		}
+		
 		// Open modal immediately with empty array
-		this.slideshowModalComponent.open([], this.evenement.evenementName, false);
+		this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined);
 		
 		// Then list and load images dynamically
         const listSub = this._fileService.listImagesFromDisk(relativePath).subscribe({
@@ -663,12 +669,26 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			? labelParts.join(' • ')
 			: this.translateService.instant('EVENTELEM.SEE_LOCATION');
 
+		// Use event color from slideshow if available, otherwise get from service
+		let finalEventColor: { r: number; g: number; b: number } | undefined = event.eventColor;
+		if (!finalEventColor) {
+			const eventColor = this.evenement?.id ? this.eventColorService.getEventColor(this.evenement.id) : null;
+			if (eventColor) {
+				finalEventColor = eventColor;
+			} else if (this.evenement?.evenementName) {
+				const nameColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+				if (nameColor) {
+					finalEventColor = nameColor;
+				}
+			}
+		}
+
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.setTraceViewerOpen(true);
 		}
 
 		if (this.traceViewerModalComponent) {
-			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label);
+			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, finalEventColor);
 		}
 	}
 
@@ -4925,9 +4945,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			fileName: file.fileName
 		}));
 
+		// Get event color for slideshow
+		let eventColor = this.evenement?.id ? this.eventColorService.getEventColor(this.evenement.id) : null;
+		if (!eventColor && this.evenement?.evenementName) {
+			eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+		}
+
 		// Open the slideshow modal immediately - images will be loaded dynamically
 		if (this.slideshowModalComponent) {
-			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true);
+			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined);
 		} else {
 		}
 	}
@@ -4943,9 +4969,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			fileName: fileName
 		};
 
+		// Get event color for slideshow
+		let eventColor = this.evenement?.id ? this.eventColorService.getEventColor(this.evenement.id) : null;
+		if (!eventColor && this.evenement?.evenementName) {
+			eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+		}
+
 		// Open the slideshow modal with just this one image
 		if (this.slideshowModalComponent) {
-			this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true);
+			this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined);
 		} else {
 			console.error('Slideshow modal component not available');
 		}

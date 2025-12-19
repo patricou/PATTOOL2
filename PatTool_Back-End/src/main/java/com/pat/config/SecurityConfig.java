@@ -113,7 +113,7 @@ public class SecurityConfig {
                 // connect-src: Allow source maps, Firebase, and Keycloak connections
                 .contentSecurityPolicy(csp -> csp
                     .policyDirectives("default-src 'self'; " +
-                        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://sportpat-5e155.firebaseio.com https://*.firebaseio.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com https://www.googleapis.com; " +
+                        "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://sportpat-5e155.firebaseio.com https://*.firebaseio.com https://apis.google.com https://*.googleapis.com https://*.gstatic.com https://www.gstatic.com https://www.googleapis.com; " +
                         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://maxcdn.bootstrapcdn.com https://cdn.jsdelivr.net; " +
                         "img-src 'self' data: https: blob:; " +
                         "media-src 'self' data: https: blob:; " +
