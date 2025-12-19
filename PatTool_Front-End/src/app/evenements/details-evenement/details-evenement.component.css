@@ -2024,7 +2024,11 @@ select.compact-input:focus {
 @media (max-width: 768px) {
   /* Ensure touch targets are at least 44x44px */
   .btn-compact,
-  .rating-badge-compact,
+  .rating-badge-compact {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  
   .photo-nav,
   .photo-indicator {
     display: none !important;

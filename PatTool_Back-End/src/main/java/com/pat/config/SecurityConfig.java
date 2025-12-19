@@ -118,7 +118,7 @@ public class SecurityConfig {
                         "img-src 'self' data: https: blob:; " +
                         "media-src 'self' data: https: blob:; " +
                         "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
-                        "connect-src 'self' http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://sportpat-5e155.firebaseio.com https://*.firebaseio.com https://sportpat-5e155.firebaseapp.com https://*.firebaseapp.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com wss://sportpat-5e155.firebaseio.com wss://*.firebaseio.com ws://localhost:8000 http://localhost:8000/ws; " +
+                        "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://sportpat-5e155.firebaseio.com https://*.firebaseio.com https://sportpat-5e155.firebaseapp.com https://*.firebaseapp.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com wss://sportpat-5e155.firebaseio.com wss://*.firebaseio.com ws://localhost:8000 http://localhost:8000/ws; " +
                         "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://*.firebaseio.com https://sportpat-5e155.firebaseio.com https://www.google.com https://maps.google.com https://*.google.com;")
                 )
                 // Note: frameOptions is not set to allow Keycloak iframes
