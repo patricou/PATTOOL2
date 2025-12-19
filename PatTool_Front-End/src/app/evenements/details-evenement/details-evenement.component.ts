@@ -231,6 +231,21 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           
           // Button text color - use the calculated color for buttons (they have their own background)
           document.documentElement.style.setProperty('--btn-text-color', `rgb(${color.r}, ${color.g}, ${color.b})`);
+          
+          // Dropdown select colors based on calculated color
+          // Selected option background (the highlighted blue item)
+          const selectSelectedBg = `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`;
+          // Dropdown background (unselected options - the grey background)
+          const selectDropdownBg = `rgba(${Math.max(0, color.r - 50)}, ${Math.max(0, color.g - 50)}, ${Math.max(0, color.b - 50)}, 0.85)`;
+          // Text color for options (reuse brightness and isBright already calculated above)
+          const selectTextColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+          
+          document.documentElement.style.setProperty('--select-selected-bg', selectSelectedBg);
+          document.documentElement.style.setProperty('--select-dropdown-bg', selectDropdownBg);
+          document.documentElement.style.setProperty('--select-text-color', selectTextColor);
+          // Box-shadow color for focus state
+          const selectSelectedBgShadow = `rgba(${color.r}, ${color.g}, ${color.b}, 0.15)`;
+          document.documentElement.style.setProperty('--select-selected-bg-shadow', selectSelectedBgShadow);
         }
       }
     });
@@ -1232,7 +1247,16 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     if (!this.evenement || !this.evenement.members || !Array.isArray(this.evenement.members)) {
       return [];
     }
-    return this.evenement.members.slice(0, 5);
+    return this.evenement.members
+      .filter(member => {
+        // Check member exists first before accessing properties
+        if (!member || member === null || member === undefined) {
+          return false;
+        }
+        // Then check firstName property exists
+        return member.firstName != null && member.firstName !== undefined;
+      })
+      .slice(0, 5);
   }
 
   // Get remaining members count
@@ -1259,10 +1283,19 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // Get first friend group members
   public getFirstFriendGroupMembers(): Member[] {
     const friendGroup = this.getCurrentFriendGroup();
-    if (!friendGroup?.members) {
+    if (!friendGroup?.members || !Array.isArray(friendGroup.members)) {
       return [];
     }
-    return friendGroup.members.slice(0, 5);
+    return friendGroup.members
+      .filter(member => {
+        // Check member exists first before accessing properties
+        if (!member || member === null || member === undefined) {
+          return false;
+        }
+        // Then check firstName property exists
+        return member.firstName != null && member.firstName !== undefined;
+      })
+      .slice(0, 5);
   }
 
   // Get remaining friend group members count

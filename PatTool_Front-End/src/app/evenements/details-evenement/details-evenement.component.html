@@ -58,9 +58,9 @@
               {{ formatEventDateTime(evenement.beginEventDate, evenement.startHour) }}
             </span>
           </span>
-          <span class="meta-item">
+          <span class="meta-item" *ngIf="evenement.author">
             <i class="fa fa-user"></i>
-            {{ evenement.author.firstName }} {{ evenement.author.lastName }}
+            {{ evenement.author.firstName }} {{ evenement.author.lastName }} <span class="owner-username" *ngIf="evenement.author.userName">({{ evenement.author.userName }})</span>
           </span>
         </div>
       </div>
@@ -112,9 +112,11 @@
                 <span *ngIf="getCurrentFriendGroup()!.name">({{ getCurrentFriendGroup()!.name }})</span>
               </small>
               <div class="members-tags-compact">
-                <span class="member-tag-compact" *ngFor="let member of getFirstFriendGroupMembers()">
-                  {{ member.firstName }} {{ member.lastName }}
-                </span>
+                <ng-container *ngFor="let member of getFirstFriendGroupMembers()">
+                  <span class="member-tag-compact" *ngIf="member && member.firstName">
+                    {{ member?.firstName || '' }} {{ member?.lastName || '' }}
+                  </span>
+                </ng-container>
                 <span class="member-tag-compact" *ngIf="getRemainingFriendGroupMembersCount() > 0">+{{ getRemainingFriendGroupMembersCount() }}</span>
               </div>
             </div>
@@ -125,9 +127,11 @@
             <div class="members-compact">
               <small class="members-count">{{ evenement.members.length }} {{ 'EVENTELEM.MEMBERS' | translate }}</small>
               <div class="members-tags-compact">
-                <span class="member-tag-compact" *ngFor="let member of getFirstMembers()">
-                  {{ member.firstName }} {{ member.lastName }}
-                </span>
+                <ng-container *ngFor="let member of getFirstMembers()">
+                  <span class="member-tag-compact" *ngIf="member && member.firstName">
+                    {{ member?.firstName || '' }} {{ member?.lastName || '' }}
+                  </span>
+                </ng-container>
                 <span class="member-tag-compact" *ngIf="getRemainingMembersCount() > 0">+{{ getRemainingMembersCount() }}</span>
               </div>
             </div>
@@ -436,12 +440,12 @@
         <!-- Add link form -->
         <div class="compact-form" *ngIf="isAddingUrlEvent">
           <div class="compact-grid">
-            <select [(ngModel)]="newUrlEvent.typeUrl" name="newUrlType" class="compact-input">
+            <select [(ngModel)]="newUrlEvent.typeUrl" name="newUrlType" class="compact-input compact-full-row">
               <option value="">{{ 'EVENTHOME.TYPE_URL' | translate }}</option>
               <option *ngFor="let type of getSortedUrlEventTypes()" [value]="type.id">{{ type.label | translate }}</option>
             </select>
 
-            <div class="compact-input-group">
+            <div class="compact-input-group compact-full-row">
               <input [(ngModel)]="newUrlEvent.link"
                      name="newUrlLink"
                      type="text"
@@ -532,12 +536,12 @@
                 <!-- Edit mode -->
                 <ng-template #editUrlTpl>
                   <div class="compact-grid">
-                    <select [(ngModel)]="editingUrlEvent.typeUrl" name="editUrlType" class="compact-input">
+                    <select [(ngModel)]="editingUrlEvent.typeUrl" name="editUrlType" class="compact-input compact-full-row">
                       <option value="">{{ 'EVENTHOME.TYPE_URL' | translate }}</option>
                       <option *ngFor="let type of getSortedUrlEventTypes()" [value]="type.id">{{ type.label | translate }}</option>
                     </select>
 
-                    <div class="compact-input-group">
+                    <div class="compact-input-group compact-full-row">
                       <input [(ngModel)]="editingUrlEvent.link"
                              name="editUrlLink"
                              type="text"

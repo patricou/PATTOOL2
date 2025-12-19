@@ -1636,6 +1636,18 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		);
 	}
 	
+	// Get sorted friend groups
+	public getSortedFriendGroups(): FriendGroup[] {
+		if (!this.friendGroups || !Array.isArray(this.friendGroups)) {
+			return [];
+		}
+		return [...this.friendGroups].sort((a, b) => {
+			const nameA = (a.name || '').toLowerCase();
+			const nameB = (b.name || '').toLowerCase();
+			return nameA.localeCompare(nameB);
+		});
+	}
+	
 	// Get available visibility options
 	public getVisibilityOptions(): Array<{value: string, label: string, friendGroupId?: string}> {
 		try {
@@ -1645,18 +1657,17 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				{ value: 'friends', label: this.translateService.instant('EVENTCREATION.FRIENDS') }
 			];
 			
-			// Add friend groups owned by the user
-			if (this.friendGroups && Array.isArray(this.friendGroups)) {
-				this.friendGroups.forEach(group => {
-					if (group && group.name && group.id) {
-						options.push({
-							value: group.name,
-							label: group.name,
-							friendGroupId: group.id
-						});
-					}
-				});
-			}
+			// Add friend groups owned by the user (sorted)
+			const sortedGroups = this.getSortedFriendGroups();
+			sortedGroups.forEach(group => {
+				if (group && group.name && group.id) {
+					options.push({
+						value: group.name,
+						label: group.name,
+						friendGroupId: group.id
+					});
+				}
+			});
 			
 			return options;
 		} catch (error) {

@@ -242,7 +242,7 @@
                                 <option value="public">{{ 'EVENTCREATION.PUBLIC' | translate }}</option>
                                 <option value="private">{{ 'EVENTCREATION.PRIVATE' | translate }}</option>
                                 <option value="friends">{{ 'EVENTCREATION.FRIENDS' | translate }}</option>
-                                <option *ngFor="let group of friendGroups" [value]="group.id">
+                                <option *ngFor="let group of getSortedFriendGroups()" [value]="group.id">
                                     {{ group.name }}
                                 </option>
                             </select>

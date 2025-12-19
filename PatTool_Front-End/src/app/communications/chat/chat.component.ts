@@ -74,7 +74,6 @@ export class ChatComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     try {
       this.user = this._memberService.getUser();
-      console.log('Chat component initialized with user:', this.user);
 
       // Load all available discussions
       await this.loadAllAvailableDiscussions();

@@ -52,7 +52,8 @@
             ],
             "allowedCommonJsDependencies": [
               "leaflet",
-              "jszip"
+              "jszip",
+              "piexifjs"
             ]
           },
           "configurations": {
