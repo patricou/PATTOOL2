@@ -602,12 +602,12 @@
         <div class="pdfs-list-compact">
           <div class="pdf-item-compact" *ngFor="let pdfFile of getPdfFiles()">
             <div class="pdf-name-compact">{{ pdfFile.fileName }}</div>
-            <div class="pdf-meta-compact" *ngIf="pdfFile.uploaderMember?.userName || getUploadedFileDate($any(pdfFile))">
-              <ng-container *ngIf="pdfFile.uploaderMember?.userName">
+            <div class="pdf-meta-compact" *ngIf="pdfFile.uploaderMember.userName || getUploadedFileDate($any(pdfFile))">
+              <ng-container *ngIf="pdfFile.uploaderMember.userName">
                 <i class="fa fa-user"></i>
                 <span class="pdf-owner-compact">{{ pdfFile.uploaderMember.userName }}</span>
               </ng-container>
-              <span class="pdf-sep-compact" *ngIf="pdfFile.uploaderMember?.userName && getUploadedFileDate($any(pdfFile))">•</span>
+              <span class="pdf-sep-compact" *ngIf="pdfFile.uploaderMember.userName && getUploadedFileDate($any(pdfFile))">•</span>
               <span class="pdf-date-compact" *ngIf="getUploadedFileDate($any(pdfFile))">
                 <i class="fa fa-calendar"></i>
                 {{ getUploadedFileDate($any(pdfFile)) | date:'short' }}
@@ -645,12 +645,12 @@
             <i class="fa fa-trash"></i>
           </button>
         </div>
-        <div class="video-meta-compact" *ngIf="videoFile.uploaderMember?.userName || getUploadedFileDate($any(videoFile))">
-          <ng-container *ngIf="videoFile.uploaderMember?.userName">
+        <div class="video-meta-compact" *ngIf="videoFile.uploaderMember.userName || getUploadedFileDate($any(videoFile))">
+          <ng-container *ngIf="videoFile.uploaderMember.userName">
             <i class="fa fa-user"></i>
             <span class="video-owner-compact">{{ videoFile.uploaderMember.userName }}</span>
           </ng-container>
-          <span class="video-sep-compact" *ngIf="videoFile.uploaderMember?.userName && getUploadedFileDate($any(videoFile))">•</span>
+          <span class="video-sep-compact" *ngIf="videoFile.uploaderMember.userName && getUploadedFileDate($any(videoFile))">•</span>
           <span class="video-date-compact" *ngIf="getUploadedFileDate($any(videoFile))">
             <i class="fa fa-calendar"></i>
             {{ getUploadedFileDate($any(videoFile)) | date:'short' }}

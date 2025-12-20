@@ -1,4 +1,7 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
+import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { Member } from '../model/member';
 import { IotService } from '../services/iot.service';
 import { MembersService } from '../services/members.service';
@@ -6,7 +9,9 @@ import { MembersService } from '../services/members.service';
 @Component({
   selector: 'app-iothome',
   templateUrl: './iothome.component.html',
-  styleUrls: ['./iothome.component.css']
+  styleUrls: ['./iothome.component.css'],
+  standalone: true,
+  imports: [CommonModule, TranslateModule, NavigationButtonsModule]
 })
 export class IothomeComponent implements OnInit {
 

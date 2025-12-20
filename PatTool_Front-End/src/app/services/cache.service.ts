@@ -5,7 +5,9 @@ import { environment } from '../../environments/environment';
 import { Observable, from } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class CacheService {
   private API_URL: string = environment.API_URL;
 

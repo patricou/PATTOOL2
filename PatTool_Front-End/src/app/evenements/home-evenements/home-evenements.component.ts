@@ -1,11 +1,14 @@
 import { Component, OnInit, HostListener, ElementRef, AfterViewInit, ViewChild, ViewChildren, QueryList, OnDestroy, TemplateRef, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule, Router } from '@angular/router';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject, from } from 'rxjs';
 import { debounceTime, map, catchError, switchMap } from 'rxjs/operators';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
-import { TranslateService } from '@ngx-translate/core';
 import { Database, ref, push, remove, onValue } from '@angular/fire/database';
 import * as JSZip from 'jszip';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -15,13 +18,13 @@ import { MembersService } from '../../services/members.service';
 import { Member } from '../../model/member';
 import { UrlEvent } from '../../model/url-event';
 import { UploadedFile } from '../../model/uploadedfile';
-import { Router } from '@angular/router';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FileService } from '../../services/file.service';
 import { CommonvaluesService } from '../../services/commonvalues.service';
 import { EvenementsService, StreamedEvent } from '../../services/evenements.service';
 import { environment } from '../../../environments/environment';
 import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
+import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
@@ -41,6 +44,18 @@ interface LoadingEventInfo {
 
 @Component({
 	selector: 'home-evenements',
+	standalone: true,
+	imports: [
+		CommonModule,
+		FormsModule,
+		RouterModule,
+		TranslateModule,
+		NgbModule,
+		SlideshowModalComponent,
+		PhotosSelectorModalComponent,
+		ElementEvenementComponent,
+		NavigationButtonsModule
+	],
 	templateUrl: './home-evenements.component.html',
 	styleUrls: ['./home-evenements.component.css'],
 	changeDetection: ChangeDetectionStrategy.OnPush

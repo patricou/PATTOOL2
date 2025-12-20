@@ -9,7 +9,9 @@ import { KeycloakService } from '../keycloak/keycloak.service';
 import { CommonvaluesService } from './commonvalues.service';
 
 
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class MembersService {
 
     private API_URL: string = environment.API_URL;

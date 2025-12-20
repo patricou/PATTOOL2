@@ -8,7 +8,9 @@ import { urllink } from '../model/urllink';
 import { Category } from '../model/Category';
 import { Member } from '../model/member';
 
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class UrllinkService {
 
 	private API_URL: string = environment.API_URL;

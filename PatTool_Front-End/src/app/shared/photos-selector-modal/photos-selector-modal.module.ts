@@ -8,14 +8,14 @@ import { PhotosSelectorModalComponent } from './photos-selector-modal.component'
 
 @NgModule({
   declarations: [
-    PhotosSelectorModalComponent
   ],
   imports: [
     CommonModule,
     FormsModule,
     RouterModule,
     TranslateModule,
-    NgbModule
+    NgbModule,
+    PhotosSelectorModalComponent
   ],
   exports: [
     PhotosSelectorModalComponent

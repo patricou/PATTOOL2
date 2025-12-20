@@ -1,12 +1,18 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { Category } from '../../model/Category';
 import { urllink } from '../../model/urllink';
 import { Member } from '../../model/member';
 import { UrllinkService } from '../../services/urllink.service';
 import { MembersService } from '../../services/members.service';
+import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
 @Component({
   selector: 'app-links-admin',
+  standalone: true,
+  imports: [CommonModule, FormsModule, TranslateModule, NavigationButtonsModule],
   templateUrl: './links-admin.component.html',
   styleUrls: ['./links-admin.component.css']
 })

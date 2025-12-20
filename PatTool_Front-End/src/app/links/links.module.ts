@@ -27,9 +27,10 @@ export function HttpLoaderFactory(http: HttpClient) {
           deps: [HttpClient]
       }
 }),
-    NavigationButtonsModule
+    NavigationButtonsModule,
+    LinksComponent
   ],
-  declarations: [LinksComponent],
+  declarations: [],
   exports: [LinksComponent],
   providers:[UrllinkService]
 })

@@ -1,9 +1,13 @@
 import { Component, OnInit, ViewChild, TemplateRef, HostListener } from '@angular/core';
-import { ActivatedRoute, Router, CanDeactivate } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { ActivatedRoute, RouterModule, Router, CanDeactivate } from '@angular/router';
+import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Evenement } from '../../model/evenement';
 import { EvenementsService } from '../../services/evenements.service';
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
-import { TranslateService } from '@ngx-translate/core';
+import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
 // Removed ngx-mydatepicker imports - using native HTML date inputs
 import { Member } from '../../model/member';
@@ -15,13 +19,22 @@ import { UploadedFile } from '../../model/uploadedfile';
 import { Observable, from, of, Subscription } from 'rxjs';
 import { map, concatMap, catchError, finalize } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 
 @Component({
 	selector: 'update-evenement',
+	standalone: true,
+	imports: [
+		CommonModule,
+		FormsModule,
+		RouterModule,
+		TranslateModule,
+		NgbModule,
+		SlideshowModalComponent,
+		NavigationButtonsModule
+	],
 	templateUrl: './update-evenement.component.html',
 	styleUrls: ['./update-evenement.component.css']
 })

@@ -8,13 +8,13 @@ import { FileService } from '../../services/file.service';
 
 @NgModule({
   declarations: [
-    VideoshowModalComponent
   ],
   imports: [
     CommonModule,
     FormsModule,
     TranslateModule,
-    NgbModule
+    NgbModule,
+    VideoshowModalComponent
   ],
   exports: [
     VideoshowModalComponent

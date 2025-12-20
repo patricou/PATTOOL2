@@ -1,12 +1,17 @@
 import { Component, OnInit, OnDestroy, ViewChild, TemplateRef, ElementRef, ChangeDetectorRef } from '@angular/core';
-import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
-import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
-import { ActivatedRoute, Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { TranslateService } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, Subscription, of, EMPTY } from 'rxjs';
 import { map, catchError } from 'rxjs/operators';
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
+import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
+import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
+import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
 import { Evenement } from '../../model/evenement';
 import { Member } from '../../model/member';
@@ -14,7 +19,6 @@ import { UploadedFile } from '../../model/uploadedfile';
 import { UrlEvent } from '../../model/url-event';
 import { Commentary } from '../../model/commentary';
 import { DiscussionService, DiscussionMessage } from '../../services/discussion.service';
-import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
 import { EvenementsService } from '../../services/evenements.service';
 import { MembersService } from '../../services/members.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
@@ -22,7 +26,6 @@ import { WindowRefService } from '../../services/window-ref.service';
 import { FriendsService } from '../../services/friends.service';
 import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
 import { environment } from '../../../environments/environment';
-import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
 import { FriendGroup } from '../../model/friend';
 import { EventColorService } from '../../services/event-color.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
@@ -30,7 +33,20 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
 @Component({
   selector: 'app-details-evenement',
   templateUrl: './details-evenement.component.html',
-  styleUrls: ['./details-evenement.component.css']
+  styleUrls: ['./details-evenement.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterModule,
+    TranslateModule,
+    NgbModule,
+    SlideshowModalComponent,
+    TraceViewerModalComponent,
+    DiscussionModalComponent,
+    ElementEvenementComponent,
+    NavigationButtonsModule
+  ]
 })
 export class DetailsEvenementComponent implements OnInit, OnDestroy {
 

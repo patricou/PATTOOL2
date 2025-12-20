@@ -25,9 +25,10 @@ export function HttpLoaderFactory(http: HttpClient) {
         deps: [HttpClient]
       }
     }),
-    NavigationButtonsModule
+    NavigationButtonsModule,
+    PatgptComponent
   ],
-  declarations: [PatgptComponent],
+  declarations: [],
   exports: [PatgptComponent],
   providers: [PatgptService]
 })

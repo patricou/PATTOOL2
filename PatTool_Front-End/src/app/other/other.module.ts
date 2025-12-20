@@ -26,9 +26,10 @@ export function HttpLoaderFactory(http: HttpClient) {
       }
     }),
     NgbModule,
-    NavigationButtonsModule
+    NavigationButtonsModule,
+    AboutComponent
   ],
-  declarations: [AboutComponent],
+  declarations: [],
   exports: [AboutComponent],
   providers: [
     ExceptionReportService,

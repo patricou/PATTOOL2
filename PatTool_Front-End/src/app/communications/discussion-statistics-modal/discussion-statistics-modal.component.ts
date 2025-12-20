@@ -1,14 +1,23 @@
 import { Component, OnInit } from '@angular/core';
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { NgbModule, NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { DiscussionService, DiscussionStatistics } from '../../services/discussion.service';
 import { MembersService } from '../../services/members.service';
 import { Member } from '../../model/member';
-import { TranslateService } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-discussion-statistics-modal',
   templateUrl: './discussion-statistics-modal.component.html',
-  styleUrls: ['./discussion-statistics-modal.component.css']
+  styleUrls: ['./discussion-statistics-modal.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    NgbModule,
+    TranslateModule
+  ]
 })
 export class DiscussionStatisticsModalComponent implements OnInit {
   statistics: DiscussionStatistics[] = [];

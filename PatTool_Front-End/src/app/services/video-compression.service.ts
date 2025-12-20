@@ -891,8 +891,19 @@ export class VideoCompressionService {
             await this.ffmpegInstance.deleteFile(inputFileName);
             await this.ffmpegInstance.deleteFile(outputFileName);
             
-            // Convert to Blob
-            const blob = new Blob([data], { type: 'video/mp4' });
+            // Convert to Blob - convert FileData to Uint8Array for Blob compatibility
+            let uint8Array: Uint8Array;
+            if (data instanceof Uint8Array) {
+                uint8Array = data;
+            } else if (typeof data === 'string') {
+                // If data is a string, convert to Uint8Array
+                const encoder = new TextEncoder();
+                uint8Array = encoder.encode(data);
+            } else {
+                // If data has a buffer property, use it
+                uint8Array = new Uint8Array((data as any).buffer || data);
+            }
+            const blob = new Blob([uint8Array as BlobPart], { type: 'video/mp4' });
             
             // Store output filename
             const outputFilename = this.getOutputFilename(file.name, 'video/mp4');

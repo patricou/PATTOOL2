@@ -1,8 +1,10 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef, ChangeDetectorRef, NgZone } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpHeaders } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import { TranslateService } from '@ngx-translate/core';
+import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
@@ -28,7 +30,14 @@ interface PatMetadata {
 @Component({
   selector: 'app-videoshow-modal',
   templateUrl: './videoshow-modal.component.html',
-  styleUrls: ['./videoshow-modal.component.css']
+  styleUrls: ['./videoshow-modal.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    NgbModule,
+    TranslateModule
+  ]
 })
 export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() videos: VideoshowVideoSource[] = [];
@@ -623,7 +632,7 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const metadata: PatMetadata = {};
       const parts = patHeader.split(';');
       
-      parts.forEach(part => {
+      parts.forEach((part: string) => {
         const [key, value] = part.split('=');
         if (key && value) {
           const trimmedKey = key.trim();

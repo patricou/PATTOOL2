@@ -1,13 +1,18 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { HttpClient, HttpHeaders, HttpClientModule } from '@angular/common/http';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { AgGridModule } from 'ag-grid-angular';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { CacheService } from '../services/cache.service';
 import { ExceptionReportService } from '../services/exception-report.service';
-import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
-import { TranslateService } from '@ngx-translate/core';
 import { MembersService } from '../services/members.service';
 import { Member } from '../model/member';
 import { UserConnectionLog } from '../model/user-connection-log';
 import { ElementEvenementComponent } from '../evenements/element-evenement/element-evenement.component';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { environment } from '../../environments/environment';
 import { Observable, from, of } from 'rxjs';
@@ -18,7 +23,17 @@ import { DiscussionService } from '../services/discussion.service';
 @Component({
   selector: 'app-system',
   templateUrl: './system.component.html',
-  styleUrls: ['./system.component.css']
+  styleUrls: ['./system.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    HttpClientModule,
+    TranslateModule,
+    AgGridModule,
+    NgbModule,
+    NavigationButtonsModule
+  ]
 })
 export class SystemComponent implements OnInit {
 

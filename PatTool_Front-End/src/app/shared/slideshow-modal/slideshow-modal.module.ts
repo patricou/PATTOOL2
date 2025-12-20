@@ -8,13 +8,13 @@ import { FileService } from '../../services/file.service';
 
 @NgModule({
   declarations: [
-    SlideshowModalComponent
   ],
   imports: [
     CommonModule,
     FormsModule,
     TranslateModule,
-    NgbModule
+    NgbModule,
+    SlideshowModalComponent
   ],
   exports: [
     SlideshowModalComponent

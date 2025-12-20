@@ -1,12 +1,19 @@
 // Discussion Modal Component - Opens discussion in a modal
 import { Component, Input, OnInit, OnDestroy, ViewChild, AfterViewInit, ElementRef } from '@angular/core';
-import { NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { CommonModule } from '@angular/common';
+import { NgbModule, NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 import { DiscussionComponent } from '../discussion/discussion.component';
 
 @Component({
   selector: 'app-discussion-modal',
   templateUrl: './discussion-modal.component.html',
-  styleUrls: ['./discussion-modal.component.css']
+  styleUrls: ['./discussion-modal.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    NgbModule,
+    DiscussionComponent
+  ]
 })
 export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewInit {
   @Input() discussionId: string | null = null;

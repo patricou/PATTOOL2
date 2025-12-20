@@ -56,16 +56,16 @@ export function HttpLoaderFactory(http: HttpClient) {
 
 @NgModule({
 	declarations: [
-		AppComponent,
-		PageNotFoundComponent,
-		IothomeComponent,
-		DetailsEvenementComponent,
-		SystemComponent,
 	],
 	imports: [
 		BrowserModule,
 		FormsModule,
 		HttpClientModule,
+		AppComponent,
+		PageNotFoundComponent,
+		IothomeComponent,
+		DetailsEvenementComponent,
+		SystemComponent,
 		HomeModule,
 		EvenementsModule,
 		ChatModule,

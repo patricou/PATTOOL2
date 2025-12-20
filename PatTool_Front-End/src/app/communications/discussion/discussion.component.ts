@@ -1,16 +1,24 @@
 // Discussion Component - Reusable component for discussions
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, Input, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { DiscussionService, Discussion, DiscussionMessage } from '../../services/discussion.service';
 import { Member } from '../../model/member';
 import { MembersService } from '../../services/members.service';
-import { TranslateService } from '@ngx-translate/core';
 import { Subscription } from 'rxjs';
 import * as piexif from 'piexifjs';
 
 @Component({
   selector: 'app-discussion',
   templateUrl: './discussion.component.html',
-  styleUrls: ['./discussion.component.css']
+  styleUrls: ['./discussion.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    TranslateModule
+  ]
 })
 export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   @Input() discussionId: string | null = null; // ID of the discussion to load

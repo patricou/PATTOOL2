@@ -5,7 +5,9 @@ import { map, switchMap } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
 
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class ExceptionReportService {
 
     private API_URL: string = environment.API_URL;

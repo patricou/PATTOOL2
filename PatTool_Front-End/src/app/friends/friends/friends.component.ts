@@ -1,17 +1,28 @@
 import { Component, OnInit, ChangeDetectorRef, ViewChild } from '@angular/core';
-import { NgbDropdown } from '@ng-bootstrap/ng-bootstrap';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { NgbModule, NgbDropdown, NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Member } from '../../model/member';
 import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../../model/friend';
 import { FriendsService } from '../../services/friends.service';
 import { MembersService } from '../../services/members.service';
-import { TranslateService } from '@ngx-translate/core';
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
 import { DiscussionService } from '../../services/discussion.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
+import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
 @Component({
   selector: 'app-friends',
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    NgbModule,
+    TranslateModule,
+    DiscussionModalComponent,
+    NavigationButtonsModule
+  ],
   templateUrl: './friends.component.html',
   styleUrls: ['./friends.component.css']
 })

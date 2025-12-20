@@ -22,6 +22,10 @@ export function HttpLoaderFactory(http: HttpClient) {
     CommonModule,
     FormsModule,
     HttpClientModule,
+    ChatComponent,
+    DiscussionComponent,
+    DiscussionModalComponent,
+    DiscussionStatisticsModalComponent,
     TranslateModule.forChild({
       loader: {
         provide: TranslateLoader,
@@ -32,7 +36,7 @@ export function HttpLoaderFactory(http: HttpClient) {
     NavigationButtonsModule,
     NgbModule
   ],
-  declarations: [ChatComponent, DiscussionComponent, DiscussionModalComponent, DiscussionStatisticsModalComponent],
+  declarations: [],
   exports: [ChatComponent, DiscussionComponent, DiscussionModalComponent, DiscussionStatisticsModalComponent],
   providers: [
     DiscussionService

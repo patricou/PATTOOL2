@@ -1,8 +1,12 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Location } from '@angular/common';
+import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
   selector: 'app-navigation-buttons',
+  standalone: true,
+  imports: [CommonModule, TranslateModule],
   templateUrl: './navigation-buttons.component.html',
   styleUrls: ['./navigation-buttons.component.css']
 })

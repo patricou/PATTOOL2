@@ -1,8 +1,10 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef, ChangeDetectorRef, NgZone } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpHeaders } from '@angular/common/http';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
-import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import { TranslateService } from '@ngx-translate/core';
+import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
 import { Observable, Subscription, Subject } from 'rxjs';
 import { map, takeUntil, finalize } from 'rxjs/operators';
@@ -43,7 +45,14 @@ interface PatMetadata {
 @Component({
   selector: 'app-slideshow-modal',
   templateUrl: './slideshow-modal.component.html',
-  styleUrls: ['./slideshow-modal.component.css']
+  styleUrls: ['./slideshow-modal.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    NgbModule,
+    TranslateModule
+  ]
 })
 export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy {
   @Input() images: SlideshowImageSource[] = [];

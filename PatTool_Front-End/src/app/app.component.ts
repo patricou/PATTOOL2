@@ -1,8 +1,10 @@
 import { Component, ElementRef, OnInit, ViewChild, HostListener, TemplateRef } from '@angular/core';
-import { Router } from '@angular/router';
-import { TranslateService, LangChangeEvent } from '@ngx-translate/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule, Router } from '@angular/router';
+import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService, LangChangeEvent } from '@ngx-translate/core';
 import { KeycloakService } from './keycloak/keycloak.service';
-import { NgbModal, ModalDismissReasons } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModule, NgbModal, ModalDismissReasons } from '@ng-bootstrap/ng-bootstrap';
 import { Member } from './model/member';
 import { MembersService } from './services/members.service';
 import { CommonvaluesService } from './services/commonvalues.service';
@@ -13,7 +15,9 @@ import * as piexif from 'piexifjs';
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
-    styleUrls: ['./app.component.css']
+    styleUrls: ['./app.component.css'],
+    standalone: true,
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule]
 })
 export class AppComponent implements OnInit {
 

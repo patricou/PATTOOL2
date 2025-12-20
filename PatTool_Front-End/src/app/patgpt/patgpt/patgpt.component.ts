@@ -1,10 +1,16 @@
 import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { TranslateModule } from '@ngx-translate/core';
 import { ChatResponse } from '../../model/chat-response';
 import { PatgptService } from '../../services/patgpt.service';
 import { environment } from '../../../environments/environment';
+import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
 @Component({
   selector: 'app-patgpt',
+  standalone: true,
+  imports: [CommonModule, FormsModule, TranslateModule, NavigationButtonsModule],
   templateUrl: './patgpt.component.html',
   styleUrls: ['./patgpt.component.css']
 })

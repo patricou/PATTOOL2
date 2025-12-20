@@ -20,11 +20,11 @@ export function HttpLoaderFactory(http: HttpClient) {
                 useFactory: HttpLoaderFactory,
                 deps: [HttpClient]
             }
-    })
+    }),
+    HomePageComponent
     ],
   declarations: 
     [ 
-      HomePageComponent 
     ],
   exports:[HomePageComponent]
 })

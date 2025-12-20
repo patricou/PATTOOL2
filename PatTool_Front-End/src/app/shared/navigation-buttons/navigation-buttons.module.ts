@@ -11,19 +11,8 @@ export function HttpLoaderFactory(http: HttpClient) {
 }
 
 @NgModule({
-  declarations: [
-    NavigationButtonsComponent
-  ],
   imports: [
-    CommonModule,
-    HttpClientModule,
-    TranslateModule.forChild({
-      loader: {
-        provide: TranslateLoader,
-        useFactory: HttpLoaderFactory,
-        deps: [HttpClient]
-      }
-    })
+    NavigationButtonsComponent
   ],
   exports: [
     NavigationButtonsComponent

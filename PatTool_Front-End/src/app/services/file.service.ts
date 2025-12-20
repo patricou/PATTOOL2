@@ -21,7 +21,9 @@ export interface ImageDownloadResult {
     metadata?: PatOriginalSizeMetadata;
 }
 
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class FileService {
 
     private API_URL: string = environment.API_URL;

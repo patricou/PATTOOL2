@@ -6,12 +6,13 @@ import { FormsModule } from '@angular/forms';
 import { TraceViewerModalComponent } from './trace-viewer-modal.component';
 
 @NgModule({
-	declarations: [TraceViewerModalComponent],
+	declarations: [],
 	imports: [
 		CommonModule,
 		TranslateModule,
 		NgbModule,
-		FormsModule
+		FormsModule,
+		TraceViewerModalComponent
 	],
 	exports: [TraceViewerModalComponent]
 })

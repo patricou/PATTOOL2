@@ -1,7 +1,8 @@
 import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
-import { DOCUMENT } from '@angular/common';
-import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import { TranslateService } from '@ngx-translate/core';
+import { CommonModule, DOCUMENT } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
 import { environment } from '../../../environments/environment';
 import { Subject } from 'rxjs';
@@ -23,7 +24,14 @@ interface TraceStatistics {
 @Component({
 	selector: 'app-trace-viewer-modal',
 	templateUrl: './trace-viewer-modal.component.html',
-	styleUrls: ['./trace-viewer-modal.component.css']
+	styleUrls: ['./trace-viewer-modal.component.css'],
+	standalone: true,
+	imports: [
+		CommonModule,
+		FormsModule,
+		NgbModule,
+		TranslateModule
+	]
 })
 export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('traceViewerModal') traceViewerModal!: TemplateRef<any>;
@@ -143,7 +151,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	@HostListener('window:keydown.escape', ['$event'])
-	onEscape(event: KeyboardEvent): void {
+	onEscape(event: Event): void {
+		const keyboardEvent = event as KeyboardEvent;
 		event.preventDefault();
 		this.close();
 	}

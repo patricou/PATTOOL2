@@ -31,9 +31,10 @@ export function HttpLoaderFactory(http: HttpClient) {
     }),
     NavigationButtonsModule,
     NgbModule,
-    ChatModule
+    ChatModule,
+    FriendsComponent
   ],
-  declarations: [FriendsComponent],
+  declarations: [],
   exports: [FriendsComponent],
   providers: [FriendsService]
 })

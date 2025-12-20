@@ -1,18 +1,21 @@
 // Discussion Component - Replaced Firebase with MongoDB backend
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { Subscription, forkJoin, of, Observable } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { DiscussionService, Discussion, DiscussionMessage } from '../../services/discussion.service';
 import { Member } from '../../model/member';
 import { MembersService } from '../../services/members.service';
-import { Subscription, forkJoin, of, Observable } from 'rxjs';
 import { EvenementsService } from '../../services/evenements.service';
 import { FriendsService } from '../../services/friends.service';
 import { Evenement } from '../../model/evenement';
 import { FriendGroup } from '../../model/friend';
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { DiscussionModalComponent } from '../discussion-modal/discussion-modal.component';
 import { DiscussionStatisticsModalComponent } from '../discussion-statistics-modal/discussion-statistics-modal.component';
-import { catchError } from 'rxjs/operators';
-import { TranslateService } from '@ngx-translate/core';
+import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 
 export interface DiscussionItem {
@@ -29,7 +32,17 @@ export interface DiscussionItem {
 @Component({
   selector: 'app-chat',
   templateUrl: './chat.component.html',
-  styleUrls: ['./chat.component.css']
+  styleUrls: ['./chat.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    TranslateModule,
+    NgbModule,
+    NavigationButtonsModule,
+    DiscussionModalComponent,
+    DiscussionStatisticsModalComponent
+  ]
 })
 export class ChatComponent implements OnInit, OnDestroy {
 

@@ -8,7 +8,9 @@ import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../mode
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
 
-@Injectable()
+@Injectable({
+  providedIn: 'root'
+})
 export class FriendsService {
 
     private API_URL: string = environment.API_URL;

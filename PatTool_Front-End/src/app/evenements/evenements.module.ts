@@ -54,13 +54,13 @@ export function HttpLoaderFactory(http: HttpClient) {
 		VideoshowModalModule,
 		PhotosSelectorModalModule,
 		TraceViewerModalModule,
-		ChatModule
-	],
-	declarations: [
+		ChatModule,
 		HomeEvenementsComponent,
 		CreateEvenementComponent,
 		ElementEvenementComponent,
 		UpdateEvenementComponent
+	],
+	declarations: [
 	],
 	exports: [
 		HomeEvenementsComponent,

@@ -1,13 +1,15 @@
 import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, OnChanges, SimpleChanges, TemplateRef, ElementRef } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule, Router } from '@angular/router';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { NgbModule, NgbModal, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { Router } from '@angular/router';
 // Removed ng2-file-upload - using native HTML file input
-import { NgbModal, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap';
-import { TranslateService } from '@ngx-translate/core';
 import * as JSZip from 'jszip';
 
 import { Observable, firstValueFrom, Subscription, of } from 'rxjs';
@@ -30,6 +32,19 @@ import { EventColorService } from '../../services/event-color.service';
 
 @Component({
 	selector: 'element-evenement',
+	standalone: true,
+	imports: [
+		CommonModule,
+		FormsModule,
+		RouterModule,
+		TranslateModule,
+		NgbModule,
+		SlideshowModalComponent,
+		VideoshowModalComponent,
+		PhotosSelectorModalComponent,
+		TraceViewerModalComponent,
+		DiscussionModalComponent
+	],
 	templateUrl: './element-evenement.component.html',
 	styleUrls: ['./element-evenement.component.css'],
 	providers: [NgbRatingConfig]

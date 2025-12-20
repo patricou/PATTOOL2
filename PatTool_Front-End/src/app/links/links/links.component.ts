@@ -1,16 +1,28 @@
 import { Component, OnInit } from '@angular/core';
-import { Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule, Router } from '@angular/router';
+import { TranslateModule } from '@ngx-translate/core';
 import { Category } from '../../model/Category';
 import { Member } from '../../model/member';
 import { urllink } from '../../model/urllink';
 import { CommonvaluesService } from '../../services/commonvalues.service';
 import { MembersService } from '../../services/members.service';
 import { UrllinkService } from '../../services/urllink.service';
+import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
 @Component({
   selector: 'app-links',
   templateUrl: './links.component.html',
-  styleUrls: ['./links.component.css']
+  styleUrls: ['./links.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterModule,
+    TranslateModule,
+    NavigationButtonsModule
+  ]
 })
 export class LinksComponent implements OnInit {
 

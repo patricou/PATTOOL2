@@ -1,7 +1,9 @@
 import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitter, ViewChild, TemplateRef } from '@angular/core';
-import { Router } from '@angular/router';
-import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import { TranslateService } from '@ngx-translate/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule, Router } from '@angular/router';
+import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Evenement } from '../../model/evenement';
 import { Member } from '../../model/member';
 import { UrlEvent } from '../../model/url-event';
@@ -15,7 +17,15 @@ export interface PhotosSelectionResult {
 @Component({
   selector: 'app-photos-selector-modal',
   templateUrl: './photos-selector-modal.component.html',
-  styleUrls: ['./photos-selector-modal.component.css']
+  styleUrls: ['./photos-selector-modal.component.css'],
+  standalone: true,
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterModule,
+    NgbModule,
+    TranslateModule
+  ]
 })
 export class PhotosSelectorModalComponent implements OnInit, OnChanges {
   @Input() evenement!: Evenement;

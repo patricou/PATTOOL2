@@ -1,6 +1,9 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
-import { Router } from '@angular/router';
-import { TranslateService } from '@ngx-translate/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { RouterModule, Router } from '@angular/router';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
 // Removed ngx-mydatepicker imports - using native HTML date inputs
 import { Member } from '../../model/member';
@@ -15,6 +18,8 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
 
 @Component({
 	selector: 'app-create-evenement',
+	standalone: true,
+	imports: [CommonModule, FormsModule, RouterModule, TranslateModule, NavigationButtonsModule],
 	templateUrl: './create-evenement.component.html',
 	styleUrls: ['./create-evenement.component.css']
 })
