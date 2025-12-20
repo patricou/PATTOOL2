@@ -912,8 +912,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Count actually loaded images (non-empty strings)
     const loadedImagesCount = this.slideshowImages.filter(url => url && url !== '').length;
     
+    // Update showThumbnails in next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
+    // Double-check userToggledThumbnails inside setTimeout to prevent race condition with toggleThumbnails()
     if (loadedImagesCount > 1 && !this.showThumbnails && !this.userToggledThumbnails) {
-      this.showThumbnails = true;
+      setTimeout(() => {
+        // Re-check userToggledThumbnails to prevent race condition if user toggled thumbnails during setTimeout delay
+        if (!this.userToggledThumbnails && !this.showThumbnails) {
+          this.showThumbnails = true;
+        }
+      }, 0);
     }
     
     // Reset zoom when first image loads
@@ -1439,7 +1446,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     try {
       if (this.showMapView) {
         // If showing map view, keep default/darker background
-        this.slideshowBackgroundColor = 'black';
+        // Defer update to avoid ExpressionChangedAfterItHasBeenCheckedError
+        setTimeout(() => {
+          this.slideshowBackgroundColor = 'black';
+        }, 0);
         return;
       }
       const imgEl = this.slideshowImgElRef?.nativeElement;
@@ -1474,18 +1484,24 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         b += data[i + 2];
         count++;
       }
-      if (count > 0) {
-        const avgR = Math.round(r / count);
-        const avgG = Math.round(g / count);
-        const avgB = Math.round(b / count);
-        this.slideshowBackgroundColor = `rgb(${avgR}, ${avgG}, ${avgB})`;
-      } else {
-        this.slideshowBackgroundColor = 'black';
-      }
+      // Defer background color update to avoid ExpressionChangedAfterItHasBeenCheckedError
+      setTimeout(() => {
+        if (count > 0) {
+          const avgR = Math.round(r / count);
+          const avgG = Math.round(g / count);
+          const avgB = Math.round(b / count);
+          this.slideshowBackgroundColor = `rgb(${avgR}, ${avgG}, ${avgB})`;
+        } else {
+          this.slideshowBackgroundColor = 'black';
+        }
+      }, 0);
     } catch {
       // In case of CORS-tainted canvas or other errors, fallback gracefully to transparent
       // so the blurred image background (if any) can show through.
-      this.slideshowBackgroundColor = 'transparent';
+      // Defer update to avoid ExpressionChangedAfterItHasBeenCheckedError
+      setTimeout(() => {
+        this.slideshowBackgroundColor = 'transparent';
+      }, 0);
     }
   }
   
@@ -1942,9 +1958,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public resetSlideshowZoom(): void { 
-    this.slideshowZoom = Math.max(1, this.getMinSlideshowZoom()); 
+    // Set zoom to 1 to show the full image (not zoomed in)
+    this.slideshowZoom = 1; 
     this.slideshowTranslateX = 0; 
     this.slideshowTranslateY = 0;
+    // Force change detection to apply changes immediately (same behavior as button click)
+    this.cdr.detectChanges();
     // Recalculate dimensions when resetting zoom - use setTimeout to ensure DOM is updated
     setTimeout(() => {
       this.updateImageDimensions();
@@ -2800,11 +2819,23 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
       
       const currentTime = Date.now();
-      const currentKeyCode = event.keyCode || (event.key === 'ArrowLeft' ? 37 : event.key === 'ArrowRight' ? 39 : 0);
+      // Calculate currentKeyCode properly for all keys (not just arrows)
+      let currentKeyCode = event.keyCode || 0;
+      if (!currentKeyCode && event.key) {
+        // Fallback: map event.key to keyCode if keyCode is not available
+        const keyMap: { [key: string]: number } = {
+          'ArrowLeft': 37, 'ArrowRight': 39, 'ArrowUp': 38, 'ArrowDown': 40,
+          's': 83, 'S': 83, 'i': 73, 'I': 73, 'd': 68, 'D': 68,
+          'p': 80, 'P': 80, 'g': 71, 'G': 71, 't': 84, 'T': 84,
+          'e': 69, 'E': 69, 'o': 79, 'O': 79, 'r': 82, 'R': 82,
+          'Escape': 27, 'Home': 36
+        };
+        currentKeyCode = keyMap[event.key] || 0;
+      }
       
       // Debounce: ignore if same key pressed within 50ms (to prevent double triggering)
       // Reduced from 100ms to allow faster navigation
-      if (currentKeyCode === this.lastKeyCode && currentTime - this.lastKeyPressTime < 50) {
+      if (currentKeyCode && currentKeyCode === this.lastKeyCode && currentTime - this.lastKeyPressTime < 50) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
@@ -2877,6 +2908,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 84;
         this.toggleThumbnails();
+        return; // Exit early after handling
       } else if (event.key === 'e' || event.key === 'E' || event.keyCode === 69) {
         if (this.traceViewerOpen) {
           return;
@@ -2915,6 +2947,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         event.stopPropagation();
         event.stopImmediatePropagation();
         this.resetSlideshowZoom();
+        return; // Exit early after handling
       }
     };
     
@@ -3543,11 +3576,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   public toggleThumbnails(): void {
-    if (this.slideshowImages.length <= 1) {
+    // Count actually loaded images (non-empty strings)
+    const loadedImagesCount = this.slideshowImages.filter(url => url && url !== '').length;
+    if (loadedImagesCount <= 1) {
       return;
     }
+    // Set userToggledThumbnails BEFORE toggling to prevent race condition with automatic thumbnail showing
     this.userToggledThumbnails = true;
+    // Toggle showThumbnails immediately (same behavior as button click)
     this.showThumbnails = !this.showThumbnails;
+    
+    // Force change detection to avoid ExpressionChangedAfterItHasBeenCheckedError
+    this.cdr.detectChanges();
     
     // Scroll to active thumbnail when showing thumbnails again
     // Styles are now handled by [ngStyle] binding, so they apply immediately on render

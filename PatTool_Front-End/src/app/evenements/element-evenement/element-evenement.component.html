@@ -545,7 +545,7 @@
 <ng-template #filesModal let-c="close" let-d="dismiss">
     <div class="modal-header bg-primary text-white selector-header border border-2 border-white rounded-top">
         <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
-            <i class="fa fa-files-o"></i> {{ 'EVENTELEM.FILES' | translate }} - {{ evenement.evenementName }} ({{ evenement.fileUploadeds.length }})
+            <i class="fa fa-files-o"></i> {{ 'EVENTELEM.FILES' | translate }} - {{ evenement.evenementName }} ({{ getFileUploadedsLength() }})
         </h5>
         <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto files-modal-close-btn" (click)="c('Close click')" aria-label="Close">
             <i class="fa fa-times"></i>

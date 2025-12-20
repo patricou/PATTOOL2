@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, OnChanges, SimpleChanges, TemplateRef, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, OnChanges, SimpleChanges, TemplateRef, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -312,7 +312,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private _evenementsService: EvenementsService,
 		private _friendsService: FriendsService,
 		private _discussionService: DiscussionService,
-		private eventColorService: EventColorService
+		private eventColorService: EventColorService,
+		private cdr: ChangeDetectorRef
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -3302,6 +3303,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				// Clear the array but keep the reference for Angular change detection
 				this.evenement.fileUploadeds.length = 0;
 			}
+			// Defer change detection to next cycle to prevent ExpressionChangedAfterItHasBeenCheckedError
+			setTimeout(() => {
+				this.cdr.markForCheck();
+			}, 0);
 			
 			if (!this._evenementsService) {
 				console.error('_evenementsService is not available!');
@@ -3337,6 +3342,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						if (!exists) {
 							// Add file to the array immediately (Angular change detection will update the view)
 							this.evenement.fileUploadeds.push(file);
+							
+							// Defer change detection to next cycle to prevent ExpressionChangedAfterItHasBeenCheckedError
+							setTimeout(() => {
+								this.cdr.markForCheck();
+							}, 0);
 							
 							// Load thumbnail for this file immediately (non-blocking, async)
 							// This starts the thumbnail download in parallel without blocking the UI
@@ -3400,6 +3410,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						this.evenement.fileUploadeds.push(file);
 						this.loadFileThumbnail(file);
 					});
+					
+					// Defer change detection to next cycle to prevent ExpressionChangedAfterItHasBeenCheckedError
+					setTimeout(() => {
+						this.cdr.markForCheck();
+					}, 0);
 					
 					console.log(`Loaded ${files.length} files via fallback endpoint for event ${this.evenement.id}`);
 					this.isLoadingFiles = false;
@@ -4697,6 +4712,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			count -= 1;
 		}
 		return count;
+	}
+
+	// Safe getter for fileUploadeds length to prevent ExpressionChangedAfterItHasBeenCheckedError
+	public getFileUploadedsLength(): number {
+		return this.evenement?.fileUploadeds?.length || 0;
 	}
 
 	public getEventComments(): any[] {
