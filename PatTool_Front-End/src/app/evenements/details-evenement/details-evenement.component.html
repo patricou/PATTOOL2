@@ -284,7 +284,12 @@
                          [src]="getDiscussionFileUrl(message.videoFileName || '', 'videos', message.videoUrl)" 
                          controls
                          autoplay
-                         class="discussion-video-compact">
+                         muted
+                         playsinline
+                         preload="auto"
+                         class="discussion-video-compact"
+                         (loadeddata)="onDiscussionVideoLoaded($event)"
+                         (canplay)="onDiscussionVideoLoaded($event)">
                     Your browser does not support the video tag.
                   </video>
                   <div *ngIf="!hasDiscussionFileUrl(message.videoFileName || '', 'videos', message.videoUrl)" class="discussion-message-loading">
@@ -661,10 +666,14 @@
             [src]="getVideoUrl(videoFile)"
             controls
             autoplay
+            muted
             loop
+            playsinline
+            preload="auto"
             class="video-player-compact"
             (error)="onVideoError($event, videoFile)"
-            (loadeddata)="onVideoLoaded($event, videoFile)">
+            (loadeddata)="onVideoLoaded($event, videoFile)"
+            (canplay)="onVideoLoaded($event, videoFile)">
             {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
           </video>
         </div>

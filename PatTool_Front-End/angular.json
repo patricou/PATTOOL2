@@ -15,11 +15,8 @@
       "prefix": "app",
       "architect": {
         "build": {
-          "builder": "@angular-builders/custom-webpack:browser",
+          "builder": "@angular-devkit/build-angular:browser",
           "options": {
-            "customWebpackConfig": {
-              "path": "./webpack.config.js"
-            },
             "outputPath": "../PatTool_Back-End/src/main/resources/static",
             "index": "src/index.html",
             "main": "src/main.ts",
@@ -97,12 +94,8 @@
           "defaultConfiguration": "production"
         },
         "serve": {
-          "builder": "@angular-builders/custom-webpack:dev-server",
-          "options": {
-            "customWebpackConfig": {
-              "path": "./webpack.config.js"
-            }
-          },
+          "builder": "@angular-devkit/build-angular:dev-server",
+          "options": {},
           "configurations": {
             "production": {
               "buildTarget": "PatTool_Front-End:build:production"

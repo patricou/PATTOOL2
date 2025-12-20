@@ -1686,6 +1686,19 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     });
   }
 
+  // Handle discussion video loaded
+  public onDiscussionVideoLoaded(event: any): void {
+    const videoElement = event.target as HTMLVideoElement;
+    if (videoElement) {
+      videoElement.muted = true; // Ensure muted
+      videoElement.play().catch((error) => {
+        // Autoplay was prevented - this is normal in some browsers
+        // User will need to click play manually
+        console.log('Discussion video autoplay prevented, user interaction required');
+      });
+    }
+  }
+
   // Scroll discussion messages container to bottom
   private scrollDiscussionToBottom(): void {
     // Use requestAnimationFrame to ensure DOM is updated
@@ -2370,6 +2383,17 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     // Mark this video as successfully loaded
     if (videoFile?.fieldId) {
       this.videoLoadSuccess.add(videoFile.fieldId);
+    }
+    
+    // Force play() programmatically to ensure video starts
+    const videoElement = event.target as HTMLVideoElement;
+    if (videoElement) {
+      videoElement.muted = true; // Ensure muted
+      videoElement.play().catch((error) => {
+        // Autoplay was prevented - this is normal in some browsers
+        // User will need to click play manually
+        console.log('Video autoplay prevented, user interaction required:', videoFile?.fileName);
+      });
     }
   }
 
