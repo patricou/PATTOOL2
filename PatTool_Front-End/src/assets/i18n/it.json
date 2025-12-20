@@ -701,7 +701,7 @@
         "VERSION": "Versione 2.0.1",
         "PROFESSIONAL_PLATFORM": "Piattaforma di Sviluppo Professionale",
         "FULL_STACK_APP": "Applicazione Full Stack",
-        "ANGULAR_DESC": "Framework frontend moderno con TypeScript 5.4",
+        "ANGULAR_DESC": "Framework frontend moderno (Angular 21.0.3) con TypeScript 5.9.2",
         "UI_TECHNOLOGIES": "Tecnologie UI",
         "DEVELOPMENT_TOOLS": "Strumenti di Sviluppo",
         "FRONT_END": "Front End",

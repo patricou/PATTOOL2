@@ -695,7 +695,7 @@
         "VERSION": "Версия 2.0.1",
         "PROFESSIONAL_PLATFORM": "Профессиональная платформа разработки",
         "FULL_STACK_APP": "Полнофункциональное приложение",
-        "ANGULAR_DESC": "Современный frontend-фреймворк с TypeScript 5.4",
+        "ANGULAR_DESC": "Современный frontend-фреймворк (Angular 21.0.3) с TypeScript 5.9.2",
         "UI_TECHNOLOGIES": "UI-технологии",
         "DEVELOPMENT_TOOLS": "Инструменты разработки",
         "FRONT_END": "Front End",

@@ -693,7 +693,7 @@
         "VERSION": "גרסה 2.0.1",
         "PROFESSIONAL_PLATFORM": "פלטפורמת פיתוח מקצועית",
         "FULL_STACK_APP": "אפליקציה מלאה",
-        "ANGULAR_DESC": "מסגרת frontend מודרנית עם TypeScript 5.4",
+        "ANGULAR_DESC": "מסגרת frontend מודרנית (Angular 21.0.3) עם TypeScript 5.9.2",
         "UI_TECHNOLOGIES": "טכנולוגיות ממשק משתמש",
         "DEVELOPMENT_TOOLS": "כלי פיתוח",
         "FRONT_END": "Front End",

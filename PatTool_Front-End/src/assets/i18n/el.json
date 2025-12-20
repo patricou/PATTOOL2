@@ -699,7 +699,7 @@
         "VERSION": "Έκδοση 2.0.1",
         "PROFESSIONAL_PLATFORM": "Επαγγελματική Πλατφόρμα Ανάπτυξης",
         "FULL_STACK_APP": "Εφαρμογή Full Stack",
-        "ANGULAR_DESC": "Σύγχρονο frontend framework με TypeScript 5.4",
+        "ANGULAR_DESC": "Σύγχρονο frontend framework (Angular 21.0.3) με TypeScript 5.9.2",
         "UI_TECHNOLOGIES": "Τεχνολογίες UI",
         "DEVELOPMENT_TOOLS": "Εργαλεία Ανάπτυξης",
         "FRONT_END": "Front End",

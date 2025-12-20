@@ -702,7 +702,7 @@
         "VERSION": "バージョン 2.0.1",
         "PROFESSIONAL_PLATFORM": "プロフェッショナル開発プラットフォーム",
         "FULL_STACK_APP": "フルスタックアプリケーション",
-        "ANGULAR_DESC": "TypeScript 5.4を使用したモダンなフロントエンドフレームワーク",
+        "ANGULAR_DESC": "TypeScript 5.9.2を使用したモダンなフロントエンドフレームワーク (Angular 21.0.3)",
         "UI_TECHNOLOGIES": "UIテクノロジー",
         "DEVELOPMENT_TOOLS": "開発ツール",
         "FRONT_END": "フロントエンド",

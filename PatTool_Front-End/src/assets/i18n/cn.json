@@ -700,7 +700,7 @@
         "VERSION": "版本 2.0.1",
         "PROFESSIONAL_PLATFORM": "专业开发平台",
         "FULL_STACK_APP": "全栈应用程序",
-        "ANGULAR_DESC": "使用TypeScript 5.4的现代前端框架",
+        "ANGULAR_DESC": "使用TypeScript 5.9.2的现代前端框架 (Angular 21.0.3)",
         "UI_TECHNOLOGIES": "UI技术",
         "DEVELOPMENT_TOOLS": "开发工具",
         "FRONT_END": "前端",

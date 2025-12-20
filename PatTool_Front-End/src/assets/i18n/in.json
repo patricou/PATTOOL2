@@ -682,7 +682,7 @@
         "VERSION": "संस्करण 2.0.1",
         "PROFESSIONAL_PLATFORM": "पेशेवर विकास मंच",
         "FULL_STACK_APP": "फुल स्टैक अनुप्रयोग",
-        "ANGULAR_DESC": "TypeScript 5.4 के साथ आधुनिक फ्रंटएंड फ्रेमवर्क",
+        "ANGULAR_DESC": "TypeScript 5.9.2 के साथ आधुनिक फ्रंटएंड फ्रेमवर्क (Angular 21.0.3)",
         "UI_TECHNOLOGIES": "UI प्रौद्योगिकियाँ",
         "DEVELOPMENT_TOOLS": "विकास उपकरण",
         "FRONT_END": "फ्रंट एंड",
