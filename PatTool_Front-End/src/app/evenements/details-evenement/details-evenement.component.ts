@@ -2850,46 +2850,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       return {}; // Let CSS handle first row
     }
 
-    // Check cache first
-    if (this.cardPositionsCache.has(cardId)) {
-      return this.cardPositionsCache.get(cardId)!;
-    }
-
-    // Initialize grid if needed
-    if (this.gridOccupancy.length === 0) {
-      this.initializeGrid();
-    }
-
-    // Get card dimensions
-    const layout = this.getCardLayoutClasses(cardId);
-    const rowSpan = this.getRowSpanFromClasses(layout);
-    const colSpan = this.getColSpanFromClasses(layout);
-
-    // Find best position using improved algorithm
-    const position = this.findBestPosition(rowSpan, colSpan);
-    
-    let result: { gridRow?: string, gridColumn?: string } = {};
-    
-    if (position) {
-      // Mark cells as occupied
-      this.markCellsOccupied(position.row, position.col, rowSpan, colSpan);
-      
-      // Return grid position
-      if (colSpan > 1) {
-        result = {
-          gridRow: `${position.row} / span ${rowSpan}`,
-          gridColumn: `${position.col} / span ${colSpan}`
-        };
-      } else {
-        result = {
-          gridRow: `${position.row} / span ${rowSpan}`
-        };
-      }
-    }
-
-    // Cache the result
-    this.cardPositionsCache.set(cardId, result);
-    return result;
+    // Disable explicit positioning to prevent overlapping - let CSS grid-auto-flow: dense handle it
+    // This prevents cards from overlapping by allowing the browser to automatically position them
+    return {};
   }
 
   /**

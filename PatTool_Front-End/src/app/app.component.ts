@@ -63,6 +63,7 @@ export class AppComponent implements OnInit {
     public dragStartY: number = 0;
     public langSelectorRight: number = 0; // 0% du bord droit (collé au bord)
     public langSelectorTop: number = 50; // 50% de la hauteur de l'écran
+    private dragMoveRafId: number | null = null; // Throttling for mousemove during drag
 
     constructor(public _translate: TranslateService,
         public _kc: KeycloakService,
@@ -1241,14 +1242,27 @@ export class AppComponent implements OnInit {
     @HostListener('document:mousemove', ['$event'])
     onDocumentMouseMove(event: MouseEvent): void {
         if (this.isDragging) {
-            this.langSelectorRight = ((window.innerWidth - (event.clientX - this.dragStartX)) / window.innerWidth) * 100;
-            this.langSelectorTop = ((event.clientY - this.dragStartY) / window.innerHeight) * 100;
+            // Throttle mousemove handler using requestAnimationFrame to improve performance
+            if (this.dragMoveRafId === null) {
+                this.dragMoveRafId = requestAnimationFrame(() => {
+                    this.dragMoveRafId = null;
+                    if (this.isDragging) {
+                        this.langSelectorRight = ((window.innerWidth - (event.clientX - this.dragStartX)) / window.innerWidth) * 100;
+                        this.langSelectorTop = ((event.clientY - this.dragStartY) / window.innerHeight) * 100;
+                    }
+                });
+            }
         }
     }
 
     @HostListener('document:mouseup', ['$event'])
     onDocumentMouseUp(event: MouseEvent): void {
         this.isDragging = false;
+        // Clean up RAF if dragging stops
+        if (this.dragMoveRafId !== null) {
+            cancelAnimationFrame(this.dragMoveRafId);
+            this.dragMoveRafId = null;
+        }
     }
 
     // Check if file is an image

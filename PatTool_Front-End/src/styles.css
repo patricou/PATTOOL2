@@ -49,10 +49,156 @@ img, video, canvas {
     border-radius: 8px !important;
 }
 
-/* Prevent body scroll when photos selector modal is open */
-::ng-deep body:has(.fs-selector-modal),
-::ng-deep body.modal-open:has(.fs-selector-modal) {
+/* Prevent body scroll when photos selector modal is open - Very high specificity to override slideshow rules */
+/* Using [class*=""] to increase specificity and ensure these rules override slideshow CSS */
+body[class*=""]:has(.fs-selector-modal),
+body.modal-open[class*=""]:has(.fs-selector-modal),
+html[class*=""]:has(.fs-selector-modal),
+html.modal-open[class*=""]:has(.fs-selector-modal) {
     overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+/* Prevent body scroll when files management modal is open */
+body[class*=""]:has(.files-management-modal),
+body.modal-open[class*=""]:has(.files-management-modal),
+html[class*=""]:has(.files-management-modal),
+html.modal-open[class*=""]:has(.files-management-modal) {
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+/* Prevent body scroll when discussion modal is open */
+body[class*=""]:has(.discussion-modal-window),
+body.modal-open[class*=""]:has(.discussion-modal-window),
+html[class*=""]:has(.discussion-modal-window),
+html.modal-open[class*=""]:has(.discussion-modal-window) {
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+/* Prevent body scroll when URLs modal is open */
+body[class*=""]:has(.urls-modal),
+body.modal-open[class*=""]:has(.urls-modal),
+html[class*=""]:has(.urls-modal),
+html.modal-open[class*=""]:has(.urls-modal) {
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+/* Prevent body scroll when comments modal is open */
+body[class*=""]:has(.comments-modal),
+body.modal-open[class*=""]:has(.comments-modal),
+html[class*=""]:has(.comments-modal),
+html.modal-open[class*=""]:has(.comments-modal) {
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+/* Prevent body scroll when videoshow modal is open */
+body[class*=""]:has(.videoshow-modal-wide),
+body.modal-open[class*=""]:has(.videoshow-modal-wide),
+body[class*=""]:has(.videoshow-header),
+body.modal-open[class*=""]:has(.videoshow-header),
+html[class*=""]:has(.videoshow-modal-wide),
+html.modal-open[class*=""]:has(.videoshow-modal-wide),
+html[class*=""]:has(.videoshow-header),
+html.modal-open[class*=""]:has(.videoshow-header) {
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+/* Prevent body scroll when trace viewer modal is open */
+body[class*=""]:has(.trace-viewer-body),
+body.modal-open[class*=""]:has(.trace-viewer-body),
+html[class*=""]:has(.trace-viewer-body),
+html.modal-open[class*=""]:has(.trace-viewer-body) {
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+/* Prevent body scroll when type modal is open */
+body[class*=""]:has(.type-modal),
+body.modal-open[class*=""]:has(.type-modal),
+html[class*=""]:has(.type-modal),
+html.modal-open[class*=""]:has(.type-modal) {
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+/* Prevent body scroll when visibility modal is open */
+body[class*=""]:has(.visibility-modal),
+body.modal-open[class*=""]:has(.visibility-modal),
+html[class*=""]:has(.visibility-modal),
+html.modal-open[class*=""]:has(.visibility-modal) {
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
+/* Type and Visibility Modals - Larger and Responsive */
+::ng-deep .type-modal .modal-dialog,
+::ng-deep .modal-dialog.type-modal,
+::ng-deep .modal.show .type-modal .modal-dialog,
+::ng-deep .modal.show .modal-dialog.type-modal,
+::ng-deep .visibility-modal .modal-dialog,
+::ng-deep .modal-dialog.visibility-modal,
+::ng-deep .modal.show .visibility-modal .modal-dialog,
+::ng-deep .modal.show .modal-dialog.visibility-modal {
+    max-width: 600px;
+    width: 90%;
+    margin: 1.75rem auto;
+}
+
+@media (min-width: 768px) {
+    ::ng-deep .type-modal .modal-dialog,
+    ::ng-deep .modal-dialog.type-modal,
+    ::ng-deep .modal.show .type-modal .modal-dialog,
+    ::ng-deep .modal.show .modal-dialog.type-modal,
+    ::ng-deep .visibility-modal .modal-dialog,
+    ::ng-deep .modal-dialog.visibility-modal,
+    ::ng-deep .modal.show .visibility-modal .modal-dialog,
+    ::ng-deep .modal.show .modal-dialog.visibility-modal {
+        max-width: 700px;
+        width: 85%;
+    }
+}
+
+@media (min-width: 992px) {
+    ::ng-deep .type-modal .modal-dialog,
+    ::ng-deep .modal-dialog.type-modal,
+    ::ng-deep .modal.show .type-modal .modal-dialog,
+    ::ng-deep .modal.show .modal-dialog.type-modal,
+    ::ng-deep .visibility-modal .modal-dialog,
+    ::ng-deep .modal-dialog.visibility-modal,
+    ::ng-deep .modal.show .visibility-modal .modal-dialog,
+    ::ng-deep .modal.show .modal-dialog.visibility-modal {
+        max-width: 800px;
+        width: 80%;
+    }
+}
+
+@media (max-width: 767px) {
+    ::ng-deep .type-modal .modal-dialog,
+    ::ng-deep .modal-dialog.type-modal,
+    ::ng-deep .modal.show .type-modal .modal-dialog,
+    ::ng-deep .modal.show .modal-dialog.type-modal,
+    ::ng-deep .visibility-modal .modal-dialog,
+    ::ng-deep .modal-dialog.visibility-modal,
+    ::ng-deep .modal.show .visibility-modal .modal-dialog,
+    ::ng-deep .modal.show .modal-dialog.visibility-modal {
+        max-width: 95%;
+        width: 95%;
+        margin: 1rem auto;
+    }
 }
 
 @media (max-width: 768px) {

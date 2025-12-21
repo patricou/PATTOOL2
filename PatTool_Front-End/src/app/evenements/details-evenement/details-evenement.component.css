@@ -120,6 +120,8 @@
   /* Dense packing: fills gaps by backtracking to fill holes */
   grid-auto-flow: dense;
   align-items: start;
+  /* Prevent overlapping cards */
+  position: relative;
 }
 
 /* ============================================
@@ -141,6 +143,9 @@
   max-height: 80vh;
   min-height: fit-content;
   overflow: hidden;
+  /* Prevent overlapping - ensure each card occupies its own grid cell */
+  position: relative;
+  z-index: 1;
 }
 
 .dynamic-card:hover {
@@ -194,7 +199,17 @@
 /* On mobile, stack the 4 cards vertically */
 @media (max-width: 768px) {
   .first-row-cards-container {
-    grid-template-columns: 1fr; /* Single column on mobile */
+    grid-template-columns: 1fr !important; /* Single column on mobile */
+    gap: 0.75rem !important;
+  }
+  
+  /* Force all cards inside first-row-cards-container to be full width and stacked */
+  .first-row-cards-container > .dynamic-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    order: 0 !important;
   }
 }
 
@@ -1787,17 +1802,23 @@ select.compact-input:focus {
   .dynamic-card,
   .card-large,
   .card-medium,
-  .card-small {
+  .card-small,
+  .card-vertical,
+  .card-horizontal {
     grid-column: span 1 !important; /* Explicitly set to span only 1 column */
     grid-row: span 1 !important;
-    max-width: 100%;
-    width: 100%;
+    max-width: 100% !important;
+    width: 100% !important;
+    order: 0 !important;
   }
   
   /* Override any inline styles or other classes that might set grid-column */
   .dynamic-card[style*="grid-column"],
-  .dynamic-card[style*="order"] {
+  .dynamic-card[style*="order"],
+  .dynamic-card[ngStyle] {
     grid-column: 1 / -1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
   
   /* Override span utility classes on mobile */
@@ -1812,6 +1833,30 @@ select.compact-input:focus {
     grid-column: 1 / -1 !important;
     grid-column: span 1 !important;
     grid-row: span 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+  
+  /* Force all specific card types to be full width and stacked */
+  .description-card,
+  .visibility-card,
+  .type-card,
+  .rating-card,
+  .notes-card,
+  .discussion-card,
+  .photos-card,
+  .comments-card,
+  .urls-card,
+  .pdfs-card,
+  .tracks-card,
+  .video-card,
+  .upload-card {
+    grid-column: 1 / -1 !important;
+    grid-column: span 1 !important;
+    grid-row: span 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    order: 0 !important;
   }
   
   /* Content Layer */
@@ -2208,8 +2253,13 @@ select.compact-input:focus {
     grid-template-columns: 1fr !important;
   }
   
-  .dynamic-card {
+  .dynamic-card,
+  .card-large,
+  .card-medium,
+  .card-small {
     grid-column: span 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
 

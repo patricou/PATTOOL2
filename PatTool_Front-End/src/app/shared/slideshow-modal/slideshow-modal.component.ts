@@ -224,6 +224,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private dimensionUpdateTimer: any = null;
   private pendingDimensionUpdate: boolean = false;
   
+  // Throttling for mousemove handler to improve performance
+  private mouseMoveRafId: number | null = null;
+  private pendingMouseMove: MouseEvent | null = null;
+  private selectionChangeDetectionRafId: number | null = null;
+  private visiblePortionUpdateTimer: any = null;
+  
   // FS Photos download control
   private fsDownloadsActive: boolean = false;
   private fsActiveSubs: Subscription[] = [];
@@ -384,6 +390,25 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.dimensionUpdateTimer = null;
     }
     this.pendingDimensionUpdate = false;
+    
+    // Clean up mousemove throttling
+    if (this.mouseMoveRafId !== null) {
+      cancelAnimationFrame(this.mouseMoveRafId);
+      this.mouseMoveRafId = null;
+    }
+    this.pendingMouseMove = null;
+    
+    // Clean up selection change detection throttling
+    if (this.selectionChangeDetectionRafId !== null) {
+      cancelAnimationFrame(this.selectionChangeDetectionRafId);
+      this.selectionChangeDetectionRafId = null;
+    }
+    
+    // Clean up visible portion update timer
+    if (this.visiblePortionUpdateTimer) {
+      clearTimeout(this.visiblePortionUpdateTimer);
+      this.visiblePortionUpdateTimer = null;
+    }
     
     // Revoke all blob URLs to free memory (critical for memory cleanup)
     // Make a copy of the array to avoid issues if it's modified during iteration
@@ -2610,6 +2635,23 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.showMapView) {
       return;
     }
+    
+    // Store the event for throttled processing
+    this.pendingMouseMove = event;
+    
+    // Throttle mousemove handler using requestAnimationFrame to improve performance
+    if (this.mouseMoveRafId === null) {
+      this.mouseMoveRafId = requestAnimationFrame(() => {
+        this.mouseMoveRafId = null;
+        const evt = this.pendingMouseMove;
+        if (!evt) return;
+        this.pendingMouseMove = null;
+        this.processMouseMove(evt);
+      });
+    }
+  }
+  
+  private processMouseMove(event: MouseEvent): void {
     // Always update cursor position relative to the container (not the image)
     if (event) {
       try {
@@ -2622,12 +2664,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             const y = event.clientY - rect.top;
             this.cursorX = Math.max(0, Math.round(x));
             this.cursorY = Math.max(0, Math.round(y));
-            // Update container dimensions
-            this.containerWidth = Math.round(rect.width);
-            this.containerHeight = Math.round(rect.height);
+            // Update container dimensions (only update if changed to avoid unnecessary DOM reads)
+            const newWidth = Math.round(rect.width);
+            const newHeight = Math.round(rect.height);
+            if (this.containerWidth !== newWidth || this.containerHeight !== newHeight) {
+              this.containerWidth = newWidth;
+              this.containerHeight = newHeight;
+            }
             
-            // Update image dimensions
-            this.updateImageDimensions();
+            // Do NOT call updateImageDimensions() here - it's too expensive for mousemove
+            // It should only be called when dimensions actually change (zoom, resize, etc.)
           } else {
             // Fallback: if rect is not valid, try direct calculation
             this.cursorX = Math.round(event.clientX);
@@ -2641,8 +2687,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             if (parentRect) {
               this.cursorX = Math.max(0, Math.round(event.clientX - parentRect.left));
               this.cursorY = Math.max(0, Math.round(event.clientY - parentRect.top));
-              this.containerWidth = Math.round(parentRect.width);
-              this.containerHeight = Math.round(parentRect.height);
+              const newWidth = Math.round(parentRect.width);
+              const newHeight = Math.round(parentRect.height);
+              if (this.containerWidth !== newWidth || this.containerHeight !== newHeight) {
+                this.containerWidth = newWidth;
+                this.containerHeight = newHeight;
+              }
             }
           }
         }
@@ -2668,8 +2718,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.selectionRectWidth = Math.abs(currentX - this.selectionStartX);
         this.selectionRectHeight = Math.abs(currentY - this.selectionStartY);
         
-        // Force change detection
-        this.cdr.detectChanges();
+        // Throttle change detection using requestAnimationFrame to avoid excessive calls
+        if (this.selectionChangeDetectionRafId === null) {
+          this.selectionChangeDetectionRafId = requestAnimationFrame(() => {
+            this.selectionChangeDetectionRafId = null;
+            this.cdr.detectChanges();
+          });
+        }
       }
       return;
     }
@@ -2682,10 +2737,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.slideshowTranslateY = this.dragOrigY + dy;
     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
     this.clampSlideshowTranslation();
-    // Recalculate visible portion after dragging
-    setTimeout(() => {
+    
+    // Debounce visible portion calculation to avoid excessive calls during dragging
+    if (this.visiblePortionUpdateTimer) {
+      clearTimeout(this.visiblePortionUpdateTimer);
+    }
+    this.visiblePortionUpdateTimer = setTimeout(() => {
+      this.visiblePortionUpdateTimer = null;
       this.calculateVisibleImagePortion();
-    }, 0);
+    }, 16); // ~60fps, only recalculate every 16ms
   }
   
   public onSlideshowMouseEnter(event: MouseEvent): void {

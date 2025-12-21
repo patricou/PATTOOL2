@@ -288,18 +288,26 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         });
         
         // Sort messages by date (oldest first, newest at bottom)
-        this.messages = messages.sort((a, b) => {
+        const sortedMessages = messages.sort((a, b) => {
           const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
           const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
           return dateA - dateB; // Oldest first (ascending order)
         });
         
-        // Load images for messages that have images
-        this.loadMessageImages();
-        
-        this.scrollToBottom();
-        // IMPORTANT: Set isLoading to false after messages are loaded
-        this.isLoading = false;
+        // Use setTimeout to defer the assignment to avoid ExpressionChangedAfterItHasBeenCheckedError
+        setTimeout(() => {
+          this.messages = sortedMessages;
+          
+          // Load images for messages that have images
+          this.loadMessageImages();
+          
+          this.scrollToBottom();
+          // IMPORTANT: Set isLoading to false after messages are loaded
+          this.isLoading = false;
+          
+          // Trigger change detection
+          this.cdr.detectChanges();
+        }, 0);
       },
       error: (error) => {
         // Don't let errors break the component

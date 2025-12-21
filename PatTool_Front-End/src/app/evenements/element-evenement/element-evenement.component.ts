@@ -149,6 +149,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private fsSlideshowLoadingActive: boolean = false;
 	private fsSlideshowSubs: Subscription[] = [];
 	
+	// Scroll position preservation for component modals
+	private savedScrollPosition: number = 0;
+	private scrollRestoreFunction: (() => void) | null = null;
+	
 	// File thumbnails cache
 	private fileThumbnailsCache: Map<string, SafeUrl> = new Map();
 	private fileThumbnailsLoading: Set<string> = new Set();
@@ -549,6 +553,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
     }
 
     public onPhotosSelectionConfirmed(result: PhotosSelectionResult): void {
+        // Close the photos selector modal before opening slideshow
+        // This preserves the original scroll position in the modal component
+        if (this.photosSelectorModalComponent && (this.photosSelectorModalComponent as any).modalRef) {
+            (this.photosSelectorModalComponent as any).modalRef.close();
+        }
+        
         if (result.type === 'uploaded') {
             this.openSlideshow();
         } else if (result.type === 'web') {
@@ -575,8 +585,100 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
 		}
 		
+		// Get scroll position - prefer the original position from PhotosSelectorModalComponent if available
+		// This ensures consistency when reopening "Sélection de Photos" after slideshow
+		let savedScrollY: number;
+		const photosSelector = this.photosSelectorModalComponent as any;
+		if (photosSelector && photosSelector.originalScrollPosition && photosSelector.originalScrollPosition > 0) {
+			// Use the original position from PhotosSelectorModalComponent
+			savedScrollY = photosSelector.originalScrollPosition;
+			this.savedScrollPosition = savedScrollY;
+		} else {
+			// No PhotosSelectorModalComponent position available, use current scroll
+			savedScrollY = window.scrollY || window.pageYOffset || 
+				document.documentElement.scrollTop || 
+				document.body.scrollTop || 0;
+			this.savedScrollPosition = savedScrollY;
+		}
+		
+		// Block scroll and save position
+		if (document.body) {
+			document.body.style.overflow = 'hidden';
+			document.body.style.position = 'fixed';
+			document.body.style.top = `-${savedScrollY}px`;
+			document.body.style.width = '100%';
+		}
+		if (document.documentElement) {
+			document.documentElement.style.overflow = 'hidden';
+		}
+		
+		// Store restore function - use same logic as PhotosSelectorModalComponent for consistency
+		this.scrollRestoreFunction = () => {
+			// First unblock scroll immediately - clean all styles
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.top = '';
+				document.body.style.width = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+			
+			// Then restore scroll position ONCE after Bootstrap cleanup is complete
+			const restoreScroll = () => {
+				// Restore to saved scroll position - single smooth operation
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto' // Instant, no animation to avoid jumps
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+			
+			// Wait for Bootstrap to finish all cleanup, then restore ONCE
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					// Restore after Bootstrap cleanup is complete
+					setTimeout(restoreScroll, 300);
+				});
+			});
+		};
+		
 		// Open modal immediately with empty array
 		this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined);
+		
+		// Immediately maintain scroll position after modal opens to prevent any movement
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				// Restore scroll position in case Bootstrap tried to scroll
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto'
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+				// Ensure body position is maintained
+				if (document.body) {
+					document.body.style.top = `-${savedScrollY}px`;
+				}
+			});
+		});
 		
 		// Then list and load images dynamically
         const listSub = this._fileService.listImagesFromDisk(relativePath).subscribe({
@@ -659,6 +761,60 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			}
 		});
 		this.fsSlideshowSubs = [];
+		
+		// Check if PhotosSelectorModalComponent is still open (has modalRef)
+		// If it is, don't restore scroll as it manages scroll itself
+		const isPhotosSelectorOpen = this.photosSelectorModalComponent && 
+			(this.photosSelectorModalComponent as any).modalRef && 
+			document.querySelector('.modal.show:has(.photos-selector-header)');
+		
+		// Only restore scroll if PhotosSelectorModalComponent is not open
+		// The slideshow modal will also try to restore scroll, so we need to prevent it and use our position
+		if (!isPhotosSelectorOpen && this.scrollRestoreFunction) {
+			// Prevent slideshow modal from restoring by setting scrollRestoreAttempted flag
+			if (this.slideshowModalComponent) {
+				const slideshowComponent = this.slideshowModalComponent as any;
+				if (slideshowComponent.scrollRestoreAttempted !== undefined) {
+					slideshowComponent.scrollRestoreAttempted = true; // Prevent slideshow's restore
+				}
+				// Also set its saved position to match ours so if it does restore, it uses the right position
+				if (slideshowComponent.savedScrollPosition !== undefined) {
+					slideshowComponent.savedScrollPosition = this.savedScrollPosition;
+				}
+			}
+			
+			// Wait for Bootstrap and slideshow modal cleanup to complete, then restore
+			setTimeout(() => {
+				if (this.scrollRestoreFunction) {
+					this.scrollRestoreFunction();
+					this.scrollRestoreFunction = null;
+				}
+				// Additional restore to ensure correct position (in case slideshow modal still restored)
+				if (this.savedScrollPosition > 0) {
+					requestAnimationFrame(() => {
+						requestAnimationFrame(() => {
+							setTimeout(() => {
+								window.scrollTo({
+									top: this.savedScrollPosition,
+									left: 0,
+									behavior: 'auto'
+								});
+								if (document.documentElement) {
+									document.documentElement.scrollTop = this.savedScrollPosition;
+								}
+								if (document.body) {
+									document.body.scrollTop = this.savedScrollPosition;
+								}
+							}, 100);
+						});
+					});
+				}
+			}, 100); // Short delay to let cleanup start
+		} else if (isPhotosSelectorOpen && this.scrollRestoreFunction) {
+			// Clear the restore function but don't execute it - PhotosSelectorModalComponent will handle scroll
+			this.scrollRestoreFunction = null;
+		}
+		
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.setTraceViewerOpen(false);
 		}
@@ -667,6 +823,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public onVideoshowClosed(): void {
 		// Handle videoshow modal close if needed
 		// Similar cleanup can be added here if needed in the future
+		
+		// Restore scroll position
+		if (this.scrollRestoreFunction) {
+			this.scrollRestoreFunction();
+			this.scrollRestoreFunction = null;
+		}
 	}
 
 	public onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
@@ -705,13 +867,74 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 
 		if (this.traceViewerModalComponent) {
+			// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+			// CSS will handle blocking scroll via styles.css rule
+			const savedScrollY = window.scrollY || window.pageYOffset || 
+				document.documentElement.scrollTop || 
+				document.body.scrollTop || 0;
+			this.savedScrollPosition = savedScrollY;
+			
 			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, finalEventColor);
+			
+			// Immediately maintain scroll position after modal opens to prevent any movement
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					// Restore scroll position in case Bootstrap tried to scroll
+					window.scrollTo(0, savedScrollY);
+					document.documentElement.scrollTop = savedScrollY;
+					document.body.scrollTop = savedScrollY;
+				});
+			});
+			
+			// Store restore function
+			this.scrollRestoreFunction = () => {
+				// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+				if (document.body) {
+					document.body.style.overflow = '';
+					document.body.style.overflowX = '';
+					document.body.style.overflowY = '';
+					document.body.style.position = '';
+					document.body.style.height = '';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = '';
+					document.documentElement.style.overflowX = '';
+					document.documentElement.style.overflowY = '';
+				}
+				
+				// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+				const restoreScroll = () => {
+					window.scrollTo({
+						top: savedScrollY,
+						left: 0,
+						behavior: 'auto'
+					});
+					if (document.documentElement) {
+						document.documentElement.scrollTop = savedScrollY;
+					}
+					if (document.body) {
+						document.body.scrollTop = savedScrollY;
+					}
+				};
+				
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						setTimeout(restoreScroll, 300);
+					});
+				});
+			};
 		}
 	}
 
 	public onTraceViewerClosed(): void {
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.setTraceViewerOpen(false);
+		}
+		
+		// Restore scroll position
+		if (this.scrollRestoreFunction) {
+			this.scrollRestoreFunction();
+			this.scrollRestoreFunction = null;
 		}
 	}
 
@@ -1216,12 +1439,50 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Open upload logs modal
 		if (this.uploadLogsModal) {
+			const savedScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+			
+			// Block body scroll
+			if (document.body) {
+				document.body.style.overflow = 'hidden';
+				document.body.style.position = 'fixed';
+				document.body.style.top = `-${savedScrollY}px`;
+				document.body.style.width = '100%';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = 'hidden';
+			}
+			
 			this.uploadLogsModalRef = this.modalService.open(this.uploadLogsModal, {
 				centered: true,
 				backdrop: 'static',
 				keyboard: false,
 				size: 'xl',
 				windowClass: 'upload-logs-modal'
+			});
+			
+			// Restore scroll when modal closes
+			this.uploadLogsModalRef.result.finally(() => {
+				if (document.body) {
+					document.body.style.overflow = '';
+					document.body.style.position = '';
+					document.body.style.top = '';
+					document.body.style.width = '';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = '';
+				}
+				window.scrollTo(0, savedScrollY);
+			}).catch(() => {
+				if (document.body) {
+					document.body.style.overflow = '';
+					document.body.style.position = '';
+					document.body.style.top = '';
+					document.body.style.width = '';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = '';
+				}
+				window.scrollTo(0, savedScrollY);
 			});
 			// Force change detection after modal opens to ensure ViewChild is initialized
 			setTimeout(() => {
@@ -1476,11 +1737,49 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.videoCountForModal = videoCount; // Store for template
 			
 			if (this.qualitySelectionModal) {
+				const savedScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+				
+				// Block body scroll
+				if (document.body) {
+					document.body.style.overflow = 'hidden';
+					document.body.style.position = 'fixed';
+					document.body.style.top = `-${savedScrollY}px`;
+					document.body.style.width = '100%';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = 'hidden';
+				}
+				
 				this.qualityModalRef = this.modalService.open(this.qualitySelectionModal, {
 					centered: true,
 					backdrop: 'static',
 					keyboard: false,
 					size: 'md'
+				});
+				
+				// Restore scroll when modal closes
+				this.qualityModalRef.result.finally(() => {
+					if (document.body) {
+						document.body.style.overflow = '';
+						document.body.style.position = '';
+						document.body.style.top = '';
+						document.body.style.width = '';
+					}
+					if (document.documentElement) {
+						document.documentElement.style.overflow = '';
+					}
+					window.scrollTo(0, savedScrollY);
+				}).catch(() => {
+					if (document.body) {
+						document.body.style.overflow = '';
+						document.body.style.position = '';
+						document.body.style.top = '';
+						document.body.style.width = '';
+					}
+					if (document.documentElement) {
+						document.documentElement.style.overflow = '';
+					}
+					window.scrollTo(0, savedScrollY);
 				});
 
 				// Handle result
@@ -3098,10 +3397,192 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}).length;
 	}
 
+	// Helper method to block scroll and preserve position when opening modals
+	private openModalWithScrollPreservation(content: any, options: any = {}) {
+		// Save current scroll position
+		const savedScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+		
+		// Block body scroll to prevent page from scrolling
+		if (document.body) {
+			document.body.style.overflow = 'hidden';
+			document.body.style.position = 'fixed';
+			document.body.style.top = `-${savedScrollY}px`;
+			document.body.style.width = '100%';
+		}
+		if (document.documentElement) {
+			document.documentElement.style.overflow = 'hidden';
+		}
+		
+		// Open the modal
+		const modalRef = this.modalService.open(content, options);
+		
+		// Restore scroll when modal closes
+		modalRef.result.finally(() => {
+			// Restore body styles
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.position = '';
+				document.body.style.top = '';
+				document.body.style.width = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+			}
+			
+			// Restore scroll position
+			window.scrollTo(0, savedScrollY);
+			document.documentElement.scrollTop = savedScrollY;
+		}).catch(() => {
+			// Also restore on dismissal
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.position = '';
+				document.body.style.top = '';
+				document.body.style.width = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+			}
+			window.scrollTo(0, savedScrollY);
+			document.documentElement.scrollTop = savedScrollY;
+		});
+		
+		return modalRef;
+	}
+	
+	// Helper method to block scroll for component modals (slideshow, videoshow, traceviewer)
+	private blockScrollForComponentModal(): () => void {
+		// Save current scroll position
+		const savedScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+		
+		// Block body scroll to prevent page from scrolling
+		if (document.body) {
+			document.body.style.overflow = 'hidden';
+			document.body.style.position = 'fixed';
+			document.body.style.top = `-${savedScrollY}px`;
+			document.body.style.width = '100%';
+		}
+		if (document.documentElement) {
+			document.documentElement.style.overflow = 'hidden';
+		}
+		
+		// Return cleanup function
+		return () => {
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.position = '';
+				document.body.style.top = '';
+				document.body.style.width = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+			}
+			window.scrollTo(0, savedScrollY);
+			document.documentElement.scrollTop = savedScrollY;
+		};
+	}
+
 	// open URLs modal
 	public openUrlsModal(content: any) {
 		this.forceCloseTooltips();
-		this.modalService.open(content, { size: 'lg', centered: true, backdrop: 'static', keyboard: false });
+		
+		// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+		// Don't modify DOM - let Bootstrap handle modal normally
+		// CSS will handle blocking scroll via styles.css rule
+		const savedScrollY = window.scrollY || window.pageYOffset || 
+			document.documentElement.scrollTop || 
+			document.body.scrollTop || 0;
+		
+		// Open the modal - CSS will block scroll automatically
+		const modalRef = this.modalService.open(content, { 
+			size: 'lg', 
+			centered: true, 
+			backdrop: 'static', 
+			keyboard: false,
+			windowClass: 'urls-modal'
+		});
+		
+		// Immediately maintain scroll position after modal opens to prevent any movement
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				// Restore scroll position in case Bootstrap tried to scroll
+				window.scrollTo(0, savedScrollY);
+				document.documentElement.scrollTop = savedScrollY;
+				document.body.scrollTop = savedScrollY;
+			});
+		});
+		
+		// Restore scroll when modal closes (exactly like PhotosSelectorModalComponent)
+		modalRef.result.finally(() => {
+			// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+			
+			// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+			const restoreScroll = () => {
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto'
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+			
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					setTimeout(restoreScroll, 300);
+				});
+			});
+		}).catch(() => {
+			// Also restore on dismissal
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+			
+			const restoreScroll = () => {
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto'
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+			
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					setTimeout(restoreScroll, 300);
+				});
+			});
+		});
 	}
 
 	// open Discussion modal
@@ -3163,7 +3644,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					});
 				}
 				
-				// Open the modal with the discussion
+				// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+				// CSS will handle blocking scroll via styles.css rule
+				const savedScrollY = window.scrollY || window.pageYOffset || 
+					document.documentElement.scrollTop || 
+					document.body.scrollTop || 0;
+				
+				// Open the modal - CSS will block scroll automatically
 				const modalRef = this.modalService.open(DiscussionModalComponent, { 
 					size: 'lg', 
 					centered: true, 
@@ -3172,11 +3659,99 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					windowClass: 'discussion-modal-window'
 				});
 				
+				// Immediately maintain scroll position after modal opens to prevent any movement
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						// Restore scroll position in case Bootstrap tried to scroll
+						window.scrollTo(0, savedScrollY);
+						document.documentElement.scrollTop = savedScrollY;
+						document.body.scrollTop = savedScrollY;
+					});
+				});
+				
+				// Restore scroll when modal closes (exactly like PhotosSelectorModalComponent)
+				modalRef.result.finally(() => {
+					// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+					if (document.body) {
+						document.body.style.overflow = '';
+						document.body.style.overflowX = '';
+						document.body.style.overflowY = '';
+						document.body.style.position = '';
+						document.body.style.height = '';
+					}
+					if (document.documentElement) {
+						document.documentElement.style.overflow = '';
+						document.documentElement.style.overflowX = '';
+						document.documentElement.style.overflowY = '';
+					}
+					
+					// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+					const restoreScroll = () => {
+						window.scrollTo({
+							top: savedScrollY,
+							left: 0,
+							behavior: 'auto'
+						});
+						if (document.documentElement) {
+							document.documentElement.scrollTop = savedScrollY;
+						}
+						if (document.body) {
+							document.body.scrollTop = savedScrollY;
+						}
+					};
+					
+					requestAnimationFrame(() => {
+						requestAnimationFrame(() => {
+							setTimeout(restoreScroll, 300);
+						});
+					});
+				}).catch(() => {
+					// Also restore on dismissal
+					if (document.body) {
+						document.body.style.overflow = '';
+						document.body.style.overflowX = '';
+						document.body.style.overflowY = '';
+						document.body.style.position = '';
+						document.body.style.height = '';
+					}
+					if (document.documentElement) {
+						document.documentElement.style.overflow = '';
+						document.documentElement.style.overflowX = '';
+						document.documentElement.style.overflowY = '';
+					}
+					
+					const restoreScroll = () => {
+						window.scrollTo({
+							top: savedScrollY,
+							left: 0,
+							behavior: 'auto'
+						});
+						if (document.documentElement) {
+							document.documentElement.scrollTop = savedScrollY;
+						}
+						if (document.body) {
+							document.body.scrollTop = savedScrollY;
+						}
+					};
+					
+					requestAnimationFrame(() => {
+						requestAnimationFrame(() => {
+							setTimeout(restoreScroll, 300);
+						});
+					});
+				});
+				
 				modalRef.componentInstance.discussionId = discussion.id || null;
 				modalRef.componentInstance.title = discussionTitle;
 			},
 			error: (error) => {
 				console.error('Error getting or creating discussion:', error);
+				// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+				// CSS will handle blocking scroll via styles.css rule
+				const savedScrollY = window.scrollY || window.pageYOffset || 
+					document.documentElement.scrollTop || 
+					document.body.scrollTop || 0;
+				
 				// Still open modal with null discussionId (will load default)
 				const modalRef = this.modalService.open(DiscussionModalComponent, { 
 					size: 'lg', 
@@ -3184,6 +3759,88 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					backdrop: 'static', 
 					keyboard: true,
 					windowClass: 'discussion-modal-window'
+				});
+				
+				// Immediately maintain scroll position after modal opens to prevent any movement
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						// Restore scroll position in case Bootstrap tried to scroll
+						window.scrollTo(0, savedScrollY);
+						document.documentElement.scrollTop = savedScrollY;
+						document.body.scrollTop = savedScrollY;
+					});
+				});
+				
+				// Restore scroll when modal closes (exactly like PhotosSelectorModalComponent)
+				modalRef.result.finally(() => {
+					// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+					if (document.body) {
+						document.body.style.overflow = '';
+						document.body.style.overflowX = '';
+						document.body.style.overflowY = '';
+						document.body.style.position = '';
+						document.body.style.height = '';
+					}
+					if (document.documentElement) {
+						document.documentElement.style.overflow = '';
+						document.documentElement.style.overflowX = '';
+						document.documentElement.style.overflowY = '';
+					}
+					
+					// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+					const restoreScroll = () => {
+						window.scrollTo({
+							top: savedScrollY,
+							left: 0,
+							behavior: 'auto'
+						});
+						if (document.documentElement) {
+							document.documentElement.scrollTop = savedScrollY;
+						}
+						if (document.body) {
+							document.body.scrollTop = savedScrollY;
+						}
+					};
+					
+					requestAnimationFrame(() => {
+						requestAnimationFrame(() => {
+							setTimeout(restoreScroll, 300);
+						});
+					});
+				}).catch(() => {
+					// Also restore on dismissal
+					if (document.body) {
+						document.body.style.overflow = '';
+						document.body.style.overflowX = '';
+						document.body.style.overflowY = '';
+						document.body.style.position = '';
+						document.body.style.height = '';
+					}
+					if (document.documentElement) {
+						document.documentElement.style.overflow = '';
+						document.documentElement.style.overflowX = '';
+						document.documentElement.style.overflowY = '';
+					}
+					
+					const restoreScroll = () => {
+						window.scrollTo({
+							top: savedScrollY,
+							left: 0,
+							behavior: 'auto'
+						});
+						if (document.documentElement) {
+							document.documentElement.scrollTop = savedScrollY;
+						}
+						if (document.body) {
+							document.body.scrollTop = savedScrollY;
+						}
+					};
+					
+					requestAnimationFrame(() => {
+						requestAnimationFrame(() => {
+							setTimeout(restoreScroll, 300);
+						});
+					});
 				});
 				modalRef.componentInstance.discussionId = null;
 				modalRef.componentInstance.title = discussionTitle;
@@ -3295,13 +3952,108 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.fileStreamSubscription = null;
 		}
 		
-		// Open the modal FIRST - before doing anything else
+		// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+		// Don't modify DOM - let Bootstrap handle modal normally
+		// CSS will handle blocking scroll via styles.css rule for .files-management-modal
+		const savedScrollY = window.scrollY || window.pageYOffset || 
+			document.documentElement.scrollTop || 
+			document.body.scrollTop || 0;
+		
+		// Open the modal - CSS will block scroll automatically (like PhotosSelectorModalComponent)
 		const modalRef = this.modalService.open(content, { 
 			size: 'xl', 
 			centered: true, 
 			backdrop: 'static', 
 			keyboard: false,
 			windowClass: 'files-management-modal'
+		});
+		
+		// Immediately maintain scroll position after modal opens to prevent any movement
+		// This ensures home-evenement doesn't move when modal opens
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				// Restore scroll position in case Bootstrap tried to scroll
+				window.scrollTo(0, savedScrollY);
+				document.documentElement.scrollTop = savedScrollY;
+				document.body.scrollTop = savedScrollY;
+			});
+		});
+		
+		// Restore scroll when modal closes (exactly like PhotosSelectorModalComponent)
+		modalRef.result.finally(() => {
+			// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+			
+			// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+			const restoreScroll = () => {
+				// Restore to saved scroll position - single smooth operation
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto' // Instant, no animation to avoid jumps
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+			
+			// Wait for Bootstrap to finish all cleanup, then restore ONCE
+			// Use requestAnimationFrame to ensure DOM is ready, then restore
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					// Restore after Bootstrap cleanup is complete
+					setTimeout(restoreScroll, 300);
+				});
+			});
+		}).catch(() => {
+			// Also restore on dismissal
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+			
+			// Then restore scroll position ONCE after a delay
+			const restoreScroll = () => {
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto'
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+			
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					setTimeout(restoreScroll, 300);
+				});
+			});
 		});
 		
 		// Clean up subscription when modal is closed
@@ -3316,7 +4068,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Always reload files from the database to ensure we have the latest data
 		// This fixes the issue where new files added after the event was loaded don't appear
-		this.isLoadingFiles = true;
+		// Use setTimeout to defer the change to avoid ExpressionChangedAfterItHasBeenCheckedError
+		setTimeout(() => {
+			this.isLoadingFiles = true;
+			this.cdr.markForCheck();
+		}, 0);
 		
 		// Wait for modal to be fully rendered before initializing array and starting file load
 		setTimeout(() => {
@@ -3347,7 +4103,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						const totalCount = streamedFile.data as number;
 						// If total is 0, hide loading immediately
 						if (totalCount === 0) {
-							this.isLoadingFiles = false;
+							setTimeout(() => {
+								this.isLoadingFiles = false;
+								this.cdr.markForCheck();
+							}, 0);
 						}
 					} else if (streamedFile.type === 'file') {
 						// File received from database - display it immediately
@@ -3379,7 +4138,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						}
 					} else if (streamedFile.type === 'complete') {
 						// All files have been streamed
-						this.isLoadingFiles = false;
+						setTimeout(() => {
+							this.isLoadingFiles = false;
+							this.cdr.markForCheck();
+						}, 0);
 						console.log(`Completed streaming ${this.evenement.fileUploadeds.length} files for event ${this.evenement.id}`);
 						// Auto-expand types with less than 4 elements
 						setTimeout(() => {
@@ -3388,7 +4150,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					} else if (streamedFile.type === 'error') {
 						// Error received from server
 						console.error('Error from server:', streamedFile.data);
-						this.isLoadingFiles = false;
+						setTimeout(() => {
+							this.isLoadingFiles = false;
+							this.cdr.markForCheck();
+						}, 0);
 					}
 				},
 				error: (error) => {
@@ -3398,12 +4163,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						console.log('Streaming failed, trying fallback endpoint...');
 						this.loadFilesFallback();
 					} else {
-						this.isLoadingFiles = false;
+						setTimeout(() => {
+							this.isLoadingFiles = false;
+							this.cdr.markForCheck();
+						}, 0);
 					}
 				},
 				complete: () => {
 					// Stream completed - ensure loading is hidden
-					this.isLoadingFiles = false;
+					setTimeout(() => {
+						this.isLoadingFiles = false;
+						this.cdr.markForCheck();
+					}, 0);
 					// Auto-expand types with less than 4 elements
 					setTimeout(() => {
 						this.autoExpandFileTypesWithLessThanFour();
@@ -3416,7 +4187,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Fallback method to load files using non-streaming endpoint
 	private loadFilesFallback(): void {
 		if (!this._evenementsService || !this.evenement || !this.evenement.id) {
-			this.isLoadingFiles = false;
+			setTimeout(() => {
+				this.isLoadingFiles = false;
+				this.cdr.markForCheck();
+			}, 0);
 			return;
 		}
 		
@@ -3442,7 +4216,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					}, 0);
 					
 					console.log(`Loaded ${files.length} files via fallback endpoint for event ${this.evenement.id}`);
-					this.isLoadingFiles = false;
+					setTimeout(() => {
+						this.isLoadingFiles = false;
+						this.cdr.markForCheck();
+					}, 0);
 					
 					// Auto-expand types with less than 4 elements
 					setTimeout(() => {
@@ -3450,12 +4227,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					}, 100);
 				} else {
 					console.log(`No files found for event ${this.evenement.id} via fallback endpoint`);
-					this.isLoadingFiles = false;
+					setTimeout(() => {
+						this.isLoadingFiles = false;
+						this.cdr.markForCheck();
+					}, 0);
 				}
 			},
 			error: (error) => {
 				console.error('Error loading files via fallback endpoint:', error);
-				this.isLoadingFiles = false;
+				setTimeout(() => {
+					this.isLoadingFiles = false;
+					this.cdr.markForCheck();
+				}, 0);
 			}
 		});
 	}
@@ -3634,7 +4417,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 	public open(content: any) {
 		this.forceCloseTooltips();
-		this.modalService.open(content, { size: 'lg', centered: true, backdrop: 'static', keyboard: false });
+		this.openModalWithScrollPreservation(content, { size: 'lg', centered: true, backdrop: 'static', keyboard: false });
 	}
 
 	// Open photo in new tab
@@ -3663,7 +4446,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.forceCloseTooltips();
 		
 		if (this.jsonModal) {
-			this.modalService.open(this.jsonModal, { size: 'lg', backdrop: 'static', keyboard: false });
+			this.openModalWithScrollPreservation(this.jsonModal, { size: 'lg', backdrop: 'static', keyboard: false });
 		} else {
 			console.error('JSON modal template not found');
 		}
@@ -4503,7 +5286,62 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.forceCloseTooltips();
 
 		if (this.traceViewerModalComponent) {
+			// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+			// CSS will handle blocking scroll via styles.css rule
+			const savedScrollY = window.scrollY || window.pageYOffset || 
+				document.documentElement.scrollTop || 
+				document.body.scrollTop || 0;
+			this.savedScrollPosition = savedScrollY;
+			
 			this.traceViewerModalComponent.openFromFile(uploadedFile.fieldId, uploadedFile.fileName);
+			
+			// Immediately maintain scroll position after modal opens to prevent any movement
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					// Restore scroll position in case Bootstrap tried to scroll
+					window.scrollTo(0, savedScrollY);
+					document.documentElement.scrollTop = savedScrollY;
+					document.body.scrollTop = savedScrollY;
+				});
+			});
+			
+			// Store restore function
+			this.scrollRestoreFunction = () => {
+				// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+				if (document.body) {
+					document.body.style.overflow = '';
+					document.body.style.overflowX = '';
+					document.body.style.overflowY = '';
+					document.body.style.position = '';
+					document.body.style.height = '';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = '';
+					document.documentElement.style.overflowX = '';
+					document.documentElement.style.overflowY = '';
+				}
+				
+				// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+				const restoreScroll = () => {
+					window.scrollTo({
+						top: savedScrollY,
+						left: 0,
+						behavior: 'auto'
+					});
+					if (document.documentElement) {
+						document.documentElement.scrollTop = savedScrollY;
+					}
+					if (document.body) {
+						document.body.scrollTop = savedScrollY;
+					}
+				};
+				
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						setTimeout(restoreScroll, 300);
+					});
+				});
+			};
 		} else {
 			console.warn('Track viewer modal component is not available');
 		}
@@ -4772,16 +5610,104 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	public openCommentsModal(): void {
 		this.forceCloseTooltips();
-		this.modalService.open(this.commentsModal, { 
+		
+		// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+		// Don't modify DOM - let Bootstrap handle modal normally
+		// CSS will handle blocking scroll via styles.css rule
+		const savedScrollY = window.scrollY || window.pageYOffset || 
+			document.documentElement.scrollTop || 
+			document.body.scrollTop || 0;
+		
+		// Open the modal - CSS will block scroll automatically
+		const modalRef = this.modalService.open(this.commentsModal, { 
 			size: 'lg',
 			backdrop: 'static',
 			keyboard: false,
 			animation: true,
-			centered: true
-		}).result.then((result) => {
-			// Modal closed
-		}, (reason) => {
-			// Modal dismissed
+			centered: true,
+			windowClass: 'comments-modal'
+		});
+		
+		// Immediately maintain scroll position after modal opens to prevent any movement
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				// Restore scroll position in case Bootstrap tried to scroll
+				window.scrollTo(0, savedScrollY);
+				document.documentElement.scrollTop = savedScrollY;
+				document.body.scrollTop = savedScrollY;
+			});
+		});
+		
+		// Restore scroll when modal closes (exactly like PhotosSelectorModalComponent)
+		modalRef.result.finally(() => {
+			// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+			
+			// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+			const restoreScroll = () => {
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto'
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+			
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					setTimeout(restoreScroll, 300);
+				});
+			});
+		}).catch(() => {
+			// Also restore on dismissal
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+			
+			const restoreScroll = () => {
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto'
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+			
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					setTimeout(restoreScroll, 300);
+				});
+			});
 		});
 	}
 
@@ -4865,12 +5791,50 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Open the modal
 		if (this.loadingStatsModal) {
-			this.modalService.open(this.loadingStatsModal, {
+			const savedScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+			
+			// Block body scroll
+			if (document.body) {
+				document.body.style.overflow = 'hidden';
+				document.body.style.position = 'fixed';
+				document.body.style.top = `-${savedScrollY}px`;
+				document.body.style.width = '100%';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = 'hidden';
+			}
+			
+			const modalRef = this.modalService.open(this.loadingStatsModal, {
 				size: 'lg',
 				centered: true,
 				backdrop: 'static',
 				keyboard: false,
 				animation: true
+			});
+			
+			// Restore scroll when modal closes
+			modalRef.result.finally(() => {
+				if (document.body) {
+					document.body.style.overflow = '';
+					document.body.style.position = '';
+					document.body.style.top = '';
+					document.body.style.width = '';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = '';
+				}
+				window.scrollTo(0, savedScrollY);
+			}).catch(() => {
+				if (document.body) {
+					document.body.style.overflow = '';
+					document.body.style.position = '';
+					document.body.style.top = '';
+					document.body.style.width = '';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = '';
+				}
+				window.scrollTo(0, savedScrollY);
 			});
 		}
 	}
@@ -4955,12 +5919,50 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return;
 		}
 
-		this.modalService.open(this.userModal, {
+		const savedScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+		
+		// Block body scroll
+		if (document.body) {
+			document.body.style.overflow = 'hidden';
+			document.body.style.position = 'fixed';
+			document.body.style.top = `-${savedScrollY}px`;
+			document.body.style.width = '100%';
+		}
+		if (document.documentElement) {
+			document.documentElement.style.overflow = 'hidden';
+		}
+		
+		const modalRef = this.modalService.open(this.userModal, {
 			size: 'md',
 			centered: true,
 			backdrop: 'static',
 			keyboard: false,
 			animation: true
+		});
+		
+		// Restore scroll when modal closes
+		modalRef.result.finally(() => {
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.position = '';
+				document.body.style.top = '';
+				document.body.style.width = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+			}
+			window.scrollTo(0, savedScrollY);
+		}).catch(() => {
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.position = '';
+				document.body.style.top = '';
+				document.body.style.width = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+			}
+			window.scrollTo(0, savedScrollY);
 		});
 	}
 
@@ -5024,9 +6026,101 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
 		}
 
+		// Get scroll position - prefer the original position from PhotosSelectorModalComponent if available
+		// This ensures consistency when reopening "Sélection de Photos" after slideshow
+		let savedScrollY: number;
+		const photosSelector = this.photosSelectorModalComponent as any;
+		if (photosSelector && photosSelector.originalScrollPosition && photosSelector.originalScrollPosition > 0) {
+			// Use the original position from PhotosSelectorModalComponent
+			savedScrollY = photosSelector.originalScrollPosition;
+			this.savedScrollPosition = savedScrollY;
+		} else {
+			// No PhotosSelectorModalComponent position available, use current scroll
+			savedScrollY = window.scrollY || window.pageYOffset || 
+				document.documentElement.scrollTop || 
+				document.body.scrollTop || 0;
+			this.savedScrollPosition = savedScrollY;
+		}
+		
+		// Block scroll and save position
+		if (document.body) {
+			document.body.style.overflow = 'hidden';
+			document.body.style.position = 'fixed';
+			document.body.style.top = `-${savedScrollY}px`;
+			document.body.style.width = '100%';
+		}
+		if (document.documentElement) {
+			document.documentElement.style.overflow = 'hidden';
+		}
+		
+		// Store restore function - use same logic as PhotosSelectorModalComponent for consistency
+		this.scrollRestoreFunction = () => {
+			// First unblock scroll immediately - clean all styles
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.top = '';
+				document.body.style.width = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+			
+			// Then restore scroll position ONCE after Bootstrap cleanup is complete
+			const restoreScroll = () => {
+				// Restore to saved scroll position - single smooth operation
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto' // Instant, no animation to avoid jumps
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+			
+			// Wait for Bootstrap to finish all cleanup, then restore ONCE
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					// Restore after Bootstrap cleanup is complete
+					setTimeout(restoreScroll, 300);
+				});
+			});
+		};
+		
 		// Open the slideshow modal immediately - images will be loaded dynamically
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined);
+			
+			// Immediately maintain scroll position after modal opens to prevent any movement
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					// Restore scroll position in case Bootstrap tried to scroll
+					window.scrollTo({
+						top: savedScrollY,
+						left: 0,
+						behavior: 'auto'
+					});
+					if (document.documentElement) {
+						document.documentElement.scrollTop = savedScrollY;
+					}
+					if (document.body) {
+						document.body.scrollTop = savedScrollY;
+					}
+					// Ensure body position is maintained
+					if (document.body) {
+						document.body.style.top = `-${savedScrollY}px`;
+					}
+				});
+			});
 		} else {
 		}
 	}
@@ -5048,6 +6142,34 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
 		}
 
+		// Block scroll and save position
+		const savedScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
+		this.savedScrollPosition = savedScrollY;
+		
+		if (document.body) {
+			document.body.style.overflow = 'hidden';
+			document.body.style.position = 'fixed';
+			document.body.style.top = `-${savedScrollY}px`;
+			document.body.style.width = '100%';
+		}
+		if (document.documentElement) {
+			document.documentElement.style.overflow = 'hidden';
+		}
+		
+		// Store restore function
+		this.scrollRestoreFunction = () => {
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.position = '';
+				document.body.style.top = '';
+				document.body.style.width = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+			}
+			window.scrollTo(0, savedScrollY);
+		};
+		
 		// Open the slideshow modal with just this one image
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined);
@@ -5074,10 +6196,65 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			fileName: file.fileName
 		}));
 
+		// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+		// CSS will handle blocking scroll via styles.css rule
+		const savedScrollY = window.scrollY || window.pageYOffset || 
+			document.documentElement.scrollTop || 
+			document.body.scrollTop || 0;
+		this.savedScrollPosition = savedScrollY;
+		
 		// Open the videoshow modal immediately - videos will be loaded dynamically
 		if (this.videoshowModalComponent) {
 			this.videoshowModalComponent.open(videoSources, this.evenement.evenementName, true);
+			
+			// Immediately maintain scroll position after modal opens to prevent any movement
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					// Restore scroll position in case Bootstrap tried to scroll
+					window.scrollTo(0, savedScrollY);
+					document.documentElement.scrollTop = savedScrollY;
+					document.body.scrollTop = savedScrollY;
+				});
+			});
 		}
+		
+		// Store restore function
+		this.scrollRestoreFunction = () => {
+			// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+			
+			// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+			const restoreScroll = () => {
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto'
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+			
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					setTimeout(restoreScroll, 300);
+				});
+			});
+		};
 	}
 
 	// Open a single video in videoshow modal
@@ -5091,10 +6268,65 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			fileName: fileName
 		};
 
+		// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+		// CSS will handle blocking scroll via styles.css rule
+		const savedScrollY = window.scrollY || window.pageYOffset || 
+			document.documentElement.scrollTop || 
+			document.body.scrollTop || 0;
+		this.savedScrollPosition = savedScrollY;
+		
 		// Open the videoshow modal with just this one video
 		if (this.videoshowModalComponent) {
 			this.videoshowModalComponent.open([videoSource], this.evenement.evenementName, true);
+			
+			// Immediately maintain scroll position after modal opens to prevent any movement
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					// Restore scroll position in case Bootstrap tried to scroll
+					window.scrollTo(0, savedScrollY);
+					document.documentElement.scrollTop = savedScrollY;
+					document.body.scrollTop = savedScrollY;
+				});
+			});
 		}
+		
+		// Store restore function
+		this.scrollRestoreFunction = () => {
+			// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+			if (document.body) {
+				document.body.style.overflow = '';
+				document.body.style.overflowX = '';
+				document.body.style.overflowY = '';
+				document.body.style.position = '';
+				document.body.style.height = '';
+			}
+			if (document.documentElement) {
+				document.documentElement.style.overflow = '';
+				document.documentElement.style.overflowX = '';
+				document.documentElement.style.overflowY = '';
+			}
+			
+			// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+			const restoreScroll = () => {
+				window.scrollTo({
+					top: savedScrollY,
+					left: 0,
+					behavior: 'auto'
+				});
+				if (document.documentElement) {
+					document.documentElement.scrollTop = savedScrollY;
+				}
+				if (document.body) {
+					document.body.scrollTop = savedScrollY;
+				}
+			};
+			
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					setTimeout(restoreScroll, 300);
+				});
+			});
+		};
 	}
 
 	// Start automatic slideshow
@@ -5645,11 +6877,102 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				return;
 			}
 			
-			this.modalService.open(this.visibilityModal, { 
-				size: 'sm', 
+			// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+			// Don't modify DOM - let Bootstrap handle modal normally
+			// CSS will handle blocking scroll via styles.css rule
+			const savedScrollY = window.scrollY || window.pageYOffset || 
+				document.documentElement.scrollTop || 
+				document.body.scrollTop || 0;
+			
+			// Open the modal - CSS will block scroll automatically
+			const modalRef = this.modalService.open(this.visibilityModal, { 
+				size: 'md', 
 				centered: true, 
 				backdrop: 'static', 
-				keyboard: false 
+				keyboard: false,
+				windowClass: 'visibility-modal'
+			});
+			
+			// Immediately maintain scroll position after modal opens to prevent any movement
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					// Restore scroll position in case Bootstrap tried to scroll
+					window.scrollTo(0, savedScrollY);
+					document.documentElement.scrollTop = savedScrollY;
+					document.body.scrollTop = savedScrollY;
+				});
+			});
+			
+			// Restore scroll when modal closes (exactly like PhotosSelectorModalComponent)
+			modalRef.result.finally(() => {
+				// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+				if (document.body) {
+					document.body.style.overflow = '';
+					document.body.style.overflowX = '';
+					document.body.style.overflowY = '';
+					document.body.style.position = '';
+					document.body.style.height = '';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = '';
+					document.documentElement.style.overflowX = '';
+					document.documentElement.style.overflowY = '';
+				}
+				
+				// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+				const restoreScroll = () => {
+					window.scrollTo({
+						top: savedScrollY,
+						left: 0,
+						behavior: 'auto'
+					});
+					if (document.documentElement) {
+						document.documentElement.scrollTop = savedScrollY;
+					}
+					if (document.body) {
+						document.body.scrollTop = savedScrollY;
+					}
+				};
+				
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						setTimeout(restoreScroll, 300);
+					});
+				});
+			}).catch(() => {
+				// Also restore on dismissal
+				if (document.body) {
+					document.body.style.overflow = '';
+					document.body.style.overflowX = '';
+					document.body.style.overflowY = '';
+					document.body.style.position = '';
+					document.body.style.height = '';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = '';
+					document.documentElement.style.overflowX = '';
+					document.documentElement.style.overflowY = '';
+				}
+				
+				const restoreScroll = () => {
+					window.scrollTo({
+						top: savedScrollY,
+						left: 0,
+						behavior: 'auto'
+					});
+					if (document.documentElement) {
+						document.documentElement.scrollTop = savedScrollY;
+					}
+					if (document.body) {
+						document.body.scrollTop = savedScrollY;
+					}
+				};
+				
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						setTimeout(restoreScroll, 300);
+					});
+				});
 			});
 		} catch (error) {
 			console.error('Error opening visibility modal:', error);
@@ -5706,11 +7029,102 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				return;
 			}
 			
-			this.modalService.open(this.typeModal, { 
-				size: 'sm', 
+			// Save scroll position BEFORE opening modal (like PhotosSelectorModalComponent)
+			// Don't modify DOM - let Bootstrap handle modal normally
+			// CSS will handle blocking scroll via styles.css rule
+			const savedScrollY = window.scrollY || window.pageYOffset || 
+				document.documentElement.scrollTop || 
+				document.body.scrollTop || 0;
+			
+			// Open the modal - CSS will block scroll automatically
+			const modalRef = this.modalService.open(this.typeModal, { 
+				size: 'md', 
 				centered: true, 
 				backdrop: 'static', 
-				keyboard: false 
+				keyboard: false,
+				windowClass: 'type-modal'
+			});
+			
+			// Immediately maintain scroll position after modal opens to prevent any movement
+			requestAnimationFrame(() => {
+				requestAnimationFrame(() => {
+					// Restore scroll position in case Bootstrap tried to scroll
+					window.scrollTo(0, savedScrollY);
+					document.documentElement.scrollTop = savedScrollY;
+					document.body.scrollTop = savedScrollY;
+				});
+			});
+			
+			// Restore scroll when modal closes (exactly like PhotosSelectorModalComponent)
+			modalRef.result.finally(() => {
+				// First unblock scroll (like PhotosSelectorModalComponent.unblockPageScroll)
+				if (document.body) {
+					document.body.style.overflow = '';
+					document.body.style.overflowX = '';
+					document.body.style.overflowY = '';
+					document.body.style.position = '';
+					document.body.style.height = '';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = '';
+					document.documentElement.style.overflowX = '';
+					document.documentElement.style.overflowY = '';
+				}
+				
+				// Then restore scroll position ONCE after a delay (like PhotosSelectorModalComponent.unlockScrollPosition)
+				const restoreScroll = () => {
+					window.scrollTo({
+						top: savedScrollY,
+						left: 0,
+						behavior: 'auto'
+					});
+					if (document.documentElement) {
+						document.documentElement.scrollTop = savedScrollY;
+					}
+					if (document.body) {
+						document.body.scrollTop = savedScrollY;
+					}
+				};
+				
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						setTimeout(restoreScroll, 300);
+					});
+				});
+			}).catch(() => {
+				// Also restore on dismissal
+				if (document.body) {
+					document.body.style.overflow = '';
+					document.body.style.overflowX = '';
+					document.body.style.overflowY = '';
+					document.body.style.position = '';
+					document.body.style.height = '';
+				}
+				if (document.documentElement) {
+					document.documentElement.style.overflow = '';
+					document.documentElement.style.overflowX = '';
+					document.documentElement.style.overflowY = '';
+				}
+				
+				const restoreScroll = () => {
+					window.scrollTo({
+						top: savedScrollY,
+						left: 0,
+						behavior: 'auto'
+					});
+					if (document.documentElement) {
+						document.documentElement.scrollTop = savedScrollY;
+					}
+					if (document.body) {
+						document.body.scrollTop = savedScrollY;
+					}
+				};
+				
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						setTimeout(restoreScroll, 300);
+					});
+				});
 			});
 		} catch (error) {
 			console.error('Error opening type modal:', error);

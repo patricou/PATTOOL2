@@ -1,5 +1,5 @@
 // Discussion Modal Component - Opens discussion in a modal
-import { Component, Input, OnInit, OnDestroy, ViewChild, AfterViewInit, ElementRef } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, ViewChild, AfterViewInit, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgbModule, NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
 import { DiscussionComponent } from '../discussion/discussion.component';
@@ -23,8 +23,16 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
   
   private observer?: MutationObserver;
   private colorApplied: boolean = false;
+  
+  // Local properties to avoid ExpressionChangedAfterItHasBeenCheckedError
+  public connectionStatus: string = '';
+  public isConnecting: boolean = false;
+  public isLoading: boolean = false;
+  private statusCheckInterval?: any;
+  private pendingTimeouts: any[] = []; // Track all setTimeout calls for cleanup
+  private isDestroyed: boolean = false; // Flag to prevent operations after destruction
 
-  constructor(public activeModal: NgbActiveModal, private elementRef: ElementRef) {}
+  constructor(public activeModal: NgbActiveModal, private elementRef: ElementRef, private cdr: ChangeDetectorRef) {}
 
   ngOnInit() {
     // Modal is initialized - give it a moment to fully render
@@ -35,14 +43,20 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
       this.setupColorObserver();
       
       // Also try immediately and with delays
-      setTimeout(() => {
-        this.applyEventColorToModal();
+      this.addTimeout(() => {
+        if (!this.isDestroyed) {
+          this.applyEventColorToModal();
+        }
       }, 50);
-      setTimeout(() => {
-        this.applyEventColorToModal();
+      this.addTimeout(() => {
+        if (!this.isDestroyed) {
+          this.applyEventColorToModal();
+        }
       }, 200);
-      setTimeout(() => {
-        this.applyEventColorToModal();
+      this.addTimeout(() => {
+        if (!this.isDestroyed) {
+          this.applyEventColorToModal();
+        }
       }, 500);
     }
   }
@@ -50,32 +64,118 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
   ngAfterViewInit() {
     // Apply event color after view is initialized
     if (this.eventColor) {
-      setTimeout(() => {
-        this.applyEventColorToModal();
+      this.addTimeout(() => {
+        if (!this.isDestroyed) {
+          this.applyEventColorToModal();
+        }
       }, 100);
-      setTimeout(() => {
-        this.applyEventColorToModal();
+      this.addTimeout(() => {
+        if (!this.isDestroyed) {
+          this.applyEventColorToModal();
+        }
       }, 300);
-      setTimeout(() => {
-        this.applyEventColorToModal();
+      this.addTimeout(() => {
+        if (!this.isDestroyed) {
+          this.applyEventColorToModal();
+        }
       }, 600);
     }
     
     // Always apply Fermer button color regardless of event color
-    setTimeout(() => {
-      this.applyFermerButtonColor();
+    this.addTimeout(() => {
+      if (!this.isDestroyed) {
+        this.applyFermerButtonColor();
+      }
     }, 200);
-    setTimeout(() => {
-      this.applyFermerButtonColor();
+    this.addTimeout(() => {
+      if (!this.isDestroyed) {
+        this.applyFermerButtonColor();
+      }
     }, 500);
+    
+    // Defer initialization to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
+    // This ensures the DiscussionComponent has fully initialized before we read its properties
+    this.addTimeout(() => {
+      if (this.isDestroyed) return;
+      
+      // Initialize local properties if discussionComponent is available
+      if (this.discussionComponent) {
+        this.connectionStatus = this.discussionComponent.connectionStatus || '';
+        this.isConnecting = this.discussionComponent.isConnecting || false;
+        this.isLoading = this.discussionComponent.isLoading || false;
+        // Mark for check to update the view
+        this.cdr.markForCheck();
+      }
+      
+      // Start polling for connection status changes
+      // This avoids ExpressionChangedAfterItHasBeenCheckedError by updating
+      // local properties asynchronously
+      this.startStatusPolling();
+    }, 0);
+  }
+
+  private startStatusPolling() {
+    // Poll every 200ms to check for status changes
+    // This ensures we catch changes without triggering ExpressionChangedAfterItHasBeenCheckedError
+    // The polling is lightweight and only updates when values actually change
+    this.statusCheckInterval = setInterval(() => {
+      if (this.isDestroyed) {
+        return;
+      }
+      
+      if (this.discussionComponent) {
+        const newStatus = this.discussionComponent.connectionStatus || '';
+        const newIsConnecting = this.discussionComponent.isConnecting || false;
+        const newIsLoading = this.discussionComponent.isLoading || false;
+        
+        // Only update if values have changed
+        if (this.connectionStatus !== newStatus || 
+            this.isConnecting !== newIsConnecting || 
+            this.isLoading !== newIsLoading) {
+          // Update values in the next tick to avoid ExpressionChangedAfterItHasBeenCheckedError
+          this.addTimeout(() => {
+            if (!this.isDestroyed) {
+              this.connectionStatus = newStatus;
+              this.isConnecting = newIsConnecting;
+              this.isLoading = newIsLoading;
+              // Use markForCheck instead of detectChanges to avoid triggering change detection during check
+              this.cdr.markForCheck();
+            }
+          }, 0);
+        }
+      }
+    }, 200);
+  }
+  
+  /**
+   * Helper method to track and manage setTimeout calls
+   */
+  private addTimeout(callback: () => void, delay: number): void {
+    const timeoutId = setTimeout(callback, delay);
+    this.pendingTimeouts.push(timeoutId);
   }
 
   ngOnDestroy() {
+    // Mark as destroyed to prevent any further operations
+    this.isDestroyed = true;
+    
     // Clean up observer
     if (this.observer) {
       this.observer.disconnect();
       this.observer = undefined;
     }
+    
+    // Clean up status polling interval
+    if (this.statusCheckInterval) {
+      clearInterval(this.statusCheckInterval);
+      this.statusCheckInterval = undefined;
+    }
+    
+    // Clear all pending timeouts
+    this.pendingTimeouts.forEach(timeoutId => {
+      clearTimeout(timeoutId);
+    });
+    this.pendingTimeouts = [];
   }
 
   private setupColorObserver(): void {
@@ -86,8 +186,8 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
         if (modalFound) {
           this.colorApplied = true;
           // Keep observing for a bit in case modal is re-rendered
-          setTimeout(() => {
-            if (this.observer) {
+          this.addTimeout(() => {
+            if (!this.isDestroyed && this.observer) {
               this.observer.disconnect();
               this.observer = undefined;
             }
@@ -120,7 +220,7 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
 
   // Apply event color to modal styling (public for external calls)
   public applyEventColorToModal(): boolean {
-    if (!this.eventColor) {
+    if (this.isDestroyed || !this.eventColor) {
       return false;
     }
     
@@ -198,72 +298,83 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
       }
     }
     
-    if (modalElement) {
-      // Apply CSS variables
-      modalElement.style.setProperty('--discussion-header-bg', `linear-gradient(135deg, rgb(${headerBgR}, ${headerBgG}, ${headerBgB}) 0%, rgb(${headerBg2R}, ${headerBg2G}, ${headerBg2B}) 100%)`);
-      modalElement.style.setProperty('--discussion-header-text', headerTextColor);
-      modalElement.style.setProperty('--discussion-header-border', `rgb(${headerBorderR}, ${headerBorderG}, ${headerBorderB})`);
-      modalElement.style.setProperty('--discussion-footer-bg', `rgb(${footerBgR}, ${footerBgG}, ${footerBgB})`);
-      modalElement.style.setProperty('--discussion-footer-border', `rgb(${footerBorderR}, ${footerBorderG}, ${footerBorderB})`);
-      modalElement.style.setProperty('--discussion-footer-button-border', `rgba(${footerButtonBorderR}, ${footerButtonBorderG}, ${footerButtonBorderB}, 0.5)`);
-      modalElement.style.setProperty('--discussion-footer-button-text', footerButtonTextColor);
-      modalElement.style.setProperty('--discussion-footer-button-hover-bg', `rgba(${footerButtonHoverBgR}, ${footerButtonHoverBgG}, ${footerButtonHoverBgB}, 0.2)`);
-      modalElement.style.setProperty('--discussion-border', borderColor);
-      
-      // Apply directly to header and footer elements (more reliable)
-      const headerElement = modalElement.querySelector('.modal-header') as HTMLElement;
-      if (headerElement) {
-        headerElement.style.background = `linear-gradient(135deg, rgb(${headerBgR}, ${headerBgG}, ${headerBgB}) 0%, rgb(${headerBg2R}, ${headerBg2G}, ${headerBg2B}) 100%)`;
-        headerElement.style.borderBottomColor = `rgb(${headerBorderR}, ${headerBorderG}, ${headerBorderB})`;
-        const titleElement = headerElement.querySelector('.modal-title') as HTMLElement;
-        if (titleElement) {
-          titleElement.style.color = headerTextColor;
-        }
-        const closeButton = headerElement.querySelector('.btn-close') as HTMLElement;
-        if (closeButton) {
-          closeButton.style.color = headerTextColor;
-        }
-      }
-      
-      const footerElement = modalElement.querySelector('.modal-footer') as HTMLElement;
-      if (footerElement) {
-        footerElement.style.background = `rgb(${footerBgR}, ${footerBgG}, ${footerBgB})`;
-        footerElement.style.borderTopColor = `rgb(${footerBorderR}, ${footerBorderG}, ${footerBorderB})`;
+    if (modalElement && document.body.contains(modalElement)) {
+      try {
+        // Apply CSS variables
+        modalElement.style.setProperty('--discussion-header-bg', `linear-gradient(135deg, rgb(${headerBgR}, ${headerBgG}, ${headerBgB}) 0%, rgb(${headerBg2R}, ${headerBg2G}, ${headerBg2B}) 100%)`);
+        modalElement.style.setProperty('--discussion-header-text', headerTextColor);
+        modalElement.style.setProperty('--discussion-header-border', `rgb(${headerBorderR}, ${headerBorderG}, ${headerBorderB})`);
+        modalElement.style.setProperty('--discussion-footer-bg', `rgb(${footerBgR}, ${footerBgG}, ${footerBgB})`);
+        modalElement.style.setProperty('--discussion-footer-border', `rgb(${footerBorderR}, ${footerBorderG}, ${footerBorderB})`);
+        modalElement.style.setProperty('--discussion-footer-button-border', `rgba(${footerButtonBorderR}, ${footerButtonBorderG}, ${footerButtonBorderB}, 0.5)`);
+        modalElement.style.setProperty('--discussion-footer-button-text', footerButtonTextColor);
+        modalElement.style.setProperty('--discussion-footer-button-hover-bg', `rgba(${footerButtonHoverBgR}, ${footerButtonHoverBgG}, ${footerButtonHoverBgB}, 0.2)`);
+        modalElement.style.setProperty('--discussion-border', borderColor);
         
-        // Apply button styles
-        const buttons = footerElement.querySelectorAll('.btn');
-        buttons.forEach(btn => {
-          const btnElement = btn as HTMLElement;
-          // Don't apply event color to btn-secondary (Fermer button) - use gray instead
-          if (btnElement.classList.contains('btn-secondary') || btnElement.classList.contains('btn-fermer')) {
-            btnElement.style.backgroundColor = '#6c757d';
-            btnElement.style.background = '#6c757d';
-            btnElement.style.borderColor = '#6c757d';
-            btnElement.style.color = '#ffffff';
-          } else {
-            btnElement.style.borderColor = `rgba(${footerButtonBorderR}, ${footerButtonBorderG}, ${footerButtonBorderB}, 0.5)`;
-            btnElement.style.color = footerButtonTextColor;
+        // Apply directly to header and footer elements (more reliable)
+        const headerElement = modalElement.querySelector('.modal-header') as HTMLElement;
+        if (headerElement && document.body.contains(headerElement)) {
+          headerElement.style.background = `linear-gradient(135deg, rgb(${headerBgR}, ${headerBgG}, ${headerBgB}) 0%, rgb(${headerBg2R}, ${headerBg2G}, ${headerBg2B}) 100%)`;
+          headerElement.style.borderBottomColor = `rgb(${headerBorderR}, ${headerBorderG}, ${headerBorderB})`;
+          const titleElement = headerElement.querySelector('.modal-title') as HTMLElement;
+          if (titleElement && document.body.contains(titleElement)) {
+            titleElement.style.color = headerTextColor;
           }
-        });
+          const closeButton = headerElement.querySelector('.btn-close') as HTMLElement;
+          if (closeButton && document.body.contains(closeButton)) {
+            closeButton.style.color = headerTextColor;
+          }
+        }
         
-        // Also apply gray color to btn-secondary specifically after a delay to ensure it overrides
-        setTimeout(() => {
-          const fermerButton = footerElement.querySelector('.btn-secondary, .btn-fermer') as HTMLElement;
-          if (fermerButton) {
-            fermerButton.style.backgroundColor = '#6c757d';
-            fermerButton.style.background = '#6c757d';
-            fermerButton.style.borderColor = '#6c757d';
-            fermerButton.style.color = '#ffffff';
-          }
-        }, 100);
+        const footerElement = modalElement.querySelector('.modal-footer') as HTMLElement;
+        if (footerElement && document.body.contains(footerElement)) {
+          footerElement.style.background = `rgb(${footerBgR}, ${footerBgG}, ${footerBgB})`;
+          footerElement.style.borderTopColor = `rgb(${footerBorderR}, ${footerBorderG}, ${footerBorderB})`;
+          
+          // Apply button styles
+          const buttons = footerElement.querySelectorAll('.btn');
+          buttons.forEach(btn => {
+            const btnElement = btn as HTMLElement;
+            if (btnElement && document.body.contains(btnElement)) {
+              // Don't apply event color to btn-secondary (Fermer button) - use gray instead
+              if (btnElement.classList.contains('btn-secondary') || btnElement.classList.contains('btn-fermer')) {
+                btnElement.style.backgroundColor = '#6c757d';
+                btnElement.style.background = '#6c757d';
+                btnElement.style.borderColor = '#6c757d';
+                btnElement.style.color = '#ffffff';
+              } else {
+                btnElement.style.borderColor = `rgba(${footerButtonBorderR}, ${footerButtonBorderG}, ${footerButtonBorderB}, 0.5)`;
+                btnElement.style.color = footerButtonTextColor;
+              }
+            }
+          });
+          
+          // Also apply gray color to btn-secondary specifically after a delay to ensure it overrides
+          this.addTimeout(() => {
+            if (this.isDestroyed) return;
+            // Re-check that footerElement still exists in DOM
+            if (footerElement && document.body.contains(footerElement)) {
+              const fermerButton = footerElement.querySelector('.btn-secondary, .btn-fermer') as HTMLElement;
+              if (fermerButton && document.body.contains(fermerButton)) {
+                fermerButton.style.backgroundColor = '#6c757d';
+                fermerButton.style.background = '#6c757d';
+                fermerButton.style.borderColor = '#6c757d';
+                fermerButton.style.color = '#ffffff';
+              }
+            }
+          }, 100);
+        }
+        
+        // Apply border to modal content
+        modalElement.style.borderColor = borderColor;
+        modalElement.style.borderWidth = '4px';
+        modalElement.style.borderStyle = 'solid';
+        
+        return true;
+      } catch (error) {
+        // Silently fail if element is no longer in DOM
+        return false;
       }
-      
-      // Apply border to modal content
-      modalElement.style.borderColor = borderColor;
-      modalElement.style.borderWidth = '4px';
-      modalElement.style.borderStyle = 'solid';
-      
-      return true;
     }
     
     return false;
@@ -271,6 +382,10 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
 
   // Apply gray color to Fermer button
   private applyFermerButtonColor(): void {
+    if (this.isDestroyed) {
+      return;
+    }
+    
     // Try to find modal footer element
     const selectors = [
       '.discussion-modal-window .modal-footer',
@@ -301,25 +416,36 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
       }
     }
     
-    if (footerElement) {
-      const fermerButton = footerElement.querySelector('.btn-secondary, .btn-fermer') as HTMLElement;
-      if (fermerButton) {
-        fermerButton.style.backgroundColor = '#6c757d';
-        fermerButton.style.background = '#6c757d';
-        fermerButton.style.borderColor = '#6c757d';
-        fermerButton.style.color = '#ffffff';
-        
-        // Also set hover state
-        fermerButton.addEventListener('mouseenter', () => {
-          fermerButton.style.backgroundColor = '#5a6268';
-          fermerButton.style.background = '#5a6268';
-          fermerButton.style.borderColor = '#545b62';
-        });
-        fermerButton.addEventListener('mouseleave', () => {
+    if (footerElement && document.body.contains(footerElement)) {
+      try {
+        const fermerButton = footerElement.querySelector('.btn-secondary, .btn-fermer') as HTMLElement;
+        if (fermerButton && document.body.contains(fermerButton)) {
           fermerButton.style.backgroundColor = '#6c757d';
           fermerButton.style.background = '#6c757d';
           fermerButton.style.borderColor = '#6c757d';
-        });
+          fermerButton.style.color = '#ffffff';
+          
+          // Also set hover state
+          const mouseEnterHandler = () => {
+            if (!this.isDestroyed && fermerButton && document.body.contains(fermerButton)) {
+              fermerButton.style.backgroundColor = '#5a6268';
+              fermerButton.style.background = '#5a6268';
+              fermerButton.style.borderColor = '#545b62';
+            }
+          };
+          const mouseLeaveHandler = () => {
+            if (!this.isDestroyed && fermerButton && document.body.contains(fermerButton)) {
+              fermerButton.style.backgroundColor = '#6c757d';
+              fermerButton.style.background = '#6c757d';
+              fermerButton.style.borderColor = '#6c757d';
+            }
+          };
+          
+          fermerButton.addEventListener('mouseenter', mouseEnterHandler);
+          fermerButton.addEventListener('mouseleave', mouseLeaveHandler);
+        }
+      } catch (error) {
+        // Silently fail if element is no longer in DOM
       }
     }
   }

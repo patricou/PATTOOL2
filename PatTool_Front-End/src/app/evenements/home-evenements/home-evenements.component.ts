@@ -173,6 +173,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private cardLoadEndBatchTimeout: ReturnType<typeof setTimeout> | null = null;
 	private changeDetectionScheduled: boolean = false; // Flag to prevent multiple change detection calls
 	private pendingChangeDetection: boolean = false; // Flag to track if change detection is needed
+	private logScrollRafId: number | null = null; // Throttle log scroll operations
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
@@ -620,18 +621,21 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			return;
 		}
 
-		// Get scroll position
-		const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-		const windowHeight = window.innerHeight || document.documentElement.clientHeight;
-		const documentHeight = document.documentElement.scrollHeight;
+		// Use requestAnimationFrame to batch layout reads and avoid forced reflow
+		requestAnimationFrame(() => {
+			// Batch all layout reads together
+			const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+			const windowHeight = window.innerHeight || document.documentElement.clientHeight;
+			const documentHeight = document.documentElement.scrollHeight;
 
-		// Load more when within 500px of bottom
-		const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
-		
-		if (distanceFromBottom < 500) {
-			// Removed log: Loading more events (too verbose)
-			this.loadNextPage();
-		}
+			// Load more when within 500px of bottom
+			const distanceFromBottom = documentHeight - (scrollTop + windowHeight);
+			
+			if (distanceFromBottom < 500) {
+				// Removed log: Loading more events (too verbose)
+				this.loadNextPage();
+			}
+		});
 	}
 
 	// Toggle debug info panel with proper scroll handling
@@ -2518,23 +2522,21 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					(window as any).requestIdleCallback(() => {
 						forkJoin(batch).subscribe({
 							next: (results) => {
-								// Process results asynchronously
-								Promise.resolve().then(() => {
-									if (trackLoading) {
-										results.forEach(({ eventId }) => {
-											const loadingInfo = this.loadingEvents.get(eventId);
-											if (loadingInfo) {
-												loadingInfo.thumbnailLoadEnd = Date.now();
-												if (loadingInfo.cardLoadEnd) {
-													this.loadingEvents.delete(eventId);
-												}
+								// Process results - subscribe callbacks are already async, no need for Promise.resolve()
+								if (trackLoading) {
+									results.forEach(({ eventId }) => {
+										const loadingInfo = this.loadingEvents.get(eventId);
+										if (loadingInfo) {
+											loadingInfo.thumbnailLoadEnd = Date.now();
+											if (loadingInfo.cardLoadEnd) {
+												this.loadingEvents.delete(eventId);
 											}
-										});
-									}
-									// Trigger change detection
-									this.scheduleChangeDetection();
-									scheduleNext();
-								});
+										}
+									});
+								}
+								// Trigger change detection
+								this.scheduleChangeDetection();
+								scheduleNext();
 							},
 							error: (error) => {
 								console.error('Error loading thumbnail batch:', error);
@@ -2548,22 +2550,21 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					setTimeout(() => {
 						forkJoin(batch).subscribe({
 							next: (results) => {
-								Promise.resolve().then(() => {
-									if (trackLoading) {
-										results.forEach(({ eventId }) => {
-											const loadingInfo = this.loadingEvents.get(eventId);
-											if (loadingInfo) {
-												loadingInfo.thumbnailLoadEnd = Date.now();
-												if (loadingInfo.cardLoadEnd) {
-													this.loadingEvents.delete(eventId);
-												}
+								// Process results - subscribe callbacks are already async, no need for Promise.resolve()
+								if (trackLoading) {
+									results.forEach(({ eventId }) => {
+										const loadingInfo = this.loadingEvents.get(eventId);
+										if (loadingInfo) {
+											loadingInfo.thumbnailLoadEnd = Date.now();
+											if (loadingInfo.cardLoadEnd) {
+												this.loadingEvents.delete(eventId);
 											}
-										});
-									}
-									// Trigger change detection
-									this.scheduleChangeDetection();
-									scheduleNext();
-								});
+										}
+									});
+								}
+								// Trigger change detection
+								this.scheduleChangeDetection();
+								scheduleNext();
 							},
 							error: (error) => {
 								console.error('Error loading thumbnail batch:', error);
@@ -2716,31 +2717,32 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 			
 			// Load batches sequentially with delays to avoid blocking the main thread
-			batches.forEach((subBatch, index) => {
+			// Use requestIdleCallback for better performance when available
+			const scheduleLoad = (callback: () => void, delay: number) => {
 				setTimeout(() => {
-					// Use requestIdleCallback if available, otherwise requestAnimationFrame
-					const scheduleLoad = (callback: () => void) => {
-						if ('requestIdleCallback' in window) {
-							(window as any).requestIdleCallback(callback, { timeout: 1000 });
-						} else {
-							requestAnimationFrame(callback);
+					if ('requestIdleCallback' in window) {
+						(window as any).requestIdleCallback(callback, { timeout: 1000 });
+					} else {
+						// Use requestAnimationFrame to avoid blocking, but only schedule the async work
+						requestAnimationFrame(callback);
+					}
+				}, delay);
+			};
+			
+			batches.forEach((subBatch, index) => {
+				const delay = index * this.THUMBNAIL_BATCH_INTERVAL;
+				scheduleLoad(() => {
+					// Load thumbnails - this is async (HTTP requests), so it won't block
+					// Remove the unnecessary Promise.resolve() wrapper
+					this.loadThumbnailsInParallel(subBatch, true);
+					// Remove from pending after loading starts
+					subBatch.forEach(event => {
+						const eventId = event.id || this.getEventKey(event);
+						if (eventId) {
+							this.pendingThumbnailLoads.delete(eventId);
 						}
-					};
-					
-					scheduleLoad(() => {
-						// Load thumbnails asynchronously to avoid blocking
-						Promise.resolve().then(() => {
-							this.loadThumbnailsInParallel(subBatch, true);
-							// Remove from pending after loading starts
-							subBatch.forEach(event => {
-								const eventId = event.id || this.getEventKey(event);
-								if (eventId) {
-									this.pendingThumbnailLoads.delete(eventId);
-								}
-							});
-						});
 					});
-				}, index * this.THUMBNAIL_BATCH_INTERVAL); // Increased delay between batches
+				}, delay);
 			});
 		};
 		
@@ -2885,22 +2887,25 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private observeThumbnailElements(): void {
 		if (!this.thumbnailObserver) return;
 		
-		// Observe all card containers and images with data-event-id
-		const elementsToObserve = document.querySelectorAll('[data-event-id]');
-		elementsToObserve.forEach(element => {
-			// For card containers, observe the first image inside
-			if (element.classList.contains('pat-card')) {
-				const img = element.querySelector('img');
-				if (img) {
-					this.thumbnailObserver?.observe(img);
+		// Use requestAnimationFrame to batch DOM queries and avoid blocking
+		requestAnimationFrame(() => {
+			// Observe all card containers and images with data-event-id
+			const elementsToObserve = document.querySelectorAll('[data-event-id]');
+			elementsToObserve.forEach(element => {
+				// For card containers, observe the first image inside
+				if (element.classList.contains('pat-card')) {
+					const img = element.querySelector('img');
+					if (img) {
+						this.thumbnailObserver?.observe(img);
+					} else {
+						// Fallback: observe the card container itself
+						this.thumbnailObserver?.observe(element);
+					}
 				} else {
-					// Fallback: observe the card container itself
+					// Direct image observation
 					this.thumbnailObserver?.observe(element);
 				}
-			} else {
-				// Direct image observation
-				this.thumbnailObserver?.observe(element);
-			}
+			});
 		});
 	}
 
@@ -3148,7 +3153,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private scrollToBottom(): void {
 		if (this.chatMessagesContainer) {
 			const element = this.chatMessagesContainer.nativeElement;
-			element.scrollTop = element.scrollHeight;
+			// Use requestAnimationFrame to batch scroll operations and avoid forced reflow
+			requestAnimationFrame(() => {
+				// Read scrollHeight (forces layout) then write scrollTop in same frame
+				const scrollHeight = element.scrollHeight;
+				element.scrollTop = scrollHeight;
+			});
 		}
 	}
 
@@ -3190,6 +3200,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		if (this.debugInfoUpdateInterval) {
 			clearInterval(this.debugInfoUpdateInterval);
 			this.debugInfoUpdateInterval = undefined;
+		}
+		
+		// Clean up log scroll RAF
+		if (this.logScrollRafId !== null) {
+			cancelAnimationFrame(this.logScrollRafId);
+			this.logScrollRafId = null;
 		}
 		
 		// Unsubscribe from all subscriptions
@@ -3361,6 +3377,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.unblockPageScroll();
 		}
 		// Use requestAnimationFrame to ensure DOM is ready
+		// Split expensive getComputedStyle calls into separate requestAnimationFrame to avoid blocking
 		requestAnimationFrame(() => {
 			// Only unblock if no blocking modal is open and debug panel allows it
 			if (!this.hasBlockingModalOpen() || !this.debugInfoCollapsed) {
@@ -3370,13 +3387,17 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			if (!this.intersectionObserver && this.infiniteScrollAnchor?.nativeElement) {
 				this.setupInfiniteScrollObserver();
 			}
-			// Verify scroll is actually enabled by checking computed styles
-			const bodyStyle = window.getComputedStyle(document.body);
-			const htmlStyle = window.getComputedStyle(document.documentElement);
-			if (bodyStyle.overflow === 'hidden' || htmlStyle.overflow === 'hidden') {
-				// Force unblock if still hidden
-				this.unblockPageScroll();
-			}
+			// Defer expensive getComputedStyle calls to avoid blocking the main thread
+			// Use a second requestAnimationFrame to ensure we're not blocking layout
+			requestAnimationFrame(() => {
+				// Verify scroll is actually enabled by checking computed styles
+				const bodyStyle = window.getComputedStyle(document.body);
+				const htmlStyle = window.getComputedStyle(document.documentElement);
+				if (bodyStyle.overflow === 'hidden' || htmlStyle.overflow === 'hidden') {
+					// Force unblock if still hidden
+					this.unblockPageScroll();
+				}
+			});
 		});
 	}
 	
@@ -4226,35 +4247,29 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	private addLog(message: string): void {
 		this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
-		
-		// Auto-scroll to top to show latest log - use requestAnimationFrame for better performance
-		requestAnimationFrame(() => {
-			if (this.logContent && this.logContent.nativeElement) {
-				const container = this.logContent.nativeElement;
-				container.scrollTop = 0;
-			}
-		});
+		this.scheduleLogScroll();
 	}
 
 	private addSuccessLog(message: string): void {
 		this.uploadLogs.unshift(`SUCCESS: [${new Date().toLocaleTimeString()}] ${message}`);
-		
-		// Auto-scroll to top to show latest log - use requestAnimationFrame for better performance
-		requestAnimationFrame(() => {
-			if (this.logContent && this.logContent.nativeElement) {
-				const container = this.logContent.nativeElement;
-				container.scrollTop = 0;
-			}
-		});
+		this.scheduleLogScroll();
 	}
 
 	private addErrorLog(message: string): void {
 		this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
-		
-		// Auto-scroll to top to show latest log - use requestAnimationFrame for better performance
-		requestAnimationFrame(() => {
+		this.scheduleLogScroll();
+	}
+
+	// Batch log scroll operations to avoid multiple forced reflows
+	private scheduleLogScroll(): void {
+		if (this.logScrollRafId !== null) {
+			return; // Already scheduled
+		}
+		this.logScrollRafId = requestAnimationFrame(() => {
+			this.logScrollRafId = null;
 			if (this.logContent && this.logContent.nativeElement) {
 				const container = this.logContent.nativeElement;
+				// Setting scrollTop to 0 is a write operation, no forced reflow needed
 				container.scrollTop = 0;
 			}
 		});

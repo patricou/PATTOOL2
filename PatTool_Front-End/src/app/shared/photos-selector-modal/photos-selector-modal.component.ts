@@ -43,6 +43,9 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
   
   // Scroll position preservation - using CSS lock method
   private savedScrollPosition: number = 0;
+  // Store the ORIGINAL scroll position (before any modal was opened)
+  // This is used when reopening the modal after closing slideshow
+  private originalScrollPosition: number = 0;
 
   // Section expansion state management
   private expandedSections: Map<string, boolean> = new Map();
@@ -146,8 +149,23 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
       return;
     }
 
-    // Lock scroll position before opening modal (prevents any movement)
-    this.lockScrollPosition();
+    // Save scroll position before opening modal
+    // If this is the first time opening (originalScrollPosition is 0), save it as original
+    // Otherwise, reuse the original position to maintain consistency
+    const currentScrollY = window.scrollY || window.pageYOffset || 
+                          document.documentElement.scrollTop || 
+                          document.body.scrollTop || 0;
+    
+    // If we have a saved original position, use it (we're reopening after slideshow)
+    // Otherwise, save current position as original (first time opening)
+    if (this.originalScrollPosition > 0) {
+      // Reopening after slideshow - use the original position
+      this.savedScrollPosition = this.originalScrollPosition;
+    } else {
+      // First time opening - save as original
+      this.originalScrollPosition = currentScrollY;
+      this.savedScrollPosition = currentScrollY;
+    }
     
     this.modalRef = this.modalService.open(this.photosSelectorModal, {
       centered: true,
@@ -155,6 +173,25 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
       windowClass: 'fs-selector-modal',
       backdrop: 'static',
       keyboard: false
+    });
+    
+    // Immediately maintain scroll position after modal opens to prevent any movement
+    // This is especially important when reopening after closing slideshow
+    // Use the saved original position (or current if reopening)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        // Always restore to the original saved position
+        window.scrollTo(0, this.savedScrollPosition);
+        document.documentElement.scrollTop = this.savedScrollPosition;
+        document.body.scrollTop = this.savedScrollPosition;
+        
+        // Also check after a delay in case slideshow restoration was still in progress
+        setTimeout(() => {
+          window.scrollTo(0, this.savedScrollPosition);
+          document.documentElement.scrollTop = this.savedScrollPosition;
+          document.body.scrollTop = this.savedScrollPosition;
+        }, 400); // Wait longer than slideshow restoration (300ms) to ensure it's complete
+      });
     });
 
     // Apply fixed width after modal is opened (multiple attempts to ensure it's applied)
@@ -203,14 +240,14 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     this.modalRef.result.finally(() => {
       // Unblock scroll first
       this.unblockPageScroll();
-      // Then restore scroll position ONCE after a delay
-      this.unlockScrollPosition();
+      // Don't restore scroll position here - keep originalScrollPosition for potential reopen
+      // Only clear it when modal is really closed (not when slideshow is opened from it)
+      // The scroll will be restored when the modal is actually closed for good
       this.closed.emit();
     }).catch(() => {
       // Unblock scroll first
       this.unblockPageScroll();
-      // Then restore scroll position ONCE after a delay
-      this.unlockScrollPosition();
+      // Don't restore scroll position here - keep originalScrollPosition for potential reopen
       this.closed.emit();
     });
 
@@ -235,8 +272,10 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     }
     // Unblock scroll first
     this.unblockPageScroll();
-    // Then restore scroll position ONCE after a delay
+    // Restore scroll position ONCE after a delay
     this.unlockScrollPosition();
+    // Clear original position when modal is really closed
+    this.originalScrollPosition = 0;
   }
 
   public confirmSelection(modalRef?: any): void {
@@ -270,11 +309,9 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
 
     this.selectionConfirmed.emit(result);
 
-    if (modalRef) {
-      modalRef.close();
-    } else if (this.modalRef) {
-      this.modalRef.close();
-    }
+    // Don't close the modal here - let the parent component close it
+    // This prevents scroll restoration until the slideshow (or other action) is done
+    // The originalScrollPosition will be preserved for when the modal is reopened
   }
 
   // Check if a valid selection has been made
@@ -389,9 +426,20 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
   private lockScrollPosition(): void {
     // Simply save the current scroll position
     // Don't modify DOM - let Bootstrap handle modal normally
-    this.savedScrollPosition = window.scrollY || window.pageYOffset || 
-                               document.documentElement.scrollTop || 
-                               document.body.scrollTop || 0;
+    // Wait a bit to ensure any pending scroll restoration from previous modal (like slideshow) is complete
+    // This is important when reopening "Selection de Photos" right after closing slideshow
+    const capturePosition = () => {
+      this.savedScrollPosition = window.scrollY || window.pageYOffset || 
+                                 document.documentElement.scrollTop || 
+                                 document.body.scrollTop || 0;
+    };
+    
+    // Capture immediately
+    capturePosition();
+    
+    // Also capture after a short delay to catch any delayed scroll restoration from previous modal
+    // The slideshow uses a 300ms delay, so we wait slightly longer (350ms) to ensure it's complete
+    setTimeout(capturePosition, 350);
   }
   
   // Restore scroll position - single smooth restore after Bootstrap cleanup

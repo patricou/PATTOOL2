@@ -942,3 +942,21 @@
         margin-bottom: 0 !important;
     }
 }
+
+/* Visibility options - 2 per line on desktop, 1 per line on mobile (like type options) */
+.visibility-options {
+    display: flex;
+    flex-direction: column;
+}
+
+@media (min-width: 768px) {
+    .visibility-options {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+    
+    .visibility-option {
+        margin-bottom: 0 !important;
+    }
+}

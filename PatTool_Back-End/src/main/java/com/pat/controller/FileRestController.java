@@ -820,13 +820,14 @@ public class FileRestController {
             Evenement verifyEvent = evenementsRepository.findById(evenementid).orElse(null);
             int savedFileCount = verifyEvent != null && verifyEvent.getFileUploadeds() != null 
                 ? verifyEvent.getFileUploadeds().size() : 0;
-            log.debug("Evenement {} saved. Verification: {} files in database (expected: {})", 
-                evenementid, savedFileCount, uploadedFiles.size());
+            int expectedFileCount = filesBeforeUpload + uploadedFiles.size();
+            log.debug("Evenement {} saved. Verification: {} files in database (expected: {} = {} existing + {} new)", 
+                evenementid, savedFileCount, expectedFileCount, filesBeforeUpload, uploadedFiles.size());
             
-            if (savedFileCount != uploadedFiles.size()) {
-                log.error("CRITICAL: File count mismatch! Expected {} files but database has {} files for event {}. " +
+            if (savedFileCount != expectedFileCount) {
+                log.error("CRITICAL: File count mismatch! Expected {} files ({} existing + {} new) but database has {} files for event {}. " +
                     "This indicates files were not properly saved to the database.", 
-                    uploadedFiles.size(), savedFileCount, evenementid);
+                    expectedFileCount, filesBeforeUpload, uploadedFiles.size(), savedFileCount, evenementid);
             }
 
             if (finalSessionId != null) {
@@ -940,7 +941,7 @@ public class FileRestController {
             boolean isVideo = isVideoFile(fileName);
             String fileType = isVideo ? "VIDEO" : "FILE";
             
-            log.info("🗑️  [{}] Starting deletion from GridFS: ID={}, Name={}", fileType, fileId, fileName);
+            log.debug("🗑️  [{}] Starting deletion from GridFS: ID={}, Name={}", fileType, fileId, fileName);
             
             try {
                 ObjectId fileObjectId = new ObjectId(fileId);
@@ -952,13 +953,13 @@ public class FileRestController {
                     String contentType = fileToDelete.getMetadata() != null ? 
                         fileToDelete.getMetadata().getString("contentType") : "unknown";
                     
-                    log.info("📋 [{}] File found in GridFS - Size: {} bytes, ContentType: {}", 
+                    log.debug("📋 [{}] File found in GridFS - Size: {} bytes, ContentType: {}", 
                             fileType, fileSize, contentType);
                     
                     // Delete the file
                     gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileObjectId)));
                     
-                    log.info("✅ [{}] Successfully deleted from GridFS: ID={}, Name={}, Size={} bytes", 
+                    log.debug("✅ [{}] Successfully deleted from GridFS: ID={}, Name={}, Size={} bytes", 
                             fileType, fileId, fileName, fileSize);
                 } else {
                     log.warn("⚠️  [{}] File not found in GridFS (may already be deleted): ID={}, Name={}", 
@@ -995,7 +996,7 @@ public class FileRestController {
                 .count();
             long otherFilesCount = filesToDelete.size() - videoCount;
             
-            log.info("📊 Deletion summary: {} total file(s) processed - {} video(s), {} other file(s)", 
+            log.debug("📊 Deletion summary: {} total file(s) processed - {} video(s), {} other file(s)", 
                     filesToDelete.size(), videoCount, otherFilesCount);
         }
 
