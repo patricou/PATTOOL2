@@ -17,9 +17,7 @@ export interface StreamedFile {
 }
 
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable()
 export class EvenementsService {
 
 	private API_URL: string = environment.API_URL;

@@ -5,9 +5,7 @@ import { Member } from '../model/member';
 
 declare var Keycloak: any;
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable()
 export class KeycloakService {
   static auth: any = {};
 

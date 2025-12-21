@@ -8,9 +8,7 @@ import { switchMap, catchError } from 'rxjs/operators';
  * This provides an HTTP interceptor that adds the Keycloak token to each request.
  * Only adds token to API requests, not to static assets or i18n files.
  */
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable()
 export class KeycloakHttpInterceptor implements HttpInterceptor {
     constructor(private keycloakService: KeycloakService) {}
 

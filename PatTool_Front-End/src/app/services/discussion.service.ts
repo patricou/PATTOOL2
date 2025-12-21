@@ -58,9 +58,7 @@ export interface DiscussionItem {
   lastMessageDate?: Date;
 }
 
-@Injectable({
-  providedIn: 'root'
-})
+@Injectable()
 export class DiscussionService {
   private API_URL: string = environment.API_URL;
   private stompClient: any = null;
