@@ -1,5 +1,5 @@
 import { BrowserModule } from '@angular/platform-browser';
-import { NgModule, Component } from '@angular/core';
+import { NgModule, Component, DoBootstrap, ApplicationRef } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClientModule, HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
@@ -116,7 +116,11 @@ export function HttpLoaderFactory(http: HttpClient) {
 		{ provide: TranslateLoader, useFactory: HttpLoaderFactory, deps: [HttpClient] },
 		// HTTP Interceptor
 		{ provide: HTTP_INTERCEPTORS, useClass: KeycloakHttpInterceptor, multi: true }
-	],
-	bootstrap: [AppComponent]
+	]
 })
-export class AppModule { }
+export class AppModule implements DoBootstrap {
+	ngDoBootstrap(appRef: ApplicationRef): void {
+		// Bootstrap the standalone AppComponent
+		appRef.bootstrap(AppComponent);
+	}
+}

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitter, ViewChild, TemplateRef } from '@angular/core';
+import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitter, ViewChild, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -97,21 +97,31 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
   constructor(
     private modalService: NgbModal,
     private translateService: TranslateService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
-    // Initialize default selection
-    this.initializeDefaultSelection();
+    // Defer initialization to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
+    setTimeout(() => {
+      this.initializeDefaultSelection();
+    }, 0);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     // When evenement data changes (e.g., files are loaded), check and select single option
-    if (changes['evenement'] && !changes['evenement'].firstChange) {
-      // Data has changed after initial load - check if we need to auto-select
+    if (changes['evenement']) {
+      // Defer to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
       setTimeout(() => {
-        this.checkAndSelectSingleOption();
-      }, 100);
+        if (!changes['evenement'].firstChange) {
+          this.checkAndSelectSingleOption();
+        } else {
+          // On first change, initialize default selection
+          this.initializeDefaultSelection();
+        }
+        // Mark for check to ensure template updates reflect the changes
+        this.cdr.markForCheck();
+      }, 0);
     }
   }
 
@@ -125,8 +135,11 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     this.selectedFsLink = '';
     this.fsCompressionEnabled = true;
     
-    // Initialize default selection - if there's only one option, it will be automatically selected
-    this.initializeDefaultSelection();
+    // Initialize default selection - defer to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
+    setTimeout(() => {
+      this.initializeDefaultSelection();
+      this.cdr.markForCheck();
+    }, 0);
 
     if (!this.photosSelectorModal) {
       console.warn('Photos selector modal template not found');
@@ -203,13 +216,16 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
 
     // Check and auto-select if there's only one option after modal is opened
     // Use setTimeout to ensure modal is fully rendered and data might be loaded
+    // Also defer to avoid ExpressionChangedAfterItHasBeenCheckedError
     setTimeout(() => {
       this.checkAndSelectSingleOption();
+      this.cdr.markForCheck();
     }, 100);
     
     // Also check again after a longer delay in case files are still loading
     setTimeout(() => {
       this.checkAndSelectSingleOption();
+      this.cdr.markForCheck();
     }, 500);
   }
 

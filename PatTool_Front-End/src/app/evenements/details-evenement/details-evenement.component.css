@@ -117,7 +117,8 @@
   gap: 1rem;
   max-width: 1600px;
   margin: 0 auto;
-  grid-auto-flow: dense row;
+  /* Dense packing: fills gaps by backtracking to fill holes */
+  grid-auto-flow: dense;
   align-items: start;
 }
 
@@ -174,6 +175,48 @@
 .upload-card {
   grid-row: span 1;
   height: fit-content;
+}
+
+/* First Row Cards Container - Takes full width */
+.first-row-cards-container {
+  grid-column: 1 / -1 !important; /* Take full width of the grid */
+  grid-row: 1 !important;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important; /* 4 equal columns, allow shrinking */
+  gap: 1rem;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* On mobile, stack the 4 cards vertically */
+@media (max-width: 768px) {
+  .first-row-cards-container {
+    grid-template-columns: 1fr; /* Single column on mobile */
+  }
+}
+
+/* On tablets, use 2 columns */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .first-row-cards-container {
+    grid-template-columns: repeat(2, 1fr); /* 2 columns on tablets */
+  }
+}
+
+/* Force first row cards to be inside the container - remove grid constraints */
+.first-row-cards-container .description-card,
+.first-row-cards-container .visibility-card,
+.first-row-cards-container .type-card,
+.first-row-cards-container .rating-card {
+  grid-row: auto !important;
+  grid-column: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0; /* Allow flex shrinking */
+  height: 100%;
+  margin: 0;
 }
 
 .card-large {
@@ -251,6 +294,13 @@
   flex: 1;
 }
 
+/* Center content for Rating cards */
+.rating-content-compact .star-rating-display-compact {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .card-title-small {
   font-size: 0.95rem;
   font-weight: 700;
@@ -260,6 +310,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
 }
+
 
 /* For vertical cards with icon, align icon and content horizontally */
 .card-vertical:has(.card-icon) {
@@ -292,6 +343,7 @@
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
   padding: 0.75rem 0;
   font-style: normal;
+  text-align: center;
 }
 
 .card-header-compact {
@@ -330,6 +382,7 @@
 .visibility-badge-compact {
   display: block;
   margin-bottom: 0.75rem;
+  text-align: center;
 }
 
 .badge-compact {
@@ -370,6 +423,12 @@
 
 .members-compact {
   margin-top: 0.5rem;
+  text-align: center;
+}
+
+/* Center members for Visibility card */
+.visibility-content-compact .members-compact {
+  text-align: center;
 }
 
 .members-count {
@@ -384,6 +443,11 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
+}
+
+/* Center member tags for Visibility card */
+.visibility-content-compact .members-tags-compact {
+  justify-content: center;
 }
 
 .member-tag-compact {
@@ -411,6 +475,9 @@
   font-size: 0.75rem;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .btn-whatsapp-compact:hover {
@@ -757,6 +824,117 @@
 }
 
 /* ============================================
+   DESCRIPTION CARD COMPACT
+   ============================================ */
+
+.description-content-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.description-text-compact {
+  font-size: 1.3rem;
+  line-height: 1.7;
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.95));
+  font-weight: 500;
+  margin: 0;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+  border-radius: 10px;
+  border-left: 2px solid #ffd700;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  text-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.5),
+    0 1px 2px rgba(0, 0, 0, 0.7),
+    0 0 8px rgba(0, 0, 0, 0.3),
+    1px 1px 0 rgba(0, 0, 0, 0.4),
+    -1px -1px 0 rgba(255, 255, 255, 0.1);
+  letter-spacing: 0.3px;
+}
+
+/* ============================================
+   VISIBILITY CARD COMPACT
+   ============================================ */
+
+.visibility-content-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.visibility-badge-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.visibility-badge-compact {
+  display: block;
+  text-align: center;
+}
+
+/* ============================================
+   TYPE CARD COMPACT
+   ============================================ */
+
+.type-content-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+/* ============================================
+   NOTES CARD COMPACT
+   ============================================ */
+
+.notes-content-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+.notes-text-compact {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  opacity: 0.95;
+  margin: 0;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+  border-radius: 10px;
+  border-left: 2px solid #ffd700;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* ============================================
+   RATING CARD COMPACT
+   ============================================ */
+
+.rating-content-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================
    ADD/EDIT FORMS (COMMENTS + URLS)
    ============================================ */
 
@@ -1081,6 +1259,68 @@ select.compact-input:focus {
 
 .pdf-sep-compact {
   opacity: 0.7;
+}
+
+/* Track files card styles */
+.tracks-list-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.track-item-compact {
+  display: flex;
+  flex-direction: column;
+  padding: 0.6rem;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(8px);
+  border-radius: 8px;
+  border-left: 2px solid #20c997;
+}
+
+.track-name-compact {
+  font-size: 0.75rem;
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  opacity: 0.95;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.3rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track-actions-compact {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  margin-top: 0.5rem;
+}
+
+.track-meta-compact {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  opacity: 0.85;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--text-color-dark, rgba(255, 255, 255, 0.7));
+}
+
+.track-sep-compact {
+  opacity: 0.7;
+}
+
+.track-owner-compact {
+  opacity: 0.9;
+}
+
+.track-date-compact {
+  opacity: 0.85;
 }
 
 .video-header-compact {

@@ -507,6 +507,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
         this.preparePhotoGallery();
         this.loading = false;
+        // Reset grid packing algorithm for optimal card placement
+        this.resetGridPacking();
         // Load video URLs with a small delay to ensure authentication is ready
         // This prevents 401 errors that could trigger redirects
         setTimeout(() => {
@@ -2751,37 +2753,74 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     return `span-col-${this.clamp(span, 1, 2)}`;
   }
 
-  public getCardLayoutClasses(cardId: 'discussion' | 'photos' | 'urls' | 'comments' | 'pdfs' | 'upload'): string[] {
+  public getCardLayoutClasses(cardId: 'discussion' | 'photos' | 'urls' | 'comments' | 'pdfs' | 'tracks' | 'upload' | 'description' | 'visibility' | 'type' | 'notes' | 'rating'): string[] {
     const urlsCount = this.evenement?.urlEvents?.length || 0;
     const commentsCount = this.getEventComments().length;
     const photosCount = this.photoItemsList?.length || 0;
     const pdfCount = this.getPdfFiles().length;
+    const trackCount = this.getTrackFiles().length;
 
     switch (cardId) {
       case 'photos': {
-        // photos are very visual -> keep large; more photos => bigger
-        const rowSpan = photosCount > 8 ? 3 : 2;
+        // photos are very visual -> keep large and centered
+        // Optimize rowSpan for better interlocking: use even numbers when possible
+        const rowSpan = photosCount > 10 ? 4 : (photosCount > 6 ? 3 : 2);
         const colSpan = 2;
         return [this.spanRowClass(rowSpan), this.spanColClass(colSpan)];
       }
       case 'discussion': {
-        // discussion benefits from space; if a lot of messages, keep large
-        const rowSpan = this.discussionMessages.length > 6 ? 3 : 2;
+        // discussion benefits from space and should be centered
+        // Optimize rowSpan for better interlocking
+        const rowSpan = this.discussionMessages.length > 10 ? 4 : (this.discussionMessages.length > 6 ? 3 : 2);
         const colSpan = 2;
         return [this.spanRowClass(rowSpan), this.spanColClass(colSpan)];
       }
       case 'urls': {
-        // few links -> small; many -> bigger
-        const rowSpan = urlsCount === 0 ? 1 : (urlsCount <= 4 ? 1 : 2);
+        // Optimize size for better fitting: use rowSpan 2 for better interlocking
+        const rowSpan = urlsCount === 0 ? 1 : (urlsCount <= 3 ? 2 : (urlsCount <= 6 ? 2 : 3));
         return [this.spanRowClass(rowSpan), this.spanColClass(1)];
       }
       case 'comments': {
-        // few comments -> small; many -> bigger
-        const rowSpan = commentsCount <= 2 ? 1 : (commentsCount <= 6 ? 2 : 3);
+        // Optimize size for better fitting: prefer even rowSpan for better interlocking
+        const rowSpan = commentsCount <= 2 ? 2 : (commentsCount <= 6 ? 2 : (commentsCount <= 10 ? 3 : 3));
         return [this.spanRowClass(rowSpan), this.spanColClass(1)];
       }
+      case 'description': {
+        // description card - small to medium based on content length
+        const descriptionLength = this.evenement?.comments?.length || 0;
+        const rowSpan = descriptionLength > 200 ? 2 : 1;
+        return [this.spanRowClass(rowSpan), this.spanColClass(1)];
+      }
+      case 'visibility': {
+        // visibility card - small, but may need more space if has members
+        const hasMembers = this.hasEventMembers() || (this.evenement?.friendGroupId && this.getCurrentFriendGroup()?.members && this.getCurrentFriendGroup()!.members.length > 0);
+        const rowSpan = hasMembers ? 2 : 1;
+        return [this.spanRowClass(rowSpan), this.spanColClass(1)];
+      }
+      case 'type': {
+        // type card - small to medium based on number of info items
+        const infoItemsCount = [this.evenement?.type, this.evenement?.status, this.evenement?.diffculty, this.evenement?.startLocation, this.evenement?.durationEstimation].filter(Boolean).length;
+        const rowSpan = infoItemsCount > 3 ? 2 : 1;
+        return [this.spanRowClass(rowSpan), this.spanColClass(1)];
+      }
+      case 'notes': {
+        // notes card - optimize for better fitting
+        const notesLength = this.evenement?.notes?.length || 0;
+        const rowSpan = notesLength > 300 ? 3 : (notesLength > 150 ? 2 : 2);
+        return [this.spanRowClass(rowSpan), this.spanColClass(1)];
+      }
+      case 'rating': {
+        // rating card - small
+        return [this.spanRowClass(1), this.spanColClass(1)];
+      }
       case 'pdfs': {
-        const rowSpan = pdfCount <= 2 ? 1 : 2;
+        // Use rowSpan 2 for better interlocking with other cards
+        const rowSpan = pdfCount <= 2 ? 2 : (pdfCount <= 4 ? 2 : 3);
+        return [this.spanRowClass(rowSpan), this.spanColClass(1)];
+      }
+      case 'tracks': {
+        // Use rowSpan 2 for better interlocking with other cards
+        const rowSpan = trackCount <= 2 ? 2 : (trackCount <= 4 ? 2 : 3);
         return [this.spanRowClass(rowSpan), this.spanColClass(1)];
       }
       case 'upload': {
@@ -2792,13 +2831,418 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     }
   }
 
-  public getCardOrder(cardId: 'discussion' | 'photos' | 'urls' | 'comments' | 'pdfs' | 'upload'): number {
+  // Grid packing algorithm - tracks occupied cells
+  private gridOccupancy: boolean[][] = [];
+  private maxColumns = 4; // Typical number of columns in the grid (auto-fit creates ~4 columns on most screens)
+  private processedCards: Set<string> = new Set();
+
+  // Cache for card positions to ensure deterministic placement
+  private cardPositionsCache: Map<string, { gridRow?: string, gridColumn?: string }> = new Map();
+
+  /**
+   * Get optimal grid position for a card to minimize gaps
+   * Uses best-fit algorithm to fill existing gaps before creating new rows
+   * Returns CSS grid-row and grid-column values
+   */
+  public getCardGridPosition(cardId: 'discussion' | 'photos' | 'urls' | 'comments' | 'pdfs' | 'tracks' | 'upload' | 'description' | 'visibility' | 'type' | 'notes' | 'rating'): { gridRow?: string, gridColumn?: string } {
+    // First row cards are fixed
+    if (cardId === 'description' || cardId === 'visibility' || cardId === 'type' || cardId === 'rating') {
+      return {}; // Let CSS handle first row
+    }
+
+    // Check cache first
+    if (this.cardPositionsCache.has(cardId)) {
+      return this.cardPositionsCache.get(cardId)!;
+    }
+
+    // Initialize grid if needed
+    if (this.gridOccupancy.length === 0) {
+      this.initializeGrid();
+    }
+
+    // Get card dimensions
+    const layout = this.getCardLayoutClasses(cardId);
+    const rowSpan = this.getRowSpanFromClasses(layout);
+    const colSpan = this.getColSpanFromClasses(layout);
+
+    // Find best position using improved algorithm
+    const position = this.findBestPosition(rowSpan, colSpan);
+    
+    let result: { gridRow?: string, gridColumn?: string } = {};
+    
+    if (position) {
+      // Mark cells as occupied
+      this.markCellsOccupied(position.row, position.col, rowSpan, colSpan);
+      
+      // Return grid position
+      if (colSpan > 1) {
+        result = {
+          gridRow: `${position.row} / span ${rowSpan}`,
+          gridColumn: `${position.col} / span ${colSpan}`
+        };
+      } else {
+        result = {
+          gridRow: `${position.row} / span ${rowSpan}`
+        };
+      }
+    }
+
+    // Cache the result
+    this.cardPositionsCache.set(cardId, result);
+    return result;
+  }
+
+  /**
+   * Initialize grid occupancy - first row is occupied by the 4 fixed cards
+   */
+  private initializeGrid(): void {
+    this.gridOccupancy = [];
+    this.processedCards.clear();
+    
+    // First row: columns 1-4 are occupied by description, visibility, type, rating
+    const firstRow: boolean[] = new Array(this.maxColumns).fill(false);
+    firstRow[0] = true; // description
+    firstRow[1] = true; // visibility  
+    firstRow[2] = true; // type
+    firstRow[3] = true; // rating
+    this.gridOccupancy.push(firstRow);
+  }
+
+  /**
+   * Find the best position for a card using improved best-fit algorithm
+   * Prioritizes filling existing gaps over creating new rows
+   * Aggressively searches for the highest possible position
+   */
+  private findBestPosition(rowSpan: number, colSpan: number): { row: number, col: number } | null {
+    const candidates: Array<{ row: number, col: number, score: number }> = [];
+    
+    // Calculate how many columns are actually used (to avoid creating too many columns)
+    const actualMaxCol = Math.min(this.maxColumns, this.getMaxUsedColumn() + colSpan + 2);
+    
+    // Aggressively search ALL possible positions, starting from the top
+    // Search much more extensively - up to 20 rows or current max + 5
+    const searchLimit = Math.max(this.gridOccupancy.length + 5, 20);
+    for (let row = 1; row < searchLimit; row++) {
+      // Ensure we have enough rows
+      while (this.gridOccupancy.length <= row + rowSpan - 1) {
+        this.gridOccupancy.push(new Array(this.maxColumns).fill(false));
+      }
+
+      // Try each column position
+      // For large cards (colSpan > 1), prefer center positions
+      // For small cards, prefer leftmost positions to fill gaps
+      // Calculate center based on actual grid width (typically 4 columns)
+      const gridWidth = Math.max(actualMaxCol, 4); // Assume at least 4 columns
+      const centerCol = Math.floor((gridWidth - colSpan) / 2); // Center position for the card
+      
+      // Create column order: for large cards, start from center; for small, start from left
+      const colOrder: number[] = [];
+      if (colSpan > 1) {
+        // Large cards: prefer center, then spread outward
+        for (let offset = 0; offset <= Math.max(centerCol, actualMaxCol - centerCol); offset++) {
+          if (centerCol - offset >= 0 && centerCol - offset + colSpan <= actualMaxCol) {
+            colOrder.push(centerCol - offset);
+          }
+          if (offset > 0 && centerCol + offset + colSpan <= actualMaxCol) {
+            colOrder.push(centerCol + offset);
+          }
+        }
+      } else {
+        // Small cards: left to right (fill gaps from left)
+        for (let col = 0; col <= actualMaxCol - colSpan; col++) {
+          colOrder.push(col);
+        }
+      }
+
+      for (const col of colOrder) {
+        if (this.canPlaceCard(row, col, rowSpan, colSpan)) {
+          // Score calculation prioritizing positions directly below existing cards:
+          // - Has card directly above = MUCH better (biggest priority)
+          // - Lower row = better (fills gaps higher up)
+          // - Existing row (not new) = better (fills gaps)
+          // - For large cards: center position = better
+          // - For small cards: leftmost = better
+          // - Prefer positions that are adjacent to existing cards (fills gaps better)
+          const isExistingRow = row < this.gridOccupancy.length;
+          const hasAdjacentCard = this.hasAdjacentCard(row, col, colSpan);
+          const hasCardAbove = this.hasCardDirectlyAbove(row, col, colSpan);
+          
+          // Base row score - MUCH higher weight for lower rows (remonter les cartes)
+          // Lower row number = much better score
+          const rowScore = row * 100; // Increased from 10 to 100 to prioritize height
+          
+          // Penalty for new rows (but less important than row position)
+          const newRowPenalty = isExistingRow ? 0 : 200; // Reduced from 500
+          
+          // MASSIVE bonus for cards directly below another card (negative = better)
+          const belowCardBonus = hasCardAbove ? -2000 : 0; // Increased from -1000
+          
+          // Bonus for adjacent cards (helps fill gaps)
+          const adjacencyBonus = hasAdjacentCard ? -100 : 0; // Increased from -50
+          
+          // Center bonus for large cards (less important than height)
+          let centerBonus = 0;
+          if (colSpan > 1) {
+            const distanceFromCenter = Math.abs(col - (centerCol - Math.floor(colSpan / 2)));
+            centerBonus = -distanceFromCenter * 2; // Reduced from 5 (height is more important)
+          } else {
+            // For small cards, prefer leftmost (but less important than height)
+            centerBonus = col * 0.5; // Reduced weight
+          }
+          
+          // Calculate distance from nearest card above (closer = much better)
+          const distanceFromAbove = this.getDistanceFromCardAbove(row, col, colSpan);
+          const proximityBonus = -distanceFromAbove * 50; // Increased from 20 (closer = much better)
+          
+          // Additional bonus: if this fills a gap between existing cards
+          const fillsGap = this.fillsGapBetweenCards(row, col, colSpan);
+          const gapFillingBonus = fillsGap ? -300 : 0;
+          
+          const score = rowScore + newRowPenalty + belowCardBonus + adjacencyBonus + centerBonus + proximityBonus + gapFillingBonus;
+          candidates.push({ row: row + 1, col: col + 1, score }); // +1 because grid is 1-indexed
+        }
+      }
+    }
+
+    // If no position found in existing rows, try new rows (but minimize and prefer closest to top)
+    if (candidates.length === 0) {
+      const startRow = Math.max(this.gridOccupancy.length, 2);
+      for (let row = startRow; row < startRow + 3; row++) { // Only try 3 new rows max
+        while (this.gridOccupancy.length <= row + rowSpan - 1) {
+          this.gridOccupancy.push(new Array(this.maxColumns).fill(false));
+        }
+
+        // Calculate center for large cards
+        const gridWidth = Math.max(actualMaxCol, 4);
+        const centerCol = Math.floor((gridWidth - colSpan) / 2);
+        
+        // Create column order (same logic as above)
+        const colOrder: number[] = [];
+        if (colSpan > 1) {
+          for (let offset = 0; offset <= Math.max(centerCol, actualMaxCol - centerCol); offset++) {
+            if (centerCol - offset >= 0 && centerCol - offset + colSpan <= actualMaxCol) {
+              colOrder.push(centerCol - offset);
+            }
+            if (offset > 0 && centerCol + offset + colSpan <= actualMaxCol) {
+              colOrder.push(centerCol + offset);
+            }
+          }
+        } else {
+          for (let col = 0; col <= actualMaxCol - colSpan; col++) {
+            colOrder.push(col);
+          }
+        }
+
+        for (const col of colOrder) {
+          if (this.canPlaceCard(row, col, rowSpan, colSpan)) {
+            // Even for new rows, use the same improved scoring
+            const isExistingRow = row < this.gridOccupancy.length;
+            const hasAdjacentCard = this.hasAdjacentCard(row, col, colSpan);
+            const hasCardAbove = this.hasCardDirectlyAbove(row, col, colSpan);
+            const distanceFromAbove = this.getDistanceFromCardAbove(row, col, colSpan);
+            const fillsGap = this.fillsGapBetweenCards(row, col, colSpan);
+            
+            const rowScore = row * 100; // Same high weight for height
+            const newRowPenalty = isExistingRow ? 0 : 200;
+            const belowCardBonus = hasCardAbove ? -2000 : 0;
+            const adjacencyBonus = hasAdjacentCard ? -100 : 0;
+            const proximityBonus = -distanceFromAbove * 50;
+            const gapFillingBonus = fillsGap ? -300 : 0;
+            
+            let centerBonus = 0;
+            if (colSpan > 1) {
+              const distanceFromCenter = Math.abs(col - (centerCol - Math.floor(colSpan / 2)));
+              centerBonus = -distanceFromCenter * 2;
+            } else {
+              centerBonus = col * 0.5;
+            }
+            
+            const score = rowScore + newRowPenalty + belowCardBonus + adjacencyBonus + proximityBonus + gapFillingBonus + centerBonus;
+            candidates.push({ row: row + 1, col: col + 1, score });
+          }
+        }
+      }
+    }
+
+    // Sort by score (best first) and return the best position
+    if (candidates.length > 0) {
+      candidates.sort((a, b) => a.score - b.score);
+      return { row: candidates[0].row, col: candidates[0].col };
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if there's an adjacent card (helps fill gaps better)
+   */
+  private hasAdjacentCard(row: number, col: number, colSpan: number): boolean {
+    if (row >= this.gridOccupancy.length) return false;
+    
+    // Check left side
+    if (col > 0 && this.gridOccupancy[row][col - 1]) return true;
+    
+    // Check right side
+    if (col + colSpan < this.maxColumns && this.gridOccupancy[row][col + colSpan]) return true;
+    
+    return false;
+  }
+
+  /**
+   * Check if there's a card directly above this position
+   * This is the most important factor for minimizing gaps
+   */
+  private hasCardDirectlyAbove(row: number, col: number, colSpan: number): boolean {
+    if (row <= 0) return false; // Can't be above row 0
+    
+    // Check if any cell in the row above, in the same column range, is occupied
+    for (let c = col; c < col + colSpan; c++) {
+      if (row - 1 < this.gridOccupancy.length && this.gridOccupancy[row - 1][c]) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Calculate the distance from the nearest card above
+   * Returns 0 if directly below, or number of empty rows between
+   */
+  private getDistanceFromCardAbove(row: number, col: number, colSpan: number): number {
+    if (row <= 0) return 999; // No card above possible
+    
+    // Search upward for the nearest card
+    for (let r = row - 1; r >= 0; r--) {
+      // Check if any cell in this row, in the same column range, is occupied
+      for (let c = col; c < col + colSpan; c++) {
+        if (r < this.gridOccupancy.length && this.gridOccupancy[r][c]) {
+          return row - r - 1; // Distance in rows
+        }
+      }
+    }
+    
+    return 999; // No card found above
+  }
+
+  /**
+   * Check if this position fills a gap between existing cards
+   * (cards on both sides or above and below)
+   */
+  private fillsGapBetweenCards(row: number, col: number, colSpan: number): boolean {
+    // Check if there are cards on both left and right sides
+    const hasLeftCard = col > 0 && row < this.gridOccupancy.length && this.gridOccupancy[row][col - 1];
+    const hasRightCard = col + colSpan < this.maxColumns && row < this.gridOccupancy.length && this.gridOccupancy[row][col + colSpan];
+    
+    // Check if there are cards above and below
+    const hasCardAbove = this.hasCardDirectlyAbove(row, col, colSpan);
+    const hasCardBelow = row + 1 < this.gridOccupancy.length && 
+                         this.gridOccupancy[row + 1] && 
+                         this.gridOccupancy[row + 1].some((occupied, c) => c >= col && c < col + colSpan && occupied);
+    
+    return (hasLeftCard && hasRightCard) || (hasCardAbove && hasCardBelow);
+  }
+
+  /**
+   * Get the maximum column index that's actually used
+   */
+  private getMaxUsedColumn(): number {
+    let maxCol = 0;
+    for (let row = 0; row < this.gridOccupancy.length; row++) {
+      for (let col = this.maxColumns - 1; col >= 0; col--) {
+        if (this.gridOccupancy[row][col]) {
+          maxCol = Math.max(maxCol, col + 1);
+          break;
+        }
+      }
+    }
+    return maxCol;
+  }
+
+  /**
+   * Check if a card can be placed at the given position
+   */
+  private canPlaceCard(startRow: number, startCol: number, rowSpan: number, colSpan: number): boolean {
+    for (let r = startRow; r < startRow + rowSpan; r++) {
+      if (r >= this.gridOccupancy.length) {
+        // New row, it's free
+        continue;
+      }
+      for (let c = startCol; c < startCol + colSpan; c++) {
+        if (this.gridOccupancy[r][c]) {
+          return false; // Cell is occupied
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Mark cells as occupied
+   */
+  private markCellsOccupied(startRow: number, startCol: number, rowSpan: number, colSpan: number): void {
+    for (let r = startRow - 1; r < startRow - 1 + rowSpan; r++) { // -1 because grid is 1-indexed
+      while (this.gridOccupancy.length <= r) {
+        this.gridOccupancy.push(new Array(this.maxColumns).fill(false));
+      }
+      for (let c = startCol - 1; c < startCol - 1 + colSpan; c++) { // -1 because grid is 1-indexed
+        this.gridOccupancy[r][c] = true;
+      }
+    }
+  }
+
+  /**
+   * Extract row span from layout classes
+   */
+  private getRowSpanFromClasses(layout: string[]): number {
+    for (const cls of layout) {
+      const match = cls.match(/span-row-(\d+)/);
+      if (match) {
+        return parseInt(match[1], 10);
+      }
+    }
+    return 1;
+  }
+
+  /**
+   * Extract column span from layout classes
+   */
+  private getColSpanFromClasses(layout: string[]): number {
+    for (const cls of layout) {
+      const match = cls.match(/span-col-(\d+)/);
+      if (match) {
+        return parseInt(match[1], 10);
+      }
+    }
+    return 1;
+  }
+
+  /**
+   * Reset grid when data changes (call this when event loads)
+   */
+  public resetGridPacking(): void {
+    this.gridOccupancy = [];
+    this.processedCards.clear();
+    this.cardPositionsCache.clear();
+  }
+
+  public getCardOrder(cardId: 'discussion' | 'photos' | 'urls' | 'comments' | 'pdfs' | 'tracks' | 'upload' | 'description' | 'visibility' | 'type' | 'notes' | 'rating'): number {
     // Smaller number = earlier placement; grid-auto-flow:dense will pack.
     const photosCount = this.photoItemsList?.length || 0;
     const urlsCount = this.evenement?.urlEvents?.length || 0;
     const commentsCount = this.getEventComments().length;
 
     switch (cardId) {
+      case 'description':
+        return this.evenement?.comments ? 1 : 99;
+      case 'visibility':
+        return 1;
+      case 'type':
+        return 1;
+      case 'rating':
+        return 1;
+      case 'notes':
+        return this.evenement?.notes ? 10 : 99;
       case 'photos':
         return photosCount > 0 ? 20 : 80;
       case 'discussion':
@@ -2809,6 +3253,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         return commentsCount > 0 ? 45 : 88;
       case 'pdfs':
         return this.getPdfFiles().length > 0 ? 55 : 95;
+      case 'tracks':
+        return this.getTrackFiles().length > 0 ? 56 : 96;
       case 'upload':
         return 70;
       default:
@@ -2956,6 +3402,21 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       return [];
     }
     return this.evenement.fileUploadeds.filter(file => this.isVideoFile(file.fileName));
+  }
+
+  // Get track files (GPX, KML, etc.)
+  public getTrackFiles(): UploadedFile[] {
+    if (!this.evenement?.fileUploadeds) {
+      return [];
+    }
+    return this.evenement.fileUploadeds.filter(file => {
+      const fileName = file.fileName.toLowerCase();
+      return fileName.endsWith('.gpx') || 
+             fileName.endsWith('.kml') || 
+             fileName.endsWith('.kmz') ||
+             fileName.endsWith('.gdb') ||
+             fileName.endsWith('.tcx');
+    });
   }
 
   // Load all video URLs
@@ -3114,6 +3575,66 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       error: (error) => {
         if (error.name !== 'AbortError' && error.status !== 0) {
           console.error('Error loading PDF file:', error);
+        }
+      }
+    });
+  }
+
+  // Get icon for track file type
+  public getTrackFileIcon(fileName: string): string {
+    const lowerFileName = fileName.toLowerCase();
+    if (lowerFileName.endsWith('.gpx')) {
+      return 'fa-map-signs';
+    } else if (lowerFileName.endsWith('.kml') || lowerFileName.endsWith('.kmz')) {
+      return 'fa-map-pin';
+    } else if (lowerFileName.endsWith('.gdb')) {
+      return 'fa-database';
+    } else if (lowerFileName.endsWith('.tcx')) {
+      return 'fa-file-code-o';
+    }
+    return 'fa-map-marker';
+  }
+
+  // Open track file in trace viewer
+  public openTrackFile(trackFile: UploadedFile): void {
+    if (!trackFile?.fieldId || !this.traceViewerModalComponent) {
+      return;
+    }
+
+    // Get event color if available
+    const eventColor = this.getCalculatedColor();
+
+    // Open trace viewer with file
+    this.traceViewerModalComponent.openFromFile(trackFile.fieldId, trackFile.fileName, eventColor || undefined);
+  }
+
+  // Download track file
+  public downloadTrackFile(trackFile: UploadedFile): void {
+    if (!trackFile?.fieldId) {
+      return;
+    }
+
+    this.getFileBlobUrl(trackFile.fieldId).subscribe({
+      next: (blob: any) => {
+        // Create object URL for the blob
+        const objectUrl = URL.createObjectURL(blob);
+        
+        // Create a temporary anchor element for download
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = trackFile.fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up the URL after a delay
+        setTimeout(() => {
+          URL.revokeObjectURL(objectUrl);
+        }, 100);
+      },
+      error: (error) => {
+        if (error.name !== 'AbortError' && error.status !== 0) {
+          console.error('Error downloading track file:', error);
         }
       }
     });

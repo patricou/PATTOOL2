@@ -58,6 +58,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Upload logs
 	public uploadLogs: string[] = [];
 	public isUploading: boolean = false;
+	public uploadLogsModalRef: any = null;
 	// Video compression quality selection
 	public selectedCompressionQuality: 'low' | 'medium' | 'high' = 'high';
 	public showQualitySelection: boolean = false;
@@ -1214,14 +1215,22 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.uploadLogs = [];
 		
 		// Open upload logs modal
-		let modalRef: any;
 		if (this.uploadLogsModal) {
-			modalRef = this.modalService.open(this.uploadLogsModal, {
+			this.uploadLogsModalRef = this.modalService.open(this.uploadLogsModal, {
 				centered: true,
 				backdrop: 'static',
 				keyboard: false,
 				size: 'xl',
 				windowClass: 'upload-logs-modal'
+			});
+			// Force change detection after modal opens to ensure ViewChild is initialized
+			setTimeout(() => {
+				this.cdr.detectChanges();
+			}, 100);
+			
+			// Clean up modal reference when it's closed
+			this.uploadLogsModalRef.result.finally(() => {
+				this.uploadLogsModalRef = null;
 			});
 		}
 		
@@ -1440,6 +1449,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private addLog(message: string): void {
 		this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
 		
+		// Force change detection to update the view immediately
+		this.cdr.detectChanges();
+		
 		// Auto-scroll to top to show latest log
 		setTimeout(() => {
 			if (this.logContent && this.logContent.nativeElement) {
@@ -1515,6 +1527,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private addSuccessLog(message: string): void {
 		this.uploadLogs.unshift(`SUCCESS: [${new Date().toLocaleTimeString()}] ${message}`);
 		
+		// Force change detection to update the view immediately
+		this.cdr.detectChanges();
+		
 		// Auto-scroll to top to show latest log
 		const scrollTimeout = setTimeout(() => {
 			if (this.logContent && this.logContent.nativeElement) {
@@ -1529,6 +1544,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private addErrorLog(message: string): void {
 		this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
 		
+		// Force change detection to update the view immediately
+		this.cdr.detectChanges();
+		
 		// Auto-scroll to top to show latest log
 		const scrollTimeout = setTimeout(() => {
 			if (this.logContent && this.logContent.nativeElement) {
@@ -1542,6 +1560,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	private generateSessionId(): string {
 		return 'upload-' + Date.now() + '-' + Math.random().toString(36).substring(7);
+	}
+
+	public closeUploadLogsModal(): void {
+		if (this.uploadLogsModalRef) {
+			this.uploadLogsModalRef.close();
+			this.uploadLogsModalRef = null;
+		}
 	}
 
 	private handleUploadResponse(response: any): void {
@@ -4181,14 +4206,27 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	// Auto-expand file types that have less than 4 elements
 	private autoExpandFileTypesWithLessThanFour(): void {
-		const groupedFiles = this.getGroupedFiles();
-		const typeKeys = this.getSortedFileTypeKeys();
-		
-		typeKeys.forEach(typeKey => {
-			const files = groupedFiles[typeKey];
-			if (files && files.length > 0 && files.length < 4) {
-				// Expand this type if it has less than 4 elements
-				this.expandedFileTypes.set(typeKey, true);
+		// Use requestAnimationFrame to ensure this runs after render to avoid ExpressionChangedAfterItHasBeenCheckedError
+		requestAnimationFrame(() => {
+			const groupedFiles = this.getGroupedFiles();
+			const typeKeys = this.getSortedFileTypeKeys();
+			
+			// Only modify state if there are actual changes
+			let hasChanges = false;
+			typeKeys.forEach(typeKey => {
+				const files = groupedFiles[typeKey];
+				if (files && files.length > 0 && files.length < 4) {
+					// Only set if not already expanded to avoid unnecessary changes
+					if (!this.expandedFileTypes.get(typeKey)) {
+						this.expandedFileTypes.set(typeKey, true);
+						hasChanges = true;
+					}
+				}
+			});
+			
+			// Mark for change detection on next cycle only if there were changes
+			if (hasChanges) {
+				this.cdr.markForCheck();
 			}
 		});
 	}

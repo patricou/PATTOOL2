@@ -30,6 +30,7 @@ export class Evenement {
         public commentaries: Commentary[],
         public thumbnail?: UploadedFile, // Thumbnail file (file with "thumbnail" in its name)
         public friendGroupId?: string, // ID of the friend group for visibility (when visibility is a friend group)
-        public discussionId?: string // ID of the discussion associated with this event
+        public discussionId?: string, // ID of the discussion associated with this event
+        public notes?: string // Notes field for additional event information
     ) { }
 }

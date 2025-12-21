@@ -212,7 +212,6 @@ export class FriendsComponent implements OnInit {
     const serviceUser = this._memberService.getUser();
     if (serviceUser && serviceUser.id === this.currentUser.id) {
       this.currentUser = serviceUser;
-      console.log('CurrentUser refreshed from service - whatsappLink:', this.currentUser.whatsappLink);
       // Initialize country code from existing WhatsApp link
       this.initializeCountryCodeFromLink();
     }
@@ -1007,15 +1006,10 @@ export class FriendsComponent implements OnInit {
   loadUserStatuses() {
     this._friendsService.getAllUsersStatus().subscribe(
       statusMap => {
-        console.log('Loaded user statuses:', statusMap.size, 'users');
         // Update all statuses from the batch response
         statusMap.forEach((status, userId) => {
           this.userStatuses.set(userId, status);
-          if (status.online) {
-            console.log('User', userId, 'is ONLINE');
-          }
         });
-        console.log('Total statuses in map:', this.userStatuses.size);
         // Trigger change detection to update the UI
         this.cdr.detectChanges();
       },
@@ -2000,7 +1994,6 @@ export class FriendsComponent implements OnInit {
       friends => {
         this.selectedUserFriends = friends;
         this.loading = false;
-        console.log(`Loaded ${friends.length} friends for selected user ${userId}`);
       },
       error => {
         console.error('Error loading friends for selected user:', error);

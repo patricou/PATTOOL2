@@ -72,115 +72,139 @@
     <!-- Main Content Container - Dynamic Grid -->
     <div class="dynamic-grid-container">
 
-      <!-- Description Card - Small Horizontal -->
-      <div class="dynamic-card card-small card-horizontal" *ngIf="evenement.comments">
-        <div class="card-icon"><i class="fa fa-quote-left"></i></div>
-        <div class="card-content">
-          <h3 class="card-title-small">{{ 'EVENTELEM.DESCRIPTION' | translate }}</h3>
-          <p class="description-text-beautiful">{{ evenement.comments }}</p>
+      <!-- First Row: 4 Cards Container (Description, Visibility, Type, Rating) - Full Width -->
+      <div class="first-row-cards-container">
+        <!-- Description Card - Medium Vertical -->
+        <div class="dynamic-card card-medium card-vertical description-card"
+             *ngIf="evenement.comments"
+             [ngClass]="getCardLayoutClasses('description')"
+             [style.order]="getCardOrder('description')">
+          <div class="card-header-compact">
+            <i class="fa fa-quote-left"></i>
+            <span>{{ 'EVENTELEM.DESCRIPTION' | translate }}</span>
+          </div>
+          <div class="description-content-compact">
+            <p class="description-text-compact">{{ evenement.comments }}</p>
+          </div>
         </div>
-      </div>
 
-      <!-- Visibility Card - Small Vertical -->
-      <div class="dynamic-card card-small card-vertical">
-        <div class="card-icon"><i class="fa fa-eye"></i></div>
-        <div class="card-content">
-          <h3 class="card-title-small">{{ 'EVENTCREATION.VISIBILITY' | translate }}</h3>
-          <span class="visibility-badge-compact" [ngSwitch]="evenement.visibility">
-            <span *ngSwitchCase="'public'" class="badge-compact badge-public-compact">
-              <i class="fa fa-globe"></i> {{ 'EVENTCREATION.PUBLIC' | translate }}
-            </span>
-            <span *ngSwitchCase="'private'" class="badge-compact badge-private-compact">
-              <i class="fa fa-lock"></i> {{ 'EVENTCREATION.PRIVATE' | translate }}
-            </span>
-            <span *ngSwitchCase="'friends'" class="badge-compact badge-friends-compact">
-              <i class="fa fa-users"></i> {{ 'EVENTCREATION.FRIENDS' | translate }}
-            </span>
-            <span *ngSwitchDefault class="badge-compact badge-group-compact">
-              <i class="fa fa-group"></i> {{ evenement.visibility }}
-            </span>
-          </span>
-          <button class="btn-compact btn-whatsapp-compact" 
-                  *ngIf="hasFriendGroupWhatsAppLink()" 
-                  (click)="openFriendGroupWhatsAppLink()"
-                  title="{{ 'FRIENDS.OPEN_WHATSAPP' | translate }}">
-            <i class="fa fa-whatsapp"></i> {{ 'FRIENDS.OPEN_WHATSAPP' | translate }}
-          </button>
-          
-          <!-- Friend Group Members (when visibility is a friend group and friend group is loaded) -->
-          <ng-container *ngIf="evenement.friendGroupId && getCurrentFriendGroup() && getCurrentFriendGroup()!.members && getCurrentFriendGroup()!.members.length > 0">
-            <div class="members-compact">
-              <small class="members-count">
-                {{ getCurrentFriendGroup()!.members.length }} {{ 'EVENTELEM.MEMBERS' | translate }} 
-                <span *ngIf="getCurrentFriendGroup()!.name">({{ getCurrentFriendGroup()!.name }})</span>
-              </small>
-              <div class="members-tags-compact">
-                <ng-container *ngFor="let member of getFirstFriendGroupMembers()">
-                  <span class="member-tag-compact" *ngIf="member && member.firstName">
-                    {{ member?.firstName || '' }} {{ member?.lastName || '' }}
-                  </span>
-                </ng-container>
-                <span class="member-tag-compact" *ngIf="getRemainingFriendGroupMembersCount() > 0">+{{ getRemainingFriendGroupMembersCount() }}</span>
-              </div>
-            </div>
-          </ng-container>
-          
-          <!-- Event Members (always show if they exist and friend group members are not shown) -->
-          <ng-container *ngIf="hasEventMembers() && (!evenement.friendGroupId || !getCurrentFriendGroup() || !getCurrentFriendGroup()?.members || getCurrentFriendGroup()!.members.length === 0)">
-            <div class="members-compact">
-              <small class="members-count">{{ evenement.members.length }} {{ 'EVENTELEM.MEMBERS' | translate }}</small>
-              <div class="members-tags-compact">
-                <ng-container *ngFor="let member of getFirstMembers()">
-                  <span class="member-tag-compact" *ngIf="member && member.firstName">
-                    {{ member?.firstName || '' }} {{ member?.lastName || '' }}
-                  </span>
-                </ng-container>
-                <span class="member-tag-compact" *ngIf="getRemainingMembersCount() > 0">+{{ getRemainingMembersCount() }}</span>
-              </div>
-            </div>
-          </ng-container>
-        </div>
-      </div>
-
-      <!-- Event Info Card - Small Horizontal -->
-      <div class="dynamic-card card-small card-horizontal">
-        <div class="card-icon"><i class="fa fa-info-circle"></i></div>
-        <div class="card-content">
-          <h3 class="card-title-small">{{ 'EVENTELEM.TYPE' | translate }}</h3>
-          <div class="info-list-compact">
-            <div class="info-item-compact">
-              <span class="info-label">{{ 'EVENTELEM.TYPE' | translate }}:</span>
-              <span class="info-value">{{ getEventTypeLabel(evenement.type) | translate }}</span>
-            </div>
-            <div class="info-item-compact" *ngIf="evenement.status">
-              <span class="info-label">{{ 'EVENTELEM.STATUS' | translate }}:</span>
-              <span class="status-badge-compact" [ngSwitch]="evenement.status">
-                <span *ngSwitchCase="'Open'" class="badge-compact badge-status-open">{{ 'COMMUN.STATUSOPEN' | translate }}</span>
-                <span *ngSwitchCase="'Closed'" class="badge-compact badge-status-closed">{{ 'COMMUN.STATUSCLOSE' | translate }}</span>
-                <span *ngSwitchCase="'Cancel'" class="badge-compact badge-status-cancel">{{ 'COMMUN.STATUSCANCEL' | translate }}</span>
+        <!-- Visibility Card - Medium Vertical -->
+        <div class="dynamic-card card-medium card-vertical visibility-card"
+             *ngIf="evenement"
+             [ngClass]="getCardLayoutClasses('visibility')"
+             [style.order]="getCardOrder('visibility')">
+          <div class="card-header-compact">
+            <i class="fa fa-eye"></i>
+            <span>{{ 'EVENTCREATION.VISIBILITY' | translate }}</span>
+          </div>
+          <div class="visibility-content-compact">
+            <div class="visibility-badge-wrapper">
+              <span class="visibility-badge-compact" [ngSwitch]="evenement.visibility">
+                <span *ngSwitchCase="'public'" class="badge-compact badge-public-compact">
+                  <i class="fa fa-globe"></i> {{ 'EVENTCREATION.PUBLIC' | translate }}
+                </span>
+                <span *ngSwitchCase="'private'" class="badge-compact badge-private-compact">
+                  <i class="fa fa-lock"></i> {{ 'EVENTCREATION.PRIVATE' | translate }}
+                </span>
+                <span *ngSwitchCase="'friends'" class="badge-compact badge-friends-compact">
+                  <i class="fa fa-users"></i> {{ 'EVENTCREATION.FRIENDS' | translate }}
+                </span>
+                <span *ngSwitchDefault class="badge-compact badge-group-compact">
+                  <i class="fa fa-group"></i> {{ evenement.visibility }}
+                </span>
               </span>
             </div>
-            <div class="info-item-compact" *ngIf="evenement.diffculty">
-              <span class="info-label">{{ 'EVENTELEM.DIFF' | translate }}:</span>
-              <span class="info-value">{{ getDifficultyLabel(evenement.diffculty) | translate }}</span>
-            </div>
-            <div class="info-item-compact" *ngIf="evenement.startLocation">
-              <span class="info-label">{{ 'EVENTELEM.STARTLOCATION' | translate }}:</span>
-              <span class="info-value">{{ evenement.startLocation }}</span>
-            </div>
-            <div class="info-item-compact" *ngIf="evenement.durationEstimation">
-              <span class="info-label">{{ 'EVENTELEM.DURATION' | translate }}:</span>
-              <span class="info-value">{{ evenement.durationEstimation }}</span>
+            <button class="btn-compact btn-whatsapp-compact" 
+                    *ngIf="hasFriendGroupWhatsAppLink()" 
+                    (click)="openFriendGroupWhatsAppLink()"
+                    title="{{ 'FRIENDS.OPEN_WHATSAPP' | translate }}">
+              <i class="fa fa-whatsapp"></i> {{ 'FRIENDS.OPEN_WHATSAPP' | translate }}
+            </button>
+            
+            <!-- Friend Group Members (when visibility is a friend group and friend group is loaded) -->
+            <ng-container *ngIf="evenement.friendGroupId && getCurrentFriendGroup() && getCurrentFriendGroup()!.members && getCurrentFriendGroup()!.members.length > 0">
+              <div class="members-compact">
+                <small class="members-count">
+                  {{ getCurrentFriendGroup()!.members.length }} {{ 'EVENTELEM.MEMBERS' | translate }} 
+                  <span *ngIf="getCurrentFriendGroup()!.name">({{ getCurrentFriendGroup()!.name }})</span>
+                </small>
+                <div class="members-tags-compact">
+                  <ng-container *ngFor="let member of getFirstFriendGroupMembers()">
+                    <span class="member-tag-compact" *ngIf="member && member.firstName">
+                      {{ member?.firstName || '' }} {{ member?.lastName || '' }}
+                    </span>
+                  </ng-container>
+                  <span class="member-tag-compact" *ngIf="getRemainingFriendGroupMembersCount() > 0">+{{ getRemainingFriendGroupMembersCount() }}</span>
+                </div>
+              </div>
+            </ng-container>
+            
+            <!-- Event Members (always show if they exist and friend group members are not shown) -->
+            <ng-container *ngIf="hasEventMembers() && (!evenement.friendGroupId || !getCurrentFriendGroup() || !getCurrentFriendGroup()?.members || getCurrentFriendGroup()!.members.length === 0)">
+              <div class="members-compact">
+                <small class="members-count">{{ evenement.members.length }} {{ 'EVENTELEM.MEMBERS' | translate }}</small>
+                <div class="members-tags-compact">
+                  <ng-container *ngFor="let member of getFirstMembers()">
+                    <span class="member-tag-compact" *ngIf="member && member.firstName">
+                      {{ member?.firstName || '' }} {{ member?.lastName || '' }}
+                    </span>
+                  </ng-container>
+                  <span class="member-tag-compact" *ngIf="getRemainingMembersCount() > 0">+{{ getRemainingMembersCount() }}</span>
+                </div>
+              </div>
+            </ng-container>
+          </div>
+        </div>
+
+        <!-- Type Card - Medium Vertical -->
+        <div class="dynamic-card card-medium card-vertical type-card"
+             *ngIf="evenement"
+             [ngClass]="getCardLayoutClasses('type')"
+             [style.order]="getCardOrder('type')">
+          <div class="card-header-compact">
+            <i class="fa fa-info-circle"></i>
+            <span>{{ 'EVENTELEM.TYPE' | translate }}</span>
+          </div>
+          <div class="type-content-compact">
+            <div class="info-list-compact">
+              <div class="info-item-compact">
+                <span class="info-label">{{ 'EVENTELEM.TYPE' | translate }}:</span>
+                <span class="info-value">{{ getEventTypeLabel(evenement.type) | translate }}</span>
+              </div>
+              <div class="info-item-compact" *ngIf="evenement.status">
+                <span class="info-label">{{ 'EVENTELEM.STATUS' | translate }}:</span>
+                <span class="status-badge-compact" [ngSwitch]="evenement.status">
+                  <span *ngSwitchCase="'Open'" class="badge-compact badge-status-open">{{ 'COMMUN.STATUSOPEN' | translate }}</span>
+                  <span *ngSwitchCase="'Closed'" class="badge-compact badge-status-closed">{{ 'COMMUN.STATUSCLOSE' | translate }}</span>
+                  <span *ngSwitchCase="'Cancel'" class="badge-compact badge-status-cancel">{{ 'COMMUN.STATUSCANCEL' | translate }}</span>
+                </span>
+              </div>
+              <div class="info-item-compact" *ngIf="evenement.diffculty">
+                <span class="info-label">{{ 'EVENTELEM.DIFF' | translate }}:</span>
+                <span class="info-value">{{ getDifficultyLabel(evenement.diffculty) | translate }}</span>
+              </div>
+              <div class="info-item-compact" *ngIf="evenement.startLocation">
+                <span class="info-label">{{ 'EVENTELEM.STARTLOCATION' | translate }}:</span>
+                <span class="info-value">{{ evenement.startLocation }}</span>
+              </div>
+              <div class="info-item-compact" *ngIf="evenement.durationEstimation">
+                <span class="info-label">{{ 'EVENTELEM.DURATION' | translate }}:</span>
+                <span class="info-value">{{ evenement.durationEstimation }}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- Rating Card - Small Vertical -->
-      <div class="dynamic-card card-small card-vertical">
-        <div class="card-icon"><i class="fa fa-star"></i></div>
-        <div class="card-content">
-          <h3 class="card-title-small">{{ 'COMMUN.RATINGS' | translate }}</h3>
+        <!-- Rating Card - Medium Vertical -->
+        <div class="dynamic-card card-medium card-vertical rating-card"
+             *ngIf="evenement"
+             [ngClass]="getCardLayoutClasses('rating')"
+             [style.order]="getCardOrder('rating')">
+        <div class="card-header-compact">
+          <i class="fa fa-star"></i>
+          <span>{{ 'COMMUN.RATINGS' | translate }}</span>
+        </div>
+        <div class="rating-content-compact">
           <!-- Star Rating Display -->
           <div class="star-rating-display-compact">
             <span *ngFor="let star of getStarRating(); let i = index" 
@@ -215,12 +239,29 @@
           </div>
         </div>
       </div>
+      <!-- End First Row Cards Container -->
+
+      <!-- Notes Card - Medium Vertical -->
+      <div class="dynamic-card card-medium card-vertical notes-card"
+           *ngIf="evenement && evenement.notes"
+           [ngClass]="getCardLayoutClasses('notes')"
+           [style.order]="getCardOrder('notes')"
+           [ngStyle]="getCardGridPosition('notes')">
+        <div class="card-header-compact">
+          <i class="fa fa-sticky-note"></i>
+          <span>{{ 'EVENTELEM.NOTES' | translate }}</span>
+        </div>
+        <div class="notes-content-compact">
+          <p class="notes-text-compact">{{ evenement.notes }}</p>
+        </div>
+      </div>
 
       <!-- Discussion Card - Large Vertical -->
       <div class="dynamic-card card-large card-vertical discussion-card"
            *ngIf="hasDiscussion()"
            [ngClass]="getCardLayoutClasses('discussion')"
-           [style.order]="getCardOrder('discussion')">
+           [style.order]="getCardOrder('discussion')"
+           [ngStyle]="getCardGridPosition('discussion')">
         <div class="card-header-compact">
           <i class="fa fa-comments"></i>
           <span>{{ 'EVENTELEM.CHAT' | translate }}</span>
@@ -307,7 +348,8 @@
       <div class="dynamic-card card-large card-horizontal photos-card"
            *ngIf="photoItemsList.length > 0"
            [ngClass]="getCardLayoutClasses('photos')"
-           [style.order]="getCardOrder('photos')">
+           [style.order]="getCardOrder('photos')"
+           [ngStyle]="getCardGridPosition('photos')">
         <div class="card-header-compact">
           <i class="fa fa-camera"></i>
           <span>{{ 'EVENTELEM.PHOTOS' | translate }} ({{ photoItemsList.length }})</span>
@@ -348,7 +390,8 @@
       <div class="dynamic-card card-medium card-vertical comments-card"
            *ngIf="evenement"
            [ngClass]="getCardLayoutClasses('comments')"
-           [style.order]="getCardOrder('comments')">
+           [style.order]="getCardOrder('comments')"
+           [ngStyle]="getCardGridPosition('comments')">
         <div class="card-header-compact">
           <i class="fa fa-comments"></i>
           <span>{{ 'EVENTHOME.COMMENTARIES' | translate }} ({{ getEventComments().length }})</span>
@@ -432,7 +475,8 @@
       <div class="dynamic-card card-medium card-vertical urls-card"
            *ngIf="evenement"
            [ngClass]="getCardLayoutClasses('urls')"
-           [style.order]="getCardOrder('urls')">
+           [style.order]="getCardOrder('urls')"
+           [ngStyle]="getCardGridPosition('urls')">
         <div class="card-header-compact">
           <i class="fa fa-link"></i>
           <span>{{ 'EVENTELEM.URLS' | translate }} ({{ evenement.urlEvents.length }})</span>
@@ -594,7 +638,8 @@
       <div class="dynamic-card card-small card-vertical pdfs-card"
            *ngIf="getPdfFiles().length > 0"
            [ngClass]="getCardLayoutClasses('pdfs')"
-           [style.order]="getCardOrder('pdfs')">
+           [style.order]="getCardOrder('pdfs')"
+           [ngStyle]="getCardGridPosition('pdfs')">
         <div class="card-header-compact">
           <i class="fa fa-file-pdf-o"></i>
           <span>{{ 'EVENTELEM.PDF_DOCUMENTS' | translate }} ({{ getPdfFiles().length }})</span>
@@ -631,8 +676,55 @@
         </div>
       </div>
 
+      <!-- Track Files (GPX, KML, etc.) - Small Vertical -->
+      <div class="dynamic-card card-small card-vertical tracks-card"
+           *ngIf="getTrackFiles().length > 0"
+           [ngClass]="getCardLayoutClasses('tracks')"
+           [style.order]="getCardOrder('tracks')"
+           [ngStyle]="getCardGridPosition('tracks')">
+        <div class="card-header-compact">
+          <i class="fa fa-map-marker"></i>
+          <span>{{ 'EVENTELEM.TRACK_FILES' | translate }} ({{ getTrackFiles().length }})</span>
+        </div>
+        <div class="tracks-list-compact">
+          <div class="track-item-compact" *ngFor="let trackFile of getTrackFiles()">
+            <div class="track-name-compact">
+              <i class="fa" [ngClass]="getTrackFileIcon(trackFile.fileName)"></i>
+              {{ trackFile.fileName }}
+            </div>
+            <div class="track-meta-compact" *ngIf="trackFile.uploaderMember.userName || getUploadedFileDate($any(trackFile))">
+              <ng-container *ngIf="trackFile.uploaderMember.userName">
+                <i class="fa fa-user"></i>
+                <span class="track-owner-compact">{{ trackFile.uploaderMember.userName }}</span>
+              </ng-container>
+              <span class="track-sep-compact" *ngIf="trackFile.uploaderMember.userName && getUploadedFileDate($any(trackFile))">•</span>
+              <span class="track-date-compact" *ngIf="getUploadedFileDate($any(trackFile))">
+                <i class="fa fa-calendar"></i>
+                {{ getUploadedFileDate($any(trackFile)) | date:'short' }}
+              </span>
+            </div>
+            <div class="track-actions-compact">
+              <button class="btn-compact btn-primary-compact" (click)="openTrackFile(trackFile)" title="{{ 'EVENTELEM.OPEN_TRACK' | translate }}">
+                <i class="fa fa-map"></i>
+              </button>
+              <button class="btn-compact btn-secondary-compact" (click)="downloadTrackFile(trackFile)" title="{{ 'EVENTELEM.DOWNLOAD_TRACK' | translate }}">
+                <i class="fa fa-download"></i>
+              </button>
+              <button *ngIf="isFileOwner(trackFile.uploaderMember)"
+                      class="btn-compact btn-danger-compact"
+                      (click)="delFile(trackFile.fieldId)"
+                      title="{{ 'EVENTELEM.DELETEFILE' | translate }}">
+                <i class="fa fa-trash"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Video Cards - One card per video -->
-      <div class="dynamic-card card-medium card-vertical video-card" *ngFor="let videoFile of getVideoFiles(); let i = index">
+      <div class="dynamic-card card-medium card-vertical video-card" 
+           *ngFor="let videoFile of getVideoFiles(); let i = index"
+           [ngStyle]="getCardGridPosition('upload')">
         <div class="card-header-compact video-header-compact">
           <div class="video-header-left">
             <i class="fa fa-video-camera"></i>
@@ -683,7 +775,8 @@
       <div class="dynamic-card card-small card-vertical upload-card"
            *ngIf="user && evenement"
            [ngClass]="getCardLayoutClasses('upload')"
-           [style.order]="getCardOrder('upload')">
+           [style.order]="getCardOrder('upload')"
+           [ngStyle]="getCardGridPosition('upload')">
         <div class="card-header-compact">
           <i class="fa fa-upload"></i>
           <span>{{ 'EVENTELEM.UPLOAD' | translate }}</span>

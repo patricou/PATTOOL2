@@ -836,6 +836,21 @@ export class VideoshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (!video) return;
     
     this.duration = video.duration;
+    
+    // Auto-play video when metadata is loaded
+    if (video.paused) {
+      video.play().then(() => {
+        this.isPlaying = true;
+        this.cdr.detectChanges();
+      }).catch(err => {
+        // If autoplay fails (e.g., browser policy), video will remain paused
+        // User can manually play it
+        console.log('Autoplay prevented by browser:', err);
+        this.isPlaying = false;
+        this.cdr.detectChanges();
+      });
+    }
+    
     this.cdr.detectChanges();
   }
   

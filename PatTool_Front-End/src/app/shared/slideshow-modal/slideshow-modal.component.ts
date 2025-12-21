@@ -206,6 +206,24 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Resize listener handler (stored for cleanup)
   private resizeHandler?: () => void;
   
+  // Thumbnails wheel event handler (stored for cleanup)
+  private thumbnailsWheelHandler?: (event: WheelEvent) => void;
+  
+  // Focus management handler to prevent focus on aria-hidden elements
+  private focusManagementHandler?: () => void;
+  
+  // MutationObserver to detect when Bootstrap adds aria-hidden to app-root
+  private ariaHiddenObserver?: MutationObserver;
+  
+  // Cache for DOM queries to avoid repeated expensive lookups
+  private cachedAppRoot: HTMLElement | null = null;
+  private cachedModal: Element | null = null;
+  private focusFixInProgress: boolean = false;
+  
+  // Debounce timers for expensive dimension updates
+  private dimensionUpdateTimer: any = null;
+  private pendingDimensionUpdate: boolean = false;
+  
   // FS Photos download control
   private fsDownloadsActive: boolean = false;
   private fsActiveSubs: Subscription[] = [];
@@ -243,6 +261,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public thumbnails: string[] = []; // Array of thumbnail blob URLs, indexed by slideshowImages index
   public isLoadingThumbnails: boolean = false;
   private loadingThumbnailImageIndices: Set<number> = new Set(); // Track which image indices are currently loading (by this.images index)
+  private pendingThumbnailImageIndices: Set<number> = new Set(); // Track indices that are pending loading state update (to prevent duplicates)
   private thumbnailBlobs: Map<string, Blob> = new Map(); // Store thumbnail blobs by thumbnail URL
   private imageUrlToThumbnailIndex: Map<string, number> = new Map(); // Map image URL to its index in this.images
   private slideshowIndexToImageIndex: Map<number, number> = new Map(); // Map slideshowImages index to this.images index
@@ -288,6 +307,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   ngAfterViewInit(): void {
     // ViewChild is now available
+    // Setup thumbnails wheel listener after view initialization
+    this.setupThumbnailsWheelListener();
   }
   
   ngOnDestroy(): void {
@@ -354,6 +375,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.removeKeyboardListener();
     this.removeFullscreenListener();
     this.removeResizeListener();
+    this.removeThumbnailsWheelListener();
+    this.removeFocusMonitoring();
+    
+    // Clear dimension update timers
+    if (this.dimensionUpdateTimer) {
+      cancelAnimationFrame(this.dimensionUpdateTimer);
+      this.dimensionUpdateTimer = null;
+    }
+    this.pendingDimensionUpdate = false;
     
     // Revoke all blob URLs to free memory (critical for memory cleanup)
     // Make a copy of the array to avoid issues if it's modified during iteration
@@ -533,10 +563,24 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Lock scroll position before opening modal (prevents any movement)
     this.lockScrollPosition();
     
+    // CRITICAL: Blur any focused elements BEFORE opening the modal
+    // This prevents the accessibility warning when Bootstrap adds aria-hidden to app-root
+    const activeElement = document.activeElement as HTMLElement;
+    if (activeElement && activeElement !== document.body) {
+      // Blur synchronously before modal opens
+      try {
+        if (typeof (activeElement as any).blur === 'function') {
+          (activeElement as any).blur();
+        }
+      } catch (e) {
+        // Ignore blur errors
+      }
+    }
+    
     // Don't block body scroll - allow scrolling in both normal and mobile mode
     
-    // Open the modal immediately
-    try {
+      // Open the modal immediately
+      try {
       this.modalRef = this.modalService.open(this.slideshowModal, { 
         size: 'xl', 
         centered: true,
@@ -550,30 +594,47 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.lastKeyPressTime = 0;
       this.lastKeyCode = 0;
       
+      // Immediately blur any focused elements in app-root after modal opens
+      // This is a backup in case the synchronous blur above didn't work
+      requestAnimationFrame(() => {
+        const activeElementAfter = document.activeElement as HTMLElement;
+        const appRoot = document.querySelector('app-root') as HTMLElement;
+        const modal = document.querySelector('.modal.show');
+        
+        if (activeElementAfter && appRoot && modal && activeElementAfter !== document.body) {
+          // If active element is in app-root but not in modal, blur it immediately
+          if (appRoot.contains(activeElementAfter) && !modal.contains(activeElementAfter)) {
+            if (typeof (activeElementAfter as any).blur === 'function') {
+              (activeElementAfter as any).blur();
+            }
+          }
+        }
+      });
+      
       // Setup keyboard listener after modal is opened
-      setTimeout(() => {
+      // Use requestAnimationFrame instead of setTimeout for better performance
+      requestAnimationFrame(() => {
         this.setupKeyboardListener();
         this.setupResizeListener();
-        this.updateContainerDimensions();
-        // Apply event color after modal is rendered (with additional delay to ensure DOM is ready)
-        if (this.eventColor) {
-          setTimeout(() => {
-            this.applyEventColorToSlideshow();
-          }, 100);
-        }
+        this.setupThumbnailsWheelListener();
         
         // Fix accessibility: Remove focus from elements outside modal that have aria-hidden
         // This prevents the "Blocked aria-hidden on an element because its descendant retained focus" error
         this.fixFocusManagement();
+        // Setup continuous focus monitoring
+        this.setupFocusMonitoring();
         
-        // Center the active thumbnail after modal is fully rendered (multiple attempts to ensure it works)
-        setTimeout(() => {
+        // Use a single requestAnimationFrame for DOM updates (batched)
+        requestAnimationFrame(() => {
+          this.updateContainerDimensions();
+          // Apply event color after modal is rendered
+          if (this.eventColor) {
+            this.applyEventColorToSlideshow();
+          }
+          // Center the active thumbnail after modal is fully rendered
           this.scrollToActiveThumbnail();
-        }, 300);
-        setTimeout(() => {
-          this.scrollToActiveThumbnail();
-        }, 600);
-      }, 100);
+        });
+      });
       
       // Handle modal close event
       this.modalRef.result.finally(() => {
@@ -1167,52 +1228,76 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       
       const { imageIndex, blob } = item;
       
-      // Skip if already loading or loaded
-      if (this.loadingThumbnailImageIndices.has(imageIndex) || this.thumbnails[imageIndex]) {
+      // Skip if already loading, pending, or loaded
+      if (this.loadingThumbnailImageIndices.has(imageIndex) || 
+          this.pendingThumbnailImageIndices.has(imageIndex) || 
+          this.thumbnails[imageIndex]) {
         continue;
       }
       
-      // Mark as loading
-      this.loadingThumbnailImageIndices.add(imageIndex);
-      this.activeThumbnailGenerations++;
-      this.isLoadingThumbnails = true;
+      // Mark as pending synchronously to prevent duplicates, but defer actual Set update
+      // to avoid ExpressionChangedAfterItHasBeenCheckedError
+      this.pendingThumbnailImageIndices.add(imageIndex);
+      
+      // Defer loading state updates to next change detection cycle
+      setTimeout(() => {
+        this.ngZone.run(() => {
+          this.pendingThumbnailImageIndices.delete(imageIndex);
+          this.loadingThumbnailImageIndices.add(imageIndex);
+          this.activeThumbnailGenerations++;
+          this.isLoadingThumbnails = true;
+          this.cdr.markForCheck();
+        });
+      }, 0);
       
       // Generate thumbnail (completely independent from image loading)
       this.generateThumbnailFromBlob(blob).then(
         (thumbnailUrl) => {
           if (this.thumbnailGenerationActive) {
-            this.thumbnails[imageIndex] = thumbnailUrl;
-            this.loadingThumbnailImageIndices.delete(imageIndex);
-            this.activeThumbnailGenerations--;
-            this.cdr.detectChanges();
-            // Process next in queue (non-blocking)
-            setTimeout(() => {
-              if (this.thumbnailGenerationActive) {
-                this.processThumbnailGenerationQueue();
-              }
-            }, 0);
+            // Defer updates to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
+            this.ngZone.run(() => {
+              this.thumbnails[imageIndex] = thumbnailUrl;
+              this.loadingThumbnailImageIndices.delete(imageIndex);
+              this.activeThumbnailGenerations--;
+              this.cdr.markForCheck();
+              // Process next in queue (non-blocking)
+              setTimeout(() => {
+                if (this.thumbnailGenerationActive) {
+                  this.processThumbnailGenerationQueue();
+                }
+              }, 0);
+            });
           }
         },
         (error) => {
           if (this.thumbnailGenerationActive) {
-            this.thumbnails[imageIndex] = '';
-            this.loadingThumbnailImageIndices.delete(imageIndex);
-            this.activeThumbnailGenerations--;
-            this.cdr.detectChanges();
-            // Process next in queue (non-blocking)
-            setTimeout(() => {
-              if (this.thumbnailGenerationActive) {
-                this.processThumbnailGenerationQueue();
-              }
-            }, 0);
+            // Defer updates to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
+            this.ngZone.run(() => {
+              this.thumbnails[imageIndex] = '';
+              this.loadingThumbnailImageIndices.delete(imageIndex);
+              this.activeThumbnailGenerations--;
+              this.cdr.markForCheck();
+              // Process next in queue (non-blocking)
+              setTimeout(() => {
+                if (this.thumbnailGenerationActive) {
+                  this.processThumbnailGenerationQueue();
+                }
+              }, 0);
+            });
           }
         }
       );
     }
     
     // Mark loading as complete if queue is empty and no active generations
+    // Defer to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
     if (this.thumbnailGenerationQueue.length === 0 && this.activeThumbnailGenerations === 0) {
-      this.isLoadingThumbnails = false;
+      setTimeout(() => {
+        this.ngZone.run(() => {
+          this.isLoadingThumbnails = false;
+          this.cdr.markForCheck();
+        });
+      }, 0);
     }
   }
   
@@ -1413,33 +1498,57 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Recalculer la translation pour maintenir le point central visible au même endroit
   // Update container dimensions (called when container size changes)
+  // Debounced to avoid too many expensive getBoundingClientRect calls
   private updateContainerDimensions(): void {
-    try {
-      const container = this.slideshowContainerRef?.nativeElement;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        if (rect && rect.width > 0 && rect.height > 0) {
-          this.containerWidth = Math.round(rect.width);
-          this.containerHeight = Math.round(rect.height);
-          
-          // Also update image dimensions and other info
-          this.updateImageDimensions();
-        }
-      }
-    } catch (error) {
-      // Silently ignore errors
+    // Clear existing timer
+    if (this.dimensionUpdateTimer) {
+      cancelAnimationFrame(this.dimensionUpdateTimer);
     }
+    
+    // Mark that an update is pending
+    this.pendingDimensionUpdate = true;
+    
+    // Debounce the actual update (use requestAnimationFrame for better batching)
+    this.dimensionUpdateTimer = requestAnimationFrame(() => {
+      this.dimensionUpdateTimer = null;
+      
+      if (!this.pendingDimensionUpdate) {
+        return;
+      }
+      
+      this.pendingDimensionUpdate = false;
+      
+      try {
+        const container = this.slideshowContainerRef?.nativeElement;
+        if (container) {
+          const rect = container.getBoundingClientRect();
+          if (rect && rect.width > 0 && rect.height > 0) {
+            this.containerWidth = Math.round(rect.width);
+            this.containerHeight = Math.round(rect.height);
+            
+            // Also update image dimensions and other info - but don't call it here as it will
+            // trigger another getBoundingClientRect, just update container dimensions only
+            // updateImageDimensions() will be called separately when needed
+          }
+        }
+      } catch (error) {
+        // Silently ignore errors
+      }
+    });
   }
   
   // Handle image load event
   public onImageLoad(): void {
-    // Update dimensions when image loads
-    setTimeout(() => {
+    // Update dimensions when image loads - use requestAnimationFrame for better performance
+    requestAnimationFrame(() => {
       this.updateImageDimensions();
       this.updateContainerDimensions();
-      this.updateAverageBackgroundColor();
+      // Defer background color calculation as it's expensive (canvas operations)
+      requestAnimationFrame(() => {
+        this.updateAverageBackgroundColor();
+      });
       this.slideshowBackgroundImageUrl = this.getCurrentSlideshowImage();
-    }, 100);
+    });
   }
 
   private updateAverageBackgroundColor(): void {
@@ -1447,61 +1556,91 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (this.showMapView) {
         // If showing map view, keep default/darker background
         // Defer update to avoid ExpressionChangedAfterItHasBeenCheckedError
-        setTimeout(() => {
-          this.slideshowBackgroundColor = 'black';
-        }, 0);
+        this.ngZone.runOutsideAngular(() => {
+          setTimeout(() => {
+            this.ngZone.run(() => {
+              this.slideshowBackgroundColor = 'black';
+              this.cdr.markForCheck();
+            });
+          }, 0);
+        });
         return;
       }
       const imgEl = this.slideshowImgElRef?.nativeElement;
       if (!imgEl || !imgEl.complete || imgEl.naturalWidth === 0 || imgEl.naturalHeight === 0) {
         return;
       }
-      // Preserve aspect ratio; scale longest side to target
-      const targetMax = 100;
-      const iw = imgEl.naturalWidth;
-      const ih = imgEl.naturalHeight;
-      const scale = Math.min(targetMax / Math.max(iw, ih), 1);
-      const tw = Math.max(1, Math.round(iw * scale));
-      const th = Math.max(1, Math.round(ih * scale));
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      if (!ctx) {
-        return;
-      }
-      canvas.width = tw;
-      canvas.height = th;
-      ctx.drawImage(imgEl, 0, 0, tw, th);
-      const imageData = ctx.getImageData(0, 0, tw, th);
-      const data = imageData.data;
-      let r = 0, g = 0, b = 0, count = 0;
-      // Sample every pixel (tw*th <= 10k when targetMax=100), still cheap
-      for (let i = 0; i < data.length; i += 4) {
-        const alpha = data[i + 3];
-        // Skip nearly transparent pixels to avoid background bleed
-        if (alpha < 250) continue;
-        r += data[i];
-        g += data[i + 1];
-        b += data[i + 2];
-        count++;
-      }
-      // Defer background color update to avoid ExpressionChangedAfterItHasBeenCheckedError
-      setTimeout(() => {
-        if (count > 0) {
-          const avgR = Math.round(r / count);
-          const avgG = Math.round(g / count);
-          const avgB = Math.round(b / count);
-          this.slideshowBackgroundColor = `rgb(${avgR}, ${avgG}, ${avgB})`;
+      // Run the expensive canvas operations outside Angular zone
+      // Use requestIdleCallback if available, otherwise requestAnimationFrame for better performance
+      const scheduleWork = (callback: () => void) => {
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(callback, { timeout: 1000 });
         } else {
-          this.slideshowBackgroundColor = 'black';
+          requestAnimationFrame(callback);
         }
-      }, 0);
+      };
+      
+      this.ngZone.runOutsideAngular(() => {
+        scheduleWork(() => {
+          // Preserve aspect ratio; scale longest side to target (reduce target for better performance)
+          const targetMax = 80; // Reduced from 100 for better performance
+          const iw = imgEl.naturalWidth;
+          const ih = imgEl.naturalHeight;
+          const scale = Math.min(targetMax / Math.max(iw, ih), 1);
+          const tw = Math.max(1, Math.round(iw * scale));
+          const th = Math.max(1, Math.round(ih * scale));
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (!ctx) {
+            return;
+          }
+          canvas.width = tw;
+          canvas.height = th;
+          ctx.drawImage(imgEl, 0, 0, tw, th);
+          const imageData = ctx.getImageData(0, 0, tw, th);
+          const data = imageData.data;
+          let r = 0, g = 0, b = 0, count = 0;
+          
+          // Sample every 4th pixel instead of every pixel for better performance
+          // This reduces processing time by ~75% while still getting good results
+          for (let i = 0; i < data.length; i += 16) { // Changed from i += 4 to i += 16
+            const alpha = data[i + 3];
+            // Skip nearly transparent pixels to avoid background bleed
+            if (alpha < 250) continue;
+            r += data[i];
+            g += data[i + 1];
+            b += data[i + 2];
+            count++;
+          }
+          
+          // Defer background color update - use requestAnimationFrame instead of setTimeout
+          requestAnimationFrame(() => {
+            this.ngZone.run(() => {
+              if (count > 0) {
+                const avgR = Math.round(r / count);
+                const avgG = Math.round(g / count);
+                const avgB = Math.round(b / count);
+                this.slideshowBackgroundColor = `rgb(${avgR}, ${avgG}, ${avgB})`;
+              } else {
+                this.slideshowBackgroundColor = 'black';
+              }
+              this.cdr.markForCheck();
+            });
+          });
+        });
+      });
     } catch {
       // In case of CORS-tainted canvas or other errors, fallback gracefully to transparent
       // so the blurred image background (if any) can show through.
       // Defer update to avoid ExpressionChangedAfterItHasBeenCheckedError
-      setTimeout(() => {
-        this.slideshowBackgroundColor = 'transparent';
-      }, 0);
+      this.ngZone.runOutsideAngular(() => {
+        setTimeout(() => {
+          this.ngZone.run(() => {
+            this.slideshowBackgroundColor = 'transparent';
+            this.cdr.markForCheck();
+          });
+        }, 0);
+      });
     }
   }
   
@@ -1547,8 +1686,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const naturalH = imgEl.naturalHeight || 0;
       
       if (naturalW === 0 || naturalH === 0) {
-        // Image not loaded yet, try again later
-        setTimeout(() => this.updateImageDimensions(), 100);
+        // Image not loaded yet, try again later - use requestAnimationFrame instead of setTimeout
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            this.updateImageDimensions();
+          });
+        });
         return;
       }
       
@@ -1737,54 +1880,196 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Fix focus management to prevent accessibility issues
   // When modal opens, Bootstrap sets aria-hidden on app-root, but elements outside modal may retain focus
   private fixFocusManagement(): void {
+    // Prevent multiple simultaneous calls
+    if (this.focusFixInProgress) {
+      return;
+    }
+    
     try {
-      const activeElement = document.activeElement as HTMLElement;
-      if (!activeElement) {
+      this.focusFixInProgress = true;
+      
+      // Use cached modal or query once
+      if (!this.cachedModal) {
+        this.cachedModal = document.querySelector('.modal.show');
+      }
+      const modal = this.cachedModal;
+      if (!modal) {
+        this.focusFixInProgress = false;
         return;
       }
       
-      // Check if the active element is inside an element with aria-hidden="true"
-      let currentElement: HTMLElement | null = activeElement;
-      let hasAriaHidden = false;
-      
-      while (currentElement && currentElement !== document.body) {
-        const ariaHidden = currentElement.getAttribute('aria-hidden');
-        if (ariaHidden === 'true') {
-          hasAriaHidden = true;
-          break;
-        }
-        currentElement = currentElement.parentElement;
+      // Use cached app-root or query once
+      if (!this.cachedAppRoot) {
+        this.cachedAppRoot = document.querySelector('app-root') as HTMLElement;
+      }
+      const appRoot = this.cachedAppRoot;
+      if (!appRoot || appRoot.getAttribute('aria-hidden') !== 'true') {
+        this.focusFixInProgress = false;
+        return;
       }
       
-      // If the focused element is inside an aria-hidden element, remove focus
-      if (hasAriaHidden) {
-        // Blur the element to remove focus
-        if (activeElement && typeof (activeElement as any).blur === 'function') {
+      const activeElement = document.activeElement as HTMLElement;
+      if (!activeElement) {
+        this.focusFixInProgress = false;
+        return;
+      }
+      
+      // Check if element is inside the modal (which should not have aria-hidden)
+      if (modal.contains(activeElement)) {
+        // Element is inside modal, which is fine - don't blur it
+        this.focusFixInProgress = false;
+        return;
+      }
+      
+      // Check if the active element is inside app-root (which has aria-hidden="true")
+      if (appRoot.contains(activeElement)) {
+        // Blur the element to remove focus immediately
+        if (typeof (activeElement as any).blur === 'function') {
           (activeElement as any).blur();
         }
         
         // Move focus to the modal's close button or first focusable element in modal
-        setTimeout(() => {
-          const modalElement = document.querySelector('.modal.show .slideshow-header button[aria-label="Close"]') as HTMLElement;
-          if (modalElement) {
-            modalElement.focus();
-          } else {
-            // Fallback: find first focusable element in modal
-            const modal = document.querySelector('.modal.show');
-            if (modal) {
-              const focusableElements = modal.querySelectorAll(
-                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-              );
-              if (focusableElements.length > 0) {
-                (focusableElements[0] as HTMLElement).focus();
+        // Do this synchronously to avoid delays
+        this.moveFocusToModal();
+        this.focusFixInProgress = false;
+        return;
+      }
+      
+      this.focusFixInProgress = false;
+    } catch (error) {
+      this.focusFixInProgress = false;
+      // Ignore errors in focus management
+    }
+  }
+  
+  // Setup continuous focus monitoring to catch focus events on aria-hidden elements
+  private setupFocusMonitoring(): void {
+    // Remove existing handler if any
+    this.removeFocusMonitoring();
+    
+    // Reset cache
+    this.cachedAppRoot = null;
+    this.cachedModal = null;
+    this.focusFixInProgress = false;
+    
+    // Create handler that checks focus on focusin events (capture phase to catch early)
+    this.focusManagementHandler = () => {
+      // Prevent multiple simultaneous calls
+      if (this.focusFixInProgress) {
+        return;
+      }
+      
+      // Use requestAnimationFrame for better performance (batches with browser rendering)
+      requestAnimationFrame(() => {
+        this.fixFocusManagement();
+      });
+    };
+    
+    // Listen to focusin event in capture phase to catch all focus changes
+    document.addEventListener('focusin', this.focusManagementHandler, true);
+    
+    // Setup MutationObserver to watch for aria-hidden being added to app-root
+    this.setupAriaHiddenObserver();
+  }
+  
+  // Setup MutationObserver to detect when Bootstrap adds aria-hidden to app-root
+  private setupAriaHiddenObserver(): void {
+    // Remove existing observer if any
+    this.removeAriaHiddenObserver();
+    
+    const appRoot = document.querySelector('app-root') as HTMLElement;
+    if (!appRoot) {
+      // Retry after a short delay if app-root is not yet available
+      setTimeout(() => this.setupAriaHiddenObserver(), 100);
+      return;
+    }
+    
+    // Cache app-root
+    this.cachedAppRoot = appRoot;
+    
+    // Create observer to watch for aria-hidden attribute changes
+    this.ariaHiddenObserver = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'aria-hidden') {
+          const target = mutation.target as HTMLElement;
+          if (target === appRoot && target.getAttribute('aria-hidden') === 'true') {
+            // Bootstrap just added aria-hidden to app-root, immediately blur any focused elements
+            // Do this synchronously to prevent the warning
+            const activeElement = document.activeElement as HTMLElement;
+            if (activeElement && activeElement !== document.body) {
+              // Check if element is in app-root but not in modal
+              const modal = document.querySelector('.modal.show');
+              if (!modal || !modal.contains(activeElement)) {
+                if (appRoot.contains(activeElement)) {
+                  // Blur immediately and synchronously (no requestAnimationFrame delay)
+                  if (typeof (activeElement as any).blur === 'function') {
+                    (activeElement as any).blur();
+                  }
+                  // Move focus to modal synchronously to avoid delays
+                  this.moveFocusToModal();
+                }
               }
             }
           }
-        }, 0);
+        }
       }
-    } catch (error) {
-      // Ignore errors in focus management
+    });
+    
+    // Start observing app-root for attribute changes
+    this.ariaHiddenObserver.observe(appRoot, {
+      attributes: true,
+      attributeFilter: ['aria-hidden']
+    });
+  }
+  
+  // Move focus to the modal's first focusable element
+  private moveFocusToModal(): void {
+    // Use cached modal
+    if (!this.cachedModal) {
+      this.cachedModal = document.querySelector('.modal.show');
     }
+    const modal = this.cachedModal;
+    if (!modal) {
+      return;
+    }
+    
+    // Try close button first
+    const closeButton = modal.querySelector('.slideshow-header button[aria-label="Close"]') as HTMLElement;
+    if (closeButton) {
+      closeButton.focus();
+      return;
+    }
+    
+    // Fallback: find first focusable element in modal
+    const focusableElements = modal.querySelectorAll(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    
+    if (focusableElements.length > 0) {
+      (focusableElements[0] as HTMLElement).focus();
+    }
+  }
+  
+  // Remove aria-hidden observer
+  private removeAriaHiddenObserver(): void {
+    if (this.ariaHiddenObserver) {
+      this.ariaHiddenObserver.disconnect();
+      this.ariaHiddenObserver = undefined;
+    }
+  }
+  
+  // Remove focus monitoring handler
+  private removeFocusMonitoring(): void {
+    if (this.focusManagementHandler) {
+      document.removeEventListener('focusin', this.focusManagementHandler, true);
+      this.focusManagementHandler = undefined;
+    }
+    this.removeAriaHiddenObserver();
+    
+    // Clear cache
+    this.cachedAppRoot = null;
+    this.cachedModal = null;
+    this.focusFixInProgress = false;
   }
   
   // Setup escape handler on fullscreen element
@@ -1849,7 +2134,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Get minimum zoom level - ensures image never becomes smaller than its container
   // Always uses visible container dimensions (works in both windowed and fullscreen modes)
-  // Zoom is calculated based on visible container viewport, not full image
+  // Zoom is calculated based on natural image dimensions to ensure correct calculation for portrait images
   public getMinSlideshowZoom(): number {
     try {
       const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
@@ -1862,14 +2147,28 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const cw = containerRect.width || container.clientWidth || 1;
       const ch = containerRect.height || container.clientHeight || 1;
       
-      // Get the image's base display size (before any zoom transform)
-      // This is what's currently visible in the container viewport
-      const imgBaseWidth = imgEl.clientWidth || imgEl.naturalWidth || 1;
-      const imgBaseHeight = imgEl.clientHeight || imgEl.naturalHeight || 1;
+      // Use natural dimensions (actual image size) for accurate calculation
+      // This is critical for portrait images where rendered size might be different
+      const imgNaturalWidth = imgEl.naturalWidth || 1;
+      const imgNaturalHeight = imgEl.naturalHeight || 1;
       
-      // Calculate zoom needed so the visible portion of the image fits the container
-      // Zoom is relative to what's visible in the container, not the full image
-      const fillZoom = Math.max(cw / imgBaseWidth, ch / imgBaseHeight);
+      // Calculate the aspect ratios
+      const containerAspect = cw / ch;
+      const imageAspect = imgNaturalWidth / imgNaturalHeight;
+      
+      // Calculate zoom needed to fit the image in the container
+      // For landscape images (imageAspect > containerAspect), width is limiting factor
+      // For portrait images (imageAspect < containerAspect), height is limiting factor
+      let fillZoom: number;
+      if (imageAspect > containerAspect) {
+        // Landscape: fit to width
+        fillZoom = cw / imgNaturalWidth;
+      } else {
+        // Portrait: fit to height
+        fillZoom = ch / imgNaturalHeight;
+      }
+      
+      // Minimum zoom should never be less than 1 (never zoom out beyond original size)
       return Math.max(1, fillZoom);
     } catch { return 1; }
   }
@@ -1916,12 +2215,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Plus le zoom est élevé, plus le pas est grand (plus rapide)
     // Formule: step = baseStep * (1 + current * multiplier)
     // Cela donne: petit pas à zoom faible, grand pas à zoom élevé
-    const baseStep = 0.1; // Pas de base modéré pour petit zoom
-    const multiplier = 0.2; // Multiplicateur augmenté pour progression plus rapide dès le début
+    // Increased baseStep to make zoom more responsive from the beginning
+    const baseStep = 0.3; // Pas de base augmenté pour zoom plus réactif dès le début
+    const multiplier = 0.15; // Multiplicateur légèrement réduit pour équilibrer
     const dynamicStep = baseStep * (1 + current * multiplier);
     
     // Limiter le pas entre minStep et maxStep pour éviter des valeurs trop extrêmes
-    const minStep = 0.1; // Pas minimum modéré pour petit zoom
+    // Increased minStep to ensure noticeable zoom even at minimum zoom level
+    const minStep = 0.25; // Pas minimum augmenté pour zoom plus visible dès le début
     const maxStep = 5.0; // Augmenté encore plus pour permettre des pas très grands à zoom très élevé
     const step = Math.max(minStep, Math.min(maxStep, dynamicStep));
     
@@ -1937,24 +2238,29 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     const minZoom = this.getMinSlideshowZoom();
     const oldZoom = this.slideshowZoom;
-    this.slideshowZoom = this.applyWheelZoom(event, this.slideshowZoom, minZoom);
+    const newZoom = this.applyWheelZoom(event, this.slideshowZoom, minZoom);
     
-    // Always zoom on the center of the visible image
-    if (this.slideshowZoom <= minZoom) {
-      // Reset to center if at minimum zoom
-      this.slideshowTranslateX = 0;
-      this.slideshowTranslateY = 0;
+    // Check if the new zoom is at or below minimum zoom (with small epsilon for floating point comparison)
+    const epsilon = 0.01;
+    const isAtMinZoom = newZoom <= minZoom + epsilon;
+    
+    if (isAtMinZoom) {
+      // When at minimum zoom, use the same reset logic as pressing "R" key
+      // This ensures zoom out matches the "R" key reset behavior
+      this.resetSlideshowZoom();
     } else {
+      this.slideshowZoom = newZoom;
       // Zoom on center
       this.zoomOnCenter(this.slideshowZoom, oldZoom);
+      // Only clamp translation when not at minimum zoom
+      this.clampSlideshowTranslation();
+      
+      // Recalculate image dimensions after zoom change - use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        this.updateImageDimensions();
+        this.updateContainerDimensions();
+      }, 0);
     }
-    
-    this.clampSlideshowTranslation();
-    // Recalculate image dimensions after zoom change - use setTimeout to ensure DOM is updated
-    setTimeout(() => {
-      this.updateImageDimensions();
-      this.updateContainerDimensions();
-    }, 0);
   }
   
   public resetSlideshowZoom(): void { 
@@ -2204,23 +2510,29 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public zoomOutSlideshow(): void { 
     const minZoom = this.getMinSlideshowZoom();
     const oldZoom = this.slideshowZoom;
-    this.slideshowZoom = Math.max(minZoom, parseFloat((this.slideshowZoom - 0.5).toFixed(2))); 
+    const newZoom = Math.max(minZoom, parseFloat((this.slideshowZoom - 0.5).toFixed(2))); 
     
-    // Si on atteint le zoom minimum, recentrer l'image
-    if (this.slideshowZoom <= minZoom) {
-      this.slideshowTranslateX = 0;
-      this.slideshowTranslateY = 0;
+    // Check if the new zoom is at or below minimum zoom (with small epsilon for floating point comparison)
+    const epsilon = 0.01;
+    const isAtMinZoom = newZoom <= minZoom + epsilon;
+    
+    if (isAtMinZoom) {
+      // When at minimum zoom, use the same reset logic as pressing "R" key
+      // This ensures zoom out matches the "R" key reset behavior
+      this.resetSlideshowZoom();
     } else {
+      this.slideshowZoom = newZoom;
       // Always zoom on the center of the visible image
       this.zoomOnCenter(this.slideshowZoom, oldZoom);
+      // Only clamp translation when not at minimum zoom
+      this.clampSlideshowTranslation();
+      
+      // Recalculate image dimensions after zoom change - use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        this.updateImageDimensions();
+        this.updateContainerDimensions();
+      }, 0);
     }
-    
-    this.clampSlideshowTranslation();
-    // Recalculate image dimensions after zoom change - use setTimeout to ensure DOM is updated
-    setTimeout(() => {
-      this.updateImageDimensions();
-      this.updateContainerDimensions();
-    }, 0);
   }
   
   // Dézoom agressif pour le double-clic
@@ -2229,23 +2541,29 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const oldZoom = this.slideshowZoom;
     
     // Dézoomer de 3.5 lors du double-clic
-    this.slideshowZoom = Math.max(minZoom, parseFloat((this.slideshowZoom - 3.5).toFixed(2)));
+    const newZoom = Math.max(minZoom, parseFloat((this.slideshowZoom - 3.5).toFixed(2)));
     
-    // Si on atteint le zoom minimum, recentrer l'image
-    if (this.slideshowZoom <= minZoom) {
-      this.slideshowTranslateX = 0;
-      this.slideshowTranslateY = 0;
+    // Check if the new zoom is at or below minimum zoom (with small epsilon for floating point comparison)
+    const epsilon = 0.01;
+    const isAtMinZoom = newZoom <= minZoom + epsilon;
+    
+    if (isAtMinZoom) {
+      // When at minimum zoom, use the same reset logic as pressing "R" key
+      // This ensures zoom out matches the "R" key reset behavior
+      this.resetSlideshowZoom();
     } else {
+      this.slideshowZoom = newZoom;
       // Always zoom on the center of the visible image
       this.zoomOnCenter(this.slideshowZoom, oldZoom);
+      // Only clamp translation when not at minimum zoom
+      this.clampSlideshowTranslation();
+      
+      // Recalculate image dimensions after zoom change - use setTimeout to ensure DOM is updated
+      setTimeout(() => {
+        this.updateImageDimensions();
+        this.updateContainerDimensions();
+      }, 0);
     }
-    
-    this.clampSlideshowTranslation();
-    // Recalculate image dimensions after zoom change - use setTimeout to ensure DOM is updated
-    setTimeout(() => {
-      this.updateImageDimensions();
-      this.updateContainerDimensions();
-    }, 0);
   }
   
   // Drag handlers
@@ -2557,6 +2875,20 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   private clampSlideshowTranslation(): void {
     try {
+      // If at minimum zoom, force translation to 0,0 and return early
+      const minZoom = this.getMinSlideshowZoom();
+      const epsilon = 0.01;
+      const isAtMinZoom = Math.abs(this.slideshowZoom - minZoom) < epsilon || this.slideshowZoom <= minZoom;
+      
+      if (isAtMinZoom) {
+        this.slideshowTranslateX = 0;
+        this.slideshowTranslateY = 0;
+        // Still update dimensions and visible portion for consistency
+        this.updateImageDimensions();
+        this.calculateVisibleImagePortion();
+        return;
+      }
+      
       const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
       const imgEl = this.slideshowImgElRef?.nativeElement as HTMLImageElement;
       if (!container || !imgEl) return;
@@ -4708,11 +5040,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     const currentImageUrl = this.getCurrentSlideshowImage();
     if (currentImageUrl && currentImageUrl === imageUrl) {
-      this.currentImageLocation = { ...location };
-      this.currentMapUrl = this.mapUrlCache.get(imageUrl) || null;
-      if (this.showMapView) {
-        this.cdr.detectChanges();
-      }
+      // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+      setTimeout(() => {
+        this.currentImageLocation = { ...location };
+        this.currentMapUrl = this.mapUrlCache.get(imageUrl) || null;
+        this.cdr.markForCheck();
+      }, 0);
     }
   }
   
@@ -4737,6 +5070,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.showMapView = false;
       }
     }
+    // Mark for change detection to avoid ExpressionChangedAfterItHasBeenCheckedError
+    this.cdr.markForCheck();
   }
   
   private convertDMSToDD(dms: number[], ref: string): number {
@@ -4932,11 +5267,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Handle mouse wheel on thumbnails strip to scroll horizontally
+  // NOTE: preventDefault/stopPropagation are already called in the wrapper handler
+  // This method assumes the event has already been validated and prevented
   public onThumbnailsWheel(event: WheelEvent): void {
-    // Prevent default vertical scroll
-    event.preventDefault();
-    event.stopPropagation();
-    
     // Get the thumbnails strip container
     let scrollableContainer: HTMLElement | null = null;
     
@@ -4960,15 +5293,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Adjust scroll speed based on delta mode
     // deltaMode: 0 = pixels, 1 = lines, 2 = pages
+    // Multiply by speed factor to make scrolling faster (2.5x for more responsive scrolling)
+    const scrollSpeedFactor = 2.5;
     let scrollAmount = 0;
     if (event.deltaMode === 0) {
-      // Pixels mode - use delta directly (deltaY is already in pixels)
-      scrollAmount = scrollDelta;
+      // Pixels mode - use delta directly (deltaY is already in pixels), then multiply by speed factor
+      scrollAmount = scrollDelta * scrollSpeedFactor;
     } else if (event.deltaMode === 1) {
-      // Lines mode - convert to pixels (typically ~20px per line)
-      scrollAmount = scrollDelta * 20;
+      // Lines mode - convert to pixels (typically ~20px per line), then multiply by speed factor
+      scrollAmount = scrollDelta * 20 * scrollSpeedFactor;
     } else {
-      // Pages mode - use container width
+      // Pages mode - use container width (already large, keep original)
       scrollAmount = scrollDelta > 0 ? scrollableContainer.clientWidth * 0.8 : -scrollableContainer.clientWidth * 0.8;
     }
     
@@ -4984,6 +5319,62 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       left: clampedScroll,
       behavior: 'auto' // Use 'auto' for instant scroll on wheel, not 'smooth'
     });
+  }
+  
+  // Setup thumbnails wheel event listener programmatically (with explicit non-passive handling)
+  private setupThumbnailsWheelListener(): void {
+    // Remove existing listener if any (idempotent)
+    this.removeThumbnailsWheelListener();
+    
+    // Use setTimeout to ensure the thumbnails strip element is available in the DOM
+    setTimeout(() => {
+      if (this.thumbnailsStripRef && this.thumbnailsStripRef.nativeElement && !this.thumbnailsWheelHandler) {
+        const element = this.thumbnailsStripRef.nativeElement;
+        
+        // Create handler that wraps the method call
+        // IMPORTANT: Call preventDefault and stopPropagation IMMEDIATELY to prevent background scrolling
+        this.thumbnailsWheelHandler = (event: WheelEvent) => {
+          // Get the thumbnails strip container to check if event is within it
+          const scrollableContainer = this.thumbnailsStripRef?.nativeElement;
+          if (!scrollableContainer) {
+            return;
+          }
+          
+          // Check if the event target is within the thumbnails strip or its children
+          const target = event.target as HTMLElement;
+          // Also check if the mouse coordinates are within the container bounds (more robust)
+          const containerRect = scrollableContainer.getBoundingClientRect();
+          const isWithinBounds = event.clientX >= containerRect.left && 
+                                 event.clientX <= containerRect.right &&
+                                 event.clientY >= containerRect.top && 
+                                 event.clientY <= containerRect.bottom;
+          
+          if (scrollableContainer.contains(target) || scrollableContainer === target || isWithinBounds) {
+            // Event is within thumbnails strip - prevent default and stop propagation immediately
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            // Then call the actual handler
+            this.onThumbnailsWheel(event);
+          }
+          // If event is not within thumbnails strip, let it propagate normally
+        };
+        
+        // Add event listener with capture: true to catch events early in capture phase
+        // This ensures we prevent default BEFORE other listeners can handle the event
+        // Using { passive: false, capture: true } to be explicit about the behavior
+        element.addEventListener('wheel', this.thumbnailsWheelHandler, { passive: false, capture: true });
+      }
+    }, 0);
+  }
+  
+  // Remove thumbnails wheel event listener
+  private removeThumbnailsWheelListener(): void {
+    if (this.thumbnailsWheelHandler && this.thumbnailsStripRef && this.thumbnailsStripRef.nativeElement) {
+      // Must use same options (capture: true) when removing
+      this.thumbnailsStripRef.nativeElement.removeEventListener('wheel', this.thumbnailsWheelHandler, { capture: true });
+      this.thumbnailsWheelHandler = undefined;
+    }
   }
   
   // Scroll thumbnail container to center the active thumbnail
