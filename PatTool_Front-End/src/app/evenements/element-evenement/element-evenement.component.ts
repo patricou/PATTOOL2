@@ -1893,119 +1893,153 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	private addUploadedFilesToEvent(uploadedFilesData: any[]): void {
-		let hasThumbnailFile = false;
-		let thumbnailFile: UploadedFile | null = null;
+		// CRITICAL FIX: After logout/login, the event object might have an outdated fileUploadeds array.
+		// Instead of just adding new files to the local array (which could be incomplete), 
+		// we need to reload the event from the server to ensure we have the complete file list.
+		// This prevents the issue where uploading a file after login would overwrite existing files
+		// when the event is saved (because the local fileUploadeds array was incomplete).
 		
-		for (let fileData of uploadedFilesData) {
-			const uploadedFile = new UploadedFile(
-				fileData.fieldId || fileData.id || this.generateFileId(),
-				fileData.fileName || fileData.name,
-				fileData.fileType || fileData.type || 'unknown',
-				this.user
-			);
-			
-			// Check if this file contains "thumbnail" in its name
-			if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
-				hasThumbnailFile = true;
-				thumbnailFile = uploadedFile; // Store the thumbnail file
-			}
-			
-			// Add to event's file list if not already present
-			const existingFile = this.evenement.fileUploadeds.find(f => f.fieldId === uploadedFile.fieldId);
-			if (!existingFile) {
-				this.evenement.fileUploadeds.push(uploadedFile);
-			}
+		if (!this.evenement || !this.evenement.id) {
+			console.error('Cannot reload event: event or event.id is missing');
+			return;
 		}
 		
-		// If a thumbnail file was uploaded, set it as thumbnail and update
-		if (hasThumbnailFile && thumbnailFile) {
-			// Set the thumbnail field
-			this.evenement.thumbnail = thumbnailFile;
-			
-			// Remove "thumbnail" from any old thumbnail files (except the new one)
-			let hasModifiedFiles = false;
-			this.evenement.fileUploadeds.forEach(fileUploaded => {
-				// Skip the newly uploaded file
-				const isNewFile = uploadedFilesData.some(f => 
-					(f.fieldId || f.id) === fileUploaded.fieldId
-				);
+		// Reload the event from the server to get the complete fileUploadeds array
+		// This ensures we have all files, not just the ones that were in the local (potentially outdated) array
+		this._evenementsService.getEvenement(this.evenement.id).subscribe({
+			next: (updatedEvent: Evenement) => {
+				// Update the local event object with the fresh data from the server
+				// This ensures fileUploadeds contains ALL files, including the newly uploaded ones
+				Object.assign(this.evenement, updatedEvent);
 				
-				// If not the new file and contains "thumbnail", clean it up
-				if (!isNewFile && fileUploaded.fileName && fileUploaded.fileName.toLowerCase().includes('thumbnail')) {
-					const newName = fileUploaded.fileName.replace(/thumbnail/gi, '').replace(/\s+/g, '');
-					fileUploaded.fileName = newName;
-					hasModifiedFiles = true;
+				console.log(`Event reloaded after upload. Total files: ${this.evenement.fileUploadeds?.length || 0}`);
+				
+				// Check if any of the uploaded files is a thumbnail
+				let hasThumbnailFile = false;
+				let thumbnailFile: UploadedFile | null = null;
+				
+				for (let fileData of uploadedFilesData) {
+					const uploadedFile = new UploadedFile(
+						fileData.fieldId || fileData.id || this.generateFileId(),
+						fileData.fileName || fileData.name,
+						fileData.fileType || fileData.type || 'unknown',
+						this.user
+					);
+					
+					// Check if this file contains "thumbnail" in its name
+					if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
+						hasThumbnailFile = true;
+						thumbnailFile = uploadedFile;
+					}
 				}
-			});
-			
-			// Update the event in database if we modified any file names or set thumbnail
-			if (hasModifiedFiles) {
+				
+				// If a thumbnail file was uploaded, ensure it's set as thumbnail
+				if (hasThumbnailFile && thumbnailFile) {
+					// The backend should have already set the thumbnail, but verify it's correct
+					if (!this.evenement.thumbnail || this.evenement.thumbnail.fieldId !== thumbnailFile.fieldId) {
+						this.evenement.thumbnail = thumbnailFile;
+					}
+					
+					// Force reload of the card with the new thumbnail
+					setTimeout(() => {
+						this.invalidateThumbnailCache();
+						this.reloadEventCard();
+					}, 100);
+				}
+				
+				// Emit update to parent component to refresh the view
+				this.updateEvenement.emit(this.evenement);
+			},
+			error: (error) => {
+				console.error('Error reloading event after upload:', error);
+				// Fallback: at least add the new files to the local array
+				// This is not ideal but better than losing the new files
+				if (!this.evenement.fileUploadeds) {
+					this.evenement.fileUploadeds = [];
+				}
+				
+				for (let fileData of uploadedFilesData) {
+					const uploadedFile = new UploadedFile(
+						fileData.fieldId || fileData.id || this.generateFileId(),
+						fileData.fileName || fileData.name,
+						fileData.fileType || fileData.type || 'unknown',
+						this.user
+					);
+					
+					const existingFile = this.evenement.fileUploadeds.find(f => f.fieldId === uploadedFile.fieldId);
+					if (!existingFile) {
+						this.evenement.fileUploadeds.push(uploadedFile);
+					}
+				}
+				
 				this.updateEvenement.emit(this.evenement);
 			}
-			
-			// Force reload of the card with the new thumbnail
-			setTimeout(() => {
-				this.invalidateThumbnailCache();
-				this.reloadEventCard();
-			}, 100);
-		}
-		
-		// Don't emit update event since the database upload already updated the event
-		// this.updateFileUploaded.emit(this.evenement);
+		});
 	}
 
 	private createUploadedFileEntries(): void {
 		// Fallback method: create uploaded file entries based on selected files
-		let hasThumbnailFile = false;
-		const newUploadedFiles: UploadedFile[] = [];
+		// CRITICAL FIX: Same issue as addUploadedFilesToEvent - need to reload from server
+		// to ensure we have the complete fileUploadeds array after logout/login
 		
-		for (let file of this.selectedFiles) {
-			const uploadedFile = new UploadedFile(
-				this.generateFileId(),
-				file.name,
-				file.type || 'unknown',
-				this.user
-			);
-			
-			// Check if this file contains "thumbnail" in its name
-			if (uploadedFile.fileName && uploadedFile.fileName.toLowerCase().includes('thumbnail')) {
-				hasThumbnailFile = true;
-			}
-			
-			// Add to event's file list if not already present
-			const existingFile = this.evenement.fileUploadeds.find(f => f.fileName === uploadedFile.fileName);
-			if (!existingFile) {
-				this.evenement.fileUploadeds.push(uploadedFile);
-				newUploadedFiles.push(uploadedFile);
-			}
+		if (!this.evenement || !this.evenement.id) {
+			console.error('Cannot reload event: event or event.id is missing');
+			return;
 		}
 		
-		// If a thumbnail file was uploaded, remove "thumbnail" from old files and update
-		if (hasThumbnailFile) {
-			// Remove "thumbnail" from any old thumbnail files
-			let hasModifiedFiles = false;
-			this.evenement.fileUploadeds.forEach(fileUploaded => {
-				// Skip the newly uploaded files
-				const isNewFile = newUploadedFiles.some(f => f.fieldId === fileUploaded.fieldId);
+		// Reload the event from the server to get the complete fileUploadeds array
+		this._evenementsService.getEvenement(this.evenement.id).subscribe({
+			next: (updatedEvent: Evenement) => {
+				// Update the local event object with the fresh data from the server
+				Object.assign(this.evenement, updatedEvent);
 				
-				// If not a new file and contains "thumbnail", clean it up
-				if (!isNewFile && fileUploaded.fileName && fileUploaded.fileName.toLowerCase().includes('thumbnail')) {
-					const newName = fileUploaded.fileName.replace(/thumbnail/gi, '').replace(/\s+/g, '');
-					fileUploaded.fileName = newName;
-					hasModifiedFiles = true;
+				console.log(`Event reloaded after upload (fallback). Total files: ${this.evenement.fileUploadeds?.length || 0}`);
+				
+				// Check if any of the selected files is a thumbnail
+				let hasThumbnailFile = false;
+				for (let file of this.selectedFiles) {
+					if (file.name && file.name.toLowerCase().includes('thumbnail')) {
+						hasThumbnailFile = true;
+						break;
+					}
 				}
-			});
-			
-			// Update the event in database if we modified any file names
-			if (hasModifiedFiles) {
+				
+				// If a thumbnail file was uploaded, reload the card
+				if (hasThumbnailFile) {
+					setTimeout(() => {
+						this.invalidateThumbnailCache();
+						this.reloadEventCard();
+					}, 100);
+				}
+				
+				// Emit update to parent component
+				this.updateEvenement.emit(this.evenement);
+			},
+			error: (error) => {
+				console.error('Error reloading event after upload (fallback):', error);
+				// Fallback: at least try to add files based on selected files
+				// This is not ideal but better than nothing
+				if (!this.evenement.fileUploadeds) {
+					this.evenement.fileUploadeds = [];
+				}
+				
+				for (let file of this.selectedFiles) {
+					const uploadedFile = new UploadedFile(
+						this.generateFileId(),
+						file.name,
+						file.type || 'unknown',
+						this.user
+					);
+					
+					const existingFile = this.evenement.fileUploadeds.find(f => f.fileName === uploadedFile.fileName);
+					if (!existingFile) {
+						this.evenement.fileUploadeds.push(uploadedFile);
+					}
+				}
+				
 				this.updateEvenement.emit(this.evenement);
 			}
-			
-			this.reloadEventCard();
-		}
-		
-		// Don't emit update event since the database upload already updated the event
-		// this.updateFileUploaded.emit(this.evenement);
+		});
 	}
 
 	private generateFileId(): string {
