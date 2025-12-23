@@ -1550,6 +1550,8 @@ body.slideshow-fullscreen-active .slideshow-footer {
 /* Thumbnails strip */
 .thumbnails-strip {
     background: rgba(255, 255, 255, 0.3); /* Blanc transparent */
+    backdrop-filter: blur(5px); /* Flou du background */
+    -webkit-backdrop-filter: blur(5px); /* Support Safari */
     border: 2px solid rgba(0, 0, 0, 0.5); /* Bord noir */
     padding: 10px;
     overflow-x: auto;
@@ -1595,6 +1597,8 @@ body.slideshow-fullscreen-active .slideshow-footer {
     max-width: 100vw !important;
     z-index: 100 !important; /* Much lower than shortcuts (2000000) so shortcuts appear in front */
     background: rgba(255, 255, 255, 0.3) !important; /* Blanc transparent */
+    backdrop-filter: blur(5px) !important; /* Flou du background */
+    -webkit-backdrop-filter: blur(5px) !important; /* Support Safari */
     border: 2px solid rgba(0, 0, 0, 0.5) !important; /* Bord noir */
     display: block !important;
     visibility: visible !important;
@@ -1618,6 +1622,8 @@ body:has(:-ms-fullscreen) .thumbnails-strip {
     max-width: 100vw !important;
     z-index: 100 !important; /* Much lower than shortcuts (2000000) so shortcuts appear in front */
     background: rgba(255, 255, 255, 0.3) !important; /* Blanc transparent */
+    backdrop-filter: blur(5px) !important; /* Flou du background */
+    -webkit-backdrop-filter: blur(5px) !important; /* Support Safari */
     border: 2px solid rgba(0, 0, 0, 0.5) !important; /* Bord noir */
     display: block !important;
     visibility: visible !important;
