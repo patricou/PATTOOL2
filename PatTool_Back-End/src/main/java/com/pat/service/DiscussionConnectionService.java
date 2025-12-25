@@ -74,7 +74,9 @@ public class DiscussionConnectionService {
             log.debug("Updated discussion for session {}: {}", sessionId, discussionId);
             
             // Log the discussion connection if this is a new subscription (not just an update)
-            if (previousDiscussionId == null || !previousDiscussionId.equals(discussionId)) {
+            // Only log if discussionId is not null (skip logging for unsubscribes)
+            if (discussionId != null && !discussionId.isEmpty() && 
+                (previousDiscussionId == null || !previousDiscussionId.equals(discussionId))) {
                 logDiscussionConnection(sessionId, discussionId, info);
             }
         }
@@ -85,6 +87,12 @@ public class DiscussionConnectionService {
      */
     private void logDiscussionConnection(String sessionId, String discussionId, ConnectionInfo info) {
         try {
+            // Validate discussionId is not null or empty
+            if (discussionId == null || discussionId.isEmpty()) {
+                log.debug("Skipping discussion connection log - discussionId is null or empty");
+                return;
+            }
+
             // Only log if we have a valid user (not anonymous)
             if (info.userName == null || info.userName.equals("anonymous") || info.userName.equals("unknown")) {
                 log.debug("Skipping discussion connection log - user is anonymous or unknown");
@@ -95,6 +103,12 @@ public class DiscussionConnectionService {
             Member member = membersRepository.findByUserName(info.userName);
             if (member == null) {
                 log.warn("Cannot log discussion connection - member not found for user: {}", info.userName);
+                return;
+            }
+
+            // Validate that member has a valid ID (required for @DBRef)
+            if (member.getId() == null || member.getId().isEmpty()) {
+                log.warn("Cannot log discussion connection - member has null or empty ID for user: {}", info.userName);
                 return;
             }
 
