@@ -716,8 +716,6 @@
         "MONGODB_ATLAS": "MongoDB Atlas",
         "DISCUSSION_REALTIME": "Discussione in tempo reale",
         "DISCUSSION_DESC": "Discussione in tempo reale tramite WebSocket (STOMP/SockJS) con persistenza nel backend (Spring Boot).",
-        "FIREBASE_CONSOLE": "Console Firebase",
-        "FIREBASE_DESC": "Funzionalità chat in tempo reale",
         "KEYCLOAK_AUTH": "Autenticazione Keycloak",
         "KEYCLOAK_DESC": "Gestione identità e accessi aziendali",
         "DEV_ADMIN": "Admin DEV",

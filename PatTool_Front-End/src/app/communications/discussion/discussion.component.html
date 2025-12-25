@@ -16,6 +16,7 @@
             <div class="messages-list" #messagesList>
                 <div class="message-wrapper" 
                      *ngFor="let item of messages; trackBy: trackByMessageId"
+                     [attr.data-cache-counter]="cacheUpdateCounter"
                      [class.own-message]="isOwnMessage(item)">
                     
                     <div class="message-bubble">
@@ -42,6 +43,10 @@
                             </div>
                             <div *ngIf="item.imageUrl && !hasFileUrl(item, true)" class="message-media-loading">
                                 <i class="fa fa-spinner fa-spin"></i> Chargement de l'image...
+                                <!-- Hidden counter to trigger change detection when cache updates -->
+                                <span style="display: none;">{{ cacheUpdateCounter }}</span>
+                                <!-- Also track message ID to ensure re-evaluation -->
+                                <span style="display: none;">{{ item.id }}</span>
                             </div>
                             
                             <!-- Video -->

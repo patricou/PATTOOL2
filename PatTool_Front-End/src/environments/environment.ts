@@ -21,16 +21,6 @@ export const environment = {
     API_URL4FILEONDISK: "http://localhost:8000/api/fsphotos",
     API_URL4UPLOADFILEONDISK: "http://localhost:8000/uploadondisk",
     IGN_API_KEY: "toto",
-    // Firebase config - still used for event-specific chats (not for global discussion)
-    firebase: {
-        apiKey: "AIzaSyBJFAKMyDO_lmqBYUwW6CWjBIMTHyFGZKc",
-        authDomain: "sportpat-5e155.firebaseapp.com",
-        databaseURL: "https://sportpat-5e155.firebaseio.com",
-        projectId: "sportpat-5e155",
-        storageBucket: "sportpat-5e155.appspot.com",
-        messagingSenderId: "193416492629",
-        appId: "1:193416492629:web:your-app-id"
-    },
     // Langages for the translator
     langs: ["ar", "cn", "de", "el", "en", "es", "fr", "he", "in", "it", "jp", "ru"]
 };

@@ -715,8 +715,6 @@
         "MONGODB_ATLAS": "MongoDB Atlas",
         "DISCUSSION_REALTIME": "实时讨论",
         "DISCUSSION_DESC": "通过 WebSocket（STOMP/SockJS）实现实时讨论，并由后端（Spring Boot）进行持久化。",
-        "FIREBASE_CONSOLE": "Firebase控制台",
-        "FIREBASE_DESC": "实时聊天功能",
         "KEYCLOAK_AUTH": "Keycloak身份验证",
         "KEYCLOAK_DESC": "企业身份和访问管理",
         "DEV_ADMIN": "开发管理员",

@@ -12,15 +12,11 @@ import { environment } from '../../../environments/environment';
   styleUrls: ['./about.component.css']
 })
 export class AboutComponent implements OnInit {
-  showFirebaseInAbout = false;
 
   constructor() {
   }
 
   ngOnInit() {
-    // Default to hiding Firebase details unless explicitly enabled in the environment.
-    // This avoids exposing provider details on the About page by default.
-    this.showFirebaseInAbout = (environment as any).showFirebaseInAbout === true;
   }
 
 }

@@ -714,8 +714,6 @@
         "MONGODB_ATLAS": "MongoDB Atlas",
         "DISCUSSION_REALTIME": "Συζήτηση σε πραγματικό χρόνο",
         "DISCUSSION_DESC": "Συζήτηση σε πραγματικό χρόνο μέσω WebSocket (STOMP/SockJS) με αποθήκευση στο backend (Spring Boot).",
-        "FIREBASE_CONSOLE": "Κονσόλα Firebase",
-        "FIREBASE_DESC": "Λειτουργικότητα συνομιλίας σε πραγματικό χρόνο",
         "KEYCLOAK_AUTH": "Πιστοποίηση Keycloak",
         "KEYCLOAK_DESC": "Διαχείριση ταυτότητας και πρόσβασης επιπέδου επιχείρησης",
         "DEV_ADMIN": "Διαχειριστής DEV",

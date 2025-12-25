@@ -3901,7 +3901,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_COMMENTARIES', { count: commentaryCount }) + '\n';
 		}
 		
-		// Always mention chat messages (Firebase) regardless of count
+		// Always mention chat messages regardless of count
 		confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_CHAT');
 		
 		if (confirm(confirmMessage)) {

@@ -9,10 +9,6 @@ import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 // import { NgxMyDatePickerModule } from 'ngx-mydatepicker';
 // import { FileUploadModule } from 'ng2-file-upload';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
-import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
-import { getDatabase, provideDatabase } from '@angular/fire/database';
-import { getAuth, provideAuth } from '@angular/fire/auth';
-import { environment } from '../../environments/environment';
 
 import { HomeEvenementsComponent } from './home-evenements/home-evenements.component';
 import { EvenementsService } from '../services/evenements.service';
@@ -71,11 +67,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 	providers: [
 		EvenementsService,
 		WindowRefService,
-		CommonvaluesService,
-		// Firebase providers for event-specific chats (not for global discussion)
-		provideFirebaseApp(() => initializeApp(environment.firebase)),
-		provideDatabase(() => getDatabase()),
-		provideAuth(() => getAuth())
+		CommonvaluesService
 	]
 })
 export class EvenementsModule { }

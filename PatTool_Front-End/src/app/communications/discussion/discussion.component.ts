@@ -1,5 +1,5 @@
 // Discussion Component - Reusable component for discussions
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, Input, OnChanges, SimpleChanges, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, Input, OnChanges, SimpleChanges, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -40,6 +40,7 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   private shouldScrollToBottom: boolean = true;
   public editingMessageId: string | null = null;
   private imageUrlCache: Map<string, string> = new Map(); // Cache for blob URLs
+  public cacheUpdateCounter: number = 0; // Counter to trigger change detection when cache updates (public for template)
 
   @ViewChild('messagesList', { static: false }) messagesList!: ElementRef;
   @ViewChild('fileInput', { static: false }) fileInput!: ElementRef;
@@ -47,12 +48,14 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
 
   private messageSubscription: Subscription | null = null;
   private discussionsSubscription: Subscription | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor(
     private discussionService: DiscussionService,
     public _memberService: MembersService,
     private cdr: ChangeDetectorRef,
-    private translateService: TranslateService
+    private translateService: TranslateService,
+    private ngZone: NgZone
   ) {}
 
   ngOnInit() {
@@ -127,6 +130,11 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     }
     if (this.discussionsSubscription) {
       this.discussionsSubscription.unsubscribe();
+    }
+    // Clean up ResizeObserver
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
     }
     // Clean up blob URLs to prevent memory leaks
     this.imageUrlCache.forEach((blobUrl) => {
@@ -327,13 +335,22 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     const discussionId = this.currentDiscussion.id;
 
     if (message.imageUrl) {
-      const filename = message.imageUrl.split('/').pop() || '';
-      if (!filename) return;
+      // Extract filename from URL - handle both relative and absolute URLs
+      let filename = message.imageUrl.split('/').pop() || '';
+      // Remove query parameters if any
+      if (filename.includes('?')) {
+        filename = filename.split('?')[0];
+      }
+      if (!filename) {
+        console.warn('Could not extract filename from imageUrl:', message.imageUrl);
+        return;
+      }
       
       const cacheKey = `${discussionId}/images/${filename}`;
       
       // Skip if already cached
       if (this.imageUrlCache.has(cacheKey)) {
+        console.log('Image already cached:', cacheKey);
         return;
       }
 
@@ -341,9 +358,35 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       this.discussionService.getFileUrl(discussionId, 'images', filename).subscribe({
         next: (blobUrl: string) => {
           this.imageUrlCache.set(cacheKey, blobUrl);
+          // Increment counter to trigger change detection - do this BEFORE setTimeout
+          this.cacheUpdateCounter++;
+          // Use setTimeout to ensure change detection runs after cache update
+          setTimeout(() => {
+            this.ngZone.run(() => {
+              // Force change detection and mark for check
+              this.cdr.markForCheck();
+              this.cdr.detectChanges();
+              // Force another change detection cycle to ensure template re-evaluates
+              setTimeout(() => {
+                this.ngZone.run(() => {
+                  // Increment counter again to force another change detection cycle
+                  this.cacheUpdateCounter++;
+                  this.cdr.detectChanges();
+                  // Scroll to bottom after image is loaded and rendered
+                  this.scrollToBottom();
+                });
+              }, 100);
+            });
+          }, 0);
         },
         error: (error) => {
-          console.error('Error loading image:', error);
+          console.error('Error loading image:', filename, error);
+          // Still trigger change detection to show error state
+          setTimeout(() => {
+            this.ngZone.run(() => {
+              this.cdr.detectChanges();
+            });
+          }, 0);
         }
       });
     }
@@ -363,9 +406,17 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       this.discussionService.getFileUrl(discussionId, 'videos', filename).subscribe({
         next: (blobUrl: string) => {
           this.imageUrlCache.set(cacheKey, blobUrl);
+          // Trigger change detection to update the view (so hasFileUrl() returns true)
+          this.ngZone.run(() => {
+            this.cdr.detectChanges();
+          });
         },
         error: (error) => {
           console.error('Error loading video:', error);
+          // Still trigger change detection to show error state
+          this.ngZone.run(() => {
+            this.cdr.detectChanges();
+          });
         }
       });
     }
@@ -483,29 +534,51 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         if (data.action === 'delete') {
           // Remove deleted message
           this.messages = this.messages.filter(msg => msg.id !== data.messageId);
+          this.cdr.detectChanges();
         } else if (data.action === 'update' && data.message) {
           // Update existing message
           const updatedMessage = data.message as DiscussionMessage;
+          // Convert dateTime string to Date object if needed
+          if (updatedMessage.dateTime && typeof updatedMessage.dateTime === 'string') {
+            updatedMessage.dateTime = new Date(updatedMessage.dateTime);
+          }
           const index = this.messages.findIndex(m => m.id === updatedMessage.id);
           if (index !== -1) {
             this.messages[index] = updatedMessage;
+            // Create new array reference to trigger change detection
+            this.messages = [...this.messages];
+            this.cdr.detectChanges();
           }
         } else if (data.message) {
-          // Add new message
-          const message = data.message as DiscussionMessage;
-          // Check if message already exists
-          if (!this.messages.find(m => m.id === message.id)) {
-            this.messages.push(message);
-            // Keep messages sorted (oldest first, newest at bottom)
-            this.messages.sort((a, b) => {
-              const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
-              const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
-              return dateA - dateB; // Oldest first
-            });
-            // Load image/video for the new message if it has one
-            this.loadMessageImage(message);
-            this.scrollToBottom();
-          }
+          // Add new message - run in Angular zone to ensure change detection
+          this.ngZone.run(() => {
+            const message = data.message as DiscussionMessage;
+            // Convert dateTime string to Date object if needed
+            if (message.dateTime && typeof message.dateTime === 'string') {
+              message.dateTime = new Date(message.dateTime);
+            }
+            // Check if message already exists
+            const existingMessage = this.messages.find(m => m.id === message.id);
+            if (!existingMessage) {
+              this.messages.push(message);
+              // Keep messages sorted (oldest first, newest at bottom)
+              this.messages.sort((a, b) => {
+                const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
+                const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
+                return dateA - dateB; // Oldest first
+              });
+              // Create new array reference to trigger change detection
+              this.messages = [...this.messages];
+              // Load image/video for the new message if it has one
+              this.loadMessageImage(message);
+              // Trigger change detection
+              this.cdr.detectChanges();
+              // Scroll to bottom after a brief delay to ensure DOM is updated
+              setTimeout(() => {
+                this.scrollToBottom();
+              }, 10);
+            }
+          });
         }
       },
       error: (error) => {
@@ -560,6 +633,10 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
             messageText
           ).subscribe({
             next: (updatedMessage) => {
+              // Convert dateTime string to Date object if needed
+              if (updatedMessage.dateTime && typeof updatedMessage.dateTime === 'string') {
+                updatedMessage.dateTime = new Date(updatedMessage.dateTime);
+              }
               // Update the message in the list
               const index = this.messages.findIndex(m => m.id === updatedMessage.id);
               if (index !== -1) {
@@ -569,11 +646,13 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
               this.editingMessageId = null;
               this.clearFileSelection();
               this.isLoading = false;
+              this.cdr.detectChanges();
               resolve();
             },
             error: (error) => {
               alert('Error updating message: ' + (error.message || error));
               this.isLoading = false;
+              this.cdr.detectChanges();
               reject(error);
             }
           });
@@ -587,9 +666,6 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
             // Compress image to ~300KB if it's larger than that
             if (this.selectedImage.size > 300 * 1024) {
               imageToSend = await this.compressImageToTargetSize(this.selectedImage, 300 * 1024);
-              console.log('Image compressed for discussion:', this.selectedImage.name, 
-                'Original:', this.formatFileSize(this.selectedImage.size), 
-                'Compressed:', this.formatFileSize(imageToSend.size));
             } else {
               imageToSend = this.selectedImage;
             }
@@ -613,7 +689,8 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
                 message.dateTime = new Date(message.dateTime);
               }
               // Message will be added via WebSocket, but we can add it immediately for better UX
-              if (!this.messages.find(m => m.id === message.id)) {
+              const existingMessage = this.messages.find(m => m.id === message.id);
+              if (!existingMessage) {
                 this.messages.push(message);
                 // Keep messages sorted (oldest first, newest at bottom)
                 this.messages.sort((a, b) => {
@@ -621,16 +698,24 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
                   const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
                   return dateA - dateB; // Oldest first
                 });
-                this.scrollToBottom();
+                // Create new array reference to trigger change detection
+                this.messages = [...this.messages];
+                this.cdr.detectChanges();
+                // Use requestAnimationFrame for smooth scrolling
+                requestAnimationFrame(() => {
+                  this.scrollToBottom();
+                });
               }
               this.msgVal = '';
               this.clearFileSelection();
               this.isLoading = false;
+              this.cdr.detectChanges();
               resolve();
             },
             error: (error) => {
               alert('Error sending message: ' + (error.message || error));
               this.isLoading = false;
+              this.cdr.detectChanges();
               reject(error);
             }
           });
@@ -638,6 +723,8 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       }
     } catch (error) {
       // Silent error handling
+      this.isLoading = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -785,7 +872,13 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   private createImagePreview(file: File) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      this.imagePreview = e.target?.result as string;
+      // Use setTimeout to defer the update to avoid ExpressionChangedAfterItHasBeenCheckedError
+      setTimeout(() => {
+        this.ngZone.run(() => {
+          this.imagePreview = e.target?.result as string;
+          this.cdr.detectChanges();
+        });
+      }, 0);
     };
     reader.readAsDataURL(file);
   }
@@ -796,7 +889,13 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   private createVideoPreview(file: File) {
     const reader = new FileReader();
     reader.onload = (e) => {
-      this.videoPreview = e.target?.result as string;
+      // Use setTimeout to defer the update to avoid ExpressionChangedAfterItHasBeenCheckedError
+      setTimeout(() => {
+        this.ngZone.run(() => {
+          this.videoPreview = e.target?.result as string;
+          this.cdr.detectChanges();
+        });
+      }, 0);
     };
     reader.readAsDataURL(file);
   }
@@ -850,6 +949,8 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     this.discussionService.getFileUrl(this.currentDiscussion.id, subfolder, filename).subscribe({
       next: (blobUrl: string) => {
         this.imageUrlCache.set(cacheKey, blobUrl);
+        // Increment counter to trigger change detection
+        this.cacheUpdateCounter++;
         // Trigger change detection to update the view
         this.cdr.detectChanges();
       },
@@ -874,17 +975,31 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
 
     if (isImage && message.imageUrl) {
       filename = message.imageUrl.split('/').pop() || '';
+      // Remove query parameters if any
+      if (filename.includes('?')) {
+        filename = filename.split('?')[0];
+      }
       if (!filename) return false;
       cacheKey = `${this.currentDiscussion.id}/images/${filename}`;
     } else if (!isImage && message.videoUrl) {
       filename = message.videoUrl.split('/').pop() || '';
+      // Remove query parameters if any
+      if (filename.includes('?')) {
+        filename = filename.split('?')[0];
+      }
       if (!filename) return false;
       cacheKey = `${this.currentDiscussion.id}/videos/${filename}`;
     } else {
       return false;
     }
 
-    return this.imageUrlCache.has(cacheKey);
+    // Access cacheUpdateCounter FIRST to ensure change detection tracks this method
+    // This ensures Angular knows to re-evaluate when cacheUpdateCounter changes
+    const counter = this.cacheUpdateCounter;
+    const hasUrl = this.imageUrlCache.has(cacheKey);
+    
+    // Return the result (counter is accessed to trigger change detection)
+    return hasUrl;
   }
 
   /**
@@ -897,17 +1012,89 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     
     const element = this.messagesList.nativeElement;
     
+    // Function to perform the scroll
+    const doScroll = () => {
+      if (element) {
+        element.scrollTop = element.scrollHeight;
+      }
+    };
+    
     // Use requestAnimationFrame for smooth scrolling
     requestAnimationFrame(() => {
-      element.scrollTop = element.scrollHeight;
+      doScroll();
     });
     
-    // Also try after a short delay to catch any late DOM updates
+    // Also try after short delays to catch any late DOM updates (especially when images load)
     setTimeout(() => {
-      if (this.messagesList && this.messagesList.nativeElement) {
-        this.messagesList.nativeElement.scrollTop = this.messagesList.nativeElement.scrollHeight;
-      }
+      doScroll();
     }, 100);
+    
+    setTimeout(() => {
+      doScroll();
+    }, 300);
+    
+    setTimeout(() => {
+      doScroll();
+    }, 500);
+    
+    // Setup ResizeObserver to scroll when content height changes (e.g., when images load)
+    if (!this.resizeObserver && 'ResizeObserver' in window) {
+      this.resizeObserver = new ResizeObserver(() => {
+        // Only scroll if user is near the bottom (within 100px)
+        const element = this.messagesList?.nativeElement;
+        if (element) {
+          const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
+          if (isNearBottom) {
+            doScroll();
+          }
+        }
+      });
+      this.resizeObserver.observe(element);
+    }
+    
+    // Also scroll when images finish loading
+    // Wait for all images in the messages list to load
+    setTimeout(() => {
+      const images = element.querySelectorAll('img');
+      let loadedCount = 0;
+      const totalImages = images.length;
+      
+      if (totalImages === 0) {
+        // No images, scroll immediately
+        doScroll();
+        return;
+      }
+      
+      images.forEach((img: HTMLImageElement) => {
+        if (img.complete) {
+          loadedCount++;
+          if (loadedCount === totalImages) {
+            doScroll();
+          }
+        } else {
+          img.addEventListener('load', () => {
+            loadedCount++;
+            doScroll(); // Scroll after each image loads
+            if (loadedCount === totalImages) {
+              doScroll(); // Final scroll when all images are loaded
+            }
+          }, { once: true });
+          
+          img.addEventListener('error', () => {
+            loadedCount++;
+            doScroll(); // Scroll even if image fails to load
+            if (loadedCount === totalImages) {
+              doScroll();
+            }
+          }, { once: true });
+        }
+      });
+      
+      // Fallback: scroll after 2 seconds even if images haven't loaded
+      setTimeout(() => {
+        doScroll();
+      }, 2000);
+    }, 50);
   }
 
   /**

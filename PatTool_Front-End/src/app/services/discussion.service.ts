@@ -71,6 +71,7 @@ export class DiscussionService {
   private tokenCache: string | null = null;
   private tokenCacheTime: number = 0;
   private readonly TOKEN_CACHE_DURATION = 60000; // 1 minute cache
+  private activeSubscription: any = null; // Track active STOMP subscription
 
   constructor(
     private _http: HttpClient,
@@ -279,8 +280,22 @@ export class DiscussionService {
    */
   connectWebSocket(discussionId: string): void {
     if (this.connected && this.currentDiscussionId === discussionId) {
-      // Already connected, but emit status so component knows it's connected
+      // Already connected to this discussion, but ensure subscription is active
+      // Emit status so component knows it's connected
       this.messageSubject.next({ action: 'status', status: 'Connected', discussionId: discussionId });
+      
+      // Ensure subscription is active - if we don't have one, create it
+      if (this.stompClient && this.stompClient.connected && !this.activeSubscription) {
+        const topic = '/topic/discussion/' + discussionId;
+        this.activeSubscription = this.stompClient.subscribe(topic, (message: any) => {
+          try {
+            const data = JSON.parse(message.body);
+            this.messageSubject.next(data);
+          } catch (error) {
+            // Silent error handling
+          }
+        });
+      }
       return; // Already connected to this discussion
     }
 
@@ -384,7 +399,13 @@ export class DiscussionService {
 
         // Subscribe to discussion updates
         const topic = '/topic/discussion/' + discussionId;
-        this.stompClient.subscribe(topic, (message: any) => {
+        // Unsubscribe from previous subscription if exists
+        if (this.activeSubscription) {
+          this.activeSubscription.unsubscribe();
+          this.activeSubscription = null;
+        }
+        // Create new subscription and track it
+        this.activeSubscription = this.stompClient.subscribe(topic, (message: any) => {
           try {
             const data = JSON.parse(message.body);
             this.messageSubject.next(data);
@@ -419,6 +440,10 @@ export class DiscussionService {
         const currentId = this.currentDiscussionId;
         const wasConnected = this.connected;
         this.connected = false;
+        
+        // Clear subscription reference when connection closes (subscription is invalidated)
+        // This prevents trying to unsubscribe from an invalid subscription
+        this.activeSubscription = null;
         
         // If we were connected and this is an unexpected close, show disconnection
         // Also show disconnection for non-clean closes
@@ -481,6 +506,16 @@ export class DiscussionService {
     this.isReconnecting = false;
     this.reconnectAttempts = 0;
     
+    // Unsubscribe from active subscription
+    if (this.activeSubscription) {
+      try {
+        this.activeSubscription.unsubscribe();
+      } catch (error) {
+        // Ignore errors during unsubscribe
+      }
+      this.activeSubscription = null;
+    }
+    
     if (this.stompClient) {
       if (this.connected) {
         this.stompClient.deactivate();
@@ -520,8 +555,32 @@ export class DiscussionService {
       switchMap(headers =>
         this._http.get(url, { headers: headers, responseType: 'blob' })
       ),
-      map((blob: Blob) => {
-        return URL.createObjectURL(blob);
+      switchMap((blob: Blob) => {
+        // Check if blob is actually an error response (JSON error messages are often small)
+        if (blob.size < 100 && (blob.type === 'application/json' || blob.type === 'text/plain')) {
+          // Likely an error response, read it to get the error message
+          return new Observable<string>((observer) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              try {
+                const errorText = reader.result as string;
+                console.error('Server returned error instead of file:', errorText);
+                observer.error(new Error(`Server error: ${errorText}`));
+              } catch (e) {
+                console.error('Error reading error response:', e);
+                observer.error(new Error('Server returned error response instead of file'));
+              }
+            };
+            reader.onerror = () => observer.error(new Error('Failed to read error response'));
+            reader.readAsText(blob);
+          });
+        }
+        const blobUrl = URL.createObjectURL(blob);
+        return of(blobUrl);
+      }),
+      catchError((error) => {
+        console.error('Error getting file URL:', url, error);
+        throw error;
       })
     );
   }

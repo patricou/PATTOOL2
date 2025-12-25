@@ -713,8 +713,6 @@
         "MONGODB_ATLAS": "MongoDB Atlas",
         "DISCUSSION_REALTIME": "مناقشة فورية",
         "DISCUSSION_DESC": "مناقشة فورية عبر WebSocket (STOMP/SockJS) مع حفظ البيانات في الخلفية (Spring Boot).",
-        "FIREBASE_CONSOLE": "وحدة تحكم Firebase",
-        "FIREBASE_DESC": "وظيفة الدردشة في الوقت الفعلي",
         "KEYCLOAK_AUTH": "مصادقة Keycloak",
         "KEYCLOAK_DESC": "إدارة الهوية والوصول على مستوى المؤسسات",
         "DEV_ADMIN": "مدير التطوير",

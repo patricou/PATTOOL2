@@ -754,6 +754,11 @@ export class FriendsComponent implements OnInit {
       case 'groups':
         this.loadFriendGroups();
         break;
+      case 'myuser':
+        // No data loading needed for myuser tab, ensure loading is false
+        this.loading = false;
+        this.cdr.detectChanges();
+        break;
     }
   }
 
@@ -919,18 +924,20 @@ export class FriendsComponent implements OnInit {
     this.errorMessage = '';
     
     // Load users
-    this._friendsService.getAllUsers().subscribe(
-      users => {
+    this._friendsService.getAllUsers().subscribe({
+      next: (users) => {
         // Filter out current user
         this.allUsers = users.filter(u => u.id !== this.currentUser.id);
         this.loading = false;
+        this.cdr.detectChanges();
       },
-      error => {
+      error: (error) => {
         console.error('Error loading users:', error);
         this.errorMessage = 'Error loading users';
         this.loading = false;
+        this.cdr.detectChanges();
       }
-    );
+    });
     
     // Also load sent requests to determine user status
     this._friendsService.getSentRequests().subscribe(
@@ -966,35 +973,39 @@ export class FriendsComponent implements OnInit {
   loadPendingRequests() {
     this.loading = true;
     this.errorMessage = '';
-    this._friendsService.getPendingRequests().subscribe(
-      requests => {
+    this._friendsService.getPendingRequests().subscribe({
+      next: (requests) => {
         this.pendingRequests = requests;
         this.loading = false;
+        this.cdr.detectChanges();
       },
-      error => {
+      error: (error) => {
         console.error('Error loading pending requests:', error);
         this.errorMessage = 'Error loading pending requests';
         this.loading = false;
+        this.cdr.detectChanges();
       }
-    );
+    });
   }
 
   loadFriends() {
     this.loading = true;
     this.errorMessage = '';
-    this._friendsService.getFriends().subscribe(
-      friends => {
+    this._friendsService.getFriends().subscribe({
+      next: (friends) => {
         this.friends = friends;
         // Load statuses for all friends
         this.loadFriendStatuses();
         this.loading = false;
+        this.cdr.detectChanges();
       },
-      error => {
+      error: (error) => {
         console.error('Error loading friends:', error);
         this.errorMessage = 'Error loading friends';
         this.loading = false;
+        this.cdr.detectChanges();
       }
-    );
+    });
   }
 
   /**
@@ -1061,17 +1072,19 @@ export class FriendsComponent implements OnInit {
   loadFriendGroups() {
     this.loading = true;
     this.errorMessage = '';
-    this._friendsService.getFriendGroups().subscribe(
-      groups => {
+    this._friendsService.getFriendGroups().subscribe({
+      next: (groups) => {
         this.friendGroups = groups;
         this.loading = false;
+        this.cdr.detectChanges();
       },
-      error => {
+      error: (error) => {
         console.error('Error loading friend groups:', error);
         this.errorMessage = 'Error loading friend groups';
         this.loading = false;
+        this.cdr.detectChanges();
       }
-    );
+    });
   }
 
   startCreatingGroup() {

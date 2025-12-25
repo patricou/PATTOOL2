@@ -9,7 +9,6 @@ import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slid
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject, from } from 'rxjs';
 import { debounceTime, map, catchError, switchMap } from 'rxjs/operators';
-import { Database, ref, push, remove, onValue } from '@angular/fire/database';
 import * as JSZip from 'jszip';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 
@@ -152,7 +151,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Track which modals are currently open (only modals that should block scroll)
 	private openBlockingModals: Set<string> = new Set();
 	private pollIntervalId: ReturnType<typeof setInterval> | null = null;
-	private firebaseUnsubscribe?: () => void;
 	private activeTimeouts: Set<ReturnType<typeof setTimeout>> = new Set();
 	private debugInfoUpdateInterval?: ReturnType<typeof setInterval>;
 	private memoryAutoRefreshInterval?: ReturnType<typeof setInterval>;
@@ -184,7 +182,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		private winRef: WindowRefService,
 		private modalService: NgbModal,
 		private translateService: TranslateService,
-		private database: Database,
 		private cdr: ChangeDetectorRef,
 		private _friendsService: FriendsService,
 		private _http: HttpClient,
@@ -1590,15 +1587,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	public async delEvent(evenement: Evenement) {
-		// Delete Firebase chat messages first
-		try {
-			const messagesRef = ref(this.database, evenement.id);
-			await remove(messagesRef);
-		} catch (error) {
-			console.error("Error deleting Firebase chat messages:", error);
-		}
-		
-		// Then delete the event from backend
+		// Delete the event from backend
 		this._evenementsService.delEvenement(evenement.id)
 			.subscribe(
 				(res: any) => {  //  update evenements for screen update			
@@ -1808,7 +1797,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_COMMENTARIES', { count: commentaryCount }) + '\n';
 		}
 		
-		// Always mention chat messages (Firebase) regardless of count
+		// Always mention chat messages regardless of count
 		confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_CHAT');
 		
 		if (confirm(confirmMessage)) {
@@ -3078,76 +3067,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	// Méthodes pour le chat - utilisant la même logique que element-evenement
 	public openChatModal(evenement: Evenement) {
-		this.selectedEvent = evenement;
-		this.selectedEventName = evenement.evenementName;
-		
-		// Clean up previous Firebase subscription if exists
-		if (this.firebaseUnsubscribe) {
-			this.firebaseUnsubscribe();
-			this.firebaseUnsubscribe = undefined;
-		}
-		
-		// Utiliser Firebase comme dans element-evenement
-		const messagesRef = ref(this.database, evenement.id);
-		this.items = new Observable(observer => {
-			const unsubscribe = onValue(messagesRef, (snapshot) => {
-				const messages: any[] = [];
-				snapshot.forEach((childSnapshot) => {
-					messages.push({
-						id: childSnapshot.key,
-						...childSnapshot.val()
-					});
-				});
-				// Trier les messages par date/heure (plus récents en premier)
-				messages.sort((a, b) => {
-					// Utiliser la propriété 'priority' qui est définie comme 0 - Date.now()
-					// Plus la valeur est négative, plus le message est récent
-					return a.priority - b.priority;
-				});
-				observer.next(messages);
-			}, (error) => {
-				console.error('Error loading messages:', error);
-				observer.error(error);
-			});
-			
-			// Store unsubscribe function for cleanup
-			this.firebaseUnsubscribe = unsubscribe;
-			
-			// Retourner la fonction de nettoyage
-			return () => unsubscribe();
-		});
-		
-		// Utiliser la même configuration que dans element-evenement
-		const modalRef = this.modalService.open(this.chatModal, { backdrop: 'static', keyboard: false });
-		
-		// Clean up Firebase subscription when modal is closed
-		modalRef.result.finally(() => {
-			if (this.firebaseUnsubscribe) {
-				this.firebaseUnsubscribe();
-				this.firebaseUnsubscribe = undefined;
-			}
-		}).catch(() => {
-			// Modal dismissed - cleanup already handled in finally
-		});
+		// Chat functionality has been moved to MongoDB backend
+		// This method is kept for compatibility but no longer uses Firebase
+		console.warn('openChatModal: Firebase chat is no longer supported. Use discussion feature instead.');
 	}
 
 	public async Send() {
-		if (this.msgVal.trim() !== '') {
-			const messagesRef = ref(this.database, this.selectedEvent.id);
-			await push(messagesRef, {
-				'message': this.msgVal,
-				'date': new Date().toISOString(),
-				'user': {
-					firstName: this.user.firstName,
-					lastName: this.user.lastName,
-					userName: this.user.userName
-				},
-				'priority': 0 - Date.now()
-			});
-			this.msgVal = '';
-			// Faire défiler vers le bas après l'envoi
-			setTimeout(() => this.scrollToBottom(), 100);
-		}
+		// Chat functionality has been moved to MongoDB backend
+		// This method is kept for compatibility but no longer uses Firebase
+		console.warn('Send: Firebase chat is no longer supported. Use discussion feature instead.');
 	}
 
 	private scrollToBottom(): void {
@@ -3163,8 +3091,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	public async deleteMessage(item: any) {
-		const messageRef = ref(this.database, this.selectedEvent.id + '/' + item.id);
-		await remove(messageRef);
+		// Chat functionality has been moved to MongoDB backend
+		// This method is kept for compatibility but no longer uses Firebase
+		console.warn('deleteMessage: Firebase chat is no longer supported. Use discussion feature instead.');
 	}
 
 	ngOnDestroy() {
@@ -3224,12 +3153,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Disconnect observers
 		this.disconnectThumbnailObserver();
 		this.disconnectInfiniteScrollObserver();
-		
-		// Clean up Firebase unsubscribe
-		if (this.firebaseUnsubscribe) {
-			this.firebaseUnsubscribe();
-			this.firebaseUnsubscribe = undefined;
-		}
 		
 		// Clean up all timeouts
 		if (this.prefetchTimeoutId) {
