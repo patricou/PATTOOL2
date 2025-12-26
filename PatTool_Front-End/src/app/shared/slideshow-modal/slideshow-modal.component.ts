@@ -3218,9 +3218,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         const keyMap: { [key: string]: number } = {
           'ArrowLeft': 37, 'ArrowRight': 39, 'ArrowUp': 38, 'ArrowDown': 40,
           's': 83, 'S': 83, 'i': 73, 'I': 73, 'd': 68, 'D': 68,
-          'p': 80, 'P': 80, 'g': 71, 'G': 71, 't': 84, 'T': 84,
+          'p': 80, 'P': 80, 'g': 71, 'G': 71, 'h': 72, 'H': 72,
           'e': 69, 'E': 69, 'o': 79, 'O': 79, 'r': 82, 'R': 82,
-          'Escape': 27, 'Home': 36
+          'f': 70, 'F': 70, 'c': 67, 'C': 67, 'Escape': 27, 'Home': 36
         };
         currentKeyCode = keyMap[event.key] || 0;
       }
@@ -3277,13 +3277,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.toggleDebug();
         return;
       } else if (event.key === 'p' || event.key === 'P' || event.keyCode === 80) {
-        // P : activer/désactiver le plein écran
+        // P : partager l'image
+        if (this.slideshowImages.length === 0) {
+          return;
+        }
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 80;
-        this.toggleFullscreen();
+        this.shareImage();
       } else if (event.key === 'g' || event.key === 'G' || event.keyCode === 71) {
         // G : afficher/masquer la grille
         event.preventDefault();
@@ -3292,13 +3295,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 71;
         this.toggleGrid();
-      } else if (event.key === 't' || event.key === 'T' || event.keyCode === 84) {
-        // T : afficher/masquer les thumbnails
+      } else if (event.key === 'h' || event.key === 'H' || event.keyCode === 72) {
+        // H : afficher/masquer les thumbnails
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation();
         this.lastKeyPressTime = currentTime;
-        this.lastKeyCode = 84;
+        this.lastKeyCode = 72;
         this.toggleThumbnails();
         return; // Exit early after handling
       } else if (event.key === 'e' || event.key === 'E' || event.keyCode === 69) {
@@ -3324,6 +3327,22 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyPressTime = currentTime;
         this.lastKeyCode = 79;
         this.toggleFilesystemImageQuality();
+      } else if (event.key === 'f' || event.key === 'F' || event.keyCode === 70) {
+        // F : activer/désactiver le plein écran
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 70;
+        this.toggleFullscreen();
+      } else if (event.key === 'c' || event.key === 'C' || event.keyCode === 67) {
+        // C : fermer le slideshow
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 67;
+        this.onSlideshowClose();
       } else if (event.key === 'Escape' || event.keyCode === 27) {
         if (this.traceViewerOpen) {
           return;
@@ -3781,6 +3800,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public toggleInfoPanel(): void {
     this.showInfoPanel = !this.showInfoPanel;
     
+    // Force immediate change detection for instant response
+    this.cdr.detectChanges();
+    
     // If showing the panel, load EXIF data if not already cached
     if (this.showInfoPanel) {
       this.loadExifDataForInfoPanel();
@@ -3992,6 +4014,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   public toggleGrid(): void {
     this.showGrid = !this.showGrid;
+    // Force immediate change detection for instant response
+    this.cdr.detectChanges();
   }
   
   // Get inline styles for thumbnails in fullscreen mode
@@ -4659,8 +4683,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (storedBlob) {
         blob = storedBlob;
       } else if (currentImageUrl.startsWith('blob:')) {
+        // Pour les blob URLs, si le blob n'est pas stocké, on essaiera de lire depuis l'élément image
         // Do not fetch blob: URLs again — this would create a duplicate blob request in DevTools.
-        // If the blob wasn't stored, we skip size/mime enrichment rather than re-downloading it.
         blob = null;
       } else {
         // For http(s) URLs, avoid downloading the body here; we'll try a HEAD below for size/mime.
@@ -4690,7 +4714,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           });
         }
         // Read EXIF from blob (will add EXIF data, not duplicate file size/mime)
-        await this.readExifFromBlob(blob);
+        try {
+          await this.readExifFromBlob(blob);
+        } catch (error) {
+          // Si la lecture depuis le blob échoue, essayer depuis l'élément image
+          if (imgEl && imgEl.src === currentImageUrl && imgEl.complete && imgEl.naturalWidth > 0) {
+            try {
+              await this.readExifFromImageElement(imgEl);
+            } catch (error2) {
+              // Ignorer l'erreur
+            }
+          }
+        }
         
         // Ensure "original size before compression" is shown if available via backend metadata
         const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
@@ -4747,13 +4782,23 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           }
         }
         
-        // Try reading EXIF from image element as last resort (for non-blob URLs)
-        if (!currentImageUrl.startsWith('blob:') && imgEl && imgEl.src) {
-          await this.readExifFromImageElement(imgEl);
+        // Try reading EXIF from image element as last resort
+        // For blob URLs without stored blob, or for non-blob URLs
+        if (imgEl && imgEl.src) {
+          // Vérifier que l'URL de l'image correspond à l'URL courante
+          if (imgEl.src === currentImageUrl) {
+            // Pour les blob URLs, on peut quand même lire depuis l'élément image si le blob n'est pas stocké
+            await this.readExifFromImageElement(imgEl);
+          }
         }
         
         // Sort EXIF entries for consistent display
         this.sortExifDataForDisplay();
+        
+        // Update cache even if we only have partial data (to avoid infinite retries)
+        if (currentImageUrl && this.exifData.length > 0) {
+          this.exifDataCache.set(currentImageUrl, [...this.exifData]);
+        }
       }
       
     } catch (error) {

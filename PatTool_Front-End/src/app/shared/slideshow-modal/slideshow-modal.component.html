@@ -39,6 +39,9 @@
              class="slideshow-image"
              [style.transform]="'translate3d(' + slideshowTranslateX + 'px,' + slideshowTranslateY + 'px,0) scale(' + slideshowZoom + ')'"
              style="transform-origin:center center; position: relative;"
+             loading="eager"
+             decoding="async"
+             ngSkipHydration
              (wheel)="onWheelSlideshow($event)"
              (click)="onSlideshowImageClick()"
              (contextmenu)="$event.preventDefault()"
@@ -225,7 +228,7 @@
               (click)="toggleFullscreen()">
         <i class="fa me-1" [ngClass]="!isFullscreen ? 'fa-arrows-alt' : 'fa-compress'"></i>
         <span *ngIf="!isFullscreen">{{ 'EVENTELEM.FULLSCREEN' | translate }}</span>
-        <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span> <span class="ms-1">(P)</span>
+        <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span> <span class="ms-1">(F)</span>
       </button>
       <button *ngIf="slideshowImages.length > 1" 
               type="button" class="btn btn-secondary" 
@@ -237,7 +240,7 @@
               (click)="shareImage()"
               [disabled]="slideshowImages.length === 0">
         <i class="fa fa-share-alt me-1"></i>
-        <span>{{ 'EVENTELEM.SHARE' | translate }}</span>
+        <span>{{ 'EVENTELEM.SHARE' | translate }}</span> <span class="ms-1">(P)</span>
       </button>
       <button type="button" class="btn btn-info" 
               (click)="toggleInfoPanel()"
@@ -276,16 +279,16 @@
               (click)="toggleGrid()"
               [disabled]="slideshowImages.length === 0">
         <i class="fa fa-th me-1"></i>
-        <span>{{ 'EVENTELEM.GRID' | translate }}</span>
+        <span>{{ 'EVENTELEM.GRID' | translate }}</span> <span class="ms-1">(G)</span>
       </button>
       <button type="button" class="btn btn-secondary" 
               (click)="toggleThumbnails()"
               [disabled]="slideshowImages.length <= 1">
         <i class="fa me-1" [ngClass]="showThumbnails ? 'fa-eye-slash' : 'fa-eye'"></i>
-        <span>{{ showThumbnails ? ('EVENTELEM.HIDE_THUMBNAILS' | translate) : ('EVENTELEM.SHOW_THUMBNAILS' | translate) }}</span> <span class="ms-1">(T)</span>
+        <span>{{ showThumbnails ? ('EVENTELEM.HIDE_THUMBNAILS' | translate) : ('EVENTELEM.SHOW_THUMBNAILS' | translate) }}</span> <span class="ms-1">(H)</span>
       </button>
       <button type="button" class="btn btn-secondary ms-auto" (click)="onSlideshowClose(c)">
-        <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+        <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }} <span class="ms-1">(C)</span>
       </button>
     </div>
   </div>
