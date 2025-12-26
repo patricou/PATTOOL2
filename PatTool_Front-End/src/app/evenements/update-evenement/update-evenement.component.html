@@ -778,8 +778,8 @@
                                         <button type="button" 
                                                 class="btn btn-outline-danger btn-sm"
                                                 (click)="deleteFile(i)"
-                                                [disabled]="!isFileOwner(uploadedFile)"
-                                                title="{{ 'EVENTELEM.DELETE_FILE' | translate }}">
+                                                [disabled]="!isFileOwner(uploadedFile) || isThumbnailFile(uploadedFile)"
+                                                [title]="isThumbnailFile(uploadedFile) ? ('EVENTELEM.CANNOT_DELETE_THUMBNAIL' | translate) : ('EVENTELEM.DELETE_FILE' | translate)">
                                             <i class="fa fa-trash"></i>
                                         </button>
                                     </div>
@@ -1055,6 +1055,40 @@
       {{ 'EVENTELEM.CANCEL' | translate }}
     </button>
     <button type="button" class="btn btn-primary" (click)="confirmQualitySelection()">
+      {{ 'EVENTELEM.CONFIRM' | translate }}
+    </button>
+  </div>
+</ng-template>
+
+<!-- Image Compression Selection Modal -->
+<ng-template #imageCompressionModal let-modal>
+  <div class="modal-header bg-primary text-white">
+    <h5 class="modal-title">
+      <i class="fa fa-image me-2"></i>
+      {{ 'EVENTELEM.IMAGE_COMPRESSION_TITLE' | translate }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" (click)="cancelImageCompression()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <p>{{ 'EVENTELEM.IMAGE_COMPRESSION_MESSAGE' | translate: {count: imageCountForModal} }}</p>
+    <div class="form-group mb-3">
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="compressImagesSwitch" [(ngModel)]="compressImages">
+        <label class="form-check-label" for="compressImagesSwitch">
+          {{ 'EVENTELEM.COMPRESS_IMAGES' | translate }}
+        </label>
+      </div>
+    </div>
+    <div class="alert alert-info small">
+      <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED' | translate }}:</strong> {{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED_DETAILS' | translate }}<br>
+      <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED' | translate }}:</strong> {{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED_DETAILS' | translate }}
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="cancelImageCompression()">
+      {{ 'EVENTELEM.CANCEL' | translate }}
+    </button>
+    <button type="button" class="btn btn-primary" (click)="confirmImageCompression()">
       {{ 'EVENTELEM.CONFIRM' | translate }}
     </button>
   </div>

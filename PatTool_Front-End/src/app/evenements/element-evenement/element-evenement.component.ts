@@ -65,6 +65,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public pendingVideoFiles: File[] = [];
 	public videoCountForModal: number = 0;
 	private qualityModalRef: any = null;
+	// Image compression settings
+	public compressImages: boolean = true; // Default: compress images
+	public imageCountForModal: number = 0;
+	@ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
+	private imageCompressionModalRef: any = null;
 	// Evaluate rating
 	public currentRate: number = 0;
 	public safePhotosUrl: SafeUrl = {} as SafeUrl;
@@ -1504,6 +1509,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Check if any of the selected files are images
 		const imageFiles = this.selectedFiles.filter(file => this.isImageFileByMimeType(file));
 		
+		// Ask user if they want to compress images
+		if (imageFiles.length > 0) {
+			this.imageCountForModal = imageFiles.length;
+			this.compressImages = true; // Reset to default
+			const shouldCompress = await this.askForImageCompression(imageFiles.length);
+			if (shouldCompress === null) {
+				// User cancelled, stop upload
+				this.isUploading = false;
+				if (this.uploadLogsModalRef) {
+					this.uploadLogsModalRef.close();
+					this.uploadLogsModalRef = null;
+				}
+				return;
+			}
+			this.compressImages = shouldCompress;
+		}
+		
 		// Only ask for thumbnail if there's exactly ONE file selected
 		if (imageFiles.length > 0 && this.selectedFiles.length === 1) {
 			// Ask user if they want to use the image as activity thumbnail
@@ -1608,6 +1630,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Add sessionId to FormData
 		if (sessionId) {
 			formData.append('sessionId', sessionId);
+		}
+		
+		// Add allowOriginal parameter (true if we don't want to compress images)
+		// allowOriginal=true means: allow original file without compression
+		// allowOriginal=false (default) means: compress images
+		if (imageFiles.length > 0) {
+			formData.append('allowOriginal', (!this.compressImages).toString());
 		}
 
 		// Build the correct upload URL with user ID and event ID
@@ -1826,6 +1855,52 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public cancelQualitySelection(): void {
 		if (this.qualityModalRef) {
 			this.qualityModalRef.dismiss();
+		}
+	}
+	
+	private askForImageCompression(imageCount: number): Promise<boolean | null> {
+		return new Promise((resolve) => {
+			this.compressImages = true; // Default to compression enabled
+			this.imageCountForModal = imageCount;
+
+			if (this.imageCompressionModal) {
+				this.imageCompressionModalRef = this.modalService.open(this.imageCompressionModal, {
+					centered: true,
+					backdrop: 'static',
+					keyboard: false,
+					size: 'md',
+					windowClass: 'compression-quality-modal'
+				});
+
+				this.imageCompressionModalRef.result.then(
+					(result: boolean) => {
+						this.imageCompressionModalRef = null;
+						resolve(result);
+					},
+					() => {
+						this.imageCompressionModalRef = null;
+						resolve(null); // dismissed
+					}
+				);
+			} else {
+				// Fallback
+				const choice = confirm(
+					this.translateService.instant('EVENTELEM.IMAGE_COMPRESSION_QUESTION', { count: imageCount })
+				);
+				resolve(choice);
+			}
+		});
+	}
+
+	public confirmImageCompression(): void {
+		if (this.imageCompressionModalRef) {
+			this.imageCompressionModalRef.close(this.compressImages);
+		}
+	}
+
+	public cancelImageCompression(): void {
+		if (this.imageCompressionModalRef) {
+			this.imageCompressionModalRef.dismiss();
 		}
 	}
 
@@ -3377,15 +3452,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 	// delete a file uploaded linked to the evenement, update the evenement
 	delFile(fieldId: string) {
-		if (confirm("Are you sure you want to delete the file ? ")) {
-			// Find the file being deleted to check if it contains "thumbnail"
-			const fileToDelete = this.evenement.fileUploadeds.find(fileUploaded => fileUploaded.fieldId === fieldId);
-			let isThumbnailFile = false;
-			
-			if (fileToDelete && fileToDelete.fileName && fileToDelete.fileName.toLowerCase().includes('thumbnail')) {
-				isThumbnailFile = true;
-			}
-			
+		// Find the file being deleted to check if it contains "thumbnail"
+		const fileToDelete = this.evenement.fileUploadeds.find(fileUploaded => fileUploaded.fieldId === fieldId);
+		
+		// Prevent deletion of thumbnail files
+		if (fileToDelete && fileToDelete.fileName && fileToDelete.fileName.toLowerCase().includes('thumbnail')) {
+			alert(this.translateService.instant('EVENTELEM.CANNOT_DELETE_THUMBNAIL'));
+			return;
+		}
+		
+		if (confirm(this.translateService.instant('EVENTELEM.DELETEFILE_CONFIRM'))) {
 			// Create a copy of the evenement without the file to delete
 			const evenementToUpdate = { ...this.evenement };
 			evenementToUpdate.fileUploadeds = this.evenement.fileUploadeds.filter(fileUploaded => !(fileUploaded.fieldId == fieldId));
@@ -3396,15 +3472,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					// Update the local evenement with the response
 					this.evenement.fileUploadeds = evenementToUpdate.fileUploadeds;
 					this.updateFileUploaded.emit(this.evenement);
-					
-					// If a thumbnail file was deleted, reload the card
-					if (isThumbnailFile) {
-						this.reloadEventCard();
-					}
 				},
 				error: (error) => {
 					console.error('Error deleting file from MongoDB:', error);
-					alert('Error deleting file from database. Please try again.');
+					alert(this.translateService.instant('EVENTELEM.DELETE_FILE_ERROR'));
 					// Revert the local change on error
 					// The file list will be restored when the component refreshes
 				}

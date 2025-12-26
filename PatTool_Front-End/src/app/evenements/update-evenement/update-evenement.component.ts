@@ -145,6 +145,11 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
     public selectedCompressionQuality: 'low' | 'medium' | 'high' | 'very-high' | 'original' = 'very-high';
     public videoCountForModal: number = 0;
     private qualityModalRef: any = null;
+    // Image compression settings
+    public compressImages: boolean = true; // Default: compress images
+    public imageCountForModal: number = 0;
+    @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
+    private imageCompressionModalRef: any = null;
 
     // Slideshow modal component
     @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
@@ -1013,7 +1018,16 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 	}
 
 	public deleteFile(fileIndex: number): void {
-		if (confirm('Êtes-vous sûr de vouloir supprimer ce fichier ?')) {
+		// Get the file to check if it's a thumbnail
+		const fileToDelete = this.evenement.fileUploadeds[fileIndex];
+		
+		// Prevent deletion of thumbnail files
+		if (fileToDelete && fileToDelete.fileName && fileToDelete.fileName.toLowerCase().includes('thumbnail')) {
+			alert(this.translate.instant('EVENTELEM.CANNOT_DELETE_THUMBNAIL'));
+			return;
+		}
+		
+		if (confirm(this.translate.instant('EVENTELEM.DELETEFILE_CONFIRM'))) {
 			this.evenement.fileUploadeds.splice(fileIndex, 1);
 			this._evenementsService.put4FileEvenement(this.evenement).subscribe(
 				(response) => {
@@ -1021,10 +1035,17 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 				},
 				(error) => {
 					console.error('Error deleting file:', error);
-					alert('Erreur lors de la suppression du fichier');
+					alert(this.translate.instant('EVENTELEM.DELETE_FILE_ERROR'));
 				}
 			);
 		}
+	}
+	
+	public isThumbnailFile(uploadedFile: UploadedFile | null | undefined): boolean {
+		if (!uploadedFile || !uploadedFile.fileName) {
+			return false;
+		}
+		return uploadedFile.fileName.toLowerCase().includes('thumbnail');
 	}
 
 	public onFileSelected(event: any): void {
@@ -1114,6 +1135,25 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		
 		// Initialize logs
 		this.addLog(`📤 Starting upload of ${this.selectedFiles.length} file(s)...`);
+		
+		// Check if any of the selected files are images
+		const imageFiles = this.selectedFiles.filter(file => this.isImageFileByMimeType(file));
+		
+		// Ask user if they want to compress images
+		if (imageFiles.length > 0) {
+			this.imageCountForModal = imageFiles.length;
+			this.compressImages = true; // Reset to default
+			const shouldCompress = await this.askForImageCompression(imageFiles.length);
+			if (shouldCompress === null) {
+				// User cancelled, stop upload
+				this.isUploading = false;
+				if (modalRef) {
+					modalRef.close();
+				}
+				return;
+			}
+			this.compressImages = shouldCompress;
+		}
 		
 		// Process video compression if needed
 		const videoFiles = this.selectedFiles.filter(file => this.isVideoFile(file.name));
@@ -1219,6 +1259,13 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 				formData.append('file', file, file.name);
 				if (sessionId) {
 					formData.append('sessionId', sessionId);
+				}
+				
+				// Add allowOriginal parameter for images (true if we don't want to compress images)
+				// allowOriginal=true means: allow original file without compression
+				// allowOriginal=false (default) means: compress images
+				if (this.isImageFileByMimeType(file)) {
+					formData.append('allowOriginal', (!this.compressImages).toString());
 				}
 				
 				return this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId).pipe(
@@ -1328,6 +1375,57 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		const lowerFileName = fileName.toLowerCase();
 		
 		return videoExtensions.some(ext => lowerFileName.endsWith(ext));
+	}
+	
+	public isImageFileByMimeType(file: File): boolean {
+		if (!file || !file.type) return false;
+		return file.type.startsWith('image/');
+	}
+	
+	private askForImageCompression(imageCount: number): Promise<boolean | null> {
+		return new Promise((resolve) => {
+			this.compressImages = true; // Default to compression enabled
+			this.imageCountForModal = imageCount;
+
+			if (this.imageCompressionModal) {
+				this.imageCompressionModalRef = this.modalService.open(this.imageCompressionModal, {
+					centered: true,
+					backdrop: 'static',
+					keyboard: false,
+					size: 'md',
+					windowClass: 'compression-quality-modal'
+				});
+
+				this.imageCompressionModalRef.result.then(
+					(result: boolean) => {
+						this.imageCompressionModalRef = null;
+						resolve(result);
+					},
+					() => {
+						this.imageCompressionModalRef = null;
+						resolve(null); // dismissed
+					}
+				);
+			} else {
+				// Fallback
+				const choice = confirm(
+					this.translate.instant('EVENTELEM.IMAGE_COMPRESSION_QUESTION', { count: imageCount })
+				);
+				resolve(choice);
+			}
+		});
+	}
+
+	public confirmImageCompression(): void {
+		if (this.imageCompressionModalRef) {
+			this.imageCompressionModalRef.close(this.compressImages);
+		}
+	}
+
+	public cancelImageCompression(): void {
+		if (this.imageCompressionModalRef) {
+			this.imageCompressionModalRef.dismiss();
+		}
 	}
 	
 	private askForCompressionQuality(videoCount: number): Promise<'low' | 'medium' | 'high' | 'very-high' | 'original' | null> {

@@ -145,6 +145,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   public pendingVideoFiles: File[] = [];
   public videoCountForModal: number = 0;
   private qualityModalRef: any = null;
+  // Image compression settings
+  public compressImages: boolean = true; // Default: compress images
+  public imageCountForModal: number = 0;
+  @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
+  private imageCompressionModalRef: any = null;
   private activeTimeouts = new Set<any>();
   @ViewChild('logContent') logContent!: ElementRef;
 
@@ -4039,6 +4044,22 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     // Check if any of the selected files are images
     const imageFiles = this.selectedFiles.filter(file => this.isImageFileByMimeType(file));
     
+    // Ask user if they want to compress images
+    if (imageFiles.length > 0) {
+      this.imageCountForModal = imageFiles.length;
+      this.compressImages = true; // Reset to default
+      const shouldCompress = await this.askForImageCompression(imageFiles.length);
+      if (shouldCompress === null) {
+        // User cancelled, stop upload
+        this.isUploading = false;
+        if (modalRef) {
+          modalRef.close();
+        }
+        return;
+      }
+      this.compressImages = shouldCompress;
+    }
+    
     // Only ask for thumbnail if there's exactly ONE file selected
     if (imageFiles.length > 0 && this.selectedFiles.length === 1) {
       // Ask user if they want to use the image as activity thumbnail
@@ -4117,6 +4138,13 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     processedFiles.forEach(file => {
       formData.append('file', file);
     });
+    
+    // Add allowOriginal parameter (true if we don't want to compress images)
+    // allowOriginal=true means: allow original file without compression
+    // allowOriginal=false (default) means: compress images
+    if (imageFiles.length > 0) {
+      formData.append('allowOriginal', (!this.compressImages).toString());
+    }
 
     // Subscribe to upload logs
     if (sessionId) {
@@ -4526,7 +4554,52 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       this.qualityModalRef.dismiss();
     }
   }
+  
+  private askForImageCompression(imageCount: number): Promise<boolean | null> {
+    return new Promise((resolve) => {
+      this.compressImages = true; // Default to compression enabled
+      this.imageCountForModal = imageCount;
 
+      if (this.imageCompressionModal) {
+        this.imageCompressionModalRef = this.modalService.open(this.imageCompressionModal, {
+          centered: true,
+          backdrop: 'static',
+          keyboard: false,
+          size: 'md',
+          windowClass: 'compression-quality-modal'
+        });
+
+        this.imageCompressionModalRef.result.then(
+          (result: boolean) => {
+            this.imageCompressionModalRef = null;
+            resolve(result);
+          },
+          () => {
+            this.imageCompressionModalRef = null;
+            resolve(null); // dismissed
+          }
+        );
+      } else {
+        // Fallback
+        const choice = confirm(
+          this.translateService.instant('EVENTELEM.IMAGE_COMPRESSION_QUESTION', { count: imageCount })
+        );
+        resolve(choice);
+      }
+    });
+  }
+
+  public confirmImageCompression(): void {
+    if (this.imageCompressionModalRef) {
+      this.imageCompressionModalRef.close(this.compressImages);
+    }
+  }
+
+  public cancelImageCompression(): void {
+    if (this.imageCompressionModalRef) {
+      this.imageCompressionModalRef.dismiss();
+    }
+  }
 
   // =========================
   // Slideshow methods (now handled by SlideshowModalComponent)
