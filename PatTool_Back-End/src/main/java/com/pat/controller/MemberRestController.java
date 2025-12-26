@@ -116,9 +116,24 @@ public class MemberRestController {
         log.debug("=== USER CONNECTION REQUEST ===");
         log.debug("Member Received - Username: {}, KeycloakId: {}", member.getUserName(), member.getKeycloakId());
         member.setId(null);
-        // retrieve Mlab Id by userName ( would have been better by keycloakId )
-        Member memberWithId = membersRepository.findByUserName(member.getUserName());
-        log.debug("User lookup result: {}", memberWithId != null ? "FOUND (existing user)" : "NOT FOUND (new user)");
+        
+        // CRITICAL FIX: Search by keycloakId first (more reliable and unique)
+        // This prevents duplicate user creation when multiple requests arrive simultaneously
+        Member memberWithId = null;
+        
+        if (member.getKeycloakId() != null && !member.getKeycloakId().trim().isEmpty()) {
+            memberWithId = membersRepository.findByKeycloakId(member.getKeycloakId());
+            log.debug("User lookup by keycloakId: {}", memberWithId != null ? "FOUND (existing user)" : "NOT FOUND");
+        }
+        
+        // Fallback: if not found by keycloakId, try by userName (for backward compatibility)
+        if (memberWithId == null && member.getUserName() != null && !member.getUserName().trim().isEmpty()) {
+            memberWithId = membersRepository.findByUserName(member.getUserName());
+            log.debug("User lookup by userName (fallback): {}", memberWithId != null ? "FOUND (existing user)" : "NOT FOUND");
+        }
+        
+        log.debug("Final user lookup result: {}", memberWithId != null ? "FOUND (existing user)" : "NOT FOUND (new user)");
+        
         // Update the ID
         Date now = new Date();
         if (memberWithId != null ) {
@@ -303,6 +318,63 @@ public class MemberRestController {
                 referer,
                 true // new user
             );
+        }
+
+        // CRITICAL FIX: Double-check for race condition before saving
+        // If another request created the user between our lookup and save, find and update it instead
+        Member existingMember = null;
+        if (member.getKeycloakId() != null && !member.getKeycloakId().trim().isEmpty()) {
+            existingMember = membersRepository.findByKeycloakId(member.getKeycloakId());
+        }
+        if (existingMember == null && member.getUserName() != null && !member.getUserName().trim().isEmpty()) {
+            existingMember = membersRepository.findByUserName(member.getUserName());
+        }
+        
+        if (existingMember != null && memberWithId == null) {
+            // Race condition detected: user was created by another request between our lookup and save
+            log.warn("Race condition detected: User {} (keycloakId: {}) was created by another request. Updating existing user instead of creating duplicate.", 
+                    member.getUserName(), member.getKeycloakId());
+            member.setId(existingMember.getId());
+            // Preserve existing registration date
+            if (existingMember.getRegistrationDate() != null) {
+                member.setRegistrationDate(existingMember.getRegistrationDate());
+            }
+            // Update last connection date
+            member.setLastConnectionDate(now);
+            // Preserve other existing fields if not provided
+            if (member.getFirstName() == null || member.getFirstName().trim().isEmpty()) {
+                if (existingMember.getFirstName() != null) {
+                    member.setFirstName(existingMember.getFirstName());
+                }
+            }
+            if (member.getLastName() == null || member.getLastName().trim().isEmpty()) {
+                if (existingMember.getLastName() != null) {
+                    member.setLastName(existingMember.getLastName());
+                }
+            }
+            if (member.getAddressEmail() == null || member.getAddressEmail().trim().isEmpty()) {
+                if (existingMember.getAddressEmail() != null) {
+                    member.setAddressEmail(existingMember.getAddressEmail());
+                }
+            }
+            if (member.getLocale() == null || member.getLocale().trim().isEmpty()) {
+                if (existingMember.getLocale() != null) {
+                    member.setLocale(existingMember.getLocale());
+                }
+            }
+            if (member.getWhatsappLink() == null || member.getWhatsappLink().trim().isEmpty()) {
+                if (existingMember.getWhatsappLink() != null) {
+                    member.setWhatsappLink(existingMember.getWhatsappLink());
+                }
+            }
+            // Handle roles
+            if (member.getRoles() == null || member.getRoles().trim().isEmpty()) {
+                if (existingMember.getRoles() != null && !existingMember.getRoles().trim().isEmpty()) {
+                    member.setRoles(existingMember.getRoles());
+                } else {
+                    updateMemberRolesFromKeycloak(member);
+                }
+            }
         }
 
         // Save the member in Mlab ( if modif ( like email or... ) ( userName is unqiue )

@@ -14,4 +14,6 @@ public interface MembersRepository  extends PagingAndSortingRepository<Member, S
     Member findByUserName(String userName);
     
     Member findByAddressEmail(String addressEmail);
+    
+    Member findByKeycloakId(String keycloakId);
 }
