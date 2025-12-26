@@ -4131,34 +4131,83 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.isLoadingExif = false;
       this.exifData = [];
       
-      // Attendre que l'image soit chargée avant de charger les EXIF
-      const imgEl = this.slideshowImgElRef?.nativeElement;
-      if (imgEl) {
-        if (imgEl.complete && imgEl.naturalWidth > 0) {
-          // L'image est déjà chargée
-          setTimeout(() => this.loadExifDataForInfoPanel(), 100);
+      // Si on a le blob, on peut charger les EXIF immédiatement
+      if (blob) {
+        // Vérifier d'abord le cache
+        const cachedExifData = this.exifDataCache.get(newUrl);
+        if (cachedExifData && cachedExifData.length > 0) {
+          // Utiliser les données en cache
+          this.exifData = cachedExifData;
+          this.sortExifDataForDisplay();
+          this.isLoadingExif = false;
+          this.cdr.detectChanges();
         } else {
-          // Attendre que l'image se charge
-          const onImageLoad = () => {
-            imgEl.removeEventListener('load', onImageLoad);
-            setTimeout(() => this.loadExifDataForInfoPanel(), 100);
-          };
-          imgEl.addEventListener('load', onImageLoad);
+          // Charger les EXIF depuis le blob
+          this.isLoadingExif = true;
+          this.cdr.detectChanges();
           
-          // Timeout de sécurité au cas où l'événement load ne se déclencherait pas
-          setTimeout(() => {
-            imgEl.removeEventListener('load', onImageLoad);
-            if (imgEl.complete) {
-              this.loadExifDataForInfoPanel();
+          // Précharger en arrière-plan pour le cache
+          this.preloadExifData(newUrl, blob).catch(() => {
+            // Ignorer les erreurs de préchargement
+          });
+          
+          // Charger pour l'affichage
+          this.loadExifData().then(() => {
+            if (this.getCurrentSlideshowImage() === newUrl) {
+              this.isLoadingExif = false;
+              this.cdr.detectChanges();
             } else {
-              // Si l'image n'est toujours pas chargée, essayer quand même de charger les EXIF
-              this.loadExifDataForInfoPanel();
+              this.isLoadingExif = false;
+              this.exifData = [];
             }
-          }, 2000);
+          }).catch(() => {
+            if (this.getCurrentSlideshowImage() === newUrl) {
+              this.isLoadingExif = false;
+              this.cdr.detectChanges();
+            }
+          });
         }
       } else {
-        // Pas d'élément image, essayer quand même après un court délai
-        setTimeout(() => this.loadExifDataForInfoPanel(), 200);
+        // Pas de blob disponible, attendre que l'image soit chargée dans le DOM
+        const imgEl = this.slideshowImgElRef?.nativeElement;
+        if (imgEl) {
+          // Vérifier que l'URL de l'image correspond à la nouvelle URL
+          const checkImageLoaded = (): boolean => {
+            return imgEl.src === newUrl && imgEl.complete && imgEl.naturalWidth > 0;
+          };
+          
+          if (checkImageLoaded()) {
+            // L'image est déjà chargée avec la nouvelle URL
+            setTimeout(() => this.loadExifDataForInfoPanel(), 100);
+          } else {
+            // Attendre que l'image se charge avec la nouvelle URL
+            let loadTimeoutId: any = null;
+            const onImageLoad = () => {
+              if (checkImageLoaded()) {
+                imgEl.removeEventListener('load', onImageLoad);
+                if (loadTimeoutId) {
+                  clearTimeout(loadTimeoutId);
+                }
+                setTimeout(() => this.loadExifDataForInfoPanel(), 100);
+              }
+            };
+            imgEl.addEventListener('load', onImageLoad);
+            
+            // Timeout de sécurité réduit
+            loadTimeoutId = setTimeout(() => {
+              imgEl.removeEventListener('load', onImageLoad);
+              if (checkImageLoaded()) {
+                this.loadExifDataForInfoPanel();
+              } else {
+                // Si l'image n'est toujours pas chargée, essayer quand même
+                this.loadExifDataForInfoPanel();
+              }
+            }, 2000);
+          }
+        } else {
+          // Pas d'élément image, essayer quand même après un court délai
+          setTimeout(() => this.loadExifDataForInfoPanel(), 200);
+        }
       }
     }
 
@@ -4603,16 +4652,27 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           }
         });
         
-        // Timeout de sécurité pour éviter un chargement infini
-        setTimeout(() => {
+        // Timeout de sécurité pour éviter un chargement infini (réduit à 5 secondes)
+        const timeoutId = setTimeout(() => {
           if (this.isLoadingExif && this.getCurrentSlideshowImage() === loadingForUrl) {
             this.isLoadingExif = false;
             // Si aucune donnée EXIF n'a été chargée, afficher le message "pas de données"
             if (!this.exifData || this.exifData.length === 0) {
               this.exifData = [];
             }
+            // Mettre à jour le cache même vide pour éviter les tentatives infinies
+            if (currentImageUrl) {
+              this.exifDataCache.set(currentImageUrl, []);
+            }
           }
-        }, 6000); // Timeout de 6 secondes (légèrement supérieur au timeout des fonctions de lecture)
+        }, 4500); // Timeout de 4.5 secondes (légèrement supérieur au timeout de loadExifData qui est de 4s)
+        
+        // Nettoyer le timeout si le chargement se termine avant
+        this.loadExifData().then(() => {
+          clearTimeout(timeoutId);
+        }).catch(() => {
+          clearTimeout(timeoutId);
+        });
       }
     } else {
       // Pas d'URL, réinitialiser l'état
@@ -4653,6 +4713,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (hasFileSize) {
         // Cache is complete, use it
         this.exifData = cachedExifData;
+        this.sortExifDataForDisplay();
         this.logExifDataForCurrentImage('load-exif-cache');
         return;
       } else {
@@ -4661,9 +4722,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
     }
     
-    try {
-      // Get image dimensions from the img element
-      const imgEl = this.slideshowImgElRef?.nativeElement;
+    // Timeout global pour s'assurer que la fonction se résout toujours
+    const globalTimeout = new Promise<void>((resolve) => {
+      setTimeout(() => {
+        resolve();
+      }, 4000); // Timeout de 4 secondes au total
+    });
+    
+    const loadPromise = (async () => {
+      try {
+        // Get image dimensions from the img element
+        const imgEl = this.slideshowImgElRef?.nativeElement;
       if (imgEl && imgEl.complete) {
         this.exifData.push({
           label: this.translateService.instant('EVENTELEM.EXIF_WIDTH'),
@@ -4787,8 +4856,51 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         if (imgEl && imgEl.src) {
           // Vérifier que l'URL de l'image correspond à l'URL courante
           if (imgEl.src === currentImageUrl) {
-            // Pour les blob URLs, on peut quand même lire depuis l'élément image si le blob n'est pas stocké
-            await this.readExifFromImageElement(imgEl);
+            // Pour les blob URLs, attendre que l'image soit chargée avant de lire les EXIF
+            if (currentImageUrl.startsWith('blob:')) {
+              if (imgEl.complete && imgEl.naturalWidth > 0) {
+                // L'image est chargée, on peut lire les EXIF
+                try {
+                  await Promise.race([
+                    this.readExifFromImageElement(imgEl),
+                    new Promise<void>((resolve) => setTimeout(() => resolve(), 3000))
+                  ]);
+                } catch (error) {
+                  // Ignorer l'erreur
+                }
+              } else {
+                // Attendre que l'image se charge (avec timeout)
+                try {
+                  await Promise.race([
+                    new Promise<void>((resolve) => {
+                      const onLoad = () => {
+                        imgEl.removeEventListener('load', onLoad);
+                        this.readExifFromImageElement(imgEl).then(() => resolve()).catch(() => resolve());
+                      };
+                      imgEl.addEventListener('load', onLoad);
+                      // Timeout de sécurité
+                      setTimeout(() => {
+                        imgEl.removeEventListener('load', onLoad);
+                        resolve();
+                      }, 2000);
+                    }),
+                    new Promise<void>((resolve) => setTimeout(() => resolve(), 3000))
+                  ]);
+                } catch (error) {
+                  // Ignorer l'erreur
+                }
+              }
+            } else {
+              // Pour les URLs non-blob, essayer directement
+              try {
+                await Promise.race([
+                  this.readExifFromImageElement(imgEl),
+                  new Promise<void>((resolve) => setTimeout(() => resolve(), 3000))
+                ]);
+              } catch (error) {
+                // Ignorer l'erreur
+              }
+            }
           }
         }
         
@@ -4799,10 +4911,40 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         if (currentImageUrl && this.exifData.length > 0) {
           this.exifDataCache.set(currentImageUrl, [...this.exifData]);
         }
+      } // Fin du else
+      } catch (error) {
+        // En cas d'erreur, s'assurer qu'on a au moins les dimensions si disponibles
+        const imgEl = this.slideshowImgElRef?.nativeElement;
+        if (imgEl && imgEl.complete && imgEl.naturalWidth > 0) {
+          const hasWidth = this.exifData.some(item => 
+            item.label === this.translateService.instant('EVENTELEM.EXIF_WIDTH')
+          );
+          const hasHeight = this.exifData.some(item => 
+            item.label === this.translateService.instant('EVENTELEM.EXIF_HEIGHT')
+          );
+          if (!hasWidth) {
+            this.exifData.push({
+              label: this.translateService.instant('EVENTELEM.EXIF_WIDTH'),
+              value: `${imgEl.naturalWidth} px`
+            });
+          }
+          if (!hasHeight) {
+            this.exifData.push({
+              label: this.translateService.instant('EVENTELEM.EXIF_HEIGHT'),
+              value: `${imgEl.naturalHeight} px`
+            });
+          }
+          this.sortExifDataForDisplay();
+        }
+        // Mettre à jour le cache même en cas d'erreur pour éviter les tentatives infinies
+        if (currentImageUrl) {
+          this.exifDataCache.set(currentImageUrl, [...this.exifData]);
+        }
       }
-      
-    } catch (error) {
-    }
+    })();
+    
+    // Utiliser Promise.race pour s'assurer qu'on se résout toujours, même en cas de timeout
+    await Promise.race([loadPromise, globalTimeout]);
 
     this.logExifDataForCurrentImage('load-exif-complete');
   }
@@ -4870,7 +5012,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           resolved = true;
           resolve();
         }
-      }, 5000); // Timeout de 5 secondes pour éviter un chargement infini
+      }, 3000); // Timeout de 3 secondes pour éviter un chargement infini
       
       const safeResolve = () => {
         if (!resolved) {
@@ -4894,7 +5036,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             // Ajouter un timeout supplémentaire pour EXIF.getData
             const exifTimeoutId = setTimeout(() => {
               safeResolve();
-            }, 3000);
+            }, 2000); // Timeout de 2 secondes pour EXIF.getData
             
             EXIF.getData(img as any, () => {
               clearTimeout(exifTimeoutId);
@@ -4976,7 +5118,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           resolved = true;
           resolve();
         }
-      }, 5000); // Timeout de 5 secondes pour éviter un chargement infini
+      }, 3000); // Timeout de 3 secondes pour éviter un chargement infini
       
       const safeResolve = () => {
         if (!resolved) {
@@ -5040,7 +5182,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           resolved = true;
           resolve();
         }
-      }, 5000); // Timeout de 5 secondes pour éviter un chargement infini
+      }, 3000); // Timeout de 3 secondes pour éviter un chargement infini
       
       const safeResolve = () => {
         if (!resolved) {
