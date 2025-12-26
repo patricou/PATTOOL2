@@ -423,6 +423,29 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         // This can happen if cleanup is called multiple times
       }
     });
+    
+    // Revoke all blob URLs stored in slideshowBlobs Map (keys are URLs)
+    this.slideshowBlobs.forEach((blob, url) => {
+      try {
+        if (url && typeof url === 'string' && url.startsWith('blob:')) {
+          URL.revokeObjectURL(url);
+        }
+      } catch (error) {
+        // Ignore errors when revoking URLs (may already be revoked)
+      }
+    });
+    
+    // Revoke all blob URLs stored in imageCache Map
+    this.imageCache.forEach((cacheEntry, cacheKey) => {
+      try {
+        if (cacheEntry.objectUrl && typeof cacheEntry.objectUrl === 'string' && cacheEntry.objectUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(cacheEntry.objectUrl);
+        }
+      } catch (error) {
+        // Ignore errors when revoking URLs (may already be revoked)
+      }
+    });
+    
     // Revoke additional filesystem variant URLs not currently in slideshowImages
     this.filesystemImageVariants.forEach(variants => {
       if (variants.compressedUrl) {

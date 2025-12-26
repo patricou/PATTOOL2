@@ -641,7 +641,7 @@
                                                id="fileInput"
                                                class="form-control" 
                                                multiple 
-                                               accept="image/*,.pdf,.doc,.docx,.txt,.zip,.rar"
+                                               accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar,.gpx,.kml,.kmz,.gdb,.tcx"
                                                (change)="onFileSelected($event)">
                                         <label for="fileInput" class="btn btn-primary">
                                             <i class="fa fa-upload me-2"></i>
@@ -991,7 +991,7 @@
         <div class="modal-header bg-primary text-white">
             <h5 class="modal-title">
                 <i class="fa fa-upload me-2"></i>
-                Upload Progress
+                {{ 'EVENTELEM.UPLOAD_PROGRESS' | translate }}
             </h5>
             <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')" aria-label="Close"></button>
         </div>
@@ -1020,3 +1020,42 @@
             </button>
         </div>
     </ng-template>
+
+<!-- Video Compression Quality Selection Modal -->
+<ng-template #qualitySelectionModal let-modal>
+  <div class="modal-header bg-primary text-white">
+    <h5 class="modal-title">
+      <i class="fa fa-video-camera me-2"></i>
+      {{ 'EVENTELEM.VIDEO_COMPRESSION_TITLE' | translate }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" (click)="cancelQualitySelection()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <p>{{ 'EVENTELEM.VIDEO_COMPRESSION_MESSAGE' | translate: {count: videoCountForModal} }}</p>
+    <div class="form-group mb-3">
+      <label class="form-label fw-bold">{{ 'EVENTELEM.QUALITY' | translate }}:</label>
+      <select class="form-select" [(ngModel)]="selectedCompressionQuality">
+        <option value="low">{{ 'EVENTELEM.QUALITY_LOW' | translate }} - {{ 'EVENTELEM.QUALITY_LOW_DESC' | translate }}</option>
+        <option value="medium">{{ 'EVENTELEM.QUALITY_MEDIUM' | translate }} - {{ 'EVENTELEM.QUALITY_MEDIUM_DESC' | translate }}</option>
+        <option value="high">{{ 'EVENTELEM.QUALITY_HIGH' | translate }} - {{ 'EVENTELEM.QUALITY_HIGH_DESC' | translate }}</option>
+        <option value="very-high">{{ 'EVENTELEM.QUALITY_VERY_HIGH' | translate }} - {{ 'EVENTELEM.QUALITY_VERY_HIGH_DESC' | translate }}</option>
+        <option value="original">{{ 'EVENTELEM.QUALITY_ORIGINAL' | translate }} - {{ 'EVENTELEM.QUALITY_ORIGINAL_DESC' | translate }}</option>
+      </select>
+    </div>
+    <div class="alert alert-info small">
+      <strong>{{ 'EVENTELEM.QUALITY_LOW' | translate }}:</strong> {{ 'EVENTELEM.QUALITY_LOW_DETAILS' | translate }}<br>
+      <strong>{{ 'EVENTELEM.QUALITY_MEDIUM' | translate }}:</strong> {{ 'EVENTELEM.QUALITY_MEDIUM_DETAILS' | translate }}<br>
+      <strong>{{ 'EVENTELEM.QUALITY_HIGH' | translate }}:</strong> {{ 'EVENTELEM.QUALITY_HIGH_DETAILS' | translate }}<br>
+      <strong>{{ 'EVENTELEM.QUALITY_VERY_HIGH' | translate }}:</strong> {{ 'EVENTELEM.QUALITY_VERY_HIGH_DETAILS' | translate }}<br>
+      <strong>{{ 'EVENTELEM.QUALITY_ORIGINAL' | translate }}:</strong> {{ 'EVENTELEM.QUALITY_ORIGINAL_DETAILS' | translate }}
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="cancelQualitySelection()">
+      {{ 'EVENTELEM.CANCEL' | translate }}
+    </button>
+    <button type="button" class="btn btn-primary" (click)="confirmQualitySelection()">
+      {{ 'EVENTELEM.CONFIRM' | translate }}
+    </button>
+  </div>
+</ng-template>

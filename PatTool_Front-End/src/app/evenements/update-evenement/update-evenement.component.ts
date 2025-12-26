@@ -22,6 +22,7 @@ import { environment } from '../../../environments/environment';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { KeycloakService } from '../../keycloak/keycloak.service';
+import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
 
 @Component({
 	selector: 'update-evenement',
@@ -138,6 +139,12 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
     
     // Upload logs container reference
     @ViewChild('logContent') logContent: any;
+    
+    // Video compression quality selection
+    @ViewChild('qualitySelectionModal') qualitySelectionModal!: TemplateRef<any>;
+    public selectedCompressionQuality: 'low' | 'medium' | 'high' | 'very-high' | 'original' = 'very-high';
+    public videoCountForModal: number = 0;
+    private qualityModalRef: any = null;
 
     // Slideshow modal component
     @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
@@ -162,7 +169,8 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 	private modalService: NgbModal,
 	private translate: TranslateService,
 	private _friendsService: FriendsService,
-	private _keycloakService: KeycloakService
+	private _keycloakService: KeycloakService,
+	private videoCompressionService: VideoCompressionService
 	) { }
 
 	ngOnInit() {
@@ -1078,7 +1086,7 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 	}
 
-	public uploadSelectedFiles(): void {
+	public async uploadSelectedFiles(): Promise<void> {
 		if (this.selectedFiles.length === 0) {
 			alert('No files selected');
 			return;
@@ -1106,6 +1114,54 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		
 		// Initialize logs
 		this.addLog(`📤 Starting upload of ${this.selectedFiles.length} file(s)...`);
+		
+		// Process video compression if needed
+		const videoFiles = this.selectedFiles.filter(file => this.isVideoFile(file.name));
+		let processedFiles: File[] = [];
+		
+		if (videoFiles.length > 0 && this.videoCompressionService.isSupported()) {
+			const quality = await this.askForCompressionQuality(videoFiles.length);
+			
+			if (quality === null) {
+				this.addLog(`⚠️ Compression cancelled, uploading original files`);
+				processedFiles.push(...this.selectedFiles);
+			} else {
+				this.addLog(`🎬 Found ${videoFiles.length} video file(s) - Compressing with ${quality} quality...`);
+				this.addLog(`ℹ️ Compression will continue even if you switch tabs or minimize the window.`);
+				
+				// Compress videos
+				for (let i = 0; i < this.selectedFiles.length; i++) {
+					const file = this.selectedFiles[i];
+					
+					if (this.isVideoFile(file.name)) {
+						try {
+							this.addLog(`🎥 Compressing video ${i + 1}/${videoFiles.length}: ${file.name}...`);
+							
+							const compressedBlob = await this.videoCompressionService.compressVideo(file, quality, (progress: CompressionProgress) => {
+								this.addLog(`   ${progress.message}`);
+							});
+							
+							// Create a new File from the compressed blob
+							const compressedFile = new File([compressedBlob], file.name, { type: 'video/mp4' });
+							processedFiles.push(compressedFile);
+							this.addLog(`✅ Compressed: ${file.name}`);
+						} catch (error) {
+							console.error('Compression error:', error);
+							this.addLog(`⚠️ Compression not available for this format. Using original file.`);
+							processedFiles.push(file);
+						}
+					} else {
+						processedFiles.push(file);
+					}
+				}
+			}
+		} else {
+			processedFiles.push(...this.selectedFiles);
+			if (videoFiles.length > 0 && !this.videoCompressionService.isSupported()) {
+				this.addLog(`⚠️ Video compression not supported in this browser, uploading original files`);
+			}
+		}
+		
 		this.addLog(`⚠️ Uploading files one by one to avoid size limits...`);
 		
 		// Start polling for server logs
@@ -1150,10 +1206,10 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		// Upload files sequentially (one at a time) to avoid hitting maximum upload size limits
 		let uploadedCount = 0;
 		let failedCount = 0;
-		const totalFiles = this.selectedFiles.length;
+		const totalFiles = processedFiles.length;
 		
 		// Create an observable stream that uploads files sequentially
-		from(this.selectedFiles).pipe(
+		from(processedFiles).pipe(
 			concatMap((file, index) => {
 				const fileIndex = index + 1;
 				this.addLog(`📎 Uploading file ${fileIndex}/${totalFiles}: ${file.name} (${this.formatFileSize(file.size)})`);
@@ -1263,6 +1319,73 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 	
 	private generateSessionId(): string {
 		return 'upload-' + Date.now() + '-' + Math.random().toString(36).substring(7);
+	}
+	
+	public isVideoFile(fileName: string): boolean {
+		if (!fileName) return false;
+		
+		const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'];
+		const lowerFileName = fileName.toLowerCase();
+		
+		return videoExtensions.some(ext => lowerFileName.endsWith(ext));
+	}
+	
+	private askForCompressionQuality(videoCount: number): Promise<'low' | 'medium' | 'high' | 'very-high' | 'original' | null> {
+		return new Promise((resolve) => {
+			this.selectedCompressionQuality = 'very-high'; // Default to very high quality
+			this.videoCountForModal = videoCount; // Used by template
+
+			if (this.qualitySelectionModal) {
+				this.qualityModalRef = this.modalService.open(this.qualitySelectionModal, {
+					centered: true,
+					backdrop: 'static',
+					keyboard: false,
+					size: 'md',
+					windowClass: 'compression-quality-modal'
+				});
+
+				this.qualityModalRef.result.then(
+					(result: 'low' | 'medium' | 'high' | 'very-high' | 'original') => {
+						this.qualityModalRef = null;
+						resolve(result);
+					},
+					() => {
+						this.qualityModalRef = null;
+						resolve(null); // dismissed
+					}
+				);
+			} else {
+				// Fallback (should not happen once template exists)
+				const choice = prompt(
+					`Choisissez la qualité de compression pour ${videoCount} vidéo(s):\n` +
+					`1. Basse (petite taille)\n` +
+					`2. Moyenne (taille moyenne)\n` +
+					`3. Haute (grande taille)\n` +
+					`4. Très haute (qualité élevée, peu de compression)\n` +
+					`5. Originale (pas de compression, qualité maximale)\n\n` +
+					`Entrez 1, 2, 3, 4 ou 5:`
+				);
+
+				if (choice === '1') resolve('low');
+				else if (choice === '2') resolve('medium');
+				else if (choice === '3') resolve('high');
+				else if (choice === '4') resolve('very-high');
+				else if (choice === '5') resolve('original');
+				else resolve(null);
+			}
+		});
+	}
+
+	public confirmQualitySelection(): void {
+		if (this.qualityModalRef) {
+			this.qualityModalRef.close(this.selectedCompressionQuality);
+		}
+	}
+
+	public cancelQualitySelection(): void {
+		if (this.qualityModalRef) {
+			this.qualityModalRef.dismiss();
+		}
 	}
 
 	private resolveDirectoryPathFromSelection(files: FileList | null | undefined): string {

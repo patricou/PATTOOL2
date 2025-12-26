@@ -2519,3 +2519,17 @@ select.compact-input:focus {
   max-height: calc(100vh - 80px) !important;
   height: auto !important;
 }
+
+/* White border around the compression quality modal (same as slideshow) */
+::ng-deep .compression-quality-modal .modal-content {
+  border: 4px solid white !important;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* White border around the upload progress modal (same as slideshow) */
+::ng-deep .upload-logs-modal .modal-content {
+  border: 4px solid white !important;
+  border-radius: 8px;
+  overflow: hidden;
+}

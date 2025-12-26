@@ -140,7 +140,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   public selectedFiles: File[] = [];
   public uploadLogs: string[] = [];
   public isUploading: boolean = false;
-  public selectedCompressionQuality: 'low' | 'medium' | 'high' = 'high';
+  public selectedCompressionQuality: 'low' | 'medium' | 'high' | 'very-high' | 'original' = 'very-high';
   public showQualitySelection: boolean = false;
   public pendingVideoFiles: File[] = [];
   public videoCountForModal: number = 0;
@@ -4073,6 +4073,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         processedFiles.push(...this.selectedFiles);
       } else {
         this.addLog(`🎬 Found ${videoFiles.length} video file(s) - Compressing with ${quality} quality...`);
+        this.addLog(`ℹ️ Compression will continue even if you switch tabs or minimize the window.`);
         
         // Compress videos
         for (let i = 0; i < this.selectedFiles.length; i++) {
@@ -4468,9 +4469,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     return modifiedName;
   }
 
-  private askForCompressionQuality(videoCount: number): Promise<'low' | 'medium' | 'high' | null> {
+  private askForCompressionQuality(videoCount: number): Promise<'low' | 'medium' | 'high' | 'very-high' | 'original' | null> {
     return new Promise((resolve) => {
-      this.selectedCompressionQuality = 'high'; // Default to best quality
+      this.selectedCompressionQuality = 'very-high'; // Default to very high quality
       this.videoCountForModal = videoCount; // Used by template
 
       if (this.qualitySelectionModal) {
@@ -4478,11 +4479,12 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           centered: true,
           backdrop: 'static',
           keyboard: false,
-          size: 'md'
+          size: 'md',
+          windowClass: 'compression-quality-modal'
         });
 
         this.qualityModalRef.result.then(
-          (result: 'low' | 'medium' | 'high') => {
+          (result: 'low' | 'medium' | 'high' | 'very-high' | 'original') => {
             this.qualityModalRef = null;
             resolve(result);
           },
@@ -4497,13 +4499,17 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           `Choisissez la qualité de compression pour ${videoCount} vidéo(s):\n` +
           `1. Basse (petite taille)\n` +
           `2. Moyenne (taille moyenne)\n` +
-          `3. Haute (grande taille)\n\n` +
-          `Entrez 1, 2 ou 3:`
+          `3. Haute (grande taille)\n` +
+          `4. Très haute (qualité élevée, peu de compression)\n` +
+          `5. Originale (pas de compression, qualité maximale)\n\n` +
+          `Entrez 1, 2, 3, 4 ou 5:`
         );
 
         if (choice === '1') resolve('low');
         else if (choice === '2') resolve('medium');
         else if (choice === '3') resolve('high');
+        else if (choice === '4') resolve('very-high');
+        else if (choice === '5') resolve('original');
         else resolve(null);
       }
     });

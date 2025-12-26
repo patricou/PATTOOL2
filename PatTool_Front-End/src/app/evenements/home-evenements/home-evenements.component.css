@@ -4592,4 +4592,11 @@
     color: white;
 }
 
+/* White border around the upload progress modal (same as slideshow) */
+::ng-deep .upload-logs-modal .modal-content {
+  border: 4px solid white !important;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
 /* SSE Event Notification - Center of screen */

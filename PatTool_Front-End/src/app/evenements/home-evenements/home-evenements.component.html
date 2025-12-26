@@ -799,10 +799,10 @@
 <!-- Upload Logs Modal -->
 <ng-template #uploadLogsModal let-modal>
     <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title">
-            <i class="fa fa-upload me-2"></i>
-            Upload Progress
-        </h5>
+            <h5 class="modal-title">
+                <i class="fa fa-upload me-2"></i>
+                {{ 'EVENTELEM.UPLOAD_PROGRESS' | translate }}
+            </h5>
         <button type="button" class="btn-close btn-close-white" (click)="modal.dismiss('Cross click')"
             aria-label="Close"></button>
     </div>

@@ -28,21 +28,44 @@ export class VideoCompressionService {
      */
     async compressVideo(
         file: File,
-        quality: 'low' | 'medium' | 'high' = 'low',
+        quality: 'low' | 'medium' | 'high' | 'very-high' | 'original' = 'low',
         onProgress?: (progress: CompressionProgress) => void
     ): Promise<Blob> {
         return new Promise(async (resolve, reject) => {
             try {
+                // For "original" quality, check if we can just return the file as-is
+                // Only compress if format conversion is needed (e.g., AVI to MP4)
+                if (quality === 'original') {
+                    const needsConversion = file.name.toLowerCase().endsWith('.avi') || 
+                                          file.name.toLowerCase().endsWith('.mov');
+                    
+                    if (!needsConversion && this.canReadVideoFormat(file.name)) {
+                        // No conversion needed, return original file
+                        if (onProgress) {
+                            onProgress({
+                                stage: 'complete',
+                                progress: 100,
+                                message: 'Using original file without compression',
+                                originalSize: file.size,
+                                compressedSize: file.size
+                            });
+                        }
+                        const buffer = await file.arrayBuffer();
+                        resolve(new Blob([buffer], { type: file.type }));
+                        return;
+                    }
+                    // If conversion is needed, continue with compression but use original settings
+                }
+                
                 // Report initial progress
                 if (onProgress) {
-                const formatInfo = this.getOutputFormatInfo(file.name);
-                const canRead = this.canReadVideoFormat(file.name);
-                const isAvi = file.name.toLowerCase().endsWith('.avi');
-                const isMov = file.name.toLowerCase().endsWith('.mov');
-                
-                // For AVI files, always indicate conversion to MP4
-                if (isAvi) {
-                    if (onProgress) {
+                    const formatInfo = this.getOutputFormatInfo(file.name);
+                    const canRead = this.canReadVideoFormat(file.name);
+                    const isAvi = file.name.toLowerCase().endsWith('.avi');
+                    const isMov = file.name.toLowerCase().endsWith('.mov');
+                    
+                    // For AVI files, always indicate conversion to MP4
+                    if (isAvi) {
                         onProgress({
                             stage: 'analyzing',
                             progress: 2,
@@ -50,34 +73,31 @@ export class VideoCompressionService {
                             originalSize: file.size
                         });
                     }
-                }
-                
-                if (!canRead) {
-                    if (onProgress) {
+                    
+                    if (!canRead) {
                         onProgress({
                             stage: 'error',
                             progress: 0,
                             message: `Unsupported format: ${file.name}. Using original file.`,
                             originalSize: file.size
                         });
+                        // Return original file
+                        const buffer = await file.arrayBuffer();
+                        resolve(new Blob([buffer], { type: file.type }));
+                        return;
                     }
-                    // Return original file
-                    const buffer = await file.arrayBuffer();
-                    resolve(new Blob([buffer], { type: file.type }));
-                    return;
-                }
-                
-                // Special handling for AVI and MOV files
-                if ((isAvi || isMov) && onProgress) {
-                    const targetMimeType = this.getMimeType(file.name);
-                    const targetFormat = targetMimeType.includes('mp4') ? 'MP4' : 'WebM';
-                    onProgress({
-                        stage: 'analyzing',
-                        progress: 2,
-                        message: `${isAvi ? 'AVI' : 'MOV'} format detected. File will be converted to ${targetFormat} after compression.`,
-                        originalSize: file.size
-                    });
-                }
+                    
+                    // Special handling for AVI and MOV files
+                    if (isAvi || isMov) {
+                        const targetMimeType = this.getMimeType(file.name);
+                        const targetFormat = targetMimeType.includes('mp4') ? 'MP4' : 'WebM';
+                        onProgress({
+                            stage: 'analyzing',
+                            progress: 2,
+                            message: `${isAvi ? 'AVI' : 'MOV'} format detected. File will be converted to ${targetFormat} after compression.`,
+                            originalSize: file.size
+                        });
+                    }
                     
                     onProgress({
                         stage: 'analyzing',
@@ -335,6 +355,47 @@ export class VideoCompressionService {
                         mediaRecorder.onstop = () => {
                             URL.revokeObjectURL(objectUrl); // Clean up URL
                             
+                            // Clean up visibility handler
+                            if (visibilityHandler) {
+                                document.removeEventListener('visibilitychange', visibilityHandler);
+                                visibilityHandler = null;
+                            }
+                            
+                            // Clean up frame drawing
+                            if (animationFrameId !== null) {
+                                cancelAnimationFrame(animationFrameId);
+                                animationFrameId = null;
+                            }
+                            if (intervalId !== null) {
+                                clearInterval(intervalId);
+                                intervalId = null;
+                            }
+                            isDrawing = false;
+                            
+                            // Clean up video element
+                            try {
+                                video.pause();
+                                video.src = '';
+                                video.load();
+                                video.onerror = null;
+                                video.onloadedmetadata = null;
+                                video.onended = null;
+                                video.removeEventListener('error', playbackErrorHandler);
+                            } catch (e) {
+                                // Ignore cleanup errors
+                            }
+                            
+                            // Clean up canvas
+                            try {
+                                const ctx = canvas.getContext('2d');
+                                if (ctx) {
+                                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                }
+                                // Canvas will be garbage collected when references are cleared
+                            } catch (e) {
+                                // Ignore cleanup errors
+                            }
+                            
                             // Clean up audio resources
                             if (audioSource) {
                                 try {
@@ -394,9 +455,44 @@ export class VideoCompressionService {
                             const errorMsg = event.error?.message || 'Unknown error';
                             console.error('MediaRecorder error:', errorMsg);
                             
+                            // Clean up visibility handler
+                            if (visibilityHandler) {
+                                document.removeEventListener('visibilitychange', visibilityHandler);
+                                visibilityHandler = null;
+                            }
+                            
                             // Stop drawing if still active
                             if (animationFrameId !== null) {
                                 cancelAnimationFrame(animationFrameId);
+                                animationFrameId = null;
+                            }
+                            if (intervalId !== null) {
+                                clearInterval(intervalId);
+                                intervalId = null;
+                            }
+                            isDrawing = false;
+                            
+                            // Clean up video element
+                            try {
+                                video.pause();
+                                video.src = '';
+                                video.load();
+                                video.onerror = null;
+                                video.onloadedmetadata = null;
+                                video.onended = null;
+                                video.removeEventListener('error', playbackErrorHandler);
+                            } catch (e) {
+                                // Ignore cleanup errors
+                            }
+                            
+                            // Clean up canvas
+                            try {
+                                const ctx = canvas.getContext('2d');
+                                if (ctx) {
+                                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                }
+                            } catch (e) {
+                                // Ignore cleanup errors
                             }
                             
                             // Instead of rejecting, return original file
@@ -487,9 +583,16 @@ export class VideoCompressionService {
 
                         let isDrawing = false;
                         let animationFrameId: number | null = null;
+                        let intervalId: number | null = null;
                         let lastDrawnTime = 0;
                         let consecutiveErrors = 0;
                         const maxConsecutiveErrors = 10;
+                        
+                        // Track tab visibility state
+                        let isTabVisible = !document.hidden;
+                        let visibilityHandler: (() => void) | null = null;
+                        let resumeAttempts = 0;
+                        const maxResumeAttempts = 5;
 
                         const drawFrame = (currentTime: number) => {
                             // Check for errors
@@ -504,6 +607,9 @@ export class VideoCompressionService {
                                     if (animationFrameId !== null) {
                                         cancelAnimationFrame(animationFrameId);
                                     }
+                                    if (intervalId !== null) {
+                                        clearInterval(intervalId);
+                                    }
                                     return;
                                 }
                             } else {
@@ -511,8 +617,9 @@ export class VideoCompressionService {
                             }
 
                             // Check if video is finished or paused
+                            // IMPORTANT: Don't check video.paused when tab is hidden - video may be paused by browser but still progressing
                             const isFinished = video.ended || 
-                                             (video.paused && Math.abs(video.currentTime - duration) < 0.5) ||
+                                             (isTabVisible && video.paused && Math.abs(video.currentTime - duration) < 0.5) ||
                                              video.currentTime >= duration - 0.1;
                              
                             const state = mediaRecorder.state;
@@ -522,6 +629,9 @@ export class VideoCompressionService {
                                 }
                                 if (animationFrameId !== null) {
                                     cancelAnimationFrame(animationFrameId);
+                                }
+                                if (intervalId !== null) {
+                                    clearInterval(intervalId);
                                 }
                                 isDrawing = false;
                                 return;
@@ -555,14 +665,93 @@ export class VideoCompressionService {
                                         if (animationFrameId !== null) {
                                             cancelAnimationFrame(animationFrameId);
                                         }
+                                        if (intervalId !== null) {
+                                            clearInterval(intervalId);
+                                        }
                                         return;
                                     }
                                 }
                             }
 
-                            // Continue drawing
-                            animationFrameId = requestAnimationFrame(drawFrame);
+                            // Continue drawing based on visibility
+                            if (isTabVisible) {
+                                // Use requestAnimationFrame when tab is visible (smooth)
+                                if (intervalId !== null) {
+                                    clearInterval(intervalId);
+                                    intervalId = null;
+                                }
+                                animationFrameId = requestAnimationFrame(drawFrame);
+                            } else {
+                                // Use setInterval when tab is hidden (continues working)
+                                if (animationFrameId !== null) {
+                                    cancelAnimationFrame(animationFrameId);
+                                    animationFrameId = null;
+                                }
+                                if (intervalId === null) {
+                                    intervalId = window.setInterval(() => {
+                                        drawFrame(Date.now());
+                                    }, frameInterval);
+                                }
+                            }
                         };
+
+                        // Setup Page Visibility API handler to keep compression running
+                        visibilityHandler = () => {
+                            const wasVisible = isTabVisible;
+                            isTabVisible = !document.hidden;
+                            
+                            if (!isTabVisible && wasVisible) {
+                                // Tab just became hidden - try to keep video playing
+                                if (video.paused && !video.ended && video.readyState >= 2) {
+                                    resumeAttempts = 0;
+                                    const tryResume = () => {
+                                        if (resumeAttempts < maxResumeAttempts && !isTabVisible && !video.ended) {
+                                            video.play().then(() => {
+                                                resumeAttempts = 0; // Reset on success
+                                            }).catch(() => {
+                                                resumeAttempts++;
+                                                // Retry after a delay
+                                                if (resumeAttempts < maxResumeAttempts) {
+                                                    setTimeout(tryResume, 1000);
+                                                }
+                                            });
+                                        }
+                                    };
+                                    tryResume();
+                                }
+                                
+                                // Switch to interval-based drawing
+                                if (animationFrameId !== null) {
+                                    cancelAnimationFrame(animationFrameId);
+                                    animationFrameId = null;
+                                }
+                                if (intervalId === null && isDrawing) {
+                                    intervalId = window.setInterval(() => {
+                                        drawFrame(Date.now());
+                                    }, frameInterval);
+                                }
+                            } else if (isTabVisible && !wasVisible) {
+                                // Tab just became visible - switch back to requestAnimationFrame
+                                if (intervalId !== null) {
+                                    clearInterval(intervalId);
+                                    intervalId = null;
+                                }
+                                
+                                // Ensure video is playing
+                                if (video.paused && !video.ended && video.readyState >= 2) {
+                                    video.play().catch(() => {
+                                        console.warn('Could not resume video playback after tab became visible');
+                                    });
+                                }
+                                
+                                // Resume requestAnimationFrame loop
+                                if (isDrawing && animationFrameId === null) {
+                                    animationFrameId = requestAnimationFrame(drawFrame);
+                                }
+                            }
+                        };
+                        
+                        document.addEventListener('visibilitychange', visibilityHandler);
 
                         // Start drawing frames
                         isDrawing = true;
@@ -572,15 +761,23 @@ export class VideoCompressionService {
                             await new Promise(resolve => setTimeout(resolve, 200));
                         }
                         
+                        // Start with requestAnimationFrame (tab is visible initially)
                         animationFrameId = requestAnimationFrame(drawFrame);
                         
-                        // Add a safety timeout for very long videos
+                            // Add a safety timeout for very long videos
                         if (duration > 300) { // Videos longer than 5 minutes
                             const maxCompressionTime = duration * 2 * 1000; // 2x video duration in ms
                             setTimeout(() => {
                                 const state = mediaRecorder.state;
                                 if ((state === 'recording' || state === 'paused') && isDrawing) {
                                     console.warn('Compression timeout reached, stopping');
+                                    
+                                    // Clean up visibility handler
+                                    if (visibilityHandler) {
+                                        document.removeEventListener('visibilitychange', visibilityHandler);
+                                        visibilityHandler = null;
+                                    }
+                                    
                                     if (onProgress) {
                                         onProgress({
                                             stage: 'error',
@@ -592,6 +789,11 @@ export class VideoCompressionService {
                                     mediaRecorder.stop();
                                     if (animationFrameId !== null) {
                                         cancelAnimationFrame(animationFrameId);
+                                        animationFrameId = null;
+                                    }
+                                    if (intervalId !== null) {
+                                        clearInterval(intervalId);
+                                        intervalId = null;
                                     }
                                 }
                             }, maxCompressionTime);
@@ -600,14 +802,49 @@ export class VideoCompressionService {
                         // Stop recording when video ends
                         video.onended = () => {
                             URL.revokeObjectURL(objectUrl); // Clean up URL when done
+                            
+                            // Clean up visibility handler
+                            if (visibilityHandler) {
+                                document.removeEventListener('visibilitychange', visibilityHandler);
+                                visibilityHandler = null;
+                            }
+                            
                             const state = mediaRecorder.state;
                             if (state === 'recording' || state === 'paused') {
                                 mediaRecorder.stop();
                             }
                             if (animationFrameId !== null) {
                                 cancelAnimationFrame(animationFrameId);
+                                animationFrameId = null;
+                            }
+                            if (intervalId !== null) {
+                                clearInterval(intervalId);
+                                intervalId = null;
                             }
                             isDrawing = false;
+                            
+                            // Clean up video element
+                            try {
+                                video.pause();
+                                video.src = '';
+                                video.load();
+                                video.onerror = null;
+                                video.onloadedmetadata = null;
+                                video.onended = null;
+                                video.removeEventListener('error', playbackErrorHandler);
+                            } catch (e) {
+                                // Ignore cleanup errors
+                            }
+                            
+                            // Clean up canvas
+                            try {
+                                const ctx = canvas.getContext('2d');
+                                if (ctx) {
+                                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                }
+                            } catch (e) {
+                                // Ignore cleanup errors
+                            }
                         };
 
                         // Handle video errors during playback - but don't override the main error handler
@@ -615,14 +852,49 @@ export class VideoCompressionService {
                                 if (!errorHandled && metadataLoaded) {
                                     // Only handle playback errors, not initial load errors
                                     URL.revokeObjectURL(objectUrl);
+                                    
+                                    // Clean up visibility handler
+                                    if (visibilityHandler) {
+                                        document.removeEventListener('visibilitychange', visibilityHandler);
+                                        visibilityHandler = null;
+                                    }
+                                    
                                     const state = mediaRecorder.state;
                                     if (state === 'recording' || state === 'paused') {
                                         mediaRecorder.stop();
                                     }
                                     if (animationFrameId !== null) {
                                         cancelAnimationFrame(animationFrameId);
+                                        animationFrameId = null;
+                                    }
+                                    if (intervalId !== null) {
+                                        clearInterval(intervalId);
+                                        intervalId = null;
                                     }
                                     isDrawing = false;
+                                    
+                                    // Clean up video element
+                                    try {
+                                        video.pause();
+                                        video.src = '';
+                                        video.load();
+                                        video.onerror = null;
+                                        video.onloadedmetadata = null;
+                                        video.onended = null;
+                                        video.removeEventListener('error', playbackErrorHandler);
+                                    } catch (e) {
+                                        // Ignore cleanup errors
+                                    }
+                                    
+                                    // Clean up canvas
+                                    try {
+                                        const ctx = canvas.getContext('2d');
+                                        if (ctx) {
+                                            ctx.clearRect(0, 0, canvas.width, canvas.height);
+                                        }
+                                    } catch (e) {
+                                        // Ignore cleanup errors
+                                    }
                                 
                                 if (onProgress) {
                                     onProgress({
@@ -732,7 +1004,41 @@ export class VideoCompressionService {
                 }
                 break;
             case 'high':
+                if (isVeryLarge) {
+                    width = Math.min(1280, originalWidth);
+                    height = Math.round(width / aspectRatio);
+                    bitrate = 2000000; // 2 Mbps
+                    frameRate = 24;
+                } else {
+                    width = Math.min(1920, originalWidth);
+                    height = Math.round(width / aspectRatio);
+                    bitrate = 3000000; // 3 Mbps
+                    frameRate = 30;
+                }
+                break;
+            case 'very-high':
+                // Very high quality - minimal compression
+                if (isVeryLarge) {
+                    width = Math.min(1920, originalWidth);
+                    height = Math.round(width / aspectRatio);
+                    bitrate = 5000000; // 5 Mbps
+                    frameRate = 30;
+                } else {
+                    width = originalWidth; // Keep original resolution
+                    height = originalHeight;
+                    bitrate = 8000000; // 8 Mbps
+                    frameRate = Math.min(60, 30); // Up to 60fps if original supports it
+                }
+                break;
+            case 'original':
+                // No compression - keep original quality
+                width = originalWidth;
+                height = originalHeight;
+                bitrate = 12000000; // 12 Mbps - very high bitrate to preserve quality
+                frameRate = 60; // Preserve original frame rate
+                break;
             default:
+                // Default to high quality
                 if (isVeryLarge) {
                     width = Math.min(1280, originalWidth);
                     height = Math.round(width / aspectRatio);
@@ -755,7 +1061,7 @@ export class VideoCompressionService {
      */
     private async convertWithFFmpeg(
         file: File,
-        quality: 'low' | 'medium' | 'high',
+        quality: 'low' | 'medium' | 'high' | 'very-high' | 'original',
         onProgress?: (progress: CompressionProgress) => void
     ): Promise<Blob> {
         try {
@@ -932,7 +1238,7 @@ export class VideoCompressionService {
      * Get FFmpeg compression settings based on quality
      * Uses scale filter with -1 to maintain aspect ratio
      */
-    private getFFmpegCompressionSettings(quality: 'low' | 'medium' | 'high') {
+    private getFFmpegCompressionSettings(quality: 'low' | 'medium' | 'high' | 'very-high' | 'original') {
         switch (quality) {
             case 'low':
                 return {
@@ -960,6 +1266,24 @@ export class VideoCompressionService {
                     preset: 'slow',
                     frameRate: 30,
                     audioBitrate: '192k'
+                };
+            case 'very-high':
+                return {
+                    width: -1, // Keep original width
+                    height: -1, // Keep original height
+                    crf: 18, // Very low CRF = excellent quality
+                    preset: 'veryslow', // Best quality encoding
+                    frameRate: 60, // Preserve high frame rates
+                    audioBitrate: '256k'
+                };
+            case 'original':
+                return {
+                    width: -1, // Keep original width
+                    height: -1, // Keep original height
+                    crf: 15, // Very low CRF = near-lossless quality
+                    preset: 'veryslow', // Best quality encoding
+                    frameRate: 60, // Preserve original frame rate
+                    audioBitrate: '320k' // High quality audio
                 };
             default:
                 return {
