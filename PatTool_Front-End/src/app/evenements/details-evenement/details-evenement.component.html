@@ -728,7 +728,7 @@
         <div class="card-header-compact video-header-compact">
           <div class="video-header-left">
             <i class="fa fa-video-camera"></i>
-            <span>{{ videoFile.fileName }}</span>
+            <span>{{ videoFile.fileName }}<span *ngIf="getVideoFileSize(videoFile)" class="video-size-badge"> ({{ getVideoFileSize(videoFile) }})</span></span>
           </div>
           <button *ngIf="isFileOwner(videoFile.uploaderMember)"
                   class="btn-compact btn-danger-compact"

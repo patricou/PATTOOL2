@@ -717,6 +717,33 @@
     border-color: rgba(0, 0, 0, 0.3);
 }
 
+/* Video thumbnail styling */
+.video-thumbnail {
+    border-color: #ffc107;
+    position: relative;
+    cursor: pointer;
+}
+
+.video-thumbnail::after {
+    content: '\f04b'; /* Font Awesome play icon */
+    font-family: 'FontAwesome';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 14px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+    pointer-events: none;
+    z-index: 1;
+}
+
+.video-thumbnail:hover {
+    border-color: #ffc107;
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
+    transform: scale(1.1);
+}
+
 .file-thumbnail-loading {
     width: 40px;
     height: 40px;

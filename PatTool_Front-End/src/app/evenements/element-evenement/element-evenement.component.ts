@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, OnChanges, SimpleChanges, TemplateRef, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, OnChanges, SimpleChanges, TemplateRef, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -161,6 +161,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// File thumbnails cache
 	private fileThumbnailsCache: Map<string, SafeUrl> = new Map();
 	private fileThumbnailsLoading: Set<string> = new Set();
+	
+	// Video thumbnails cache
+	private videoThumbnailsCache: Map<string, SafeUrl> = new Map();
+	private videoThumbnailsLoading: Set<string> = new Set();
 	private solidColorCache: Map<number, string> = new Map();
 	private buttonGradientCache: Map<string, string> = new Map();
 	private fileBadgeColorCache: Map<string, string> = new Map();
@@ -323,7 +327,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private _friendsService: FriendsService,
 		private _discussionService: DiscussionService,
 		private eventColorService: EventColorService,
-		private cdr: ChangeDetectorRef
+		private cdr: ChangeDetectorRef,
+		private ngZone: NgZone
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -1572,8 +1577,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 								file,
 								quality,
 								(progress: CompressionProgress) => {
-									// Update logs with compression progress
-									this.addLog(`   ${progress.message}`);
+									// Ensure the callback runs in Angular zone for proper change detection
+									this.ngZone.run(() => {
+										// Update logs with compression progress
+										this.addLog(`   ${progress.message}`);
+									});
 								}
 							);
 							
@@ -1653,13 +1661,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.pollIntervalId = setInterval(() => {
 			const logSubscription = this._fileService.getUploadLogs(sessionId).subscribe(
 				(serverLogs: string[]) => {
-					if (serverLogs.length > lastLogCount) {
-						// New logs available
-						for (let i = lastLogCount; i < serverLogs.length; i++) {
-							this.addLog(serverLogs[i]);
+					// Ensure the callback runs in Angular zone for proper change detection
+					this.ngZone.run(() => {
+						if (serverLogs.length > lastLogCount) {
+							// New logs available
+							for (let i = lastLogCount; i < serverLogs.length; i++) {
+								this.addLog(serverLogs[i]);
+							}
+							lastLogCount = serverLogs.length;
 						}
-						lastLogCount = serverLogs.length;
-					}
+					});
 				},
 				(error: any) => {
 					console.error('Error fetching logs:', error);
@@ -4243,9 +4254,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 								this.cdr.markForCheck();
 							}, 0);
 							
-							// Load thumbnail for this file immediately (non-blocking, async)
-							// This starts the thumbnail download in parallel without blocking the UI
+						// Load thumbnail for this file immediately (non-blocking, async)
+						// This starts the thumbnail download in parallel without blocking the UI
+						if (this.isImageFile(file.fileName)) {
 							this.loadFileThumbnail(file);
+						} else if (this.isVideoFile(file.fileName)) {
+							this.loadVideoThumbnail(file);
+						}
 						}
 					} else if (streamedFile.type === 'complete') {
 						// All files have been streamed
@@ -4318,7 +4333,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					// Add all files
 					files.forEach(file => {
 						this.evenement.fileUploadeds.push(file);
-						this.loadFileThumbnail(file);
+						if (this.isImageFile(file.fileName)) {
+							this.loadFileThumbnail(file);
+						} else if (this.isVideoFile(file.fileName)) {
+							this.loadVideoThumbnail(file);
+						}
 					});
 					
 					// Defer change detection to next cycle to prevent ExpressionChangedAfterItHasBeenCheckedError
@@ -4550,6 +4569,193 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			loadTime.end = performance.now();
 			loadTime.displayed = true;
 		}
+	}
+
+	// Get video thumbnail URL (returns cached value or null)
+	// Use ChangeDetectorRef to avoid ExpressionChangedAfterItHasBeenCheckedError
+	public getVideoThumbnail(fileId: string): SafeUrl | null {
+		const thumbnail = this.videoThumbnailsCache.get(fileId);
+		if (thumbnail) {
+			return thumbnail;
+		}
+		// Return null if not cached - this prevents change detection issues
+		return null;
+	}
+
+	// Check if video thumbnail is loading
+	public isVideoThumbnailLoading(fileId: string): boolean {
+		return this.videoThumbnailsLoading.has(fileId);
+	}
+
+	// Load video thumbnail by capturing a frame from the video
+	private loadVideoThumbnail(file: UploadedFile): void {
+		if (!file || !this.isVideoFile(file.fileName) || !file.fileName) {
+			return;
+		}
+		
+		// Skip if already cached or loading
+		if (this.videoThumbnailsCache.has(file.fieldId) || this.videoThumbnailsLoading.has(file.fieldId)) {
+			return;
+		}
+
+		// Mark as loading
+		this.videoThumbnailsLoading.add(file.fieldId);
+
+		// Load the video file
+		this._fileService.getFile(file.fieldId).pipe(
+			take(1),
+			map((res: any) => {
+				if (!res) return null;
+				// Create a Blob from the response with video MIME type
+				// Determine MIME type from file extension
+				const mimeType = this.getVideoMimeType(file.fileName);
+				return new Blob([res], { type: mimeType || 'video/mp4' });
+			}),
+			catchError(error => {
+				console.error(`Error loading video thumbnail for file ${file.fileName}:`, error);
+				this.videoThumbnailsLoading.delete(file.fieldId);
+				return of(null);
+			})
+		).subscribe({
+			next: (blob: Blob | null) => {
+				if (blob) {
+					// Create video element to capture frame
+					this.captureVideoFrame(blob, file.fieldId);
+				} else {
+					this.videoThumbnailsLoading.delete(file.fieldId);
+				}
+			},
+			error: (error) => {
+				this.videoThumbnailsLoading.delete(file.fieldId);
+			}
+		});
+	}
+
+	// Capture a frame from video to use as thumbnail
+	private captureVideoFrame(blob: Blob, fileId: string): void {
+		const video = document.createElement('video');
+		const url = this.nativeWindow.URL.createObjectURL(blob);
+		video.src = url;
+		video.preload = 'metadata'; // Only load metadata, not the entire video
+		video.currentTime = 0.1; // Seek to 0.1 second (faster than 1 second)
+		video.muted = true;
+		video.playsInline = true;
+
+		// Try to capture frame as soon as metadata is loaded
+		video.addEventListener('loadedmetadata', () => {
+			// Try to seek to a small time to get first frame
+			video.currentTime = 0.1;
+		}, { once: true });
+
+		video.addEventListener('seeked', () => {
+			// Frame is ready after seeking
+			if (video.readyState >= 2) {
+				this.drawVideoFrame(video, fileId, url);
+			}
+		}, { once: true });
+
+		// Fallback: if seeked doesn't fire, try loadeddata
+		video.addEventListener('loadeddata', () => {
+			// Ensure video has loaded enough data
+			if (video.readyState >= 2 && video.currentTime >= 0.09) {
+				this.drawVideoFrame(video, fileId, url);
+			} else {
+				video.addEventListener('canplay', () => {
+					this.drawVideoFrame(video, fileId, url);
+				}, { once: true });
+			}
+		}, { once: true });
+
+		video.addEventListener('error', () => {
+			this.nativeWindow.URL.revokeObjectURL(url);
+			const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+			// Use setTimeout to update in next change detection cycle
+			setTimeout(() => {
+				this.videoThumbnailsCache.set(fileId, defaultUrl);
+				this.videoThumbnailsLoading.delete(fileId);
+				this.cdr.markForCheck();
+			}, 0);
+		}, { once: true });
+
+		// Load the video
+		video.load();
+	}
+
+	// Draw video frame to canvas and create thumbnail
+	private drawVideoFrame(video: HTMLVideoElement, fileId: string, blobUrl: string): void {
+		// Defer heavy processing to avoid blocking the seeked event handler
+		requestAnimationFrame(() => {
+			try {
+				// Limit thumbnail size for performance (max 200x200px)
+				const maxThumbnailSize = 200;
+				const videoWidth = video.videoWidth || 320;
+				const videoHeight = video.videoHeight || 240;
+				
+				// Calculate thumbnail dimensions maintaining aspect ratio
+				let thumbnailWidth = videoWidth;
+				let thumbnailHeight = videoHeight;
+				if (videoWidth > maxThumbnailSize || videoHeight > maxThumbnailSize) {
+					const ratio = Math.min(maxThumbnailSize / videoWidth, maxThumbnailSize / videoHeight);
+					thumbnailWidth = Math.floor(videoWidth * ratio);
+					thumbnailHeight = Math.floor(videoHeight * ratio);
+				}
+
+				const canvas = document.createElement('canvas');
+				canvas.width = thumbnailWidth;
+				canvas.height = thumbnailHeight;
+
+				const ctx = canvas.getContext('2d', { willReadFrequently: false });
+				if (ctx) {
+					// Use faster image rendering settings for thumbnails
+					ctx.imageSmoothingEnabled = true;
+					ctx.imageSmoothingQuality = 'low'; // Faster than 'high'
+					ctx.drawImage(video, 0, 0, thumbnailWidth, thumbnailHeight);
+					
+					// Convert canvas to blob URL with lower quality for faster processing
+					// Use 0.7 quality instead of 0.8 for better performance
+					canvas.toBlob((blob) => {
+						this.nativeWindow.URL.revokeObjectURL(blobUrl); // Clean up video blob URL
+						
+						if (blob) {
+							const thumbnailUrl = this.nativeWindow.URL.createObjectURL(blob);
+							const safeUrl = this.sanitizer.bypassSecurityTrustUrl(thumbnailUrl);
+							// Use setTimeout to update in next change detection cycle
+							setTimeout(() => {
+								this.videoThumbnailsCache.set(fileId, safeUrl);
+								this.videoThumbnailsLoading.delete(fileId);
+								this.cdr.markForCheck();
+							}, 0);
+						} else {
+							const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+							// Use setTimeout to update in next change detection cycle
+							setTimeout(() => {
+								this.videoThumbnailsCache.set(fileId, defaultUrl);
+								this.videoThumbnailsLoading.delete(fileId);
+								this.cdr.markForCheck();
+							}, 0);
+						}
+					}, 'image/jpeg', 0.7); // Lower quality for faster processing
+				} else {
+					this.nativeWindow.URL.revokeObjectURL(blobUrl);
+					const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+					// Use setTimeout to update in next change detection cycle
+					setTimeout(() => {
+						this.videoThumbnailsCache.set(fileId, defaultUrl);
+						this.videoThumbnailsLoading.delete(fileId);
+						this.cdr.markForCheck();
+					}, 0);
+				}
+			} catch (error) {
+				this.nativeWindow.URL.revokeObjectURL(blobUrl);
+				const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+				// Use setTimeout to update in next change detection cycle
+				setTimeout(() => {
+					this.videoThumbnailsCache.set(fileId, defaultUrl);
+					this.videoThumbnailsLoading.delete(fileId);
+					this.cdr.markForCheck();
+				}, 0);
+			}
+		});
 	}
 
 	// Open JSON modal
@@ -5329,10 +5535,36 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return 'image/webp';
 		} else if (lowerFileName.endsWith('.svg')) {
 			return 'image/svg+xml';
-		} else if (lowerFileName.endsWith('.tiff') || lowerFileName.endsWith('.tif')) {
-			return 'image/tiff';
 		}
-		return 'image/jpeg'; // Default
+		return 'image/jpeg';
+	}
+
+	private getVideoMimeType(fileName: string): string {
+		if (!fileName) return 'video/mp4';
+		
+		const lowerFileName = fileName.toLowerCase();
+		if (lowerFileName.endsWith('.mp4')) {
+			return 'video/mp4';
+		} else if (lowerFileName.endsWith('.webm')) {
+			return 'video/webm';
+		} else if (lowerFileName.endsWith('.ogg') || lowerFileName.endsWith('.ogv')) {
+			return 'video/ogg';
+		} else if (lowerFileName.endsWith('.mov')) {
+			return 'video/quicktime';
+		} else if (lowerFileName.endsWith('.avi')) {
+			return 'video/x-msvideo';
+		} else if (lowerFileName.endsWith('.mkv')) {
+			return 'video/x-matroska';
+		} else if (lowerFileName.endsWith('.flv')) {
+			return 'video/x-flv';
+		} else if (lowerFileName.endsWith('.wmv')) {
+			return 'video/x-ms-wmv';
+		} else if (lowerFileName.endsWith('.m4v')) {
+			return 'video/x-m4v';
+		} else if (lowerFileName.endsWith('.3gp')) {
+			return 'video/3gpp';
+		}
+		return 'video/mp4';
 	}
 
 	// Check if file is a PDF based on extension
@@ -5623,6 +5855,22 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		});
 		this.fileThumbnailsCache.clear();
 		this.fileThumbnailsLoading.clear();
+
+		// Clean up video thumbnails cache
+		this.videoThumbnailsCache.forEach((safeUrl) => {
+			try {
+				if (safeUrl && typeof safeUrl === 'object' && 'changingThisBreaksApplicationSecurity' in safeUrl) {
+					const url = safeUrl['changingThisBreaksApplicationSecurity'];
+					if (url && typeof url === 'string' && url.startsWith('blob:')) {
+						this.nativeWindow.URL.revokeObjectURL(url);
+					}
+				}
+			} catch (error) {
+				console.warn('Error cleaning up video thumbnail blob URL:', error);
+			}
+		});
+		this.videoThumbnailsCache.clear();
+		this.videoThumbnailsLoading.clear();
 		
 		// Clean up card slide images blob URLs
 		this.cardSlideImages.forEach(blobUrl => {

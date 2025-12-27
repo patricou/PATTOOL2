@@ -601,6 +601,24 @@
                               class="file-thumbnail-loading me-2">
                             <i class="fa fa-spinner fa-spin"></i>
                         </span>
+                        <!-- Thumbnail for video files -->
+                        <ng-container *ngIf="isVideoFile(uploadedFile.fileName)">
+                            <ng-container *ngIf="getVideoThumbnail(uploadedFile.fieldId) as videoThumbnail; else videoThumbnailLoading">
+                                <img [src]="videoThumbnail" 
+                                     class="file-thumbnail video-thumbnail me-2"
+                                     [alt]="uploadedFile.fileName"
+                                     (click)="openSingleVideoInVideoshow(uploadedFile.fieldId, uploadedFile.fileName)"
+                                     (error)="hideImageOnError($event)"
+                                     style="cursor: pointer;"
+                                     [title]="'EVENTELEM.CLICK_TO_VIEW' | translate" />
+                            </ng-container>
+                            <ng-template #videoThumbnailLoading>
+                                <span *ngIf="isVideoThumbnailLoading(uploadedFile.fieldId)"
+                                      class="file-thumbnail-loading me-2">
+                                    <i class="fa fa-spinner fa-spin"></i>
+                                </span>
+                            </ng-template>
+                        </ng-container>
                         <span class="badge"
                               [class.badge-clickable]="isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)"
                               [style.background-color]="getFileBadgeColor(uploadedFile.fileName)"

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, TemplateRef, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, TemplateRef, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
@@ -135,6 +135,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   
   // Video URLs for display
   public videoUrls: Map<string, SafeUrl> = new Map();
+  // Video file sizes (in bytes)
+  private videoFileSizes: Map<string, number> = new Map();
   
   // File upload properties
   public selectedFiles: File[] = [];
@@ -197,6 +199,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     private discussionService: DiscussionService,
     private videoCompressionService: VideoCompressionService,
     private cdr: ChangeDetectorRef,
+    private ngZone: NgZone,
     private eventColorService: EventColorService,
     private keycloakService: KeycloakService
   ) {
@@ -416,6 +419,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     });
     this.videoUrlCache.clear();
     this.videoUrls.clear();
+    this.videoFileSizes.clear();
     this.videoLoadSuccess.clear();
     
     // Clean up photo items blob URLs
@@ -3344,12 +3348,15 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         // Update local state
         this.evenement!.fileUploadeds = evenementToUpdate.fileUploadeds;
 
-        // If deleted file was a video, remove cached URL
+        // If deleted file was a video, remove cached URL and size
         if (this.videoUrls.has(fieldId)) {
           this.videoUrls.delete(fieldId);
         }
         if (this.videoUrlCache.has(fieldId)) {
           this.videoUrlCache.delete(fieldId);
+        }
+        if (this.videoFileSizes.has(fieldId)) {
+          this.videoFileSizes.delete(fieldId);
         }
 
         // Trigger UI refresh
@@ -3400,8 +3407,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         return;
       }
       
-      // Check cache first
-      if (this.videoUrlCache.has(file.fieldId)) {
+      // Check cache first - but still load size if not available
+      if (this.videoUrlCache.has(file.fieldId) && this.videoFileSizes.has(file.fieldId)) {
         const cachedUrl = this.videoUrlCache.get(file.fieldId);
         if (cachedUrl) {
           this.videoUrls.set(file.fieldId, cachedUrl);
@@ -3410,9 +3417,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         return;
       }
       
-      // Load video and create blob URL with correct MIME type
+      // Load video with metadata to get file size from headers
       // Use catchError in pipe to prevent errors from triggering redirects
-      this.fileService.getFile(file.fieldId).pipe(
+      this.fileService.getFileWithMetadata(file.fieldId).pipe(
         catchError((error) => {
           // Catch ALL errors in the pipe to prevent interceptor from redirecting
           // Log to localStorage FIRST (before console) so it persists even after redirect
@@ -3450,9 +3457,20 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           return EMPTY;
         })
       ).subscribe({
-        next: (blob: Blob) => {
+        next: (result: ImageDownloadResult) => {
+          const blob = new Blob([result.buffer]);
           if (!blob || blob.size === 0) {
             return;
+          }
+          
+          // Get file size from headers (Content-Length) or blob size
+          let fileSize = blob.size;
+          const contentLength = result.headers.get('Content-Length');
+          if (contentLength) {
+            const parsedSize = parseInt(contentLength, 10);
+            if (!isNaN(parsedSize) && parsedSize > 0) {
+              fileSize = parsedSize;
+            }
           }
           
           // Determine video MIME type from file extension
@@ -3486,6 +3504,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           const safeUrl = this.sanitizer.bypassSecurityTrustUrl(blobUrl);
           this.videoUrlCache.set(file.fieldId, safeUrl);
           this.videoUrls.set(file.fieldId, safeUrl);
+          // Store file size (use Content-Length from headers if available, otherwise blob size)
+          this.videoFileSizes.set(file.fieldId, fileSize);
           this.cdr.detectChanges();
         },
         error: (error) => {
@@ -3515,6 +3535,27 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       return false;
     }
     return this.videoUrls.has(file.fieldId);
+  }
+
+  // Format file size in bytes to human-readable format
+  private formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+  }
+
+  // Get formatted video file size
+  public getVideoFileSize(videoFile: UploadedFile): string | null {
+    if (!videoFile?.fieldId) {
+      return null;
+    }
+    const size = this.videoFileSizes.get(videoFile.fieldId);
+    if (size === undefined || size === null) {
+      return null;
+    }
+    return this.formatFileSize(size);
   }
 
   // Open PDF in new tab (same method as element-evenement)
@@ -4105,7 +4146,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
               this.addLog(`🎥 Compressing video ${i + 1}/${videoFiles.length}: ${file.name}...`);
               
               const compressedBlob = await this.videoCompressionService.compressVideo(file, quality, (progress: CompressionProgress) => {
-                this.addLog(`   ${progress.message}`);
+                // Ensure the callback runs in Angular zone for proper change detection
+                this.ngZone.run(() => {
+                  this.addLog(`   ${progress.message}`);
+                });
               });
               
               // Create a new File from the compressed blob
@@ -4152,12 +4196,15 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       const pollIntervalId = setInterval(() => {
         const logSubscription = this.fileService.getUploadLogs(sessionId).subscribe(
           (serverLogs: string[]) => {
-            if (serverLogs.length > lastLogCount) {
-              for (let i = lastLogCount; i < serverLogs.length; i++) {
-                this.addLog(serverLogs[i]);
+            // Ensure the callback runs in Angular zone for proper change detection
+            this.ngZone.run(() => {
+              if (serverLogs.length > lastLogCount) {
+                for (let i = lastLogCount; i < serverLogs.length; i++) {
+                  this.addLog(serverLogs[i]);
+                }
+                lastLogCount = serverLogs.length;
               }
-              lastLogCount = serverLogs.length;
-            }
+            });
           },
           (error) => {
             console.error('Error receiving upload logs:', error);
@@ -4287,6 +4334,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   private addLog(message: string): void {
     this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
     
+    // Force change detection to update the view in real-time
+    this.cdr.detectChanges();
+    
     setTimeout(() => {
       if (this.logContent && this.logContent.nativeElement) {
         const container = this.logContent.nativeElement;
@@ -4298,6 +4348,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   private addSuccessLog(message: string): void {
     this.uploadLogs.unshift(`SUCCESS: [${new Date().toLocaleTimeString()}] ${message}`);
     
+    // Force change detection to update the view in real-time
+    this.cdr.detectChanges();
+    
     setTimeout(() => {
       if (this.logContent && this.logContent.nativeElement) {
         const container = this.logContent.nativeElement;
@@ -4308,6 +4361,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   private addErrorLog(message: string): void {
     this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
+    
+    // Force change detection to update the view in real-time
+    this.cdr.detectChanges();
     
     setTimeout(() => {
       if (this.logContent && this.logContent.nativeElement) {

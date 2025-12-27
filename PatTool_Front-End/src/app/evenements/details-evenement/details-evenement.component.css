@@ -1352,6 +1352,17 @@ select.compact-input:focus {
   min-width: 0;
 }
 
+.video-header-left span {
+  display: inline;
+}
+
+.video-size-badge {
+  font-size: 0.85em;
+  opacity: 0.75;
+  font-weight: 400;
+  color: var(--text-color-dark, rgba(255, 255, 255, 0.7));
+}
+
 .video-meta-compact {
   padding: 0 0.6rem 0.35rem 0.6rem;
   font-size: 0.72rem;
@@ -2099,6 +2110,13 @@ select.compact-input:focus {
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 100%;
+  }
+  
+  .video-size-badge {
+    font-size: 0.85em;
+    opacity: 0.75;
+    font-weight: 400;
+    color: var(--text-color-dark, rgba(255, 255, 255, 0.7));
   }
   
   .video-meta-compact {

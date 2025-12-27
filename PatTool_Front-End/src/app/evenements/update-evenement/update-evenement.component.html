@@ -740,10 +740,38 @@
                                     
                                     <!-- File Info -->
                                     <div class="file-info d-flex align-items-center">
+                                        <!-- Image Thumbnail -->
+                                        <img *ngIf="isImageFile(uploadedFile.fileName) && uploadedFile.fieldId"
+                                             [src]="getImageUrl(uploadedFile.fieldId)"
+                                             [alt]="uploadedFile.fileName"
+                                             class="file-thumbnail me-2"
+                                             (click)="openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName)"
+                                             (error)="$event.target.style.display='none'"
+                                             [title]="'EVENTELEM.CLICK_TO_VIEW' | translate">
+                                        <!-- Video Thumbnail -->
+                                        <ng-container *ngIf="isVideoFile(uploadedFile.fileName) && uploadedFile.fieldId">
+                                            <ng-container *ngIf="isVideoThumbnailLoading(uploadedFile.fieldId); else videoThumbnailLoaded">
+                                                <!-- Show spinner while loading -->
+                                                <span class="file-thumbnail-loading me-2 d-inline-flex align-items-center justify-content-center">
+                                                    <i class="fa fa-spinner fa-spin"></i>
+                                                </span>
+                                            </ng-container>
+                                            <ng-template #videoThumbnailLoaded>
+                                                <!-- Show thumbnail when loaded -->
+                                                <img *ngIf="getVideoThumbnailUrl(uploadedFile.fieldId) as videoThumbnail"
+                                                     [src]="videoThumbnail"
+                                                     [alt]="uploadedFile.fileName"
+                                                     class="file-thumbnail video-thumbnail me-2"
+                                                     (click)="openVideoFile(uploadedFile.fieldId, uploadedFile.fileName)"
+                                                     (error)="$event.target.style.display='none'"
+                                                     [title]="'EVENTELEM.CLICK_TO_VIEW' | translate">
+                                            </ng-template>
+                                        </ng-container>
                                         <span class="badge me-2" 
-                                              [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName)"
+                                              [class.bg-secondary]="!isImageFile(uploadedFile.fileName) && !isPdfFile(uploadedFile.fileName) && !isVideoFile(uploadedFile.fileName)"
                                               [class.bg-info]="isImageFile(uploadedFile.fileName)"
                                               [class.bg-danger]="isPdfFile(uploadedFile.fileName)"
+                                              [class.bg-warning]="isVideoFile(uploadedFile.fileName)"
                                               [title]="uploadedFile.fileName"
                                               ngbTooltip="{{uploadedFile.fileName}}" placement="top">
                                             {{uploadedFile.fileName}}
@@ -760,16 +788,16 @@
                                         <!-- View/Open Button -->
                                         <button type="button" 
                                                 class="btn btn-outline-primary btn-sm"
-                                                *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName)"
-                                                (click)="isImageFile(uploadedFile.fileName) ? openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName) : openPdfFile(uploadedFile.fieldId, uploadedFile.fileName)"
-                                                [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ('EVENTELEM.CLICK_TO_OPEN_PDF' | translate)">
+                                                *ngIf="isImageFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName)"
+                                                (click)="isImageFile(uploadedFile.fileName) ? openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName) : (isVideoFile(uploadedFile.fileName) ? openVideoFile(uploadedFile.fieldId, uploadedFile.fileName) : openPdfFile(uploadedFile.fieldId, uploadedFile.fileName))"
+                                                [title]="isImageFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : (isVideoFile(uploadedFile.fileName) ? ('EVENTELEM.CLICK_TO_VIEW' | translate) : ('EVENTELEM.CLICK_TO_OPEN_PDF' | translate))">
                                             <i class="fa fa-eye"></i>
                                         </button>
 
                                         <!-- Download Button -->
                                         <button type="button" 
                                                 class="btn btn-outline-success btn-sm"
-                                                (click)="isImageFile(uploadedFile.fileName) ? openFileImageModal(uploadedFile.fieldId, uploadedFile.fileName) : openPdfFile(uploadedFile.fieldId, uploadedFile.fileName)"
+                                                (click)="downloadFile(uploadedFile.fieldId, uploadedFile.fileName)"
                                                 title="{{ 'EVENTELEM.FILESDOWNLOAD' | translate }}">
                                             <i class="fa fa-download"></i>
                                         </button>
@@ -985,6 +1013,9 @@
 
     <!-- Slideshow Modal Component -->
     <app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()"></app-slideshow-modal>
+
+    <!-- Videoshow Modal Component -->
+    <app-videoshow-modal #videoshowModalComponent (closed)="onVideoshowClosed()"></app-videoshow-modal>
 
     <!-- Upload Logs Modal -->
     <ng-template #uploadLogsModal let-modal>

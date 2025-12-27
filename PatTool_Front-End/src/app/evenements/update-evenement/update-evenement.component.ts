@@ -1,12 +1,14 @@
-import { Component, OnInit, ViewChild, TemplateRef, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, TemplateRef, HostListener, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule, Router, CanDeactivate } from '@angular/router';
 import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { Evenement } from '../../model/evenement';
 import { EvenementsService } from '../../services/evenements.service';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
 // Removed ngx-mydatepicker imports - using native HTML date inputs
@@ -34,12 +36,13 @@ import { VideoCompressionService, CompressionProgress } from '../../services/vid
 		TranslateModule,
 		NgbModule,
 		SlideshowModalComponent,
+		VideoshowModalComponent,
 		NavigationButtonsModule
 	],
 	templateUrl: './update-evenement.component.html',
 	styleUrls: ['./update-evenement.component.css']
 })
-export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEvenementComponent> {
+export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivate<UpdateEvenementComponent> {
 
 	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "Nouvel Evenement !!", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], [], undefined);
 	private originalEvenement: Evenement | null = null;
@@ -153,6 +156,9 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 
     // Slideshow modal component
     @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
+    
+    // Videoshow modal component
+    @ViewChild('videoshowModalComponent') videoshowModalComponent!: VideoshowModalComponent;
 
     // FS Photos slideshow loading control
     private fsSlideshowLoadingActive: boolean = false;
@@ -166,6 +172,15 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
     public uploadResult: 'success' | 'error' | null = null;
     public uploadResultMessage: string = '';
 
+    // Image URL cache for thumbnails
+    private imageCache = new Map<string, SafeUrl>();
+    private activeSubscriptions = new Set<Subscription>();
+    private loadingImages = new Set<string>();
+
+    // Video thumbnail cache
+    private videoThumbnailCache = new Map<string, SafeUrl>();
+    private loadingVideoThumbnails = new Set<string>();
+
 	constructor(private _route: ActivatedRoute,
 		private _evenementsService: EvenementsService,
 		private _router: Router,
@@ -175,7 +190,10 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 	private translate: TranslateService,
 	private _friendsService: FriendsService,
 	private _keycloakService: KeycloakService,
-	private videoCompressionService: VideoCompressionService
+	private videoCompressionService: VideoCompressionService,
+	private cdr: ChangeDetectorRef,
+	private ngZone: NgZone,
+	private sanitizer: DomSanitizer
 	) { }
 
 	ngOnInit() {
@@ -959,6 +977,322 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		);
 	}
 
+	// Get image URL (with cache) for thumbnails
+	public getImageUrl(fileId: string): SafeUrl {
+		if (this.imageCache.has(fileId)) {
+			return this.imageCache.get(fileId)!;
+		}
+		
+		// Return default image while loading
+		const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+		this.imageCache.set(fileId, defaultUrl);
+		
+		// Load the actual image asynchronously
+		this.loadImageWithAuth(fileId);
+		
+		return defaultUrl;
+	}
+
+	// Load image with authentication
+	private loadImageWithAuth(fileId: string): void {
+		// Skip if already loading
+		if (this.loadingImages.has(fileId)) {
+			return;
+		}
+
+		// Skip if already cached with a real image (not default placeholder)
+		const cached = this.imageCache.get(fileId);
+		if (cached) {
+			const url = (cached as any).changingThisBreaksApplicationSecurity;
+			if (url && !url.includes('images.jpg') && !url.includes('assets/')) {
+				return;
+			}
+		}
+
+		this.loadingImages.add(fileId);
+
+		const subscription = this._fileService.getFile(fileId).pipe(
+			catchError((error) => {
+				// Remove subscription from active set on error
+				this.activeSubscriptions.delete(subscription);
+				this.loadingImages.delete(fileId);
+				
+				// Set default image on error
+				const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+				this.imageCache.set(fileId, defaultUrl);
+				this.cdr.detectChanges();
+				return of(null);
+			}),
+			map((res: any) => {
+				if (!res) return null;
+				const blob = new Blob([res], { type: 'application/octet-stream' });
+				const objectUrl = URL.createObjectURL(blob);
+				return this.sanitizer.bypassSecurityTrustUrl(objectUrl);
+			})
+		).subscribe({
+			next: (safeUrl: SafeUrl | null) => {
+				// Remove subscription from active set once completed
+				this.activeSubscriptions.delete(subscription);
+				this.loadingImages.delete(fileId);
+				
+				if (safeUrl) {
+					this.imageCache.set(fileId, safeUrl);
+					this.cdr.detectChanges();
+				}
+			},
+			error: (error) => {
+				// Remove subscription from active set on error
+				this.activeSubscriptions.delete(subscription);
+				this.loadingImages.delete(fileId);
+				
+				// Set default image on error
+				const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+				this.imageCache.set(fileId, defaultUrl);
+				this.cdr.detectChanges();
+			}
+		});
+		
+		// Track this subscription for cleanup
+		this.activeSubscriptions.add(subscription);
+	}
+
+	// Get video thumbnail URL (with cache)
+	public getVideoThumbnailUrl(fileId: string): SafeUrl {
+		if (this.videoThumbnailCache.has(fileId)) {
+			const cached = this.videoThumbnailCache.get(fileId)!;
+			// Check if it's the default placeholder
+			const url = (cached as any).changingThisBreaksApplicationSecurity;
+			if (url && (url.includes('images.jpg') || url.includes('assets/'))) {
+				// It's the placeholder, check if we're loading
+				if (!this.loadingVideoThumbnails.has(fileId)) {
+					// Not loading and only placeholder, start loading
+					this.loadVideoThumbnail(fileId);
+				}
+			}
+			return cached;
+		}
+		
+		// Return default placeholder while loading
+		const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+		this.videoThumbnailCache.set(fileId, defaultUrl);
+		
+		// Mark as loading in next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
+		setTimeout(() => {
+			this.loadingVideoThumbnails.add(fileId);
+			this.cdr.markForCheck();
+		}, 0);
+		
+		// Load the actual video thumbnail asynchronously
+		this.loadVideoThumbnail(fileId);
+		
+		return defaultUrl;
+	}
+
+	// Check if video thumbnail is loading
+	public isVideoThumbnailLoading(fileId: string): boolean {
+		return this.loadingVideoThumbnails.has(fileId);
+	}
+
+	// Load video thumbnail by capturing a frame from the video
+	private loadVideoThumbnail(fileId: string): void {
+		// Skip if already loading (should already be set by getVideoThumbnailUrl)
+		if (this.loadingVideoThumbnails.has(fileId)) {
+			// Already marked as loading, continue with loading
+		} else {
+			// Not marked yet, mark it now
+			this.loadingVideoThumbnails.add(fileId);
+			this.cdr.markForCheck();
+		}
+
+		// Skip if already cached with a real thumbnail (not default placeholder)
+		const cached = this.videoThumbnailCache.get(fileId);
+		if (cached) {
+			const url = (cached as any).changingThisBreaksApplicationSecurity;
+			if (url && !url.includes('images.jpg') && !url.includes('assets/')) {
+				// Already have a real thumbnail, remove from loading
+				this.loadingVideoThumbnails.delete(fileId);
+				return;
+			}
+		}
+
+		const subscription = this._fileService.getFile(fileId).pipe(
+			catchError((error) => {
+				// Remove subscription from active set on error
+				this.activeSubscriptions.delete(subscription);
+				this.loadingVideoThumbnails.delete(fileId);
+				
+				// Set default image on error
+				const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+				this.videoThumbnailCache.set(fileId, defaultUrl);
+				this.cdr.detectChanges();
+				return of(null);
+			}),
+			map((res: any) => {
+				if (!res) return null;
+				return new Blob([res], { type: 'video/mp4' });
+			})
+		).subscribe({
+			next: (blob: Blob | null) => {
+				// Remove subscription from active set once completed
+				this.activeSubscriptions.delete(subscription);
+				
+				if (blob) {
+					// Create video element to capture frame
+					this.captureVideoFrame(blob, fileId);
+				} else {
+					// No blob, remove from loading in next cycle
+					setTimeout(() => {
+						this.loadingVideoThumbnails.delete(fileId);
+						this.cdr.markForCheck();
+					}, 0);
+				}
+			},
+			error: (error) => {
+				// Remove subscription from active set on error
+				this.activeSubscriptions.delete(subscription);
+				
+				// Set default image on error
+				const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+				this.videoThumbnailCache.set(fileId, defaultUrl);
+				// Remove from loading in next cycle
+				setTimeout(() => {
+					this.loadingVideoThumbnails.delete(fileId);
+					this.cdr.markForCheck();
+				}, 0);
+			}
+		});
+		
+		// Track this subscription for cleanup
+		this.activeSubscriptions.add(subscription);
+	}
+
+	// Capture a frame from video to use as thumbnail
+	private captureVideoFrame(blob: Blob, fileId: string): void {
+		const video = document.createElement('video');
+		const url = URL.createObjectURL(blob);
+		video.src = url;
+		video.preload = 'metadata'; // Only load metadata, not the entire video
+		video.currentTime = 0.1; // Seek to 0.1 second (faster than 1 second)
+		video.muted = true;
+		video.playsInline = true;
+
+		// Try to capture frame as soon as metadata is loaded
+		video.addEventListener('loadedmetadata', () => {
+			// Try to seek to a small time to get first frame
+			video.currentTime = 0.1;
+		}, { once: true });
+
+		video.addEventListener('seeked', () => {
+			// Frame is ready after seeking
+			if (video.readyState >= 2) {
+				this.drawVideoFrame(video, fileId, url);
+			}
+		}, { once: true });
+
+		// Fallback: if seeked doesn't fire, try loadeddata
+		video.addEventListener('loadeddata', () => {
+			// Ensure video has loaded enough data
+			if (video.readyState >= 2 && video.currentTime >= 0.09) {
+				this.drawVideoFrame(video, fileId, url);
+			} else {
+				video.addEventListener('canplay', () => {
+					this.drawVideoFrame(video, fileId, url);
+				}, { once: true });
+			}
+		}, { once: true });
+
+		video.addEventListener('error', () => {
+			URL.revokeObjectURL(url);
+			const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+			// Update in next change detection cycle
+			setTimeout(() => {
+				this.videoThumbnailCache.set(fileId, defaultUrl);
+				this.loadingVideoThumbnails.delete(fileId);
+				this.cdr.markForCheck();
+			}, 0);
+		}, { once: true });
+
+		// Load the video
+		video.load();
+	}
+
+	// Draw video frame to canvas and create thumbnail
+	private drawVideoFrame(video: HTMLVideoElement, fileId: string, blobUrl: string): void {
+		// Defer heavy processing to avoid blocking the seeked event handler
+		requestAnimationFrame(() => {
+			try {
+				// Limit thumbnail size for performance (max 200x200px)
+				const maxThumbnailSize = 200;
+				const videoWidth = video.videoWidth || 320;
+				const videoHeight = video.videoHeight || 240;
+				
+				// Calculate thumbnail dimensions maintaining aspect ratio
+				let thumbnailWidth = videoWidth;
+				let thumbnailHeight = videoHeight;
+				if (videoWidth > maxThumbnailSize || videoHeight > maxThumbnailSize) {
+					const ratio = Math.min(maxThumbnailSize / videoWidth, maxThumbnailSize / videoHeight);
+					thumbnailWidth = Math.floor(videoWidth * ratio);
+					thumbnailHeight = Math.floor(videoHeight * ratio);
+				}
+
+				const canvas = document.createElement('canvas');
+				canvas.width = thumbnailWidth;
+				canvas.height = thumbnailHeight;
+
+				const ctx = canvas.getContext('2d', { willReadFrequently: false });
+				if (ctx) {
+					// Use faster image rendering settings for thumbnails
+					ctx.imageSmoothingEnabled = true;
+					ctx.imageSmoothingQuality = 'low'; // Faster than 'high'
+					ctx.drawImage(video, 0, 0, thumbnailWidth, thumbnailHeight);
+					
+					// Convert canvas to blob URL with lower quality for faster processing
+					// Use 0.7 quality instead of 0.8 for better performance
+					canvas.toBlob((blob) => {
+						URL.revokeObjectURL(blobUrl); // Clean up video blob URL
+						
+						if (blob) {
+							const thumbnailUrl = URL.createObjectURL(blob);
+							const safeUrl = this.sanitizer.bypassSecurityTrustUrl(thumbnailUrl);
+							// Update in next change detection cycle
+							setTimeout(() => {
+								this.videoThumbnailCache.set(fileId, safeUrl);
+								this.loadingVideoThumbnails.delete(fileId);
+								this.cdr.markForCheck();
+							}, 0);
+						} else {
+							const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+							// Update in next change detection cycle
+							setTimeout(() => {
+								this.videoThumbnailCache.set(fileId, defaultUrl);
+								this.loadingVideoThumbnails.delete(fileId);
+								this.cdr.markForCheck();
+							}, 0);
+						}
+					}, 'image/jpeg', 0.7); // Lower quality for faster processing
+				} else {
+					URL.revokeObjectURL(blobUrl);
+					const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+					// Update in next change detection cycle
+					setTimeout(() => {
+						this.videoThumbnailCache.set(fileId, defaultUrl);
+						this.loadingVideoThumbnails.delete(fileId);
+						this.cdr.markForCheck();
+					}, 0);
+				}
+			} catch (error) {
+				URL.revokeObjectURL(blobUrl);
+				const defaultUrl = this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+				// Update in next change detection cycle
+				setTimeout(() => {
+					this.videoThumbnailCache.set(fileId, defaultUrl);
+					this.loadingVideoThumbnails.delete(fileId);
+					this.cdr.markForCheck();
+				}, 0);
+			}
+		});
+	}
+
     public openUserModal(user: Member): void {
         this.selectedUser = user;
         if (!this.userModal) {
@@ -975,26 +1309,19 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
     }
 
     public openFileImageModal(fileId: string, fileName: string): void {
-		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
-			const objectUrl = URL.createObjectURL(blob);
-			this.selectedImageUrl = objectUrl;
-			this.selectedImageAlt = fileName;
+		// Ouvrir l'image dans le slideshow-modal
+		if (!this.slideshowModalComponent || !this.evenement) {
+			return;
+		}
 
-			if (!this.imageModal) {
-				return;
-			}
+		// Créer une source d'image pour le slideshow
+		const imageSource: SlideshowImageSource = {
+			fileId: fileId,
+			fileName: fileName
+		};
 
-			this.modalService.open(this.imageModal, {
-				centered: true,
-				size: 'xl',
-				backdrop: 'static',
-				keyboard: false,
-				windowClass: 'modal-smooth-animation'
-			});
-		}, (error) => {
-			console.error('Error loading file:', error);
-			alert('Erreur lors du chargement du fichier');
-		});
+		// Ouvrir le slideshow avec cette image
+		this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true);
 	}
 
 	public openPdfFile(fileId: string, fileName: string): void {
@@ -1014,7 +1341,47 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 			this.openFileImageModal(fileId, fileName);
 		} else if (this.isPdfFile(fileName)) {
 			this.openPdfFile(fileId, fileName);
+		} else if (this.isVideoFile(fileName)) {
+			this.openVideoFile(fileId, fileName);
 		}
+	}
+
+	public downloadFile(fileId: string, fileName: string): void {
+		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
+			// IE11 & Edge
+			if ((navigator as any).msSaveBlob) {
+				(navigator as any).msSaveBlob(blob, fileName);
+			} else {
+				// Create a link element and trigger download
+				const url = window.URL.createObjectURL(blob);
+				const link = document.createElement('a');
+				link.href = url;
+				link.download = fileName;
+				document.body.appendChild(link);
+				link.click();
+				document.body.removeChild(link);
+				window.URL.revokeObjectURL(url);
+			}
+		}, (error) => {
+			console.error('Error downloading file:', error);
+			alert('Erreur lors du téléchargement du fichier');
+		});
+	}
+
+	public openVideoFile(fileId: string, fileName: string): void {
+		// Ouvrir la vidéo dans le videoshow-modal
+		if (!this.videoshowModalComponent || !this.evenement) {
+			return;
+		}
+
+		// Créer une source vidéo pour le videoshow
+		const videoSource: VideoshowVideoSource = {
+			fileId: fileId,
+			fileName: fileName
+		};
+
+		// Ouvrir le videoshow avec cette vidéo
+		this.videoshowModalComponent.open([videoSource], this.evenement.evenementName, true);
 	}
 
 	public deleteFile(fileIndex: number): void {
@@ -1178,7 +1545,10 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 							this.addLog(`🎥 Compressing video ${i + 1}/${videoFiles.length}: ${file.name}...`);
 							
 							const compressedBlob = await this.videoCompressionService.compressVideo(file, quality, (progress: CompressionProgress) => {
-								this.addLog(`   ${progress.message}`);
+								// Ensure the callback runs in Angular zone for proper change detection
+								this.ngZone.run(() => {
+									this.addLog(`   ${progress.message}`);
+								});
 							});
 							
 							// Create a new File from the compressed blob
@@ -1209,13 +1579,16 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		const pollInterval = setInterval(() => {
 			this._fileService.getUploadLogs(sessionId).subscribe(
 				(serverLogs: string[]) => {
-					if (serverLogs.length > lastLogCount) {
-						// New logs available
-						for (let i = lastLogCount; i < serverLogs.length; i++) {
-							this.addLog(serverLogs[i]);
+					// Ensure the callback runs in Angular zone for proper change detection
+					this.ngZone.run(() => {
+						if (serverLogs.length > lastLogCount) {
+							// New logs available
+							for (let i = lastLogCount; i < serverLogs.length; i++) {
+								this.addLog(serverLogs[i]);
+							}
+							lastLogCount = serverLogs.length;
 						}
-						lastLogCount = serverLogs.length;
-					}
+					});
 				},
 				(error) => {
 					console.error('Error fetching logs:', error);
@@ -1285,13 +1658,16 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 						remainingPolls--;
 						this._fileService.getUploadLogs(sessionId).subscribe(
 							(serverLogs: string[]) => {
-								if (serverLogs.length > lastLogCount) {
-									// New logs available
-									for (let i = lastLogCount; i < serverLogs.length; i++) {
-										this.addLog(serverLogs[i]);
+								// Ensure the callback runs in Angular zone for proper change detection
+								this.ngZone.run(() => {
+									if (serverLogs.length > lastLogCount) {
+										// New logs available
+										for (let i = lastLogCount; i < serverLogs.length; i++) {
+											this.addLog(serverLogs[i]);
+										}
+										lastLogCount = serverLogs.length;
 									}
-									lastLogCount = serverLogs.length;
-								}
+								});
 							},
 							(error) => {
 								console.error('Error fetching remaining logs:', error);
@@ -1354,6 +1730,9 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 	
 	private addLog(message: string): void {
 		this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+		
+		// Force change detection to update the view in real-time
+		this.cdr.detectChanges();
 		
 		// Auto-scroll to top to show latest log
 		setTimeout(() => {
@@ -1921,6 +2300,10 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 		this.fsSlideshowSubs = [];
 	}
 
+	public onVideoshowClosed(): void {
+		// Handle videoshow modal close if needed
+	}
+
 	// Check if URL event is PHOTOFROMFS type
 	public isPhotoFromFs(urlEvent: UrlEvent): boolean {
 		return (urlEvent.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS';
@@ -1965,6 +2348,40 @@ export class UpdateEvenementComponent implements OnInit, CanDeactivate<UpdateEve
 			event.preventDefault();
 			event.returnValue = '';
 		}
+	}
+
+	ngOnDestroy(): void {
+		// Clean up all active subscriptions
+		this.activeSubscriptions.forEach(subscription => {
+			subscription.unsubscribe();
+		});
+		this.activeSubscriptions.clear();
+
+		// Clean up blob URLs from image cache
+		this.imageCache.forEach((safeUrl, fileId) => {
+			const url = (safeUrl as any).changingThisBreaksApplicationSecurity;
+			if (url && url.startsWith('blob:')) {
+				try {
+					URL.revokeObjectURL(url);
+				} catch (e) {
+					// Ignore errors when revoking
+				}
+			}
+		});
+		this.imageCache.clear();
+
+		// Clean up blob URLs from video thumbnail cache
+		this.videoThumbnailCache.forEach((safeUrl, fileId) => {
+			const url = (safeUrl as any).changingThisBreaksApplicationSecurity;
+			if (url && url.startsWith('blob:')) {
+				try {
+					URL.revokeObjectURL(url);
+				} catch (e) {
+					// Ignore errors when revoking
+				}
+			}
+		});
+		this.videoThumbnailCache.clear();
 	}
 
 }
