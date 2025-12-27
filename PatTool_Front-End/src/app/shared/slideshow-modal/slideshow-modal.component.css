@@ -215,7 +215,30 @@
     transform-style: preserve-3d;
 }
 
-/* Blurred background using current image - sits behind the main image */
+/* Blurred background using current image - DISABLED to avoid duplicate network requests
+   The background blur was causing duplicate network requests for the same blob URL
+   (one for CSS background-image, one for img src). 
+   If needed, this can be re-implemented using canvas after image load. */
+/*
+.slideshow-image-wrapper::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background-image: var(--slideshow-bg-image);
+	background-position: center;
+	background-repeat: no-repeat;
+	background-size: cover;
+	filter: blur(30px) brightness(0.7);
+	transform: scale(1.1);
+	z-index: 0;
+	pointer-events: none;
+}
+*/
+
+/* Fallback for browsers that don't support CSS variables - use class-based approach */
 .slideshow-bg-blur {
 	position: absolute;
 	top: 0;
@@ -228,6 +251,7 @@
 	filter: blur(30px) brightness(0.7);
 	transform: scale(1.1); /* prevent edges showing after blur */
 	z-index: 0;
+	pointer-events: none;
 }
 
 /* Grid Overlay - follows image transform, positioned over image */

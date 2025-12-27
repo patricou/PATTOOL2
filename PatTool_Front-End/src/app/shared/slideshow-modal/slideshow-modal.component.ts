@@ -128,6 +128,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public slideshowBackgroundColor: string = 'black';
   public slideshowBackgroundImageUrl: string = '';
   
+  // Cached current image URL to avoid multiple calls to getCurrentSlideshowImage()
+  public currentSlideshowImageUrl: string = '';
+  
   // Grid overlay visibility
   public showGrid: boolean = false;
   
@@ -493,6 +496,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Reset all state variables
     this.currentSlideshowIndex = 0;
+    this.currentSlideshowImageUrl = ''; // Explicitly clear cached current image URL
     this.isSlideshowActive = false;
     this.resetSlideshowZoom();
     this.isSlideshowModalOpen = false;
@@ -557,6 +561,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.exifDataCache.clear();
     this.imageFileNames.clear();
     this.currentSlideshowIndex = 0;
+    this.currentSlideshowImageUrl = ''; // Explicitly clear cached current image URL
     this.isSlideshowActive = false;
     this.currentImageFileName = '';
     this.resetSlideshowZoom();
@@ -1030,6 +1035,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           this.showThumbnails = true;
         }
       }, 0);
+    }
+    
+    // Update current image URL if this is the current image
+    if (imageIndex === this.currentSlideshowIndex) {
+      this.updateCurrentSlideshowImageUrl();
     }
     
     // Reset zoom when first image loads
@@ -3413,6 +3423,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const currentTranslateX = this.slideshowTranslateX;
     const currentTranslateY = this.slideshowTranslateY;
     this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
+    this.updateCurrentSlideshowImageUrl();
     this.updateCurrentImageLocation();
     // Reset saved position when changing image
     this.hasSavedPosition = false;
@@ -3456,6 +3467,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const currentTranslateX = this.slideshowTranslateX;
     const currentTranslateY = this.slideshowTranslateY;
     this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
+    this.updateCurrentSlideshowImageUrl();
     this.updateCurrentImageLocation();
     // Reset saved position when changing image
     this.hasSavedPosition = false;
@@ -3495,9 +3507,24 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   public getCurrentSlideshowImage(): string {
     if (this.slideshowImages.length === 0 || this.currentSlideshowIndex >= this.slideshowImages.length) {
+      this.currentSlideshowImageUrl = '';
       return '';
     }
-    return this.slideshowImages[this.currentSlideshowIndex];
+    const url = this.slideshowImages[this.currentSlideshowIndex];
+    // Update cached URL when accessed
+    if (this.currentSlideshowImageUrl !== url) {
+      this.currentSlideshowImageUrl = url;
+    }
+    return url;
+  }
+  
+  // Update cached current image URL - call this whenever currentSlideshowIndex changes
+  private updateCurrentSlideshowImageUrl(): void {
+    if (this.slideshowImages.length === 0 || this.currentSlideshowIndex >= this.slideshowImages.length) {
+      this.currentSlideshowImageUrl = '';
+    } else {
+      this.currentSlideshowImageUrl = this.slideshowImages[this.currentSlideshowIndex] || '';
+    }
   }
 
   // Check if current image is loading (for fileId-based images)
@@ -4086,6 +4113,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
 
     if (currentUrl !== newUrl) {
       this.slideshowImages[this.currentSlideshowIndex] = newUrl;
+      this.updateCurrentSlideshowImageUrl();
     }
 
     if (fileName) {
@@ -4658,23 +4686,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         // Stocker l'URL pour laquelle on charge les EXIF pour vérifier qu'elle n'a pas changé
         const loadingForUrl = currentImageUrl;
         
-        this.loadExifData().then(() => {
-          // Vérifier que l'image n'a pas changé pendant le chargement
-          if (this.getCurrentSlideshowImage() === loadingForUrl) {
-            this.isLoadingExif = false;
-            this.logExifDataForCurrentImage('info-panel-loaded');
-          } else {
-            // L'image a changé, réinitialiser l'état
-            this.isLoadingExif = false;
-            this.exifData = [];
-          }
-        }).catch((error) => {
-          // Vérifier que l'image n'a pas changé pendant le chargement
-          if (this.getCurrentSlideshowImage() === loadingForUrl) {
-            this.isLoadingExif = false;
-          }
-        });
-        
         // Timeout de sécurité pour éviter un chargement infini (réduit à 5 secondes)
         const timeoutId = setTimeout(() => {
           if (this.isLoadingExif && this.getCurrentSlideshowImage() === loadingForUrl) {
@@ -4685,17 +4696,95 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             }
             // Mettre à jour le cache même vide pour éviter les tentatives infinies
             if (currentImageUrl) {
-              this.exifDataCache.set(currentImageUrl, []);
+              this.exifDataCache.set(currentImageUrl, [...this.exifData]);
             }
           }
         }, 4500); // Timeout de 4.5 secondes (légèrement supérieur au timeout de loadExifData qui est de 4s)
         
-        // Nettoyer le timeout si le chargement se termine avant
         this.loadExifData().then(() => {
           clearTimeout(timeoutId);
-        }).catch(() => {
+          // Vérifier que l'image n'a pas changé pendant le chargement
+          if (this.getCurrentSlideshowImage() === loadingForUrl) {
+            // Check if PAT metadata is now available and add it if missing
+            const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
+            if (!this.exifData.some(item => item.label === originalSizeLabel)) {
+              let meta = this.imagePatMetadata.get(loadingForUrl);
+              let formatted = meta ? this.formatPatMetadata(meta) : null;
+              
+              // If not found, try to get from filesystem variants cache
+              if (!formatted) {
+                const imageIndex = this.imageUrlToThumbnailIndex.get(loadingForUrl);
+                if (imageIndex !== undefined) {
+                  const variants = this.filesystemImageVariants.get(imageIndex);
+                  if (variants && variants.originalMetadata) {
+                    formatted = this.formatPatMetadata(variants.originalMetadata);
+                  }
+                }
+              }
+              
+              if (formatted) {
+                this.exifData.push({
+                  label: originalSizeLabel,
+                  value: formatted
+                });
+                this.sortExifDataForDisplay();
+                // Update cache with the new data
+                if (loadingForUrl && this.exifData.length > 0) {
+                  this.exifDataCache.set(loadingForUrl, [...this.exifData]);
+                }
+                this.cdr.markForCheck();
+              }
+            }
+            
+            this.isLoadingExif = false;
+            this.logExifDataForCurrentImage('info-panel-loaded');
+          } else {
+            // L'image a changé, réinitialiser l'état
+            this.isLoadingExif = false;
+            this.exifData = [];
+          }
+        }).catch((error) => {
           clearTimeout(timeoutId);
+          // Vérifier que l'image n'a pas changé pendant le chargement
+          if (this.getCurrentSlideshowImage() === loadingForUrl) {
+            this.isLoadingExif = false;
+          }
         });
+        
+        // Also check for PAT metadata after a short delay in case it becomes available later
+        setTimeout(() => {
+          if (this.getCurrentSlideshowImage() === loadingForUrl && !this.isLoadingExif) {
+            const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
+            if (!this.exifData.some(item => item.label === originalSizeLabel)) {
+              let meta = this.imagePatMetadata.get(loadingForUrl);
+              let formatted = meta ? this.formatPatMetadata(meta) : null;
+              
+              // If not found, try to get from filesystem variants cache
+              if (!formatted) {
+                const imageIndex = this.imageUrlToThumbnailIndex.get(loadingForUrl);
+                if (imageIndex !== undefined) {
+                  const variants = this.filesystemImageVariants.get(imageIndex);
+                  if (variants && variants.originalMetadata) {
+                    formatted = this.formatPatMetadata(variants.originalMetadata);
+                  }
+                }
+              }
+              
+              if (formatted) {
+                this.exifData.push({
+                  label: originalSizeLabel,
+                  value: formatted
+                });
+                this.sortExifDataForDisplay();
+                // Update cache with the new data
+                if (loadingForUrl && this.exifData.length > 0) {
+                  this.exifDataCache.set(loadingForUrl, [...this.exifData]);
+                }
+                this.cdr.markForCheck();
+              }
+            }
+          }
+        }, 500); // Check again after 500ms in case metadata arrives late
       }
     } else {
       // Pas d'URL, réinitialiser l'état
@@ -4818,27 +4907,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             }
           }
         }
-        
-        // Ensure "original size before compression" is shown if available via backend metadata
-        const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
-        if (!this.exifData.some(item => item.label === originalSizeLabel)) {
-          const meta = this.imagePatMetadata.get(currentImageUrl);
-          const formatted = this.formatPatMetadata(meta);
-          if (formatted) {
-            this.exifData.push({
-              label: originalSizeLabel,
-              value: formatted
-            });
-          }
-        }
-        
-        // Sort EXIF entries for consistent display
-        this.sortExifDataForDisplay();
-        
-        // Update cache with complete data including file size
-        if (currentImageUrl && this.exifData.length > 0) {
-          this.exifDataCache.set(currentImageUrl, [...this.exifData]);
-        }
       } else {
         // If we don't have the blob, try to get file size from HEAD request for HTTP/HTTPS URLs
         if (!currentImageUrl.startsWith('blob:')) {
@@ -4935,6 +5003,39 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           this.exifDataCache.set(currentImageUrl, [...this.exifData]);
         }
       } // Fin du else
+      
+      // Ensure "original size before compression" is shown if available via backend metadata
+      // This check is done AFTER all EXIF reading attempts, so it works even if blob is not available
+      const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
+      if (!this.exifData.some(item => item.label === originalSizeLabel)) {
+        // Try to get metadata from imagePatMetadata map
+        let meta = this.imagePatMetadata.get(currentImageUrl);
+        let formatted = meta ? this.formatPatMetadata(meta) : null;
+        
+        // If not found, try to get from filesystem variants cache
+        if (!formatted) {
+          const imageIndex = this.imageUrlToThumbnailIndex.get(currentImageUrl);
+          if (imageIndex !== undefined) {
+            const variants = this.filesystemImageVariants.get(imageIndex);
+            if (variants && variants.originalMetadata) {
+              formatted = this.formatPatMetadata(variants.originalMetadata);
+            }
+          }
+        }
+        
+        if (formatted) {
+          this.exifData.push({
+            label: originalSizeLabel,
+            value: formatted
+          });
+          // Re-sort after adding original size
+          this.sortExifDataForDisplay();
+          // Update cache with the new data
+          if (currentImageUrl && this.exifData.length > 0) {
+            this.exifDataCache.set(currentImageUrl, [...this.exifData]);
+          }
+        }
+      }
       } catch (error) {
         // En cas d'erreur, s'assurer qu'on a au moins les dimensions si disponibles
         const imgEl = this.slideshowImgElRef?.nativeElement;
@@ -5645,6 +5746,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public onThumbnailClick(index: number): void {
     if (index >= 0 && index < this.slideshowImages.length) {
       this.currentSlideshowIndex = index;
+      this.updateCurrentSlideshowImageUrl();
       this.updateCurrentImageLocation();
       // Scroll to center active thumbnail (with delay to ensure DOM update)
       setTimeout(() => {

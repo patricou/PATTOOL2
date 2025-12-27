@@ -19,10 +19,8 @@
            (contextmenu)="$event.preventDefault()"
           (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
            [style.backgroundColor]="slideshowBackgroundColor"
-           [style.cursor]="showMapView ? 'default' : (isSelectingRectangle ? 'crosshair' : (isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')))" style="overflow:hidden; user-select: none;">
-        <!-- Blurred image fallback background (for cross-origin where average color can't be computed) -->
-        <div class="slideshow-bg-blur" *ngIf="slideshowImages.length > 0 && (!showMapView || !currentMapUrl)"
-             [style.backgroundImage]="'url(' + getCurrentSlideshowImage() + ')'"></div>
+           [style.cursor]="showMapView ? 'default' : (isSelectingRectangle ? 'crosshair' : (isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')))" style="overflow:hidden; user-select: none;"
+           >
         <div *ngIf="slideshowImages.length > 0 && showMapView && currentMapUrl" class="slideshow-map-container">
           <iframe [src]="currentMapUrl" frameborder="0" allowfullscreen loading="lazy"></iframe>
         </div>
@@ -32,8 +30,8 @@
             <span>{{ 'EVENTELEM.MAP_LOADING' | translate }}</span>
           </div>
         </div>
-        <img #slideshowImgEl *ngIf="slideshowImages.length > 0 && getCurrentSlideshowImage() && (!showMapView || !currentMapUrl)" 
-             [src]="getCurrentSlideshowImage()" 
+        <img #slideshowImgEl *ngIf="slideshowImages.length > 0 && currentSlideshowImageUrl && (!showMapView || !currentMapUrl)" 
+             [src]="currentSlideshowImageUrl" 
              alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
              crossorigin="anonymous"
              class="slideshow-image"
