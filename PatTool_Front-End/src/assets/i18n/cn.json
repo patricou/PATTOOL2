@@ -1094,5 +1094,40 @@
         "GROUP_OWNER": "组所有者",
         "GROUP_MEMBER": "组成员",
         "GROUP_AUTHORIZED": "组中的授权"
+    },
+    "DISCUSSION": {
+        "TITLE": "讨论",
+        "ID_LABEL": "ID",
+        "REFRESH": "刷新讨论",
+        "LOADING_IMAGE": "正在加载图片...",
+        "LOADING_VIDEO": "正在加载视频...",
+        "VIDEO_NOT_SUPPORTED": "您的浏览器不支持视频标签。",
+        "EDIT_MESSAGE": "编辑消息",
+        "DELETE_MESSAGE": "删除消息",
+        "NO_MESSAGES": "没有消息",
+        "BE_FIRST_MESSAGE": "成为第一个在讨论中发送消息的人！",
+        "PROCESSING_IMAGE": "正在处理图片...",
+        "ATTACH_FILE": "附加图片或视频",
+        "EDIT_MESSAGE_PLACEHOLDER": "编辑消息...",
+        "TYPE_MESSAGE_PLACEHOLDER": "输入您的消息...",
+        "ADD_EMOJI": "添加表情符号",
+        "CANCEL_EDIT": "取消编辑",
+        "SEND_MESSAGE": "发送消息",
+        "SELECT_EMOJI": "选择表情符号",
+        "INPUT_HELP": "按 Enter 发送，Shift+Enter 换行",
+        "MESSAGES": "消息",
+        "REMOVE_FILE": "删除文件"
+    },
+    "COMMENTARY": {
+        "EDIT": "编辑",
+        "DELETE": "删除",
+        "NO_COMMENTARIES": "目前没有评论。",
+        "PLACEHOLDER": "写下您的评论...",
+        "SAVE": "保存",
+        "NEW_COMMENTARY": "新评论",
+        "EDIT_COMMENTARY": "编辑评论",
+        "EMPTY_ERROR": "评论不能为空",
+        "DELETE_CONFIRM": "您确定要删除此评论吗？",
+        "NO_ID_ERROR": "错误：评论没有ID"
     }
 }

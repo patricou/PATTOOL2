@@ -1089,5 +1089,40 @@
         "GROUP_OWNER": "Владелец Группы",
         "GROUP_MEMBER": "Член Группы",
         "GROUP_AUTHORIZED": "Разрешено в Группе"
+    },
+    "DISCUSSION": {
+        "TITLE": "Обсуждение",
+        "ID_LABEL": "ID",
+        "REFRESH": "Обновить обсуждение",
+        "LOADING_IMAGE": "Загрузка изображения...",
+        "LOADING_VIDEO": "Загрузка видео...",
+        "VIDEO_NOT_SUPPORTED": "Ваш браузер не поддерживает тег видео.",
+        "EDIT_MESSAGE": "Редактировать сообщение",
+        "DELETE_MESSAGE": "Удалить сообщение",
+        "NO_MESSAGES": "Нет сообщений",
+        "BE_FIRST_MESSAGE": "Будьте первым, кто отправит сообщение в обсуждении!",
+        "PROCESSING_IMAGE": "Обработка изображения...",
+        "ATTACH_FILE": "Прикрепить изображение или видео",
+        "EDIT_MESSAGE_PLACEHOLDER": "Редактировать сообщение...",
+        "TYPE_MESSAGE_PLACEHOLDER": "Введите ваше сообщение...",
+        "ADD_EMOJI": "Добавить эмодзи",
+        "CANCEL_EDIT": "Отменить редактирование",
+        "SEND_MESSAGE": "Отправить сообщение",
+        "SELECT_EMOJI": "Выбрать эмодзи",
+        "INPUT_HELP": "Нажмите Enter для отправки, Shift+Enter для новой строки",
+        "MESSAGES": "сообщения",
+        "REMOVE_FILE": "Удалить файл"
+    },
+    "COMMENTARY": {
+        "EDIT": "Редактировать",
+        "DELETE": "Удалить",
+        "NO_COMMENTARIES": "Пока нет комментариев.",
+        "PLACEHOLDER": "Напишите ваш комментарий...",
+        "SAVE": "Сохранить",
+        "NEW_COMMENTARY": "Новый комментарий",
+        "EDIT_COMMENTARY": "Редактировать комментарий",
+        "EMPTY_ERROR": "Комментарий не может быть пустым",
+        "DELETE_CONFIRM": "Вы уверены, что хотите удалить этот комментарий?",
+        "NO_ID_ERROR": "Ошибка: у комментария нет ID"
     }
 }

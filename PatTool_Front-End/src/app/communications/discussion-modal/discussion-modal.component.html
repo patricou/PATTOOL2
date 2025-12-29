@@ -1,7 +1,7 @@
 <!-- Discussion Modal -->
 <div class="modal-header">
     <h4 class="modal-title">{{ title }}</h4>
-    <button type="button" class="btn-close" aria-label="Close" (click)="close()">
+    <button type="button" class="btn-close" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="close()">
         <span aria-hidden="true">&times;</span>
     </button>
 </div>
@@ -33,7 +33,7 @@
         </div>
         <!-- Discussion ID -->
         <div class="discussion-id" *ngIf="discussionId">
-            <span class="discussion-id-label">ID:</span>
+            <span class="discussion-id-label">{{ 'DISCUSSION.ID_LABEL' | translate }}:</span>
             <span class="discussion-id-value">{{ discussionId }}</span>
         </div>
     </div>
@@ -42,13 +42,13 @@
                 class="btn btn-outline-primary btn-sm" 
                 (click)="refreshDiscussion()" 
                 [disabled]="isLoading"
-                title="Rafraîchir la discussion">
+                [attr.title]="'DISCUSSION.REFRESH' | translate">
             <i class="fa" 
                [class.fa-refresh]="!isLoading"
                [class.fa-spinner]="isLoading"
                [class.fa-spin]="isLoading"></i>
         </button>
-        <button type="button" class="btn btn-secondary btn-fermer" (click)="close()">Fermer</button>
+        <button type="button" class="btn btn-secondary btn-fermer" (click)="close()">{{ 'COMMUN.CLOSE' | translate }}</button>
     </div>
 </div>
 

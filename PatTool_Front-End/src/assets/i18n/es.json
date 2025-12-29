@@ -1096,5 +1096,40 @@
         "GROUP_OWNER": "Propietario del Grupo",
         "GROUP_MEMBER": "Miembro del Grupo",
         "GROUP_AUTHORIZED": "Autorizado en el Grupo"
+    },
+    "DISCUSSION": {
+        "TITLE": "Discusión",
+        "ID_LABEL": "ID",
+        "REFRESH": "Actualizar discusión",
+        "LOADING_IMAGE": "Cargando imagen...",
+        "LOADING_VIDEO": "Cargando video...",
+        "VIDEO_NOT_SUPPORTED": "Su navegador no admite la etiqueta de video.",
+        "EDIT_MESSAGE": "Editar mensaje",
+        "DELETE_MESSAGE": "Eliminar mensaje",
+        "NO_MESSAGES": "Sin mensajes",
+        "BE_FIRST_MESSAGE": "¡Sé el primero en enviar un mensaje en la discusión!",
+        "PROCESSING_IMAGE": "Procesando imagen...",
+        "ATTACH_FILE": "Adjuntar imagen o video",
+        "EDIT_MESSAGE_PLACEHOLDER": "Editar mensaje...",
+        "TYPE_MESSAGE_PLACEHOLDER": "Escriba su mensaje...",
+        "ADD_EMOJI": "Agregar emoji",
+        "CANCEL_EDIT": "Cancelar edición",
+        "SEND_MESSAGE": "Enviar mensaje",
+        "SELECT_EMOJI": "Seleccionar emoji",
+        "INPUT_HELP": "Presione Enter para enviar, Shift+Enter para una nueva línea",
+        "MESSAGES": "mensajes",
+        "REMOVE_FILE": "Eliminar archivo"
+    },
+    "COMMENTARY": {
+        "EDIT": "Editar",
+        "DELETE": "Eliminar",
+        "NO_COMMENTARIES": "No hay comentarios por el momento.",
+        "PLACEHOLDER": "Escriba su comentario...",
+        "SAVE": "Guardar",
+        "NEW_COMMENTARY": "Nuevo comentario",
+        "EDIT_COMMENTARY": "Editar comentario",
+        "EMPTY_ERROR": "El comentario no puede estar vacío",
+        "DELETE_CONFIRM": "¿Está seguro de que desea eliminar este comentario?",
+        "NO_ID_ERROR": "Error: el comentario no tiene ID"
     }
 }

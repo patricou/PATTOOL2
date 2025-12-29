@@ -1111,6 +1111,41 @@
         "GROUP_OWNER": "Group Owner",
         "GROUP_MEMBER": "Group Member",
         "GROUP_AUTHORIZED": "Group Authorized"
+    },
+    "DISCUSSION": {
+        "TITLE": "Discussion",
+        "ID_LABEL": "ID",
+        "REFRESH": "Refresh discussion",
+        "LOADING_IMAGE": "Loading image...",
+        "LOADING_VIDEO": "Loading video...",
+        "VIDEO_NOT_SUPPORTED": "Your browser does not support the video tag.",
+        "EDIT_MESSAGE": "Edit message",
+        "DELETE_MESSAGE": "Delete message",
+        "NO_MESSAGES": "No messages",
+        "BE_FIRST_MESSAGE": "Be the first to send a message in the discussion!",
+        "PROCESSING_IMAGE": "Processing image...",
+        "ATTACH_FILE": "Attach image or video",
+        "EDIT_MESSAGE_PLACEHOLDER": "Edit message...",
+        "TYPE_MESSAGE_PLACEHOLDER": "Type your message...",
+        "ADD_EMOJI": "Add emoji",
+        "CANCEL_EDIT": "Cancel edit",
+        "SEND_MESSAGE": "Send message",
+        "SELECT_EMOJI": "Select Emoji",
+        "INPUT_HELP": "Press Enter to send, Shift+Enter for a new line",
+        "MESSAGES": "messages",
+        "REMOVE_FILE": "Remove file"
+    },
+    "COMMENTARY": {
+        "EDIT": "Edit",
+        "DELETE": "Delete",
+        "NO_COMMENTARIES": "No comments at the moment.",
+        "PLACEHOLDER": "Write your comment...",
+        "SAVE": "Save",
+        "NEW_COMMENTARY": "New comment",
+        "EDIT_COMMENTARY": "Edit comment",
+        "EMPTY_ERROR": "The comment cannot be empty",
+        "DELETE_CONFIRM": "Are you sure you want to delete this comment?",
+        "NO_ID_ERROR": "Error: the comment does not have an ID"
     }
 }
 

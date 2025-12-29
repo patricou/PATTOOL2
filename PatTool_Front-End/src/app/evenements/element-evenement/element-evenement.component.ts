@@ -3741,7 +3741,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Get or create discussion for this event
 		const eventDiscussionId = this.evenement.discussionId || discussionId;
-		const discussionTitle = 'Discussion - ' + this.evenement.evenementName;
+		const discussionTitle = this.translateService.instant('DISCUSSION.TITLE') + ' - ' + this.evenement.evenementName;
 		
 		// Get or create the discussion
 		this._discussionService.getOrCreateDiscussion(eventDiscussionId, discussionTitle).subscribe({

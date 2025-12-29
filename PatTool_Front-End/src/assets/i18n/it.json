@@ -1095,5 +1095,40 @@
         "GROUP_OWNER": "Proprietario del Gruppo",
         "GROUP_MEMBER": "Membro del Gruppo",
         "GROUP_AUTHORIZED": "Autorizzato nel Gruppo"
+    },
+    "DISCUSSION": {
+        "TITLE": "Discussione",
+        "ID_LABEL": "ID",
+        "REFRESH": "Aggiorna discussione",
+        "LOADING_IMAGE": "Caricamento immagine...",
+        "LOADING_VIDEO": "Caricamento video...",
+        "VIDEO_NOT_SUPPORTED": "Il tuo browser non supporta il tag video.",
+        "EDIT_MESSAGE": "Modifica messaggio",
+        "DELETE_MESSAGE": "Elimina messaggio",
+        "NO_MESSAGES": "Nessun messaggio",
+        "BE_FIRST_MESSAGE": "Sii il primo a inviare un messaggio nella discussione!",
+        "PROCESSING_IMAGE": "Elaborazione immagine...",
+        "ATTACH_FILE": "Allega immagine o video",
+        "EDIT_MESSAGE_PLACEHOLDER": "Modifica messaggio...",
+        "TYPE_MESSAGE_PLACEHOLDER": "Digita il tuo messaggio...",
+        "ADD_EMOJI": "Aggiungi emoji",
+        "CANCEL_EDIT": "Annulla modifica",
+        "SEND_MESSAGE": "Invia messaggio",
+        "SELECT_EMOJI": "Seleziona emoji",
+        "INPUT_HELP": "Premi Invio per inviare, Maiusc+Invio per una nuova riga",
+        "MESSAGES": "messaggi",
+        "REMOVE_FILE": "Rimuovi file"
+    },
+    "COMMENTARY": {
+        "EDIT": "Modifica",
+        "DELETE": "Elimina",
+        "NO_COMMENTARIES": "Nessun commento al momento.",
+        "PLACEHOLDER": "Scrivi il tuo commento...",
+        "SAVE": "Salva",
+        "NEW_COMMENTARY": "Nuovo commento",
+        "EDIT_COMMENTARY": "Modifica commento",
+        "EMPTY_ERROR": "Il commento non può essere vuoto",
+        "DELETE_CONFIRM": "Sei sicuro di voler eliminare questo commento?",
+        "NO_ID_ERROR": "Errore: il commento non ha un ID"
     }
 }

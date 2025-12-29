@@ -7,7 +7,7 @@
     <button type="button" class="btn btn-outline-info btn-sm ms-2" (click)="toggleDebug()" aria-label="Debug" [title]="'EVENTELEM.DEBUG_BUTTON' | translate" style="display: none;">
       {{ 'EVENTELEM.DEBUG_BUTTON' | translate }}
     </button>
-    <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="onSlideshowClose(c)" aria-label="Close">
+    <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="onSlideshowClose(c)" [attr.aria-label]="'COMMUN.CLOSE' | translate">
       <i class="fa fa-times"></i>
     </button>
   </div>

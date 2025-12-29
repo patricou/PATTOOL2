@@ -521,16 +521,39 @@
                         </div>
                         
                         <!-- Upload in Progress -->
-                        <div *ngIf="isLoading && uploadProgress" class="d-flex align-items-center">
-                            <div class="spinner-border text-primary me-2" role="status">
-                                <span class="visually-hidden">{{"UPLOADFILE.UPLOADING" | translate}}</span>
+                        <div *ngIf="isLoading && uploadProgress">
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="spinner-border text-primary me-2" role="status">
+                                    <span class="visually-hidden">{{"UPLOADFILE.UPLOADING" | translate}}</span>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="status-text">
+                                        <i class="fa fa-cloud-upload me-1"></i>
+                                        <strong>{{"UPLOADFILE.UPLOADING" | translate}}...</strong>
+                                        <span class="ms-2">
+                                            <strong>{{uploadProgress.current}} / {{uploadProgress.total}}</strong>
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="flex-grow-1">
-                                <div class="status-text">
-                                    <i class="fa fa-cloud-upload me-1"></i>
-                                    <strong>{{"UPLOADFILE.UPLOADING" | translate}}...</strong>
-                                    <span class="ms-2">
-                                        <strong>{{uploadProgress.current}} / {{uploadProgress.total}}</strong>
+                            
+                            <!-- Per-file progress list -->
+                            <div *ngIf="fileUploadStatus && fileUploadStatus.size > 0" class="file-progress-list mt-2">
+                                <div *ngFor="let fileStatus of getFileUploadStatusArray()" 
+                                     class="file-progress-item d-flex align-items-center mb-1 small"
+                                     [class.text-muted]="fileStatus.value.status === 'pending'"
+                                     [class.text-info]="fileStatus.value.status === 'compressing' || fileStatus.value.status === 'uploading'"
+                                     [class.text-success]="fileStatus.value.status === 'completed'"
+                                     [class.text-danger]="fileStatus.value.status === 'failed'">
+                                    <span class="me-2">
+                                        <i *ngIf="fileStatus.value.status === 'pending'" class="fa fa-clock-o"></i>
+                                        <i *ngIf="fileStatus.value.status === 'compressing'" class="fa fa-compress fa-spin"></i>
+                                        <i *ngIf="fileStatus.value.status === 'uploading'" class="fa fa-cloud-upload fa-spin"></i>
+                                        <i *ngIf="fileStatus.value.status === 'completed'" class="fa fa-check-circle"></i>
+                                        <i *ngIf="fileStatus.value.status === 'failed'" class="fa fa-times-circle"></i>
+                                    </span>
+                                    <span class="flex-grow-1 text-truncate" [attr.title]="fileStatus.value.fileName">
+                                        {{fileStatus.value.fileName}}
                                     </span>
                                 </div>
                             </div>

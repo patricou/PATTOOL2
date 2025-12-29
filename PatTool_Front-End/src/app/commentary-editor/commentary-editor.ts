@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { QuillModule } from 'ngx-quill';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Commentary } from '../model/commentary';
 import { Member } from '../model/member';
 import Quill from 'quill';
@@ -73,7 +73,8 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
   constructor(
     private sanitizer: DomSanitizer,
     private modalService: NgbModal,
-    private elementRef: ElementRef
+    private elementRef: ElementRef,
+    private translateService: TranslateService
   ) {}
 
   ngOnInit() {
@@ -333,7 +334,7 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
   openAddModal() {
     this.isEditMode = false;
     this.editingIndex = null;
-    this.modalTitle = 'Nouveau commentaire';
+    this.modalTitle = this.translateService.instant('COMMENTARY.NEW_COMMENTARY');
     this.modalContent = '';
     this.openModal();
   }
@@ -348,7 +349,7 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
     }
     this.isEditMode = true;
     this.editingIndex = index;
-    this.modalTitle = 'Modifier le commentaire';
+    this.modalTitle = this.translateService.instant('COMMENTARY.EDIT_COMMENTARY');
     this.modalContent = commentary.commentary;
     this.openModal();
   }
@@ -422,7 +423,7 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
 
   saveModal() {
     if (!this.modalContent || this.modalContent.trim() === '') {
-      alert('Le commentaire ne peut pas être vide');
+      alert(this.translateService.instant('COMMENTARY.EMPTY_ERROR'));
       return;
     }
 
@@ -447,7 +448,7 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
         });
       } else if (!commentary.id) {
         console.error('Cannot update commentary without ID');
-        alert('Erreur : le commentaire n\'a pas d\'ID');
+        alert(this.translateService.instant('COMMENTARY.NO_ID_ERROR'));
         return;
       } else {
         this.commentaryUpdated.emit({
@@ -487,7 +488,7 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
       return;
     }
 
-    if (confirm('Êtes-vous sûr de vouloir supprimer ce commentaire ?')) {
+    if (confirm(this.translateService.instant('COMMENTARY.DELETE_CONFIRM'))) {
       // Emit the commentary ID if available, or use index for create mode
       if (commentary.id) {
         this.commentaryDeleted.emit(commentary.id);

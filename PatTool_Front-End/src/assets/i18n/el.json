@@ -1093,5 +1093,40 @@
         "GROUP_OWNER": "Ιδιοκτήτης Ομάδας",
         "GROUP_MEMBER": "Μέλος Ομάδας",
         "GROUP_AUTHORIZED": "Εξουσιοδοτημένος στην Ομάδα"
+    },
+    "DISCUSSION": {
+        "TITLE": "Συζήτηση",
+        "ID_LABEL": "ID",
+        "REFRESH": "Ανανέωση συζήτησης",
+        "LOADING_IMAGE": "Φόρτωση εικόνας...",
+        "LOADING_VIDEO": "Φόρτωση βίντεο...",
+        "VIDEO_NOT_SUPPORTED": "Ο φυλλομετρητής σας δεν υποστηρίζει την ετικέτα βίντεο.",
+        "EDIT_MESSAGE": "Επεξεργασία μηνύματος",
+        "DELETE_MESSAGE": "Διαγραφή μηνύματος",
+        "NO_MESSAGES": "Δεν υπάρχουν μηνύματα",
+        "BE_FIRST_MESSAGE": "Γίνετε ο πρώτος που θα στείλει μήνυμα στη συζήτηση!",
+        "PROCESSING_IMAGE": "Επεξεργασία εικόνας...",
+        "ATTACH_FILE": "Επισύναψη εικόνας ή βίντεο",
+        "EDIT_MESSAGE_PLACEHOLDER": "Επεξεργασία μηνύματος...",
+        "TYPE_MESSAGE_PLACEHOLDER": "Πληκτρολογήστε το μήνυμά σας...",
+        "ADD_EMOJI": "Προσθήκη emoji",
+        "CANCEL_EDIT": "Ακύρωση επεξεργασίας",
+        "SEND_MESSAGE": "Αποστολή μηνύματος",
+        "SELECT_EMOJI": "Επιλογή emoji",
+        "INPUT_HELP": "Πατήστε Enter για αποστολή, Shift+Enter για νέα γραμμή",
+        "MESSAGES": "μηνύματα",
+        "REMOVE_FILE": "Αφαίρεση αρχείου"
+    },
+    "COMMENTARY": {
+        "EDIT": "Επεξεργασία",
+        "DELETE": "Διαγραφή",
+        "NO_COMMENTARIES": "Δεν υπάρχουν σχόλια αυτή τη στιγμή.",
+        "PLACEHOLDER": "Γράψτε το σχόλιό σας...",
+        "SAVE": "Αποθήκευση",
+        "NEW_COMMENTARY": "Νέο σχόλιο",
+        "EDIT_COMMENTARY": "Επεξεργασία σχολίου",
+        "EMPTY_ERROR": "Το σχόλιο δεν μπορεί να είναι κενό",
+        "DELETE_CONFIRM": "Είστε σίγουροι ότι θέλετε να διαγράψετε αυτό το σχόλιο;",
+        "NO_ID_ERROR": "Σφάλμα: το σχόλιο δεν έχει ID"
     }
 }

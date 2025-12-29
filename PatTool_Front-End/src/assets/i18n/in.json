@@ -1086,6 +1086,41 @@
         "GROUP_OWNER": "समूह मालिक",
         "GROUP_MEMBER": "समूह सदस्य",
         "GROUP_AUTHORIZED": "समूह में अधिकृत"
+    },
+    "DISCUSSION": {
+        "TITLE": "चर्चा",
+        "ID_LABEL": "ID",
+        "REFRESH": "चर्चा ताज़ा करें",
+        "LOADING_IMAGE": "छवि लोड हो रही है...",
+        "LOADING_VIDEO": "वीडियो लोड हो रहा है...",
+        "VIDEO_NOT_SUPPORTED": "आपका ब्राउज़र वीडियो टैग का समर्थन नहीं करता है।",
+        "EDIT_MESSAGE": "संदेश संपादित करें",
+        "DELETE_MESSAGE": "संदेश हटाएं",
+        "NO_MESSAGES": "कोई संदेश नहीं",
+        "BE_FIRST_MESSAGE": "चर्चा में पहला संदेश भेजने वाले बनें!",
+        "PROCESSING_IMAGE": "छवि प्रसंस्करण...",
+        "ATTACH_FILE": "छवि या वीडियो संलग्न करें",
+        "EDIT_MESSAGE_PLACEHOLDER": "संदेश संपादित करें...",
+        "TYPE_MESSAGE_PLACEHOLDER": "अपना संदेश टाइप करें...",
+        "ADD_EMOJI": "इमोजी जोड़ें",
+        "CANCEL_EDIT": "संपादन रद्द करें",
+        "SEND_MESSAGE": "संदेश भेजें",
+        "SELECT_EMOJI": "इमोजी चुनें",
+        "INPUT_HELP": "भेजने के लिए Enter दबाएं, नई पंक्ति के लिए Shift+Enter",
+        "MESSAGES": "संदेश",
+        "REMOVE_FILE": "फ़ाइल हटाएं"
+    },
+    "COMMENTARY": {
+        "EDIT": "संपादित करें",
+        "DELETE": "हटाएं",
+        "NO_COMMENTARIES": "इस समय कोई टिप्पणी नहीं है।",
+        "PLACEHOLDER": "अपनी टिप्पणी लिखें...",
+        "SAVE": "सहेजें",
+        "NEW_COMMENTARY": "नई टिप्पणी",
+        "EDIT_COMMENTARY": "टिप्पणी संपादित करें",
+        "EMPTY_ERROR": "टिप्पणी खाली नहीं हो सकती",
+        "DELETE_CONFIRM": "क्या आप वाकई इस टिप्पणी को हटाना चाहते हैं?",
+        "NO_ID_ERROR": "त्रुटि: टिप्पणी में ID नहीं है"
     }
 }
 

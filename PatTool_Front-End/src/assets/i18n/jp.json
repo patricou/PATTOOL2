@@ -1096,5 +1096,40 @@
         "GROUP_OWNER": "グループ所有者",
         "GROUP_MEMBER": "グループメンバー",
         "GROUP_AUTHORIZED": "グループで許可された"
+    },
+    "DISCUSSION": {
+        "TITLE": "議論",
+        "ID_LABEL": "ID",
+        "REFRESH": "議論を更新",
+        "LOADING_IMAGE": "画像を読み込み中...",
+        "LOADING_VIDEO": "動画を読み込み中...",
+        "VIDEO_NOT_SUPPORTED": "お使いのブラウザは動画タグをサポートしていません。",
+        "EDIT_MESSAGE": "メッセージを編集",
+        "DELETE_MESSAGE": "メッセージを削除",
+        "NO_MESSAGES": "メッセージなし",
+        "BE_FIRST_MESSAGE": "議論で最初のメッセージを送信してください！",
+        "PROCESSING_IMAGE": "画像を処理中...",
+        "ATTACH_FILE": "画像または動画を添付",
+        "EDIT_MESSAGE_PLACEHOLDER": "メッセージを編集...",
+        "TYPE_MESSAGE_PLACEHOLDER": "メッセージを入力...",
+        "ADD_EMOJI": "絵文字を追加",
+        "CANCEL_EDIT": "編集をキャンセル",
+        "SEND_MESSAGE": "メッセージを送信",
+        "SELECT_EMOJI": "絵文字を選択",
+        "INPUT_HELP": "Enterキーで送信、Shift+Enterで改行",
+        "MESSAGES": "メッセージ",
+        "REMOVE_FILE": "ファイルを削除"
+    },
+    "COMMENTARY": {
+        "EDIT": "編集",
+        "DELETE": "削除",
+        "NO_COMMENTARIES": "現在コメントはありません。",
+        "PLACEHOLDER": "コメントを書く...",
+        "SAVE": "保存",
+        "NEW_COMMENTARY": "新しいコメント",
+        "EDIT_COMMENTARY": "コメントを編集",
+        "EMPTY_ERROR": "コメントは空にできません",
+        "DELETE_CONFIRM": "このコメントを削除してもよろしいですか？",
+        "NO_ID_ERROR": "エラー：コメントにIDがありません"
     }
 }

@@ -1106,6 +1106,41 @@
         "GROUP_OWNER": "Propriétaire du Groupe",
         "GROUP_MEMBER": "Membre du Groupe",
         "GROUP_AUTHORIZED": "Autorisé dans le Groupe"
+    },
+    "DISCUSSION": {
+        "TITLE": "Discussion",
+        "ID_LABEL": "ID",
+        "REFRESH": "Rafraîchir la discussion",
+        "LOADING_IMAGE": "Chargement de l'image...",
+        "LOADING_VIDEO": "Chargement de la vidéo...",
+        "VIDEO_NOT_SUPPORTED": "Votre navigateur ne prend pas en charge la balise vidéo.",
+        "EDIT_MESSAGE": "Modifier le message",
+        "DELETE_MESSAGE": "Supprimer le message",
+        "NO_MESSAGES": "Aucun message",
+        "BE_FIRST_MESSAGE": "Soyez le premier à envoyer un message dans la discussion !",
+        "PROCESSING_IMAGE": "Traitement de l'image en cours...",
+        "ATTACH_FILE": "Joindre une image ou une vidéo",
+        "EDIT_MESSAGE_PLACEHOLDER": "Modifier le message...",
+        "TYPE_MESSAGE_PLACEHOLDER": "Tapez votre message...",
+        "ADD_EMOJI": "Ajouter un emoji",
+        "CANCEL_EDIT": "Annuler la modification",
+        "SEND_MESSAGE": "Envoyer le message",
+        "SELECT_EMOJI": "Sélectionner un emoji",
+        "INPUT_HELP": "Appuyez sur Entrée pour envoyer, Maj+Entrée pour une nouvelle ligne",
+        "MESSAGES": "messages",
+        "REMOVE_FILE": "Supprimer le fichier"
+    },
+    "COMMENTARY": {
+        "EDIT": "Modifier",
+        "DELETE": "Supprimer",
+        "NO_COMMENTARIES": "Aucun commentaire pour le moment.",
+        "PLACEHOLDER": "Écrivez votre commentaire...",
+        "SAVE": "Enregistrer",
+        "NEW_COMMENTARY": "Nouveau commentaire",
+        "EDIT_COMMENTARY": "Modifier le commentaire",
+        "EMPTY_ERROR": "Le commentaire ne peut pas être vide",
+        "DELETE_CONFIRM": "Êtes-vous sûr de vouloir supprimer ce commentaire ?",
+        "NO_ID_ERROR": "Erreur : le commentaire n'a pas d'ID"
     }
 }
 

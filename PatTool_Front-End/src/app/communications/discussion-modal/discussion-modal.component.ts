@@ -2,6 +2,7 @@
 import { Component, Input, OnInit, OnDestroy, ViewChild, AfterViewInit, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgbModule, NgbActiveModal } from '@ng-bootstrap/ng-bootstrap';
+import { TranslateModule } from '@ngx-translate/core';
 import { DiscussionComponent } from '../discussion/discussion.component';
 
 @Component({
@@ -12,6 +13,7 @@ import { DiscussionComponent } from '../discussion/discussion.component';
   imports: [
     CommonModule,
     NgbModule,
+    TranslateModule,
     DiscussionComponent
   ]
 })

@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnInit, ViewChild, HostListener, TemplateRef } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -45,6 +45,12 @@ export class AppComponent implements OnInit {
     public compressionProgress: { current: number; total: number; fileName: string } | null = null; // Compression progress
     public uploadProgress: { current: number; total: number; fileName: string } | null = null; // Upload progress
     public uploadResults: { success: number; failed: number; errors: string[] } = { success: 0, failed: 0, errors: [] }; // Upload results
+    public fileUploadStatus: Map<string, { status: 'pending' | 'compressing' | 'uploading' | 'completed' | 'failed', fileName: string }> = new Map(); // Per-file upload status
+    
+    // Helper method to get file upload status as array for template
+    getFileUploadStatusArray(): Array<{ key: string; value: { status: 'pending' | 'compressing' | 'uploading' | 'completed' | 'failed', fileName: string } }> {
+        return Array.from(this.fileUploadStatus.entries()).map(([key, value]) => ({ key, value }));
+    }
     public filePreviewUrls: Map<string, string> = new Map(); // Store preview URLs for images
     
     // Share files properties
@@ -71,7 +77,8 @@ export class AppComponent implements OnInit {
         public _commonValuesServices: CommonvaluesService,
         public modalService: NgbModal,
         public _fileService: FileService,
-        private router: Router) {
+        private router: Router,
+        private cdr: ChangeDetectorRef) {
         this.selectedFiles = [];
     }
 
@@ -339,6 +346,7 @@ export class AppComponent implements OnInit {
         this.filePreviewUrls.clear();
         this.selectedFiles = [];
         this.fileInfoMap.clear();
+        this.fileUploadStatus.clear();
         this.resultSaveOndisk = "";
         this.isCompressing = false;
         this.compressionStatus = "";
@@ -694,6 +702,13 @@ export class AppComponent implements OnInit {
         this.compressionProgress = null;
         this.uploadProgress = null;
         this.uploadResults = { success: 0, failed: 0, errors: [] };
+        this.fileUploadStatus.clear();
+        
+        // Initialize file status for all selected files
+        this.selectedFiles.forEach(file => {
+            this.fileUploadStatus.set(file.name, { status: 'pending', fileName: file.name });
+        });
+        this.cdr.detectChanges();
 
         if (this.selectedFiles.length === 0) {
             console.log('No files selected.');
@@ -734,15 +749,7 @@ export class AppComponent implements OnInit {
             }
         };
         
-        const updateUploadProgress = () => {
-            uploadCount++;
-            activeUploads--;
-            this.uploadProgress = {
-                current: uploadCount,
-                total: totalFiles,
-                fileName: ''
-            };
-        };
+        // Note: updateUploadProgress is no longer used, progress is updated inline in processFile
 
         // Process files in parallel batches: compress then upload immediately
         const processFile = async (file: File, index: number): Promise<void> => {
@@ -755,8 +762,16 @@ export class AppComponent implements OnInit {
                 this.compressionProgress = {
                     current: compressionCount,
                     total: totalFiles,
-                    fileName: ''
+                    fileName: file.name
                 };
+                
+                // Update file status to compressing
+                const fileStatus = this.fileUploadStatus.get(file.name);
+                if (fileStatus) {
+                    fileStatus.status = 'compressing';
+                    this.fileUploadStatus.set(file.name, fileStatus);
+                }
+                this.cdr.detectChanges();
                 
                 try {
                     fileToUpload = await this.compressImageToTargetSize(file, 300 * 1024);
@@ -786,11 +801,21 @@ export class AppComponent implements OnInit {
             
             // Upload immediately after compression (or directly if no compression needed)
             activeUploads++;
+            
+            // Update file status to uploading
+            const fileStatus = this.fileUploadStatus.get(file.name);
+            if (fileStatus) {
+                fileStatus.status = 'uploading';
+                this.fileUploadStatus.set(file.name, fileStatus);
+            }
+            
+            // Show progress with current file name when starting upload
             this.uploadProgress = {
                 current: uploadCount,
                 total: totalFiles,
-                fileName: ''
+                fileName: fileToUpload.name
             };
+            this.cdr.detectChanges();
             
             const uploadFormData = new FormData();
             uploadFormData.append('files', fileToUpload, fileToUpload.name);
@@ -802,7 +827,23 @@ export class AppComponent implements OnInit {
                         next: (response: any) => {
                             console.log('|--> Upload successful for:', fileToUpload.name, response);
                             this.uploadResults.success++;
-                            updateUploadProgress();
+                            
+                            // Update file status to completed
+                            const completedStatus = this.fileUploadStatus.get(file.name);
+                            if (completedStatus) {
+                                completedStatus.status = 'completed';
+                                this.fileUploadStatus.set(file.name, completedStatus);
+                            }
+                            
+                            // Update progress to show completed file
+                            uploadCount++;
+                            activeUploads--;
+                            this.uploadProgress = {
+                                current: uploadCount,
+                                total: totalFiles,
+                                fileName: fileToUpload.name
+                            };
+                            this.cdr.detectChanges();
                             resolve();
                         },
                         error: (error: any) => {
@@ -810,7 +851,23 @@ export class AppComponent implements OnInit {
                             this.uploadResults.failed++;
                             const errorMsg = error.error || error.message || "Upload failed";
                             this.uploadResults.errors.push(`${fileToUpload.name}: ${errorMsg}`);
-                            updateUploadProgress();
+                            
+                            // Update file status to failed
+                            const failedStatus = this.fileUploadStatus.get(file.name);
+                            if (failedStatus) {
+                                failedStatus.status = 'failed';
+                                this.fileUploadStatus.set(file.name, failedStatus);
+                            }
+                            
+                            // Update progress to show failed file
+                            uploadCount++;
+                            activeUploads--;
+                            this.uploadProgress = {
+                                current: uploadCount,
+                                total: totalFiles,
+                                fileName: fileToUpload.name
+                            };
+                            this.cdr.detectChanges();
                             resolve(); // Continue with other files even if one fails
                         }
                     });

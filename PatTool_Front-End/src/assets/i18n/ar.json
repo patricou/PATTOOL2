@@ -1092,5 +1092,40 @@
         "GROUP_OWNER": "مالك المجموعة",
         "GROUP_MEMBER": "عضو المجموعة",
         "GROUP_AUTHORIZED": "مصرح في المجموعة"
+    },
+    "DISCUSSION": {
+        "TITLE": "مناقشة",
+        "ID_LABEL": "المعرف",
+        "REFRESH": "تحديث المناقشة",
+        "LOADING_IMAGE": "جارٍ تحميل الصورة...",
+        "LOADING_VIDEO": "جارٍ تحميل الفيديو...",
+        "VIDEO_NOT_SUPPORTED": "متصفحك لا يدعم علامة الفيديو.",
+        "EDIT_MESSAGE": "تعديل الرسالة",
+        "DELETE_MESSAGE": "حذف الرسالة",
+        "NO_MESSAGES": "لا توجد رسائل",
+        "BE_FIRST_MESSAGE": "كن أول من يرسل رسالة في المناقشة!",
+        "PROCESSING_IMAGE": "جارٍ معالجة الصورة...",
+        "ATTACH_FILE": "إرفاق صورة أو فيديو",
+        "EDIT_MESSAGE_PLACEHOLDER": "تعديل الرسالة...",
+        "TYPE_MESSAGE_PLACEHOLDER": "اكتب رسالتك...",
+        "ADD_EMOJI": "إضافة رمز تعبيري",
+        "CANCEL_EDIT": "إلغاء التعديل",
+        "SEND_MESSAGE": "إرسال الرسالة",
+        "SELECT_EMOJI": "اختر رمز تعبيري",
+        "INPUT_HELP": "اضغط Enter للإرسال، Shift+Enter لسطر جديد",
+        "MESSAGES": "رسائل",
+        "REMOVE_FILE": "إزالة الملف"
+    },
+    "COMMENTARY": {
+        "EDIT": "تعديل",
+        "DELETE": "حذف",
+        "NO_COMMENTARIES": "لا توجد تعليقات في الوقت الحالي.",
+        "PLACEHOLDER": "اكتب تعليقك...",
+        "SAVE": "حفظ",
+        "NEW_COMMENTARY": "تعليق جديد",
+        "EDIT_COMMENTARY": "تعديل التعليق",
+        "EMPTY_ERROR": "لا يمكن أن يكون التعليق فارغًا",
+        "DELETE_CONFIRM": "هل أنت متأكد من أنك تريد حذف هذا التعليق؟",
+        "NO_ID_ERROR": "خطأ: التعليق ليس له معرف"
     }
 }

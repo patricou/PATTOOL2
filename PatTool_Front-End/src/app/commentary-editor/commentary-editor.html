@@ -36,13 +36,13 @@
             <button class="btn btn-sm btn-outline-primary me-1" 
                     [ngStyle]="buttonEditStyle"
                     (click)="openEditModal(i)" 
-                    title="Modifier">
+                    [attr.title]="'COMMENTARY.EDIT' | translate">
               <i class="fa fa-edit"></i>
             </button>
             <button class="btn btn-sm btn-outline-danger" 
                     [ngStyle]="buttonDeleteStyle"
                     (click)="deleteCommentary(i)" 
-                    title="Supprimer">
+                    [attr.title]="'COMMENTARY.DELETE' | translate">
               <i class="fa fa-trash"></i>
             </button>
           </div>
@@ -54,7 +54,7 @@
     <!-- Empty state -->
     <div *ngIf="!commentaries || commentaries.length === 0" class="text-muted text-center py-3">
       <i class="fa fa-comments fa-3x mb-3 d-block"></i>
-      Aucun commentaire pour le moment.
+      {{ 'COMMENTARY.NO_COMMENTARIES' | translate }}
     </div>
   </div>
 </div>
@@ -65,7 +65,7 @@
     <h5 class="modal-title">
       <i class="fa fa-comment me-2"></i>{{ modalTitle }}
     </h5>
-    <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="cancelModal()" aria-label="Close">
+    <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="cancelModal()" [attr.aria-label]="'COMMUN.CLOSE' | translate">
       <i class="fa fa-times"></i>
     </button>
   </div>
@@ -74,7 +74,7 @@
       <quill-editor
         [(ngModel)]="modalContent"
         [modules]="quillModules"
-        [placeholder]="'Écrivez votre commentaire...'"
+        [placeholder]="'COMMENTARY.PLACEHOLDER' | translate"
         [styles]="{ height: '400px' }"
         class="commentary-quill-editor-full">
       </quill-editor>
@@ -82,10 +82,10 @@
   </div>
   <div class="modal-footer" [ngStyle]="modalFooterStyle">
     <button type="button" class="btn btn-secondary" (click)="cancelModal()">
-      <i class="fa fa-times me-1"></i> Annuler
+      <i class="fa fa-times me-1"></i> {{ 'COMMUN.CANCEL' | translate }}
     </button>
     <button type="button" class="btn btn-success" [ngStyle]="buttonSuccessStyle" (click)="saveModal()">
-      <i class="fa fa-save me-1"></i> Enregistrer
+      <i class="fa fa-save me-1"></i> {{ 'COMMENTARY.SAVE' | translate }}
     </button>
   </div>
 </ng-template>

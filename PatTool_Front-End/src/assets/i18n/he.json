@@ -1087,5 +1087,40 @@
         "GROUP_OWNER": "בעלים של הקבוצה",
         "GROUP_MEMBER": "חבר בקבוצה",
         "GROUP_AUTHORIZED": "מורשה בקבוצה"
+    },
+    "DISCUSSION": {
+        "TITLE": "דיון",
+        "ID_LABEL": "מזהה",
+        "REFRESH": "רענן דיון",
+        "LOADING_IMAGE": "טוען תמונה...",
+        "LOADING_VIDEO": "טוען וידאו...",
+        "VIDEO_NOT_SUPPORTED": "הדפדפן שלך אינו תומך בתג וידאו.",
+        "EDIT_MESSAGE": "ערוך הודעה",
+        "DELETE_MESSAGE": "מחק הודעה",
+        "NO_MESSAGES": "אין הודעות",
+        "BE_FIRST_MESSAGE": "היה הראשון לשלוח הודעה בדיון!",
+        "PROCESSING_IMAGE": "מעבד תמונה...",
+        "ATTACH_FILE": "צרף תמונה או וידאו",
+        "EDIT_MESSAGE_PLACEHOLDER": "ערוך הודעה...",
+        "TYPE_MESSAGE_PLACEHOLDER": "הקלד את ההודעה שלך...",
+        "ADD_EMOJI": "הוסף אמוג'י",
+        "CANCEL_EDIT": "בטל עריכה",
+        "SEND_MESSAGE": "שלח הודעה",
+        "SELECT_EMOJI": "בחר אמוג'י",
+        "INPUT_HELP": "לחץ Enter לשליחה, Shift+Enter לשורה חדשה",
+        "MESSAGES": "הודעות",
+        "REMOVE_FILE": "הסר קובץ"
+    },
+    "COMMENTARY": {
+        "EDIT": "ערוך",
+        "DELETE": "מחק",
+        "NO_COMMENTARIES": "אין תגובות כרגע.",
+        "PLACEHOLDER": "כתוב את התגובה שלך...",
+        "SAVE": "שמור",
+        "NEW_COMMENTARY": "תגובה חדשה",
+        "EDIT_COMMENTARY": "ערוך תגובה",
+        "EMPTY_ERROR": "התגובה לא יכולה להיות ריקה",
+        "DELETE_CONFIRM": "האם אתה בטוח שברצונך למחוק את התגובה הזו?",
+        "NO_ID_ERROR": "שגיאה: לתגובה אין מזהה"
     }
 }

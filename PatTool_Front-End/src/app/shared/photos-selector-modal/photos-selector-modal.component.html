@@ -4,7 +4,7 @@
       <i class="fa fa-image"></i>
       {{ 'EVENTELEM.PHOTOS_SELECTION' | translate }} - {{ evenement.evenementName }}
     </h5>
-    <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
+    <button type="button" class="btn-close" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss('Cross click')"></button>
   </div>
   <div class="modal-body">
     <!-- Message when no options are available -->
