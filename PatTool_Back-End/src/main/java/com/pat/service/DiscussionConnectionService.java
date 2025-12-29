@@ -9,6 +9,8 @@ import com.pat.repo.domain.UserConnectionLog;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -33,6 +35,14 @@ public class DiscussionConnectionService {
     @Autowired
     private UserConnectionLogRepository userConnectionLogRepository;
 
+    // Maximum number of connections to keep in memory (default: 1000)
+    @Value("${app.websocket.max-connections:1000}")
+    private int maxConnections;
+    
+    // Maximum age for connections in minutes (default: 30 minutes)
+    @Value("${app.websocket.connection-max-age-minutes:30}")
+    private int connectionMaxAgeMinutes;
+
     // Map of sessionId -> ConnectionInfo
     private final Map<String, ConnectionInfo> activeConnections = new ConcurrentHashMap<>();
 
@@ -40,6 +50,9 @@ public class DiscussionConnectionService {
      * Add a new connection
      */
     public void addConnection(String sessionId, String userName, String ipAddress, String domain, String location) {
+        // Enforce size limit before adding new connection
+        enforceConnectionLimit();
+        
         ConnectionInfo info = new ConnectionInfo();
         info.sessionId = sessionId;
         info.userName = userName;
@@ -50,7 +63,7 @@ public class DiscussionConnectionService {
         info.discussionId = null;
         
         activeConnections.put(sessionId, info);
-        log.debug("Added connection: {} for user {}", sessionId, userName);
+        log.debug("Added connection: {} for user {} (total connections: {})", sessionId, userName, activeConnections.size());
     }
 
     /**
@@ -224,6 +237,73 @@ public class DiscussionConnectionService {
         return (int) activeConnections.values().stream()
                 .filter(info -> info.discussionId != null && !info.discussionId.isEmpty())
                 .count();
+    }
+
+    /**
+     * Periodic cleanup of expired connections (runs every 5 minutes)
+     * This prevents memory leaks from connections that were not properly cleaned up
+     */
+    @Scheduled(fixedRate = 300000) // Every 5 minutes
+    public void cleanupExpiredConnections() {
+        try {
+            LocalDateTime now = LocalDateTime.now();
+            LocalDateTime maxAge = now.minusMinutes(connectionMaxAgeMinutes);
+            
+            int removedCount = 0;
+            Iterator<Map.Entry<String, ConnectionInfo>> iterator = activeConnections.entrySet().iterator();
+            
+            while (iterator.hasNext()) {
+                Map.Entry<String, ConnectionInfo> entry = iterator.next();
+                ConnectionInfo info = entry.getValue();
+                
+                // Remove connections older than maxAge
+                if (info.connectedAt.isBefore(maxAge)) {
+                    iterator.remove();
+                    removedCount++;
+                    log.debug("Removed expired connection: {} (age: {} minutes)", 
+                        entry.getKey(), 
+                        java.time.Duration.between(info.connectedAt, now).toMinutes());
+                }
+            }
+            
+            // If still too many connections, remove oldest ones
+            if (activeConnections.size() > maxConnections) {
+                int toRemove = activeConnections.size() - maxConnections;
+                List<Map.Entry<String, ConnectionInfo>> sorted = new ArrayList<>(activeConnections.entrySet());
+                sorted.sort(Comparator.comparing(e -> e.getValue().connectedAt));
+                
+                for (int i = 0; i < toRemove && i < sorted.size(); i++) {
+                    activeConnections.remove(sorted.get(i).getKey());
+                    removedCount++;
+                }
+                
+                log.info("Removed {} oldest connections to enforce limit (max: {})", toRemove, maxConnections);
+            }
+            
+            if (removedCount > 0) {
+                log.info("Cleaned up {} expired/old connections. Remaining: {}", removedCount, activeConnections.size());
+            }
+        } catch (Exception e) {
+            log.error("Error during connection cleanup", e);
+        }
+    }
+
+    /**
+     * Enforce connection limit before adding new connection
+     */
+    private void enforceConnectionLimit() {
+        if (activeConnections.size() >= maxConnections) {
+            // Remove oldest connections to make room
+            List<Map.Entry<String, ConnectionInfo>> sorted = new ArrayList<>(activeConnections.entrySet());
+            sorted.sort(Comparator.comparing(e -> e.getValue().connectedAt));
+            
+            int toRemove = activeConnections.size() - maxConnections + 1; // +1 to make room for new connection
+            for (int i = 0; i < toRemove && i < sorted.size(); i++) {
+                activeConnections.remove(sorted.get(i).getKey());
+            }
+            
+            log.debug("Enforced connection limit: removed {} oldest connections (max: {})", toRemove, maxConnections);
+        }
     }
 
     /**

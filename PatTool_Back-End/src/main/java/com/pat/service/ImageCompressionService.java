@@ -13,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import javax.imageio.ImageIO;
@@ -729,6 +730,28 @@ public class ImageCompressionService {
         for (int i = 0; i < overshoot && i < entries.size(); i++) {
             Map.Entry<String, CacheEntry> entry = entries.get(i);
             compressionCache.remove(entry.getKey(), entry.getValue());
+        }
+    }
+    
+    /**
+     * Periodic cleanup of compression cache (runs every 5 minutes)
+     * This prevents memory leaks from cache entries that were not properly cleaned up
+     */
+    @Scheduled(fixedRate = 300000) // Every 5 minutes
+    public void cleanupCachePeriodically() {
+        try {
+            long now = System.currentTimeMillis();
+            cleanupExpiredEntries(now);
+            enforceCacheLimit();
+            
+            // Log cache statistics periodically
+            if (log.isDebugEnabled()) {
+                Map<String, Object> stats = getCacheStatistics();
+                log.debug("Periodic cache cleanup completed. Entries: {}, Size: {} MB", 
+                    stats.get("entryCount"), stats.get("totalSizeMB"));
+            }
+        } catch (Exception e) {
+            log.error("Error during periodic cache cleanup", e);
         }
     }
     

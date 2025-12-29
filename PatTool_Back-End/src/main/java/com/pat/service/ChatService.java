@@ -94,11 +94,11 @@ public class ChatService {
 
     private String buildContext(List<ChatRequest> chatHistory, String userInput, boolean takeXlast) {
         // Determine the max size for context to avoid payload too large
-        // int maxContextSize = 10000; // Adjust this value as needed
-        StringBuilder contextBuilder = new StringBuilder();
-        StringBuilder contextBuilder2 = new StringBuilder();
+        // Initialize StringBuilder with estimated capacity to prevent excessive reallocation
+        StringBuilder contextBuilder = new StringBuilder(Math.min(maxContextSize, 4096));
+        StringBuilder contextBuilder2 = new StringBuilder(Math.min(maxContextSize, 4096));
 
-        List<ChatRequest> chatHistory2 = new ArrayList<ChatRequest>();
+        List<ChatRequest> chatHistory2 = new ArrayList<ChatRequest>(Math.min(chatHistory.size(), 50));
 
         // Reverse the chat history list
         if ( takeXlast ) Collections.reverse(chatHistory);
@@ -123,7 +123,14 @@ public class ChatService {
 
         contextBuilder2.append("User: ").append(userInput);
 
-        return contextBuilder2.toString();
+        String result = contextBuilder2.toString();
+        
+        // Clear references to help GC (defensive cleanup)
+        contextBuilder.setLength(0);
+        contextBuilder2.setLength(0);
+        chatHistory2.clear();
+        
+        return result;
     }
 
     private String decodeUtf8(String input) {

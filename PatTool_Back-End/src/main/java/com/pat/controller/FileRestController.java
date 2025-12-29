@@ -25,6 +25,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -35,6 +36,8 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -42,7 +45,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -79,10 +84,27 @@ public class FileRestController {
     private static final Logger log = LoggerFactory.getLogger(FileRestController.class);
     
     // In-memory storage for upload session logs (thread-safe)
-    private final Map<String, List<String>> uploadLogs = new ConcurrentHashMap<>();
+    // Map: sessionId -> UploadLogEntry (contains logs and timestamp)
+    private final Map<String, UploadLogEntry> uploadLogs = new ConcurrentHashMap<>();
     
     // Maximum number of upload sessions to keep in memory
     private static final int MAX_UPLOAD_SESSIONS = 100;
+    
+    // Maximum age for upload logs in milliseconds (default: 5 minutes)
+    private static final long MAX_LOG_AGE_MS = 5 * 60 * 1000;
+    
+    /**
+     * Internal class to store upload log entry with timestamp
+     */
+    private static class UploadLogEntry {
+        final List<String> logs;
+        final long createdAt;
+        
+        UploadLogEntry() {
+            this.logs = Collections.synchronizedList(new ArrayList<>());
+            this.createdAt = System.currentTimeMillis();
+        }
+    }
 
     @RequestMapping( value = "/api/file/test", method = RequestMethod.GET )
     public ResponseEntity<String> testFileEndpoint(){
@@ -107,7 +129,8 @@ public class FileRestController {
      */
     @GetMapping(value = "/api/file/upload-logs/{sessionId}")
     public ResponseEntity<List<String>> getUploadLogs(@PathVariable String sessionId) {
-        List<String> logs = uploadLogs.getOrDefault(sessionId, Collections.emptyList());
+        UploadLogEntry entry = uploadLogs.get(sessionId);
+        List<String> logs = entry != null ? entry.logs : Collections.emptyList();
         return ResponseEntity.ok()
             .header(HttpHeaders.CACHE_CONTROL, "no-cache, no-store, must-revalidate")
             .header(HttpHeaders.PRAGMA, "no-cache")
@@ -122,8 +145,8 @@ public class FileRestController {
         // Enforce size limit before adding
         enforceUploadLogsSizeLimit();
         
-        uploadLogs.computeIfAbsent(sessionId, k -> Collections.synchronizedList(new ArrayList<>()))
-                  .add(message);
+        uploadLogs.computeIfAbsent(sessionId, k -> new UploadLogEntry())
+                  .logs.add(message);
     }
     
     /**
@@ -134,15 +157,92 @@ public class FileRestController {
     }
     
     /**
+     * Build Content-Disposition header value with proper RFC 5987 encoding for Unicode filenames
+     * @param disposition "inline" or "attachment"
+     * @param filename The filename (may contain Unicode characters)
+     * @return Properly encoded Content-Disposition header value
+     */
+    private String buildContentDispositionHeader(String disposition, String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return disposition;
+        }
+        
+        // Create ASCII-safe fallback filename (replace non-ASCII with underscore)
+        String asciiFilename = filename.replaceAll("[^\\x20-\\x7E]", "_");
+        // Ensure the fallback is properly quoted
+        String quotedAscii = "\"" + asciiFilename.replace("\"", "\\\"") + "\"";
+        
+        // Encode filename for filename* parameter (RFC 5987)
+        try {
+            String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8.toString())
+                .replace("+", "%20"); // URLEncoder uses + for spaces, but RFC 5987 uses %20
+            
+            // Build the header value with both filename (ASCII fallback) and filename* (UTF-8)
+            return disposition + "; filename=" + quotedAscii + "; filename*=UTF-8''" + encodedFilename;
+        } catch (Exception e) {
+            log.warn("Error encoding filename for Content-Disposition header: " + filename, e);
+            // Fallback to ASCII version only if encoding fails
+            return disposition + "; filename=" + quotedAscii;
+        }
+    }
+    
+    /**
      * Enforce size limit on uploadLogs map to prevent memory leak
      */
     private void enforceUploadLogsSizeLimit() {
         if (uploadLogs.size() >= MAX_UPLOAD_SESSIONS) {
-            // Remove oldest entries (simple FIFO - remove first entry found)
-            // In practice, sessions are cleaned up after 5 seconds, so this should rarely trigger
-            String firstKey = uploadLogs.keySet().iterator().next();
-            uploadLogs.remove(firstKey);
-            log.debug("Upload logs map size limit reached, removed oldest session: {}", firstKey);
+            // Remove oldest entries based on timestamp
+            List<Map.Entry<String, UploadLogEntry>> sorted = new ArrayList<>(uploadLogs.entrySet());
+            sorted.sort(Comparator.comparing(e -> e.getValue().createdAt));
+            
+            int toRemove = uploadLogs.size() - MAX_UPLOAD_SESSIONS + 1; // +1 to make room
+            for (int i = 0; i < toRemove && i < sorted.size(); i++) {
+                uploadLogs.remove(sorted.get(i).getKey());
+            }
+            
+            log.debug("Upload logs map size limit reached, removed {} oldest session(s)", toRemove);
+        }
+    }
+    
+    /**
+     * Periodic cleanup of expired upload logs (runs every minute)
+     * This prevents memory leaks from upload logs that were not properly cleaned up
+     */
+    @Scheduled(fixedRate = 60000) // Every minute
+    public void cleanupExpiredUploadLogs() {
+        try {
+            long now = System.currentTimeMillis();
+            int removedCount = 0;
+            
+            Iterator<Map.Entry<String, UploadLogEntry>> iterator = uploadLogs.entrySet().iterator();
+            while (iterator.hasNext()) {
+                Map.Entry<String, UploadLogEntry> entry = iterator.next();
+                UploadLogEntry logEntry = entry.getValue();
+                
+                // Remove logs older than MAX_LOG_AGE_MS
+                if (now - logEntry.createdAt > MAX_LOG_AGE_MS) {
+                    iterator.remove();
+                    removedCount++;
+                }
+            }
+            
+            // If still too many logs, remove oldest ones
+            if (uploadLogs.size() > MAX_UPLOAD_SESSIONS) {
+                List<Map.Entry<String, UploadLogEntry>> sorted = new ArrayList<>(uploadLogs.entrySet());
+                sorted.sort(Comparator.comparing(e -> e.getValue().createdAt));
+                
+                int toRemove = uploadLogs.size() - MAX_UPLOAD_SESSIONS;
+                for (int i = 0; i < toRemove && i < sorted.size(); i++) {
+                    uploadLogs.remove(sorted.get(i).getKey());
+                    removedCount++;
+                }
+            }
+            
+            if (removedCount > 0) {
+                log.debug("Cleaned up {} expired/old upload log sessions. Remaining: {}", removedCount, uploadLogs.size());
+            }
+        } catch (Exception e) {
+            log.error("Error during upload logs cleanup", e);
         }
     }
 
@@ -372,8 +472,8 @@ public class FileRestController {
             }
             
             log.debug("Request file " + filename);
-            headers.setContentDispositionFormData(filename, filename);
-            headers.set("Content-Disposition","inline; filename =" + filename);
+            // Build properly encoded Content-Disposition header (RFC 5987 compliant)
+            headers.set("Content-Disposition", buildContentDispositionHeader("inline", filename));
             
             try {
                 // Handle content length with fallback
@@ -635,7 +735,7 @@ public class FileRestController {
         
         // Initialize session logs if sessionId provided
         if (finalSessionId != null && !finalSessionId.isEmpty()) {
-            uploadLogs.computeIfAbsent(finalSessionId, k -> Collections.synchronizedList(new ArrayList<>()));
+            uploadLogs.computeIfAbsent(finalSessionId, k -> new UploadLogEntry());
             addUploadLog(finalSessionId, String.format("📤 Processing %d file(s)", files.length));
         }
         
@@ -687,11 +787,29 @@ public class FileRestController {
                 long fileSize = filedata.getSize();
                 long maxSizeInBytes = imagemaxsizekb * 1024L; // Convert KB to bytes
                 
-                java.io.InputStream inputStream;
-                
-                // ALWAYS compress images unless allowOriginal is explicitly set to true (O button upload)
-                // This ensures non-compressed photos can only be uploaded via the O button path
+                // Determine correct content type from filename (more reliable than browser's contentType)
+                String correctContentType = getContentTypeFromFilename(filedata.getOriginalFilename());
+                // Use browser's contentType if it's valid, otherwise use filename-based detection
+                if (contentType == null || contentType.isEmpty() || contentType.equals("application/octet-stream")) {
+                    contentType = correctContentType;
+                } else {
+                    // Validate browser's contentType matches the file extension
+                    String browserType = contentType.toLowerCase();
+                    String filenameType = correctContentType.toLowerCase();
+                    // If they don't match, prefer filename-based detection for images and videos
+                    if ((browserType.startsWith("image/") && !filenameType.startsWith("image/")) ||
+                        (browserType.startsWith("video/") && !filenameType.startsWith("video/"))) {
+                        log.warn("ContentType mismatch for file {}: browser says {}, filename suggests {}. Using filename-based type.",
+                                filedata.getOriginalFilename(), contentType, correctContentType);
+                        contentType = correctContentType;
+                    }
+                }
+
+                // Save the doc ( all type ) in  MongoDB
+                // Use try-with-resources to ensure InputStream is properly closed
+                String fieldId;
                 if (imageCompressionService.isImageType(contentType) && !allowOriginal) {
+                    // Image compression path - use ByteArrayInputStream (no need to close)
                     if (finalSessionId != null) {
                         addUploadLog(finalSessionId, String.format("⚙️ Image detected (%d KB) - Compression in progress... (allowOriginal=%s)", 
                             fileSize / 1024, allowOriginal));
@@ -720,9 +838,11 @@ public class FileRestController {
                                 finalSessionId != null ? message -> addUploadLog(finalSessionId, message) : null
                             );
                             
-                            // Create input stream from compressed bytes
+                            // Create input stream from compressed bytes (ByteArrayInputStream doesn't need closing)
                             byte[] compressedBytes = compressionResult.getData();
-                            inputStream = new ByteArrayInputStream(compressedBytes);
+                            try (java.io.InputStream inputStream = new ByteArrayInputStream(compressedBytes)) {
+                                fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
+                            }
                             if (finalSessionId != null) {
                                 addUploadLog(finalSessionId, String.format("✅ Compression completed: %d KB → %d KB", 
                                     fileSize / 1024, compressionResult.getCompressedSize() / 1024));
@@ -730,7 +850,9 @@ public class FileRestController {
                             log.debug("Image compressed from {} to {} bytes", fileSize, compressionResult.getCompressedSize());
                         } else {
                             // ImageIO couldn't read it, use original bytes
-                            inputStream = new ByteArrayInputStream(fileBytes);
+                            try (java.io.InputStream inputStream = new ByteArrayInputStream(fileBytes)) {
+                                fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
+                            }
                             log.debug("Could not read image with ImageIO, using original");
                         }
                     } catch (Exception e) {
@@ -738,7 +860,10 @@ public class FileRestController {
                             addUploadLog(finalSessionId, "⚠️ Compression error, using original file");
                         }
                         log.debug("Error compressing image: {}, using original", e.getMessage());
-                        inputStream = new ByteArrayInputStream(filedata.getBytes());
+                        // Fallback to original file bytes
+                        try (java.io.InputStream inputStream = new ByteArrayInputStream(filedata.getBytes())) {
+                            fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
+                        }
                     }
                 } else if (imageCompressionService.isImageType(contentType) && allowOriginal) {
                     // O button upload path: allow non-compressed upload
@@ -746,36 +871,20 @@ public class FileRestController {
                         addUploadLog(finalSessionId, String.format("✓ O button upload: Allowing original quality image (%d KB)", fileSize / 1024));
                     }
                     log.debug("O button upload: Allowing original quality image upload ({} bytes)", fileSize);
-                    inputStream = filedata.getInputStream();
+                    // Use try-with-resources to ensure InputStream from MultipartFile is properly closed
+                    try (java.io.InputStream inputStream = filedata.getInputStream()) {
+                        fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
+                    }
                 } else {
                     // Non-image file: use original
                     if (finalSessionId != null && imageCompressionService.isImageType(contentType)) {
                         addUploadLog(finalSessionId, String.format("✓ Image OK, no compression needed (%d KB)", fileSize / 1024));
                     }
-                    inputStream = filedata.getInputStream();
-                }
-
-                // Determine correct content type from filename (more reliable than browser's contentType)
-                String correctContentType = getContentTypeFromFilename(filedata.getOriginalFilename());
-                // Use browser's contentType if it's valid, otherwise use filename-based detection
-                if (contentType == null || contentType.isEmpty() || contentType.equals("application/octet-stream")) {
-                    contentType = correctContentType;
-                } else {
-                    // Validate browser's contentType matches the file extension
-                    String browserType = contentType.toLowerCase();
-                    String filenameType = correctContentType.toLowerCase();
-                    // If they don't match, prefer filename-based detection for images and videos
-                    if ((browserType.startsWith("image/") && !filenameType.startsWith("image/")) ||
-                        (browserType.startsWith("video/") && !filenameType.startsWith("video/"))) {
-                        log.warn("ContentType mismatch for file {}: browser says {}, filename suggests {}. Using filename-based type.",
-                                filedata.getOriginalFilename(), contentType, correctContentType);
-                        contentType = correctContentType;
+                    // Use try-with-resources to ensure InputStream from MultipartFile is properly closed
+                    try (java.io.InputStream inputStream = filedata.getInputStream()) {
+                        fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
                     }
                 }
-
-                // Save the doc ( all type ) in  MongoDB
-                String fieldId =
-                        gridFsTemplate.store( inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
                 log.debug("Doc created id : "+fieldId + " with contentType: " + contentType);
 
                 // create the file info with correct content type

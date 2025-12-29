@@ -13,6 +13,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -259,6 +261,36 @@ public class VideoService {
         
         return "video/mp4"; // Default
     }
+    
+    /**
+     * Build Content-Disposition header value with proper RFC 5987 encoding for Unicode filenames
+     * @param disposition "inline" or "attachment"
+     * @param filename The filename (may contain Unicode characters)
+     * @return Properly encoded Content-Disposition header value
+     */
+    private String buildContentDispositionHeader(String disposition, String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return disposition;
+        }
+        
+        // Create ASCII-safe fallback filename (replace non-ASCII with underscore)
+        String asciiFilename = filename.replaceAll("[^\\x20-\\x7E]", "_");
+        // Ensure the fallback is properly quoted
+        String quotedAscii = "\"" + asciiFilename.replace("\"", "\\\"") + "\"";
+        
+        // Encode filename for filename* parameter (RFC 5987)
+        try {
+            String encodedFilename = URLEncoder.encode(filename, StandardCharsets.UTF_8.toString())
+                .replace("+", "%20"); // URLEncoder uses + for spaces, but RFC 5987 uses %20
+            
+            // Build the header value with both filename (ASCII fallback) and filename* (UTF-8)
+            return disposition + "; filename=" + quotedAscii + "; filename*=UTF-8''" + encodedFilename;
+        } catch (Exception e) {
+            log.warn("Error encoding filename for Content-Disposition header: " + filename, e);
+            // Fallback to ASCII version only if encoding fails
+            return disposition + "; filename=" + quotedAscii;
+        }
+    }
 
     /**
      * Build HTTP headers for video response
@@ -275,8 +307,8 @@ public class VideoService {
                 filename = "video.mp4";
             }
             
-            headers.setContentDispositionFormData(filename, filename);
-            headers.set("Content-Disposition", "inline; filename=" + filename);
+            // Build properly encoded Content-Disposition header (RFC 5987 compliant)
+            headers.set("Content-Disposition", buildContentDispositionHeader("inline", filename));
             
             // Add content length if available
             try {

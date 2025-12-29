@@ -11,6 +11,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -30,6 +31,17 @@ public class VideoCompressionService {
 
     @Value("${app.video.compression.tempdir:${java.io.tmpdir}}")
     private String tempDir;
+    
+    // Semaphore to limit concurrent video compressions and prevent resource exhaustion
+    private final Semaphore compressionSemaphore;
+    
+    public VideoCompressionService(
+        @Value("${app.video.compression.max-concurrency:2}") int maxConcurrentCompressions
+    ) {
+        int permits = Math.max(1, maxConcurrentCompressions);
+        this.compressionSemaphore = new Semaphore(permits, true); // Fair semaphore
+        log.info("VideoCompressionService initialized with {} concurrent compression permits", permits);
+    }
 
     /**
      * Compression result
@@ -101,10 +113,18 @@ public class VideoCompressionService {
             return new CompressionResult(videoData, videoData.length, videoData.length, false);
         }
 
+        boolean permitAcquired = false;
         Path tempInputFile = null;
         Path tempOutputFile = null;
+        Process process = null;
 
         try {
+            log.debug("Video compression requested for '{}'. Available permits before acquire: {}", 
+                originalFilename, compressionSemaphore.availablePermits());
+            compressionSemaphore.acquire();
+            permitAcquired = true;
+            log.debug("Compression permit granted for '{}'. Remaining permits: {}", 
+                originalFilename, compressionSemaphore.availablePermits());
             // Create temporary files
             tempInputFile = Files.createTempFile(Paths.get(tempDir), "video_input_", getExtension(originalFilename));
             tempOutputFile = Files.createTempFile(Paths.get(tempDir), "video_output_", ".mp4");
@@ -120,7 +140,7 @@ public class VideoCompressionService {
             // Execute FFmpeg
             ProcessBuilder processBuilder = new ProcessBuilder(command);
             processBuilder.redirectErrorStream(true);
-            Process process = processBuilder.start();
+            process = processBuilder.start();
 
             // Read output for debugging
             StringBuilder output = new StringBuilder();
@@ -135,14 +155,14 @@ public class VideoCompressionService {
             boolean finished = process.waitFor(5, TimeUnit.MINUTES);
             
             if (!finished) {
-                process.destroyForcibly();
-                log.error("FFmpeg compression timeout");
+                log.error("FFmpeg compression timeout for '{}'", originalFilename);
+                // Process will be cleaned up in finally block
                 return new CompressionResult(videoData, videoData.length, videoData.length, false);
             }
 
             if (process.exitValue() != 0) {
-                log.error("FFmpeg compression failed. Exit code: " + process.exitValue());
-                log.error("FFmpeg output: " + output.toString());
+                log.error("FFmpeg compression failed for '{}'. Exit code: {}", originalFilename, process.exitValue());
+                log.error("FFmpeg output: {}", output.toString());
                 return new CompressionResult(videoData, videoData.length, videoData.length, false);
             }
 
@@ -156,10 +176,34 @@ public class VideoCompressionService {
 
             return new CompressionResult(compressedData, originalSize, compressedSize, true);
 
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.error("Video compression interrupted for '{}'", originalFilename, e);
+            return new CompressionResult(videoData, videoData.length, videoData.length, false);
         } catch (Exception e) {
-            log.error("Error compressing video: " + e.getMessage(), e);
+            log.error("Error compressing video '{}': {}", originalFilename, e.getMessage(), e);
             return new CompressionResult(videoData, videoData.length, videoData.length, false);
         } finally {
+            // Always clean up process to prevent resource leaks
+            if (process != null) {
+                try {
+                    if (process.isAlive()) {
+                        log.debug("Process still alive, destroying forcibly for '{}'", originalFilename);
+                        process.destroyForcibly();
+                        // Wait up to 5 seconds for process to terminate
+                        boolean terminated = process.waitFor(5, TimeUnit.SECONDS);
+                        if (!terminated) {
+                            log.warn("FFmpeg process did not terminate within 5 seconds for '{}'", originalFilename);
+                        }
+                    }
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    log.warn("Interrupted while waiting for FFmpeg process to terminate", e);
+                } catch (Exception e) {
+                    log.warn("Error cleaning up FFmpeg process for '{}': {}", originalFilename, e.getMessage());
+                }
+            }
+            
             // Clean up temp files
             try {
                 if (tempInputFile != null) {
@@ -169,7 +213,14 @@ public class VideoCompressionService {
                     Files.deleteIfExists(tempOutputFile);
                 }
             } catch (IOException e) {
-                log.warn("Error cleaning up temp files: " + e.getMessage());
+                log.warn("Error cleaning up temp files for '{}': {}", originalFilename, e.getMessage());
+            }
+            
+            // Always release semaphore permit
+            if (permitAcquired) {
+                compressionSemaphore.release();
+                log.debug("Compression permit released for '{}'. Available permits after release: {}", 
+                    originalFilename, compressionSemaphore.availablePermits());
             }
         }
     }
