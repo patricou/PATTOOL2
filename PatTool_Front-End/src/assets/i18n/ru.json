@@ -624,7 +624,12 @@
         "CONFIRM_DELETE_EMPTY": "Вы уверены, что хотите удалить это обсуждение? Это действие нельзя отменить.",
         "ID": "ID",
         "EVENT_ID": "ID События",
-        "GROUP_ID": "ID Группы"
+        "GROUP_ID": "ID Группы",
+        "OPEN_DISCUSSION": "Открыть обсуждение",
+        "VIEW_EVENT_DETAILS": "Просмотр деталей события",
+        "OPEN_WHATSAPP_GROUP": "Открыть группу WhatsApp",
+        "DELETE_DISCUSSION": "Удалить обсуждение",
+        "VIEW_DISCUSSION_STATISTICS": "Просмотр статистики обсуждений"
     },
     "MAP": {
         "TITLE": "Характеристики",

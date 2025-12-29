@@ -627,7 +627,12 @@
         "CONFIRM_DELETE_EMPTY": "هل أنت متأكد من أنك تريد حذف هذه المناقشة؟ لا يمكن التراجع عن هذا الإجراء.",
         "ID": "ID",
         "EVENT_ID": "معرف الحدث",
-        "GROUP_ID": "معرف المجموعة"
+        "GROUP_ID": "معرف المجموعة",
+        "OPEN_DISCUSSION": "فتح المناقشة",
+        "VIEW_EVENT_DETAILS": "عرض تفاصيل الحدث",
+        "OPEN_WHATSAPP_GROUP": "فتح مجموعة واتساب",
+        "DELETE_DISCUSSION": "حذف المناقشة",
+        "VIEW_DISCUSSION_STATISTICS": "عرض إحصائيات المناقشات"
     },
     "MAP": {
         "TITLE": "الخصائص",

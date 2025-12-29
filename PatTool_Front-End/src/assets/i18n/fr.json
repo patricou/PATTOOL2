@@ -625,7 +625,12 @@
         "CONFIRM_DELETE_EMPTY": "Êtes-vous sûr de vouloir supprimer cette discussion ? Cette action est irréversible.",
         "ID": "ID",
         "EVENT_ID": "ID Événement",
-        "GROUP_ID": "ID Groupe"
+        "GROUP_ID": "ID Groupe",
+        "OPEN_DISCUSSION": "Ouvrir la discussion",
+        "VIEW_EVENT_DETAILS": "Voir les détails de l'événement",
+        "OPEN_WHATSAPP_GROUP": "Ouvrir le groupe WhatsApp",
+        "DELETE_DISCUSSION": "Supprimer la discussion",
+        "VIEW_DISCUSSION_STATISTICS": "Voir les statistiques des discussions"
     },
     "MAP": {
         "TITLE": "Caractéristiques",

@@ -612,7 +612,12 @@
         "CONFIRM_DELETE_EMPTY": "क्या आप वाकई इस चर्चा को हटाना चाहते हैं? इस क्रिया को पूर्ववत नहीं किया जा सकता।",
         "ID": "ID",
         "EVENT_ID": "घटना ID",
-        "GROUP_ID": "समूह ID"
+        "GROUP_ID": "समूह ID",
+        "OPEN_DISCUSSION": "चर्चा खोलें",
+        "VIEW_EVENT_DETAILS": "इवेंट विवरण देखें",
+        "OPEN_WHATSAPP_GROUP": "WhatsApp समूह खोलें",
+        "DELETE_DISCUSSION": "चर्चा हटाएं",
+        "VIEW_DISCUSSION_STATISTICS": "चर्चा सांख्यिकी देखें"
     },
     "MAP": {
         "TITLE": "मुख्य विशेषताएं",

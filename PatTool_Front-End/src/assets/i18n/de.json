@@ -623,7 +623,12 @@
         "CONFIRM_DELETE_EMPTY": "Sind Sie sicher, dass Sie diese Diskussion löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
         "ID": "ID",
         "EVENT_ID": "Ereignis-ID",
-        "GROUP_ID": "Gruppen-ID"
+        "GROUP_ID": "Gruppen-ID",
+        "OPEN_DISCUSSION": "Diskussion öffnen",
+        "VIEW_EVENT_DETAILS": "Ereignisdetails anzeigen",
+        "OPEN_WHATSAPP_GROUP": "WhatsApp-Gruppe öffnen",
+        "DELETE_DISCUSSION": "Diskussion löschen",
+        "VIEW_DISCUSSION_STATISTICS": "Diskussionsstatistiken anzeigen"
     },
     "MAP": {
         "TITLE": "Eigenschaften",

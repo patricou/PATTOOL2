@@ -52,7 +52,7 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
                     Collections.emptyList() // Authorities can be extracted from JWT if needed
                 );
                 accessor.setUser(authentication);
-                log.info("Set authentication for session {} with user: {}", sessionId, 
+                log.debug("Set authentication for session {} with user: {}", sessionId, 
                     jwt.getClaimAsString("preferred_username"));
             }
             
@@ -66,7 +66,7 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
                 String domain = sessionAttributes != null ? (String) sessionAttributes.get("domain") : "unknown";
                 String location = extractLocation(ipAddress);
                 
-                log.info("Updating connection {} with user: {}", sessionId, userName);
+                log.debug("Updating connection {} with user: {}", sessionId, userName);
                 connectionService.updateConnectionUser(sessionId, userName, ipAddress, domain, location);
             }
         }

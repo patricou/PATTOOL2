@@ -129,6 +129,12 @@ public class MongoIndexConfig {
             createIndexIfNotExists("thumbnail.fieldId", Sort.Direction.ASC, 
                 "Index on thumbnail.fieldId for efficient thumbnail lookup");
 
+            // 11. Index on discussionId - CRITICAL for discussion queries
+            // Used to find events by their associated discussion ID
+            // This is used frequently in DiscussionService.getAccessibleDiscussions()
+            createIndexIfNotExists("discussionId", Sort.Direction.ASC, 
+                "Index on discussionId for efficient event lookup by discussion");
+
             // 10. Compound index for common access pattern: visibility + type + beginEventDate
             // Optimizes filtered queries with sorting
             createCompoundIndexIfNotExists(
@@ -144,47 +150,149 @@ public class MongoIndexConfig {
                 "Compound index on visibility + beginEventDate + creationDate for flexible date sorting");
 
             log.info("========================================");
-            log.info("MongoDB indexes created successfully");
+            log.info("MongoDB indexes for 'evenements' collection created successfully");
             log.info("========================================");
             
             // List indexes again to verify they were created
             listExistingIndexes();
+            
+            // Create indexes for FriendGroup collection
+            createFriendGroupIndexes();
         } catch (Exception e) {
             log.error("Error creating MongoDB indexes", e);
         }
     }
-    
+
     /**
-     * List all existing indexes on the evenements collection for verification
+     * Create indexes for the friendgroups collection
      */
-    private void listExistingIndexes() {
+    private void createFriendGroupIndexes() {
         try {
-            IndexOperations indexOps = mongoTemplate.indexOps("evenements");
-            var indexes = indexOps.getIndexInfo();
-            log.info("Existing indexes on 'evenements' collection: {}", indexes.size());
-            for (var indexInfo : indexes) {
-                log.info("  - {}: {}", indexInfo.getName(), indexInfo.toString());
-            }
+            log.info("========================================");
+            log.info("Creating MongoDB indexes for FriendGroup collection");
+            log.info("========================================");
+            
+            // List existing indexes
+            listExistingIndexes("friendgroups");
+
+            // 1. Index on discussionId - CRITICAL for discussion queries
+            // Used to find friend groups by their associated discussion ID
+            // This is used frequently in DiscussionService.getAccessibleDiscussions()
+            createIndexIfNotExists("friendgroups", "discussionId", Sort.Direction.ASC, 
+                "Index on discussionId for efficient friend group lookup by discussion");
+
+            // 2. Index on owner.$id (DBRef ObjectId)
+            // Used to find friend groups by owner
+            createIndexIfNotExists("friendgroups", "owner.$id", Sort.Direction.ASC, 
+                "Index on owner.$id for finding friend groups by owner (ObjectId)");
+
+            // 3. Index on owner.id (string fallback)
+            // Used as fallback when owner is not ObjectId
+            createIndexIfNotExists("friendgroups", "owner.id", Sort.Direction.ASC, 
+                "Index on owner.id for finding friend groups by owner (string)");
+
+            // 4. Index on members.$id (DBRef ObjectId array)
+            // Used to find friend groups where a member is in the members list
+            createIndexIfNotExists("friendgroups", "members.$id", Sort.Direction.ASC, 
+                "Index on members.$id for finding friend groups by member");
+
+            // 5. Index on authorizedUsers.$id (DBRef ObjectId array)
+            // Used to find friend groups where a user is in the authorizedUsers list
+            createIndexIfNotExists("friendgroups", "authorizedUsers.$id", Sort.Direction.ASC, 
+                "Index on authorizedUsers.$id for finding friend groups by authorized user");
+
+            log.info("========================================");
+            log.info("MongoDB indexes for 'friendgroups' collection created successfully");
+            log.info("========================================");
+            
+            // List indexes again to verify they were created
+            listExistingIndexes("friendgroups");
+            
+            // Create indexes for Discussion collection
+            createDiscussionIndexes();
         } catch (Exception e) {
-            log.warn("Could not list existing indexes: {}", e.getMessage());
+            log.error("Error creating FriendGroup indexes", e);
         }
     }
 
     /**
-     * Create a simple index if it doesn't already exist
+     * Create indexes for the discussions collection
+     */
+    private void createDiscussionIndexes() {
+        try {
+            log.info("========================================");
+            log.info("Creating MongoDB indexes for Discussion collection");
+            log.info("========================================");
+            
+            // List existing indexes
+            listExistingIndexes("discussions");
+
+            // 1. Index on creationDate - CRITICAL for getDefaultDiscussion() fallback
+            // Used for sorting discussions by creation date (DESC order)
+            // This is used when defaultDiscussionId is not set - uses limit(1) with this index
+            createIndexIfNotExists("discussions", "creationDate", Sort.Direction.DESC, 
+                "Index on creationDate for efficient sorting (used in getDefaultDiscussion fallback)");
+
+            // 2. Index on _id is automatic in MongoDB, but ensure it exists
+            // This is already the default, but we log it for completeness
+            log.info("✓ _id index exists by default (used for findById queries)");
+
+            log.info("========================================");
+            log.info("MongoDB indexes for 'discussions' collection created successfully");
+            log.info("========================================");
+            
+            // List indexes again to verify they were created
+            listExistingIndexes("discussions");
+        } catch (Exception e) {
+            log.error("Error creating Discussion indexes", e);
+        }
+    }
+    
+    /**
+     * List all existing indexes on a collection for verification
+     */
+    private void listExistingIndexes() {
+        listExistingIndexes("evenements");
+    }
+
+    /**
+     * List all existing indexes on a specific collection for verification
+     */
+    private void listExistingIndexes(String collectionName) {
+        try {
+            IndexOperations indexOps = mongoTemplate.indexOps(collectionName);
+            var indexes = indexOps.getIndexInfo();
+            log.info("Existing indexes on '{}' collection: {}", collectionName, indexes.size());
+            for (var indexInfo : indexes) {
+                log.info("  - {}: {}", indexInfo.getName(), indexInfo.toString());
+            }
+        } catch (Exception e) {
+            log.warn("Could not list existing indexes for collection '{}': {}", collectionName, e.getMessage());
+        }
+    }
+
+    /**
+     * Create a simple index if it doesn't already exist (for evenements collection)
      */
     private void createIndexIfNotExists(String field, Sort.Direction direction, String description) {
+        createIndexIfNotExists("evenements", field, direction, description);
+    }
+
+    /**
+     * Create a simple index if it doesn't already exist (for a specific collection)
+     */
+    private void createIndexIfNotExists(String collectionName, String field, Sort.Direction direction, String description) {
         try {
-            IndexOperations indexOps = mongoTemplate.indexOps("evenements");
+            IndexOperations indexOps = mongoTemplate.indexOps(collectionName);
             Index index = new Index().on(field, direction).named(field.replace(".", "_") + "_idx");
             String indexName = indexOps.ensureIndex(index);
             if (indexName != null && !indexName.isEmpty()) {
-                log.info("✓ Created index: {} ({})", indexName, description);
+                log.info("✓ Created index on '{}': {} ({})", collectionName, indexName, description);
             } else {
-                log.info("✓ Index on {} already exists or was created ({})", field, description);
+                log.info("✓ Index on '{}'.{} already exists or was created ({})", collectionName, field, description);
             }
         } catch (Exception e) {
-            log.error("Error creating index on {}: {}", field, e.getMessage(), e);
+            log.error("Error creating index on '{}'.{}: {}", collectionName, field, e.getMessage(), e);
         }
     }
 

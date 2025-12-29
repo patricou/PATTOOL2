@@ -51,7 +51,7 @@ public class WebSocketHandshakeInterceptor implements HandshakeInterceptor {
             attributes.put("userName", userName);
             
             if (!userName.equals("anonymous")) {
-                log.info("WebSocket handshake - User: {}, IP: {}, Domain: {}", userName, ipAddress, domain);
+                log.debug("WebSocket handshake - User: {}, IP: {}, Domain: {}", userName, ipAddress, domain);
             } else {
                 log.warn("WebSocket handshake - User is anonymous. IP: {}, Domain: {}. Check if token is being sent.", ipAddress, domain);
             }
@@ -174,7 +174,7 @@ public class WebSocketHandshakeInterceptor implements HandshakeInterceptor {
                         userName = jwt.getClaimAsString("sub");
                     }
                     if (userName != null) {
-                        log.info("Extracted user from Authorization header: {}", userName);
+                        log.debug("Extracted user from Authorization header: {}", userName);
                         return userName;
                     } else {
                         log.warn("JWT token decoded but no username claim found. Available claims: {}", jwt.getClaims().keySet());
@@ -199,7 +199,7 @@ public class WebSocketHandshakeInterceptor implements HandshakeInterceptor {
                         userName = jwt.getClaimAsString("sub");
                     }
                     if (userName != null) {
-                        log.info("Extracted user from token query parameter: {}", userName);
+                        log.debug("Extracted user from token query parameter: {}", userName);
                         return userName;
                     } else {
                         log.warn("JWT token decoded but no username claim found. Available claims: {}", jwt.getClaims().keySet());

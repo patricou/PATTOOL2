@@ -17,6 +17,7 @@ import { DiscussionModalComponent } from '../discussion-modal/discussion-modal.c
 import { DiscussionStatisticsModalComponent } from '../discussion-statistics-modal/discussion-statistics-modal.component';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { KeycloakService } from '../../keycloak/keycloak.service';
+import { Router } from '@angular/router';
 
 export interface DiscussionItem {
   id: string;
@@ -66,6 +67,12 @@ export class ChatComponent implements OnInit, OnDestroy {
   public allFriendGroups: FriendGroup[] = [];
   public dataFIlter: string = '';
   public filteredDiscussions: DiscussionItem[] = [];
+  // Cache for computed values to avoid method calls in template
+  private ownerNameCache: Map<string, string> = new Map();
+  private memberListCache: Map<string, string[]> = new Map();
+  private memberCountCache: Map<string, number> = new Map();
+  private isOwnerCache: Map<string, boolean> = new Map();
+  private hasAdminRoleCache: boolean | null = null;
 
   @ViewChild('messagesList', { static: false }) messagesList!: ElementRef;
   @ViewChild('fileInput', { static: false }) fileInput!: ElementRef;
@@ -81,12 +88,16 @@ export class ChatComponent implements OnInit, OnDestroy {
     private friendsService: FriendsService,
     private modalService: NgbModal,
     private translate: TranslateService,
-    private keycloakService: KeycloakService
+    private keycloakService: KeycloakService,
+    private router: Router
   ) {}
 
   async ngOnInit() {
     try {
       this.user = this._memberService.getUser();
+      
+      // Initialize admin role cache
+      this.hasAdminRoleCache = this.keycloakService.hasAdminRole();
 
       // Load all available discussions
       await this.loadAllAvailableDiscussions();
@@ -104,6 +115,8 @@ export class ChatComponent implements OnInit, OnDestroy {
       }
     });
     this.imageUrlCache.clear();
+    // Clear discussion caches
+    this.clearDiscussionCache();
     // Unsubscribe from WebSocket
     if (this.messageSubscription) {
       this.messageSubscription.unsubscribe();
@@ -131,6 +144,8 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.availableDiscussions = [];
       this.filteredDiscussions = [];
       this.allFriendGroups = [];
+      // Clear cache when reloading
+      this.clearDiscussionCache();
       
       // Use SSE streaming endpoint - discussions arrive as they're processed (truly reactive)
       this.discussionService.streamAccessibleDiscussions().pipe(
@@ -155,6 +170,9 @@ export class ChatComponent implements OnInit, OnDestroy {
               messageCount: streamed.data.messageCount,
               lastMessageDate: streamed.data.lastMessageDate
             };
+            
+            // Pre-compute and cache values to avoid method calls in template
+            this.cacheDiscussionValues(discussionItem);
             
             // Display immediately - first one appears instantly, then insert others in sorted position
             if (this.availableDiscussions.length === 0) {
@@ -183,12 +201,10 @@ export class ChatComponent implements OnInit, OnDestroy {
               this.availableDiscussions.splice(insertIndex, 0, discussionItem);
             }
             
-            // Update filtered list immediately
-            this.filteredDiscussions = [...this.availableDiscussions];
-            
-            // Apply filter if active
-            if (this.dataFIlter && this.dataFIlter.trim() !== '') {
-              this.applyFilter();
+            // Only update filtered list if no filter is active (more efficient)
+            // If filter is active, we'll apply it at the end to avoid re-filtering on every addition
+            if (!this.dataFIlter || this.dataFIlter.trim() === '') {
+              this.filteredDiscussions = [...this.availableDiscussions];
             }
             
             // Extract friend groups for other uses
@@ -233,6 +249,103 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
   }
 
+
+  /**
+   * Cache computed values for a discussion to avoid method calls in template
+   */
+  private cacheDiscussionValues(discussionItem: DiscussionItem): void {
+    // Cache owner name
+    const ownerName = this.computeOwnerName(discussionItem);
+    if (ownerName) {
+      this.ownerNameCache.set(discussionItem.id, ownerName);
+    }
+    
+    // Cache member list and count for friend groups
+    if (discussionItem.type === 'friendGroup' && discussionItem.friendGroup) {
+      const memberList = this.computeGroupMembersList(discussionItem.friendGroup);
+      this.memberListCache.set(discussionItem.id, memberList);
+      this.memberCountCache.set(discussionItem.id, memberList.length);
+    }
+    
+    // Cache isOwner check
+    const isOwner = this.computeIsDiscussionOwner(discussionItem);
+    this.isOwnerCache.set(discussionItem.id, isOwner);
+  }
+
+  /**
+   * Clear cache when discussions are reloaded
+   */
+  private clearDiscussionCache(): void {
+    this.ownerNameCache.clear();
+    this.memberListCache.clear();
+    this.memberCountCache.clear();
+    this.isOwnerCache.clear();
+    this.hasAdminRoleCache = null;
+  }
+
+  /**
+   * Compute owner name (extracted from method for caching)
+   */
+  private computeOwnerName(discussionItem: DiscussionItem): string {
+    if (!discussionItem) {
+      return '';
+    }
+    
+    if (discussionItem.discussion && discussionItem.discussion.createdBy) {
+      const owner = discussionItem.discussion.createdBy;
+      if (owner.firstName && owner.lastName) {
+        return `${owner.firstName} ${owner.lastName} (${owner.userName || ''})`;
+      } else if (owner.userName) {
+        return owner.userName;
+      }
+    }
+    
+    return '';
+  }
+
+  /**
+   * Compute group members list (extracted from method for caching)
+   */
+  private computeGroupMembersList(group: FriendGroup): string[] {
+    if (!group) {
+      return [];
+    }
+    
+    const membersList: Member[] = [];
+    
+    // Add owner if not already in members
+    if (group.owner) {
+      const ownerInMembers = group.members && group.members.some(m => m.id === group.owner.id);
+      if (!ownerInMembers) {
+        membersList.push(group.owner);
+      }
+    }
+    
+    // Add all members
+    if (group.members && group.members.length > 0) {
+      membersList.push(...group.members);
+    }
+    
+    // Format as "firstName lastName (userName)"
+    return membersList.map(member => 
+      `${member.firstName} ${member.lastName} (${member.userName})`
+    );
+  }
+
+  /**
+   * Compute isDiscussionOwner (extracted from method for caching)
+   */
+  private computeIsDiscussionOwner(discussionItem: DiscussionItem): boolean {
+    if (!this.user || !this.user.userName || !discussionItem) {
+      return false;
+    }
+    
+    if (discussionItem.discussion && discussionItem.discussion.createdBy) {
+      return discussionItem.discussion.createdBy.userName === this.user.userName;
+    }
+    
+    return false;
+  }
 
   /**
    * Apply filter to discussions
@@ -282,35 +395,22 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   /**
    * Get all members of a friend group (including owner if not already in members)
+   * Uses cache for performance - call getGroupMembersListCached for cached version
    */
   public getGroupMembersList(group: FriendGroup): string[] {
-    if (!group) {
-      return [];
-    }
-    
-    const membersList: Member[] = [];
-    
-    // Add owner if not already in members
-    if (group.owner) {
-      const ownerInMembers = group.members && group.members.some(m => m.id === group.owner.id);
-      if (!ownerInMembers) {
-        membersList.push(group.owner);
-      }
-    }
-    
-    // Add all members
-    if (group.members && group.members.length > 0) {
-      membersList.push(...group.members);
-    }
-    
-    // Format as "firstName lastName (userName)"
-    return membersList.map(member => 
-      `${member.firstName} ${member.lastName} (${member.userName})`
-    );
+    return this.computeGroupMembersList(group);
+  }
+
+  /**
+   * Get cached member list for a discussion
+   */
+  public getGroupMembersListCached(discussionId: string): string[] {
+    return this.memberListCache.get(discussionId) || [];
   }
 
   /**
    * Get total count of members in a friend group (including owner if not already in members)
+   * Uses cache for performance - call getGroupMembersCountCached for cached version
    */
   public getGroupMembersCount(group: FriendGroup): number {
     if (!group) {
@@ -328,6 +428,13 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
     
     return count;
+  }
+
+  /**
+   * Get cached member count for a discussion
+   */
+  public getGroupMembersCountCached(discussionId: string): number {
+    return this.memberCountCache.get(discussionId) || 0;
   }
 
   /**
@@ -808,10 +915,20 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Check if current user has admin role
+   * Check if current user has admin role (uses cache for performance)
    */
   hasAdminRole(): boolean {
-    return this.keycloakService.hasAdminRole();
+    if (this.hasAdminRoleCache === null) {
+      this.hasAdminRoleCache = this.keycloakService.hasAdminRole();
+    }
+    return this.hasAdminRoleCache;
+  }
+
+  /**
+   * Track by function for ngFor to prevent unnecessary DOM recreation
+   */
+  trackByDiscussionId(index: number, item: DiscussionItem): string {
+    return item.id;
   }
 
   /**
@@ -827,56 +944,39 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get the owner name of a discussion
+   * Get the owner name of a discussion (uses cache for performance)
    */
   getDiscussionOwnerName(discussionItem: DiscussionItem): string {
     if (!discussionItem) {
       return '';
     }
     
-    // Check if discussion has createdBy field
-    if (discussionItem.discussion && discussionItem.discussion.createdBy) {
-      const owner = discussionItem.discussion.createdBy;
-      if (owner.firstName && owner.lastName) {
-        return `${owner.firstName} ${owner.lastName} (${owner.userName || ''})`;
-      } else if (owner.userName) {
-        return owner.userName;
-      }
+    // Return cached value if available
+    const cached = this.ownerNameCache.get(discussionItem.id);
+    if (cached !== undefined) {
+      return cached;
     }
     
-    return '';
+    // Fallback to computation (shouldn't happen if cache is populated correctly)
+    return this.computeOwnerName(discussionItem);
   }
 
   /**
-   * Check if current user is the owner of a discussion
+   * Check if current user is the owner of a discussion (uses cache for performance)
    */
   isDiscussionOwner(discussionItem: DiscussionItem): boolean {
     if (!this.user || !this.user.userName || !discussionItem) {
       return false;
     }
     
-    // Check if discussion has createdBy field
-    if (discussionItem.discussion && discussionItem.discussion.createdBy) {
-      const isOwner = discussionItem.discussion.createdBy.userName === this.user.userName;
-      return isOwner;
+    // Return cached value if available
+    const cached = this.isOwnerCache.get(discussionItem.id);
+    if (cached !== undefined) {
+      return cached;
     }
     
-    // If discussion object is not loaded yet, try to load it
-    if (!discussionItem.discussion) {
-      console.warn(`Discussion ${discussionItem.id} not loaded yet, attempting to load...`);
-      this.discussionService.getDiscussionById(discussionItem.id).subscribe({
-        next: (discussion) => {
-          if (discussion) {
-            discussionItem.discussion = discussion;
-          }
-        },
-        error: (error) => {
-          console.error(`Error loading discussion ${discussionItem.id}:`, error);
-        }
-      });
-    }
-    
-    return false;
+    // Fallback to computation (shouldn't happen if cache is populated correctly)
+    return this.computeIsDiscussionOwner(discussionItem);
   }
 
   /**
@@ -963,6 +1063,11 @@ export class ChatComponent implements OnInit, OnDestroy {
             // Remove the discussion from the list
             this.availableDiscussions = this.availableDiscussions.filter(d => d.id !== discussionItem.id);
             this.filteredDiscussions = this.filteredDiscussions.filter(d => d.id !== discussionItem.id);
+            // Clear cached values for deleted discussion
+            this.ownerNameCache.delete(discussionItem.id);
+            this.memberListCache.delete(discussionItem.id);
+            this.memberCountCache.delete(discussionItem.id);
+            this.isOwnerCache.delete(discussionItem.id);
             this.isLoading = false;
             resolve();
           },
@@ -1036,8 +1141,15 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Open WhatsApp link for a friend group
+   * Navigate to event details page
    */
+  navigateToEventDetails(discussionItem: DiscussionItem, event: Event): void {
+    event.stopPropagation();
+    if (discussionItem.type === 'event' && discussionItem.event && discussionItem.event.id) {
+      this.router.navigate(['/details-evenement', discussionItem.event.id]);
+    }
+  }
+
   openWhatsAppLink(group: FriendGroup | undefined): void {
     if (group && group.whatsappLink) {
       window.open(group.whatsappLink, '_blank');

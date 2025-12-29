@@ -631,7 +631,12 @@
         "CONFIRM_DELETE_EMPTY": "このディスカッションを削除してもよろしいですか？この操作は元に戻せません。",
         "ID": "ID",
         "EVENT_ID": "イベントID",
-        "GROUP_ID": "グループID"
+        "GROUP_ID": "グループID",
+        "OPEN_DISCUSSION": "ディスカッションを開く",
+        "VIEW_EVENT_DETAILS": "イベント詳細を表示",
+        "OPEN_WHATSAPP_GROUP": "WhatsAppグループを開く",
+        "DELETE_DISCUSSION": "ディスカッションを削除",
+        "VIEW_DISCUSSION_STATISTICS": "ディスカッション統計を表示"
     },
     "MAP": {
         "TITLE": "特徴",

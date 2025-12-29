@@ -125,11 +125,13 @@ public class DiscussionRestController {
             }
 
             // Process discussions asynchronously and stream them
+            // Use a dedicated executor for better control (or default ForkJoinPool)
             CompletableFuture.runAsync(() -> {
                 try {
                     // Track if connection is still alive
                     java.util.concurrent.atomic.AtomicBoolean connectionAlive = new java.util.concurrent.atomic.AtomicBoolean(true);
                     
+                    // Stream discussions - default discussion will be sent FIRST and IMMEDIATELY
                     discussionService.streamAccessibleDiscussions(user, (discussion) -> {
                         // Only send if connection is still alive
                         if (!connectionAlive.get()) {

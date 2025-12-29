@@ -631,7 +631,12 @@
         "CONFIRM_DELETE_EMPTY": "¿Está seguro de que desea eliminar esta discusión? Esta acción no se puede deshacer.",
         "ID": "ID",
         "EVENT_ID": "ID del Evento",
-        "GROUP_ID": "ID del Grupo"
+        "GROUP_ID": "ID del Grupo",
+        "OPEN_DISCUSSION": "Abrir discusión",
+        "VIEW_EVENT_DETAILS": "Ver detalles del evento",
+        "OPEN_WHATSAPP_GROUP": "Abrir grupo de WhatsApp",
+        "DELETE_DISCUSSION": "Eliminar discusión",
+        "VIEW_DISCUSSION_STATISTICS": "Ver estadísticas de discusiones"
     },
     "MAP": {
         "TITLE": "Características principales",

@@ -629,7 +629,12 @@
         "CONFIRM_DELETE_EMPTY": "您确定要删除此讨论吗？此操作无法撤消。",
         "ID": "ID",
         "EVENT_ID": "活动ID",
-        "GROUP_ID": "组ID"
+        "GROUP_ID": "组ID",
+        "OPEN_DISCUSSION": "打开讨论",
+        "VIEW_EVENT_DETAILS": "查看活动详情",
+        "OPEN_WHATSAPP_GROUP": "打开WhatsApp群组",
+        "DELETE_DISCUSSION": "删除讨论",
+        "VIEW_DISCUSSION_STATISTICS": "查看讨论统计"
     },
     "MAP": {
         "TITLE": "特点",

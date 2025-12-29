@@ -120,7 +120,7 @@ public class WebSocketEventListener {
                 userName = extractUserName(principal);
             }
             
-            log.info("User {} subscribed to discussion {} (session: {})", userName, discussionId, sessionId);
+            log.debug("User {} subscribed to discussion {} (session: {})", userName, discussionId, sessionId);
             
             // Update connection with discussion ID and also update user info if we now have it
             connectionService.updateConnectionDiscussion(sessionId, discussionId);

@@ -630,7 +630,12 @@
         "CONFIRM_DELETE_EMPTY": "Sei sicuro di voler eliminare questa discussione? Questa azione non può essere annullata.",
         "ID": "ID",
         "EVENT_ID": "ID Evento",
-        "GROUP_ID": "ID Gruppo"
+        "GROUP_ID": "ID Gruppo",
+        "OPEN_DISCUSSION": "Apri discussione",
+        "VIEW_EVENT_DETAILS": "Visualizza dettagli evento",
+        "OPEN_WHATSAPP_GROUP": "Apri gruppo WhatsApp",
+        "DELETE_DISCUSSION": "Elimina discussione",
+        "VIEW_DISCUSSION_STATISTICS": "Visualizza statistiche discussioni"
     },
     "MAP": {
         "TITLE": "Caratteristiche",

@@ -16,7 +16,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationResults;
+import org.springframework.data.mongodb.core.aggregation.ArrayOperators;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.stereotype.Service;
+import org.bson.Document;
 
 import java.util.Date;
 import java.util.List;
@@ -49,6 +56,9 @@ public class DiscussionService {
     @Autowired
     private FriendRepository friendRepository;
 
+    @Autowired
+    private MongoTemplate mongoTemplate;
+
     @Value("${app.discussion.default.id:}")
     private String defaultDiscussionId;
 
@@ -70,6 +80,114 @@ public class DiscussionService {
         // Fallback: return the newest discussion
         List<Discussion> discussions = discussionRepository.findAllByOrderByCreationDateDesc();
         return discussions.isEmpty() ? null : discussions.get(0);
+    }
+
+    /**
+     * Get the default discussion FAST - optimized version
+     * Uses direct ID lookup with _id index (fastest possible query)
+     * For fallback, uses limit(1) to get only newest discussion
+     */
+    private Discussion getDefaultDiscussionFast() {
+        if (defaultDiscussionId != null && !defaultDiscussionId.isEmpty()) {
+            // Fast path: direct ID lookup using _id index (O(1) lookup, fastest possible)
+            java.util.Optional<Discussion> opt = discussionRepository.findById(defaultDiscussionId);
+            if (opt.isPresent()) {
+                return opt.get();
+            }
+        }
+        // Fallback: get newest discussion using limit(1) - much faster than findAll()
+        // Uses creationDate index for sorting, limit ensures only 1 document is returned
+        Query query = new Query();
+        query.with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "creationDate"));
+        query.limit(1);
+        List<Discussion> discussions = mongoTemplate.find(query, Discussion.class, "discussions");
+        return discussions.isEmpty() ? null : discussions.get(0);
+    }
+
+    /**
+     * Check if a discussion has messages WITHOUT loading them (ultra-fast)
+     * Uses MongoDB aggregation to count messages - much faster than loading them
+     * Returns message count (0 if no messages or discussion doesn't exist)
+     */
+    private long getMessageCountFast(String discussionId) {
+        if (discussionId == null || discussionId.trim().isEmpty()) {
+            return 0;
+        }
+        
+        try {
+            // Use aggregation to count messages without loading them
+            Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("_id").is(discussionId)),
+                Aggregation.project()
+                    .and(ArrayOperators.Size.lengthOfArray("$messages")).as("count")
+            );
+            
+            AggregationResults<Document> results = mongoTemplate.aggregate(aggregation, "discussions", Document.class);
+            
+            if (results.getMappedResults() != null && !results.getMappedResults().isEmpty()) {
+                Document doc = results.getMappedResults().get(0);
+                if (doc.containsKey("count")) {
+                    Object countObj = doc.get("count");
+                    if (countObj instanceof Integer) {
+                        return ((Integer) countObj).longValue();
+                    } else if (countObj instanceof Long) {
+                        return (Long) countObj;
+                    } else if (countObj instanceof Number) {
+                        return ((Number) countObj).longValue();
+                    }
+                }
+            }
+            return 0;
+        } catch (Exception e) {
+            log.debug("Error getting message count for discussion {}: {}", discussionId, e.getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Get a discussion FAST - loads WITHOUT messages using MongoDB projection (ultra-fast)
+     * Uses MongoDB projection to exclude messages field (massive performance gain)
+     * This allows discussions to appear instantly, messages can be loaded later if needed
+     */
+    private Discussion getDiscussionFastWithoutMessages(String discussionId) {
+        if (discussionId == null || discussionId.trim().isEmpty()) {
+            return null;
+        }
+        
+        try {
+            // Load discussion WITHOUT messages using projection (ultra-fast)
+            Query query = new Query(Criteria.where("_id").is(discussionId));
+            query.fields().exclude("messages"); // Exclude messages field - HUGE performance gain!
+            Discussion discussion = mongoTemplate.findOne(query, Discussion.class, "discussions");
+            
+            if (discussion != null) {
+                // Initialize empty messages list to avoid null pointer
+                discussion.setMessages(new java.util.ArrayList<>());
+            }
+            
+            return discussion;
+        } catch (Exception e) {
+            log.debug("Error loading discussion {} without messages, falling back to normal load: {}", discussionId, e.getMessage());
+            // Fallback to normal load if projection fails
+            return discussionRepository.findById(discussionId).orElse(null);
+        }
+    }
+
+    /**
+     * Create DiscussionItemDTO FAST - without processing messages
+     * This version skips message processing for ultra-fast initial display
+     * Message count/date can be calculated later if needed
+     * The discussion appears INSTANTLY with default values
+     */
+    private DiscussionItemDTO createDiscussionItemDTOFast(String discussionId, String title, String type, Discussion discussion) {
+        DiscussionItemDTO item = new DiscussionItemDTO(discussionId, title, type, discussion);
+        
+        // Set default values - messages not loaded (ultra-fast)
+        // This allows instant display - message count/date can be updated later if needed
+        item.setMessageCount(0L);
+        item.setLastMessageDate(null);
+        
+        return item;
     }
 
     /**
@@ -537,19 +655,79 @@ public class DiscussionService {
     
     /**
      * Stream accessible discussions for a user (reactive - sends as soon as available)
-     * Processes and sends discussions one by one via callback
+     * OPTIMIZED: Sends discussions immediately as found, without loading all data first
+     * Uses indexed queries to minimize database load
      */
     public void streamAccessibleDiscussions(Member user, Consumer<DiscussionItemDTO> onDiscussion) {
         // Track discussion IDs already added to avoid duplicates
         java.util.Set<String> addedDiscussionIds = new java.util.HashSet<>();
         
-        // Get user's friend groups for access checking
+        // CRITICAL OPTIMIZATION: Send default discussion FIRST and IMMEDIATELY (only if it has messages)
+        // Check message count FIRST using aggregation (ultra-fast), then load metadata if needed
+        String defaultDiscussionIdToLoad = defaultDiscussionId;
+        if (defaultDiscussionIdToLoad == null || defaultDiscussionIdToLoad.isEmpty()) {
+            // Fallback: get newest discussion ID
+            Query idQuery = new Query();
+            idQuery.with(org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "creationDate"));
+            idQuery.limit(1);
+            idQuery.fields().include("id");
+            Discussion idOnly = mongoTemplate.findOne(idQuery, Discussion.class, "discussions");
+            if (idOnly != null && idOnly.getId() != null) {
+                defaultDiscussionIdToLoad = idOnly.getId();
+            }
+        }
+        
+        if (defaultDiscussionIdToLoad != null && !defaultDiscussionIdToLoad.isEmpty()) {
+            // Check message count WITHOUT loading messages (ultra-fast aggregation)
+            long messageCount = getMessageCountFast(defaultDiscussionIdToLoad);
+            if (messageCount > 0) {
+                // Only load and send if it has messages
+                Discussion defaultDiscussion = getDiscussionFastWithoutMessages(defaultDiscussionIdToLoad);
+                if (defaultDiscussion != null) {
+                    DiscussionItemDTO defaultItem = createDiscussionItemDTOFast(
+                        defaultDiscussion.getId(),
+                        defaultDiscussion.getTitle() != null ? defaultDiscussion.getTitle() : "Discussion Générale",
+                        "general",
+                        defaultDiscussion
+                    );
+                    defaultItem.setMessageCount(messageCount); // Set the actual count
+                    onDiscussion.accept(defaultItem); // Send IMMEDIATELY - appears instantly!
+                    addedDiscussionIds.add(defaultDiscussion.getId());
+                }
+            }
+        }
+        
+        // CRITICAL OPTIMIZATION: Stream events that don't require friend/friendGroup data FIRST
+        // This allows discussions to appear immediately without waiting for friend data loading
+        
+        // 1. Stream user's own events IMMEDIATELY (no dependencies, fastest path, uses index)
+        streamUserOwnEvents(user, onDiscussion, addedDiscussionIds);
+        
+        // 2. Stream public events IMMEDIATELY (no dependencies, uses visibility index)
+        streamPublicEventsWithDiscussion(user, onDiscussion, addedDiscussionIds);
+        
+        // 3. NOW load friend/friendGroup data (can be done in parallel or async, but we do it here)
+        // After the fast queries above, this doesn't block the initial display
+        java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroupsMap = loadAccessibleFriendGroups(user);
+        java.util.Set<String> friendIds = loadFriendIds(user);
+        
+        // 4. Stream events from friends (requires friendIds)
+        streamFriendEvents(user, friendIds, accessibleGroupsMap, onDiscussion, addedDiscussionIds);
+        
+        // 5. Stream friend group discussions (requires accessibleGroupsMap)
+        streamFriendGroupDiscussions(accessibleGroupsMap, user, onDiscussion, addedDiscussionIds);
+    }
+    
+    /**
+     * Load accessible friend groups for a user (helper method)
+     */
+    private java.util.Map<String, com.pat.repo.domain.FriendGroup> loadAccessibleFriendGroups(Member user) {
+        java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroupsMap = new java.util.HashMap<>();
+        
         List<com.pat.repo.domain.FriendGroup> userFriendGroups = friendGroupRepository.findByMembersContaining(user);
         List<com.pat.repo.domain.FriendGroup> userOwnedGroups = friendGroupRepository.findByOwner(user);
         List<com.pat.repo.domain.FriendGroup> userAuthorizedGroups = friendGroupRepository.findByAuthorizedUsersContaining(user);
         
-        // Combine all accessible friend groups
-        java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroupsMap = new java.util.HashMap<>();
         for (com.pat.repo.domain.FriendGroup group : userFriendGroups) {
             if (group.getId() != null) {
                 accessibleGroupsMap.put(group.getId(), group);
@@ -566,9 +744,15 @@ public class DiscussionService {
             }
         }
         
-        // Get user's friends for event visibility checking
-        List<Friend> friendships = friendRepository.findByUser1OrUser2(user, user);
+        return accessibleGroupsMap;
+    }
+    
+    /**
+     * Load friend IDs for a user (helper method)
+     */
+    private java.util.Set<String> loadFriendIds(Member user) {
         java.util.Set<String> friendIds = new java.util.HashSet<>();
+        List<Friend> friendships = friendRepository.findByUser1OrUser2(user, user);
         for (Friend friendship : friendships) {
             if (friendship.getUser1() != null && !friendship.getUser1().getId().equals(user.getId())) {
                 friendIds.add(friendship.getUser1().getId());
@@ -577,143 +761,164 @@ public class DiscussionService {
                 friendIds.add(friendship.getUser2().getId());
             }
         }
-        
-        // OPTIMIZATION: Send default discussion FIRST (most important, appears instantly)
-        // Only send if it has messages
-        Discussion defaultDiscussion = getDefaultDiscussion();
-        if (defaultDiscussion != null) {
-            // Check if discussion has messages before sending
-            if (defaultDiscussion.getMessages() != null && !defaultDiscussion.getMessages().isEmpty()) {
-                DiscussionItemDTO defaultItem = createDiscussionItemDTO(
-                    defaultDiscussion.getId(),
-                    defaultDiscussion.getTitle() != null ? defaultDiscussion.getTitle() : "Discussion Générale",
-                    "general",
-                    defaultDiscussion,
-                    null,
-                    null
-                );
-                onDiscussion.accept(defaultItem);
-                addedDiscussionIds.add(defaultDiscussion.getId());
-            }
-        }
-        
-        // OPTIMIZATION: Collect all discussion IDs first, then batch load them
-        java.util.Set<String> discussionIdsToLoad = new java.util.HashSet<>();
-        java.util.Map<String, com.pat.repo.domain.Evenement> eventByDiscussionId = new java.util.HashMap<>();
-        java.util.Map<String, com.pat.repo.domain.FriendGroup> groupByDiscussionId = new java.util.HashMap<>();
-        
-        // Process user's own events first (fastest path)
+        return friendIds;
+    }
+    
+    /**
+     * Stream user's own events immediately (optimized with index on authorId)
+     */
+    private void streamUserOwnEvents(Member user, Consumer<DiscussionItemDTO> onDiscussion, java.util.Set<String> addedDiscussionIds) {
         List<com.pat.repo.domain.Evenement> userOwnEvents = evenementsRepository.findByAuthorId(user.getId());
         for (com.pat.repo.domain.Evenement event : userOwnEvents) {
-            if (event.getDiscussionId() != null && !event.getDiscussionId().trim().isEmpty()) {
-                discussionIdsToLoad.add(event.getDiscussionId());
-                eventByDiscussionId.put(event.getDiscussionId(), event);
+            if (event.getDiscussionId() != null && !event.getDiscussionId().trim().isEmpty() 
+                && !addedDiscussionIds.contains(event.getDiscussionId())) {
+                processAndStreamEventDiscussion(event, user, onDiscussion, addedDiscussionIds);
             }
         }
+    }
+    
+    /**
+     * Stream public events with discussionId (optimized query for public visibility)
+     * Uses MongoTemplate to query public events with discussionId exists (uses indexes)
+     */
+    private void streamPublicEventsWithDiscussion(Member user, Consumer<DiscussionItemDTO> onDiscussion, java.util.Set<String> addedDiscussionIds) {
+        // Use MongoTemplate to query public events with discussionId exists (uses visibility index)
+        Query query = new Query();
+        query.addCriteria(Criteria.where("visibility").is("public")
+            .and("discussionId").exists(true).ne(null).ne(""));
         
-        // Then check public events and events from friends
-        List<com.pat.repo.domain.Evenement> allEvents = evenementsRepository.findAll();
-        for (com.pat.repo.domain.Evenement event : allEvents) {
-            if (event.getDiscussionId() == null || event.getDiscussionId().trim().isEmpty() 
-                || eventByDiscussionId.containsKey(event.getDiscussionId())) {
-                continue;
-            }
-            
-            if (canUserAccessEvent(event, user, friendIds, accessibleGroupsMap)) {
-                discussionIdsToLoad.add(event.getDiscussionId());
-                eventByDiscussionId.put(event.getDiscussionId(), event);
-            }
-        }
+        List<com.pat.repo.domain.Evenement> publicEvents = mongoTemplate.find(query, com.pat.repo.domain.Evenement.class);
         
-        // Process accessible friend groups
-        for (com.pat.repo.domain.FriendGroup group : accessibleGroupsMap.values()) {
-            if (group.getDiscussionId() != null && !group.getDiscussionId().trim().isEmpty()) {
-                discussionIdsToLoad.add(group.getDiscussionId());
-                groupByDiscussionId.put(group.getDiscussionId(), group);
+        for (com.pat.repo.domain.Evenement event : publicEvents) {
+            if (event.getDiscussionId() != null && !event.getDiscussionId().trim().isEmpty() 
+                && !addedDiscussionIds.contains(event.getDiscussionId())) {
+                processAndStreamEventDiscussion(event, user, onDiscussion, addedDiscussionIds);
             }
         }
+    }
+    
+    /**
+     * Stream events from friends (processes friend author IDs efficiently)
+     */
+    private void streamFriendEvents(Member user, java.util.Set<String> friendIds, 
+                                   java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroupsMap,
+                                   Consumer<DiscussionItemDTO> onDiscussion, java.util.Set<String> addedDiscussionIds) {
+        if (friendIds.isEmpty()) {
+            return; // No friends, skip
+        }
         
-        // OPTIMIZATION: Batch load all discussions at once
-        java.util.Map<String, Discussion> discussionMap = new java.util.HashMap<>();
-        if (!discussionIdsToLoad.isEmpty()) {
-            List<String> discussionIdList = new java.util.ArrayList<>(discussionIdsToLoad);
-            List<Discussion> discussions = (List<Discussion>) discussionRepository.findAllById(discussionIdList);
-            for (Discussion discussion : discussions) {
-                if (discussion != null && discussion.getId() != null) {
-                    discussionMap.put(discussion.getId(), discussion);
+        // Query events by friend author IDs (uses authorId index)
+        // Note: This is a limitation - we need to query for each friend separately
+        // But this is still better than findAll() if there are fewer friends than total events
+        java.util.Set<String> processedDiscussionIds = new java.util.HashSet<>();
+        for (String friendId : friendIds) {
+            List<com.pat.repo.domain.Evenement> friendEvents = evenementsRepository.findByAuthorId(friendId);
+            for (com.pat.repo.domain.Evenement event : friendEvents) {
+                if (event.getDiscussionId() != null && !event.getDiscussionId().trim().isEmpty() 
+                    && !addedDiscussionIds.contains(event.getDiscussionId())
+                    && !processedDiscussionIds.contains(event.getDiscussionId())) {
+                    
+                    // Check if user can access this event (friends visibility or group visibility)
+                    if (canUserAccessEvent(event, user, friendIds, accessibleGroupsMap)) {
+                        processAndStreamEventDiscussion(event, user, onDiscussion, addedDiscussionIds);
+                        processedDiscussionIds.add(event.getDiscussionId());
+                    }
                 }
             }
         }
         
-        // Process events - send immediately as processed
-        for (java.util.Map.Entry<String, com.pat.repo.domain.Evenement> entry : eventByDiscussionId.entrySet()) {
-            String discussionId = entry.getKey();
-            com.pat.repo.domain.Evenement event = entry.getValue();
-            
-            Discussion discussion = discussionMap.get(discussionId);
-            if (discussion == null) {
-                log.warn("Discussion {} for event {} does not exist, creating new one", discussionId, event.getEvenementName());
-                String discussionTitle = "Discussion - " + (event.getEvenementName() != null ? event.getEvenementName() : "Event");
-                String creatorUserName = event.getAuthor() != null && event.getAuthor().getUserName() != null 
-                    ? event.getAuthor().getUserName() 
-                    : user.getUserName();
-                discussion = createDiscussion(creatorUserName, discussionTitle);
-                event.setDiscussionId(discussion.getId());
-                evenementsRepository.save(event);
-                discussionMap.put(discussion.getId(), discussion);
+        // Note: Events with friendGroup visibility are already accessible via accessibleGroupsMap
+        // They will be handled when we process friend group discussions
+    }
+    
+    /**
+     * Stream friend group discussions immediately
+     */
+    private void streamFriendGroupDiscussions(java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroupsMap,
+                                             Member user, Consumer<DiscussionItemDTO> onDiscussion, 
+                                             java.util.Set<String> addedDiscussionIds) {
+        for (com.pat.repo.domain.FriendGroup group : accessibleGroupsMap.values()) {
+            if (group.getDiscussionId() != null && !group.getDiscussionId().trim().isEmpty() 
+                && !addedDiscussionIds.contains(group.getDiscussionId())) {
+                processAndStreamGroupDiscussion(group, user, onDiscussion, addedDiscussionIds);
             }
-            
-            // Only send discussion if it has messages
-            if (discussion.getMessages() != null && !discussion.getMessages().isEmpty()) {
-                DiscussionItemDTO item = createDiscussionItemDTO(
-                    discussion.getId(),
-                    "Discussion - " + (event.getEvenementName() != null ? event.getEvenementName() : "Event"),
-                    "event",
-                    discussion,
-                    event,
-                    null
-                );
-                onDiscussion.accept(item); // Send immediately
-                addedDiscussionIds.add(discussion.getId());
-            }
+        }
+    }
+    
+    /**
+     * Process and stream a single event discussion (helper method)
+     * OPTIMIZED: Only sends discussions that have messages (NOT empty)
+     */
+    private void processAndStreamEventDiscussion(com.pat.repo.domain.Evenement event, Member user,
+                                                Consumer<DiscussionItemDTO> onDiscussion, 
+                                                java.util.Set<String> addedDiscussionIds) {
+        String discussionId = event.getDiscussionId();
+        if (discussionId == null || discussionId.trim().isEmpty()) {
+            return; // No discussion ID, skip
         }
         
-        // Process friend groups - send immediately as processed
-        for (java.util.Map.Entry<String, com.pat.repo.domain.FriendGroup> entry : groupByDiscussionId.entrySet()) {
-            String discussionId = entry.getKey();
-            com.pat.repo.domain.FriendGroup group = entry.getValue();
-            
-            if (addedDiscussionIds.contains(discussionId)) {
-                continue;
-            }
-            
-            Discussion discussion = discussionMap.get(discussionId);
-            if (discussion == null) {
-                log.warn("Discussion {} for group {} does not exist, creating new one", discussionId, group.getName());
-                String discussionTitle = "Discussion - " + (group.getName() != null ? group.getName() : "Friend Group");
-                String creatorUserName = group.getOwner() != null && group.getOwner().getUserName() != null 
-                    ? group.getOwner().getUserName() 
-                    : user.getUserName();
-                discussion = createDiscussion(creatorUserName, discussionTitle);
-                group.setDiscussionId(discussion.getId());
-                friendGroupRepository.save(group);
-                discussionMap.put(discussion.getId(), discussion);
-            }
-            
-            // Only send discussion if it has messages
-            if (discussion.getMessages() != null && !discussion.getMessages().isEmpty()) {
-                DiscussionItemDTO item = createDiscussionItemDTO(
-                    discussion.getId(),
-                    "Discussion - " + (group.getName() != null ? group.getName() : "Friend Group"),
-                    "friendGroup",
-                    discussion,
-                    null,
-                    group
-                );
-                onDiscussion.accept(item); // Send immediately
-                addedDiscussionIds.add(discussion.getId());
-            }
+        // OPTIMIZATION: Check message count FIRST using aggregation (ultra-fast, no message loading)
+        long messageCount = getMessageCountFast(discussionId);
+        if (messageCount == 0) {
+            return; // Skip empty discussions - user doesn't want them displayed
         }
+        
+        // Only load discussion metadata if it has messages
+        Discussion discussion = getDiscussionFastWithoutMessages(discussionId);
+        if (discussion == null) {
+            // Discussion doesn't exist but has messages? This shouldn't happen, but skip anyway
+            return;
+        }
+        
+        // OPTIMIZATION: Use fast DTO creation (doesn't process messages)
+        DiscussionItemDTO item = createDiscussionItemDTOFast(
+            discussion.getId(),
+            "Discussion - " + (event.getEvenementName() != null ? event.getEvenementName() : "Event"),
+            "event",
+            discussion
+        );
+        item.setEvent(event);
+        item.setMessageCount(messageCount); // Set the actual count from aggregation
+        onDiscussion.accept(item); // Send IMMEDIATELY
+        addedDiscussionIds.add(discussion.getId());
+    }
+    
+    /**
+     * Process and stream a single friend group discussion (helper method)
+     * OPTIMIZED: Only sends discussions that have messages (NOT empty)
+     */
+    private void processAndStreamGroupDiscussion(com.pat.repo.domain.FriendGroup group, Member user,
+                                                Consumer<DiscussionItemDTO> onDiscussion, 
+                                                java.util.Set<String> addedDiscussionIds) {
+        String discussionId = group.getDiscussionId();
+        if (discussionId == null || discussionId.trim().isEmpty()) {
+            return; // No discussion ID, skip
+        }
+        
+        // OPTIMIZATION: Check message count FIRST using aggregation (ultra-fast, no message loading)
+        long messageCount = getMessageCountFast(discussionId);
+        if (messageCount == 0) {
+            return; // Skip empty discussions - user doesn't want them displayed
+        }
+        
+        // Only load discussion metadata if it has messages
+        Discussion discussion = getDiscussionFastWithoutMessages(discussionId);
+        if (discussion == null) {
+            // Discussion doesn't exist but has messages? This shouldn't happen, but skip anyway
+            return;
+        }
+        
+        // OPTIMIZATION: Use fast DTO creation (doesn't process messages)
+        DiscussionItemDTO item = createDiscussionItemDTOFast(
+            discussion.getId(),
+            "Discussion - " + (group.getName() != null ? group.getName() : "Friend Group"),
+            "friendGroup",
+            discussion
+        );
+        item.setFriendGroup(group);
+        item.setMessageCount(messageCount); // Set the actual count from aggregation
+        onDiscussion.accept(item); // Send IMMEDIATELY
+        addedDiscussionIds.add(discussion.getId());
     }
     
     /**

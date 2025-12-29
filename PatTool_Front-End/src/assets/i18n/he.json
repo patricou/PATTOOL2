@@ -622,7 +622,12 @@
         "CONFIRM_DELETE_EMPTY": "האם אתה בטוח שברצונך למחוק את הדיון הזה? פעולה זו אינה ניתנת לביטול.",
         "ID": "ID",
         "EVENT_ID": "מזהה אירוע",
-        "GROUP_ID": "מזהה קבוצה"
+        "GROUP_ID": "מזהה קבוצה",
+        "OPEN_DISCUSSION": "פתח דיון",
+        "VIEW_EVENT_DETAILS": "הצג פרטי אירוע",
+        "OPEN_WHATSAPP_GROUP": "פתח קבוצת WhatsApp",
+        "DELETE_DISCUSSION": "מחק דיון",
+        "VIEW_DISCUSSION_STATISTICS": "הצג סטטיסטיקות דיונים"
     },
     "MAP": {
         "TITLE": "מאפיינים",

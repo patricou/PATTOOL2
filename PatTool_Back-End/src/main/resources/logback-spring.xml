@@ -35,6 +35,9 @@
     <logger name="org.springframework.web" level="INFO"/>
     <logger name="org.mongodb.driver" level="INFO"/>
     
+    <!-- WebSocket loggers - set to DEBUG for detailed WebSocket connection info -->
+    <logger name="org.springframework.web.socket.config.WebSocketMessageBrokerStats" level="DEBUG"/>
+    
     <!-- Suppress stack traces for connection abort exceptions (normal client disconnections) -->
     <!-- These exceptions are normal when clients close connections and don't need stack traces -->
     <logger name="org.apache.catalina.connector" level="WARN"/>

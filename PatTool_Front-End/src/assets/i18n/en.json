@@ -630,7 +630,12 @@
         "CONFIRM_DELETE_EMPTY": "Are you sure you want to delete this discussion? This action cannot be undone.",
         "ID": "ID",
         "EVENT_ID": "Event ID",
-        "GROUP_ID": "Group ID"
+        "GROUP_ID": "Group ID",
+        "OPEN_DISCUSSION": "Open Discussion",
+        "VIEW_EVENT_DETAILS": "View Event Details",
+        "OPEN_WHATSAPP_GROUP": "Open WhatsApp Group",
+        "DELETE_DISCUSSION": "Delete discussion",
+        "VIEW_DISCUSSION_STATISTICS": "View Discussion Statistics"
     },
     "MAP": {
         "TITLE": "Main Features",

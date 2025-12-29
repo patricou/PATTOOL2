@@ -16,7 +16,7 @@
             <button *ngIf="hasAdminRole()" 
                     class="btn btn-sm btn-outline-info ms-2" 
                     (click)="openStatisticsModal()"
-                    [ngbTooltip]="'View Discussion Statistics'"
+                    [ngbTooltip]="'CHAT.VIEW_DISCUSSION_STATISTICS' | translate"
                     placement="bottom">
                 <i class="fa fa-bar-chart"></i>
             </button>
@@ -68,7 +68,7 @@
 
         <!-- Discussion Cards -->
         <div *ngIf="availableDiscussions.length > 0" class="discussions-grid">
-            <div *ngFor="let discussion of filteredDiscussions" 
+            <div *ngFor="let discussion of filteredDiscussions; trackBy: trackByDiscussionId" 
                  class="discussion-card"
                  [attr.data-type]="discussion.type"
                  [class.no-click]="true">
@@ -124,11 +124,11 @@
                         <!-- Friend Group Info -->
                         <p class="discussion-info-item" *ngIf="discussion.type === 'friendGroup' && discussion.friendGroup">
                             <i class="fa fa-users"></i>
-                            <span><strong>{{ "CHAT.MEMBERS_COUNT" | translate }}:</strong> {{ getGroupMembersCount(discussion.friendGroup) }} {{ "CHAT.MEMBERS" | translate }}</span>
+                            <span><strong>{{ "CHAT.MEMBERS_COUNT" | translate }}:</strong> {{ getGroupMembersCountCached(discussion.id) }} {{ "CHAT.MEMBERS" | translate }}</span>
                         </p>
-                        <p class="discussion-info-item" *ngIf="discussion.type === 'friendGroup' && discussion.friendGroup && getGroupMembersList(discussion.friendGroup).length > 0">
+                        <p class="discussion-info-item" *ngIf="discussion.type === 'friendGroup' && discussion.friendGroup && getGroupMembersListCached(discussion.id).length > 0">
                             <i class="fa fa-user"></i>
-                            <span><strong>{{ "CHAT.MEMBERS_LIST" | translate }}:</strong> <span class="members-list">{{ getGroupMembersList(discussion.friendGroup).join(', ') }}</span></span>
+                            <span><strong>{{ "CHAT.MEMBERS_LIST" | translate }}:</strong> <span class="members-list">{{ getGroupMembersListCached(discussion.id).join(', ') }}</span></span>
                         </p>
 
                         <!-- General Discussion Info -->
@@ -168,17 +168,26 @@
                         <!-- Open Discussion button for all types -->
                         <button class="btn btn-sm btn-primary discussion-action-btn" 
                                 (click)="openDiscussionModal(discussion); $event.stopPropagation()"
-                                [attr.aria-label]="'Open Discussion'"
-                                [ngbTooltip]="'Open Discussion'"
+                                [attr.aria-label]="'CHAT.OPEN_DISCUSSION' | translate"
+                                [ngbTooltip]="'CHAT.OPEN_DISCUSSION' | translate"
                                 placement="top">
                             <i class="fa fa-comments"></i>
+                        </button>
+                        <!-- Event Details button for event discussions -->
+                        <button *ngIf="discussion.type === 'event' && discussion.event && discussion.event.id" 
+                                class="btn btn-sm btn-info discussion-action-btn" 
+                                (click)="navigateToEventDetails(discussion, $event)"
+                                [attr.aria-label]="'CHAT.VIEW_EVENT_DETAILS' | translate"
+                                [ngbTooltip]="'CHAT.VIEW_EVENT_DETAILS' | translate"
+                                placement="top">
+                            <i class="fa fa-calendar-check-o"></i>
                         </button>
                         <!-- WhatsApp button for friend groups -->
                         <button *ngIf="discussion.type === 'friendGroup' && hasWhatsAppLink(discussion.friendGroup)" 
                                 class="btn btn-sm btn-success discussion-action-btn" 
                                 (click)="openWhatsAppLink(discussion.friendGroup); $event.stopPropagation()"
-                                [attr.aria-label]="'Open WhatsApp Group'"
-                                [ngbTooltip]="'Open WhatsApp Group'"
+                                [attr.aria-label]="'CHAT.OPEN_WHATSAPP_GROUP' | translate"
+                                [ngbTooltip]="'CHAT.OPEN_WHATSAPP_GROUP' | translate"
                                 placement="top">
                             <i class="fa fa-whatsapp"></i>
                         </button>
@@ -186,8 +195,8 @@
                         <button *ngIf="isDiscussionOwner(discussion)"
                                 class="btn btn-sm btn-danger delete-discussion-btn" 
                                 (click)="deleteDiscussion(discussion, $event)"
-                                [attr.aria-label]="'Delete discussion'"
-                                [ngbTooltip]="'Delete discussion'"
+                                [attr.aria-label]="'CHAT.DELETE_DISCUSSION' | translate"
+                                [ngbTooltip]="'CHAT.DELETE_DISCUSSION' | translate"
                                 placement="top">
                             <i class="fa fa-trash"></i>
                         </button>
