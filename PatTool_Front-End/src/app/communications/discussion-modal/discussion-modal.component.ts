@@ -31,6 +31,7 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
   private statusCheckInterval?: any;
   private pendingTimeouts: any[] = []; // Track all setTimeout calls for cleanup
   private isDestroyed: boolean = false; // Flag to prevent operations after destruction
+  private fermerButtonListeners: Array<{element: HTMLElement, enterHandler: () => void, leaveHandler: () => void}> = []; // Track Fermer button event listeners
 
   constructor(public activeModal: NgbActiveModal, private elementRef: ElementRef, private cdr: ChangeDetectorRef) {}
 
@@ -176,6 +177,17 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
       clearTimeout(timeoutId);
     });
     this.pendingTimeouts = [];
+    
+    // Clean up Fermer button event listeners
+    this.fermerButtonListeners.forEach(({ element, enterHandler, leaveHandler }) => {
+      try {
+        element.removeEventListener('mouseenter', enterHandler);
+        element.removeEventListener('mouseleave', leaveHandler);
+      } catch (e) {
+        // Ignore errors if element is already removed
+      }
+    });
+    this.fermerButtonListeners = [];
   }
 
   private setupColorObserver(): void {
@@ -425,6 +437,21 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
           fermerButton.style.borderColor = '#6c757d';
           fermerButton.style.color = '#ffffff';
           
+          // Clean up any existing listeners first
+          this.fermerButtonListeners.forEach(({ element, enterHandler, leaveHandler }) => {
+            if (element === fermerButton) {
+              try {
+                element.removeEventListener('mouseenter', enterHandler);
+                element.removeEventListener('mouseleave', leaveHandler);
+              } catch (e) {
+                // Ignore errors
+              }
+            }
+          });
+          this.fermerButtonListeners = this.fermerButtonListeners.filter(
+            ({ element }) => element !== fermerButton
+          );
+          
           // Also set hover state
           const mouseEnterHandler = () => {
             if (!this.isDestroyed && fermerButton && document.body.contains(fermerButton)) {
@@ -443,6 +470,13 @@ export class DiscussionModalComponent implements OnInit, OnDestroy, AfterViewIni
           
           fermerButton.addEventListener('mouseenter', mouseEnterHandler);
           fermerButton.addEventListener('mouseleave', mouseLeaveHandler);
+          
+          // Track listeners for cleanup
+          this.fermerButtonListeners.push({
+            element: fermerButton,
+            enterHandler: mouseEnterHandler,
+            leaveHandler: mouseLeaveHandler
+          });
         }
       } catch (error) {
         // Silently fail if element is no longer in DOM

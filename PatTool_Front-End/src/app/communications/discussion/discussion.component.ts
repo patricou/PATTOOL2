@@ -6,7 +6,8 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { DiscussionService, Discussion, DiscussionMessage } from '../../services/discussion.service';
 import { Member } from '../../model/member';
 import { MembersService } from '../../services/members.service';
-import { Subscription } from 'rxjs';
+import { Subscription, Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import * as piexif from 'piexifjs';
 
 @Component({
@@ -37,6 +38,7 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   public isConnecting: boolean = false;
   public connectionStatus: string = '';
   public showEmojiPicker: boolean = false;
+  public isImageProcessing: boolean = false; // Indique si une image est en cours de traitement (lecture/compression)
   private shouldScrollToBottom: boolean = true;
   public editingMessageId: string | null = null;
   private imageUrlCache: Map<string, string> = new Map(); // Cache for blob URLs
@@ -49,6 +51,13 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   private messageSubscription: Subscription | null = null;
   private discussionsSubscription: Subscription | null = null;
   private resizeObserver: ResizeObserver | null = null;
+  
+  // Memory leak prevention: track all subscriptions and resources
+  private destroy$ = new Subject<void>();
+  private allSubscriptions: Subscription[] = [];
+  private activeTimeouts: ReturnType<typeof setTimeout>[] = [];
+  private imageLoadListeners: Array<{element: HTMLImageElement, loadHandler: () => void, errorHandler: () => void}> = [];
+  private activeFileReaders: FileReader[] = [];
 
   constructor(
     private discussionService: DiscussionService,
@@ -124,18 +133,59 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   ngOnDestroy() {
+    // Complete destroy subject to unsubscribe from all takeUntil subscriptions
+    this.destroy$.next();
+    this.destroy$.complete();
+    
     this.disconnectWebSocket();
+    
+    // Unsubscribe from all tracked subscriptions
     if (this.messageSubscription) {
       this.messageSubscription.unsubscribe();
     }
     if (this.discussionsSubscription) {
       this.discussionsSubscription.unsubscribe();
     }
+    this.allSubscriptions.forEach(sub => {
+      if (!sub.closed) {
+        sub.unsubscribe();
+      }
+    });
+    this.allSubscriptions = [];
+    
     // Clean up ResizeObserver
     if (this.resizeObserver) {
       this.resizeObserver.disconnect();
       this.resizeObserver = null;
     }
+    
+    // Clean up image event listeners
+    this.imageLoadListeners.forEach(({ element, loadHandler, errorHandler }) => {
+      try {
+        element.removeEventListener('load', loadHandler);
+        element.removeEventListener('error', errorHandler);
+      } catch (e) {
+        // Ignore errors if element is already removed
+      }
+    });
+    this.imageLoadListeners = [];
+    
+    // Clean up FileReader instances
+    this.activeFileReaders.forEach(reader => {
+      try {
+        reader.abort();
+      } catch (e) {
+        // Ignore errors
+      }
+    });
+    this.activeFileReaders = [];
+    
+    // Clean up all timeouts
+    this.activeTimeouts.forEach(timeoutId => {
+      clearTimeout(timeoutId);
+    });
+    this.activeTimeouts = [];
+    
     // Clean up blob URLs to prevent memory leaks
     this.imageUrlCache.forEach((blobUrl) => {
       if (blobUrl && blobUrl.startsWith('blob:')) {
@@ -234,26 +284,29 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
    */
   private fallbackToFirstDiscussion() {
     this.connectionStatus = 'Loading discussions...';
-    this.discussionService.getAllDiscussions().subscribe({
-      next: (discussions) => {
-        if (discussions.length > 0) {
-          this.currentDiscussion = discussions[0];
-          this.loadMessages();
-          // Connect WebSocket after messages are loaded
-          this.connectWebSocket();
-        } else {
-          // Create a new default discussion
+    const sub = this.discussionService.getAllDiscussions()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (discussions) => {
+          if (discussions.length > 0) {
+            this.currentDiscussion = discussions[0];
+            this.loadMessages();
+            // Connect WebSocket after messages are loaded
+            this.connectWebSocket();
+          } else {
+            // Create a new default discussion
+            this.createDefaultDiscussion();
+          }
+          this.isLoading = false;
+        },
+        error: (error) => {
+          this.connectionStatus = 'Error loading discussions';
+          // Try to create a default discussion anyway
           this.createDefaultDiscussion();
+          this.isLoading = false;
         }
-        this.isLoading = false;
-      },
-      error: (error) => {
-        this.connectionStatus = 'Error loading discussions';
-        // Try to create a default discussion anyway
-        this.createDefaultDiscussion();
-        this.isLoading = false;
-      }
-    });
+      });
+    this.allSubscriptions.push(sub);
   }
 
   /**
@@ -261,20 +314,23 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
    */
   private createDefaultDiscussion() {
     this.connectionStatus = 'Creating default discussion...';
-    this.discussionService.createDiscussion('Global Discussion').subscribe({
-      next: (discussion) => {
-        this.currentDiscussion = discussion;
-        this.loadMessages();
-        // Connect WebSocket after messages are loaded
-        // Note: isLoading will be set to false in loadMessages() after messages are loaded
-        this.connectWebSocket();
-      },
-      error: (error) => {
-        this.connectionStatus = 'Error creating discussion';
-        this.isLoading = false; // Ensure loading is false on error
-        alert('Error creating discussion: ' + (error.message || error));
-      }
-    });
+    const sub = this.discussionService.createDiscussion('Global Discussion')
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (discussion) => {
+          this.currentDiscussion = discussion;
+          this.loadMessages();
+          // Connect WebSocket after messages are loaded
+          // Note: isLoading will be set to false in loadMessages() after messages are loaded
+          this.connectWebSocket();
+        },
+        error: (error) => {
+          this.connectionStatus = 'Error creating discussion';
+          this.isLoading = false; // Ensure loading is false on error
+          alert('Error creating discussion: ' + (error.message || error));
+        }
+      });
+    this.allSubscriptions.push(sub);
   }
 
   /**
@@ -286,42 +342,53 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       return;
     }
 
-    this.discussionService.getMessages(this.currentDiscussion.id).subscribe({
-      next: (messages) => {
-        // Convert dateTime strings to Date objects if needed
-        messages.forEach(message => {
-          if (message.dateTime && typeof message.dateTime === 'string') {
-            message.dateTime = new Date(message.dateTime);
-          }
-        });
-        
-        // Sort messages by date (oldest first, newest at bottom)
-        const sortedMessages = messages.sort((a, b) => {
-          const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
-          const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
-          return dateA - dateB; // Oldest first (ascending order)
-        });
-        
-        // Use setTimeout to defer the assignment to avoid ExpressionChangedAfterItHasBeenCheckedError
-        setTimeout(() => {
-          this.messages = sortedMessages;
+    const sub = this.discussionService.getMessages(this.currentDiscussion.id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (messages) => {
+          // Convert dateTime strings to Date objects if needed
+          messages.forEach(message => {
+            if (message.dateTime && typeof message.dateTime === 'string') {
+              message.dateTime = new Date(message.dateTime);
+            }
+          });
           
-          // Load images for messages that have images
-          this.loadMessageImages();
+          // Sort messages by date (oldest first, newest at bottom)
+          const sortedMessages = messages.sort((a, b) => {
+            const dateA = a.dateTime ? new Date(a.dateTime).getTime() : 0;
+            const dateB = b.dateTime ? new Date(b.dateTime).getTime() : 0;
+            return dateA - dateB; // Oldest first (ascending order)
+          });
           
-          this.scrollToBottom();
-          // IMPORTANT: Set isLoading to false after messages are loaded
+          // Use setTimeout to defer the assignment to avoid ExpressionChangedAfterItHasBeenCheckedError
+          const timeoutId = setTimeout(() => {
+            if (this.messagesList?.nativeElement) { // Check component still exists
+              this.messages = sortedMessages;
+              
+              // Load images for messages that have images
+              this.loadMessageImages();
+              
+              this.scrollToBottom();
+              // IMPORTANT: Set isLoading to false after messages are loaded
+              this.isLoading = false;
+              
+              // Trigger change detection
+              this.cdr.detectChanges();
+            }
+            // Remove from active timeouts
+            const index = this.activeTimeouts.indexOf(timeoutId);
+            if (index > -1) {
+              this.activeTimeouts.splice(index, 1);
+            }
+          }, 0);
+          this.activeTimeouts.push(timeoutId);
+        },
+        error: (error) => {
+          // Don't let errors break the component
           this.isLoading = false;
-          
-          // Trigger change detection
-          this.cdr.detectChanges();
-        }, 0);
-      },
-      error: (error) => {
-        // Don't let errors break the component
-        this.isLoading = false;
-      }
-    });
+        }
+      });
+    this.allSubscriptions.push(sub);
   }
 
   /**
@@ -355,40 +422,66 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       }
 
       // Load image with authentication
-      this.discussionService.getFileUrl(discussionId, 'images', filename).subscribe({
-        next: (blobUrl: string) => {
-          this.imageUrlCache.set(cacheKey, blobUrl);
-          // Increment counter to trigger change detection - do this BEFORE setTimeout
-          this.cacheUpdateCounter++;
-          // Use setTimeout to ensure change detection runs after cache update
-          setTimeout(() => {
-            this.ngZone.run(() => {
-              // Force change detection and mark for check
-              this.cdr.markForCheck();
-              this.cdr.detectChanges();
-              // Force another change detection cycle to ensure template re-evaluates
-              setTimeout(() => {
+      const sub = this.discussionService.getFileUrl(discussionId, 'images', filename)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (blobUrl: string) => {
+            if (this.messagesList?.nativeElement) { // Check component still exists
+              this.imageUrlCache.set(cacheKey, blobUrl);
+              // Increment counter to trigger change detection - do this BEFORE setTimeout
+              this.cacheUpdateCounter++;
+              // Use setTimeout to ensure change detection runs after cache update
+              const timeoutId1 = setTimeout(() => {
+                if (this.messagesList?.nativeElement) {
+                  this.ngZone.run(() => {
+                    // Force change detection and mark for check
+                    this.cdr.markForCheck();
+                    this.cdr.detectChanges();
+                    // Force another change detection cycle to ensure template re-evaluates
+                    const timeoutId2 = setTimeout(() => {
+                      if (this.messagesList?.nativeElement) {
+                        this.ngZone.run(() => {
+                          // Increment counter again to force another change detection cycle
+                          this.cacheUpdateCounter++;
+                          this.cdr.detectChanges();
+                          // Scroll to bottom after image is loaded and rendered
+                          this.scrollToBottom();
+                        });
+                      }
+                      const index = this.activeTimeouts.indexOf(timeoutId2);
+                      if (index > -1) {
+                        this.activeTimeouts.splice(index, 1);
+                      }
+                    }, 100);
+                    this.activeTimeouts.push(timeoutId2);
+                  });
+                }
+                const index = this.activeTimeouts.indexOf(timeoutId1);
+                if (index > -1) {
+                  this.activeTimeouts.splice(index, 1);
+                }
+              }, 0);
+              this.activeTimeouts.push(timeoutId1);
+            }
+          },
+          error: (error) => {
+            console.error('Error loading image:', filename, error);
+            // Still trigger change detection to show error state
+            const timeoutId = setTimeout(() => {
+              if (this.messagesList?.nativeElement) {
                 this.ngZone.run(() => {
-                  // Increment counter again to force another change detection cycle
-                  this.cacheUpdateCounter++;
                   this.cdr.detectChanges();
-                  // Scroll to bottom after image is loaded and rendered
-                  this.scrollToBottom();
                 });
-              }, 100);
-            });
-          }, 0);
-        },
-        error: (error) => {
-          console.error('Error loading image:', filename, error);
-          // Still trigger change detection to show error state
-          setTimeout(() => {
-            this.ngZone.run(() => {
-              this.cdr.detectChanges();
-            });
-          }, 0);
-        }
-      });
+              }
+              const index = this.activeTimeouts.indexOf(timeoutId);
+              if (index > -1) {
+                this.activeTimeouts.splice(index, 1);
+              }
+            }, 0);
+            this.activeTimeouts.push(timeoutId);
+          }
+        });
+      this.allSubscriptions.push(sub);
     }
     
     if (message.videoUrl) {
@@ -403,22 +496,29 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       }
 
       // Load video with authentication
-      this.discussionService.getFileUrl(discussionId, 'videos', filename).subscribe({
-        next: (blobUrl: string) => {
-          this.imageUrlCache.set(cacheKey, blobUrl);
-          // Trigger change detection to update the view (so hasFileUrl() returns true)
-          this.ngZone.run(() => {
-            this.cdr.detectChanges();
-          });
-        },
-        error: (error) => {
-          console.error('Error loading video:', error);
-          // Still trigger change detection to show error state
-          this.ngZone.run(() => {
-            this.cdr.detectChanges();
-          });
-        }
-      });
+      const sub = this.discussionService.getFileUrl(discussionId, 'videos', filename)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (blobUrl: string) => {
+            if (this.messagesList?.nativeElement) { // Check component still exists
+              this.imageUrlCache.set(cacheKey, blobUrl);
+              // Trigger change detection to update the view (so hasFileUrl() returns true)
+              this.ngZone.run(() => {
+                this.cdr.detectChanges();
+              });
+            }
+          },
+          error: (error) => {
+            console.error('Error loading video:', error);
+            // Still trigger change detection to show error state
+            if (this.messagesList?.nativeElement) {
+              this.ngZone.run(() => {
+                this.cdr.detectChanges();
+              });
+            }
+          }
+        });
+      this.allSubscriptions.push(sub);
     }
   }
 
@@ -445,16 +545,21 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         }
 
         // Load image with authentication
-        this.discussionService.getFileUrl(discussionId, 'images', filename).subscribe({
-          next: (blobUrl: string) => {
-            this.imageUrlCache.set(cacheKey, blobUrl);
-            // Trigger change detection to update the view
-            this.cdr.detectChanges();
-          },
-          error: (error) => {
-            console.error('Error loading image:', error);
-          }
-        });
+        const sub = this.discussionService.getFileUrl(discussionId, 'images', filename)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (blobUrl: string) => {
+              if (this.messagesList?.nativeElement) { // Check component still exists
+                this.imageUrlCache.set(cacheKey, blobUrl);
+                // Trigger change detection to update the view
+                this.cdr.detectChanges();
+              }
+            },
+            error: (error) => {
+              console.error('Error loading image:', error);
+            }
+          });
+        this.allSubscriptions.push(sub);
       }
       
       if (message.videoUrl) {
@@ -469,16 +574,21 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
         }
 
         // Load video with authentication
-        this.discussionService.getFileUrl(discussionId, 'videos', filename).subscribe({
-          next: (blobUrl: string) => {
-            this.imageUrlCache.set(cacheKey, blobUrl);
-            // Trigger change detection to update the view
-            this.cdr.detectChanges();
-          },
-          error: (error) => {
-            console.error('Error loading video:', error);
-          }
-        });
+        const sub = this.discussionService.getFileUrl(discussionId, 'videos', filename)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe({
+            next: (blobUrl: string) => {
+              if (this.messagesList?.nativeElement) { // Check component still exists
+                this.imageUrlCache.set(cacheKey, blobUrl);
+                // Trigger change detection to update the view
+                this.cdr.detectChanges();
+              }
+            },
+            error: (error) => {
+              console.error('Error loading video:', error);
+            }
+          });
+        this.allSubscriptions.push(sub);
       }
     });
   }
@@ -574,9 +684,16 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
               // Trigger change detection
               this.cdr.detectChanges();
               // Scroll to bottom after a brief delay to ensure DOM is updated
-              setTimeout(() => {
-                this.scrollToBottom();
+              const timeoutId = setTimeout(() => {
+                if (this.messagesList?.nativeElement) {
+                  this.scrollToBottom();
+                }
+                const index = this.activeTimeouts.indexOf(timeoutId);
+                if (index > -1) {
+                  this.activeTimeouts.splice(index, 1);
+                }
               }, 10);
+              this.activeTimeouts.push(timeoutId);
             }
           });
         }
@@ -591,12 +708,17 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     this.discussionService.connectWebSocket(this.currentDiscussion.id);
 
     // Timeout after 10 seconds if still connecting
-    setTimeout(() => {
-      if (this.isConnecting) {
+    const timeoutId = setTimeout(() => {
+      if (this.messagesList?.nativeElement && this.isConnecting) { // Check component still exists
         this.isConnecting = false;
         this.connectionStatus = 'Connection timeout - messages may not update in real-time';
       }
+      const index = this.activeTimeouts.indexOf(timeoutId);
+      if (index > -1) {
+        this.activeTimeouts.splice(index, 1);
+      }
     }, 10000);
+    this.activeTimeouts.push(timeoutId);
   }
 
   /**
@@ -627,11 +749,13 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       // If editing a message, update it instead of creating a new one
       if (this.editingMessageId) {
         await new Promise<void>((resolve, reject) => {
-          this.discussionService.updateMessage(
+          const sub = this.discussionService.updateMessage(
             this.currentDiscussion!.id!,
             this.editingMessageId!,
             messageText
-          ).subscribe({
+          )
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
             next: (updatedMessage) => {
               // Convert dateTime string to Date object if needed
               if (updatedMessage.dateTime && typeof updatedMessage.dateTime === 'string') {
@@ -665,24 +789,32 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
           try {
             // Compress image to ~300KB if it's larger than that
             if (this.selectedImage.size > 300 * 1024) {
+              this.isImageProcessing = true;
+              this.cdr.detectChanges();
               imageToSend = await this.compressImageToTargetSize(this.selectedImage, 300 * 1024);
+              this.isImageProcessing = false;
+              this.cdr.detectChanges();
             } else {
               imageToSend = this.selectedImage;
             }
           } catch (error) {
             console.error('Error compressing image:', error);
+            this.isImageProcessing = false;
+            this.cdr.detectChanges();
             // Use original image if compression fails
             imageToSend = this.selectedImage;
           }
         }
 
         await new Promise<void>((resolve, reject) => {
-          this.discussionService.addMessage(
+          const sub = this.discussionService.addMessage(
             this.currentDiscussion!.id!,
             messageText,
             imageToSend,
             this.selectedVideo || undefined
-          ).subscribe({
+          )
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
             next: (message) => {
               // Convert dateTime string to Date object if needed
               if (message.dateTime && typeof message.dateTime === 'string') {
@@ -719,6 +851,7 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
               reject(error);
             }
           });
+          this.allSubscriptions.push(sub);
         });
       }
     } catch (error) {
@@ -741,12 +874,17 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     this.editingMessageId = message.id;
     
     // Scroll to input box
-    setTimeout(() => {
-      if (this.messageInput) {
+    const timeoutId = setTimeout(() => {
+      if (this.messageInput?.nativeElement) {
         this.messageInput.nativeElement.focus();
         this.messageInput.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
+      const index = this.activeTimeouts.indexOf(timeoutId);
+      if (index > -1) {
+        this.activeTimeouts.splice(index, 1);
+      }
     }, 100);
+    this.activeTimeouts.push(timeoutId);
   }
 
   /**
@@ -817,15 +955,20 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     }
 
     try {
-      this.discussionService.deleteMessage(this.currentDiscussion.id, message.id).subscribe({
-        next: () => {
-          // Message will be removed via WebSocket
-          this.messages = this.messages.filter(m => m.id !== message.id);
-        },
-        error: (error) => {
-          alert('Error deleting message: ' + (error.message || error));
-        }
-      });
+      const sub = this.discussionService.deleteMessage(this.currentDiscussion.id, message.id)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: () => {
+            // Message will be removed via WebSocket
+            if (this.messagesList?.nativeElement) { // Check component still exists
+              this.messages = this.messages.filter(m => m.id !== message.id);
+            }
+          },
+          error: (error) => {
+            alert('Error deleting message: ' + (error.message || error));
+          }
+        });
+      this.allSubscriptions.push(sub);
     } catch (error) {
       // Silent error handling
     }
@@ -870,16 +1013,46 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
    * Create image preview
    */
   private createImagePreview(file: File) {
+    this.isImageProcessing = true;
+    this.cdr.detectChanges();
+    
     const reader = new FileReader();
+    this.activeFileReaders.push(reader);
+    
     reader.onload = (e) => {
       // Use setTimeout to defer the update to avoid ExpressionChangedAfterItHasBeenCheckedError
-      setTimeout(() => {
-        this.ngZone.run(() => {
-          this.imagePreview = e.target?.result as string;
-          this.cdr.detectChanges();
-        });
+      const timeoutId = setTimeout(() => {
+        if (this.fileInput?.nativeElement) { // Check component still exists
+          this.ngZone.run(() => {
+            this.imagePreview = e.target?.result as string;
+            this.isImageProcessing = false;
+            this.cdr.detectChanges();
+          });
+        }
+        // Remove from active timeouts
+        const index = this.activeTimeouts.indexOf(timeoutId);
+        if (index > -1) {
+          this.activeTimeouts.splice(index, 1);
+        }
+        // Remove from active file readers
+        const readerIndex = this.activeFileReaders.indexOf(reader);
+        if (readerIndex > -1) {
+          this.activeFileReaders.splice(readerIndex, 1);
+        }
       }, 0);
+      this.activeTimeouts.push(timeoutId);
     };
+    
+    reader.onerror = () => {
+      this.isImageProcessing = false;
+      this.cdr.detectChanges();
+      // Remove from active file readers on error
+      const readerIndex = this.activeFileReaders.indexOf(reader);
+      if (readerIndex > -1) {
+        this.activeFileReaders.splice(readerIndex, 1);
+      }
+    };
+    
     reader.readAsDataURL(file);
   }
 
@@ -888,15 +1061,39 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
    */
   private createVideoPreview(file: File) {
     const reader = new FileReader();
+    this.activeFileReaders.push(reader);
+    
     reader.onload = (e) => {
       // Use setTimeout to defer the update to avoid ExpressionChangedAfterItHasBeenCheckedError
-      setTimeout(() => {
-        this.ngZone.run(() => {
-          this.videoPreview = e.target?.result as string;
-          this.cdr.detectChanges();
-        });
+      const timeoutId = setTimeout(() => {
+        if (this.fileInput?.nativeElement) { // Check component still exists
+          this.ngZone.run(() => {
+            this.videoPreview = e.target?.result as string;
+            this.cdr.detectChanges();
+          });
+        }
+        // Remove from active timeouts
+        const index = this.activeTimeouts.indexOf(timeoutId);
+        if (index > -1) {
+          this.activeTimeouts.splice(index, 1);
+        }
+        // Remove from active file readers
+        const readerIndex = this.activeFileReaders.indexOf(reader);
+        if (readerIndex > -1) {
+          this.activeFileReaders.splice(readerIndex, 1);
+        }
       }, 0);
+      this.activeTimeouts.push(timeoutId);
     };
+    
+    reader.onerror = () => {
+      // Remove from active file readers on error
+      const readerIndex = this.activeFileReaders.indexOf(reader);
+      if (readerIndex > -1) {
+        this.activeFileReaders.splice(readerIndex, 1);
+      }
+    };
+    
     reader.readAsDataURL(file);
   }
 
@@ -908,6 +1105,7 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     this.selectedVideo = null;
     this.imagePreview = null;
     this.videoPreview = null;
+    this.isImageProcessing = false;
     if (this.fileInput) {
       this.fileInput.nativeElement.value = '';
     }
@@ -946,18 +1144,23 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     // If not in cache, trigger loading (will be cached when ready)
     // This will be called again when the cache is updated
     const subfolder = isImage ? 'images' : 'videos';
-    this.discussionService.getFileUrl(this.currentDiscussion.id, subfolder, filename).subscribe({
-      next: (blobUrl: string) => {
-        this.imageUrlCache.set(cacheKey, blobUrl);
-        // Increment counter to trigger change detection
-        this.cacheUpdateCounter++;
-        // Trigger change detection to update the view
-        this.cdr.detectChanges();
-      },
-      error: (error) => {
-        console.error('Error loading file:', error);
-      }
-    });
+    const sub = this.discussionService.getFileUrl(this.currentDiscussion.id, subfolder, filename)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (blobUrl: string) => {
+          if (this.messagesList?.nativeElement) { // Check component still exists
+            this.imageUrlCache.set(cacheKey, blobUrl);
+            // Increment counter to trigger change detection
+            this.cacheUpdateCounter++;
+            // Trigger change detection to update the view
+            this.cdr.detectChanges();
+          }
+        },
+        error: (error) => {
+          console.error('Error loading file:', error);
+        }
+      });
+    this.allSubscriptions.push(sub);
 
     return '';
   }
@@ -1025,24 +1228,51 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     });
     
     // Also try after short delays to catch any late DOM updates (especially when images load)
-    setTimeout(() => {
-      doScroll();
+    const timeoutId1 = setTimeout(() => {
+      if (this.messagesList?.nativeElement) {
+        doScroll();
+      }
+      const index = this.activeTimeouts.indexOf(timeoutId1);
+      if (index > -1) {
+        this.activeTimeouts.splice(index, 1);
+      }
     }, 100);
+    this.activeTimeouts.push(timeoutId1);
     
-    setTimeout(() => {
-      doScroll();
+    const timeoutId2 = setTimeout(() => {
+      if (this.messagesList?.nativeElement) {
+        doScroll();
+      }
+      const index = this.activeTimeouts.indexOf(timeoutId2);
+      if (index > -1) {
+        this.activeTimeouts.splice(index, 1);
+      }
     }, 300);
+    this.activeTimeouts.push(timeoutId2);
     
-    setTimeout(() => {
-      doScroll();
+    const timeoutId3 = setTimeout(() => {
+      if (this.messagesList?.nativeElement) {
+        doScroll();
+      }
+      const index = this.activeTimeouts.indexOf(timeoutId3);
+      if (index > -1) {
+        this.activeTimeouts.splice(index, 1);
+      }
     }, 500);
+    this.activeTimeouts.push(timeoutId3);
     
     // Setup ResizeObserver to scroll when content height changes (e.g., when images load)
-    if (!this.resizeObserver && 'ResizeObserver' in window) {
+    // Disconnect existing observer before creating a new one
+    if (this.resizeObserver) {
+      this.resizeObserver.disconnect();
+      this.resizeObserver = null;
+    }
+    
+    if ('ResizeObserver' in window) {
       this.resizeObserver = new ResizeObserver(() => {
         // Only scroll if user is near the bottom (within 100px)
         const element = this.messagesList?.nativeElement;
-        if (element) {
+        if (element && this.messagesList?.nativeElement) { // Check component still exists
           const isNearBottom = element.scrollHeight - element.scrollTop - element.clientHeight < 100;
           if (isNearBottom) {
             doScroll();
@@ -1054,7 +1284,11 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     
     // Also scroll when images finish loading
     // Wait for all images in the messages list to load
-    setTimeout(() => {
+    const timeoutId4 = setTimeout(() => {
+      if (!this.messagesList?.nativeElement) {
+        return; // Component destroyed
+      }
+      
       const images = element.querySelectorAll('img');
       let loadedCount = 0;
       const totalImages = images.length;
@@ -1062,6 +1296,10 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       if (totalImages === 0) {
         // No images, scroll immediately
         doScroll();
+        const index = this.activeTimeouts.indexOf(timeoutId4);
+        if (index > -1) {
+          this.activeTimeouts.splice(index, 1);
+        }
         return;
       }
       
@@ -1072,29 +1310,52 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
             doScroll();
           }
         } else {
-          img.addEventListener('load', () => {
-            loadedCount++;
-            doScroll(); // Scroll after each image loads
-            if (loadedCount === totalImages) {
-              doScroll(); // Final scroll when all images are loaded
+          const loadHandler = () => {
+            if (this.messagesList?.nativeElement) { // Check component still exists
+              loadedCount++;
+              doScroll(); // Scroll after each image loads
+              if (loadedCount === totalImages) {
+                doScroll(); // Final scroll when all images are loaded
+              }
             }
-          }, { once: true });
+          };
           
-          img.addEventListener('error', () => {
-            loadedCount++;
-            doScroll(); // Scroll even if image fails to load
-            if (loadedCount === totalImages) {
-              doScroll();
+          const errorHandler = () => {
+            if (this.messagesList?.nativeElement) { // Check component still exists
+              loadedCount++;
+              doScroll(); // Scroll even if image fails to load
+              if (loadedCount === totalImages) {
+                doScroll();
+              }
             }
-          }, { once: true });
+          };
+          
+          img.addEventListener('load', loadHandler, { once: true });
+          img.addEventListener('error', errorHandler, { once: true });
+          
+          // Track listeners for cleanup
+          this.imageLoadListeners.push({ element: img, loadHandler, errorHandler });
         }
       });
       
       // Fallback: scroll after 2 seconds even if images haven't loaded
-      setTimeout(() => {
-        doScroll();
+      const timeoutId5 = setTimeout(() => {
+        if (this.messagesList?.nativeElement) {
+          doScroll();
+        }
+        const index = this.activeTimeouts.indexOf(timeoutId5);
+        if (index > -1) {
+          this.activeTimeouts.splice(index, 1);
+        }
       }, 2000);
+      this.activeTimeouts.push(timeoutId5);
+      
+      const index = this.activeTimeouts.indexOf(timeoutId4);
+      if (index > -1) {
+        this.activeTimeouts.splice(index, 1);
+      }
     }, 50);
+    this.activeTimeouts.push(timeoutId4);
   }
 
   /**
@@ -1148,14 +1409,19 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     this.msgVal = (this.msgVal || '') + emoji;
     this.showEmojiPicker = false;
     // Trigger change detection
-    setTimeout(() => {
-      if (this.messageInput && this.messageInput.nativeElement) {
+    const timeoutId = setTimeout(() => {
+      if (this.messageInput?.nativeElement) {
         this.messageInput.nativeElement.focus();
         // Set cursor at end
         const length = this.messageInput.nativeElement.value.length;
         this.messageInput.nativeElement.setSelectionRange(length, length);
       }
+      const index = this.activeTimeouts.indexOf(timeoutId);
+      if (index > -1) {
+        this.activeTimeouts.splice(index, 1);
+      }
     }, 50);
+    this.activeTimeouts.push(timeoutId);
   }
 
   /**

@@ -114,6 +114,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private pollIntervalId: ReturnType<typeof setInterval> | null = null;
 	private activeTimeouts: Set<ReturnType<typeof setTimeout>> = new Set();
 	private fullscreenListeners: Array<{ element: Document | HTMLElement; event: string; handler: () => void }> = [];
+	private imageLoadHandlers: Array<{ element: HTMLImageElement; handler: () => void }> = []; // Track image load handlers for cleanup
 	public isFullscreen: boolean = false;
 	private keyboardListener?: (event: KeyboardEvent) => void;
 	private isSlideshowModalOpen: boolean = false;
@@ -2443,19 +2444,33 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			
 			// Check if image is loaded
 			if (!img.complete || img.naturalWidth === 0) {
-				// Wait for image to load
-				img.onload = () => {
-					// Detect portrait orientation
-					this.detectPortraitOrientation(img);
-					this.processImageColor(img);
-					// Track color detection end time
-					this.colorDetectionEndTime = performance.now();
-					// Emit card ready when image actually loads
-					if (this.thumbnailImageLoadEndTime === 0) {
-						this.thumbnailImageLoadEndTime = performance.now();
-						this.emitCardReady();
+				// Wait for image to load - use addEventListener instead of onload for proper cleanup
+				const loadHandler = () => {
+					if (this.thumbnailImageRef?.nativeElement) { // Check component still exists
+						// Detect portrait orientation
+						this.detectPortraitOrientation(img);
+						this.processImageColor(img);
+						// Track color detection end time
+						this.colorDetectionEndTime = performance.now();
+						// Emit card ready when image actually loads
+						if (this.thumbnailImageLoadEndTime === 0) {
+							this.thumbnailImageLoadEndTime = performance.now();
+							this.emitCardReady();
+						}
+					}
+					// Remove listener after use
+					img.removeEventListener('load', loadHandler);
+					const index = this.imageLoadHandlers.findIndex(h => h.element === img && h.handler === loadHandler);
+					if (index > -1) {
+						this.imageLoadHandlers.splice(index, 1);
 					}
 				};
+				img.addEventListener('load', loadHandler, { once: true });
+				// Track handler for cleanup
+				if (!this.imageLoadHandlers) {
+					this.imageLoadHandlers = [];
+				}
+				this.imageLoadHandlers.push({ element: img, handler: loadHandler });
 				return;
 			}
 
@@ -2528,10 +2543,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			
 			// Check if image is loaded
 			if (!img.complete || img.naturalWidth === 0) {
-				// Wait for image to load
-				img.onload = () => {
-					this.processImageColor(img);
+				// Use addEventListener instead of onload for proper cleanup
+				const loadHandler = () => {
+					if (this.cardSlideImageRef?.nativeElement) { // Check component still exists
+						this.processImageColor(img);
+					}
+					// Remove listener after use
+					img.removeEventListener('load', loadHandler);
+					const index = this.imageLoadHandlers.findIndex(h => h.element === img && h.handler === loadHandler);
+					if (index > -1) {
+						this.imageLoadHandlers.splice(index, 1);
+					}
 				};
+				img.addEventListener('load', loadHandler, { once: true });
+				// Track handler for cleanup
+				this.imageLoadHandlers.push({ element: img, handler: loadHandler });
 				return;
 			}
 
@@ -5815,6 +5841,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			listener.element.removeEventListener(listener.event, listener.handler);
 		});
 		this.fullscreenListeners = [];
+		
+		// Clean up image load handlers
+		this.imageLoadHandlers.forEach(({ element, handler }) => {
+			try {
+				element.removeEventListener('load', handler);
+			} catch (e) {
+				// Ignore errors if element is already removed
+			}
+		});
+		this.imageLoadHandlers = [];
 		
 		// Don't revoke blob URLs if they're in the persistent cache
 		// This allows them to be reused when components are recreated

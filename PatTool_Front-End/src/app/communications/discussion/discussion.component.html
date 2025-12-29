@@ -114,11 +114,16 @@
             </div>
 
             <!-- File Preview -->
-            <div *ngIf="imagePreview || videoPreview" class="file-preview-container">
+            <div *ngIf="imagePreview || videoPreview || isImageProcessing" class="file-preview-container">
                 <div class="file-preview">
-                    <img *ngIf="imagePreview" [src]="imagePreview" alt="Preview" class="preview-image">
+                    <!-- Spinner pendant le traitement de l'image -->
+                    <div *ngIf="isImageProcessing && !imagePreview" class="image-processing-spinner">
+                        <i class="fa fa-spinner fa-spin"></i>
+                        <span>Traitement de l'image en cours...</span>
+                    </div>
+                    <img *ngIf="imagePreview && !isImageProcessing" [src]="imagePreview" alt="Preview" class="preview-image">
                     <video *ngIf="videoPreview" [src]="videoPreview" controls class="preview-video"></video>
-                    <button class="btn-remove-file" (click)="clearFileSelection()" title="Remove file">
+                    <button class="btn-remove-file" (click)="clearFileSelection()" title="Remove file" [disabled]="isImageProcessing">
                         <i class="fa fa-times"></i>
                     </button>
                 </div>
