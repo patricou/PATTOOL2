@@ -1044,7 +1044,20 @@
         "OWNER": "मालिक",
         "GROUP_OWNER": "समूह मालिक",
         "REMOVE": "हटाएं",
-        "ROLE": "भूमिका"
+        "ROLE": "भूमिका",
+        "ADMIN_MODE": "व्यवस्थापक मोड",
+        "SELECT_USER_TO_UPDATE": "अपडेट करने के लिए उपयोगकर्ता चुनें",
+        "SELECT_USER_PLACEHOLDER": "-- उपयोगकर्ता चुनें --",
+        "EDITING_USER": "उपयोगकर्ता संपादन",
+        "EDITING_USER_PROFILE": "उपयोगकर्ता प्रोफ़ाइल संपादन",
+        "DISCUSSION": "चर्चा",
+        "CLICK_TO_OPEN_DISCUSSION": "चर्चा खोलने के लिए क्लिक करें",
+        "CREATION_DATE": "निर्माण तिथि",
+        "FIRST_NAME": "पहला नाम",
+        "LAST_NAME": "अंतिम नाम",
+        "WHATSAPP_GROUP_LINK": "WhatsApp समूह लिंक",
+        "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
+        "WHATSAPP_GROUP_LINK_HELP": "WhatsApp समूह आमंत्रण लिंक दर्ज करें (वैकल्पिक)"
     },
     "STATISTICS": {
         "TITLE": "चर्चा सांख्यिकी",

@@ -1045,7 +1045,20 @@
         "OWNER": "בעלים",
         "GROUP_OWNER": "בעלים של הקבוצה",
         "REMOVE": "הסר",
-        "ROLE": "תפקיד"
+        "ROLE": "תפקיד",
+        "ADMIN_MODE": "מצב מנהל",
+        "SELECT_USER_TO_UPDATE": "בחר משתמש לעדכון",
+        "SELECT_USER_PLACEHOLDER": "-- בחר משתמש --",
+        "EDITING_USER": "עריכת משתמש",
+        "EDITING_USER_PROFILE": "עריכת פרופיל משתמש",
+        "DISCUSSION": "דיון",
+        "CLICK_TO_OPEN_DISCUSSION": "לחץ כדי לפתוח את הדיון",
+        "CREATION_DATE": "תאריך יצירה",
+        "FIRST_NAME": "שם פרטי",
+        "LAST_NAME": "שם משפחה",
+        "WHATSAPP_GROUP_LINK": "קישור קבוצת WhatsApp",
+        "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
+        "WHATSAPP_GROUP_LINK_HELP": "הזן את קישור ההזמנה של קבוצת WhatsApp (אופציונלי)"
     },
     "STATISTICS": {
         "TITLE": "סטטיסטיקת דיונים",

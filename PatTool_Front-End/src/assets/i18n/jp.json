@@ -1054,7 +1054,20 @@
         "OWNER": "所有者",
         "GROUP_OWNER": "グループ所有者",
         "REMOVE": "削除",
-        "ROLE": "役割"
+        "ROLE": "役割",
+        "ADMIN_MODE": "管理者モード",
+        "SELECT_USER_TO_UPDATE": "更新するユーザーを選択",
+        "SELECT_USER_PLACEHOLDER": "-- ユーザーを選択 --",
+        "EDITING_USER": "ユーザーを編集",
+        "EDITING_USER_PROFILE": "ユーザープロファイルを編集",
+        "DISCUSSION": "ディスカッション",
+        "CLICK_TO_OPEN_DISCUSSION": "ディスカッションを開くにはクリック",
+        "CREATION_DATE": "作成日",
+        "FIRST_NAME": "名",
+        "LAST_NAME": "姓",
+        "WHATSAPP_GROUP_LINK": "WhatsAppグループリンク",
+        "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
+        "WHATSAPP_GROUP_LINK_HELP": "WhatsAppグループ招待リンクを入力（オプション）"
     },
     "STATISTICS": {
         "TITLE": "議論統計",

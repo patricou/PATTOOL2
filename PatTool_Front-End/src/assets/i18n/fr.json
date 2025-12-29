@@ -1069,7 +1069,15 @@
         "SELECT_USER_TO_UPDATE": "Sélectionner un Utilisateur à Modifier",
         "SELECT_USER_PLACEHOLDER": "-- Sélectionner un utilisateur --",
         "EDITING_USER": "Modification de l'utilisateur",
-        "EDITING_USER_PROFILE": "Modification du Profil Utilisateur"
+        "EDITING_USER_PROFILE": "Modification du Profil Utilisateur",
+        "DISCUSSION": "Discussion",
+        "CLICK_TO_OPEN_DISCUSSION": "Cliquer pour ouvrir la discussion",
+        "CREATION_DATE": "Date de création",
+        "FIRST_NAME": "Prénom",
+        "LAST_NAME": "Nom",
+        "WHATSAPP_GROUP_LINK": "Lien WhatsApp du Groupe",
+        "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
+        "WHATSAPP_GROUP_LINK_HELP": "Entrez le lien d'invitation WhatsApp du groupe (optionnel)"
     },
     "STATISTICS": {
         "TITLE": "Statistiques des Discussions",

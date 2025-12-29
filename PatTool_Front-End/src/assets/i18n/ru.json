@@ -1047,7 +1047,20 @@
         "OWNER": "Владелец",
         "GROUP_OWNER": "Владелец Группы",
         "REMOVE": "Удалить",
-        "ROLE": "Роль"
+        "ROLE": "Роль",
+        "ADMIN_MODE": "Режим администратора",
+        "SELECT_USER_TO_UPDATE": "Выберите пользователя для обновления",
+        "SELECT_USER_PLACEHOLDER": "-- Выберите пользователя --",
+        "EDITING_USER": "Редактирование пользователя",
+        "EDITING_USER_PROFILE": "Редактирование профиля пользователя",
+        "DISCUSSION": "Обсуждение",
+        "CLICK_TO_OPEN_DISCUSSION": "Нажмите, чтобы открыть обсуждение",
+        "CREATION_DATE": "Дата создания",
+        "FIRST_NAME": "Имя",
+        "LAST_NAME": "Фамилия",
+        "WHATSAPP_GROUP_LINK": "Ссылка на группу WhatsApp",
+        "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
+        "WHATSAPP_GROUP_LINK_HELP": "Введите ссылку-приглашение группы WhatsApp (необязательно)"
     },
     "STATISTICS": {
         "TITLE": "Статистика Обсуждений",

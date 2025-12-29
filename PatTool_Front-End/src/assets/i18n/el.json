@@ -1051,7 +1051,20 @@
         "OWNER": "Ιδιοκτήτης",
         "GROUP_OWNER": "Ιδιοκτήτης Ομάδας",
         "REMOVE": "Αφαίρεση",
-        "ROLE": "Ρόλος"
+        "ROLE": "Ρόλος",
+        "ADMIN_MODE": "Λειτουργία Διαχειριστή",
+        "SELECT_USER_TO_UPDATE": "Επιλέξτε Χρήστη για Ενημέρωση",
+        "SELECT_USER_PLACEHOLDER": "-- Επιλέξτε χρήστη --",
+        "EDITING_USER": "Επεξεργασία χρήστη",
+        "EDITING_USER_PROFILE": "Επεξεργασία Προφίλ Χρήστη",
+        "DISCUSSION": "Συζήτηση",
+        "CLICK_TO_OPEN_DISCUSSION": "Κάντε κλικ για να ανοίξετε τη συζήτηση",
+        "CREATION_DATE": "Ημερομηνία δημιουργίας",
+        "FIRST_NAME": "Όνομα",
+        "LAST_NAME": "Επώνυμο",
+        "WHATSAPP_GROUP_LINK": "Σύνδεσμος Ομάδας WhatsApp",
+        "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
+        "WHATSAPP_GROUP_LINK_HELP": "Εισαγάγετε τον σύνδεσμο πρόσκλησης ομάδας WhatsApp (προαιρετικό)"
     },
     "STATISTICS": {
         "TITLE": "Στατιστικά Συζητήσεων",

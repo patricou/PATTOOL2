@@ -18,6 +18,13 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  border-right: none !important;
+}
+
+.main-content > ul.nav-tabs {
+  border-right: none !important;
+  margin-right: 0 !important;
+  padding-right: 0 !important;
 }
 
 /* Tab Content */
@@ -28,31 +35,75 @@
   align-items: flex-start;
 }
 
+/* Loading Indicator - Centered horizontally */
+.main-content > .text-center {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 20px 0;
+}
+
 /* Modern Tabs Design - Elegant and Clean */
 .nav-tabs {
-  border: none;
+  border: none !important;
   border-bottom: 1px solid #e0e0e0;
+  border-right: none !important;
   margin-bottom: 25px;
+  margin-right: 0 !important;
+  padding-right: 0 !important;
   display: flex;
   flex-wrap: wrap;
   overflow-x: auto;
+  overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   background: transparent;
   padding: 0;
   gap: 4px;
   width: 100%;
+  max-width: 100%;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
-.nav-tabs .nav-item {
+.nav-tabs::after,
+.nav-tabs::before {
+  border-right: none !important;
+  display: none !important;
+  content: none !important;
+}
+
+/* Hide scrollbar if present */
+.nav-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-tabs .nav-item,
+.nav-tabs .nav-item:last-child {
   margin: 0;
+  margin-right: 0 !important;
+  padding-right: 0 !important;
   flex: 1;
   min-width: 0;
+  border-right: none !important;
+  border: none !important;
+  position: relative;
+}
+
+.nav-tabs .nav-item::after,
+.nav-tabs .nav-item::before {
+  border-right: none !important;
+  display: none !important;
+  content: none !important;
 }
 
 .nav-tabs .nav-link {
   color: #6c757d;
-  border: none;
-  border-bottom: 2px solid transparent;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  border-right: none !important;
+  border-left: none !important;
   padding: 14px 24px;
   transition: all 0.25s ease;
   white-space: nowrap;
@@ -71,6 +122,12 @@
   min-width: 0;
 }
 
+.nav-tabs .nav-link:last-child,
+.nav-tabs .nav-link:first-child {
+  border-right: none !important;
+  border-left: none !important;
+}
+
 .nav-tabs .nav-link i {
   font-size: 1rem;
   transition: color 0.25s ease;
@@ -80,12 +137,14 @@
   color: #007bff;
   background: rgba(0, 123, 255, 0.05);
   border-bottom-color: rgba(0, 123, 255, 0.3);
+  border-right: none !important;
 }
 
 .nav-tabs .nav-link.active {
   color: #007bff;
   background: #ffffff;
   border-bottom-color: #007bff;
+  border-right: none !important;
   font-weight: 600;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
 }
@@ -371,6 +430,44 @@
   width: 16px;
   text-align: center;
   font-size: 0.85rem;
+  display: inline-block;
+}
+
+/* Override text-muted color for shield icon (group owner) */
+.group-card .text-muted i.fa-shield,
+.group-card .text-muted .fa-shield {
+  color: #ffc107 !important;
+}
+
+/* Shield icon for group owner - make it more visible */
+/* MUST override .group-card .profile-icon color: #6c757d */
+.group-card .profile-icon.fa-shield,
+.group-card .profile-icon.group-owner-icon,
+.group-owner-icon,
+.group-card .fa-shield.profile-icon,
+.group-card .compact-text .fa-shield.profile-icon,
+.group-card .text-muted.compact-text .fa-shield.profile-icon,
+.group-card .text-muted.compact-text .group-owner-icon,
+.group-card .text-muted.compact-text i.fa-shield.profile-icon,
+.group-card .text-muted.compact-text i.group-owner-icon.profile-icon,
+.compact-text .fa-shield.profile-icon,
+.text-muted.compact-text .fa-shield.profile-icon,
+.group-card .group-owner-icon {
+  color: #ffc107 !important;
+  font-size: 1.2rem !important;
+  width: 20px !important;
+  min-width: 20px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  display: inline-block !important;
+  margin-right: 8px !important;
+  flex-shrink: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
+  position: relative !important;
+  z-index: 1 !important;
 }
 
 .group-card .profile-label {
@@ -500,10 +597,12 @@
 
 .status-indicator.connection-indicator {
   /* Connection status - handled by inline styles */
+  display: inline-block;
 }
 
 .status-indicator.visibility-indicator {
   /* Visibility status - handled by inline styles */
+  display: inline-block;
 }
 
 /* Responsive adjustments for card headers */
@@ -1428,6 +1527,38 @@
   align-items: flex-start;
   line-height: 1.6;
   flex-wrap: wrap;
+}
+
+/* Ensure icons are visible in compact-text */
+.compact-text > i.profile-icon,
+.compact-text i.profile-icon {
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Specific fix for group owner icon in group cards */
+.group-card .text-muted.compact-text > i.group-owner-icon,
+.group-card .text-muted.compact-text i.group-owner-icon,
+.group-card .text-muted.compact-text > i.fa-shield.profile-icon,
+.group-card .text-muted.compact-text i.fa-shield.profile-icon,
+.group-card .compact-text > i.group-owner-icon,
+.group-card .compact-text i.group-owner-icon,
+.group-card .compact-text > i.fa-shield.profile-icon,
+.group-card .compact-text i.fa-shield.profile-icon {
+  display: inline-block !important;
+  flex-shrink: 0 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: #ffc107 !important;
+  font-size: 1.2rem !important;
+  width: 20px !important;
+  min-width: 20px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  margin-right: 8px !important;
+  line-height: 1 !important;
 }
 
 .compact-text p {

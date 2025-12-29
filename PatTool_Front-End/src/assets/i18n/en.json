@@ -1069,7 +1069,20 @@
         "ROLE": "Role",
         "STATUS": "Status",
         "ONLINE": "Online",
-        "OFFLINE": "Offline"
+        "OFFLINE": "Offline",
+        "ADMIN_MODE": "Admin Mode",
+        "SELECT_USER_TO_UPDATE": "Select User to Update",
+        "SELECT_USER_PLACEHOLDER": "-- Select a user --",
+        "EDITING_USER": "Editing user",
+        "EDITING_USER_PROFILE": "Editing User Profile",
+        "DISCUSSION": "Discussion",
+        "CLICK_TO_OPEN_DISCUSSION": "Click to open discussion",
+        "CREATION_DATE": "Creation Date",
+        "FIRST_NAME": "First Name",
+        "LAST_NAME": "Last Name",
+        "WHATSAPP_GROUP_LINK": "WhatsApp Group Link",
+        "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
+        "WHATSAPP_GROUP_LINK_HELP": "Enter the WhatsApp group invite link (optional)"
     },
     "STATISTICS": {
         "TITLE": "Discussion Statistics",

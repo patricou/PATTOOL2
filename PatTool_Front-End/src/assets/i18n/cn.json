@@ -1052,7 +1052,20 @@
         "OWNER": "所有者",
         "GROUP_OWNER": "组所有者",
         "REMOVE": "移除",
-        "ROLE": "角色"
+        "ROLE": "角色",
+        "ADMIN_MODE": "管理员模式",
+        "SELECT_USER_TO_UPDATE": "选择要更新的用户",
+        "SELECT_USER_PLACEHOLDER": "-- 选择用户 --",
+        "EDITING_USER": "编辑用户",
+        "EDITING_USER_PROFILE": "编辑用户资料",
+        "DISCUSSION": "讨论",
+        "CLICK_TO_OPEN_DISCUSSION": "点击打开讨论",
+        "CREATION_DATE": "创建日期",
+        "FIRST_NAME": "名字",
+        "LAST_NAME": "姓氏",
+        "WHATSAPP_GROUP_LINK": "WhatsApp 群组链接",
+        "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
+        "WHATSAPP_GROUP_LINK_HELP": "输入 WhatsApp 群组邀请链接（可选）"
     },
     "STATISTICS": {
         "TITLE": "讨论统计",

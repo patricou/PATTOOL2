@@ -1050,7 +1050,20 @@
         "OWNER": "المالك",
         "GROUP_OWNER": "مالك المجموعة",
         "REMOVE": "إزالة",
-        "ROLE": "دور"
+        "ROLE": "دور",
+        "ADMIN_MODE": "وضع المسؤول",
+        "SELECT_USER_TO_UPDATE": "اختر المستخدم للتحديث",
+        "SELECT_USER_PLACEHOLDER": "-- اختر مستخدمًا --",
+        "EDITING_USER": "تحرير المستخدم",
+        "EDITING_USER_PROFILE": "تحرير ملف المستخدم",
+        "DISCUSSION": "مناقشة",
+        "CLICK_TO_OPEN_DISCUSSION": "انقر لفتح المناقشة",
+        "CREATION_DATE": "تاريخ الإنشاء",
+        "FIRST_NAME": "الاسم الأول",
+        "LAST_NAME": "اسم العائلة",
+        "WHATSAPP_GROUP_LINK": "رابط مجموعة واتساب",
+        "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
+        "WHATSAPP_GROUP_LINK_HELP": "أدخل رابط دعوة مجموعة واتساب (اختياري)"
     },
     "STATISTICS": {
         "TITLE": "إحصائيات المناقشات",

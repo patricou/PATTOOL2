@@ -1054,7 +1054,20 @@
         "OWNER": "Propietario",
         "GROUP_OWNER": "Propietario del Grupo",
         "REMOVE": "Eliminar",
-        "ROLE": "Rol"
+        "ROLE": "Rol",
+        "ADMIN_MODE": "Modo Administrador",
+        "SELECT_USER_TO_UPDATE": "Seleccionar Usuario para Actualizar",
+        "SELECT_USER_PLACEHOLDER": "-- Seleccionar un usuario --",
+        "EDITING_USER": "Editando usuario",
+        "EDITING_USER_PROFILE": "Editando Perfil de Usuario",
+        "DISCUSSION": "Discusión",
+        "CLICK_TO_OPEN_DISCUSSION": "Hacer clic para abrir la discusión",
+        "CREATION_DATE": "Fecha de creación",
+        "FIRST_NAME": "Nombre",
+        "LAST_NAME": "Apellido",
+        "WHATSAPP_GROUP_LINK": "Enlace del Grupo de WhatsApp",
+        "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
+        "WHATSAPP_GROUP_LINK_HELP": "Ingrese el enlace de invitación del grupo de WhatsApp (opcional)"
     },
     "STATISTICS": {
         "TITLE": "Estadísticas de Discusiones",
