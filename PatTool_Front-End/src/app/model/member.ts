@@ -11,7 +11,8 @@
         public registrationDate?: Date,
         public lastConnectionDate?: Date,
         public locale?: string,
-        public whatsappLink?: string
+        public whatsappLink?: string,
+        public visible?: boolean
     )
     {}
 }

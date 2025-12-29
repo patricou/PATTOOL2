@@ -171,6 +171,11 @@ export class FriendsComponent implements OnInit {
   public selectedUserCountryCode: string = '+33'; // Default to France
   public availableLocales: string[] = ['ar', 'cn', 'de', 'el', 'en', 'es', 'fr', 'he', 'it', 'jp', 'ru'];
   public selectedUserFriends: Friend[] = []; // Friends of the selected user (for admin view)
+  // Store original values to prevent overwriting with admin values
+  private originalSelectedUserRoles: string[] = [];
+  private originalSelectedUserKeycloakId: string = '';
+  private originalSelectedUserRegistrationDate: Date | undefined = undefined;
+  private originalSelectedUserLastConnectionDate: Date | undefined = undefined;
 
   constructor(
     private _friendsService: FriendsService,
@@ -1799,6 +1804,79 @@ export class FriendsComponent implements OnInit {
       }
     );
   }
+  
+  /**
+   * Update visibility for current user
+   */
+  updateVisibility(visible: boolean) {
+    if (!this.currentUser || !this.currentUser.id) {
+      this.errorMessage = this._translateService.instant('FRIENDS.ERROR_USER_NOT_LOADED');
+      return;
+    }
+    
+    this.loading = true;
+    this._friendsService.updateMemberVisibility(this.currentUser.id, visible).subscribe(
+      (updatedMember) => {
+        // Update the current user
+        this.currentUser = updatedMember;
+        // Also update the user in the MembersService
+        this._memberService.setUser(updatedMember);
+        // Force change detection to update the view
+        this.cdr.detectChanges();
+        this.loading = false;
+        this.errorMessage = '';
+      },
+      error => {
+        console.error('Error updating visibility:', error);
+        this.errorMessage = 'Error updating visibility';
+        this.loading = false;
+      }
+    );
+  }
+  
+  /**
+   * Update visibility for selected user (admin only)
+   */
+  updateSelectedUserVisibility(visible: boolean) {
+    if (!this.selectedUserForUpdate || !this.selectedUserForUpdate.id) {
+      this.errorMessage = 'No user selected';
+      return;
+    }
+    
+    if (!this.hasAdminRole()) {
+      this.errorMessage = 'Only admins can update other users\' visibility';
+      return;
+    }
+    
+    this.loading = true;
+    this._friendsService.updateMemberVisibility(this.selectedUserForUpdate.id, visible).subscribe(
+      (updatedMember) => {
+        // Update the selected user
+        this.selectedUserForUpdate = updatedMember;
+        // Also update in allUsers array
+        const index = this.allUsers.findIndex(u => u.id === updatedMember.id);
+        if (index !== -1) {
+          this.allUsers[index] = updatedMember;
+        }
+        // Force change detection to update the view
+        this.cdr.detectChanges();
+        this.loading = false;
+        this.errorMessage = '';
+      },
+      error => {
+        console.error('Error updating visibility:', error);
+        this.errorMessage = 'Error updating visibility';
+        this.loading = false;
+      }
+    );
+  }
+  
+  /**
+   * Get current user visibility (defaults to true)
+   */
+  getCurrentUserVisibility(): boolean {
+    return this.currentUser?.visible !== undefined ? this.currentUser.visible : true;
+  }
 
   /**
    * Extract phone number from WhatsApp link
@@ -1880,10 +1958,20 @@ export class FriendsComponent implements OnInit {
       this.selectedUserWhatsappLink = '';
       this.selectedUserCountryCode = '+33';
       this.selectedUserFriends = [];
+      this.originalSelectedUserRoles = [];
+      this.originalSelectedUserKeycloakId = '';
+      this.originalSelectedUserRegistrationDate = undefined;
+      this.originalSelectedUserLastConnectionDate = undefined;
       return;
     }
     const user = this.allUsers.find(u => u.id === userId);
     if (user) {
+      // Store original values to prevent overwriting with admin values
+      this.originalSelectedUserRoles = [...(user.roles || [])];
+      this.originalSelectedUserKeycloakId = user.keycloakId || '';
+      this.originalSelectedUserRegistrationDate = user.registrationDate;
+      this.originalSelectedUserLastConnectionDate = user.lastConnectionDate;
+      
       // Create a copy to avoid modifying the original
       this.selectedUserForUpdate = new Member(
         user.id,
@@ -1896,7 +1984,8 @@ export class FriendsComponent implements OnInit {
         user.registrationDate,
         user.lastConnectionDate,
         user.locale,
-        user.whatsappLink
+        user.whatsappLink,
+        user.visible !== undefined ? user.visible : true
       );
       this.editingSelectedUser = true;
       
@@ -1933,6 +2022,10 @@ export class FriendsComponent implements OnInit {
       this.editingSelectedUser = false;
       this.selectedUserWhatsappLink = '';
       this.selectedUserCountryCode = '+33';
+      this.originalSelectedUserRoles = [];
+      this.originalSelectedUserKeycloakId = '';
+      this.originalSelectedUserRegistrationDate = undefined;
+      this.originalSelectedUserLastConnectionDate = undefined;
     }
   }
 
@@ -1943,6 +2036,14 @@ export class FriendsComponent implements OnInit {
     if (!this.selectedUserForUpdate) {
       return;
     }
+    
+    // CRITICAL FIX: Preserve original values to prevent admin values from being applied to selected user
+    // Restore the original values before sending the update
+    this.selectedUserForUpdate.roles = [...this.originalSelectedUserRoles];
+    // Preserve keycloakId, registrationDate, and lastConnectionDate (should never be changed by admin)
+    this.selectedUserForUpdate.keycloakId = this.originalSelectedUserKeycloakId;
+    this.selectedUserForUpdate.registrationDate = this.originalSelectedUserRegistrationDate;
+    this.selectedUserForUpdate.lastConnectionDate = this.originalSelectedUserLastConnectionDate;
     
     // Build WhatsApp link if phone number is provided
     if (this.selectedUserWhatsappLink && this.selectedUserWhatsappLink.trim()) {
@@ -1972,6 +2073,10 @@ export class FriendsComponent implements OnInit {
         this.selectedUserFriends = [];
         this.selectedUserWhatsappLink = '';
         this.selectedUserCountryCode = '+33';
+        this.originalSelectedUserRoles = [];
+        this.originalSelectedUserKeycloakId = '';
+        this.originalSelectedUserRegistrationDate = undefined;
+        this.originalSelectedUserLastConnectionDate = undefined;
         this.loadData(); // Reload all data to refresh
       },
       error => {
@@ -1991,6 +2096,10 @@ export class FriendsComponent implements OnInit {
     this.selectedUserWhatsappLink = '';
     this.selectedUserCountryCode = '+33';
     this.selectedUserFriends = [];
+    this.originalSelectedUserRoles = [];
+    this.originalSelectedUserKeycloakId = '';
+    this.originalSelectedUserRegistrationDate = undefined;
+    this.originalSelectedUserLastConnectionDate = undefined;
   }
 
   /**

@@ -81,7 +81,7 @@
   <div *ngIf="activeTab === 'users'" class="tab-content">
     <!-- Invite by Email Section -->
     <div class="invite-section mb-2 p-3 bg-light rounded">
-      <h5><i class="fa fa-envelope"></i> {{ 'FRIENDS.INVITE_BY_EMAIL' | translate }}</h5>
+      <h5><i class="fa fa-envelope profile-icon"></i> {{ 'FRIENDS.INVITE_BY_EMAIL' | translate }}</h5>
       <div class="d-flex gap-2 mb-2 flex-wrap">
         <div class="input-group flex-grow-1" style="min-width: 250px;">
           <span class="input-group-text">
@@ -199,57 +199,73 @@
       <div *ngFor="let user of getFilteredUsers()" class="user-card compact-user-card">
         <!-- Card Header with User Name -->
         <div class="user-header">
-          <h6 class="mb-0" style="display: flex; justify-content: space-between; align-items: center;">
-            <span>
+          <h6 class="mb-0 card-header-content">
+            <span class="user-name">
               <i class="fa fa-user-circle me-2"></i>
               {{ user.firstName }} {{ user.lastName }}
             </span>
-            <span class="status-indicator" 
-                  [style.background-color]="getUserOnlineStatus(user.id).online ? '#28a745' : '#dc3545'"
-                  [style.border]="getUserOnlineStatus(user.id).online ? '2px solid #28a745' : '2px solid #dc3545'"
-                  style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0;"
-                  [ngbTooltip]="getUserOnlineStatus(user.id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
-                  placement="top"></span>
+            <span class="header-indicators">
+              <span class="status-indicator connection-indicator" 
+                    [style.background-color]="getUserOnlineStatus(user.id).online ? '#28a745' : '#dc3545'"
+                    [style.border]="getUserOnlineStatus(user.id).online ? '2px solid #28a745' : '2px solid #dc3545'"
+                    [ngbTooltip]="getUserOnlineStatus(user.id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
+                    placement="top"></span>
+              <span class="status-indicator visibility-indicator" 
+                    [style.background-color]="(user.visible !== undefined && user.visible !== null) ? (user.visible ? '#28a745' : '#dc3545') : '#28a745'"
+                    [style.border]="(user.visible !== undefined && user.visible !== null) ? (user.visible ? '2px solid #28a745' : '2px solid #dc3545') : '2px solid #28a745'"
+                    [ngbTooltip]="(user.visible !== undefined && user.visible !== null) ? (user.visible ? ('FRIENDS.VISIBLE' | translate) : ('FRIENDS.HIDDEN' | translate)) : ('FRIENDS.VISIBLE' | translate)"
+                    placement="top"></span>
+            </span>
           </h6>
         </div>
         <div class="user-info">
           <div class="user-details">
-            <p class="text-muted compact-text mb-1">
-              <i class="fa fa-at"></i> {{ user.userName }}
+            <p class="text-muted compact-text mb-2">
+              <i class="fa fa-at profile-icon"></i> 
+              <span class="profile-value">{{ user.userName }}</span>
             </p>
-            <p class="text-muted compact-text mb-1">
-              <i class="fa fa-envelope"></i> {{ user.addressEmail }}
+            <p class="text-muted compact-text mb-2">
+              <i class="fa fa-envelope profile-icon"></i> 
+              <span class="profile-value">{{ user.addressEmail }}</span>
             </p>
-            <p class="text-muted compact-text mb-1" *ngIf="user.registrationDate">
-              <i class="fa fa-calendar-plus-o"></i> 
-              {{ user.registrationDate | date:'short' }}
+            <p class="text-muted compact-text mb-2" *ngIf="user.registrationDate">
+              <i class="fa fa-calendar-plus-o profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.REGISTERED_ON' | translate }}:</strong> 
+              <span class="profile-value">{{ user.registrationDate | date:'short' }}</span>
             </p>
-            <p class="text-muted compact-text mb-1" *ngIf="user.lastConnectionDate">
-              <i class="fa fa-clock-o"></i> 
-              {{ user.lastConnectionDate | date:'short' }}
+            <p class="text-muted compact-text mb-2" *ngIf="user.lastConnectionDate">
+              <i class="fa fa-clock-o profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.LAST_CONNECTION' | translate }}:</strong> 
+              <span class="profile-value">{{ user.lastConnectionDate | date:'short' }}</span>
             </p>
-            <div class="text-muted compact-text mb-1" *ngIf="getUserRoles(user) && getUserRoles(user).length > 0">
-              <i class="fa fa-shield"></i> 
-              {{ 'FRIENDS.ROLE' | translate }}: 
-              <span *ngFor="let role of getUserRoles(user); let last = last">
-                <span class="role-tag me-1" [ngClass]="getRoleTagClass(role)">{{ role }}</span>
+            <div class="text-muted compact-text mb-2" *ngIf="getUserRoles(user) && getUserRoles(user).length > 0">
+              <i class="fa fa-shield profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.ROLE' | translate }}:</strong> 
+              <span class="profile-value">
+                <span *ngFor="let role of getUserRoles(user); let last = last">
+                  <span class="role-tag me-1" [ngClass]="getRoleTagClass(role)">{{ role }}</span>
+                </span>
               </span>
             </div>
-            <p class="text-muted compact-text mb-1" *ngIf="getUserStatus(user) === 'sent' && getSentRequestDate(user)">
-              <i class="fa fa-paper-plane"></i>
-              {{ 'FRIENDS.REQUEST_SENT' | translate }}: {{ getSentRequestDate(user) | date:'short' }}
+            <p class="text-muted compact-text mb-2" *ngIf="getUserStatus(user) === 'sent' && getSentRequestDate(user)">
+              <i class="fa fa-paper-plane profile-icon"></i>
+              <strong class="profile-label">{{ 'FRIENDS.REQUEST_SENT' | translate }}:</strong> 
+              <span class="profile-value">{{ getSentRequestDate(user) | date:'short' }}</span>
             </p>
-            <p class="text-muted compact-text mb-1" *ngIf="getUserStatus(user) === 'friend' && getFriendshipDate(user)">
-              <i class="fa fa-heart"></i>
-              {{ 'FRIENDS.FRIENDS_SINCE' | translate }}: {{ getFriendshipDate(user) | date:'short' }}
+            <p class="text-muted compact-text mb-2" *ngIf="getUserStatus(user) === 'friend' && getFriendshipDate(user)">
+              <i class="fa fa-heart profile-icon"></i>
+              <strong class="profile-label">{{ 'FRIENDS.FRIENDS_SINCE' | translate }}:</strong> 
+              <span class="profile-value">{{ getFriendshipDate(user) | date:'short' }}</span>
             </p>
-            <div class="compact-text mb-1" *ngIf="hasAdminRole()" style="color: #007bff;">
-              <i class="fa fa-id-card"></i> 
-              ID: {{ user.id }}
+            <div class="compact-text mb-2" *ngIf="hasAdminRole()" style="color: #007bff;">
+              <i class="fa fa-id-card profile-icon"></i> 
+              <strong class="profile-label">ID:</strong> 
+              <span class="profile-value">{{ user.id }}</span>
             </div>
-            <div class="compact-text mb-1" *ngIf="hasAdminRole() && user.keycloakId" style="color: #007bff;">
-              <i class="fa fa-key"></i> 
-              Keycloak ID: {{ user.keycloakId }}
+            <div class="compact-text mb-2" *ngIf="hasAdminRole() && user.keycloakId" style="color: #007bff;">
+              <i class="fa fa-key profile-icon"></i> 
+              <strong class="profile-label">Keycloak ID:</strong> 
+              <span class="profile-value">{{ user.keycloakId }}</span>
             </div>
           </div>
         </div>
@@ -362,7 +378,7 @@
 
   <!-- Tab Content: Friend Requests -->
   <div *ngIf="activeTab === 'requests'" class="tab-content">
-    <div *ngIf="pendingRequests.length === 0" class="no-results">
+    <div *ngIf="pendingRequests.length === 0" class="no-results no-results-centered">
       <i class="fa fa-inbox fa-3x"></i>
       <p>{{ 'FRIENDS.NO_PENDING_REQUESTS' | translate }}</p>
     </div>
@@ -371,23 +387,39 @@
       <div *ngFor="let request of getSortedPendingRequests()" class="request-card compact-user-card">
         <!-- Card Header with User Name -->
         <div class="request-header">
-          <h6 class="mb-0">
-            <i class="fa fa-user-circle me-2"></i>
-            {{ request.requester.firstName }} {{ request.requester.lastName }}
+          <h6 class="mb-0 card-header-content">
+            <span class="user-name">
+              <i class="fa fa-user-circle me-2"></i>
+              {{ request.requester.firstName }} {{ request.requester.lastName }}
+            </span>
+            <span class="header-indicators">
+              <span class="status-indicator connection-indicator" 
+                    [style.background-color]="getUserOnlineStatus(request.requester.id).online ? '#28a745' : '#dc3545'"
+                    [style.border]="getUserOnlineStatus(request.requester.id).online ? '2px solid #28a745' : '2px solid #dc3545'"
+                    [ngbTooltip]="getUserOnlineStatus(request.requester.id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
+                    placement="top"></span>
+              <span class="status-indicator visibility-indicator" 
+                    [style.background-color]="(request.requester.visible !== undefined && request.requester.visible !== null) ? (request.requester.visible ? '#28a745' : '#dc3545') : '#28a745'"
+                    [style.border]="(request.requester.visible !== undefined && request.requester.visible !== null) ? (request.requester.visible ? '2px solid #28a745' : '2px solid #dc3545') : '2px solid #28a745'"
+                    [ngbTooltip]="(request.requester.visible !== undefined && request.requester.visible !== null) ? (request.requester.visible ? ('FRIENDS.VISIBLE' | translate) : ('FRIENDS.HIDDEN' | translate)) : ('FRIENDS.VISIBLE' | translate)"
+                    placement="top"></span>
+            </span>
           </h6>
         </div>
         <div class="request-info">
           <div class="request-details">
-            <p class="text-muted compact-text mb-1">
-              <i class="fa fa-at"></i> {{ request.requester.userName }}
+            <p class="text-muted compact-text mb-2">
+              <i class="fa fa-at profile-icon"></i> 
+              <span class="profile-value">{{ request.requester.userName }}</span>
             </p>
-            <p class="text-muted compact-text mb-1" *ngIf="request.requester.registrationDate">
-              <i class="fa fa-calendar-plus-o"></i> 
-              {{ request.requester.registrationDate | date:'short' }}
+            <p class="text-muted compact-text mb-2" *ngIf="request.requester.registrationDate">
+              <i class="fa fa-calendar-plus-o profile-icon"></i> 
+              <span class="profile-value">{{ request.requester.registrationDate | date:'short' }}</span>
             </p>
-            <p class="text-muted compact-text mb-1">
-              <i class="fa fa-clock"></i>
-              {{ request.requestDate | date:'short' }}
+            <p class="text-muted compact-text mb-2">
+              <i class="fa fa-clock profile-icon"></i>
+              <strong class="profile-label">{{ 'FRIENDS.REQUEST_DATE' | translate }}:</strong> 
+              <span class="profile-value">{{ request.requestDate | date:'short' }}</span>
             </p>
             <div *ngIf="request.message" class="alert alert-info compact-text mb-0 mt-2">
               <i class="fa fa-envelope me-1"></i>
@@ -425,33 +457,43 @@
       <div *ngFor="let friend of getSortedFriends()" class="friend-card compact-user-card">
         <!-- Card Header with User Name -->
         <div class="friend-header">
-          <h6 class="mb-0" style="display: flex; justify-content: space-between; align-items: center;">
-            <span>
+          <h6 class="mb-0 card-header-content">
+            <span class="user-name">
               <i class="fa fa-user-circle me-2"></i>
               {{ getOtherUser(friend).firstName }} {{ getOtherUser(friend).lastName }}
             </span>
-            <span class="status-indicator" 
-                  [style.background-color]="getUserOnlineStatus(getOtherUser(friend).id).online ? '#28a745' : '#ffffff'"
-                  [style.border]="getUserOnlineStatus(getOtherUser(friend).id).online ? '2px solid #28a745' : '2px solid #6c757d'"
-                  style="width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0;"></span>
+            <span class="header-indicators">
+              <span class="status-indicator connection-indicator" 
+                    [style.background-color]="getUserOnlineStatus(getOtherUser(friend).id).online ? '#28a745' : '#dc3545'"
+                    [style.border]="getUserOnlineStatus(getOtherUser(friend).id).online ? '2px solid #28a745' : '2px solid #dc3545'"
+                    [ngbTooltip]="getUserOnlineStatus(getOtherUser(friend).id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
+                    placement="top"></span>
+              <span class="status-indicator visibility-indicator" 
+                    [style.background-color]="(getOtherUser(friend).visible !== undefined && getOtherUser(friend).visible !== null) ? (getOtherUser(friend).visible ? '#28a745' : '#dc3545') : '#28a745'"
+                    [style.border]="(getOtherUser(friend).visible !== undefined && getOtherUser(friend).visible !== null) ? (getOtherUser(friend).visible ? '2px solid #28a745' : '2px solid #dc3545') : '2px solid #28a745'"
+                    [ngbTooltip]="(getOtherUser(friend).visible !== undefined && getOtherUser(friend).visible !== null) ? (getOtherUser(friend).visible ? ('FRIENDS.VISIBLE' | translate) : ('FRIENDS.HIDDEN' | translate)) : ('FRIENDS.VISIBLE' | translate)"
+                    placement="top"></span>
+            </span>
           </h6>
         </div>
         <div class="friend-info">
           <div class="friend-details">
-            <p class="text-muted compact-text mb-1">
-              <i class="fa fa-at"></i> {{ getOtherUser(friend).userName }}
+            <p class="text-muted compact-text mb-2">
+              <i class="fa fa-at profile-icon"></i> 
+              <span class="profile-value">{{ getOtherUser(friend).userName }}</span>
             </p>
-            <p class="text-muted compact-text mb-1" *ngIf="getOtherUser(friend).registrationDate">
-              <i class="fa fa-calendar-plus-o"></i> 
-              {{ getOtherUser(friend).registrationDate | date:'short' }}
+            <p class="text-muted compact-text mb-2" *ngIf="getOtherUser(friend).registrationDate">
+              <i class="fa fa-calendar-plus-o profile-icon"></i> 
+              <span class="profile-value">{{ getOtherUser(friend).registrationDate | date:'short' }}</span>
             </p>
-            <p class="text-muted compact-text mb-1" *ngIf="getOtherUser(friend).lastConnectionDate">
-              <i class="fa fa-clock-o"></i> 
-              {{ getOtherUser(friend).lastConnectionDate | date:'short' }}
+            <p class="text-muted compact-text mb-2" *ngIf="getOtherUser(friend).lastConnectionDate">
+              <i class="fa fa-clock-o profile-icon"></i> 
+              <span class="profile-value">{{ getOtherUser(friend).lastConnectionDate | date:'short' }}</span>
             </p>
-            <p class="text-muted compact-text mb-0">
-              <i class="fa fa-heart"></i>
-              {{ 'FRIENDS.FRIENDS_SINCE' | translate }}: {{ friend.friendshipDate | date:'short' }}
+            <p class="text-muted compact-text mb-2">
+              <i class="fa fa-heart profile-icon"></i>
+              <strong class="profile-label">{{ 'FRIENDS.FRIENDS_SINCE' | translate }}:</strong> 
+              <span class="profile-value">{{ friend.friendshipDate | date:'short' }}</span>
             </p>
           </div>
         </div>
@@ -493,36 +535,75 @@
         </div>
         
         <!-- Admin: Select user to update -->
-        <div *ngIf="hasAdminRole()" class="admin-user-select mb-3 p-2 border rounded bg-light">
-          <label class="form-label compact-text mb-2">
-            <i class="fa fa-user-cog me-2"></i>
-            <strong>Admin: Select User to Update</strong>
-          </label>
-          <select 
-            class="form-select form-select-sm" 
-            [ngModel]="selectedUserForUpdate?.id || ''"
-            (ngModelChange)="onUserSelectedForUpdate($event)">
-            <option value="">-- Select a user --</option>
-            <option *ngFor="let user of getSortedUsersForAdmin()" [value]="user.id">
-              {{ user.firstName }} {{ user.lastName }} ({{ user.userName }})
-            </option>
-          </select>
+        <div *ngIf="hasAdminRole()" class="admin-user-select-container mb-4">
+          <div class="admin-select-header">
+            <div class="admin-badge">
+              <i class="fa fa-shield-alt me-2"></i>
+              <span>{{ 'FRIENDS.ADMIN_MODE' | translate }}</span>
+            </div>
+          </div>
+          <div class="admin-select-body">
+            <label class="admin-select-label">
+              <i class="fa fa-user-cog me-2"></i>
+              <strong>{{ 'FRIENDS.SELECT_USER_TO_UPDATE' | translate }}</strong>
+            </label>
+            <div class="admin-select-wrapper">
+              <select 
+                class="form-select admin-user-select" 
+                [ngModel]="selectedUserForUpdate?.id || ''"
+                (ngModelChange)="onUserSelectedForUpdate($event)">
+                <option value="">{{ 'FRIENDS.SELECT_USER_PLACEHOLDER' | translate }}</option>
+                <option *ngFor="let user of getSortedUsersForAdmin()" [value]="user.id">
+                  {{ user.firstName }} {{ user.lastName }} ({{ user.userName }})
+                  <span *ngIf="getFilteredRoles(user.roles).length > 0">
+                    - {{ getFilteredRoles(user.roles)[0] }}
+                  </span>
+                </option>
+              </select>
+              <i class="fa fa-chevron-down admin-select-icon"></i>
+            </div>
+            <div *ngIf="selectedUserForUpdate && editingSelectedUser" class="admin-selected-user-info mt-3">
+              <div class="selected-user-badge">
+                <i class="fa fa-check-circle me-2"></i>
+                <span>{{ 'FRIENDS.EDITING_USER' | translate }}: <strong>{{ selectedUserForUpdate.firstName }} {{ selectedUserForUpdate.lastName }}</strong></span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="friend-info">
           <div class="friend-details">
             <!-- Display selected user for admin or current user -->
             <ng-container *ngIf="hasAdminRole() && selectedUserForUpdate && editingSelectedUser; else currentUserView">
-              <p class="compact-text mb-1">
-                <strong>{{ selectedUserForUpdate.firstName }} {{ selectedUserForUpdate.lastName }}</strong>
-              </p>
-              <p class="compact-text mb-1">
-                <strong>{{ selectedUserForUpdate.userName }}</strong>
-              </p>
-              <p class="text-muted compact-text mb-1" *ngIf="getFilteredRoles(selectedUserForUpdate.roles).length > 0">
-                <i class="fa fa-shield"></i> 
-                <strong>{{ 'FRIENDS.ROLES' | translate }}:</strong> 
-                <span class="ms-2">
+              <div class="admin-editing-header mb-3 pb-3 border-bottom">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div>
+                    <h6 class="mb-1 admin-editing-title">
+                      <i class="fa fa-user-edit me-2 text-primary"></i>
+                      {{ 'FRIENDS.EDITING_USER_PROFILE' | translate }}
+                    </h6>
+                    <p class="mb-0 text-muted compact-text">
+                      <i class="fa fa-user-circle me-2"></i>
+                      <strong>{{ selectedUserForUpdate.firstName }} {{ selectedUserForUpdate.lastName }}</strong>
+                      <span class="ms-2 text-muted">(@{{ selectedUserForUpdate.userName }})</span>
+                    </p>
+                  </div>
+                  <div class="admin-editing-actions">
+                    <button 
+                      class="btn btn-sm btn-outline-secondary"
+                      (click)="cancelEditingSelectedUser()"
+                      [disabled]="loading"
+                      [ngbTooltip]="'FRIENDS.CANCEL' | translate"
+                      placement="top">
+                      <i class="fa fa-times"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <p class="text-muted compact-text mb-2" *ngIf="getFilteredRoles(selectedUserForUpdate.roles).length > 0">
+                <i class="fa fa-shield profile-icon"></i> 
+                <strong class="profile-label">{{ 'FRIENDS.ROLES' | translate }}:</strong> 
+                <span class="profile-value ms-2">
                   <span *ngFor="let role of getFilteredRoles(selectedUserForUpdate.roles); let last = last" 
                         class="role-tag me-1 mb-1" 
                         [ngClass]="getRoleTagClass(role)">
@@ -530,48 +611,53 @@
                   </span>
                 </span>
               </p>
-              <p class="text-muted compact-text mb-1">
-                <i class="fa fa-envelope"></i> 
-                <strong>{{ 'FRIENDS.EMAIL' | translate }}:</strong> 
+              <div class="admin-form-field mb-3">
+                <label class="admin-form-label">
+                  <i class="fa fa-envelope profile-icon"></i> 
+                  <strong>{{ 'FRIENDS.EMAIL' | translate }}:</strong>
+                </label>
                 <input 
                   type="email" 
-                  class="form-control form-control-sm d-inline-block" 
-                  style="width: auto; min-width: 200px;"
+                  class="form-control form-control-sm admin-form-input" 
                   [(ngModel)]="selectedUserForUpdate.addressEmail">
-              </p>
-              <p class="text-muted compact-text mb-1">
-                <i class="fa fa-user"></i> 
-                <strong>{{ 'FRIENDS.NAME' | translate }}:</strong> 
+              </div>
+              <div class="admin-form-field mb-3">
+                <label class="admin-form-label">
+                  <i class="fa fa-user profile-icon"></i> 
+                  <strong>{{ 'FRIENDS.NAME' | translate }}:</strong>
+                </label>
+                <div class="admin-name-fields">
+                  <input 
+                    type="text" 
+                    class="form-control form-control-sm admin-form-input mb-2" 
+                    [(ngModel)]="selectedUserForUpdate.firstName"
+                    placeholder="Prénom">
+                  <input 
+                    type="text" 
+                    class="form-control form-control-sm admin-form-input" 
+                    [(ngModel)]="selectedUserForUpdate.lastName"
+                    placeholder="Nom">
+                </div>
+              </div>
+              <div class="admin-form-field mb-3">
+                <label class="admin-form-label">
+                  <i class="fa fa-at profile-icon"></i> 
+                  <strong>{{ 'FRIENDS.USERNAME' | translate }}:</strong>
+                </label>
                 <input 
                   type="text" 
-                  class="form-control form-control-sm d-inline-block" 
-                  style="width: auto; min-width: 150px;"
-                  [(ngModel)]="selectedUserForUpdate.firstName"
-                  placeholder="First Name">
-                <input 
-                  type="text" 
-                  class="form-control form-control-sm d-inline-block ms-2" 
-                  style="width: auto; min-width: 150px;"
-                  [(ngModel)]="selectedUserForUpdate.lastName"
-                  placeholder="Last Name">
-              </p>
-              <p class="text-muted compact-text mb-1">
-                <i class="fa fa-at"></i> 
-                <strong>{{ 'FRIENDS.USERNAME' | translate }}:</strong> 
-                <input 
-                  type="text" 
-                  class="form-control form-control-sm d-inline-block" 
-                  style="width: auto; min-width: 150px;"
+                  class="form-control form-control-sm admin-form-input" 
                   [(ngModel)]="selectedUserForUpdate.userName">
-              </p>
-              <p class="text-muted compact-text mb-1">
-                <i class="fa fa-language"></i> 
-                <strong>{{ 'FRIENDS.LANGUAGE' | translate }}:</strong> 
+              </div>
+              <div class="admin-form-field mb-3">
+                <label class="admin-form-label">
+                  <i class="fa fa-language profile-icon"></i> 
+                  <strong>{{ 'FRIENDS.LANGUAGE' | translate }}:</strong>
+                </label>
                 <select 
-                  class="form-select form-select-sm d-inline-block" 
-                  style="width: auto; min-width: 150px;"
+                  class="form-select form-select-sm admin-form-input" 
                   [(ngModel)]="selectedUserForUpdate.locale">
-                  <option value="">-- Select language --</option>
+                  <option value="">-- Sélectionner une langue --</option>
                   <option value="ar">Arabic (ar)</option>
                   <option value="cn">Chinese (cn)</option>
                   <option value="de">German (de)</option>
@@ -584,11 +670,13 @@
                   <option value="jp">Japanese (jp)</option>
                   <option value="ru">Russian (ru)</option>
                 </select>
-              </p>
-              <div class="text-muted compact-text mb-1">
-                <i class="fa fa-whatsapp"></i> 
-                <strong>{{ 'FRIENDS.WHATSAPP_PHONE' | translate }}:</strong> 
-                <div class="input-group d-inline-flex" style="width: auto; min-width: 250px;">
+              </div>
+              <div class="admin-form-field mb-3">
+                <label class="admin-form-label">
+                  <i class="fa fa-whatsapp profile-icon"></i> 
+                  <strong>{{ 'FRIENDS.WHATSAPP_PHONE' | translate }}:</strong>
+                </label>
+                <div class="input-group admin-form-input">
                   <div class="btn-group" ngbDropdown #adminCountryDropdown="ngbDropdown" role="group">
                     <button 
                       type="button" 
@@ -626,21 +714,45 @@
                     inputmode="numeric">
                 </div>
               </div>
-              <div class="d-flex gap-2 mt-3">
-                <button 
-                  class="btn btn-success btn-xs compact-btn"
-                  (click)="saveUpdatedUser()"
-                  [disabled]="loading">
-                  <i class="fa fa-save"></i>
-                  <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.SAVE' | translate }}</span>
-                </button>
-                <button 
-                  class="btn btn-secondary btn-xs compact-btn"
-                  (click)="cancelEditingSelectedUser()"
-                  [disabled]="loading">
-                  <i class="fa fa-times"></i>
-                  <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.CANCEL' | translate }}</span>
-                </button>
+              <!-- Visibility Toggle for Admin -->
+              <div class="admin-form-field mb-3">
+                <label class="admin-form-label">
+                  <i class="fa fa-eye profile-icon"></i> 
+                  <strong>{{ 'FRIENDS.VISIBILITY' | translate }}:</strong>
+                </label>
+                <div class="form-check form-switch visibility-switch">
+                  <input 
+                    class="form-check-input" 
+                    type="checkbox" 
+                    role="switch"
+                    id="adminVisibilitySwitch"
+                    [checked]="selectedUserForUpdate.visible !== undefined ? selectedUserForUpdate.visible : true"
+                    (change)="updateSelectedUserVisibility($event.target.checked)"
+                    [disabled]="loading">
+                  <label class="form-check-label ms-2" for="adminVisibilitySwitch">
+                    <span *ngIf="selectedUserForUpdate.visible !== undefined ? selectedUserForUpdate.visible : true" class="visibility-status">{{ 'FRIENDS.VISIBLE' | translate }}</span>
+                    <span *ngIf="selectedUserForUpdate.visible !== undefined ? !selectedUserForUpdate.visible : false" class="visibility-status">{{ 'FRIENDS.HIDDEN' | translate }}</span>
+                  </label>
+                </div>
+              </div>
+              <div class="admin-form-actions mt-4 pt-3 border-top">
+                <div class="d-flex gap-2 justify-content-end">
+                  <button 
+                    class="btn btn-success admin-save-btn"
+                    (click)="saveUpdatedUser()"
+                    [disabled]="loading">
+                    <i class="fa fa-save me-2"></i>
+                    <span>{{ 'FRIENDS.SAVE' | translate }}</span>
+                    <i *ngIf="loading" class="fa fa-spinner fa-spin ms-2"></i>
+                  </button>
+                  <button 
+                    class="btn btn-secondary admin-cancel-btn"
+                    (click)="cancelEditingSelectedUser()"
+                    [disabled]="loading">
+                    <i class="fa fa-times me-2"></i>
+                    <span>{{ 'FRIENDS.CANCEL' | translate }}</span>
+                  </button>
+                </div>
               </div>
             </ng-container>
             
@@ -651,61 +763,84 @@
             <p class="compact-text mb-1">
               <strong>{{ currentUser.userName }}</strong>
             </p>
-            <p class="text-muted compact-text mb-1" *ngIf="currentUser.whatsappLink">
-              <i class="fa fa-phone"></i> 
-              <strong>{{ 'FRIENDS.PHONE_NUMBER' | translate }}:</strong> 
-              {{ getPhoneNumberFromLink(currentUser.whatsappLink) }}
+            <p class="text-muted compact-text mb-2" *ngIf="currentUser.whatsappLink">
+              <i class="fa fa-phone profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.PHONE_NUMBER' | translate }}:</strong> 
+              <span class="profile-value">{{ getPhoneNumberFromLink(currentUser.whatsappLink) }}</span>
             </p>
-            <p class="text-muted compact-text mb-1">
-              <i class="fa fa-envelope"></i> 
-              <strong>{{ 'FRIENDS.EMAIL' | translate }}:</strong> 
-              {{ currentUser.addressEmail }}
+            <p class="text-muted compact-text mb-2">
+              <i class="fa fa-envelope profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.EMAIL' | translate }}:</strong> 
+              <span class="profile-value">{{ currentUser.addressEmail }}</span>
             </p>
-            <p class="text-muted compact-text mb-1" *ngIf="currentUser.registrationDate">
-              <i class="fa fa-calendar-plus-o"></i> 
-              <strong>{{ 'FRIENDS.REGISTERED_ON' | translate }}:</strong> 
-              {{ currentUser.registrationDate | date:'short' }}
+            <p class="text-muted compact-text mb-2" *ngIf="currentUser.registrationDate">
+              <i class="fa fa-calendar-plus-o profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.REGISTERED_ON' | translate }}:</strong> 
+              <span class="profile-value">{{ currentUser.registrationDate | date:'short' }}</span>
             </p>
-            <p class="text-muted compact-text mb-1" *ngIf="currentUser.lastConnectionDate">
-              <i class="fa fa-clock-o"></i> 
-              <strong>{{ 'FRIENDS.LAST_CONNECTION' | translate }}:</strong> 
-              {{ currentUser.lastConnectionDate | date:'short' }}
+            <p class="text-muted compact-text mb-2" *ngIf="currentUser.lastConnectionDate">
+              <i class="fa fa-clock-o profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.LAST_CONNECTION' | translate }}:</strong> 
+              <span class="profile-value">{{ currentUser.lastConnectionDate | date:'short' }}</span>
             </p>
-            <p class="text-muted compact-text mb-1" *ngIf="currentUser.locale">
-              <i class="fa fa-language"></i> 
-              <strong>{{ 'FRIENDS.LANGUAGE' | translate }}:</strong> 
-              {{ currentUser.locale | uppercase }}
+            <p class="text-muted compact-text mb-2" *ngIf="currentUser.locale">
+              <i class="fa fa-language profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.LANGUAGE' | translate }}:</strong> 
+              <span class="profile-value">{{ currentUser.locale | uppercase }}</span>
             </p>
-            <div class="text-muted compact-text mb-1" *ngIf="getUserRoles(currentUser) && getUserRoles(currentUser).length > 0">
-              <i class="fa fa-shield"></i> 
-              <strong>{{ 'FRIENDS.ROLE' | translate }}:</strong> 
-              <span *ngFor="let role of getUserRoles(currentUser); let last = last">
-                <span class="role-tag me-1" [ngClass]="getRoleTagClass(role)">{{ role }}</span>
+            <div class="text-muted compact-text mb-2" *ngIf="getUserRoles(currentUser) && getUserRoles(currentUser).length > 0">
+              <i class="fa fa-shield profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.ROLE' | translate }}:</strong> 
+              <span class="profile-value ms-2">
+                <span *ngFor="let role of getUserRoles(currentUser); let last = last">
+                  <span class="role-tag me-1" [ngClass]="getRoleTagClass(role)">{{ role }}</span>
+                </span>
               </span>
             </div>
-            <p class="text-muted compact-text mb-1">
-              <i class="fa fa-heart"></i> 
-              <strong>{{ 'FRIENDS.MY_FRIENDS' | translate }}:</strong> 
-              {{ friends.length }}
+            <p class="text-muted compact-text mb-2">
+              <i class="fa fa-heart profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.MY_FRIENDS' | translate }}:</strong> 
+              <span class="profile-value">{{ friends.length }}</span>
             </p>
-            <p class="text-muted compact-text mb-1">
-              <i class="fa fa-users"></i> 
-              <strong>{{ 'FRIENDS.FRIEND_GROUPS' | translate }}:</strong> 
-              {{ friendGroups.length }}
+            <p class="text-muted compact-text mb-2">
+              <i class="fa fa-users profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.FRIEND_GROUPS' | translate }}:</strong> 
+              <span class="profile-value">{{ friendGroups.length }}</span>
             </p>
-            <div class="compact-text mb-1" *ngIf="hasAdminRole()" style="color: #007bff;">
-              <i class="fa fa-id-card"></i> 
-              <strong>{{ 'FRIENDS.USER_ID' | translate }}:</strong> {{ currentUser.id }}
+            <!-- Visibility Toggle -->
+            <div class="text-muted compact-text mb-2 d-flex align-items-center visibility-toggle-container">
+              <i class="fa fa-eye profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.VISIBILITY' | translate }}:</strong> 
+              <div class="form-check form-switch visibility-switch">
+                <input 
+                  class="form-check-input" 
+                  type="checkbox" 
+                  role="switch"
+                  id="visibilitySwitch"
+                  [checked]="getCurrentUserVisibility()"
+                  (change)="updateVisibility($event.target.checked)"
+                  [disabled]="loading">
+                <label class="form-check-label ms-2" for="visibilitySwitch">
+                  <span *ngIf="getCurrentUserVisibility()" class="visibility-status">{{ 'FRIENDS.VISIBLE' | translate }}</span>
+                  <span *ngIf="!getCurrentUserVisibility()" class="visibility-status">{{ 'FRIENDS.HIDDEN' | translate }}</span>
+                </label>
+              </div>
             </div>
-            <div class="compact-text mb-1" *ngIf="hasAdminRole() && currentUser.keycloakId" style="color: #007bff;">
-              <i class="fa fa-key"></i> 
-              <strong>{{ 'FRIENDS.KEYCLOAK_ID' | translate }}:</strong> {{ currentUser.keycloakId }}
+            <div class="compact-text mb-2" *ngIf="hasAdminRole()" style="color: #007bff;">
+              <i class="fa fa-id-card profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.USER_ID' | translate }}:</strong> 
+              <span class="profile-value">{{ currentUser.id }}</span>
+            </div>
+            <div class="compact-text mb-2" *ngIf="hasAdminRole() && currentUser.keycloakId" style="color: #007bff;">
+              <i class="fa fa-key profile-icon"></i> 
+              <strong class="profile-label">{{ 'FRIENDS.KEYCLOAK_ID' | translate }}:</strong> 
+              <span class="profile-value">{{ currentUser.keycloakId }}</span>
             </div>
             
             <!-- WhatsApp Link Section -->
             <div class="whatsapp-link-section mt-3 pt-3 border-top">
-              <h6 class="compact-subtitle mb-2">
-                <i class="fa fa-whatsapp"></i> 
+              <h6 class="compact-subtitle mb-3">
+                <i class="fa fa-whatsapp profile-icon"></i> 
                 {{ 'FRIENDS.WHATSAPP_PHONE' | translate }}
               </h6>
               
@@ -835,7 +970,7 @@
               <table class="table table-hover table-sm friends-grid-table">
                 <thead>
                   <tr>
-                    <th style="width: 30px;"></th>
+                    <th style="width: 50px;"></th>
                     <th>{{ 'FRIENDS.NAME' | translate }}</th>
                     <th>{{ 'FRIENDS.USERNAME' | translate }}</th>
                     <th>{{ 'FRIENDS.ORIGIN' | translate }}</th>
@@ -848,12 +983,18 @@
                       (click)="selectedFriendIndex = i"
                       style="cursor: pointer;">
                     <td style="text-align: center; vertical-align: middle;">
-                      <span class="status-indicator" 
-                            [style.background-color]="getUserOnlineStatus(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).id).online ? '#28a745' : '#dc3545'"
-                            [style.border]="getUserOnlineStatus(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).id).online ? '2px solid #28a745' : '2px solid #dc3545'"
-                            style="width: 12px; height: 12px; border-radius: 50%; display: inline-block;"
-                            [ngbTooltip]="getUserOnlineStatus(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
-                            placement="top"></span>
+                      <div class="d-flex align-items-center justify-content-center gap-2">
+                        <span class="status-indicator connection-indicator" 
+                              [style.background-color]="getUserOnlineStatus(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).id).online ? '#28a745' : '#dc3545'"
+                              [style.border]="getUserOnlineStatus(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).id).online ? '2px solid #28a745' : '2px solid #dc3545'"
+                              [ngbTooltip]="getUserOnlineStatus(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
+                              placement="top"></span>
+                        <span class="status-indicator visibility-indicator" 
+                              [style.background-color]="(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).visible !== undefined && getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).visible !== null) ? (getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).visible ? '#28a745' : '#dc3545') : '#28a745'"
+                              [style.border]="(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).visible !== undefined && getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).visible !== null) ? (getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).visible ? '2px solid #28a745' : '2px solid #dc3545') : '2px solid #28a745'"
+                              [ngbTooltip]="(getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).visible !== undefined && getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).visible !== null) ? (getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).visible ? ('FRIENDS.VISIBLE' | translate) : ('FRIENDS.HIDDEN' | translate)) : ('FRIENDS.VISIBLE' | translate)"
+                              placement="top"></span>
+                      </div>
                     </td>
                     <td>
                       <i class="fa fa-user-circle me-2"></i>
@@ -997,10 +1138,22 @@
 
   <!-- Tab Content: Friend Groups -->
   <div *ngIf="activeTab === 'groups'" class="tab-content">
-    <div class="mb-3">
+    <!-- Search Filter and Create Button on same line -->
+    <div *ngIf="!isCreatingGroup && !editingGroupId" class="d-flex gap-2 align-items-center mb-3">
+      <div class="flex-grow-1">
+        <div class="input-group">
+          <span class="input-group-text">
+            <i class="fa fa-search"></i>
+          </span>
+          <input 
+            type="text" 
+            class="form-control" 
+            [(ngModel)]="searchFilter"
+            [placeholder]="'FRIENDS.SEARCH_GROUPS_PLACEHOLDER' | translate">
+        </div>
+      </div>
       <button 
-        *ngIf="!isCreatingGroup && !editingGroupId"
-        class="btn btn-primary"
+        class="btn btn-primary btn-sm"
         (click)="startCreatingGroup()">
         <i class="fa fa-plus"></i>
         {{ 'FRIENDS.CREATE_GROUP' | translate }}
@@ -1056,20 +1209,6 @@
       </div>
     </div>
 
-    <!-- Search Filter for Groups -->
-    <div *ngIf="!isCreatingGroup && !editingGroupId" class="search-container mb-3">
-      <div class="input-group">
-        <span class="input-group-text">
-          <i class="fa fa-search"></i>
-        </span>
-        <input 
-          type="text" 
-          class="form-control" 
-          [(ngModel)]="searchFilter"
-          [placeholder]="'FRIENDS.SEARCH_GROUPS_PLACEHOLDER' | translate">
-      </div>
-    </div>
-
     <!-- Groups List -->
     <div *ngIf="getFilteredGroups().length === 0 && !isCreatingGroup && friendGroups.length === 0" class="no-results">
       <i class="fa fa-users fa-3x"></i>
@@ -1092,43 +1231,45 @@
           </h5>
         </div>
         <div class="card-body compact-card-body">
-          <!-- Badge at the top of the card -->
-          <div class="d-flex justify-content-center mb-2 gap-2">
-            <div *ngIf="isGroupOwner(group)" class="group-status-tag owner-tag">
-              <i class="fa fa-crown text-warning"></i>
-              <span class="ms-1">{{ 'FRIENDS.OWNER' | translate }}</span>
+          <!-- Badge and Action buttons on same line -->
+          <div class="d-flex justify-content-between align-items-center mb-2 gap-2 flex-wrap">
+            <div class="d-flex gap-2">
+              <div *ngIf="isGroupOwner(group)" class="group-status-tag owner-tag">
+                <i class="fa fa-crown text-warning"></i>
+                <span class="ms-1">{{ 'FRIENDS.OWNER' | translate }}</span>
+              </div>
+              <div *ngIf="isGroupAuthorized(group)" class="group-status-tag authorized-tag">
+                <i class="fa fa-user-check text-info"></i>
+                <span class="ms-1">{{ 'FRIENDS.AUTHORIZED_TO_USE' | translate }}</span>
+              </div>
+              <div *ngIf="isGroupMember(group)" class="group-status-tag member-tag">
+                <i class="fa fa-user text-secondary"></i>
+                <span class="ms-1">{{ 'FRIENDS.MEMBER' | translate }}</span>
+              </div>
             </div>
-            <div *ngIf="isGroupAuthorized(group)" class="group-status-tag authorized-tag">
-              <i class="fa fa-user-check text-info"></i>
-              <span class="ms-1">{{ 'FRIENDS.AUTHORIZED_TO_USE' | translate }}</span>
-            </div>
-            <div *ngIf="isGroupMember(group)" class="group-status-tag member-tag">
-              <i class="fa fa-user text-secondary"></i>
-              <span class="ms-1">{{ 'FRIENDS.MEMBER' | translate }}</span>
+            <!-- Action buttons for owner - Right side of badges -->
+            <div *ngIf="isGroupOwner(group) && editingGroupId !== group.id" class="d-flex gap-1">
+              <button 
+                class="btn btn-outline-primary btn-xs compact-btn"
+                (click)="startEditingGroup(group)"
+                [ngbTooltip]="'FRIENDS.EDIT' | translate"
+                placement="top">
+                <i class="fa fa-edit"></i>
+              </button>
+              <button 
+                class="btn btn-outline-danger btn-xs compact-btn"
+                (click)="deleteFriendGroup(group.id)"
+                [ngbTooltip]="'FRIENDS.DELETE' | translate"
+                placement="top">
+                <i class="fa fa-trash"></i>
+              </button>
             </div>
           </div>
           <div *ngIf="editingGroupId !== group.id">
             <div class="d-flex justify-content-between align-items-start">
               <div class="flex-grow-1">
-                <!-- Action buttons for owner - Top of card -->
-                <div *ngIf="isGroupOwner(group)" class="d-flex gap-1 mb-2 justify-content-center">
-                  <button 
-                    class="btn btn-outline-primary btn-xs compact-btn"
-                    (click)="startEditingGroup(group)"
-                    title="{{ 'FRIENDS.EDIT' | translate }}">
-                    <i class="fa fa-edit"></i>
-                    <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.EDIT' | translate }}</span>
-                  </button>
-                  <button 
-                    class="btn btn-outline-danger btn-xs compact-btn"
-                    (click)="deleteFriendGroup(group.id)"
-                    title="{{ 'FRIENDS.DELETE' | translate }}">
-                    <i class="fa fa-trash"></i>
-                    <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.DELETE' | translate }}</span>
-                  </button>
-                </div>
                 <!-- Discussion and WhatsApp Buttons - Below action buttons -->
-                <div class="d-flex justify-content-center gap-1 mb-2 flex-wrap">
+                <div class="d-flex justify-content-start gap-1 mb-2 flex-wrap">
                   <!-- Discussion Button -->
                   <button 
                     class="btn btn-primary btn-xs compact-btn"
@@ -1149,30 +1290,32 @@
                 </div>
                 <!-- Discussion Link Display (if exists) -->
                 <div *ngIf="group.discussionId" class="mb-2">
-                  <p class="text-muted compact-text mb-0">
-                    <i class="fa fa-comments me-1"></i>
-                    <strong>Discussion:</strong> 
+                  <p class="text-muted compact-text mb-2">
+                    <i class="fa fa-comments profile-icon"></i>
+                    <strong class="profile-label">Discussion:</strong> 
                     <a 
                       href="#" 
                       (click)="openDiscussionModal(group); $event.preventDefault()" 
-                      class="text-decoration-none text-primary"
+                      class="text-decoration-none text-primary profile-value"
                       title="Click to open discussion">
                       {{ group.discussionId }}
                     </a>
                   </p>
                 </div>
-                <p class="text-muted compact-text mb-1">
-                  <i class="fa fa-crown"></i>
-                  <strong>{{ 'FRIENDS.GROUP_OWNER' | translate }}:</strong> {{ group.owner.firstName }} {{ group.owner.lastName }} (<i class="fa fa-at"></i> {{ group.owner.userName }})
+                <p class="text-muted compact-text mb-2">
+                  <i class="fa fa-crown profile-icon"></i>
+                  <strong class="profile-label">{{ 'FRIENDS.GROUP_OWNER' | translate }}:</strong> 
+                  <span class="profile-value">{{ group.owner.firstName }} {{ group.owner.lastName }} (<i class="fa fa-at"></i> {{ group.owner.userName }})</span>
                 </p>
                 <p class="text-muted compact-text mb-2">
-                  <i class="fa fa-calendar"></i>
-                  {{ group.creationDate | date:'short' }}
+                  <i class="fa fa-calendar profile-icon"></i>
+                  <strong class="profile-label">{{ 'FRIENDS.CREATION_DATE' | translate }}:</strong> 
+                  <span class="profile-value">{{ group.creationDate | date:'short' }}</span>
                 </p>
                 <div class="members-section mt-2">
-                  <h6 class="compact-subtitle mb-1">
-                    <i class="fa fa-users"></i>
-                    {{ group.members.length }} {{ 'FRIENDS.MEMBERS' | translate }}
+                  <h6 class="compact-subtitle mb-2">
+                    <i class="fa fa-users profile-icon"></i>
+                    <strong>{{ group.members.length }} {{ 'FRIENDS.MEMBERS' | translate }}</strong>
                   </h6>
                   <div *ngIf="group.members.length === 0" class="text-muted compact-text">
                     {{ 'FRIENDS.NO_MEMBERS' | translate }}
@@ -1184,9 +1327,10 @@
                           <i class="fa fa-user-circle compact-avatar text-muted"></i>
                         </div>
                         <div class="member-details flex-grow-1">
-                          <div class="compact-text fw-bold">{{ member.firstName }} {{ member.lastName }}</div>
+                          <div class="compact-text fw-bold mb-1">{{ member.firstName }} {{ member.lastName }}</div>
                           <div class="text-muted compact-text">
-                            <i class="fa fa-at"></i> {{ member.userName }}
+                            <i class="fa fa-at profile-icon"></i> 
+                            <span class="profile-value">{{ member.userName }}</span>
                           </div>
                         </div>
                       </div>
@@ -1195,10 +1339,10 @@
                 </div>
                 <!-- Authorized Users Section (only for owner) -->
                 <div *ngIf="isGroupOwner(group)" class="authorized-users-section mt-2">
-                  <div class="d-flex justify-content-between align-items-center mb-1">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
                     <h6 class="compact-subtitle mb-0">
-                      <i class="fa fa-user-check"></i>
-                      {{ 'FRIENDS.AUTHORIZED_USERS' | translate }}
+                      <i class="fa fa-user-check profile-icon"></i>
+                      <strong>{{ 'FRIENDS.AUTHORIZED_USERS' | translate }}</strong>
                       <span *ngIf="group.authorizedUsers && group.authorizedUsers.length > 0" class="authorized-count-tag">
                         {{ group.authorizedUsers.length }}
                       </span>
@@ -1223,9 +1367,10 @@
                               <i class="fa fa-user-check compact-avatar text-success"></i>
                             </div>
                             <div>
-                              <div class="compact-text fw-bold">{{ authorizedUser.firstName }} {{ authorizedUser.lastName }}</div>
+                              <div class="compact-text fw-bold mb-1">{{ authorizedUser.firstName }} {{ authorizedUser.lastName }}</div>
                               <div class="text-muted compact-text">
-                                <i class="fa fa-at"></i> {{ authorizedUser.userName }}
+                                <i class="fa fa-at profile-icon"></i> 
+                                <span class="profile-value">{{ authorizedUser.userName }}</span>
                               </div>
                             </div>
                           </div>

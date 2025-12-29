@@ -47,13 +47,16 @@ export class MembersService {
                     this.user.locale = this._commonValuesService.getLang();
                     
                     // Convert roles array to comma-separated string for backend (backend expects String, not array)
-                    const userToSend = { ...this.user };
+                    const userToSend: any = { ...this.user };
                     if (userToSend.roles && Array.isArray(userToSend.roles)) {
-                        (userToSend as any).roles = userToSend.roles.join(', ');
-                    } else if (!userToSend.roles || (typeof (userToSend as any).roles !== 'string')) {
+                        userToSend.roles = userToSend.roles.join(', ');
+                    } else if (!userToSend.roles || (typeof userToSend.roles !== 'string')) {
                         // If roles is not an array or string, set to empty string
-                        (userToSend as any).roles = '';
+                        userToSend.roles = '';
                     }
+                    // Remove visible from request - backend will preserve existing value from DB
+                    // This prevents the visible flag from being reset when user logs in/connects
+                    delete userToSend.visible;
                     
                     // console.log("2|------------------> Just before user POST request : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds());
                     return this._http.post<any>(this.API_URL + 'memb/user', userToSend, { headers: headers }).pipe(
@@ -73,7 +76,8 @@ export class MembersService {
                                 res.registrationDate ? new Date(res.registrationDate) : undefined,
                                 res.lastConnectionDate ? new Date(res.lastConnectionDate) : undefined,
                                 res.locale || undefined,
-                                res.whatsappLink || undefined
+                                res.whatsappLink || undefined,
+                                (res.visible !== undefined && res.visible !== null) ? res.visible : true
                             );
                             // Update the internal user object
                             this.user = member;

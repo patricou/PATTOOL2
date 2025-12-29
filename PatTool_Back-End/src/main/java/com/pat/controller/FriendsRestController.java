@@ -39,11 +39,18 @@ public class FriendsRestController {
 
     /**
      * Get all users from MongoDB (synced from Keycloak)
+     * Admins see all users, regular users only see visible users
      */
     @GetMapping(value = "/users", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<Member>> getAllUsers(Authentication authentication) {
         try {
-            List<Member> allUsers = friendsService.getAllUsers();
+            // Check if current user is admin
+            boolean isAdmin = authentication != null && authentication.getAuthorities().stream()
+                    .map(authority -> authority.getAuthority())
+                    .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin") || 
+                                         authority.equalsIgnoreCase("ROLE_admin"));
+            
+            List<Member> allUsers = friendsService.getAllUsers(isAdmin);
             return ResponseEntity.ok(allUsers);
         } catch (Exception e) {
             log.error("Error getting users", e);
@@ -312,6 +319,48 @@ public class FriendsRestController {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         } catch (Exception e) {
             log.error("Error updating member WhatsApp link", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+    
+    /**
+     * Update visibility flag for a member
+     */
+    @PutMapping(value = "/members/{memberId}/visibility", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Member> updateMemberVisibility(
+            @PathVariable String memberId,
+            @RequestBody Map<String, Object> requestBody,
+            Authentication authentication) {
+        try {
+            Member currentUser = friendsService.getCurrentUser(authentication);
+            if (currentUser == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+
+            // Check if current user is admin
+            boolean isAdmin = authentication.getAuthorities().stream()
+                    .map(authority -> authority.getAuthority())
+                    .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin") || 
+                                         authority.equalsIgnoreCase("ROLE_admin"));
+
+            Object visibleObj = requestBody.get("visible");
+            Boolean visible = null;
+            if (visibleObj instanceof Boolean) {
+                visible = (Boolean) visibleObj;
+            } else if (visibleObj instanceof String) {
+                visible = Boolean.parseBoolean((String) visibleObj);
+            }
+            
+            Member updatedMember = friendsService.updateMemberVisibility(memberId, visible, currentUser, isAdmin);
+            return ResponseEntity.ok(updatedMember);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid request: {}", e.getMessage());
+            return ResponseEntity.notFound().build();
+        } catch (IllegalStateException e) {
+            log.error("Invalid state: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        } catch (Exception e) {
+            log.error("Error updating member visibility", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

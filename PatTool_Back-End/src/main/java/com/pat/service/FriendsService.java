@@ -45,12 +45,33 @@ public class FriendsService {
 
     /**
      * Get all users from MongoDB (synced from Keycloak)
+     * Only returns users with visible=true for regular users
+     * Returns all users for admins
      */
-    public List<Member> getAllUsers() {
-        log.debug("Getting all users");
+    public List<Member> getAllUsers(boolean isAdmin) {
+        log.debug("Getting users - Admin: {}", isAdmin);
         List<Member> allUsers = membersRepository.findAll();
-        log.debug("Found {} users", allUsers.size());
-        return allUsers;
+        
+        if (isAdmin) {
+            // Admins can see all users (including hidden ones)
+            log.debug("Admin access - returning all {} users", allUsers.size());
+            return allUsers;
+        } else {
+            // Regular users only see visible users
+            // visible=true or null (field not present) means visible
+            // visible=false means hidden
+            List<Member> visibleUsers = allUsers.stream()
+                .filter(user -> {
+                    Boolean userVisible = user.getVisible();
+                    // If null (field not present in old records), default to true (visible)
+                    // If false, user is hidden
+                    // If true, user is visible
+                    return userVisible == null || userVisible;
+                })
+                .collect(java.util.stream.Collectors.toList());
+            log.debug("Regular user access - returning {} visible users out of {} total users", visibleUsers.size(), allUsers.size());
+            return visibleUsers;
+        }
     }
 
     /**
@@ -330,6 +351,37 @@ public class FriendsService {
         
         Member savedMember = membersRepository.save(member);
         log.debug("WhatsApp link updated for member: {} - Link: {}", savedMember.getUserName(), savedMember.getWhatsappLink());
+        
+        return savedMember;
+    }
+    
+    /**
+     * Update visibility flag for a member
+     * Users can only update their own visibility, unless they are admin
+     */
+    public Member updateMemberVisibility(String memberId, Boolean visible, Member currentUser, boolean isAdmin) {
+        // Verify that the user is only updating their own visibility, unless they are admin
+        if (!isAdmin && !currentUser.getId().equals(memberId)) {
+            throw new IllegalStateException("User can only update their own visibility");
+        }
+
+        Optional<Member> memberOpt = membersRepository.findById(memberId);
+        if (memberOpt.isEmpty()) {
+            throw new IllegalArgumentException("Member not found");
+        }
+
+        Member member = memberOpt.get();
+        // Preserve the actual value - if visible is null, set to true (default for missing field)
+        // Otherwise, use the provided value (including false)
+        member.setVisible(visible != null ? visible : true);
+        
+        Member savedMember = membersRepository.save(member);
+        if (isAdmin && !currentUser.getId().equals(memberId)) {
+            log.debug("Admin {} updated visibility for member: {} - Visible: {}", 
+                    currentUser.getUserName(), savedMember.getUserName(), savedMember.getVisible());
+        } else {
+            log.debug("Visibility updated for member: {} - Visible: {}", savedMember.getUserName(), savedMember.getVisible());
+        }
         
         return savedMember;
     }

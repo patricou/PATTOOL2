@@ -25,15 +25,18 @@ public class Member {
     private Date lastConnectionDate;
     private String locale; // User's language preference (e.g., "fr", "en")
     private String whatsappLink; // WhatsApp link for this member
+    private Boolean visible; // User visibility flag (null = not set, will default to true for new users only)
 
     public Member( String firstName, String lastName, String userName, String addressEmail){
         this.firstName = firstName;
         this.lastName  = lastName;
         this.userName  = userName;
         this.addressEmail = addressEmail;
+        // Don't set visible here - let it be null for new objects, will be set explicitly when needed
     }
 
     public Member(){
+        // Don't set visible here - let it be null, MongoDB will load the actual value from DB
     }
 
     public String getFirstName() {
@@ -122,6 +125,17 @@ public class Member {
     
     public void setWhatsappLink(String whatsappLink) {
         this.whatsappLink = whatsappLink;
+    }
+    
+    public Boolean getVisible() {
+        // Return the actual value from DB (can be null, true, or false)
+        // null means field not present in old records - will be handled at service/controller level
+        return visible;
+    }
+    
+    public void setVisible(Boolean visible) {
+        // Preserve the actual value (including null and false)
+        this.visible = visible;
     }
 }
 

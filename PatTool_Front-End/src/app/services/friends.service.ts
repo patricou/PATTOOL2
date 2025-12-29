@@ -55,7 +55,8 @@ export class FriendsService {
                                 user.registrationDate ? new Date(user.registrationDate) : undefined,
                                 user.lastConnectionDate ? new Date(user.lastConnectionDate) : undefined,
                                 user.locale || undefined,
-                                user.whatsappLink || undefined
+                                user.whatsappLink || undefined,
+                                (user.visible !== undefined && user.visible !== null) ? user.visible : true
                             );
                         });
                     }),
@@ -407,8 +408,9 @@ export class FriendsService {
                                     friend.user1.registrationDate ? new Date(friend.user1.registrationDate) : undefined,
                                     friend.user1.lastConnectionDate ? new Date(friend.user1.lastConnectionDate) : undefined,
                                     friend.user1.locale || undefined,
-                                    friend.user1.whatsappLink || undefined
-                                ) : new Member('', '', '', '', '', [], '', undefined, undefined, undefined, undefined),
+                                    friend.user1.whatsappLink || undefined,
+                                    (friend.user1.visible !== undefined && friend.user1.visible !== null) ? friend.user1.visible : true
+                                ) : new Member('', '', '', '', '', [], '', undefined, undefined, undefined, undefined, true),
                                 friend.user2 ? new Member(
                                     friend.user2.id || '',
                                     friend.user2.addressEmail || '',
@@ -420,8 +422,9 @@ export class FriendsService {
                                     friend.user2.registrationDate ? new Date(friend.user2.registrationDate) : undefined,
                                     friend.user2.lastConnectionDate ? new Date(friend.user2.lastConnectionDate) : undefined,
                                     friend.user2.locale || undefined,
-                                    friend.user2.whatsappLink || undefined
-                            ) : new Member('', '', '', '', '', [], '', undefined, undefined, undefined, undefined),
+                                    friend.user2.whatsappLink || undefined,
+                                    (friend.user2.visible !== undefined && friend.user2.visible !== null) ? friend.user2.visible : true
+                            ) : new Member('', '', '', '', '', [], '', undefined, undefined, undefined, undefined, true),
                             friend.friendshipDate ? new Date(friend.friendshipDate) : new Date()
                         );
                     });
@@ -488,8 +491,49 @@ export class FriendsService {
                             res.registrationDate ? new Date(res.registrationDate) : undefined,
                             res.lastConnectionDate ? new Date(res.lastConnectionDate) : undefined,
                             res.locale || undefined,
-                            res.whatsappLink || undefined
+                            res.whatsappLink || undefined,
+                            (res.visible !== undefined && res.visible !== null) ? res.visible : true
                         );
+                    })
+                );
+            })
+        );
+    }
+    
+    /**
+     * Update visibility flag for a member
+     */
+    updateMemberVisibility(memberId: string, visible: boolean): Observable<Member> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                const body = { visible: visible };
+                return this._http.put<any>(this.API_URL + 'friends/members/' + memberId + '/visibility', body, { headers: headers }).pipe(
+                    map((res: any) => {
+                        return new Member(
+                            res.id || '',
+                            res.addressEmail || '',
+                            res.firstName || '',
+                            res.lastName || '',
+                            res.userName || '',
+                            res.roles || [],
+                            res.keycloakId || '',
+                            res.registrationDate ? new Date(res.registrationDate) : undefined,
+                            res.lastConnectionDate ? new Date(res.lastConnectionDate) : undefined,
+                            res.locale || undefined,
+                            res.whatsappLink || undefined,
+                            (res.visible !== undefined && res.visible !== null) ? res.visible : true
+                        );
+                    }),
+                    catchError((error: any) => {
+                        console.error('Error updating member visibility:', error);
+                        throw error;
                     })
                 );
             })
@@ -1129,8 +1173,9 @@ export class FriendsService {
                                     friend.user1.registrationDate ? new Date(friend.user1.registrationDate) : undefined,
                                     friend.user1.lastConnectionDate ? new Date(friend.user1.lastConnectionDate) : undefined,
                                     friend.user1.locale || undefined,
-                                    friend.user1.whatsappLink || undefined
-                                ) : new Member('', '', '', '', '', [], '', undefined, undefined, undefined, undefined),
+                                    friend.user1.whatsappLink || undefined,
+                                    (friend.user1.visible !== undefined && friend.user1.visible !== null) ? friend.user1.visible : true
+                                ) : new Member('', '', '', '', '', [], '', undefined, undefined, undefined, undefined, true),
                                 friend.user2 ? new Member(
                                     friend.user2.id || '',
                                     friend.user2.addressEmail || '',
@@ -1142,8 +1187,9 @@ export class FriendsService {
                                     friend.user2.registrationDate ? new Date(friend.user2.registrationDate) : undefined,
                                     friend.user2.lastConnectionDate ? new Date(friend.user2.lastConnectionDate) : undefined,
                                     friend.user2.locale || undefined,
-                                    friend.user2.whatsappLink || undefined
-                            ) : new Member('', '', '', '', '', [], '', undefined, undefined, undefined, undefined),
+                                    friend.user2.whatsappLink || undefined,
+                                    (friend.user2.visible !== undefined && friend.user2.visible !== null) ? friend.user2.visible : true
+                            ) : new Member('', '', '', '', '', [], '', undefined, undefined, undefined, undefined, true),
                             friend.friendshipDate ? new Date(friend.friendshipDate) : new Date()
                         );
                     });
@@ -1200,7 +1246,8 @@ export class FriendsService {
                             res.registrationDate ? new Date(res.registrationDate) : undefined,
                             res.lastConnectionDate ? new Date(res.lastConnectionDate) : undefined,
                             res.locale || undefined,
-                            res.whatsappLink || undefined
+                            res.whatsappLink || undefined,
+                            (res.visible !== undefined && res.visible !== null) ? res.visible : true
                         );
                     }),
                     catchError((error: any) => {

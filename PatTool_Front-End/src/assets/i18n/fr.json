@@ -994,6 +994,9 @@
         "LANGUAGE": "Langue",
         "USER_ID": "ID Utilisateur",
         "KEYCLOAK_ID": "ID Keycloak",
+        "VISIBILITY": "Visibilité",
+        "VISIBLE": "Visible",
+        "HIDDEN": "Masqué",
         "FRIENDSHIP_ORIGIN": "Origine de l'Amitié",
         "DIRECT_FRIENDSHIP": "Amitié Directe",
         "GROUP_FRIENDSHIP": "Amitié via Groupe",
@@ -1061,7 +1064,12 @@
         "STATUS": "Statut",
         "ONLINE": "En ligne",
         "OFFLINE": "Hors ligne",
-        "ROLE": "Rôle"
+        "ROLE": "Rôle",
+        "ADMIN_MODE": "Mode Administrateur",
+        "SELECT_USER_TO_UPDATE": "Sélectionner un Utilisateur à Modifier",
+        "SELECT_USER_PLACEHOLDER": "-- Sélectionner un utilisateur --",
+        "EDITING_USER": "Modification de l'utilisateur",
+        "EDITING_USER_PROFILE": "Modification du Profil Utilisateur"
     },
     "STATISTICS": {
         "TITLE": "Statistiques des Discussions",

@@ -204,6 +204,16 @@ public class MemberRestController {
                 }
             }
             
+            // Preserve visible flag from existing member if not provided in request
+            // This prevents the visible flag from being reset when user logs in/connects
+            if (member.getVisible() == null) {
+                // If visible is not provided in request, preserve the existing value from DB
+                // If existing value is null (old record without field), default to true
+                Boolean existingVisible = memberWithId.getVisible();
+                member.setVisible(existingVisible != null ? existingVisible : true);
+            }
+            // If visible is provided in request (admin update), use the provided value
+            
             // Handle roles: preserve from request if provided (admin update), otherwise preserve existing or fetch from Keycloak
             if (member.getRoles() != null && !member.getRoles().trim().isEmpty()) {
                 // Roles are provided in the request (likely from admin update), preserve them
@@ -263,6 +273,10 @@ public class MemberRestController {
             // New user - set registration date
             member.setRegistrationDate(now);
             member.setLastConnectionDate(now);
+            // Set visibility to true by default for new users
+            if (member.getVisible() == null) {
+                member.setVisible(true);
+            }
             
             // Handle roles: preserve from request if provided (admin creating user), otherwise fetch from Keycloak
             if (member.getRoles() != null && !member.getRoles().trim().isEmpty()) {
@@ -366,6 +380,10 @@ public class MemberRestController {
                 if (existingMember.getWhatsappLink() != null) {
                     member.setWhatsappLink(existingMember.getWhatsappLink());
                 }
+            }
+            // Preserve visible flag from existing member
+            if (member.getVisible() == null) {
+                member.setVisible(existingMember.getVisible());
             }
             // Handle roles
             if (member.getRoles() == null || member.getRoles().trim().isEmpty()) {
