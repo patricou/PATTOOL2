@@ -18,7 +18,9 @@ export function HttpLoaderFactory(http: HttpClient) {
   imports: [
     CommonModule,
     FormsModule,
-    RouterModule,
+    RouterModule.forChild([
+      { path: '', component: LinksComponent }
+    ]),
     HttpClientModule,
     TranslateModule.forChild({
       loader: {

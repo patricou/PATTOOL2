@@ -6,6 +6,11 @@ import { Observable, from, Subject, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
 
+export interface StreamedDiscussion {
+  type: 'discussion' | 'complete' | 'error';
+  data: DiscussionItem | null;
+}
+
 // WebSocket imports - using dynamic require to avoid build-time issues
 const getSockJS = () => {
   const SockJSModule = require('sockjs-client');
@@ -147,6 +152,141 @@ export class DiscussionService {
         this._http.get<DiscussionItem[]>(this.API_URL + 'discussions/accessible', { headers: headers })
       )
     );
+  }
+
+  /**
+   * Stream accessible discussions using Server-Sent Events (SSE)
+   * Returns discussions one by one as they are processed (truly reactive)
+   */
+  streamAccessibleDiscussions(): Observable<StreamedDiscussion> {
+    const subject = new Subject<StreamedDiscussion>();
+    
+    this.getHeaderWithToken().subscribe({
+      next: (headers) => {
+        const token = headers.get('Authorization') || '';
+        const url = this.API_URL + 'discussions/accessible/stream';
+        
+        // Use fetch API since EventSource doesn't support custom headers
+        this.streamDiscussionsWithFetch(url, token, subject).catch(err => {
+          subject.error(err);
+        });
+      },
+      error: (err) => {
+        subject.error(err);
+      }
+    });
+    
+    return subject.asObservable();
+  }
+
+  private async streamDiscussionsWithFetch(
+    url: string, 
+    authToken: string, 
+    subject: Subject<StreamedDiscussion>
+  ): Promise<void> {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': authToken,
+          'Accept': 'text/event-stream'
+        },
+        cache: 'no-cache'
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      if (!reader) {
+        subject.error(new Error('No reader available'));
+        return;
+      }
+
+      let currentEventType: string | null = null;
+      let currentData: string = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) {
+          // Process any remaining data
+          if (currentEventType && currentData) {
+            this.processSSEDiscussionEvent(currentEventType, currentData, subject);
+          }
+          subject.complete();
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.trim() === '') {
+            // Empty line indicates end of event - process it
+            if (currentEventType && currentData) {
+              this.processSSEDiscussionEvent(currentEventType, currentData, subject);
+              currentEventType = null;
+              currentData = '';
+            }
+            continue;
+          }
+          
+          if (line.startsWith('event:')) {
+            // Process previous event if exists
+            if (currentEventType && currentData) {
+              this.processSSEDiscussionEvent(currentEventType, currentData, subject);
+            }
+            currentEventType = line.substring(6).trim();
+            currentData = '';
+            continue;
+          }
+          
+          if (line.startsWith('data:')) {
+            const data = line.substring(5).trim();
+            if (currentData) {
+              currentData += '\n' + data; // Handle multi-line data
+            } else {
+              currentData = data;
+            }
+          }
+        }
+      }
+    } catch (error) {
+      subject.error(error);
+    }
+  }
+
+  private processSSEDiscussionEvent(eventType: string, data: string, subject: Subject<StreamedDiscussion>): void {
+    if (eventType === 'discussion') {
+      try {
+        const parsed = JSON.parse(data);
+        subject.next({
+          type: 'discussion',
+          data: parsed
+        });
+      } catch (e) {
+        console.error('Error parsing discussion data:', e);
+        subject.next({
+          type: 'error',
+          data: null
+        });
+      }
+    } else if (eventType === 'complete') {
+      subject.next({
+        type: 'complete',
+        data: null
+      });
+    } else if (eventType === 'error') {
+      subject.next({
+        type: 'error',
+        data: null
+      });
+    }
   }
 
   /**

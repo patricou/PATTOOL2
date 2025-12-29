@@ -26,23 +26,16 @@ import { MembersService } from './services/members.service';
 import { CommonvaluesService } from './services/commonvalues.service';
 import { FileService } from './services/file.service';
 import { environment } from '../environments/environment';
-import { LinksComponent } from './links/links/links.component';
-import { LinksModule } from './links/links.module';
+import { LinksAdminModule } from './admin/links-admin/links-admin.module';
+import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
 import { HashLocationStrategy, LocationStrategy } from '@angular/common';
-import { PatgptComponent } from './patgpt/patgpt/patgpt.component';
-import { PatgptModule } from './patgpt/patgpt.module';
-import { IothomeComponent } from './iothome/iothome.component';
+import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
 import { IotService } from './services/iot.service';
 import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from './shared/slideshow-modal/slideshow-modal.module';
 import { TraceViewerModalModule } from './shared/trace-viewer-modal/trace-viewer-modal.module';
-import { LinksAdminModule } from './admin/links-admin/links-admin.module';
-import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
-import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
-import { SystemComponent } from './system/system.component';
 import { CacheService } from './services/cache.service';
-import { FriendsModule } from './friends/friends.module';
-import { FriendsComponent } from './friends/friends/friends.component';
+import { FriendsService } from './services/friends.service';
 import { AgGridModule } from 'ag-grid-angular';
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 
@@ -63,17 +56,12 @@ export function HttpLoaderFactory(http: HttpClient) {
 		HttpClientModule,
 		AppComponent,
 		PageNotFoundComponent,
-		IothomeComponent,
 		DetailsEvenementComponent,
-		SystemComponent,
 		HomeModule,
 		EvenementsModule,
 		ChatModule,
 		MapsModule,
-		LinksModule,
 		LinksAdminModule,
-		PatgptModule,
-		FriendsModule,
 		NavigationButtonsModule,
 		SlideshowModalModule,
 		TraceViewerModalModule,
@@ -93,13 +81,29 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{ path: 'details-evenement/:id', component: DetailsEvenementComponent },
 			{ path: 'results', component: ChatComponent },
 			{ path: 'maps', component: AboutComponent },
-					{ path: 'links', component: LinksComponent },
-		{ path: 'links-admin', component: LinksAdminComponent },
-		{ path: 'friends', component: FriendsComponent },
-		{ path: 'iot', component: IothomeComponent },
-		{ path: 'patgpt', component: PatgptComponent },
-		{ path: 'system', component: SystemComponent },
+			{ path: 'links-admin', component: LinksAdminComponent },
 			{ path: 'home', component: HomePageComponent },
+			// Lazy loaded routes - loaded on demand to reduce initial bundle size
+			{ 
+				path: 'links', 
+				loadChildren: () => import('./links/links.module').then(m => m.LinksModule)
+			},
+			{ 
+				path: 'friends', 
+				loadChildren: () => import('./friends/friends.module').then(m => m.FriendsModule)
+			},
+			{ 
+				path: 'patgpt', 
+				loadChildren: () => import('./patgpt/patgpt.module').then(m => m.PatgptModule)
+			},
+			{ 
+				path: 'iot', 
+				loadComponent: () => import('./iothome/iothome.component').then(m => m.IothomeComponent)
+			},
+			{ 
+				path: 'system', 
+				loadComponent: () => import('./system/system.component').then(m => m.SystemComponent)
+			},
 			{ path: '**', component: PageNotFoundComponent }
 		]),
 		NgbModule,
@@ -111,6 +115,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		CommonvaluesService,
 		IotService,
 		CacheService,
+		FriendsService, // Provided globally because used by HomeEvenementsComponent (eager-loaded)
 		// to be able to do F5 in prod		
 		{ provide: LocationStrategy, useClass: HashLocationStrategy },
 		{ provide: TranslateLoader, useFactory: HttpLoaderFactory, deps: [HttpClient] },

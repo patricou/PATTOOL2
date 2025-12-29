@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
@@ -20,9 +21,11 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -97,6 +100,98 @@ public class DiscussionRestController {
             log.error("Error getting accessible discussions", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    /**
+     * Stream accessible discussions using Server-Sent Events (SSE)
+     * Streams discussions one by one as they are processed (truly reactive)
+     * Sends data immediately when 1 discussion is available
+     */
+    @GetMapping(value = "/accessible/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter streamAccessibleDiscussions(Authentication authentication) {
+        SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // No timeout
+        
+        try {
+            String userName = extractUserName(authentication);
+            if (userName == null) {
+                emitter.completeWithError(new RuntimeException("Unauthorized"));
+                return emitter;
+            }
+
+            Member user = membersRepository.findByUserName(userName);
+            if (user == null) {
+                emitter.completeWithError(new RuntimeException("Unauthorized"));
+                return emitter;
+            }
+
+            // Process discussions asynchronously and stream them
+            CompletableFuture.runAsync(() -> {
+                try {
+                    // Track if connection is still alive
+                    java.util.concurrent.atomic.AtomicBoolean connectionAlive = new java.util.concurrent.atomic.AtomicBoolean(true);
+                    
+                    discussionService.streamAccessibleDiscussions(user, (discussion) -> {
+                        // Only send if connection is still alive
+                        if (!connectionAlive.get()) {
+                            return;
+                        }
+                        
+                        try {
+                            emitter.send(SseEmitter.event()
+                                .name("discussion")
+                                .data(discussion));
+                        } catch (org.springframework.web.context.request.async.AsyncRequestNotUsableException e) {
+                            // Connection aborted - client disconnected, this is normal
+                            connectionAlive.set(false);
+                            log.debug("SSE connection aborted by client");
+                        } catch (IOException e) {
+                            // Connection closed by client - this is normal, don't log as error
+                            connectionAlive.set(false);
+                            log.debug("SSE connection closed by client while sending discussion");
+                        } catch (Exception e) {
+                            // Other errors - log but don't fail
+                            connectionAlive.set(false);
+                            log.debug("Error sending discussion via SSE: {}", e.getMessage());
+                        }
+                    });
+                    
+                    // Send completion event only if connection is still alive
+                    if (connectionAlive.get()) {
+                        try {
+                            emitter.send(SseEmitter.event()
+                                .name("complete")
+                                .data(""));
+                            emitter.complete();
+                        } catch (Exception e) {
+                            log.debug("Connection already closed, cannot send completion event");
+                            emitter.complete();
+                        }
+                    } else {
+                        emitter.complete();
+                    }
+                } catch (Exception e) {
+                    log.error("Error streaming discussions", e);
+                    try {
+                        if (emitter != null) {
+                            emitter.send(SseEmitter.event()
+                                .name("error")
+                                .data(e.getMessage()));
+                            emitter.complete();
+                        }
+                    } catch (Exception ex) {
+                        log.debug("Error sending error via SSE, connection likely closed: {}", ex.getMessage());
+                        if (emitter != null) {
+                            emitter.complete();
+                        }
+                    }
+                }
+            });
+        } catch (Exception e) {
+            log.error("Error setting up discussion stream", e);
+            emitter.completeWithError(e);
+        }
+        
+        return emitter;
     }
 
     /**

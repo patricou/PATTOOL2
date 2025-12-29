@@ -6,6 +6,7 @@ import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
 import { PatgptComponent } from './patgpt/patgpt.component';
 import { PatgptService } from '../services/patgpt.service';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 
 // AoT requires an exported function for factories
@@ -17,6 +18,9 @@ export function HttpLoaderFactory(http: HttpClient) {
   imports: [
     CommonModule,
     FormsModule,
+    RouterModule.forChild([
+      { path: '', component: PatgptComponent }
+    ]),
     HttpClientModule,
     TranslateModule.forChild({
       loader: {

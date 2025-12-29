@@ -6,7 +6,7 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { Subscription, forkJoin, of, Observable } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { DiscussionService, Discussion, DiscussionMessage } from '../../services/discussion.service';
+import { DiscussionService, Discussion, DiscussionMessage, StreamedDiscussion } from '../../services/discussion.service';
 import { Member } from '../../model/member';
 import { MembersService } from '../../services/members.service';
 import { EvenementsService } from '../../services/evenements.service';
@@ -120,47 +120,110 @@ export class ChatComponent implements OnInit, OnDestroy {
   /**
    * Load all available discussions (from events, friend groups, and general)
    * Uses the new backend endpoint that handles all validation and filtering
+   * STREAMING: Displays discussions incrementally as they're processed
    */
   private async loadAllAvailableDiscussions() {
     try {
       this.isLoading = true;
       this.connectionStatus = 'Loading discussions...';
       
-      // Use the new backend endpoint that handles everything
-      this.discussionService.getAccessibleDiscussions().pipe(
+      // Initialize empty arrays for reactive display
+      this.availableDiscussions = [];
+      this.filteredDiscussions = [];
+      this.allFriendGroups = [];
+      
+      // Use SSE streaming endpoint - discussions arrive as they're processed (truly reactive)
+      this.discussionService.streamAccessibleDiscussions().pipe(
         catchError(error => {
-          console.error('Error loading accessible discussions:', error);
+          console.error('Error streaming discussions:', error);
           this.connectionStatus = 'Error loading discussions';
           this.isLoading = false;
-          return of([]);
+          const errorEvent: StreamedDiscussion = { type: 'error', data: null };
+          return of(errorEvent);
         })
       ).subscribe({
-        next: (discussions) => {
-          // Convert backend DiscussionItem to frontend DiscussionItem format
-          this.availableDiscussions = discussions.map(item => ({
-            id: item.id,
-            title: item.title,
-            type: item.type,
-            discussion: item.discussion,
-            event: item.event,
-            friendGroup: item.friendGroup,
-            messageCount: item.messageCount,
-            lastMessageDate: item.lastMessageDate
-          }));
-          
-          // Extract friend groups for other uses
-          this.allFriendGroups = discussions
-            .filter(item => item.friendGroup)
-            .map(item => item.friendGroup);
-          
+        next: (streamed: StreamedDiscussion) => {
+          if (streamed.type === 'discussion' && streamed.data) {
+            // Convert backend DiscussionItem to frontend DiscussionItem format
+            const discussionItem: DiscussionItem = {
+              id: streamed.data.id,
+              title: streamed.data.title,
+              type: streamed.data.type,
+              discussion: streamed.data.discussion,
+              event: streamed.data.event,
+              friendGroup: streamed.data.friendGroup,
+              messageCount: streamed.data.messageCount,
+              lastMessageDate: streamed.data.lastMessageDate
+            };
+            
+            // Display immediately - first one appears instantly, then insert others in sorted position
+            if (this.availableDiscussions.length === 0) {
+              // First discussion - add immediately without sorting (instant display)
+              this.availableDiscussions.push(discussionItem);
+            } else {
+              // Subsequent discussions - insert in sorted position (by creation date, newest first)
+              const creationDate = discussionItem.discussion?.creationDate 
+                ? new Date(discussionItem.discussion.creationDate).getTime() 
+                : 0;
+              
+              // Find insertion index to maintain sorted order (newest first)
+              let insertIndex = this.availableDiscussions.length;
+              for (let i = 0; i < this.availableDiscussions.length; i++) {
+                const existingDiscussion = this.availableDiscussions[i].discussion;
+                const existingDate = existingDiscussion?.creationDate 
+                  ? new Date(existingDiscussion.creationDate).getTime() 
+                  : 0;
+                if (creationDate > existingDate) {
+                  insertIndex = i;
+                  break;
+                }
+              }
+              
+              // Insert at the correct position
+              this.availableDiscussions.splice(insertIndex, 0, discussionItem);
+            }
+            
+            // Update filtered list immediately
+            this.filteredDiscussions = [...this.availableDiscussions];
+            
+            // Apply filter if active
+            if (this.dataFIlter && this.dataFIlter.trim() !== '') {
+              this.applyFilter();
+            }
+            
+            // Extract friend groups for other uses
+            if (discussionItem.friendGroup) {
+              const existingIndex = this.allFriendGroups.findIndex(g => g.id === discussionItem.friendGroup!.id);
+              if (existingIndex === -1) {
+                this.allFriendGroups.push(discussionItem.friendGroup);
+              }
+            }
+            
+            // Hide loading spinner as soon as first item appears
+            if (this.availableDiscussions.length === 1) {
+              this.isLoading = false;
+              this.connectionStatus = '';
+            }
+          } else if (streamed.type === 'complete') {
+            // All discussions loaded - they're already sorted as they arrived
+            this.isLoading = false;
+            this.connectionStatus = '';
+            
+            // Ensure filter is applied at the end
+            if (this.dataFIlter && this.dataFIlter.trim() !== '') {
+              this.applyFilter();
+            } else {
+              this.filteredDiscussions = [...this.availableDiscussions];
+            }
+          } else if (streamed.type === 'error') {
+            this.isLoading = false;
+            this.connectionStatus = 'Error loading discussions';
+          }
+        },
+        error: (error) => {
+          console.error('Error in discussion stream:', error);
           this.isLoading = false;
-          this.connectionStatus = '';
-          
-          // Initialize filtered discussions
-          this.filteredDiscussions = [...this.availableDiscussions];
-          
-          // Apply initial filter
-          this.applyFilter();
+          this.connectionStatus = 'Error loading discussions';
         }
       });
     } catch (error) {
