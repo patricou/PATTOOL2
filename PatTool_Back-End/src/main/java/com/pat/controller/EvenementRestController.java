@@ -1,6 +1,7 @@
 package com.pat.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.pat.repo.domain.Commentary;
 import com.pat.repo.domain.Evenement;
 import com.pat.repo.domain.FileUploaded;
 import com.pat.repo.domain.Friend;
@@ -35,6 +36,7 @@ import org.bson.types.ObjectId;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -1594,6 +1596,174 @@ public class EvenementRestController {
      * Cleanup method to properly shut down the executor service when the application stops.
      * This prevents memory leaks from threads that are never cleaned up.
      */
+    /**
+     * Get current user name from authentication token
+     */
+    private String getCurrentUserName() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt) {
+                org.springframework.security.oauth2.jwt.Jwt jwt = (org.springframework.security.oauth2.jwt.Jwt) authentication.getPrincipal();
+                String keycloakId = jwt.getSubject();
+                if (keycloakId != null) {
+                    // Find member by keycloakId
+                    List<Member> members = membersRepository.findAll();
+                    java.util.Optional<Member> memberOpt = members.stream()
+                            .filter(m -> keycloakId.equals(m.getKeycloakId()))
+                            .findFirst();
+                    if (memberOpt.isPresent()) {
+                        return memberOpt.get().getUserName();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Error getting current user name: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Add a commentary to an event
+     * POST /api/even/{eventId}/commentaries
+     */
+    @RequestMapping(value = "/{eventId}/commentaries", method = RequestMethod.POST)
+    public ResponseEntity<Evenement> addCommentary(@PathVariable String eventId, @RequestBody Commentary commentary) {
+        try {
+            Evenement evenement = evenementsRepository.findById(eventId).orElse(null);
+            if (evenement == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            String currentUserName = getCurrentUserName();
+            if (currentUserName == null) {
+                return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+            }
+
+            // Set the comment owner to current user
+            commentary.setCommentOwner(currentUserName);
+            commentary.setDateCreation(new Date());
+            
+            // Generate a unique ID for the commentary
+            if (commentary.getId() == null || commentary.getId().isEmpty()) {
+                commentary.setId(new ObjectId().toString());
+            }
+
+            // Initialize commentaries list if null
+            if (evenement.getCommentaries() == null) {
+                evenement.setCommentaries(new ArrayList<>());
+            }
+
+            // Add the commentary
+            evenement.getCommentaries().add(commentary);
+            Evenement savedEvent = evenementsRepository.save(evenement);
+
+            return new ResponseEntity<>(savedEvent, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("Error adding commentary to event {}: {}", eventId, e.getMessage(), e);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Update a commentary in an event
+     * PUT /api/even/{eventId}/commentaries/{commentId}
+     */
+    @RequestMapping(value = "/{eventId}/commentaries/{commentId}", method = RequestMethod.PUT)
+    public ResponseEntity<Evenement> updateCommentary(@PathVariable String eventId, 
+                                                       @PathVariable String commentId, 
+                                                       @RequestBody Commentary commentary) {
+        try {
+            Evenement evenement = evenementsRepository.findById(eventId).orElse(null);
+            if (evenement == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            if (evenement.getCommentaries() == null) {
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+
+            // Find the commentary by ID
+            Commentary existingCommentary = null;
+            for (Commentary c : evenement.getCommentaries()) {
+                if (c.getId() != null && c.getId().equals(commentId)) {
+                    existingCommentary = c;
+                    break;
+                }
+            }
+
+            if (existingCommentary == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            String currentUserName = getCurrentUserName();
+            
+            // Only the owner can update their commentary
+            if (currentUserName == null || !currentUserName.equals(existingCommentary.getCommentOwner())) {
+                return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+            }
+
+            // Update the commentary content
+            existingCommentary.setCommentary(commentary.getCommentary());
+            // Keep the original dateCreation, commentOwner, and id
+            Evenement savedEvent = evenementsRepository.save(evenement);
+
+            return new ResponseEntity<>(savedEvent, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("Error updating commentary in event {} with id {}: {}", eventId, commentId, e.getMessage(), e);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Delete a commentary from an event
+     * DELETE /api/even/{eventId}/commentaries/{commentId}
+     */
+    @RequestMapping(value = "/{eventId}/commentaries/{commentId}", method = RequestMethod.DELETE)
+    public ResponseEntity<Evenement> deleteCommentary(@PathVariable String eventId, @PathVariable String commentId) {
+        try {
+            Evenement evenement = evenementsRepository.findById(eventId).orElse(null);
+            if (evenement == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            if (evenement.getCommentaries() == null) {
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+
+            // Find the commentary by ID
+            Commentary existingCommentary = null;
+            int commentIndex = -1;
+            for (int i = 0; i < evenement.getCommentaries().size(); i++) {
+                Commentary c = evenement.getCommentaries().get(i);
+                if (c.getId() != null && c.getId().equals(commentId)) {
+                    existingCommentary = c;
+                    commentIndex = i;
+                    break;
+                }
+            }
+
+            if (existingCommentary == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            String currentUserName = getCurrentUserName();
+            
+            // Only the owner can delete their commentary
+            if (currentUserName == null || !currentUserName.equals(existingCommentary.getCommentOwner())) {
+                return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+            }
+
+            // Remove the commentary
+            evenement.getCommentaries().remove(commentIndex);
+            Evenement savedEvent = evenementsRepository.save(evenement);
+
+            return new ResponseEntity<>(savedEvent, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("Error deleting commentary from event {} with id {}: {}", eventId, commentId, e.getMessage(), e);
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     @PreDestroy
     public void cleanup() {
         log.info("Shutting down executor service for event streaming...");

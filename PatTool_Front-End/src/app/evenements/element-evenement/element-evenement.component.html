@@ -423,30 +423,17 @@
             <i class="fa fa-times"></i>
         </button>
     </div>
-    <div class="modal-body selector-body">
-        <div *ngIf="hasComments(); else noCommentsTemplate">
-            <div class="comments-container">
-                <div class="comment-item" *ngFor="let comment of getEventComments()">
-                    <div class="comment-header">
-                        <div class="comment-author">
-                            <i class="fa fa-user"></i> {{ comment.commentOwner }}
-                        </div>
-                        <div class="comment-date">
-                            <i class="fa fa-clock-o"></i> {{ comment.dateCreation | date:'short' }}
-                        </div>
-                    </div>
-                    <div class="comment-content">
-                        {{ comment.commentary }}
-                    </div>
-                </div>
-            </div>
-        </div>
-        <ng-template #noCommentsTemplate>
-            <div class="text-center text-muted py-4">
-                <i class="fa fa-comments fa-3x mb-3"></i>
-                <p>{{ 'EVENTHOME.NO_COMMENTARIES_ADDED' | translate }}</p>
-            </div>
-        </ng-template>
+    <div class="modal-body selector-body" 
+         style="background-color: #ffffff; color: #000000;">
+        <app-commentary-editor
+            [commentaries]="evenement.commentaries || []"
+            [currentUser]="user"
+            [eventId]="evenement.id"
+            [eventColor]="getCalculatedColor()"
+            (commentaryAdded)="onCommentaryAdded($event)"
+            (commentaryUpdated)="onCommentaryUpdated($event)"
+            (commentaryDeleted)="onCommentaryDeleted($event)">
+        </app-commentary-editor>
     </div>
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c()">

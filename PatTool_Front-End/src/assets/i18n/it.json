@@ -597,7 +597,9 @@
         "SHOW_CONTROLS": "Mostra controlli",
         "HIDE_CONTROLS": "Nascondi controlli",
         "PREVIOUS_PAGE": "Pagina precedente",
-        "NEXT_PAGE": "Pagina successiva"
+        "NEXT_PAGE": "Pagina successiva",
+        "EXPAND": "Espandi",
+        "COLLAPSE": "Comprimi"
     },
     "RESULTS": {
         "TITLE": "WhatsPat",

@@ -589,7 +589,9 @@
         "SHOW_CONTROLS": "Afficher les contrôles",
         "HIDE_CONTROLS": "Masquer les contrôles",
         "PREVIOUS_PAGE": "Page précédente",
-        "NEXT_PAGE": "Page suivante"
+        "NEXT_PAGE": "Page suivante",
+        "EXPAND": "Déplier",
+        "COLLAPSE": "Replier"
     },
     "RESULTS": {
         "TITLE": "WhatsPat",

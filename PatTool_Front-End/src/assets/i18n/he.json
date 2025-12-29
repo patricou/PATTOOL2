@@ -589,7 +589,9 @@
         "SHOW_CONTROLS": "הצג פקדים",
         "HIDE_CONTROLS": "הסתר פקדים",
         "PREVIOUS_PAGE": "עמוד קודם",
-        "NEXT_PAGE": "עמוד הבא"
+        "NEXT_PAGE": "עמוד הבא",
+        "EXPAND": "הרחב",
+        "COLLAPSE": "כווץ"
     },
     "RESULTS": {
         "TITLE": "WhatsPat",

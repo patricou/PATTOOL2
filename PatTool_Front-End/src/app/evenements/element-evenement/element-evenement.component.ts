@@ -29,6 +29,7 @@ import { FriendGroup } from '../../model/friend';
 import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
 import { DiscussionService } from '../../services/discussion.service';
 import { EventColorService } from '../../services/event-color.service';
+import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 
 @Component({
 	selector: 'element-evenement',
@@ -43,7 +44,8 @@ import { EventColorService } from '../../services/event-color.service';
 		VideoshowModalComponent,
 		PhotosSelectorModalComponent,
 		TraceViewerModalComponent,
-		DiscussionModalComponent
+		DiscussionModalComponent,
+		CommentaryEditor
 	],
 	templateUrl: './element-evenement.component.html',
 	styleUrls: ['./element-evenement.component.css'],
@@ -6001,6 +6003,74 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			const dateB = new Date(b.dateCreation).getTime();
 			return dateB - dateA;
 		});
+	}
+
+	// New methods for CommentaryEditor component
+	public onCommentaryAdded(commentary: Commentary): void {
+		if (!this.evenement || !this.evenement.id) return;
+		
+		this._evenementsService.addCommentary(this.evenement.id, commentary).subscribe({
+			next: (updatedEvent) => {
+				if (updatedEvent && updatedEvent.commentaries) {
+					this.evenement.commentaries = updatedEvent.commentaries;
+					this.updateEvenement.emit(this.evenement);
+				}
+			},
+			error: (error) => {
+				console.error('Error adding commentary:', error);
+				alert('Erreur lors de l\'ajout du commentaire');
+			}
+		});
+	}
+
+	public onCommentaryUpdated(event: { commentId: string; commentary: Commentary }): void {
+		if (!this.evenement || !this.evenement.id) return;
+		
+		this._evenementsService.updateCommentary(this.evenement.id, event.commentId, event.commentary).subscribe({
+			next: (updatedEvent) => {
+				if (updatedEvent && updatedEvent.commentaries) {
+					this.evenement.commentaries = updatedEvent.commentaries;
+					this.updateEvenement.emit(this.evenement);
+				}
+			},
+			error: (error) => {
+				console.error('Error updating commentary:', error);
+				alert('Erreur lors de la modification du commentaire');
+			}
+		});
+	}
+
+	public onCommentaryDeleted(commentId: string): void {
+		if (!this.evenement || !this.evenement.id) return;
+		
+		this._evenementsService.deleteCommentary(this.evenement.id, commentId).subscribe({
+			next: (updatedEvent) => {
+				if (updatedEvent && updatedEvent.commentaries) {
+					this.evenement.commentaries = updatedEvent.commentaries;
+					this.updateEvenement.emit(this.evenement);
+				}
+			},
+			error: (error) => {
+				console.error('Error deleting commentary:', error);
+				alert('Erreur lors de la suppression du commentaire');
+			}
+		});
+	}
+
+	// Get calculated color for commentary editor
+	public getCalculatedColor(): { r: number; g: number; b: number } | null {
+		// First try to get from EventColorService
+		let eventColor = this.evenement?.id ? this.eventColorService.getEventColor(this.evenement.id) : null;
+		if (!eventColor && this.evenement?.evenementName) {
+			eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+		}
+		
+		// If not found, use dominant color from image
+		if (!eventColor && (this.dominantR !== 128 || this.dominantG !== 128 || this.dominantB !== 128)) {
+			return { r: this.dominantR, g: this.dominantG, b: this.dominantB };
+		}
+		
+		return eventColor;
 	}
 
 	public openCommentsModal(): void {

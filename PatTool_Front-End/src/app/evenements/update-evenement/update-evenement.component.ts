@@ -25,6 +25,8 @@ import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
+import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
+import { EventColorService } from '../../services/event-color.service';
 
 @Component({
 	selector: 'update-evenement',
@@ -37,7 +39,8 @@ import { VideoCompressionService, CompressionProgress } from '../../services/vid
 		NgbModule,
 		SlideshowModalComponent,
 		VideoshowModalComponent,
-		NavigationButtonsModule
+		NavigationButtonsModule,
+		CommentaryEditor
 	],
 	templateUrl: './update-evenement.component.html',
 	styleUrls: ['./update-evenement.component.css']
@@ -191,6 +194,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	private _friendsService: FriendsService,
 	private _keycloakService: KeycloakService,
 	private videoCompressionService: VideoCompressionService,
+	private eventColorService: EventColorService,
 	private cdr: ChangeDetectorRef,
 	private ngZone: NgZone,
 	private sanitizer: DomSanitizer
@@ -846,6 +850,73 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	// Check if user can edit commentary (only owner of the commentary)
 	public canEditCommentary(commentary: Commentary): boolean {
 		return this.user.userName.toLowerCase() === commentary.commentOwner.toLowerCase();
+	}
+
+	// New methods for CommentaryEditor component
+	public onCommentaryAdded(commentary: Commentary): void {
+		if (!this.evenement || !this.evenement.id) return;
+		
+		this._evenementsService.addCommentary(this.evenement.id, commentary).subscribe({
+			next: (updatedEvent) => {
+				if (updatedEvent && updatedEvent.commentaries) {
+					this.evenement.commentaries = updatedEvent.commentaries;
+					this.hasUnsavedChanges = true;
+				}
+			},
+			error: (error) => {
+				console.error('Error adding commentary:', error);
+				alert('Erreur lors de l\'ajout du commentaire');
+			}
+		});
+	}
+
+	public onCommentaryUpdated(event: { commentId: string; commentary: Commentary }): void {
+		if (!this.evenement || !this.evenement.id) return;
+		
+		this._evenementsService.updateCommentary(this.evenement.id, event.commentId, event.commentary).subscribe({
+			next: (updatedEvent) => {
+				if (updatedEvent && updatedEvent.commentaries) {
+					this.evenement.commentaries = updatedEvent.commentaries;
+					this.hasUnsavedChanges = true;
+				}
+			},
+			error: (error) => {
+				console.error('Error updating commentary:', error);
+				alert('Erreur lors de la modification du commentaire');
+			}
+		});
+	}
+
+	public onCommentaryDeleted(commentId: string): void {
+		if (!this.evenement || !this.evenement.id) return;
+		
+		this._evenementsService.deleteCommentary(this.evenement.id, commentId).subscribe({
+			next: (updatedEvent) => {
+				if (updatedEvent && updatedEvent.commentaries) {
+					this.evenement.commentaries = updatedEvent.commentaries;
+					this.hasUnsavedChanges = true;
+				}
+			},
+			error: (error) => {
+				console.error('Error deleting commentary:', error);
+				alert('Erreur lors de la suppression du commentaire');
+			}
+		});
+	}
+
+	// Get calculated color for commentary editor
+	public getCalculatedColor(): { r: number; g: number; b: number } | null {
+		if (!this.evenement) {
+			return null;
+		}
+		
+		// Try to get from EventColorService
+		let eventColor = this.evenement.id ? this.eventColorService.getEventColor(this.evenement.id) : null;
+		if (!eventColor && this.evenement.evenementName) {
+			eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
+		}
+		
+		return eventColor;
 	}
 
 	// Check if user can edit event fields (only event author)

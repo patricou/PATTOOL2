@@ -14,7 +14,7 @@ import { HomeEvenementsComponent } from './home-evenements/home-evenements.compo
 import { EvenementsService } from '../services/evenements.service';
 import { CreateEvenementComponent } from './create-evenement/create-evenement.component';
 import { ElementEvenementComponent } from './element-evenement/element-evenement.component';
-import { UpdateEvenementComponent } from './update-evenement/update-evenement.component';
+// UpdateEvenementComponent is standalone, not imported here
 import { WindowRefService } from '../services/window-ref.service';
 import { CommonvaluesService } from '../services/commonvalues.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
@@ -53,16 +53,16 @@ export function HttpLoaderFactory(http: HttpClient) {
 		ChatModule,
 		HomeEvenementsComponent,
 		CreateEvenementComponent,
-		ElementEvenementComponent,
-		UpdateEvenementComponent
+		ElementEvenementComponent
+		// UpdateEvenementComponent is standalone, not exported here
 	],
 	declarations: [
 	],
 	exports: [
 		HomeEvenementsComponent,
 		CreateEvenementComponent,
-		ElementEvenementComponent,
-		UpdateEvenementComponent
+		ElementEvenementComponent
+		// UpdateEvenementComponent is standalone, not exported here
 	],
 	providers: [
 		EvenementsService,

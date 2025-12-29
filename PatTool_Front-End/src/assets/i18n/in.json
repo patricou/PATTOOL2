@@ -579,7 +579,9 @@
         "SHOW_CONTROLS": "नियंत्रण दिखाएं",
         "HIDE_CONTROLS": "नियंत्रण छिपाएं",
         "PREVIOUS_PAGE": "पिछला पृष्ठ",
-        "NEXT_PAGE": "अगला पृष्ठ"
+        "NEXT_PAGE": "अगला पृष्ठ",
+        "EXPAND": "विस्तार करें",
+        "COLLAPSE": "संकुचित करें"
     },
     "RESULTS": {
         "TITLE": "WhatsPat",

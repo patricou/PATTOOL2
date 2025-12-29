@@ -595,7 +595,9 @@
         "SHOW_CONTROLS": "Εμφάνιση χειριστηρίων",
         "HIDE_CONTROLS": "Απόκρυψη χειριστηρίων",
         "PREVIOUS_PAGE": "Προηγούμενη σελίδα",
-        "NEXT_PAGE": "Επόμενη σελίδα"
+        "NEXT_PAGE": "Επόμενη σελίδα",
+        "EXPAND": "Ανάπτυξη",
+        "COLLAPSE": "Σύμπτυξη"
     },
     "RESULTS": {
         "TITLE": "WhatsPat",

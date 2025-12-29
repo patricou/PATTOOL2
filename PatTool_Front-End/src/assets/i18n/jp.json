@@ -598,7 +598,9 @@
         "SHOW_CONTROLS": "コントロールを表示",
         "HIDE_CONTROLS": "コントロールを非表示",
         "PREVIOUS_PAGE": "前のページ",
-        "NEXT_PAGE": "次のページ"
+        "NEXT_PAGE": "次のページ",
+        "EXPAND": "展開",
+        "COLLAPSE": "折りたたむ"
     },
     "RESULTS": {
         "TITLE": "WhatsPat",

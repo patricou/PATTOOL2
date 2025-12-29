@@ -1,0 +1,89 @@
+<div class="commentary-editor-container">
+  <!-- Header with Add Button and Collapse/Expand Button -->
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <!-- Add Commentary Button -->
+    <button class="btn btn-outline-primary" 
+            (click)="openAddModal()" 
+            type="button">
+      <i class="fa fa-plus"></i> {{ "EVENTHOME.ADD_COMMENTARY" | translate }}
+    </button>
+    
+    <!-- Collapse/Expand Button -->
+    <button *ngIf="commentaries && commentaries.length > 0" 
+            class="btn btn-sm btn-outline-secondary" 
+            (click)="toggleCollapse()" 
+            type="button">
+      <i class="fa" [class.fa-chevron-down]="!isCollapsed" [class.fa-chevron-up]="isCollapsed"></i>
+      {{ isCollapsed ? ('COMMUN.EXPAND' | translate) : ('COMMUN.COLLAPSE' | translate) }}
+      ({{ commentaries.length }})
+    </button>
+  </div>
+  
+  <!-- List of commentaries -->
+  <div class="commentaries-list" [ngbCollapse]="isCollapsed">
+    <div *ngFor="let commentary of commentaries; let i = index" 
+         class="commentary-item mb-3 p-3 border rounded">
+      <!-- Display mode -->
+      <div>
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <strong>{{ commentary.commentOwner }}</strong>
+            <span class="ms-2 small commentary-date">{{ formatDate(commentary.dateCreation) }}</span>
+          </div>
+          <div *ngIf="isOwner(commentary)">
+            <button class="btn btn-sm btn-outline-primary me-1" 
+                    [ngStyle]="buttonEditStyle"
+                    (click)="openEditModal(i)" 
+                    title="Modifier">
+              <i class="fa fa-edit"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger" 
+                    [ngStyle]="buttonDeleteStyle"
+                    (click)="deleteCommentary(i)" 
+                    title="Supprimer">
+              <i class="fa fa-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="commentary-content" [innerHTML]="getSafeHtml(commentary.commentary)"></div>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div *ngIf="!commentaries || commentaries.length === 0" class="text-muted text-center py-3">
+      <i class="fa fa-comments fa-3x mb-3 d-block"></i>
+      Aucun commentaire pour le moment.
+    </div>
+  </div>
+</div>
+
+<!-- Commentary Modal -->
+<ng-template #commentaryModal let-c="close" let-d="dismiss">
+  <div class="modal-header" [ngStyle]="modalHeaderStyle">
+    <h5 class="modal-title">
+      <i class="fa fa-comment me-2"></i>{{ modalTitle }}
+    </h5>
+    <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="cancelModal()" aria-label="Close">
+      <i class="fa fa-times"></i>
+    </button>
+  </div>
+  <div class="modal-body commentary-modal-body" [ngStyle]="modalBodyStyle">
+    <div class="commentary-editor-wrapper">
+      <quill-editor
+        [(ngModel)]="modalContent"
+        [modules]="quillModules"
+        [placeholder]="'Écrivez votre commentaire...'"
+        [styles]="{ height: '400px' }"
+        class="commentary-quill-editor-full">
+      </quill-editor>
+    </div>
+  </div>
+  <div class="modal-footer" [ngStyle]="modalFooterStyle">
+    <button type="button" class="btn btn-secondary" (click)="cancelModal()">
+      <i class="fa fa-times me-1"></i> Annuler
+    </button>
+    <button type="button" class="btn btn-success" [ngStyle]="buttonSuccessStyle" (click)="saveModal()">
+      <i class="fa fa-save me-1"></i> Enregistrer
+    </button>
+  </div>
+</ng-template>

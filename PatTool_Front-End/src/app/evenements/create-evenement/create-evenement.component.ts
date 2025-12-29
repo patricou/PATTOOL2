@@ -15,11 +15,13 @@ import { EvenementsService } from '../../services/evenements.service';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { KeycloakService } from '../../keycloak/keycloak.service';
+import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
+import { EventColorService } from '../../services/event-color.service';
 
 @Component({
 	selector: 'app-create-evenement',
 	standalone: true,
-	imports: [CommonModule, FormsModule, RouterModule, TranslateModule, NavigationButtonsModule],
+	imports: [CommonModule, FormsModule, RouterModule, TranslateModule, NavigationButtonsModule, CommentaryEditor],
 	templateUrl: './create-evenement.component.html',
 	styleUrls: ['./create-evenement.component.css']
 })
@@ -96,7 +98,8 @@ export class CreateEvenementComponent implements OnInit {
 		public _memberService: MembersService,
 		private translate: TranslateService,
 		private _friendsService: FriendsService,
-		private _keycloakService: KeycloakService) {
+		private _keycloakService: KeycloakService,
+		private eventColorService: EventColorService) {
 	};
 
 	ngOnInit() {
@@ -676,7 +679,79 @@ export class CreateEvenementComponent implements OnInit {
 		}
 	}
 
-	// Commentary management methods
+	// Commentary management methods for commentary-editor component
+	public onCommentaryAdded(commentary: Commentary): void {
+		// For create mode, just add to local evenement object
+		// The commentary will be saved when the event is created
+		if (!this.evenement.commentaries) {
+			this.evenement.commentaries = [];
+		}
+		// Generate a temporary ID if not present
+		if (!commentary.id) {
+			commentary.id = 'temp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+		}
+		this.evenement.commentaries.push(commentary);
+	}
+
+	public onCommentaryUpdated(event: { commentId: string; commentary: Commentary }): void {
+		// For create mode, update the commentary in local evenement object
+		if (this.evenement.commentaries) {
+			const index = this.evenement.commentaries.findIndex(c => c.id === event.commentId);
+			if (index !== -1) {
+				// Preserve the ID from the event
+				event.commentary.id = event.commentId;
+				this.evenement.commentaries[index] = event.commentary;
+			}
+		}
+	}
+
+	public onCommentaryDeleted(commentId: string): void {
+		// For create mode, remove the commentary from local evenement object
+		if (this.evenement.commentaries) {
+			const index = this.evenement.commentaries.findIndex(c => c.id === commentId);
+			if (index !== -1) {
+				this.evenement.commentaries.splice(index, 1);
+			}
+		}
+	}
+
+	// Get calculated color for commentary editor
+	public getCalculatedColor(): { r: number; g: number; b: number } | null {
+		if (!this.evenement) {
+			return null;
+		}
+		
+		// For create mode, calculate color from event name if available
+		if (this.evenement.evenementName) {
+			return this.calculateColorFromString(this.evenement.evenementName);
+		}
+		
+		return null;
+	}
+
+	// Calculate a color from a string (simple hash function)
+	private calculateColorFromString(str: string): { r: number; g: number; b: number } {
+		let hash = 0;
+		for (let i = 0; i < str.length; i++) {
+			hash = str.charCodeAt(i) + ((hash << 5) - hash);
+		}
+		
+		// Generate RGB values from hash
+		const r = (hash & 0xFF0000) >> 16;
+		const g = (hash & 0x00FF00) >> 8;
+		const b = hash & 0x0000FF;
+		
+		// Ensure values are in valid range and not too dark or too bright
+		const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
+		
+		return {
+			r: clamp(Math.abs(r), 50, 230),
+			g: clamp(Math.abs(g), 50, 230),
+			b: clamp(Math.abs(b), 50, 230)
+		};
+	}
+
+	// Legacy commentary management methods (kept for backward compatibility if needed)
 	public addCommentary(): void {
 		if (this.newCommentary.commentary && this.newCommentary.commentary.trim() !== '') {
 			// Create a new Commentary instance

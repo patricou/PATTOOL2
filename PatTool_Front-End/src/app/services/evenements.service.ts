@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, from, Subject } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { Evenement } from '../model/evenement';
+import { Commentary } from '../model/commentary';
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
 
@@ -439,6 +440,30 @@ export class EvenementsService {
 				data: null
 			});
 		}
+	}
+
+	// Add commentary to an event
+	addCommentary(eventId: string, commentary: Commentary): Observable<Evenement> {
+		const url = this.API_URL + "even/" + eventId + "/commentaries";
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers => this._http.post<Evenement>(url, commentary, { headers: headers }))
+		);
+	}
+
+	// Update a commentary in an event
+	updateCommentary(eventId: string, commentId: string, commentary: Commentary): Observable<Evenement> {
+		const url = this.API_URL + "even/" + eventId + "/commentaries/" + commentId;
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers => this._http.put<Evenement>(url, commentary, { headers: headers }))
+		);
+	}
+
+	// Delete a commentary from an event
+	deleteCommentary(eventId: string, commentId: string): Observable<Evenement> {
+		const url = this.API_URL + "even/" + eventId + "/commentaries/" + commentId;
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers => this._http.delete<Evenement>(url, { headers: headers }))
+		);
 	}
 
 }

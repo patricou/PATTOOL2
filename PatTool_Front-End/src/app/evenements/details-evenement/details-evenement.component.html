@@ -312,8 +312,10 @@
                        [src]="getDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl)" 
                        [alt]="message.imageFileName || 'Image'"
                        class="discussion-image-compact"
+                       loading="lazy"
                        (error)="onImageError($event)"
-                       (click)="openImageInModal(message)">
+                       (click)="openImageInModal(message)"
+                       style="max-width: 100%; height: auto;">
                   <div *ngIf="!hasDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl)" class="discussion-message-loading">
                     <i class="fa fa-spinner fa-spin"></i> {{ 'EVENTELEM.LOADING_IMAGES' | translate }}
                   </div>
@@ -329,6 +331,7 @@
                          playsinline
                          preload="auto"
                          class="discussion-video-compact"
+                         style="max-width: 100%; height: auto;"
                          (loadeddata)="onDiscussionVideoLoaded($event)"
                          (canplay)="onDiscussionVideoLoaded($event)">
                     Your browser does not support the video tag.
@@ -364,9 +367,11 @@
                 <img [src]="photoItem.imageUrl" 
                      [alt]="photoItem.file.fileName" 
                      class="photo-img"
+                     loading="lazy"
                      (click)="openPhotosMaximized(i)"
                      (load)="onImageLoad($event)"
-                     (error)="onImageError($event)">
+                     (error)="onImageError($event)"
+                     style="max-width: 100%; height: auto;">
               </div>
             </div>
           </div>
@@ -390,84 +395,30 @@
       <div class="dynamic-card card-medium card-vertical comments-card"
            *ngIf="evenement"
            [ngClass]="getCardLayoutClasses('comments')"
-           [style.order]="getCardOrder('comments')"
-           [ngStyle]="getCardGridPosition('comments')">
+           [style.order]="getCardOrder('comments')">
         <div class="card-header-compact">
           <i class="fa fa-comments"></i>
-          <span>{{ 'EVENTHOME.COMMENTARIES' | translate }} ({{ getEventComments().length }})</span>
+          <span>{{ 'EVENTHOME.COMMENTARIES' | translate }} ({{ evenement.commentaries.length || 0 }})</span>
           <button type="button"
                   class="btn-compact btn-primary-compact ms-auto"
-                  *ngIf="!isAddingCommentary"
-                  (click)="startAddCommentary(); $event.stopPropagation()"
-                  [title]="'EVENTHOME.ADD_COMMENTARY' | translate">
+                  (click)="openAddCommentary(); $event.stopPropagation()"
+                  [title]="'Ajouter un commentaire'"
+                  [ngStyle]="getCommentsAddButtonStyle()">
             <i class="fa fa-plus"></i>
           </button>
         </div>
-
-        <!-- Add commentary form -->
-        <div class="compact-form" *ngIf="isAddingCommentary">
-          <textarea [(ngModel)]="newCommentary.commentary"
-                    name="newCommentary"
-                    class="compact-textarea"
-                    rows="3"
-                    placeholder="{{ 'EVENTHOME.COMMENTARY_PLACEHOLDER' | translate }}"></textarea>
-          <div class="compact-form-actions">
-            <button type="button" class="btn-compact btn-success-compact" (click)="addCommentary()">
-              <i class="fa fa-check"></i> {{ 'EVENTHOME.SAVE_COMMENTARY' | translate }}
-            </button>
-            <button type="button" class="btn-compact btn-secondary-compact" (click)="cancelAddCommentary()">
-              <i class="fa fa-times"></i> {{ 'EVENTHOME.CANCEL_COMMENTARY' | translate }}
-            </button>
-          </div>
-        </div>
-
-        <div class="comments-list-compact">
-          <div *ngIf="getEventComments().length === 0" class="empty-state-compact">
-            <i class="fa fa-comments-o"></i>
-            <p>{{ 'EVENTHOME.NO_COMMENTARIES_ADDED' | translate }}</p>
-          </div>
-
-          <div class="comment-item-compact" *ngFor="let comment of getEventComments(); let i = index">
-            <!-- Display mode -->
-            <ng-container *ngIf="editingCommentaryIndex !== i; else editCommentaryTpl">
-              <div class="comment-author-compact">{{ comment.commentOwner }}</div>
-              <div class="comment-date-compact">{{ formatCommentaryDate(comment.dateCreation) }}</div>
-              <div class="comment-text-compact">{{ comment.commentary }}</div>
-
-              <div class="compact-item-actions" *ngIf="canEditCommentary(comment) || canDeleteCommentary(comment)">
-                <button type="button"
-                        class="btn-compact btn-primary-compact"
-                        *ngIf="canEditCommentary(comment)"
-                        (click)="startEditCommentary(i)"
-                        [title]="'EVENTHOME.EDIT_LINK' | translate">
-                  <i class="fa fa-edit"></i>
-                </button>
-                <button type="button"
-                        class="btn-compact btn-secondary-compact"
-                        *ngIf="canDeleteCommentary(comment)"
-                        (click)="deleteCommentary(i)"
-                        [title]="'EVENTHOME.REMOVE_URL_EVENT' | translate">
-                  <i class="fa fa-trash"></i>
-                </button>
-              </div>
-            </ng-container>
-
-            <!-- Edit mode -->
-            <ng-template #editCommentaryTpl>
-              <textarea [(ngModel)]="editingCommentary.commentary"
-                        name="editCommentary-{{i}}"
-                        class="compact-textarea"
-                        rows="3"></textarea>
-              <div class="compact-form-actions">
-                <button type="button" class="btn-compact btn-success-compact" (click)="saveCommentaryEdit(i)">
-                  <i class="fa fa-check"></i>
-                </button>
-                <button type="button" class="btn-compact btn-secondary-compact" (click)="cancelEditCommentary()">
-                  <i class="fa fa-times"></i>
-                </button>
-              </div>
-            </ng-template>
-          </div>
+        <div class="card-body-compact">
+          <app-commentary-editor
+            #commentaryEditor
+            [commentaries]="evenement.commentaries || []"
+            [currentUser]="user"
+            [eventId]="evenement.id"
+            [eventColor]="getCalculatedColor()"
+            [useCalculatedColorsForModal]="true"
+            (commentaryAdded)="onCommentaryAdded($event)"
+            (commentaryUpdated)="onCommentaryUpdated($event)"
+            (commentaryDeleted)="onCommentaryDeleted($event)">
+          </app-commentary-editor>
         </div>
       </div>
 
@@ -763,6 +714,7 @@
             playsinline
             preload="auto"
             class="video-player-compact"
+            style="max-width: 100%; height: auto;"
             (error)="onVideoError($event, videoFile)"
             (loadeddata)="onVideoLoaded($event, videoFile)"
             (canplay)="onVideoLoaded($event, videoFile)">
@@ -822,7 +774,7 @@
     <button type="button" class="btn-close" (click)="c()" aria-label="Close"><span aria-hidden="true">&times;</span></button>
   </div>
   <div class="modal-body text-center">
-    <img [src]="selectedImageUrl" [alt]="selectedImageAlt" class="img-fluid modal-image" />
+    <img [src]="selectedImageUrl" [alt]="selectedImageAlt" class="img-fluid modal-image" style="max-width: 100%; height: auto;" />
   </div>
   <div class="modal-footer">
     <button type="button" class="btn btn-secondary" (click)="c()">{{ 'COMMUN.CLOSE' | translate }}</button>

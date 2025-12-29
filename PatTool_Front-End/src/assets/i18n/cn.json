@@ -596,7 +596,9 @@
         "SHOW_CONTROLS": "显示控件",
         "HIDE_CONTROLS": "隐藏控件",
         "PREVIOUS_PAGE": "上一页",
-        "NEXT_PAGE": "下一页"
+        "NEXT_PAGE": "下一页",
+        "EXPAND": "展开",
+        "COLLAPSE": "折叠"
     },
     "RESULTS": {
         "TITLE": "WhatsPat",

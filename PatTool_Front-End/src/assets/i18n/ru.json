@@ -591,7 +591,9 @@
         "SHOW_CONTROLS": "Показать элементы управления",
         "HIDE_CONTROLS": "Скрыть элементы управления",
         "PREVIOUS_PAGE": "Предыдущая страница",
-        "NEXT_PAGE": "Следующая страница"
+        "NEXT_PAGE": "Следующая страница",
+        "EXPAND": "Развернуть",
+        "COLLAPSE": "Свернуть"
     },
     "RESULTS": {
         "TITLE": "WhatsPat",

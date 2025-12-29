@@ -29,6 +29,7 @@ import { environment } from '../../../environments/environment';
 import { FriendGroup } from '../../model/friend';
 import { EventColorService } from '../../services/event-color.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
+import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 
 @Component({
   selector: 'app-details-evenement',
@@ -45,7 +46,8 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
     TraceViewerModalComponent,
     DiscussionModalComponent,
     ElementEvenementComponent,
-    NavigationButtonsModule
+    NavigationButtonsModule,
+    CommentaryEditor
   ]
 })
 export class DetailsEvenementComponent implements OnInit, OnDestroy {
@@ -106,6 +108,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   @ViewChild('imageModal') imageModal!: TemplateRef<any>;
   @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
   @ViewChild('traceViewerModalComponent') traceViewerModalComponent!: TraceViewerModalComponent;
+  @ViewChild('commentaryEditor') commentaryEditor: any;
   @ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
   @ViewChild('qualitySelectionModal') qualitySelectionModal!: TemplateRef<any>;
   @ViewChild('discussionMessagesContainer', { read: ElementRef }) discussionMessagesContainer!: ElementRef;
@@ -210,11 +213,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     // Display any stored errors from previous page load
     this.displayStoredErrors();
     
+    // Get color from service and apply it first
+    this.applyEventColor();
+    
     this.loadFriendGroups();
     this.loadEventDetails();
-    
-    // Get color from service and apply it
-    this.applyEventColor();
   }
 
   // Get color from service and apply it to buttons and all text
@@ -222,7 +225,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.route.params.subscribe(params => {
       const eventId = params['id'];
       if (eventId) {
-        const color = this.eventColorService.getEventColor(eventId);
+        let color = this.eventColorService.getEventColor(eventId);
+        // If color not found, try with evenementName as fallback
+        if (!color && this.evenement?.evenementName) {
+          color = this.eventColorService.getEventColor(this.evenement.evenementName);
+        }
         if (color) {
           // Calculate brightness to determine if we need lighter or darker variants
           // Using luminance formula: 0.299*R + 0.587*G + 0.114*B
@@ -272,6 +279,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           // Box-shadow color for focus state
           const selectSelectedBgShadow = `rgba(${color.r}, ${color.g}, ${color.b}, 0.15)`;
           document.documentElement.style.setProperty('--select-selected-bg-shadow', selectSelectedBgShadow);
+        } else {
+          // Set default colors if no color is found
+          document.documentElement.style.setProperty('--text-color-primary', 'rgba(255, 255, 255, 0.9)');
+          document.documentElement.style.setProperty('--text-color-dark', 'rgba(255, 255, 255, 0.7)');
         }
       }
     });
@@ -501,6 +512,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.evenementsService.getEvenement(eventId).subscribe({
       next: (evenement: Evenement) => {
         this.evenement = evenement;
+
+        // Re-apply event color after event is loaded to ensure it's available
+        this.applyEventColor();
 
         // Ensure arrays exist so we can add links/comments from the details view
         if (!this.evenement.urlEvents) {
@@ -1139,6 +1153,55 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
     this.evenement.commentaries.splice(index, 1);
     this.persistEventChanges();
+  }
+
+  // New methods for CommentaryEditor component
+  public onCommentaryAdded(commentary: Commentary): void {
+    if (!this.evenement || !this.evenement.id) return;
+    
+    this.evenementsService.addCommentary(this.evenement.id, commentary).subscribe({
+      next: (updatedEvent) => {
+        if (updatedEvent && updatedEvent.commentaries) {
+          this.evenement!.commentaries = updatedEvent.commentaries;
+        }
+      },
+      error: (error) => {
+        console.error('Error adding commentary:', error);
+        alert('Erreur lors de l\'ajout du commentaire');
+      }
+    });
+  }
+
+  public onCommentaryUpdated(event: { commentId: string; commentary: Commentary }): void {
+    if (!this.evenement || !this.evenement.id) return;
+    
+    this.evenementsService.updateCommentary(this.evenement.id, event.commentId, event.commentary).subscribe({
+      next: (updatedEvent) => {
+        if (updatedEvent && updatedEvent.commentaries) {
+          this.evenement!.commentaries = updatedEvent.commentaries;
+        }
+      },
+      error: (error) => {
+        console.error('Error updating commentary:', error);
+        alert('Erreur lors de la modification du commentaire');
+      }
+    });
+  }
+
+  public onCommentaryDeleted(commentId: string): void {
+    if (!this.evenement || !this.evenement.id) return;
+    
+    this.evenementsService.deleteCommentary(this.evenement.id, commentId).subscribe({
+      next: (updatedEvent) => {
+        if (updatedEvent && updatedEvent.commentaries) {
+          this.evenement!.commentaries = updatedEvent.commentaries;
+        }
+      },
+      error: (error) => {
+        console.error('Error deleting commentary:', error);
+        alert('Erreur lors de la suppression du commentaire');
+      }
+    });
   }
 
   // Prepare photo gallery with comments overlay
@@ -2790,15 +2853,15 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         return [this.spanRowClass(rowSpan), this.spanColClass(1)];
       }
       case 'comments': {
-        // Optimize size for better fitting: prefer even rowSpan for better interlocking
+        // Comments card always takes double width (2 columns)
         const rowSpan = commentsCount <= 2 ? 2 : (commentsCount <= 6 ? 2 : (commentsCount <= 10 ? 3 : 3));
-        return [this.spanRowClass(rowSpan), this.spanColClass(1)];
+        return [this.spanRowClass(rowSpan), this.spanColClass(2)];
       }
       case 'description': {
-        // description card - small to medium based on content length
+        // description card - always double width (2 columns)
         const descriptionLength = this.evenement?.comments?.length || 0;
         const rowSpan = descriptionLength > 200 ? 2 : 1;
-        return [this.spanRowClass(rowSpan), this.spanColClass(1)];
+        return [this.spanRowClass(rowSpan), this.spanColClass(2)];
       }
       case 'visibility': {
         // visibility card - small, but may need more space if has members
@@ -3901,6 +3964,47 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       'display': 'inline-block',
       'vertical-align': 'middle'
     };
+  }
+
+  // Get styles for comments card - removed, using CSS variables like other cards
+  public getCommentsCardStyles(): { [key: string]: string } {
+    return {};
+  }
+
+  // Get styles for comments card header - removed, using CSS variables like other cards
+  public getCommentsHeaderStyles(): { [key: string]: string } {
+    return {};
+  }
+
+  // Get styles for comments card body - removed, using CSS variables like other cards
+  public getCommentsBodyStyles(): { [key: string]: string } {
+    return {};
+  }
+
+  // Get styles for comments add button
+  public getCommentsAddButtonStyle(): { [key: string]: string } {
+    const color = this.getCalculatedColor();
+    if (!color) {
+      return {};
+    }
+
+    const brightness = (0.299 * color.r + 0.587 * color.g + 0.114 * color.b);
+    const isBright = brightness > 128;
+    const textColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
+    
+    return {
+      'background-color': `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`,
+      'border-color': `rgba(${color.r}, ${color.g}, ${color.b}, 0.9)`,
+      'color': textColor
+    };
+  }
+
+  // Open add commentary modal
+  public openAddCommentary(): void {
+    // Access the commentary editor component and trigger add modal
+    if (this.commentaryEditor) {
+      this.commentaryEditor.openAddModal();
+    }
   }
 
   public openFsPhotosDiaporama(relativePath: string, compress: boolean = true): void {

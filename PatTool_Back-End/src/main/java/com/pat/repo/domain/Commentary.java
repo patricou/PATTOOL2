@@ -1,5 +1,6 @@
 package com.pat.repo.domain;
 
+import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import jakarta.validation.constraints.NotNull;
@@ -12,6 +13,9 @@ import java.util.Date;
 @Document(collection = "commentaries")
 public class Commentary {
 
+    @Id
+    private String id;
+    
     @NotNull
     private String commentOwner;
     
@@ -32,6 +36,13 @@ public class Commentary {
     }
 
     // Getters and Setters
+    public String getId() {
+        return id;
+    }
+
+    public void setId(String id) {
+        this.id = id;
+    }
     public String getCommentOwner() {
         return commentOwner;
     }
@@ -59,7 +70,8 @@ public class Commentary {
     @Override
     public String toString() {
         return "Commentary{" +
-                "commentOwner='" + commentOwner + '\'' +
+                "id='" + id + '\'' +
+                ", commentOwner='" + commentOwner + '\'' +
                 ", commentary='" + commentary + '\'' +
                 ", dateCreation=" + dateCreation +
                 '}';

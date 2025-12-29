@@ -199,8 +199,13 @@
 /* On mobile, stack the 4 cards vertically */
 @media (max-width: 768px) {
   .first-row-cards-container {
-    grid-template-columns: 1fr !important; /* Single column on mobile */
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    grid-column: 1 / -1 !important;
     gap: 0.75rem !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
   
   /* Force all cards inside first-row-cards-container to be full width and stacked */
@@ -210,18 +215,72 @@
     grid-column: 1 / -1 !important;
     grid-row: auto !important;
     order: 0 !important;
+    flex: 0 0 auto !important;
+    display: block !important;
+  }
+  
+  /* Remove any grid positioning from cards inside first-row */
+  .first-row-cards-container .description-card,
+  .first-row-cards-container .visibility-card,
+  .first-row-cards-container .type-card,
+  .first-row-cards-container .rating-card {
+    grid-column: 1 / -1 !important;
+    grid-row: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 }
 
 /* On tablets, use 2 columns */
 @media (min-width: 769px) and (max-width: 1024px) {
   .first-row-cards-container {
-    grid-template-columns: repeat(2, 1fr); /* 2 columns on tablets */
+    grid-template-columns: repeat(2, 1fr) !important; /* 2 columns on tablets */
+    gap: 0.875rem !important;
+  }
+  
+  /* Description card can span 2 columns on tablets */
+  .first-row-cards-container .description-card {
+    grid-column: span 2 !important;
+  }
+  
+  /* Other cards take 1 column each */
+  .first-row-cards-container .visibility-card,
+  .first-row-cards-container .type-card,
+  .first-row-cards-container .rating-card {
+    grid-column: span 1 !important;
+  }
+}
+
+/* Medium screens (1025px - 1199px) */
+@media (min-width: 1025px) and (max-width: 1199px) {
+  .first-row-cards-container {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 1rem !important;
+  }
+  
+  .first-row-cards-container .description-card {
+    grid-column: span 2 !important;
+  }
+  
+  .first-row-cards-container .visibility-card,
+  .first-row-cards-container .type-card,
+  .first-row-cards-container .rating-card {
+    grid-column: span 1 !important;
   }
 }
 
 /* Force first row cards to be inside the container - remove grid constraints */
-.first-row-cards-container .description-card,
+.first-row-cards-container .description-card {
+  grid-row: auto !important;
+  /* Allow description card to span 2 columns on desktop */
+  grid-column: span 2 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0; /* Allow flex shrinking */
+  height: 100%;
+  margin: 0;
+}
+
 .first-row-cards-container .visibility-card,
 .first-row-cards-container .type-card,
 .first-row-cards-container .rating-card {
@@ -232,6 +291,21 @@
   min-width: 0; /* Allow flex shrinking */
   height: 100%;
   margin: 0;
+}
+
+/* On mobile, force all first-row cards to stack vertically */
+@media (max-width: 768px) {
+  .first-row-cards-container .description-card,
+  .first-row-cards-container .visibility-card,
+  .first-row-cards-container .type-card,
+  .first-row-cards-container .rating-card {
+    grid-column: 1 / -1 !important;
+    grid-column: span 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 auto !important;
+    margin-bottom: 0.75rem !important;
+  }
 }
 
 .card-large {
@@ -828,14 +902,33 @@
    COMMENTS COMPACT
    ============================================ */
 
+.card-body-compact {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  word-wrap: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 .comments-list-compact {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   max-height: calc(80vh - 200px);
   overflow-y: auto;
+  overflow-x: auto;
   flex: 0 1 auto;
   min-height: 0;
+  word-wrap: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
 }
 
 /* ============================================
@@ -861,8 +954,10 @@
   backdrop-filter: blur(8px);
   border-radius: 10px;
   border-left: 2px solid #ffd700;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
   text-shadow: 
     0 2px 4px rgba(0, 0, 0, 0.5),
     0 1px 2px rgba(0, 0, 0, 0.7),
@@ -931,8 +1026,10 @@
   backdrop-filter: blur(8px);
   border-radius: 10px;
   border-left: 2px solid #ffd700;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
 }
 
 /* ============================================
@@ -1082,6 +1179,12 @@ select.compact-input:focus {
   backdrop-filter: blur(8px);
   border-radius: 10px;
   border-left: 2px solid #ffd700;
+  word-wrap: normal;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .comment-author-compact {
@@ -1103,6 +1206,69 @@ select.compact-input:focus {
   line-height: 1.4;
   color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
   opacity: 0.95;
+}
+
+/* Commentary content font size - make it consistent with other text */
+.card-body-compact .commentary-content,
+.card-body-compact .commentary-content ::ng-deep p,
+.card-body-compact .commentary-content ::ng-deep div,
+.card-body-compact .commentary-content ::ng-deep span,
+.card-body-compact .commentary-content ::ng-deep li {
+  font-size: 0.85rem !important;
+  line-height: 1.5 !important;
+  word-wrap: normal !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  white-space: pre-wrap !important;
+}
+
+.card-body-compact .commentary-content ::ng-deep h1,
+.card-body-compact .commentary-content ::ng-deep h2,
+.card-body-compact .commentary-content ::ng-deep h3,
+.card-body-compact .commentary-content ::ng-deep h4,
+.card-body-compact .commentary-content ::ng-deep h5,
+.card-body-compact .commentary-content ::ng-deep h6 {
+  font-size: 0.95rem !important;
+  line-height: 1.4 !important;
+  margin-bottom: 0.5rem !important;
+  word-wrap: normal !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+}
+
+.card-body-compact .commentary-content ::ng-deep strong,
+.card-body-compact .commentary-content ::ng-deep b {
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+}
+
+.card-body-compact .commentary-content ::ng-deep code {
+  font-size: 0.75rem !important;
+  word-wrap: normal !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  display: block !important;
+  white-space: pre-wrap !important;
+}
+
+.card-body-compact .commentary-content ::ng-deep pre {
+  font-size: 0.75rem !important;
+  word-wrap: normal !important;
+  overflow-wrap: normal !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  white-space: pre-wrap !important;
 }
 
 /* ============================================
@@ -1549,7 +1715,10 @@ select.compact-input:focus {
   color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
   opacity: 0.95;
   margin: 0;
-  word-wrap: break-word;
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
 }
 
 .message-image-compact {
@@ -1789,9 +1958,38 @@ select.compact-input:focus {
    RESPONSIVE GRID ADJUSTMENTS
    ============================================ */
 
+/* Tablet and below - single column for large cards */
 @media (max-width: 1200px) {
   .card-large {
-    grid-column: span 1;
+    grid-column: span 1 !important;
+  }
+  
+  .dynamic-grid-container {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  }
+}
+
+/* Medium screens (992px - 1199px) */
+@media (min-width: 992px) and (max-width: 1199px) {
+  .dynamic-grid-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .card-large {
+    grid-column: span 2 !important;
+  }
+}
+
+/* Large screens (1200px - 1399px) */
+@media (min-width: 1200px) and (max-width: 1399px) {
+  .dynamic-grid-container {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+  }
+  
+  .card-large {
+    grid-column: span 2 !important;
   }
 }
 
@@ -1800,13 +1998,15 @@ select.compact-input:focus {
    ============================================ */
 
 @media (max-width: 768px) {
-  /* Grid Layout - Force single column on mobile */
+  /* Grid Layout - Force single column on mobile - use flexbox for better stacking */
   .dynamic-grid-container {
-    grid-template-columns: 1fr !important;
-    grid-auto-flow: row !important; /* Ensure cards flow vertically */
-    gap: 0.75rem;
-    max-width: 100%;
-    width: 100%;
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    grid-auto-flow: row !important;
+    gap: 0.75rem !important;
+    max-width: 100% !important;
+    width: 100% !important;
   }
   
   /* Force all cards to single column and single row on mobile */
@@ -1816,11 +2016,13 @@ select.compact-input:focus {
   .card-small,
   .card-vertical,
   .card-horizontal {
-    grid-column: span 1 !important; /* Explicitly set to span only 1 column */
+    grid-column: span 1 !important;
     grid-row: span 1 !important;
     max-width: 100% !important;
     width: 100% !important;
     order: 0 !important;
+    flex: 0 0 auto !important;
+    display: block !important;
   }
   
   /* Override any inline styles or other classes that might set grid-column */
@@ -1830,6 +2032,7 @@ select.compact-input:focus {
     grid-column: 1 / -1 !important;
     width: 100% !important;
     max-width: 100% !important;
+    flex: 0 0 auto !important;
   }
   
   /* Override span utility classes on mobile */
@@ -1846,6 +2049,7 @@ select.compact-input:focus {
     grid-row: span 1 !important;
     width: 100% !important;
     max-width: 100% !important;
+    flex: 0 0 auto !important;
   }
   
   /* Force all specific card types to be full width and stacked */
@@ -1868,6 +2072,17 @@ select.compact-input:focus {
     width: 100% !important;
     max-width: 100% !important;
     order: 0 !important;
+    flex: 0 0 auto !important;
+    margin-bottom: 0.75rem !important;
+  }
+  
+  /* Ensure first-row-cards-container is also in flex column */
+  .first-row-cards-container {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-bottom: 0.75rem !important;
   }
   
   /* Content Layer */
@@ -2042,6 +2257,39 @@ select.compact-input:focus {
   
   .comment-text-compact {
     font-size: 0.75rem;
+  }
+  
+  /* Reduce commentary content font size on mobile */
+  .card-body-compact .commentary-content,
+  .card-body-compact .commentary-content ::ng-deep p,
+  .card-body-compact .commentary-content ::ng-deep div,
+  .card-body-compact .commentary-content ::ng-deep span,
+  .card-body-compact .commentary-content ::ng-deep li {
+    font-size: 0.8rem !important;
+    word-wrap: normal !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    hyphens: none !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    white-space: pre-wrap !important;
+  }
+  
+  .card-body-compact .commentary-content ::ng-deep h1,
+  .card-body-compact .commentary-content ::ng-deep h2,
+  .card-body-compact .commentary-content ::ng-deep h3,
+  .card-body-compact .commentary-content ::ng-deep h4,
+  .card-body-compact .commentary-content ::ng-deep h5,
+  .card-body-compact .commentary-content ::ng-deep h6 {
+    font-size: 0.85rem !important;
+  }
+  
+  .card-body-compact .commentary-content ::ng-deep code {
+    font-size: 0.7rem !important;
+  }
+  
+  .card-body-compact .commentary-content ::ng-deep pre {
+    font-size: 0.7rem !important;
   }
   
   /* URLs */
@@ -2265,10 +2513,45 @@ select.compact-input:focus {
   }
 }
 
-/* Ensure single column for all mobile devices */
-@media (max-width: 991px) {
+/* Ensure single column for all mobile devices - use flexbox */
+@media (max-width: 768px) {
+  .dynamic-grid-container {
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    gap: 0.75rem !important;
+  }
+  
+  .dynamic-card,
+  .card-large,
+  .card-medium,
+  .card-small {
+    grid-column: span 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 auto !important;
+  }
+  
+  /* Ensure photos card is responsive */
+  .photos-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    flex: 0 0 auto !important;
+  }
+  
+  /* Ensure video player is responsive */
+  .video-player-compact {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}
+
+/* Tablet devices (769px - 991px) - keep grid but single column */
+@media (min-width: 769px) and (max-width: 991px) {
   .dynamic-grid-container {
     grid-template-columns: 1fr !important;
+    gap: 0.875rem;
   }
   
   .dynamic-card,
@@ -2348,33 +2631,45 @@ select.compact-input:focus {
   
   /* Prevent text overflow */
   .event-title {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    word-wrap: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: none;
   }
   
   .description-text-beautiful {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    word-wrap: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: none;
   }
   
   .message-text-compact {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    word-wrap: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: none;
   }
   
   .comment-text-compact {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    word-wrap: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: none;
   }
   
   .url-link-text {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    word-wrap: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: none;
   }
   
   .pdf-name-compact {
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    word-wrap: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: none;
   }
   
   /* Prevent horizontal scrolling */
@@ -2442,13 +2737,40 @@ select.compact-input:focus {
   }
 }
 
+/* Large screens (1400px and above) */
 @media (min-width: 1400px) {
   .dynamic-grid-container {
     grid-template-columns: repeat(4, 1fr);
+    gap: 1.25rem;
+    max-width: 1800px;
   }
   
   .card-large {
     grid-column: span 2;
+  }
+  
+  .content-layer {
+    padding: 1rem 2rem 2rem 2rem;
+  }
+  
+  .event-title {
+    font-size: 2.5rem;
+  }
+  
+  .dynamic-card {
+    padding: 1.25rem;
+  }
+}
+
+/* Extra large screens (1920px and above) */
+@media (min-width: 1920px) {
+  .dynamic-grid-container {
+    grid-template-columns: repeat(5, 1fr);
+    max-width: 2000px;
+  }
+  
+  .card-large {
+    grid-column: span 3;
   }
 }
 
@@ -2550,4 +2872,503 @@ select.compact-input:focus {
   border: 4px solid white !important;
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* ============================================
+   RESPONSIVE MODAL IMPROVEMENTS
+   ============================================ */
+
+/* Make modals responsive on mobile */
+@media (max-width: 768px) {
+  ::ng-deep .modal.show:has(.slideshow-header) .modal-dialog,
+  ::ng-deep .modal.show:has(.slideshow-body) .modal-dialog,
+  ::ng-deep .modal.show .modal-dialog:has(.slideshow-header),
+  ::ng-deep .modal.show .modal-dialog:has(.slideshow-body),
+  ::ng-deep .modal-xl:has(.slideshow-header),
+  ::ng-deep .modal-xl:has(.slideshow-body),
+  ::ng-deep .modal.show .modal-xl.modal-dialog:has(.slideshow-header),
+  ::ng-deep .modal.show .modal-xl.modal-dialog:has(.slideshow-body) {
+    max-width: 95vw !important;
+    width: 95vw !important;
+    margin: 0.5rem auto !important;
+  }
+  
+  ::ng-deep .modal.show:has(.slideshow-header) .modal-content,
+  ::ng-deep .modal.show:has(.slideshow-body) .modal-content,
+  ::ng-deep .modal.show .modal-content:has(.slideshow-header),
+  ::ng-deep .modal.show .modal-content:has(.slideshow-body),
+  ::ng-deep .modal-xl .modal-content:has(.slideshow-header),
+  ::ng-deep .modal-xl .modal-content:has(.slideshow-body),
+  ::ng-deep .modal.show .modal-xl .modal-content:has(.slideshow-header),
+  ::ng-deep .modal.show .modal-xl .modal-content:has(.slideshow-body) {
+    max-width: 95vw !important;
+    width: 95vw !important;
+    max-height: 95vh !important;
+  }
+  
+  ::ng-deep .discussion-maximized-modal .modal-dialog {
+    max-width: 95vw !important;
+    width: 95vw !important;
+    max-height: calc(100vh - 20px) !important;
+    margin: 10px auto !important;
+  }
+  
+  ::ng-deep .discussion-maximized-modal .modal-content {
+    max-height: calc(100vh - 20px) !important;
+  }
+  
+  .modal-image {
+    max-height: 70vh !important;
+    max-width: 100% !important;
+    width: auto !important;
+    height: auto !important;
+  }
+}
+
+/* Tablet modal adjustments */
+@media (min-width: 769px) and (max-width: 1024px) {
+  ::ng-deep .modal.show:has(.slideshow-header) .modal-dialog,
+  ::ng-deep .modal.show:has(.slideshow-body) .modal-dialog,
+  ::ng-deep .modal.show .modal-dialog:has(.slideshow-header),
+  ::ng-deep .modal.show .modal-dialog:has(.slideshow-body),
+  ::ng-deep .modal-xl:has(.slideshow-header),
+  ::ng-deep .modal-xl:has(.slideshow-body),
+  ::ng-deep .modal.show .modal-xl.modal-dialog:has(.slideshow-header),
+  ::ng-deep .modal.show .modal-xl.modal-dialog:has(.slideshow-body) {
+    max-width: 80vw !important;
+    width: 80vw !important;
+  }
+  
+  ::ng-deep .modal.show:has(.slideshow-header) .modal-content,
+  ::ng-deep .modal.show:has(.slideshow-body) .modal-content,
+  ::ng-deep .modal.show .modal-content:has(.slideshow-header),
+  ::ng-deep .modal.show .modal-content:has(.slideshow-body),
+  ::ng-deep .modal-xl .modal-content:has(.slideshow-header),
+  ::ng-deep .modal-xl .modal-content:has(.slideshow-body),
+  ::ng-deep .modal.show .modal-xl .modal-content:has(.slideshow-header),
+  ::ng-deep .modal.show .modal-xl .modal-content:has(.slideshow-body) {
+    max-width: 80vw !important;
+    width: 80vw !important;
+  }
+}
+
+/* ============================================
+   ADDITIONAL RESPONSIVE IMPROVEMENTS
+   ============================================ */
+
+/* Improve text responsiveness */
+.description-text-compact {
+  font-size: clamp(0.9rem, 2vw, 1.3rem);
+  line-height: 1.6;
+}
+
+.event-title {
+  font-size: clamp(1.2rem, 4vw, 2rem);
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
+}
+
+/* Responsive images and videos */
+.photo-img,
+.discussion-image-compact,
+.discussion-video-compact,
+.video-player-compact {
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Responsive card headers */
+@media (max-width: 576px) {
+  .card-header-compact {
+    font-size: 0.75rem !important;
+    padding-bottom: 0.4rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .card-header-compact i {
+    font-size: 0.85rem !important;
+  }
+  
+  .card-header-compact .btn-compact {
+    padding: 0.25rem 0.4rem !important;
+    font-size: 0.65rem !important;
+  }
+}
+
+/* Responsive spacing for small screens */
+@media (max-width: 576px) {
+  .content-layer {
+    padding: 0.3rem 0.4rem 0.75rem 0.4rem !important;
+  }
+  
+  .artistic-header {
+    padding: 0.4rem 0.4rem !important;
+    margin-bottom: 0.4rem !important;
+  }
+  
+  .dynamic-card {
+    padding: 0.5rem !important;
+    border-radius: 10px !important;
+  }
+  
+  .dynamic-grid-container {
+    gap: 0.5rem !important;
+  }
+}
+
+/* Landscape orientation on mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .event-title {
+    font-size: 1.3rem !important;
+  }
+  
+  .artistic-header {
+    padding: 0.3rem 0.5rem !important;
+    margin-bottom: 0.3rem !important;
+  }
+  
+  .content-layer {
+    padding: 0.4rem 0.75rem 0.75rem 0.75rem !important;
+  }
+  
+  .dynamic-card {
+    padding: 0.6rem !important;
+  }
+  
+  .discussion-card,
+  .photos-card {
+    max-height: 70vh !important;
+  }
+}
+
+/* Ensure all flex containers are responsive */
+@media (max-width: 768px) {
+  .event-meta {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .meta-item {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
+  
+  .rating-compact {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .compact-form-actions {
+    flex-wrap: wrap;
+  }
+  
+  .compact-item-actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* Improve touch targets on all interactive elements */
+@media (max-width: 768px) {
+  .photo-nav,
+  .photo-indicator,
+  .btn-compact,
+  .rating-badge-compact,
+  .card-header-compact .btn-compact {
+    min-width: 44px;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+}
+
+/* Prevent any horizontal overflow */
+* {
+  box-sizing: border-box;
+}
+
+.artistic-event-page,
+.content-layer,
+.dynamic-grid-container,
+.dynamic-card {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Ensure all text containers are responsive */
+.event-title,
+.description-text-compact,
+.notes-text-compact,
+.message-text-compact,
+.comment-text-compact,
+.url-link-text,
+.pdf-name-compact,
+.track-name-compact,
+.video-header-left span {
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
+}
+
+/* Responsive table-like layouts */
+@media (max-width: 768px) {
+  .info-item-compact {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+  
+  .info-label,
+  .info-value {
+    width: 100%;
+    text-align: left;
+  }
+  
+  .pdf-item-compact,
+  .track-item-compact {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  .pdf-actions-compact,
+  .track-actions-compact {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+/* Improve button responsiveness */
+@media (max-width: 576px) {
+  .btn-compact {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .rating-compact {
+    width: 100%;
+  }
+  
+  .rating-badge-compact {
+    width: 100%;
+    max-width: 200px;
+  }
+  
+  .compact-form-actions .btn-compact {
+    width: 100%;
+  }
+  
+  .compact-item-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .compact-item-actions .btn-compact {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+/* Responsive photo gallery improvements */
+@media (max-width: 768px) {
+  .photo-gallery {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+  
+  .photo-viewer {
+    width: 100%;
+    overflow: hidden;
+  }
+  
+  .photo-slider {
+    display: flex;
+    width: 100%;
+  }
+  
+  .photo-frame {
+    min-width: 100%;
+    width: 100%;
+    flex-shrink: 0;
+  }
+  
+  .photo-img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+}
+
+/* Responsive video container */
+@media (max-width: 768px) {
+  .video-container-compact {
+    width: 100%;
+    position: relative;
+  }
+  
+  .video-player-compact {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    aspect-ratio: 16 / 9;
+  }
+  
+  .discussion-video-compact {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 50vh !important;
+  }
+  
+  .discussion-image-compact {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    max-height: 50vh !important;
+  }
+}
+
+/* Responsive header improvements */
+@media (max-width: 768px) {
+  .header-content {
+    width: 100%;
+  }
+  
+  .event-title {
+    width: 100%;
+    padding: 0 0.5rem;
+  }
+  
+  .event-color-badge {
+    display: inline-block;
+    margin-top: 0.5rem;
+    word-wrap: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: none;
+  }
+  
+  .event-meta {
+    width: 100%;
+    padding: 0 0.5rem;
+  }
+  
+  .meta-item {
+    width: 100%;
+    max-width: 100%;
+    text-align: center;
+    word-wrap: normal;
+    overflow-wrap: anywhere;
+    word-break: normal;
+    hyphens: none;
+  }
+}
+
+/* Improve card responsiveness */
+@media (max-width: 576px) {
+  .card-header-compact {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .card-header-compact > span {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  
+  .card-header-compact .btn-compact {
+    flex-shrink: 0;
+  }
+}
+
+/* Responsive form inputs */
+@media (max-width: 576px) {
+  .compact-input,
+  .compact-textarea,
+  select.compact-input {
+    width: 100%;
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  .compact-input-group {
+    width: 100%;
+  }
+  
+  .compact-input-group .compact-input {
+    width: 100%;
+  }
+  
+  .compact-input-group .btn-compact {
+    width: 100%;
+    margin-top: 0.5rem;
+  }
+}
+
+/* Ensure all containers respect viewport */
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+.artistic-event-page {
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Responsive spacing utilities */
+@media (max-width: 768px) {
+  .dynamic-grid-container {
+    padding: 0;
+  }
+  
+  .first-row-cards-container {
+    padding: 0;
+    margin: 0;
+  }
+}
+
+/* Improve touch scrolling */
+@media (max-width: 768px) {
+  .discussion-messages-compact,
+  .comments-list-compact,
+  .urls-list-compact,
+  .pdfs-list-compact,
+  .tracks-list-compact {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    scroll-behavior: smooth;
+  }
+}
+
+/* Responsive font sizes using clamp */
+.card-header-compact {
+  font-size: clamp(0.75rem, 1.5vw, 0.9rem);
+}
+
+.card-text-small,
+.description-text-compact,
+.notes-text-compact {
+  font-size: clamp(0.8rem, 1.8vw, 1rem);
+}
+
+.btn-compact {
+  font-size: clamp(0.65rem, 1.2vw, 0.75rem);
+  padding: clamp(0.3rem, 1vw, 0.4rem) clamp(0.6rem, 1.5vw, 0.8rem);
+}
+
+/* Responsive gaps */
+.dynamic-grid-container {
+  gap: clamp(0.5rem, 1.5vw, 1rem);
+}
+
+.first-row-cards-container {
+  gap: clamp(0.5rem, 1.2vw, 1rem);
 }

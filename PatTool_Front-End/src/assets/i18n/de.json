@@ -590,7 +590,9 @@
         "SHOW_CONTROLS": "Steuerelemente anzeigen",
         "HIDE_CONTROLS": "Steuerelemente ausblenden",
         "PREVIOUS_PAGE": "Vorherige Seite",
-        "NEXT_PAGE": "Nächste Seite"
+        "NEXT_PAGE": "Nächste Seite",
+        "EXPAND": "Erweitern",
+        "COLLAPSE": "Einklappen"
     },
     "RESULTS": {
         "TITLE": "WhatsPat",

@@ -1,0 +1,534 @@
+.commentary-editor-container {
+  margin: 1rem 0;
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Styles for details-evenement - use calculated colors via CSS variables (must come first) */
+.card-body-compact .commentary-editor-container {
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9)) !important;
+}
+
+.commentaries-list {
+  max-height: 600px;
+  overflow-y: auto;
+  overflow-x: auto;
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+
+.commentaries-list.collapsed {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+}
+
+/* Styles for details-evenement - use calculated colors via CSS variables (must come first) */
+.card-body-compact .commentary-item {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(5px);
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  word-wrap: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+}
+
+.card-body-compact .commentary-item:hover {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.card-body-compact .commentary-item.border {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.card-body-compact .commentary-item .text-muted,
+.card-body-compact .commentary-item .commentary-date {
+  color: var(--text-color-dark, rgba(255, 255, 255, 0.7)) !important;
+  opacity: 0.85 !important;
+}
+
+.card-body-compact .commentary-item strong {
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9)) !important;
+}
+
+.card-body-compact .commentary-item *:not(button):not(.btn) {
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9)) !important;
+}
+
+.card-body-compact .commentary-item .commentary-content,
+.card-body-compact .commentary-item .commentary-content * {
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9)) !important;
+}
+
+.card-body-compact .commentary-editor-container {
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9)) !important;
+}
+
+/* Default styles for modal (element-evenement) and update-evenement - white background, black text */
+.commentary-item {
+  background-color: #f8f9fa !important;
+  color: #000000 !important;
+  border: 1px solid #dee2e6 !important;
+}
+
+.commentary-item:hover {
+  background-color: #e9ecef !important;
+}
+
+/* Override Bootstrap default styles */
+.commentary-item.border {
+  border-color: #dee2e6 !important;
+}
+
+.commentary-item .text-muted,
+.commentary-item .commentary-date {
+  color: #6c757d !important;
+}
+
+.commentary-item strong {
+  color: #000000 !important;
+}
+
+/* Override all text colors inside commentary items */
+.commentary-item *:not(button):not(.btn) {
+  color: #000000 !important;
+}
+
+.commentary-item .commentary-content,
+.commentary-item .commentary-content * {
+  color: #000000 !important;
+}
+
+/* Styles for update-evenement - white background, black text */
+:host-context(.card-body:not(.card-body-compact)) .commentary-item {
+  background-color: #f8f9fa !important;
+  color: #000000 !important;
+  border: 1px solid #dee2e6 !important;
+}
+
+:host-context(.card-body:not(.card-body-compact)) .commentary-item:hover {
+  background-color: #e9ecef !important;
+}
+
+:host-context(.card-body:not(.card-body-compact)) .commentary-item.border {
+  border-color: #dee2e6 !important;
+}
+
+:host-context(.card-body:not(.card-body-compact)) .commentary-item .text-muted,
+:host-context(.card-body:not(.card-body-compact)) .commentary-item .commentary-date {
+  color: #6c757d !important;
+}
+
+:host-context(.card-body:not(.card-body-compact)) .commentary-item strong {
+  color: #000000 !important;
+}
+
+:host-context(.card-body:not(.card-body-compact)) .commentary-item *:not(button):not(.btn) {
+  color: #000000 !important;
+}
+
+:host-context(.card-body:not(.card-body-compact)) .commentary-item .commentary-content,
+:host-context(.card-body:not(.card-body-compact)) .commentary-item .commentary-content * {
+  color: #000000 !important;
+}
+
+:host-context(.card-body:not(.card-body-compact)) .commentary-editor-container {
+  color: #000000;
+}
+
+:host-context(.card-body:not(.card-body-compact)) .commentary-content ::ng-deep *[style*="background"],
+:host-context(.card-body:not(.card-body-compact)) .commentary-content ::ng-deep *[style*="background-color"] {
+  background-color: #f8f9fa !important;
+  background-image: none !important;
+}
+
+:host-context(.card-body:not(.card-body-compact)) .commentary-content ::ng-deep *[style*="background"],
+:host-context(.card-body:not(.card-body-compact)) .commentary-content ::ng-deep *[style*="background-color"] {
+  color: #000000 !important;
+}
+
+:host-context(.card-body:not(.card-body-compact)) .commentary-content ::ng-deep * {
+  color: #000000 !important;
+}
+
+.commentary-content {
+  margin-top: 0.5rem;
+  line-height: 1.6;
+  color: inherit;
+  font-size: 0.85rem;
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+/* For details-evenement compact cards - smaller font size */
+.card-body-compact .commentary-content {
+  font-size: 0.85rem !important;
+  line-height: 1.5 !important;
+  word-wrap: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  white-space: pre-wrap !important;
+}
+
+/* Styles for details-evenement - use calculated colors for content (must come first) */
+.card-body-compact .commentary-content ::ng-deep *[style*="background"],
+.card-body-compact .commentary-content ::ng-deep *[style*="background-color"] {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  background-image: none !important;
+}
+
+.card-body-compact .commentary-content ::ng-deep *[style*="background"],
+.card-body-compact .commentary-content ::ng-deep *[style*="background-color"] {
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9)) !important;
+}
+
+.card-body-compact .commentary-content ::ng-deep * {
+  color: var(--text-color-primary, rgba(255, 255, 255, 0.9)) !important;
+}
+
+/* Override any background colors in commentary content - default for modal */
+.commentary-content ::ng-deep *[style*="background"],
+.commentary-content ::ng-deep *[style*="background-color"] {
+  background-color: #f8f9fa !important;
+  background-image: none !important;
+}
+
+/* Apply text color to elements with background - default for modal */
+.commentary-content ::ng-deep *[style*="background"],
+.commentary-content ::ng-deep *[style*="background-color"] {
+  color: #000000 !important;
+}
+
+/* Ensure text color is visible for all content - default for modal */
+.commentary-content ::ng-deep * {
+  color: #000000 !important;
+}
+
+.commentary-content ::ng-deep p {
+  margin-bottom: 0.5rem;
+  font-size: inherit;
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+/* For details-evenement compact cards - ensure all text elements have consistent size */
+.card-body-compact .commentary-content ::ng-deep p,
+.card-body-compact .commentary-content ::ng-deep div,
+.card-body-compact .commentary-content ::ng-deep span,
+.card-body-compact .commentary-content ::ng-deep li {
+  font-size: 0.85rem !important;
+  line-height: 1.5 !important;
+  word-wrap: normal !important;
+  overflow-wrap: anywhere !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  max-width: 100% !important;
+  overflow-x: auto !important;
+  white-space: pre-wrap !important;
+}
+
+.commentary-content ::ng-deep ul,
+.commentary-content ::ng-deep ol {
+  margin-left: 1.5rem;
+  margin-bottom: 0.5rem;
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.commentary-content ::ng-deep img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 0.5rem 0;
+}
+
+.commentary-content ::ng-deep blockquote {
+  border-left: 4px solid #ddd;
+  margin: 0.5rem 0;
+  padding-left: 1rem;
+  color: #666;
+  font-style: italic;
+}
+
+.commentary-content ::ng-deep code {
+  background-color: #f4f4f4;
+  padding: 0.2rem 0.4rem;
+  border-radius: 3px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
+  overflow-x: auto;
+  display: block;
+  white-space: pre-wrap;
+}
+
+.commentary-content ::ng-deep pre {
+  background-color: #f4f4f4;
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+  word-wrap: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  hyphens: none;
+  max-width: 100%;
+  white-space: pre-wrap;
+}
+
+.commentary-content ::ng-deep pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* Modal Styles */
+::ng-deep .commentary-modal .modal-dialog {
+  max-width: 900px;
+  width: 90%;
+}
+
+::ng-deep .commentary-modal .modal-content {
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border: none;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+::ng-deep .commentary-modal .modal-header {
+  border-radius: 0.5rem 0.5rem 0 0;
+  padding: 1.25rem 1.5rem;
+  font-weight: 600;
+}
+
+::ng-deep .commentary-modal .modal-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+::ng-deep .commentary-modal .modal-footer {
+  border-radius: 0 0 0.5rem 0.5rem;
+  padding: 1rem 1.5rem;
+}
+
+/* Button hover effects with color variants */
+::ng-deep .commentary-modal .modal-footer .btn-success:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+::ng-deep .commentary-modal .modal-footer .btn-secondary:hover {
+  opacity: 0.8;
+  transform: translateY(-1px);
+}
+
+.commentary-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 400px;
+  padding: 1.5rem;
+}
+
+.commentary-editor-wrapper {
+  width: 100%;
+  height: 100%;
+  min-height: 400px;
+}
+
+.commentary-quill-editor-full {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border-radius: 4px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-container {
+  min-height: 400px;
+  font-size: 14px;
+  flex: 1;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-editor {
+  min-height: 400px;
+  font-size: 14px;
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar {
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-container {
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+/* Ensure Quill toolbar buttons are visible */
+.commentary-quill-editor-full ::ng-deep .ql-toolbar .ql-formats {
+  margin-right: 15px;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar button,
+.commentary-quill-editor-full ::ng-deep .ql-toolbar .ql-picker-label {
+  padding: 5px;
+}
+
+/* Fix for Quill icons - ensure they display correctly */
+.commentary-quill-editor-full ::ng-deep .ql-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  background: #fff;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+  font-family: 'Helvetica Neue', 'Helvetica', 'Arial', sans-serif;
+  padding: 8px;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar .ql-formats {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 15px;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar button {
+  display: inline-block;
+  padding: 5px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  width: 28px;
+  height: 24px;
+  vertical-align: middle;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar button svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar .ql-stroke {
+  fill: none;
+  stroke: #444;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar .ql-fill {
+  fill: #444;
+  stroke: none;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar button:hover .ql-stroke,
+.commentary-quill-editor-full ::ng-deep .ql-toolbar button.ql-active .ql-stroke {
+  stroke: #06c;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar button:hover .ql-fill,
+.commentary-quill-editor-full ::ng-deep .ql-toolbar button.ql-active .ql-fill {
+  fill: #06c;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar .ql-picker {
+  color: #444;
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 500;
+  height: 24px;
+  position: relative;
+  vertical-align: middle;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar .ql-picker-label {
+  cursor: pointer;
+  display: inline-block;
+  height: 100%;
+  padding-left: 8px;
+  padding-right: 2px;
+  position: relative;
+  width: 100%;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-toolbar .ql-picker-label::before {
+  display: inline-block;
+  line-height: 22px;
+}
+
+/* Ensure Quill editor container is properly displayed */
+.commentary-quill-editor-full {
+  display: block;
+  width: 100%;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-container {
+  font-family: inherit;
+}
+
+.commentary-quill-editor-full ::ng-deep .ql-editor {
+  font-family: inherit;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  ::ng-deep .commentary-modal .modal-dialog {
+    width: 95%;
+    margin: 0.5rem auto;
+  }
+
+  .commentary-modal-body {
+    min-height: 300px;
+    padding: 1rem;
+  }
+
+  .commentary-quill-editor-full ::ng-deep .ql-container {
+    min-height: 300px;
+  }
+
+  .commentary-quill-editor-full ::ng-deep .ql-editor {
+    min-height: 300px;
+  }
+}

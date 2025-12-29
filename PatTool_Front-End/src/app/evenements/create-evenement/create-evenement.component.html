@@ -393,99 +393,17 @@
                     </div>
                     <div class="card-body">
                         
-                        <!-- Add New Commentary Form -->
-                        <div class="commentary-form mb-4" *ngIf="!isAddingCommentary">
-                            <button type="button" class="btn btn-outline-primary" (click)="isAddingCommentary = true">
-                                <i class="fa fa-plus"></i> {{ "EVENTHOME.ADD_COMMENTARY" | translate }}
-                            </button>
-                        </div>
-                        
-                        <div class="commentary-form mb-4" *ngIf="isAddingCommentary">
-                            <div class="row">
-                                <div class="col-12">
-                                    <label class="form-label">
-                                        <i class="fa fa-comment"></i>
-                                        {{ "EVENTHOME.COMMENTARY_TEXT" | translate }}
-                                    </label>
-                                    <textarea [(ngModel)]="newCommentary.commentary" name="newCommentary" 
-                                              class="form-control" rows="3" 
-                                              placeholder="{{ 'EVENTHOME.COMMENTARY_PLACEHOLDER' | translate }}"></textarea>
-                                </div>
-                            </div>
-                            <div class="row mt-2">
-                                <div class="col-12 d-flex justify-content-end">
-                                    <button type="button" class="btn btn-success btn-sm me-2" (click)="addCommentary()">
-                                        <i class="fa fa-check"></i> {{ "EVENTHOME.SAVE_COMMENTARY" | translate }}
-                                    </button>
-                                    <button type="button" class="btn btn-secondary btn-sm" (click)="cancelAddCommentary()">
-                                        <i class="fa fa-times"></i> {{ "EVENTHOME.CANCEL_COMMENTARY" | translate }}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Display Existing Commentaries -->
-                        <div class="commentaries-list" *ngIf="evenement.commentaries && evenement.commentaries.length > 0">
-                            <h5>{{ "EVENTHOME.COMMENTARIES" | translate }} ({{ evenement.commentaries.length }})</h5>
-                            
-                            <div class="commentary-item" *ngFor="let commentary of evenement.commentaries; let i = index">
-                                <div class="commentary-card">
-                                    <!-- Display Mode -->
-                                    <div class="commentary-content" *ngIf="editingCommentaryIndex !== i">
-                                        <div class="commentary-text">
-                                            {{ commentary.commentary }}
-                                        </div>
-                                        <div class="commentary-meta">
-                                            <small class="text-muted">
-                                                <i class="fa fa-user"></i> {{ commentary.commentOwner }} | 
-                                                <i class="fa fa-calendar"></i> {{ formatCommentaryDate(commentary.dateCreation) }}
-                                            </small>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Edit Mode -->
-                                    <div class="commentary-edit-form" *ngIf="editingCommentaryIndex === i">
-                                        <div class="row">
-                                            <div class="col-12">
-                                                <label class="form-label">
-                                                    <i class="fa fa-comment"></i>
-                                                    {{ "EVENTHOME.COMMENTARY_TEXT" | translate }}
-                                                </label>
-                                                <textarea [(ngModel)]="editingCommentary.commentary" name="editCommentary"
-                                                          class="form-control" rows="3" 
-                                                          placeholder="{{ 'EVENTHOME.COMMENTARY_PLACEHOLDER' | translate }}"></textarea>
-                                            </div>
-                                        </div>
-                                        <div class="row mt-2">
-                                            <div class="col-12 d-flex justify-content-end">
-                                                <button type="button" class="btn btn-success btn-sm me-1" 
-                                                        (click)="saveCommentaryEdit(i)" title="Sauvegarder">
-                                                    <i class="fa fa-check"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-secondary btn-sm" 
-                                                        (click)="cancelCommentaryEdit()" title="Annuler">
-                                                    <i class="fa fa-times"></i>
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="commentary-actions" *ngIf="editingCommentaryIndex !== i">
-                                        <button type="button" class="btn btn-outline-primary btn-sm me-1" 
-                                                (click)="startEditCommentary(i)"
-                                                title="Modifier ce commentaire">
-                                            <i class="fa fa-edit"></i>
-                                        </button>
-                                        <button type="button" class="btn btn-outline-danger btn-sm" 
-                                                (click)="deleteCommentary(i)"
-                                                title="Supprimer ce commentaire"
-                                                [disabled]="!canDeleteCommentary(commentary)">
-                                            <i class="fa fa-trash"></i>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <!-- Commentary Editor Component -->
+                        <app-commentary-editor
+                            [commentaries]="evenement.commentaries || []"
+                            [currentUser]="user"
+                            [eventId]="evenement.id || ''"
+                            [eventColor]="getCalculatedColor()"
+                            [collapsedByDefault]="true"
+                            (commentaryAdded)="onCommentaryAdded($event)"
+                            (commentaryUpdated)="onCommentaryUpdated($event)"
+                            (commentaryDeleted)="onCommentaryDeleted($event)">
+                        </app-commentary-editor>
                         
                         <div *ngIf="!evenement.commentaries || evenement.commentaries.length === 0" class="text-center text-muted">
                             <i class="fa fa-comments fa-2x mb-2"></i>
