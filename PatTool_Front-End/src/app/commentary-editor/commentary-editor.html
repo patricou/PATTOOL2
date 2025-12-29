@@ -1,8 +1,9 @@
 <div class="commentary-editor-container">
   <!-- Header with Add Button and Collapse/Expand Button -->
-  <div class="d-flex justify-content-between align-items-center mb-2">
+  <div class="d-flex justify-content-between align-items-center mb-2" *ngIf="showAddButton || (commentaries && commentaries.length > 0)">
     <!-- Add Commentary Button -->
-    <button class="btn btn-outline-primary" 
+    <button *ngIf="showAddButton" 
+            class="btn btn-sm btn-outline-primary" 
             (click)="openAddModal()" 
             type="button">
       <i class="fa fa-plus"></i> {{ "EVENTHOME.ADD_COMMENTARY" | translate }}
@@ -11,6 +12,7 @@
     <!-- Collapse/Expand Button -->
     <button *ngIf="commentaries && commentaries.length > 0" 
             class="btn btn-sm btn-outline-secondary" 
+            [class.ms-auto]="!showAddButton"
             (click)="toggleCollapse()" 
             type="button">
       <i class="fa" [class.fa-chevron-down]="!isCollapsed" [class.fa-chevron-up]="isCollapsed"></i>

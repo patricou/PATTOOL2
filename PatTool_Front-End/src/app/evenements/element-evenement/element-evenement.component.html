@@ -415,11 +415,11 @@
 
 <!-- Comments Modal -->
 <ng-template #commentsModal let-c="close" let-d="dismiss">
-    <div class="modal-header bg-primary text-white selector-header border border-2 border-white rounded-top">
+    <div class="modal-header bg-primary text-white selector-header rounded-top">
         <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
             <i class="fa fa-comments"></i> {{ 'EVENTHOME.COMMENTARIES' | translate }} - {{ evenement.evenementName }}
         </h5>
-        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white" (click)="c('Close click')" aria-label="Close">
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto" (click)="c('Close click')" aria-label="Close">
             <i class="fa fa-times"></i>
         </button>
     </div>

@@ -6093,6 +6093,33 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			windowClass: 'comments-modal'
 		});
 		
+		// Apply white border to modal content after opening
+		setTimeout(() => {
+			// Try multiple selectors to find the modal content
+			let modalElement = document.querySelector('.modal.comments-modal.show .modal-content') as HTMLElement;
+			if (!modalElement) {
+				modalElement = document.querySelector('.comments-modal.show .modal-content') as HTMLElement;
+			}
+			if (!modalElement) {
+				modalElement = document.querySelector('.modal.show .comments-modal .modal-content') as HTMLElement;
+			}
+			if (!modalElement && modalRef) {
+				// Try to get element from modalRef
+				const modalElementRef = (modalRef as any).componentInstance?.elementRef?.nativeElement?.querySelector('.modal-content');
+				if (modalElementRef) {
+					modalElement = modalElementRef;
+				}
+			}
+			if (modalElement) {
+				modalElement.style.setProperty('border', '4px solid #ffffff', 'important');
+				modalElement.style.setProperty('border-width', '4px', 'important');
+				modalElement.style.setProperty('border-style', 'solid', 'important');
+				modalElement.style.setProperty('border-color', '#ffffff', 'important');
+				modalElement.style.setProperty('border-radius', '8px', 'important');
+				modalElement.style.setProperty('overflow', 'hidden', 'important');
+			}
+		}, 200);
+		
 		// Immediately maintain scroll position after modal opens to prevent any movement
 		requestAnimationFrame(() => {
 			requestAnimationFrame(() => {

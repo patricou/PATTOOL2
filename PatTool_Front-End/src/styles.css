@@ -50,6 +50,36 @@ img, video, canvas {
     border-radius: 8px !important;
 }
 
+/* Global style for commentary modal with white border */
+::ng-deep .modal.show .modal-dialog .modal-content:has(.commentary-modal-body),
+::ng-deep .modal.show:has(.commentary-modal-body) .modal-content,
+::ng-deep .modal.commentary-modal .modal-content,
+::ng-deep .modal.commentary-modal.show .modal-content,
+::ng-deep .modal.show.commentary-modal .modal-dialog .modal-content,
+::ng-deep .modal.commentary-modal.show .modal-dialog .modal-content,
+::ng-deep .commentary-modal .modal-content {
+    border: 4px solid #ffffff !important;
+    border-width: 4px !important;
+    border-style: solid !important;
+    border-color: #ffffff !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+}
+
+/* Global style for comments modal with white border (used in element-evenement) */
+::ng-deep .modal.comments-modal .modal-content,
+::ng-deep .modal.comments-modal.show .modal-content,
+::ng-deep .modal.show.comments-modal .modal-dialog .modal-content,
+::ng-deep .modal.comments-modal.show .modal-dialog .modal-content,
+::ng-deep .comments-modal .modal-content {
+    border: 4px solid #ffffff !important;
+    border-width: 4px !important;
+    border-style: solid !important;
+    border-color: #ffffff !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+}
+
 /* Prevent body scroll when photos selector modal is open - Very high specificity to override slideshow rules */
 /* Using [class*=""] to increase specificity and ensure these rules override slideshow CSS */
 body[class*=""]:has(.fs-selector-modal),

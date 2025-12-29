@@ -1,10 +1,13 @@
 .commentary-editor-container {
   margin: 1rem 0;
   color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
-  word-wrap: normal;
-  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
+  -webkit-hyphens: none;
+  -moz-hyphens: none;
+  -ms-hyphens: none;
   max-width: 100%;
   overflow-x: auto;
 }
@@ -18,10 +21,13 @@
   max-height: 600px;
   overflow-y: auto;
   overflow-x: auto;
-  word-wrap: normal;
-  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
+  -webkit-hyphens: none;
+  -moz-hyphens: none;
+  -ms-hyphens: none;
   max-width: 100%;
   transition: max-height 0.3s ease, opacity 0.3s ease;
 }
@@ -38,12 +44,25 @@
   backdrop-filter: blur(5px);
   color: var(--text-color-primary, rgba(255, 255, 255, 0.9)) !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  word-wrap: normal !important;
-  overflow-wrap: anywhere !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
   word-break: normal !important;
   hyphens: none !important;
+  -webkit-hyphens: none !important;
+  -moz-hyphens: none !important;
+  -ms-hyphens: none !important;
   max-width: 100% !important;
   overflow-x: auto !important;
+}
+
+.card-body-compact .commentary-item * {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  -webkit-hyphens: none !important;
+  -moz-hyphens: none !important;
+  -ms-hyphens: none !important;
 }
 
 .card-body-compact .commentary-item:hover {
@@ -169,26 +188,32 @@
   line-height: 1.6;
   color: inherit;
   font-size: 0.85rem;
-  word-wrap: normal;
-  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
+  -webkit-hyphens: none;
+  -moz-hyphens: none;
+  -ms-hyphens: none;
   max-width: 100%;
   overflow-x: auto;
-  white-space: pre-wrap;
+  white-space: normal;
 }
 
 /* For details-evenement compact cards - smaller font size */
 .card-body-compact .commentary-content {
   font-size: 0.85rem !important;
   line-height: 1.5 !important;
-  word-wrap: normal !important;
-  overflow-wrap: anywhere !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
   word-break: normal !important;
   hyphens: none !important;
+  -webkit-hyphens: none !important;
+  -moz-hyphens: none !important;
+  -ms-hyphens: none !important;
   max-width: 100% !important;
   overflow-x: auto !important;
-  white-space: pre-wrap !important;
+  white-space: normal !important;
 }
 
 /* Styles for details-evenement - use calculated colors for content (must come first) */
@@ -228,13 +253,16 @@
 .commentary-content ::ng-deep p {
   margin-bottom: 0.5rem;
   font-size: inherit;
-  word-wrap: normal;
-  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
+  -webkit-hyphens: none;
+  -moz-hyphens: none;
+  -ms-hyphens: none;
   max-width: 100%;
   overflow-x: auto;
-  white-space: pre-wrap;
+  white-space: normal;
 }
 
 /* For details-evenement compact cards - ensure all text elements have consistent size */
@@ -244,23 +272,29 @@
 .card-body-compact .commentary-content ::ng-deep li {
   font-size: 0.85rem !important;
   line-height: 1.5 !important;
-  word-wrap: normal !important;
-  overflow-wrap: anywhere !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
   word-break: normal !important;
   hyphens: none !important;
+  -webkit-hyphens: none !important;
+  -moz-hyphens: none !important;
+  -ms-hyphens: none !important;
   max-width: 100% !important;
   overflow-x: auto !important;
-  white-space: pre-wrap !important;
+  white-space: normal !important;
 }
 
 .commentary-content ::ng-deep ul,
 .commentary-content ::ng-deep ol {
   margin-left: 1.5rem;
   margin-bottom: 0.5rem;
-  word-wrap: normal;
-  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
+  -webkit-hyphens: none;
+  -moz-hyphens: none;
+  -ms-hyphens: none;
   max-width: 100%;
   overflow-x: auto;
 }
@@ -286,8 +320,8 @@
   border-radius: 3px;
   font-family: 'Courier New', monospace;
   font-size: 0.9em;
-  word-wrap: normal;
-  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
   max-width: 100%;
@@ -301,8 +335,8 @@
   padding: 1rem;
   border-radius: 4px;
   overflow-x: auto;
-  word-wrap: normal;
-  overflow-wrap: anywhere;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
   word-break: normal;
   hyphens: none;
   max-width: 100%;
@@ -320,16 +354,33 @@
   width: 90%;
 }
 
+/* White border around the commentary modal - same as slideshow */
+/* Using :has() selector to target modal-content that contains commentary-modal-body */
+::ng-deep .modal.show .modal-dialog .modal-content:has(.commentary-modal-body),
+::ng-deep .modal.show:has(.commentary-modal-body) .modal-content,
+::ng-deep .modal.commentary-modal.show .modal-dialog .modal-content,
+::ng-deep .modal.show.commentary-modal .modal-dialog .modal-content,
+::ng-deep .modal.commentary-modal .modal-dialog .modal-content,
+::ng-deep .modal.show .commentary-modal .modal-dialog .modal-content,
+::ng-deep .modal.show .modal-dialog.commentary-modal .modal-content,
+::ng-deep .commentary-modal .modal-content {
+  border: 4px solid #ffffff !important;
+  border-width: 4px !important;
+  border-style: solid !important;
+  border-color: #ffffff !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
 ::ng-deep .commentary-modal .modal-content {
   max-height: 90vh;
   display: flex;
   flex-direction: column;
-  border: none;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
 ::ng-deep .commentary-modal .modal-header {
-  border-radius: 0.5rem 0.5rem 0 0;
+  border-radius: 8px 8px 0 0;
   padding: 1.25rem 1.5rem;
   font-weight: 600;
 }
@@ -340,7 +391,7 @@
 }
 
 ::ng-deep .commentary-modal .modal-footer {
-  border-radius: 0 0 0.5rem 0.5rem;
+  border-radius: 0 0 8px 8px;
   padding: 1rem 1.5rem;
 }
 

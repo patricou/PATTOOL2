@@ -1209,6 +1209,18 @@ select.compact-input:focus {
 }
 
 /* Commentary content font size - make it consistent with other text */
+/* Prevent word breaking but allow line breaks between words */
+.card-body-compact .commentary-content,
+.card-body-compact .commentary-content ::ng-deep * {
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: normal !important;
+  hyphens: none !important;
+  -webkit-hyphens: none !important;
+  -moz-hyphens: none !important;
+  -ms-hyphens: none !important;
+}
+
 .card-body-compact .commentary-content,
 .card-body-compact .commentary-content ::ng-deep p,
 .card-body-compact .commentary-content ::ng-deep div,
@@ -1216,13 +1228,16 @@ select.compact-input:focus {
 .card-body-compact .commentary-content ::ng-deep li {
   font-size: 0.85rem !important;
   line-height: 1.5 !important;
-  word-wrap: normal !important;
-  overflow-wrap: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
   word-break: normal !important;
   hyphens: none !important;
+  -webkit-hyphens: none !important;
+  -moz-hyphens: none !important;
+  -ms-hyphens: none !important;
   max-width: 100% !important;
   overflow-x: auto !important;
-  white-space: pre-wrap !important;
+  white-space: normal !important;
 }
 
 .card-body-compact .commentary-content ::ng-deep h1,
@@ -1234,10 +1249,13 @@ select.compact-input:focus {
   font-size: 0.95rem !important;
   line-height: 1.4 !important;
   margin-bottom: 0.5rem !important;
-  word-wrap: normal !important;
-  overflow-wrap: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
   word-break: normal !important;
   hyphens: none !important;
+  -webkit-hyphens: none !important;
+  -moz-hyphens: none !important;
+  -ms-hyphens: none !important;
   max-width: 100% !important;
   overflow-x: auto !important;
 }
@@ -2266,13 +2284,16 @@ select.compact-input:focus {
   .card-body-compact .commentary-content ::ng-deep span,
   .card-body-compact .commentary-content ::ng-deep li {
     font-size: 0.8rem !important;
-    word-wrap: normal !important;
-    overflow-wrap: normal !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
     word-break: normal !important;
     hyphens: none !important;
+    -webkit-hyphens: none !important;
+    -moz-hyphens: none !important;
+    -ms-hyphens: none !important;
     max-width: 100% !important;
     overflow-x: auto !important;
-    white-space: pre-wrap !important;
+    white-space: normal !important;
   }
   
   .card-body-compact .commentary-content ::ng-deep h1,

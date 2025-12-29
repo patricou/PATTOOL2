@@ -24,6 +24,7 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
   @Input() eventColor: { r: number; g: number; b: number } | null = null;
   @Input() useCalculatedColorsForModal: boolean = false; // If true, use calculated colors for modal (details-evenement)
   @Input() collapsedByDefault: boolean = false; // If true, commentaries are collapsed by default
+  @Input() showAddButton: boolean = true; // If false, hides the add commentary button
   @Output() commentaryAdded = new EventEmitter<Commentary>();
   @Output() commentaryUpdated = new EventEmitter<{ commentId: string; commentary: Commentary }>();
   @Output() commentaryDeleted = new EventEmitter<string>();
@@ -173,11 +174,11 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
           'border-top': `1px solid ${darkerColor}`
         };
       } else {
-        // Default: white background with black text
+        // Default: blue header background with white text (except for details-evenement)
         this.modalHeaderStyle = {
-          'background-color': '#ffffff',
-          'color': '#000000',
-          'border-bottom': '2px solid #e0e0e0'
+          'background-color': '#007bff',
+          'color': '#ffffff',
+          'border-bottom': '2px solid #0056b3'
         };
         
         this.modalBodyStyle = {
@@ -371,6 +372,33 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
       keyboard: false,
       windowClass: 'commentary-modal'
     });
+
+    // Apply white border to modal content after opening
+    setTimeout(() => {
+      // Try multiple selectors to find the modal content
+      let modalElement = document.querySelector('.modal.commentary-modal.show .modal-content') as HTMLElement;
+      if (!modalElement) {
+        modalElement = document.querySelector('.commentary-modal.show .modal-content') as HTMLElement;
+      }
+      if (!modalElement) {
+        modalElement = document.querySelector('.modal.show .commentary-modal .modal-content') as HTMLElement;
+      }
+      if (!modalElement && this.modalRef) {
+        // Try to get element from modalRef
+        const modalElementRef = (this.modalRef as any).componentInstance?.elementRef?.nativeElement?.querySelector('.modal-content');
+        if (modalElementRef) {
+          modalElement = modalElementRef;
+        }
+      }
+      if (modalElement) {
+        modalElement.style.setProperty('border', '4px solid #ffffff', 'important');
+        modalElement.style.setProperty('border-width', '4px', 'important');
+        modalElement.style.setProperty('border-style', 'solid', 'important');
+        modalElement.style.setProperty('border-color', '#ffffff', 'important');
+        modalElement.style.setProperty('border-radius', '8px', 'important');
+        modalElement.style.setProperty('overflow', 'hidden', 'important');
+      }
+    }, 200);
 
     // Restore scroll when modal closes
     this.modalRef.result.finally(() => {

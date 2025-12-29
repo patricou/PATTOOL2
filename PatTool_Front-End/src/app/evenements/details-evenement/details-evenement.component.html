@@ -409,6 +409,7 @@
         </div>
         <div class="card-body-compact">
           <app-commentary-editor
+            [showAddButton]="false"
             #commentaryEditor
             [commentaries]="evenement.commentaries || []"
             [currentUser]="user"
