@@ -36,6 +36,7 @@ export class AppComponent implements OnInit {
     public showIADropdown: boolean = false;
     public showToolsDropdown: boolean = false;
     public showLinksDropdown: boolean = false;
+    public showIotDropdown: boolean = false;
     public showLanguageSubmenu: boolean = false;
     public showDocumentationSubmenu: boolean = false;
     public isDragOver: boolean = false;
@@ -110,6 +111,13 @@ export class AppComponent implements OnInit {
         setTimeout(() => {
             this.hasIotRole = this._kc.hasIotRole();
         }, 500);
+    }
+
+    /**
+     * Check if the current user has Admin role
+     */
+    hasAdminRole(): boolean {
+        return this._kc.hasAdminRole();
     }
 
     logout() {
@@ -981,6 +989,17 @@ export class AppComponent implements OnInit {
         this.showEventsDropdown = false; // Close other dropdown
         this.showIADropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
+        this.showIotDropdown = false; // Close other dropdown
+    }
+
+    toggleIotDropdown(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.showIotDropdown = !this.showIotDropdown;
+        this.showEventsDropdown = false; // Close other dropdown
+        this.showIADropdown = false; // Close other dropdown
+        this.showToolsDropdown = false; // Close other dropdown
+        this.showLinksDropdown = false; // Close other dropdown
     }
 
     toggleToolsDropdown(event: Event): void {
@@ -1232,6 +1251,7 @@ export class AppComponent implements OnInit {
         this.showIADropdown = false;
         this.showToolsDropdown = false;
         this.showLinksDropdown = false;
+        this.showIotDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
     }
@@ -1241,6 +1261,7 @@ export class AppComponent implements OnInit {
         this.showIADropdown = false;
         this.showToolsDropdown = false;
         this.showLinksDropdown = false;
+        this.showIotDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
     }
@@ -1276,6 +1297,7 @@ export class AppComponent implements OnInit {
         const isIADropdown = target.closest('#aiDropdown') || target.closest('[aria-labelledby="aiDropdown"]');
         const isLinksDropdown = target.closest('#linksDropdown') || target.closest('[aria-labelledby="linksDropdown"]');
         const isToolsDropdown = target.closest('#toolsDropdown') || target.closest('[aria-labelledby="toolsDropdown"]');
+        const isIotDropdown = target.closest('#iotDropdown') || target.closest('[aria-labelledby="iotDropdown"]');
         const isAISubmenu = target.closest('.ai-submenu-list') || target.closest('[aria-labelledby="aiSubmenu"]');
         const isLanguageSubmenu = target.closest('.language-submenu-list') || target.closest('[aria-labelledby="languageSubmenu"]');
         const isDocumentationSubmenu = target.closest('.documentation-submenu-list') || target.closest('[aria-labelledby="documentationSubmenu"]');
@@ -1283,7 +1305,7 @@ export class AppComponent implements OnInit {
         const isDropdownItem = target.closest('.dropdown-item');
         
         // If click is outside all dropdowns, navbar, and dropdown items, close them
-        if (!isEventsDropdown && !isIADropdown && !isToolsDropdown && !isLinksDropdown && !isAISubmenu && !isLanguageSubmenu && !isDocumentationSubmenu && !isNavbar && !isDropdownItem) {
+        if (!isEventsDropdown && !isIADropdown && !isToolsDropdown && !isLinksDropdown && !isIotDropdown && !isAISubmenu && !isLanguageSubmenu && !isDocumentationSubmenu && !isNavbar && !isDropdownItem) {
             this.closeDropdowns();
         }
     }

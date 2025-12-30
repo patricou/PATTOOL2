@@ -1,0 +1,411 @@
+<!-- Standard Title Section -->
+<div class="pat-title">
+    <h2>{{ "LOCAL_NETWORK.TITLE" | translate }}</h2>
+    <app-navigation-buttons></app-navigation-buttons>
+</div>
+
+<!-- Main Content -->
+<div class="container mt-0">
+    <div class="row justify-content-center">
+        <div class="col-12">
+            
+            <!-- Admin Check Message -->
+            <div *ngIf="!keycloakService.hasAdminRole()" class="alert alert-danger alert-sm py-2">
+                <i class="fa fa-exclamation-triangle"></i>
+                {{ "LOCAL_NETWORK.ACCESS_DENIED" | translate }}
+            </div>
+
+            <!-- Scan Control Section -->
+            <div class="scan-control-section" *ngIf="keycloakService.hasAdminRole()">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fa fa-network-wired"></i> {{ "LOCAL_NETWORK.SCAN_CONTROL" | translate }}</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="scan-buttons">
+                            <button (click)="startScan()" 
+                                    class="btn btn-primary btn-sm" 
+                                    [disabled]="isScanning">
+                                <i class="fa fa-search" *ngIf="!isScanning"></i>
+                                <i class="fa fa-spinner fa-spin" *ngIf="isScanning"></i>
+                                {{ isScanning ? ("LOCAL_NETWORK.SCANNING" | translate) : ("LOCAL_NETWORK.START_SCAN" | translate) }}
+                            </button>
+                            <button (click)="openRouterInterface()" 
+                                    class="btn btn-secondary btn-sm"
+                                    [title]="'LOCAL_NETWORK.OPEN_ROUTER_TOOLTIP' | translate">
+                                <i class="fa fa-wifi"></i>
+                                {{ "LOCAL_NETWORK.OPEN_ROUTER" | translate }}
+                            </button>
+                            <button (click)="openDeviceMappingsModal()" 
+                                    class="btn btn-info btn-sm"
+                                    [title]="'LOCAL_NETWORK.VIEW_MAPPINGS_TOOLTIP' | translate">
+                                <i class="fa fa-database"></i>
+                                {{ "LOCAL_NETWORK.VIEW_MAPPINGS" | translate }}
+                            </button>
+                        </div>
+                        
+                        <!-- Progress Section -->
+                        <div *ngIf="isScanning || scanProgress > 0" class="progress-section mt-3">
+                            <div class="progress mb-2">
+                                <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar"
+                                     [attr.aria-valuenow]="scanProgress"
+                                     aria-valuemin="0"
+                                     aria-valuemax="100"
+                                     [style.width.%]="scanProgress">
+                                    {{ scanProgress }}%
+                                </div>
+                            </div>
+                            <div class="progress-info text-muted small">
+                                <span *ngIf="isScanning">
+                                    <i class="fa fa-spinner fa-spin"></i>
+                                    {{ "LOCAL_NETWORK.SCANNING" | translate }}: {{ scanProgressText }}
+                                    <span *ngIf="devices.length > 0"> - {{ devices.length }} {{ "LOCAL_NETWORK.DEVICES_FOUND" | translate }}</span>
+                                </span>
+                                <span *ngIf="!isScanning && scanProgress === 100">
+                                    <i class="fa fa-check-circle text-success"></i>
+                                    {{ "LOCAL_NETWORK.SCAN_COMPLETE" | translate }}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div *ngIf="lastScanTime" class="mt-2 text-muted">
+                            <i class="fa fa-clock-o"></i>
+                            {{ "LOCAL_NETWORK.LAST_SCAN" | translate }}: {{ lastScanTime | date:'short' }}
+                        </div>
+
+                        <div *ngIf="errorMessage" class="alert alert-danger mt-3">
+                            <i class="fa fa-exclamation-circle"></i> {{ errorMessage }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Section -->
+            <div class="statistics-section mt-4" *ngIf="devices.length > 0">
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-value">{{ devices.length }}</div>
+                            <div class="stat-label">{{ "LOCAL_NETWORK.DEVICES_FOUND" | translate }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-value text-danger">{{ getCriticalVulnerabilities() }}</div>
+                            <div class="stat-label">{{ "LOCAL_NETWORK.CRITICAL_VULN" | translate }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-value text-warning">{{ getHighVulnerabilities() }}</div>
+                            <div class="stat-label">{{ "LOCAL_NETWORK.HIGH_VULN" | translate }}</div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card">
+                            <div class="stat-value">{{ getTotalVulnerabilities() }}</div>
+                            <div class="stat-label">{{ "LOCAL_NETWORK.TOTAL_VULN" | translate }}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Devices List -->
+            <div class="devices-section mt-4" *ngIf="devices.length > 0">
+                <h3><i class="fa fa-list"></i> {{ "LOCAL_NETWORK.DEVICES" | translate }}</h3>
+                
+                <div class="devices-grid">
+                    <div class="device-card" *ngFor="let device of devices">
+                    <div class="device-header" [ngClass]="getDeviceHeaderClass(device)">
+                        <div class="device-header-content">
+                            <div class="device-title-section">
+                                <h4 class="device-title">
+                                    <i class="fa" [ngClass]="getDeviceIcon(device)"></i>
+                                    <span class="device-name">{{ getDeviceDisplayName(device) }}</span>
+                                </h4>
+                                <div class="device-subtitle" *ngIf="device.hostname && device.hostname !== device.ipAddress && device.hostname !== getDeviceDisplayName(device)">
+                                    <i class="fa fa-tag"></i>
+                                    <span>{{ device.hostname }}</span>
+                                </div>
+                            </div>
+                            <div class="device-header-actions">
+                                <button (click)="openDeviceUrl(device)" 
+                                        class="btn btn-xs btn-light device-open-btn"
+                                        [title]="'LOCAL_NETWORK.OPEN_HTTP_TOOLTIP' | translate">
+                                    <i class="fa fa-link"></i>
+                                    {{ "LOCAL_NETWORK.OPEN_HTTP" | translate }}
+                                </button>
+                                <span class="badge device-status-badge" [ngClass]="{
+                                    'badge-success': device.status === 'online',
+                                    'badge-secondary': device.status === 'offline',
+                                    'badge-warning': device.status === 'unknown'
+                                }">
+                                    {{ device.status }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="device-body">
+                        <!-- Basic Information -->
+                        <div class="device-info-grid">
+                            <div class="info-item" *ngIf="device.hostname && device.hostname !== device.ipAddress">
+                                <i class="fa fa-tag"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.HOSTNAME" | translate }}</strong>
+                                    <div>{{ device.hostname }}</div>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <i class="fa fa-network-wired"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.IP_ADDRESS" | translate }}</strong>
+                                    <div>{{ device.ipAddress }}</div>
+                                </div>
+                            </div>
+                            <div class="info-item" style="display: flex !important;">
+                                <i class="fa fa-cube"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.DEVICE_TYPE" | translate }}</strong>
+                                    <div>
+                                        <span class="badge badge-primary" style="font-size: 0.7rem; padding: 0.2rem 0.4rem; color: #000;">
+                                            {{ (device.deviceType && device.deviceType !== 'null' && device.deviceType !== 'undefined') ? device.deviceType : ("LOCAL_NETWORK.UNKNOWN_DEVICE_TYPE" | translate) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="info-item" *ngIf="device.macAddress">
+                                <i class="fa fa-fingerprint"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}</strong>
+                                    <div>{{ device.macAddress }}</div>
+                                </div>
+                            </div>
+                            <div class="info-item" *ngIf="device.vendor">
+                                <i class="fa fa-industry"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.VENDOR" | translate }}</strong>
+                                    <div>{{ device.vendor }}</div>
+                                </div>
+                            </div>
+                            <div class="info-item" *ngIf="device.os">
+                                <i class="fa fa-laptop"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.OS" | translate }}</strong>
+                                    <div>{{ device.os }}</div>
+                                </div>
+                            </div>
+                            <div class="info-item" *ngIf="device.webInterface">
+                                <i class="fa fa-globe"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.WEB_INTERFACE" | translate }}</strong>
+                                    <div>
+                                        <a [href]="device.webUrl" 
+                                           target="_blank" 
+                                           class="btn btn-xs btn-success web-interface-btn"
+                                           [title]="('LOCAL_NETWORK.OPEN_DETECTED_TOOLTIP' | translate) + ': ' + device.webUrl">
+                                            <i class="fa fa-globe"></i> 
+                                            {{ "LOCAL_NETWORK.OPEN_DETECTED" | translate }}
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="info-item" *ngIf="device.databaseServer">
+                                <i class="fa fa-database"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.DATABASE" | translate }}</strong>
+                                    <div><span class="badge badge-warning">{{ device.databaseServer }}</span></div>
+                                </div>
+                            </div>
+                            <div class="info-item" *ngIf="device.fileSharing">
+                                <i class="fa fa-folder-open"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.FILE_SHARING" | translate }}</strong>
+                                    <div><span class="badge badge-info">{{ "LOCAL_NETWORK.ENABLED" | translate }}</span></div>
+                                </div>
+                            </div>
+                            <div class="info-item" *ngIf="device.remoteAccess">
+                                <i class="fa fa-terminal"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.REMOTE_ACCESS" | translate }}</strong>
+                                    <div><span class="badge badge-secondary">{{ device.remoteAccess }}</span></div>
+                                </div>
+                            </div>
+                            <div class="info-item" *ngIf="device.lastSeen">
+                                <i class="fa fa-clock-o"></i>
+                                <div>
+                                    <strong>{{ "LOCAL_NETWORK.LAST_SEEN" | translate }}</strong>
+                                    <div>{{ device.lastSeen | date:'short' }}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Services and Ports Details -->
+                        <div *ngIf="hasServices(device.services)" class="services-section mt-3">
+                            <h5><i class="fa fa-server"></i> {{ "LOCAL_NETWORK.SERVICES" | translate }}</h5>
+                            <div class="services-list">
+                                <div class="service-item" *ngFor="let service of getServicesArray(device.services)">
+                                    <div class="service-header">
+                                        <span class="badge badge-info">{{ service.port }}</span>
+                                        <strong>{{ service.service }}</strong>
+                                        <span *ngIf="service.version" class="service-version">
+                                            v{{ service.version }}
+                                        </span>
+                                        <a [href]="'http://' + device.ipAddress + ':' + service.port" 
+                                           target="_blank" 
+                                           class="btn btn-xs btn-primary port-link">
+                                            <i class="fa fa-link"></i> HTTP
+                                        </a>
+                                        <a [href]="'https://' + device.ipAddress + ':' + service.port" 
+                                           target="_blank" 
+                                           class="btn btn-xs btn-success port-link">
+                                            <i class="fa fa-lock"></i> HTTPS
+                                        </a>
+                                    </div>
+                                    <div class="service-details" *ngIf="service.banner || service.server || service.poweredBy">
+                                        <small class="text-muted">
+                                            <span *ngIf="service.server">{{ "LOCAL_NETWORK.SERVER" | translate }}: {{ service.server }}</span>
+                                            <span *ngIf="service.poweredBy"> | {{ "LOCAL_NETWORK.POWERED_BY" | translate }}: {{ service.poweredBy }}</span>
+                                            <span *ngIf="service.banner && !service.server"> | {{ service.banner }}</span>
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Open Ports (if no detailed services) -->
+                        <div *ngIf="device.openPorts && device.openPorts.length > 0 && !hasServices(device.services)" class="ports-section mt-3">
+                            <h5><i class="fa fa-plug"></i> {{ "LOCAL_NETWORK.OPEN_PORTS" | translate }}</h5>
+                            <div class="ports-list">
+                                <div class="port-item" *ngFor="let port of device.openPorts">
+                                    <span class="badge badge-info">{{ port }}</span>
+                                    <a [href]="'http://' + device.ipAddress + ':' + port" 
+                                       target="_blank" 
+                                       class="btn btn-xs btn-primary port-link">
+                                        <i class="fa fa-link"></i> HTTP
+                                    </a>
+                                    <a [href]="'https://' + device.ipAddress + ':' + port" 
+                                       target="_blank" 
+                                       class="btn btn-xs btn-success port-link">
+                                        <i class="fa fa-lock"></i> HTTPS
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Vulnerabilities Section -->
+                        <div *ngIf="device.vulnerabilities && device.vulnerabilities.length > 0" class="vulnerabilities-section mt-3">
+                            <h5><i class="fa fa-shield"></i> {{ "LOCAL_NETWORK.VULNERABILITIES" | translate }}</h5>
+                            <div class="vulnerability-item" *ngFor="let vuln of device.vulnerabilities">
+                                <div class="vulnerability-header">
+                                    <span class="badge" [ngClass]="getSeverityClass(vuln.severity)">
+                                        {{ vuln.severity }}
+                                    </span>
+                                    <strong>{{ vuln.type }}</strong>
+                                    <span *ngIf="vuln.port" class="text-muted ml-2">
+                                        ({{ "LOCAL_NETWORK.PORT" | translate }}: {{ vuln.port }})
+                                    </span>
+                                </div>
+                                <p class="vulnerability-description">{{ vuln.description }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state mt-4" *ngIf="!isLoading && devices.length === 0 && !errorMessage && !isScanning">
+                <div class="text-center">
+                    <i class="fa fa-network-wired fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">{{ "LOCAL_NETWORK.NO_SCAN_YET" | translate }}</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Device Mappings Modal -->
+<ng-template #deviceMappingsModal let-c="close" let-d="dismiss">
+    <div class="modal-header slideshow-header">
+        <h5 class="modal-title">
+            <i class="fa fa-database"></i> {{ "LOCAL_NETWORK.DEVICE_MAPPINGS_TITLE" | translate }}
+        </h5>
+        <div class="d-flex align-items-center gap-2 ms-auto">
+            <button (click)="reloadDeviceMappings()" 
+                    class="btn btn-outline-light btn-sm"
+                    [disabled]="isReloadingMappings"
+                    [title]="'Recharger depuis CSV'">
+                <i class="fa fa-refresh" [class.fa-spin]="isReloadingMappings"></i>
+                <span *ngIf="!isReloadingMappings">{{ "LOCAL_NETWORK.RELOAD_MAPPINGS" | translate }}</span>
+                <span *ngIf="isReloadingMappings">{{ "LOCAL_NETWORK.RELOADING" | translate }}</span>
+            </button>
+            <button type="button" 
+                    class="btn btn-outline-light btn-sm rounded-circle" 
+                    (click)="closeDeviceMappingsModal()" 
+                    [attr.aria-label]="'COMMUN.CLOSE' | translate"
+                    style="min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0;">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+    </div>
+    <div class="modal-body slideshow-body" style="padding: 20px; overflow-y: auto;">
+        <div *ngIf="isLoadingMappings" class="text-center text-white">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2">{{ "LOCAL_NETWORK.LOADING_MAPPINGS" | translate }}</p>
+        </div>
+        
+        <div *ngIf="mappingsInfo && !isLoadingMappings" class="alert alert-info mb-3">
+            <i class="fa fa-info-circle"></i>
+            {{ mappingsInfo }}
+        </div>
+        
+        <div *ngIf="mappingsError" class="alert alert-danger mb-3">
+            <i class="fa fa-exclamation-triangle"></i>
+            <strong>Erreur:</strong> {{ mappingsError }}
+        </div>
+        
+        <div *ngIf="!isLoadingMappings && deviceMappings.length === 0 && !mappingsError && !mappingsInfo" class="text-center text-white mb-3">
+            <i class="fa fa-info-circle fa-2x"></i>
+            <p class="mt-2">{{ "LOCAL_NETWORK.NO_MAPPINGS" | translate }}</p>
+        </div>
+        <div *ngIf="!isLoadingMappings && deviceMappings.length > 0" class="device-mappings-list">
+            <div class="table-responsive">
+                <table class="table table-dark table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th style="cursor: default;">#</th>
+                            <th (click)="sortMappings('ipAddress')" 
+                                [class.sortable]="true"
+                                [title]="'Cliquer pour trier par IP'">
+                                {{ "LOCAL_NETWORK.IP_ADDRESS" | translate }}
+                                <i class="fa" [ngClass]="getSortIcon('ipAddress')" style="margin-left: 5px;"></i>
+                            </th>
+                            <th (click)="sortMappings('deviceName')" 
+                                [class.sortable]="true"
+                                [title]="'Cliquer pour trier par nom'">
+                                {{ "LOCAL_NETWORK.DEVICE_NAME" | translate }}
+                                <i class="fa" [ngClass]="getSortIcon('deviceName')" style="margin-left: 5px;"></i>
+                            </th>
+                            <th style="cursor: default;">{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let mapping of sortedDeviceMappings; let i = index">
+                            <td>{{ mapping.deviceNumber || (i + 1) }}</td>
+                            <td><code>{{ mapping.ipAddress }}</code></td>
+                            <td><strong>{{ mapping.deviceName }}</strong></td>
+                            <td><code>{{ mapping.macAddress || '-' }}</code></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-center text-white mt-3">
+                <small>{{ "LOCAL_NETWORK.TOTAL_MAPPINGS" | translate }}: {{ deviceMappings.length }}</small>
+            </div>
+        </div>
+    </div>
+</ng-template>
+

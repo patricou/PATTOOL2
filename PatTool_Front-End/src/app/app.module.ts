@@ -31,6 +31,7 @@ import { LinksAdminComponent } from './admin/links-admin/links-admin.component';
 import { HashLocationStrategy, LocationStrategy } from '@angular/common';
 import { UnsavedChangesGuard } from './guards/unsaved-changes.guard';
 import { IotService } from './services/iot.service';
+import { LocalNetworkService } from './services/local-network.service';
 import { NavigationButtonsModule } from './shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from './shared/slideshow-modal/slideshow-modal.module';
 import { TraceViewerModalModule } from './shared/trace-viewer-modal/trace-viewer-modal.module';
@@ -101,6 +102,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./iothome/iothome.component').then(m => m.IothomeComponent)
 			},
 			{ 
+				path: 'iot/local-network', 
+				loadComponent: () => import('./local-network/local-network.component').then(m => m.LocalNetworkComponent)
+			},
+			{ 
 				path: 'system', 
 				loadComponent: () => import('./system/system.component').then(m => m.SystemComponent)
 			},
@@ -114,6 +119,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		FileService,
 		CommonvaluesService,
 		IotService,
+		LocalNetworkService,
 		CacheService,
 		FriendsService, // Provided globally because used by HomeEvenementsComponent (eager-loaded)
 		// to be able to do F5 in prod		

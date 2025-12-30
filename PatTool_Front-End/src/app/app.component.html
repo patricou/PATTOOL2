@@ -136,13 +136,30 @@
                 </ul>
             </li>
 
-            <!-- IoT (only visible if user has Iot role) -->
-            <li class="nav-item" *ngIf="hasIotRole">
-                <a class="nav-link" 
-                   [routerLink]="['iot']" 
-                   (click)="closeMenu()">
+            <!-- IoT Dropdown (only visible if user has Iot role) -->
+            <li class="nav-item dropdown" *ngIf="hasIotRole">
+                <a class="nav-link dropdown-toggle" 
+                   href="#" 
+                   id="iotDropdown" 
+                   role="button"
+                   (click)="toggleIotDropdown($event)" 
+                   [attr.aria-expanded]="showIotDropdown">
                     <i class="fa fa-wifi"></i> {{ 'MENU.IOT' | translate }}
                 </a>
+                <ul class="dropdown-menu" 
+                    [class.show]="showIotDropdown" 
+                    aria-labelledby="iotDropdown">
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['iot']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-home"></i> {{ 'MENU.IOT_HOME' | translate }}
+                    </a></li>
+                    <li *ngIf="hasAdminRole()"><a class="dropdown-item" 
+                           [routerLink]="['iot/local-network']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-sitemap"></i> {{ 'MENU.LOCAL_NETWORK' | translate }}
+                    </a></li>
+                </ul>
             </li>
 
             <!-- Tools Dropdown -->

@@ -1,0 +1,728 @@
+.scan-control-section {
+    margin-bottom: 1rem;
+}
+
+.scan-control-section .card {
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+.scan-control-section .card-header {
+    background-color: #007bff;
+    color: white;
+    border-bottom: none;
+    padding: 0.5rem 0.75rem;
+}
+
+.scan-control-section .card-header h3 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.scan-control-section .card-body {
+    padding: 0.75rem;
+}
+
+.scan-buttons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.statistics-section {
+    margin-bottom: 1rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.75rem;
+    border-radius: 4px;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.devices-section {
+    margin-top: 1rem;
+}
+
+.devices-section h3 {
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+}
+
+.devices-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+.device-card {
+    background: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.device-card:hover {
+    box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    transform: translateY(-1px);
+}
+
+.device-header {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%); /* Green default (safe) */
+    color: white;
+    padding: 0.5rem 0.6rem;
+    border-radius: 6px 6px 0 0;
+    transition: background 0.3s ease;
+}
+
+/* Header colors based on vulnerabilities */
+.device-header-safe {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important; /* Green - no vulnerabilities */
+}
+
+.device-header-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important; /* Red - high vulnerability */
+}
+
+.device-header-warning {
+    background: linear-gradient(135deg, #fd7e14 0%, #e8650e 100%) !important; /* Orange - low vulnerability */
+}
+
+.device-header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.device-title-section {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 0.15rem;
+}
+
+.device-title {
+    margin: 0;
+    padding: 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    line-height: 1.3;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.device-title i {
+    font-size: 0.8rem;
+    flex-shrink: 0;
+    opacity: 0.95;
+}
+
+.device-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.device-subtitle {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    opacity: 0.85;
+    margin-left: 1.2rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.device-subtitle i {
+    font-size: 0.65rem;
+    flex-shrink: 0;
+}
+
+.device-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    flex-shrink: 0;
+}
+
+.device-status-badge {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.4rem;
+    white-space: nowrap;
+}
+
+.device-open-btn, .web-interface-btn {
+    white-space: nowrap;
+    font-size: 0.5rem;
+    padding: 0.05rem 0.2rem;
+    margin-left: auto;
+    line-height: 1;
+    min-width: auto;
+    height: auto;
+    border-radius: 3px;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.device-open-btn i, .web-interface-btn i {
+    font-size: 0.45rem;
+    margin-right: 0.15rem;
+}
+
+.btn-xs {
+    padding: 0.05rem 0.2rem;
+    font-size: 0.5rem;
+    line-height: 1.2;
+    border-radius: 3px;
+}
+
+.web-interface-btn {
+    margin-top: 0.1rem;
+}
+
+.device-body {
+    padding: 0.5rem;
+    font-size: 0.75rem;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.device-info-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.3rem;
+}
+
+.info-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4rem;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.info-item:last-child {
+    border-bottom: none;
+}
+
+.info-item i {
+    color: #667eea;
+    font-size: 0.75rem;
+    margin-top: 0.15rem;
+    min-width: 14px;
+}
+
+.info-item strong {
+    display: block;
+    font-size: 0.65rem;
+    color: #6c757d;
+    margin-bottom: 0.15rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.info-item > div {
+    flex: 1;
+    font-size: 0.75rem;
+    line-height: 1.3;
+}
+
+.vulnerabilities-section {
+    border-top: 1px solid #dee2e6;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.vulnerabilities-section h5 {
+    color: #dc3545;
+    margin-bottom: 0.4rem;
+    font-size: 0.75rem;
+}
+
+.vulnerability-item {
+    background: #f8f9fa;
+    border-left: 2px solid #dc3545;
+    padding: 0.3rem;
+    margin-bottom: 0.3rem;
+    border-radius: 2px;
+}
+
+.vulnerability-header {
+    display: flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin-bottom: 0.15rem;
+    font-size: 0.7rem;
+    flex-wrap: wrap;
+}
+
+.vulnerability-header .badge {
+    font-size: 0.6rem;
+    padding: 0.1rem 0.25rem;
+}
+
+.vulnerability-header strong {
+    font-size: 0.7rem;
+}
+
+.vulnerability-description {
+    margin: 0;
+    color: #6c757d;
+    font-size: 0.65rem;
+    line-height: 1.2;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 1.5rem;
+    color: #6c757d;
+    font-size: 0.9rem;
+}
+
+.empty-state i {
+    font-size: 2rem;
+}
+
+.services-section, .ports-section {
+    border-top: 1px solid #dee2e6;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+.services-section h5, .ports-section h5 {
+    font-size: 0.75rem;
+    margin-bottom: 0.4rem;
+    color: #495057;
+}
+
+.services-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.service-item {
+    background: #f8f9fa;
+    border-left: 2px solid #17a2b8;
+    padding: 0.3rem;
+    border-radius: 2px;
+    font-size: 0.7rem;
+}
+
+.service-header {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-bottom: 0.15rem;
+    flex-wrap: wrap;
+}
+
+.service-header .port-link {
+    margin-left: 0.2rem;
+}
+
+.service-header .badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.3rem;
+}
+
+.service-header strong {
+    font-size: 0.7rem;
+}
+
+.service-version {
+    color: #6c757d;
+    font-size: 0.65rem;
+    font-weight: normal;
+}
+
+.service-details {
+    margin-top: 0.15rem;
+    padding-left: 0.3rem;
+    font-size: 0.65rem;
+}
+
+.ports-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+}
+
+.port-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.2rem;
+    margin-right: 0.3rem;
+    margin-bottom: 0.2rem;
+}
+
+.port-item .badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.3rem;
+    min-width: 35px;
+}
+
+.port-link {
+    font-size: 0.5rem;
+    padding: 0.05rem 0.2rem;
+    text-decoration: none;
+    white-space: nowrap;
+    line-height: 1.2;
+    border-radius: 3px;
+}
+
+.port-link i {
+    font-size: 0.45rem;
+    margin-right: 0.1rem;
+}
+
+.service-port-links {
+    display: inline-flex;
+    gap: 0.2rem;
+    margin-left: 0.3rem;
+}
+
+.progress {
+    height: 18px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+}
+
+.progress-bar {
+    font-weight: bold;
+    font-size: 0.75rem;
+}
+
+.badge {
+    padding: 0.2em 0.4em;
+    font-size: 0.75rem;
+}
+
+.badge-danger {
+    background-color: #dc3545;
+}
+
+.badge-warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.badge-info {
+    background-color: #17a2b8;
+}
+
+.badge-secondary {
+    background-color: #6c757d;
+}
+
+.badge-success {
+    background-color: #28a745;
+}
+
+.badge-light {
+    background-color: #f8f9fa;
+    color: #212529;
+}
+
+.alert-sm {
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.btn-sm {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+}
+
+.pat-title h2 {
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.container {
+    font-size: 0.9rem;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1400px) {
+    .devices-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+@media (max-width: 1200px) {
+    .devices-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 992px) {
+    .devices-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 768px) {
+    .stat-value {
+        font-size: 1.25rem;
+    }
+    
+    .stat-label {
+        font-size: 0.7rem;
+    }
+    
+    .devices-grid {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    
+    .device-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.25rem;
+        padding: 0.35rem 0.4rem;
+    }
+    
+    .device-body {
+        padding: 0.4rem;
+        font-size: 0.7rem;
+    }
+    
+    .device-info h4 {
+        font-size: 0.75rem;
+    }
+    
+    .info-item {
+        padding: 0.2rem 0;
+    }
+    
+    .info-item i {
+        font-size: 0.7rem;
+    }
+    
+    .info-item strong {
+        font-size: 0.6rem;
+    }
+    
+    .info-item > div {
+        font-size: 0.7rem;
+    }
+}
+
+/* Device Mappings Modal - Aligned with slideshow colors */
+/* Limit modal height to viewport height */
+::ng-deep .slideshow-modal-wide .modal-dialog {
+    max-height: 90vh !important;
+    margin: 1.75rem auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+::ng-deep .slideshow-modal-wide .modal-content {
+    max-height: 90vh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+}
+
+/* White border around the device mappings modal - same as slideshow */
+::ng-deep .modal.show .modal-dialog .modal-content:has(.slideshow-header),
+::ng-deep .modal.show .modal-dialog .modal-content:has(.slideshow-body),
+::ng-deep .modal.show:has(.slideshow-header) .modal-content,
+::ng-deep .modal.show:has(.slideshow-body) .modal-content,
+::ng-deep .slideshow-modal-wide .modal-content:has(.slideshow-header),
+::ng-deep .slideshow-modal-wide .modal-content:has(.slideshow-body) {
+    border: 4px solid var(--slideshow-border, white) !important;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Ensure slideshow-header uses exact same gradient as slideshow */
+::ng-deep .modal-header.slideshow-header {
+    background: var(--slideshow-header-bg, linear-gradient(135deg, #28a745 0%, #20c997 100%)) !important;
+    color: var(--slideshow-header-text, white) !important;
+    border: none !important;
+}
+
+::ng-deep .modal-header.slideshow-header .modal-title {
+    color: var(--slideshow-header-text, white) !important;
+    font-weight: 600 !important;
+}
+
+/* Ensure slideshow-body has black background - override any inline styles */
+::ng-deep .modal-body.slideshow-body,
+::ng-deep .modal-body.slideshow-body[style*="background"],
+::ng-deep .modal-body.slideshow-body[style*="background-color"],
+::ng-deep .slideshow-modal-wide .modal-body.slideshow-body {
+    background: #000 !important;
+    background-color: #000 !important;
+    color: white !important;
+    max-height: calc(90vh - 60px) !important; /* Subtract header height */
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+/* Device mappings list styling */
+::ng-deep .device-mappings-list {
+    color: white !important;
+}
+
+::ng-deep .device-mappings-list .table-dark {
+    background-color: #000 !important;
+    color: white !important;
+}
+
+::ng-deep .device-mappings-list .table-dark thead th {
+    background-color: rgba(40, 167, 69, 0.2) !important;
+    color: white !important;
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+::ng-deep .device-mappings-list .table-dark tbody tr {
+    background-color: transparent !important;
+    color: white !important;
+}
+
+::ng-deep .device-mappings-list .table-dark tbody tr:hover {
+    background-color: rgba(40, 167, 69, 0.1) !important;
+}
+
+::ng-deep .device-mappings-list .table-dark tbody tr td {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: white !important;
+}
+
+::ng-deep .device-mappings-list .table-dark tbody tr td code {
+    background-color: rgba(40, 167, 69, 0.2) !important;
+    color: #4CAF50 !important;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+::ng-deep .device-mappings-list .table-dark tbody tr td strong {
+    color: white !important;
+}
+
+/* Alerts in slideshow body */
+::ng-deep .slideshow-body .alert-info {
+    background-color: rgba(40, 167, 69, 0.2) !important;
+    border-color: rgba(40, 167, 69, 0.5) !important;
+    color: #4CAF50 !important;
+}
+
+::ng-deep .slideshow-body .alert-danger {
+    background-color: rgba(220, 53, 69, 0.2) !important;
+    border-color: rgba(220, 53, 69, 0.5) !important;
+    color: #ff6b6b !important;
+}
+
+::ng-deep .slideshow-body .alert-danger strong {
+    color: #ff6b6b !important;
+}
+
+/* Text colors in slideshow body */
+::ng-deep .slideshow-body .text-white,
+::ng-deep .slideshow-body p,
+::ng-deep .slideshow-body div:not(.alert) {
+    color: white !important;
+}
+
+::ng-deep .slideshow-body .text-muted {
+    color: rgba(255, 255, 255, 0.6) !important;
+}
+
+::ng-deep .slideshow-body small {
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Buttons in slideshow header - match slideshow styles exactly */
+::ng-deep .slideshow-header .btn,
+::ng-deep .slideshow-header .btn i {
+    position: relative;
+    z-index: 20001;
+    pointer-events: auto;
+}
+
+::ng-deep .slideshow-header .btn-outline-light,
+::ng-deep .slideshow-header .btn-outline-info {
+    border-color: var(--slideshow-button-border, rgba(255, 255, 255, 0.5)) !important;
+    color: var(--slideshow-button-text, white) !important;
+    background-color: transparent !important;
+}
+
+::ng-deep .slideshow-header .btn-outline-light:hover:not(:disabled),
+::ng-deep .slideshow-header .btn-outline-info:hover:not(:disabled) {
+    background: var(--slideshow-button-hover-bg, rgba(255, 255, 255, 0.1)) !important;
+    border-color: var(--slideshow-button-border, rgba(255, 255, 255, 0.8)) !important;
+    color: var(--slideshow-button-text, white) !important;
+}
+
+::ng-deep .slideshow-header .btn-outline-light:disabled,
+::ng-deep .slideshow-header .btn-outline-info:disabled {
+    opacity: 0.3 !important;
+    cursor: not-allowed !important;
+}
+
+/* Sortable table headers */
+::ng-deep .device-mappings-list .table-dark thead th.sortable {
+    cursor: pointer !important;
+    user-select: none;
+    transition: background-color 0.2s;
+}
+
+::ng-deep .device-mappings-list .table-dark thead th.sortable:hover {
+    background-color: rgba(40, 167, 69, 0.3) !important;
+}
+
+::ng-deep .device-mappings-list .table-dark thead th.sortable i {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    margin-left: 5px;
+}
+
+::ng-deep .device-mappings-list .table-dark thead th.sortable:hover i {
+    opacity: 1;
+}
+

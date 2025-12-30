@@ -13,7 +13,11 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
+import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
 
 import java.net.InetAddress;
 import java.time.LocalDateTime;
@@ -21,6 +25,27 @@ import java.time.format.DateTimeFormatter;
 
 @SpringBootApplication(scanBasePackages = {"com.pat"})
 @EnableScheduling
+@EnableMongoRepositories(basePackages = "com.pat.repo")
+// Exclude MongoDB repositories from JPA scanning to avoid warnings
+// Only ChatRequestRepository should be processed as a JPA repository
+@EnableJpaRepositories(
+    basePackages = "com.pat.repo",
+    excludeFilters = @ComponentScan.Filter(
+        type = FilterType.ASSIGNABLE_TYPE,
+        classes = {
+            com.pat.repo.CategoryLinkRepository.class,
+            com.pat.repo.DiscussionRepository.class,
+            com.pat.repo.EvenementsRepository.class,
+            com.pat.repo.FriendGroupRepository.class,
+            com.pat.repo.FriendRepository.class,
+            com.pat.repo.FriendRequestRepository.class,
+            com.pat.repo.MembersRepository.class,
+            com.pat.repo.NetworkDeviceMappingRepository.class,
+            com.pat.repo.UrlLinkRepository.class,
+            com.pat.repo.UserConnectionLogRepository.class
+        }
+    )
+)
 public class PatToolApplication implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(PatToolApplication.class);
