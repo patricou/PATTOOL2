@@ -171,6 +171,7 @@ export class FriendsComponent implements OnInit {
   public selectedUserCountryCode: string = '+33'; // Default to France
   public availableLocales: string[] = ['ar', 'cn', 'de', 'el', 'en', 'es', 'fr', 'he', 'it', 'jp', 'ru'];
   public selectedUserFriends: Friend[] = []; // Friends of the selected user (for admin view)
+  public adminModeCollapsed: boolean = true; // Admin mode section collapsed by default
   // Store original values to prevent overwriting with admin values
   private originalSelectedUserRoles: string[] = [];
   private originalSelectedUserKeycloakId: string = '';
@@ -1964,6 +1965,8 @@ export class FriendsComponent implements OnInit {
       this.originalSelectedUserLastConnectionDate = undefined;
       return;
     }
+    // Open admin mode section when selecting a user
+    this.adminModeCollapsed = false;
     const user = this.allUsers.find(u => u.id === userId);
     if (user) {
       // Store original values to prevent overwriting with admin values

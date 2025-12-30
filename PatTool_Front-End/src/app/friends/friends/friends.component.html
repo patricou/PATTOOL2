@@ -536,13 +536,14 @@
         
         <!-- Admin: Select user to update -->
         <div *ngIf="hasAdminRole()" class="admin-user-select-container mb-4">
-          <div class="admin-select-header">
+          <div class="admin-select-header" (click)="adminModeCollapsed = !adminModeCollapsed" style="cursor: pointer;">
             <div class="admin-badge">
               <i class="fa fa-shield-alt me-2"></i>
               <span>{{ 'FRIENDS.ADMIN_MODE' | translate }}</span>
             </div>
+            <i class="fa" [ngClass]="{'fa-chevron-down': adminModeCollapsed, 'fa-chevron-up': !adminModeCollapsed}" style="margin-left: auto; transition: transform 0.3s ease; font-size: 0.75rem;"></i>
           </div>
-          <div class="admin-select-body">
+          <div class="admin-select-body" *ngIf="!adminModeCollapsed">
             <label class="admin-select-label">
               <i class="fa fa-user-cog me-2"></i>
               <strong>{{ 'FRIENDS.SELECT_USER_TO_UPDATE' | translate }}</strong>
