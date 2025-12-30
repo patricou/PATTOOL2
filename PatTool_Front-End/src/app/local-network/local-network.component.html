@@ -7,16 +7,10 @@
 <!-- Main Content -->
 <div class="container mt-0">
     <div class="row justify-content-center">
-        <div class="col-12">
+        <div class="col-12" *ngIf="isAuthorized">
             
-            <!-- Admin Check Message -->
-            <div *ngIf="!keycloakService.hasAdminRole()" class="alert alert-danger alert-sm py-2">
-                <i class="fa fa-exclamation-triangle"></i>
-                {{ "LOCAL_NETWORK.ACCESS_DENIED" | translate }}
-            </div>
-
             <!-- Scan Control Section -->
-            <div class="scan-control-section" *ngIf="keycloakService.hasAdminRole()">
+            <div class="scan-control-section">
                 <div class="card">
                     <div class="card-header">
                         <h3><i class="fa fa-network-wired"></i> {{ "LOCAL_NETWORK.SCAN_CONTROL" | translate }}</h3>

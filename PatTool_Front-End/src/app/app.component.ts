@@ -127,7 +127,7 @@ export class AppComponent implements OnInit {
 
     navigateToHome(event: Event): void {
         // Only navigate if no dropdowns are open and it's not a dropdown trigger
-        if (!this.showEventsDropdown && !this.showIADropdown && !this.showToolsDropdown) {
+        if (!this.showEventsDropdown && !this.showIADropdown && !this.showToolsDropdown && !this.showIotDropdown) {
             event.preventDefault();
             event.stopPropagation();
             this.router.navigate(['']);

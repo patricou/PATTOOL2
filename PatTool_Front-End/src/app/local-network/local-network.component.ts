@@ -66,6 +66,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   lastScanTime: Date | null = null;
   scanStartTime: Date | null = null;
   private scanSubscription: any = null;
+  isAuthorized: boolean = false; // Prevent template rendering until authorization is verified
 
   // Device mappings modal
   @ViewChild('deviceMappingsModal') deviceMappingsModal!: TemplateRef<any>;
@@ -89,11 +90,13 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit() {
-    // Check if user has admin role
+    // Check if user has admin role before allowing template to render
     if (!this.keycloakService.hasAdminRole()) {
       this.router.navigate(['/']);
       return;
     }
+    // Only set authorized to true after verification
+    this.isAuthorized = true;
   }
 
   startScan(): void {
