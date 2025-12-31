@@ -16,6 +16,7 @@
       <div class="slideshow-image-wrapper" #slideshowContainer
            (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
            (mouseup)="onSlideshowMouseUp($event)" (mouseenter)="onSlideshowMouseEnter($event)" (mouseleave)="onSlideshowMouseLeave()" (document:mouseup)="onSlideshowMouseUp($event)"
+           (click)="onSlideshowContainerClick($event)"
            (contextmenu)="$event.preventDefault()"
            (touchend)="onSlideshowTouchEnd($event)"
            [style.backgroundColor]="slideshowBackgroundColor"
@@ -40,7 +41,7 @@
              loading="eager"
              decoding="async"
              ngSkipHydration
-             (click)="onSlideshowImageClick()"
+             (click)="onSlideshowImageClick($event)"
              (contextmenu)="$event.preventDefault()"
              (load)="onImageLoad()"
              [class.fullscreen-image]="isFullscreen"

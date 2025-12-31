@@ -143,10 +143,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private dragStartY: number = 0;
   private dragOrigX: number = 0;
   private dragOrigY: number = 0;
+  private mouseUpX: number = 0;
+  private mouseUpY: number = 0;
   
   // Double-click detection for zoom out
   private lastClickTime: number = 0;
   private clickTimeout?: any;
+  private pendingZoomClick?: { event: MouseEvent, zoomApplied: boolean };
   
   // Rectangle selection for right-click zoom
   public isSelectingRectangle: boolean = false;
@@ -233,6 +236,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Debounce timers for expensive dimension updates
   private dimensionUpdateTimer: any = null;
   private pendingDimensionUpdate: boolean = false;
+  
+  // Flag to prevent background color update during zoom operations
+  private isZooming: boolean = false;
   
   // Throttling for mousemove handler to improve performance
   private mouseMoveRafId: number | null = null;
@@ -1613,9 +1619,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.updateImageDimensions();
       this.updateContainerDimensions();
       // Defer background color calculation as it's expensive (canvas operations)
-      requestAnimationFrame(() => {
-        this.updateAverageBackgroundColor();
-      });
+      // Only update if not currently zooming to avoid color changes during zoom
+      if (!this.isZooming) {
+        requestAnimationFrame(() => {
+          this.updateAverageBackgroundColor();
+        });
+      }
       this.slideshowBackgroundImageUrl = this.getCurrentSlideshowImage();
     });
     // Ensure programmatic event listeners are set up when image loads
@@ -1624,6 +1633,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
 
   private updateAverageBackgroundColor(): void {
     try {
+      // Ne pas recalculer la couleur de fond pendant le zoom
+      if (this.isZooming) {
+        return;
+      }
+      
       if (this.showMapView) {
         // If showing map view, keep default/darker background
         // Defer update to avoid ExpressionChangedAfterItHasBeenCheckedError
@@ -1642,19 +1656,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         return;
       }
       // Run the expensive canvas operations outside Angular zone
-      // Use requestIdleCallback if available, otherwise requestAnimationFrame for better performance
-      const scheduleWork = (callback: () => void) => {
-        if ('requestIdleCallback' in window) {
-          (window as any).requestIdleCallback(callback, { timeout: 1000 });
-        } else {
-          requestAnimationFrame(callback);
-        }
-      };
-      
+      // Use requestAnimationFrame instead of requestIdleCallback to avoid performance warnings
+      // and ensure the work is done during the next frame
       this.ngZone.runOutsideAngular(() => {
-        scheduleWork(() => {
-          // Preserve aspect ratio; scale longest side to target (reduce target for better performance)
-          const targetMax = 80; // Reduced from 100 for better performance
+        requestAnimationFrame(() => {
+          // Preserve aspect ratio; scale longest side to target (further reduced for better performance)
+          const targetMax = 40; // Reduced from 80 to 40 for much faster processing
           const iw = imgEl.naturalWidth;
           const ih = imgEl.naturalHeight;
           const scale = Math.min(targetMax / Math.max(iw, ih), 1);
@@ -1672,9 +1679,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           const data = imageData.data;
           let r = 0, g = 0, b = 0, count = 0;
           
-          // Sample every 4th pixel instead of every pixel for better performance
-          // This reduces processing time by ~75% while still getting good results
-          for (let i = 0; i < data.length; i += 16) { // Changed from i += 4 to i += 16
+          // Sample every 32nd pixel for maximum performance (reduced from 16)
+          // This reduces processing time significantly while still getting acceptable results
+          for (let i = 0; i < data.length; i += 32) {
             const alpha = data[i + 3];
             // Skip nearly transparent pixels to avoid background bleed
             if (alpha < 250) continue;
@@ -1684,7 +1691,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             count++;
           }
           
-          // Defer background color update - use requestAnimationFrame instead of setTimeout
+          // Defer background color update - use requestAnimationFrame
           requestAnimationFrame(() => {
             this.ngZone.run(() => {
               if (count > 0) {
@@ -2278,26 +2285,38 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Apply wheel zoom with dynamic step based on current zoom level
   // Small step for small zoom, large step for large zoom
   private applyWheelZoom(event: WheelEvent, current: number, minZoom: number, maxZoom: number = 100): number {
-    event.preventDefault();
-    // Use actual deltaY value for linear zoom (normalized to reasonable scale)
-    const delta = event.deltaY / 20; // Normalize to make scroll speed reasonable
+    // preventDefault() est déjà fait dans onWheelSlideshow, pas besoin de le refaire ici
+    // Ne pas faire stopPropagation() ici pour éviter de bloquer d'autres handlers
+    
+    // Utiliser deltaY avec une normalisation plus précise
+    // deltaMode: 0 = pixels, 1 = lines, 2 = pages
+    let delta = 0;
+    if (event.deltaMode === 0) {
+      // Pixels mode - utiliser directement avec un facteur de normalisation
+      delta = event.deltaY / 100; // Facteur réduit pour un zoom plus fluide
+    } else if (event.deltaMode === 1) {
+      // Lines mode - multiplier par un facteur
+      delta = event.deltaY / 3; // Environ 3 lignes = 1 unité de zoom
+    } else {
+      // Pages mode - multiplier par un facteur plus grand
+      delta = event.deltaY / 0.5; // 0.5 page = 1 unité de zoom
+    }
     
     // Dynamic step: proportionnel au niveau de zoom actuel
     // Plus le zoom est élevé, plus le pas est grand (plus rapide)
     // Formule: step = baseStep * (1 + current * multiplier)
     // Cela donne: petit pas à zoom faible, grand pas à zoom élevé
-    // Increased baseStep to make zoom more responsive from the beginning
-    const baseStep = 0.3; // Pas de base augmenté pour zoom plus réactif dès le début
-    const multiplier = 0.15; // Multiplicateur légèrement réduit pour équilibrer
+    const baseStep = 0.5; // Pas de base augmenté pour zoom plus réactif
+    const multiplier = 0.1; // Multiplicateur réduit pour un zoom plus progressif
     const dynamicStep = baseStep * (1 + current * multiplier);
     
     // Limiter le pas entre minStep et maxStep pour éviter des valeurs trop extrêmes
-    // Increased minStep to ensure noticeable zoom even at minimum zoom level
-    const minStep = 0.25; // Pas minimum augmenté pour zoom plus visible dès le début
-    const maxStep = 5.0; // Augmenté encore plus pour permettre des pas très grands à zoom très élevé
+    const minStep = 0.3; // Pas minimum pour zoom visible
+    const maxStep = 3.0; // Pas maximum réduit pour éviter les sauts trop grands
     const step = Math.max(minStep, Math.min(maxStep, dynamicStep));
     
-    let next = current - delta * step; // wheel up -> zoom in
+    // Calculer le nouveau zoom avec le delta et le step
+    let next = current - delta * step; // wheel up (deltaY négatif) -> zoom in, wheel down (deltaY positif) -> zoom out
     if (next < minZoom) next = minZoom;
     if (next > maxZoom) next = maxZoom;
     return parseFloat(next.toFixed(2));
@@ -2307,6 +2326,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.showMapView) {
       return;
     }
+    
+    // Empêcher le comportement par défaut (scroll de la page)
+    // Mais ne PAS faire stopPropagation() ici car d'autres handlers peuvent avoir besoin de l'événement
+    event.preventDefault();
+    
+    // Marquer qu'on est en train de zoomer pour éviter le recalcul de la couleur de fond
+    this.isZooming = true;
+    
     const minZoom = this.getMinSlideshowZoom();
     const oldZoom = this.slideshowZoom;
     const newZoom = this.applyWheelZoom(event, this.slideshowZoom, minZoom);
@@ -2321,16 +2348,52 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.resetSlideshowZoom();
     } else {
       this.slideshowZoom = newZoom;
-      // Zoom on center
-      this.zoomOnCenter(this.slideshowZoom, oldZoom);
+      
+      // Zoomer sur le point de la souris au lieu du centre
+      // Utiliser le container en cache si disponible pour éviter getBoundingClientRect() à chaque fois
+      const container = this.slideshowContainerRef?.nativeElement as HTMLElement;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        if (rect && rect.width > 0 && rect.height > 0) {
+          const mouseX = event.clientX - rect.left;
+          const mouseY = event.clientY - rect.top;
+          // Zoomer sur le point de la souris
+          this.zoomOnPoint(newZoom, mouseX, mouseY, oldZoom);
+        } else {
+          // Fallback: zoomer sur le centre si on ne peut pas obtenir les coordonnées
+          this.zoomOnCenter(newZoom, oldZoom);
+        }
+      } else {
+        // Fallback: zoomer sur le centre si le container n'est pas disponible
+        this.zoomOnCenter(newZoom, oldZoom);
+      }
+      
       // Only clamp translation when not at minimum zoom
       this.clampSlideshowTranslation();
       
-      // Recalculate image dimensions after zoom change - use setTimeout to ensure DOM is updated
-      setTimeout(() => {
-        this.updateImageDimensions();
-        this.updateContainerDimensions();
-      }, 0);
+      // Force change detection immédiatement pour une réactivité maximale
+      this.cdr.detectChanges();
+      
+      // Recalculate image dimensions after zoom change - utiliser requestAnimationFrame pour une meilleure performance
+      // Ne pas appeler updateImageDimensions à chaque wheel event pour éviter la surcharge
+      // Utiliser un debounce pour les mises à jour de dimensions
+      if (!this.pendingDimensionUpdate) {
+        this.pendingDimensionUpdate = true;
+        requestAnimationFrame(() => {
+          this.updateImageDimensions();
+          this.updateContainerDimensions();
+          this.pendingDimensionUpdate = false;
+          // Réinitialiser le flag de zoom après un court délai pour permettre les mises à jour normales
+          setTimeout(() => {
+            this.isZooming = false;
+          }, 100);
+        });
+      } else {
+        // Si une mise à jour est déjà en cours, réinitialiser le flag après un délai
+        setTimeout(() => {
+          this.isZooming = false;
+        }, 100);
+      }
     }
   }
   
@@ -2670,7 +2733,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
     this.isDraggingSlideshow = canDrag;
     this.hasDraggedSlideshow = false;
-    if (canDrag) { try { event.preventDefault(); event.stopPropagation(); } catch {} }
+    // Ne pas empêcher la propagation pour permettre le click sur l'image
+    // if (canDrag) { try { event.preventDefault(); event.stopPropagation(); } catch {} }
     this.dragStartX = event.clientX;
     this.dragStartY = event.clientY;
     this.dragOrigX = this.slideshowTranslateX;
@@ -2781,7 +2845,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const dy = event.clientY - this.dragStartY;
     this.slideshowTranslateX = this.dragOrigX + dx;
     this.slideshowTranslateY = this.dragOrigY + dy;
-    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
+    // Ne plus définir hasDraggedSlideshow ici - on le fera dans mouseup basé sur la distance totale
     this.clampSlideshowTranslation();
     
     // Debounce visible portion calculation to avoid excessive calls during dragging
@@ -2862,6 +2926,23 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       return;
     }
     
+    // Calculer la distance totale parcourue entre mousedown et mouseup
+    if (event && this.isDraggingSlideshow) {
+      this.mouseUpX = event.clientX;
+      this.mouseUpY = event.clientY;
+      const totalDx = this.mouseUpX - this.dragStartX;
+      const totalDy = this.mouseUpY - this.dragStartY;
+      const totalDistance = Math.sqrt(totalDx * totalDx + totalDy * totalDy);
+      
+      // Considérer que c'est un drag seulement si la distance totale est > 10 pixels
+      // Cela évite que de petits tremblements de la souris soient considérés comme un drag
+      if (totalDistance > 10) {
+        this.hasDraggedSlideshow = true;
+      } else {
+        this.hasDraggedSlideshow = false;
+      }
+    }
+    
     this.isDraggingSlideshow = false;
   }
   
@@ -2939,7 +3020,26 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
-  public onSlideshowImageClick(): void {
+  // Gestionnaire de click sur le container (fallback si le click sur l'image ne se déclenche pas)
+  public onSlideshowContainerClick(event: MouseEvent): void {
+    // Ne traiter que si le click n'est pas sur l'image elle-même
+    const target = event.target as HTMLElement;
+    if (target && target.tagName === 'IMG' && target.classList.contains('slideshow-image')) {
+      // Le click sur l'image sera géré par onSlideshowImageClick
+      return;
+    }
+    
+    // Si le click est sur le container (pas sur l'image), traiter comme un click sur l'image
+    // mais seulement si on n'était pas en train de drag
+    if (!this.hasDraggedSlideshow && !this.showMapView) {
+      this.onSlideshowImageClick(event);
+    }
+  }
+  
+  public onSlideshowImageClick(event: MouseEvent): void {
+    // Empêcher la propagation pour éviter que le container ne traite aussi le click
+    event.stopPropagation();
+    
     // Ignore click if it was a drag
     if (this.hasDraggedSlideshow) { 
       this.hasDraggedSlideshow = false; 
@@ -2950,18 +3050,24 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const timeSinceLastClick = currentTime - this.lastClickTime;
     
     // Si c'est un double-clic (2 clics en moins de 300ms)
-    if (timeSinceLastClick < 300 && timeSinceLastClick > 0) {
+    if (timeSinceLastClick < 300 && timeSinceLastClick > 0 && this.pendingZoomClick) {
       // Annuler le timeout du simple clic s'il existe
       if (this.clickTimeout) {
         clearTimeout(this.clickTimeout);
         this.clickTimeout = undefined;
       }
       
+      // Annuler le zoom précédent si il a été appliqué
+      if (this.pendingZoomClick.zoomApplied) {
+        this.undoLastZoom();
+      }
+      
       // Dézoomer
       this.zoomOutSlideshowAggressive();
       
-      // Réinitialiser le temps du dernier clic
+      // Réinitialiser le temps du dernier clic et le zoom en attente
       this.lastClickTime = 0;
+      this.pendingZoomClick = undefined;
     } else {
       // Premier clic ou clic après le délai
       this.lastClickTime = currentTime;
@@ -2971,12 +3077,93 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         clearTimeout(this.clickTimeout);
       }
       
+      // Sauvegarder les informations du clic pour pouvoir annuler le zoom si c'est un double-clic
+      const oldZoom = this.slideshowZoom;
+      const oldTranslateX = this.slideshowTranslateX;
+      const oldTranslateY = this.slideshowTranslateY;
+      
+      // Zoomer immédiatement sur le point cliqué
+      const zoomed = this.zoomOnClickPoint(event);
+      
+      // Sauvegarder l'état pour pouvoir annuler si c'est un double-clic
+      this.pendingZoomClick = {
+        event: event,
+        zoomApplied: zoomed
+      };
+      
+      // Si le zoom a été appliqué, sauvegarder l'état précédent pour pouvoir annuler
+      if (zoomed) {
+        // Stocker l'état précédent dans l'objet pour pouvoir annuler
+        (this.pendingZoomClick as any).oldZoom = oldZoom;
+        (this.pendingZoomClick as any).oldTranslateX = oldTranslateX;
+        (this.pendingZoomClick as any).oldTranslateY = oldTranslateY;
+      }
+      
       // Attendre pour voir si c'est un double-clic
       this.clickTimeout = setTimeout(() => {
-        // Si aucun deuxième clic n'est arrivé, ne rien faire
+        // Si aucun deuxième clic n'est arrivé, le zoom reste appliqué
         this.clickTimeout = undefined;
+        this.pendingZoomClick = undefined;
       }, 300);
     }
+  }
+  
+  // Annuler le dernier zoom appliqué
+  private undoLastZoom(): void {
+    if (this.pendingZoomClick && (this.pendingZoomClick as any).oldZoom !== undefined) {
+      this.slideshowZoom = (this.pendingZoomClick as any).oldZoom;
+      this.slideshowTranslateX = (this.pendingZoomClick as any).oldTranslateX;
+      this.slideshowTranslateY = (this.pendingZoomClick as any).oldTranslateY;
+      
+      // Recalculer les dimensions
+      setTimeout(() => {
+        this.updateImageDimensions();
+      }, 0);
+    }
+  }
+  
+  // Zoom on the clicked point
+  // Returns true if zoom was applied, false otherwise
+  private zoomOnClickPoint(event: MouseEvent): boolean {
+    // Ne zoomer que si on n'est pas déjà au zoom maximum ou minimum
+    const minZoom = this.getMinSlideshowZoom();
+    const maxZoom = 100;
+    
+    // Si on est déjà au zoom maximum, ne rien faire
+    if (this.slideshowZoom >= maxZoom) {
+      return false;
+    }
+    
+    // Obtenir les coordonnées du clic par rapport au container
+    const container = this.slideshowContainerRef?.nativeElement as HTMLElement ||
+                     document.querySelector('.slideshow-image-wrapper') as HTMLElement;
+    if (!container) return false;
+    
+    const rect = container.getBoundingClientRect();
+    if (!rect || rect.width === 0 || rect.height === 0) return false;
+    
+    const clickX = event.clientX - rect.left;
+    const clickY = event.clientY - rect.top;
+    
+    // Calculer le nouveau zoom (augmenter de 0.5 ou jusqu'au maximum)
+    const oldZoom = this.slideshowZoom;
+    const newZoom = Math.min(maxZoom, parseFloat((this.slideshowZoom + 0.5).toFixed(2)));
+    
+    // Si le zoom n'a pas changé, ne rien faire
+    if (newZoom === oldZoom) {
+      return false;
+    }
+    
+    // Zoomer sur le point cliqué
+    this.slideshowZoom = newZoom;
+    this.zoomOnPoint(newZoom, clickX, clickY, oldZoom);
+    
+    // Recalculer les dimensions après le changement de zoom
+    setTimeout(() => {
+      this.updateImageDimensions();
+    }, 0);
+    
+    return true;
   }
   
   private clampSlideshowTranslation(): void {
@@ -3103,7 +3290,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       const dy = touch.clientY - this.dragStartY;
       this.slideshowTranslateX = this.dragOrigX + dx;
       this.slideshowTranslateY = this.dragOrigY + dy;
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) this.hasDraggedSlideshow = true;
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) this.hasDraggedSlideshow = true;
       this.clampSlideshowTranslation();
     } else if (touchEvent.touches.length === 2) {
       // Zoom pinch avec deux doigts
@@ -5896,9 +6083,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
                                wheelEvent.clientY <= containerRect.bottom;
             if (isOverImage) {
               // Over image area - prevent default to stop background scrolling
+              // BUT do NOT stop propagation - let the image wheel handler receive the event
               // The image wheel handler will handle zoom
               wheelEvent.preventDefault();
-              wheelEvent.stopPropagation();
+              // Ne PAS faire stopPropagation() ici pour permettre au handler de l'image de recevoir l'événement
             }
           }
         };
