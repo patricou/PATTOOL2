@@ -17,7 +17,7 @@
            (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
            (mouseup)="onSlideshowMouseUp($event)" (mouseenter)="onSlideshowMouseEnter($event)" (mouseleave)="onSlideshowMouseLeave()" (document:mouseup)="onSlideshowMouseUp($event)"
            (contextmenu)="$event.preventDefault()"
-          (touchstart)="onSlideshowTouchStart($event)" (touchmove)="onSlideshowTouchMove($event)" (touchend)="onSlideshowTouchEnd($event)"
+           (touchend)="onSlideshowTouchEnd($event)"
            [style.backgroundColor]="slideshowBackgroundColor"
            [style.cursor]="showMapView ? 'default' : (isSelectingRectangle ? 'crosshair' : (isDraggingSlideshow ? 'grabbing' : (slideshowZoom > getMinSlideshowZoom() ? 'grab' : 'default')))" style="overflow:hidden; user-select: none;"
            >
@@ -40,7 +40,6 @@
              loading="eager"
              decoding="async"
              ngSkipHydration
-             (wheel)="onWheelSlideshow($event)"
              (click)="onSlideshowImageClick()"
              (contextmenu)="$event.preventDefault()"
              (load)="onImageLoad()"
@@ -182,7 +181,6 @@
            class="thumbnails-strip" 
            [class.thumbnails-fullscreen]="isFullscreen"
            [ngStyle]="isFullscreen ? getThumbnailsFullscreenStyle() : null"
-           (wheel)="onThumbnailsWheel($event); $event.preventDefault(); $event.stopPropagation()"
            #thumbnailsStrip>
         <div class="thumbnails-container">
           <div *ngFor="let image of slideshowImages; let i = index" 
@@ -207,7 +205,7 @@
     </div>
   </div>
   <div class="modal-footer slideshow-footer">
-    <div class="d-flex gap-2 align-items-center flex-wrap">
+    <div class="d-flex gap-2 align-items-center flex-nowrap">
       <div class="btn-group" role="group">
         <button type="button" class="btn btn-outline-secondary" 
                 (click)="zoomOutSlideshow()">
@@ -215,7 +213,7 @@
         </button>
         <button type="button" class="btn btn-outline-secondary" 
                 (click)="resetSlideshowZoom()">
-          <i class="fa fa-refresh"></i> <span class="ms-1">(R)</span>
+          <i class="fa fa-refresh"></i>
         </button>
         <button type="button" class="btn btn-outline-secondary" 
                 (click)="zoomInSlideshow()">
@@ -226,67 +224,62 @@
               (click)="toggleFullscreen()">
         <i class="fa me-1" [ngClass]="!isFullscreen ? 'fa-arrows-alt' : 'fa-compress'"></i>
         <span *ngIf="!isFullscreen">{{ 'EVENTELEM.FULLSCREEN' | translate }}</span>
-        <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span> <span class="ms-1">(F)</span>
+        <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span>
       </button>
       <button *ngIf="slideshowImages.length > 1" 
               type="button" class="btn btn-secondary" 
               (click)="toggleSlideshow()">
         <i class="fa me-1" [ngClass]="isSlideshowActive ? 'fa-pause' : 'fa-play'"></i>
-        <span>{{ isSlideshowActive ? ('EVENTELEM.PAUSE' | translate) : ('EVENTELEM.PLAY' | translate) }}</span> <span class="ms-1">(S)</span>
+        <span>{{ (isSlideshowActive ? 'EVENTELEM.PAUSE' : 'EVENTELEM.PLAY') | translate }}</span>
       </button>
       <button type="button" class="btn btn-success" 
               (click)="shareImage()"
               [disabled]="slideshowImages.length === 0">
         <i class="fa fa-share-alt me-1"></i>
-        <span>{{ 'EVENTELEM.SHARE' | translate }}</span> <span class="ms-1">(P)</span>
+        <span>{{ 'EVENTELEM.SHARE' | translate }}</span>
       </button>
       <button type="button" class="btn btn-info" 
               (click)="toggleInfoPanel()"
               [disabled]="slideshowImages.length === 0">
         <i class="fa fa-info-circle me-1"></i>
-        <span>{{ 'EVENTELEM.EXIF' | translate }}</span> <span class="ms-1">(I)</span>
+        <span>{{ 'EVENTELEM.EXIF' | translate }}</span>
       </button>
       <button type="button" class="btn btn-secondary" 
               *ngIf="shouldShowFilesystemToggleButton()"
               (click)="toggleFilesystemImageQuality()"
               [disabled]="isFilesystemToggleDisabled()">
         <i class="fa me-1" [ngClass]="isCurrentFilesystemVariantLoading() ? 'fa-spinner fa-spin' : 'fa-file-image-o'"></i>
-        <span>{{ getFilesystemToggleLabelKey() | translate }}</span> <span class="ms-1">(O)</span>
+        <span>{{ getFilesystemToggleLabelKey() | translate }}</span>
       </button>
       <div class="btn-group"
-           *ngIf="currentImageLocation"
-           ngbDropdown>
-        <button type="button" class="btn btn-secondary" (click)="handleLocationAction()">
+           *ngIf="currentImageLocation">
+        <button type="button" 
+                class="btn btn-secondary" 
+                (click)="handleLocationAction($event)">
           <i class="fa me-1" [ngClass]="getLocationButtonIconClass()"></i>
           <span>{{ getLocationButtonLabel() }}</span>
-          <span *ngIf="locationViewMode === 'google'" class="ms-1">(E)</span>
         </button>
-        <button type="button" class="btn btn-secondary dropdown-toggle dropdown-toggle-split" ngbDropdownToggle>
-          <span class="visually-hidden">{{ 'COMMUN.OPTIONS' | translate }}</span>
+        <button type="button" 
+                class="btn btn-secondary" 
+                (click)="toggleLocationViewMode()"
+                [title]="locationViewMode === 'trace' ? ('EVENTELEM.LOCATION_VIEW_GOOGLE' | translate) : ('EVENTELEM.LOCATION_VIEW_TRACE' | translate)">
+          <i class="fa fa-map"></i>
         </button>
-        <div ngbDropdownMenu>
-          <button type="button" class="dropdown-item" [class.active]="locationViewMode === 'google'" (click)="setLocationViewMode('google')">
-            <i class="fa fa-map-marker me-2"></i>{{ 'EVENTELEM.LOCATION_VIEW_GOOGLE' | translate }}
-          </button>
-          <button type="button" class="dropdown-item" [class.active]="locationViewMode === 'trace'" (click)="setLocationViewMode('trace')">
-            <i class="fa fa-map-signs me-2"></i>{{ 'EVENTELEM.LOCATION_VIEW_TRACE' | translate }}
-          </button>
-        </div>
       </div>
       <button type="button" class="btn btn-secondary" 
               (click)="toggleGrid()"
               [disabled]="slideshowImages.length === 0">
         <i class="fa fa-th me-1"></i>
-        <span>{{ 'EVENTELEM.GRID' | translate }}</span> <span class="ms-1">(G)</span>
+        <span>{{ 'EVENTELEM.GRID' | translate }}</span>
       </button>
       <button type="button" class="btn btn-secondary" 
               (click)="toggleThumbnails()"
               [disabled]="slideshowImages.length <= 1">
         <i class="fa me-1" [ngClass]="showThumbnails ? 'fa-eye-slash' : 'fa-eye'"></i>
-        <span>{{ showThumbnails ? ('EVENTELEM.HIDE_THUMBNAILS' | translate) : ('EVENTELEM.SHOW_THUMBNAILS' | translate) }}</span> <span class="ms-1">(H)</span>
+        <span>{{ (showThumbnails ? 'EVENTELEM.HIDE_THUMBNAILS' : 'EVENTELEM.SHOW_THUMBNAILS') | translate }}</span>
       </button>
       <button type="button" class="btn btn-secondary ms-auto" (click)="onSlideshowClose(c)">
-        <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }} <span class="ms-1">(C)</span>
+        <i class="fa fa-times"></i> <span>{{ 'COMMUN.CLOSE' | translate }}</span>
       </button>
     </div>
   </div>

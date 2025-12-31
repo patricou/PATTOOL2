@@ -722,6 +722,7 @@
 }
 
 
+
 .info-panel-indicator i {
     font-size: 0.75rem;
     color: rgba(76, 175, 80, 0.8);
@@ -1133,7 +1134,9 @@ body.slideshow-fullscreen-active .slideshow-footer {
     gap: 0.4rem;
     justify-content: center;
     align-items: center;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    white-space: nowrap;
 }
 
 .slideshow-footer .btn {
@@ -1181,6 +1184,21 @@ body.slideshow-fullscreen-active .slideshow-footer {
     font-size: 0.85rem;
 }
 
+/* Ensure outline buttons show text properly */
+.slideshow-footer .btn.btn-outline-secondary {
+    color: var(--slideshow-footer-button-text, rgba(255, 255, 255, 0.9)) !important;
+    border-color: var(--slideshow-footer-button-border, rgba(255, 255, 255, 0.3)) !important;
+}
+
+.slideshow-footer .btn.btn-outline-secondary:hover:not(:disabled) {
+    color: var(--slideshow-footer-button-text, rgba(255, 255, 255, 1)) !important;
+    border-color: var(--slideshow-footer-button-border, rgba(255, 255, 255, 0.5)) !important;
+}
+
+.slideshow-footer .btn.btn-outline-secondary span {
+    color: inherit;
+}
+
 .slideshow-footer .btn i {
     margin-right: 0.2rem;
     font-size: 0.9rem;
@@ -1193,6 +1211,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
     display: inline-flex;
     align-items: center;
 }
+
 
 .slideshow-controls .btn:active {
     transform: scale(0.95);

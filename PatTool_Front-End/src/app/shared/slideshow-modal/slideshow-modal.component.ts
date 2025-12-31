@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Inp
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpHeaders } from '@angular/common/http';
-import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { DomSanitizer, SafeResourceUrl, SafeHtml } from '@angular/platform-browser';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
@@ -212,6 +212,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Thumbnails wheel event handler (stored for cleanup)
   private thumbnailsWheelHandler?: (event: WheelEvent) => void;
   
+  // Programmatic event handlers to suppress passive event listener warnings
+  private slideshowTouchStartHandler?: (event: TouchEvent) => void;
+  private slideshowTouchMoveHandler?: (event: TouchEvent) => void;
+  private slideshowWheelHandler?: (event: WheelEvent) => void;
+  
   // Focus management handler to prevent focus on aria-hidden elements
   private focusManagementHandler?: () => void;
   
@@ -318,6 +323,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // ViewChild is now available
     // Setup thumbnails wheel listener after view initialization
     this.setupThumbnailsWheelListener();
+    // Setup programmatic event listeners to suppress passive event warnings
+    this.setupProgrammaticEventListeners();
   }
   
   ngOnDestroy(): void {
@@ -385,6 +392,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.removeFullscreenListener();
     this.removeResizeListener();
     this.removeThumbnailsWheelListener();
+    this.removeProgrammaticEventListeners();
     this.removeFocusMonitoring();
     
     // Clear dimension update timers
@@ -1607,6 +1615,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       });
       this.slideshowBackgroundImageUrl = this.getCurrentSlideshowImage();
     });
+    // Ensure programmatic event listeners are set up when image loads
+    this.setupProgrammaticEventListeners();
   }
 
   private updateAverageBackgroundColor(): void {
@@ -3941,10 +3951,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.locationViewMode === 'trace') {
       return this.translateService.instant('EVENTELEM.OPEN_TRACE_VIEWER');
     }
-    return this.showMapView
-      ? this.translateService.instant('EVENTELEM.SEE_PHOTO')
-      : this.translateService.instant('EVENTELEM.SEE_LOCATION');
+    // If map is showing, show "Photo" to switch back to photo view
+    // If photo is showing, show "Google Maps" to switch to map view
+    if (this.showMapView) {
+      return this.translateService.instant('EVENTELEM.SEE_PHOTO');
+    }
+    return this.translateService.instant('EVENTELEM.LOCATION_VIEW_GOOGLE');
   }
+
 
   public getLocationButtonIconClass(): string {
     if (this.locationViewMode === 'trace') {
@@ -3967,7 +3981,19 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
 
-  public handleLocationAction(): void {
+  public toggleLocationViewMode(): void {
+    // Toggle between google and trace
+    const newMode = this.locationViewMode === 'google' ? 'trace' : 'google';
+    this.setLocationViewMode(newMode);
+  }
+
+
+  public handleLocationAction(event?: Event): void {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
     if (!this.currentImageLocation) {
       return;
     }
@@ -4032,10 +4058,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public setTraceViewerOpen(isOpen: boolean): void {
     this.traceViewerOpen = isOpen;
     // When trace viewer closes, reapply slideshow colors if slideshow is still open
-    if (!isOpen && this.eventColor && this.modalRef) {
-      setTimeout(() => {
-        this.applyEventColorToSlideshow();
-      }, 100);
+    // and reset location view mode to google to show "Photo" button
+    if (!isOpen) {
+      this.locationViewMode = 'google';
+      this.showMapView = false;
+      if (this.eventColor && this.modalRef) {
+        setTimeout(() => {
+          this.applyEventColorToSlideshow();
+        }, 100);
+      }
     }
   }
   
@@ -5873,6 +5904,80 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Must use same options (capture: true) when removing
       this.thumbnailsStripRef.nativeElement.removeEventListener('wheel', this.thumbnailsWheelHandler, { capture: true });
       this.thumbnailsWheelHandler = undefined;
+    }
+  }
+  
+  // Setup programmatic event listeners to suppress passive event warnings
+  private setupProgrammaticEventListeners(): void {
+    // Use setTimeout to ensure ViewChild references are available
+    setTimeout(() => {
+      // Setup touch event listeners on slideshow container
+      if (this.slideshowContainerRef && this.slideshowContainerRef.nativeElement) {
+        const container = this.slideshowContainerRef.nativeElement;
+        
+        // Remove existing handlers if they exist (handles element recreation)
+        if (this.slideshowTouchStartHandler) {
+          container.removeEventListener('touchstart', this.slideshowTouchStartHandler);
+        }
+        if (this.slideshowTouchMoveHandler) {
+          container.removeEventListener('touchmove', this.slideshowTouchMoveHandler);
+        }
+        
+        // Touch start handler
+        this.slideshowTouchStartHandler = (event: TouchEvent) => {
+          this.onSlideshowTouchStart(event);
+        };
+        container.addEventListener('touchstart', this.slideshowTouchStartHandler, { passive: false });
+        
+        // Touch move handler
+        this.slideshowTouchMoveHandler = (event: TouchEvent) => {
+          this.onSlideshowTouchMove(event);
+        };
+        container.addEventListener('touchmove', this.slideshowTouchMoveHandler, { passive: false });
+      }
+      
+      // Setup wheel event listener on slideshow image
+      if (this.slideshowImgElRef && this.slideshowImgElRef.nativeElement) {
+        const imgElement = this.slideshowImgElRef.nativeElement;
+        
+        // Remove existing handler if it exists (handles element recreation)
+        if (this.slideshowWheelHandler) {
+          imgElement.removeEventListener('wheel', this.slideshowWheelHandler);
+        }
+        
+        this.slideshowWheelHandler = (event: WheelEvent) => {
+          this.onWheelSlideshow(event);
+        };
+        imgElement.addEventListener('wheel', this.slideshowWheelHandler, { passive: false });
+      }
+    }, 0);
+  }
+  
+  // Remove programmatic event listeners
+  private removeProgrammaticEventListeners(): void {
+    // Remove touch event listeners
+    if (this.slideshowContainerRef && this.slideshowContainerRef.nativeElement) {
+      const container = this.slideshowContainerRef.nativeElement;
+      
+      if (this.slideshowTouchStartHandler) {
+        container.removeEventListener('touchstart', this.slideshowTouchStartHandler);
+        this.slideshowTouchStartHandler = undefined;
+      }
+      
+      if (this.slideshowTouchMoveHandler) {
+        container.removeEventListener('touchmove', this.slideshowTouchMoveHandler);
+        this.slideshowTouchMoveHandler = undefined;
+      }
+    }
+    
+    // Remove wheel event listener
+    if (this.slideshowImgElRef && this.slideshowImgElRef.nativeElement) {
+      const imgElement = this.slideshowImgElRef.nativeElement;
+      
+      if (this.slideshowWheelHandler) {
+        imgElement.removeEventListener('wheel', this.slideshowWheelHandler);
+        this.slideshowWheelHandler = undefined;
+      }
     }
   }
   
