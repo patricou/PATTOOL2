@@ -211,6 +211,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Thumbnails wheel event handler (stored for cleanup)
   private thumbnailsWheelHandler?: (event: WheelEvent) => void;
+  // Modal body wheel event handler to prevent background scrolling
+  private modalBodyWheelHandler?: EventListener;
   
   // Programmatic event handlers to suppress passive event listener warnings
   private slideshowTouchStartHandler?: (event: TouchEvent) => void;
@@ -322,7 +324,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   ngAfterViewInit(): void {
     // ViewChild is now available
     // Setup thumbnails wheel listener after view initialization
-    this.setupThumbnailsWheelListener();
+    this.setupThumbnailsWheelListenerRenderer();
     // Setup programmatic event listeners to suppress passive event warnings
     this.setupProgrammaticEventListeners();
   }
@@ -392,6 +394,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.removeFullscreenListener();
     this.removeResizeListener();
     this.removeThumbnailsWheelListener();
+    this.removeModalBodyWheelListener();
     this.removeProgrammaticEventListeners();
     this.removeFocusMonitoring();
     
@@ -677,7 +680,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       requestAnimationFrame(() => {
         this.setupKeyboardListener();
         this.setupResizeListener();
-        this.setupThumbnailsWheelListener();
+        this.setupThumbnailsWheelListenerRenderer();
         
         // Fix accessibility: Remove focus from elements outside modal that have aria-hidden
         // This prevents the "Blocked aria-hidden on an element because its descendant retained focus" error
@@ -5797,9 +5800,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Handle mouse wheel on thumbnails strip to scroll horizontally
-  // NOTE: preventDefault/stopPropagation are already called in the wrapper handler
-  // This method assumes the event has already been validated and prevented
   public onThumbnailsWheel(event: WheelEvent): void {
+    // Prevent default scrolling behavior immediately
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    
     // Get the thumbnails strip container
     let scrollableContainer: HTMLElement | null = null;
     
@@ -5853,41 +5859,66 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Setup thumbnails wheel event listener programmatically (with explicit non-passive handling)
   private setupThumbnailsWheelListener(): void {
-    // Remove existing listener if any (idempotent)
+    // Remove existing listeners
     this.removeThumbnailsWheelListener();
+    this.removeModalBodyWheelListener();
     
     // Use setTimeout to ensure the thumbnails strip element is available in the DOM
     setTimeout(() => {
-      if (this.thumbnailsStripRef && this.thumbnailsStripRef.nativeElement && !this.thumbnailsWheelHandler) {
+      // First, setup listener on modal body to block ALL wheel events from propagating to background
+      const modalBody = document.querySelector('.slideshow-body');
+      if (modalBody && !this.modalBodyWheelHandler) {
+        this.modalBodyWheelHandler = (event: Event) => {
+          const wheelEvent = event as WheelEvent;
+          // Check if event is over thumbnails strip
+          if (this.thumbnailsStripRef && this.thumbnailsStripRef.nativeElement) {
+            const containerRect = this.thumbnailsStripRef.nativeElement.getBoundingClientRect();
+            const isOverThumbnails = wheelEvent.clientX >= containerRect.left && 
+                                     wheelEvent.clientX <= containerRect.right &&
+                                     wheelEvent.clientY >= containerRect.top && 
+                                     wheelEvent.clientY <= containerRect.bottom;
+            
+            if (isOverThumbnails) {
+              // Let thumbnails handler take care of it, but prevent default on modal body level too
+              wheelEvent.preventDefault();
+              wheelEvent.stopPropagation();
+              return;
+            }
+          }
+          
+          // For all other wheel events in modal, prevent default to stop background scrolling
+          // BUT allow vertical scrolling if needed (only block if over image area)
+          if (this.slideshowContainerRef && this.slideshowContainerRef.nativeElement) {
+            const containerRect = this.slideshowContainerRef.nativeElement.getBoundingClientRect();
+            const isOverImage = wheelEvent.clientX >= containerRect.left && 
+                               wheelEvent.clientX <= containerRect.right &&
+                               wheelEvent.clientY >= containerRect.top && 
+                               wheelEvent.clientY <= containerRect.bottom;
+            if (isOverImage) {
+              // Over image area - prevent default to stop background scrolling
+              // The image wheel handler will handle zoom
+              wheelEvent.preventDefault();
+              wheelEvent.stopPropagation();
+            }
+          }
+        };
+        modalBody.addEventListener('wheel', this.modalBodyWheelHandler as EventListener, { passive: false, capture: true });
+      }
+      
+      // Then setup listener on thumbnails strip itself
+      if (this.thumbnailsStripRef && this.thumbnailsStripRef.nativeElement) {
         const element = this.thumbnailsStripRef.nativeElement;
         
         // Create handler that wraps the method call
         // IMPORTANT: Call preventDefault and stopPropagation IMMEDIATELY to prevent background scrolling
         this.thumbnailsWheelHandler = (event: WheelEvent) => {
-          // Get the thumbnails strip container to check if event is within it
-          const scrollableContainer = this.thumbnailsStripRef?.nativeElement;
-          if (!scrollableContainer) {
-            return;
-          }
+          // Always prevent default and stop propagation for thumbnails wheel events
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
           
-          // Check if the event target is within the thumbnails strip or its children
-          const target = event.target as HTMLElement;
-          // Also check if the mouse coordinates are within the container bounds (more robust)
-          const containerRect = scrollableContainer.getBoundingClientRect();
-          const isWithinBounds = event.clientX >= containerRect.left && 
-                                 event.clientX <= containerRect.right &&
-                                 event.clientY >= containerRect.top && 
-                                 event.clientY <= containerRect.bottom;
-          
-          if (scrollableContainer.contains(target) || scrollableContainer === target || isWithinBounds) {
-            // Event is within thumbnails strip - prevent default and stop propagation immediately
-            event.preventDefault();
-            event.stopPropagation();
-            event.stopImmediatePropagation();
-            // Then call the actual handler
-            this.onThumbnailsWheel(event);
-          }
-          // If event is not within thumbnails strip, let it propagate normally
+          // Then call the actual handler
+          this.onThumbnailsWheel(event);
         };
         
         // Add event listener with capture: true to catch events early in capture phase
@@ -5895,7 +5926,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         // Using { passive: false, capture: true } to be explicit about the behavior
         element.addEventListener('wheel', this.thumbnailsWheelHandler, { passive: false, capture: true });
       }
-    }, 0);
+    }, 100);
   }
   
   // Remove thumbnails wheel event listener
@@ -5905,6 +5936,43 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.thumbnailsStripRef.nativeElement.removeEventListener('wheel', this.thumbnailsWheelHandler, { capture: true });
       this.thumbnailsWheelHandler = undefined;
     }
+  }
+  
+  // Remove modal body wheel event listener
+  private removeModalBodyWheelListener(): void {
+    if (this.modalBodyWheelHandler) {
+      const modalBody = document.querySelector('.slideshow-body');
+      if (modalBody) {
+        modalBody.removeEventListener('wheel', this.modalBodyWheelHandler as EventListener, { capture: true });
+      }
+      this.modalBodyWheelHandler = undefined;
+    }
+  }
+  
+  // Setup thumbnails wheel listener with passive: false to ensure preventDefault works
+  private setupThumbnailsWheelListenerRenderer(): void {
+    // Remove existing listener if any
+    this.removeThumbnailsWheelListener();
+    
+    // Use setTimeout to ensure the thumbnails strip element is available in the DOM
+    setTimeout(() => {
+      if (this.thumbnailsStripRef && this.thumbnailsStripRef.nativeElement) {
+        const element = this.thumbnailsStripRef.nativeElement;
+        
+        // Create handler that wraps the method call
+        this.thumbnailsWheelHandler = (event: WheelEvent) => {
+          // Prevent default scrolling behavior immediately
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+          // Then call the actual handler
+          this.onThumbnailsWheel(event);
+        };
+        
+        // Use addEventListener directly with passive: false to ensure preventDefault works
+        element.addEventListener('wheel', this.thumbnailsWheelHandler, { passive: false, capture: true });
+      }
+    }, 0);
   }
   
   // Setup programmatic event listeners to suppress passive event warnings

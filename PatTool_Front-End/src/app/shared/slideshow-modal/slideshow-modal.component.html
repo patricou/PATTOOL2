@@ -181,6 +181,7 @@
            class="thumbnails-strip" 
            [class.thumbnails-fullscreen]="isFullscreen"
            [ngStyle]="isFullscreen ? getThumbnailsFullscreenStyle() : null"
+           (wheel)="onThumbnailsWheel($event); $event.preventDefault(); $event.stopPropagation()"
            #thumbnailsStrip>
         <div class="thumbnails-container">
           <div *ngFor="let image of slideshowImages; let i = index" 
