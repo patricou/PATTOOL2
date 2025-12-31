@@ -175,6 +175,16 @@ html.modal-open[class*=""]:has(.visibility-modal) {
     overflow-y: hidden !important;
 }
 
+/* Prevent body scroll when upload logs modal is open */
+body[class*=""]:has(.upload-logs-modal),
+body.modal-open[class*=""]:has(.upload-logs-modal),
+html[class*=""]:has(.upload-logs-modal),
+html.modal-open[class*=""]:has(.upload-logs-modal) {
+    overflow: hidden !important;
+    overflow-x: hidden !important;
+    overflow-y: hidden !important;
+}
+
 /* Type and Visibility Modals - Larger and Responsive */
 ::ng-deep .type-modal .modal-dialog,
 ::ng-deep .modal-dialog.type-modal,

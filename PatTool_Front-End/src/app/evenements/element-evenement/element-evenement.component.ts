@@ -1475,27 +1475,79 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			
 			// Restore scroll when modal closes
 			this.uploadLogsModalRef.result.finally(() => {
-				if (document.body) {
-					document.body.style.overflow = '';
-					document.body.style.position = '';
-					document.body.style.top = '';
-					document.body.style.width = '';
-				}
-				if (document.documentElement) {
-					document.documentElement.style.overflow = '';
-				}
-				window.scrollTo(0, savedScrollY);
+				// Use requestAnimationFrame to ensure DOM updates are complete
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						if (document.body) {
+							document.body.style.overflow = '';
+							document.body.style.overflowX = '';
+							document.body.style.overflowY = '';
+							document.body.style.position = '';
+							document.body.style.top = '';
+							document.body.style.width = '';
+							document.body.style.height = '';
+						}
+						if (document.documentElement) {
+							document.documentElement.style.overflow = '';
+							document.documentElement.style.overflowX = '';
+							document.documentElement.style.overflowY = '';
+						}
+						// Remove modal-open class if Bootstrap added it
+						document.body.classList.remove('modal-open');
+						document.documentElement.classList.remove('modal-open');
+						// Restore scroll position
+						setTimeout(() => {
+							window.scrollTo({
+								top: savedScrollY,
+								left: 0,
+								behavior: 'auto'
+							});
+							if (document.documentElement) {
+								document.documentElement.scrollTop = savedScrollY;
+							}
+							if (document.body) {
+								document.body.scrollTop = savedScrollY;
+							}
+						}, 100);
+					});
+				});
 			}).catch(() => {
-				if (document.body) {
-					document.body.style.overflow = '';
-					document.body.style.position = '';
-					document.body.style.top = '';
-					document.body.style.width = '';
-				}
-				if (document.documentElement) {
-					document.documentElement.style.overflow = '';
-				}
-				window.scrollTo(0, savedScrollY);
+				// Use requestAnimationFrame to ensure DOM updates are complete
+				requestAnimationFrame(() => {
+					requestAnimationFrame(() => {
+						if (document.body) {
+							document.body.style.overflow = '';
+							document.body.style.overflowX = '';
+							document.body.style.overflowY = '';
+							document.body.style.position = '';
+							document.body.style.top = '';
+							document.body.style.width = '';
+							document.body.style.height = '';
+						}
+						if (document.documentElement) {
+							document.documentElement.style.overflow = '';
+							document.documentElement.style.overflowX = '';
+							document.documentElement.style.overflowY = '';
+						}
+						// Remove modal-open class if Bootstrap added it
+						document.body.classList.remove('modal-open');
+						document.documentElement.classList.remove('modal-open');
+						// Restore scroll position
+						setTimeout(() => {
+							window.scrollTo({
+								top: savedScrollY,
+								left: 0,
+								behavior: 'auto'
+							});
+							if (document.documentElement) {
+								document.documentElement.scrollTop = savedScrollY;
+							}
+							if (document.body) {
+								document.body.scrollTop = savedScrollY;
+							}
+						}, 100);
+					});
+				});
 			});
 			// Force change detection after modal opens to ensure ViewChild is initialized
 			setTimeout(() => {

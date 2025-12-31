@@ -9,6 +9,9 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.index.Index;
 import org.springframework.data.mongodb.core.index.IndexOperations;
 import org.springframework.stereotype.Component;
+import com.mongodb.client.MongoCollection;
+import org.bson.Document;
+import java.util.List;
 
 /**
  * MongoDB Index Configuration
@@ -96,8 +99,10 @@ public class MongoIndexConfig {
             // Used for text search (case-insensitive regex queries)
             // Note: MongoDB text indexes support $text queries, but we use regex
             // Still useful for partial matching performance
+            // IMPORTANT: Drop any existing unique index on evenementName first
+            dropUniqueIndexIfExists("evenementName");
             createIndexIfNotExists("evenementName", Sort.Direction.ASC, 
-                "Index on evenementName for text search performance");
+                "Index on evenementName for text search performance (non-unique)");
 
             createIndexIfNotExists("comments", Sort.Direction.ASC, 
                 "Index on comments for text search performance");
@@ -325,6 +330,38 @@ public class MongoIndexConfig {
         } catch (Exception e) {
             log.error("Error creating compound index on {}: {}", 
                 String.join(", ", fields), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Drop a unique index on a field if it exists
+     * This is used to remove unique constraints that prevent duplicate values
+     */
+    private void dropUniqueIndexIfExists(String field) {
+        try {
+            MongoCollection<Document> collection = mongoTemplate.getCollection("evenements");
+            List<Document> indexes = collection.listIndexes().into(new java.util.ArrayList<>());
+            
+            for (Document indexDoc : indexes) {
+                String indexName = indexDoc.getString("name");
+                Document keyDoc = indexDoc.get("key", Document.class);
+                
+                // Check if this index is on the specified field and is unique
+                if (keyDoc != null && keyDoc.size() == 1 && keyDoc.containsKey(field)) {
+                    Boolean isUnique = indexDoc.getBoolean("unique", false);
+                    if (Boolean.TRUE.equals(isUnique)) {
+                        log.info("Found unique index '{}' on field '{}', dropping it to allow duplicate values", indexName, field);
+                        try {
+                            collection.dropIndex(indexName);
+                            log.info("✓ Dropped unique index '{}' on field '{}'", indexName, field);
+                        } catch (Exception dropException) {
+                            log.warn("Could not drop unique index '{}': {}", indexName, dropException.getMessage());
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error checking/dropping unique index on field '{}': {}", field, e.getMessage());
         }
     }
 }
