@@ -13,6 +13,7 @@ import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigat
   selector: 'app-links-admin',
   standalone: true,
   imports: [CommonModule, FormsModule, TranslateModule, NavigationButtonsModule],
+  providers: [UrllinkService],
   templateUrl: './links-admin.component.html',
   styleUrls: ['./links-admin.component.css']
 })
