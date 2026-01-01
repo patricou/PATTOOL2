@@ -3553,8 +3553,31 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         currentKeyCode = keyMap[event.key] || 0;
       }
       
+      // Handle 'E' key first (before debounce) for maximum reactivity like button click
+      if (event.key === 'e' || event.key === 'E' || event.keyCode === 69) {
+        if (this.traceViewerOpen) {
+          return;
+        }
+        if (!this.currentImageLocation) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        this.lastKeyPressTime = currentTime;
+        this.lastKeyCode = 69;
+        // Execute in Angular zone for immediate change detection, matching button click behavior
+        this.ngZone.run(() => {
+          this.handleLocationAction();
+          // Force immediate change detection for instant UI update
+          this.cdr.detectChanges();
+        });
+        return; // Exit early for maximum reactivity
+      }
+      
       // Debounce: ignore if same key pressed within 50ms (to prevent double triggering)
       // Reduced from 100ms to allow faster navigation
+      // Note: 'E' key is handled above before debounce for maximum reactivity
       if (currentKeyCode && currentKeyCode === this.lastKeyCode && currentTime - this.lastKeyPressTime < 50) {
         event.preventDefault();
         event.stopPropagation();
@@ -3632,19 +3655,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.lastKeyCode = 72;
         this.toggleThumbnails();
         return; // Exit early after handling
-      } else if (event.key === 'e' || event.key === 'E' || event.keyCode === 69) {
-        if (this.traceViewerOpen) {
-          return;
-        }
-        if (!this.currentImageLocation) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        this.lastKeyPressTime = currentTime;
-        this.lastKeyCode = 69;
-      this.handleLocationAction();
       } else if (event.key === 'o' || event.key === 'O' || event.keyCode === 79) {
         if (!this.shouldShowFilesystemToggleButton() || this.isFilesystemToggleDisabled()) {
           return;
@@ -4308,6 +4318,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public toggleMapView(): void {
     if (!this.currentImageLocation) {
       this.showMapView = false;
+      this.cdr.detectChanges();
       return;
     }
     
@@ -4339,6 +4350,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.updateContainerDimensions();
       }, 0);
     }
+    
+    // Force immediate change detection for instant UI update, especially important in fullscreen mode
+    this.cdr.detectChanges();
   }
 
   public setTraceViewerOpen(isOpen: boolean): void {
