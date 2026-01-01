@@ -249,6 +249,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Throttling for mousemove handler to improve performance
   private mouseMoveRafId: number | null = null;
   private pendingMouseMove: MouseEvent | null = null;
+  
+  // Throttling for touchmove handler to improve performance
+  private touchMoveRafId: number | null = null;
+  private pendingTouchMove: TouchEvent | null = null;
   private selectionChangeDetectionRafId: number | null = null;
   private dragChangeDetectionRafId: number | null = null;
   private visiblePortionUpdateTimer: any = null;
@@ -426,6 +430,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.mouseMoveRafId = null;
     }
     this.pendingMouseMove = null;
+    
+    // Clean up touchmove throttling
+    if (this.touchMoveRafId !== null) {
+      cancelAnimationFrame(this.touchMoveRafId);
+      this.touchMoveRafId = null;
+    }
+    this.pendingTouchMove = null;
     
     // Clean up selection change detection throttling
     if (this.selectionChangeDetectionRafId !== null) {
@@ -3351,16 +3362,31 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (!touchEvent || typeof touchEvent.touches === 'undefined') {
       return;
     }
+    
     if (touchEvent.touches.length === 1 && !this.isPinching) {
       if (!this.isDraggingSlideshow) return;
       const touch = touchEvent.touches[0];
       try { touchEvent.preventDefault(); touchEvent.stopPropagation(); } catch {}
       const dx = touch.clientX - this.dragStartX;
       const dy = touch.clientY - this.dragStartY;
-      this.slideshowTranslateX = this.dragOrigX + dx;
-      this.slideshowTranslateY = this.dragOrigY + dy;
+      
+      // Calculer les nouvelles valeurs
+      const newTranslateX = this.dragOrigX + dx;
+      const newTranslateY = this.dragOrigY + dy;
+      
+      // Mettre à jour les valeurs
+      this.slideshowTranslateX = newTranslateX;
+      this.slideshowTranslateY = newTranslateY;
       if (Math.abs(dx) > 5 || Math.abs(dy) > 5) this.hasDraggedSlideshow = true;
       this.clampSlideshowTranslation();
+      
+      // Mettre à jour directement le DOM pour une fluidité maximale
+      // Cela évite le cycle de détection de changement d'Angular
+      const imgElement = this.slideshowImgElRef?.nativeElement;
+      if (imgElement) {
+        const transform = `translate3d(${this.slideshowTranslateX}px, ${this.slideshowTranslateY}px, 0) scale(${this.slideshowZoom})`;
+        imgElement.style.transform = transform;
+      }
     } else if (touchEvent.touches.length === 2) {
       // Zoom pinch avec deux doigts
       this.isDraggingSlideshow = false;
@@ -6296,7 +6322,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         };
         container.addEventListener('touchstart', this.slideshowTouchStartHandler, { passive: false });
         
-        // Touch move handler
+        // Touch move handler - traiter directement sans ngZone.run pour meilleure performance
+        // Les valeurs seront mises à jour et Angular les détectera automatiquement
         this.slideshowTouchMoveHandler = (event: TouchEvent) => {
           this.onSlideshowTouchMove(event);
         };
