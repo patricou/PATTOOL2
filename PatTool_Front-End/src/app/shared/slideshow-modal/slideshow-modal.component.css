@@ -517,7 +517,7 @@
     border-radius: 20px;
     font-weight: 600;
     font-size: 0.9rem;
-    z-index: 1000;
+    z-index: 1002; /* Above thumbnails (100) but below shortcuts (2000000) */
     display: flex;
     flex-direction: column;
     gap: 4px;
@@ -912,7 +912,7 @@
     position: fixed !important;
     top: 20px !important;
     left: 20px !important;
-    z-index: 999999 !important;
+    z-index: 1999999 !important; /* Just below shortcuts (2000000) but well above thumbnails (100) */
     background: rgba(0, 0, 0, 0.2) !important;
     pointer-events: none !important;
 }

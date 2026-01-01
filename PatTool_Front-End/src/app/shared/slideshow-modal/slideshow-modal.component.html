@@ -41,6 +41,8 @@
              loading="eager"
              decoding="async"
              ngSkipHydration
+             (mousedown)="onSlideshowMouseDown($event)" (mousemove)="onSlideshowMouseMove($event)"
+             (mouseup)="onSlideshowMouseUp($event)"
              (click)="onSlideshowImageClick($event)"
              (contextmenu)="$event.preventDefault()"
              (load)="onImageLoad()"
@@ -100,28 +102,6 @@
         <div *ngIf="slideshowImages.length > 0" class="slideshow-counter">
           {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
         </div>
-        <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="slideshow-zoom-info">
-          <div *ngIf="getCurrentImageFileName()" class="info-line info-file-name" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.3);">
-            <span class="file-name">{{ getCurrentImageFileName() }}</span>
-          </div>
-          <div class="info-line">{{ 'EVENTELEM.ZOOM_LABEL' | translate }} {{ (slideshowZoom * 100).toFixed(0) }}%</div>
-          
-          <!-- EXIF Info Section -->
-          <div class="exif-section" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 8px; margin-top: 8px;">
-            <div class="exif-title" style="font-weight: bold; margin-bottom: 6px;">{{ 'EVENTELEM.EXIF_INFO' | translate }}:</div>
-            <div *ngIf="isLoadingExif" class="exif-loading" style="text-align: center; padding: 8px;">
-              <i class="fa fa-spinner fa-spin"></i> {{ 'EVENTELEM.LOADING_EXIF' | translate }}
-            </div>
-            <div *ngIf="!isLoadingExif && exifData && exifData.length > 0" class="exif-data">
-              <div *ngFor="let item of exifData" class="exif-item" style="margin-bottom: 4px; font-size: 0.9em;">
-                <strong>{{ item.label }}:</strong> {{ item.value }}
-              </div>
-            </div>
-            <div *ngIf="!isLoadingExif && (!exifData || exifData.length === 0)" class="exif-empty" style="text-align: center; padding: 8px; color: rgba(255, 255, 255, 0.6);">
-              <i class="fa fa-exclamation-triangle"></i> {{ 'EVENTELEM.NO_EXIF_DATA' | translate }}
-            </div>
-          </div>
-        </div>
         
         <!-- Rectangle de sélection (clic droit et pinch zoom mobile) -->
         <div *ngIf="isSelectingRectangle && !showMapView" 
@@ -146,6 +126,29 @@
           </div>
         </div>
         
+      </div>
+      <!-- Info Panel with EXIF - Moved outside slideshow-image-wrapper to be at same level as thumbnails -->
+      <div *ngIf="slideshowImages.length > 0 && showInfoPanel" class="slideshow-zoom-info">
+        <div *ngIf="getCurrentImageFileName()" class="info-line info-file-name" style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.3);">
+          <span class="file-name">{{ getCurrentImageFileName() }}</span>
+        </div>
+        <div class="info-line">{{ 'EVENTELEM.ZOOM_LABEL' | translate }} {{ (slideshowZoom * 100).toFixed(0) }}%</div>
+        
+        <!-- EXIF Info Section -->
+        <div class="exif-section" style="border-top: 1px solid rgba(255, 255, 255, 0.3); padding-top: 8px; margin-top: 8px;">
+          <div class="exif-title" style="font-weight: bold; margin-bottom: 6px;">{{ 'EVENTELEM.EXIF_INFO' | translate }}:</div>
+          <div *ngIf="isLoadingExif" class="exif-loading" style="text-align: center; padding: 8px;">
+            <i class="fa fa-spinner fa-spin"></i> {{ 'EVENTELEM.LOADING_EXIF' | translate }}
+          </div>
+          <div *ngIf="!isLoadingExif && exifData && exifData.length > 0" class="exif-data">
+            <div *ngFor="let item of exifData" class="exif-item" style="margin-bottom: 4px; font-size: 0.9em;">
+              <strong>{{ item.label }}:</strong> {{ item.value }}
+            </div>
+          </div>
+          <div *ngIf="!isLoadingExif && (!exifData || exifData.length === 0)" class="exif-empty" style="text-align: center; padding: 8px; color: rgba(255, 255, 255, 0.6);">
+            <i class="fa fa-exclamation-triangle"></i> {{ 'EVENTELEM.NO_EXIF_DATA' | translate }}
+          </div>
+        </div>
       </div>
       <div class="slideshow-controls">
         <button class="btn btn-lg btn-outline-light slideshow-btn-prev" 
@@ -175,6 +178,9 @@
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_ORIGINAL_PHOTO' | translate }}</div>
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_THUMBNAILS' | translate }}</div>
           <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_LOCATION_TOGGLE' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_DEBUG' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_SHARE' | translate }}</div>
+          <div class="shortcut-item">{{ 'EVENTELEM.SHORTCUT_CLOSE' | translate }}</div>
         </div>
       </div>
       <!-- Thumbnails strip - moved inside slideshow-container to be visible in fullscreen -->
@@ -182,7 +188,8 @@
            class="thumbnails-strip" 
            [class.thumbnails-fullscreen]="isFullscreen"
            [ngStyle]="isFullscreen ? getThumbnailsFullscreenStyle() : null"
-           (wheel)="onThumbnailsWheel($event); $event.preventDefault(); $event.stopPropagation()"
+           appWheelNonPassive
+           (wheelEvent)="onThumbnailsWheel($event)"
            #thumbnailsStrip>
         <div class="thumbnails-container">
           <div *ngFor="let image of slideshowImages; let i = index" 

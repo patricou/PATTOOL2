@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, Input, Output, EventEmitter, TemplateRef, ChangeDetectorRef, NgZone } from '@angular/core';
+import { WheelNonPassiveDirective } from './wheel-non-passive.directive';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpHeaders } from '@angular/common/http';
@@ -51,7 +52,8 @@ interface PatMetadata {
     CommonModule,
     FormsModule,
     NgbModule,
-    TranslateModule
+    TranslateModule,
+    WheelNonPassiveDirective
   ]
 })
 export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -172,6 +174,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private selectionMouseMoveHandler?: (event: MouseEvent) => void;
   private selectionMouseUpHandler?: (event: MouseEvent) => void;
   
+  // Global drag handlers
+  private dragMouseMoveHandler?: (event: MouseEvent) => void;
+  private dragMouseUpHandler?: (event: MouseEvent) => void;
+  
   // Getters pour le template (assurer une taille minimale pour l'affichage)
   public get displaySelectionWidth(): number {
     // Ne pas afficher le rectangle si la taille est trop petite (moins de 5 pixels)
@@ -244,6 +250,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private mouseMoveRafId: number | null = null;
   private pendingMouseMove: MouseEvent | null = null;
   private selectionChangeDetectionRafId: number | null = null;
+  private dragChangeDetectionRafId: number | null = null;
   private visiblePortionUpdateTimer: any = null;
   
   // FS Photos download control
@@ -352,6 +359,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Remove selection listeners
     this.removeSelectionListeners();
+    // Remove drag listeners
+    this.removeDragListeners();
     // Stop slideshow and timers
     this.stopSlideshow();
     
@@ -422,6 +431,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.selectionChangeDetectionRafId !== null) {
       cancelAnimationFrame(this.selectionChangeDetectionRafId);
       this.selectionChangeDetectionRafId = null;
+    }
+    
+    // Clean up drag change detection throttling
+    if (this.dragChangeDetectionRafId !== null) {
+      cancelAnimationFrame(this.dragChangeDetectionRafId);
+      this.dragChangeDetectionRafId = null;
     }
     
     // Clean up visible portion update timer
@@ -2733,8 +2748,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const canDrag = this.slideshowZoom > this.getMinSlideshowZoom();
     this.isDraggingSlideshow = canDrag;
     this.hasDraggedSlideshow = false;
-    // Ne pas empêcher la propagation pour permettre le click sur l'image
-    // if (canDrag) { try { event.preventDefault(); event.stopPropagation(); } catch {} }
+    // Empêcher la propagation si on peut drag pour éviter que le click interfère
+    if (canDrag) { 
+      try { 
+        event.preventDefault(); 
+        event.stopPropagation(); 
+      } catch {} 
+      // Setup global listeners pour que le drag fonctionne même si la souris sort de l'image/container
+      this.setupDragListeners();
+    }
     this.dragStartX = event.clientX;
     this.dragStartY = event.clientY;
     this.dragOrigX = this.slideshowTranslateX;
@@ -2848,6 +2870,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Ne plus définir hasDraggedSlideshow ici - on le fera dans mouseup basé sur la distance totale
     this.clampSlideshowTranslation();
     
+    // Throttle change detection using requestAnimationFrame to avoid ExpressionChangedAfterItHasBeenCheckedError
+    if (this.dragChangeDetectionRafId === null) {
+      this.dragChangeDetectionRafId = requestAnimationFrame(() => {
+        this.dragChangeDetectionRafId = null;
+        this.cdr.markForCheck();
+      });
+    }
+    
     // Debounce visible portion calculation to avoid excessive calls during dragging
     if (this.visiblePortionUpdateTimer) {
       clearTimeout(this.visiblePortionUpdateTimer);
@@ -2903,6 +2933,41 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  // Setup global listeners for drag (so it works even if mouse leaves container/image)
+  private setupDragListeners(): void {
+    // Remove existing listeners if any
+    this.removeDragListeners();
+    
+    this.dragMouseMoveHandler = (event: MouseEvent) => {
+      if (this.isDraggingSlideshow) {
+        this.onSlideshowMouseMove(event);
+      }
+    };
+    
+    this.dragMouseUpHandler = (event: MouseEvent) => {
+      if (this.isDraggingSlideshow) {
+        this.onSlideshowMouseUp(event);
+        this.removeDragListeners();
+      }
+    };
+    
+    // Add listeners to document to capture events even if mouse leaves container/image
+    document.addEventListener('mousemove', this.dragMouseMoveHandler, true);
+    document.addEventListener('mouseup', this.dragMouseUpHandler, true);
+  }
+  
+  // Remove global listeners for drag
+  private removeDragListeners(): void {
+    if (this.dragMouseMoveHandler) {
+      document.removeEventListener('mousemove', this.dragMouseMoveHandler, true);
+      this.dragMouseMoveHandler = undefined;
+    }
+    if (this.dragMouseUpHandler) {
+      document.removeEventListener('mouseup', this.dragMouseUpHandler, true);
+      this.dragMouseUpHandler = undefined;
+    }
+  }
+  
   public onSlideshowMouseUp(event?: MouseEvent): void {
     if (this.showMapView && !this.isSelectingRectangle) {
       return;
@@ -2943,6 +3008,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
     }
     
+    // Clean up drag change detection throttling
+    if (this.dragChangeDetectionRafId !== null) {
+      cancelAnimationFrame(this.dragChangeDetectionRafId);
+      this.dragChangeDetectionRafId = null;
+    }
+    
+    // Remove global drag listeners
+    this.removeDragListeners();
     this.isDraggingSlideshow = false;
   }
   
@@ -2950,12 +3023,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (this.showMapView) {
       return;
     }
-    // Ne pas annuler la sélection si la souris sort du container
+    // Ne pas annuler la sélection ou le drag si la souris sort du container
     // (les listeners globaux continueront de capturer les événements)
-    // Seulement annuler si on n'est pas en train de sélectionner
-    if (!this.isSelectingRectangle) {
-      this.isDraggingSlideshow = false;
-    }
     // Keep cursor position visible when mouse leaves
   }
   
@@ -4222,6 +4291,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.isSelectingRectangle = false;
       this.isDraggingSlideshow = false;
       this.removeSelectionListeners();
+      this.removeDragListeners();
       if (this.currentImageLocation && !this.currentMapUrl) {
         const currentImageUrl = this.getCurrentSlideshowImage();
         if (currentImageUrl) {
@@ -5299,10 +5369,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (Array.isArray(this.exifData)) {
       const fileSizeLabel = this.translateService.instant('EVENTELEM.EXIF_FILE_SIZE');
       const originalSizeLabel = this.translateService.instant('EVENTELEM.EXIF_ORIGINAL_FILE_SIZE');
+      const gpsLabel = this.translateService.instant('EVENTELEM.EXIF_GPS');
+      const altitudeLabel = this.translateService.instant('EVENTELEM.EXIF_ALTITUDE');
       
       const weightOf = (label: string): number => {
         if (label === fileSizeLabel) return 10;            // 1) Current file size
         if (label === originalSizeLabel) return 11;        // 2) Original size before compression (immediately after)
+        if (label === gpsLabel) return 20;                 // 3) GPS coordinates
+        if (label === altitudeLabel) return 21;             // 4) Altitude (immediately after GPS)
         return 100;                                        // Others come after, alphabetically
       };
       
@@ -5321,6 +5395,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (idxFile !== -1 && idxOriginal !== -1 && idxOriginal !== idxFile + 1) {
         const [originalItem] = this.exifData.splice(idxOriginal, 1);
         this.exifData.splice(idxFile + 1, 0, originalItem);
+      }
+      
+      // Hard position guarantee: ensure "Altitude" is immediately after "GPS"
+      const idxGps = this.exifData.findIndex(it => (it?.label || '') === gpsLabel);
+      const idxAltitude = this.exifData.findIndex(it => (it?.label || '') === altitudeLabel);
+      if (idxGps !== -1 && idxAltitude !== -1 && idxAltitude !== idxGps + 1) {
+        const [altitudeItem] = this.exifData.splice(idxAltitude, 1);
+        this.exifData.splice(idxGps + 1, 0, altitudeItem);
       }
     }
   }
@@ -5697,6 +5779,35 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       
       if (imageUrlToUse) {
         this.setImageLocation(imageUrlToUse, lat, lon);
+      }
+    }
+    
+    // GPS Altitude
+    if (exifData.GPSAltitude !== undefined && exifData.GPSAltitude !== null) {
+      const altitudeLabel = this.translateService.instant('EVENTELEM.EXIF_ALTITUDE');
+      // GPSAltitude is typically stored as a rational number (numerator/denominator)
+      // If it's already a number, use it directly; otherwise convert from rational
+      let altitudeMeters: number;
+      if (typeof exifData.GPSAltitude === 'number') {
+        altitudeMeters = exifData.GPSAltitude;
+      } else if (Array.isArray(exifData.GPSAltitude) && exifData.GPSAltitude.length >= 2) {
+        // Rational number format: [numerator, denominator]
+        altitudeMeters = exifData.GPSAltitude[0] / exifData.GPSAltitude[1];
+      } else {
+        altitudeMeters = parseFloat(exifData.GPSAltitude);
+      }
+      
+      // GPSAltitudeRef: 0 = above sea level, 1 = below sea level
+      const isBelowSeaLevel = exifData.GPSAltitudeRef === 1;
+      const altitudeValue = isBelowSeaLevel 
+        ? `-${altitudeMeters.toFixed(2)} m`
+        : `${altitudeMeters.toFixed(2)} m`;
+      
+      if (!targetArray.some(item => item.label === altitudeLabel)) {
+        targetArray.push({
+          label: altitudeLabel,
+          value: altitudeValue
+        });
       }
     }
     
