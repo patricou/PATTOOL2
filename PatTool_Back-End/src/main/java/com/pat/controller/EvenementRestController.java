@@ -617,7 +617,7 @@ public class EvenementRestController {
                         }
                         
                         // Build criteria for friend group events
-                        // Include events where friendGroupId matches OR visibility matches group name
+                        // Include events where friendGroupId matches OR friendGroupIds contains the ID OR visibility matches group name
                         // Also include user's own events with this friendGroupId (even if not a member)
                         java.util.List<Criteria> groupCriteriaList = new java.util.ArrayList<>();
                         
@@ -625,6 +625,9 @@ public class EvenementRestController {
                             if (matchedGroupId != null) {
                                 groupCriteriaList.add(Criteria.where("friendGroupId").is(matchedGroupId));
                                 log.debug("Added friendGroupId criteria: {}", matchedGroupId);
+                                // Also check if matchedGroupId is in the friendGroupIds array
+                                groupCriteriaList.add(Criteria.where("friendGroupIds").is(matchedGroupId));
+                                log.debug("Added friendGroupIds criteria for matchedGroupId: {}", matchedGroupId);
                             }
                             
                             // Also match by visibility matching the group name (for backward compatibility)
@@ -635,6 +638,8 @@ public class EvenementRestController {
                             
                             // Also try direct match with filter value (in case events use the filter value directly)
                             groupCriteriaList.add(Criteria.where("friendGroupId").is(filterValue));
+                            // Also check if filterValue is in the friendGroupIds array
+                            groupCriteriaList.add(Criteria.where("friendGroupIds").is(filterValue));
                             groupCriteriaList.add(Criteria.where("visibility").is(filterValue));
                             log.debug("Added direct match criteria for filter value: {}", filterValue);
                             
