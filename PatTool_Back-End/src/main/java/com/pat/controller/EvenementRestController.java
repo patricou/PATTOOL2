@@ -836,10 +836,21 @@ public class EvenementRestController {
                 }
             }
             
-            // Match by friendGroupId
+            // Match by friendGroupId (for backward compatibility with old format)
             for (String groupId : friendGroupIds) {
                 try {
                     groupCriteriaList.add(Criteria.where("friendGroupId").is(groupId));
+                } catch (Exception ex) {
+                    // Skip invalid group ID
+                }
+            }
+            
+            // Match by friendGroupIds (new format - check if user is member of any group in the list)
+            for (String groupId : friendGroupIds) {
+                try {
+                    // Check if event has this groupId in its friendGroupIds list
+                    // MongoDB automatically searches in arrays when using .is()
+                    groupCriteriaList.add(Criteria.where("friendGroupIds").is(groupId));
                 } catch (Exception ex) {
                     // Skip invalid group ID
                 }
@@ -1353,6 +1364,40 @@ public class EvenementRestController {
                     evenement.getFriendGroupId(),
                     group.getOwner() != null ? group.getOwner().getId() : "null");
                 return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+            }
+        }
+        
+        // Validate friend group ownership if friendGroupIds is set (new format)
+        if (evenement.getFriendGroupIds() != null && !evenement.getFriendGroupIds().isEmpty()) {
+            if (evenement.getAuthor() == null || evenement.getAuthor().getId() == null) {
+                log.warn("Cannot validate friend group ownership: author is null");
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+            
+            for (String groupId : evenement.getFriendGroupIds()) {
+                if (groupId == null || groupId.trim().isEmpty()) {
+                    continue;
+                }
+                
+                java.util.Optional<FriendGroup> groupOpt = friendGroupRepository.findById(groupId);
+                if (groupOpt.isEmpty()) {
+                    log.warn("Friend group not found: {}", groupId);
+                    return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+                }
+                
+                FriendGroup group = groupOpt.get();
+                // Check if user is owner or authorized user
+                boolean isOwner = group.getOwner() != null && group.getOwner().getId().equals(evenement.getAuthor().getId());
+                boolean isAuthorized = group.getAuthorizedUsers() != null && 
+                    group.getAuthorizedUsers().stream().anyMatch(u -> u != null && u.getId().equals(evenement.getAuthor().getId()));
+                
+                if (!isOwner && !isAuthorized) {
+                    log.warn("User {} attempted to use friend group {} owned by {} (not owner or authorized)", 
+                        evenement.getAuthor().getId(), 
+                        groupId,
+                        group.getOwner() != null ? group.getOwner().getId() : "null");
+                    return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                }
             }
         }
 

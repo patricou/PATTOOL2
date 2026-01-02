@@ -312,8 +312,11 @@
         "PUBLIC": "公开",
         "PRIVATE": "私人",
         "FRIENDS": "朋友",
+        "FRIEND_GROUPS": "好友群组",
         "VISIBILITYERR": "可见性错误",
         "VISIBILITYPLHD": "可见性范围",
+        "SELECT_FRIEND_GROUPS": "选择好友群组",
+        "NO_FRIEND_GROUPS": "没有可用的好友群组",
         "PHOTOFROMFS_UNAUTHORIZED": "您无权创建类型为'来自文件系统的照片'的链接。只有授权用户可以创建此类链接。",
         "PHOTOFROMFS_UNAUTHORIZED_SAVE": "错误：您无权创建带有'来自文件系统的照片'类型链接的活动。只有授权用户可以创建此类链接。"
     },

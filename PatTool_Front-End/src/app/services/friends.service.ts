@@ -805,7 +805,14 @@ export class FriendsService {
                         );
                     }),
                     catchError((error: any) => {
-                        console.error('Error getting friend group:', error);
+                        // Handle 403 (Forbidden) gracefully - user doesn't have access to this group
+                        if (error.status === 403) {
+                            console.debug('Access denied to friend group (user is not owner, member, or authorized)');
+                        } else if (error.status === 404) {
+                            console.debug('Friend group not found');
+                        } else {
+                            console.error('Error getting friend group:', error);
+                        }
                         throw error;
                     })
                 );

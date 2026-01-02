@@ -320,8 +320,11 @@
         "PUBLIC": "Öffentlich",
         "PRIVATE": "Privat",
         "FRIENDS": "Freunde",
+        "FRIEND_GROUPS": "Freundesgruppen",
         "VISIBILITYERR": "Fehler in der Sichtbarkeit",
         "VISIBILITYPLHD": "Sichtbarkeitsbereich",
+        "SELECT_FRIEND_GROUPS": "Freundesgruppen auswählen",
+        "NO_FRIEND_GROUPS": "Keine Freundesgruppen verfügbar",
         "PHOTOFROMFS_UNAUTHORIZED": "Sie sind nicht berechtigt, Links vom Typ 'Foto aus dem Dateisystem' zu erstellen. Nur der autorisierte Benutzer kann diese Art von Link erstellen.",
         "PHOTOFROMFS_UNAUTHORIZED_SAVE": "Fehler: Sie sind nicht berechtigt, Ereignisse mit Links vom Typ 'Foto aus dem Dateisystem' zu erstellen. Nur der autorisierte Benutzer kann diese Art von Link erstellen."
     },

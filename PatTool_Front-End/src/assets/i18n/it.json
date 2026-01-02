@@ -320,8 +320,11 @@
         "PUBLIC": "Pubblico",
         "PRIVATE": "Privato",
         "FRIENDS": "Amici",
+        "FRIEND_GROUPS": "Gruppi di Amici",
         "VISIBILITYERR": "Errore nella visibilità",
         "VISIBILITYPLHD": "Ambito della visibilità",
+        "SELECT_FRIEND_GROUPS": "Seleziona Gruppi di Amici",
+        "NO_FRIEND_GROUPS": "Nessun gruppo di amici disponibile",
         "PHOTOFROMFS_UNAUTHORIZED": "Non sei autorizzato a creare collegamenti di tipo 'Foto dal sistema di file'. Solo l'utente autorizzato può creare questo tipo di collegamento.",
         "PHOTOFROMFS_UNAUTHORIZED_SAVE": "Errore: Non sei autorizzato a creare eventi con collegamenti di tipo 'Foto dal sistema di file'. Solo l'utente autorizzato può creare questo tipo di collegamento."
     },

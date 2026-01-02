@@ -309,8 +309,11 @@
         "PUBLIC": "Public",
         "PRIVATE": "Privé",
         "FRIENDS": "Amis",
+        "FRIEND_GROUPS": "Groupes d'Amis",
         "VISIBILITYERR": "Erreur dans la Visibilté",
         "VISIBILITYPLHD": "Scope de la visibilité",
+        "SELECT_FRIEND_GROUPS": "Sélectionner les Groupes d'Amis",
+        "NO_FRIEND_GROUPS": "Aucun groupe d'amis disponible",
         "PHOTOFROMFS_UNAUTHORIZED": "Vous n'êtes pas autorisé à créer des liens de type 'Photo depuis le système de fichiers'. Seul l'utilisateur autorisé peut créer ce type de lien.",
         "PHOTOFROMFS_UNAUTHORIZED_SAVE": "Erreur : Vous n'êtes pas autorisé à créer des événements avec des liens de type 'Photo depuis le système de fichiers'. Seul l'utilisateur autorisé peut créer ce type de lien."
     },

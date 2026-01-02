@@ -29,7 +29,8 @@ export class Evenement {
         public urlEvents: UrlEvent[],
         public commentaries: Commentary[],
         public thumbnail?: UploadedFile, // Thumbnail file (file with "thumbnail" in its name)
-        public friendGroupId?: string, // ID of the friend group for visibility (when visibility is a friend group)
+        public friendGroupId?: string, // ID of the friend group for visibility (when visibility is a friend group) - DEPRECATED: use friendGroupIds instead
+        public friendGroupIds?: string[], // IDs of the friend groups for visibility (when visibility is friend groups)
         public discussionId?: string, // ID of the discussion associated with this event
         public notes?: string // Notes field for additional event information
     ) { }

@@ -66,6 +66,7 @@ export class EvenementsService {
 							evenement.commentaries || [],
 							evenement.thumbnail,
 							evenement.friendGroupId,
+							evenement.friendGroupIds,
 							evenement.discussionId
 						)
 					})
@@ -421,6 +422,7 @@ export class EvenementsService {
 					parsed.commentaries || [],
 					parsed.thumbnail,
 					parsed.friendGroupId,
+					parsed.friendGroupIds,
 					parsed.discussionId
 				);
 				subject.next({

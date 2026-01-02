@@ -272,8 +272,11 @@
         "PUBLIC": "公開",
         "PRIVATE": "非公開",
         "FRIENDS": "友達",
+        "FRIEND_GROUPS": "友達グループ",
         "VISIBILITYERR": "可視性エラー",
         "VISIBILITYPLHD": "可視範囲",
+        "SELECT_FRIEND_GROUPS": "友達グループを選択",
+        "NO_FRIEND_GROUPS": "利用可能な友達グループがありません",
         "PHOTOFROMFS_UNAUTHORIZED": "「ファイルシステムからの写真」タイプのリンクを作成する権限がありません。承認されたユーザーのみがこのタイプのリンクを作成できます。",
         "PHOTOFROMFS_UNAUTHORIZED_SAVE": "エラー：「ファイルシステムからの写真」タイプのリンクを含むイベントを作成する権限がありません。承認されたユーザーのみがこのタイプのリンクを作成できます。"
     },

@@ -319,8 +319,11 @@
         "PUBLIC": "Public",
         "PRIVATE": "Private",
         "FRIENDS": "Friends",
+        "FRIEND_GROUPS": "Friend Groups",
         "VISIBILITYERR": "Visibilty Error",
         "VISIBILITYPLHD": "Visibility Scope",
+        "SELECT_FRIEND_GROUPS": "Select Friend Groups",
+        "NO_FRIEND_GROUPS": "No friend groups available",
         "PHOTOFROMFS_UNAUTHORIZED": "You are not authorized to create links of type 'Photo from File System'. Only the authorized user can create this type of link.",
         "PHOTOFROMFS_UNAUTHORIZED_SAVE": "Error: You are not authorized to create events with links of type 'Photo from File System'. Only the authorized user can create this type of link."
     },

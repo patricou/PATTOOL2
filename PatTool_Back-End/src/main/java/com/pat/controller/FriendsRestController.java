@@ -666,8 +666,14 @@ public class FriendsRestController {
 
             com.pat.repo.domain.FriendGroup group = friendsService.getFriendGroup(groupId);
             
-            // Verify ownership
-            if (!group.getOwner().getId().equals(currentUser.getId())) {
+            // Verify access: user must be owner, member, or authorized user
+            boolean isOwner = group.getOwner() != null && group.getOwner().getId().equals(currentUser.getId());
+            boolean isMember = group.getMembers() != null && group.getMembers().stream()
+                    .anyMatch(member -> member != null && member.getId().equals(currentUser.getId()));
+            boolean isAuthorized = group.getAuthorizedUsers() != null && group.getAuthorizedUsers().stream()
+                    .anyMatch(member -> member != null && member.getId().equals(currentUser.getId()));
+            
+            if (!isOwner && !isMember && !isAuthorized) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
 

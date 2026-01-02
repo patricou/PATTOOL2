@@ -55,7 +55,8 @@ public class Evenement {
     private String startLocation;
     private String durationEstimation;
     private String visibility;
-    private String friendGroupId; // ID of the friend group for visibility (when visibility is a friend group)
+    private String friendGroupId; // ID of the friend group for visibility (when visibility is a friend group) - DEPRECATED: use friendGroupIds instead
+    private List<String> friendGroupIds; // IDs of the friend groups for visibility (when visibility is friend groups)
     private String discussionId; // ID of the discussion associated with this event
     private List<UrlEvent> urlEvents = new ArrayList<UrlEvent>();
     private List<Commentary> commentaries = new ArrayList<Commentary>();
@@ -250,6 +251,14 @@ public class Evenement {
 
     public void setFriendGroupId(String friendGroupId) {
         this.friendGroupId = friendGroupId;
+    }
+
+    public List<String> getFriendGroupIds() {
+        return friendGroupIds;
+    }
+
+    public void setFriendGroupIds(List<String> friendGroupIds) {
+        this.friendGroupIds = friendGroupIds;
     }
 
     public String getDiscussionId() {

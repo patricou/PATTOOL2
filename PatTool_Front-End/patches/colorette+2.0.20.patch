@@ -1,0 +1,30 @@
+diff --git a/node_modules/colorette/index.cjs b/node_modules/colorette/index.cjs
+index baf0e64..20de574 100644
+--- a/node_modules/colorette/index.cjs
++++ b/node_modules/colorette/index.cjs
+@@ -50,11 +50,20 @@ const replaceClose = (
+   index,
+   string,
+   close,
+-  replace,
+-  head = string.substring(0, index) + replace,
+-  tail = string.substring(index + close.length),
+-  next = tail.indexOf(close)
+-) => head + (next < 0 ? tail : replaceClose(next, tail, close, replace));
++  replace
++) => {
++  let result = '';
++  let currentIndex = index;
++  let currentString = string;
++  
++  while (currentIndex >= 0) {
++    result += currentString.substring(0, currentIndex) + replace;
++    currentString = currentString.substring(currentIndex + close.length);
++    currentIndex = currentString.indexOf(close);
++  }
++  
++  return result + currentString;
++};
+ 
+ const clearBleed = (index, string, open, close, replace) =>
+   index < 0

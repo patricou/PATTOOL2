@@ -121,6 +121,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	// Friend groups for visibility
 	public friendGroups: FriendGroup[] = [];
 	public selectedFriendGroupId: string = '';
+	public selectedFriendGroupIds: string[] = [];
 
     // Image modal properties
     @ViewChild('imageModal') imageModal!: TemplateRef<any>;
@@ -246,9 +247,21 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 				this.endEventDateString = this.formatDateForInput(this.evenement.endEventDate);
 				this.closeInscriptionDateString = this.formatDateForInput(this.evenement.closeInscriptionDate);
 
-				// Set selected friend group if visibility is a friend group
+				// Set selected friend groups if visibility is friend groups mode
 				// This will be set after friend groups are loaded
 				this.loadFriendGroupsAndSetSelection();
+				
+				// Initialize friendGroupIds if not present but friendGroupId exists (migration from old format)
+				if (!this.evenement.friendGroupIds && this.evenement.friendGroupId) {
+					this.evenement.friendGroupIds = [this.evenement.friendGroupId];
+					// Update visibility to friendGroups mode if it was a group name
+					if (this.evenement.visibility && 
+					    this.evenement.visibility !== 'public' && 
+					    this.evenement.visibility !== 'private' && 
+					    this.evenement.visibility !== 'friends') {
+						this.evenement.visibility = 'friendGroups';
+					}
+				}
 			}
 			);
 	}
@@ -942,20 +955,31 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		);
 	}
 
-	// Load friend groups and set selection if visibility is a friend group
+	// Load friend groups and set selection if visibility is friend groups mode
 	private loadFriendGroupsAndSetSelection() {
 		this._friendsService.getFriendGroups().subscribe(
 			groups => {
 				this.friendGroups = groups;
-				// Set selected friend group if visibility is a friend group
-				if (this.evenement.friendGroupId) {
+				// Set selected friend groups if visibility is friend groups mode
+				if (this.evenement.friendGroupIds && this.evenement.friendGroupIds.length > 0) {
+					this.selectedFriendGroupIds = [...this.evenement.friendGroupIds];
+				} else if (this.evenement.friendGroupId) {
+					// Migration from old format: convert friendGroupId to friendGroupIds
+					this.evenement.friendGroupIds = [this.evenement.friendGroupId];
+					this.selectedFriendGroupIds = [this.evenement.friendGroupId];
 					this.selectedFriendGroupId = this.evenement.friendGroupId;
-				} else if (this.evenement.visibility) {
-					// Check if visibility matches a friend group name
+				} else if (this.evenement.visibility && 
+				           this.evenement.visibility !== 'public' && 
+				           this.evenement.visibility !== 'private' && 
+				           this.evenement.visibility !== 'friends') {
+					// Check if visibility matches a friend group name (old format)
 					const matchingGroup = groups.find(g => g.name === this.evenement.visibility);
 					if (matchingGroup) {
+						this.evenement.friendGroupIds = [matchingGroup.id];
+						this.selectedFriendGroupIds = [matchingGroup.id];
 						this.selectedFriendGroupId = matchingGroup.id;
 						this.evenement.friendGroupId = matchingGroup.id;
+						this.evenement.visibility = 'friendGroups';
 					}
 				}
 			},
@@ -967,32 +991,71 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 
 	// Handle visibility change
 	public onVisibilityChange() {
-		// Check if the selected visibility is a friend group name
-		const selectedGroup = this.friendGroups.find(g => g.name === this.evenement.visibility);
-		if (selectedGroup) {
-			// Friend group selected - set both visibility and friendGroupId
-			this.evenement.friendGroupId = selectedGroup.id;
-			this.selectedFriendGroupId = selectedGroup.id;
-		} else {
-			// Standard visibility (public, private, friends) - clear friendGroupId
+		if (this.evenement.visibility === 'friendGroups') {
+			// Friend groups mode - initialize friendGroupIds if not already set
+			if (!this.evenement.friendGroupIds) {
+				this.evenement.friendGroupIds = [];
+			}
+			// Clear old friendGroupId for backward compatibility
 			this.evenement.friendGroupId = undefined;
+		} else {
+			// Standard visibility (public, private, friends) - clear friendGroupIds
+			this.evenement.friendGroupIds = undefined;
+			this.evenement.friendGroupId = undefined;
+			this.selectedFriendGroupIds = [];
 			this.selectedFriendGroupId = '';
 		}
 		this.updateUnsavedChangesFlag();
 	}
 
-	// Check if visibility is a friend group
-	public isFriendGroupVisibility(): boolean {
-		return this.friendGroups.some(g => g.name === this.evenement.visibility);
+	// Toggle friend group selection
+	public toggleFriendGroup(groupId: string, event: any): void {
+		if (!this.evenement.friendGroupIds) {
+			this.evenement.friendGroupIds = [];
+		}
+		
+		if (event.target.checked) {
+			// Add group if not already in the list
+			if (!this.evenement.friendGroupIds.includes(groupId)) {
+				this.evenement.friendGroupIds.push(groupId);
+			}
+		} else {
+			// Remove group from the list
+			const index = this.evenement.friendGroupIds.indexOf(groupId);
+			if (index > -1) {
+				this.evenement.friendGroupIds.splice(index, 1);
+			}
+		}
+		
+		// Update selectedFriendGroupIds for UI
+		this.selectedFriendGroupIds = [...this.evenement.friendGroupIds];
+		this.updateUnsavedChangesFlag();
 	}
 
-	// Get friend group name for visibility display
-	public getFriendGroupName(): string {
-		if (this.evenement.friendGroupId) {
-			const group = this.friendGroups.find(g => g.id === this.evenement.friendGroupId);
-			return group ? group.name : this.evenement.visibility;
+	// Check if a friend group is selected
+	public isFriendGroupSelected(groupId: string): boolean {
+		if (!this.evenement.friendGroupIds) {
+			return false;
 		}
-		return this.evenement.visibility;
+		return this.evenement.friendGroupIds.includes(groupId);
+	}
+
+	// Check if visibility is friend groups mode
+	public isFriendGroupsVisibility(): boolean {
+		return this.evenement.visibility === 'friendGroups';
+	}
+
+	// Get friend group names for visibility display
+	public getFriendGroupNames(): string {
+		if (!this.evenement.friendGroupIds || this.evenement.friendGroupIds.length === 0) {
+			return '';
+		}
+		return this.evenement.friendGroupIds
+			.map(id => {
+				const group = this.friendGroups.find(g => g.id === id);
+				return group ? group.name : id;
+			})
+			.join(', ');
 	}
 
 	// File management methods

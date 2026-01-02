@@ -321,8 +321,11 @@
         "PUBLIC": "Público",
         "PRIVATE": "Privado",
         "FRIENDS": "Amigos",
+        "FRIEND_GROUPS": "Grupos de Amigos",
         "VISIBILITYERR": "Error de visibilidad",
         "VISIBILITYPLHD": "Ámbito de visibilidad",
+        "SELECT_FRIEND_GROUPS": "Seleccionar Grupos de Amigos",
+        "NO_FRIEND_GROUPS": "No hay grupos de amigos disponibles",
         "PHOTOFROMFS_UNAUTHORIZED": "No está autorizado a crear enlaces de tipo 'Foto desde el sistema de archivos'. Solo el usuario autorizado puede crear este tipo de enlace.",
         "PHOTOFROMFS_UNAUTHORIZED_SAVE": "Error: No está autorizado a crear eventos con enlaces de tipo 'Foto desde el sistema de archivos'. Solo el usuario autorizado puede crear este tipo de enlace."
     },

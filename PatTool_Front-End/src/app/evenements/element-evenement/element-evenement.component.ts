@@ -269,6 +269,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	@Input()
 	friendGroups: FriendGroup[] = [];
+	
+	// Cache for all friend groups loaded by ID (including groups user is not a member of)
+	private allEventFriendGroupsCache: Map<string, FriendGroup> = new Map();
+	private loadingFriendGroups: Set<string> = new Set();
 
 	@Output()
 	addMember: EventEmitter<Evenement> = new EventEmitter<Evenement>();
@@ -1335,14 +1339,57 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (!this.friendGroups) {
 			this.friendGroups = [];
 		}
+		
+		// Load all friend groups associated with this event (even if user is not a member)
+		this.loadAllEventFriendGroups();
+	}
+	
+	// Cache friend groups associated with this event (only groups the user has access to)
+	// Only uses groups from friendGroups (user's accessible groups) - no REST requests needed
+	private loadAllEventFriendGroups(): void {
+		// Safety check: ensure evenement exists
+		if (!this.evenement) {
+			return;
+		}
+		
+		const groupIdsToCache: string[] = [];
+		
+		// Collect all group IDs directly from the event
+		if (this.evenement.friendGroupIds && this.evenement.friendGroupIds.length > 0) {
+			groupIdsToCache.push(...this.evenement.friendGroupIds);
+		} else if (this.evenement.friendGroupId) {
+			groupIdsToCache.push(this.evenement.friendGroupId);
+		}
+		
+		// Only cache groups that the user already has access to (from friendGroups)
+		// Don't make REST requests for groups the user can't access
+		groupIdsToCache.forEach(groupId => {
+			// Skip if already in cache
+			if (this.allEventFriendGroupsCache.has(groupId)) {
+				return;
+			}
+			
+			// Only cache if the group is in friendGroups (user has access)
+			const existingGroup = this.friendGroups.find(g => g.id === groupId);
+			if (existingGroup) {
+				this.allEventFriendGroupsCache.set(groupId, existingGroup);
+				// Trigger change detection to update the badge
+				this.cdr.markForCheck();
+			}
+			// If group not in friendGroups, user doesn't have access - skip it silently
+		});
 	}
 	
 	ngOnChanges(changes: SimpleChanges): void {
-		// If the evenement input changes (e.g., after an update), reload the thumbnail
+		// If the evenement input changes (e.g., after an update), reload the thumbnail and friend groups
 		if (changes['evenement']) {
 			if (changes['evenement'].firstChange) {
 				// First change is handled in ngOnInit
 				return;
+			} else {
+				// Clear cache and reload friend groups when event changes
+				this.allEventFriendGroupsCache.clear();
+				this.loadAllEventFriendGroups();
 			}
 			
 			const previousEvenement = changes['evenement'].previousValue;
@@ -2661,6 +2708,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.downloadAllButtonGradientCache = null;
 		this.ratingBadgeGradientCache = null;
 		this.footerButtonStylesCache.clear();
+		
+		// Clear friend groups cache
+		this.allEventFriendGroupsCache.clear();
+		this.loadingFriendGroups.clear();
 	}
 
 	// Process image to extract dominant color from top portion or full image
@@ -3367,26 +3418,145 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		};
 	}
 
-	// Get visibility display text (for friend groups, shows the group name)
+	// Get visibility display text (for friend groups, shows all group names)
 	public getVisibilityDisplayText(): string {
-		// If visibility is a friend group name (not public, private, or friends), return it as-is
+		// Safety check: ensure evenement exists
+		if (!this.evenement) {
+			return '';
+		}
+		
+		// Check if visibility is friend groups mode
+		if (this.evenement.visibility === 'friendGroups') {
+			const groupNames = this.getEventFriendGroupNames();
+			if (groupNames.length > 0) {
+				return groupNames.join(', ');
+			}
+		}
+		
+		// If visibility is a friend group name (old format - not public, private, or friends), return it as-is
 		if (this.evenement.visibility && 
 		    this.evenement.visibility !== 'public' && 
 		    this.evenement.visibility !== 'private' && 
-		    this.evenement.visibility !== 'friends') {
+		    this.evenement.visibility !== 'friends' &&
+		    this.evenement.visibility !== 'friendGroups') {
 			return this.evenement.visibility;
 		}
+		
 		// Fallback to visibility value
 		return this.evenement.visibility || '';
 	}
 	
+	// Get all friend group names for this event (including groups user is not a member of)
+	// Uses the group IDs stored directly in the event (friendGroupIds or friendGroupId)
+	public getEventFriendGroupNames(): string[] {
+		// Safety check: ensure evenement exists
+		if (!this.evenement) {
+			return [];
+		}
+		
+		const groupNames: string[] = [];
+		
+		// Helper function to get group name by ID (checks both friendGroups and cache)
+		const getGroupNameById = (groupId: string): string | null => {
+			// First check in cache (all loaded groups, including those user is not a member of)
+			const cachedGroup = this.allEventFriendGroupsCache.get(groupId);
+			if (cachedGroup) {
+				return cachedGroup.name;
+			}
+			
+			// Then check in friendGroups (user's groups) as fallback
+			const groupInFriendGroups = this.friendGroups.find(g => g.id === groupId);
+			if (groupInFriendGroups) {
+				return groupInFriendGroups.name;
+			}
+			
+			return null;
+		};
+		
+		// Get all group IDs from the event
+		const groupIds: string[] = [];
+		
+		// Check new format: friendGroupIds (list of group IDs)
+		if (this.evenement.friendGroupIds && this.evenement.friendGroupIds.length > 0) {
+			groupIds.push(...this.evenement.friendGroupIds);
+		}
+		// Check old format: friendGroupId (single group ID) - for backward compatibility
+		else if (this.evenement.friendGroupId) {
+			groupIds.push(this.evenement.friendGroupId);
+		}
+		// Check if visibility matches a group name (very old format)
+		else if (this.evenement.visibility && 
+		         this.evenement.visibility !== 'public' && 
+		         this.evenement.visibility !== 'private' && 
+		         this.evenement.visibility !== 'friends' &&
+		         this.evenement.visibility !== 'friendGroups') {
+			// Try to find group by name in friendGroups or cache
+			const group = this.friendGroups.find(g => g.name === this.evenement.visibility) ||
+			              Array.from(this.allEventFriendGroupsCache.values()).find(g => g.name === this.evenement.visibility);
+			if (group) {
+				groupNames.push(group.name);
+			} else {
+				// Use visibility as name (fallback for very old format)
+				groupNames.push(this.evenement.visibility);
+			}
+			return groupNames;
+		}
+		
+		// Process all group IDs from the event
+		groupIds.forEach(groupId => {
+			const groupName = getGroupNameById(groupId);
+			if (groupName) {
+				groupNames.push(groupName);
+			} else {
+				// Group not loaded yet, try to load it
+				this.loadFriendGroupById(groupId);
+				// The badge will update once the group is loaded (via change detection)
+			}
+		});
+		
+		return groupNames;
+	}
+	
+	// Cache a specific friend group by ID (only if user has access)
+	// Only uses groups from friendGroups - no REST requests needed
+	private loadFriendGroupById(groupId: string): void {
+		// Safety check: ensure groupId is valid
+		if (!groupId) {
+			return;
+		}
+		
+		// Skip if already in cache
+		if (this.allEventFriendGroupsCache.has(groupId)) {
+			return;
+		}
+		
+		// Only cache if the group is in friendGroups (user has access)
+		const existingGroup = this.friendGroups.find(g => g.id === groupId);
+		if (existingGroup) {
+			// Add to cache for consistency
+			this.allEventFriendGroupsCache.set(groupId, existingGroup);
+			// Trigger change detection to update the badge
+			this.cdr.markForCheck();
+		}
+		// If group not in friendGroups, user doesn't have access - skip it silently
+	}
+	
 	// Get the friend group for this event (if it has a friendGroupId or visibility matches a group name)
+	// Note: For events with multiple groups (friendGroupIds), this returns the first group found
 	public getEventFriendGroup(): FriendGroup | undefined {
 		if (!this.friendGroups || this.friendGroups.length === 0) {
 			return undefined;
 		}
 		
-		// First, try to find by friendGroupId
+		// First, try to find by friendGroupIds (new format - return first group)
+		if (this.evenement.friendGroupIds && this.evenement.friendGroupIds.length > 0) {
+			const groupById = this.friendGroups.find(g => this.evenement.friendGroupIds!.includes(g.id));
+			if (groupById) {
+				return groupById;
+			}
+		}
+		
+		// Then, try to find by friendGroupId (old format)
 		if (this.evenement.friendGroupId) {
 			const groupById = this.friendGroups.find(g => g.id === this.evenement.friendGroupId);
 			if (groupById) {
@@ -3395,7 +3565,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 		
 		// If not found by ID, try to find by visibility (which might be the group name)
-		if (this.evenement.visibility && this.evenement.visibility !== 'public' && this.evenement.visibility !== 'private' && this.evenement.visibility !== 'friends') {
+		if (this.evenement.visibility && this.evenement.visibility !== 'public' && this.evenement.visibility !== 'private' && this.evenement.visibility !== 'friends' && this.evenement.visibility !== 'friendGroups') {
 			const groupByName = this.friendGroups.find(g => g.name === this.evenement.visibility);
 			if (groupByName) {
 				return groupByName;
@@ -3405,24 +3575,103 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return undefined;
 	}
 	
-	// Check if the event's friend group has a WhatsApp link
+	// Get all friend groups for this event (including groups user is not a member of)
+	public getEventFriendGroups(): FriendGroup[] {
+		const groups: FriendGroup[] = [];
+		
+		// Helper function to get group by ID
+		const getGroupById = (groupId: string): FriendGroup | null => {
+			// First check in friendGroups (user's groups)
+			const groupInFriendGroups = this.friendGroups.find(g => g.id === groupId);
+			if (groupInFriendGroups) {
+				return groupInFriendGroups;
+			}
+			
+			// Then check in cache (all loaded groups)
+			const cachedGroup = this.allEventFriendGroupsCache.get(groupId);
+			if (cachedGroup) {
+				return cachedGroup;
+			}
+			
+			return null;
+		};
+		
+		// Check new format: friendGroupIds (list of group IDs)
+		if (this.evenement.friendGroupIds && this.evenement.friendGroupIds.length > 0) {
+			this.evenement.friendGroupIds.forEach(groupId => {
+				const group = getGroupById(groupId);
+				if (group) {
+					groups.push(group);
+				} else {
+					// Group not loaded yet, try to load it
+					this.loadFriendGroupById(groupId);
+				}
+			});
+		}
+		
+		// Check old format: friendGroupId (single group ID) - for backward compatibility
+		if (groups.length === 0 && this.evenement.friendGroupId) {
+			const group = getGroupById(this.evenement.friendGroupId);
+			if (group) {
+				groups.push(group);
+			} else {
+				// Group not loaded yet, try to load it
+				this.loadFriendGroupById(this.evenement.friendGroupId);
+			}
+		}
+		
+		// Check if visibility matches a group name (old format)
+		if (groups.length === 0 && this.evenement.visibility && 
+		    this.evenement.visibility !== 'public' && 
+		    this.evenement.visibility !== 'private' && 
+		    this.evenement.visibility !== 'friends' &&
+		    this.evenement.visibility !== 'friendGroups') {
+			// Try to find in friendGroups first
+			const group = this.friendGroups.find(g => g.name === this.evenement.visibility);
+			if (group) {
+				groups.push(group);
+			} else {
+				// Try to find in cache
+				const cachedGroup = Array.from(this.allEventFriendGroupsCache.values()).find(g => g.name === this.evenement.visibility);
+				if (cachedGroup) {
+					groups.push(cachedGroup);
+				}
+			}
+		}
+		
+		return groups;
+	}
+	
+	// Check if any of the event's friend groups has a WhatsApp link
 	public hasFriendGroupWhatsAppLink(): boolean {
 		if (!this.friendGroups || this.friendGroups.length === 0) {
 			return false;
 		}
 		
-		const group = this.getEventFriendGroup();
-		if (!group) {
+		const groups = this.getEventFriendGroups();
+		if (groups.length === 0) {
 			return false;
 		}
 		
-		return !!(group.whatsappLink && group.whatsappLink.trim().length > 0);
+		// Check if any group has a WhatsApp link
+		return groups.some(group => !!(group.whatsappLink && group.whatsappLink.trim().length > 0));
 	}
 	
-	// Get the WhatsApp link for the event's friend group
+	// Get the WhatsApp link for the event's friend group (returns first WhatsApp link found)
 	public getFriendGroupWhatsAppLink(): string | undefined {
-		const group = this.getEventFriendGroup();
-		return group?.whatsappLink;
+		const groups = this.getEventFriendGroups();
+		if (groups.length === 0) {
+			return undefined;
+		}
+		
+		// Return the first WhatsApp link found
+		for (const group of groups) {
+			if (group.whatsappLink && group.whatsappLink.trim().length > 0) {
+				return group.whatsappLink;
+			}
+		}
+		
+		return undefined;
 	}
 	
 	// Open WhatsApp link for the friend group
@@ -5874,6 +6123,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		});
 		this.allSubscriptions = [];
 		
+		// Clear friend groups cache
+		this.allEventFriendGroupsCache.clear();
+		this.loadingFriendGroups.clear();
+		
 		// Unsubscribe from card slideshow subscriptions
 		this.cardSlideshowSubscriptions.forEach(sub => {
 			if (!sub.closed) {
@@ -7324,6 +7577,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	// Change visibility (for author or authorized user of the selected group)
 	public changeVisibility(newVisibility: string, friendGroupId?: string): void {
+		if (!this.evenement) {
+			return;
+		}
 		// Allow if user is the author
 		if (this.isAuthor()) {
 			this.evenement.visibility = newVisibility;
@@ -7352,9 +7608,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 	
 	// Get available visibility options
-	public getVisibilityOptions(): Array<{value: string, label: string, friendGroupId?: string}> {
+	public getVisibilityOptions(): {value: string, label: string, friendGroupId?: string}[] {
 		try {
-			const options: Array<{value: string, label: string, friendGroupId?: string}> = [
+			const options: {value: string, label: string, friendGroupId?: string}[] = [
 				{ value: 'public', label: this.translateService.instant('EVENTCREATION.PUBLIC') },
 				{ value: 'private', label: this.translateService.instant('EVENTCREATION.PRIVATE') },
 				{ value: 'friends', label: this.translateService.instant('EVENTCREATION.FRIENDS') }

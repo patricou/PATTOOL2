@@ -77,11 +77,35 @@
                                 <option value="public">{{"EVENTCREATION.PUBLIC" | translate }}</option>
                                 <option value="private">{{"EVENTCREATION.PRIVATE" | translate }}</option>
                                 <option value="friends">{{"EVENTCREATION.FRIENDS" | translate }}</option>
-                                <option *ngFor="let group of friendGroups" [value]="group.name">{{ group.name }}</option>
+                                <option value="friendGroups">{{"EVENTCREATION.FRIEND_GROUPS" | translate }}</option>
                             </select>
                             <div class="error-message" [hidden]="!visibility.invalid || !f.submitted">
                                 <i class="fa fa-exclamation-triangle"></i>
                                 {{ "EVENTCREATION.VISIBILITYERR" | translate }}
+                            </div>
+                            
+                            <!-- Friend Groups Selection (shown when "friendGroups" is selected) -->
+                            <div *ngIf="evenement.visibility === 'friendGroups'" class="mt-3">
+                                <label class="form-label">
+                                    {{ "EVENTCREATION.SELECT_FRIEND_GROUPS" | translate }}
+                                </label>
+                                <div class="friend-groups-checkboxes">
+                                    <div *ngFor="let group of friendGroups" class="form-check">
+                                        <input 
+                                            class="form-check-input" 
+                                            type="checkbox" 
+                                            [id]="'group-' + group.id"
+                                            [checked]="isFriendGroupSelected(group.id)"
+                                            (change)="toggleFriendGroup(group.id, $event)"
+                                        />
+                                        <label class="form-check-label" [for]="'group-' + group.id">
+                                            {{ group.name }}
+                                        </label>
+                                    </div>
+                                    <div *ngIf="friendGroups.length === 0" class="text-muted">
+                                        {{ "EVENTCREATION.NO_FRIEND_GROUPS" | translate }}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
