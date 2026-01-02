@@ -24,9 +24,11 @@
                             <p class="control-description">{{ "IOT.TEST_DESCRIPTION" | translate }}</p>
                             <button (click)="testEthernetShield()" 
                                     class="btn btn-primary iot-button" 
-                                    [disabled]="messageTestVisible">
-                                <i class="fa fa-play"></i>
-                                {{ "IOT.TEST" | translate }}
+                                    [disabled]="isLoadingTest || messageTestVisible"
+                                    type="button">
+                                <i class="fa" [class.fa-play]="!isLoadingTest" [class.fa-spinner]="isLoadingTest" [class.fa-spin]="isLoadingTest"></i>
+                                <span *ngIf="!isLoadingTest">{{ "IOT.TEST" | translate }}</span>
+                                <span *ngIf="isLoadingTest">Chargement...</span>
                             </button>
                             <div *ngIf="messageTestVisible" class="iot-message test-message">
                                 <strong>{{ "IOT.TEST_RESULT" | translate }}:</strong>
@@ -46,9 +48,11 @@
                             <p class="control-description">{{ "IOT.PORTAIL_DESCRIPTION" | translate }}</p>
                             <button (click)="openOrCLosePortail()" 
                                     class="btn btn-success iot-button" 
-                                    [disabled]="messageVisible">
-                                <i class="fa fa-power-off"></i>
-                                {{ "IOT.OPCLG" | translate }}
+                                    [disabled]="isLoadingPortail || messageVisible"
+                                    type="button">
+                                <i class="fa" [class.fa-power-off]="!isLoadingPortail" [class.fa-spinner]="isLoadingPortail" [class.fa-spin]="isLoadingPortail"></i>
+                                <span *ngIf="!isLoadingPortail">{{ "IOT.OPCLG" | translate }}</span>
+                                <span *ngIf="isLoadingPortail">Chargement...</span>
                             </button>
                             <div *ngIf="messageVisible" class="iot-message portail-message">
                                 <strong>{{ "IOT.PORTAIL_STATUS" | translate }}:</strong>

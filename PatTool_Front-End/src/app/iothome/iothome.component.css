@@ -87,9 +87,18 @@
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    transition: all 0.2s ease;
+    transition: transform 0.1s ease, box-shadow 0.1s ease, opacity 0.1s ease;
     border: none;
     margin-bottom: 0.75rem;
+    position: relative;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.iot-button:active:not(:disabled) {
+    transform: scale(0.98);
+    transition: transform 0.05s ease;
 }
 
 .iot-button:hover:not(:disabled) {
@@ -97,10 +106,16 @@
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
 }
 
+.iot-button:focus:not(:disabled) {
+    outline: 2px solid rgba(255, 255, 255, 0.5);
+    outline-offset: 2px;
+}
+
 .iot-button:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
+    pointer-events: none;
 }
 
 .iot-button.btn-primary {
@@ -127,9 +142,12 @@
     border: 1px solid #bae6fd;
     border-radius: 6px;
     padding: 0.5rem 0.75rem;
-    animation: slideInUp 0.3s ease-out;
+    animation: slideInUp 0.2s ease-out;
     font-size: 0.8rem;
     line-height: 1.4;
+    display: block;
+    opacity: 1;
+    visibility: visible;
 }
 
 .iot-message strong {
@@ -196,7 +214,7 @@
 @keyframes slideInUp {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(5px);
     }
     to {
         opacity: 1;
