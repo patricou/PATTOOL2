@@ -632,6 +632,7 @@
         "CLOSE": "Close",
         "OPTIONS": "Options",
         "OPEN": "Open",
+        "CONFIRM": "Confirm",
         "DOWNLOAD": "Download",
         "CANCEL": "Cancel",
         "STATUSCLOSE": "Closed",

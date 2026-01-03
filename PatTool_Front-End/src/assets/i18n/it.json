@@ -631,6 +631,7 @@
         "NO": "No",
         "CLOSE": "Chiudi",
         "OPEN": "Apri",
+        "CONFIRM": "Conferma",
         "DOWNLOAD": "Scarica",
         "CANCEL": "Annulla",
         "STATUSCLOSE": "Chiuso",

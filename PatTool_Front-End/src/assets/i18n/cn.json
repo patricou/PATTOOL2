@@ -623,6 +623,7 @@
         "NO": "否",
         "CLOSE": "关闭",
         "OPEN": "打开",
+        "CONFIRM": "确认",
         "DOWNLOAD": "下载",
         "CANCEL": "取消",
         "STATUSCLOSE": "关闭",

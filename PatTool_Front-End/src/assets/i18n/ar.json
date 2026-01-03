@@ -621,6 +621,7 @@
         "NO": "لا",
         "CLOSE": "إغلاق",
         "OPEN": "فتح",
+        "CONFIRM": "تأكيد",
         "DOWNLOAD": "تحميل",
         "CANCEL": "إلغاء",
         "STATUSCLOSE": "مغلق",

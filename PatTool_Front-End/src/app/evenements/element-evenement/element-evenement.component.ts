@@ -83,6 +83,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Friend groups for visibility (now received as @Input from parent)
 	// Visibility options for modal
 	public visibilityOptions: Array<{value: string, label: string, friendGroupId?: string}> = [];
+	// Current visibility modal reference
+	private currentVisibilityModalRef: any = null;
 	// Type options for modal
 	public typeOptions: Array<{value: string, label: string}> = [];
 	// Dominant color for title background
@@ -7557,7 +7559,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 	
 	// Check if user is authorized to use a friend group (owner or authorized user)
-	private isAuthorizedForGroup(group: FriendGroup): boolean {
+	public isAuthorizedForGroup(group: FriendGroup): boolean {
 		if (!group || !this.user) {
 			return false;
 		}
@@ -7583,10 +7585,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Allow if user is the author
 		if (this.isAuthor()) {
 			this.evenement.visibility = newVisibility;
-			if (friendGroupId) {
-				this.evenement.friendGroupId = friendGroupId;
-			} else {
+			if (newVisibility === 'friendGroups') {
+				// For friendGroups, use friendGroupIds (already set by toggleFriendGroup)
+				// Clear old friendGroupId for backward compatibility
 				this.evenement.friendGroupId = undefined;
+			} else if (friendGroupId) {
+				// For single group selection (old format)
+				this.evenement.friendGroupId = friendGroupId;
+				this.evenement.friendGroupIds = undefined;
+			} else {
+				// Clear both for public/private/friends
+				this.evenement.friendGroupId = undefined;
+				this.evenement.friendGroupIds = undefined;
 			}
 			this.updateEvenement.emit(this.evenement);
 			return;
@@ -7598,6 +7608,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			if (selectedGroup && this.isAuthorizedForGroup(selectedGroup)) {
 				this.evenement.visibility = newVisibility;
 				this.evenement.friendGroupId = friendGroupId;
+				this.evenement.friendGroupIds = undefined;
 				this.updateEvenement.emit(this.evenement);
 				return;
 			}
@@ -7613,21 +7624,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			const options: {value: string, label: string, friendGroupId?: string}[] = [
 				{ value: 'public', label: this.translateService.instant('EVENTCREATION.PUBLIC') },
 				{ value: 'private', label: this.translateService.instant('EVENTCREATION.PRIVATE') },
-				{ value: 'friends', label: this.translateService.instant('EVENTCREATION.FRIENDS') }
+				{ value: 'friends', label: this.translateService.instant('EVENTCREATION.FRIENDS') },
+				{ value: 'friendGroups', label: this.translateService.instant('EVENTCREATION.FRIEND_GROUPS') }
 			];
-			
-			// Add friend groups where user is owner or authorized
-			if (this.friendGroups && Array.isArray(this.friendGroups)) {
-				this.friendGroups.forEach(group => {
-					if (group && group.name && group.id && this.isAuthorizedForGroup(group)) {
-						options.push({
-							value: group.name,
-							label: group.name,
-							friendGroupId: group.id
-						});
-					}
-				});
-			}
 			
 			return options;
 		} catch (error) {
@@ -7636,7 +7635,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return [
 				{ value: 'public', label: 'Public' },
 				{ value: 'private', label: 'Private' },
-				{ value: 'friends', label: 'Friends' }
+				{ value: 'friends', label: 'Friends' },
+				{ value: 'friendGroups', label: 'Friend Groups' }
 			];
 		}
 	}
@@ -7672,6 +7672,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			// Prepare visibility options before opening modal
 			this.visibilityOptions = this.getVisibilityOptions();
 			
+			// Initialize friendGroupIds if event already has friendGroups visibility
+			if (this.evenement.visibility === 'friendGroups') {
+				if (!this.evenement.friendGroupIds) {
+					// Try to migrate from old friendGroupId format
+					if (this.evenement.friendGroupId) {
+						this.evenement.friendGroupIds = [this.evenement.friendGroupId];
+					} else {
+						this.evenement.friendGroupIds = [];
+					}
+				}
+			}
+			
 			if (!this.visibilityModal) {
 				console.error('Visibility modal template not found');
 				return;
@@ -7692,6 +7704,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				keyboard: false,
 				windowClass: 'visibility-modal'
 			});
+			
+			// Store modal reference for friend groups confirmation
+			this.currentVisibilityModalRef = modalRef;
 			
 			// Immediately maintain scroll position after modal opens to prevent any movement
 			requestAnimationFrame(() => {
@@ -7741,6 +7756,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				});
 			}).catch(() => {
 				// Also restore on dismissal
+				this.currentVisibilityModalRef = null;
 				if (document.body) {
 					document.body.style.overflow = '';
 					document.body.style.overflowX = '';
@@ -7781,7 +7797,92 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	
 	// Handle visibility selection
 	public onVisibilitySelected(option: {value: string, label: string, friendGroupId?: string}): void {
-		this.changeVisibility(option.value, option.friendGroupId);
+		if (option.value === 'friendGroups') {
+			// Don't close modal yet - user needs to select groups
+			// Set visibility to friendGroups so checkboxes appear
+			this.evenement.visibility = 'friendGroups';
+			// Initialize friendGroupIds if not already set
+			if (!this.evenement.friendGroupIds) {
+				// Try to migrate from old friendGroupId format
+				if (this.evenement.friendGroupId) {
+					this.evenement.friendGroupIds = [this.evenement.friendGroupId];
+				} else {
+					this.evenement.friendGroupIds = [];
+				}
+			}
+			// Clear old friendGroupId for backward compatibility
+			this.evenement.friendGroupId = undefined;
+		} else {
+			// For other options, apply immediately and close modal
+			this.changeVisibility(option.value, option.friendGroupId);
+		}
+	}
+	
+	// Toggle friend group selection
+	public toggleFriendGroup(groupId: string, event: any): void {
+		if (!this.evenement.friendGroupIds) {
+			this.evenement.friendGroupIds = [];
+		}
+		
+		if (event.target.checked) {
+			// Add group if not already in the list
+			if (!this.evenement.friendGroupIds.includes(groupId)) {
+				this.evenement.friendGroupIds.push(groupId);
+			}
+		} else {
+			// Remove group from the list
+			const index = this.evenement.friendGroupIds.indexOf(groupId);
+			if (index > -1) {
+				this.evenement.friendGroupIds.splice(index, 1);
+			}
+		}
+	}
+	
+	// Check if a friend group is selected
+	public isFriendGroupSelected(groupId: string): boolean {
+		if (!this.evenement.friendGroupIds) {
+			return false;
+		}
+		return this.evenement.friendGroupIds.includes(groupId);
+	}
+	
+	// Check if visibility is friend groups mode
+	public isFriendGroupsVisibility(): boolean {
+		return this.evenement.visibility === 'friendGroups';
+	}
+	
+	// Get authorized friend groups for template (sorted alphabetically)
+	public getAuthorizedFriendGroups(): FriendGroup[] {
+		if (!this.friendGroups || !Array.isArray(this.friendGroups)) {
+			return [];
+		}
+		return this.friendGroups
+			.filter(group => this.isAuthorizedForGroup(group))
+			.sort((a, b) => {
+				const nameA = (a.name || '').toLowerCase();
+				const nameB = (b.name || '').toLowerCase();
+				return nameA.localeCompare(nameB);
+			});
+	}
+	
+	// Confirm friend groups selection and close modal
+	public confirmFriendGroupsSelection(): void {
+		if (!this.evenement.friendGroupIds || this.evenement.friendGroupIds.length === 0) {
+			// No groups selected, clear visibility
+			this.evenement.visibility = 'public';
+			this.evenement.friendGroupIds = undefined;
+			this.evenement.friendGroupId = undefined;
+		} else {
+			// Apply friendGroups visibility with selected groups
+			this.evenement.visibility = 'friendGroups';
+			// Clear old friendGroupId for backward compatibility
+			this.evenement.friendGroupId = undefined;
+			this.updateEvenement.emit(this.evenement);
+		}
+		if (this.currentVisibilityModalRef) {
+			this.currentVisibilityModalRef.close('Selected');
+			this.currentVisibilityModalRef = null;
+		}
 	}
 	
 	// Get sorted event types for modal

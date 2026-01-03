@@ -626,6 +626,7 @@
         "NO": "Nein",
         "CLOSE": "Schließen",
         "OPEN": "Öffnen",
+        "CONFIRM": "Bestätigen",
         "DOWNLOAD": "Herunterladen",
         "CANCEL": "Abbrechen",
         "STATUSCLOSE": "Geschlossen",

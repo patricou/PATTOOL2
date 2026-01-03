@@ -948,11 +948,24 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		this._friendsService.getFriendGroups().subscribe(
 			groups => {
 				this.friendGroups = groups;
+				// Sort friend groups alphabetically
+				this.sortFriendGroups();
 			},
 			error => {
 				console.error('Error loading friend groups:', error);
 			}
 		);
+	}
+	
+	// Sort friend groups alphabetically by name
+	private sortFriendGroups(): void {
+		if (this.friendGroups && Array.isArray(this.friendGroups)) {
+			this.friendGroups.sort((a, b) => {
+				const nameA = (a.name || '').toLowerCase();
+				const nameB = (b.name || '').toLowerCase();
+				return nameA.localeCompare(nameB);
+			});
+		}
 	}
 
 	// Load friend groups and set selection if visibility is friend groups mode
@@ -960,6 +973,8 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		this._friendsService.getFriendGroups().subscribe(
 			groups => {
 				this.friendGroups = groups;
+				// Sort friend groups alphabetically
+				this.sortFriendGroups();
 				// Set selected friend groups if visibility is friend groups mode
 				if (this.evenement.friendGroupIds && this.evenement.friendGroupIds.length > 0) {
 					this.selectedFriendGroupIds = [...this.evenement.friendGroupIds];

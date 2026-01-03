@@ -583,6 +583,7 @@
         "NO": "いいえ",
         "CLOSE": "閉じる",
         "OPEN": "開く",
+        "CONFIRM": "確認",
         "DOWNLOAD": "ダウンロード",
         "CANCEL": "キャンセル",
         "STATUSCLOSE": "閉鎖",

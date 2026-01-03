@@ -178,6 +178,15 @@
                           [style.border-style]="'solid'"
                           [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
                           [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{"EVENTCREATION.FRIENDS" | translate }}</span>
+                    <span *ngSwitchCase="'friendGroups'" 
+                          class="badge visibility-badge"
+                          [style.background-color]="getVisibilityBadgeGradient()"
+                          [style.border-color]="getInverseTextColor()"
+                          [style.color]="getInverseTextColor()"
+                          [style.border-width]="'2px'"
+                          [style.border-style]="'solid'"
+                          [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
+                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{getVisibilityDisplayText()}}</span>
                     <span *ngSwitchDefault 
                           class="badge visibility-badge"
                           [style.background-color]="getVisibilityBadgeGradient()"
@@ -1062,17 +1071,47 @@
                  [style.background-color]="evenement.visibility === option.value ? getVisibilityBadgeGradient() : 'transparent'"
                  [style.border-color]="evenement.visibility === option.value ? getInverseTextColor() : '#dee2e6'"
                  [style.color]="evenement.visibility === option.value ? getInverseTextColor() : 'inherit'"
-                 (click)="onVisibilitySelected(option); c('Selected')">
+                 (click)="onVisibilitySelected(option); option.value !== 'friendGroups' && c('Selected')">
                 <i class="fa me-2" 
                    [class.fa-check-circle]="evenement.visibility === option.value"
                    [class.fa-circle-o]="evenement.visibility !== option.value"></i>
                 {{ option.label }}
             </div>
         </div>
+        
+        <!-- Friend Groups Selection (shown when "friendGroups" is selected) -->
+        <div *ngIf="evenement.visibility === 'friendGroups'" class="mt-3">
+            <label class="form-label fw-bold">
+                {{ "EVENTCREATION.SELECT_FRIEND_GROUPS" | translate }}
+            </label>
+            <div class="friend-groups-checkboxes">
+                <div *ngFor="let group of getAuthorizedFriendGroups()" class="form-check mb-2">
+                    <input 
+                        class="form-check-input" 
+                        type="checkbox" 
+                        [id]="'group-' + group.id"
+                        [checked]="isFriendGroupSelected(group.id)"
+                        (change)="toggleFriendGroup(group.id, $event)"
+                    />
+                    <label class="form-check-label" [for]="'group-' + group.id">
+                        {{ group.name }}
+                    </label>
+                </div>
+                <div *ngIf="getAuthorizedFriendGroups().length === 0" class="text-muted">
+                    {{ "EVENTCREATION.NO_FRIEND_GROUPS" | translate }}
+                </div>
+            </div>
+        </div>
     </div>
     <div class="modal-footer">
+        <button *ngIf="evenement.visibility === 'friendGroups'"
+                type="button" 
+                class="btn btn-primary me-2" 
+                (click)="confirmFriendGroupsSelection()">
+            <i class="fa fa-check"></i> {{ 'COMMUN.CONFIRM' | translate }}
+        </button>
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">
-            <i class="fa fa-times"></i> Close
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
         </button>
     </div>
 </ng-template>
