@@ -364,6 +364,10 @@
         "CHGTSTATUS": "更改状态",
         "CHANGE_VISIBILITY": "更改可见性",
         "CHANGE_TYPE": "更改类型",
+        "USERS_WITH_ACCESS": "有访问权限的用户",
+        "NO_ACCESS_USERS": "未找到有访问权限的用户",
+        "TOTAL_USERS": "用户总数",
+        "VIEW_DETAILS": "查看详情",
         "UPLOAD": "上传文件（图片、视频、PDF、GPS轨迹）",
         "UPLOAD_PROGRESS": "上传进度",
         "WAITING_FOR_UPLOAD": "等待上传开始...",
@@ -1119,7 +1123,10 @@
         "LAST_NAME": "姓氏",
         "WHATSAPP_GROUP_LINK": "WhatsApp 群组链接",
         "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
-        "WHATSAPP_GROUP_LINK_HELP": "输入 WhatsApp 群组邀请链接（可选）"
+        "WHATSAPP_GROUP_LINK_HELP": "输入 WhatsApp 群组邀请链接（可选）",
+        "SORT_BY_DATE_CREATION": "按创建日期排序",
+        "SORT_BY_FIRST_NAME": "按名字排序",
+        "SORT_BY_LAST_NAME": "按姓氏排序"
     },
     "STATISTICS": {
         "TITLE": "讨论统计",

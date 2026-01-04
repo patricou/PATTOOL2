@@ -363,6 +363,10 @@
         "CHGTSTATUS": "تغيير الحالة",
         "CHANGE_VISIBILITY": "تغيير الرؤية",
         "CHANGE_TYPE": "تغيير النوع",
+        "USERS_WITH_ACCESS": "المستخدمون الذين لديهم وصول",
+        "NO_ACCESS_USERS": "لم يتم العثور على مستخدمين لديهم وصول",
+        "TOTAL_USERS": "إجمالي المستخدمين",
+        "VIEW_DETAILS": "عرض التفاصيل",
         "UPLOAD": "رفع ملف (صور، فيديو، PDF، مسار GPS)",
         "UPLOAD_PROGRESS": "تقدم الرفع",
         "WAITING_FOR_UPLOAD": "في انتظار بدء الرفع...",
@@ -1117,7 +1121,10 @@
         "LAST_NAME": "اسم العائلة",
         "WHATSAPP_GROUP_LINK": "رابط مجموعة واتساب",
         "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
-        "WHATSAPP_GROUP_LINK_HELP": "أدخل رابط دعوة مجموعة واتساب (اختياري)"
+        "WHATSAPP_GROUP_LINK_HELP": "أدخل رابط دعوة مجموعة واتساب (اختياري)",
+        "SORT_BY_DATE_CREATION": "ترتيب حسب تاريخ الإنشاء",
+        "SORT_BY_FIRST_NAME": "ترتيب حسب الاسم الأول",
+        "SORT_BY_LAST_NAME": "ترتيب حسب اسم العائلة"
     },
     "STATISTICS": {
         "TITLE": "إحصائيات المناقشات",

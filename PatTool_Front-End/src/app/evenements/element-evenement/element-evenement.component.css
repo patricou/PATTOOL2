@@ -1001,3 +1001,38 @@
   border-radius: 8px;
   overflow: hidden;
 }
+
+/* Event Access Users Modal Styles */
+.users-list .list-group-item {
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  border: 1px solid #dee2e6;
+  border-radius: 0.375rem;
+  margin-bottom: 0.5rem;
+}
+
+.users-list .list-group-item:hover {
+  background-color: #f8f9fa;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.users-list .list-group-item .btn {
+  flex-shrink: 0;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 767.98px) {
+  .users-list .list-group-item {
+    margin-bottom: 0.75rem;
+  }
+  
+  .users-list .list-group-item .d-flex {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+  
+  .users-list .list-group-item .btn {
+    margin-top: 0.5rem;
+    width: 100%;
+  }
+}

@@ -324,6 +324,10 @@
         "CHGTSTATUS": "ステータスを変更",
         "CHANGE_VISIBILITY": "表示を変更",
         "CHANGE_TYPE": "タイプを変更",
+        "USERS_WITH_ACCESS": "アクセス権を持つユーザー",
+        "NO_ACCESS_USERS": "アクセス権を持つユーザーが見つかりません",
+        "TOTAL_USERS": "ユーザー総数",
+        "VIEW_DETAILS": "詳細を表示",
         "UPLOAD": "ファイルをアップロード（画像、動画、PDF、GPSトラック）",
         "UPLOAD_PROGRESS": "アップロードの進行状況",
         "WAITING_FOR_UPLOAD": "アップロードの開始を待っています...",
@@ -1079,7 +1083,10 @@
         "LAST_NAME": "姓",
         "WHATSAPP_GROUP_LINK": "WhatsAppグループリンク",
         "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
-        "WHATSAPP_GROUP_LINK_HELP": "WhatsAppグループ招待リンクを入力（オプション）"
+        "WHATSAPP_GROUP_LINK_HELP": "WhatsAppグループ招待リンクを入力（オプション）",
+        "SORT_BY_DATE_CREATION": "作成日で並べ替え",
+        "SORT_BY_FIRST_NAME": "名で並べ替え",
+        "SORT_BY_LAST_NAME": "姓で並べ替え"
     },
     "STATISTICS": {
         "TITLE": "議論統計",

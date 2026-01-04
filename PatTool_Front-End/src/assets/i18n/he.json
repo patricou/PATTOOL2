@@ -366,6 +366,10 @@
         "CHGTSTATUS": "שנה את הסטטוס",
         "CHANGE_VISIBILITY": "שנה את הנראות",
         "CHANGE_TYPE": "שנה סוג",
+        "USERS_WITH_ACCESS": "משתמשים עם גישה",
+        "NO_ACCESS_USERS": "לא נמצאו משתמשים עם גישה",
+        "TOTAL_USERS": "סה\"כ משתמשים",
+        "VIEW_DETAILS": "הצג פרטים",
         "UPLOAD": "העלה קובץ (תמונות, וידאו, PDF, מסלול GPS)",
         "UPLOAD_PROGRESS": "התקדמות העלאה",
         "WAITING_FOR_UPLOAD": "ממתין להתחלת ההעלאה...",
@@ -1112,7 +1116,10 @@
         "LAST_NAME": "שם משפחה",
         "WHATSAPP_GROUP_LINK": "קישור קבוצת WhatsApp",
         "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
-        "WHATSAPP_GROUP_LINK_HELP": "הזן את קישור ההזמנה של קבוצת WhatsApp (אופציונלי)"
+        "WHATSAPP_GROUP_LINK_HELP": "הזן את קישור ההזמנה של קבוצת WhatsApp (אופציונלי)",
+        "SORT_BY_DATE_CREATION": "מיין לפי תאריך יצירה",
+        "SORT_BY_FIRST_NAME": "מיין לפי שם פרטי",
+        "SORT_BY_LAST_NAME": "מיין לפי שם משפחה"
     },
     "STATISTICS": {
         "TITLE": "סטטיסטיקת דיונים",

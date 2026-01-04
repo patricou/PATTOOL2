@@ -38,6 +38,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.stream.Collectors;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -1834,6 +1838,320 @@ public class EvenementRestController {
             log.error("Interrupted while waiting for executor service to terminate", e);
             executorService.shutdownNow();
             Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * Get current user ID from authentication token
+     */
+    private String getCurrentUserId() {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.getPrincipal() instanceof org.springframework.security.oauth2.jwt.Jwt) {
+                org.springframework.security.oauth2.jwt.Jwt jwt = (org.springframework.security.oauth2.jwt.Jwt) authentication.getPrincipal();
+                String keycloakId = jwt.getSubject();
+                if (keycloakId != null) {
+                    // Find member by keycloakId
+                    List<Member> members = membersRepository.findAll();
+                    Optional<Member> memberOpt = members.stream()
+                            .filter(m -> keycloakId.equals(m.getKeycloakId()))
+                            .findFirst();
+                    if (memberOpt.isPresent()) {
+                        return memberOpt.get().getId();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Error getting current user ID: {}", e.getMessage());
+        }
+        return null;
+    }
+
+    /**
+     * Get users with access to an event
+     * For admin: returns all users with access based on visibility
+     * For non-admin: returns only users with access who are also friends of the current user
+     * 
+     * @param eventId The event ID
+     * @return List of members with access to the event
+     */
+    @GetMapping(value = "/{eventId}/access-users", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<List<Member>> getEventAccessUsers(@PathVariable String eventId) {
+        try {
+            // Get event
+            Optional<Evenement> eventOpt = evenementsRepository.findById(eventId);
+            if (!eventOpt.isPresent()) {
+                return ResponseEntity.notFound().build();
+            }
+            Evenement event = eventOpt.get();
+            
+            // Get current user
+            String currentUserId = getCurrentUserId();
+            if (currentUserId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            
+            Optional<Member> currentUserOpt = membersRepository.findById(currentUserId);
+            if (!currentUserOpt.isPresent()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            Member currentUser = currentUserOpt.get();
+            
+            // Check if admin
+            boolean isAdmin = hasAdminRole();
+            
+            // Get visibility and normalize (trim and lowercase for comparison)
+            String visibility = event.getVisibility() != null ? event.getVisibility().trim().toLowerCase() : "public";
+            
+            log.debug("Getting access users for event {} - Visibility: '{}' (normalized), IsAdmin: {}", eventId, visibility, isAdmin);
+            
+            List<Member> accessibleUsers = new ArrayList<>();
+            
+            // Handle each visibility type explicitly
+            if ("private".equals(visibility)) {
+                // Private: only author has access
+                log.debug("Private visibility detected - IsAdmin: {}", isAdmin);
+                if (event.getAuthor() != null) {
+                    if (isAdmin) {
+                        // Admin: return only the author
+                        accessibleUsers.add(event.getAuthor());
+                        log.debug("Admin - Returning author only: {}", event.getAuthor().getId());
+                    } else {
+                        // Non-admin: return author only if they are a friend
+                        List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
+                        boolean isFriend = friendships.stream()
+                            .anyMatch(f -> {
+                                if (f == null) return false;
+                                Member u1 = f.getUser1();
+                                Member u2 = f.getUser2();
+                                return (u1 != null && u1.getId().equals(event.getAuthor().getId())) ||
+                                       (u2 != null && u2.getId().equals(event.getAuthor().getId()));
+                            });
+                        if (isFriend) {
+                            accessibleUsers.add(event.getAuthor());
+                            log.debug("Non-admin - Author is a friend, returning author");
+                        } else {
+                            log.debug("Non-admin - Author is not a friend, returning empty list");
+                        }
+                    }
+                } else {
+                    log.debug("Private visibility but no author found - returning empty list");
+                }
+            } else if ("friendgroups".equals(visibility)) {
+                // Friend groups: get members from friend groups
+                List<String> groupIds = event.getFriendGroupIds() != null ? 
+                    event.getFriendGroupIds() : 
+                    (event.getFriendGroupId() != null ? java.util.Arrays.asList(event.getFriendGroupId()) : new ArrayList<>());
+                
+                log.debug("FriendGroups visibility detected - Group IDs: {}, IsAdmin: {}", groupIds, isAdmin);
+                
+                if (!groupIds.isEmpty()) {
+                    List<FriendGroup> groups = friendGroupRepository.findAllById(groupIds);
+                    log.debug("Found {} friend groups", groups.size());
+                    
+                    List<Member> groupMembers = new ArrayList<>();
+                    Set<String> seenMemberIds = new HashSet<>(); // To remove duplicates by ID
+                    
+                    for (FriendGroup group : groups) {
+                        if (group != null && group.getMembers() != null) {
+                            for (Member member : group.getMembers()) {
+                                if (member != null && member.getId() != null && !seenMemberIds.contains(member.getId())) {
+                                    seenMemberIds.add(member.getId());
+                                    groupMembers.add(member);
+                                }
+                            }
+                        }
+                    }
+                    
+                    log.debug("Total unique members in friend groups: {}", groupMembers.size());
+                    
+                    if (isAdmin) {
+                        // Admin: return all members of the friend groups
+                        accessibleUsers = groupMembers;
+                        log.debug("Admin - Returning {} members from friend groups", accessibleUsers.size());
+                    } else {
+                        // Non-admin: filter to only show friends
+                        List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
+                        Set<String> friendIds = new HashSet<>();
+                        for (Friend f : friendships) {
+                            if (f != null) {
+                                if (f.getUser1() != null && !f.getUser1().getId().equals(currentUserId)) {
+                                    friendIds.add(f.getUser1().getId());
+                                }
+                                if (f.getUser2() != null && !f.getUser2().getId().equals(currentUserId)) {
+                                    friendIds.add(f.getUser2().getId());
+                                }
+                            }
+                        }
+                        
+                        log.debug("Non-admin - Found {} friends, filtering {} group members", friendIds.size(), groupMembers.size());
+                        
+                        accessibleUsers = groupMembers.stream()
+                            .filter(m -> m != null && m.getId() != null && friendIds.contains(m.getId()))
+                            .collect(Collectors.toList());
+                        
+                        log.debug("Non-admin - Returning {} members (friends in groups)", accessibleUsers.size());
+                    }
+                } else {
+                    log.debug("FriendGroups visibility but no group IDs found - returning empty list");
+                    accessibleUsers = new ArrayList<>(); // No groups, return empty
+                }
+            } else if ("friends".equals(visibility) || "friend".equals(visibility)) {
+                // Friends: all friends of the author (admin) or all my friends (non-admin)
+                log.debug("Friends visibility detected - IsAdmin: {}", isAdmin);
+                if (isAdmin) {
+                    // Admin: get all friends of the author
+                    if (event.getAuthor() != null) {
+                        List<Friend> authorFriendships = friendRepository.findByUser1OrUser2(event.getAuthor(), event.getAuthor());
+                        Set<String> authorFriendIds = new HashSet<>();
+                        for (Friend f : authorFriendships) {
+                            if (f != null) {
+                                if (f.getUser1() != null && !f.getUser1().getId().equals(event.getAuthor().getId())) {
+                                    authorFriendIds.add(f.getUser1().getId());
+                                }
+                                if (f.getUser2() != null && !f.getUser2().getId().equals(event.getAuthor().getId())) {
+                                    authorFriendIds.add(f.getUser2().getId());
+                                }
+                            }
+                        }
+                        if (!authorFriendIds.isEmpty()) {
+                            accessibleUsers = new ArrayList<>();
+                            for (String friendId : authorFriendIds) {
+                                Optional<Member> memberOpt = membersRepository.findById(friendId);
+                                if (memberOpt.isPresent()) {
+                                    accessibleUsers.add(memberOpt.get());
+                                }
+                            }
+                        }
+                        log.debug("Admin - Returning {} friends of author", accessibleUsers.size());
+                    } else {
+                        log.debug("Admin - No author found, returning empty list");
+                    }
+                } else {
+                    // Non-admin: get my friends
+                    List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
+                    Set<String> friendIds = new HashSet<>();
+                    for (Friend f : friendships) {
+                        if (f != null) {
+                            if (f.getUser1() != null && !f.getUser1().getId().equals(currentUserId)) {
+                                friendIds.add(f.getUser1().getId());
+                            }
+                            if (f.getUser2() != null && !f.getUser2().getId().equals(currentUserId)) {
+                                friendIds.add(f.getUser2().getId());
+                            }
+                        }
+                    }
+                    if (!friendIds.isEmpty()) {
+                        accessibleUsers = new ArrayList<>();
+                        for (String friendId : friendIds) {
+                            Optional<Member> memberOpt = membersRepository.findById(friendId);
+                            if (memberOpt.isPresent()) {
+                                accessibleUsers.add(memberOpt.get());
+                            }
+                        }
+                    }
+                    log.debug("Non-admin - Returning {} of my friends", accessibleUsers.size());
+                }
+            } else if ("public".equals(visibility)) {
+                // Public: all users (admin) or all my friends (non-admin)
+                log.debug("Public visibility detected - IsAdmin: {}", isAdmin);
+                if (isAdmin) {
+                    accessibleUsers = membersRepository.findAll();
+                    log.debug("Admin - Returning all {} users", accessibleUsers.size());
+                } else {
+                    // Non-admin: get my friends
+                    List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
+                    Set<String> friendIds = new HashSet<>();
+                    for (Friend f : friendships) {
+                        if (f != null) {
+                            if (f.getUser1() != null && !f.getUser1().getId().equals(currentUserId)) {
+                                friendIds.add(f.getUser1().getId());
+                            }
+                            if (f.getUser2() != null && !f.getUser2().getId().equals(currentUserId)) {
+                                friendIds.add(f.getUser2().getId());
+                            }
+                        }
+                    }
+                    if (!friendIds.isEmpty()) {
+                        accessibleUsers = new ArrayList<>();
+                        for (String friendId : friendIds) {
+                            Optional<Member> memberOpt = membersRepository.findById(friendId);
+                            if (memberOpt.isPresent()) {
+                                accessibleUsers.add(memberOpt.get());
+                            }
+                        }
+                    }
+                    log.debug("Non-admin - Returning {} of my friends", accessibleUsers.size());
+                }
+            } else {
+                // Check if visibility is a friend group name (for backward compatibility)
+                // Some old events may have the group name as visibility instead of "friendGroups"
+                log.debug("Visibility '{}' is not a standard type, checking if it's a friend group name", visibility);
+                
+                // Try to find a friend group by name (case-insensitive)
+                List<FriendGroup> allGroups = friendGroupRepository.findAll();
+                FriendGroup matchingGroup = null;
+                for (FriendGroup group : allGroups) {
+                    if (group != null && group.getName() != null && 
+                        group.getName().trim().toLowerCase().equals(visibility)) {
+                        matchingGroup = group;
+                        break;
+                    }
+                }
+                
+                if (matchingGroup != null) {
+                    log.debug("Found friend group '{}' matching visibility '{}'", matchingGroup.getName(), visibility);
+                    
+                    List<Member> groupMembers = new ArrayList<>();
+                    if (matchingGroup.getMembers() != null) {
+                        Set<String> seenMemberIds = new HashSet<>();
+                        for (Member member : matchingGroup.getMembers()) {
+                            if (member != null && member.getId() != null && !seenMemberIds.contains(member.getId())) {
+                                seenMemberIds.add(member.getId());
+                                groupMembers.add(member);
+                            }
+                        }
+                    }
+                    
+                    if (isAdmin) {
+                        // Admin: return all members of the friend group
+                        accessibleUsers = groupMembers;
+                        log.debug("Admin - Returning {} members from friend group '{}'", accessibleUsers.size(), matchingGroup.getName());
+                    } else {
+                        // Non-admin: filter to only show friends
+                        List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
+                        Set<String> friendIds = new HashSet<>();
+                        for (Friend f : friendships) {
+                            if (f != null) {
+                                if (f.getUser1() != null && !f.getUser1().getId().equals(currentUserId)) {
+                                    friendIds.add(f.getUser1().getId());
+                                }
+                                if (f.getUser2() != null && !f.getUser2().getId().equals(currentUserId)) {
+                                    friendIds.add(f.getUser2().getId());
+                                }
+                            }
+                        }
+                        
+                        accessibleUsers = groupMembers.stream()
+                            .filter(m -> m != null && m.getId() != null && friendIds.contains(m.getId()))
+                            .collect(Collectors.toList());
+                        
+                        log.debug("Non-admin - Returning {} members (friends in group '{}')", accessibleUsers.size(), matchingGroup.getName());
+                    }
+                } else {
+                    // Not a friend group name either - return empty list for safety
+                    log.warn("Unknown visibility type: '{}' - not a standard type and not a friend group name. Returning empty list", visibility);
+                    accessibleUsers = new ArrayList<>();
+                }
+            }
+            
+            log.debug("Returning {} accessible users for event {} (visibility: '{}', isAdmin: {})", 
+                accessibleUsers.size(), eventId, visibility, isAdmin);
+            return ResponseEntity.ok(accessibleUsers);
+            
+        } catch (Exception e) {
+            log.error("Error getting event access users: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

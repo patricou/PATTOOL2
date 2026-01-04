@@ -115,6 +115,18 @@
             [(ngModel)]="searchFilter"
             [placeholder]="'FRIENDS.SEARCH_PLACEHOLDER' | translate">
         </div>
+        <div class="input-group" style="min-width: 200px;">
+          <span class="input-group-text">
+            <i class="fa fa-sort"></i>
+          </span>
+          <select 
+            class="form-select" 
+            [(ngModel)]="sortOption">
+            <option value="dateCreation">{{ 'FRIENDS.SORT_BY_DATE_CREATION' | translate }}</option>
+            <option value="firstName">{{ 'FRIENDS.SORT_BY_FIRST_NAME' | translate }}</option>
+            <option value="lastName">{{ 'FRIENDS.SORT_BY_LAST_NAME' | translate }}</option>
+          </select>
+        </div>
       </div>
       
       <!-- Email Check Result -->
@@ -448,6 +460,22 @@
 
   <!-- Tab Content: My Friends -->
   <div *ngIf="activeTab === 'friends'" class="tab-content">
+    <!-- Sort Selector -->
+    <div *ngIf="friends.length > 0" class="d-flex gap-2 align-items-center mb-3">
+      <div class="input-group" style="min-width: 200px;">
+        <span class="input-group-text">
+          <i class="fa fa-sort"></i>
+        </span>
+        <select 
+          class="form-select" 
+          [(ngModel)]="sortOptionFriends">
+          <option value="dateCreation">{{ 'FRIENDS.SORT_BY_DATE_CREATION' | translate }}</option>
+          <option value="firstName">{{ 'FRIENDS.SORT_BY_FIRST_NAME' | translate }}</option>
+          <option value="lastName">{{ 'FRIENDS.SORT_BY_LAST_NAME' | translate }}</option>
+        </select>
+      </div>
+    </div>
+
     <div *ngIf="friends.length === 0" class="no-results">
       <i class="fa fa-user-friends fa-3x"></i>
       <p>{{ 'FRIENDS.NO_FRIENDS' | translate }}</p>

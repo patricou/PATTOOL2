@@ -365,6 +365,10 @@
         "CHGTSTATUS": "Изменить статус",
         "CHANGE_VISIBILITY": "Изменить видимость",
         "CHANGE_TYPE": "Изменить тип",
+        "USERS_WITH_ACCESS": "Пользователи с доступом",
+        "NO_ACCESS_USERS": "Пользователи с доступом не найдены",
+        "TOTAL_USERS": "Всего пользователей",
+        "VIEW_DETAILS": "Просмотр деталей",
         "UPLOAD": "Загрузить файл (Изображения, Видео, PDF, GPS-трек)",
         "UPLOAD_PROGRESS": "Прогресс загрузки",
         "WAITING_FOR_UPLOAD": "Ожидание начала загрузки...",
@@ -1114,7 +1118,10 @@
         "LAST_NAME": "Фамилия",
         "WHATSAPP_GROUP_LINK": "Ссылка на группу WhatsApp",
         "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
-        "WHATSAPP_GROUP_LINK_HELP": "Введите ссылку-приглашение группы WhatsApp (необязательно)"
+        "WHATSAPP_GROUP_LINK_HELP": "Введите ссылку-приглашение группы WhatsApp (необязательно)",
+        "SORT_BY_DATE_CREATION": "Сортировать по дате создания",
+        "SORT_BY_FIRST_NAME": "Сортировать по имени",
+        "SORT_BY_LAST_NAME": "Сортировать по фамилии"
     },
     "STATISTICS": {
         "TITLE": "Статистика Обсуждений",

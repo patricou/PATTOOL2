@@ -13,7 +13,7 @@ import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace
 import * as JSZip from 'jszip';
 
 import { Observable, firstValueFrom, Subscription, of } from 'rxjs';
-import { map, take, catchError } from 'rxjs/operators';
+import { map, take, catchError, switchMap } from 'rxjs/operators';
 import { UploadedFile } from '../../model/uploadedfile';
 import { Member } from '../../model/member';
 import { Evenement } from '../../model/evenement';
@@ -30,6 +30,7 @@ import { DiscussionModalComponent } from '../../communications/discussion-modal/
 import { DiscussionService } from '../../services/discussion.service';
 import { EventColorService } from '../../services/event-color.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 
 @Component({
 	selector: 'element-evenement',
@@ -258,6 +259,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	@ViewChild('loadingStatsModal') loadingStatsModal!: TemplateRef<any>;
 	@ViewChild('visibilityModal') visibilityModal!: TemplateRef<any>;
 	@ViewChild('typeModal') typeModal!: TemplateRef<any>;
+	@ViewChild('eventAccessUsersModal') eventAccessUsersModal!: TemplateRef<any>;
 	@ViewChild('logContent') logContent: any;
 
 	@Input()
@@ -336,6 +338,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private _friendsService: FriendsService,
 		private _discussionService: DiscussionService,
 		private eventColorService: EventColorService,
+		private _keycloakService: KeycloakService,
 		private cdr: ChangeDetectorRef,
 		private ngZone: NgZone
 	) {
@@ -3681,6 +3684,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		const whatsappLink = this.getFriendGroupWhatsAppLink();
 		if (whatsappLink) {
 			window.open(whatsappLink, '_blank');
+		}
+	}
+	
+	// Open WhatsApp link for a user
+	public openUserWhatsAppLink(user: Member): void {
+		if (user && user.whatsappLink) {
+			window.open(user.whatsappLink, '_blank');
 		}
 	}
 	
@@ -8044,7 +8054,180 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 		
 		this.evenement.type = newType;
-		this.updateEvenement.emit(this.evenement);
+	}
+	
+	// List of users with access to this event (for modal display)
+	public eventAccessUsers: Member[] = [];
+	public isLoadingEventAccessUsers: boolean = false;
+	
+	// Open modal to show users with access to this event
+	public showEventAccessUsers(event?: Event): void {
+		// Prevent any event propagation that might trigger parent refresh
+		if (event) {
+			event.stopPropagation();
+			event.preventDefault();
+		}
+		console.debug('showEventAccessUsers called - this should NOT trigger event refresh');
+		this.forceCloseTooltips();
+		this.isLoadingEventAccessUsers = true;
+		this.eventAccessUsers = [];
+		
+		// Get users with access based on visibility
+		this.getEventAccessUsers().subscribe({
+			next: (users: Member[]) => {
+				this.eventAccessUsers = users;
+				this.isLoadingEventAccessUsers = false;
+				this.openEventAccessUsersModal();
+			},
+			error: (error) => {
+				console.error('Error getting event access users:', error);
+				this.isLoadingEventAccessUsers = false;
+				this.openEventAccessUsersModal();
+			}
+		});
+	}
+	
+	// Get users with access to this event (using backend endpoint)
+	private getEventAccessUsers(): Observable<Member[]> {
+		if (!this.evenement.id) {
+			return of([]);
+		}
+		
+		return this._evenementsService.getEventAccessUsers(this.evenement.id).pipe(
+			map((users: any[]) => {
+				// Convert response to Member objects
+				return users.map((user: any) => {
+					// Convert roles from string to array if needed
+					let rolesArray: string[] = [];
+					if (user.roles) {
+						if (typeof user.roles === 'string') {
+							rolesArray = user.roles.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+						} else if (Array.isArray(user.roles)) {
+							rolesArray = user.roles;
+						}
+					}
+					return new Member(
+						user.id || '',
+						user.addressEmail || '',
+						user.firstName || '',
+						user.lastName || '',
+						user.userName || '',
+						rolesArray,
+						user.keycloakId || '',
+						user.registrationDate ? new Date(user.registrationDate) : undefined,
+						user.lastConnectionDate ? new Date(user.lastConnectionDate) : undefined,
+						user.locale || undefined,
+						user.whatsappLink || undefined,
+						(user.visible !== undefined && user.visible !== null) ? user.visible : true
+					);
+				});
+			}),
+			catchError((error) => {
+				console.error('Error getting event access users:', error);
+				return of([]);
+			})
+		);
+	}
+	
+	// Store scroll position for event access modal (same as PhotosSelectorModal)
+	private eventAccessModalSavedScrollPosition: number = 0;
+	
+	// Open modal to display event access users (exact same logic as PhotosSelectorModal)
+	private openEventAccessUsersModal(): void {
+		if (!this.eventAccessUsersModal) {
+			return;
+		}
+		
+		// Save scroll position before opening modal (exact same logic as PhotosSelectorModal)
+		const currentScrollY = window.scrollY || window.pageYOffset || 
+		                      document.documentElement.scrollTop || 
+		                      document.body.scrollTop || 0;
+		this.eventAccessModalSavedScrollPosition = currentScrollY;
+		
+		// Open modal - let Bootstrap handle scroll blocking (same as PhotosSelectorModal)
+		const modalRef = this.modalService.open(this.eventAccessUsersModal, {
+			size: 'lg',
+			centered: true,
+			backdrop: 'static',
+			keyboard: false,
+			animation: true
+		});
+		
+		// Immediately maintain scroll position after modal opens to prevent any movement
+		// (exact same logic as PhotosSelectorModal)
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				// Always restore to the saved position
+				window.scrollTo(0, this.eventAccessModalSavedScrollPosition);
+				document.documentElement.scrollTop = this.eventAccessModalSavedScrollPosition;
+				document.body.scrollTop = this.eventAccessModalSavedScrollPosition;
+				
+				// Also check after a delay in case any restoration was still in progress
+				setTimeout(() => {
+					window.scrollTo(0, this.eventAccessModalSavedScrollPosition);
+					document.documentElement.scrollTop = this.eventAccessModalSavedScrollPosition;
+					document.body.scrollTop = this.eventAccessModalSavedScrollPosition;
+				}, 400); // Wait longer than slideshow restoration (300ms) to ensure it's complete
+			});
+		});
+		
+		// Restore scroll when modal closes (exact same logic as PhotosSelectorModal)
+		modalRef.result.finally(() => {
+			// Unblock scroll first
+			this.unblockPageScrollForEventAccessModal();
+			// Restore scroll position ONCE after a delay (same as PhotosSelectorModal)
+			this.unlockScrollPositionForEventAccessModal();
+		}).catch(() => {
+			// Handle dismissal - same cleanup
+			this.unblockPageScrollForEventAccessModal();
+			this.unlockScrollPositionForEventAccessModal();
+		});
+	}
+	
+	// Unblock page scrolling (cleanup any remaining styles) - exact same as PhotosSelectorModal
+	private unblockPageScrollForEventAccessModal(): void {
+		if (document.body) {
+			document.body.style.overflow = '';
+			document.body.style.overflowX = '';
+			document.body.style.overflowY = '';
+			document.body.style.position = '';
+			document.body.style.height = '';
+		}
+		if (document.documentElement) {
+			document.documentElement.style.overflow = '';
+			document.documentElement.style.overflowX = '';
+			document.documentElement.style.overflowY = '';
+		}
+	}
+	
+	// Restore scroll position - single smooth restore after Bootstrap cleanup (exact same as PhotosSelectorModal)
+	private unlockScrollPositionForEventAccessModal(): void {
+		const scrollY = this.eventAccessModalSavedScrollPosition;
+		
+		// Single restore function - restore once after Bootstrap is completely done
+		const restoreScroll = () => {
+			// Restore to saved scroll position - single smooth operation
+			window.scrollTo({
+				top: scrollY,
+				left: 0,
+				behavior: 'auto' // Instant, no animation to avoid jumps
+			});
+			if (document.documentElement) {
+				document.documentElement.scrollTop = scrollY;
+			}
+			if (document.body) {
+				document.body.scrollTop = scrollY;
+			}
+		};
+		
+		// Wait for Bootstrap to finish all cleanup, then restore ONCE
+		// Use requestAnimationFrame to ensure DOM is ready, then restore
+		requestAnimationFrame(() => {
+			requestAnimationFrame(() => {
+				// Restore after Bootstrap cleanup is complete
+				setTimeout(restoreScroll, 300);
+			});
+		});
 	}
 }
 

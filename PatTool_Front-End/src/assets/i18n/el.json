@@ -322,6 +322,10 @@
         "CHGTSTATUS": "Αλλαγή Κατάστασης",
         "CHANGE_VISIBILITY": "Αλλαγή Ορατότητας",
         "CHANGE_TYPE": "Αλλαγή Τύπου",
+        "USERS_WITH_ACCESS": "Χρήστες με πρόσβαση",
+        "NO_ACCESS_USERS": "Δεν βρέθηκαν χρήστες με πρόσβαση",
+        "TOTAL_USERS": "Σύνολο χρηστών",
+        "VIEW_DETAILS": "Προβολή λεπτομερειών",
         "UPLOAD": "Μεταφόρτωση αρχείου (Εικόνες, Βίντεο, PDF, GPS Track)",
         "UPLOAD_PROGRESS": "Πρόοδος μεταφόρτωσης",
         "WAITING_FOR_UPLOAD": "Αναμονή για έναρξη μεταφόρτωσης...",
@@ -1076,7 +1080,10 @@
         "LAST_NAME": "Επώνυμο",
         "WHATSAPP_GROUP_LINK": "Σύνδεσμος Ομάδας WhatsApp",
         "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
-        "WHATSAPP_GROUP_LINK_HELP": "Εισαγάγετε τον σύνδεσμο πρόσκλησης ομάδας WhatsApp (προαιρετικό)"
+        "WHATSAPP_GROUP_LINK_HELP": "Εισαγάγετε τον σύνδεσμο πρόσκλησης ομάδας WhatsApp (προαιρετικό)",
+        "SORT_BY_DATE_CREATION": "Ταξινόμηση κατά Ημερομηνία Δημιουργίας",
+        "SORT_BY_FIRST_NAME": "Ταξινόμηση κατά Όνομα",
+        "SORT_BY_LAST_NAME": "Ταξινόμηση κατά Επώνυμο"
     },
     "STATISTICS": {
         "TITLE": "Στατιστικά Συζητήσεων",

@@ -36,6 +36,8 @@ export class FriendsComponent implements OnInit {
   public searchFilter: string = '';
   public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'myuser';
   public selectedFriendIndex: number | null = null;
+  public sortOption: 'dateCreation' | 'firstName' | 'lastName' = 'dateCreation';
+  public sortOptionFriends: 'dateCreation' | 'firstName' | 'lastName' = 'dateCreation';
   
   // WhatsApp link editing for current user
   public editingMyWhatsappLink: boolean = false;
@@ -557,11 +559,67 @@ export class FriendsComponent implements OnInit {
       });
     }
     
-    // Sort by name (firstName + lastName)
+    // Sort according to selected option
     return filtered.sort((a, b) => {
-      const nameA = ((a.firstName || '') + ' ' + (a.lastName || '')).toLowerCase().trim();
-      const nameB = ((b.firstName || '') + ' ' + (b.lastName || '')).toLowerCase().trim();
-      return nameA.localeCompare(nameB);
+      switch (this.sortOption) {
+        case 'dateCreation': {
+          // Sort by registration date (newest first), then by last name if date is not available
+          if (a.registrationDate && b.registrationDate) {
+            const dateA = new Date(a.registrationDate).getTime();
+            const dateB = new Date(b.registrationDate).getTime();
+            if (dateA !== dateB) {
+              return dateB - dateA; // Newest first
+            }
+          } else if (a.registrationDate) {
+            return -1; // a has date, b doesn't - a comes first
+          } else if (b.registrationDate) {
+            return 1; // b has date, a doesn't - b comes first
+          }
+          // If neither has date, fall through to last name sort
+          const lastNameA = (a.lastName || '').toLowerCase().trim();
+          const lastNameB = (b.lastName || '').toLowerCase().trim();
+          if (lastNameA !== lastNameB) {
+            return lastNameA.localeCompare(lastNameB);
+          }
+          // If last names are equal, sort by first name
+          const firstNameA = (a.firstName || '').toLowerCase().trim();
+          const firstNameB = (b.firstName || '').toLowerCase().trim();
+          return firstNameA.localeCompare(firstNameB);
+        }
+          
+        case 'firstName': {
+          // Sort by first name
+          const firstNameA = (a.firstName || '').toLowerCase().trim();
+          const firstNameB = (b.firstName || '').toLowerCase().trim();
+          if (firstNameA !== firstNameB) {
+            return firstNameA.localeCompare(firstNameB);
+          }
+          // If first names are equal, sort by last name
+          const lastNameA = (a.lastName || '').toLowerCase().trim();
+          const lastNameB = (b.lastName || '').toLowerCase().trim();
+          return lastNameA.localeCompare(lastNameB);
+        }
+          
+        case 'lastName': {
+          // Sort by last name
+          const lastNameA = (a.lastName || '').toLowerCase().trim();
+          const lastNameB = (b.lastName || '').toLowerCase().trim();
+          if (lastNameA !== lastNameB) {
+            return lastNameA.localeCompare(lastNameB);
+          }
+          // If last names are equal, sort by first name
+          const firstNameA = (a.firstName || '').toLowerCase().trim();
+          const firstNameB = (b.firstName || '').toLowerCase().trim();
+          return firstNameA.localeCompare(firstNameB);
+        }
+          
+        default: {
+          // Default: sort by last name
+          const lastNameA = (a.lastName || '').toLowerCase().trim();
+          const lastNameB = (b.lastName || '').toLowerCase().trim();
+          return lastNameA.localeCompare(lastNameB);
+        }
+      }
     });
   }
 
@@ -603,13 +661,70 @@ export class FriendsComponent implements OnInit {
   }
   
   getSortedFriends(): Friend[] {
-    // Sort by other user's name (firstName + lastName)
+    // Sort according to selected option
     return [...this.friends].sort((a, b) => {
       const userA = this.getOtherUser(a);
       const userB = this.getOtherUser(b);
-      const nameA = ((userA.firstName || '') + ' ' + (userA.lastName || '')).toLowerCase().trim();
-      const nameB = ((userB.firstName || '') + ' ' + (userB.lastName || '')).toLowerCase().trim();
-      return nameA.localeCompare(nameB);
+      
+      switch (this.sortOptionFriends) {
+        case 'dateCreation': {
+          // Sort by registration date (newest first), then by last name if date is not available
+          if (userA.registrationDate && userB.registrationDate) {
+            const dateA = new Date(userA.registrationDate).getTime();
+            const dateB = new Date(userB.registrationDate).getTime();
+            if (dateA !== dateB) {
+              return dateB - dateA; // Newest first
+            }
+          } else if (userA.registrationDate) {
+            return -1; // a has date, b doesn't - a comes first
+          } else if (userB.registrationDate) {
+            return 1; // b has date, a doesn't - b comes first
+          }
+          // If neither has date, fall through to last name sort
+          const lastNameA = (userA.lastName || '').toLowerCase().trim();
+          const lastNameB = (userB.lastName || '').toLowerCase().trim();
+          if (lastNameA !== lastNameB) {
+            return lastNameA.localeCompare(lastNameB);
+          }
+          // If last names are equal, sort by first name
+          const firstNameA = (userA.firstName || '').toLowerCase().trim();
+          const firstNameB = (userB.firstName || '').toLowerCase().trim();
+          return firstNameA.localeCompare(firstNameB);
+        }
+          
+        case 'firstName': {
+          // Sort by first name
+          const firstNameA = (userA.firstName || '').toLowerCase().trim();
+          const firstNameB = (userB.firstName || '').toLowerCase().trim();
+          if (firstNameA !== firstNameB) {
+            return firstNameA.localeCompare(firstNameB);
+          }
+          // If first names are equal, sort by last name
+          const lastNameA = (userA.lastName || '').toLowerCase().trim();
+          const lastNameB = (userB.lastName || '').toLowerCase().trim();
+          return lastNameA.localeCompare(lastNameB);
+        }
+          
+        case 'lastName': {
+          // Sort by last name
+          const lastNameA = (userA.lastName || '').toLowerCase().trim();
+          const lastNameB = (userB.lastName || '').toLowerCase().trim();
+          if (lastNameA !== lastNameB) {
+            return lastNameA.localeCompare(lastNameB);
+          }
+          // If last names are equal, sort by first name
+          const firstNameA = (userA.firstName || '').toLowerCase().trim();
+          const firstNameB = (userB.firstName || '').toLowerCase().trim();
+          return firstNameA.localeCompare(firstNameB);
+        }
+          
+        default: {
+          // Default: sort by last name
+          const lastNameA = (userA.lastName || '').toLowerCase().trim();
+          const lastNameB = (userB.lastName || '').toLowerCase().trim();
+          return lastNameA.localeCompare(lastNameB);
+        }
+      }
     });
   }
 

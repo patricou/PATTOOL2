@@ -468,4 +468,12 @@ export class EvenementsService {
 		);
 	}
 
+	// Get users with access to an event
+	getEventAccessUsers(eventId: string): Observable<any[]> {
+		const url = this.API_URL + "even/" + eventId + "/access-users";
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers => this._http.get<any[]>(url, { headers: headers }))
+		);
+	}
+
 }

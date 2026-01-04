@@ -372,6 +372,10 @@
         "CHGTSTATUS": "Cambia Stato",
         "CHANGE_VISIBILITY": "Cambia visibilità",
         "CHANGE_TYPE": "Cambia tipo",
+        "USERS_WITH_ACCESS": "Utenti con accesso",
+        "NO_ACCESS_USERS": "Nessun utente con accesso trovato",
+        "TOTAL_USERS": "Totale utenti",
+        "VIEW_DETAILS": "Visualizza dettagli",
         "UPLOAD": "Carica un file (Immagini, Video, PDF, Traccia GPS)",
         "UPLOAD_PROGRESS": "Avanzamento caricamento",
         "WAITING_FOR_UPLOAD": "In attesa dell'avvio del caricamento...",
@@ -1127,7 +1131,10 @@
         "LAST_NAME": "Cognome",
         "WHATSAPP_GROUP_LINK": "Link Gruppo WhatsApp",
         "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
-        "WHATSAPP_GROUP_LINK_HELP": "Inserisci il link di invito del gruppo WhatsApp (opzionale)"
+        "WHATSAPP_GROUP_LINK_HELP": "Inserisci il link di invito del gruppo WhatsApp (opzionale)",
+        "SORT_BY_DATE_CREATION": "Ordina per Data di Creazione",
+        "SORT_BY_FIRST_NAME": "Ordina per Nome",
+        "SORT_BY_LAST_NAME": "Ordina per Cognome"
     },
     "STATISTICS": {
         "TITLE": "Statistiche delle Discussioni",

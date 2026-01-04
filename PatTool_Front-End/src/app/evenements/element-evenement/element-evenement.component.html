@@ -159,7 +159,9 @@
                           [style.border-width]="'2px'"
                           [style.border-style]="'solid'"
                           [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
-                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{"EVENTCREATION.PUBLIC" | translate }}</span>
+                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'"
+                          [style.cursor]="'pointer'"
+                          (click)="showEventAccessUsers($event)">{{"EVENTCREATION.PUBLIC" | translate }}</span>
                     <span *ngSwitchCase="'private'" 
                           class="badge visibility-badge"
                           [style.background-color]="getVisibilityBadgeGradient()"
@@ -168,7 +170,9 @@
                           [style.border-width]="'2px'"
                           [style.border-style]="'solid'"
                           [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
-                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{"EVENTCREATION.PRIVATE" | translate }}</span>
+                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'"
+                          [style.cursor]="'pointer'"
+                          (click)="showEventAccessUsers($event)">{{"EVENTCREATION.PRIVATE" | translate }}</span>
                     <span *ngSwitchCase="'friends'" 
                           class="badge visibility-badge"
                           [style.background-color]="getVisibilityBadgeGradient()"
@@ -177,7 +181,9 @@
                           [style.border-width]="'2px'"
                           [style.border-style]="'solid'"
                           [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
-                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{"EVENTCREATION.FRIENDS" | translate }}</span>
+                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'"
+                          [style.cursor]="'pointer'"
+                          (click)="showEventAccessUsers($event)">{{"EVENTCREATION.FRIENDS" | translate }}</span>
                     <span *ngSwitchCase="'friendGroups'" 
                           class="badge visibility-badge"
                           [style.background-color]="getVisibilityBadgeGradient()"
@@ -186,7 +192,9 @@
                           [style.border-width]="'2px'"
                           [style.border-style]="'solid'"
                           [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
-                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{getVisibilityDisplayText()}}</span>
+                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'"
+                          [style.cursor]="'pointer'"
+                          (click)="showEventAccessUsers($event)">{{getVisibilityDisplayText()}}</span>
                     <span *ngSwitchDefault 
                           class="badge visibility-badge"
                           [style.background-color]="getVisibilityBadgeGradient()"
@@ -195,7 +203,9 @@
                           [style.border-width]="'2px'"
                           [style.border-style]="'solid'"
                           [style.box-shadow]="'0 2px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.4), inset 0 -1px 0 rgba(0, 0, 0, 0.2)'"
-                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'">{{getVisibilityDisplayText()}}</span>
+                          [style.text-shadow]="'0 1px 2px rgba(0, 0, 0, 0.3)'"
+                          [style.cursor]="'pointer'"
+                          (click)="showEventAccessUsers($event)">{{getVisibilityDisplayText()}}</span>
                 </span>
                 <!-- WhatsApp button for friend groups - displayed if friendGroup has WhatsApp link, regardless of owner -->
                 <button *ngIf="hasFriendGroupWhatsAppLink()"
@@ -729,14 +739,14 @@
 <app-photos-selector-modal #photosSelectorModalComponent (selectionConfirmed)="onPhotosSelectionConfirmed($event)"></app-photos-selector-modal>
 
 <!-- User Details Modal -->
-<ng-template #userModal let-modal>
+<ng-template #userModal let-c="close" let-d="dismiss">
     <div class="modal-header">
         <h5 class="modal-title">
             <i class="fa fa-user me-2"></i>
             Détails de l'utilisateur
         </h5>
-        <button type="button" class="btn-close" (click)="modal.dismiss('Cross click')" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white" (click)="d('Cross click')" aria-label="Close">
+            <i class="fa fa-times"></i>
         </button>
     </div>
     <div class="modal-body" *ngIf="selectedUser">
@@ -778,7 +788,7 @@
         </div>
     </div>
     <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Close click')">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
             Fermer
         </button>
     </div>
@@ -1147,6 +1157,84 @@
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">
             <i class="fa fa-times"></i> Close
+        </button>
+    </div>
+</ng-template>
+
+<!-- Event Access Users Modal -->
+<ng-template #eventAccessUsersModal let-c="close" let-d="dismiss">
+    <div class="modal-header bg-info text-white border border-2 border-white rounded-top">
+        <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
+            <i class="fa fa-users me-2"></i> {{ 'EVENTELEM.USERS_WITH_ACCESS' | translate }}
+            <span *ngIf="evenement.visibility === 'friendGroups' || (evenement.visibility && evenement.visibility !== 'public' && evenement.visibility !== 'private' && evenement.visibility !== 'friends')" class="ms-2">
+                - {{ getVisibilityDisplayText() }}
+            </span>
+        </h5>
+        <div class="d-flex align-items-center ms-auto">
+            <!-- WhatsApp button for friend groups if available -->
+            <button *ngIf="hasFriendGroupWhatsAppLink()"
+                    type="button"
+                    class="btn btn-outline-light btn-sm me-2 border border-2 border-white"
+                    (click)="openFriendGroupWhatsAppLink(); $event.stopPropagation()"
+                    [title]="'FRIENDS.OPEN_WHATSAPP' | translate">
+                <i class="fa fa-whatsapp"></i>
+            </button>
+            <button type="button" class="btn btn-outline-light btn-sm rounded-circle border border-2 border-white" (click)="d('Cross click')" aria-label="Close">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+    </div>
+    <div class="modal-body">
+        <div *ngIf="isLoadingEventAccessUsers" class="text-center py-4">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2">{{ 'COMMUN.LOADING' | translate }}...</p>
+        </div>
+        <div *ngIf="!isLoadingEventAccessUsers">
+            <div *ngIf="eventAccessUsers.length === 0" class="text-center text-muted py-4">
+                <i class="fa fa-info-circle fa-3x mb-3"></i>
+                <p>{{ 'EVENTELEM.NO_ACCESS_USERS' | translate }}</p>
+            </div>
+            <div *ngIf="eventAccessUsers.length > 0" class="users-list">
+                <div class="mb-3">
+                    <strong>{{ 'EVENTELEM.TOTAL_USERS' | translate }}: {{ eventAccessUsers.length }}</strong>
+                </div>
+                <div class="row g-2">
+                    <div *ngFor="let user of eventAccessUsers" 
+                         class="col-12 col-md-6">
+                        <div class="list-group-item d-flex justify-content-between align-items-center h-100"
+                             [style.cursor]="'pointer'"
+                             (click)="openUserModal(user)">
+                            <div class="d-flex align-items-center flex-grow-1">
+                                <i class="fa fa-user ms-2 me-2"></i>
+                                <div class="flex-grow-1">
+                                    <strong>{{ user.firstName }} {{ user.lastName }}</strong>
+                                    <div class="text-muted small">{{ user.userName }}</div>
+                                    <div class="text-muted small" *ngIf="user.addressEmail">{{ user.addressEmail }}</div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <!-- WhatsApp button for user if available -->
+                                <button *ngIf="user.whatsappLink" 
+                                        class="btn btn-sm btn-outline-success me-2" 
+                                        (click)="openUserWhatsAppLink(user); $event.stopPropagation()"
+                                        [title]="'FRIENDS.OPEN_WHATSAPP' | translate">
+                                    <i class="fa fa-whatsapp"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-primary me-2" 
+                                        (click)="openUserModal(user); $event.stopPropagation()"
+                                        [title]="'EVENTELEM.VIEW_DETAILS' | translate">
+                                    <i class="fa fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
         </button>
     </div>
 </ng-template>

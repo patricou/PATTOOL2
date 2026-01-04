@@ -388,6 +388,10 @@
         "CHGTSTATUS": "Status Change",
         "CHANGE_VISIBILITY": "Change Visibility",
         "CHANGE_TYPE": "Change Type",
+        "USERS_WITH_ACCESS": "Users with Access",
+        "NO_ACCESS_USERS": "No users with access found",
+        "TOTAL_USERS": "Total users",
+        "VIEW_DETAILS": "View details",
         "PDF_DOCUMENTS": "PDF Documents",
         "OPEN_PDF": "Open",
         "DOWNLOAD_PDF": "Download",
@@ -1147,7 +1151,10 @@
         "LAST_NAME": "Last Name",
         "WHATSAPP_GROUP_LINK": "WhatsApp Group Link",
         "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
-        "WHATSAPP_GROUP_LINK_HELP": "Enter the WhatsApp group invite link (optional)"
+        "WHATSAPP_GROUP_LINK_HELP": "Enter the WhatsApp group invite link (optional)",
+        "SORT_BY_DATE_CREATION": "Sort by Date Creation",
+        "SORT_BY_FIRST_NAME": "Sort by First Name",
+        "SORT_BY_LAST_NAME": "Sort by Last Name"
     },
     "STATISTICS": {
         "TITLE": "Discussion Statistics",

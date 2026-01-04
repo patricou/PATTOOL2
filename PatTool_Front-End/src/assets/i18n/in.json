@@ -371,6 +371,10 @@
         "CHGTSTATUS": "स्थिति परिवर्तन",
         "CHANGE_VISIBILITY": "दृश्यता बदलें",
         "CHANGE_TYPE": "प्रकार बदलें",
+        "USERS_WITH_ACCESS": "पहुंच वाले उपयोगकर्ता",
+        "NO_ACCESS_USERS": "पहुंच वाले उपयोगकर्ता नहीं मिले",
+        "TOTAL_USERS": "कुल उपयोगकर्ता",
+        "VIEW_DETAILS": "विवरण देखें",
         "PDF_DOCUMENTS": "PDF दस्तावेज़",
         "OPEN_PDF": "खोलें",
         "DOWNLOAD_PDF": "डाउनलोड",
@@ -1111,7 +1115,10 @@
         "LAST_NAME": "अंतिम नाम",
         "WHATSAPP_GROUP_LINK": "WhatsApp समूह लिंक",
         "WHATSAPP_GROUP_LINK_PLACEHOLDER": "https://chat.whatsapp.com/...",
-        "WHATSAPP_GROUP_LINK_HELP": "WhatsApp समूह आमंत्रण लिंक दर्ज करें (वैकल्पिक)"
+        "WHATSAPP_GROUP_LINK_HELP": "WhatsApp समूह आमंत्रण लिंक दर्ज करें (वैकल्पिक)",
+        "SORT_BY_DATE_CREATION": "निर्माण तिथि से क्रमबद्ध करें",
+        "SORT_BY_FIRST_NAME": "पहले नाम से क्रमबद्ध करें",
+        "SORT_BY_LAST_NAME": "अंतिम नाम से क्रमबद्ध करें"
     },
     "STATISTICS": {
         "TITLE": "चर्चा सांख्यिकी",
