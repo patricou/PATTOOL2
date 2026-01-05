@@ -699,7 +699,8 @@
       <!-- Video Cards - One card per video -->
       <div class="dynamic-card card-medium card-vertical video-card" 
            *ngFor="let videoFile of getVideoFiles(); let i = index"
-           [ngStyle]="getCardGridPosition('upload')">
+           [ngClass]="getCardLayoutClasses('upload')"
+           [style.order]="getCardOrder('upload')">
         <div class="card-header-compact video-header-compact">
           <div class="video-header-left">
             <i class="fa fa-video-camera"></i>

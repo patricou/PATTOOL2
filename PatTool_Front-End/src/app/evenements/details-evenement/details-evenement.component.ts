@@ -536,6 +536,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.loading = false;
         // Reset grid packing algorithm for optimal card placement
         this.resetGridPacking();
+        // Initialize grid after reset to prepare for card placement
+        // Note: initializeGrid() will be called automatically by getCardGridPosition when needed
         // Load video URLs with a small delay to ensure authentication is ready
         // This prevents 401 errors that could trigger redirects
         setTimeout(() => {
@@ -3055,30 +3057,71 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
    * Returns CSS grid-row and grid-column values
    */
   public getCardGridPosition(cardId: 'discussion' | 'photos' | 'urls' | 'comments' | 'pdfs' | 'tracks' | 'upload' | 'description' | 'visibility' | 'type' | 'notes' | 'rating'): { gridRow?: string, gridColumn?: string } {
-    // First row cards are fixed
+    // First row cards are fixed - let CSS handle first row
     if (cardId === 'description' || cardId === 'visibility' || cardId === 'type' || cardId === 'rating') {
-      return {}; // Let CSS handle first row
+      return {};
     }
 
-    // Disable explicit positioning to prevent overlapping - let CSS grid-auto-flow: dense handle it
-    // This prevents cards from overlapping by allowing the browser to automatically position them
+    // Check cache first to ensure deterministic placement
+    if (this.cardPositionsCache.has(cardId)) {
+      return this.cardPositionsCache.get(cardId)!;
+    }
+
+    // Initialize grid if not already initialized
+    if (this.gridOccupancy.length === 0) {
+      this.initializeGrid();
+    }
+
+    // Get card layout to determine spans
+    const layoutClasses = this.getCardLayoutClasses(cardId);
+    const rowSpan = this.getRowSpanFromClasses(layoutClasses);
+    const colSpan = this.getColSpanFromClasses(layoutClasses);
+
+    // Find best position using the algorithm
+    const position = this.findBestPosition(rowSpan, colSpan);
+
+    if (position) {
+      // Mark cells as occupied
+      this.markCellsOccupied(position.row, position.col, rowSpan, colSpan);
+      
+      // Create CSS grid position values (CSS grid is 1-indexed, and we need to handle spans)
+      const gridRow = `${position.row} / ${position.row + rowSpan}`;
+      const gridColumn = `${position.col} / ${position.col + colSpan}`;
+      
+      const result = { gridRow, gridColumn };
+      
+      // Cache the result for deterministic placement
+      this.cardPositionsCache.set(cardId, result);
+      this.processedCards.add(cardId);
+      
+      return result;
+    }
+
+    // Fallback: return empty (let CSS handle it if algorithm can't find a position)
     return {};
   }
 
   /**
-   * Initialize grid occupancy - first row is occupied by the 4 fixed cards
+   * Initialize grid occupancy - first row is occupied by the first-row-cards-container
+   * which spans all columns (grid-column: 1 / -1) and occupies row 1 (grid-row: 1)
+   * The first-row-cards-container is a nested grid containing description, visibility, type, rating
+   * 
+   * Note: The first-row-cards-container is explicitly set to grid-row: 1 in CSS, so it occupies
+   * only one logical grid row. However, its visual height might be taller based on content.
+   * For our algorithm, we mark row 0 (CSS grid row 1) as occupied, and cards will be placed
+   * starting from row 2 (index 1 in our tracking).
    */
   private initializeGrid(): void {
     this.gridOccupancy = [];
     this.processedCards.clear();
     
-    // First row: columns 1-4 are occupied by description, visibility, type, rating
-    const firstRow: boolean[] = new Array(this.maxColumns).fill(false);
-    firstRow[0] = true; // description
-    firstRow[1] = true; // visibility  
-    firstRow[2] = true; // type
-    firstRow[3] = true; // rating
+    // Mark row 0 (CSS grid row 1) as fully occupied by first-row-cards-container
+    // This container spans all columns (grid-column: 1 / -1) so we mark all columns in row 0
+    const firstRow = new Array(this.maxColumns).fill(true);
     this.gridOccupancy.push(firstRow);
+    
+    // Cards will be placed starting from row 2 (index 1 in our tracking, row 2 in CSS grid)
+    // The algorithm's findBestPosition starts from row 1 (index 1), which corresponds to CSS grid row 2
   }
 
   /**
@@ -3414,6 +3457,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         return 1;
       case 'rating':
         return 1;
+      case 'upload':
+        return 5; // Place upload card on second row, right after first row cards
       case 'notes':
         return this.evenement?.notes ? 10 : 99;
       case 'photos':
@@ -3428,8 +3473,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         return this.getPdfFiles().length > 0 ? 55 : 95;
       case 'tracks':
         return this.getTrackFiles().length > 0 ? 56 : 96;
-      case 'upload':
-        return 70;
       default:
         return 99;
     }
