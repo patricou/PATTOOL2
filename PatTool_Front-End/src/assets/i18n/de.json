@@ -235,7 +235,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Alle Kommentare löschen",
         "SELECT_PAGE": "Seite auswählen",
         "EDIT_LINK": "Link bearbeiten",
-        "NO_FILES_ADDED": "Keine Dateien zu diesem Ereignis hinzugefügt"
+        "NO_FILES_ADDED": "Keine Dateien zu diesem Ereignis hinzugefügt",
+        "SHOW_ALL": "Alle anzeigen",
+        "SHOW_ALL_EVENTS_ADMIN": "Alle Ereignisse anzeigen (nur Admin)"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "Fotoauswahl",
@@ -366,7 +368,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- Alle Links ({{count}} Link(s))",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- Alle Kommentare ({{count}} Kommentar(e))",
         "DELETE_EVENT_CONFIRM_CHAT": "- Alle Chat-Nachrichten",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- Alle Bilder ({{count}} Bild(er))",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- Alle Videos ({{count}} Video(s))",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- Alle anderen Dateien ({{count}} Datei(en))",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- Die Diskussion ({{count}} Diskussion(en))",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- Die Teilnehmer ({{count}} Teilnehmer)",
+        "DELETE_EVENT_IRREVERSIBLE": "Diese Aktion ist unwiderruflich.",
         "DELETE_EVENT_CONFIRM_TITLE": "Löschbestätigung",
+        "DELETE_EVENT_ADMIN": "Ereignis löschen (nur Admin)",
         "CLOSE": "Veranstaltung schließen",
         "OPEN": "Veranstaltung (wieder) öffnen",
         "CANCEL": "Veranstaltung absagen",

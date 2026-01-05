@@ -254,6 +254,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	@ViewChild('photosSelectorModalComponent') photosSelectorModalComponent!: PhotosSelectorModalComponent;
 	@ViewChild('commentsModal') commentsModal!: TemplateRef<any>;
 	@ViewChild('userModal') userModal!: TemplateRef<any>;
+	@ViewChild('deleteEventModal') deleteEventModal!: TemplateRef<any>;
 	@ViewChild('uploadLogsModal') uploadLogsModal!: TemplateRef<any>;
 	@ViewChild('qualitySelectionModal') qualitySelectionModal!: TemplateRef<any>;
 	@ViewChild('loadingStatsModal') loadingStatsModal!: TemplateRef<any>;
@@ -273,6 +274,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	@Input()
 	friendGroups: FriendGroup[] = [];
+	
+	@Input()
+	adminOverride: boolean = false; // Admin override mode to see all events
 	
 	// Cache for all friend groups loaded by ID (including groups user is not a member of)
 	private allEventFriendGroupsCache: Map<string, FriendGroup> = new Map();
@@ -4310,32 +4314,94 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			}
 		});
 	}
+	// Properties for delete confirmation modal
+	public deleteConfirmImageCount: number = 0;
+	public deleteConfirmVideoCount: number = 0;
+	public deleteConfirmOtherFilesCount: number = 0;
+	public deleteConfirmUrlCount: number = 0;
+	public deleteConfirmCommentaryCount: number = 0;
+	public deleteConfirmDiscussionCount: number = 0;
+
 	// call the modal window for del confirmation
 	public deleteEvenement() {
-		// Count associated data
-		const fileCount = this.evenement.fileUploadeds ? this.evenement.fileUploadeds.length : 0;
-		const urlCount = this.evenement.urlEvents ? this.evenement.urlEvents.length : 0;
-		const commentaryCount = this.evenement.commentaries ? this.evenement.commentaries.length : 0;
-		
-		// Build detailed confirmation message
-		let confirmMessage = this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_MESSAGE') + '\n\n';
-		
-		if (fileCount > 0) {
-			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_FILES', { count: fileCount }) + '\n';
-		}
-		if (urlCount > 0) {
-			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_URLS', { count: urlCount }) + '\n';
-		}
-		if (commentaryCount > 0) {
-			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_COMMENTARIES', { count: commentaryCount }) + '\n';
+		// If admin override is enabled, verify user is admin
+		if (this.adminOverride && !this._keycloakService.hasAdminRole()) {
+			alert('Only administrators can delete events when admin override is enabled.');
+			return;
 		}
 		
-		// Always mention chat messages regardless of count
-		confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_CHAT');
+		// Reset counts
+		this.deleteConfirmImageCount = 0;
+		this.deleteConfirmVideoCount = 0;
+		this.deleteConfirmOtherFilesCount = 0;
+		this.deleteConfirmUrlCount = 0;
+		this.deleteConfirmCommentaryCount = 0;
+		this.deleteConfirmDiscussionCount = 0;
 		
-		if (confirm(confirmMessage)) {
-			this.delEvenement.emit(this.evenement);
-		}
+		// Load files first if not already loaded, then count
+		this.loadAndCountFilesForDelete();
+	}
+	
+	// Load files and count all items for delete confirmation
+	private loadAndCountFilesForDelete(): void {
+		// Count other items first (they're already loaded)
+		this.deleteConfirmUrlCount = this.evenement.urlEvents ? this.evenement.urlEvents.length : 0;
+		this.deleteConfirmCommentaryCount = this.evenement.commentaries ? this.evenement.commentaries.length : 0;
+		this.deleteConfirmDiscussionCount = (this.evenement.discussionId && this.evenement.discussionId.trim() !== '') ? 1 : 0;
+		// Note: Members are NOT deleted - they are just references to users that exist independently
+		
+		// Load files from backend to get accurate count
+		this._evenementsService.getEventFiles(this.evenement.id).subscribe({
+			next: (files: any[]) => {
+				// Count files by type
+				const allFiles = files || [];
+				this.deleteConfirmImageCount = allFiles.filter((file: any) => {
+					const fileName = file.fileName || file.name || '';
+					return fileName && this.isImageFile(fileName);
+				}).length;
+				
+				this.deleteConfirmVideoCount = allFiles.filter((file: any) => {
+					const fileName = file.fileName || file.name || '';
+					return fileName && this.isVideoFile(fileName);
+				}).length;
+				
+				this.deleteConfirmOtherFilesCount = allFiles.filter((file: any) => {
+					const fileName = file.fileName || file.name || '';
+					return fileName && !this.isImageFile(fileName) && !this.isVideoFile(fileName);
+				}).length;
+				
+				// Open the confirmation modal after files are loaded
+				const modalRef = this.modalService.open(this.deleteEventModal, {
+					centered: true,
+					backdrop: 'static',
+					keyboard: false,
+					size: 'lg'
+				});
+			},
+			error: (error) => {
+				console.error('Error loading files for delete confirmation:', error);
+				// Count from existing files if available
+				const existingFiles = this.evenement.fileUploadeds || [];
+				this.deleteConfirmImageCount = existingFiles.filter(file => file && file.fileName && this.isImageFile(file.fileName)).length;
+				this.deleteConfirmVideoCount = existingFiles.filter(file => file && file.fileName && this.isVideoFile(file.fileName)).length;
+				this.deleteConfirmOtherFilesCount = existingFiles.filter(file => 
+					file && file.fileName && !this.isImageFile(file.fileName) && !this.isVideoFile(file.fileName)
+				).length;
+				
+				// Open modal anyway with what we have
+				const modalRef = this.modalService.open(this.deleteEventModal, {
+					centered: true,
+					backdrop: 'static',
+					keyboard: false,
+					size: 'lg'
+				});
+			}
+		});
+	}
+
+	// Confirm delete action
+	public confirmDeleteEvent() {
+		this.delEvenement.emit(this.evenement);
 	}
 	// add the user as member
 	public addMemberClick() {
@@ -4373,7 +4439,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public isAuthor(): boolean {
 		// i don't search by Id becoze sometimes the page can be diaplyed after the id is filled 
 		// as it is completed by the id becoming from Mlab with an observable in membersService.completeMemberId()
+		if (!this.evenement.author) {
+			return false;
+		}
 		return this.evenement.author.userName.toLowerCase() == this.user.userName.toLowerCase();
+	}
+	
+	// Check if user has admin role
+	public isAdmin(): boolean {
+		return this._keycloakService.hasAdminRole();
 	}
 
 	public isParticipant(): boolean {

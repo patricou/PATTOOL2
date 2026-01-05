@@ -68,6 +68,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public user: Member = new Member("", "", "", "", "", [], "");
 	public dataFIlter: string = this._commonValuesService.getDataFilter();
 	public selectedVisibilityFilter: string = 'all'; // 'all', 'public', 'private', 'friends', or friend group id
+	public adminOverride: boolean = false; // Admin override to see all events regardless of visibility
 	public filteredEvents: Evenement[] = []; // Filtered events (computed property)
 	private lastFilterValue: string = 'all'; // Track last filter value to avoid unnecessary recalculations
 	private lastEventsLength: number = 0; // Track events array length
@@ -78,6 +79,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public isCompactView: boolean = false;
 	public controlsCollapsed: boolean = false;
 	public isMobile: boolean = false;
+	public isScrolled: boolean = false; // Track if user has scrolled to hide title
 	public eventThumbnails: Map<string, SafeUrl> = new Map();
 	private readonly CARDS_PER_PAGE = 8; // Number of cards to display at once
 	public nativeWindow: any;
@@ -600,6 +602,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	onWindowScroll(event: Event): void {
 		// Simple scroll-based infinite scroll
 		this.checkScrollForLoadMore();
+		
+		// Hide title when scrolled - use requestAnimationFrame for immediate update
+		requestAnimationFrame(() => {
+			const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+			const newIsScrolled = scrollTop > 50; // Threshold to hide title
+			if (this.isScrolled !== newIsScrolled) {
+				this.isScrolled = newIsScrolled;
+				this.cdr.markForCheck(); // Trigger change detection for OnPush strategy
+			}
+		});
 	}
 
 	// Check scroll position to load more events - SIMPLIFIED VERSION
@@ -891,9 +903,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 			this.eventsSubscription?.unsubscribe();
 			
-			// Stream all events
+			// Stream all events - capture adminOverride value at call time
+			const adminOverrideValue = this.adminOverride && this.isAdmin();
 			const subscription = this._evenementsService
-				.streamEvents(searchString, this.user.id, this.selectedVisibilityFilter)
+				.streamEvents(searchString, this.user.id, this.selectedVisibilityFilter, adminOverrideValue)
 				.subscribe({
 					next: (streamedEvent: StreamedEvent) => {
 						if (requestToken !== this.feedRequestToken) {
@@ -1779,16 +1792,42 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	public deleteEvenement(evenement: Evenement) {
-		// Count associated data
-		const fileCount = evenement.fileUploadeds ? evenement.fileUploadeds.length : 0;
+		// Helper function to check file types (same logic as in element-evenement)
+		const isImageFile = (fileName: string): boolean => {
+			if (!fileName) return false;
+			const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg', '.tiff', '.tif'];
+			const lowerFileName = fileName.toLowerCase();
+			return imageExtensions.some(ext => lowerFileName.endsWith(ext));
+		};
+		
+		const isVideoFile = (fileName: string): boolean => {
+			if (!fileName) return false;
+			const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.mkv', '.flv', '.wmv', '.m4v', '.3gp'];
+			const lowerFileName = fileName.toLowerCase();
+			return videoExtensions.some(ext => lowerFileName.endsWith(ext));
+		};
+		
+		// Count all associated data with detailed breakdown
+		const files = evenement.fileUploadeds || [];
+		const imageCount = files.filter(file => isImageFile(file.fileName)).length;
+		const videoCount = files.filter(file => isVideoFile(file.fileName)).length;
+		const otherFilesCount = files.filter(file => !isImageFile(file.fileName) && !isVideoFile(file.fileName)).length;
 		const urlCount = evenement.urlEvents ? evenement.urlEvents.length : 0;
 		const commentaryCount = evenement.commentaries ? evenement.commentaries.length : 0;
+		const discussionCount = (evenement.discussionId && evenement.discussionId.trim() !== '') ? 1 : 0;
+		// Note: Members are NOT deleted - they are just references to users that exist independently
 		
 		// Build detailed confirmation message
 		let confirmMessage = this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_MESSAGE') + '\n\n';
 		
-		if (fileCount > 0) {
-			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_FILES', { count: fileCount }) + '\n';
+		if (imageCount > 0) {
+			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_IMAGES', { count: imageCount }) + '\n';
+		}
+		if (videoCount > 0) {
+			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_VIDEOS', { count: videoCount }) + '\n';
+		}
+		if (otherFilesCount > 0) {
+			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_OTHER_FILES', { count: otherFilesCount }) + '\n';
 		}
 		if (urlCount > 0) {
 			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_URLS', { count: urlCount }) + '\n';
@@ -1796,9 +1835,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		if (commentaryCount > 0) {
 			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_COMMENTARIES', { count: commentaryCount }) + '\n';
 		}
+		if (discussionCount > 0) {
+			confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_DISCUSSION', { count: discussionCount }) + '\n';
+		}
+		confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_CHAT') + '\n';
+		// Note: Members are NOT deleted - they are just references to users that exist independently
 		
-		// Always mention chat messages regardless of count
-		confirmMessage += this.translateService.instant('EVENTELEM.DELETE_EVENT_CONFIRM_CHAT');
+		confirmMessage += '\n' + this.translateService.instant('EVENTELEM.DELETE_EVENT_IRREVERSIBLE');
 		
 		if (confirm(confirmMessage)) {
 			this.delEvent(evenement);
@@ -3813,6 +3856,44 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Reset and reload events with the new visibility filter from backend
 		// This uses the same logic as the word filter - fetches from backend
 		this.resetAndLoadEvents();
+	}
+	
+	// Handle admin override change
+	public onAdminOverrideChange(newValue: boolean): void {
+		// Ensure the value is set (ngModel should have updated it, but be safe)
+		this.adminOverride = newValue;
+		
+		// Unsubscribe from current stream first
+		this.eventsSubscription?.unsubscribe();
+		
+		// Immediately clear events to show loading state
+		this.evenements = [];
+		this.filteredEvents = [];
+		this.allStreamedEvents = [];
+		this.isLoading = true;
+		
+		// Trigger change detection immediately to clear cards from view
+		this.cdr.markForCheck();
+		
+		// Reset cache to force recalculation
+		this.lastFilterValue = '';
+		this.lastEventsLength = 0;
+		
+		// Clear caches when admin override changes
+		this.clearCaches();
+		
+		// Ensure scroll is unblocked when filter changes
+		this.unblockPageScroll();
+		this.shouldBlockScroll = false;
+		
+		// Reset and reload events with admin override from backend
+		// This will clear all events and reload them with the new admin override setting
+		this.resetAndLoadEvents();
+	}
+	
+	// Check if user has admin role
+	public isAdmin(): boolean {
+		return this._keycloakService.hasAdminRole();
 	}
 	
 	// Get loading events count

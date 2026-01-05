@@ -222,7 +222,7 @@
             </span>
         </b>
     </div>
-    <small class="mb-2 proprietaire-line text-center" [style.color]="getInverseTextColor()" *ngIf="!titleOnly">
+    <small class="mb-2 proprietaire-line text-center" [style.color]="getInverseTextColor()" *ngIf="!titleOnly && evenement.author">
         <i>{{ "EVENTELEM.OWNER_LABEL" | translate }} : {{ evenement.author.firstName }} {{ evenement.author.lastName }} / {{ evenement.author.userName }}</i>
     </small>
     <div class="card-info-box" [style.background-color]="getSolidColor(0.22)" [style.border-color]="getSolidColor(0.35)" *ngIf="!titleOnly">
@@ -423,6 +423,16 @@
        ngbTooltip="{{ 'EVENTELEM.UTE' | translate }}" 
        placement="top"
        (mouseleave)="onTooltipMouseLeave($event)"><i class="fa fa-pencil-square-o" aria-hidden="true"></i></a>
+    <!-- Admin delete button - only visible when admin override is enabled -->
+    <button *ngIf="adminOverride && isAdmin()"
+            type="button"
+            class="btn btn-sm btn-danger mb-1 me-1"
+            (click)="deleteEvenement(); $event.stopPropagation()"
+            [ngbTooltip]="'EVENTELEM.DELETE_EVENT_ADMIN' | translate"
+            placement="top"
+            (mouseleave)="onTooltipMouseLeave($event)">
+        <i class="fa fa-trash" aria-hidden="true"></i>
+    </button>
 
 </div>
 <div class="text-center mt-1 mb-1" *ngIf="!titleOnly && getCurrentCardLoadTime() > 0" [style.color]="getInverseTextColor()">
@@ -1235,6 +1245,67 @@
     <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="c('Close click')">
             <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
+        </button>
+    </div>
+</ng-template>
+
+<!-- Delete Event Confirmation Modal -->
+<ng-template #deleteEventModal let-c="close" let-d="dismiss">
+    <div class="modal-header bg-danger text-white border border-2 border-white rounded-top">
+        <h5 class="modal-title">
+            <i class="fa fa-exclamation-triangle me-2"></i>
+            {{ 'EVENTELEM.DELETE_EVENT_CONFIRM_TITLE' | translate }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="d('Cross click')" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+        <p class="text-danger mb-3">
+            <i class="fa fa-warning me-2"></i>
+            {{ 'EVENTELEM.DELETE_EVENT_CONFIRM_MESSAGE' | translate }}
+        </p>
+        <ul class="list-unstyled mb-0">
+            <li *ngIf="deleteConfirmImageCount > 0" class="mb-2">
+                <i class="fa fa-image me-2 text-primary"></i>
+                {{ 'EVENTELEM.DELETE_EVENT_CONFIRM_IMAGES' | translate: {count: deleteConfirmImageCount} }}
+            </li>
+            <li *ngIf="deleteConfirmVideoCount > 0" class="mb-2">
+                <i class="fa fa-video-camera me-2 text-danger"></i>
+                {{ 'EVENTELEM.DELETE_EVENT_CONFIRM_VIDEOS' | translate: {count: deleteConfirmVideoCount} }}
+            </li>
+            <li *ngIf="deleteConfirmOtherFilesCount > 0" class="mb-2">
+                <i class="fa fa-file me-2 text-secondary"></i>
+                {{ 'EVENTELEM.DELETE_EVENT_CONFIRM_OTHER_FILES' | translate: {count: deleteConfirmOtherFilesCount} }}
+            </li>
+            <li *ngIf="deleteConfirmUrlCount > 0" class="mb-2">
+                <i class="fa fa-link me-2 text-info"></i>
+                {{ 'EVENTELEM.DELETE_EVENT_CONFIRM_URLS' | translate: {count: deleteConfirmUrlCount} }}
+            </li>
+            <li *ngIf="deleteConfirmCommentaryCount > 0" class="mb-2">
+                <i class="fa fa-comment me-2 text-warning"></i>
+                {{ 'EVENTELEM.DELETE_EVENT_CONFIRM_COMMENTARIES' | translate: {count: deleteConfirmCommentaryCount} }}
+            </li>
+            <li *ngIf="deleteConfirmDiscussionCount > 0" class="mb-2">
+                <i class="fa fa-comments me-2 text-success"></i>
+                {{ 'EVENTELEM.DELETE_EVENT_CONFIRM_DISCUSSION' | translate: {count: deleteConfirmDiscussionCount} }}
+            </li>
+            <li class="mb-2">
+                <i class="fa fa-comments-o me-2 text-muted"></i>
+                {{ 'EVENTELEM.DELETE_EVENT_CONFIRM_CHAT' | translate }}
+            </li>
+        </ul>
+        <p class="text-warning mt-3 mb-0">
+            <i class="fa fa-info-circle me-2"></i>
+            {{ 'EVENTELEM.DELETE_EVENT_IRREVERSIBLE' | translate }}
+        </p>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="d('Cancel click')">
+            <i class="fa fa-times me-1"></i>
+            {{ 'COMMUN.CANCEL' | translate }}
+        </button>
+        <button type="button" class="btn btn-danger" (click)="confirmDeleteEvent(); c('Delete confirmed')">
+            <i class="fa fa-trash me-1"></i>
+            {{ 'EVENTELEM.DTE' | translate }}
         </button>
     </div>
 </ng-template>

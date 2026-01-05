@@ -226,7 +226,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "מחק את כל ההערות",
         "SELECT_PAGE": "בחר עמוד",
         "EDIT_LINK": "ערוך קישור",
-        "NO_FILES_ADDED": "לא נוספו קבצים לאירוע זה"
+        "NO_FILES_ADDED": "לא נוספו קבצים לאירוע זה",
+        "SHOW_ALL": "הצג הכל",
+        "SHOW_ALL_EVENTS_ADMIN": "הצג את כל האירועים (מנהל בלבד)"
     },
     "EVENTCREATION": {
         "TITLE": "יצירת פעילות",
@@ -359,7 +361,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- כל הקישורים ({{count}} קישור/ים)",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- כל ההערות ({{count}} הערה/ות)",
         "DELETE_EVENT_CONFIRM_CHAT": "- כל הודעות הצ'אט",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- כל התמונות ({{count}} תמונה/ות)",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- כל הסרטונים ({{count}} סרטון/ים)",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- כל הקבצים האחרים ({{count}} קובץ/ים)",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- הדיון ({{count}} דיון/ים)",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- המשתתפים ({{count}} משתתף/ים)",
+        "DELETE_EVENT_IRREVERSIBLE": "פעולה זו אינה הפיכה.",
         "DELETE_EVENT_CONFIRM_TITLE": "אישור מחיקה",
+        "DELETE_EVENT_ADMIN": "מחק אירוע (מנהל בלבד)",
         "CLOSE": "סגור את הפעילות",
         "OPEN": "פתח מחדש את הפעילות",
         "CANCEL": "בטל את הפעילות",

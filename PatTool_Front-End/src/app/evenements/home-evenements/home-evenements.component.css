@@ -607,13 +607,18 @@
 /* Réduire l'espace entre le titre et les contrôles */
 /* pat-title uses global styles - no override needed */
 
+/* Hide title when scrolled - instant, no transition */
+.pat-title.hidden {
+    display: none !important;
+}
+
 /* ===== CONTROLS BAR - Style professionnel et responsive ===== */
 .controls-bar {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
     padding: 0.75rem;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0;
     animation: none !important;
     transition: none !important;
     position: relative;
@@ -621,6 +626,120 @@
     border-radius: 10px;
     box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.6);
     border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+/* Make controls bar fixed - always visible below navbar/title, never scrolls */
+.home-evenements-wrapper .controls-bar.sticky-filters {
+    position: fixed;
+    top: calc(60px + 80px); /* Below navbar (60px) + title height (~60px) + extra space (20px) */
+    left: 0;
+    right: 0;
+    z-index: 1020; /* Below navbar (1030) but above content */
+    margin-left: 0;
+    margin-right: 0;
+    width: 100%;
+    will-change: top; /* Optimize for position changes */
+    transition: none !important; /* No transition to prevent flickering */
+}
+
+/* When title is hidden, position directly below navbar */
+.home-evenements-wrapper .controls-bar.sticky-filters.title-hidden {
+    top: 60px; /* Just below navbar (navbar height is 60px) */
+    transition: none !important; /* No transition to prevent flickering */
+}
+
+/* Match container-fluid padding on the fixed element */
+.home-evenements-wrapper .controls-bar.sticky-filters {
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+@media (min-width: 576px) {
+    .home-evenements-wrapper .controls-bar.sticky-filters {
+        padding-left: calc((100vw - 540px) / 2);
+        padding-right: calc((100vw - 540px) / 2);
+    }
+}
+
+@media (min-width: 768px) {
+    .home-evenements-wrapper .controls-bar.sticky-filters {
+        padding-left: calc((100vw - 720px) / 2);
+        padding-right: calc((100vw - 720px) / 2);
+    }
+}
+
+@media (min-width: 992px) {
+    .home-evenements-wrapper .controls-bar.sticky-filters {
+        padding-left: calc((100vw - 960px) / 2);
+        padding-right: calc((100vw - 960px) / 2);
+    }
+}
+
+@media (min-width: 1200px) {
+    .home-evenements-wrapper .controls-bar.sticky-filters {
+        padding-left: calc((100vw - 1140px) / 2);
+        padding-right: calc((100vw - 1140px) / 2);
+    }
+}
+
+@media (min-width: 1400px) {
+    .home-evenements-wrapper .controls-bar.sticky-filters {
+        padding-left: calc((100vw - 1320px) / 2);
+        padding-right: calc((100vw - 1320px) / 2);
+    }
+}
+
+/* The filter bar is fixed, so the first container-fluid should be completely removed from flow */
+/* Hide the container but keep the fixed filter bar visible */
+.home-evenements-wrapper .container-fluid:has(.controls-bar.sticky-filters) {
+    display: contents; /* Remove container from flow - children flow as if container doesn't exist */
+}
+
+/* Since the filter bar is fixed, it's already out of flow, so this works perfectly */
+.home-evenements-wrapper .container-fluid:has(.controls-bar.sticky-filters) .row {
+    display: contents; /* Also remove row from flow */
+}
+
+/* The controls bar is fixed, so it renders independently */
+.home-evenements-wrapper .container-fluid:has(.controls-bar.sticky-filters) .col-sm-12 {
+    display: contents; /* Remove col from flow too */
+}
+
+/* When title is hidden, same treatment */
+.pat-title.hidden ~ .container-fluid:has(.controls-bar.sticky-filters) {
+    display: contents;
+}
+
+/* Direct solution: margin-top to position cards */
+/* When title is visible: navbar(60) + title(80) + filter bar = need space for all */
+.home-evenements-wrapper .container-fluid:has(.cards-container) {
+    padding-top: 0 !important;
+    margin-top: 75px !important;
+}
+
+/* When title is hidden: compensate for title height to prevent scroll bounce */
+/* Add 80px more margin to compensate for the title that disappeared */
+.pat-title.hidden ~ .container-fluid:has(.cards-container) {
+    padding-top: 0 !important;
+    margin-top: 155px !important; /* 75px + 80px (title height) to compensate */
+}
+
+/* Ensure row with cards has no top margin or padding */
+.home-evenements-wrapper .row.cards-container {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+}
+
+/* Remove any margin from cards themselves */
+.home-evenements-wrapper .row.cards-container .pat-card {
+    margin-top: 0;
+    padding-top: 0;
+}
+
+/* Remove any gap or margin that could create space */
+.home-evenements-wrapper .container-fluid:has(.cards-container) .row.cards-container {
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* Desktop layout - horizontal */
@@ -987,6 +1106,36 @@
 .filter-input-container:focus-within {
     border-color: #007bff;
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Visibility filter mobile - same width as filter input */
+.visibility-filter-mobile {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    margin-right: 0.5rem;
+}
+
+.visibility-filter-mobile .filter-select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236c757d' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 12px;
+    padding-right: 32px;
+    cursor: pointer;
+    color: #495057;
+}
+
+.visibility-filter-mobile .filter-select:focus {
+    outline: none;
+}
+
+.visibility-filter-mobile .filter-select option {
+    color: #495057;
+    background-color: #ffffff;
 }
 
 .mobile-quick-actions {

@@ -226,7 +226,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "删除所有评论",
         "SELECT_PAGE": "选择页面",
         "EDIT_LINK": "编辑链接",
-        "NO_FILES_ADDED": "未向此活动添加文件"
+        "NO_FILES_ADDED": "未向此活动添加文件",
+        "SHOW_ALL": "显示全部",
+        "SHOW_ALL_EVENTS_ADMIN": "显示所有活动（仅管理员）"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "照片选择",
@@ -357,7 +359,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- 所有链接（{{count}}个链接）",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- 所有评论（{{count}}条评论）",
         "DELETE_EVENT_CONFIRM_CHAT": "- 所有聊天消息",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- 所有图片 ({{count}} 张图片)",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- 所有视频 ({{count}} 个视频)",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- 所有其他文件 ({{count}} 个文件)",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- 讨论 ({{count}} 个讨论)",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- 参与者 ({{count}} 位参与者)",
+        "DELETE_EVENT_IRREVERSIBLE": "此操作不可逆。",
         "DELETE_EVENT_CONFIRM_TITLE": "删除确认",
+        "DELETE_EVENT_ADMIN": "删除活动（仅管理员）",
         "CLOSE": "关闭活动",
         "OPEN": "（重新）打开活动",
         "CANCEL": "取消活动",

@@ -234,7 +234,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Удалить все комментарии",
         "SELECT_PAGE": "Выбрать страницу",
         "EDIT_LINK": "Редактировать ссылку",
-        "NO_FILES_ADDED": "К этому событию не добавлено файлов"
+        "NO_FILES_ADDED": "К этому событию не добавлено файлов",
+        "SHOW_ALL": "Показать Все",
+        "SHOW_ALL_EVENTS_ADMIN": "Показать все события (только админ)"
     },
     "EVENTCREATION": {
         "TITLE": "Создание мероприятия",
@@ -358,7 +360,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- Все ссылки ({{count}} ссылка/и)",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- Все комментарии ({{count}} комментарий(ев))",
         "DELETE_EVENT_CONFIRM_CHAT": "- Все сообщения чата",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- Все изображения ({{count}} изображение(й))",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- Все видео ({{count}} видео)",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- Все остальные файлы ({{count}} файл(ов))",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- Обсуждение ({{count}} обсуждение(й))",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- Участники ({{count}} участник(ов))",
+        "DELETE_EVENT_IRREVERSIBLE": "Это действие необратимо.",
         "DELETE_EVENT_CONFIRM_TITLE": "Подтверждение удаления",
+        "DELETE_EVENT_ADMIN": "Удалить событие (только админ)",
         "CLOSE": "Закрыть мероприятие",
         "OPEN": "(Повторно) Открыть мероприятие",
         "CANCEL": "Отменить мероприятие",

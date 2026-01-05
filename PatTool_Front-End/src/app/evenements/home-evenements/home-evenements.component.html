@@ -160,15 +160,15 @@
     </div>
 </div>
 
-<div class="pat-title">
+<div class="pat-title" [class.hidden]="isScrolled" #titleElement>
     <h2>{{ "EVENTHOME.EVENTSLIST" | translate }}</h2>
     <app-navigation-buttons></app-navigation-buttons>
 </div>
 <div class="container-fluid">
     <div class="row">
         <div class="col-sm-12">
-            <div class="controls-bar">
-                <!-- Mobile: Filter, Counter and Cards/List button on same line -->
+            <div class="controls-bar sticky-filters" [class.title-hidden]="isScrolled">
+                <!-- Mobile: Filter and Visibility Select only -->
                 <div class="mobile-filter-only d-md-none">
                     <div class="filter-section-mobile">
                         <div class="mobile-controls-row">
@@ -187,24 +187,24 @@
                                     <i class="fa fa-times"></i>
                                 </button>
                             </div>
-                            <div class="mobile-quick-actions">
-                                <button class="btn btn-sm btn-outline-secondary me-1" 
-                                    (click)="toggleDebugInfo()">
-                                    <i class="fa fa-info-circle"></i>
-                                </button>
-                                <div class="mobile-results-badge me-1"
-                                    [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
-                                    <span class="count-value">{{ getVisibleEventsCount() }}</span>
-                                </div>
-                                <div class="mobile-results-badge"
-                                    [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
-                                    <span class="count-value">{{ getAllStreamedEventsCount() }}</span>
-                                </div>
-                                <button class="btn btn-sm btn-outline-primary btn-toggle-view-mobile" (click)="toggleViewMode()"
-                                    [ngbTooltip]="('EVENTHOME.TOGGLE_VIEW_CARDS_LIST' | translate)"
-                                    placement="bottom" container="body">
-                                    <i class="fa" [class.fa-th-large]="!isCompactView" [class.fa-list]="isCompactView"></i>
-                                </button>
+                            <div class="filter-input-container visibility-filter-mobile">
+                                <i class="fa fa-filter search-icon"></i>
+                                <select class="filter-input filter-select" 
+                                    [(ngModel)]="selectedVisibilityFilter"
+                                    (ngModelChange)="onVisibilityFilterChange()"
+                                    [title]="'EVENTCREATION.VISIBILITY' | translate">
+                                    <option value="all">{{ 'EVENTHOME.FILTER_ALL' | translate }}</option>
+                                    <option value="public">{{ 'EVENTCREATION.PUBLIC' | translate }}</option>
+                                    <option value="private">{{ 'EVENTCREATION.PRIVATE' | translate }}</option>
+                                    <option value="friends">{{ 'EVENTCREATION.FRIENDS' | translate }}</option>
+                                    <option *ngFor="let group of getSortedFriendGroups()" [value]="group.id">
+                                        {{ group.name }}
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="mobile-results-badge"
+                                [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
+                                <span class="count-value">{{ getAllStreamedEventsCount() }}</span>
                             </div>
                         </div>
                     </div>
@@ -249,6 +249,24 @@
                         </div>
                     </div>
 
+                    <!-- Admin Override Switch (only visible for admin users) -->
+                    <div class="filter-section-redesigned me-2" style="flex: 0 0 auto;" *ngIf="isAdmin()">
+                        <div class="filter-input-container-desktop" style="min-width: auto; padding: 0.25rem 0.5rem;">
+                            <div class="form-check form-switch d-flex align-items-center" style="margin: 0;">
+                                <input class="form-check-input" type="checkbox" role="switch" 
+                                    id="adminOverrideSwitch"
+                                    [(ngModel)]="adminOverride"
+                                    (ngModelChange)="onAdminOverrideChange($event)"
+                                    [title]="'EVENTHOME.SHOW_ALL_EVENTS_ADMIN' | translate"
+                                    style="font-size: 0.75rem;">
+                                <label class="form-check-label ms-2" for="adminOverrideSwitch" 
+                                    style="font-size: 0.75rem; white-space: nowrap; cursor: pointer;">
+                                    {{ 'EVENTHOME.SHOW_ALL' | translate }}
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Filter Section -->
                     <div class="filter-section-redesigned">
                         <div class="filter-input-container-desktop">
@@ -289,25 +307,18 @@
                         </div>
                         
                         <!-- Compact View Selector -->
-                        <div class="compact-view-selector-redesigned">
-                            <span class="compact-view-label-redesigned">
-                                <i class="fa fa-compress"></i>
-                                <span>{{ 'EVENTHOME.COMPACT_VIEW' | translate }}</span>
-                            </span>
-                            <div class="compact-toggle-wrapper-redesigned"
-                                ngbTooltip="{{ titleOnlyView ? ('EVENTHOME.TITLE_ONLY_COMPLET' | translate) : ('EVENTHOME.TITLE_ONLY_HINT' | translate) }}"
-                                placement="bottom" container="body">
-                                <div class="compact-toggle">
-                                    <input class="compact-toggle-input" type="checkbox" id="titleOnlyToggle"
-                                        [(ngModel)]="titleOnlyView">
-                                    <label class="compact-toggle-label" for="titleOnlyToggle">
-                                        <span class="toggle-track"></span>
-                                        <span class="toggle-thumb">
-                                            <i class="fa" [class.fa-align-justify]="!titleOnlyView"
-                                                [class.fa-align-center]="titleOnlyView"></i>
-                                        </span>
+                        <div class="filter-section-redesigned me-2" style="flex: 0 0 auto;">
+                            <div class="filter-input-container-desktop" style="min-width: auto; padding: 0.25rem 0.5rem;">
+                                <div class="form-check form-switch d-flex align-items-center" style="margin: 0;">
+                                    <input class="form-check-input" type="checkbox" role="switch" 
+                                        id="titleOnlyToggle"
+                                        [(ngModel)]="titleOnlyView"
+                                        [title]="titleOnlyView ? ('EVENTHOME.TITLE_ONLY_COMPLET' | translate) : ('EVENTHOME.TITLE_ONLY_HINT' | translate)"
+                                        style="font-size: 0.75rem;">
+                                    <label class="form-check-label ms-2" for="titleOnlyToggle" 
+                                        style="font-size: 0.75rem; white-space: nowrap; cursor: pointer;">
+                                        {{ 'EVENTHOME.COMPACT_VIEW' | translate }}
                                     </label>
-                                    <span class="visually-hidden">{{ 'EVENTHOME.TITLE_ONLY_HINT' | translate }}</span>
                                 </div>
                             </div>
                         </div>
@@ -324,7 +335,7 @@
              *ngFor="let evenement of filteredEvents; trackBy: trackEvent; let i = index"
              [attr.data-event-id]="evenement.id">
             <element-evenement class="card" [user]="user" [evenement]="evenement" [titleOnly]="titleOnlyView"
-                [friendGroups]="friendGroups"
+                [friendGroups]="friendGroups" [adminOverride]="adminOverride && isAdmin()"
                 (updateFileUploaded)="updateFileUploadedInEvent($event)" (addMember)="addMemberInEvent($event)"
                 (delMember)="delMemberInEvent($event)" (updateEvenement)="updEvent($event)"
                 (delEvenement)="delEvent($event)" (openPhotosModal)="openPhotosModal($event)"

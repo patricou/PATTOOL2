@@ -185,7 +185,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Διαγραφή όλων των σχολίων",
         "SELECT_PAGE": "Επιλογή σελίδας",
         "EDIT_LINK": "Επεξεργασία συνδέσμου",
-        "NO_FILES_ADDED": "Δεν προστέθηκαν αρχεία σε αυτή την εκδήλωση"
+        "NO_FILES_ADDED": "Δεν προστέθηκαν αρχεία σε αυτή την εκδήλωση",
+        "SHOW_ALL": "Εμφάνιση Όλων",
+        "SHOW_ALL_EVENTS_ADMIN": "Εμφάνιση όλων των εκδηλώσεων (μόνο διαχειριστής)"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "Επιλογή φωτογραφιών",
@@ -315,7 +317,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- Όλοι οι σύνδεσμοι ({{count}} σύνδεσμος(οι))",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- Όλα τα σχόλια ({{count}} σχόλιο(α))",
         "DELETE_EVENT_CONFIRM_CHAT": "- Όλα τα μηνύματα συνομιλίας",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- Όλες οι εικόνες ({{count}} εικόνα/ες)",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- Όλα τα βίντεο ({{count}} βίντεο)",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- Όλα τα άλλα αρχεία ({{count}} αρχείο/α)",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- Η συζήτηση ({{count}} συζήτηση/εις)",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- Οι συμμετέχοντες ({{count}} συμμετέχων/οντες)",
+        "DELETE_EVENT_IRREVERSIBLE": "Αυτή η ενέργεια είναι μη αναστρέψιμη.",
         "DELETE_EVENT_CONFIRM_TITLE": "Επιβεβαίωση διαγραφής",
+        "DELETE_EVENT_ADMIN": "Διαγραφή εκδήλωσης (μόνο διαχειριστής)",
         "CLOSE": "Κλείσιμο Δραστηριότητας",
         "OPEN": "(Εκ νέου) Άνοιγμα Δραστηριότητας",
         "CANCEL": "Ακύρωση Δραστηριότητας",

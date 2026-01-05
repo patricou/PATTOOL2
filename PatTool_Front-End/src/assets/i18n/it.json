@@ -233,7 +233,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Elimina tutti i commenti",
         "SELECT_PAGE": "Seleziona pagina",
         "EDIT_LINK": "Modifica collegamento",
-        "NO_FILES_ADDED": "Nessun file aggiunto a questo evento"
+        "NO_FILES_ADDED": "Nessun file aggiunto a questo evento",
+        "SHOW_ALL": "Mostra Tutto",
+        "SHOW_ALL_EVENTS_ADMIN": "Mostra tutti gli eventi (solo admin)"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "Selezione foto",
@@ -365,7 +367,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- Tutti i collegamenti ({{count}} collegamento/i)",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- Tutti i commenti ({{count}} commento/i)",
         "DELETE_EVENT_CONFIRM_CHAT": "- Tutti i messaggi della chat",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- Tutte le immagini ({{count}} immagine/i)",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- Tutti i video ({{count}} video/i)",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- Tutti gli altri file ({{count}} file/i)",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- La discussione ({{count}} discussione/i)",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- I partecipanti ({{count}} partecipante/i)",
+        "DELETE_EVENT_IRREVERSIBLE": "Questa azione è irreversibile.",
         "DELETE_EVENT_CONFIRM_TITLE": "Conferma eliminazione",
+        "DELETE_EVENT_ADMIN": "Elimina evento (solo admin)",
         "CLOSE": "Chiudi Attività",
         "OPEN": "(Ri)apri Attività",
         "CANCEL": "Annulla Attività",

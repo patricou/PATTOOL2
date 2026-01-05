@@ -181,16 +181,25 @@ export class CreateEvenementComponent implements OnInit {
 		//console.log("Result : "+ JSON.stringify(this.evenement) + " " + isValid);
 		if (this.user.id == "") { alert("Not possible to save the event as the user.id is null, please logout/login") }
 		else {
-			this._evenementsService.postEvenement(this.evenement).subscribe(
-				res => this._router.navigate(['even']), 
-				err => {
-					if (err.status === 403) {
+		this._evenementsService.postEvenement(this.evenement).subscribe(
+			res => this._router.navigate(['even']), 
+			err => {
+				if (err.status === 403) {
+					// Check the error type from backend response
+					const errorType = err.error?.error || err.error?.errorType;
+					if (errorType === 'FRIEND_GROUP_UNAUTHORIZED') {
+						alert(this.translate.instant('EVENTCREATION.FRIEND_GROUP_UNAUTHORIZED'));
+					} else if (errorType === 'PHOTOFROMFS_UNAUTHORIZED') {
 						alert(this.translate.instant('EVENTCREATION.PHOTOFROMFS_UNAUTHORIZED_SAVE'));
 					} else {
-						alert("Error when creating the Event : " + err);
+						// Default to PHOTOFROMFS message for backward compatibility
+						alert(this.translate.instant('EVENTCREATION.PHOTOFROMFS_UNAUTHORIZED_SAVE'));
 					}
+				} else {
+					alert("Error when creating the Event : " + err);
 				}
-			);
+			}
+		);
 		}
 	};
 
@@ -851,11 +860,23 @@ export class CreateEvenementComponent implements OnInit {
 		return new Date(date).toLocaleString();
 	}
 
-	// Load friend groups
+	// Load friend groups - only show groups where user is owner or authorized
 	private loadFriendGroups() {
 		this._friendsService.getFriendGroups().subscribe(
 			groups => {
-				this.friendGroups = groups;
+				// Filter to only show groups where user is owner or authorized (not just a member)
+				this.friendGroups = groups.filter(group => {
+					if (!group || !this.user || !this.user.id) {
+						return false;
+					}
+					// Check if user is owner
+					const isOwner = group.owner && group.owner.id === this.user.id;
+					// Check if user is in authorizedUsers
+					const isAuthorized = group.authorizedUsers && group.authorizedUsers.some(
+						authorizedUser => authorizedUser && authorizedUser.id === this.user.id
+					);
+					return isOwner || isAuthorized;
+				});
 				// Sort friend groups alphabetically
 				this.sortFriendGroups();
 			},

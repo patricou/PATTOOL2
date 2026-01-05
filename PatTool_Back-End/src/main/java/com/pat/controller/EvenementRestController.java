@@ -11,6 +11,8 @@ import com.pat.repo.EvenementsRepository;
 import com.pat.repo.FriendGroupRepository;
 import com.pat.repo.FriendRepository;
 import com.pat.repo.MembersRepository;
+import com.pat.repo.DiscussionRepository;
+import com.pat.repo.UserConnectionLogRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,6 +85,15 @@ public class EvenementRestController {
     @Autowired
     private com.pat.service.DiscussionService discussionService;
     
+    @Autowired
+    private com.pat.repo.DiscussionRepository discussionRepository;
+    
+    @Autowired
+    private com.pat.repo.UserConnectionLogRepository userConnectionLogRepository;
+    
+    @Autowired
+    private com.pat.controller.MailController mailController;
+    
     /**
      * Check if the current user has Admin role (case-insensitive)
      */
@@ -143,10 +154,26 @@ public class EvenementRestController {
     @GetMapping(value = "/stream/{evenementName}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamEvenements(@PathVariable("evenementName") String evenementName,
                                       @RequestHeader(value = "user-id", required = false) String userId,
-                                      @RequestHeader(value = "visibility-filter", required = false) String visibilityFilter) {
+                                      @RequestHeader(value = "visibility-filter", required = false) String visibilityFilter,
+                                      @RequestHeader(value = "admin-override", required = false) String adminOverride) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // No timeout
         
-        log.debug("Stream events request - filter: {}, visibilityFilter: {}, userId: {}", evenementName, visibilityFilter, userId);
+        log.debug("Stream events request - filter: {}, visibilityFilter: {}, userId: {}, adminOverride: {}", evenementName, visibilityFilter, userId, adminOverride);
+        
+        // Validate admin override: if set to true, user must have admin role
+        boolean isAdminOverride = "true".equalsIgnoreCase(adminOverride);
+        if (isAdminOverride && !hasAdminRole()) {
+            log.warn("Admin override requested but user does not have admin role. userId: {}", userId);
+            try {
+                emitter.send(SseEmitter.event()
+                    .name("error")
+                    .data("{\"error\":\"Admin override requires admin role\"}"));
+                emitter.complete();
+            } catch (Exception e) {
+                log.error("Error sending admin override error", e);
+            }
+            return emitter;
+        }
         
         CompletableFuture.runAsync(() -> {
             try {
@@ -156,22 +183,28 @@ public class EvenementRestController {
                 // Get normalized filter for matching (title, description, and type)
                 String normalizedFilter = normalizeFilter(evenementName);
                 
-                // Build access criteria - if visibility filter is provided, use filtered access criteria
-                Criteria accessCriteria;
-                if (visibilityFilter != null && !visibilityFilter.trim().isEmpty() && !"all".equals(visibilityFilter.trim())) {
-                    // Build access criteria that only includes the selected visibility type
-                    String filterValue = visibilityFilter.trim();
-                    log.debug("Building access criteria for visibility filter: {}", filterValue);
-                    accessCriteria = buildAccessCriteriaForVisibility(filterValue, userId);
-                    log.debug("Access criteria built for visibility filter: {}", filterValue);
-                } else {
-                    // Use standard access criteria (all visible events)
-                    accessCriteria = buildAccessCriteria(userId);
-                }
-                
+                // Build access criteria - if admin override is enabled, skip access criteria
                 // Build list of all criteria to combine with AND
                 java.util.List<Criteria> allCriteriaList = new java.util.ArrayList<>();
-                allCriteriaList.add(accessCriteria);
+                
+                if (!isAdminOverride) {
+                    // Only add access criteria if admin override is not enabled
+                    Criteria accessCriteria;
+                    if (visibilityFilter != null && !visibilityFilter.trim().isEmpty() && !"all".equals(visibilityFilter.trim())) {
+                        // Build access criteria that only includes the selected visibility type
+                        String filterValue = visibilityFilter.trim();
+                        log.debug("Building access criteria for visibility filter: {}", filterValue);
+                        accessCriteria = buildAccessCriteriaForVisibility(filterValue, userId);
+                        log.debug("Access criteria built for visibility filter: {}", filterValue);
+                    } else {
+                        // Use standard access criteria (all visible events)
+                        accessCriteria = buildAccessCriteria(userId);
+                    }
+                    allCriteriaList.add(accessCriteria);
+                } else {
+                    // Admin override: no access criteria, return all events
+                    log.debug("Admin override enabled - skipping access criteria");
+                }
                 
                 // Build MongoDB query criteria for efficient database-level filtering
                 java.util.List<Criteria> filterCriteriaList = new java.util.ArrayList<>();
@@ -201,7 +234,10 @@ public class EvenementRestController {
                 }
                 
                 // Combine all criteria with AND
-                if (allCriteriaList.size() == 1) {
+                if (allCriteriaList.isEmpty()) {
+                    // No criteria - return all events (admin override with no filter)
+                    log.debug("Query criteria (empty): returning all events");
+                } else if (allCriteriaList.size() == 1) {
                     query.addCriteria(allCriteriaList.get(0));
                     log.debug("Query criteria (single): {}", allCriteriaList.get(0).getCriteriaObject().toJson());
                 } else {
@@ -1331,19 +1367,25 @@ public class EvenementRestController {
     }
 
     @RequestMapping( method = RequestMethod.POST)
-    public ResponseEntity<Evenement> addEvenement(@RequestBody Evenement evenement){
+    public ResponseEntity<?> addEvenement(@RequestBody Evenement evenement){
 
         // Check if event contains PHOTOFROMFS links and validate authorization
+        // Only check if urlEvents is not null and not empty, and contains actual PHOTOFROMFS links
         if (evenement.getUrlEvents() != null && !evenement.getUrlEvents().isEmpty()) {
             boolean hasPhotoFromFs = evenement.getUrlEvents().stream()
-                .anyMatch(urlEvent -> urlEvent != null && 
-                    "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl()));
+                .filter(urlEvent -> urlEvent != null) // Filter out null entries
+                .filter(urlEvent -> urlEvent.getTypeUrl() != null && !urlEvent.getTypeUrl().trim().isEmpty()) // Filter out entries with null/empty typeUrl
+                .anyMatch(urlEvent -> "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl().trim()));
             
             if (hasPhotoFromFs) {
                 // Check if the user has FileSystem role
                 if (!hasFileSystemRole()) {
                     log.warn("Unauthorized attempt to create PHOTOFROMFS link. User does not have FileSystem role.");
-                    return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    // Return error with specific message to differentiate from friend group error
+                    java.util.Map<String, String> errorBody = new java.util.HashMap<>();
+                    errorBody.put("error", "PHOTOFROMFS_UNAUTHORIZED");
+                    errorBody.put("message", "You are not authorized to create events with 'Photo from File System' type links. Only the authorized user can create this type of link.");
+                    return new ResponseEntity<java.util.Map<String, String>>(errorBody, HttpStatus.FORBIDDEN);
                 }
             }
         }
@@ -1372,7 +1414,11 @@ public class EvenementRestController {
                     evenement.getAuthor().getId(), 
                     evenement.getFriendGroupId(),
                     group.getOwner() != null ? group.getOwner().getId() : "null");
-                return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                // Return error with specific message to differentiate from PHOTOFROMFS error
+                java.util.Map<String, String> errorBody = new java.util.HashMap<>();
+                errorBody.put("error", "FRIEND_GROUP_UNAUTHORIZED");
+                errorBody.put("message", "You are not authorized to use this friend group. Only the owner or authorized users can use it.");
+                return new ResponseEntity<java.util.Map<String, String>>(errorBody, HttpStatus.FORBIDDEN);
             }
         }
         
@@ -1405,7 +1451,11 @@ public class EvenementRestController {
                         evenement.getAuthor().getId(), 
                         groupId,
                         group.getOwner() != null ? group.getOwner().getId() : "null");
-                    return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    // Return error with specific message to differentiate from PHOTOFROMFS error
+                    java.util.Map<String, String> errorBody = new java.util.HashMap<>();
+                    errorBody.put("error", "FRIEND_GROUP_UNAUTHORIZED");
+                    errorBody.put("message", "You are not authorized to use this friend group. Only the owner or authorized users can use it.");
+                    return new ResponseEntity<java.util.Map<String, String>>(errorBody, HttpStatus.FORBIDDEN);
                 }
             }
         }
@@ -1447,7 +1497,7 @@ public class EvenementRestController {
     }
 
     @RequestMapping( method = RequestMethod.PUT)
-    public ResponseEntity<Evenement> updateEvenement(@RequestBody Evenement evenement){
+    public ResponseEntity<?> updateEvenement(@RequestBody Evenement evenement){
 
         // CRITICAL: Preserve fileUploadeds if they're missing or empty in the request
         // This prevents accidentally clearing files when updating other event fields
@@ -1503,14 +1553,19 @@ public class EvenementRestController {
         // Check if event contains PHOTOFROMFS links and validate authorization
         if (evenement.getUrlEvents() != null && !evenement.getUrlEvents().isEmpty()) {
             boolean hasPhotoFromFs = evenement.getUrlEvents().stream()
-                .anyMatch(urlEvent -> urlEvent != null && 
-                    "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl()));
+                .filter(urlEvent -> urlEvent != null) // Filter out null entries
+                .filter(urlEvent -> urlEvent.getTypeUrl() != null && !urlEvent.getTypeUrl().trim().isEmpty()) // Filter out entries with null/empty typeUrl
+                .anyMatch(urlEvent -> "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl().trim()));
             
             if (hasPhotoFromFs) {
                 // Check if the user has FileSystem role
                 if (!hasFileSystemRole()) {
                     log.warn("Unauthorized attempt to update PHOTOFROMFS link. User does not have FileSystem role.");
-                    return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    // Return error with specific message to differentiate from friend group error
+                    java.util.Map<String, String> errorBody = new java.util.HashMap<>();
+                    errorBody.put("error", "PHOTOFROMFS_UNAUTHORIZED");
+                    errorBody.put("message", "You are not authorized to update events with 'Photo from File System' type links. Only the authorized user can modify this type of link.");
+                    return new ResponseEntity<java.util.Map<String, String>>(errorBody, HttpStatus.FORBIDDEN);
                 }
             }
         }
@@ -1580,33 +1635,106 @@ public class EvenementRestController {
     @RequestMapping(value = "/{id}", method = RequestMethod.DELETE)
     public  ResponseEntity<Evenement>  deleteEvenement(@PathVariable String id) {
 
-        //log.info("Delete evenement id " + id );
+        log.info("=== STARTING DELETION OF EVENT {} ===", id);
         
         // Retrieve the event first to get associated files
         Evenement evenement = evenementsRepository.findById(id).orElse(null);
         
-        if (evenement != null) {
-            // Delete all associated files from GridFS
-            if (evenement.getFileUploadeds() != null && !evenement.getFileUploadeds().isEmpty()) {
-                //log.info("Deleting " + evenement.getFileUploadeds().size() + " associated files from GridFS");
-                for (var fileUploaded : evenement.getFileUploadeds()) {
-                    try {
-                        ObjectId fileObjectId = new ObjectId(fileUploaded.getFieldId());
-                        gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileObjectId)));
-                        //log.info("Deleted file from GridFS: " + fileUploaded.getFileName() + " (ID: " + fileUploaded.getFieldId() + ")");
-                    } catch (Exception e) {
-                        log.error("Error deleting file from GridFS: " + fileUploaded.getFieldId(), e);
-                    }
-                }
-            }
-            
-            // Delete urlEvents, commentaries are embedded in the event document and will be deleted with it
-            //log.info("Deleting event with " + (evenement.getUrlEvents() != null ? evenement.getUrlEvents().size() : 0) + " URL(s) and " +
-            //         (evenement.getCommentaries() != null ? evenement.getCommentaries().size() : 0) + " commentarie(s)");
+        if (evenement == null) {
+            log.warn("Event {} not found, cannot delete", id);
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
         
+        log.info("Event found: {} - '{}'", id, evenement.getEvenementName());
+        
+        // Count embedded objects
+        int urlEventsCount = (evenement.getUrlEvents() != null) ? evenement.getUrlEvents().size() : 0;
+        int commentariesCount = (evenement.getCommentaries() != null) ? evenement.getCommentaries().size() : 0;
+        int membersCount = (evenement.getMembers() != null) ? evenement.getMembers().size() : 0;
+        
+        log.info("Event contains: {} URL event(s), {} commentarie(s), {} member reference(s)", 
+                 urlEventsCount, commentariesCount, membersCount);
+        
+        // Delete all associated files from GridFS
+        int deletedFilesCount = 0;
+        if (evenement.getFileUploadeds() != null && !evenement.getFileUploadeds().isEmpty()) {
+            log.info("Deleting {} file(s) from GridFS", evenement.getFileUploadeds().size());
+            for (var fileUploaded : evenement.getFileUploadeds()) {
+                try {
+                    ObjectId fileObjectId = new ObjectId(fileUploaded.getFieldId());
+                    gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileObjectId)));
+                    deletedFilesCount++;
+                    log.info("✓ DELETED FILE from GridFS: {} (ID: {})", fileUploaded.getFileName(), fileUploaded.getFieldId());
+                } catch (Exception e) {
+                    log.error("✗ ERROR deleting file from GridFS: {} (ID: {})", fileUploaded.getFileName(), fileUploaded.getFieldId(), e);
+                }
+            }
+            log.info("Successfully deleted {}/{} file(s) from GridFS", deletedFilesCount, evenement.getFileUploadeds().size());
+        } else {
+            log.info("No files to delete from GridFS");
+        }
+        
+        // Delete associated discussion if it exists
+        if (evenement.getDiscussionId() != null && !evenement.getDiscussionId().trim().isEmpty()) {
+            String discussionId = evenement.getDiscussionId();
+            log.info("Deleting associated discussion: {}", discussionId);
+            try {
+                // Check if discussion exists
+                java.util.Optional<com.pat.repo.domain.Discussion> discussionOpt = discussionRepository.findById(discussionId);
+                if (discussionOpt.isPresent()) {
+                    com.pat.repo.domain.Discussion discussion = discussionOpt.get();
+                    int messagesCount = (discussion.getMessages() != null) ? discussion.getMessages().size() : 0;
+                    log.info("Discussion found: {} - '{}' with {} message(s)", discussionId, discussion.getTitle(), messagesCount);
+                    
+                    // Find all friend groups with this discussionId and remove it
+                    java.util.List<com.pat.repo.domain.FriendGroup> friendGroups = friendGroupRepository.findByDiscussionId(discussionId);
+                    if (friendGroups != null && !friendGroups.isEmpty()) {
+                        log.info("Removing discussionId from {} friend group(s)", friendGroups.size());
+                        for (com.pat.repo.domain.FriendGroup group : friendGroups) {
+                            group.setDiscussionId(null);
+                            friendGroupRepository.save(group);
+                            log.info("✓ Removed discussionId {} from friend group {} ({})", discussionId, group.getId(), group.getName());
+                        }
+                    }
+                    
+                    // Find all user connection logs with this discussionId and remove it
+                    java.util.List<com.pat.repo.domain.UserConnectionLog> connectionLogs = userConnectionLogRepository.findByDiscussionId(discussionId);
+                    if (connectionLogs != null && !connectionLogs.isEmpty()) {
+                        log.info("Removing discussionId from {} user connection log(s)", connectionLogs.size());
+                        for (com.pat.repo.domain.UserConnectionLog logEntry : connectionLogs) {
+                            logEntry.setDiscussionId(null);
+                            logEntry.setDiscussionTitle(null);
+                            userConnectionLogRepository.save(logEntry);
+                            log.info("✓ Removed discussionId {} from user connection log {}", discussionId, logEntry.getId());
+                        }
+                    }
+                    
+                    // Delete the discussion (this will also delete all embedded messages)
+                    discussionRepository.deleteById(discussionId);
+                    log.info("✓ DELETED DISCUSSION: {} - '{}' (with {} embedded message(s))", discussionId, discussion.getTitle(), messagesCount);
+                } else {
+                    log.warn("Discussion {} not found (may have been already deleted)", discussionId);
+                }
+            } catch (Exception e) {
+                log.error("✗ ERROR deleting discussion {} for event {}", discussionId, id, e);
+                // Continue with event deletion even if discussion deletion fails
+            }
+        } else {
+            log.info("No associated discussion to delete");
+        }
+        
+        // Send deletion notification email to event owner and app.mailsentto
+        sendEventDeletionEmail(evenement, deletedFilesCount, urlEventsCount, commentariesCount);
+        
         // Delete the event (which also deletes embedded urlEvents and commentaries)
+        log.info("Deleting event document: {} - '{}'", id, evenement.getEvenementName());
+        log.info("This will also delete {} embedded URL event(s) and {} embedded commentarie(s)", urlEventsCount, commentariesCount);
         evenementsRepository.deleteById(id);
+        log.info("✓ DELETED EVENT: {} - '{}'", id, evenement.getEvenementName());
+        
+        log.info("=== DELETION COMPLETE FOR EVENT {} ===", id);
+        log.info("Summary: Event deleted, {} file(s) deleted from GridFS, {} URL event(s) deleted, {} commentarie(s) deleted", 
+                 deletedFilesCount, urlEventsCount, commentariesCount);
 
         return new ResponseEntity<>( HttpStatus.OK );
     }
@@ -1631,12 +1759,12 @@ public class EvenementRestController {
     }
 
     @RequestMapping(value = "/evenements", method = RequestMethod.POST)
-    public ResponseEntity<Evenement> addEvenementViaEvenements(@RequestBody Evenement evenement) {
+    public ResponseEntity<?> addEvenementViaEvenements(@RequestBody Evenement evenement) {
         return addEvenement(evenement);
     }
 
     @RequestMapping(value = "/evenements/{id}", method = RequestMethod.PUT)
-    public ResponseEntity<Evenement> updateEvenementViaEvenements(@PathVariable String id, @RequestBody Evenement evenement) {
+    public ResponseEntity<?> updateEvenementViaEvenements(@PathVariable String id, @RequestBody Evenement evenement) {
         evenement.setId(id);
         return updateEvenement(evenement);
     }
@@ -2153,6 +2281,171 @@ public class EvenementRestController {
             log.error("Error getting event access users: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+    
+    /**
+     * Send deletion notification email to event owner and app.mailsentto
+     */
+    private void sendEventDeletionEmail(Evenement evenement, int deletedFilesCount, int urlEventsCount, int commentariesCount) {
+        try {
+            if (evenement == null || evenement.getAuthor() == null) {
+                log.debug("Cannot send deletion email - event or author is null");
+                return;
+            }
+            
+            Member author = evenement.getAuthor();
+            String ownerEmail = author.getAddressEmail();
+            
+            if (ownerEmail == null || ownerEmail.trim().isEmpty()) {
+                log.debug("Cannot send deletion email - owner email is empty");
+                return;
+            }
+            
+            if (!mailController.isValidEmail(ownerEmail)) {
+                log.warn("Owner email address '{}' has invalid format, skipping deletion email", ownerEmail);
+                return;
+            }
+            
+            // Determine language based on author's locale (default to French)
+            boolean isFrench = true;
+            
+            String authorLocale = author.getLocale();
+            if (authorLocale != null && !authorLocale.toLowerCase().startsWith("fr")) {
+                isFrench = false;
+            }
+            
+            String subject;
+            String body;
+            if (isFrench) {
+                subject = "Suppression de l'événement '" + evenement.getEvenementName() + "'";
+                body = generateEventDeletionEmailHtml(evenement, author, deletedFilesCount, urlEventsCount, commentariesCount, true);
+            } else {
+                subject = "Event deletion: '" + evenement.getEvenementName() + "'";
+                body = generateEventDeletionEmailHtml(evenement, author, deletedFilesCount, urlEventsCount, commentariesCount, false);
+            }
+            
+            // Send email to owner with BCC to app.mailsentto
+            mailController.sendMailToRecipient(ownerEmail, subject, body, true, null, mailController.getMailSentTo());
+            log.info("Event deletion email sent to owner {} (BCC: {})", ownerEmail, mailController.getMailSentTo());
+            
+        } catch (Exception e) {
+            log.error("Error sending event deletion email: {}", e.getMessage(), e);
+            // Don't throw - continue with deletion even if email fails
+        }
+    }
+    
+    /**
+     * Generate HTML email body for event deletion notification
+     */
+    private String generateEventDeletionEmailHtml(Evenement evenement, Member owner, int deletedFilesCount, int urlEventsCount, int commentariesCount, boolean isFrench) {
+        String headerTitle = isFrench ? "Suppression d'événement" : "Event Deletion";
+        String greeting = isFrench ? "Bonjour" : "Hello";
+        String messageText = isFrench ? 
+            "Nous vous informons que l'événement suivant a été supprimé de PATTOOL :" : 
+            "We inform you that the following event has been deleted from PATTOOL:";
+        String eventInfo = isFrench ? "Événement supprimé:" : "Deleted event:";
+        String deletedItems = isFrench ? "Éléments supprimés:" : "Deleted items:";
+        String filesDeleted = isFrench ? "Fichiers supprimés:" : "Files deleted:";
+        String linksDeleted = isFrench ? "Liens supprimés:" : "Links deleted:";
+        String commentsDeleted = isFrench ? "Commentaires supprimés:" : "Comments deleted:";
+        String footerText1 = isFrench ? 
+            "Cet email a été envoyé automatiquement par PATTOOL." : 
+            "This email was automatically sent by PATTOOL.";
+        String footerText2 = isFrench ?
+            "Vous recevez cet email car vous êtes le propriétaire de cet événement." : 
+            "You are receiving this email because you are the owner of this event.";
+        
+        StringBuilder bodyBuilder = new StringBuilder();
+        bodyBuilder.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
+        bodyBuilder.append("<style>");
+        bodyBuilder.append("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 15px; line-height: 1.8; color: #2c3e50; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 20px; }");
+        bodyBuilder.append(".container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }");
+        bodyBuilder.append(".header { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); color: white; padding: 25px; text-align: center; border-bottom: 4px solid #bd2130; }");
+        bodyBuilder.append(".header h1 { margin: 0; font-size: 24px; font-weight: 700; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); letter-spacing: 1px; }");
+        bodyBuilder.append(".header-icon { font-size: 32px; margin-bottom: 10px; }");
+        bodyBuilder.append(".content { padding: 30px; background: #fafafa; }");
+        bodyBuilder.append(".message { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #dc3545; }");
+        bodyBuilder.append(".event-info { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }");
+        bodyBuilder.append(".event-info h3 { margin: 0 0 15px 0; color: #333; font-weight: 600; }");
+        bodyBuilder.append(".info-item { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 6px; }");
+        bodyBuilder.append(".info-label { font-weight: 700; color: #495057; margin-right: 10px; }");
+        bodyBuilder.append(".info-value { color: #212529; }");
+        bodyBuilder.append(".deleted-items { background: #fff3cd; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #ffc107; }");
+        bodyBuilder.append(".deleted-items h3 { margin: 0 0 15px 0; color: #856404; font-weight: 600; }");
+        bodyBuilder.append(".deleted-items ul { margin: 0; padding-left: 20px; }");
+        bodyBuilder.append(".deleted-items li { margin: 8px 0; color: #856404; }");
+        bodyBuilder.append(".footer { background: #e9ecef; padding: 20px; text-align: center; color: #6c757d; font-size: 12px; }");
+        bodyBuilder.append("</style></head><body>");
+        bodyBuilder.append("<div class='container'>");
+        
+        // Header
+        bodyBuilder.append("<div class='header'>");
+        bodyBuilder.append("<div class='header-icon'>🗑️</div>");
+        bodyBuilder.append("<h1>").append(escapeHtml(headerTitle)).append("</h1>");
+        bodyBuilder.append("</div>");
+        
+        // Content
+        bodyBuilder.append("<div class='content'>");
+        bodyBuilder.append("<div class='message'>");
+        bodyBuilder.append("<p>").append(escapeHtml(greeting)).append(" ").append(escapeHtml(owner.getFirstName())).append(",</p>");
+        bodyBuilder.append("<p>").append(escapeHtml(messageText)).append("</p>");
+        bodyBuilder.append("</div>");
+        
+        // Event Information
+        bodyBuilder.append("<div class='event-info'>");
+        bodyBuilder.append("<h3>").append(escapeHtml(eventInfo)).append("</h3>");
+        bodyBuilder.append("<div class='info-item'>");
+        bodyBuilder.append("<span class='info-label'>").append(escapeHtml(isFrench ? "Nom:" : "Name:")).append("</span>");
+        bodyBuilder.append("<span class='info-value'>").append(escapeHtml(evenement.getEvenementName())).append("</span>");
+        bodyBuilder.append("</div>");
+        if (evenement.getBeginEventDate() != null) {
+            bodyBuilder.append("<div class='info-item'>");
+            bodyBuilder.append("<span class='info-label'>").append(escapeHtml(isFrench ? "Date de début:" : "Start date:")).append("</span>");
+            bodyBuilder.append("<span class='info-value'>").append(escapeHtml(evenement.getBeginEventDate().toString())).append("</span>");
+            bodyBuilder.append("</div>");
+        }
+        bodyBuilder.append("</div>");
+        
+        // Deleted Items Summary
+        bodyBuilder.append("<div class='deleted-items'>");
+        bodyBuilder.append("<h3>").append(escapeHtml(deletedItems)).append("</h3>");
+        bodyBuilder.append("<ul>");
+        if (deletedFilesCount > 0) {
+            bodyBuilder.append("<li>").append(escapeHtml(filesDeleted)).append(" ").append(deletedFilesCount).append("</li>");
+        }
+        if (urlEventsCount > 0) {
+            bodyBuilder.append("<li>").append(escapeHtml(linksDeleted)).append(" ").append(urlEventsCount).append("</li>");
+        }
+        if (commentariesCount > 0) {
+            bodyBuilder.append("<li>").append(escapeHtml(commentsDeleted)).append(" ").append(commentariesCount).append("</li>");
+        }
+        bodyBuilder.append("</ul>");
+        bodyBuilder.append("</div>");
+        
+        bodyBuilder.append("</div>");
+        
+        // Footer
+        bodyBuilder.append("<div class='footer'>");
+        bodyBuilder.append("<p>").append(escapeHtml(footerText1)).append("</p>");
+        bodyBuilder.append("<p>").append(escapeHtml(footerText2)).append("</p>");
+        bodyBuilder.append("</div>");
+        
+        bodyBuilder.append("</div></body></html>");
+        return bodyBuilder.toString();
+    }
+    
+    /**
+     * Escape HTML special characters
+     */
+    private String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                   .replace("<", "&lt;")
+                   .replace(">", "&gt;")
+                   .replace("\"", "&quot;")
+                   .replace("'", "&#39;");
     }
 
 }

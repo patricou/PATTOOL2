@@ -234,7 +234,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Delete all comments",
         "SELECT_PAGE": "Select page",
         "EDIT_LINK": "Edit link",
-        "NO_FILES_ADDED": "No files added to this event"
+        "NO_FILES_ADDED": "No files added to this event",
+        "SHOW_ALL": "Show All",
+        "SHOW_ALL_EVENTS_ADMIN": "Show all events (admin only)"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "Photos Selection",
@@ -372,7 +374,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- All links ({{count}} link(s))",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- All commentaries ({{count}} commentary(ies))",
         "DELETE_EVENT_CONFIRM_CHAT": "- All chat messages",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- All images ({{count}} image(s))",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- All videos ({{count}} video(s))",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- All other files ({{count}} file(s))",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- The discussion ({{count}} discussion(s))",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- The participants ({{count}} participant(s))",
+        "DELETE_EVENT_IRREVERSIBLE": "This action is irreversible.",
         "DELETE_EVENT_CONFIRM_TITLE": "Deletion Confirmation",
+        "DELETE_EVENT_ADMIN": "Delete event (Admin only)",
         "CLOSE": "Close Event",
         "OPEN": "Open Event",
         "CANCEL": "Cancel Event",

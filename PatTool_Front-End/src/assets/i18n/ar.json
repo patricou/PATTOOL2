@@ -226,7 +226,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "حذف جميع التعليقات",
         "SELECT_PAGE": "اختر الصفحة",
         "EDIT_LINK": "تعديل الرابط",
-        "NO_FILES_ADDED": "لم تتم إضافة ملفات إلى هذا الحدث"
+        "NO_FILES_ADDED": "لم تتم إضافة ملفات إلى هذا الحدث",
+        "SHOW_ALL": "عرض الكل",
+        "SHOW_ALL_EVENTS_ADMIN": "عرض جميع الأحداث (المسؤول فقط)"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "اختيار الصور",
@@ -356,7 +358,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- جميع الروابط ({{count}} رابط/روابط)",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- جميع التعليقات ({{count}} تعليق/تعليقات)",
         "DELETE_EVENT_CONFIRM_CHAT": "- جميع رسائل الدردشة",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- جميع الصور ({{count}} صورة)",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- جميع مقاطع الفيديو ({{count}} فيديو)",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- جميع الملفات الأخرى ({{count}} ملف)",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- المناقشة ({{count}} مناقشة)",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- المشاركون ({{count}} مشارك)",
+        "DELETE_EVENT_IRREVERSIBLE": "هذا الإجراء لا يمكن التراجع عنه.",
         "DELETE_EVENT_CONFIRM_TITLE": "تأكيد الحذف",
+        "DELETE_EVENT_ADMIN": "حذف الحدث (المسؤول فقط)",
         "CLOSE": "إغلاق النشاط",
         "OPEN": "(إعادة) فتح النشاط",
         "CANCEL": "إلغاء النشاط",

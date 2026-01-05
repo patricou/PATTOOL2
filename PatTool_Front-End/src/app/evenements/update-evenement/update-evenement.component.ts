@@ -769,7 +769,16 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 			}, 
 			err => {
 				if (err.status === 403) {
-					alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED_UPDATE'));
+					// Check the error type from backend response
+					const errorType = err.error?.error || err.error?.errorType;
+					if (errorType === 'FRIEND_GROUP_UNAUTHORIZED') {
+						alert(this.translate.instant('EVENTUPDT.FRIEND_GROUP_UNAUTHORIZED'));
+					} else if (errorType === 'PHOTOFROMFS_UNAUTHORIZED') {
+						alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED_UPDATE'));
+					} else {
+						// Default to PHOTOFROMFS message for backward compatibility
+						alert(this.translate.instant('EVENTUPDT.PHOTOFROMFS_UNAUTHORIZED_UPDATE'));
+					}
 				} else {
 					alert("Error when updating the Event" + err);
 				}
@@ -944,10 +953,23 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	}
 
 	// Load friend groups
+	// Load friend groups - only show groups where user is owner or authorized
 	private loadFriendGroups() {
 		this._friendsService.getFriendGroups().subscribe(
 			groups => {
-				this.friendGroups = groups;
+				// Filter to only show groups where user is owner or authorized (not just a member)
+				this.friendGroups = groups.filter(group => {
+					if (!group || !this.user || !this.user.id) {
+						return false;
+					}
+					// Check if user is owner
+					const isOwner = group.owner && group.owner.id === this.user.id;
+					// Check if user is in authorizedUsers
+					const isAuthorized = group.authorizedUsers && group.authorizedUsers.some(
+						authorizedUser => authorizedUser && authorizedUser.id === this.user.id
+					);
+					return isOwner || isAuthorized;
+				});
 				// Sort friend groups alphabetically
 				this.sortFriendGroups();
 			},
@@ -969,10 +991,23 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	}
 
 	// Load friend groups and set selection if visibility is friend groups mode
+	// Only show groups where user is owner or authorized
 	private loadFriendGroupsAndSetSelection() {
 		this._friendsService.getFriendGroups().subscribe(
 			groups => {
-				this.friendGroups = groups;
+				// Filter to only show groups where user is owner or authorized (not just a member)
+				this.friendGroups = groups.filter(group => {
+					if (!group || !this.user || !this.user.id) {
+						return false;
+					}
+					// Check if user is owner
+					const isOwner = group.owner && group.owner.id === this.user.id;
+					// Check if user is in authorizedUsers
+					const isAuthorized = group.authorizedUsers && group.authorizedUsers.some(
+						authorizedUser => authorizedUser && authorizedUser.id === this.user.id
+					);
+					return isOwner || isAuthorized;
+				});
 				// Sort friend groups alphabetically
 				this.sortFriendGroups();
 				// Set selected friend groups if visibility is friend groups mode

@@ -224,7 +224,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "सभी टिप्पणियाँ हटाएं",
         "SELECT_PAGE": "पृष्ठ चुनें",
         "EDIT_LINK": "लिंक संपादित करें",
-        "NO_FILES_ADDED": "इस घटना में कोई फ़ाइल नहीं जोड़ी गई"
+        "NO_FILES_ADDED": "इस घटना में कोई फ़ाइल नहीं जोड़ी गई",
+        "SHOW_ALL": "सभी दिखाएं",
+        "SHOW_ALL_EVENTS_ADMIN": "सभी घटनाएं दिखाएं (केवल व्यवस्थापक)"
     },
     "EVENTCREATION": {
         "TITLE": "गतिविधि निर्माण",
@@ -355,7 +357,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- सभी लिंक ({{count}} लिंक(ओं))",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- सभी टिप्पणियाँ ({{count}} टिप्पणी(यों))",
         "DELETE_EVENT_CONFIRM_CHAT": "- सभी चैट संदेश",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- सभी छवियां ({{count}} छवि/छवियां)",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- सभी वीडियो ({{count}} वीडियो)",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- अन्य सभी फ़ाइलें ({{count}} फ़ाइल/फ़ाइलें)",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- चर्चा ({{count}} चर्चा/चर्चाएं)",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- प्रतिभागी ({{count}} प्रतिभागी)",
+        "DELETE_EVENT_IRREVERSIBLE": "यह क्रिया अपरिवर्तनीय है।",
         "DELETE_EVENT_CONFIRM_TITLE": "हटाने की पुष्टि",
+        "DELETE_EVENT_ADMIN": "घटना हटाएं (केवल व्यवस्थापक)",
         "CLOSE": "घटना बंद करें",
         "OPEN": "घटना खोलें",
         "CANCEL": "घटना रद्द करें",

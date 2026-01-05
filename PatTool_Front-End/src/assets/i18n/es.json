@@ -235,7 +235,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Eliminar todos los comentarios",
         "SELECT_PAGE": "Seleccionar página",
         "EDIT_LINK": "Editar enlace",
-        "NO_FILES_ADDED": "No se han añadido archivos a este evento"
+        "NO_FILES_ADDED": "No se han añadido archivos a este evento",
+        "SHOW_ALL": "Mostrar Todo",
+        "SHOW_ALL_EVENTS_ADMIN": "Mostrar todos los eventos (solo admin)"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "Selección de fotos",
@@ -373,7 +375,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- Todos los enlaces ({{count}} enlace(s))",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- Todos los comentarios ({{count}} comentario(s))",
         "DELETE_EVENT_CONFIRM_CHAT": "- Todos los mensajes del chat",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- Todas las imágenes ({{count}} imagen(es))",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- Todos los videos ({{count}} video(s))",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- Todos los demás archivos ({{count}} archivo(s))",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- La discusión ({{count}} discusión(es))",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- Los participantes ({{count}} participante(s))",
+        "DELETE_EVENT_IRREVERSIBLE": "Esta acción es irreversible.",
         "DELETE_EVENT_CONFIRM_TITLE": "Confirmación de eliminación",
+        "DELETE_EVENT_ADMIN": "Eliminar evento (solo admin)",
         "CLOSE": "Cerrar evento",
         "OPEN": "Abrir evento",
         "UPLOAD": "Subir un archivo (Imágenes, Vídeo, PDF, Traza GPS)",

@@ -185,7 +185,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "すべてのコメントを削除",
         "SELECT_PAGE": "ページを選択",
         "EDIT_LINK": "リンクを編集",
-        "NO_FILES_ADDED": "このイベントにファイルが追加されていません"
+        "NO_FILES_ADDED": "このイベントにファイルが追加されていません",
+        "SHOW_ALL": "すべて表示",
+        "SHOW_ALL_EVENTS_ADMIN": "すべてのイベントを表示（管理者のみ）"
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "写真の選択",
@@ -317,7 +319,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- すべてのリンク（{{count}}リンク）",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- すべてのコメント（{{count}}コメント）",
         "DELETE_EVENT_CONFIRM_CHAT": "- すべてのチャットメッセージ",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- すべての画像 ({{count}} 画像)",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- すべての動画 ({{count}} 動画)",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- その他のすべてのファイル ({{count}} ファイル)",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- ディスカッション ({{count}} ディスカッション)",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- 参加者 ({{count}} 参加者)",
+        "DELETE_EVENT_IRREVERSIBLE": "この操作は元に戻せません。",
         "DELETE_EVENT_CONFIRM_TITLE": "削除の確認",
+        "DELETE_EVENT_ADMIN": "イベントを削除（管理者のみ）",
         "CLOSE": "活動を閉じる",
         "OPEN": "活動を再開する",
         "CANCEL": "活動をキャンセル",

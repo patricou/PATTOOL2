@@ -229,7 +229,9 @@
         "DELETE_ALL_COMMENTARIES_CONFIRM": "Supprimer tous les commentaires",
         "SELECT_PAGE": "Sélectionner la page",
         "EDIT_LINK": "Modifier le lien",
-        "NO_FILES_ADDED": "Aucun fichier ajouté à cet événement"
+        "NO_FILES_ADDED": "Aucun fichier ajouté à cet événement",
+        "SHOW_ALL": "Afficher Tout",
+        "SHOW_ALL_EVENTS_ADMIN": "Afficher tous les événements (admin uniquement)"
     },
     
     "EVENTCREATION": {
@@ -362,7 +364,14 @@
         "DELETE_EVENT_CONFIRM_URLS": "- Tous les liens ({{count}} lien(s))",
         "DELETE_EVENT_CONFIRM_COMMENTARIES": "- Tous les commentaires ({{count}} commentaire(s))",
         "DELETE_EVENT_CONFIRM_CHAT": "- Tous les messages du chat",
+        "DELETE_EVENT_CONFIRM_IMAGES": "- Toutes les images ({{count}} image(s))",
+        "DELETE_EVENT_CONFIRM_VIDEOS": "- Toutes les vidéos ({{count}} vidéo(s))",
+        "DELETE_EVENT_CONFIRM_OTHER_FILES": "- Tous les autres fichiers ({{count}} fichier(s))",
+        "DELETE_EVENT_CONFIRM_DISCUSSION": "- La discussion ({{count}} discussion(s))",
+        "DELETE_EVENT_CONFIRM_MEMBERS": "- Les participants ({{count}} participant(s))",
+        "DELETE_EVENT_IRREVERSIBLE": "Cette action est irréversible.",
         "DELETE_EVENT_CONFIRM_TITLE": "Confirmation de suppression",
+        "DELETE_EVENT_ADMIN": "Supprimer l'événement (Admin uniquement)",
         "CLOSE": "Fermer l'Activité",
         "OPEN": "(re)Ouvrir l'Activité",
         "CANCEL": "Annuler l'Activité",

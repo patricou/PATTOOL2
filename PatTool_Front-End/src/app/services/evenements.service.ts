@@ -273,7 +273,7 @@ export class EvenementsService {
 	}
 
 	// Stream events using Server-Sent Events (SSE)
-	streamEvents(name: string, userId: string, visibilityFilter?: string): Observable<StreamedEvent> {
+	streamEvents(name: string, userId: string, visibilityFilter?: string, adminOverride?: boolean): Observable<StreamedEvent> {
 		const subject = new Subject<StreamedEvent>();
 		
 		this.getHeaderWithToken().subscribe({
@@ -282,7 +282,7 @@ export class EvenementsService {
 				const url = this.API_URL + "even/stream/" + encodeURIComponent(name);
 				
 				// Use fetch API since EventSource doesn't support custom headers
-				this.streamWithFetch(url, token, userId, subject, visibilityFilter).catch(err => {
+				this.streamWithFetch(url, token, userId, subject, visibilityFilter, adminOverride).catch(err => {
 					subject.error(err);
 				});
 			},
@@ -299,7 +299,8 @@ export class EvenementsService {
 		authToken: string, 
 		userId: string,
 		subject: Subject<StreamedEvent>,
-		visibilityFilter?: string
+		visibilityFilter?: string,
+		adminOverride?: boolean
 	): Promise<void> {
 		try {
 			const headers: { [key: string]: string } = {
@@ -311,6 +312,11 @@ export class EvenementsService {
 			// Add visibility filter header if provided
 			if (visibilityFilter && visibilityFilter.trim() !== '' && visibilityFilter !== 'all') {
 				headers['visibility-filter'] = visibilityFilter.trim();
+			}
+			
+			// Add admin override header if provided and true
+			if (adminOverride === true) {
+				headers['admin-override'] = 'true';
 			}
 			
 			const response = await fetch(url, {
