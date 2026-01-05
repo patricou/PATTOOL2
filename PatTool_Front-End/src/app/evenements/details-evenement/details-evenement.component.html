@@ -109,50 +109,73 @@
                 <span *ngSwitchCase="'friends'" class="badge-compact badge-friends-compact">
                   <i class="fa fa-users"></i> {{ 'EVENTCREATION.FRIENDS' | translate }}
                 </span>
+                <span *ngSwitchCase="'friendGroups'" class="badge-compact badge-group-compact">
+                  <i class="fa fa-group"></i> {{ getVisibilityDisplayText() || ('EVENTCREATION.FRIEND_GROUPS' | translate) }}
+                </span>
                 <span *ngSwitchDefault class="badge-compact badge-group-compact">
-                  <i class="fa fa-group"></i> {{ evenement.visibility }}
+                  <i class="fa fa-group"></i> {{ getVisibilityDisplayText() || evenement.visibility }}
                 </span>
               </span>
             </div>
-            <button class="btn-compact btn-whatsapp-compact" 
-                    *ngIf="hasFriendGroupWhatsAppLink()" 
-                    (click)="openFriendGroupWhatsAppLink()"
-                    title="{{ 'FRIENDS.OPEN_WHATSAPP' | translate }}">
-              <i class="fa fa-whatsapp"></i> {{ 'FRIENDS.OPEN_WHATSAPP' | translate }}
-            </button>
+            <!-- WhatsApp buttons for each friend group with WhatsApp link -->
+            <div *ngIf="getEventFriendGroups().length > 0" class="whatsapp-buttons-container">
+              <ng-container *ngFor="let group of getEventFriendGroups()">
+                <button *ngIf="group.whatsappLink && group.whatsappLink.trim().length > 0"
+                        class="btn-compact btn-whatsapp-compact"
+                        (click)="openFriendGroupWhatsAppLink(group)"
+                        [title]="('FRIENDS.OPEN_WHATSAPP' | translate) + ' - ' + group.name">
+                  <i class="fa fa-whatsapp"></i> {{ group.name }}
+                </button>
+              </ng-container>
+            </div>
             
-            <!-- Friend Group Members (when visibility is a friend group and friend group is loaded) -->
-            <ng-container *ngIf="evenement.friendGroupId && getCurrentFriendGroup() && getCurrentFriendGroup()!.members && getCurrentFriendGroup()!.members.length > 0">
-              <div class="members-compact">
-                <small class="members-count">
-                  {{ getCurrentFriendGroup()!.members.length }} {{ 'EVENTELEM.MEMBERS' | translate }} 
-                  <span *ngIf="getCurrentFriendGroup()!.name">({{ getCurrentFriendGroup()!.name }})</span>
-                </small>
-                <div class="members-tags-compact">
-                  <ng-container *ngFor="let member of getFirstFriendGroupMembers()">
-                    <span class="member-tag-compact" *ngIf="member && member.firstName">
-                      {{ member?.firstName || '' }} {{ member?.lastName || '' }}
-                    </span>
-                  </ng-container>
-                  <span class="member-tag-compact" *ngIf="getRemainingFriendGroupMembersCount() > 0">+{{ getRemainingFriendGroupMembersCount() }}</span>
+            <!-- Users with Access -->
+            <div class="users-with-access-compact">
+              <div *ngIf="isLoadingEventAccessUsers" class="text-center py-2">
+                <i class="fa fa-spinner fa-spin"></i>
+                <small class="text-muted ms-2">{{ 'COMMUN.LOADING' | translate }}...</small>
+              </div>
+              <div *ngIf="!isLoadingEventAccessUsers">
+                <div *ngIf="eventAccessUsers.length === 0" class="text-center text-muted py-2">
+                  <small><i class="fa fa-info-circle"></i> {{ 'EVENTELEM.NO_ACCESS_USERS' | translate }}</small>
+                </div>
+                <div *ngIf="eventAccessUsers.length > 0">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="d-block mb-0">
+                      <strong>{{ 'EVENTELEM.TOTAL_USERS' | translate }}: {{ eventAccessUsers.length }}</strong>
+                    </small>
+                    <button class="btn btn-sm btn-outline-light"
+                            (click)="toggleEventAccessUsersExpanded()"
+                            [title]="isEventAccessUsersExpanded ? ('COMMUN.COLLAPSE' | translate) : ('COMMUN.EXPAND' | translate)"
+                            style="padding: 0.2rem 0.5rem; font-size: 0.7rem; border: 1px solid rgba(255, 255, 255, 0.3);">
+                      <i class="fa" [class.fa-chevron-up]="isEventAccessUsersExpanded" [class.fa-chevron-down]="!isEventAccessUsersExpanded"></i>
+                    </button>
+                  </div>
+                  <div class="users-list-compact">
+                    <div *ngFor="let user of (isEventAccessUsersExpanded ? eventAccessUsers : []); let i = index" 
+                         class="user-item-compact d-flex justify-content-between align-items-center mb-1 p-2 rounded"
+                         style="background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);">
+                      <div class="d-flex align-items-center flex-grow-1">
+                        <i class="fa fa-user me-2"></i>
+                        <div class="flex-grow-1">
+                          <div class="fw-bold small">{{ user.firstName }} {{ user.lastName }}</div>
+                          <div class="text-muted" style="font-size: 0.75rem;">{{ user.userName }}</div>
+                        </div>
+                      </div>
+                      <div class="d-flex align-items-center">
+                        <button *ngIf="user.whatsappLink" 
+                                class="btn btn-sm btn-outline-success me-1" 
+                                (click)="openUserWhatsAppLink(user); $event.stopPropagation()"
+                                [title]="'FRIENDS.OPEN_WHATSAPP' | translate"
+                                style="padding: 0.2rem 0.4rem; font-size: 0.7rem;">
+                          <i class="fa fa-whatsapp"></i>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </ng-container>
-            
-            <!-- Event Members (always show if they exist and friend group members are not shown) -->
-            <ng-container *ngIf="hasEventMembers() && (!evenement.friendGroupId || !getCurrentFriendGroup() || !getCurrentFriendGroup()?.members || getCurrentFriendGroup()!.members.length === 0)">
-              <div class="members-compact">
-                <small class="members-count">{{ evenement.members.length }} {{ 'EVENTELEM.MEMBERS' | translate }}</small>
-                <div class="members-tags-compact">
-                  <ng-container *ngFor="let member of getFirstMembers()">
-                    <span class="member-tag-compact" *ngIf="member && member.firstName">
-                      {{ member?.firstName || '' }} {{ member?.lastName || '' }}
-                    </span>
-                  </ng-container>
-                  <span class="member-tag-compact" *ngIf="getRemainingMembersCount() > 0">+{{ getRemainingMembersCount() }}</span>
-                </div>
-              </div>
-            </ng-container>
+            </div>
           </div>
         </div>
 

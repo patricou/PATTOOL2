@@ -551,9 +551,58 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Users with Access styling */
+.users-with-access-compact {
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.users-list-compact {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.25rem;
+}
+
+.users-list-compact::-webkit-scrollbar {
+  width: 6px;
+}
+
+.users-list-compact::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.users-list-compact::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.users-list-compact::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.user-item-compact {
+  transition: all 0.2s ease;
+  cursor: default;
+}
+
+.user-item-compact:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+.whatsapp-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0;
+}
+
 .btn-whatsapp-compact {
   width: 100%;
-  margin-top: 0.75rem;
+  margin-top: 0;
   background: var(--btn-bg) !important;
   color: var(--badge-title-color, #ffffff) !important;
   border: 2px solid var(--btn-border) !important;
@@ -983,7 +1032,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0;
 }
 
 .visibility-badge-compact {

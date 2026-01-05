@@ -130,6 +130,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   public friendGroups: FriendGroup[] = [];
   private friendGroupsLoaded: boolean = false;
 
+  // Event access users
+  public eventAccessUsers: Member[] = [];
+  public isLoadingEventAccessUsers: boolean = false;
+  public isEventAccessUsersExpanded: boolean = false;
 
   // Discussion messages
   public discussionMessages: DiscussionMessage[] = [];
@@ -541,6 +545,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         if (evenement.discussionId) {
           this.loadDiscussionMessages();
         }
+        // Load event access users
+        this.loadEventAccessUsers();
       },
       error: (error: any) => {
         // Log to localStorage FIRST so it persists even if redirect happens
@@ -1450,11 +1456,143 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     return group?.whatsappLink;
   }
 
-  // Open WhatsApp link for the friend group
-  public openFriendGroupWhatsAppLink(): void {
+  // Open WhatsApp link for the friend group (legacy method - kept for backward compatibility)
+  public openFriendGroupWhatsAppLinkLegacy(): void {
     const whatsappLink = this.getFriendGroupWhatsAppLink();
     if (whatsappLink) {
-      window.open(whatsappLink, '_blank');
+      this.winRef.getNativeWindow().open(whatsappLink, '_blank');
+    }
+  }
+
+  // Get visibility display text (for friend groups)
+  public getVisibilityDisplayText(): string {
+    if (!this.evenement) {
+      return '';
+    }
+    
+    // Check if visibility is friend groups mode
+    if (this.evenement.visibility === 'friendGroups') {
+      const groupNames = this.getEventFriendGroupNames();
+      if (groupNames.length > 0) {
+        return groupNames.join(', ');
+      }
+    }
+    
+    // If visibility is a friend group name (old format - not public, private, or friends), return it as-is
+    if (this.evenement.visibility && 
+        this.evenement.visibility !== 'public' && 
+        this.evenement.visibility !== 'private' && 
+        this.evenement.visibility !== 'friends' &&
+        this.evenement.visibility !== 'friendGroups') {
+      return this.evenement.visibility;
+    }
+    
+    // Fallback to visibility value
+    return this.evenement.visibility || '';
+  }
+
+  // Get all friend groups for this event
+  public getEventFriendGroups(): FriendGroup[] {
+    if (!this.evenement) {
+      return [];
+    }
+    
+    const groups: FriendGroup[] = [];
+    
+    // Get all group IDs from the event
+    const groupIds: string[] = [];
+    
+    // Check new format: friendGroupIds (list of group IDs)
+    if (this.evenement.friendGroupIds && this.evenement.friendGroupIds.length > 0) {
+      groupIds.push(...this.evenement.friendGroupIds);
+    }
+    // Check old format: friendGroupId (single group ID) - for backward compatibility
+    else if (this.evenement.friendGroupId) {
+      groupIds.push(this.evenement.friendGroupId);
+    }
+    
+    // Get all groups for all group IDs
+    for (const groupId of groupIds) {
+      const group = this.friendGroups.find(g => g.id === groupId);
+      if (group) {
+        groups.push(group);
+      }
+    }
+    
+    return groups;
+  }
+
+  // Get all friend group names for this event
+  public getEventFriendGroupNames(): string[] {
+    return this.getEventFriendGroups().map(g => g.name);
+  }
+
+  // Open WhatsApp link for a specific friend group
+  public openFriendGroupWhatsAppLink(group: FriendGroup): void {
+    if (group.whatsappLink && group.whatsappLink.trim().length > 0) {
+      this.winRef.getNativeWindow().open(group.whatsappLink, '_blank');
+    }
+  }
+
+  // Load event access users
+  private loadEventAccessUsers(): void {
+    if (!this.evenement?.id) {
+      return;
+    }
+    
+    this.isLoadingEventAccessUsers = true;
+    this.eventAccessUsers = [];
+    this.isEventAccessUsersExpanded = false;
+    
+    const subscription = this.evenementsService.getEventAccessUsers(this.evenement.id).subscribe({
+      next: (users: any[]) => {
+        // Convert response to Member objects
+        this.eventAccessUsers = users.map((user: any) => {
+          // Convert roles from string to array if needed
+          let rolesArray: string[] = [];
+          if (user.roles) {
+            if (typeof user.roles === 'string') {
+              rolesArray = user.roles.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+            } else if (Array.isArray(user.roles)) {
+              rolesArray = user.roles;
+            }
+          }
+          return new Member(
+            user.id || '',
+            user.addressEmail || '',
+            user.firstName || '',
+            user.lastName || '',
+            user.userName || '',
+            rolesArray,
+            user.keycloakId || '',
+            user.registrationDate ? new Date(user.registrationDate) : undefined,
+            user.lastConnectionDate ? new Date(user.lastConnectionDate) : undefined,
+            user.locale || undefined,
+            user.whatsappLink || undefined,
+            user.visible !== undefined ? user.visible : true
+          );
+        });
+        this.isLoadingEventAccessUsers = false;
+      },
+      error: (error) => {
+        console.error('Error loading event access users:', error);
+        this.eventAccessUsers = [];
+        this.isLoadingEventAccessUsers = false;
+      }
+    });
+    
+    this.activeSubscriptions.add(subscription);
+  }
+
+  // Toggle event access users expanded/collapsed
+  public toggleEventAccessUsersExpanded(): void {
+    this.isEventAccessUsersExpanded = !this.isEventAccessUsersExpanded;
+  }
+
+  // Open user WhatsApp link
+  public openUserWhatsAppLink(user: Member): void {
+    if (user.whatsappLink) {
+      this.winRef.getNativeWindow().open(user.whatsappLink, '_blank');
     }
   }
 
