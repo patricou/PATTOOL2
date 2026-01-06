@@ -971,7 +971,7 @@ export class SystemComponent implements OnInit {
     // Usernames can be loaded on demand if needed (set includeUsernames=true)
     const page = 0;
     const size = 100;
-    const includeUsernames = false; // Skip expensive member lookup for speed
+    const includeUsernames = true; // Show username in "Utilisateur" column
 
     this._cacheService.getConnectionLogs(this.connectionLogsStartDate, this.connectionLogsEndDate, page, size, includeUsernames).subscribe(
       (response: any) => {
