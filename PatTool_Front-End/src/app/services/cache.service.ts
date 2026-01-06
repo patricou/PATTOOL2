@@ -2,25 +2,38 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { environment } from '../../environments/environment';
-import { Observable, from } from 'rxjs';
+import { Observable, from, of } from 'rxjs';
 import { map, switchMap } from 'rxjs/operators';
 
 @Injectable()
 export class CacheService {
   private API_URL: string = environment.API_URL;
 
+  // Cache auth headers briefly to avoid repeated Keycloak updateToken() calls on rapid UI actions
+  private cachedHeaders: HttpHeaders | null = null;
+  private cachedHeadersAtMs: number = 0;
+  private readonly headerCacheTtlMs: number = 15000; // 15s
+
   constructor(private _http: HttpClient, private _keycloakService: KeycloakService) {
   }
 
   // Get the header with token for Keycloak Security
   private getHeaderWithToken(): Observable<HttpHeaders> {
+    const now = Date.now();
+    if (this.cachedHeaders && (now - this.cachedHeadersAtMs) < this.headerCacheTtlMs) {
+      return of(this.cachedHeaders);
+    }
+
     return from(this._keycloakService.getToken()).pipe(
       map((token: string) => {
-        return new HttpHeaders({
+        const headers = new HttpHeaders({
           'Accept': 'application/json',
           'Content-Type': 'application/json; charset=UTF-8',
           'Authorization': 'Bearer ' + token
         });
+        this.cachedHeaders = headers;
+        this.cachedHeadersAtMs = Date.now();
+        return headers;
       })
     );
   }

@@ -3,6 +3,7 @@ package com.pat.controller;
 import com.pat.repo.UserConnectionLogRepository;
 import com.pat.service.MemoryMonitoringService;
 import com.pat.service.ImageCompressionService;
+import com.pat.service.UserConnectionLogPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.pat.repo.domain.Member;
@@ -58,6 +59,9 @@ public class SystemController {
 
     @Autowired
     private MongoTemplate mongoTemplate;
+    
+    @Autowired
+    private UserConnectionLogPolicy userConnectionLogPolicy;
 
     private static final int DEFAULT_CONNECTION_LOGS_PAGE_SIZE = 100;
     private static final int MAX_CONNECTION_LOGS_PAGE_SIZE = 5000;
@@ -362,25 +366,38 @@ public class SystemController {
                     }
                     if (memberId != null) {
                         item.put("memberId", memberId);
-                        item.put("memberUserName", memberIdToUserName.getOrDefault(memberId, "N/A"));
+                        String userName = memberIdToUserName.getOrDefault(memberId, "N/A");
+                        item.put("memberUserName", userName);
+                        
+                        // Filter out excluded users (e.g., "patricou")
+                        if (!userConnectionLogPolicy.shouldLog(userName)) {
+                            continue; // Skip this log entry
+                        }
                     } else {
                         item.put("memberUserName", "N/A");
                     }
                 } else {
                     // Skip member lookup for speed - just show memberId if available
+                    String memberId = null;
                     if (memberObj instanceof DBRef) {
                         Object idObj = ((DBRef) memberObj).getId();
                         if (idObj != null) {
-                            item.put("memberId", String.valueOf(idObj));
+                            memberId = String.valueOf(idObj);
+                            item.put("memberId", memberId);
                         }
                     } else if (memberObj instanceof Document) {
                         Document memberRef = (Document) memberObj;
                         Object idObj = memberRef.get("$id");
                         if (idObj != null) {
-                            item.put("memberId", String.valueOf(idObj));
+                            memberId = String.valueOf(idObj);
+                            item.put("memberId", memberId);
                         }
                     }
                     item.put("memberUserName", null); // Will be shown as "N/A" in frontend
+                    
+                    // If we have memberId but no username, we can't filter by username
+                    // But we can still check if we need to filter by memberId if needed
+                    // For now, we'll rely on the policy preventing new logs from being created
                 }
 
                 logs.add(item);

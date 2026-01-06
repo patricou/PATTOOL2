@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -20,6 +21,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -42,6 +47,14 @@ public class ExceptionReportScheduler {
     private IpGeolocationService ipGeolocationService;
 
     private static final int MANUAL_REPORT_HOURS = 24 * 7; // last 7 days for manual/preview reports
+    
+    // Thread pool for parallel IP lookups (limited to avoid overwhelming external API)
+    private static final ExecutorService ipLookupExecutor = Executors.newFixedThreadPool(10);
+    
+    // Users to exclude from reports (case-insensitive)
+    private static final Set<String> EXCLUDED_USERS = new HashSet<String>() {{
+        add("patricou");
+    }};
 
     /**
      * Send exception report email daily at 8:00 AM
@@ -126,7 +139,16 @@ public class ExceptionReportScheduler {
         
         int totalConnections = connections.values().stream().mapToInt(List::size).sum();
         int totalExceptions = exceptions.values().stream().mapToInt(List::size).sum();
-        Map<String, IpGeolocationService.IPInfo> ipInfoCache = new HashMap<>();
+        
+        // OPTIMIZATION: Pre-collect all unique IPs and prefetch their info in parallel
+        Set<String> uniqueIps = new HashSet<>();
+        uniqueIps.addAll(connections.keySet());
+        uniqueIps.addAll(exceptions.keySet());
+        uniqueIps.addAll(logs.keySet());
+        
+        // Prefetch all IP info in parallel to populate cache before processing
+        Map<String, IpGeolocationService.IPInfo> ipInfoCache = prefetchIpInfo(uniqueIps);
+        
         LocalDateTime reportStart = null;
         LocalDateTime reportEnd = null;
 
@@ -160,6 +182,11 @@ public class ExceptionReportScheduler {
 
                 String normalizedUserRaw = normalizeUser(info);
                 String normalizedUser = (normalizedUserRaw == null || normalizedUserRaw.isEmpty()) ? "N/A" : normalizedUserRaw;
+
+                // Skip excluded users
+                if (normalizedUserRaw != null && EXCLUDED_USERS.contains(normalizedUserRaw.toLowerCase())) {
+                    continue;
+                }
 
                 // Create key for grouping by user, date, hour, and IP (to separate connections from different IPs)
                 UserDateHourKey key = new UserDateHourKey(normalizedUser, ipAddress, timestamp);
@@ -433,11 +460,116 @@ public class ExceptionReportScheduler {
                    .replace("'", "&#39;");
     }
 
+    /**
+     * Prefetch IP information for all unique IPs in parallel to speed up report generation
+     * @param uniqueIps Set of unique IP addresses to lookup
+     * @return Map of IP addresses to their IPInfo (cached lookups)
+     */
+    private Map<String, IpGeolocationService.IPInfo> prefetchIpInfo(Set<String> uniqueIps) {
+        Map<String, IpGeolocationService.IPInfo> ipInfoCache = new HashMap<>();
+        
+        if (uniqueIps == null || uniqueIps.isEmpty()) {
+            return ipInfoCache;
+        }
+        
+        // Handle private IPs immediately (no external lookup needed)
+        for (String ip : uniqueIps) {
+            if (ip != null && !ip.trim().isEmpty() && isPrivateIp(ip)) {
+                ipInfoCache.put(ip, new IpGeolocationService.IPInfo(ip, "Local/Private IP", null));
+            }
+        }
+        
+        // Filter out null/empty IPs and private IPs (they don't need external lookup)
+        List<String> ipsToLookup = uniqueIps.stream()
+            .filter(ip -> ip != null && !ip.trim().isEmpty() && !isPrivateIp(ip))
+            .collect(Collectors.toList());
+        
+        if (ipsToLookup.isEmpty()) {
+            log.debug("No IPs to lookup (all are private or empty)");
+            return ipInfoCache;
+        }
+        
+        // Use parallel processing to fetch IP info concurrently
+        List<CompletableFuture<AbstractMap.SimpleEntry<String, IpGeolocationService.IPInfo>>> futures = ipsToLookup.stream()
+            .map(ip -> CompletableFuture.supplyAsync(() -> {
+                try {
+                    IpGeolocationService.IPInfo info = ipGeolocationService.getCompleteIpInfo(ip);
+                    if (info == null) {
+                        info = new IpGeolocationService.IPInfo(ip, "N/A", "N/A");
+                    }
+                    return new AbstractMap.SimpleEntry<>(ip, info);
+                } catch (Exception e) {
+                    log.warn("Error fetching IP info for {}: {}", ip, e.getMessage());
+                    return new AbstractMap.SimpleEntry<>(ip, new IpGeolocationService.IPInfo(ip, "N/A", "N/A"));
+                }
+            }, ipLookupExecutor))
+            .collect(Collectors.toList());
+        
+        // Wait for all lookups to complete (with timeout)
+        try {
+            CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .orTimeout(30, TimeUnit.SECONDS)
+                .join();
+            
+            // Collect results
+            for (CompletableFuture<AbstractMap.SimpleEntry<String, IpGeolocationService.IPInfo>> future : futures) {
+                try {
+                    AbstractMap.SimpleEntry<String, IpGeolocationService.IPInfo> entry = future.get(1, TimeUnit.SECONDS);
+                    if (entry != null) {
+                        ipInfoCache.put(entry.getKey(), entry.getValue());
+                    }
+                } catch (Exception e) {
+                    log.debug("Failed to get IP info result: {}", e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Timeout or error during parallel IP lookup: {}", e.getMessage());
+            // Continue with partial results
+        }
+        
+        // Fallback for any IPs that weren't successfully looked up
+        for (String ip : ipsToLookup) {
+            if (!ipInfoCache.containsKey(ip)) {
+                ipInfoCache.put(ip, new IpGeolocationService.IPInfo(ip, "N/A", "N/A"));
+            }
+        }
+        
+        log.debug("Prefetched IP info for {} unique IPs ({} lookups performed)", ipInfoCache.size(), ipsToLookup.size());
+        return ipInfoCache;
+    }
+    
+    /**
+     * Check if an IP address is private/local (doesn't need external lookup)
+     */
+    private boolean isPrivateIp(String ipAddress) {
+        if (ipAddress == null || ipAddress.trim().isEmpty()) {
+            return true;
+        }
+        String ip = ipAddress.trim();
+        return ip.startsWith("127.") || ip.startsWith("localhost") || 
+               ip.startsWith("192.168.") || ip.startsWith("10.") || 
+               ip.startsWith("172.16.") || ip.startsWith("172.17.") ||
+               ip.startsWith("172.18.") || ip.startsWith("172.19.") ||
+               ip.startsWith("172.20.") || ip.startsWith("172.21.") ||
+               ip.startsWith("172.22.") || ip.startsWith("172.23.") ||
+               ip.startsWith("172.24.") || ip.startsWith("172.25.") ||
+               ip.startsWith("172.26.") || ip.startsWith("172.27.") ||
+               ip.startsWith("172.28.") || ip.startsWith("172.29.") ||
+               ip.startsWith("172.30.") || ip.startsWith("172.31.") ||
+               ip.equals("unknown");
+    }
+    
+    /**
+     * Get IP info from cache (should be prefetched before calling this)
+     */
     private IpGeolocationService.IPInfo getIpInfo(Map<String, IpGeolocationService.IPInfo> cache, String ipAddress) {
         if (ipAddress == null) {
             return new IpGeolocationService.IPInfo("N/A", "N/A", "N/A");
         }
+        // After prefetching, all IPs should be in cache
         return cache.computeIfAbsent(ipAddress, ip -> {
+            // Fallback: if not in cache, do synchronous lookup (should rarely happen)
+            log.debug("IP {} not in prefetched cache, doing synchronous lookup", ip);
             IpGeolocationService.IPInfo info = ipGeolocationService.getCompleteIpInfo(ip);
             if (info == null) {
                 return new IpGeolocationService.IPInfo(ip, "N/A", "N/A");

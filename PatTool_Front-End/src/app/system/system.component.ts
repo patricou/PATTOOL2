@@ -965,6 +965,7 @@ export class SystemComponent implements OnInit {
   loadConnectionLogs(): void {
     this.isLoadingConnectionLogs = true;
     this.connectionLogsError = '';
+    const t0 = performance.now();
     
     // Performance: load only first page (100 rows) without usernames for instant load
     // Usernames can be loaded on demand if needed (set includeUsernames=true)
@@ -974,6 +975,7 @@ export class SystemComponent implements OnInit {
 
     this._cacheService.getConnectionLogs(this.connectionLogsStartDate, this.connectionLogsEndDate, page, size, includeUsernames).subscribe(
       (response: any) => {
+        const tResp = performance.now();
         let responseData = response;
         // Handle different response formats
         if (response && typeof response === 'object' && '_body' in response) {
@@ -986,7 +988,7 @@ export class SystemComponent implements OnInit {
           this.connectionLogs = responseData.logs || [];
           this.connectionLogsCount = responseData.count || this.connectionLogs.length;
           
-          console.log('Connection logs loaded:', this.connectionLogs.length, 'logs');
+          console.log('Connection logs loaded:', this.connectionLogs.length, 'logs', `(${Math.round(tResp - t0)}ms)`);
           console.log('Column definitions:', this.connectionLogsColumnDefs.length);
           
           // Convert date strings to Date objects
@@ -1006,6 +1008,7 @@ export class SystemComponent implements OnInit {
         this.isLoadingConnectionLogs = false;
       },
       error => {
+        console.log(`Connection logs request failed after ${Math.round(performance.now() - t0)}ms`, error);
         this.connectionLogsError = error.error?.error || error.message || 'Error loading connection logs';
         this.connectionLogs = [];
         this.isLoadingConnectionLogs = false;

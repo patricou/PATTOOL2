@@ -8,6 +8,7 @@ declare var Keycloak: any;
 @Injectable()
 export class KeycloakService {
   static auth: any = {};
+  private static tokenCache: { token: string; atMs: number } = { token: '', atMs: 0 };
 
   static init(): Promise<any> {
     const keycloakAuth: any = new Keycloak({
@@ -61,10 +62,30 @@ export class KeycloakService {
       }
       
       if (KeycloakService.auth.authz.token) {
-        KeycloakService.auth.authz
+        const authz: any = KeycloakService.auth.authz;
+        const token: string = <string>authz.token;
+
+        // Fast path: if token is valid for > 60s, don't call updateToken() (avoids slow network refresh)
+        try {
+          const exp: number | undefined = authz?.tokenParsed?.exp;
+          const nowSec = Math.floor(Date.now() / 1000);
+          const ttlSec = exp ? (exp - nowSec) : 0;
+
+          if (ttlSec > 60) {
+            KeycloakService.tokenCache = { token, atMs: Date.now() };
+            resolve(token);
+            return;
+          }
+        } catch (e) {
+          // Ignore parsing errors and fall back to refresh path
+        }
+
+        authz
           .updateToken(5)
           .success(() => {
-            resolve(<string>KeycloakService.auth.authz.token);
+            const refreshedToken: string = <string>KeycloakService.auth.authz.token;
+            KeycloakService.tokenCache = { token: refreshedToken, atMs: Date.now() };
+            resolve(refreshedToken);
           })
           .error(() => {
             console.log('Failed to refresh token - session expired, redirecting to login');
