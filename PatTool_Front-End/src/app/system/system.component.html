@@ -413,6 +413,14 @@
                         <i class="fa fa-list"></i>
                         <span>{{ 'SYSTEM.CONNECTION_LOGS.VIEW' | translate }}</span>
                     </button>
+                    <button
+                        type="button"
+                        class="btn-small btn-connection-logs-delete"
+                        (click)="deleteAllConnectionLogs()"
+                        [disabled]="!isDeleteConnectionLogsAuthorized || isDeletingConnectionLogs">
+                        <i class="fa" [ngClass]="{'fa-trash': !isDeletingConnectionLogs, 'fa-spinner': isDeletingConnectionLogs, 'fa-spin': isDeletingConnectionLogs}"></i>
+                        <span>{{ 'SYSTEM.CONNECTION_LOGS.DELETE_ALL' | translate }}</span>
+                    </button>
                 </div>
             </div>
 

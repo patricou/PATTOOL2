@@ -105,7 +105,7 @@ export class CacheService {
     );
   }
 
-  getConnectionLogs(startDate?: Date, endDate?: Date): Observable<any> {
+  getConnectionLogs(startDate?: Date, endDate?: Date, page: number = 0, size: number = 100, includeUsernames: boolean = false): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
         let params = new HttpParams();
@@ -114,6 +114,15 @@ export class CacheService {
         }
         if (endDate) {
           params = params.set('endDate', endDate.toISOString());
+        }
+        if (page !== undefined && page !== null) {
+          params = params.set('page', String(page));
+        }
+        if (size !== undefined && size !== null) {
+          params = params.set('size', String(size));
+        }
+        if (includeUsernames !== undefined) {
+          params = params.set('includeUsernames', String(includeUsernames));
         }
         return this._http.get(this.API_URL + "system/connection-logs", { 
           headers: headers,

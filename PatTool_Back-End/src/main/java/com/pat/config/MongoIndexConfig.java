@@ -163,8 +163,46 @@ public class MongoIndexConfig {
             
             // Create indexes for FriendGroup collection
             createFriendGroupIndexes();
+
+            // Create indexes for UserConnectionLog collection
+            createUserConnectionLogIndexes();
         } catch (Exception e) {
             log.error("Error creating MongoDB indexes", e);
+        }
+    }
+
+    /**
+     * Create indexes for the userConnectionLogs collection
+     */
+    private void createUserConnectionLogIndexes() {
+        try {
+            log.info("========================================");
+            log.info("Creating MongoDB indexes for UserConnectionLog collection");
+            log.info("========================================");
+
+            // List existing indexes
+            listExistingIndexes("userConnectionLogs");
+
+            // 1. Index on connectionDate (CRITICAL for date range filter + sort DESC)
+            createIndexIfNotExists("userConnectionLogs", "connectionDate", Sort.Direction.DESC,
+                    "Index on connectionDate for efficient date filtering and sorting");
+
+            // 2. Index on discussionId (used for cleanup / linking)
+            createIndexIfNotExists("userConnectionLogs", "discussionId", Sort.Direction.ASC,
+                    "Index on discussionId for efficient log lookup by discussion");
+
+            // 3. Index on member.$id (useful for user-specific diagnostics if needed)
+            createIndexIfNotExists("userConnectionLogs", "member.$id", Sort.Direction.ASC,
+                    "Index on member.$id for efficient log lookup by member");
+
+            log.info("========================================");
+            log.info("MongoDB indexes for 'userConnectionLogs' collection created successfully");
+            log.info("========================================");
+
+            // List indexes again to verify they were created
+            listExistingIndexes("userConnectionLogs");
+        } catch (Exception e) {
+            log.error("Error creating UserConnectionLog indexes", e);
         }
     }
 

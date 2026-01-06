@@ -4,6 +4,8 @@ export class UserConnectionLog {
     constructor(
         public id?: string,
         public member?: Member,
+        public memberUserName?: string,
+        public memberId?: string,
         public connectionDate?: Date,
         public ipAddress?: string,
         public domainName?: string,

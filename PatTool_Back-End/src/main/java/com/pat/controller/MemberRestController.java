@@ -7,6 +7,7 @@ import com.pat.repo.UserConnectionLogRepository;
 import com.pat.service.ExceptionTrackingService;
 import com.pat.service.IpGeolocationService;
 import com.pat.service.KeycloakService;
+import com.pat.service.UserConnectionLogPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +57,9 @@ public class MemberRestController {
 
     @Autowired
     private KeycloakService keycloakService;
+
+    @Autowired
+    private UserConnectionLogPolicy userConnectionLogPolicy;
 
     @Value("${app.connection.email.enabled:false}")
     private boolean connectionEmailEnabled;
@@ -402,6 +406,10 @@ public class MemberRestController {
         
         // Save connection log to MongoDB (skip if IP contains 0:0:0:0:0:0 or similar invalid patterns)
         try {
+            // Skip saving connection log for excluded users (e.g., patricou)
+            if (!userConnectionLogPolicy.shouldLog(newMember)) {
+                log.debug("Skipping connection log save for excluded user: {}", newMember.getUserName());
+            } else {
             String ipAddress = request.getHeader("X-Forwarded-For");
             if (ipAddress == null) {
                 ipAddress = request.getRemoteAddr();
@@ -426,6 +434,7 @@ public class MemberRestController {
                 );
                 userConnectionLogRepository.save(connectionLog);
                 log.debug("Connection log saved for user: {}", newMember.getUserName());
+            }
             }
         } catch (Exception e) {
             log.error("Error saving connection log for user: {}", newMember.getUserName(), e);

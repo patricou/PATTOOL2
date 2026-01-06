@@ -147,10 +147,10 @@ export class SystemComponent implements OnInit {
     this.collectPerformanceStats();
     this.loadAdditionalDebugInfo();
     
-    // Initialize connection logs date range (5 days ago to now)
+    // Initialize connection logs date range (1 day ago to now for better performance)
     this.connectionLogsEndDate = new Date();
     this.connectionLogsStartDate = new Date();
-    this.connectionLogsStartDate.setDate(this.connectionLogsStartDate.getDate() - 5);
+    this.connectionLogsStartDate.setDate(this.connectionLogsStartDate.getDate() - 1);
     
     // Initialize AG Grid column definitions
     this.initializeConnectionLogsColumns();
@@ -217,8 +217,15 @@ export class SystemComponent implements OnInit {
         headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.USER'),
         width: 200,
         valueGetter: (params) => {
-          if (params.data?.member) {
+          // Prefer memberUserName (from optimized backend), fallback to member.userName or memberId
+          if (params.data?.memberUserName) {
+            return params.data.memberUserName;
+          }
+          if (params.data?.member?.userName) {
             return params.data.member.userName;
+          }
+          if (params.data?.memberId) {
+            return params.data.memberId; // Show ID if username not loaded yet
           }
           return 'N/A';
         }
@@ -959,7 +966,13 @@ export class SystemComponent implements OnInit {
     this.isLoadingConnectionLogs = true;
     this.connectionLogsError = '';
     
-    this._cacheService.getConnectionLogs(this.connectionLogsStartDate, this.connectionLogsEndDate).subscribe(
+    // Performance: load only first page (100 rows) without usernames for instant load
+    // Usernames can be loaded on demand if needed (set includeUsernames=true)
+    const page = 0;
+    const size = 100;
+    const includeUsernames = false; // Skip expensive member lookup for speed
+
+    this._cacheService.getConnectionLogs(this.connectionLogsStartDate, this.connectionLogsEndDate, page, size, includeUsernames).subscribe(
       (response: any) => {
         let responseData = response;
         // Handle different response formats

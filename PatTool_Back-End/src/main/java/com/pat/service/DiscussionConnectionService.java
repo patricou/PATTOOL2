@@ -35,6 +35,9 @@ public class DiscussionConnectionService {
     @Autowired
     private UserConnectionLogRepository userConnectionLogRepository;
 
+    @Autowired
+    private UserConnectionLogPolicy userConnectionLogPolicy;
+
     // Maximum number of connections to keep in memory (default: 1000)
     @Value("${app.websocket.max-connections:1000}")
     private int maxConnections;
@@ -109,6 +112,12 @@ public class DiscussionConnectionService {
             // Only log if we have a valid user (not anonymous)
             if (info.userName == null || info.userName.equals("anonymous") || info.userName.equals("unknown")) {
                 log.debug("Skipping discussion connection log - user is anonymous or unknown");
+                return;
+            }
+
+            // Skip saving connection log for excluded users (e.g., patricou)
+            if (!userConnectionLogPolicy.shouldLog(info.userName)) {
+                log.debug("Skipping discussion connection log for excluded user: {}", info.userName);
                 return;
             }
 
