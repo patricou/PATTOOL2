@@ -1,11 +1,11 @@
 // Discussion Component - Replaced Firebase with MongoDB backend
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
-import { Subscription, forkJoin, of, Observable } from 'rxjs';
-import { catchError } from 'rxjs/operators';
+import { Subscription, forkJoin, of, Observable, Subject } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged } from 'rxjs/operators';
 import { DiscussionService, Discussion, DiscussionMessage, StreamedDiscussion } from '../../services/discussion.service';
 import { Member } from '../../model/member';
 import { MembersService } from '../../services/members.service';
@@ -73,6 +73,11 @@ export class ChatComponent implements OnInit, OnDestroy {
   private memberCountCache: Map<string, number> = new Map();
   private isOwnerCache: Map<string, boolean> = new Map();
   private hasAdminRoleCache: boolean | null = null;
+  // Debounce filter input for better performance
+  private filterSubject: Subject<string> = new Subject<string>();
+  private filterSubscription: Subscription | null = null;
+  // Pre-computed properties for template optimization
+  public hasAdminRoleValue: boolean = false;
 
   @ViewChild('messagesList', { static: false }) messagesList!: ElementRef;
   @ViewChild('fileInput', { static: false }) fileInput!: ElementRef;
@@ -80,6 +85,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   private messageSubscription: Subscription | null = null;
   private discussionsSubscription: Subscription | null = null;
+  private isLoadingDiscussions: boolean = false; // Prevent duplicate requests
 
   constructor(
     private discussionService: DiscussionService,
@@ -89,7 +95,8 @@ export class ChatComponent implements OnInit, OnDestroy {
     private modalService: NgbModal,
     private translate: TranslateService,
     private keycloakService: KeycloakService,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   async ngOnInit() {
@@ -98,6 +105,16 @@ export class ChatComponent implements OnInit, OnDestroy {
       
       // Initialize admin role cache
       this.hasAdminRoleCache = this.keycloakService.hasAdminRole();
+      this.hasAdminRoleValue = this.hasAdminRoleCache; // Pre-compute for template
+
+      // Setup filter debouncing (300ms delay for better performance)
+      this.filterSubscription = this.filterSubject.pipe(
+        debounceTime(300),
+        distinctUntilChanged()
+      ).subscribe(filterValue => {
+        this.dataFIlter = filterValue;
+        this.applyFilter();
+      });
 
       // Load all available discussions
       await this.loadAllAvailableDiscussions();
@@ -117,6 +134,11 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.imageUrlCache.clear();
     // Clear discussion caches
     this.clearDiscussionCache();
+    // Unsubscribe from filter debounce
+    if (this.filterSubscription) {
+      this.filterSubscription.unsubscribe();
+      this.filterSubscription = null;
+    }
     // Unsubscribe from WebSocket
     if (this.messageSubscription) {
       this.messageSubscription.unsubscribe();
@@ -134,9 +156,16 @@ export class ChatComponent implements OnInit, OnDestroy {
    * Load all available discussions (from events, friend groups, and general)
    * Uses the new backend endpoint that handles all validation and filtering
    * STREAMING: Displays discussions incrementally as they're processed
+   * OPTIMIZATION: Prevents duplicate requests
    */
   private async loadAllAvailableDiscussions() {
+    // Prevent duplicate requests
+    if (this.isLoadingDiscussions) {
+      return;
+    }
+    
     try {
+      this.isLoadingDiscussions = true;
       this.isLoading = true;
       this.connectionStatus = 'Loading discussions...';
       
@@ -205,6 +234,8 @@ export class ChatComponent implements OnInit, OnDestroy {
             // If filter is active, we'll apply it at the end to avoid re-filtering on every addition
             if (!this.dataFIlter || this.dataFIlter.trim() === '') {
               this.filteredDiscussions = [...this.availableDiscussions];
+              // Use change detection optimization - only mark for check, don't trigger full change detection
+              this.cdr.markForCheck();
             }
             
             // Extract friend groups for other uses
@@ -219,6 +250,7 @@ export class ChatComponent implements OnInit, OnDestroy {
             if (this.availableDiscussions.length === 1) {
               this.isLoading = false;
               this.connectionStatus = '';
+              this.cdr.markForCheck(); // Trigger change detection for first item
             }
           } else if (streamed.type === 'complete') {
             // All discussions loaded - they're already sorted as they arrived
@@ -231,21 +263,29 @@ export class ChatComponent implements OnInit, OnDestroy {
             } else {
               this.filteredDiscussions = [...this.availableDiscussions];
             }
+            // Trigger change detection once at the end
+            this.cdr.markForCheck();
           } else if (streamed.type === 'error') {
             this.isLoading = false;
+            this.isLoadingDiscussions = false;
             this.connectionStatus = 'Error loading discussions';
           }
         },
         error: (error) => {
           console.error('Error in discussion stream:', error);
           this.isLoading = false;
+          this.isLoadingDiscussions = false;
           this.connectionStatus = 'Error loading discussions';
+        },
+        complete: () => {
+          this.isLoadingDiscussions = false;
         }
       });
     } catch (error) {
       console.error('Error in loadAllAvailableDiscussions:', error);
       this.connectionStatus = 'Error initializing';
       this.isLoading = false;
+      this.isLoadingDiscussions = false;
     }
   }
 
@@ -349,17 +389,20 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   /**
    * Apply filter to discussions
+   * OPTIMIZED: Uses debounced input and efficient filtering
    */
   public applyFilter() {
     if (!this.dataFIlter || this.dataFIlter.trim() === '') {
       this.filteredDiscussions = [...this.availableDiscussions];
+      this.cdr.markForCheck();
       return;
     }
     
     const filterLower = this.dataFIlter.toLowerCase().trim();
+    // Pre-compute filter checks to avoid repeated method calls
     this.filteredDiscussions = this.availableDiscussions.filter(discussion => {
-      // Filter by title
-      if (discussion.title.toLowerCase().includes(filterLower)) {
+      // Filter by title (most common case, check first)
+      if (discussion.title && discussion.title.toLowerCase().includes(filterLower)) {
         return true;
       }
       
@@ -373,9 +416,11 @@ export class ChatComponent implements OnInit, OnDestroy {
         return true;
       }
       
-      // Filter by author name (for events)
+      // Filter by author name (for events) - more expensive, check last
       if (discussion.type === 'event' && discussion.event?.author) {
-        const authorName = `${discussion.event.author.firstName} ${discussion.event.author.lastName}`.toLowerCase();
+        const firstName = discussion.event.author.firstName || '';
+        const lastName = discussion.event.author.lastName || '';
+        const authorName = `${firstName} ${lastName}`.toLowerCase();
         if (authorName.includes(filterLower)) {
           return true;
         }
@@ -383,6 +428,14 @@ export class ChatComponent implements OnInit, OnDestroy {
       
       return false;
     });
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * On filter input change - debounced for performance
+   */
+  public onFilterChange(value: string) {
+    this.filterSubject.next(value);
   }
 
   /**
@@ -390,7 +443,7 @@ export class ChatComponent implements OnInit, OnDestroy {
    */
   public clearFilter() {
     this.dataFIlter = '';
-    this.applyFilter();
+    this.filterSubject.next('');
   }
 
   /**

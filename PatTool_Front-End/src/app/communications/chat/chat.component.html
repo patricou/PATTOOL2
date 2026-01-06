@@ -13,7 +13,7 @@
         <div class="chat-stats">
             <i class="fa fa-comments"></i>
             <span>{{ filteredDiscussions.length }} {{ "RESULTS.DISCUSSIONS" | translate }}</span>
-            <button *ngIf="hasAdminRole()" 
+            <button *ngIf="hasAdminRoleValue" 
                     class="btn btn-sm btn-outline-info ms-2" 
                     (click)="openStatisticsModal()"
                     [ngbTooltip]="'CHAT.VIEW_DISCUSSION_STATISTICS' | translate"
@@ -25,8 +25,8 @@
             <div class="filter-input-container-desktop">
                 <i class="fa fa-search search-icon"></i>
                 <input type="text" 
-                       [(ngModel)]="dataFIlter" 
-                       (ngModelChange)="applyFilter()"
+                       [ngModel]="dataFIlter" 
+                       (ngModelChange)="onFilterChange($event)"
                        placeholder="{{ 'CHAT.FILTER_PLACEHOLDER' | translate }}" 
                        class="filter-input" />
                 <button class="filter-clear-btn" 

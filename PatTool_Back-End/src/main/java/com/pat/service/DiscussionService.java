@@ -105,6 +105,41 @@ public class DiscussionService {
     }
 
     /**
+     * Get last message date FAST - uses aggregation (ultra-fast)
+     * Returns the date of the last message, or null if no messages
+     */
+    private Date getLastMessageDateFast(String discussionId) {
+        if (discussionId == null || discussionId.trim().isEmpty()) {
+            return null;
+        }
+        
+        try {
+            // Use aggregation to get last message date without loading all messages
+            Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("_id").is(discussionId)
+                    .and("messages").exists(true).ne(java.util.Collections.emptyList())),
+                Aggregation.unwind("messages"),
+                Aggregation.group().max("messages.dateTime").as("lastMessageDate"),
+                Aggregation.project("lastMessageDate")
+            );
+            
+            AggregationResults<Document> results = mongoTemplate.aggregate(aggregation, "discussions", Document.class);
+            
+            if (results.getMappedResults() != null && !results.getMappedResults().isEmpty()) {
+                Document doc = results.getMappedResults().get(0);
+                Object dateObj = doc.get("lastMessageDate");
+                if (dateObj instanceof Date) {
+                    return (Date) dateObj;
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            log.debug("Error getting last message date for discussion {}: {}", discussionId, e.getMessage());
+            return null;
+        }
+    }
+
+    /**
      * Check if a discussion has messages WITHOUT loading them (ultra-fast)
      * Uses MongoDB aggregation to count messages - much faster than loading them
      * Returns message count (0 if no messages or discussion doesn't exist)
@@ -142,6 +177,189 @@ public class DiscussionService {
             log.debug("Error getting message count for discussion {}: {}", discussionId, e.getMessage());
             return 0;
         }
+    }
+
+    /**
+     * Batch get message counts for multiple discussions (ULTRA-FAST)
+     * Uses MongoDB aggregation to count messages for all discussions in a single query
+     * Returns a map of discussionId -> messageCount
+     * PERFORMANCE: Single aggregation query instead of N individual queries
+     */
+    private java.util.Map<String, Long> batchGetMessageCounts(java.util.Set<String> discussionIds) {
+        java.util.Map<String, Long> result = new java.util.HashMap<>();
+        
+        if (discussionIds == null || discussionIds.isEmpty()) {
+            return result;
+        }
+        
+        try {
+            // Use aggregation to count messages for all discussions at once
+            java.util.List<String> discussionIdList = new java.util.ArrayList<>(discussionIds);
+            Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("_id").in(discussionIdList)),
+                Aggregation.project()
+                    .and("_id").as("discussionId")
+                    .and(ArrayOperators.Size.lengthOfArray("$messages")).as("count")
+            );
+            
+            AggregationResults<Document> results = mongoTemplate.aggregate(aggregation, "discussions", Document.class);
+            
+            if (results.getMappedResults() != null) {
+                for (Document doc : results.getMappedResults()) {
+                    String discussionId = doc.getString("discussionId");
+                    if (discussionId != null) {
+                        Object countObj = doc.get("count");
+                        long count = 0;
+                        if (countObj instanceof Integer) {
+                            count = ((Integer) countObj).longValue();
+                        } else if (countObj instanceof Long) {
+                            count = (Long) countObj;
+                        } else if (countObj instanceof Number) {
+                            count = ((Number) countObj).longValue();
+                        }
+                        result.put(discussionId, count);
+                    }
+                }
+            }
+            
+            // Fill in 0 for discussions not found (they have no messages or don't exist)
+            for (String id : discussionIds) {
+                if (!result.containsKey(id)) {
+                    result.put(id, 0L);
+                }
+            }
+            
+        } catch (Exception e) {
+            log.debug("Error batch getting message counts: {}", e.getMessage());
+            // Fill in 0 for all on error
+            for (String id : discussionIds) {
+                result.put(id, 0L);
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * Batch get message counts and last message dates for multiple discussions (ULTRA-FAST)
+     * Uses MongoDB aggregation to get both count and last message date in a single query
+     * Returns a map of discussionId -> MessageStats (count and lastMessageDate)
+     * PERFORMANCE: Single aggregation query instead of N individual queries
+     */
+    private static class MessageStats {
+        long count;
+        Date lastMessageDate;
+        
+        MessageStats(long count, Date lastMessageDate) {
+            this.count = count;
+            this.lastMessageDate = lastMessageDate;
+        }
+    }
+
+    private java.util.Map<String, MessageStats> batchGetMessageStats(java.util.Set<String> discussionIds) {
+        java.util.Map<String, MessageStats> result = new java.util.HashMap<>();
+        
+        if (discussionIds == null || discussionIds.isEmpty()) {
+            return result;
+        }
+        
+        try {
+            // Initialize all discussions with 0/null first
+            for (String id : discussionIds) {
+                result.put(id, new MessageStats(0L, null));
+            }
+            
+            // Use aggregation to get message count and last message date for all discussions at once
+            java.util.List<String> discussionIdList = new java.util.ArrayList<>(discussionIds);
+            
+            // First, get count for all discussions (including empty ones)
+            Aggregation countAggregation = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("_id").in(discussionIdList)),
+                Aggregation.project()
+                    .and("_id").as("discussionId")
+                    .and(ArrayOperators.Size.lengthOfArray("$messages")).as("count")
+            );
+            
+            AggregationResults<Document> countResults = mongoTemplate.aggregate(countAggregation, "discussions", Document.class);
+            if (countResults.getMappedResults() != null) {
+                for (Document doc : countResults.getMappedResults()) {
+                    // Handle ObjectId conversion - _id can be ObjectId or String
+                    Object idObj = doc.get("discussionId");
+                    String discussionId = null;
+                    if (idObj instanceof String) {
+                        discussionId = (String) idObj;
+                    } else if (idObj instanceof org.bson.types.ObjectId) {
+                        discussionId = ((org.bson.types.ObjectId) idObj).toString();
+                    } else if (idObj != null) {
+                        discussionId = idObj.toString();
+                    }
+                    
+                    if (discussionId != null && result.containsKey(discussionId)) {
+                        Object countObj = doc.get("count");
+                        long count = 0;
+                        if (countObj instanceof Integer) {
+                            count = ((Integer) countObj).longValue();
+                        } else if (countObj instanceof Long) {
+                            count = (Long) countObj;
+                        } else if (countObj instanceof Number) {
+                            count = ((Number) countObj).longValue();
+                        }
+                        result.get(discussionId).count = count;
+                    }
+                }
+            }
+            
+            // Then, get last message date only for discussions that have messages
+            Aggregation dateAggregation = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("_id").in(discussionIdList)
+                    .and("messages").exists(true).ne(java.util.Collections.emptyList())),
+                Aggregation.unwind("messages"),
+                Aggregation.group("_id")
+                    .max("messages.dateTime").as("lastMessageDate"),
+                Aggregation.project("lastMessageDate")
+                    .and("_id").as("discussionId")
+            );
+            
+            AggregationResults<Document> dateResults = mongoTemplate.aggregate(dateAggregation, "discussions", Document.class);
+            if (dateResults.getMappedResults() != null) {
+                for (Document doc : dateResults.getMappedResults()) {
+                    // Handle ObjectId conversion - _id can be ObjectId or String
+                    Object idObj = doc.get("discussionId");
+                    String discussionId = null;
+                    if (idObj instanceof String) {
+                        discussionId = (String) idObj;
+                    } else if (idObj instanceof org.bson.types.ObjectId) {
+                        discussionId = ((org.bson.types.ObjectId) idObj).toString();
+                    } else if (idObj != null) {
+                        discussionId = idObj.toString();
+                    }
+                    
+                    if (discussionId != null && result.containsKey(discussionId)) {
+                        Object dateObj = doc.get("lastMessageDate");
+                        if (dateObj instanceof Date) {
+                            result.get(discussionId).lastMessageDate = (Date) dateObj;
+                        } else if (dateObj != null) {
+                            try {
+                                result.get(discussionId).lastMessageDate = (Date) dateObj;
+                            } catch (Exception e) {
+                                log.debug("Could not parse lastMessageDate for discussion {}: {}", discussionId, e.getMessage());
+                            }
+                        }
+                    }
+                }
+            }
+            
+        } catch (Exception e) {
+            log.error("Error batch getting message stats: {}", e.getMessage(), e);
+            // Ensure all discussions have stats (even on error)
+            for (String id : discussionIds) {
+                if (!result.containsKey(id)) {
+                    result.put(id, new MessageStats(0L, null));
+                }
+            }
+        }
+        
+        return result;
     }
 
     /**
@@ -657,6 +875,7 @@ public class DiscussionService {
      * Stream accessible discussions for a user (reactive - sends as soon as available)
      * OPTIMIZED: Sends discussions immediately as found, without loading all data first
      * Uses indexed queries to minimize database load
+     * PERFORMANCE: Batch loads discussions and message counts for better efficiency
      */
     public void streamAccessibleDiscussions(Member user, Consumer<DiscussionItemDTO> onDiscussion) {
         // Track discussion IDs already added to avoid duplicates
@@ -697,25 +916,64 @@ public class DiscussionService {
             }
         }
         
-        // CRITICAL OPTIMIZATION: Stream events that don't require friend/friendGroup data FIRST
-        // This allows discussions to appear immediately without waiting for friend data loading
+        // CRITICAL OPTIMIZATION: Stream discussions as soon as they're found (truly reactive)
+        // Send discussions immediately to provide instant feedback
         
         // 1. Stream user's own events IMMEDIATELY (no dependencies, fastest path, uses index)
-        streamUserOwnEvents(user, onDiscussion, addedDiscussionIds);
+        List<com.pat.repo.domain.Evenement> userOwnEvents = evenementsRepository.findByAuthorId(user.getId());
+        for (com.pat.repo.domain.Evenement event : userOwnEvents) {
+            if (event.getDiscussionId() != null && !event.getDiscussionId().trim().isEmpty() 
+                && !addedDiscussionIds.contains(event.getDiscussionId())) {
+                processAndStreamEventDiscussion(event, user, onDiscussion, addedDiscussionIds);
+            }
+        }
         
         // 2. Stream public events IMMEDIATELY (no dependencies, uses visibility index)
-        streamPublicEventsWithDiscussion(user, onDiscussion, addedDiscussionIds);
+        Query publicQuery = new Query();
+        publicQuery.addCriteria(Criteria.where("visibility").is("public")
+            .and("discussionId").exists(true).ne(null).ne(""));
+        List<com.pat.repo.domain.Evenement> publicEvents = mongoTemplate.find(publicQuery, com.pat.repo.domain.Evenement.class);
         
-        // 3. NOW load friend/friendGroup data (can be done in parallel or async, but we do it here)
+        for (com.pat.repo.domain.Evenement event : publicEvents) {
+            String discussionId = event.getDiscussionId();
+            if (discussionId != null && !discussionId.trim().isEmpty() 
+                && !addedDiscussionIds.contains(discussionId)) {
+                processAndStreamEventDiscussion(event, user, onDiscussion, addedDiscussionIds);
+            }
+        }
+        
+        // 3. NOW load friend/friendGroup data (can be done in parallel, but we do it here)
         // After the fast queries above, this doesn't block the initial display
         java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroupsMap = loadAccessibleFriendGroups(user);
         java.util.Set<String> friendIds = loadFriendIds(user);
         
-        // 4. Stream events from friends (requires friendIds)
-        streamFriendEvents(user, friendIds, accessibleGroupsMap, onDiscussion, addedDiscussionIds);
+        // 4. Stream events from friends (requires friendIds) - uses batch query optimization
+        if (!friendIds.isEmpty()) {
+            java.util.List<String> friendIdList = new java.util.ArrayList<>(friendIds);
+            Query friendEventsQuery = new Query();
+            friendEventsQuery.addCriteria(Criteria.where("authorId").in(friendIdList)
+                .and("discussionId").exists(true).ne(null).ne(""));
+            List<com.pat.repo.domain.Evenement> friendEvents = mongoTemplate.find(friendEventsQuery, com.pat.repo.domain.Evenement.class);
+            
+            for (com.pat.repo.domain.Evenement event : friendEvents) {
+                String discussionId = event.getDiscussionId();
+                if (discussionId != null && !discussionId.trim().isEmpty() 
+                    && !addedDiscussionIds.contains(discussionId)) {
+                    // Check access (friends visibility or group visibility)
+                    if (canUserAccessEvent(event, user, friendIds, accessibleGroupsMap)) {
+                        processAndStreamEventDiscussion(event, user, onDiscussion, addedDiscussionIds);
+                    }
+                }
+            }
+        }
         
         // 5. Stream friend group discussions (requires accessibleGroupsMap)
-        streamFriendGroupDiscussions(accessibleGroupsMap, user, onDiscussion, addedDiscussionIds);
+        for (com.pat.repo.domain.FriendGroup group : accessibleGroupsMap.values()) {
+            if (group.getDiscussionId() != null && !group.getDiscussionId().trim().isEmpty() 
+                && !addedDiscussionIds.contains(group.getDiscussionId())) {
+                processAndStreamGroupDiscussion(group, user, onDiscussion, addedDiscussionIds);
+            }
+        }
     }
     
     /**
@@ -870,6 +1128,14 @@ public class DiscussionService {
             return;
         }
         
+        // Get last message date (optional - don't block if it fails)
+        Date lastMessageDate = null;
+        try {
+            lastMessageDate = getLastMessageDateFast(discussionId);
+        } catch (Exception e) {
+            log.debug("Could not get last message date for discussion {}: {}", discussionId, e.getMessage());
+        }
+        
         // OPTIMIZATION: Use fast DTO creation (doesn't process messages)
         DiscussionItemDTO item = createDiscussionItemDTOFast(
             discussion.getId(),
@@ -879,6 +1145,7 @@ public class DiscussionService {
         );
         item.setEvent(event);
         item.setMessageCount(messageCount); // Set the actual count from aggregation
+        item.setLastMessageDate(lastMessageDate); // Set last message date if available
         onDiscussion.accept(item); // Send IMMEDIATELY
         addedDiscussionIds.add(discussion.getId());
     }
@@ -908,6 +1175,14 @@ public class DiscussionService {
             return;
         }
         
+        // Get last message date (optional - don't block if it fails)
+        Date lastMessageDate = null;
+        try {
+            lastMessageDate = getLastMessageDateFast(discussionId);
+        } catch (Exception e) {
+            log.debug("Could not get last message date for discussion {}: {}", discussionId, e.getMessage());
+        }
+        
         // OPTIMIZATION: Use fast DTO creation (doesn't process messages)
         DiscussionItemDTO item = createDiscussionItemDTOFast(
             discussion.getId(),
@@ -917,6 +1192,7 @@ public class DiscussionService {
         );
         item.setFriendGroup(group);
         item.setMessageCount(messageCount); // Set the actual count from aggregation
+        item.setLastMessageDate(lastMessageDate); // Set last message date if available
         onDiscussion.accept(item); // Send IMMEDIATELY
         addedDiscussionIds.add(discussion.getId());
     }
