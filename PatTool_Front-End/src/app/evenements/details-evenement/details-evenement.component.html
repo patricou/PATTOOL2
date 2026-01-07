@@ -61,7 +61,7 @@
               {{ formatEventDateTime(evenement.beginEventDate, evenement.startHour) }}
             </span>
           </span>
-          <span class="meta-item" *ngIf="evenement.author">
+          <span class="meta-item" *ngIf="evenement && evenement.author">
             <i class="fa fa-user"></i>
             {{ evenement.author.firstName }} {{ evenement.author.lastName }} <span class="owner-username" *ngIf="evenement.author.userName">({{ evenement.author.userName }})</span>
           </span>

@@ -643,6 +643,10 @@
 .connection-logs-panel {
     width: min(1400px, 95vw);
     max-width: 95vw;
+    height: 90vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .report-overlay-header {
@@ -745,6 +749,19 @@
 
 /* Responsive Design */
 @media (max-width: 768px) {
+    /* Make container full width on mobile */
+    .container .col-12 {
+        max-width: 100% !important;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
+    .title-header {
+        max-width: 100% !important;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+
     .cache-controls {
         gap: 0.625rem;
         margin: 0.875rem 0;
@@ -768,6 +785,24 @@
     .btn-small {
         padding: 0.35rem 0.625rem;
         font-size: 0.75rem;
+    }
+
+    /* Ensure Connection Logs card is visible on mobile */
+    .connection-logs-card {
+        display: block !important;
+        visibility: visible !important;
+        margin-top: 0.6rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .connection-logs-card .report-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .connection-logs-card .report-actions .btn-small {
+        width: 100%;
+        min-width: auto;
     }
 }
 
@@ -799,9 +834,63 @@
         width: 95vw;
         height: 95vh;
     }
+
+    .connection-logs-panel {
+        width: 95vw !important;
+        height: 95vh !important;
+        max-width: 95vw !important;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+    }
+
+    .connection-logs-body {
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    /* Ensure Connection Logs card is visible on small mobile */
+    .connection-logs-card {
+        display: block !important;
+        visibility: visible !important;
+        margin-top: 0.6rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .connection-logs-card .action-header {
+        flex-wrap: wrap;
+    }
+
+    .connection-logs-card .action-info h4 {
+        font-size: 0.8rem;
+    }
+
+    .connection-logs-card .action-info p {
+        font-size: 0.65rem;
+    }
+
+    .connection-logs-card .report-actions {
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .connection-logs-card .report-actions .btn-small {
+        width: 100%;
+        min-width: auto;
+        font-size: 0.7rem;
+    }
 }
 
-/* Connection Logs Styles */
+/* ============================================
+   CONNECTION LOGS MODAL - NEW SIMPLE STYLES
+   ============================================ */
+
+/* Connection Logs Card (button on main page) */
 .connection-logs-card {
     margin-top: 0.6rem;
 }
@@ -826,43 +915,112 @@
     background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
 }
 
-.connection-logs-panel {
-    max-width: 1400px;
+/* ============================================
+   NEW CONNECTION LOGS MODAL
+   ============================================ */
+
+/* Modal Overlay */
+.connection-logs-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1050;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    animation: fadeIn 0.2s ease-out;
 }
 
-.connection-logs-body {
-    flex: 1 1 auto;
-    overflow: auto;
-    background: #f8f9fa;
-    padding: 1.5rem;
-    position: relative;
-    z-index: 1;
+.connection-logs-modal-content {
+    background: white;
+    border-radius: 12px;
+    width: 100%;
+    max-width: 1400px;
+    max-height: 95vh;
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    animation: slideUp 0.3s ease-out;
 }
 
-.connection-logs-filter {
-    background: white;
-    border-radius: 8px;
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.filter-row {
+/* Modal Header */
+.connection-logs-modal-header {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    padding: 1rem 1.5rem;
     display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
     gap: 1rem;
-    align-items: flex-end;
+}
+
+.connection-logs-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.connection-logs-modal-title i {
+    font-size: 1.2rem;
+}
+
+.connection-logs-count {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 0.25rem 0.5rem;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.connection-logs-modal-actions {
+    display: flex;
+    gap: 0.5rem;
     flex-wrap: wrap;
 }
 
-.filter-item {
+/* Modal Body */
+.connection-logs-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 1.5rem;
+    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-height: 0;
+    height: calc(95vh - 120px);
+}
+
+/* Filters */
+.connection-logs-filters {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.connection-logs-filter-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.connection-logs-filter-group {
     flex: 1;
     min-width: 200px;
 }
 
-.filter-item label {
+.connection-logs-filter-group label {
     display: block;
     margin-bottom: 0.5rem;
     font-weight: 600;
@@ -870,416 +1028,327 @@
     font-size: 0.875rem;
 }
 
-.filter-item .form-control {
+.connection-logs-filter-group .form-control {
     width: 100%;
-    padding: 0.5rem;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 0.875rem;
 }
 
-.filter-item button {
+.connection-logs-filter-group button {
     width: 100%;
-    padding: 0.5rem 1rem;
 }
 
-.filter-info {
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid #e5e7eb;
-    font-size: 0.875rem;
-    color: #6b7280;
-    font-weight: 500;
-}
-
-.connection-logs-loading,
-.connection-logs-error {
-    text-align: center;
-    padding: 2rem;
-    background: white;
-    border-radius: 8px;
-    margin-bottom: 1.5rem;
-}
-
-.connection-logs-loading {
-    color: #6b7280;
-}
-
-.connection-logs-loading i {
-    margin-right: 0.5rem;
-}
-
-.connection-logs-error {
-    color: #ef4444;
-    background: #fee2e2;
-    border: 1px solid #fca5a5;
-}
-
-.connection-logs-error i {
-    margin-right: 0.5rem;
-}
-
-.connection-logs-grid-container {
-    background: white;
-    border-radius: 8px;
-    padding: 1rem;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    width: 100%;
-    flex: 1;
-    min-height: 500px;
-    display: flex;
-    flex-direction: column;
-    position: relative;
-    z-index: 10;
-    overflow: visible;
-}
-
-.connection-logs-ag-grid {
-    width: 100%;
-    height: 100%;
-    flex: 1;
-    min-height: 0;
-}
-
-.ag-grid-container {
-    width: 100%;
-    height: 100%;
-}
-
-/* AG Grid Theme Customization */
-.connection-logs-ag-grid-wrapper {
-    width: 100%;
-    height: 100%;
-    min-height: 500px;
-    display: flex;
-    flex-direction: column;
-    overflow: visible !important;
-}
-
-/* AG Grid Theme Customization - Using :host ::ng-deep to penetrate view encapsulation */
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine {
-    --ag-header-background-color: #10b981;
-    --ag-header-foreground-color: white;
-    --ag-border-color: #e5e7eb;
-    --ag-row-hover-color: #f9fafb;
-    --ag-font-size: 0.875rem;
-    --ag-font-family: inherit;
-    width: 100% !important;
-    height: 100% !important;
-    min-height: 500px !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-header {
-    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-    color: white !important;
-    font-weight: 600 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-size: 0.8rem !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-header-cell {
-    border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-header-cell-label {
-    color: white !important;
-    font-weight: 600 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    height: 100% !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-header-cell {
-    display: flex !important;
-    align-items: center !important;
-    height: 100% !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-row {
-    border-bottom: 1px solid #e5e7eb;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-row:hover {
-    background-color: #f9fafb !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell {
-    font-size: 0.875rem;
-    line-height: 1.5 !important;
-    padding: 0.5rem !important;
-    display: flex !important;
-    align-items: center !important;
-    white-space: normal !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    word-break: break-word !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell-wrapper {
-    display: flex !important;
-    align-items: center !important;
-    width: 100% !important;
-    min-height: 100% !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell-value {
-    display: flex !important;
-    align-items: center !important;
-    width: 100% !important;
-    min-height: 100% !important;
-}
-
-/* For cells with div content (multi-line), center vertically */
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell > div {
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: center !important;
-    align-items: flex-start !important;
-    width: 100% !important;
-    line-height: normal !important;
-}
-
-/* For badge elements */
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell .badge {
-    display: inline-flex !important;
-    align-items: center !important;
-    line-height: normal !important;
-    margin: 0 auto !important;
-}
-
-/* Center badge in type column specifically */
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell.type-column-cell {
-    justify-content: center !important;
-    text-align: center !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell.type-column-cell .ag-cell-wrapper {
-    justify-content: center !important;
-    width: 100% !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell.type-column-cell .ag-cell-value {
-    justify-content: center !important;
-    width: 100% !important;
-    display: flex !important;
-    align-items: center !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell.type-column-cell .badge {
-    margin: 0 auto !important;
-}
-
-/* For code elements */
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-cell code {
-    display: inline-block !important;
-    line-height: normal !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-root-wrapper {
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    overflow: visible !important;
-    width: 100% !important;
-    height: 100% !important;
-    display: flex !important;
-    flex-direction: column !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-body-viewport {
-    overflow-x: auto !important;
-    overflow-y: auto !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-body-horizontal-scroll {
-    overflow-x: auto !important;
-}
-
-/* Pagination Styles */
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-panel {
-    background: #ffffff !important;
-    border-top: 1px solid #e5e7eb !important;
-    padding: 0.75rem 1rem !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: space-between !important;
-    flex-wrap: wrap !important;
-    gap: 0.5rem !important;
-    font-size: 0.875rem !important;
-    color: #374151 !important;
-    position: relative !important;
-    z-index: 100 !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    height: auto !important;
-    min-height: 50px !important;
-    overflow: visible !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-row-summary-panel {
-    display: flex !important;
-    align-items: center !important;
-    gap: 0.5rem !important;
-    color: #6b7280 !important;
-    font-weight: 500 !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-page-summary-panel {
-    display: flex !important;
-    align-items: center !important;
-    gap: 0.5rem !important;
-    color: #6b7280 !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-button {
-    background: #ffffff !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 6px !important;
-    padding: 0.375rem 0.75rem !important;
-    color: #374151 !important;
-    font-size: 0.875rem !important;
-    font-weight: 500 !important;
-    cursor: pointer !important;
-    transition: all 0.2s ease !important;
-    min-width: 36px !important;
-    height: 36px !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-button:hover:not(:disabled) {
-    background: #f9fafb !important;
-    border-color: #10b981 !important;
-    color: #10b981 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 2px 4px rgba(16, 185, 129, 0.1) !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-button:disabled {
-    opacity: 0.5 !important;
-    cursor: not-allowed !important;
-    background: #f3f4f6 !important;
-    color: #9ca3af !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-button.ag-disabled {
-    opacity: 0.5 !important;
-    cursor: not-allowed !important;
-    background: #f3f4f6 !important;
-    color: #9ca3af !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-page-size {
-    display: flex !important;
-    align-items: center !important;
-    gap: 0.5rem !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-page-size select {
-    background: #ffffff !important;
-    border: 1px solid #d1d5db !important;
-    border-radius: 6px !important;
-    padding: 0.375rem 0.75rem !important;
-    color: #374151 !important;
-    font-size: 0.875rem !important;
-    font-weight: 500 !important;
-    cursor: pointer !important;
-    transition: all 0.2s ease !important;
-    min-width: 80px !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-page-size select:hover {
-    border-color: #10b981 !important;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
-}
-
-:host ::ng-deep .connection-logs-grid-container .ag-theme-alpine .ag-paging-page-size select:focus {
-    outline: none !important;
-    border-color: #10b981 !important;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1) !important;
-}
-
-.connection-logs-empty {
-    text-align: center;
-    padding: 3rem;
-    color: #6b7280;
-    font-size: 0.875rem;
-}
-
-.connection-logs-empty i {
-    margin-right: 0.5rem;
-    font-size: 1.25rem;
-    color: #9ca3af;
-}
-
-.connection-logs-message {
-    margin-bottom: 1rem;
+/* Alerts */
+.connection-logs-alert {
     padding: 0.75rem 1rem;
     border-radius: 6px;
-    font-size: 0.875rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    animation: slideIn 0.3s ease-out;
+    font-size: 0.875rem;
 }
 
-.connection-logs-message i {
-    flex-shrink: 0;
-    font-size: 1rem;
-}
-
-.connection-logs-success {
+.connection-logs-alert.alert-success {
     background: #d1fae5;
     border: 1px solid #10b981;
     color: #065f46;
 }
 
-.connection-logs-success i {
-    color: #10b981;
-}
-
-.connection-logs-error {
+.connection-logs-alert.alert-danger {
     background: #fee2e2;
     border: 1px solid #ef4444;
     color: #991b1b;
 }
 
-.connection-logs-error i {
-    color: #ef4444;
+/* Loading State */
+.connection-logs-loading-state {
+    text-align: center;
+    padding: 3rem;
+    background: white;
+    border-radius: 8px;
+    color: #6b7280;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
 }
 
-/* Responsive Design for Connection Logs */
+/* Empty State */
+.connection-logs-empty-state {
+    text-align: center;
+    padding: 3rem;
+    background: white;
+    border-radius: 8px;
+    color: #6b7280;
+}
+
+.connection-logs-empty-state i {
+    font-size: 3rem;
+    color: #9ca3af;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+.connection-logs-empty-state p {
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+/* Table Wrapper */
+.connection-logs-table-wrapper {
+    flex: 1;
+    min-height: 400px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.connection-logs-table-container {
+    background: white;
+    border-radius: 8px;
+    padding: 1rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    flex: 1;
+    min-height: 400px;
+    max-height: 600px;
+    overflow-y: auto;
+    overflow-x: auto;
+    display: block;
+    visibility: visible;
+    position: relative;
+}
+
+.connection-logs-table-container .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+}
+
+.connection-logs-table {
+    width: 100%;
+    margin-bottom: 0;
+    font-size: 0.875rem;
+}
+
+.connection-logs-table thead {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.connection-logs-table thead th {
+    color: white;
+    font-weight: 600;
+    padding: 0.75rem;
+    border: none;
+    white-space: nowrap;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.connection-logs-table tbody td {
+    padding: 0.75rem;
+    vertical-align: middle;
+    border-top: 1px solid #e5e7eb;
+}
+
+.connection-logs-table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.connection-logs-table .badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Table styles - no longer using AG Grid */
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
-    .connection-logs-table {
-        font-size: 0.75rem;
+    .connection-logs-modal {
+        padding: 0.5rem;
     }
 
-    .connection-logs-table thead th,
-    .connection-logs-table tbody td {
-        padding: 0.75rem 0.5rem;
+    .connection-logs-modal-content {
+        max-height: 98vh;
     }
 
-    .filter-row {
+    .connection-logs-modal-header {
+        padding: 0.75rem 1rem;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .connection-logs-modal-title {
+        font-size: 1rem;
+    }
+
+    .connection-logs-modal-actions {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .connection-logs-modal-body {
+        padding: 1rem;
+        height: calc(98vh - 120px) !important;
+    }
+
+    .connection-logs-filter-row {
         flex-direction: column;
     }
 
-    .filter-item {
+    .connection-logs-filter-group {
         min-width: 100%;
+    }
+
+    .connection-logs-table-wrapper {
+        min-height: 300px !important;
+        height: 100% !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .connection-logs-table-container {
+        min-height: 300px !important;
+        max-height: 500px !important;
+        height: 400px !important;
+        padding: 0.75rem;
+        overflow-y: auto !important;
+        overflow-x: auto !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+
+    .table-responsive {
+        display: block !important;
+        width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .connection-logs-table {
+        font-size: 0.75rem;
+        width: 100% !important;
+        display: table !important;
+        visibility: visible !important;
+    }
+
+    .connection-logs-table thead {
+        display: table-header-group !important;
+        visibility: visible !important;
+    }
+
+    .connection-logs-table tbody {
+        display: table-row-group !important;
+        visibility: visible !important;
+    }
+
+    .connection-logs-table thead th {
+        font-size: 0.7rem;
+        padding: 0.5rem;
+        display: table-cell !important;
+        visibility: visible !important;
+    }
+
+    .connection-logs-table tbody td {
+        padding: 0.5rem;
+        font-size: 0.7rem;
+        display: table-cell !important;
+        visibility: visible !important;
+    }
+
+    .connection-logs-table tbody tr {
+        display: table-row !important;
+        visibility: visible !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .connection-logs-modal {
+        padding: 0;
+    }
+
+    .connection-logs-modal-content {
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .connection-logs-modal-header {
+        padding: 0.75rem;
+    }
+
+    .connection-logs-modal-body {
+        padding: 0.75rem;
+        height: calc(100vh - 100px) !important;
+    }
+
+    .connection-logs-table-container {
+        min-height: 300px !important;
+        max-height: 400px !important;
+        padding: 0.5rem;
+    }
+
+    .connection-logs-table {
+        font-size: 0.7rem;
+    }
+
+    .connection-logs-table thead th {
+        font-size: 0.65rem;
+        padding: 0.4rem;
+    }
+
+    .connection-logs-table tbody td {
+        padding: 0.4rem;
+        font-size: 0.65rem;
     }
 }
 
 @media (max-width: 480px) {
     .connection-logs-body {
-        padding: 1rem;
+        padding: 0.75rem;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
     }
 
     .connection-logs-filter {
         padding: 0.75rem;
+        margin-bottom: 1rem;
     }
 
     .connection-log-card {
         padding: 0.75rem;
+    }
+
+    /* Fix grid container for small mobile */
+    /* No longer using AG Grid - using simple HTML table */
+
+    .connection-logs-loading,
+    .connection-logs-error {
+        padding: 1.5rem;
+        margin-bottom: 1rem;
     }
 }

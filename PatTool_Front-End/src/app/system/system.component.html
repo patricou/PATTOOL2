@@ -529,54 +529,54 @@
     </div>
 </div>
 
-<!-- Connection Logs Overlay -->
-<div class="report-overlay" *ngIf="isConnectionLogsVisible">
-    <div class="report-overlay-backdrop" (click)="closeConnectionLogs()"></div>
-    <div class="report-overlay-panel connection-logs-panel">
-        <div class="report-overlay-header">
-            <div class="report-overlay-title">
+<!-- Connection Logs Modal - New Simple Structure -->
+<div class="connection-logs-modal" *ngIf="isConnectionLogsVisible" (click)="closeConnectionLogs()">
+    <div class="connection-logs-modal-content" (click)="$event.stopPropagation()">
+        <!-- Header -->
+        <div class="connection-logs-modal-header">
+            <div class="connection-logs-modal-title">
                 <i class="fa fa-users"></i>
-                {{ 'SYSTEM.CONNECTION_LOGS.TITLE' | translate }}
-                <span *ngIf="connectionLogsCount > 0" class="connection-count-badge">
-                    ({{ connectionLogsCount }})
-                </span>
+                <span>{{ 'SYSTEM.CONNECTION_LOGS.TITLE' | translate }}</span>
+                <span *ngIf="connectionLogsCount > 0" class="connection-logs-count">({{ connectionLogsCount }})</span>
             </div>
-            <div class="report-overlay-actions">
+            <div class="connection-logs-modal-actions">
                 <button type="button" 
                         class="btn btn-sm btn-danger" 
                         (click)="deleteAllConnectionLogs()"
-                        [disabled]="!isDeleteConnectionLogsAuthorized || isDeletingConnectionLogs || isLoadingConnectionLogs"
-                        [title]="!isDeleteConnectionLogsAuthorized ? ('SYSTEM.CONNECTION_LOGS.NOT_AUTHORIZED' | translate) : ('SYSTEM.CONNECTION_LOGS.DELETE_ALL' | translate)">
+                        [disabled]="!isDeleteConnectionLogsAuthorized || isDeletingConnectionLogs || isLoadingConnectionLogs">
                     <i class="fa" [ngClass]="{'fa-trash': !isDeletingConnectionLogs, 'fa-spinner': isDeletingConnectionLogs, 'fa-spin': isDeletingConnectionLogs}"></i>
                     {{ 'SYSTEM.CONNECTION_LOGS.DELETE_ALL' | translate }}
                 </button>
-                <button type="button" class="btn btn-sm btn-light report-overlay-close" (click)="closeConnectionLogs()">
+                <button type="button" class="btn btn-sm btn-secondary" (click)="closeConnectionLogs()">
                     <i class="fa fa-times"></i>
                     {{ 'SYSTEM.CONNECTION_LOGS.CLOSE' | translate }}
                 </button>
             </div>
         </div>
-        <div class="connection-logs-body">
-            <!-- Date Filter Section -->
-            <div class="connection-logs-filter">
-                <div class="filter-row">
-                    <div class="filter-item">
-                        <label>{{ 'SYSTEM.CONNECTION_LOGS.FROM_DATE' | translate }}:</label>
+
+        <!-- Body -->
+        <div class="connection-logs-modal-body">
+            <!-- Filters -->
+            <div class="connection-logs-filters">
+                <div class="connection-logs-filter-row">
+                    <div class="connection-logs-filter-group">
+                        <label>{{ 'SYSTEM.CONNECTION_LOGS.FROM_DATE' | translate }}</label>
                         <input type="datetime-local" 
                                [value]="getDateTimeLocalString(connectionLogsStartDate)"
                                (change)="onStartDateChange($event)"
-                               class="form-control">
+                               class="form-control form-control-sm">
                     </div>
-                    <div class="filter-item">
-                        <label>{{ 'SYSTEM.CONNECTION_LOGS.TO_DATE' | translate }}:</label>
+                    <div class="connection-logs-filter-group">
+                        <label>{{ 'SYSTEM.CONNECTION_LOGS.TO_DATE' | translate }}</label>
                         <input type="datetime-local" 
                                [value]="getDateTimeLocalString(connectionLogsEndDate)"
                                (change)="onEndDateChange($event)"
-                               class="form-control">
+                               class="form-control form-control-sm">
                     </div>
-                    <div class="filter-item">
+                    <div class="connection-logs-filter-group">
+                        <label>&nbsp;</label>
                         <button type="button" 
-                                class="btn btn-primary"
+                                class="btn btn-primary btn-sm"
                                 (click)="applyConnectionLogsFilter()"
                                 [disabled]="isLoadingConnectionLogs">
                             <i class="fa" [ngClass]="{'fa-search': !isLoadingConnectionLogs, 'fa-spinner': isLoadingConnectionLogs, 'fa-spin': isLoadingConnectionLogs}"></i>
@@ -586,39 +586,71 @@
                 </div>
             </div>
 
-            <!-- Loading State -->
-            <div *ngIf="isLoadingConnectionLogs" class="connection-logs-loading">
-                <i class="fa fa-spinner fa-spin"></i> {{ 'SYSTEM.CONNECTION_LOGS.LOADING' | translate }}
-            </div>
-
-            <!-- Error State -->
-            <div *ngIf="connectionLogsError && !isLoadingConnectionLogs" class="connection-logs-error">
-                <i class="fa fa-exclamation-triangle"></i> {{ connectionLogsError }}
-            </div>
-
-            <!-- Delete Message -->
+            <!-- Messages -->
             <div *ngIf="deleteConnectionLogsMessageVisible" 
-                 class="connection-logs-message"
-                 [class.connection-logs-success]="deleteConnectionLogsMessage.includes('Success') || deleteConnectionLogsMessage.includes('success')"
-                 [class.connection-logs-error]="!deleteConnectionLogsMessage.includes('Success') && !deleteConnectionLogsMessage.includes('success')">
+                 class="connection-logs-alert"
+                 [class.alert-success]="deleteConnectionLogsMessage.includes('Success') || deleteConnectionLogsMessage.includes('success')"
+                 [class.alert-danger]="!deleteConnectionLogsMessage.includes('Success') && !deleteConnectionLogsMessage.includes('success')">
                 <i class="fa" [ngClass]="{'fa-check-circle': deleteConnectionLogsMessage.includes('Success') || deleteConnectionLogsMessage.includes('success'), 'fa-exclamation-circle': !deleteConnectionLogsMessage.includes('Success') && !deleteConnectionLogsMessage.includes('success')}"></i>
                 {{ deleteConnectionLogsMessage }}
             </div>
 
-            <!-- Connection Logs AG Grid -->
-            <div *ngIf="!isLoadingConnectionLogs && !connectionLogsError" class="connection-logs-grid-container">
-                <div *ngIf="connectionLogs.length > 0" class="ag-theme-alpine connection-logs-ag-grid-wrapper">
-                    <ag-grid-angular
-                        [rowData]="connectionLogs"
-                        [columnDefs]="connectionLogsColumnDefs"
-                        [gridOptions]="connectionLogsGridOptions"
-                        (gridReady)="onGridReady($event)"
-                        class="ag-theme-alpine"
-                        style="width: 100%; height: 100%; min-height: 500px;">
-                    </ag-grid-angular>
+            <!-- Loading -->
+            <div *ngIf="isLoadingConnectionLogs" class="connection-logs-loading-state">
+                <i class="fa fa-spinner fa-spin"></i>
+                <span>{{ 'SYSTEM.CONNECTION_LOGS.LOADING' | translate }}</span>
+            </div>
+
+            <!-- Error -->
+            <div *ngIf="connectionLogsError && !isLoadingConnectionLogs" class="connection-logs-alert alert-danger">
+                <i class="fa fa-exclamation-triangle"></i>
+                {{ connectionLogsError }}
+            </div>
+
+            <!-- Table Container -->
+            <div *ngIf="!isLoadingConnectionLogs && !connectionLogsError" class="connection-logs-table-wrapper">
+                <!-- Empty State -->
+                <div *ngIf="connectionLogs.length === 0" class="connection-logs-empty-state">
+                    <i class="fa fa-info-circle"></i>
+                    <p>{{ 'SYSTEM.CONNECTION_LOGS.NO_LOGS' | translate }}</p>
                 </div>
-                <div *ngIf="connectionLogs.length === 0" class="connection-logs-empty">
-                    <i class="fa fa-info-circle"></i> {{ 'SYSTEM.CONNECTION_LOGS.NO_LOGS' | translate }}
+
+                <!-- HTML Table -->
+                <div *ngIf="connectionLogs.length > 0" class="connection-logs-table-container">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-striped connection-logs-table">
+                            <thead>
+                                <tr>
+                                    <th>{{ 'SYSTEM.CONNECTION_LOGS.DATE_TIME' | translate }}</th>
+                                    <th>{{ 'SYSTEM.CONNECTION_LOGS.TYPE' | translate }}</th>
+                                    <th>{{ 'SYSTEM.CONNECTION_LOGS.USER' | translate }}</th>
+                                    <th>{{ 'SYSTEM.CONNECTION_LOGS.DISCUSSION_TITLE' | translate }}</th>
+                                    <th>{{ 'SYSTEM.CONNECTION_LOGS.IP_ADDRESS' | translate }}</th>
+                                    <th>{{ 'SYSTEM.CONNECTION_LOGS.DOMAIN_NAME' | translate }}</th>
+                                    <th>{{ 'SYSTEM.CONNECTION_LOGS.LOCATION' | translate }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr *ngFor="let log of connectionLogs">
+                                    <td>{{ formatConnectionDate(log.connectionDate) }}</td>
+                                    <td>
+                                        <span [class]="log.type === 'discussion' ? 'badge bg-info' : 'badge bg-primary'">
+                                            {{ log.type }}
+                                        </span>
+                                    </td>
+                                    <td>{{ log.memberUserName || log.member?.userName || log.memberId || 'N/A' }}</td>
+                                    <td>
+                                        <strong *ngIf="log.type === 'discussion' && log.discussionTitle">{{ log.discussionTitle }}</strong>
+                                        <em *ngIf="log.type === 'discussion' && !log.discussionTitle">No title</em>
+                                        <span *ngIf="log.type !== 'discussion'">-</span>
+                                    </td>
+                                    <td>{{ log.ipAddress || 'N/A' }}</td>
+                                    <td>{{ log.domainName || 'N/A' }}</td>
+                                    <td>{{ log.location || 'N/A' }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

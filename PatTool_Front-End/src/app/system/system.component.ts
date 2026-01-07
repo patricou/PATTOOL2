@@ -1,10 +1,9 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders, HttpClientModule } from '@angular/common/http';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { AgGridModule } from 'ag-grid-angular';
 import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { CacheService } from '../services/cache.service';
 import { ExceptionReportService } from '../services/exception-report.service';
@@ -17,7 +16,6 @@ import { KeycloakService } from '../keycloak/keycloak.service';
 import { environment } from '../../environments/environment';
 import { Observable, from, of } from 'rxjs';
 import { switchMap, catchError } from 'rxjs/operators';
-import { ColDef, GridOptions, GridReadyEvent } from 'ag-grid-community';
 import { DiscussionService } from '../services/discussion.service';
 
 @Component({
@@ -30,7 +28,6 @@ import { DiscussionService } from '../services/discussion.service';
     FormsModule,
     HttpClientModule,
     TranslateModule,
-    AgGridModule,
     NgbModule,
     NavigationButtonsModule
   ]
@@ -95,7 +92,8 @@ export class SystemComponent implements OnInit {
     private _memberService: MembersService,
     private _http: HttpClient,
     private _keycloakService: KeycloakService,
-    private discussionService: DiscussionService
+    private discussionService: DiscussionService,
+    private cdr: ChangeDetectorRef
   ) { }
 
   // Connection Logs properties
@@ -116,27 +114,7 @@ export class SystemComponent implements OnInit {
   activeConnectionsError: string = '';
   activeConnectionsCount: number = 0;
   
-  // AG Grid properties
-  connectionLogsColumnDefs: ColDef[] = [];
-  connectionLogsGridOptions: GridOptions = {
-    theme: 'legacy', // Use legacy CSS theme to avoid conflict with new Theming API
-    defaultColDef: {
-      sortable: true,
-      filter: true,
-      resizable: true,
-      flex: 1,
-      minWidth: 150,
-      cellStyle: { display: 'flex', alignItems: 'center', verticalAlign: 'middle' },
-      wrapText: true,
-      autoHeight: true
-    },
-    pagination: true,
-    paginationPageSize: 20,
-    paginationPageSizeSelector: [10, 20, 50, 100],
-    animateRows: true,
-    rowSelection: 'single',
-    suppressRowClickSelection: false
-  };
+  // Table properties (no longer using AG Grid)
 
   ngOnInit() {
     this.user = this._memberService.getUser();
@@ -152,8 +130,7 @@ export class SystemComponent implements OnInit {
     this.connectionLogsStartDate = new Date();
     this.connectionLogsStartDate.setDate(this.connectionLogsStartDate.getDate() - 1);
     
-    // Initialize AG Grid column definitions
-    this.initializeConnectionLogsColumns();
+    // No longer using AG Grid
     
     // Load active discussion connections on init
     this.loadActiveDiscussionConnections();
@@ -185,91 +162,7 @@ export class SystemComponent implements OnInit {
     }, 500);
   }
   
-  initializeConnectionLogsColumns(): void {
-    this.connectionLogsColumnDefs = [
-      {
-        field: 'connectionDate',
-        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.DATE_TIME'),
-        width: 200,
-        valueFormatter: (params) => {
-          return params.value ? this.formatConnectionDate(params.value) : 'N/A';
-        },
-        comparator: (valueA, valueB) => {
-          const dateA = valueA ? new Date(valueA).getTime() : 0;
-          const dateB = valueB ? new Date(valueB).getTime() : 0;
-          return dateA - dateB;
-        }
-      },
-      {
-        field: 'type',
-        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.TYPE') || 'Type',
-        width: 80,
-        cellStyle: { display: 'flex', justifyContent: 'center', alignItems: 'center', textAlign: 'center' },
-        cellClass: 'type-column-cell',
-        cellRenderer: (params: any) => {
-          const type = params.value || 'login';
-          const badgeClass = type === 'discussion' ? 'badge bg-info' : 'badge bg-primary';
-          return `<span class="${badgeClass}">${type}</span>`;
-        }
-      },
-      {
-        field: 'member',
-        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.USER'),
-        width: 200,
-        valueGetter: (params) => {
-          // Prefer memberUserName (from optimized backend), fallback to member.userName or memberId
-          if (params.data?.memberUserName) {
-            return params.data.memberUserName;
-          }
-          if (params.data?.member?.userName) {
-            return params.data.member.userName;
-          }
-          if (params.data?.memberId) {
-            return params.data.memberId; // Show ID if username not loaded yet
-          }
-          return 'N/A';
-        }
-      },
-      {
-        field: 'discussionTitle',
-        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.DISCUSSION_TITLE') || 'Discussion',
-        width: 250,
-        cellRenderer: (params: any) => {
-          if (params.data?.type === 'discussion' && params.value) {
-            return `<div><strong>${params.value}</strong></div>`;
-          }
-          return params.data?.type === 'discussion' ? '<em>No title</em>' : '-';
-        }
-      },
-      {
-        field: 'discussionId',
-        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.DISCUSSION_ID') || 'Discussion ID',
-        width: 200,
-        cellRenderer: (params: any) => {
-          if (params.data?.type === 'discussion' && params.value) {
-            return `<code style="font-size: 0.85em;">${params.value}</code>`;
-          }
-          return '-';
-        }
-      },
-      {
-        field: 'ipAddress',
-        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.IP_ADDRESS'),
-        width: 150
-      },
-      {
-        field: 'domainName',
-        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.DOMAIN_NAME'),
-        width: 200
-      },
-      {
-        field: 'location',
-        headerName: this.translate.instant('SYSTEM.CONNECTION_LOGS.LOCATION'),
-        width: 250,
-        flex: 2
-      }
-    ];
-  }
+  // No longer using AG Grid - using simple HTML table instead
 
 
   loadCacheStats(): void {
@@ -949,10 +842,7 @@ export class SystemComponent implements OnInit {
 
   viewConnectionLogs(): void {
     this.isConnectionLogsVisible = true;
-    // Ensure columns are initialized before loading data
-    if (this.connectionLogsColumnDefs.length === 0) {
-      this.initializeConnectionLogsColumns();
-    }
+    // No longer using AG Grid
     this.loadConnectionLogs();
   }
 
@@ -989,7 +879,7 @@ export class SystemComponent implements OnInit {
           this.connectionLogsCount = responseData.count || this.connectionLogs.length;
           
           console.log('Connection logs loaded:', this.connectionLogs.length, 'logs', `(${Math.round(tResp - t0)}ms)`);
-          console.log('Column definitions:', this.connectionLogsColumnDefs.length);
+          console.log('Sample log data:', this.connectionLogs.length > 0 ? this.connectionLogs[0] : 'No logs');
           
           // Convert date strings to Date objects
           this.connectionLogs = this.connectionLogs.map((log: any) => {
@@ -999,13 +889,24 @@ export class SystemComponent implements OnInit {
             return log;
           });
           
-          // Update column headers with translations
-          this.updateColumnHeaders();
+          // Force change detection immediately
+          this.cdr.detectChanges();
+          
+          // Also force change detection after a short delay to ensure view is updated
+          setTimeout(() => {
+            this.cdr.detectChanges();
+            console.log('Connection logs array after processing:', this.connectionLogs.length);
+            console.log('Is loading:', this.isLoadingConnectionLogs);
+            console.log('Has error:', this.connectionLogsError);
+          }, 100);
         } else {
           this.connectionLogsError = responseData.error || 'Failed to load connection logs';
           this.connectionLogs = [];
+          console.error('Failed to load connection logs:', responseData);
         }
         this.isLoadingConnectionLogs = false;
+        // Force change detection immediately after loading completes
+        this.cdr.detectChanges();
       },
       error => {
         console.log(`Connection logs request failed after ${Math.round(performance.now() - t0)}ms`, error);
@@ -1016,36 +917,7 @@ export class SystemComponent implements OnInit {
     );
   }
   
-  updateColumnHeaders(): void {
-    this.connectionLogsColumnDefs.forEach(col => {
-      if (col.field === 'connectionDate') {
-        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.DATE_TIME');
-      } else if (col.field === 'type') {
-        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.TYPE') || 'Type';
-      } else if (col.field === 'member') {
-        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.USER');
-      } else if (col.field === 'discussionTitle') {
-        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.DISCUSSION_TITLE') || 'Discussion';
-      } else if (col.field === 'discussionId') {
-        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.DISCUSSION_ID') || 'Discussion ID';
-      } else if (col.field === 'ipAddress') {
-        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.IP_ADDRESS');
-      } else if (col.field === 'domainName') {
-        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.DOMAIN_NAME');
-      } else if (col.field === 'location') {
-        col.headerName = this.translate.instant('SYSTEM.CONNECTION_LOGS.LOCATION');
-      }
-    });
-  }
-  
-  onGridReady(event: GridReadyEvent): void {
-    if (event.api) {
-      // Auto-size columns to fit
-      setTimeout(() => {
-        event.api.sizeColumnsToFit();
-      }, 100);
-    }
-  }
+  // No longer using AG Grid - using simple HTML table instead
 
   applyConnectionLogsFilter(): void {
     this.loadConnectionLogs();
