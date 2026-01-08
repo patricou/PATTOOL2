@@ -107,7 +107,7 @@ export class VideoUploadProcessingService {
                     let progressMessage = progress.message;
                     if (progress.progress !== undefined) {
                       const stageLabel = progress.stage ? `[${progress.stage}] ` : '';
-                      progressMessage = `${stageLabel}${progress.progress}% - ${progress.message}`;
+                      progressMessage = `${stageLabel}${progress.progress.toFixed(2)}% - ${progress.message}`;
                     }
                     // Call onProgress which will trigger change detection in the component
                     onProgress(progressMessage);
@@ -124,12 +124,40 @@ export class VideoUploadProcessingService {
             
             const compressedBlob = await Promise.race([compressionPromise, compressionTimeout]);
             
+            // Check if compressed file is larger than original
+            if (compressedBlob.size > file.size) {
+              const sizeIncrease = ((compressedBlob.size / file.size - 1) * 100).toFixed(1);
+              const confirmMessage = `⚠️ Compression Warning\n\n` +
+                `The compressed file is ${sizeIncrease}% larger than the original file.\n\n` +
+                `Original: ${this.formatFileSize(file.size)}\n` +
+                `Compressed: ${this.formatFileSize(compressedBlob.size)}\n\n` +
+                `This can happen when:\n` +
+                `• The video is already highly compressed\n` +
+                `• The compression quality setting is too high\n` +
+                `• The video format conversion increases file size\n\n` +
+                `Do you still want to upload the compressed file?\n` +
+                `(Click "Cancel" to use the original file instead)`;
+              
+              const useCompressed = window.confirm(confirmMessage);
+              
+              if (!useCompressed) {
+                // User chose to use original file
+                if (onProgress) {
+                  onProgress(`ℹ️ Using original file (compressed file was larger: ${this.formatFileSize(compressedBlob.size)} vs ${this.formatFileSize(file.size)})`);
+                }
+                processedFiles.push(file);
+                continue; // Skip to next file
+              }
+              // If user confirmed, continue with compressed file (will be logged below)
+            }
+            
             // Check if compression actually happened (for AVI/MOV files, format might have changed)
             const isAviOrMov = file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mov');
             const formatChanged = isAviOrMov && (compressedBlob.type.includes('webm') || compressedBlob.type.includes('mp4'));
             
             // If compression failed (same size and no format change for AVI/MOV), use original
-            if (!formatChanged && compressedBlob.size >= file.size * 0.95) {
+            // But skip this check if compressed is larger (already handled above)
+            if (compressedBlob.size <= file.size && !formatChanged && compressedBlob.size >= file.size * 0.95) {
               // Compression didn't really happen (probably error was caught and original returned)
               if (onProgress) {
                 onProgress(`⚠️ Compression not available for this format. Using original file.`);
@@ -147,9 +175,18 @@ export class VideoUploadProcessingService {
               
               processedFiles.push(compressedFile);
               
-              const reduction = ((1 - compressedBlob.size / file.size) * 100).toFixed(1);
-              if (onProgress) {
-                onProgress(`✅ Video compressed: ${this.formatFileSize(file.size)} → ${this.formatFileSize(compressedBlob.size)} (${reduction}% reduction)`);
+              // Log compression result
+              if (compressedBlob.size > file.size) {
+                // User confirmed to use compressed file even though it's larger
+                const sizeIncrease = ((compressedBlob.size / file.size - 1) * 100).toFixed(1);
+                if (onProgress) {
+                  onProgress(`⚠️ Using compressed file despite being larger: ${this.formatFileSize(file.size)} → ${this.formatFileSize(compressedBlob.size)} (+${sizeIncrease}%)`);
+                }
+              } else {
+                const reduction = ((1 - compressedBlob.size / file.size) * 100).toFixed(1);
+                if (onProgress) {
+                  onProgress(`✅ Video compressed: ${this.formatFileSize(file.size)} → ${this.formatFileSize(compressedBlob.size)} (${reduction}% reduction)`);
+                }
               }
             }
             

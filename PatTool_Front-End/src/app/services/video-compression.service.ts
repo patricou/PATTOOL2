@@ -346,8 +346,6 @@ export class VideoCompressionService {
                                 chunks.push(event.data);
                                 compressedSize += event.data.size;
                                 
-                                console.log(`📦 MediaRecorder data received: ${event.data.size} bytes, total: ${compressedSize} bytes, chunks: ${chunks.length}`);
-                                
                                 // Update progress every 500ms
                                 const now = Date.now();
                                 if (onProgress && now - lastProgressUpdate > 500) {
@@ -358,20 +356,14 @@ export class VideoCompressionService {
                                     onProgress({
                                         stage: 'compressing',
                                         progress: estimatedProgress,
-                                        message: `Compressing... ${Math.round(estimatedProgress)}% (${this.formatFileSize(compressedSize)} processed, ${video.currentTime > 0 ? `${video.currentTime.toFixed(1)}s/${duration.toFixed(1)}s` : 'starting...'})`,
+                                        message: `${this.formatFileSize(compressedSize)} processed, ${video.currentTime > 0 ? `${video.currentTime.toFixed(1)}s/${duration.toFixed(1)}s` : 'starting...'}`,
                                         originalSize: file.size,
                                         compressedSize: compressedSize
                                     });
                                     lastProgressUpdate = now;
                                 }
-                            } else {
-                                // Log when event fires but has no data
-                                console.log(`⚠️ MediaRecorder ondataavailable fired but event.data is empty or size is 0`);
                             }
                         };
-                        
-                        // Add a listener to check MediaRecorder state changes
-                        console.log(`MediaRecorder created, state: ${mediaRecorder.state}, mimeType: ${mimeType}`);
                         
                         // Add periodic progress updates even if video isn't playing yet
                         progressIntervalId = window.setInterval(() => {
@@ -410,7 +402,7 @@ export class VideoCompressionService {
                                 onProgress({
                                     stage: 'compressing',
                                     progress: estimatedProgress,
-                                    message: `Compressing... ${Math.round(estimatedProgress)}% (${this.formatFileSize(compressedSize)} processed${video.currentTime > 0 ? `, ${video.currentTime.toFixed(1)}s/${duration.toFixed(1)}s` : ''})`,
+                                    message: `${this.formatFileSize(compressedSize)} processed${video.currentTime > 0 ? `, ${video.currentTime.toFixed(1)}s/${duration.toFixed(1)}s` : ''}`,
                                     originalSize: file.size,
                                     compressedSize: compressedSize
                                 });
