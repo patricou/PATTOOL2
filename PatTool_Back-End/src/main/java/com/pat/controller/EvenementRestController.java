@@ -1152,12 +1152,17 @@ public class EvenementRestController {
     }
 
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)
-    public Evenement getEvenement(@PathVariable String id) {
+    public ResponseEntity<Evenement> getEvenement(@PathVariable String id) {
         //log.info("Get evenement {id} : " + id );
         Evenement evenement = evenementsRepository.findById(id).orElse(null);
         
+        if (evenement == null) {
+            log.warn("Event not found for ID: {}", id);
+            return ResponseEntity.notFound().build();
+        }
+        
         // Handle discussionId: if it exists but the discussion doesn't, create it (like for FriendGroup)
-        if (evenement != null && evenement.getDiscussionId() != null && !evenement.getDiscussionId().trim().isEmpty()) {
+        if (evenement.getDiscussionId() != null && !evenement.getDiscussionId().trim().isEmpty()) {
             if (evenement.getAuthor() != null && evenement.getAuthor().getUserName() != null) {
                 // Check if discussion exists
                 com.pat.repo.domain.Discussion discussion = discussionService.getDiscussionById(evenement.getDiscussionId());
@@ -1176,7 +1181,7 @@ public class EvenementRestController {
             }
         }
         
-        return evenement;
+        return ResponseEntity.ok(evenement);
     }
     
     /**

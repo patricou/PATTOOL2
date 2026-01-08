@@ -63,6 +63,115 @@
                 </div>
             </div>
 
+            <!-- Govee Devices Container -->
+            <div class="portail-container" style="margin-top: 30px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 class="portail-title" style="margin: 0;">{{ "IOT.GOVEE_TITLE" | translate }}</h3>
+                    <button (click)="loadGoveeDevices()" 
+                            class="btn btn-sm btn-primary" 
+                            [disabled]="isLoadingGovee">
+                        <i class="fa" [class.fa-refresh]="!isLoadingGovee" [class.fa-spinner]="isLoadingGovee" [class.fa-spin]="isLoadingGovee"></i>
+                        {{ "IOT.REFRESH" | translate }}
+                    </button>
+                </div>
+                
+                <div *ngIf="isLoadingGovee" class="text-center" style="padding: 2rem;">
+                    <i class="fa fa-spinner fa-spin fa-2x"></i>
+                    <p style="margin-top: 1rem;">{{ "IOT.LOADING" | translate }}</p>
+                </div>
+                
+                <div *ngIf="goveeError" class="alert alert-danger">
+                    <strong>{{ "IOT.ERROR" | translate }}:</strong> {{ goveeError }}
+                </div>
+                
+                <div *ngIf="!isLoadingGovee && !goveeError && goveeDevices.length === 0" class="text-muted text-center" style="padding: 2rem;">
+                    {{ "IOT.NO_GOVEE_DATA" | translate }}
+                </div>
+                
+                <div class="govee-devices-grid" *ngIf="!isLoadingGovee && !goveeError && goveeDevices.length > 0">
+                    <div class="govee-device-card" *ngFor="let device of goveeDevices">
+                        <div class="govee-device-header">
+                            <div class="govee-device-icon">
+                                <i class="fa" [class]="getDeviceIcon(device)"></i>
+                            </div>
+                            <div class="govee-device-info">
+                                <h4 class="govee-device-name">{{ device.deviceName }}</h4>
+                                <span class="govee-device-type">{{ getDeviceTypeTranslation(device) | translate }}</span>
+                            </div>
+                            <div class="govee-device-status" [class.online]="device.state?.online === true" [class.offline]="device.state?.online === false">
+                                <i class="fa fa-circle"></i>
+                            </div>
+                        </div>
+                        
+                        <div class="govee-device-body" *ngIf="device.state">
+                            <div class="govee-sensor-data">
+                                <!-- Temperature -->
+                                <div class="sensor-item" *ngIf="hasValidTemperature(device.state)">
+                                    <i class="fa fa-thermometer-half sensor-icon"></i>
+                                    <div class="sensor-info">
+                                        <span class="sensor-label">{{ "IOT.TEMPERATURE" | translate }}</span>
+                                        <span class="sensor-value" [innerHTML]="formatTemperature(device.state.temperature)"></span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Humidity -->
+                                <div class="sensor-item" *ngIf="hasValidHumidity(device.state)">
+                                    <i class="fa fa-tint sensor-icon"></i>
+                                    <div class="sensor-info">
+                                        <span class="sensor-label">{{ "IOT.HUMIDITY" | translate }}</span>
+                                        <span class="sensor-value">{{ formatHumidity(device.state.humidity) }}%</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Power State -->
+                                <div class="sensor-item" *ngIf="device.state.powerState !== undefined">
+                                    <i class="fa fa-power-off sensor-icon"></i>
+                                    <div class="sensor-info">
+                                        <span class="sensor-label">{{ "IOT.POWER_STATE" | translate }}</span>
+                                        <span class="sensor-value" [class.power-on]="device.state.powerState === 'on'" [class.power-off]="device.state.powerState === 'off'">
+                                            {{ device.state.powerState === 'on' ? ("IOT.ON" | translate) : ("IOT.OFF" | translate) }}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Brightness -->
+                                <div class="sensor-item" *ngIf="device.state.brightness !== undefined">
+                                    <i class="fa fa-sun-o sensor-icon"></i>
+                                    <div class="sensor-info">
+                                        <span class="sensor-label">{{ "IOT.BRIGHTNESS" | translate }}</span>
+                                        <span class="sensor-value">{{ device.state.brightness }}%</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Color Temperature -->
+                                <div class="sensor-item" *ngIf="device.state.colorTem !== undefined">
+                                    <i class="fa fa-adjust sensor-icon"></i>
+                                    <div class="sensor-info">
+                                        <span class="sensor-label">{{ "IOT.COLOR_TEMP" | translate }}</span>
+                                        <span class="sensor-value">{{ device.state.colorTem }}K</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Color RGB -->
+                                <div class="sensor-item" *ngIf="device.state.color">
+                                    <i class="fa fa-palette sensor-icon"></i>
+                                    <div class="sensor-info">
+                                        <span class="sensor-label">{{ "IOT.COLOR" | translate }}</span>
+                                        <span class="sensor-value">
+                                            RGB({{ device.state.color.r || 0 }}, {{ device.state.color.g || 0 }}, {{ device.state.color.b || 0 }})
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="govee-device-footer" *ngIf="isStateEmpty(device.state)">
+                            <span class="text-muted">{{ "IOT.NO_SENSOR_DATA" | translate }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 </div>

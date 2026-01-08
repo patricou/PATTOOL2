@@ -133,6 +133,8 @@ export class VideoCompressionService {
 
                 const objectUrl = URL.createObjectURL(file);
                 video.src = objectUrl;
+                // Explicitly load the video - this ensures it starts loading
+                video.load();
 
                 // Track if we've already handled the error
                 let errorHandled = false;
@@ -201,7 +203,13 @@ export class VideoCompressionService {
                     
                     metadataLoaded = true;
                     
+                    // Ensure video is at time 0 and seek to it - this helps with frame drawing
+                    video.currentTime = 0;
+                    
                     // Check if video has valid dimensions (indicates it loaded successfully)
+                    if (video.videoWidth === 0 && video.videoHeight === 0) {
+                        // Wait a bit more - sometimes dimensions aren't available immediately
+                        await new Promise(resolve => setTimeout(resolve, 100));
                     if (video.videoWidth === 0 && video.videoHeight === 0) {
                         console.warn('Video loaded but has zero dimensions, may not be playable');
                         if (onProgress) {
@@ -216,6 +224,7 @@ export class VideoCompressionService {
                         const buffer = await file.arrayBuffer();
                         resolve(new Blob([buffer], { type: file.type }));
                         return;
+                        }
                     }
                     
                     try {
@@ -329,30 +338,93 @@ export class VideoCompressionService {
                         const chunks: Blob[] = [];
                         let lastProgressUpdate = Date.now();
                         let compressedSize = 0;
+                        let compressionStartTime = Date.now();
+                        let progressIntervalId: number | null = null;
 
                         mediaRecorder.ondataavailable = (event) => {
                             if (event.data && event.data.size > 0) {
                                 chunks.push(event.data);
                                 compressedSize += event.data.size;
                                 
+                                console.log(`📦 MediaRecorder data received: ${event.data.size} bytes, total: ${compressedSize} bytes, chunks: ${chunks.length}`);
+                                
                                 // Update progress every 500ms
                                 const now = Date.now();
                                 if (onProgress && now - lastProgressUpdate > 500) {
-                                    const estimatedProgress = Math.min(90, 10 + (video.currentTime / duration) * 80);
+                                    const videoProgress = video.currentTime > 0 ? (video.currentTime / duration) : 0;
+                                    const dataProgress = duration > 0 && compressedSize > 0 ? Math.min(0.7, (compressedSize / file.size) * 0.7) : 0;
+                                    const estimatedProgress = Math.min(90, 10 + Math.max(videoProgress * 80, dataProgress * 80));
                                     
                                     onProgress({
                                         stage: 'compressing',
                                         progress: estimatedProgress,
-                                        message: `Compressing... ${Math.round(estimatedProgress)}% (${this.formatFileSize(compressedSize)})`,
+                                        message: `Compressing... ${Math.round(estimatedProgress)}% (${this.formatFileSize(compressedSize)} processed, ${video.currentTime > 0 ? `${video.currentTime.toFixed(1)}s/${duration.toFixed(1)}s` : 'starting...'})`,
                                         originalSize: file.size,
                                         compressedSize: compressedSize
                                     });
                                     lastProgressUpdate = now;
                                 }
+                            } else {
+                                // Log when event fires but has no data
+                                console.log(`⚠️ MediaRecorder ondataavailable fired but event.data is empty or size is 0`);
                             }
                         };
+                        
+                        // Add a listener to check MediaRecorder state changes
+                        console.log(`MediaRecorder created, state: ${mediaRecorder.state}, mimeType: ${mimeType}`);
+                        
+                        // Add periodic progress updates even if video isn't playing yet
+                        progressIntervalId = window.setInterval(() => {
+                            const now = Date.now();
+                            const elapsed = (now - compressionStartTime) / 1000; // seconds
+                            
+                            // If no data received, show that compression is initializing
+                            if (compressedSize === 0 && elapsed > 2 && onProgress) {
+                                // Slowly increase progress to show activity (10% to 15% over first 10 seconds)
+                                const initProgress = Math.min(15, 10 + (elapsed / 10) * 5);
+                                onProgress({
+                                    stage: 'compressing',
+                                    progress: initProgress,
+                                    message: `Initializing compression... (${elapsed.toFixed(0)}s elapsed, please wait)`,
+                                    originalSize: file.size
+                                });
+                                lastProgressUpdate = now;
+                            } 
+                            // If video is playing but no data received yet, show we're waiting for data
+                            else if (video.currentTime > 0 && compressedSize === 0 && elapsed > 5 && onProgress) {
+                                const estimatedProgress = Math.min(18, 15 + ((video.currentTime / duration) * 3));
+                                onProgress({
+                                    stage: 'compressing',
+                                    progress: estimatedProgress,
+                                    message: `Video playing, waiting for compression data... (${video.currentTime.toFixed(1)}s/${duration.toFixed(1)}s)`,
+                                    originalSize: file.size
+                                });
+                                lastProgressUpdate = now;
+                            }
+                            // If data is being received but progress is slow
+                            else if (compressedSize > 0 && chunks.length > 0 && onProgress && now - lastProgressUpdate > 2000) {
+                                const videoProgress = video.currentTime > 0 ? (video.currentTime / duration) : 0;
+                                const dataProgress = Math.min(0.7, (compressedSize / file.size) * 0.7);
+                                const estimatedProgress = Math.min(90, 10 + Math.max(videoProgress * 80, dataProgress * 80));
+                                
+                                onProgress({
+                                    stage: 'compressing',
+                                    progress: estimatedProgress,
+                                    message: `Compressing... ${Math.round(estimatedProgress)}% (${this.formatFileSize(compressedSize)} processed${video.currentTime > 0 ? `, ${video.currentTime.toFixed(1)}s/${duration.toFixed(1)}s` : ''})`,
+                                    originalSize: file.size,
+                                    compressedSize: compressedSize
+                                });
+                                lastProgressUpdate = now;
+                            }
+                        }, 1000) as unknown as number;
 
                         mediaRecorder.onstop = () => {
+                            // Clean up progress interval
+                            if (progressIntervalId !== null) {
+                                clearInterval(progressIntervalId);
+                                progressIntervalId = null;
+                            }
+                            
                             URL.revokeObjectURL(objectUrl); // Clean up URL
                             
                             // Clean up visibility handler
@@ -455,6 +527,12 @@ export class VideoCompressionService {
                             const errorMsg = event.error?.message || 'Unknown error';
                             console.error('MediaRecorder error:', errorMsg);
                             
+                            // Clean up progress interval
+                            if (progressIntervalId !== null) {
+                                clearInterval(progressIntervalId);
+                                progressIntervalId = null;
+                            }
+                            
                             // Clean up visibility handler
                             if (visibilityHandler) {
                                 document.removeEventListener('visibilitychange', visibilityHandler);
@@ -514,10 +592,12 @@ export class VideoCompressionService {
                             });
                         };
 
-                        // Start recording
+                        // Start recording - MUST be called before video loading/playing
+                        // This is the correct order from the working version
                         mediaRecorder.start(1000); // Collect data every second
 
                         // Draw video frames to canvas
+                        // Ensure video is at time 0 and seek to it explicitly
                         video.currentTime = 0;
                         
                         // For large videos, preload more data
@@ -577,6 +657,7 @@ export class VideoCompressionService {
                                 }
                             }, loadTimeout);
                         });
+
 
                         let lastFrameTime = 0;
                         const frameInterval = 1000 / settings.frameRate;
@@ -640,21 +721,15 @@ export class VideoCompressionService {
                             // Throttle frame drawing to match frame rate
                             // Use a more lenient check for large videos
                             const timeSinceLastFrame = currentTime - lastFrameTime;
-                            const shouldDraw = timeSinceLastFrame >= frameInterval * 0.9; // 90% of interval for smoother playback
+                            const shouldDraw = lastFrameTime === 0 || timeSinceLastFrame >= frameInterval * 0.9; // Always draw first frame, then throttle
                             
                             if (shouldDraw) {
                                 try {
-                                    // Check if video is ready to be drawn
-                                    if (video.readyState >= 2) { // HAVE_CURRENT_DATA or higher
-                                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                                        lastFrameTime = currentTime;
-                                        lastDrawnTime = video.currentTime;
-                                    } else {
-                                        // Video not ready yet, wait a bit
-                                        // Don't update lastFrameTime so we'll try again soon
-                                    }
+                                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                                    lastFrameTime = currentTime;
+                                    lastDrawnTime = video.currentTime;
                                 } catch (err: any) {
-                                    console.warn('Error drawing frame:', err);
+                                    console.warn('Error in drawFrame:', err);
                                     consecutiveErrors++;
                                     if (consecutiveErrors > maxConsecutiveErrors) {
                                         console.error('Too many draw errors, stopping');
@@ -763,8 +838,8 @@ export class VideoCompressionService {
                         
                         // Start with requestAnimationFrame (tab is visible initially)
                         animationFrameId = requestAnimationFrame(drawFrame);
-                        
-                            // Add a safety timeout for very long videos
+                            
+                        // Add a safety timeout for very long videos
                         if (duration > 300) { // Videos longer than 5 minutes
                             const maxCompressionTime = duration * 2 * 1000; // 2x video duration in ms
                             setTimeout(() => {

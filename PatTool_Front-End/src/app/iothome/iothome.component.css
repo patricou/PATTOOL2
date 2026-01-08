@@ -308,3 +308,192 @@
         transform: rotate(360deg);
     }
 }
+
+/* Govee Devices Grid */
+.govee-devices-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+/* Govee Device Card */
+.govee-device-card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    border: 1px solid #e5e7eb;
+}
+
+.govee-device-card:hover {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
+}
+
+/* Device Header */
+.govee-device-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.govee-device-icon {
+    width: 36px;
+    height: 36px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+}
+
+.govee-device-info {
+    flex: 1;
+}
+
+.govee-device-name {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: white;
+}
+
+.govee-device-type {
+    font-size: 0.75rem;
+    opacity: 0.9;
+    color: white;
+}
+
+.govee-device-status {
+    width: 12px;
+    height: 12px;
+}
+
+.govee-device-status i {
+    font-size: 12px;
+}
+
+.govee-device-status.online i {
+    color: #10b981;
+}
+
+.govee-device-status.offline i {
+    color: #ef4444;
+}
+
+/* Device Body */
+.govee-device-body {
+    padding: 0.875rem;
+}
+
+.govee-sensor-data {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sensor-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.625rem;
+    background: #f8f9fa;
+    border-radius: 6px;
+    transition: background 0.2s ease;
+}
+
+.sensor-item:hover {
+    background: #e9ecef;
+}
+
+.sensor-icon {
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+.sensor-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.sensor-label {
+    font-size: 0.7rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.sensor-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+/* Temperature Celsius in green */
+.sensor-value .temp-celsius {
+    color: #10b981;
+    font-weight: 700;
+}
+
+.sensor-value.power-on {
+    color: #10b981;
+}
+
+.sensor-value.power-off {
+    color: #ef4444;
+}
+
+/* Device Footer */
+.govee-device-footer {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid #e5e7eb;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .govee-devices-grid {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    .govee-device-header {
+        padding: 0.875rem;
+    }
+    
+    .govee-device-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 1.25rem;
+    }
+    
+    .govee-device-name {
+        font-size: 1rem;
+    }
+    
+    .govee-device-body {
+        padding: 1rem;
+    }
+    
+    .sensor-item {
+        padding: 0.625rem;
+    }
+}

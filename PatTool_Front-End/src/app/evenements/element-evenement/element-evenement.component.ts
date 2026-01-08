@@ -23,6 +23,7 @@ import { environment } from '../../../environments/environment';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FileService, ImageDownloadResult } from '../../services/file.service';
 import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
+import { VideoUploadProcessingService } from '../../services/video-upload-processing.service';
 import { EvenementsService } from '../../services/evenements.service';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
@@ -338,6 +339,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private winRef: WindowRefService,
 		private translateService: TranslateService,
 		private videoCompressionService: VideoCompressionService,
+		private videoUploadProcessingService: VideoUploadProcessingService,
 		private _evenementsService: EvenementsService,
 		private _friendsService: FriendsService,
 		private _discussionService: DiscussionService,
@@ -1661,84 +1663,56 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			}
 		}
 
-		// Check for video files and ask for quality if needed
-		const processedFiles: File[] = [];
-		const videoFiles = this.selectedFiles.filter(file => this.isVideoFile(file.name));
+		// Check for video files and ask for quality if needed using shared service
+		let processedFiles: File[] = [];
+		const videoFiles = this.selectedFiles.filter(file => this.videoUploadProcessingService.isVideoFile(file.name));
 		
-		if (videoFiles.length > 0 && this.videoCompressionService.isSupported()) {
-			// Ask user for compression quality
-			const quality = await this.askForCompressionQuality(videoFiles.length);
-			
-			if (quality === null) {
-				// User cancelled, use original files
-				this.addLog(`⚠️ Compression cancelled, uploading original files`);
-				processedFiles.push(...this.selectedFiles);
-			} else {
-				this.addLog(`🎬 Found ${videoFiles.length} video file(s) - Compressing with ${quality} quality...`);
-				this.addLog(`ℹ️ Compression will continue even if you switch tabs or minimize the window.`);
+		try {
+			if (videoFiles.length > 0 && this.videoCompressionService.isSupported()) {
+				// Add timeout to prevent hanging if modal doesn't respond
+				const qualityPromise = this.askForCompressionQuality(videoFiles.length);
+				const quality = await this.videoUploadProcessingService.withQualityTimeout(
+					qualityPromise,
+					this.qualityModalRef,
+					() => this.addLog(`⚠️ Compression quality selection timed out, uploading original files`)
+				);
 				
-				for (let i = 0; i < this.selectedFiles.length; i++) {
-					const file = this.selectedFiles[i];
-					
-					if (this.isVideoFile(file.name)) {
-						try {
-							this.addLog(`🎥 Compressing video ${i + 1}/${videoFiles.length}: ${file.name}...`);
-							
-							const compressedBlob = await this.videoCompressionService.compressVideo(
-								file,
-								quality,
-								(progress: CompressionProgress) => {
-									// Ensure the callback runs in Angular zone for proper change detection
-									this.ngZone.run(() => {
-										// Update logs with compression progress
-										this.addLog(`   ${progress.message}`);
-									});
-								}
-							);
-							
-							// Check if compression actually happened (blob size should be different or format changed)
-							const isAviOrMov = file.name.toLowerCase().endsWith('.avi') || file.name.toLowerCase().endsWith('.mov');
-							const formatChanged = isAviOrMov && (compressedBlob.type.includes('webm') || compressedBlob.type.includes('mp4'));
-							
-							// If compression failed (same size and no format change for AVI/MOV), use original
-							if (!formatChanged && compressedBlob.size >= file.size * 0.95) {
-								// Compression didn't really happen (probably error was caught and original returned)
-								this.addLog(`⚠️ Compression not available for this format. Using original file.`);
-								processedFiles.push(file);
-							} else {
-								// Create a new File from the compressed Blob
-								// Use original filename but note that format may have changed (AVI/MOV -> WebM/MP4)
-								const outputFilename = (compressedBlob as any).name || file.name;
-								const compressedFile = new File(
-									[compressedBlob],
-									outputFilename,
-									{ type: compressedBlob.type || file.type }
-								);
-								
-								processedFiles.push(compressedFile);
-								
-								const reduction = ((1 - compressedBlob.size / file.size) * 100).toFixed(1);
-								this.addLog(`✅ Video compressed: ${this.formatFileSize(file.size)} → ${this.formatFileSize(compressedBlob.size)} (${reduction}% reduction)`);
-							}
-							
-						} catch (error: any) {
-							this.addErrorLog(`❌ Error compressing video ${file.name}: ${error.message}`);
-							// Use original file if compression fails
-							processedFiles.push(file);
-							this.addLog(`📤 Original file will be uploaded as-is.`);
-						}
-					} else {
-						// Non-video files: add as-is
-						processedFiles.push(file);
-					}
+				// Process videos using shared service
+				const result = await this.videoUploadProcessingService.processVideoFiles(
+					this.selectedFiles,
+					quality,
+					(message: string) => this.addLog(message)
+				);
+				
+				processedFiles = result.files;
+				
+				// Log any errors from processing
+				result.errors.forEach(error => {
+					this.addErrorLog(`❌ ${error}`);
+				});
+			} else {
+				// No video files or compression not supported: use files as-is
+				processedFiles.push(...this.selectedFiles);
+				if (videoFiles.length > 0 && !this.videoCompressionService.isSupported()) {
+					this.addLog(`⚠️ Video compression not supported in this browser, uploading original files`);
 				}
 			}
-		} else {
-			// No video files or compression not supported: use files as-is
-			processedFiles.push(...this.selectedFiles);
-			if (videoFiles.length > 0 && !this.videoCompressionService.isSupported()) {
-				this.addLog(`⚠️ Video compression not supported in this browser, uploading original files`);
+		} catch (error: any) {
+			// If anything goes wrong in the compression flow, fall back to uploading original files
+			console.error('Error in video compression flow:', error);
+			this.addLog(`⚠️ Error in compression process: ${error?.message || 'Unknown error'}. Uploading original files.`);
+			processedFiles = [...this.selectedFiles];
+		}
+		
+		// Safety check: ensure we have files to upload
+		if (processedFiles.length === 0) {
+			this.addErrorLog(`❌ No files to upload. This should not happen.`);
+			this.isUploading = false;
+			if (this.uploadLogsModalRef) {
+				this.uploadLogsModalRef.close();
+				this.uploadLogsModalRef = null;
 			}
+			return;
 		}
 
 		const formData = new FormData();
@@ -1860,18 +1834,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	private addLog(message: string): void {
-		this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
-		
-		// Force change detection to update the view immediately
-		this.cdr.detectChanges();
-		
-		// Auto-scroll to top to show latest log
-		setTimeout(() => {
-			if (this.logContent && this.logContent.nativeElement) {
-				const container = this.logContent.nativeElement;
-				container.scrollTop = 0;
-			}
-		}, 0);
+		// Ensure we're in Angular zone for proper change detection
+		this.ngZone.run(() => {
+			this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+			
+			// Force change detection to update the view immediately
+			this.cdr.detectChanges();
+			
+			// Use requestAnimationFrame for smoother UI updates
+			requestAnimationFrame(() => {
+				if (this.logContent && this.logContent.nativeElement) {
+					const container = this.logContent.nativeElement;
+					container.scrollTop = 0;
+				}
+			});
+		});
 	}
 
 	private formatFileSize(bytes: number): string {
@@ -2044,20 +2021,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	private addErrorLog(message: string): void {
-		this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
-		
-		// Force change detection to update the view immediately
-		this.cdr.detectChanges();
-		
-		// Auto-scroll to top to show latest log
-		const scrollTimeout = setTimeout(() => {
-			if (this.logContent && this.logContent.nativeElement) {
-				const container = this.logContent.nativeElement;
-				container.scrollTop = 0;
-			}
-		}, 0);
-		this.activeTimeouts.add(scrollTimeout);
-		setTimeout(() => this.activeTimeouts.delete(scrollTimeout), 100);
+		// Ensure we're in Angular zone for proper change detection
+		this.ngZone.run(() => {
+			this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
+			
+			// Force change detection to update the view immediately
+			this.cdr.detectChanges();
+			
+			// Use requestAnimationFrame for smoother UI updates
+			requestAnimationFrame(() => {
+				if (this.logContent && this.logContent.nativeElement) {
+					const container = this.logContent.nativeElement;
+					container.scrollTop = 0;
+				}
+			});
+		});
 	}
 
 	private generateSessionId(): string {

@@ -42,4 +42,29 @@ export class IotService {
     );
   }
 
+  getGoveeDevices(user: Member): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "govee/devices", user, { headers: headers })
+      )
+    );
+  }
+
+  getAllGoveeDevicesWithStates(user: Member): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "govee/devices/all", user, { headers: headers })
+      )
+    );
+  }
+
+  getGoveeDeviceState(device: string, model: string): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const requestBody = { device, model };
+        return this._http.post(this.API_URL + "govee/device/state", requestBody, { headers: headers });
+      })
+    );
+  }
+
 }

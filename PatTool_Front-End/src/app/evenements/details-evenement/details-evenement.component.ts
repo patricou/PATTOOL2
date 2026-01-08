@@ -25,6 +25,7 @@ import { FileService, ImageDownloadResult } from '../../services/file.service';
 import { WindowRefService } from '../../services/window-ref.service';
 import { FriendsService } from '../../services/friends.service';
 import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
+import { VideoUploadProcessingService } from '../../services/video-upload-processing.service';
 import { environment } from '../../../environments/environment';
 import { FriendGroup } from '../../model/friend';
 import { EventColorService } from '../../services/event-color.service';
@@ -82,6 +83,12 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     comments: Commentary[];
   }> {
     return this.photoItems;
+  }
+  
+  // Cached background image URL to prevent ExpressionChangedAfterItHasBeenCheckedError
+  private _backgroundImageUrl: string = 'url("assets/images/images.jpg")';
+  public get backgroundImageUrl(): string {
+    return this._backgroundImageUrl;
   }
 
   // Photo gallery properties
@@ -205,6 +212,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     private friendsService: FriendsService,
     private discussionService: DiscussionService,
     private videoCompressionService: VideoCompressionService,
+    private videoUploadProcessingService: VideoUploadProcessingService,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
     private eventColorService: EventColorService,
@@ -513,7 +521,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.user = this.membersService.getUser();
 
     // Load event details
-    this.evenementsService.getEvenement(eventId).subscribe({
+    const subscription = this.evenementsService.getEvenement(eventId).subscribe({
       next: (evenement: Evenement) => {
         this.evenement = evenement;
 
@@ -533,6 +541,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.newCommentary = new Commentary(this.user?.userName || "", "", new Date());
 
         this.preparePhotoGallery();
+        // Update background image after photo gallery is prepared
+        setTimeout(() => {
+          this.updateBackgroundImageUrl();
+        }, 0);
         this.loading = false;
         // Reset grid packing algorithm for optimal card placement
         this.resetGridPacking();
@@ -576,10 +588,22 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           // Interceptor will handle redirect, just return
           return;
         }
-        this.error = 'Erreur lors du chargement de l\'événement';
+        
+        // Handle status 0 errors (network/CORS issues)
+        if (error?.status === 0 || error?.status === null) {
+          console.error('Network error - Backend may be unreachable or CORS issue');
+          this.error = 'Impossible de se connecter au serveur. Vérifiez que le serveur est démarré et accessible.';
+        } else if (error?.status === 404) {
+          this.error = 'Événement introuvable';
+        } else {
+          this.error = 'Erreur lors du chargement de l\'événement';
+        }
         this.loading = false;
       }
     });
+    
+    // Track the subscription to ensure proper cleanup
+    this.trackSubscription(subscription);
   }
 
   // ==============================
@@ -1242,6 +1266,9 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       comments: this.getCommentsForFile(file.fieldId)
     }));
     
+    // Update background image after photo items are created (but before async loading)
+    this.updateBackgroundImageUrl();
+    
     // Load images with authentication
     imageFiles.forEach(file => {
       this.loadImageFromFile(file.fieldId);
@@ -1292,6 +1319,12 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         const photoItem = this.photoItems.find(item => item.file.fieldId === fileId);
         if (photoItem) {
           photoItem.imageUrl = safeUrl;
+          // Update background image if this is the first photo or thumbnail
+          // Use setTimeout to defer to next change detection cycle
+          setTimeout(() => {
+            this.updateBackgroundImageUrl();
+            this.cdr.markForCheck();
+          }, 0);
         }
       },
       error: (error) => {
@@ -1306,6 +1339,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
             const photoItem = this.photoItems.find(item => item.file.fieldId === fileId);
             if (photoItem) {
               photoItem.imageUrl = defaultUrl;
+          // Use markForCheck to schedule change detection for next cycle
+          this.cdr.markForCheck();
+              // Use markForCheck to schedule change detection for next cycle
+              this.cdr.markForCheck();
             }
             return;
           }
@@ -1322,6 +1359,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         const photoItem = this.photoItems.find(item => item.file.fieldId === fileId);
         if (photoItem) {
           photoItem.imageUrl = defaultUrl;
+          // Use markForCheck to schedule change detection for next cycle
+          this.cdr.markForCheck();
         }
       }
     });
@@ -2261,8 +2300,14 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   // Get main background image URL for artistic display
   public getMainBackgroundImage(): string {
+    return this._backgroundImageUrl;
+  }
+  
+  // Update background image URL (called when event or photo gallery changes)
+  private updateBackgroundImageUrl(): void {
     if (!this.evenement) {
-      return 'url("assets/images/images.jpg")';
+      this._backgroundImageUrl = 'url("assets/images/images.jpg")';
+      return;
     }
     
     // Use thumbnail if available
@@ -2270,7 +2315,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       const thumbnailUrl = this.getImageUrl(this.evenement.thumbnail.fieldId);
       const url = (thumbnailUrl as any).changingThisBreaksApplicationSecurity || String(thumbnailUrl);
       if (url && url !== 'assets/images/images.jpg') {
-        return `url("${url}")`;
+        this._backgroundImageUrl = `url("${url}")`;
+        return;
       }
     }
     
@@ -2280,12 +2326,13 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       const photoUrl = firstPhoto.imageUrl;
       const url = (photoUrl as any).changingThisBreaksApplicationSecurity || String(photoUrl);
       if (url && url !== 'assets/images/images.jpg') {
-        return `url("${url}")`;
+        this._backgroundImageUrl = `url("${url}")`;
+        return;
       }
     }
     
     // Default fallback
-    return 'url("assets/images/images.jpg")';
+    this._backgroundImageUrl = 'url("assets/images/images.jpg")';
   }
 
 
@@ -4407,57 +4454,56 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       }
     }
 
-    // Process video compression if needed
-    const videoFiles = this.selectedFiles.filter(file => this.isVideoFile(file.name));
-    
+    // Process video compression if needed using shared service
+    const videoFiles = this.selectedFiles.filter(file => this.videoUploadProcessingService.isVideoFile(file.name));
     let processedFiles: File[] = [];
     
-    if (videoFiles.length > 0 && this.videoCompressionService.isSupported()) {
-      const quality = await this.askForCompressionQuality(videoFiles.length);
-      
-      if (quality === null) {
-        this.addLog(`⚠️ Compression cancelled, uploading original files`);
-        processedFiles.push(...this.selectedFiles);
-      } else {
-        this.addLog(`🎬 Found ${videoFiles.length} video file(s) - Compressing with ${quality} quality...`);
-        this.addLog(`ℹ️ Compression will continue even if you switch tabs or minimize the window.`);
+    try {
+      if (videoFiles.length > 0 && this.videoCompressionService.isSupported()) {
+        // Add timeout to prevent hanging if modal doesn't respond
+        const qualityPromise = this.askForCompressionQuality(videoFiles.length);
+        const quality = await this.videoUploadProcessingService.withQualityTimeout(
+          qualityPromise,
+          this.qualityModalRef,
+          () => this.addLog(`⚠️ Compression quality selection timed out, uploading original files`)
+        );
         
-        // Compress videos
-        for (let i = 0; i < this.selectedFiles.length; i++) {
-          const file = this.selectedFiles[i];
-          
-          if (this.isVideoFile(file.name)) {
-            try {
-              this.addLog(`🎥 Compressing video ${i + 1}/${videoFiles.length}: ${file.name}...`);
-              
-              const compressedBlob = await this.videoCompressionService.compressVideo(file, quality, (progress: CompressionProgress) => {
-                // Ensure the callback runs in Angular zone for proper change detection
-                this.ngZone.run(() => {
-                  this.addLog(`   ${progress.message}`);
-                });
-              });
-              
-              // Create a new File from the compressed blob
-              const compressedFile = new File([compressedBlob], file.name, { type: 'video/mp4' });
-              processedFiles.push(compressedFile);
-              this.addLog(`✅ Compressed: ${file.name}`);
-            } catch (error) {
-              console.error('Compression error:', error);
-              this.addLog(`⚠️ Compression not available for this format. Using original file.`);
-              processedFiles.push(file);
-            }
-          } else {
-            processedFiles.push(file);
-          }
+        // Process videos using shared service
+        const result = await this.videoUploadProcessingService.processVideoFiles(
+          this.selectedFiles,
+          quality,
+          (message: string) => this.addLog(message)
+        );
+        
+        processedFiles = result.files;
+        
+        // Log any errors from processing
+        result.errors.forEach(error => {
+          this.addErrorLog(`❌ ${error}`);
+        });
+      } else {
+        processedFiles.push(...this.selectedFiles);
+        if (videoFiles.length > 0 && !this.videoCompressionService.isSupported()) {
+          this.addLog(`⚠️ Video compression not supported in this browser, uploading original files`);
         }
       }
-    } else {
-      processedFiles.push(...this.selectedFiles);
-      if (videoFiles.length > 0 && !this.videoCompressionService.isSupported()) {
-        this.addLog(`⚠️ Video compression not supported in this browser, uploading original files`);
-      }
+    } catch (error: any) {
+      // If anything goes wrong in the compression flow, fall back to uploading original files
+      console.error('Error in video compression flow:', error);
+      this.addLog(`⚠️ Error in compression process: ${error?.message || 'Unknown error'}. Uploading original files.`);
+      processedFiles = [...this.selectedFiles];
     }
 
+    // Safety check: ensure we have files to upload
+    if (processedFiles.length === 0) {
+      this.addErrorLog(`❌ No files to upload. This should not happen.`);
+      this.isUploading = false;
+      if (modalRef) {
+        modalRef.close();
+      }
+      return;
+    }
+    
     // Build the correct upload URL with user ID and event ID
     const uploadUrl = `${this.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
     
@@ -4541,7 +4587,14 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
                     try {
                       this.preparePhotoGallery();
                       this.loadVideoUrls();
-              this.isUploading = false;
+                      this.isUploading = false;
+                      // Update background image after photo gallery is updated
+                      // Use setTimeout to defer to next change detection cycle
+                      // This prevents ExpressionChangedAfterItHasBeenCheckedError
+                      setTimeout(() => {
+                        this.updateBackgroundImageUrl();
+                        this.cdr.markForCheck();
+                      }, 0);
                       this.addSuccessLog(`✅ Files are now visible in the event (${updatedEvent.fileUploadeds?.length || 0} total files)`);
                     } catch (uiError) {
                       this.addErrorLog(`❌ Error updating UI: ${uiError}`);
@@ -4561,6 +4614,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
                       this.preparePhotoGallery();
                       this.loadVideoUrls();
                       this.isUploading = false;
+                      // Use setTimeout to ensure change detection runs after async image loading
+                      setTimeout(() => {
+                        this.cdr.markForCheck();
+                      }, 0);
                     } catch (uiError) {
                       this.isUploading = false;
                     }
@@ -4617,17 +4674,21 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   }
 
   private addLog(message: string): void {
-    this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
-    
-    // Force change detection to update the view in real-time
-    this.cdr.detectChanges();
-    
-    setTimeout(() => {
-      if (this.logContent && this.logContent.nativeElement) {
-        const container = this.logContent.nativeElement;
-        container.scrollTop = 0;
-      }
-    }, 0);
+    // Ensure we're in Angular zone
+    this.ngZone.run(() => {
+      this.uploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+      
+      // Force change detection to update the view in real-time
+      this.cdr.detectChanges();
+      
+      // Use requestAnimationFrame for smoother UI updates
+      requestAnimationFrame(() => {
+        if (this.logContent && this.logContent.nativeElement) {
+          const container = this.logContent.nativeElement;
+          container.scrollTop = 0;
+        }
+      });
+    });
   }
 
   private addSuccessLog(message: string): void {
@@ -4645,17 +4706,21 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   }
 
   private addErrorLog(message: string): void {
-    this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
-    
-    // Force change detection to update the view in real-time
-    this.cdr.detectChanges();
-    
-    setTimeout(() => {
-      if (this.logContent && this.logContent.nativeElement) {
-        const container = this.logContent.nativeElement;
-        container.scrollTop = 0;
-      }
-    }, 0);
+    // Ensure we're in Angular zone
+    this.ngZone.run(() => {
+      this.uploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
+      
+      // Force change detection to update the view in real-time
+      this.cdr.detectChanges();
+      
+      // Use requestAnimationFrame for smoother UI updates
+      requestAnimationFrame(() => {
+        if (this.logContent && this.logContent.nativeElement) {
+          const container = this.logContent.nativeElement;
+          container.scrollTop = 0;
+        }
+      });
+    });
   }
 
   private generateSessionId(): string {

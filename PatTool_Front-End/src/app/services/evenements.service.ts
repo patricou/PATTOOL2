@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, from, Subject } from 'rxjs';
+import { Observable, from, Subject, throwError } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { Evenement } from '../model/evenement';
 import { Commentary } from '../model/commentary';
@@ -40,7 +40,16 @@ export class EvenementsService {
 		return this.getHeaderWithToken().pipe(
 			switchMap(headers => this._http.get<any>(this.API_URL + "even/" + id, { headers: headers })
 				.pipe(
+					catchError(error => {
+						// Log the error for debugging
+						console.error('[EvenementsService] Error loading event:', error);
+						// Re-throw the error so the component can handle it
+						return throwError(() => error);
+					}),
 					map(evenement => {
+						if (!evenement) {
+							throw new Error('Event not found');
+						}
 						return 							new Evenement(
 								evenement.author,
 								evenement.closeInscriptionDate,
