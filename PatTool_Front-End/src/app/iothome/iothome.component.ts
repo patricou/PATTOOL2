@@ -75,13 +75,10 @@ export class IothomeComponent implements OnInit {
     
     this._iotService.getAllGoveeDevicesWithStates(this.user).subscribe({
       next: (response) => {
-        console.log("Govee devices response: ", response);
         // If getAllDeviceStates fails or returns error, try just getting devices
         if (response.error || (response.devices && !response.deviceStates)) {
-          console.log("State fetch failed or incomplete, trying to get just devices");
           this._iotService.getGoveeDevices(this.user).subscribe({
             next: (devicesResponse) => {
-              console.log("Govee devices only response: ", devicesResponse);
               this.goveeDevices = this.parseGoveeDevices(devicesResponse);
               this.isLoadingGovee = false;
               this.cdr.detectChanges();
@@ -124,35 +121,27 @@ export class IothomeComponent implements OnInit {
       // Structure 1: response.deviceStates (from getAllDeviceStates) - HAS STATE DATA, CHECK FIRST
       if (response.deviceStates && Array.isArray(response.deviceStates)) {
         devicesList = response.deviceStates;
-        console.log("Using deviceStates array (has state data)");
       }
       // Structure 2: response.devices.data (array) - Actual Govee API structure
       else if (response.devices?.data && Array.isArray(response.devices.data)) {
         devicesList = response.devices.data;
-        console.log("Using devices.data array");
       }
       // Structure 3: response.devices.data.devices (nested)
       else if (response.devices?.data?.devices && Array.isArray(response.devices.data.devices)) {
         devicesList = response.devices.data.devices;
-        console.log("Using devices.data.devices array");
       }
       // Structure 4: response.data (array)
       else if (response.data && Array.isArray(response.data)) {
         devicesList = response.data;
-        console.log("Using data array");
       }
       // Structure 5: response.data.devices
       else if (response.data?.devices && Array.isArray(response.data.devices)) {
         devicesList = response.data.devices;
-        console.log("Using data.devices array");
       }
       // Structure 6: direct array
       else if (Array.isArray(response)) {
         devicesList = response;
-        console.log("Using direct array");
       }
-      
-      console.log("Parsed devices list:", devicesList);
 
       // Parse each device
       for (const deviceData of devicesList) {
@@ -177,7 +166,6 @@ export class IothomeComponent implements OnInit {
         // Check if state is in deviceData.state
         if (deviceData.state) {
           const stateData = deviceData.state;
-          console.log("State data for device:", deviceData.deviceName, stateData);
           
           // Check if state is already extracted (direct properties like temperature, humidity, online)
           if (stateData.temperature !== undefined || stateData.humidity !== undefined || stateData.online !== undefined) {
@@ -234,7 +222,6 @@ export class IothomeComponent implements OnInit {
         }
         // Check if capabilities contain sensor information (for thermometer devices)
         else if (deviceData.capabilities && Array.isArray(deviceData.capabilities)) {
-          console.log("Device has capabilities:", deviceData.capabilities);
           // Capabilities only indicate what sensors are available, not the actual values
           // Values need to be fetched via the state API
         }
@@ -242,14 +229,6 @@ export class IothomeComponent implements OnInit {
         else {
           state = this.extractStateData(deviceData);
         }
-        
-        console.log("Extracted state for device:", deviceData.deviceName, state);
-        console.log("State object keys:", Object.keys(state));
-        console.log("Temperature value:", state.temperature, "Type:", typeof state.temperature);
-        console.log("Humidity value:", state.humidity, "Type:", typeof state.humidity);
-        console.log("Online value:", state.online, "Type:", typeof state.online);
-        console.log("hasValidTemperature result:", this.hasValidTemperature(state));
-        console.log("hasValidHumidity result:", this.hasValidHumidity(state));
 
         device.state = state;
         devices.push(device);
