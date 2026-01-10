@@ -1144,7 +1144,8 @@
         "WHATSAPP_GROUP_LINK_HELP": "WhatsApp समूह आमंत्रण लिंक दर्ज करें (वैकल्पिक)",
         "SORT_BY_DATE_CREATION": "निर्माण तिथि से क्रमबद्ध करें",
         "SORT_BY_FIRST_NAME": "पहले नाम से क्रमबद्ध करें",
-        "SORT_BY_LAST_NAME": "अंतिम नाम से क्रमबद्ध करें"
+        "SORT_BY_LAST_NAME": "अंतिम नाम से क्रमबद्ध करें",
+        "SORT_BY_LAST_CONNECTION": "अंतिम कनेक्शन से क्रमबद्ध करें"
     },
     "STATISTICS": {
         "TITLE": "चर्चा सांख्यिकी",

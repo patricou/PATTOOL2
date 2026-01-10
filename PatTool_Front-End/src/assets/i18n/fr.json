@@ -1175,7 +1175,8 @@
         "WHATSAPP_GROUP_LINK_HELP": "Entrez le lien d'invitation WhatsApp du groupe (optionnel)",
         "SORT_BY_DATE_CREATION": "Trier par Date de Création",
         "SORT_BY_FIRST_NAME": "Trier par Prénom",
-        "SORT_BY_LAST_NAME": "Trier par Nom"
+        "SORT_BY_LAST_NAME": "Trier par Nom",
+        "SORT_BY_LAST_CONNECTION": "Trier par Dernière Connexion"
     },
     "STATISTICS": {
         "TITLE": "Statistiques des Discussions",

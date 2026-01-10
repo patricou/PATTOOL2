@@ -36,7 +36,7 @@ export class FriendsComponent implements OnInit {
   public searchFilter: string = '';
   public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'myuser';
   public selectedFriendIndex: number | null = null;
-  public sortOption: 'dateCreation' | 'firstName' | 'lastName' = 'dateCreation';
+  public sortOption: 'dateCreation' | 'firstName' | 'lastName' | 'lastConnection' = 'dateCreation';
   public sortOptionFriends: 'dateCreation' | 'firstName' | 'lastName' = 'dateCreation';
   
   // WhatsApp link editing for current user
@@ -602,6 +602,31 @@ export class FriendsComponent implements OnInit {
           
         case 'lastName': {
           // Sort by last name
+          const lastNameA = (a.lastName || '').toLowerCase().trim();
+          const lastNameB = (b.lastName || '').toLowerCase().trim();
+          if (lastNameA !== lastNameB) {
+            return lastNameA.localeCompare(lastNameB);
+          }
+          // If last names are equal, sort by first name
+          const firstNameA = (a.firstName || '').toLowerCase().trim();
+          const firstNameB = (b.firstName || '').toLowerCase().trim();
+          return firstNameA.localeCompare(firstNameB);
+        }
+          
+        case 'lastConnection': {
+          // Sort by last connection date (most recent first), then by last name if date is not available
+          if (a.lastConnectionDate && b.lastConnectionDate) {
+            const dateA = new Date(a.lastConnectionDate).getTime();
+            const dateB = new Date(b.lastConnectionDate).getTime();
+            if (dateA !== dateB) {
+              return dateB - dateA; // Most recent first
+            }
+          } else if (a.lastConnectionDate) {
+            return -1; // a has date, b doesn't - a comes first
+          } else if (b.lastConnectionDate) {
+            return 1; // b has date, a doesn't - b comes first
+          }
+          // If neither has date, fall through to last name sort
           const lastNameA = (a.lastName || '').toLowerCase().trim();
           const lastNameB = (b.lastName || '').toLowerCase().trim();
           if (lastNameA !== lastNameB) {

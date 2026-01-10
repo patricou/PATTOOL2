@@ -1112,7 +1112,8 @@
         "WHATSAPP_GROUP_LINK_HELP": "WhatsAppグループ招待リンクを入力（オプション）",
         "SORT_BY_DATE_CREATION": "作成日で並べ替え",
         "SORT_BY_FIRST_NAME": "名で並べ替え",
-        "SORT_BY_LAST_NAME": "姓で並べ替え"
+        "SORT_BY_LAST_NAME": "姓で並べ替え",
+        "SORT_BY_LAST_CONNECTION": "最終接続で並べ替え"
     },
     "STATISTICS": {
         "TITLE": "議論統計",

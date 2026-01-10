@@ -1109,7 +1109,8 @@
         "WHATSAPP_GROUP_LINK_HELP": "Εισαγάγετε τον σύνδεσμο πρόσκλησης ομάδας WhatsApp (προαιρετικό)",
         "SORT_BY_DATE_CREATION": "Ταξινόμηση κατά Ημερομηνία Δημιουργίας",
         "SORT_BY_FIRST_NAME": "Ταξινόμηση κατά Όνομα",
-        "SORT_BY_LAST_NAME": "Ταξινόμηση κατά Επώνυμο"
+        "SORT_BY_LAST_NAME": "Ταξινόμηση κατά Επώνυμο",
+        "SORT_BY_LAST_CONNECTION": "Ταξινόμηση κατά Τελευταία Σύνδεση"
     },
     "STATISTICS": {
         "TITLE": "Στατιστικά Συζητήσεων",

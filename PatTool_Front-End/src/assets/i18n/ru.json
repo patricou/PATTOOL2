@@ -1149,7 +1149,8 @@
         "WHATSAPP_GROUP_LINK_HELP": "Введите ссылку-приглашение группы WhatsApp (необязательно)",
         "SORT_BY_DATE_CREATION": "Сортировать по дате создания",
         "SORT_BY_FIRST_NAME": "Сортировать по имени",
-        "SORT_BY_LAST_NAME": "Сортировать по фамилии"
+        "SORT_BY_LAST_NAME": "Сортировать по фамилии",
+        "SORT_BY_LAST_CONNECTION": "Сортировать по последнему подключению"
     },
     "STATISTICS": {
         "TITLE": "Статистика Обсуждений",

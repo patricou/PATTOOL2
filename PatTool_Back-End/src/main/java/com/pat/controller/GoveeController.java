@@ -2,8 +2,6 @@ package com.pat.controller;
 
 import com.pat.repo.domain.Member;
 import com.pat.service.GoveeService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -17,8 +15,6 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api")
 public class GoveeController {
-
-    private static final Logger log = LoggerFactory.getLogger(GoveeController.class);
 
     @Autowired
     private GoveeService goveeService;
@@ -42,8 +38,6 @@ public class GoveeController {
      */
     @PostMapping(value = "/govee/devices", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> getGoveeDevices(@RequestBody Member member) {
-        log.info("Get Govee devices / user id: {}", member.getId());
-        
         if (hasIotRole()) {
             return goveeService.getDevices();
         } else {
@@ -60,7 +54,6 @@ public class GoveeController {
     public Map<String, Object> getGoveeDeviceState(@RequestBody Map<String, String> request) {
         String device = request.get("device");
         String model = request.get("model");
-        log.info("Get Govee device state / device: {}, model: {}", device, model);
         
         if (hasIotRole()) {
             if (device == null || model == null) {
@@ -81,8 +74,6 @@ public class GoveeController {
      */
     @PostMapping(value = "/govee/devices/all", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> getAllGoveeDevicesWithStates(@RequestBody Member member) {
-        log.info("Get all Govee devices with states / user id: {}", member.getId());
-        
         if (hasIotRole()) {
             return goveeService.getAllDeviceStates();
         } else {

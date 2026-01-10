@@ -150,14 +150,14 @@
 
             <!-- IoT Dropdown (only visible if user has Iot role) -->
             <li class="nav-item dropdown" *ngIf="hasIotRole">
-                <button class="nav-link dropdown-toggle btn-link" 
-                   type="button"
+                <a class="nav-link dropdown-toggle" 
+                   href="#"
                    id="iotDropdown" 
+                   role="button"
                    (click)="toggleIotDropdown($event)" 
-                   [attr.aria-expanded]="showIotDropdown"
-                   [class.active]="showIotDropdown">
+                   [attr.aria-expanded]="showIotDropdown">
                     <i class="fa fa-wifi"></i> {{ 'MENU.IOT' | translate }}
-                </button>
+                </a>
                 <ul class="dropdown-menu" 
                     [class.show]="showIotDropdown" 
                     aria-labelledby="iotDropdown"

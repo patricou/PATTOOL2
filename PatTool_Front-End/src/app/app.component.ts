@@ -993,19 +993,13 @@ export class AppComponent implements OnInit {
     }
 
     toggleIotDropdown(event: Event): void {
-        if (event) {
-            event.preventDefault();
-            event.stopPropagation();
-        }
-        
-        // Use requestAnimationFrame for immediate visual feedback
-        requestAnimationFrame(() => {
-            this.showIotDropdown = !this.showIotDropdown;
-            this.showEventsDropdown = false;
-            this.showIADropdown = false;
-            this.showToolsDropdown = false;
-            this.showLinksDropdown = false;
-        });
+        event.preventDefault();
+        event.stopPropagation();
+        this.showIotDropdown = !this.showIotDropdown;
+        this.showEventsDropdown = false; // Close other dropdown
+        this.showIADropdown = false; // Close other dropdown
+        this.showToolsDropdown = false; // Close other dropdown
+        this.showLinksDropdown = false; // Close other dropdown
     }
 
     toggleToolsDropdown(event: Event): void {

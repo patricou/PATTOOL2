@@ -1150,7 +1150,8 @@
         "WHATSAPP_GROUP_LINK_HELP": "أدخل رابط دعوة مجموعة واتساب (اختياري)",
         "SORT_BY_DATE_CREATION": "ترتيب حسب تاريخ الإنشاء",
         "SORT_BY_FIRST_NAME": "ترتيب حسب الاسم الأول",
-        "SORT_BY_LAST_NAME": "ترتيب حسب اسم العائلة"
+        "SORT_BY_LAST_NAME": "ترتيب حسب اسم العائلة",
+        "SORT_BY_LAST_CONNECTION": "ترتيب حسب آخر اتصال"
     },
     "STATISTICS": {
         "TITLE": "إحصائيات المناقشات",

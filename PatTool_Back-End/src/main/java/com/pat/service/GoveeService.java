@@ -48,7 +48,6 @@ public class GoveeService {
                     (Class<Map<String, Object>>) (Class<?>) Map.class
             );
             
-            log.info("Govee devices response: {}", response.getBody());
             return response.getBody() != null ? response.getBody() : new HashMap<>();
             
         } catch (Exception e) {
@@ -87,9 +86,6 @@ public class GoveeService {
             requestBody.put("requestId", java.util.UUID.randomUUID().toString());
             requestBody.put("payload", payload);
             
-            log.info("Requesting device state - URL: {}, Device: {}, SKU: {}", url, device, sku);
-            log.info("Request body: {}", requestBody);
-            
             HttpEntity<Map<String, Object>> requestEntity = new HttpEntity<>(requestBody, headers);
             
             @SuppressWarnings("unchecked")
@@ -100,7 +96,6 @@ public class GoveeService {
                     (Class<Map<String, Object>>) (Class<?>) Map.class
             );
             
-            log.info("Govee device state response: {}", response.getBody());
             return response.getBody() != null ? response.getBody() : new HashMap<>();
             
         } catch (org.springframework.web.client.HttpClientErrorException e) {
@@ -218,10 +213,7 @@ public class GoveeService {
                     
                     // Try to get state if device is retrievable OR has sensor capabilities
                     if ((retrievable || hasSensorCapabilities) && deviceId != null && model != null && !model.isEmpty()) {
-                        log.info("Fetching state for device: {}, SKU: {} (retrievable: true)", deviceId, model);
-                        
                         Map<String, Object> stateResponse = getDeviceState(deviceId, model);
-                        log.info("State response for device {}: {}", deviceId, stateResponse);
                         
                         // Extract state data from response according to Govee API format:
                         // Response structure: { "code": 200, "msg": "success", "payload": { "capabilities": [...] } }
@@ -285,16 +277,13 @@ public class GoveeService {
                         }
                         
                         deviceWithState.put("state", state);
-                        log.info("Successfully extracted state for device {}: {}", deviceId, state);
                     } else {
                         if (!retrievable && !hasSensorCapabilities) {
-                            log.info("Device {} is not retrievable and has no sensor capabilities, skipping state fetch", deviceId);
+                            // Device is not retrievable and has no sensor capabilities, skipping state fetch
                         } else if (!retrievable && hasSensorCapabilities) {
-                            log.warn("Device {} has sensor capabilities but is not marked as retrievable. Attempting state fetch anyway...", deviceId);
-                            // Try to fetch state even if not marked as retrievable
+                            // Device has sensor capabilities but is not marked as retrievable. Attempting state fetch anyway
                             if (deviceId != null && model != null && !model.isEmpty()) {
                                 Map<String, Object> stateResponse = getDeviceState(deviceId, model);
-                                log.info("State response for non-retrievable device {}: {}", deviceId, stateResponse);
                                 
                                 Map<String, Object> state = new HashMap<>();
                                 if (stateResponse.containsKey("payload")) {
@@ -325,13 +314,10 @@ public class GoveeService {
                                     }
                                 }
                                 deviceWithState.put("state", state);
-                                log.info("State extracted for non-retrievable device {}: {}", deviceId, state);
                             } else {
                                 deviceWithState.put("state", new HashMap<>());
                             }
                         } else {
-                            log.warn("Cannot fetch state for device {}: missing deviceId or model/SKU (deviceId: {}, model: {})", 
-                                    deviceId, deviceId != null ? "present" : "null", model != null ? model : "null");
                             deviceWithState.put("state", new HashMap<>());
                         }
                     }

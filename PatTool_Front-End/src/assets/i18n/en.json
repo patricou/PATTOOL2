@@ -1180,7 +1180,8 @@
         "WHATSAPP_GROUP_LINK_HELP": "Enter the WhatsApp group invite link (optional)",
         "SORT_BY_DATE_CREATION": "Sort by Date Creation",
         "SORT_BY_FIRST_NAME": "Sort by First Name",
-        "SORT_BY_LAST_NAME": "Sort by Last Name"
+        "SORT_BY_LAST_NAME": "Sort by Last Name",
+        "SORT_BY_LAST_CONNECTION": "Sort by Last Connection"
     },
     "STATISTICS": {
         "TITLE": "Discussion Statistics",

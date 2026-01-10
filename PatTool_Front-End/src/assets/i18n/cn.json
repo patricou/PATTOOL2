@@ -1152,7 +1152,8 @@
         "WHATSAPP_GROUP_LINK_HELP": "输入 WhatsApp 群组邀请链接（可选）",
         "SORT_BY_DATE_CREATION": "按创建日期排序",
         "SORT_BY_FIRST_NAME": "按名字排序",
-        "SORT_BY_LAST_NAME": "按姓氏排序"
+        "SORT_BY_LAST_NAME": "按姓氏排序",
+        "SORT_BY_LAST_CONNECTION": "按最后连接排序"
     },
     "STATISTICS": {
         "TITLE": "讨论统计",

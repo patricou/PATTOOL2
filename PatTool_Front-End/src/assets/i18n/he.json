@@ -1145,7 +1145,8 @@
         "WHATSAPP_GROUP_LINK_HELP": "הזן את קישור ההזמנה של קבוצת WhatsApp (אופציונלי)",
         "SORT_BY_DATE_CREATION": "מיין לפי תאריך יצירה",
         "SORT_BY_FIRST_NAME": "מיין לפי שם פרטי",
-        "SORT_BY_LAST_NAME": "מיין לפי שם משפחה"
+        "SORT_BY_LAST_NAME": "מיין לפי שם משפחה",
+        "SORT_BY_LAST_CONNECTION": "מיין לפי חיבור אחרון"
     },
     "STATISTICS": {
         "TITLE": "סטטיסטיקת דיונים",

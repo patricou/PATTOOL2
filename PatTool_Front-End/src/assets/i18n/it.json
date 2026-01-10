@@ -1160,7 +1160,8 @@
         "WHATSAPP_GROUP_LINK_HELP": "Inserisci il link di invito del gruppo WhatsApp (opzionale)",
         "SORT_BY_DATE_CREATION": "Ordina per Data di Creazione",
         "SORT_BY_FIRST_NAME": "Ordina per Nome",
-        "SORT_BY_LAST_NAME": "Ordina per Cognome"
+        "SORT_BY_LAST_NAME": "Ordina per Cognome",
+        "SORT_BY_LAST_CONNECTION": "Ordina per Ultima Connessione"
     },
     "STATISTICS": {
         "TITLE": "Statistiche delle Discussioni",
