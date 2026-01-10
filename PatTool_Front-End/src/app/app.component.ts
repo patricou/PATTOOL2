@@ -971,6 +971,7 @@ export class AppComponent implements OnInit {
         this.showIADropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
+        this.showIotDropdown = false; // Close other dropdown
     }
 
     toggleIADropdown(event: Event): void {
@@ -980,6 +981,7 @@ export class AppComponent implements OnInit {
         this.showEventsDropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
+        this.showIotDropdown = false; // Close other dropdown
     }
 
     toggleLinksDropdown(event: Event): void {
@@ -1009,6 +1011,7 @@ export class AppComponent implements OnInit {
         this.showEventsDropdown = false; // Close other dropdown
         this.showIADropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
+        this.showIotDropdown = false; // Close other dropdown
         if (!this.showToolsDropdown) {
             this.showLanguageSubmenu = false; // Close language submenu when tools dropdown closes
             this.showDocumentationSubmenu = false; // Close documentation submenu when tools dropdown closes
