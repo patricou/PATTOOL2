@@ -705,6 +705,7 @@
         "MESSAGES": "消息",
         "EVENT_DATE": "活动日期",
         "EVENT_LOCATION": "地点",
+        "LAST_MESSAGE_DATE": "最后消息",
         "EVENT_VISIBILITY": "可见性",
         "EVENT_STATUS": "状态",
         "MEMBERS_COUNT": "成员",
@@ -718,7 +719,14 @@
         "VIEW_EVENT_DETAILS": "查看活动详情",
         "OPEN_WHATSAPP_GROUP": "打开WhatsApp群组",
         "DELETE_DISCUSSION": "删除讨论",
-        "VIEW_DISCUSSION_STATISTICS": "查看讨论统计"
+        "VIEW_DISCUSSION_STATISTICS": "查看讨论统计",
+        "SORT_BY": "排序方式",
+        "SORT_CREATION_DATE": "创建日期",
+        "SORT_LAST_MESSAGE_DATE": "最后消息日期",
+        "SORT_TITLE": "标题（字母顺序）",
+        "SORT_TYPE": "类型",
+        "SORT_ASC": "升序",
+        "SORT_DESC": "降序"
     },
     "MAP": {
         "TITLE": "特点",

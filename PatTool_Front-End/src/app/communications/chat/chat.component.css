@@ -112,6 +112,88 @@
     cursor: not-allowed;
 }
 
+/* Sort Section */
+.sort-section-redesigned {
+    flex: 0 0 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sort-section-redesigned .sort-input-container-desktop {
+    width: 100%;
+    max-width: 280px;
+    min-width: 200px;
+    margin: 0 auto;
+    height: 36px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+}
+
+.sort-section-redesigned .sort-input-container-desktop:hover {
+    border-color: #9ca3af;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.sort-section-redesigned .sort-input-container-desktop:focus-within {
+    border-color: #007bff;
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+}
+
+.sort-section-redesigned .sort-input-container-desktop .sort-select {
+    flex: 1;
+    border: none;
+    outline: none;
+    padding: 0 36px 0 36px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    line-height: 1.5;
+    background: transparent;
+    color: #1f2937;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+}
+
+.sort-section-redesigned .sort-input-container-desktop .search-icon {
+    position: absolute;
+    left: 12px;
+    color: #6b7280;
+    font-size: 0.85rem;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.sort-section-redesigned .sort-input-container-desktop .sort-direction-btn {
+    position: absolute;
+    right: 4px;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s ease;
+    z-index: 1;
+}
+
+.sort-section-redesigned .sort-input-container-desktop .sort-direction-btn:hover {
+    background: #f3f4f6;
+    color: #1f2937;
+}
+
 /* Chat Stats - Now in filter container */
 .chat-stats {
     display: flex;

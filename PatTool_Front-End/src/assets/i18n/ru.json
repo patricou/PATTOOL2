@@ -702,6 +702,7 @@
         "MESSAGES": "сообщений",
         "EVENT_DATE": "Дата события",
         "EVENT_LOCATION": "Местоположение",
+        "LAST_MESSAGE_DATE": "Последнее сообщение",
         "EVENT_VISIBILITY": "Видимость",
         "EVENT_STATUS": "Статус",
         "MEMBERS_COUNT": "Участники",
@@ -715,7 +716,14 @@
         "VIEW_EVENT_DETAILS": "Просмотр деталей события",
         "OPEN_WHATSAPP_GROUP": "Открыть группу WhatsApp",
         "DELETE_DISCUSSION": "Удалить обсуждение",
-        "VIEW_DISCUSSION_STATISTICS": "Просмотр статистики обсуждений"
+        "VIEW_DISCUSSION_STATISTICS": "Просмотр статистики обсуждений",
+        "SORT_BY": "Сортировать по",
+        "SORT_CREATION_DATE": "Дата создания",
+        "SORT_LAST_MESSAGE_DATE": "Дата последнего сообщения",
+        "SORT_TITLE": "Название (алфавитный порядок)",
+        "SORT_TYPE": "Тип",
+        "SORT_ASC": "По возрастанию",
+        "SORT_DESC": "По убыванию"
     },
     "MAP": {
         "TITLE": "Характеристики",

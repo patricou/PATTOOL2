@@ -67,6 +67,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   public allFriendGroups: FriendGroup[] = [];
   public dataFIlter: string = '';
   public filteredDiscussions: DiscussionItem[] = [];
+  public sortBy: 'creationDate' | 'lastMessageDate' | 'title' | 'type' = 'lastMessageDate';
+  public sortDirection: 'asc' | 'desc' = 'desc';
   // Cache for computed values to avoid method calls in template
   private ownerNameCache: Map<string, string> = new Map();
   private memberListCache: Map<string, string[]> = new Map();
@@ -233,7 +235,7 @@ export class ChatComponent implements OnInit, OnDestroy {
             // Only update filtered list if no filter is active (more efficient)
             // If filter is active, we'll apply it at the end to avoid re-filtering on every addition
             if (!this.dataFIlter || this.dataFIlter.trim() === '') {
-              this.filteredDiscussions = [...this.availableDiscussions];
+              this.filteredDiscussions = this.applySort([...this.availableDiscussions]);
               // Use change detection optimization - only mark for check, don't trigger full change detection
               this.cdr.markForCheck();
             }
@@ -257,12 +259,8 @@ export class ChatComponent implements OnInit, OnDestroy {
             this.isLoading = false;
             this.connectionStatus = '';
             
-            // Ensure filter is applied at the end
-            if (this.dataFIlter && this.dataFIlter.trim() !== '') {
-              this.applyFilter();
-            } else {
-              this.filteredDiscussions = [...this.availableDiscussions];
-            }
+            // Ensure filter is applied at the end (applyFilter also applies sorting)
+            this.applyFilter();
             // Trigger change detection once at the end
             this.cdr.markForCheck();
           } else if (streamed.type === 'error') {
@@ -392,43 +390,109 @@ export class ChatComponent implements OnInit, OnDestroy {
    * OPTIMIZED: Uses debounced input and efficient filtering
    */
   public applyFilter() {
-    if (!this.dataFIlter || this.dataFIlter.trim() === '') {
-      this.filteredDiscussions = [...this.availableDiscussions];
-      this.cdr.markForCheck();
-      return;
-    }
+    let discussions: DiscussionItem[] = [];
     
-    const filterLower = this.dataFIlter.toLowerCase().trim();
-    // Pre-compute filter checks to avoid repeated method calls
-    this.filteredDiscussions = this.availableDiscussions.filter(discussion => {
-      // Filter by title (most common case, check first)
-      if (discussion.title && discussion.title.toLowerCase().includes(filterLower)) {
-        return true;
-      }
-      
-      // Filter by event name
-      if (discussion.type === 'event' && discussion.event?.evenementName?.toLowerCase().includes(filterLower)) {
-        return true;
-      }
-      
-      // Filter by friend group name
-      if (discussion.type === 'friendGroup' && discussion.friendGroup?.name?.toLowerCase().includes(filterLower)) {
-        return true;
-      }
-      
-      // Filter by author name (for events) - more expensive, check last
-      if (discussion.type === 'event' && discussion.event?.author) {
-        const firstName = discussion.event.author.firstName || '';
-        const lastName = discussion.event.author.lastName || '';
-        const authorName = `${firstName} ${lastName}`.toLowerCase();
-        if (authorName.includes(filterLower)) {
+    if (!this.dataFIlter || this.dataFIlter.trim() === '') {
+      discussions = [...this.availableDiscussions];
+    } else {
+      const filterLower = this.dataFIlter.toLowerCase().trim();
+      // Pre-compute filter checks to avoid repeated method calls
+      discussions = this.availableDiscussions.filter(discussion => {
+        // Filter by title (most common case, check first)
+        if (discussion.title && discussion.title.toLowerCase().includes(filterLower)) {
           return true;
         }
+        
+        // Filter by event name
+        if (discussion.type === 'event' && discussion.event?.evenementName?.toLowerCase().includes(filterLower)) {
+          return true;
+        }
+        
+        // Filter by friend group name
+        if (discussion.type === 'friendGroup' && discussion.friendGroup?.name?.toLowerCase().includes(filterLower)) {
+          return true;
+        }
+        
+        // Filter by author name (for events) - more expensive, check last
+        if (discussion.type === 'event' && discussion.event?.author) {
+          const firstName = discussion.event.author.firstName || '';
+          const lastName = discussion.event.author.lastName || '';
+          const authorName = `${firstName} ${lastName}`.toLowerCase();
+          if (authorName.includes(filterLower)) {
+            return true;
+          }
+        }
+        
+        return false;
+      });
+    }
+    
+    // Apply sorting
+    this.filteredDiscussions = this.applySort(discussions);
+    this.cdr.markForCheck();
+  }
+
+  /**
+   * Apply sorting to discussions
+   */
+  private applySort(discussions: DiscussionItem[]): DiscussionItem[] {
+    const sorted = [...discussions];
+    
+    sorted.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (this.sortBy) {
+        case 'creationDate':
+          const dateA = a.discussion?.creationDate 
+            ? new Date(a.discussion.creationDate).getTime() 
+            : 0;
+          const dateB = b.discussion?.creationDate 
+            ? new Date(b.discussion.creationDate).getTime() 
+            : 0;
+          comparison = dateA - dateB;
+          break;
+          
+        case 'lastMessageDate':
+          const lastDateA = a.lastMessageDate 
+            ? new Date(a.lastMessageDate).getTime() 
+            : 0;
+          const lastDateB = b.lastMessageDate 
+            ? new Date(b.lastMessageDate).getTime() 
+            : 0;
+          comparison = lastDateA - lastDateB;
+          break;
+          
+        case 'title':
+          const titleA = (a.title || '').toLowerCase();
+          const titleB = (b.title || '').toLowerCase();
+          comparison = titleA.localeCompare(titleB);
+          break;
+          
+        case 'type':
+          const typeA = a.type || '';
+          const typeB = b.type || '';
+          comparison = typeA.localeCompare(typeB);
+          break;
       }
       
-      return false;
+      return this.sortDirection === 'asc' ? comparison : -comparison;
     });
-    this.cdr.markForCheck();
+    
+    return sorted;
+  }
+
+  /**
+   * On sort change
+   */
+  public onSortChange(sortBy: 'creationDate' | 'lastMessageDate' | 'title' | 'type') {
+    // Toggle direction if clicking the same sort option, otherwise set to desc
+    if (this.sortBy === sortBy) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      this.sortBy = sortBy;
+      this.sortDirection = 'desc';
+    }
+    this.applyFilter();
   }
 
   /**

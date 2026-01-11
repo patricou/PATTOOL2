@@ -688,6 +688,7 @@
         "MESSAGES": "संदेश",
         "EVENT_DATE": "घटना की तारीख",
         "EVENT_LOCATION": "स्थान",
+        "LAST_MESSAGE_DATE": "अंतिम संदेश",
         "EVENT_VISIBILITY": "दृश्यता",
         "EVENT_STATUS": "स्थिति",
         "MEMBERS_COUNT": "सदस्य",
@@ -701,7 +702,14 @@
         "VIEW_EVENT_DETAILS": "इवेंट विवरण देखें",
         "OPEN_WHATSAPP_GROUP": "WhatsApp समूह खोलें",
         "DELETE_DISCUSSION": "चर्चा हटाएं",
-        "VIEW_DISCUSSION_STATISTICS": "चर्चा सांख्यिकी देखें"
+        "VIEW_DISCUSSION_STATISTICS": "चर्चा सांख्यिकी देखें",
+        "SORT_BY": "इसके अनुसार क्रमबद्ध करें",
+        "SORT_CREATION_DATE": "निर्माण तिथि",
+        "SORT_LAST_MESSAGE_DATE": "अंतिम संदेश तिथि",
+        "SORT_TITLE": "शीर्षक (वर्णानुक्रमिक)",
+        "SORT_TYPE": "प्रकार",
+        "SORT_ASC": "आरोही",
+        "SORT_DESC": "अवरोही"
     },
     "MAP": {
         "TITLE": "मुख्य विशेषताएं",

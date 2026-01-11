@@ -199,6 +199,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.user = this._memberService.getUser();
 		this.cardsReady = false;
 		
+		// Re-read filter value from service to ensure we have the latest value when returning to home
+		this.dataFIlter = this._commonValuesService.getDataFilter();
+		
 		// Initialize filtered events
 		this.filteredEvents = [];
 		
@@ -232,7 +235,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		})() : storedEventId;
 		
-		// Always reset first to ensure clean state
+		// Always reset first to ensure clean state (filter will be applied if dataFIlter has a value)
 		this.resetAndLoadEvents();
 		
 		// After reset, load specific event if needed (this will be handled in resetAndLoadEvents)

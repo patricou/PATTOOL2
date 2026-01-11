@@ -34,7 +34,7 @@ export class FriendsComponent implements OnInit {
   public sentRequests: FriendRequest[] = [];
   public currentUser: Member = new Member("", "", "", "", "", [], "");
   public searchFilter: string = '';
-  public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'myuser';
+  public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'users';
   public selectedFriendIndex: number | null = null;
   public sortOption: 'dateCreation' | 'firstName' | 'lastName' | 'lastConnection' = 'dateCreation';
   public sortOptionFriends: 'dateCreation' | 'firstName' | 'lastName' = 'dateCreation';

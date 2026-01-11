@@ -698,6 +698,7 @@
         "MESSAGES": "הודעות",
         "EVENT_DATE": "תאריך האירוע",
         "EVENT_LOCATION": "מיקום",
+        "LAST_MESSAGE_DATE": "הודעה אחרונה",
         "EVENT_VISIBILITY": "נראות",
         "EVENT_STATUS": "סטטוס",
         "MEMBERS_COUNT": "חברים",
@@ -711,7 +712,14 @@
         "VIEW_EVENT_DETAILS": "הצג פרטי אירוע",
         "OPEN_WHATSAPP_GROUP": "פתח קבוצת WhatsApp",
         "DELETE_DISCUSSION": "מחק דיון",
-        "VIEW_DISCUSSION_STATISTICS": "הצג סטטיסטיקות דיונים"
+        "VIEW_DISCUSSION_STATISTICS": "הצג סטטיסטיקות דיונים",
+        "SORT_BY": "מיין לפי",
+        "SORT_CREATION_DATE": "תאריך יצירה",
+        "SORT_LAST_MESSAGE_DATE": "תאריך הודעה אחרונה",
+        "SORT_TITLE": "כותרת (אלפביתי)",
+        "SORT_TYPE": "סוג",
+        "SORT_ASC": "עולה",
+        "SORT_DESC": "יורד"
     },
     "MAP": {
         "TITLE": "מאפיינים",

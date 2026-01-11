@@ -662,6 +662,7 @@
         "MESSAGES": "μηνύματα",
         "EVENT_DATE": "Ημερομηνία εκδήλωσης",
         "EVENT_LOCATION": "Τοποθεσία",
+        "LAST_MESSAGE_DATE": "Τελευταίο μήνυμα",
         "EVENT_VISIBILITY": "Ορατότητα",
         "EVENT_STATUS": "Κατάσταση",
         "MEMBERS_COUNT": "Μέλη",
@@ -675,7 +676,14 @@
         "VIEW_EVENT_DETAILS": "Προβολή λεπτομερειών εκδήλωσης",
         "OPEN_WHATSAPP_GROUP": "Άνοιγμα ομάδας WhatsApp",
         "DELETE_DISCUSSION": "Διαγραφή συζήτησης",
-        "VIEW_DISCUSSION_STATISTICS": "Προβολή στατιστικών συζητήσεων"
+        "VIEW_DISCUSSION_STATISTICS": "Προβολή στατιστικών συζητήσεων",
+        "SORT_BY": "Ταξινόμηση κατά",
+        "SORT_CREATION_DATE": "Ημερομηνία δημιουργίας",
+        "SORT_LAST_MESSAGE_DATE": "Ημερομηνία τελευταίου μηνύματος",
+        "SORT_TITLE": "Τίτλος (αλφαβητικά)",
+        "SORT_TYPE": "Τύπος",
+        "SORT_ASC": "Αύξουσα",
+        "SORT_DESC": "Φθίνουσα"
     },
     "MAP": {
         "TITLE": "Χαρακτηριστικά",

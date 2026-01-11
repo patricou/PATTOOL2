@@ -717,6 +717,7 @@
         "MESSAGES": "messages",
         "EVENT_DATE": "Event Date",
         "EVENT_LOCATION": "Location",
+        "LAST_MESSAGE_DATE": "Last Message",
         "EVENT_VISIBILITY": "Visibility",
         "EVENT_STATUS": "Status",
         "MEMBERS_COUNT": "Members",
@@ -730,7 +731,14 @@
         "VIEW_EVENT_DETAILS": "View Event Details",
         "OPEN_WHATSAPP_GROUP": "Open WhatsApp Group",
         "DELETE_DISCUSSION": "Delete discussion",
-        "VIEW_DISCUSSION_STATISTICS": "View Discussion Statistics"
+        "VIEW_DISCUSSION_STATISTICS": "View Discussion Statistics",
+        "SORT_BY": "Sort by",
+        "SORT_CREATION_DATE": "Creation Date",
+        "SORT_LAST_MESSAGE_DATE": "Last Message Date",
+        "SORT_TITLE": "Title (Alphabetical)",
+        "SORT_TYPE": "Type",
+        "SORT_ASC": "Ascending",
+        "SORT_DESC": "Descending"
     },
     "MAP": {
         "TITLE": "Main Features",

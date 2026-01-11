@@ -40,6 +40,28 @@
                 </button>
             </div>
         </div>
+        <div class="sort-section-redesigned">
+            <div class="sort-input-container-desktop">
+                <i class="fa fa-sort search-icon"></i>
+                <select class="sort-select" 
+                        [ngModel]="sortBy"
+                        (ngModelChange)="onSortChange($event)"
+                        [title]="'CHAT.SORT_BY' | translate">
+                    <option value="creationDate">{{ 'CHAT.SORT_CREATION_DATE' | translate }}</option>
+                    <option value="lastMessageDate">{{ 'CHAT.SORT_LAST_MESSAGE_DATE' | translate }}</option>
+                    <option value="title">{{ 'CHAT.SORT_TITLE' | translate }}</option>
+                    <option value="type">{{ 'CHAT.SORT_TYPE' | translate }}</option>
+                </select>
+                <button class="sort-direction-btn" 
+                        (click)="onSortChange(sortBy)"
+                        type="button"
+                        [ngbTooltip]="(sortDirection === 'asc' ? 'CHAT.SORT_DESC' : 'CHAT.SORT_ASC') | translate" 
+                        placement="bottom"
+                        container="body">
+                    <i class="fa" [class.fa-sort-amount-asc]="sortDirection === 'asc'" [class.fa-sort-amount-desc]="sortDirection === 'desc'"></i>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Loading State -->
@@ -135,6 +157,12 @@
                         <p class="discussion-info-item" *ngIf="discussion.type === 'general'">
                             <i class="fa fa-info-circle"></i>
                             <span>{{ "CHAT.GENERAL_DISCUSSION_DESC" | translate }}</span>
+                        </p>
+
+                        <!-- Last Message Date (shown for all types) -->
+                        <p class="discussion-info-item" *ngIf="discussion.lastMessageDate">
+                            <i class="fa fa-clock-o"></i>
+                            <span><strong>{{ "CHAT.LAST_MESSAGE_DATE" | translate }}:</strong> {{ discussion.lastMessageDate | date:'short' }}</span>
                         </p>
                     </div>
                     

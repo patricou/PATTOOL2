@@ -703,6 +703,7 @@
         "MESSAGES": "رسائل",
         "EVENT_DATE": "تاريخ الحدث",
         "EVENT_LOCATION": "الموقع",
+        "LAST_MESSAGE_DATE": "آخر رسالة",
         "EVENT_VISIBILITY": "الظهور",
         "EVENT_STATUS": "الحالة",
         "MEMBERS_COUNT": "الأعضاء",
@@ -716,7 +717,14 @@
         "VIEW_EVENT_DETAILS": "عرض تفاصيل الحدث",
         "OPEN_WHATSAPP_GROUP": "فتح مجموعة واتساب",
         "DELETE_DISCUSSION": "حذف المناقشة",
-        "VIEW_DISCUSSION_STATISTICS": "عرض إحصائيات المناقشات"
+        "VIEW_DISCUSSION_STATISTICS": "عرض إحصائيات المناقشات",
+        "SORT_BY": "ترتيب حسب",
+        "SORT_CREATION_DATE": "تاريخ الإنشاء",
+        "SORT_LAST_MESSAGE_DATE": "تاريخ آخر رسالة",
+        "SORT_TITLE": "العنوان (أبجدي)",
+        "SORT_TYPE": "النوع",
+        "SORT_ASC": "تصاعدي",
+        "SORT_DESC": "تنازلي"
     },
     "MAP": {
         "TITLE": "الخصائص",

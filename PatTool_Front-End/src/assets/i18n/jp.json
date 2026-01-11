@@ -665,6 +665,7 @@
         "MESSAGES": "メッセージ",
         "EVENT_DATE": "イベント日付",
         "EVENT_LOCATION": "場所",
+        "LAST_MESSAGE_DATE": "最後のメッセージ",
         "EVENT_VISIBILITY": "公開設定",
         "EVENT_STATUS": "ステータス",
         "MEMBERS_COUNT": "メンバー",
@@ -678,7 +679,14 @@
         "VIEW_EVENT_DETAILS": "イベント詳細を表示",
         "OPEN_WHATSAPP_GROUP": "WhatsAppグループを開く",
         "DELETE_DISCUSSION": "ディスカッションを削除",
-        "VIEW_DISCUSSION_STATISTICS": "ディスカッション統計を表示"
+        "VIEW_DISCUSSION_STATISTICS": "ディスカッション統計を表示",
+        "SORT_BY": "並び替え",
+        "SORT_CREATION_DATE": "作成日",
+        "SORT_LAST_MESSAGE_DATE": "最後のメッセージ日",
+        "SORT_TITLE": "タイトル（アルファベット順）",
+        "SORT_TYPE": "タイプ",
+        "SORT_ASC": "昇順",
+        "SORT_DESC": "降順"
     },
     "MAP": {
         "TITLE": "特徴",
