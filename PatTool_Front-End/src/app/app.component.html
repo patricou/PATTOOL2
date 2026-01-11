@@ -289,7 +289,7 @@
             <li class="nav-item" [hidden]="!isAuthenticated()">
                 <a class="nav-link" 
                    href="#" 
-                   (click)="logout(); closeMenu()">
+                   (click)="logout(); closeMenu(); $event.preventDefault()">
                     <i class="fa fa-sign-out"></i> {{ 'MENU.LOGOUT' | translate }}
                 </a>
             </li>

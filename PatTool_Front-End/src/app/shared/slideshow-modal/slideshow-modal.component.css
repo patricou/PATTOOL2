@@ -214,6 +214,28 @@
     will-change: transform;
     transform-style: preserve-3d;
 }
+/* Blurred background image using the current image */
+.slideshow-image-wrapper::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: var(--slideshow-bg-image, none);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    filter: blur(30px) brightness(0.6);
+    transform: scale(1.1); /* Prevent edges showing after blur */
+    z-index: 0;
+    pointer-events: none;
+}
+/* Only apply z-index to the image element, not to absolutely positioned overlays */
+.slideshow-image-wrapper > img.slideshow-image {
+    position: relative;
+    z-index: 1;
+}
 
 /* Blurred background using current image - DISABLED to avoid duplicate network requests
    The background blur was causing duplicate network requests for the same blob URL
@@ -365,8 +387,8 @@
     display: flex;
     align-items: stretch;
     justify-content: center;
-    background: #000;
-    z-index: 0;
+    background: transparent; /* Transparent to show blurred background image */
+    z-index: 2; /* Above blurred background (0) and image (1) */
 }
 
 .slideshow-map-container iframe {

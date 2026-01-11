@@ -133,6 +133,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Cached current image URL to avoid multiple calls to getCurrentSlideshowImage()
   public currentSlideshowImageUrl: string = '';
   
+  // Flag to track when switching variants (same image, different quality)
+  // Used to skip expensive background color recalculation
+  private isSwitchingVariant: boolean = false;
+  
   // Grid overlay visibility
   public showGrid: boolean = false;
   
@@ -1644,15 +1648,35 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     requestAnimationFrame(() => {
       this.updateImageDimensions();
       this.updateContainerDimensions();
-      // Defer background color calculation as it's expensive (canvas operations)
-      // Only update if not currently zooming to avoid color changes during zoom
-      if (!this.isZooming) {
-        requestAnimationFrame(() => {
-          this.updateAverageBackgroundColor();
-        });
-      }
       this.slideshowBackgroundImageUrl = this.getCurrentSlideshowImage();
+      // Update blurred background image
+      this.updateBackgroundImageStyle();
     });
+    
+    // Skip background color update if we're just switching variants (same image, different quality)
+    // This prevents expensive recalculation when it's not needed
+    const wasSwitchingVariant = this.isSwitchingVariant;
+    this.isSwitchingVariant = false; // Reset flag after image loads
+    
+    // Defer background color calculation completely outside requestAnimationFrame
+    // This expensive operation (canvas operations) should not block rendering
+    // Only update if not currently zooming and not switching variants
+    if (!this.isZooming && !wasSwitchingVariant) {
+      // Use requestIdleCallback if available (runs when browser is idle, truly non-blocking)
+      // Fallback to setTimeout with significant delay to ensure it doesn't block rendering
+      if (typeof (window as any).requestIdleCallback === 'function') {
+        (window as any).requestIdleCallback(() => {
+          this.updateAverageBackgroundColor();
+        }, { timeout: 2000 });
+      } else {
+        // Fallback: use setTimeout with longer delay to push way out
+        // This ensures the image renders completely before expensive operation
+        setTimeout(() => {
+          this.updateAverageBackgroundColor();
+        }, 500);
+      }
+    }
+    
     // Ensure programmatic event listeners are set up when image loads
     this.setupProgrammaticEventListeners();
   }
@@ -1682,10 +1706,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         return;
       }
       // Run the expensive canvas operations outside Angular zone
-      // Use requestAnimationFrame instead of requestIdleCallback to avoid performance warnings
-      // and ensure the work is done during the next frame
+      // DO NOT use requestAnimationFrame for the expensive work - it blocks rendering!
+      // Do the work synchronously or in setTimeout, then use requestAnimationFrame only for the final update
       this.ngZone.runOutsideAngular(() => {
-        requestAnimationFrame(() => {
+        // Use setTimeout to push expensive work out of the current frame
+        // This prevents blocking the requestAnimationFrame handler
+        setTimeout(() => {
           // Preserve aspect ratio; scale longest side to target (further reduced for better performance)
           const targetMax = 40; // Reduced from 80 to 40 for much faster processing
           const iw = imgEl.naturalWidth;
@@ -1717,7 +1743,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             count++;
           }
           
-          // Defer background color update - use requestAnimationFrame
+          // Now use requestAnimationFrame ONLY for the final Angular update (not the expensive work)
           requestAnimationFrame(() => {
             this.ngZone.run(() => {
               if (count > 0) {
@@ -1731,7 +1757,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
               this.cdr.markForCheck();
             });
           });
-        });
+        }, 0);
       });
     } catch {
       // In case of CORS-tainted canvas or other errors, fallback gracefully to transparent
@@ -1748,6 +1774,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
   }
   
+  // Update CSS variable for blurred background image
+  private updateBackgroundImageStyle(): void {
+    const container = this.slideshowContainerRef?.nativeElement;
+    if (container && this.currentSlideshowImageUrl) {
+      container.style.setProperty('--slideshow-bg-image', `url(${this.currentSlideshowImageUrl})`);
+    } else if (container) {
+      container.style.setProperty('--slideshow-bg-image', 'none');
+    }
+  }
+
   // Update all image-related dimensions for display
   private updateImageDimensions(): void {
     try {
@@ -3830,6 +3866,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     } else {
       this.currentSlideshowImageUrl = this.slideshowImages[this.currentSlideshowIndex] || '';
     }
+    // Update blurred background image when URL changes
+    this.updateBackgroundImageStyle();
   }
 
   // Check if current image is loading (for fileId-based images)
@@ -3990,8 +4028,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         return { objectUrl, blob, metadata };
       }),
       finalize(() => {
-        this.filesystemVariantLoading.delete(imageIndex);
-        this.cdr.detectChanges();
+        // Don't clear loading flag here - wait for image to actually render
+        // The loading flag will be cleared in continueApplyFilesystemVariant after image renders
       })
     );
 
@@ -4442,10 +4480,140 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
 
     const fileName = this.imageFileNames.get(currentUrl) || imageSource?.fileName || '';
 
+    // Preload the new image and wait for it to be ready before switching
     if (currentUrl !== newUrl) {
-      this.slideshowImages[this.currentSlideshowIndex] = newUrl;
-      this.updateCurrentSlideshowImageUrl();
+      // Set flag to skip background color update (same image, different quality)
+      this.isSwitchingVariant = true;
+      
+      let variantApplied = false;
+      const imgEl = this.slideshowImgElRef?.nativeElement;
+      
+      const applyVariantOnce = () => {
+        if (variantApplied) return;
+        variantApplied = true;
+        this.continueApplyFilesystemVariant(newUrl, blob, imageIndex, imageSource, previousZoom, previousTranslateX, previousTranslateY, metadata, variant, fileName, currentUrl);
+      };
+      
+      // Preload the image first
+      const preloadImage = new Image();
+      preloadImage.onload = () => {
+        // Image is preloaded and ready
+        // Now update the DOM and wait for it to actually render before clearing loading state
+        this.slideshowImages[this.currentSlideshowIndex] = newUrl;
+        this.updateCurrentSlideshowImageUrl();
+        this.cdr.detectChanges();
+        
+        // Wait for the actual DOM img element to load and render the new src
+        // This ensures the image is visible before we clear the loading state
+        if (imgEl) {
+          const oldSrc = imgEl.src; // Store old src to detect when it changes
+          let loadHandlerAttached = false;
+          
+          const onDomImageLoad = () => {
+            // Verify the src has actually changed to the new URL
+            if (imgEl.src !== oldSrc && imgEl.complete && imgEl.naturalWidth > 0) {
+              if (loadHandlerAttached) {
+                imgEl.removeEventListener('load', onDomImageLoad);
+                loadHandlerAttached = false;
+              }
+              // Image loaded in DOM, wait for it to be painted (double RAF)
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  // Now it should be fully rendered, safe to clear loading and continue
+                  if (!variantApplied) {
+                    applyVariantOnce();
+                  }
+                });
+              });
+            }
+          };
+          
+          // Set up load listener BEFORE Angular updates the src (so we catch the load event)
+          imgEl.addEventListener('load', onDomImageLoad);
+          loadHandlerAttached = true;
+          
+          // Wait a bit for Angular to update the src binding, then check
+          setTimeout(() => {
+            // Check if src changed and image is loaded
+            if (imgEl.src !== oldSrc && imgEl.complete && imgEl.naturalWidth > 0) {
+              // Already loaded, but still wait for rendering
+              if (loadHandlerAttached) {
+                imgEl.removeEventListener('load', onDomImageLoad);
+                loadHandlerAttached = false;
+              }
+              // Wait for rendering with double RAF
+              requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                  if (!variantApplied) {
+                    applyVariantOnce();
+                  }
+                });
+              });
+            }
+          }, 100); // Give Angular time to update the src binding
+          
+          // Fallback: if it takes too long, proceed anyway (max 1.5 seconds)
+          setTimeout(() => {
+            if (loadHandlerAttached) {
+              imgEl.removeEventListener('load', onDomImageLoad);
+              loadHandlerAttached = false;
+            }
+            if (!variantApplied) {
+              applyVariantOnce();
+            }
+          }, 1500);
+        } else {
+          // No DOM element, continue anyway
+          applyVariantOnce();
+        }
+      };
+      
+      preloadImage.onerror = () => {
+        // Preload failed, still switch (fallback)
+        this.slideshowImages[this.currentSlideshowIndex] = newUrl;
+        this.updateCurrentSlideshowImageUrl();
+        this.cdr.detectChanges();
+        applyVariantOnce();
+      };
+      
+      preloadImage.src = newUrl;
+      
+      // Fallback timeout - if preload takes too long, proceed anyway
+      setTimeout(() => {
+        if (!variantApplied) {
+          this.slideshowImages[this.currentSlideshowIndex] = newUrl;
+          this.updateCurrentSlideshowImageUrl();
+          this.cdr.detectChanges();
+          applyVariantOnce();
+        }
+      }, 200);
+      return;
     }
+    
+    // If URLs are the same, reset flag (no variant switch)
+    this.isSwitchingVariant = false;
+    
+    // If URLs are the same, continue normally
+    this.continueApplyFilesystemVariant(newUrl, blob, imageIndex, imageSource, previousZoom, previousTranslateX, previousTranslateY, metadata, variant, fileName, currentUrl);
+  }
+
+  private continueApplyFilesystemVariant(
+    newUrl: string,
+    blob: Blob | null,
+    imageIndex: number,
+    imageSource: SlideshowImageSource,
+    previousZoom: number,
+    previousTranslateX: number,
+    previousTranslateY: number,
+    metadata: PatMetadata | undefined,
+    variant: 'compressed' | 'original',
+    fileName: string,
+    oldUrl: string
+  ): void {
+    // Clear loading flag now that the image is confirmed rendered
+    // (This is called from applyVariantOnce which waits for DOM rendering)
+    this.filesystemVariantLoading.delete(imageIndex);
+    this.cdr.detectChanges();
 
     if (fileName) {
       this.imageFileNames.set(newUrl, fileName);
@@ -4487,13 +4655,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.prefetchFilesystemOriginalVariant(imageIndex, imageSource, variants);
     }
 
-    if (currentUrl !== newUrl) {
-      if (this.imageLocations.has(currentUrl)) {
-        const location = this.imageLocations.get(currentUrl)!;
+    // Copy location/map data from old URL to new URL
+    if (oldUrl && oldUrl !== newUrl) {
+      if (this.imageLocations.has(oldUrl)) {
+        const location = this.imageLocations.get(oldUrl)!;
         this.imageLocations.set(newUrl, { ...location });
       }
-      if (this.mapUrlCache.has(currentUrl)) {
-        this.mapUrlCache.set(newUrl, this.mapUrlCache.get(currentUrl)!);
+      if (this.mapUrlCache.has(oldUrl)) {
+        this.mapUrlCache.set(newUrl, this.mapUrlCache.get(oldUrl)!);
       }
     }
 

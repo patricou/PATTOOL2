@@ -41,6 +41,10 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
   public fsCompressionEnabled: boolean = true;
   private modalRef?: NgbModalRef;
   
+  // Cached values to avoid ExpressionChangedAfterItHasBeenCheckedError
+  private _hasImageFiles: boolean = false;
+  private _imageFilesCount: number = 0;
+  
   // Scroll position preservation - using CSS lock method
   private savedScrollPosition: number = 0;
   // Store the ORIGINAL scroll position (before any modal was opened)
@@ -105,6 +109,9 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
   ) {}
 
   ngOnInit(): void {
+    // Update cache immediately
+    this.updateImageFilesCache();
+    
     // Defer initialization to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
     setTimeout(() => {
       this.initializeDefaultSelection();
@@ -112,8 +119,11 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    // When evenement data changes (e.g., files are loaded), check and select single option
+    // When evenement data changes (e.g., files are loaded), update cache and check selection
     if (changes['evenement']) {
+      // Update cache immediately (synchronous, before change detection)
+      this.updateImageFilesCache();
+      
       // Defer to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
       setTimeout(() => {
         if (!changes['evenement'].firstChange) {
@@ -133,6 +143,9 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
       console.warn('No event provided to photos selector');
       return;
     }
+
+    // Update cache immediately (before modal opens)
+    this.updateImageFilesCache();
 
     // Reset selection
     this.selectedFsLink = '';
@@ -401,13 +414,23 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
   }
 
   public hasImageFiles(): boolean {
-    if (!this.evenement || !this.evenement.fileUploadeds) return false;
-    return this.evenement.fileUploadeds.some(file => this.isImageFile(file.fileName));
+    return this._hasImageFiles;
   }
 
   public getImageFilesCount(): number {
-    if (!this.evenement || !this.evenement.fileUploadeds) return 0;
-    return this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName)).length;
+    return this._imageFilesCount;
+  }
+  
+  // Update cached values - call this when evenement data changes
+  private updateImageFilesCache(): void {
+    if (!this.evenement || !this.evenement.fileUploadeds) {
+      this._hasImageFiles = false;
+      this._imageFilesCount = 0;
+      return;
+    }
+    const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
+    this._hasImageFiles = imageFiles.length > 0;
+    this._imageFilesCount = imageFiles.length;
   }
 
   private isImageFile(fileName: string): boolean {

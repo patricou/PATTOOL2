@@ -331,11 +331,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}, 150);
 		}
 
+		// Force multiple invalidateSize calls to ensure map renders correctly
+		// This is necessary because Leaflet needs the container to be visible to calculate size
 		setTimeout(() => {
 			this.map?.invalidateSize();
 			this.tryRenderPendingTrack();
 			this.tryRenderPendingLocation();
-		}, 120);
+		}, 50);
+		
+		setTimeout(() => {
+			this.map?.invalidateSize();
+			this.tryRenderPendingTrack();
+			this.tryRenderPendingLocation();
+		}, 150);
+		
+		setTimeout(() => {
+			this.map?.invalidateSize();
+			this.tryRenderPendingTrack();
+			this.tryRenderPendingLocation();
+		}, 300);
 	}
 
 	private scheduleMapInitialization(): void {
@@ -346,12 +360,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.ensureMapInitialization();
 				this.tryRenderPendingTrack();
 				this.tryRenderPendingLocation();
+				// Force invalidateSize after each attempt
+				if (this.map) {
+					setTimeout(() => {
+						this.map?.invalidateSize();
+						this.tryRenderPendingTrack();
+						this.tryRenderPendingLocation();
+					}, 50);
+				}
 			}, delay);
 		};
 
 		attempt(0);
-		attempt(60);
-		attempt(180);
+		attempt(100);
+		attempt(250);
+		attempt(400);
 	}
 
 	private initializeMap(): void {
@@ -362,6 +385,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const container = this.mapContainerRef?.nativeElement ?? this.findMapContainerElement();
 		if (!container) {
 			setTimeout(() => this.initializeMap(), 50);
+			return;
+		}
+
+		// Check if container is visible before initializing
+		// Leaflet needs the container to be visible to calculate size correctly
+		const containerStyle = window.getComputedStyle(container);
+		const isContainerVisible = containerStyle.display !== 'none' && 
+		                           containerStyle.visibility !== 'hidden' &&
+		                           container.offsetWidth > 0 && 
+		                           container.offsetHeight > 0;
+		
+		if (!isContainerVisible) {
+			// Wait a bit more for the container to become visible
+			setTimeout(() => this.initializeMap(), 100);
 			return;
 		}
 
@@ -383,19 +420,38 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const invalidate = () => {
 			this.tryRenderPendingTrack();
 			this.tryRenderPendingLocation();
+			// Force multiple invalidateSize calls to ensure proper rendering
 			setTimeout(() => {
 				this.map?.invalidateSize();
 				this.tryRenderPendingTrack();
 				this.tryRenderPendingLocation();
-			}, 100);
+			}, 50);
+			setTimeout(() => {
+				this.map?.invalidateSize();
+				this.tryRenderPendingTrack();
+				this.tryRenderPendingLocation();
+			}, 150);
 		};
 
 		this.map.whenReady(() => {
 			invalidate();
+			// Additional invalidateSize after map is ready
+			setTimeout(() => {
+				this.map?.invalidateSize();
+			}, 100);
 		});
-		this.baseLayers['osm-standard'].once('load', () => {
-			invalidate();
-		});
+		
+		// Ensure base layer is loaded before invalidating
+		if (this.baseLayers['osm-standard']) {
+			this.baseLayers['osm-standard'].once('load', () => {
+				invalidate();
+			});
+		}
+		
+		// Force invalidateSize after a short delay to ensure container is fully rendered
+		setTimeout(() => {
+			this.map?.invalidateSize();
+		}, 200);
 	}
 
 	private ensureMapInitialization(): void {
@@ -497,7 +553,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const bounds = polyline.getBounds();
 		this.trackBounds = bounds;
 		this.map.fitBounds(bounds, { padding: [24, 24] });
+		
+		// Force multiple invalidateSize calls to ensure map renders correctly
 		this.map.invalidateSize();
+		setTimeout(() => {
+			this.map?.invalidateSize();
+		}, 50);
+		setTimeout(() => {
+			this.map?.invalidateSize();
+		}, 150);
+		setTimeout(() => {
+			this.map?.invalidateSize();
+		}, 300);
 
 		this.trackStats = {
 			points: points.length,
@@ -524,7 +591,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
 		this.map.setView([lat, lng], 14);
+		
+		// Force multiple invalidateSize calls to ensure map renders correctly
 		this.map.invalidateSize();
+		setTimeout(() => {
+			this.map?.invalidateSize();
+		}, 50);
+		setTimeout(() => {
+			this.map?.invalidateSize();
+		}, 150);
+		setTimeout(() => {
+			this.map?.invalidateSize();
+		}, 300);
 
 		if (label && label.trim().length > 0) {
 			setTimeout(() => {
@@ -935,7 +1013,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			{ id: 'ign-ortho', label: 'IGN Ortho' }
 		];
 
-		this.selectedBaseLayerId = 'osm-fr';
+		this.selectedBaseLayerId = 'opentopomap';
 	}
 
 	public onBaseLayerChange(layerId: string): void {

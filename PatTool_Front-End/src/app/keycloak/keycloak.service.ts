@@ -48,9 +48,35 @@ export class KeycloakService {
 
   logout() {
     console.log('*** LOGOUT');
-    KeycloakService.auth.authz.logout();
+    // Immediately clear local session state
     KeycloakService.auth.loggedIn = false;
-    window.location.href = KeycloakService.auth.logoutUrl;
+    KeycloakService.tokenCache = { token: '', atMs: 0 };
+    
+    // Clear Keycloak session and redirect to login page immediately
+    if (KeycloakService.auth.authz) {
+      try {
+        // Clear the token immediately
+        if (KeycloakService.auth.authz.token) {
+          KeycloakService.auth.authz.token = null;
+        }
+        
+        // Get base URL for redirect after login
+        const baseUrl = window.location.origin + window.location.pathname;
+        
+        // Call Keycloak logout to clear server session, then redirect to base URL
+        // The app will reload and trigger login-required flow, redirecting to login
+        KeycloakService.auth.authz.logout({
+          redirectUri: baseUrl
+        });
+      } catch (error) {
+        console.error('Error during logout:', error);
+        // Fallback: redirect to login page directly
+        this.redirectToLogin();
+      }
+    } else {
+      // If Keycloak not initialized, just redirect to login
+      this.redirectToLogin();
+    }
   }
 
   getToken(): Promise<string> {
