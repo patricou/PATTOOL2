@@ -24,6 +24,24 @@
                                 <i class="fa fa-spinner fa-spin" *ngIf="isScanning"></i>
                                 {{ isScanning ? ("LOCAL_NETWORK.SCANNING" | translate) : ("LOCAL_NETWORK.START_SCAN" | translate) }}
                             </button>
+                            
+                            <!-- External Vendor API Switch -->
+                            <div class="form-check form-switch d-flex align-items-center" style="margin-left: 1rem;">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       role="switch"
+                                       id="useExternalVendorAPI"
+                                       [(ngModel)]="useExternalVendorAPI"
+                                       [disabled]="isScanning"
+                                       [title]="'LOCAL_NETWORK.USE_EXTERNAL_VENDOR_API_TOOLTIP' | translate"
+                                       style="font-size: 0.75rem;">
+                                <label class="form-check-label ms-2" 
+                                       for="useExternalVendorAPI"
+                                       style="font-size: 0.75rem; white-space: nowrap; cursor: pointer; color: #333;">
+                                    <i class="fa" [ngClass]="useExternalVendorAPI ? 'fa-cloud' : 'fa-database'" style="margin-right: 0.3rem; color: #007bff;"></i>
+                                    {{ "LOCAL_NETWORK.USE_EXTERNAL_VENDOR_API" | translate }}
+                                </label>
+                            </div>
                             <button (click)="openRouterInterface()" 
                                     class="btn btn-secondary btn-sm"
                                     [title]="'LOCAL_NETWORK.OPEN_ROUTER_TOOLTIP' | translate">
@@ -107,10 +125,55 @@
 
             <!-- Devices List -->
             <div class="devices-section mt-4" *ngIf="devices.length > 0">
-                <h3><i class="fa fa-list"></i> {{ "LOCAL_NETWORK.DEVICES" | translate }}</h3>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="mb-0"><i class="fa fa-list"></i> {{ "LOCAL_NETWORK.DEVICES" | translate }}</h3>
+                    <div class="sort-controls d-flex align-items-center">
+                        <!-- Filter input -->
+                        <div class="input-group me-3" style="width: 250px;">
+                            <span class="input-group-text">
+                                <i class="fa fa-search"></i>
+                            </span>
+                            <input type="text" 
+                                   class="form-control form-control-sm" 
+                                   [(ngModel)]="deviceFilter"
+                                   [placeholder]="'LOCAL_NETWORK.FILTER_PLACEHOLDER' | translate">
+                            <button *ngIf="deviceFilter" 
+                                    class="btn btn-sm btn-outline-secondary" 
+                                    type="button"
+                                    (click)="deviceFilter = ''"
+                                    [title]="'LOCAL_NETWORK.CLEAR_FILTER' | translate">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                        <!-- Sort controls -->
+                        <label class="me-2" style="color: #fff;">
+                            <i class="fa fa-sort"></i> {{ "LOCAL_NETWORK.SORT_BY" | translate }}:
+                        </label>
+                        <select class="form-select form-select-sm" 
+                                style="width: auto; display: inline-block;"
+                                [ngModel]="deviceSortBy"
+                                (ngModelChange)="changeDeviceSort($event)">
+                            <option value="vulnerabilities">{{ "LOCAL_NETWORK.SORT_VULNERABILITIES" | translate }}</option>
+                            <option value="ip">{{ "LOCAL_NETWORK.SORT_IP" | translate }}</option>
+                            <option value="name">{{ "LOCAL_NETWORK.SORT_NAME" | translate }}</option>
+                            <option value="type">{{ "LOCAL_NETWORK.SORT_TYPE" | translate }}</option>
+                            <option value="status">{{ "LOCAL_NETWORK.SORT_STATUS" | translate }}</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline-light ms-2" 
+                                (click)="changeDeviceSort(deviceSortBy)"
+                                [title]="deviceSortDirection === 'asc' ? ('LOCAL_NETWORK.SORT_ASCENDING_TOOLTIP' | translate) : ('LOCAL_NETWORK.SORT_DESCENDING_TOOLTIP' | translate)">
+                            <i class="fa" [ngClass]="deviceSortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down'"></i>
+                        </button>
+                    </div>
+                </div>
                 
                 <div class="devices-grid">
-                    <div class="device-card" *ngFor="let device of devices">
+                    <div class="device-card" 
+                         [ngClass]="{
+                           'new-device': isNewDevice(device),
+                           'different-ip': hasDifferentIPInMongoDB(device)
+                         }" 
+                         *ngFor="let device of getSortedDevices()">
                     <div class="device-header" [ngClass]="getDeviceHeaderClass(device)">
                         <div class="device-header-content">
                             <div class="device-title-section">
@@ -163,24 +226,72 @@
                                 <div>
                                     <strong>{{ "LOCAL_NETWORK.DEVICE_TYPE" | translate }}</strong>
                                     <div>
-                                        <span class="badge badge-primary" style="font-size: 0.7rem; padding: 0.2rem 0.4rem; color: #000;">
+                                        <span class="badge badge-primary" 
+                                              style="font-size: 0.75rem; padding: 0.25rem 0.5rem; color: #000; font-weight: 600;"
+                                              [title]="device.vendor ? ('Détecté via: ' + (device.macAddressSource === 'arp' ? 'MAC Address (ARP)' : device.macAddressSource === 'mongodb' ? 'MongoDB' : 'Local') + ' - Fabricant: ' + device.vendor) : 'Type détecté via ports ouverts'">
+                                            <i class="fa fa-info-circle" style="margin-right: 3px; font-size: 0.7rem;"></i>
                                             {{ (device.deviceType && device.deviceType !== 'null' && device.deviceType !== 'undefined') ? device.deviceType : ("LOCAL_NETWORK.UNKNOWN_DEVICE_TYPE" | translate) }}
                                         </span>
                                     </div>
                                 </div>
                             </div>
-                            <div class="info-item" *ngIf="device.macAddress">
+                            <div class="info-item">
                                 <i class="fa fa-fingerprint"></i>
                                 <div>
                                     <strong>{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}</strong>
-                                    <div>{{ device.macAddress }}</div>
+                                    <!-- Conflict: Both MAC addresses are different -->
+                                    <div *ngIf="hasMacConflict(device)" class="mt-1">
+                                        <div class="mb-2">
+                                            <code style="color: #dc3545; font-weight: bold; font-size: 0.9em;" [title]="'ARP (Real Device): ' + device.macAddress">
+                                                {{ device.macAddress }}
+                                            </code>
+                                            <span style="color: #dc3545; font-size: 0.85em; margin-left: 5px;">(ARP - Real Device)</span>
+                                        </div>
+                                        <div>
+                                            <code style="color: #dc3545; font-weight: bold; font-size: 0.9em;" [title]="'MongoDB: ' + device.macAddressMongoDB">
+                                                {{ device.macAddressMongoDB }}
+                                            </code>
+                                            <span style="color: #dc3545; font-size: 0.85em; margin-left: 5px;">(MongoDB)</span>
+                                        </div>
+                                    </div>
+                                    <!-- No conflict: Single MAC address with source color -->
+                                    <div *ngIf="!hasMacConflict(device) && device.macAddress" class="mt-1">
+                                        <code [style.color]="getMacAddressColor(device)" style="font-weight: bold; font-size: 0.9em;" [title]="getMacAddressSourceTooltip(device)">
+                                            {{ device.macAddress }}
+                                        </code>
+                                        <span [style.color]="getMacAddressColor(device)" style="font-size: 0.85em; margin-left: 5px;" *ngIf="device.macAddressSource === 'mongodb'">(MongoDB)</span>
+                                        <span [style.color]="getMacAddressColor(device)" style="font-size: 0.85em; margin-left: 5px;" *ngIf="device.macAddressSource === 'arp'">(ARP)</span>
+                                        <span [style.color]="getMacAddressColor(device)" style="font-size: 0.85em; margin-left: 5px;" *ngIf="device.macAddressSource === 'local'">(Local)</span>
+                                    </div>
+                                    <span *ngIf="!device.macAddress && !device.macAddressARP" class="text-muted mt-1 d-block">{{ "LOCAL_NETWORK.NOT_AVAILABLE" | translate }}</span>
                                 </div>
                             </div>
+                            
+                            <!-- New Device Indicator -->
+                            <div class="info-item" *ngIf="isNewDevice(device)" style="grid-column: 1 / -1; margin-top: 10px; padding: 10px; background-color: rgba(255, 192, 203, 0.2); border-radius: 4px; border: 1px solid #ff69b4;">
+                                <div style="text-align: center; width: 100%;">
+                                    <i class="fa fa-star" style="color: #ff69b4; margin-right: 5px;"></i>
+                                    <strong style="color: #ff69b4;">{{ "LOCAL_NETWORK.NEW_DEVICE_DETECTED" | translate }}</strong>
+                                </div>
+                            </div>
+                            
                             <div class="info-item" *ngIf="device.vendor">
                                 <i class="fa fa-industry"></i>
                                 <div>
                                     <strong>{{ "LOCAL_NETWORK.VENDOR" | translate }}</strong>
-                                    <div>{{ device.vendor }}</div>
+                                    <div>
+                                        <span class="badge badge-info" 
+                                              style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background-color: #17a2b8; color: white; font-weight: 600;"
+                                              [title]="'Fabricant détecté via MAC Address (OUI) - Source: ' + (device.macAddressSource === 'arp' ? 'ARP (Device réel)' : device.macAddressSource === 'mongodb' ? 'MongoDB' : 'Local')">
+                                            <i class="fa fa-microchip" style="margin-right: 3px; font-size: 0.7rem;"></i>
+                                            {{ device.vendor }}
+                                            <span *ngIf="device.macAddressSource === 'arp'" 
+                                                  style="margin-left: 5px; font-size: 0.65rem; opacity: 0.9;"
+                                                  title="Détecté via ARP (adresse MAC réelle du device)">
+                                                (ARP)
+                                            </span>
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
                             <div class="info-item" *ngIf="device.os">
@@ -305,6 +416,26 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Device Footer -->
+                    <div class="device-footer">
+                        <!-- Add to MongoDB button (for new devices) -->
+                        <button *ngIf="isNewDevice(device)" 
+                                (click)="openMappingModalForDevice(device)" 
+                                class="btn btn-sm btn-success w-100"
+                                [title]="'LOCAL_NETWORK.ADD_TO_MONGODB_TOOLTIP' | translate">
+                            <i class="fa fa-plus"></i>
+                            {{ "LOCAL_NETWORK.ADD_TO_MONGODB" | translate }}
+                        </button>
+                        <!-- Edit in MongoDB button (for existing devices) -->
+                        <button *ngIf="!isNewDevice(device)" 
+                                (click)="editDeviceInMongoDB(device)" 
+                                class="btn btn-sm btn-info w-100"
+                                [title]="'LOCAL_NETWORK.EDIT_MAPPING' | translate">
+                            <i class="fa fa-edit"></i>
+                            {{ "LOCAL_NETWORK.EDIT_MAPPING" | translate }}
+                        </button>
+                    </div>
                     </div>
                 </div>
             </div>
@@ -328,13 +459,12 @@
             <i class="fa fa-database"></i> {{ "LOCAL_NETWORK.DEVICE_MAPPINGS_TITLE" | translate }}
         </h5>
         <div class="d-flex align-items-center gap-2 ms-auto">
-            <button (click)="reloadDeviceMappings()" 
-                    class="btn btn-outline-light btn-sm"
-                    [disabled]="isReloadingMappings"
-                    [title]="'Recharger depuis CSV'">
-                <i class="fa fa-refresh" [class.fa-spin]="isReloadingMappings"></i>
-                <span *ngIf="!isReloadingMappings">{{ "LOCAL_NETWORK.RELOAD_MAPPINGS" | translate }}</span>
-                <span *ngIf="isReloadingMappings">{{ "LOCAL_NETWORK.RELOADING" | translate }}</span>
+            <button (click)="showCreateMappingForm()" 
+                    class="btn btn-success btn-sm"
+                    [disabled]="isLoadingMappings || isSavingMapping"
+                    [title]="'LOCAL_NETWORK.ADD_MAPPING' | translate">
+                <i class="fa fa-plus"></i>
+                <span class="d-none d-md-inline ms-1">{{ "LOCAL_NETWORK.ADD_MAPPING" | translate }}</span>
             </button>
             <button type="button" 
                     class="btn btn-outline-light btn-sm rounded-circle" 
@@ -361,11 +491,82 @@
             <strong>Erreur:</strong> {{ mappingsError }}
         </div>
         
-        <div *ngIf="!isLoadingMappings && deviceMappings.length === 0 && !mappingsError && !mappingsInfo" class="text-center text-white mb-3">
+        <div *ngIf="!isLoadingMappings && deviceMappings.length === 0 && !mappingsError && !mappingsInfo && !showMappingForm" class="text-center text-white mb-3">
             <i class="fa fa-info-circle fa-2x"></i>
             <p class="mt-2">{{ "LOCAL_NETWORK.NO_MAPPINGS" | translate }}</p>
         </div>
-        <div *ngIf="!isLoadingMappings && deviceMappings.length > 0" class="device-mappings-list">
+
+        <!-- Device Mapping Form -->
+        <div *ngIf="showMappingForm && !isLoadingMappings" class="device-mapping-form mb-4">
+            <div class="card bg-dark text-white">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fa" [ngClass]="editingMapping ? 'fa-edit' : 'fa-plus'"></i>
+                        {{ editingMapping ? ("LOCAL_NETWORK.EDIT_MAPPING" | translate) : ("LOCAL_NETWORK.ADD_MAPPING" | translate) }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form (ngSubmit)="saveDeviceMapping()">
+                        <div class="mb-3">
+                            <label for="mappingIpAddress" class="form-label">{{ "LOCAL_NETWORK.IP_ADDRESS" | translate }} *</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="mappingIpAddress"
+                                   [(ngModel)]="mappingForm.ipAddress"
+                                   name="ipAddress"
+                                   required
+                                   placeholder="192.168.1.1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="mappingDeviceName" class="form-label">{{ "LOCAL_NETWORK.DEVICE_NAME" | translate }} *</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="mappingDeviceName"
+                                   [(ngModel)]="mappingForm.deviceName"
+                                   name="deviceName"
+                                   required
+                                   placeholder="Device Name">
+                        </div>
+                        <div class="mb-3">
+                            <label for="mappingMacAddress" class="form-label">{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="mappingMacAddress"
+                                   [(ngModel)]="mappingForm.macAddress"
+                                   name="macAddress"
+                                   placeholder="00:11:22:33:44:55">
+                        </div>
+                        <div class="mb-3">
+                            <label for="mappingDeviceNumber" class="form-label">{{ "LOCAL_NETWORK.DEVICE_NUMBER" | translate }}</label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="mappingDeviceNumber"
+                                   [(ngModel)]="mappingForm.deviceNumber"
+                                   name="deviceNumber"
+                                   placeholder="1">
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" 
+                                    class="btn btn-success"
+                                    [disabled]="isSavingMapping || !mappingForm.ipAddress || !mappingForm.deviceName">
+                                <i class="fa fa-spinner fa-spin" *ngIf="isSavingMapping"></i>
+                                <i class="fa fa-save" *ngIf="!isSavingMapping"></i>
+                                <span class="ms-1">{{ isSavingMapping ? ("LOCAL_NETWORK.SAVING" | translate) : ("LOCAL_NETWORK.SAVE" | translate) }}</span>
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-secondary"
+                                    (click)="cancelMappingForm()"
+                                    [disabled]="isSavingMapping">
+                                <i class="fa fa-times"></i>
+                                <span class="ms-1">{{ "LOCAL_NETWORK.CANCEL" | translate }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div *ngIf="!isLoadingMappings && deviceMappings.length > 0 && !showMappingForm" class="device-mappings-list">
             <div class="table-responsive">
                 <table class="table table-dark table-striped table-hover">
                     <thead>
@@ -384,6 +585,7 @@
                                 <i class="fa" [ngClass]="getSortIcon('deviceName')" style="margin-left: 5px;"></i>
                             </th>
                             <th style="cursor: default;">{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}</th>
+                            <th style="cursor: default; width: 120px;">{{ "LOCAL_NETWORK.ACTIONS" | translate }}</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -392,6 +594,22 @@
                             <td><code>{{ mapping.ipAddress }}</code></td>
                             <td><strong>{{ mapping.deviceName }}</strong></td>
                             <td><code>{{ mapping.macAddress || '-' }}</code></td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" 
+                                            class="btn btn-outline-primary"
+                                            (click)="editMapping(mapping)"
+                                            [title]="'LOCAL_NETWORK.EDIT_MAPPING' | translate">
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-outline-danger"
+                                            (click)="deleteMapping(mapping)"
+                                            [title]="'LOCAL_NETWORK.DELETE_MAPPING' | translate">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
                         </tr>
                     </tbody>
                 </table>

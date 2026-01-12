@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
@@ -11,6 +12,10 @@ export interface NetworkDevice {
   ipAddress: string;
   hostname?: string;
   macAddress?: string;
+  macAddressSource?: 'mongodb' | 'arp' | 'local';
+  macAddressARP?: string;
+  macAddressMongoDB?: string;
+  macAddressConflict?: boolean;
   vendor?: string;
   os?: string;
   deviceType?: string;
@@ -51,7 +56,7 @@ export interface Vulnerability {
   templateUrl: './local-network.component.html',
   styleUrls: ['./local-network.component.css'],
   standalone: true,
-  imports: [CommonModule, TranslateModule, NavigationButtonsModule, NgbModule]
+  imports: [CommonModule, FormsModule, TranslateModule, NavigationButtonsModule, NgbModule]
 })
 export class LocalNetworkComponent implements OnInit, OnDestroy {
 
@@ -68,17 +73,42 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   private scanSubscription: any = null;
   isAuthorized: boolean = false; // Prevent template rendering until authorization is verified
 
+  // Device sorting - Default: sort by vulnerabilities (most vulnerable first)
+  deviceSortBy: 'ip' | 'name' | 'type' | 'vulnerabilities' | 'status' = 'vulnerabilities';
+  deviceSortDirection: 'asc' | 'desc' = 'desc'; // Descending by default for vulnerabilities (most vulnerable first)
+  
+  // Device filter - Filter by name (hostname) and IP address
+  deviceFilter: string = '';
+  
+  // External API for vendor detection (OUI lookup)
+  useExternalVendorAPI: boolean = false; // Default: false (use local database)
+
   // Device mappings modal
   @ViewChild('deviceMappingsModal') deviceMappingsModal!: TemplateRef<any>;
   deviceMappings: any[] = [];
   sortedDeviceMappings: any[] = [];
   isLoadingMappings: boolean = false;
-  isReloadingMappings: boolean = false;
   mappingsError: string = '';
   mappingsInfo: string = '';
   sortColumn: string = '';
   sortDirection: 'asc' | 'desc' = 'asc';
   private modalRef?: NgbModalRef;
+
+  // Device mapping form
+  editingMapping: any = null;
+  showMappingForm: boolean = false;
+  mappingForm: {
+    ipAddress: string;
+    deviceName: string;
+    macAddress: string;
+    deviceNumber: number | null;
+  } = {
+    ipAddress: '',
+    deviceName: '',
+    macAddress: '',
+    deviceNumber: null
+  };
+  isSavingMapping: boolean = false;
 
   constructor(
     private router: Router,
@@ -97,6 +127,31 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     }
     // Only set authorized to true after verification
     this.isAuthorized = true;
+    
+    // Load device mappings on startup to enable MAC address comparison
+    this.loadDeviceMappingsSilently();
+  }
+
+  /**
+   * Load device mappings silently (without showing modal)
+   * This is used to enable MAC address comparison for new device detection
+   */
+  private loadDeviceMappingsSilently(): void {
+    this.localNetworkService.getDeviceMappings().subscribe({
+      next: (response) => {
+        if (response && response.devices) {
+          this.deviceMappings = response.devices;
+        } else if (response && Array.isArray(response)) {
+          this.deviceMappings = response;
+        } else {
+          this.deviceMappings = [];
+        }
+      },
+      error: (error) => {
+        // Silently fail - mappings will be loaded when modal is opened
+        this.deviceMappings = [];
+      }
+    });
   }
 
   startScan(): void {
@@ -126,7 +181,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
 
     // Use streaming scan for real-time updates
-    this.scanSubscription = this.localNetworkService.scanNetworkStream().subscribe({
+    this.scanSubscription = this.localNetworkService.scanNetworkStream(this.useExternalVendorAPI).subscribe({
       next: (event) => {
         // Run in Angular zone to ensure change detection
         this.ngZone.run(() => {
@@ -214,7 +269,6 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         this.scanProgress = 0;
         this.scanProgressText = '0%';
         this.errorMessage = event.data?.message || event.data?.error || 'Error during network scan';
-        console.error('Error during network scan:', event.data);
         break;
     }
   }
@@ -223,11 +277,32 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     if (!deviceData) {
       return;
     }
+    
+    // Fix: Ensure macAddressSource is always set if macAddress exists
+    if (deviceData.macAddress && !deviceData.macAddressSource) {
+      // Try to determine source - if we have MongoDB mapping service, check it
+      // For now, default to 'mongodb' if MAC exists but source is missing
+      // This will be corrected by backend, but this is a safety net
+      deviceData.macAddressSource = 'mongodb';
+      deviceData.macAddressConflict = false;
+    }
 
+    // Fix: Ensure macAddressSource is always set if macAddress exists
+    if ((deviceData.macAddress || deviceData.mac) && !deviceData.macAddressSource) {
+      // Default to 'mongodb' if MAC exists but source is missing
+      // This will be corrected by backend, but this is a safety net
+      deviceData.macAddressSource = 'mongodb';
+      deviceData.macAddressConflict = false;
+    }
+    
     const device: NetworkDevice = {
       ipAddress: deviceData.ipAddress || deviceData.ip,
       hostname: deviceData.hostname || deviceData.host_name || null,
       macAddress: deviceData.macAddress || deviceData.mac,
+      macAddressSource: deviceData.macAddressSource,
+      macAddressARP: deviceData.macAddressARP,
+      macAddressMongoDB: deviceData.macAddressMongoDB,
+      macAddressConflict: deviceData.macAddressConflict,
       vendor: deviceData.vendor,
       os: deviceData.os || deviceData.operatingSystem,
       deviceType: deviceData.deviceType || deviceData.device_type || 'Unknown Device',
@@ -245,7 +320,6 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     };
     
     if (!device.ipAddress) {
-      console.error('[Component] Device has no IP address:', deviceData);
       return;
     }
     
@@ -268,7 +342,6 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     this.scanProgress = 0;
     this.scanProgressText = '0%';
     this.errorMessage = error.error?.message || error.message || 'Erreur lors du scan du réseau';
-    console.error('Network scan error:', error);
   }
 
   private handleScanComplete(): void {
@@ -376,6 +449,11 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
    * Get icon based on device type
    */
   getDeviceIcon(device: NetworkDevice): string {
+    // Show new device icon if device is new
+    if (this.isNewDevice(device)) {
+      return 'fa-star';
+    }
+    
     if (!device.deviceType) {
       return 'fa-desktop';
     }
@@ -476,14 +554,14 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
           this.deviceMappings = response.devices;
           this.mappingsError = '';
           if (this.deviceMappings.length === 0) {
-            this.mappingsInfo = 'La collection MongoDB est vide. Cliquez sur "Recharger depuis CSV" pour charger les données.';
+            this.mappingsInfo = 'La collection MongoDB est vide. Utilisez le bouton "Ajouter" pour créer un nouveau mapping.';
           }
         } else if (response && Array.isArray(response)) {
           // Handle case where response is directly an array
           this.deviceMappings = response;
           this.mappingsError = '';
           if (this.deviceMappings.length === 0) {
-            this.mappingsInfo = 'La collection MongoDB est vide. Cliquez sur "Recharger depuis CSV" pour charger les données.';
+            this.mappingsInfo = 'La collection MongoDB est vide. Utilisez le bouton "Ajouter" pour créer un nouveau mapping.';
           }
         } else {
           this.deviceMappings = [];
@@ -505,7 +583,6 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       },
       error: (error) => {
-        console.error('[Component] Error loading device mappings:', error);
         this.isLoadingMappings = false;
         this.deviceMappings = [];
         
@@ -524,49 +601,6 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     });
   }
 
-  reloadDeviceMappings(): void {
-    // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
-    setTimeout(() => {
-      this.ngZone.run(() => {
-        this.isReloadingMappings = true;
-        this.mappingsError = '';
-        this.mappingsInfo = 'Rechargement en cours depuis le fichier CSV...';
-        this.cdr.detectChanges();
-      });
-    }, 0);
-    
-    this.localNetworkService.reloadDeviceMappings().subscribe({
-      next: (response) => {
-        this.ngZone.run(() => {
-          this.mappingsInfo = `Rechargement terminé. ${response.afterCount || 0} mappings chargés.`;
-          this.isReloadingMappings = false;
-          this.cdr.detectChanges();
-          
-          // Reload the mappings after reload
-          setTimeout(() => {
-            this.ngZone.run(() => {
-              this.loadDeviceMappings();
-            });
-          }, 500);
-        });
-      },
-      error: (error) => {
-        console.error('[Component] Error reloading device mappings:', error);
-        this.ngZone.run(() => {
-          this.isReloadingMappings = false;
-          this.mappingsInfo = '';
-          
-          if (error?.error?.message) {
-            this.mappingsError = `Erreur lors du rechargement: ${error.error.message}`;
-          } else {
-            this.mappingsError = `Erreur lors du rechargement: ${error?.message || 'Erreur inconnue'}`;
-          }
-          
-          this.cdr.detectChanges();
-        });
-      }
-    });
-  }
 
   /**
    * Close device mappings modal
@@ -641,6 +675,635 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       return 'fa-sort';
     }
     return this.sortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
+  }
+
+  /**
+   * Helper function to compare IP addresses numerically
+   */
+  private compareIpAddresses(ipA: string, ipB: string): number {
+    const aParts = (ipA || '').split('.').map(p => parseInt(p, 10) || 0);
+    const bParts = (ipB || '').split('.').map(p => parseInt(p, 10) || 0);
+    for (let i = 0; i < 4; i++) {
+      const aPart = aParts[i] || 0;
+      const bPart = bParts[i] || 0;
+      if (aPart !== bPart) {
+        return aPart - bPart;
+      }
+    }
+    return 0;
+  }
+
+  /**
+   * Get sorted devices based on current sort settings and filter
+   */
+  getSortedDevices(): NetworkDevice[] {
+    if (!this.devices || this.devices.length === 0) {
+      return [];
+    }
+
+    // First, filter devices by name, IP address, and MAC address
+    let filtered = [...this.devices];
+    if (this.deviceFilter && this.deviceFilter.trim()) {
+      const filterLower = this.deviceFilter.trim().toLowerCase();
+      filtered = this.devices.filter(device => {
+        const hostname = (device.hostname || '').toLowerCase();
+        const ipAddress = (device.ipAddress || '').toLowerCase();
+        const macAddress = (device.macAddress || '').toLowerCase();
+        const macAddressMongoDB = (device.macAddressMongoDB || '').toLowerCase();
+        return hostname.includes(filterLower) || 
+               ipAddress.includes(filterLower) || 
+               macAddress.includes(filterLower) ||
+               macAddressMongoDB.includes(filterLower);
+      });
+    }
+
+    const sortBy = this.deviceSortBy;
+    const isSortingByIp = sortBy === 'ip';
+    const sorted = filtered.sort((a, b) => {
+      let comparison = 0;
+      let needsSecondarySort = false;
+
+      switch (sortBy) {
+        case 'vulnerabilities':
+          // Sort by vulnerability count first (descending by default)
+          const aVulnCount = a.vulnerabilities?.length || 0;
+          const bVulnCount = b.vulnerabilities?.length || 0;
+          if (aVulnCount !== bVulnCount) {
+            comparison = this.deviceSortDirection === 'desc' 
+              ? bVulnCount - aVulnCount 
+              : aVulnCount - bVulnCount;
+            return comparison;
+          }
+          // If same vulnerability count, sort by severity
+          const aMaxSeverity = this.getMaxSeverityValue(a);
+          const bMaxSeverity = this.getMaxSeverityValue(b);
+          if (aMaxSeverity !== bMaxSeverity) {
+            comparison = this.deviceSortDirection === 'desc'
+              ? bMaxSeverity - aMaxSeverity
+              : aMaxSeverity - bMaxSeverity;
+            return comparison;
+          }
+          // If same severity, need secondary IP sort
+          needsSecondarySort = true;
+          break;
+
+        case 'ip':
+          // Sort IP addresses numerically
+          comparison = this.compareIpAddresses(a.ipAddress || '', b.ipAddress || '');
+          return this.deviceSortDirection === 'asc' ? comparison : -comparison;
+
+        case 'name':
+          // Sort by hostname or IP if no hostname
+          const aName = (a.hostname || a.ipAddress || '').toLowerCase();
+          const bName = (b.hostname || b.ipAddress || '').toLowerCase();
+          if (aName < bName) {
+            comparison = this.deviceSortDirection === 'asc' ? -1 : 1;
+          } else if (aName > bName) {
+            comparison = this.deviceSortDirection === 'asc' ? 1 : -1;
+          } else {
+            // If equal, need secondary IP sort
+            needsSecondarySort = true;
+          }
+          if (comparison !== 0) return comparison;
+          break;
+
+        case 'type':
+          // Sort by device type
+          const aType = (a.deviceType || 'Unknown').toLowerCase();
+          const bType = (b.deviceType || 'Unknown').toLowerCase();
+          if (aType < bType) {
+            comparison = this.deviceSortDirection === 'asc' ? -1 : 1;
+          } else if (aType > bType) {
+            comparison = this.deviceSortDirection === 'asc' ? 1 : -1;
+          } else {
+            // If equal, need secondary IP sort
+            needsSecondarySort = true;
+          }
+          if (comparison !== 0) return comparison;
+          break;
+
+        case 'status':
+          // Sort by status (online, offline, unknown)
+          const statusOrder = { 'online': 1, 'offline': 2, 'unknown': 3 };
+          const aStatus = statusOrder[a.status] || 3;
+          const bStatus = statusOrder[b.status] || 3;
+          comparison = this.deviceSortDirection === 'asc' 
+            ? aStatus - bStatus 
+            : bStatus - aStatus;
+          if (comparison === 0) {
+            // If equal, need secondary IP sort
+            needsSecondarySort = true;
+          } else {
+            return comparison;
+          }
+          break;
+      }
+
+      // Secondary sort by IP if needed and not already sorting by IP
+      if (needsSecondarySort && !isSortingByIp) {
+        return this.compareIpAddresses(a.ipAddress || '', b.ipAddress || '');
+      }
+
+      return comparison;
+    });
+
+    return sorted;
+  }
+
+  /**
+   * Get numeric value for severity (higher = more severe)
+   */
+  private getMaxSeverityValue(device: NetworkDevice): number {
+    if (!device.vulnerabilities || device.vulnerabilities.length === 0) {
+      return 0;
+    }
+    const severityValues: { [key: string]: number } = {
+      'critical': 5,
+      'high': 4,
+      'medium': 3,
+      'low': 2,
+      'info': 1
+    };
+    return Math.max(...device.vulnerabilities.map(v => severityValues[v.severity] || 0));
+  }
+
+  /**
+   * Change device sort order
+   */
+  changeDeviceSort(sortBy: 'ip' | 'name' | 'type' | 'vulnerabilities' | 'status'): void {
+    if (this.deviceSortBy === sortBy) {
+      // Toggle direction if same column
+      this.deviceSortDirection = this.deviceSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      // New column, set default direction
+      this.deviceSortBy = sortBy;
+      // Vulnerabilities should default to desc (most vulnerable first)
+      // Others default to asc
+      this.deviceSortDirection = sortBy === 'vulnerabilities' ? 'desc' : 'asc';
+    }
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Get sort icon for device sort dropdown
+   */
+  getDeviceSortIcon(sortBy: string): string {
+    if (this.deviceSortBy !== sortBy) {
+      return '';
+    }
+    return this.deviceSortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
+  }
+
+  /**
+   * Check if a device has the same MAC address in MongoDB but with a different IP
+   * This indicates the same physical device but with a changed IP address
+   */
+  hasDifferentIPInMongoDB(device: NetworkDevice): boolean {
+    // If device has no MAC address, we cannot determine
+    if (!device.macAddress) {
+      return false;
+    }
+    
+    // Normalize MAC address for comparison (uppercase, remove separators)
+    const normalizeMac = (mac: string): string => {
+      return mac.trim().toUpperCase().replace(/[:-]/g, '').replace(/\s/g, '');
+    };
+    
+    const deviceMac = normalizeMac(device.macAddress);
+    
+    // Check if MAC address exists in the loaded device mappings with a different IP
+    if (this.deviceMappings && this.deviceMappings.length > 0) {
+      const mappingWithSameMac = this.deviceMappings.find(mapping => {
+        if (!mapping.macAddress) {
+          return false;
+        }
+        const mappingMac = normalizeMac(mapping.macAddress);
+        return mappingMac === deviceMac;
+      });
+      
+      // If we found a mapping with the same MAC but different IP, it's a different IP
+      if (mappingWithSameMac && mappingWithSameMac.ipAddress !== device.ipAddress) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Check if a device is new (not in MongoDB)
+   * A device is considered new if its MAC address does not exist in MongoDB mappings
+   * This is based on MAC address comparison, not IP address
+   */
+  isNewDevice(device: NetworkDevice): boolean {
+    // If device has no MAC address, we cannot determine if it's new
+    if (!device.macAddress) {
+      return false;
+    }
+    
+    // If macAddressSource is 'mongodb', the device is definitely in MongoDB (not new)
+    if (device.macAddressSource === 'mongodb') {
+      return false;
+    }
+    
+    // Normalize MAC address for comparison (uppercase, remove separators)
+    const normalizeMac = (mac: string): string => {
+      return mac.trim().toUpperCase().replace(/[:-]/g, '').replace(/\s/g, '');
+    };
+    
+    const deviceMac = normalizeMac(device.macAddress);
+    
+    // Check if macAddressMongoDB exists and matches the device MAC
+    // This means there's a MongoDB mapping for this IP with this MAC
+    if (device.macAddressMongoDB) {
+      const mongoMac = normalizeMac(device.macAddressMongoDB);
+      if (mongoMac === deviceMac) {
+        // MAC address matches MongoDB mapping - device is in MongoDB
+        return false;
+      }
+      // If macAddressMongoDB exists but differs, there's still a mapping for this IP
+      // So the device is known (even if MAC changed)
+      return false;
+    }
+    
+    // Check if MAC address exists in the loaded device mappings
+    // This handles cases where the MAC might be in MongoDB but associated with a different IP
+    if (this.deviceMappings && this.deviceMappings.length > 0) {
+      const mappingWithSameMac = this.deviceMappings.find(mapping => {
+        if (!mapping.macAddress) {
+          return false;
+        }
+        const mappingMac = normalizeMac(mapping.macAddress);
+        return mappingMac === deviceMac;
+      });
+      
+      // If MAC exists in MongoDB mappings, device is not new
+      // (even if IP is different, it's still the same device)
+      if (mappingWithSameMac) {
+        return false;
+      }
+    }
+    
+    // If we reach here:
+    // - Device has a MAC address
+    // - MAC source is 'arp' or 'local' (not 'mongodb')
+    // - No macAddressMongoDB (no mapping for this IP)
+    // - MAC address not found in loaded mappings
+    // This means it's a new device
+    return device.macAddressSource === 'arp' || device.macAddressSource === 'local';
+  }
+
+  /**
+   * Calculate the next available device number
+   */
+  private getNextDeviceNumber(): number {
+    if (!this.deviceMappings || this.deviceMappings.length === 0) {
+      return 1;
+    }
+    
+    // Find the maximum device number
+    const maxNumber = this.deviceMappings
+      .map(m => m.deviceNumber)
+      .filter(num => num !== null && num !== undefined)
+      .reduce((max, num) => Math.max(max, num), 0);
+    
+    return maxNumber + 1;
+  }
+
+  /**
+   * Show form to create a new device mapping
+   * @param deviceData Optional device data to pre-populate the form
+   */
+  showCreateMappingForm(deviceData?: NetworkDevice): void {
+    this.editingMapping = null;
+    const nextDeviceNumber = this.getNextDeviceNumber();
+    
+    if (deviceData) {
+      // Pre-populate form with device data
+      this.mappingForm = {
+        ipAddress: deviceData.ipAddress || '',
+        deviceName: deviceData.hostname || deviceData.ipAddress || '',
+        macAddress: deviceData.macAddress || '',
+        deviceNumber: nextDeviceNumber
+      };
+    } else {
+      // Empty form
+      this.mappingForm = {
+        ipAddress: '',
+        deviceName: '',
+        macAddress: '',
+        deviceNumber: nextDeviceNumber
+      };
+    }
+    this.showMappingForm = true;
+    this.mappingsError = '';
+    this.mappingsInfo = '';
+  }
+
+  /**
+   * Open device mappings modal and pre-populate form with device data
+   */
+  openMappingModalForDevice(device: NetworkDevice): void {
+    // Open the modal first
+    this.openDeviceMappingsModal();
+    
+    // Load mappings first to ensure we can calculate the next device number
+    this.isLoadingMappings = true;
+    this.localNetworkService.getDeviceMappings().subscribe({
+      next: (response) => {
+        if (response && response.devices) {
+          this.deviceMappings = response.devices;
+        } else if (response && Array.isArray(response)) {
+          this.deviceMappings = response;
+        } else {
+          this.deviceMappings = [];
+        }
+        this.isLoadingMappings = false;
+        
+        // Wait for modal to open, then show the form with pre-populated data
+        setTimeout(() => {
+          this.showCreateMappingForm(device);
+        }, 100);
+      },
+      error: (error) => {
+        this.isLoadingMappings = false;
+        this.mappingsError = 'Erreur lors du chargement des mappings';
+        // Still show the form even if loading failed
+        setTimeout(() => {
+          this.showCreateMappingForm(device);
+        }, 100);
+      }
+    });
+  }
+
+  /**
+   * Edit device in MongoDB - opens modal and finds existing mapping or creates new one
+   */
+  editDeviceInMongoDB(device: NetworkDevice): void {
+    // Open the modal first
+    this.openDeviceMappingsModal();
+    
+    // Load mappings to find existing mapping
+    this.isLoadingMappings = true;
+    this.localNetworkService.getDeviceMappings().subscribe({
+      next: (response) => {
+        if (response && response.devices) {
+          this.deviceMappings = response.devices;
+        } else if (response && Array.isArray(response)) {
+          this.deviceMappings = response;
+        } else {
+          this.deviceMappings = [];
+        }
+        this.isLoadingMappings = false;
+        
+        // Normalize MAC addresses for comparison
+        const normalizeMac = (mac: string | null | undefined): string => {
+          if (!mac) return '';
+          return mac.replace(/[:-]/g, '').toUpperCase();
+        };
+        
+        const deviceMac = normalizeMac(device.macAddress || device.macAddressMongoDB);
+        
+        // Try to find existing mapping by IP or MAC address
+        const existingMapping = this.deviceMappings.find(m => {
+          const mappingMac = normalizeMac(m.macAddress);
+          return m.ipAddress === device.ipAddress || 
+                 (deviceMac && mappingMac && mappingMac === deviceMac);
+        });
+        
+        // Wait for modal to open, then show the form
+        setTimeout(() => {
+          if (existingMapping) {
+            // Edit existing mapping
+            this.editMapping(existingMapping);
+          } else {
+            // Create new mapping with device data
+            this.showCreateMappingForm(device);
+          }
+        }, 100);
+      },
+      error: (error) => {
+        this.isLoadingMappings = false;
+        this.mappingsError = 'Erreur lors du chargement des mappings';
+        // Still show the form even if loading failed
+        setTimeout(() => {
+          this.showCreateMappingForm(device);
+        }, 100);
+      }
+    });
+  }
+
+  /**
+   * Show form to edit an existing device mapping
+   */
+  editMapping(mapping: any): void {
+    this.editingMapping = mapping;
+    this.mappingForm = {
+      ipAddress: mapping.ipAddress || '',
+      deviceName: mapping.deviceName || '',
+      macAddress: mapping.macAddress || '',
+      deviceNumber: mapping.deviceNumber || null
+    };
+    this.showMappingForm = true;
+    this.mappingsError = '';
+    this.mappingsInfo = '';
+  }
+
+  /**
+   * Cancel form editing
+   */
+  cancelMappingForm(): void {
+    this.showMappingForm = false;
+    this.editingMapping = null;
+    this.mappingForm = {
+      ipAddress: '',
+      deviceName: '',
+      macAddress: '',
+      deviceNumber: null
+    };
+    this.mappingsError = '';
+  }
+
+  /**
+   * Save device mapping (create or update)
+   */
+  saveDeviceMapping(): void {
+    if (!this.mappingForm.ipAddress || !this.mappingForm.deviceName) {
+      this.mappingsError = 'IP address and device name are required';
+      return;
+    }
+
+    this.isSavingMapping = true;
+    this.mappingsError = '';
+    this.mappingsInfo = '';
+
+    const mappingData: any = {
+      ipAddress: this.mappingForm.ipAddress.trim(),
+      deviceName: this.mappingForm.deviceName.trim()
+    };
+
+    if (this.mappingForm.macAddress && this.mappingForm.macAddress.trim()) {
+      mappingData.macAddress = this.mappingForm.macAddress.trim();
+    }
+
+    if (this.mappingForm.deviceNumber !== null && this.mappingForm.deviceNumber !== undefined) {
+      mappingData.deviceNumber = this.mappingForm.deviceNumber;
+    }
+
+    const operation = this.editingMapping
+      ? this.localNetworkService.updateDeviceMapping(this.editingMapping.id, mappingData)
+      : this.localNetworkService.createDeviceMapping(mappingData);
+
+    const isEdit = !!this.editingMapping;
+    operation.subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          this.isSavingMapping = false;
+          this.showMappingForm = false;
+          this.mappingsInfo = isEdit 
+            ? 'Device mapping updated successfully' 
+            : 'Device mapping created successfully';
+          this.editingMapping = null;
+          this.mappingsError = '';
+          this.cdr.detectChanges();
+          
+          // Reload mappings after save
+          setTimeout(() => {
+            this.ngZone.run(() => {
+              this.loadDeviceMappings();
+            });
+          }, 500);
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          this.isSavingMapping = false;
+          if (error?.error?.message) {
+            this.mappingsError = `Error: ${error.error.message}`;
+          } else if (error?.error?.error) {
+            this.mappingsError = `Error: ${error.error.error}`;
+          } else {
+            this.mappingsError = `Error: ${error?.message || 'Unknown error'}`;
+          }
+          this.cdr.detectChanges();
+        });
+      }
+    });
+  }
+
+  /**
+   * Delete device mapping with confirmation
+   */
+  deleteMapping(mapping: any): void {
+    if (!confirm(`Are you sure you want to delete the mapping for ${mapping.deviceName} (${mapping.ipAddress})?`)) {
+      return;
+    }
+
+    this.mappingsError = '';
+    this.mappingsInfo = 'Deleting...';
+
+    this.localNetworkService.deleteDeviceMapping(mapping.id).subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          this.mappingsInfo = 'Device mapping deleted successfully';
+          this.mappingsError = '';
+          this.cdr.detectChanges();
+          
+          // Reload mappings after delete
+          setTimeout(() => {
+            this.ngZone.run(() => {
+              this.loadDeviceMappings();
+            });
+          }, 500);
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          this.mappingsInfo = '';
+          if (error?.error?.message) {
+            this.mappingsError = `Error: ${error.error.message}`;
+          } else if (error?.error?.error) {
+            this.mappingsError = `Error: ${error.error.error}`;
+          } else {
+            this.mappingsError = `Error: ${error?.message || 'Unknown error'}`;
+          }
+          this.cdr.detectChanges();
+        });
+      }
+    });
+  }
+
+  getMacAddressSourceTooltip(device: any): string {
+    if (device.macAddressConflict) {
+      return `Conflict: MongoDB MAC (${device.macAddress}) differs from ARP MAC (${device.macAddressARP})`;
+    }
+    switch (device.macAddressSource) {
+      case 'mongodb':
+        return 'MAC address from MongoDB mapping';
+      case 'arp':
+        return 'MAC address from ARP table';
+      case 'local':
+        return 'MAC address from local interface';
+      default:
+        return 'MAC address source unknown';
+    }
+  }
+
+  getMacAddressClass(device: any): string {
+    if (device.macAddressSource === 'mongodb') {
+      return 'text-primary';
+    } else if (device.macAddressSource === 'arp') {
+      return 'text-info';
+    } else if (device.macAddressSource === 'local') {
+      return 'text-secondary';
+    } else {
+      // Default color if source is unknown
+      return 'text-secondary';
+    }
+  }
+
+  getMacAddressColor(device: any): string {
+    if (device.macAddressSource === 'mongodb') {
+      return '#ff9800'; // Orange pour MongoDB
+    } else if (device.macAddressSource === 'arp') {
+      return '#28a745'; // Vert pour ARP (adresse MAC réelle du device réseau)
+    } else if (device.macAddressSource === 'local') {
+      return '#007bff'; // Bleu pour Local
+    } else {
+      // Default color if source is unknown - but this should not happen if MAC exists
+      // If MAC exists but source is unknown, it might be from MongoDB but source wasn't set
+      // In this case, we'll use orange (MongoDB) as the most likely source
+      if (device.macAddress) {
+        return '#ff9800'; // Orange par défaut si MAC existe mais source inconnue (probablement MongoDB)
+      }
+      return '#007bff'; // Bleu seulement si vraiment aucune MAC
+    }
+  }
+
+  hasMacConflict(device: any): boolean {
+    // Check if there's a conflict (both MAC addresses exist and are different)
+    // Handle both boolean true and string "true" (JSON serialization)
+    if (device.macAddressConflict === true || device.macAddressConflict === 'true' || device.macAddressConflict === 1) {
+      return true;
+    }
+    // Also check if both MAC addresses exist and are different
+    // ARP is now the primary MAC, MongoDB is stored in macAddressMongoDB
+    if (device.macAddress && device.macAddressMongoDB) {
+      const arpMac = device.macAddress.trim().toUpperCase();
+      const mongoMac = device.macAddressMongoDB.trim().toUpperCase();
+      if (arpMac !== mongoMac) {
+        return true;
+      }
+    }
+    // Legacy check for old format (macAddressARP)
+    if (device.macAddress && device.macAddressARP) {
+      const arpMac = device.macAddress.trim().toUpperCase();
+      const arpMac2 = device.macAddressARP.trim().toUpperCase();
+      if (arpMac !== arpMac2) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 

@@ -66,7 +66,7 @@ public class LocalNetworkController {
             Map<String, Object> scanResult = localNetworkService.scanLocalNetwork();
             return ResponseEntity.ok(scanResult);
         } catch (Exception e) {
-            log.error("Error scanning network", e);
+            log.debug("Error scanning network", e);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Scan failed");
             errorResponse.put("message", e.getMessage());
@@ -79,8 +79,8 @@ public class LocalNetworkController {
      * Sends devices as they are detected in real-time
      */
     @GetMapping(value = "/scan/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter streamNetworkScan() {
-        log.debug("Network scan stream requested");
+    public SseEmitter streamNetworkScan(@RequestParam(value = "useExternalVendorAPI", defaultValue = "false") boolean useExternalVendorAPI) {
+        log.debug("Network scan stream requested (useExternalVendorAPI: {})", useExternalVendorAPI);
 
         if (!hasAdminRole()) {
             SseEmitter emitter = new SseEmitter(1000L);
@@ -101,11 +101,11 @@ public class LocalNetworkController {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // No timeout
 
         String streamId = "STREAM-" + System.currentTimeMillis();
-        log.info("========== SSE STREAM STARTED [{}] ==========", streamId);
+        log.debug("========== SSE STREAM STARTED [{}] ==========", streamId);
         
         CompletableFuture.runAsync(() -> {
             try {
-                log.info("[{}] Starting network scan in async thread", streamId);
+                log.debug("[{}] Starting network scan in async thread", streamId);
                 
                 // Send scan started event
                 Map<String, Object> startData = new HashMap<>();
@@ -118,24 +118,24 @@ public class LocalNetworkController {
                     .name("scan-started")
                     .data(startData));
                 
-                log.info("[{}] Scan started event sent to client", streamId);
+                log.debug("[{}] Scan started event sent to client", streamId);
 
                 // Scan network with callback to send devices as they are found
                 final AtomicInteger devicesSent = new AtomicInteger(0);
-                localNetworkService.scanLocalNetworkStreaming((device, progress, total) -> {
+                localNetworkService.scanLocalNetworkStreaming(useExternalVendorAPI, (device, progress, total) -> {
                     try {
                         String deviceIp = (String) device.get("ipAddress");
                         String deviceType = (String) device.get("deviceType");
                         String hostname = (String) device.get("hostname");
                         int sentCount = devicesSent.incrementAndGet();
                         
-                        log.info("[SSE] Sending device #{} via SSE: {} - Type: {} - Hostname: {} (progress: {}/{})", 
+                        log.debug("[SSE] Sending device #{} via SSE: {} - Type: {} - Hostname: {} (progress: {}/{})", 
                                 sentCount, deviceIp, deviceType, hostname != null ? hostname : "NONE", progress, total);
                         
                         // Ensure deviceType is set
                         if (deviceType == null || deviceType.isEmpty()) {
                             device.put("deviceType", "Unknown Device");
-                            log.warn("[SSE] Device {} had no deviceType, setting to 'Unknown Device'", deviceIp);
+                            log.debug("[SSE] Device {} had no deviceType, setting to 'Unknown Device'", deviceIp);
                         }
                         
                         // Log if hostname is missing for debugging
@@ -154,16 +154,16 @@ public class LocalNetworkController {
                         
                         log.debug("[SSE] Device event sent successfully for IP: {} with type: {}", deviceIp, device.get("deviceType"));
                     } catch (IOException e) {
-                        log.error("[SSE] Error sending device event for IP {}: {}", 
+                        log.debug("[SSE] Error sending device event for IP {}: {}", 
                                 device.get("ipAddress"), e.getMessage(), e);
                     } catch (Exception e) {
-                        log.error("[SSE] Unexpected error sending device event: {}", e.getMessage(), e);
+                        log.debug("[SSE] Unexpected error sending device event: {}", e.getMessage(), e);
                     }
                 });
                 
-                log.info("[{}] Total devices sent via SSE: {}", streamId, devicesSent.get());
+                log.debug("[{}] Total devices sent via SSE: {}", streamId, devicesSent.get());
 
-                log.info("[{}] Network scan service completed. Sending scan-completed event...", streamId);
+                log.debug("[{}] Network scan service completed. Sending scan-completed event...", streamId);
 
                 // Send scan completed event
                 Map<String, Object> completeData = new HashMap<>();
@@ -177,13 +177,13 @@ public class LocalNetworkController {
                     .name("scan-completed")
                     .data(completeData));
                 
-                log.info("[{}] Scan completed event sent to client", streamId);
-                log.info("========== SSE STREAM COMPLETED [{}] ==========", streamId);
+                log.debug("[{}] Scan completed event sent to client", streamId);
+                log.debug("========== SSE STREAM COMPLETED [{}] ==========", streamId);
 
                 emitter.complete();
             } catch (Exception e) {
-                log.error("========== SSE STREAM ERROR ==========");
-                log.error("Error during network scan stream", e);
+                log.debug("========== SSE STREAM ERROR ==========");
+                log.debug("Error during network scan stream", e);
                 try {
                     Map<String, Object> errorResponse = new HashMap<>();
                     errorResponse.put("error", "Scan failed");
@@ -191,9 +191,9 @@ public class LocalNetworkController {
                     emitter.send(SseEmitter.event()
                         .name("error")
                         .data(errorResponse));
-                    log.info("Error event sent to client");
+                    log.debug("Error event sent to client");
                 } catch (IOException ioException) {
-                    log.error("Error sending error event", ioException);
+                    log.debug("Error sending error event", ioException);
                 }
                 emitter.completeWithError(e);
             }
@@ -222,7 +222,7 @@ public class LocalNetworkController {
             response.put("database", "rando2");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("Error getting device mappings count", e);
+            log.debug("Error getting device mappings count", e);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Failed to get count");
             errorResponse.put("message", e.getMessage());
@@ -238,7 +238,7 @@ public class LocalNetworkController {
         log.debug("========== GET DEVICE MAPPINGS REQUESTED ==========");
         
         if (!hasAdminRole()) {
-            log.warn("Access denied: Admin role required");
+            log.debug("Access denied: Admin role required");
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Unauthorized");
             errorResponse.put("message", "Admin role required");
@@ -273,8 +273,8 @@ public class LocalNetworkController {
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("========== ERROR GETTING DEVICE MAPPINGS ==========");
-            log.error("Error getting device mappings", e);
+            log.debug("========== ERROR GETTING DEVICE MAPPINGS ==========");
+            log.debug("Error getting device mappings", e);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Failed to get mappings");
             errorResponse.put("message", e.getMessage());
@@ -282,16 +282,16 @@ public class LocalNetworkController {
         }
     }
 
+
     /**
-     * Force reload device mappings from CSV file into MongoDB
-     * This will clear existing mappings and reload from file
+     * Create a new device mapping
      */
-    @PostMapping("/device-mappings/reload")
-    public ResponseEntity<?> reloadDeviceMappings() {
-        log.debug("========== RELOAD DEVICE MAPPINGS REQUESTED ==========");
+    @PostMapping("/device-mappings")
+    public ResponseEntity<?> createDeviceMapping(@RequestBody Map<String, Object> mappingData) {
+        log.debug("========== CREATE DEVICE MAPPING REQUESTED ==========");
         
         if (!hasAdminRole()) {
-            log.warn("Access denied: Admin role required");
+            log.debug("Access denied: Admin role required");
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Unauthorized");
             errorResponse.put("message", "Admin role required");
@@ -299,30 +299,187 @@ public class LocalNetworkController {
         }
 
         try {
-            long beforeCount = deviceMappingRepository.count();
-            log.debug("Device mappings before reload: {}", beforeCount);
-            
-            // Force reload by clearing and reloading
-            deviceMappingRepository.deleteAll();
-            log.debug("Cleared all existing device mappings");
-            
-            localNetworkService.initializeDeviceMappingsFromFile();
-            long afterCount = deviceMappingRepository.count();
-            log.debug("Device mappings after reload: {}", afterCount);
-            
+            String ipAddress = (String) mappingData.get("ipAddress");
+            String deviceName = (String) mappingData.get("deviceName");
+            String macAddress = (String) mappingData.get("macAddress");
+            Integer deviceNumber = mappingData.get("deviceNumber") != null 
+                ? Integer.valueOf(mappingData.get("deviceNumber").toString()) 
+                : null;
+
+            // Validate required fields
+            if (ipAddress == null || ipAddress.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "IP address is required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            if (deviceName == null || deviceName.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "Device name is required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            // Check if IP already exists
+            if (deviceMappingRepository.findByIpAddress(ipAddress).isPresent()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Duplicate IP address");
+                errorResponse.put("message", "A device mapping with this IP address already exists");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+            }
+
+            com.pat.repo.domain.NetworkDeviceMapping mapping = new com.pat.repo.domain.NetworkDeviceMapping();
+            mapping.setIpAddress(ipAddress.trim());
+            mapping.setDeviceName(deviceName.trim());
+            mapping.setMacAddress(macAddress != null ? macAddress.trim() : null);
+            mapping.setDeviceNumber(deviceNumber);
+
+            com.pat.repo.domain.NetworkDeviceMapping saved = deviceMappingRepository.save(mapping);
+            log.debug("Created device mapping: {} -> {}", saved.getIpAddress(), saved.getDeviceName());
+
             Map<String, Object> response = new HashMap<>();
-            response.put("message", "Device mappings reloaded successfully");
-            response.put("beforeCount", beforeCount);
-            response.put("afterCount", afterCount);
-            response.put("collection", "network_device_mappings");
+            response.put("message", "Device mapping created successfully");
+            response.put("id", saved.getId());
+            response.put("ipAddress", saved.getIpAddress());
+            response.put("deviceName", saved.getDeviceName());
+            response.put("macAddress", saved.getMacAddress());
+            response.put("deviceNumber", saved.getDeviceNumber());
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            log.debug("========== ERROR CREATING DEVICE MAPPING ==========");
+            log.debug("Error creating device mapping", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to create mapping");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Update an existing device mapping
+     */
+    @PutMapping("/device-mappings/{id}")
+    public ResponseEntity<?> updateDeviceMapping(@PathVariable String id, @RequestBody Map<String, Object> mappingData) {
+        log.debug("========== UPDATE DEVICE MAPPING REQUESTED ==========");
+        log.debug("Mapping ID: {}", id);
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            java.util.Optional<com.pat.repo.domain.NetworkDeviceMapping> optionalMapping = deviceMappingRepository.findById(id);
+            if (!optionalMapping.isPresent()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Not found");
+                errorResponse.put("message", "Device mapping not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+            }
+
+            com.pat.repo.domain.NetworkDeviceMapping mapping = optionalMapping.get();
             
-            log.debug("========== RELOAD DEVICE MAPPINGS COMPLETED ==========");
+            String ipAddress = (String) mappingData.get("ipAddress");
+            String deviceName = (String) mappingData.get("deviceName");
+            String macAddress = (String) mappingData.get("macAddress");
+            Integer deviceNumber = mappingData.get("deviceNumber") != null 
+                ? Integer.valueOf(mappingData.get("deviceNumber").toString()) 
+                : null;
+
+            // Validate required fields
+            if (ipAddress == null || ipAddress.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "IP address is required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            if (deviceName == null || deviceName.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "Device name is required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            // Check if IP already exists in another mapping
+            java.util.Optional<com.pat.repo.domain.NetworkDeviceMapping> existingByIp = deviceMappingRepository.findByIpAddress(ipAddress);
+            if (existingByIp.isPresent() && !existingByIp.get().getId().equals(id)) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Duplicate IP address");
+                errorResponse.put("message", "A device mapping with this IP address already exists");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+            }
+
+            mapping.setIpAddress(ipAddress.trim());
+            mapping.setDeviceName(deviceName.trim());
+            mapping.setMacAddress(macAddress != null ? macAddress.trim() : null);
+            mapping.setDeviceNumber(deviceNumber);
+
+            com.pat.repo.domain.NetworkDeviceMapping saved = deviceMappingRepository.save(mapping);
+            log.debug("Updated device mapping: {} -> {}", saved.getIpAddress(), saved.getDeviceName());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Device mapping updated successfully");
+            response.put("id", saved.getId());
+            response.put("ipAddress", saved.getIpAddress());
+            response.put("deviceName", saved.getDeviceName());
+            response.put("macAddress", saved.getMacAddress());
+            response.put("deviceNumber", saved.getDeviceNumber());
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            log.error("========== ERROR RELOADING DEVICE MAPPINGS ==========");
-            log.error("Error reloading device mappings", e);
+            log.debug("========== ERROR UPDATING DEVICE MAPPING ==========");
+            log.debug("Error updating device mapping", e);
             Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Failed to reload");
+            errorResponse.put("error", "Failed to update mapping");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Delete a device mapping
+     */
+    @DeleteMapping("/device-mappings/{id}")
+    public ResponseEntity<?> deleteDeviceMapping(@PathVariable String id) {
+        log.debug("========== DELETE DEVICE MAPPING REQUESTED ==========");
+        log.debug("Mapping ID: {}", id);
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            java.util.Optional<com.pat.repo.domain.NetworkDeviceMapping> optionalMapping = deviceMappingRepository.findById(id);
+            if (!optionalMapping.isPresent()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Not found");
+                errorResponse.put("message", "Device mapping not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+            }
+
+            deviceMappingRepository.deleteById(id);
+            log.debug("Deleted device mapping with ID: {}", id);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Device mapping deleted successfully");
+            response.put("id", id);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.debug("========== ERROR DELETING DEVICE MAPPING ==========");
+            log.debug("Error deleting device mapping", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to delete mapping");
             errorResponse.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }

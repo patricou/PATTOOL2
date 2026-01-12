@@ -31,6 +31,7 @@
     flex-wrap: wrap;
 }
 
+
 .statistics-section {
     margin-bottom: 1rem;
 }
@@ -88,6 +89,18 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+}
+
+/* Pink background for new devices (not in MongoDB) */
+.device-card.new-device {
+    background: linear-gradient(135deg, #ffc0cb 0%, #ffb6c1 100%);
+    border: 2px solid #ff69b4;
+}
+
+/* Orange background for devices with same MAC but different IP in MongoDB */
+.device-card.different-ip {
+    background: linear-gradient(135deg, #ff9800 0%, #ff8c00 100%);
+    border: 2px solid #ff6f00;
 }
 
 .device-card:hover {
@@ -215,6 +228,14 @@
 
 .web-interface-btn {
     margin-top: 0.1rem;
+}
+
+.device-footer {
+    padding: 0.75rem;
+    border-top: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    border-radius: 0 0 6px 6px;
+    margin-top: auto;
 }
 
 .device-body {

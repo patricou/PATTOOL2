@@ -48,14 +48,18 @@ export class LocalNetworkService {
   /**
    * Stream network scan results using Server-Sent Events (SSE)
    * Returns an Observable that emits events as devices are found
+   * @param useExternalVendorAPI If true, use external API for vendor detection (OUI lookup)
    */
-  scanNetworkStream(): Observable<StreamEvent> {
+  scanNetworkStream(useExternalVendorAPI: boolean = false): Observable<StreamEvent> {
     const eventSubject = new Subject<StreamEvent>();
 
     from(this._keycloakService.getToken()).subscribe({
       next: (token: string) => {
+        // Build URL with query parameter
+        const url = this.API_URL + "network/scan/stream" + (useExternalVendorAPI ? "?useExternalVendorAPI=true" : "");
+        
         // Use fetch API instead of EventSource to support custom headers
-        fetch(this.API_URL + "network/scan/stream", {
+        fetch(url, {
           headers: {
             'Authorization': 'Bearer ' + token,
             'Accept': 'text/event-stream'
@@ -165,10 +169,46 @@ export class LocalNetworkService {
   /**
    * Reload device mappings from CSV file into MongoDB
    */
-  reloadDeviceMappings(): Observable<any> {
+
+  /**
+   * Create a new device mapping
+   */
+  createDeviceMapping(mapping: {
+    ipAddress: string;
+    deviceName: string;
+    macAddress?: string;
+    deviceNumber?: number;
+  }): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
-        this._http.post(this.API_URL + "network/device-mappings/reload", {}, { headers: headers })
+        this._http.post(this.API_URL + "network/device-mappings", mapping, { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Update an existing device mapping
+   */
+  updateDeviceMapping(id: string, mapping: {
+    ipAddress: string;
+    deviceName: string;
+    macAddress?: string;
+    deviceNumber?: number;
+  }): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put(this.API_URL + "network/device-mappings/" + id, mapping, { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Delete a device mapping
+   */
+  deleteDeviceMapping(id: string): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete(this.API_URL + "network/device-mappings/" + id, { headers: headers })
       )
     );
   }
