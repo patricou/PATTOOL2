@@ -128,6 +128,26 @@
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h3 class="mb-0"><i class="fa fa-list"></i> {{ "LOCAL_NETWORK.DEVICES" | translate }}</h3>
                     <div class="sort-controls d-flex align-items-center">
+                        <!-- OUI Lookup input -->
+                        <div class="input-group input-group-sm me-2" style="width: 150px;">
+                            <span class="input-group-text">
+                                <i class="fa fa-industry"></i>
+                            </span>
+                            <input type="text" 
+                                   class="form-control form-control-sm" 
+                                   [(ngModel)]="ouiInput"
+                                   (keyup.enter)="lookupVendorByOUI()"
+                                   [placeholder]="'LOCAL_NETWORK.OUI_LOOKUP_PLACEHOLDER' | translate"
+                                   maxlength="8"
+                                   style="text-transform: uppercase;">
+                            <button *ngIf="ouiInput" 
+                                    class="btn btn-sm btn-outline-info" 
+                                    type="button"
+                                    (click)="lookupVendorByOUI()"
+                                    [title]="'LOCAL_NETWORK.LOOKUP_VENDOR_BY_OUI' | translate">
+                                <i class="fa fa-search"></i>
+                            </button>
+                        </div>
                         <!-- Filter input -->
                         <div class="input-group me-3" style="width: 250px;">
                             <span class="input-group-text">
@@ -264,6 +284,15 @@
                                         <span [style.color]="getMacAddressColor(device)" style="font-size: 0.85em; margin-left: 5px;" *ngIf="device.macAddressSource === 'local'">(Local)</span>
                                     </div>
                                     <span *ngIf="!device.macAddress && !device.macAddressARP" class="text-muted mt-1 d-block">{{ "LOCAL_NETWORK.NOT_AVAILABLE" | translate }}</span>
+                                    <!-- Vendor Info Button -->
+                                    <button *ngIf="device.macAddress" 
+                                            (click)="openVendorInfoModal(device.macAddress)"
+                                            class="btn btn-xs btn-warning mt-2"
+                                            [title]="'LOCAL_NETWORK.GET_VENDOR_INFO' | translate"
+                                            style="font-size: 0.7rem; padding: 0.2rem 0.4rem;">
+                                        <i class="fa fa-info-circle"></i>
+                                        {{ "LOCAL_NETWORK.GET_VENDOR_INFO" | translate }}
+                                    </button>
                                 </div>
                             </div>
                             
@@ -275,22 +304,20 @@
                                 </div>
                             </div>
                             
-                            <div class="info-item" *ngIf="device.vendor">
-                                <i class="fa fa-industry"></i>
-                                <div>
-                                    <strong>{{ "LOCAL_NETWORK.VENDOR" | translate }}</strong>
-                                    <div>
-                                        <span class="badge badge-info" 
-                                              style="font-size: 0.75rem; padding: 0.25rem 0.5rem; background-color: #17a2b8; color: white; font-weight: 600;"
-                                              [title]="'Fabricant détecté via MAC Address (OUI) - Source: ' + (device.macAddressSource === 'arp' ? 'ARP (Device réel)' : device.macAddressSource === 'mongodb' ? 'MongoDB' : 'Local')">
-                                            <i class="fa fa-microchip" style="margin-right: 3px; font-size: 0.7rem;"></i>
-                                            {{ device.vendor }}
-                                            <span *ngIf="device.macAddressSource === 'arp'" 
-                                                  style="margin-left: 5px; font-size: 0.65rem; opacity: 0.9;"
-                                                  title="Détecté via ARP (adresse MAC réelle du device)">
-                                                (ARP)
+                            <div class="info-item" *ngIf="device.vendor" style="grid-column: 1 / -1; margin-top: 5px; padding: 8px; background-color: rgba(23, 162, 184, 0.15); border-radius: 4px; border-left: 3px solid #17a2b8;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <i class="fa fa-industry" style="font-size: 1rem; color: #17a2b8;"></i>
+                                    <div style="flex: 1;">
+                                        <strong style="font-size: 0.85rem; color: #fff;">{{ "LOCAL_NETWORK.VENDOR" | translate }}</strong>
+                                        <div style="margin-top: 4px;">
+                                            <span class="badge" 
+                                                  [ngClass]="useExternalVendorAPI ? 'badge-success' : 'badge-info'"
+                                                  style="font-size: 0.75rem; padding: 0.25rem 0.5rem; font-weight: 600;"
+                                                  [title]="useExternalVendorAPI ? 'Fabricant détecté via API externe (macvendors.com)' : 'Fabricant détecté via base de données locale (OUI)'">
+                                                <i class="fa" [ngClass]="useExternalVendorAPI ? 'fa-cloud' : 'fa-database'" style="margin-right: 3px; font-size: 0.7rem;"></i>
+                                                {{ device.vendor }}
                                             </span>
-                                        </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -621,3 +648,186 @@
     </div>
 </ng-template>
 
+<!-- Vendor Info Modal -->
+<ng-template #vendorInfoModal let-c="close" let-d="dismiss">
+    <div class="modal-header slideshow-header">
+        <h5 class="modal-title">
+            <i class="fa fa-info-circle"></i> {{ "LOCAL_NETWORK.VENDOR_INFO" | translate }}
+        </h5>
+        <button type="button" 
+                class="btn btn-outline-light btn-sm rounded-circle" 
+                (click)="closeVendorInfoModal()" 
+                [attr.aria-label]="'COMMUN.CLOSE' | translate"
+                style="min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0;">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body" style="background-color: #1a1a1a; color: #fff; padding: 1.5rem;">
+        <div *ngIf="isLoadingVendorInfo" class="text-center py-4">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-3">{{ "LOCAL_NETWORK.LOADING_VENDOR_INFO" | translate }}</p>
+        </div>
+        
+        <div *ngIf="!isLoadingVendorInfo && vendorInfo">
+            <div *ngIf="vendorInfo.success" class="vendor-info-success">
+                <div class="mb-3">
+                    <h6><i class="fa fa-check-circle text-success"></i> {{ "LOCAL_NETWORK.VENDOR_FOUND" | translate }}</h6>
+                </div>
+                <div class="vendor-details">
+                    <div class="mb-2">
+                        <strong>{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}:</strong>
+                        <code class="ms-2">{{ vendorInfo.macAddress }}</code>
+                    </div>
+                    <div class="mb-2">
+                        <strong>OUI:</strong>
+                        <code class="ms-2">{{ vendorInfo.oui }}</code>
+                    </div>
+                    <div class="mb-2">
+                        <strong>{{ "LOCAL_NETWORK.VENDOR" | translate }}:</strong>
+                        <span class="ms-2 badge badge-success" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                            {{ vendorInfo.vendor }}
+                        </span>
+                    </div>
+                    <div class="mb-2 mt-3">
+                        <strong>API URL:</strong>
+                        <a [href]="vendorInfo.apiUrl" target="_blank" class="ms-2 text-info">
+                            {{ vendorInfo.apiUrl }}
+                            <i class="fa fa-external-link"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div *ngIf="!vendorInfo.success" class="vendor-info-error">
+                <div class="mb-3">
+                    <h6><i class="fa fa-exclamation-triangle text-warning"></i> {{ "LOCAL_NETWORK.VENDOR_NOT_FOUND" | translate }}</h6>
+                </div>
+                <div class="vendor-details">
+                    <div class="mb-2">
+                        <strong>{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}:</strong>
+                        <code class="ms-2">{{ vendorInfo.macAddress }}</code>
+                    </div>
+                    <div *ngIf="vendorInfo.oui" class="mb-2">
+                        <strong>OUI:</strong>
+                        <code class="ms-2">{{ vendorInfo.oui }}</code>
+                    </div>
+                    <div class="mb-2">
+                        <strong>{{ "LOCAL_NETWORK.ERROR" | translate }}:</strong>
+                        <span class="ms-2 text-warning">{{ vendorInfo.error }}</span>
+                    </div>
+                    <div *ngIf="vendorInfo.apiUrl" class="mb-2 mt-3">
+                        <strong>API URL:</strong>
+                        <a [href]="vendorInfo.apiUrl" target="_blank" class="ms-2 text-info">
+                            {{ vendorInfo.apiUrl }}
+                            <i class="fa fa-external-link"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div *ngIf="!isLoadingVendorInfo && !vendorInfo" class="text-center py-4">
+            <i class="fa fa-exclamation-circle text-warning fa-2x"></i>
+            <p class="mt-3">{{ "LOCAL_NETWORK.NO_VENDOR_INFO" | translate }}</p>
+        </div>
+    </div>
+    <div class="modal-footer" style="background-color: #1a1a1a; border-top: 1px solid #333;">
+        <button type="button" 
+                class="btn btn-secondary" 
+                (click)="closeVendorInfoModal()">
+            {{ "COMMUN.CLOSE" | translate }}
+        </button>
+    </div>
+</ng-template>
+
+<!-- Vendor Info Modal -->
+<ng-template #vendorInfoModal let-c="close" let-d="dismiss">
+    <div class="modal-header slideshow-header">
+        <h5 class="modal-title">
+            <i class="fa fa-info-circle"></i> {{ "LOCAL_NETWORK.VENDOR_INFO" | translate }}
+        </h5>
+        <button type="button" 
+                class="btn btn-outline-light btn-sm rounded-circle" 
+                (click)="closeVendorInfoModal()" 
+                [attr.aria-label]="'COMMUN.CLOSE' | translate"
+                style="min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0;">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body" style="background-color: #1a1a1a; color: #fff; padding: 1.5rem;">
+        <div *ngIf="isLoadingVendorInfo" class="text-center py-4">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-3">{{ "LOCAL_NETWORK.LOADING_VENDOR_INFO" | translate }}</p>
+        </div>
+        
+        <div *ngIf="!isLoadingVendorInfo && vendorInfo">
+            <div *ngIf="vendorInfo.success" class="vendor-info-success">
+                <div class="mb-3">
+                    <h6><i class="fa fa-check-circle text-success"></i> {{ "LOCAL_NETWORK.VENDOR_FOUND" | translate }}</h6>
+                </div>
+                <div class="vendor-details">
+                    <div class="mb-2">
+                        <strong>{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}:</strong>
+                        <code class="ms-2">{{ vendorInfo.macAddress }}</code>
+                    </div>
+                    <div class="mb-2">
+                        <strong>OUI:</strong>
+                        <code class="ms-2">{{ vendorInfo.oui }}</code>
+                    </div>
+                    <div class="mb-2">
+                        <strong>{{ "LOCAL_NETWORK.VENDOR" | translate }}:</strong>
+                        <span class="ms-2 badge badge-success" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                            {{ vendorInfo.vendor }}
+                        </span>
+                    </div>
+                    <div class="mb-2 mt-3">
+                        <strong>API URL:</strong>
+                        <a [href]="vendorInfo.apiUrl" target="_blank" class="ms-2 text-info">
+                            {{ vendorInfo.apiUrl }}
+                            <i class="fa fa-external-link"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div *ngIf="!vendorInfo.success" class="vendor-info-error">
+                <div class="mb-3">
+                    <h6><i class="fa fa-exclamation-triangle text-warning"></i> {{ "LOCAL_NETWORK.VENDOR_NOT_FOUND" | translate }}</h6>
+                </div>
+                <div class="vendor-details">
+                    <div class="mb-2">
+                        <strong>{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}:</strong>
+                        <code class="ms-2">{{ vendorInfo.macAddress }}</code>
+                    </div>
+                    <div *ngIf="vendorInfo.oui" class="mb-2">
+                        <strong>OUI:</strong>
+                        <code class="ms-2">{{ vendorInfo.oui }}</code>
+                    </div>
+                    <div class="mb-2">
+                        <strong>{{ "LOCAL_NETWORK.ERROR" | translate }}:</strong>
+                        <span class="ms-2 text-warning">{{ vendorInfo.error }}</span>
+                    </div>
+                    <div *ngIf="vendorInfo.apiUrl" class="mb-2 mt-3">
+                        <strong>API URL:</strong>
+                        <a [href]="vendorInfo.apiUrl" target="_blank" class="ms-2 text-info">
+                            {{ vendorInfo.apiUrl }}
+                            <i class="fa fa-external-link"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div *ngIf="!isLoadingVendorInfo && !vendorInfo" class="text-center py-4">
+            <i class="fa fa-exclamation-circle text-warning fa-2x"></i>
+            <p class="mt-3">{{ "LOCAL_NETWORK.NO_VENDOR_INFO" | translate }}</p>
+        </div>
+    </div>
+    <div class="modal-footer" style="background-color: #1a1a1a; border-top: 1px solid #333;">
+        <button type="button" 
+                class="btn btn-secondary" 
+                (click)="closeVendorInfoModal()">
+            {{ "COMMUN.CLOSE" | translate }}
+        </button>
+    </div>
+</ng-template>

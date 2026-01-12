@@ -160,7 +160,9 @@
         "ADD_TO_MONGODB_TOOLTIP": "Agregar este dispositivo a la base de datos MongoDB",
         "USE_EXTERNAL_VENDOR_API": "API externa para fabricante",
         "USE_EXTERNAL_VENDOR_API_TOOLTIP": "Usar API externa (macvendors.com) para identificar fabricantes. Requiere conexión a Internet.",
-        "FILTER_PLACEHOLDER": "Filtrar por nombre, IP o MAC...",
+        "OUI_LOOKUP_PLACEHOLDER": "OUI (XX:XX:XX)",
+        "LOOKUP_VENDOR_BY_OUI": "Buscar fabricante por OUI",
+        "FILTER_PLACEHOLDER": "Filtrar por nombre, IP, MAC o fabricante...",
         "CLEAR_FILTER": "Limpiar filtro"
     },
     "EVENTHOME": {

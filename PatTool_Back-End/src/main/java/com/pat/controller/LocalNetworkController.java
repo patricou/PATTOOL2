@@ -80,6 +80,8 @@ public class LocalNetworkController {
      */
     @GetMapping(value = "/scan/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamNetworkScan(@RequestParam(value = "useExternalVendorAPI", defaultValue = "false") boolean useExternalVendorAPI) {
+        log.debug("========== STREAM NETWORK SCAN REQUESTED ==========");
+        log.debug("useExternalVendorAPI parameter: {}", useExternalVendorAPI);
         log.debug("Network scan stream requested (useExternalVendorAPI: {})", useExternalVendorAPI);
 
         if (!hasAdminRole()) {
@@ -129,8 +131,9 @@ public class LocalNetworkController {
                         String hostname = (String) device.get("hostname");
                         int sentCount = devicesSent.incrementAndGet();
                         
-                        log.debug("[SSE] Sending device #{} via SSE: {} - Type: {} - Hostname: {} (progress: {}/{})", 
-                                sentCount, deviceIp, deviceType, hostname != null ? hostname : "NONE", progress, total);
+                        String vendor = (String) device.get("vendor");
+                        log.debug("[SSE] Sending device #{} via SSE: {} - Type: {} - Hostname: {} - Vendor: {} (progress: {}/{})", 
+                                sentCount, deviceIp, deviceType, hostname != null ? hostname : "NONE", vendor != null ? vendor : "NONE", progress, total);
                         
                         // Ensure deviceType is set
                         if (deviceType == null || deviceType.isEmpty()) {
@@ -141,6 +144,11 @@ public class LocalNetworkController {
                         // Log if hostname is missing for debugging
                         if (hostname == null || hostname.isEmpty()) {
                             log.debug("[SSE] Device {} has no hostname in device map", deviceIp);
+                        }
+                        
+                        // Log if vendor is missing for debugging
+                        if (vendor == null || vendor.isEmpty()) {
+                            log.debug("[SSE] Device {} has no vendor in device map (MAC: {})", deviceIp, device.get("macAddress"));
                         }
                         
                         Map<String, Object> eventData = new HashMap<>();
@@ -480,6 +488,35 @@ public class LocalNetworkController {
             log.debug("Error deleting device mapping", e);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Failed to delete mapping");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Get vendor information from external API for a MAC address
+     */
+    @GetMapping("/vendor-info/{macAddress}")
+    public ResponseEntity<?> getVendorInfo(@PathVariable String macAddress) {
+        log.debug("========== GET VENDOR INFO REQUESTED ==========");
+        log.debug("MAC Address: {}", macAddress);
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            Map<String, Object> result = localNetworkService.getVendorInfoFromAPI(macAddress);
+            log.debug("Vendor info retrieved: {}", result);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            log.debug("Error retrieving vendor info", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to retrieve vendor info");
             errorResponse.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }

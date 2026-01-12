@@ -1254,7 +1254,9 @@
         "ADD_TO_MONGODB_TOOLTIP": "Προσθήκη αυτής της συσκευής στη βάση δεδομένων MongoDB",
         "USE_EXTERNAL_VENDOR_API": "Εξωτερικό API για κατασκευαστή",
         "USE_EXTERNAL_VENDOR_API_TOOLTIP": "Χρήση εξωτερικού API (macvendors.com) για αναγνώριση κατασκευαστών. Απαιτεί σύνδεση στο Διαδίκτυο.",
-        "FILTER_PLACEHOLDER": "Φιλτράρισμα κατά όνομα, IP ή MAC...",
+        "OUI_LOOKUP_PLACEHOLDER": "OUI (XX:XX:XX)",
+        "LOOKUP_VENDOR_BY_OUI": "Αναζήτηση κατασκευαστή κατά OUI",
+        "FILTER_PLACEHOLDER": "Φιλτράρισμα κατά όνομα, IP, MAC ή κατασκευαστή...",
         "CLEAR_FILTER": "Καθαρισμός φίλτρου"
     }
 }

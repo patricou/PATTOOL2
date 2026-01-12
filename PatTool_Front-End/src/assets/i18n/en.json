@@ -157,8 +157,17 @@
         "ADD_TO_MONGODB_TOOLTIP": "Add this device to MongoDB database",
         "USE_EXTERNAL_VENDOR_API": "External API for vendor",
         "USE_EXTERNAL_VENDOR_API_TOOLTIP": "Use external API (macvendors.com) to identify vendors. Requires internet connection.",
-        "FILTER_PLACEHOLDER": "Filter by name, IP or MAC...",
-        "CLEAR_FILTER": "Clear filter"
+        "OUI_LOOKUP_PLACEHOLDER": "OUI (XX:XX:XX)",
+        "LOOKUP_VENDOR_BY_OUI": "Lookup vendor by OUI",
+        "FILTER_PLACEHOLDER": "Filter by name, IP, MAC or vendor...",
+        "CLEAR_FILTER": "Clear filter",
+        "GET_VENDOR_INFO": "Vendor info",
+        "VENDOR_INFO": "Vendor Information",
+        "LOADING_VENDOR_INFO": "Loading vendor information...",
+        "VENDOR_FOUND": "Vendor found",
+        "VENDOR_NOT_FOUND": "Vendor not found",
+        "NO_VENDOR_INFO": "No information available",
+        "ERROR": "Error"
     },
     "EVENTHOME": {
         "EVENTSLIST": "Activities List :",

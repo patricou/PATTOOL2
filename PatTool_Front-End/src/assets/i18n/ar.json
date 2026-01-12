@@ -151,7 +151,9 @@
         "ADD_TO_MONGODB_TOOLTIP": "إضافة هذا الجهاز إلى قاعدة بيانات MongoDB",
         "USE_EXTERNAL_VENDOR_API": "API خارجي للشركة المصنعة",
         "USE_EXTERNAL_VENDOR_API_TOOLTIP": "استخدام API خارجي (macvendors.com) لتحديد الشركات المصنعة. يتطلب اتصالاً بالإنترنت.",
-        "FILTER_PLACEHOLDER": "تصفية حسب الاسم أو IP أو MAC...",
+        "OUI_LOOKUP_PLACEHOLDER": "OUI (XX:XX:XX)",
+        "LOOKUP_VENDOR_BY_OUI": "البحث عن الشركة المصنعة حسب OUI",
+        "FILTER_PLACEHOLDER": "تصفية حسب الاسم أو IP أو MAC أو الشركة المصنعة...",
         "CLEAR_FILTER": "مسح المرشح"
     },
     "EVENTHOME": {

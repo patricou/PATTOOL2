@@ -212,5 +212,18 @@ export class LocalNetworkService {
       )
     );
   }
+
+  /**
+   * Get vendor information from external API for a MAC address
+   */
+  getVendorInfo(macAddress: string): Observable<any> {
+    // Encode MAC address for URL (replace : with - or keep as is)
+    const encodedMac = encodeURIComponent(macAddress);
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + "network/vendor-info/" + encodedMac, { headers: headers })
+      )
+    );
+  }
 }
 

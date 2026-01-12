@@ -151,7 +151,9 @@
         "ADD_TO_MONGODB_TOOLTIP": "将此设备添加到MongoDB数据库",
         "USE_EXTERNAL_VENDOR_API": "外部制造商API",
         "USE_EXTERNAL_VENDOR_API_TOOLTIP": "使用外部API (macvendors.com) 识别制造商。需要互联网连接。",
-        "FILTER_PLACEHOLDER": "按名称、IP或MAC过滤...",
+        "OUI_LOOKUP_PLACEHOLDER": "OUI (XX:XX:XX)",
+        "LOOKUP_VENDOR_BY_OUI": "按OUI查找制造商",
+        "FILTER_PLACEHOLDER": "按名称、IP、MAC或制造商过滤...",
         "CLEAR_FILTER": "清除过滤器"
     },
     "EVENTHOME": {

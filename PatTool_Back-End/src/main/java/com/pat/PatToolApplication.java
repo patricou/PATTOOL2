@@ -39,6 +39,7 @@ import java.time.format.DateTimeFormatter;
             com.pat.repo.FriendGroupRepository.class,
             com.pat.repo.FriendRepository.class,
             com.pat.repo.FriendRequestRepository.class,
+            com.pat.repo.MacVendorMappingRepository.class,
             com.pat.repo.MembersRepository.class,
             com.pat.repo.NetworkDeviceMappingRepository.class,
             com.pat.repo.UrlLinkRepository.class,

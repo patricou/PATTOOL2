@@ -1,7 +1,9 @@
 package com.pat.service;
 
 import com.pat.repo.NetworkDeviceMappingRepository;
+import com.pat.repo.MacVendorMappingRepository;
 import com.pat.repo.domain.NetworkDeviceMapping;
+import com.pat.repo.domain.MacVendorMapping;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +22,7 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,7 +38,9 @@ public class LocalNetworkService {
     
     private final RestTemplate restTemplate;
     private final NetworkDeviceMappingRepository deviceMappingRepository;
+    private final MacVendorMappingRepository macVendorMappingRepository;
     private Map<String, String> routerDeviceMap = null; // Cache for router device names
+    private final Map<String, String> vendorCache = new ConcurrentHashMap<>(); // In-memory cache for vendor lookups (OUI -> Vendor) - deprecated, use MongoDB instead
     
     @Value("${app.router.ip:}")
     private String routerIp;
@@ -46,11 +51,15 @@ public class LocalNetworkService {
     @Value("${app.router.password:}")
     private String routerPassword;
     
+    @Value("${app.macvendor.api.url:https://api.macvendors.com}")
+    private String macVendorApiUrl;
+    
     
     @Autowired
-    public LocalNetworkService(RestTemplate restTemplate, NetworkDeviceMappingRepository deviceMappingRepository) {
+    public LocalNetworkService(RestTemplate restTemplate, NetworkDeviceMappingRepository deviceMappingRepository, MacVendorMappingRepository macVendorMappingRepository) {
         this.restTemplate = restTemplate;
         this.deviceMappingRepository = deviceMappingRepository;
+        this.macVendorMappingRepository = macVendorMappingRepository;
         log.debug("LocalNetworkService initialized. Device mapping repository: {}", deviceMappingRepository != null ? "OK" : "NULL");
         // Device mappings are now managed exclusively through MongoDB (CRUD operations via API)
     }
@@ -511,14 +520,21 @@ public class LocalNetworkService {
                 log.debug("Device {} - No MAC address found from ARP or MongoDB", ip);
             }
             
-            // Set vendor from the primary MAC address
-            String primaryMac = (String) device.get("macAddress");
-            if (primaryMac != null) {
-                String vendor = identifyVendor(primaryMac, useExternalVendorAPI);
-                if (vendor != null) {
-                    device.put("vendor", vendor);
+                // Set vendor from the primary MAC address - ALWAYS try to find vendor (tries both API and local DB)
+                String primaryMac = (String) device.get("macAddress");
+                if (primaryMac != null) {
+                    log.debug("Device {} - Attempting to identify vendor for MAC: {} (preferExternalAPI: {})", ip, primaryMac, useExternalVendorAPI);
+                    // identifyVendor now tries both methods automatically (API first if useExternalVendorAPI=true, then local DB as fallback)
+                    String vendor = identifyVendor(primaryMac, useExternalVendorAPI);
+                    if (vendor != null && !vendor.trim().isEmpty()) {
+                        device.put("vendor", vendor);
+                        log.debug("Device {} - Vendor identified: {}", ip, vendor);
+                    } else {
+                        log.debug("Device {} - No vendor found for MAC: {} with any method", ip, primaryMac);
+                    }
+                } else {
+                    log.debug("Device {} - No MAC address available for vendor identification", ip);
                 }
-            }
 
             // FINAL CHECK: Ensure macAddressSource is ALWAYS set if macAddress exists (before returning)
             if (device.containsKey("macAddress") && device.get("macAddress") != null) {
@@ -1611,11 +1627,31 @@ public class LocalNetworkService {
      * @param useExternalAPI If true, use external API (macvendors.com) instead of local database
      * @return Vendor name or null if not found
      */
+    /**
+     * Identify vendor from MAC address - ALWAYS tries both methods if needed
+     * @param macAddress MAC address to identify
+     * @param useExternalAPI If true, prefer external API, otherwise prefer local database
+     * @return Vendor name or null if not found
+     */
     private String identifyVendor(String macAddress, boolean useExternalAPI) {
-        if (useExternalAPI) {
-            return identifyVendorFromExternalAPI(macAddress);
+        if (macAddress == null || macAddress.trim().isEmpty()) {
+            return null;
         }
-        return identifyVendorFromLocalDatabase(macAddress);
+        
+        // Always try the preferred method first
+        String vendor = useExternalAPI 
+            ? identifyVendorFromExternalAPI(macAddress) 
+            : identifyVendorFromLocalDatabase(macAddress);
+        
+        // If not found with preferred method, try the alternative
+        if (vendor == null || vendor.trim().isEmpty()) {
+            log.debug("Vendor not found with preferred method for MAC: {}, trying alternative method", macAddress);
+            vendor = useExternalAPI 
+                ? identifyVendorFromLocalDatabase(macAddress) 
+                : identifyVendorFromExternalAPI(macAddress);
+        }
+        
+        return vendor;
     }
     
     /**
@@ -1636,10 +1672,34 @@ public class LocalNetworkService {
             
             // Extract OUI (first 6 hex characters)
             String oui = normalized.substring(0, 6);
+            String ouiFormatted = formatOui(oui);
             
-            // Use macvendors.com API (free, no API key required)
-            // Format: https://api.macvendors.com/{mac_address}
-            String apiUrl = "https://api.macvendors.com/" + oui;
+            // FIRST: Check MongoDB for existing vendor mapping
+            if (ouiFormatted != null) {
+                Optional<MacVendorMapping> existingMapping = macVendorMappingRepository.findByOui(ouiFormatted);
+                if (existingMapping.isPresent() && existingMapping.get().getVendor() != null) {
+                    String vendor = existingMapping.get().getVendor();
+                    log.debug("Vendor found in MongoDB for OUI {}: {}", ouiFormatted, vendor);
+                    return vendor;
+                }
+            }
+            
+            // SECOND: Check in-memory cache (deprecated, but keep for backward compatibility)
+            if (vendorCache.containsKey(oui)) {
+                String cachedVendor = vendorCache.get(oui);
+                if (cachedVendor != null) {
+                    log.debug("Vendor found in cache for OUI {}: {}", oui, cachedVendor);
+                    // Also save to MongoDB for future use
+                    if (ouiFormatted != null) {
+                        saveVendorToMongoDB(ouiFormatted, cachedVendor);
+                    }
+                    return cachedVendor;
+                }
+            }
+            
+            // THIRD: Use macvendors.com API (free, no API key required)
+            // Format: {apiUrl}/{oui} - API accepts OUI (6 hex chars) or full MAC
+            String apiUrl = macVendorApiUrl + "/" + oui;
             
             try {
                 HttpHeaders headers = new HttpHeaders();
@@ -1656,22 +1716,181 @@ public class LocalNetworkService {
                 if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
                     String vendor = response.getBody().trim();
                     // API returns "Not Found" if vendor not found
-                    if (!vendor.isEmpty() && !vendor.equalsIgnoreCase("Not Found")) {
-                        log.debug("Vendor found via external API for MAC {}: {}", macAddress, vendor);
+                    if (!vendor.isEmpty() && !vendor.equalsIgnoreCase("Not Found") && !vendor.equalsIgnoreCase("not found")) {
+                        // Save to MongoDB for future use
+                        if (ouiFormatted != null) {
+                            saveVendorToMongoDB(ouiFormatted, vendor);
+                        }
+                        // Also cache in memory (deprecated)
+                        vendorCache.put(oui, vendor);
+                        log.debug("Vendor found via external API for MAC {} (OUI: {}): {}", macAddress, ouiFormatted, vendor);
                         return vendor;
+                    } else {
+                        // API returned "Not Found" - try local database and cache result
+                        log.debug("External API returned 'Not Found' for MAC {} (OUI: {}), trying local database", macAddress, ouiFormatted);
+                        String localVendor = identifyVendorFromLocalDatabase(macAddress);
+                        // Cache the result (even if null) to avoid repeated API calls
+                        vendorCache.put(oui, localVendor);
+                        return localVendor;
                     }
+                } else {
+                    // API returned non-success status - fallback to local database
+                    log.debug("External API returned non-success status for MAC {} (OUI: {}), using local database", macAddress, ouiFormatted);
+                    String localVendor = identifyVendorFromLocalDatabase(macAddress);
+                    // Cache the result to avoid repeated API calls
+                    vendorCache.put(oui, localVendor);
+                    return localVendor;
                 }
+            } catch (org.springframework.web.client.ResourceAccessException e) {
+                // Timeout or connection error - fall back to local database quickly
+                log.debug("External API timeout/connection error for MAC {} (OUI: {}): {}, using local database", macAddress, ouiFormatted, e.getMessage());
+                String localVendor = identifyVendorFromLocalDatabase(macAddress);
+                // Cache the result to avoid repeated failed API calls
+                vendorCache.put(oui, localVendor);
+                return localVendor;
             } catch (Exception e) {
+                // Check if it's a rate limit error
+                String errorMessage = e.getMessage();
+                if (errorMessage != null && (errorMessage.contains("Too Many Requests") || errorMessage.contains("429"))) {
+                    log.warn("API rate limit exceeded for MAC {} (OUI: {}), using local database", macAddress, ouiFormatted);
+                } else {
+                    log.debug("External API call failed for MAC {} (OUI: {}): {}, using local database", macAddress, ouiFormatted, e.getMessage());
+                }
                 // API call failed, fall back to local database
-                log.debug("External API call failed for MAC {}: {}, falling back to local database", macAddress, e.getMessage());
+                String localVendor = identifyVendorFromLocalDatabase(macAddress);
+                // Cache the result to avoid repeated failed API calls
+                vendorCache.put(oui, localVendor);
+                return localVendor;
+            }
+            } catch (Exception e) {
+                log.debug("Error identifying vendor from external API for MAC {}: {}, falling back to local database", macAddress, e.getMessage());
+                // Fallback to local database on error
                 return identifyVendorFromLocalDatabase(macAddress);
             }
-        } catch (Exception e) {
-            log.debug("Error identifying vendor from external API for MAC {}: {}", macAddress, e.getMessage());
+    }
+    
+    /**
+     * Get vendor information from external API for a MAC address
+     * Returns detailed information from macvendors.com API
+     */
+    public Map<String, Object> getVendorInfoFromAPI(String macAddress) {
+        Map<String, Object> result = new HashMap<>();
+        
+        if (macAddress == null || macAddress.trim().isEmpty()) {
+            result.put("error", "MAC address is required");
+            return result;
         }
         
-        // Fallback to local database if external API fails
-        return identifyVendorFromLocalDatabase(macAddress);
+        try {
+            // Normalize MAC address: remove separators and convert to uppercase
+            String normalized = macAddress.replaceAll("[:-]", "").toUpperCase().trim();
+            if (normalized.length() < 6) {
+                result.put("error", "Invalid MAC address format");
+                return result;
+            }
+            
+            // Extract OUI (first 6 hex characters)
+            String oui = normalized.substring(0, 6);
+            String ouiFormatted = formatOui(oui);
+            
+            // Build API URL
+            String apiUrl = macVendorApiUrl + "/" + oui;
+            
+            try {
+                HttpHeaders headers = new HttpHeaders();
+                headers.set("User-Agent", "PatTool/1.0");
+                HttpEntity<String> entity = new HttpEntity<>(headers);
+                
+                ResponseEntity<String> response = restTemplate.exchange(
+                    apiUrl,
+                    HttpMethod.GET,
+                    entity,
+                    String.class
+                );
+                
+                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                    String vendor = response.getBody().trim();
+                    if (!vendor.isEmpty() && !vendor.equalsIgnoreCase("Not Found")) {
+                        // Save to MongoDB for future use
+                        if (ouiFormatted != null) {
+                            saveVendorToMongoDB(ouiFormatted, vendor);
+                        }
+                        result.put("success", true);
+                        result.put("macAddress", macAddress);
+                        result.put("oui", ouiFormatted);
+                        result.put("vendor", vendor);
+                        result.put("apiUrl", apiUrl);
+                        log.debug("Vendor info retrieved from API for MAC {}: {}", macAddress, vendor);
+                    } else {
+                        result.put("success", false);
+                        result.put("error", "Vendor not found in database");
+                        result.put("macAddress", macAddress);
+                        result.put("oui", ouiFormatted);
+                        result.put("apiUrl", apiUrl);
+                    }
+                } else {
+                    result.put("success", false);
+                    result.put("error", "API returned non-success status: " + response.getStatusCode());
+                    result.put("macAddress", macAddress);
+                    result.put("apiUrl", apiUrl);
+                }
+            } catch (Exception e) {
+                result.put("success", false);
+                result.put("error", "API call failed: " + e.getMessage());
+                result.put("macAddress", macAddress);
+                result.put("apiUrl", apiUrl);
+                log.debug("Error calling vendor API for MAC {}: {}", macAddress, e.getMessage());
+            }
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("error", "Error processing MAC address: " + e.getMessage());
+            result.put("macAddress", macAddress);
+            log.debug("Error processing MAC address {}: {}", macAddress, e.getMessage());
+        }
+        
+        return result;
+    }
+    
+    /**
+     * Normalize OUI to format XX:XX:XX (from 6 hex characters)
+     * @param oui OUI in format XXXXXX (6 hex characters)
+     * @return OUI in format XX:XX:XX
+     */
+    private String formatOui(String oui) {
+        if (oui == null || oui.length() < 6) {
+            return null;
+        }
+        return oui.substring(0, 2) + ":" + oui.substring(2, 4) + ":" + oui.substring(4, 6);
+    }
+    
+    /**
+     * Save vendor mapping to MongoDB
+     * @param oui OUI in format XX:XX:XX
+     * @param vendor Vendor name
+     */
+    private void saveVendorToMongoDB(String oui, String vendor) {
+        if (oui == null || vendor == null || vendor.trim().isEmpty()) {
+            return;
+        }
+        try {
+            macVendorMappingRepository.findByOui(oui).ifPresentOrElse(
+                existing -> {
+                    // Update existing
+                    existing.setVendor(vendor);
+                    existing.setDateModification(new Date());
+                    macVendorMappingRepository.save(existing);
+                    log.debug("Updated vendor mapping in MongoDB for OUI {}: {}", oui, vendor);
+                },
+                () -> {
+                    // Create new
+                    MacVendorMapping mapping = new MacVendorMapping(oui, vendor);
+                    macVendorMappingRepository.save(mapping);
+                    log.debug("Saved vendor mapping to MongoDB for OUI {}: {}", oui, vendor);
+                }
+            );
+        } catch (Exception e) {
+            log.warn("Error saving vendor mapping to MongoDB for OUI {}: {}", oui, e.getMessage());
+        }
     }
     
     /**

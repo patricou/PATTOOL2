@@ -77,8 +77,11 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   deviceSortBy: 'ip' | 'name' | 'type' | 'vulnerabilities' | 'status' = 'vulnerabilities';
   deviceSortDirection: 'asc' | 'desc' = 'desc'; // Descending by default for vulnerabilities (most vulnerable first)
   
-  // Device filter - Filter by name (hostname) and IP address
+  // Device filter - Filter by name (hostname), IP address, MAC address, and vendor
   deviceFilter: string = '';
+  
+  // OUI input for vendor lookup
+  ouiInput: string = '';
   
   // External API for vendor detection (OUI lookup)
   useExternalVendorAPI: boolean = false; // Default: false (use local database)
@@ -93,6 +96,13 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   sortColumn: string = '';
   sortDirection: 'asc' | 'desc' = 'asc';
   private modalRef?: NgbModalRef;
+
+  // Vendor info modal
+  @ViewChild('vendorInfoModal') vendorInfoModal!: TemplateRef<any>;
+  vendorInfo: any = null;
+  isLoadingVendorInfo: boolean = false;
+  vendorInfoError: string = '';
+  private vendorInfoModalRef?: NgbModalRef;
 
   // Device mapping form
   editingMapping: any = null;
@@ -613,6 +623,140 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Lookup vendor by OUI (format: XX:XX:XX)
+   * Converts OUI to MAC address and opens vendor info modal
+   */
+  lookupVendorByOUI(): void {
+    if (!this.ouiInput || this.ouiInput.trim() === '') {
+      return;
+    }
+
+    // Normalize OUI input (remove spaces, ensure format)
+    let oui = this.ouiInput.trim().replace(/\s+/g, '');
+    
+    // Validate format (should be XX:XX:XX or XXXXXX)
+    const ouiPattern = /^([0-9A-Fa-f]{2}[:-]?){2}[0-9A-Fa-f]{2}$/;
+    if (!ouiPattern.test(oui)) {
+      // Try to format if user entered without separators
+      if (oui.length === 6 && /^[0-9A-Fa-f]{6}$/.test(oui)) {
+        oui = oui.substring(0, 2) + ':' + oui.substring(2, 4) + ':' + oui.substring(4, 6);
+      } else {
+        alert('Format OUI invalide. Utilisez le format XX:XX:XX (ex: 00:11:22)');
+        return;
+      }
+    }
+    
+    // Ensure format is XX:XX:XX
+    if (oui.includes('-')) {
+      oui = oui.replace(/-/g, ':');
+    }
+    if (!oui.includes(':')) {
+      oui = oui.substring(0, 2) + ':' + oui.substring(2, 4) + ':' + oui.substring(4, 6);
+    }
+    
+    // Convert OUI to MAC address (append 00:00:00 to make it a valid MAC)
+    const macAddress = oui.toUpperCase() + ':00:00:00';
+    
+    // Open vendor info modal with the constructed MAC address
+    this.openVendorInfoModal(macAddress);
+    
+    // Clear input after lookup
+    this.ouiInput = '';
+  }
+
+  /**
+   * Open vendor info modal and fetch vendor information from API
+   * Also updates the device card with the vendor information if found
+   */
+  openVendorInfoModal(macAddress: string): void {
+    if (!macAddress || macAddress.trim() === '') {
+      return;
+    }
+
+    this.vendorInfo = null;
+    this.vendorInfoError = '';
+    this.isLoadingVendorInfo = true;
+
+    // Open modal first
+    this.vendorInfoModalRef = this.modalService.open(this.vendorInfoModal, {
+      size: 'lg',
+      windowClass: 'slideshow-modal-wide',
+      backdrop: 'static',
+      keyboard: true
+    });
+
+    // Fetch vendor info from API
+    this.localNetworkService.getVendorInfo(macAddress).subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          this.isLoadingVendorInfo = false;
+          this.vendorInfo = response;
+          if (!response.success) {
+            this.vendorInfoError = response.error || 'Failed to retrieve vendor information';
+          } else if (response.success && response.vendor) {
+            // Update the device card with the vendor information
+            this.updateDeviceVendor(macAddress, response.vendor);
+          }
+          this.cdr.detectChanges();
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          this.isLoadingVendorInfo = false;
+          this.vendorInfoError = error.error?.message || error.message || 'Error retrieving vendor information';
+          this.vendorInfo = { success: false, error: this.vendorInfoError, macAddress: macAddress };
+          this.cdr.detectChanges();
+        });
+      }
+    });
+  }
+
+  /**
+   * Update device vendor in the devices array
+   * @param macAddress MAC address to find the device
+   * @param vendor Vendor name to set
+   */
+  private updateDeviceVendor(macAddress: string, vendor: string): void {
+    if (!macAddress || !vendor) {
+      return;
+    }
+
+    // Normalize MAC addresses for comparison
+    const normalizeMac = (mac: string): string => {
+      return mac ? mac.replace(/[:-]/g, '').toUpperCase().trim() : '';
+    };
+
+    const normalizedMac = normalizeMac(macAddress);
+
+    // Find device by MAC address (check both macAddress and macAddressMongoDB)
+    const deviceIndex = this.devices.findIndex(device => {
+      const deviceMac = normalizeMac(device.macAddress || '');
+      const deviceMacMongo = normalizeMac(device.macAddressMongoDB || '');
+      return deviceMac === normalizedMac || deviceMacMongo === normalizedMac;
+    });
+
+    if (deviceIndex !== -1) {
+      // Update the device with the vendor information
+      this.devices[deviceIndex].vendor = vendor;
+      // Create a new array to trigger change detection
+      this.devices = [...this.devices];
+      this.cdr.detectChanges();
+    }
+  }
+
+  /**
+   * Close vendor info modal
+   */
+  closeVendorInfoModal(): void {
+    if (this.vendorInfoModalRef) {
+      this.vendorInfoModalRef.close();
+      this.vendorInfoModalRef = undefined;
+    }
+    this.vendorInfo = null;
+    this.vendorInfoError = '';
+  }
+
+  /**
    * Sort device mappings by column
    */
   sortMappings(column: string): void {
@@ -701,7 +845,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       return [];
     }
 
-    // First, filter devices by name, IP address, and MAC address
+    // First, filter devices by name, IP address, MAC address, and vendor
     let filtered = [...this.devices];
     if (this.deviceFilter && this.deviceFilter.trim()) {
       const filterLower = this.deviceFilter.trim().toLowerCase();
@@ -710,10 +854,12 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         const ipAddress = (device.ipAddress || '').toLowerCase();
         const macAddress = (device.macAddress || '').toLowerCase();
         const macAddressMongoDB = (device.macAddressMongoDB || '').toLowerCase();
+        const vendor = (device.vendor || '').toLowerCase();
         return hostname.includes(filterLower) || 
                ipAddress.includes(filterLower) || 
                macAddress.includes(filterLower) ||
-               macAddressMongoDB.includes(filterLower);
+               macAddressMongoDB.includes(filterLower) ||
+               vendor.includes(filterLower);
       });
     }
 

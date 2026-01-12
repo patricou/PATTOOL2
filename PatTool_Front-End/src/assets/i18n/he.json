@@ -151,7 +151,9 @@
         "ADD_TO_MONGODB_TOOLTIP": "הוסף מכשיר זה למסד הנתונים MongoDB",
         "USE_EXTERNAL_VENDOR_API": "API חיצוני ליצרן",
         "USE_EXTERNAL_VENDOR_API_TOOLTIP": "השתמש ב-API חיצוני (macvendors.com) לזיהוי יצרנים. דורש חיבור לאינטרנט.",
-        "FILTER_PLACEHOLDER": "סנן לפי שם, IP או MAC...",
+        "OUI_LOOKUP_PLACEHOLDER": "OUI (XX:XX:XX)",
+        "LOOKUP_VENDOR_BY_OUI": "חפש יצרן לפי OUI",
+        "FILTER_PLACEHOLDER": "סנן לפי שם, IP, MAC או יצרן...",
         "CLEAR_FILTER": "נקה מסנן"
     },
     "EVENTHOME": {
