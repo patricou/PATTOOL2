@@ -162,7 +162,18 @@
         "VENDOR_FOUND": "Fabricant trouvé",
         "VENDOR_NOT_FOUND": "Fabricant non trouvé",
         "NO_VENDOR_INFO": "Aucune information disponible",
-        "ERROR": "Erreur"
+        "ERROR": "Erreur",
+        "VIEW_VENDOR_MAPPINGS": "Mappages Fabricants",
+        "VIEW_VENDOR_MAPPINGS_TOOLTIP": "Gérer les mappages OUI → Fabricant depuis MongoDB",
+        "MAC_VENDOR_MAPPINGS_TITLE": "Mappages Fabricants MAC (MongoDB)",
+        "LOADING_VENDOR_MAPPINGS": "Chargement des mappages fabricants...",
+        "NO_VENDOR_MAPPINGS": "Aucun mappage fabricant trouvé dans MongoDB",
+        "ADD_VENDOR_MAPPING": "Ajouter un mapping",
+        "EDIT_VENDOR_MAPPING": "Modifier le mapping",
+        "DELETE_VENDOR_MAPPING": "Supprimer le mapping",
+        "TOTAL_VENDOR_MAPPINGS": "Total des mappages fabricants",
+        "CREATION_DATE": "Date de création",
+        "MODIFICATION_DATE": "Date de modification"
     },
     "EVENTHOME": {
         "EVENTSLIST": "Liste des Activités :",

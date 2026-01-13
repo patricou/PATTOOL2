@@ -1,7 +1,9 @@
 package com.pat.controller;
 
 import com.pat.repo.NetworkDeviceMappingRepository;
+import com.pat.repo.MacVendorMappingRepository;
 import com.pat.service.LocalNetworkService;
+import com.pat.service.NetworkScanScheduler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,11 +32,15 @@ public class LocalNetworkController {
 
     private final LocalNetworkService localNetworkService;
     private final NetworkDeviceMappingRepository deviceMappingRepository;
+    private final MacVendorMappingRepository macVendorMappingRepository;
+    private final NetworkScanScheduler networkScanScheduler;
 
     @Autowired
-    public LocalNetworkController(LocalNetworkService localNetworkService, NetworkDeviceMappingRepository deviceMappingRepository) {
+    public LocalNetworkController(LocalNetworkService localNetworkService, NetworkDeviceMappingRepository deviceMappingRepository, MacVendorMappingRepository macVendorMappingRepository, NetworkScanScheduler networkScanScheduler) {
         this.localNetworkService = localNetworkService;
         this.deviceMappingRepository = deviceMappingRepository;
+        this.macVendorMappingRepository = macVendorMappingRepository;
+        this.networkScanScheduler = networkScanScheduler;
     }
 
     /**
@@ -517,6 +523,347 @@ public class LocalNetworkController {
             log.debug("Error retrieving vendor info", e);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Failed to retrieve vendor info");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Get all MAC vendor mappings from MongoDB
+     */
+    @GetMapping("/mac-vendor-mappings")
+    public ResponseEntity<?> getAllMacVendorMappings() {
+        log.debug("========== GET MAC VENDOR MAPPINGS REQUESTED ==========");
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            long count = macVendorMappingRepository.count();
+            log.debug("Total MAC vendor mappings in MongoDB: {}", count);
+            
+            List<com.pat.repo.domain.MacVendorMapping> mappings = macVendorMappingRepository.findAll();
+            log.debug("Retrieved {} MAC vendor mappings from repository", mappings.size());
+            
+            List<Map<String, Object>> responseList = new ArrayList<>();
+            for (com.pat.repo.domain.MacVendorMapping mapping : mappings) {
+                Map<String, Object> mappingData = new HashMap<>();
+                mappingData.put("id", mapping.getId());
+                mappingData.put("oui", mapping.getOui());
+                mappingData.put("vendor", mapping.getVendor());
+                mappingData.put("dateCreation", mapping.getDateCreation());
+                mappingData.put("dateModification", mapping.getDateModification());
+                responseList.add(mappingData);
+                log.debug("Added mapping: {} -> {}", mapping.getOui(), mapping.getVendor());
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("mappings", responseList);
+            response.put("count", responseList.size());
+            
+            log.debug("Returning {} MAC vendor mappings to client", responseList.size());
+            log.debug("========== GET MAC VENDOR MAPPINGS COMPLETED ==========");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.debug("========== ERROR GETTING MAC VENDOR MAPPINGS ==========");
+            log.debug("Error getting MAC vendor mappings", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to get mappings");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Create a new MAC vendor mapping
+     */
+    @PostMapping("/mac-vendor-mappings")
+    public ResponseEntity<?> createMacVendorMapping(@RequestBody Map<String, Object> mappingData) {
+        log.debug("========== CREATE MAC VENDOR MAPPING REQUESTED ==========");
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            String oui = (String) mappingData.get("oui");
+            String vendor = (String) mappingData.get("vendor");
+
+            // Validate required fields
+            if (oui == null || oui.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "OUI is required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            if (vendor == null || vendor.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "Vendor is required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            // Normalize OUI format (uppercase, ensure XX:XX:XX format)
+            String normalizedOui = oui.trim().toUpperCase().replace("-", ":");
+            if (!normalizedOui.matches("^([0-9A-F]{2}:){2}[0-9A-F]{2}$")) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "Invalid OUI format. Expected format: XX:XX:XX");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            // Check if OUI already exists
+            if (macVendorMappingRepository.findByOui(normalizedOui).isPresent()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Duplicate OUI");
+                errorResponse.put("message", "A vendor mapping with this OUI already exists");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+            }
+
+            com.pat.repo.domain.MacVendorMapping mapping = new com.pat.repo.domain.MacVendorMapping();
+            mapping.setOui(normalizedOui);
+            mapping.setVendor(vendor.trim());
+
+            com.pat.repo.domain.MacVendorMapping saved = macVendorMappingRepository.save(mapping);
+            log.debug("Created MAC vendor mapping: {} -> {}", saved.getOui(), saved.getVendor());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "MAC vendor mapping created successfully");
+            response.put("id", saved.getId());
+            response.put("oui", saved.getOui());
+            response.put("vendor", saved.getVendor());
+            response.put("dateCreation", saved.getDateCreation());
+            response.put("dateModification", saved.getDateModification());
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            log.debug("========== ERROR CREATING MAC VENDOR MAPPING ==========");
+            log.debug("Error creating MAC vendor mapping", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to create mapping");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Update an existing MAC vendor mapping
+     */
+    @PutMapping("/mac-vendor-mappings/{id}")
+    public ResponseEntity<?> updateMacVendorMapping(@PathVariable String id, @RequestBody Map<String, Object> mappingData) {
+        log.debug("========== UPDATE MAC VENDOR MAPPING REQUESTED ==========");
+        log.debug("Mapping ID: {}", id);
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            java.util.Optional<com.pat.repo.domain.MacVendorMapping> optionalMapping = macVendorMappingRepository.findById(id);
+            if (!optionalMapping.isPresent()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Not found");
+                errorResponse.put("message", "MAC vendor mapping not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+            }
+
+            com.pat.repo.domain.MacVendorMapping mapping = optionalMapping.get();
+            
+            String oui = (String) mappingData.get("oui");
+            String vendor = (String) mappingData.get("vendor");
+
+            // Validate required fields
+            if (oui == null || oui.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "OUI is required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            if (vendor == null || vendor.trim().isEmpty()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "Vendor is required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            // Normalize OUI format
+            String normalizedOui = oui.trim().toUpperCase().replace("-", ":");
+            if (!normalizedOui.matches("^([0-9A-F]{2}:){2}[0-9A-F]{2}$")) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "Invalid OUI format. Expected format: XX:XX:XX");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            // Check if OUI already exists in another mapping
+            java.util.Optional<com.pat.repo.domain.MacVendorMapping> existingByOui = macVendorMappingRepository.findByOui(normalizedOui);
+            if (existingByOui.isPresent() && !existingByOui.get().getId().equals(id)) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Duplicate OUI");
+                errorResponse.put("message", "A vendor mapping with this OUI already exists");
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(errorResponse);
+            }
+
+            mapping.setOui(normalizedOui);
+            mapping.setVendor(vendor.trim());
+
+            com.pat.repo.domain.MacVendorMapping saved = macVendorMappingRepository.save(mapping);
+            log.debug("Updated MAC vendor mapping: {} -> {}", saved.getOui(), saved.getVendor());
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "MAC vendor mapping updated successfully");
+            response.put("id", saved.getId());
+            response.put("oui", saved.getOui());
+            response.put("vendor", saved.getVendor());
+            response.put("dateCreation", saved.getDateCreation());
+            response.put("dateModification", saved.getDateModification());
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.debug("========== ERROR UPDATING MAC VENDOR MAPPING ==========");
+            log.debug("Error updating MAC vendor mapping", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to update mapping");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Delete a MAC vendor mapping
+     */
+    @DeleteMapping("/mac-vendor-mappings/{id}")
+    public ResponseEntity<?> deleteMacVendorMapping(@PathVariable String id) {
+        log.debug("========== DELETE MAC VENDOR MAPPING REQUESTED ==========");
+        log.debug("Mapping ID: {}", id);
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            java.util.Optional<com.pat.repo.domain.MacVendorMapping> optionalMapping = macVendorMappingRepository.findById(id);
+            if (!optionalMapping.isPresent()) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Not found");
+                errorResponse.put("message", "MAC vendor mapping not found");
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+            }
+
+            macVendorMappingRepository.deleteById(id);
+            log.debug("Deleted MAC vendor mapping with ID: {}", id);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "MAC vendor mapping deleted successfully");
+            response.put("id", id);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.debug("========== ERROR DELETING MAC VENDOR MAPPING ==========");
+            log.debug("Error deleting MAC vendor mapping", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to delete mapping");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Get network scan scheduler enabled status
+     */
+    @GetMapping("/scan-scheduler/enabled")
+    public ResponseEntity<?> getScanSchedulerEnabled() {
+        log.debug("========== GET SCAN SCHEDULER ENABLED REQUESTED ==========");
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            boolean enabled = networkScanScheduler.isSchedulerEnabled();
+            Map<String, Object> response = new HashMap<>();
+            response.put("enabled", enabled);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.debug("Error getting scan scheduler enabled status", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to get scheduler status");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Set network scan scheduler enabled status
+     */
+    @PutMapping("/scan-scheduler/enabled")
+    public ResponseEntity<?> setScanSchedulerEnabled(@RequestBody Map<String, Object> request) {
+        log.debug("========== SET SCAN SCHEDULER ENABLED REQUESTED ==========");
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            Object enabledObj = request.get("enabled");
+            if (enabledObj == null) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "enabled field is required");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            boolean enabled;
+            if (enabledObj instanceof Boolean) {
+                enabled = (Boolean) enabledObj;
+            } else if (enabledObj instanceof String) {
+                enabled = Boolean.parseBoolean((String) enabledObj);
+            } else {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Validation failed");
+                errorResponse.put("message", "enabled must be a boolean value");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            networkScanScheduler.setSchedulerEnabled(enabled);
+            log.info("Scan scheduler enabled status updated to: {}", enabled);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("enabled", enabled);
+            response.put("message", "Scheduler enabled status updated successfully");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.debug("Error setting scan scheduler enabled status", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to set scheduler status");
             errorResponse.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }

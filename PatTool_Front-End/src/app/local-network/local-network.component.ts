@@ -86,6 +86,10 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   // External API for vendor detection (OUI lookup)
   useExternalVendorAPI: boolean = false; // Default: false (use local database)
 
+  // Network scan scheduler enabled flag
+  scanSchedulerEnabled: boolean = false; // Default: false
+  isLoadingSchedulerStatus: boolean = false;
+
   // Device mappings modal
   @ViewChild('deviceMappingsModal') deviceMappingsModal!: TemplateRef<any>;
   deviceMappings: any[] = [];
@@ -103,6 +107,29 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   isLoadingVendorInfo: boolean = false;
   vendorInfoError: string = '';
   private vendorInfoModalRef?: NgbModalRef;
+
+  // MAC Vendor Mappings modal
+  @ViewChild('macVendorMappingsModal') macVendorMappingsModal!: TemplateRef<any>;
+  macVendorMappings: any[] = [];
+  sortedMacVendorMappings: any[] = [];
+  isLoadingMacVendorMappings: boolean = false;
+  macVendorMappingsError: string = '';
+  macVendorMappingsInfo: string = '';
+  macVendorSortColumn: string = '';
+  macVendorSortDirection: 'asc' | 'desc' = 'asc';
+  private macVendorMappingsModalRef?: NgbModalRef;
+
+  // MAC Vendor mapping form
+  editingMacVendorMapping: any = null;
+  showMacVendorMappingForm: boolean = false;
+  macVendorMappingForm: {
+    oui: string;
+    vendor: string;
+  } = {
+    oui: '',
+    vendor: ''
+  };
+  isSavingMacVendorMapping: boolean = false;
 
   // Device mapping form
   editingMapping: any = null;
@@ -140,6 +167,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     
     // Load device mappings on startup to enable MAC address comparison
     this.loadDeviceMappingsSilently();
+    
+    // Load scheduler enabled status
+    this.loadScanSchedulerStatus();
   }
 
   /**
@@ -1037,6 +1067,26 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Get count of unknown devices (not in MongoDB)
+   */
+  getUnknownDevicesCount(): number {
+    if (!this.devices || this.devices.length === 0) {
+      return 0;
+    }
+    return this.devices.filter(device => this.isNewDevice(device)).length;
+  }
+
+  /**
+   * Get count of known devices (in MongoDB)
+   */
+  getKnownDevicesCount(): number {
+    if (!this.devices || this.devices.length === 0) {
+      return 0;
+    }
+    return this.devices.filter(device => !this.isNewDevice(device)).length;
+  }
+
+  /**
    * Check if a device is new (not in MongoDB)
    * A device is considered new if its MAC address does not exist in MongoDB mappings
    * This is based on MAC address comparison, not IP address
@@ -1450,6 +1500,367 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       }
     }
     return false;
+  }
+
+  /**
+   * Open MAC vendor mappings modal and load data from MongoDB
+   */
+  openMacVendorMappingsModal(): void {
+    this.isLoadingMacVendorMappings = true;
+    this.macVendorMappings = [];
+    this.macVendorMappingsError = '';
+    this.macVendorMappingsInfo = '';
+    
+    this.macVendorMappingsModalRef = this.modalService.open(this.macVendorMappingsModal, {
+      size: 'xl',
+      windowClass: 'slideshow-modal-wide',
+      backdrop: 'static',
+      keyboard: true
+    });
+
+    this.loadMacVendorMappings();
+  }
+
+  loadMacVendorMappings(): void {
+    this.isLoadingMacVendorMappings = true;
+    this.macVendorMappingsError = '';
+    this.macVendorMappingsInfo = '';
+    
+    this.localNetworkService.getMacVendorMappings().subscribe({
+      next: (response) => {
+        if (response && response.mappings) {
+          this.macVendorMappings = response.mappings;
+          this.macVendorMappingsError = '';
+          if (this.macVendorMappings.length === 0) {
+            this.macVendorMappingsInfo = 'La collection MongoDB est vide. Utilisez le bouton "Ajouter" pour créer un nouveau mapping.';
+          }
+        } else if (response && Array.isArray(response)) {
+          // Handle case where response is directly an array
+          this.macVendorMappings = response;
+          this.macVendorMappingsError = '';
+          if (this.macVendorMappings.length === 0) {
+            this.macVendorMappingsInfo = 'La collection MongoDB est vide. Utilisez le bouton "Ajouter" pour créer un nouveau mapping.';
+          }
+        } else {
+          this.macVendorMappings = [];
+          this.macVendorMappingsInfo = 'Aucune donnée trouvée dans la réponse. La collection MongoDB est peut-être vide.';
+        }
+        
+        // Initialize sorted array - sort by OUI by default
+        this.macVendorSortColumn = 'oui';
+        this.macVendorSortDirection = 'asc';
+        this.sortedMacVendorMappings = [...this.macVendorMappings].sort((a, b) => {
+          const aValue = (a.oui || '').toLowerCase();
+          const bValue = (b.oui || '').toLowerCase();
+          if (aValue < bValue) return -1;
+          if (aValue > bValue) return 1;
+          return 0;
+        });
+        
+        this.isLoadingMacVendorMappings = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.isLoadingMacVendorMappings = false;
+        this.macVendorMappings = [];
+        
+        if (error?.status === 403) {
+          this.macVendorMappingsError = 'Accès refusé. Vous devez avoir le rôle administrateur.';
+        } else if (error?.status === 404) {
+          this.macVendorMappingsError = 'Endpoint non trouvé. Vérifiez la configuration du backend.';
+        } else if (error?.error?.message) {
+          this.macVendorMappingsError = `Erreur: ${error.error.message}`;
+        } else {
+          this.macVendorMappingsError = `Erreur lors du chargement: ${error?.message || 'Erreur inconnue'}`;
+        }
+        
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /**
+   * Close MAC vendor mappings modal
+   */
+  closeMacVendorMappingsModal(): void {
+    if (this.macVendorMappingsModalRef) {
+      this.macVendorMappingsModalRef.close();
+      this.macVendorMappingsModalRef = undefined;
+    }
+  }
+
+  /**
+   * Sort MAC vendor mappings by column
+   */
+  sortMacVendorMappings(column: string): void {
+    if (this.macVendorSortColumn === column) {
+      // Toggle direction if same column
+      this.macVendorSortDirection = this.macVendorSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      // New column, start with ascending
+      this.macVendorSortColumn = column;
+      this.macVendorSortDirection = 'asc';
+    }
+
+    this.sortedMacVendorMappings = [...this.macVendorMappings].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      if (column === 'oui') {
+        aValue = (a.oui || '').toLowerCase();
+        bValue = (b.oui || '').toLowerCase();
+      } else if (column === 'vendor') {
+        aValue = (a.vendor || '').toLowerCase();
+        bValue = (b.vendor || '').toLowerCase();
+      } else if (column === 'dateCreation') {
+        aValue = a.dateCreation ? new Date(a.dateCreation).getTime() : 0;
+        bValue = b.dateCreation ? new Date(b.dateCreation).getTime() : 0;
+      } else if (column === 'dateModification') {
+        aValue = a.dateModification ? new Date(a.dateModification).getTime() : 0;
+        bValue = b.dateModification ? new Date(b.dateModification).getTime() : 0;
+      } else {
+        return 0;
+      }
+
+      if (aValue < bValue) {
+        return this.macVendorSortDirection === 'asc' ? -1 : 1;
+      } else if (aValue > bValue) {
+        return this.macVendorSortDirection === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Get sort icon for MAC vendor mapping column header
+   */
+  getMacVendorSortIcon(column: string): string {
+    if (this.macVendorSortColumn !== column) {
+      return 'fa-sort';
+    }
+    return this.macVendorSortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
+  }
+
+  /**
+   * Show form to create a new MAC vendor mapping
+   */
+  showCreateMacVendorMappingForm(): void {
+    this.editingMacVendorMapping = null;
+    this.macVendorMappingForm = {
+      oui: '',
+      vendor: ''
+    };
+    this.showMacVendorMappingForm = true;
+    this.macVendorMappingsError = '';
+    this.macVendorMappingsInfo = '';
+  }
+
+  /**
+   * Show form to edit an existing MAC vendor mapping
+   */
+  editMacVendorMapping(mapping: any): void {
+    this.editingMacVendorMapping = mapping;
+    this.macVendorMappingForm = {
+      oui: mapping.oui || '',
+      vendor: mapping.vendor || ''
+    };
+    this.showMacVendorMappingForm = true;
+    this.macVendorMappingsError = '';
+    this.macVendorMappingsInfo = '';
+  }
+
+  /**
+   * Cancel form editing
+   */
+  cancelMacVendorMappingForm(): void {
+    this.showMacVendorMappingForm = false;
+    this.editingMacVendorMapping = null;
+    this.macVendorMappingForm = {
+      oui: '',
+      vendor: ''
+    };
+    this.macVendorMappingsError = '';
+  }
+
+  /**
+   * Save MAC vendor mapping (create or update)
+   */
+  saveMacVendorMapping(): void {
+    if (!this.macVendorMappingForm.oui || !this.macVendorMappingForm.vendor) {
+      this.macVendorMappingsError = 'OUI et vendor sont requis';
+      return;
+    }
+
+    // Normalize OUI format
+    let oui = this.macVendorMappingForm.oui.trim().toUpperCase().replace(/-/g, ':');
+    
+    // Validate OUI format
+    if (!oui.match(/^([0-9A-F]{2}:){2}[0-9A-F]{2}$/)) {
+      this.macVendorMappingsError = 'Format OUI invalide. Format attendu: XX:XX:XX (ex: 00:11:22)';
+      return;
+    }
+
+    this.isSavingMacVendorMapping = true;
+    this.macVendorMappingsError = '';
+    this.macVendorMappingsInfo = '';
+
+    const mappingData: any = {
+      oui: oui,
+      vendor: this.macVendorMappingForm.vendor.trim()
+    };
+
+    const operation = this.editingMacVendorMapping
+      ? this.localNetworkService.updateMacVendorMapping(this.editingMacVendorMapping.id, mappingData)
+      : this.localNetworkService.createMacVendorMapping(mappingData);
+
+    const isEdit = !!this.editingMacVendorMapping;
+    operation.subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          this.isSavingMacVendorMapping = false;
+          this.showMacVendorMappingForm = false;
+          this.macVendorMappingsInfo = isEdit 
+            ? 'MAC vendor mapping mis à jour avec succès' 
+            : 'MAC vendor mapping créé avec succès';
+          this.editingMacVendorMapping = null;
+          this.macVendorMappingsError = '';
+          this.cdr.detectChanges();
+          
+          // Reload mappings after save
+          setTimeout(() => {
+            this.ngZone.run(() => {
+              this.loadMacVendorMappings();
+            });
+          }, 500);
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          this.isSavingMacVendorMapping = false;
+          if (error?.error?.message) {
+            this.macVendorMappingsError = `Erreur: ${error.error.message}`;
+          } else if (error?.error?.error) {
+            this.macVendorMappingsError = `Erreur: ${error.error.error}`;
+          } else {
+            this.macVendorMappingsError = `Erreur: ${error?.message || 'Erreur inconnue'}`;
+          }
+          this.cdr.detectChanges();
+        });
+      }
+    });
+  }
+
+  /**
+   * Delete MAC vendor mapping with confirmation
+   */
+  deleteMacVendorMapping(mapping: any): void {
+    if (!confirm(`Êtes-vous sûr de vouloir supprimer le mapping pour ${mapping.oui} (${mapping.vendor})?`)) {
+      return;
+    }
+
+    this.macVendorMappingsError = '';
+    this.macVendorMappingsInfo = 'Suppression...';
+
+    this.localNetworkService.deleteMacVendorMapping(mapping.id).subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          this.macVendorMappingsInfo = 'MAC vendor mapping supprimé avec succès';
+          this.macVendorMappingsError = '';
+          this.cdr.detectChanges();
+          
+          // Reload mappings after delete
+          setTimeout(() => {
+            this.ngZone.run(() => {
+              this.loadMacVendorMappings();
+            });
+          }, 500);
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          this.macVendorMappingsInfo = '';
+          if (error?.error?.message) {
+            this.macVendorMappingsError = `Erreur: ${error.error.message}`;
+          } else if (error?.error?.error) {
+            this.macVendorMappingsError = `Erreur: ${error.error.error}`;
+          } else {
+            this.macVendorMappingsError = `Erreur: ${error?.message || 'Erreur inconnue'}`;
+          }
+          this.cdr.detectChanges();
+        });
+      }
+    });
+  }
+
+  /**
+   * Load scan scheduler enabled status from backend
+   */
+  loadScanSchedulerStatus(): void {
+    this.isLoadingSchedulerStatus = true;
+    this.localNetworkService.getScanSchedulerEnabled().subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          this.isLoadingSchedulerStatus = false;
+          if (response && response.enabled !== undefined) {
+            this.scanSchedulerEnabled = response.enabled;
+            console.log('Scan scheduler status loaded:', response.enabled);
+          } else {
+            console.warn('Invalid response from getScanSchedulerEnabled:', response);
+            this.scanSchedulerEnabled = false;
+          }
+          this.cdr.detectChanges();
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          this.isLoadingSchedulerStatus = false;
+          // Default to false on error
+          this.scanSchedulerEnabled = false;
+          console.error('Error loading scan scheduler status:', error);
+          this.cdr.detectChanges();
+        });
+      }
+    });
+  }
+
+  /**
+   * Toggle scan scheduler enabled status
+   */
+  toggleScanScheduler(): void {
+    // Prevent multiple clicks while loading
+    if (this.isLoadingSchedulerStatus) {
+      return;
+    }
+    
+    const newValue = !this.scanSchedulerEnabled;
+    // Optimistically update UI
+    this.scanSchedulerEnabled = newValue;
+    this.isLoadingSchedulerStatus = true;
+    
+    this.localNetworkService.setScanSchedulerEnabled(newValue).subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          this.isLoadingSchedulerStatus = false;
+          if (response && response.enabled !== undefined) {
+            this.scanSchedulerEnabled = response.enabled;
+          }
+          // If response doesn't have enabled, keep the optimistic value
+          this.cdr.detectChanges();
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          this.isLoadingSchedulerStatus = false;
+          // Revert on error
+          this.scanSchedulerEnabled = !newValue;
+          this.cdr.detectChanges();
+          console.error('Error updating scheduler status:', error);
+          alert('Erreur lors de la mise à jour du statut du planificateur: ' + (error.error?.message || error.message || 'Erreur inconnue'));
+        });
+      }
+    });
   }
 }
 

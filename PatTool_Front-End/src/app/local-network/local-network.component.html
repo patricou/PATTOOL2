@@ -42,6 +42,33 @@
                                     {{ "LOCAL_NETWORK.USE_EXTERNAL_VENDOR_API" | translate }}
                                 </label>
                             </div>
+                            
+                            <!-- Scan Scheduler Switch -->
+                            <div class="form-check form-switch d-flex align-items-center" style="margin-left: 1rem;">
+                                <input class="form-check-input" 
+                                       type="checkbox" 
+                                       role="switch"
+                                       id="scanSchedulerEnabled"
+                                       [checked]="scanSchedulerEnabled"
+                                       (change)="toggleScanScheduler()"
+                                       [disabled]="isLoadingSchedulerStatus"
+                                       title="Activer/désactiver le scan automatique toutes les 10 minutes"
+                                       style="font-size: 0.75rem;">
+                                <label class="form-check-label ms-2" 
+                                       for="scanSchedulerEnabled"
+                                       style="font-size: 0.75rem; white-space: nowrap; cursor: pointer; color: #333;"
+                                       (click)="!isLoadingSchedulerStatus && toggleScanScheduler()">
+                                    <i class="fa" [ngClass]="scanSchedulerEnabled ? 'fa-clock-o' : 'fa-clock-o'" 
+                                       [style.color]="scanSchedulerEnabled ? '#28a745' : '#6c757d'" 
+                                       style="margin-right: 0.3rem;"></i>
+                                    <span *ngIf="!isLoadingSchedulerStatus">
+                                        Scan auto (10 min)
+                                    </span>
+                                    <span *ngIf="isLoadingSchedulerStatus">
+                                        <i class="fa fa-spinner fa-spin"></i>
+                                    </span>
+                                </label>
+                            </div>
                             <button (click)="openRouterInterface()" 
                                     class="btn btn-secondary btn-sm"
                                     [title]="'LOCAL_NETWORK.OPEN_ROUTER_TOOLTIP' | translate">
@@ -53,6 +80,12 @@
                                     [title]="'LOCAL_NETWORK.VIEW_MAPPINGS_TOOLTIP' | translate">
                                 <i class="fa fa-database"></i>
                                 {{ "LOCAL_NETWORK.VIEW_MAPPINGS" | translate }}
+                            </button>
+                            <button (click)="openMacVendorMappingsModal()" 
+                                    class="btn btn-warning btn-sm"
+                                    [title]="'LOCAL_NETWORK.VIEW_VENDOR_MAPPINGS_TOOLTIP' | translate">
+                                <i class="fa fa-industry"></i>
+                                {{ "LOCAL_NETWORK.VIEW_VENDOR_MAPPINGS" | translate }}
                             </button>
                         </div>
                         
@@ -126,7 +159,12 @@
             <!-- Devices List -->
             <div class="devices-section mt-4" *ngIf="devices.length > 0">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h3 class="mb-0"><i class="fa fa-list"></i> {{ "LOCAL_NETWORK.DEVICES" | translate }}</h3>
+                    <h3 class="mb-0">
+                        <i class="fa fa-list"></i> {{ "LOCAL_NETWORK.DEVICES" | translate }}
+                        <span class="badge bg-secondary ms-2" style="font-size: 0.75rem; font-weight: normal;">
+                            {{ getUnknownDevicesCount() }} inconnu{{ getUnknownDevicesCount() > 1 ? 's' : '' }} / {{ getKnownDevicesCount() }} connu{{ getKnownDevicesCount() > 1 ? 's' : '' }}
+                        </span>
+                    </h3>
                     <div class="sort-controls d-flex align-items-center">
                         <!-- OUI Lookup input -->
                         <div class="input-group input-group-sm me-2" style="width: 150px;">
@@ -312,7 +350,7 @@
                                         <div style="margin-top: 4px;">
                                             <span class="badge" 
                                                   [ngClass]="useExternalVendorAPI ? 'badge-success' : 'badge-info'"
-                                                  style="font-size: 0.75rem; padding: 0.25rem 0.5rem; font-weight: 600;"
+                                                  style="font-size: 0.75rem; padding: 0.25rem 0.5rem; font-weight: 600; white-space: normal; word-wrap: break-word; word-break: normal; overflow-wrap: break-word; display: inline-block; max-width: 100%;"
                                                   [title]="useExternalVendorAPI ? 'Fabricant détecté via API externe (macvendors.com)' : 'Fabricant détecté via base de données locale (OUI)'">
                                                 <i class="fa" [ngClass]="useExternalVendorAPI ? 'fa-cloud' : 'fa-database'" style="margin-right: 3px; font-size: 0.7rem;"></i>
                                                 {{ device.vendor }}
@@ -643,6 +681,172 @@
             </div>
             <div class="text-center text-white mt-3">
                 <small>{{ "LOCAL_NETWORK.TOTAL_MAPPINGS" | translate }}: {{ deviceMappings.length }}</small>
+            </div>
+        </div>
+    </div>
+</ng-template>
+
+<!-- MAC Vendor Mappings Modal -->
+<ng-template #macVendorMappingsModal let-c="close" let-d="dismiss">
+    <div class="modal-header slideshow-header">
+        <h5 class="modal-title">
+            <i class="fa fa-industry"></i> {{ "LOCAL_NETWORK.MAC_VENDOR_MAPPINGS_TITLE" | translate }}
+        </h5>
+        <div class="d-flex align-items-center gap-2 ms-auto">
+            <button (click)="showCreateMacVendorMappingForm()" 
+                    class="btn btn-success btn-sm"
+                    [disabled]="isLoadingMacVendorMappings || isSavingMacVendorMapping"
+                    [title]="'LOCAL_NETWORK.ADD_VENDOR_MAPPING' | translate">
+                <i class="fa fa-plus"></i>
+                <span class="d-none d-md-inline ms-1">{{ "LOCAL_NETWORK.ADD_VENDOR_MAPPING" | translate }}</span>
+            </button>
+            <button type="button" 
+                    class="btn btn-outline-light btn-sm rounded-circle" 
+                    (click)="closeMacVendorMappingsModal()" 
+                    [attr.aria-label]="'COMMUN.CLOSE' | translate"
+                    style="min-width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; padding: 0;">
+                <i class="fa fa-times"></i>
+            </button>
+        </div>
+    </div>
+    <div class="modal-body slideshow-body" style="padding: 20px; overflow-y: auto;">
+        <div *ngIf="isLoadingMacVendorMappings" class="text-center text-white">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2">{{ "LOCAL_NETWORK.LOADING_VENDOR_MAPPINGS" | translate }}</p>
+        </div>
+        
+        <div *ngIf="macVendorMappingsInfo && !isLoadingMacVendorMappings" class="alert alert-info mb-3">
+            <i class="fa fa-info-circle"></i>
+            {{ macVendorMappingsInfo }}
+        </div>
+        
+        <div *ngIf="macVendorMappingsError" class="alert alert-danger mb-3">
+            <i class="fa fa-exclamation-triangle"></i>
+            <strong>Erreur:</strong> {{ macVendorMappingsError }}
+        </div>
+        
+        <div *ngIf="!isLoadingMacVendorMappings && macVendorMappings.length === 0 && !macVendorMappingsError && !macVendorMappingsInfo && !showMacVendorMappingForm" class="text-center text-white mb-3">
+            <i class="fa fa-info-circle fa-2x"></i>
+            <p class="mt-2">{{ "LOCAL_NETWORK.NO_VENDOR_MAPPINGS" | translate }}</p>
+        </div>
+
+        <!-- MAC Vendor Mapping Form -->
+        <div *ngIf="showMacVendorMappingForm && !isLoadingMacVendorMappings" class="mac-vendor-mapping-form mb-4">
+            <div class="card bg-dark text-white">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fa" [ngClass]="editingMacVendorMapping ? 'fa-edit' : 'fa-plus'"></i>
+                        {{ editingMacVendorMapping ? ("LOCAL_NETWORK.EDIT_VENDOR_MAPPING" | translate) : ("LOCAL_NETWORK.ADD_VENDOR_MAPPING" | translate) }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form (ngSubmit)="saveMacVendorMapping()">
+                        <div class="mb-3">
+                            <label for="vendorMappingOui" class="form-label">OUI *</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="vendorMappingOui"
+                                   [(ngModel)]="macVendorMappingForm.oui"
+                                   name="oui"
+                                   required
+                                   placeholder="00:11:22"
+                                   maxlength="8"
+                                   style="text-transform: uppercase;">
+                            <small class="form-text text-muted">Format: XX:XX:XX (premiers 3 octets de l'adresse MAC)</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="vendorMappingVendor" class="form-label">{{ "LOCAL_NETWORK.VENDOR" | translate }} *</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="vendorMappingVendor"
+                                   [(ngModel)]="macVendorMappingForm.vendor"
+                                   name="vendor"
+                                   required
+                                   placeholder="Vendor Name">
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="submit" 
+                                    class="btn btn-success"
+                                    [disabled]="isSavingMacVendorMapping || !macVendorMappingForm.oui || !macVendorMappingForm.vendor">
+                                <i class="fa fa-spinner fa-spin" *ngIf="isSavingMacVendorMapping"></i>
+                                <i class="fa fa-save" *ngIf="!isSavingMacVendorMapping"></i>
+                                <span class="ms-1">{{ isSavingMacVendorMapping ? ("LOCAL_NETWORK.SAVING" | translate) : ("LOCAL_NETWORK.SAVE" | translate) }}</span>
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-secondary"
+                                    (click)="cancelMacVendorMappingForm()"
+                                    [disabled]="isSavingMacVendorMapping">
+                                <i class="fa fa-times"></i>
+                                <span class="ms-1">{{ "LOCAL_NETWORK.CANCEL" | translate }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div *ngIf="!isLoadingMacVendorMappings && macVendorMappings.length > 0 && !showMacVendorMappingForm" class="mac-vendor-mappings-list">
+            <div class="table-responsive">
+                <table class="table table-dark table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th style="cursor: default;">#</th>
+                            <th (click)="sortMacVendorMappings('oui')" 
+                                [class.sortable]="true"
+                                [title]="'Cliquer pour trier par OUI'">
+                                OUI
+                                <i class="fa" [ngClass]="getMacVendorSortIcon('oui')" style="margin-left: 5px;"></i>
+                            </th>
+                            <th (click)="sortMacVendorMappings('vendor')" 
+                                [class.sortable]="true"
+                                [title]="'Cliquer pour trier par vendor'">
+                                {{ "LOCAL_NETWORK.VENDOR" | translate }}
+                                <i class="fa" [ngClass]="getMacVendorSortIcon('vendor')" style="margin-left: 5px;"></i>
+                            </th>
+                            <th (click)="sortMacVendorMappings('dateCreation')" 
+                                [class.sortable]="true"
+                                [title]="'Cliquer pour trier par date de création'">
+                                {{ "LOCAL_NETWORK.CREATION_DATE" | translate }}
+                                <i class="fa" [ngClass]="getMacVendorSortIcon('dateCreation')" style="margin-left: 5px;"></i>
+                            </th>
+                            <th (click)="sortMacVendorMappings('dateModification')" 
+                                [class.sortable]="true"
+                                [title]="'Cliquer pour trier par date de modification'">
+                                {{ "LOCAL_NETWORK.MODIFICATION_DATE" | translate }}
+                                <i class="fa" [ngClass]="getMacVendorSortIcon('dateModification')" style="margin-left: 5px;"></i>
+                            </th>
+                            <th style="cursor: default; width: 120px;">{{ "LOCAL_NETWORK.ACTIONS" | translate }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr *ngFor="let mapping of sortedMacVendorMappings; let i = index">
+                            <td>{{ i + 1 }}</td>
+                            <td><code>{{ mapping.oui }}</code></td>
+                            <td><strong>{{ mapping.vendor }}</strong></td>
+                            <td>{{ mapping.dateCreation | date:'short' }}</td>
+                            <td>{{ mapping.dateModification | date:'short' }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" 
+                                            class="btn btn-outline-primary"
+                                            (click)="editMacVendorMapping(mapping)"
+                                            [title]="'LOCAL_NETWORK.EDIT_VENDOR_MAPPING' | translate">
+                                        <i class="fa fa-edit"></i>
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-outline-danger"
+                                            (click)="deleteMacVendorMapping(mapping)"
+                                            [title]="'LOCAL_NETWORK.DELETE_VENDOR_MAPPING' | translate">
+                                        <i class="fa fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="text-center text-white mt-3">
+                <small>{{ "LOCAL_NETWORK.TOTAL_VENDOR_MAPPINGS" | translate }}: {{ macVendorMappings.length }}</small>
             </div>
         </div>
     </div>

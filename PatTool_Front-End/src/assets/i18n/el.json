@@ -1257,6 +1257,24 @@
         "OUI_LOOKUP_PLACEHOLDER": "OUI (XX:XX:XX)",
         "LOOKUP_VENDOR_BY_OUI": "Αναζήτηση κατασκευαστή κατά OUI",
         "FILTER_PLACEHOLDER": "Φιλτράρισμα κατά όνομα, IP, MAC ή κατασκευαστή...",
-        "CLEAR_FILTER": "Καθαρισμός φίλτρου"
+        "CLEAR_FILTER": "Καθαρισμός φίλτρου",
+        "GET_VENDOR_INFO": "Πληροφορίες κατασκευαστή",
+        "VENDOR_INFO": "Πληροφορίες κατασκευαστή",
+        "LOADING_VENDOR_INFO": "Φόρτωση πληροφοριών κατασκευαστή...",
+        "VENDOR_FOUND": "Βρέθηκε κατασκευαστής",
+        "VENDOR_NOT_FOUND": "Δεν βρέθηκε κατασκευαστής",
+        "NO_VENDOR_INFO": "Δεν υπάρχουν διαθέσιμες πληροφορίες",
+        "ERROR": "Σφάλμα",
+        "VIEW_VENDOR_MAPPINGS": "Αντιστοιχίσεις κατασκευαστών",
+        "VIEW_VENDOR_MAPPINGS_TOOLTIP": "Διαχείριση αντιστοιχίσεων OUI → Κατασκευαστής από MongoDB",
+        "MAC_VENDOR_MAPPINGS_TITLE": "Αντιστοιχίσεις κατασκευαστών MAC (MongoDB)",
+        "LOADING_VENDOR_MAPPINGS": "Φόρτωση αντιστοιχίσεων κατασκευαστών...",
+        "NO_VENDOR_MAPPINGS": "Δεν βρέθηκαν αντιστοιχίσεις κατασκευαστών στο MongoDB",
+        "ADD_VENDOR_MAPPING": "Προσθήκη αντιστοίχισης",
+        "EDIT_VENDOR_MAPPING": "Επεξεργασία αντιστοίχισης",
+        "DELETE_VENDOR_MAPPING": "Διαγραφή αντιστοίχισης",
+        "TOTAL_VENDOR_MAPPINGS": "Συνολικές αντιστοιχίσεις κατασκευαστών",
+        "CREATION_DATE": "Ημερομηνία δημιουργίας",
+        "MODIFICATION_DATE": "Ημερομηνία τροποποίησης"
     }
 }

@@ -1260,6 +1260,24 @@
         "OUI_LOOKUP_PLACEHOLDER": "OUI (XX:XX:XX)",
         "LOOKUP_VENDOR_BY_OUI": "OUIでベンダーを検索",
         "FILTER_PLACEHOLDER": "名前、IP、MACまたはベンダーでフィルター...",
-        "CLEAR_FILTER": "フィルターをクリア"
+        "CLEAR_FILTER": "フィルターをクリア",
+        "GET_VENDOR_INFO": "ベンダー情報",
+        "VENDOR_INFO": "ベンダー情報",
+        "LOADING_VENDOR_INFO": "ベンダー情報を読み込み中...",
+        "VENDOR_FOUND": "ベンダーが見つかりました",
+        "VENDOR_NOT_FOUND": "ベンダーが見つかりませんでした",
+        "NO_VENDOR_INFO": "情報がありません",
+        "ERROR": "エラー",
+        "VIEW_VENDOR_MAPPINGS": "ベンダーマッピング",
+        "VIEW_VENDOR_MAPPINGS_TOOLTIP": "MongoDBからOUI → ベンダーマッピングを管理",
+        "MAC_VENDOR_MAPPINGS_TITLE": "MACベンダーマッピング (MongoDB)",
+        "LOADING_VENDOR_MAPPINGS": "ベンダーマッピングを読み込み中...",
+        "NO_VENDOR_MAPPINGS": "MongoDBにベンダーマッピングが見つかりません",
+        "ADD_VENDOR_MAPPING": "マッピングを追加",
+        "EDIT_VENDOR_MAPPING": "マッピングを編集",
+        "DELETE_VENDOR_MAPPING": "マッピングを削除",
+        "TOTAL_VENDOR_MAPPINGS": "ベンダーマッピングの合計",
+        "CREATION_DATE": "作成日",
+        "MODIFICATION_DATE": "変更日"
     }
 }

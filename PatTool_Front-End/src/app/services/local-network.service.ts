@@ -225,5 +225,77 @@ export class LocalNetworkService {
       )
     );
   }
+
+  /**
+   * Get all MAC vendor mappings from MongoDB
+   */
+  getMacVendorMappings(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + "network/mac-vendor-mappings", { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Create a new MAC vendor mapping
+   */
+  createMacVendorMapping(mapping: {
+    oui: string;
+    vendor: string;
+  }): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "network/mac-vendor-mappings", mapping, { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Update an existing MAC vendor mapping
+   */
+  updateMacVendorMapping(id: string, mapping: {
+    oui: string;
+    vendor: string;
+  }): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put(this.API_URL + "network/mac-vendor-mappings/" + id, mapping, { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Delete a MAC vendor mapping
+   */
+  deleteMacVendorMapping(id: string): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete(this.API_URL + "network/mac-vendor-mappings/" + id, { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Get network scan scheduler enabled status
+   */
+  getScanSchedulerEnabled(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + "network/scan-scheduler/enabled", { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Set network scan scheduler enabled status
+   */
+  setScanSchedulerEnabled(enabled: boolean): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.put(this.API_URL + "network/scan-scheduler/enabled", { enabled: enabled }, { headers: headers })
+      )
+    );
+  }
 }
 

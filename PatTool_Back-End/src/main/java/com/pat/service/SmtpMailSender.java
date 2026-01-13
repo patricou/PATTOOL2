@@ -59,7 +59,8 @@ public class SmtpMailSender {
                     helper.setBcc(bccRecipients);
                 }
                 helper.setReplyTo(from);
-                helper.setFrom(from);
+                // Set From with display name for better deliverability
+                helper.setFrom(from, "PatTool Application");
                 helper.setSubject(subject);
                 
                 if (isHtml) {
@@ -70,15 +71,17 @@ public class SmtpMailSender {
                     helper.setText(body, false);
                 }
                 
-                // Add anti-spam headers
+                // Add proper email headers for better deliverability (avoiding spam triggers)
                 mail.setHeader("X-Mailer", "PatTool Application");
                 mail.setHeader("X-Priority", "3"); // Normal priority
-                mail.setHeader("X-MSMail-Priority", "Normal");
                 mail.setHeader("Importance", "Normal");
-                mail.setHeader("Precedence", "bulk");
-                mail.setHeader("Auto-Submitted", "auto-generated");
+                // Removed "Precedence: bulk" - this header is a known spam trigger for Gmail
+                // Removed "Auto-Submitted" - can sometimes trigger spam filters
+                // Using "List-Unsubscribe" instead for automated emails (better practice)
+                mail.setHeader("List-Unsubscribe", "<mailto:" + from + "?subject=Unsubscribe>");
+                mail.setHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
                 
-                // Add Message-ID for better deliverability
+                // Add RFC-compliant Message-ID for better deliverability
                 if (mail.getMessageID() == null) {
                     mail.setHeader("Message-ID", generateMessageId());
                 }
@@ -160,11 +163,16 @@ public class SmtpMailSender {
     }
     
     /**
-     * Generate a unique Message-ID for better email deliverability
+     * Generate a unique RFC-compliant Message-ID for better email deliverability
+     * Format: <unique-id@domain>
      */
     private String generateMessageId() {
-        return "<" + System.currentTimeMillis() + "." + 
-               System.nanoTime() + "@pattool>";
+        // RFC 5322 compliant Message-ID format
+        // Using timestamp + nano + random to ensure uniqueness
+        String uniqueId = System.currentTimeMillis() + "." + 
+                         System.nanoTime() + "." +
+                         (int)(Math.random() * 1000000);
+        return "<" + uniqueId + "@patrickdeschamps.com>";
     }
     @Async
     public void sendMail(String from,String to, String subject, String body, String attachement){
@@ -172,17 +180,35 @@ public class SmtpMailSender {
         for (String recipient : recipients) {
             MimeMessage mail = javaMailSender.createMimeMessage();
             try {
-                MimeMessageHelper helper = new MimeMessageHelper(mail, true);
+                MimeMessageHelper helper = new MimeMessageHelper(mail, true, "UTF-8");
                 helper.setTo(recipient);
                 helper.setReplyTo(from);
-                helper.setFrom(from);
+                // Set From with display name for better deliverability
+                helper.setFrom(from, "PatTool Application");
                 helper.setSubject(subject);
                 helper.setText(body);
                 helper.addAttachment(attachement, new FileSystemResource(new File(attachement)));
+                
+                // Add proper email headers for better deliverability (avoiding spam triggers)
+                mail.setHeader("X-Mailer", "PatTool Application");
+                mail.setHeader("X-Priority", "3"); // Normal priority
+                mail.setHeader("Importance", "Normal");
+                // Removed "Precedence: bulk" - this header is a known spam trigger for Gmail
+                mail.setHeader("List-Unsubscribe", "<mailto:" + from + "?subject=Unsubscribe>");
+                mail.setHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
+                
+                // Add RFC-compliant Message-ID for better deliverability
+                if (mail.getMessageID() == null) {
+                    mail.setHeader("Message-ID", generateMessageId());
+                }
+                
                 javaMailSender.send(mail);
                 log.debug("Email with attachment sent successfully to {}", recipient);
             } catch (MessagingException e) {
                 log.error("MessagingException while sending email with attachment to {}: {}", recipient, e.getMessage(), e);
+                throw new RuntimeException("Failed to send email with attachment: " + e.getMessage(), e);
+            } catch (Exception e) {
+                log.error("Unexpected exception while sending email with attachment to {}: {}", recipient, e.getMessage(), e);
                 throw new RuntimeException("Failed to send email with attachment: " + e.getMessage(), e);
             }
         }

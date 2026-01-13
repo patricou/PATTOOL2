@@ -167,7 +167,18 @@
         "VENDOR_FOUND": "Vendor found",
         "VENDOR_NOT_FOUND": "Vendor not found",
         "NO_VENDOR_INFO": "No information available",
-        "ERROR": "Error"
+        "ERROR": "Error",
+        "VIEW_VENDOR_MAPPINGS": "Vendor Mappings",
+        "VIEW_VENDOR_MAPPINGS_TOOLTIP": "Manage OUI → Vendor mappings from MongoDB",
+        "MAC_VENDOR_MAPPINGS_TITLE": "MAC Vendor Mappings (MongoDB)",
+        "LOADING_VENDOR_MAPPINGS": "Loading vendor mappings...",
+        "NO_VENDOR_MAPPINGS": "No vendor mappings found in MongoDB",
+        "ADD_VENDOR_MAPPING": "Add mapping",
+        "EDIT_VENDOR_MAPPING": "Edit mapping",
+        "DELETE_VENDOR_MAPPING": "Delete mapping",
+        "TOTAL_VENDOR_MAPPINGS": "Total vendor mappings",
+        "CREATION_DATE": "Creation date",
+        "MODIFICATION_DATE": "Modification date"
     },
     "EVENTHOME": {
         "EVENTSLIST": "Activities List :",

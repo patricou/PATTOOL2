@@ -11,6 +11,8 @@ public interface NetworkDeviceMappingRepository extends MongoRepository<NetworkD
     
     Optional<NetworkDeviceMapping> findByIpAddress(String ipAddress);
     
+    Optional<NetworkDeviceMapping> findByMacAddress(String macAddress);
+    
     void deleteByIpAddress(String ipAddress);
 }
 
