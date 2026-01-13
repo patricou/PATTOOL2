@@ -125,6 +125,7 @@
         "SERVICES": "सेवाएं",
         "UNKNOWN_DEVICE_TYPE": "अज्ञात प्रकार",
         "UNKNOWN_DEVICE": "अज्ञात उपकरण",
+        "SHOW_ONLY_UNKNOWN": "केवल अज्ञात दिखाएं",
         "DEVICE_DESCRIPTION": "विवरण",
         "VIEW_MAPPINGS": "मैपिंग",
         "VIEW_MAPPINGS_TOOLTIP": "MongoDB से डिवाइस मैपिंग देखें",

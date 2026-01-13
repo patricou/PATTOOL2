@@ -127,6 +127,7 @@
         "SERVICES": "服务",
         "UNKNOWN_DEVICE_TYPE": "未知类型",
         "UNKNOWN_DEVICE": "未知设备",
+        "SHOW_ONLY_UNKNOWN": "仅显示未知设备",
         "DEVICE_DESCRIPTION": "描述",
         "VIEW_MAPPINGS": "映射",
         "VIEW_MAPPINGS_TOOLTIP": "查看MongoDB中的设备映射",

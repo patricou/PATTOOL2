@@ -1216,6 +1216,7 @@
         "UNKNOWN_DEVICE_TYPE": "Άγνωστος Τύπος",
         "DEVICE_DESCRIPTION": "Περιγραφή",
         "UNKNOWN_DEVICE": "Άγνωστη Συσκευή",
+        "SHOW_ONLY_UNKNOWN": "Εμφάνιση μόνο άγνωστων",
         "WEB_INTERFACE": "Διαδικτυακή Διεπαφή",
         "OPEN_WEB": "Άνοιγμα",
         "DATABASE": "Βάση Δεδομένων",

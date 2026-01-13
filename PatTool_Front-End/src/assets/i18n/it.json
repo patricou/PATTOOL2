@@ -119,6 +119,7 @@
         "DEVICE_TYPE": "Tipo di Dispositivo",
         "UNKNOWN_DEVICE_TYPE": "Tipo sconosciuto",
         "UNKNOWN_DEVICE": "Dispositivo sconosciuto",
+        "SHOW_ONLY_UNKNOWN": "Mostra solo sconosciuti",
         "DEVICE_DESCRIPTION": "Descrizione",
         "WEB_INTERFACE": "Interfaccia Web",
         "OPEN_WEB": "Apri",

@@ -80,6 +80,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   // Device filter - Filter by name (hostname), IP address, MAC address, and vendor
   deviceFilter: string = '';
   
+  // Show only unknown devices (not in MongoDB)
+  showOnlyUnknownDevices: boolean = false;
+  
   // OUI input for vendor lookup
   ouiInput: string = '';
   
@@ -980,9 +983,16 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
 
     // First, filter devices by name, IP address, MAC address, and vendor
     let filtered = [...this.devices];
+    
+    // Filter by unknown devices if toggle is enabled
+    if (this.showOnlyUnknownDevices) {
+      filtered = filtered.filter(device => this.isNewDevice(device));
+    }
+    
+    // Filter by search text
     if (this.deviceFilter && this.deviceFilter.trim()) {
       const filterLower = this.deviceFilter.trim().toLowerCase();
-      filtered = this.devices.filter(device => {
+      filtered = filtered.filter(device => {
         const hostname = (device.hostname || '').toLowerCase();
         const ipAddress = (device.ipAddress || '').toLowerCase();
         const macAddress = (device.macAddress || '').toLowerCase();
@@ -1274,6 +1284,23 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
    * @param deviceData Optional device data to pre-populate the form
    */
   showCreateMappingForm(deviceData?: NetworkDevice): void {
+    // Ensure modal is open if not already open
+    if (!this.modalRef) {
+      this.openDeviceMappingsModal();
+      // Wait for modal to open, then show form
+      setTimeout(() => {
+        this.setCreateFormData(deviceData);
+      }, 100);
+    } else {
+      // Modal is already open, set form data immediately and force change detection
+      this.setCreateFormData(deviceData);
+    }
+  }
+
+  /**
+   * Set the create form data and show the form
+   */
+  private setCreateFormData(deviceData?: NetworkDevice): void {
     this.editingMapping = null;
     const nextDeviceNumber = this.getNextDeviceNumber();
     
@@ -1301,6 +1328,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     this.showMappingForm = true;
     this.mappingsError = '';
     this.mappingsInfo = '';
+    
+    // Force immediate change detection to show the form without delay
+    this.cdr.detectChanges();
   }
 
   /**
@@ -1323,10 +1353,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         }
         this.isLoadingMappings = false;
         
-        // Wait for modal to open, then show the form with pre-populated data
-        setTimeout(() => {
-          this.showCreateMappingForm(device);
-        }, 100);
+        // Show the form with pre-populated data immediately
+        this.showCreateMappingForm(device);
       },
       error: (error) => {
         this.isLoadingMappings = false;
@@ -1374,24 +1402,20 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
                  (deviceMac && mappingMac && mappingMac === deviceMac);
         });
         
-        // Wait for modal to open, then show the form
-        setTimeout(() => {
-          if (existingMapping) {
-            // Edit existing mapping
-            this.editMapping(existingMapping);
-          } else {
-            // Create new mapping with device data
-            this.showCreateMappingForm(device);
-          }
-        }, 100);
+        // Show the form immediately
+        if (existingMapping) {
+          // Edit existing mapping
+          this.editMapping(existingMapping);
+        } else {
+          // Create new mapping with device data
+          this.showCreateMappingForm(device);
+        }
       },
       error: (error) => {
         this.isLoadingMappings = false;
         this.mappingsError = 'Erreur lors du chargement des mappings';
         // Still show the form even if loading failed
-        setTimeout(() => {
-          this.showCreateMappingForm(device);
-        }, 100);
+        this.showCreateMappingForm(device);
       }
     });
   }
@@ -1400,6 +1424,24 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
    * Show form to edit an existing device mapping
    */
   editMapping(mapping: any): void {
+    // Ensure modal is open if not already open
+    if (!this.modalRef) {
+      this.openDeviceMappingsModal();
+      // Wait for modal to open, then show form
+      setTimeout(() => {
+        this.setEditFormData(mapping);
+      }, 100);
+    } else {
+      // Modal is already open, set form data immediately and force change detection
+      this.setEditFormData(mapping);
+    }
+  }
+
+  /**
+   * Set the edit form data and show the form
+   */
+  private setEditFormData(mapping: any): void {
+    // Set all data first
     this.editingMapping = mapping;
     this.mappingForm = {
       ipAddress: mapping.ipAddress || '',
@@ -1412,6 +1454,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     this.showMappingForm = true;
     this.mappingsError = '';
     this.mappingsInfo = '';
+    
+    // Force immediate change detection to show the form without delay
+    this.cdr.detectChanges();
   }
 
   /**

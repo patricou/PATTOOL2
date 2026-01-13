@@ -1219,6 +1219,7 @@
         "UNKNOWN_DEVICE_TYPE": "不明なタイプ",
         "DEVICE_DESCRIPTION": "説明",
         "UNKNOWN_DEVICE": "不明なデバイス",
+        "SHOW_ONLY_UNKNOWN": "不明のみ表示",
         "WEB_INTERFACE": "Webインターフェース",
         "OPEN_WEB": "開く",
         "DATABASE": "データベース",

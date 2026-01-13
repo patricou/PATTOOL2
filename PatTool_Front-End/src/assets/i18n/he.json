@@ -127,6 +127,7 @@
         "SERVICES": "שירותים",
         "UNKNOWN_DEVICE_TYPE": "סוג לא ידוע",
         "UNKNOWN_DEVICE": "מכשיר לא ידוע",
+        "SHOW_ONLY_UNKNOWN": "הצג רק לא ידועים",
         "DEVICE_DESCRIPTION": "תיאור",
         "VIEW_MAPPINGS": "מיפויים",
         "VIEW_MAPPINGS_TOOLTIP": "הצג מיפויי מכשירים מ-MongoDB",

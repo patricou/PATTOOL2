@@ -119,6 +119,7 @@
         "UNKNOWN_DEVICE_TYPE": "Unknown Type",
         "DEVICE_DESCRIPTION": "Description",
         "UNKNOWN_DEVICE": "Unknown Device",
+        "SHOW_ONLY_UNKNOWN": "Show only unknown",
         "WEB_INTERFACE": "Web Interface",
         "OPEN_WEB": "Open",
         "DATABASE": "Database",

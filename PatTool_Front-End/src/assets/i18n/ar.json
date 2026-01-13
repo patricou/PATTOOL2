@@ -127,6 +127,7 @@
         "SERVICES": "الخدمات",
         "UNKNOWN_DEVICE_TYPE": "نوع غير معروف",
         "UNKNOWN_DEVICE": "جهاز غير معروف",
+        "SHOW_ONLY_UNKNOWN": "إظهار غير المعروف فقط",
         "DEVICE_DESCRIPTION": "الوصف",
         "VIEW_MAPPINGS": "التعيينات",
         "VIEW_MAPPINGS_TOOLTIP": "عرض تعيينات الأجهزة من MongoDB",

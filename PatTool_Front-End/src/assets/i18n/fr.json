@@ -114,6 +114,7 @@
         "UNKNOWN_DEVICE_TYPE": "Type inconnu",
         "DEVICE_DESCRIPTION": "Description",
         "UNKNOWN_DEVICE": "Appareil inconnu",
+        "SHOW_ONLY_UNKNOWN": "Afficher uniquement les inconnus",
         "WEB_INTERFACE": "Interface Web",
         "OPEN_WEB": "Ouvrir",
         "DATABASE": "Base de données",

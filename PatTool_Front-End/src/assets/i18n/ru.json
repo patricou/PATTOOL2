@@ -137,6 +137,7 @@
         "SERVICES": "Службы",
         "UNKNOWN_DEVICE_TYPE": "Неизвестный тип",
         "UNKNOWN_DEVICE": "Неизвестное устройство",
+        "SHOW_ONLY_UNKNOWN": "Показать только неизвестные",
         "DEVICE_DESCRIPTION": "Описание",
         "VIEW_MAPPINGS": "Сопоставления",
         "VIEW_MAPPINGS_TOOLTIP": "Просмотр сопоставлений устройств из MongoDB",
