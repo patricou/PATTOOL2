@@ -589,6 +589,16 @@
                 <div class="card-body">
                     <form (ngSubmit)="saveDeviceMapping()">
                         <div class="mb-3">
+                            <label for="mappingDeviceNumber" class="form-label">{{ "LOCAL_NETWORK.DEVICE_NUMBER" | translate }}</label>
+                            <input type="number" 
+                                   class="form-control" 
+                                   id="mappingDeviceNumber"
+                                   [(ngModel)]="mappingForm.deviceNumber"
+                                   name="deviceNumber"
+                                   placeholder="1"
+                                   readonly>
+                        </div>
+                        <div class="mb-3">
                             <label for="mappingIpAddress" class="form-label">{{ "LOCAL_NETWORK.IP_ADDRESS" | translate }} *</label>
                             <input type="text" 
                                    class="form-control" 
@@ -616,15 +626,6 @@
                                    [(ngModel)]="mappingForm.macAddress"
                                    name="macAddress"
                                    placeholder="00:11:22:33:44:55">
-                        </div>
-                        <div class="mb-3">
-                            <label for="mappingDeviceNumber" class="form-label">{{ "LOCAL_NETWORK.DEVICE_NUMBER" | translate }}</label>
-                            <input type="number" 
-                                   class="form-control" 
-                                   id="mappingDeviceNumber"
-                                   [(ngModel)]="mappingForm.deviceNumber"
-                                   name="deviceNumber"
-                                   placeholder="1">
                         </div>
                         <div class="mb-3">
                             <label for="mappingDeviceType" class="form-label">{{ "LOCAL_NETWORK.DEVICE_TYPE" | translate }}</label>
