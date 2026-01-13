@@ -1217,6 +1217,8 @@
         "OPEN_ROUTER_TOOLTIP": "ルーターインターフェースを開く（192.168.1.1）",
         "DEVICE_TYPE": "デバイスタイプ",
         "UNKNOWN_DEVICE_TYPE": "不明なタイプ",
+        "DEVICE_DESCRIPTION": "説明",
+        "UNKNOWN_DEVICE": "不明なデバイス",
         "WEB_INTERFACE": "Webインターフェース",
         "OPEN_WEB": "開く",
         "DATABASE": "データベース",
@@ -1278,6 +1280,18 @@
         "DELETE_VENDOR_MAPPING": "マッピングを削除",
         "TOTAL_VENDOR_MAPPINGS": "ベンダーマッピングの合計",
         "CREATION_DATE": "作成日",
-        "MODIFICATION_DATE": "変更日"
+        "MODIFICATION_DATE": "変更日",
+        "SCAN_AUTO": "自動スキャン ({{minutes}} 分)",
+        "SCAN_AUTO_TOOLTIP": "{{minutes}} 分ごとの自動スキャンを有効/無効にする",
+        "SEVERITY_CRITICAL": "重大",
+        "SEVERITY_HIGH": "高",
+        "SEVERITY_MEDIUM": "中",
+        "SEVERITY_LOW": "低",
+        "SEVERITY_INFO": "情報",
+        "VULN_TYPE_SMB_EXPOSED": "SMB 公開",
+        "VULN_DESC_SMB_EXPOSED": "SMBサービスが検出されました。セキュリティ強化が必要です。",
+        "VULN_DESC_SMB_EXPOSED_DETAILED": "ローカルネットワークでSMBサービスが検出されました。EternalBlue、SMBGhost、マルウェアの拡散（WannaCry、NotPetya）に対して脆弱で、ローカルネットワークでも同様です。セキュリティ強化が必要です。",
+        "PROTOCOL_HTTP": "HTTP",
+        "PROTOCOL_HTTPS": "HTTPS"
     }
 }

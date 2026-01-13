@@ -274,6 +274,8 @@ public class LocalNetworkController {
                 mappingData.put("deviceName", mapping.getDeviceName());
                 mappingData.put("macAddress", mapping.getMacAddress());
                 mappingData.put("deviceNumber", mapping.getDeviceNumber());
+                mappingData.put("deviceType", mapping.getDeviceType());
+                mappingData.put("deviceDescription", mapping.getDeviceDescription());
                 responseList.add(mappingData);
                 log.debug("Added mapping: {} -> {}", mapping.getIpAddress(), mapping.getDeviceName());
             }
@@ -319,6 +321,8 @@ public class LocalNetworkController {
             Integer deviceNumber = mappingData.get("deviceNumber") != null 
                 ? Integer.valueOf(mappingData.get("deviceNumber").toString()) 
                 : null;
+            String deviceType = (String) mappingData.get("deviceType");
+            String deviceDescription = (String) mappingData.get("deviceDescription");
 
             // Validate required fields
             if (ipAddress == null || ipAddress.trim().isEmpty()) {
@@ -348,6 +352,8 @@ public class LocalNetworkController {
             mapping.setDeviceName(deviceName.trim());
             mapping.setMacAddress(macAddress != null ? macAddress.trim() : null);
             mapping.setDeviceNumber(deviceNumber);
+            mapping.setDeviceType(deviceType != null ? deviceType.trim() : null);
+            mapping.setDeviceDescription(deviceDescription != null ? deviceDescription.trim() : null);
 
             com.pat.repo.domain.NetworkDeviceMapping saved = deviceMappingRepository.save(mapping);
             log.debug("Created device mapping: {} -> {}", saved.getIpAddress(), saved.getDeviceName());
@@ -359,6 +365,8 @@ public class LocalNetworkController {
             response.put("deviceName", saved.getDeviceName());
             response.put("macAddress", saved.getMacAddress());
             response.put("deviceNumber", saved.getDeviceNumber());
+            response.put("deviceType", saved.getDeviceType());
+            response.put("deviceDescription", saved.getDeviceDescription());
 
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
         } catch (Exception e) {
@@ -404,6 +412,8 @@ public class LocalNetworkController {
             Integer deviceNumber = mappingData.get("deviceNumber") != null 
                 ? Integer.valueOf(mappingData.get("deviceNumber").toString()) 
                 : null;
+            String deviceType = (String) mappingData.get("deviceType");
+            String deviceDescription = (String) mappingData.get("deviceDescription");
 
             // Validate required fields
             if (ipAddress == null || ipAddress.trim().isEmpty()) {
@@ -433,6 +443,8 @@ public class LocalNetworkController {
             mapping.setDeviceName(deviceName.trim());
             mapping.setMacAddress(macAddress != null ? macAddress.trim() : null);
             mapping.setDeviceNumber(deviceNumber);
+            mapping.setDeviceType(deviceType != null ? deviceType.trim() : null);
+            mapping.setDeviceDescription(deviceDescription != null ? deviceDescription.trim() : null);
 
             com.pat.repo.domain.NetworkDeviceMapping saved = deviceMappingRepository.save(mapping);
             log.debug("Updated device mapping: {} -> {}", saved.getIpAddress(), saved.getDeviceName());
@@ -444,6 +456,8 @@ public class LocalNetworkController {
             response.put("deviceName", saved.getDeviceName());
             response.put("macAddress", saved.getMacAddress());
             response.put("deviceNumber", saved.getDeviceNumber());
+            response.put("deviceType", saved.getDeviceType());
+            response.put("deviceDescription", saved.getDeviceDescription());
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {
@@ -812,6 +826,35 @@ public class LocalNetworkController {
             log.debug("Error getting scan scheduler enabled status", e);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Failed to get scheduler status");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Get network scan scheduler interval (in minutes)
+     */
+    @GetMapping("/scan-scheduler/interval")
+    public ResponseEntity<?> getScanSchedulerInterval() {
+        log.debug("========== GET SCAN SCHEDULER INTERVAL REQUESTED ==========");
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            int intervalMinutes = networkScanScheduler.getScanIntervalMinutes();
+            Map<String, Object> response = new HashMap<>();
+            response.put("intervalMinutes", intervalMinutes);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.debug("Error getting scan scheduler interval", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to get scheduler interval");
             errorResponse.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }

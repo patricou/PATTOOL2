@@ -1752,7 +1752,7 @@ public class LocalNetworkService {
                 // Check if it's a rate limit error
                 String errorMessage = e.getMessage();
                 if (errorMessage != null && (errorMessage.contains("Too Many Requests") || errorMessage.contains("429"))) {
-                    log.warn("API rate limit exceeded for MAC {} (OUI: {}), using local database", macAddress, ouiFormatted);
+                    log.debug("API rate limit exceeded for MAC {} (OUI: {}), using local database", macAddress, ouiFormatted);
                 } else {
                     log.debug("External API call failed for MAC {} (OUI: {}): {}, using local database", macAddress, ouiFormatted, e.getMessage());
                 }

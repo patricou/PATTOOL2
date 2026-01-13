@@ -13,6 +13,8 @@ public class NetworkDeviceMapping {
     private String deviceName;
     private String macAddress;
     private Integer deviceNumber;
+    private String deviceType;
+    private String deviceDescription;
     
     public NetworkDeviceMapping() {
     }
@@ -62,6 +64,22 @@ public class NetworkDeviceMapping {
     
     public void setDeviceNumber(Integer deviceNumber) {
         this.deviceNumber = deviceNumber;
+    }
+    
+    public String getDeviceType() {
+        return deviceType;
+    }
+    
+    public void setDeviceType(String deviceType) {
+        this.deviceType = deviceType;
+    }
+    
+    public String getDeviceDescription() {
+        return deviceDescription;
+    }
+    
+    public void setDeviceDescription(String deviceDescription) {
+        this.deviceDescription = deviceDescription;
     }
 }
 

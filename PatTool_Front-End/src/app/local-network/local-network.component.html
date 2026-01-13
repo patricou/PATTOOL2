@@ -52,7 +52,7 @@
                                        [checked]="scanSchedulerEnabled"
                                        (change)="toggleScanScheduler()"
                                        [disabled]="isLoadingSchedulerStatus"
-                                       title="Activer/désactiver le scan automatique toutes les 10 minutes"
+                                       [title]="'LOCAL_NETWORK.SCAN_AUTO_TOOLTIP' | translate: {minutes: scanIntervalMinutes}"
                                        style="font-size: 0.75rem;">
                                 <label class="form-check-label ms-2" 
                                        for="scanSchedulerEnabled"
@@ -62,7 +62,7 @@
                                        [style.color]="scanSchedulerEnabled ? '#28a745' : '#6c757d'" 
                                        style="margin-right: 0.3rem;"></i>
                                     <span *ngIf="!isLoadingSchedulerStatus">
-                                        Scan auto (10 min)
+                                        {{ "LOCAL_NETWORK.SCAN_AUTO" | translate: {minutes: scanIntervalMinutes} }}
                                     </span>
                                     <span *ngIf="isLoadingSchedulerStatus">
                                         <i class="fa fa-spinner fa-spin"></i>
@@ -286,10 +286,26 @@
                                     <div>
                                         <span class="badge badge-primary" 
                                               style="font-size: 0.75rem; padding: 0.25rem 0.5rem; color: #000; font-weight: 600;"
-                                              [title]="device.vendor ? ('Détecté via: ' + (device.macAddressSource === 'arp' ? 'MAC Address (ARP)' : device.macAddressSource === 'mongodb' ? 'MongoDB' : 'Local') + ' - Fabricant: ' + device.vendor) : 'Type détecté via ports ouverts'">
+                                              [title]="getDeviceMapping(device)?.deviceType ? ('Type depuis MongoDB: ' + getDeviceMapping(device).deviceType) : (device.vendor ? ('Détecté via: ' + (device.macAddressSource === 'arp' ? 'MAC Address (ARP)' : device.macAddressSource === 'mongodb' ? 'MongoDB' : 'Local') + ' - Fabricant: ' + device.vendor) : 'Type détecté via ports ouverts')">
                                             <i class="fa fa-info-circle" style="margin-right: 3px; font-size: 0.7rem;"></i>
-                                            {{ (device.deviceType && device.deviceType !== 'null' && device.deviceType !== 'undefined') ? device.deviceType : ("LOCAL_NETWORK.UNKNOWN_DEVICE_TYPE" | translate) }}
+                                            <ng-container *ngIf="getDeviceMapping(device)?.deviceType; else scannedDeviceType">
+                                                {{ getDeviceMapping(device).deviceType }}
+                                            </ng-container>
+                                            <ng-template #scannedDeviceType>
+                                                {{ (device.deviceType && device.deviceType !== 'null' && device.deviceType !== 'undefined' && device.deviceType !== 'Unknown Device') ? device.deviceType : ("LOCAL_NETWORK.UNKNOWN_DEVICE" | translate) }}
+                                            </ng-template>
                                         </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="info-item" *ngIf="getDeviceMapping(device)?.deviceDescription" style="grid-column: 1 / -1; margin-top: 5px; padding: 8px; background-color: rgba(108, 117, 125, 0.15); border-radius: 4px; border-left: 3px solid #6c757d;">
+                                <div style="display: flex; align-items: flex-start; gap: 8px;">
+                                    <i class="fa fa-file-text-o" style="font-size: 1rem; color: #6c757d; margin-top: 2px;"></i>
+                                    <div style="flex: 1;">
+                                        <strong style="font-size: 0.85rem; color: #000;">{{ "LOCAL_NETWORK.DEVICE_DESCRIPTION" | translate }}</strong>
+                                        <div style="margin-top: 4px; color: #000; font-size: 0.9rem;">
+                                            {{ getDeviceMapping(device).deviceDescription }}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -346,7 +362,7 @@
                                 <div style="display: flex; align-items: center; gap: 8px;">
                                     <i class="fa fa-industry" style="font-size: 1rem; color: #17a2b8;"></i>
                                     <div style="flex: 1;">
-                                        <strong style="font-size: 0.85rem; color: #fff;">{{ "LOCAL_NETWORK.VENDOR" | translate }}</strong>
+                                        <strong style="font-size: 0.85rem; color: #000;">{{ "LOCAL_NETWORK.VENDOR" | translate }}</strong>
                                         <div style="margin-top: 4px;">
                                             <span class="badge" 
                                                   [ngClass]="useExternalVendorAPI ? 'badge-success' : 'badge-info'"
@@ -425,12 +441,12 @@
                                         <a [href]="'http://' + device.ipAddress + ':' + service.port" 
                                            target="_blank" 
                                            class="btn btn-xs btn-primary port-link">
-                                            <i class="fa fa-link"></i> HTTP
+                                            <i class="fa fa-link"></i> {{ "LOCAL_NETWORK.PROTOCOL_HTTP" | translate }}
                                         </a>
                                         <a [href]="'https://' + device.ipAddress + ':' + service.port" 
                                            target="_blank" 
                                            class="btn btn-xs btn-success port-link">
-                                            <i class="fa fa-lock"></i> HTTPS
+                                            <i class="fa fa-lock"></i> {{ "LOCAL_NETWORK.PROTOCOL_HTTPS" | translate }}
                                         </a>
                                     </div>
                                     <div class="service-details" *ngIf="service.banner || service.server || service.poweredBy">
@@ -453,12 +469,12 @@
                                     <a [href]="'http://' + device.ipAddress + ':' + port" 
                                        target="_blank" 
                                        class="btn btn-xs btn-primary port-link">
-                                        <i class="fa fa-link"></i> HTTP
+                                        <i class="fa fa-link"></i> {{ "LOCAL_NETWORK.PROTOCOL_HTTP" | translate }}
                                     </a>
                                     <a [href]="'https://' + device.ipAddress + ':' + port" 
                                        target="_blank" 
                                        class="btn btn-xs btn-success port-link">
-                                        <i class="fa fa-lock"></i> HTTPS
+                                        <i class="fa fa-lock"></i> {{ "LOCAL_NETWORK.PROTOCOL_HTTPS" | translate }}
                                     </a>
                                 </div>
                             </div>
@@ -470,14 +486,14 @@
                             <div class="vulnerability-item" *ngFor="let vuln of device.vulnerabilities">
                                 <div class="vulnerability-header">
                                     <span class="badge" [ngClass]="getSeverityClass(vuln.severity)">
-                                        {{ vuln.severity }}
+                                        {{ getSeverityLabel(vuln.severity) }}
                                     </span>
-                                    <strong>{{ vuln.type }}</strong>
+                                    <strong>{{ getVulnerabilityTypeLabel(vuln.type) }}</strong>
                                     <span *ngIf="vuln.port" class="text-muted ml-2">
                                         ({{ "LOCAL_NETWORK.PORT" | translate }}: {{ vuln.port }})
                                     </span>
                                 </div>
-                                <p class="vulnerability-description">{{ vuln.description }}</p>
+                                <p class="vulnerability-description">{{ getVulnerabilityDescription(vuln.description) }}</p>
                             </div>
                         </div>
                     </div>
@@ -610,6 +626,24 @@
                                    name="deviceNumber"
                                    placeholder="1">
                         </div>
+                        <div class="mb-3">
+                            <label for="mappingDeviceType" class="form-label">{{ "LOCAL_NETWORK.DEVICE_TYPE" | translate }}</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="mappingDeviceType"
+                                   [(ngModel)]="mappingForm.deviceType"
+                                   name="deviceType"
+                                   placeholder="Router, Server, Computer, etc.">
+                        </div>
+                        <div class="mb-3">
+                            <label for="mappingDeviceDescription" class="form-label">{{ "LOCAL_NETWORK.DEVICE_DESCRIPTION" | translate }}</label>
+                            <textarea class="form-control" 
+                                      id="mappingDeviceDescription"
+                                      [(ngModel)]="mappingForm.deviceDescription"
+                                      name="deviceDescription"
+                                      rows="3"
+                                      placeholder="Additional description or notes about this device"></textarea>
+                        </div>
                         <div class="d-flex gap-2">
                             <button type="submit" 
                                     class="btn btn-success"
@@ -650,6 +684,13 @@
                                 <i class="fa" [ngClass]="getSortIcon('deviceName')" style="margin-left: 5px;"></i>
                             </th>
                             <th style="cursor: default;">{{ "LOCAL_NETWORK.MAC_ADDRESS" | translate }}</th>
+                            <th (click)="sortMappings('deviceType')" 
+                                [class.sortable]="true"
+                                [title]="'Cliquer pour trier par type'">
+                                {{ "LOCAL_NETWORK.DEVICE_TYPE" | translate }}
+                                <i class="fa" [ngClass]="getSortIcon('deviceType')" style="margin-left: 5px;"></i>
+                            </th>
+                            <th style="cursor: default;">{{ "LOCAL_NETWORK.DEVICE_DESCRIPTION" | translate }}</th>
                             <th style="cursor: default; width: 120px;">{{ "LOCAL_NETWORK.ACTIONS" | translate }}</th>
                         </tr>
                     </thead>
@@ -659,6 +700,18 @@
                             <td><code>{{ mapping.ipAddress }}</code></td>
                             <td><strong>{{ mapping.deviceName }}</strong></td>
                             <td><code>{{ mapping.macAddress || '-' }}</code></td>
+                            <td>
+                                <span *ngIf="mapping.deviceType" class="badge badge-info">
+                                    {{ mapping.deviceType }}
+                                </span>
+                                <span *ngIf="!mapping.deviceType" class="text-muted">-</span>
+                            </td>
+                            <td>
+                                <span *ngIf="mapping.deviceDescription" [title]="mapping.deviceDescription" style="max-width: 200px; display: inline-block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    {{ mapping.deviceDescription }}
+                                </span>
+                                <span *ngIf="!mapping.deviceDescription" class="text-muted">-</span>
+                            </td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <button type="button" 

@@ -297,5 +297,16 @@ export class LocalNetworkService {
       )
     );
   }
+
+  /**
+   * Get network scan scheduler interval (in minutes)
+   */
+  getScanSchedulerInterval(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + "network/scan-scheduler/interval", { headers: headers })
+      )
+    );
+  }
 }
 

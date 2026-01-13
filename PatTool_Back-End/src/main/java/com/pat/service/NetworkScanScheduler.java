@@ -70,6 +70,47 @@ public class NetworkScanScheduler {
     }
 
     /**
+     * Get scan interval in minutes from cron expression
+     * Parses cron expression format: "second minute hour day month weekday"
+     * Supports cron patterns like every N minutes (e.g., every 10 minutes, every 5 minutes)
+     * @return interval in minutes, or 10 as default if parsing fails
+     */
+    public int getScanIntervalMinutes() {
+        try {
+            if (schedulerCron == null || schedulerCron.trim().isEmpty()) {
+                return 10; // Default
+            }
+            
+            String[] parts = schedulerCron.trim().split("\\s+");
+            if (parts.length < 2) {
+                log.warn("Invalid cron expression format: {}", schedulerCron);
+                return 10; // Default
+            }
+            
+            String minutePart = parts[1]; // Second field is minutes
+            
+            // Handle "*/N" format (every N minutes)
+            if (minutePart.startsWith("*/")) {
+                try {
+                    int interval = Integer.parseInt(minutePart.substring(2));
+                    return interval > 0 ? interval : 10;
+                } catch (NumberFormatException e) {
+                    log.warn("Could not parse minute interval from cron: {}", minutePart);
+                    return 10; // Default
+                }
+            }
+            
+            // Handle single number (specific minute) or other formats
+            // If it's a specific minute or other format, we can't determine interval, return default
+            log.warn("Cron minute pattern '{}' is not in */N format, using default interval", minutePart);
+            return 10;
+        } catch (Exception e) {
+            log.error("Error parsing cron expression for interval: {}", schedulerCron, e);
+            return 10; // Default fallback
+        }
+    }
+
+    /**
      * Scheduled network scan - runs every 10 minutes when enabled
      * Scans the network and sends email if new devices (by MAC address) are found
      */
@@ -80,7 +121,7 @@ public class NetworkScanScheduler {
             return;
         }
 
-        log.info("========== SCHEDULED NETWORK SCAN STARTED ==========");
+        log.debug("========== SCHEDULED NETWORK SCAN STARTED ==========");
         long startTime = System.currentTimeMillis();
 
         try {
@@ -92,8 +133,8 @@ public class NetworkScanScheduler {
                     .map(this::normalizeMacAddress)
                     .collect(Collectors.toSet());
 
-            log.info("Loaded {} existing device mappings from MongoDB", existingMappings.size());
-            log.info("Known MAC addresses: {}", knownMacAddresses.size());
+            log.debug("Loaded {} existing device mappings from MongoDB", existingMappings.size());
+            log.debug("Known MAC addresses: {}", knownMacAddresses.size());
 
             // Collect all found devices during scan
             List<Map<String, Object>> foundDevices = new ArrayList<>();
@@ -111,7 +152,7 @@ public class NetworkScanScheduler {
                         if (!knownMacAddresses.contains(normalizedMac)) {
                             // This is a new device
                             newDevices.add(device);
-                            log.info("New device detected: IP={}, MAC={}, Hostname={}", 
+                            log.debug("New device detected: IP={}, MAC={}, Hostname={}", 
                                     device.get("ipAddress"), macAddress, device.get("hostname"));
                         }
                     }
@@ -119,22 +160,22 @@ public class NetworkScanScheduler {
             });
 
             long scanDuration = System.currentTimeMillis() - startTime;
-            log.info("Network scan completed in {} ms. Found {} devices, {} new devices", 
+            log.debug("Network scan completed in {} ms. Found {} devices, {} new devices", 
                     scanDuration, foundDevices.size(), newDevices.size());
 
             // Send email if new devices are found
             if (!newDevices.isEmpty()) {
-                log.info("Sending email notification for {} new device(s)", newDevices.size());
+                log.debug("Sending email notification for {} new device(s)", newDevices.size());
                 sendNewDeviceNotificationEmail(newDevices);
             } else {
-                log.info("No new devices found - email notification skipped");
+                log.debug("No new devices found - email notification skipped");
             }
 
         } catch (Exception e) {
             log.error("Error during scheduled network scan: {}", e.getMessage(), e);
         }
 
-        log.info("========== SCHEDULED NETWORK SCAN COMPLETED ==========");
+        log.debug("========== SCHEDULED NETWORK SCAN COMPLETED ==========");
     }
 
     /**
@@ -149,7 +190,7 @@ public class NetworkScanScheduler {
             
             mailController.sendMail(subject, body, true); // true = HTML format
             
-            log.info("Email notification sent successfully for {} new device(s)", newDevices.size());
+            log.debug("Email notification sent successfully for {} new device(s)", newDevices.size());
         } catch (Exception e) {
             log.error("Failed to send email notification for new devices: {}", e.getMessage(), e);
         }

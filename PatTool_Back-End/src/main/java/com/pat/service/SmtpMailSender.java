@@ -86,9 +86,9 @@ public class SmtpMailSender {
                     mail.setHeader("Message-ID", generateMessageId());
                 }
                 
-                log.info("Sending email via SMTP - From: {}, To: {}, Subject: {}, HTML: {}", from, recipient, subject, isHtml);
+                log.debug("Sending email via SMTP - From: {}, To: {}, Subject: {}, HTML: {}", from, recipient, subject, isHtml);
                 javaMailSender.send(mail);
-                log.info("Email sent successfully to {} - Subject: '{}'", recipient, subject);
+                log.debug("Email sent successfully to {} - Subject: '{}'", recipient, subject);
             } catch (MailAuthenticationException e) {
                 log.error("MailAuthenticationException - SMTP authentication failed. Check username/password for sending email to {} from {}. Error: {}", 
                     recipient, from, e.getMessage(), e);

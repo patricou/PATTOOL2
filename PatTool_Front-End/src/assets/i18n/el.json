@@ -1214,6 +1214,8 @@
         "OPEN_ROUTER_TOOLTIP": "Άνοιγμα διεπαφής δρομολογητή (192.168.1.1)",
         "DEVICE_TYPE": "Τύπος Συσκευής",
         "UNKNOWN_DEVICE_TYPE": "Άγνωστος Τύπος",
+        "DEVICE_DESCRIPTION": "Περιγραφή",
+        "UNKNOWN_DEVICE": "Άγνωστη Συσκευή",
         "WEB_INTERFACE": "Διαδικτυακή Διεπαφή",
         "OPEN_WEB": "Άνοιγμα",
         "DATABASE": "Βάση Δεδομένων",
@@ -1275,6 +1277,18 @@
         "DELETE_VENDOR_MAPPING": "Διαγραφή αντιστοίχισης",
         "TOTAL_VENDOR_MAPPINGS": "Συνολικές αντιστοιχίσεις κατασκευαστών",
         "CREATION_DATE": "Ημερομηνία δημιουργίας",
-        "MODIFICATION_DATE": "Ημερομηνία τροποποίησης"
+        "MODIFICATION_DATE": "Ημερομηνία τροποποίησης",
+        "SCAN_AUTO": "Αυτόματη σάρωση ({{minutes}} λεπτά)",
+        "SCAN_AUTO_TOOLTIP": "Ενεργοποίηση/απενεργοποίηση αυτόματης σάρωσης κάθε {{minutes}} λεπτά",
+        "SEVERITY_CRITICAL": "Κρίσιμο",
+        "SEVERITY_HIGH": "Υψηλό",
+        "SEVERITY_MEDIUM": "Μέτριο",
+        "SEVERITY_LOW": "Χαμηλό",
+        "SEVERITY_INFO": "Πληροφορία",
+        "VULN_TYPE_SMB_EXPOSED": "SMB Εκτεθειμένο",
+        "VULN_DESC_SMB_EXPOSED": "Εντοπίστηκε υπηρεσία SMB. Απαιτείται ενίσχυση ασφαλείας.",
+        "VULN_DESC_SMB_EXPOSED_DETAILED": "Εντοπίστηκε υπηρεσία SMB στο τοπικό δίκτυο. Ευάλωτο σε EternalBlue, SMBGhost και διάδοση κακόβουλου λογισμικού (WannaCry, NotPetya) ακόμη και στο τοπικό δίκτυο. Απαιτείται ενίσχυση ασφαλείας.",
+        "PROTOCOL_HTTP": "HTTP",
+        "PROTOCOL_HTTPS": "HTTPS"
     }
 }

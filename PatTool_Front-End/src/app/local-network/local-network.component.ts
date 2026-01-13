@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, ChangeDetectorRef, NgZone, TemplateRef, V
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { KeycloakService } from '../keycloak/keycloak.service';
@@ -89,6 +89,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   // Network scan scheduler enabled flag
   scanSchedulerEnabled: boolean = false; // Default: false
   isLoadingSchedulerStatus: boolean = false;
+  scanIntervalMinutes: number = 10; // Default: 10 minutes
 
   // Device mappings modal
   @ViewChild('deviceMappingsModal') deviceMappingsModal!: TemplateRef<any>;
@@ -139,11 +140,15 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     deviceName: string;
     macAddress: string;
     deviceNumber: number | null;
+    deviceType: string;
+    deviceDescription: string;
   } = {
     ipAddress: '',
     deviceName: '',
     macAddress: '',
-    deviceNumber: null
+    deviceNumber: null,
+    deviceType: '',
+    deviceDescription: ''
   };
   isSavingMapping: boolean = false;
 
@@ -153,7 +158,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     private localNetworkService: LocalNetworkService,
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
-    private modalService: NgbModal
+    private modalService: NgbModal,
+    private translateService: TranslateService
   ) { }
 
   ngOnInit() {
@@ -170,6 +176,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     
     // Load scheduler enabled status
     this.loadScanSchedulerStatus();
+    this.loadScanSchedulerInterval();
   }
 
   /**
@@ -345,7 +352,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       macAddressConflict: deviceData.macAddressConflict,
       vendor: deviceData.vendor,
       os: deviceData.os || deviceData.operatingSystem,
-      deviceType: deviceData.deviceType || deviceData.device_type || 'Unknown Device',
+      deviceType: deviceData.deviceType || deviceData.device_type || null, // Will be translated in template
       openPorts: deviceData.openPorts || [],
       services: deviceData.services || {},
       vulnerabilities: deviceData.vulnerabilities || [],
@@ -421,6 +428,48 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     }
   }
 
+  /**
+   * Get translated severity label
+   */
+  getSeverityLabel(severity: string): string {
+    const key = `LOCAL_NETWORK.SEVERITY_${severity.toUpperCase()}`;
+    const translation = this.translateService.instant(key);
+    // If translation not found, return original severity
+    return translation !== key ? translation : severity;
+  }
+
+  /**
+   * Get translated vulnerability type
+   */
+  getVulnerabilityTypeLabel(type: string): string {
+    // Map common vulnerability types to translation keys
+    const typeMap: { [key: string]: string } = {
+      'SMB Exposed': 'VULN_TYPE_SMB_EXPOSED'
+    };
+    const key = typeMap[type] || `VULN_TYPE_${type.toUpperCase().replace(/\s+/g, '_')}`;
+    const translation = this.translateService.instant(`LOCAL_NETWORK.${key}`);
+    // If translation not found, return original type
+    return translation !== `LOCAL_NETWORK.${key}` ? translation : type;
+  }
+
+  /**
+   * Get translated vulnerability description
+   */
+  getVulnerabilityDescription(description: string): string {
+    // Map common descriptions to translation keys
+    const descMap: { [key: string]: string } = {
+      'SMB service detected. Requires security hardening.': 'VULN_DESC_SMB_EXPOSED',
+      'SMB service detected on local network. Vulnerable to EternalBlue, SMBGhost, and malware propagation (WannaCry, NotPetya) even on local network. Requires security hardening.': 'VULN_DESC_SMB_EXPOSED_DETAILED'
+    };
+    const key = descMap[description];
+    if (key) {
+      const translation = this.translateService.instant(`LOCAL_NETWORK.${key}`);
+      // If translation not found, return original description
+      return translation !== `LOCAL_NETWORK.${key}` ? translation : description;
+    }
+    return description;
+  }
+
   getTotalVulnerabilities(): number {
     return this.devices.reduce((total, device) => {
       return total + (device.vulnerabilities?.length || 0);
@@ -465,6 +514,35 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   /**
    * Get device display name for header (prefer hostname, fallback to IP)
    */
+  /**
+   * Get device mapping from MongoDB for a device (by IP or MAC address)
+   */
+  getDeviceMapping(device: NetworkDevice): any | null {
+    if (!this.deviceMappings || this.deviceMappings.length === 0) {
+      return null;
+    }
+    
+    const normalizeMac = (mac: string | null | undefined): string => {
+      if (!mac) return '';
+      return mac.replace(/[:-]/g, '').toUpperCase();
+    };
+    
+    const deviceMac = normalizeMac(device.macAddress || device.macAddressMongoDB);
+    
+    // Try to find mapping by IP first
+    let mapping = this.deviceMappings.find(m => m.ipAddress === device.ipAddress);
+    
+    // If not found by IP, try by MAC address
+    if (!mapping && deviceMac) {
+      mapping = this.deviceMappings.find(m => {
+        const mappingMac = normalizeMac(m.macAddress);
+        return mappingMac && mappingMac === deviceMac;
+      });
+    }
+    
+    return mapping || null;
+  }
+
   getDeviceDisplayName(device: NetworkDevice): string {
     // Always prefer hostname if it exists and is different from IP
     if (device.hostname && device.hostname.trim() !== '' && device.hostname !== device.ipAddress) {
@@ -572,6 +650,17 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     this.deviceMappings = [];
     this.mappingsError = '';
     this.mappingsInfo = '';
+    // Reset form state to ensure list is shown, not the form
+    this.showMappingForm = false;
+    this.editingMapping = null;
+    this.mappingForm = {
+      ipAddress: '',
+      deviceName: '',
+      macAddress: '',
+      deviceNumber: null,
+      deviceType: '',
+      deviceDescription: ''
+    };
     
     this.modalRef = this.modalService.open(this.deviceMappingsModal, {
       size: 'xl',
@@ -650,6 +739,17 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       this.modalRef.close();
       this.modalRef = undefined;
     }
+    // Reset form state when closing modal
+    this.showMappingForm = false;
+    this.editingMapping = null;
+    this.mappingForm = {
+      ipAddress: '',
+      deviceName: '',
+      macAddress: '',
+      deviceNumber: null,
+      deviceType: '',
+      deviceDescription: ''
+    };
   }
 
   /**
@@ -826,6 +926,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       } else if (column === 'deviceNumber') {
         aValue = a.deviceNumber || 0;
         bValue = b.deviceNumber || 0;
+      } else if (column === 'deviceType') {
+        aValue = (a.deviceType || '').toLowerCase();
+        bValue = (b.deviceType || '').toLowerCase();
       } else {
         return 0;
       }
@@ -1180,7 +1283,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         ipAddress: deviceData.ipAddress || '',
         deviceName: deviceData.hostname || deviceData.ipAddress || '',
         macAddress: deviceData.macAddress || '',
-        deviceNumber: nextDeviceNumber
+        deviceNumber: nextDeviceNumber,
+        deviceType: deviceData.deviceType || '',
+        deviceDescription: ''
       };
     } else {
       // Empty form
@@ -1188,7 +1293,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         ipAddress: '',
         deviceName: '',
         macAddress: '',
-        deviceNumber: nextDeviceNumber
+        deviceNumber: nextDeviceNumber,
+        deviceType: '',
+        deviceDescription: ''
       };
     }
     this.showMappingForm = true;
@@ -1298,7 +1405,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       ipAddress: mapping.ipAddress || '',
       deviceName: mapping.deviceName || '',
       macAddress: mapping.macAddress || '',
-      deviceNumber: mapping.deviceNumber || null
+      deviceNumber: mapping.deviceNumber || null,
+      deviceType: mapping.deviceType || '',
+      deviceDescription: mapping.deviceDescription || ''
     };
     this.showMappingForm = true;
     this.mappingsError = '';
@@ -1315,7 +1424,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       ipAddress: '',
       deviceName: '',
       macAddress: '',
-      deviceNumber: null
+      deviceNumber: null,
+      deviceType: '',
+      deviceDescription: ''
     };
     this.mappingsError = '';
   }
@@ -1335,7 +1446,9 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
 
     const mappingData: any = {
       ipAddress: this.mappingForm.ipAddress.trim(),
-      deviceName: this.mappingForm.deviceName.trim()
+      deviceName: this.mappingForm.deviceName.trim(),
+      deviceType: this.mappingForm.deviceType ? this.mappingForm.deviceType.trim() : null,
+      deviceDescription: this.mappingForm.deviceDescription ? this.mappingForm.deviceDescription.trim() : null
     };
 
     if (this.mappingForm.macAddress && this.mappingForm.macAddress.trim()) {
@@ -1819,6 +1932,34 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
           // Default to false on error
           this.scanSchedulerEnabled = false;
           console.error('Error loading scan scheduler status:', error);
+          this.cdr.detectChanges();
+        });
+      }
+    });
+  }
+
+  /**
+   * Load scan scheduler interval from backend
+   */
+  loadScanSchedulerInterval(): void {
+    this.localNetworkService.getScanSchedulerInterval().subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          if (response && response.intervalMinutes !== undefined) {
+            this.scanIntervalMinutes = response.intervalMinutes;
+            console.log('Scan scheduler interval loaded:', this.scanIntervalMinutes, 'minutes');
+          } else {
+            console.warn('Invalid response from getScanSchedulerInterval:', response);
+            this.scanIntervalMinutes = 10; // Default
+          }
+          this.cdr.detectChanges();
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          // Default to 10 minutes on error
+          this.scanIntervalMinutes = 10;
+          console.error('Error loading scan scheduler interval:', error);
           this.cdr.detectChanges();
         });
       }
