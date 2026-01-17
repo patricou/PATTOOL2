@@ -191,6 +191,11 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
     // Load scheduler enabled status
     this.loadScanSchedulerStatus();
     this.loadScanSchedulerInterval();
+    
+    // Start network scan automatically when page opens
+    setTimeout(() => {
+      this.startScan();
+    }, 500); // Small delay to ensure mappings are loaded
   }
 
   /**
@@ -558,7 +563,13 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   }
 
   getDeviceDisplayName(device: NetworkDevice): string {
-    // Always prefer hostname if it exists and is different from IP
+    // First, check if there's a mapping in MongoDB with a deviceName
+    const mapping = this.getDeviceMapping(device);
+    if (mapping && mapping.deviceName && mapping.deviceName.trim() !== '') {
+      return mapping.deviceName.trim();
+    }
+    
+    // Otherwise, prefer hostname if it exists and is different from IP
     if (device.hostname && device.hostname.trim() !== '' && device.hostname !== device.ipAddress) {
       return device.hostname.trim();
     }
@@ -723,6 +734,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
         });
         
         this.isLoadingMappings = false;
+        // Update devices with mapping information after mappings are loaded
+        this.updateDevicesWithMappings();
         this.cdr.detectChanges();
       },
       error: (error) => {
@@ -860,6 +873,39 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
    * @param macAddress MAC address to find the device
    * @param vendor Vendor name to set
    */
+  /**
+   * Update devices with mapping information after mappings are loaded/updated
+   * This updates device properties and triggers change detection to refresh the UI
+   */
+  private updateDevicesWithMappings(): void {
+    if (this.devices && this.deviceMappings) {
+      let updated = false;
+      this.devices.forEach(device => {
+        const mapping = this.getDeviceMapping(device);
+        if (mapping) {
+          // Update deviceType from MongoDB if available
+          if (mapping.deviceType && mapping.deviceType.trim() !== '' && device.deviceType !== mapping.deviceType) {
+            device.deviceType = mapping.deviceType;
+            updated = true;
+          }
+          
+          // Store MongoDB MAC address if available (always stored with ":" format like AA:BB:CC:DD:EE:FF)
+          if (mapping.macAddress && mapping.macAddress.trim() !== '') {
+            if (device.macAddressMongoDB !== mapping.macAddress) {
+              device.macAddressMongoDB = mapping.macAddress;
+              updated = true;
+            }
+          }
+        }
+      });
+      
+      // Force change detection if devices were updated (getDeviceDisplayName uses deviceMappings, so UI will update)
+      if (updated) {
+        this.cdr.detectChanges();
+      }
+    }
+  }
+
   private updateDeviceVendor(macAddress: string, vendor: string): void {
     if (!macAddress || !vendor) {
       return;
@@ -1539,7 +1585,7 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
             this.cleanupHistoryForMacAddress(macAddressToCleanup);
           }
           
-          // Reload mappings after save
+          // Reload mappings after save (this will trigger device update automatically)
           setTimeout(() => {
             this.ngZone.run(() => {
               this.loadDeviceMappings();
@@ -1567,24 +1613,38 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
    * Delete device mapping with confirmation
    */
   deleteMapping(mapping: any): void {
-    if (!confirm(`Are you sure you want to delete the mapping for ${mapping.deviceName} (${mapping.ipAddress})?`)) {
+    const confirmMessage = this.translateService.instant('LOCAL_NETWORK.DELETE_MAPPING_CONFIRM', {
+      deviceName: mapping.deviceName,
+      ipAddress: mapping.ipAddress
+    });
+    
+    if (!confirm(confirmMessage)) {
       return;
     }
 
     this.mappingsError = '';
-    this.mappingsInfo = 'Deleting...';
+    this.mappingsInfo = this.translateService.instant('LOCAL_NETWORK.DELETING') || 'Deleting...';
 
     this.localNetworkService.deleteDeviceMapping(mapping.id).subscribe({
       next: (response) => {
         this.ngZone.run(() => {
           this.mappingsInfo = 'Device mapping deleted successfully';
           this.mappingsError = '';
+          
+          // Reset form if we were editing this mapping
+          if (this.editingMapping && this.editingMapping.id === mapping.id) {
+            this.editingMapping = null;
+            this.showMappingForm = false;
+          }
+          
           this.cdr.detectChanges();
           
           // Reload mappings after delete
           setTimeout(() => {
             this.ngZone.run(() => {
               this.loadDeviceMappings();
+              // Close modal after successful deletion
+              this.closeDeviceMappingsModal();
             });
           }, 500);
         });

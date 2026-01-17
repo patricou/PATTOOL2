@@ -148,6 +148,8 @@
         "ADD_MAPPING": "जोड़ें",
         "EDIT_MAPPING": "संपादित करें",
         "DELETE_MAPPING": "हटाएं",
+        "DELETE_MAPPING_CONFIRM": "क्या आप वाकई डिवाइस \"{{deviceName}}\" ({{ipAddress}}) के मैपिंग को हटाना चाहते हैं? यह कार्रवाई पूर्ववत नहीं की जा सकती।",
+        "DELETING": "हटा रहे हैं...",
         "SAVE": "सहेजें",
         "CANCEL": "रद्द करें",
         "SAVING": "सहेजा जा रहा है...",

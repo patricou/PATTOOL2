@@ -150,6 +150,8 @@
         "ADD_MAPPING": "添加",
         "EDIT_MAPPING": "编辑",
         "DELETE_MAPPING": "删除",
+        "DELETE_MAPPING_CONFIRM": "您确定要删除设备 \"{{deviceName}}\" ({{ipAddress}}) 的映射吗？此操作无法撤消。",
+        "DELETING": "正在删除...",
         "SAVE": "保存",
         "CANCEL": "取消",
         "SAVING": "保存中...",

@@ -150,6 +150,8 @@
         "ADD_MAPPING": "إضافة",
         "EDIT_MAPPING": "تعديل",
         "DELETE_MAPPING": "حذف",
+        "DELETE_MAPPING_CONFIRM": "هل أنت متأكد من أنك تريد حذف تعيين الجهاز \"{{deviceName}}\" ({{ipAddress}})؟ لا يمكن التراجع عن هذا الإجراء.",
+        "DELETING": "جارٍ الحذف...",
         "SAVE": "حفظ",
         "CANCEL": "إلغاء",
         "SAVING": "جاري الحفظ...",

@@ -651,7 +651,13 @@
                                    id="mappingMacAddress"
                                    [(ngModel)]="mappingForm.macAddress"
                                    name="macAddress"
-                                   placeholder="00:11:22:33:44:55">
+                                   placeholder="00:11:22:33:44:55"
+                                   readonly
+                                   tabindex="-1"
+                                   (keydown)="$event.preventDefault()"
+                                   (paste)="$event.preventDefault()"
+                                   (input)="$event.preventDefault()"
+                                   style="background-color: #e9ecef; cursor: not-allowed; user-select: none;">
                         </div>
                         <div class="mb-3">
                             <label for="mappingDeviceType" class="form-label">{{ "LOCAL_NETWORK.DEVICE_TYPE" | translate }}</label>
@@ -678,6 +684,13 @@
                                 <i class="fa fa-spinner fa-spin" *ngIf="isSavingMapping"></i>
                                 <i class="fa fa-save" *ngIf="!isSavingMapping"></i>
                                 <span class="ms-1">{{ isSavingMapping ? ("LOCAL_NETWORK.SAVING" | translate) : ("LOCAL_NETWORK.SAVE" | translate) }}</span>
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-danger"
+                                    (click)="deleteMapping(editingMapping)"
+                                    [disabled]="isSavingMapping || !editingMapping">
+                                <i class="fa fa-trash"></i>
+                                <span class="ms-1">{{ "LOCAL_NETWORK.DELETE_MAPPING" | translate }}</span>
                             </button>
                             <button type="button" 
                                     class="btn btn-secondary"

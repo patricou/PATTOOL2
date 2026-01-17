@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/network")
@@ -997,17 +998,30 @@ public class LocalNetworkController {
         }
 
         try {
-            // Normalize MAC address for comparison
-            String normalizedMac = macAddress.trim().toUpperCase().replaceAll("[:-]", "").replaceAll("\\s", "");
+            // Normalize MAC address for comparison (since MACs are stored with ":" format in DB)
+            String normalizedMac = normalizeMacAddress(macAddress);
             
-            List<com.pat.repo.domain.NewDeviceHistory> entriesToDelete = newDeviceHistoryRepository.findByMacAddress(normalizedMac);
+            // Get all history entries and filter by normalized MAC address
+            // (MACs are stored with ":" format like AA:BB:CC:DD:EE:FF, but we need to compare normalized)
+            List<com.pat.repo.domain.NewDeviceHistory> allEntries = newDeviceHistoryRepository.findAll();
+            List<com.pat.repo.domain.NewDeviceHistory> entriesToDelete = allEntries.stream()
+                    .filter(entry -> {
+                        if (entry.getMacAddress() == null) {
+                            return false;
+                        }
+                        String entryNormalizedMac = normalizeMacAddress(entry.getMacAddress());
+                        return normalizedMac.equals(entryNormalizedMac);
+                    })
+                    .collect(Collectors.toList());
+            
             long countBefore = entriesToDelete.size();
             
             if (countBefore > 0) {
                 newDeviceHistoryRepository.deleteAll(entriesToDelete);
-                log.debug("Deleted {} new device history entries with MAC: {}", countBefore, normalizedMac);
+                log.debug("Deleted {} new device history entries with MAC: {} (normalized: {})", 
+                        countBefore, macAddress, normalizedMac);
             } else {
-                log.debug("No history entries found with MAC: {}", normalizedMac);
+                log.debug("No history entries found with MAC: {} (normalized: {})", macAddress, normalizedMac);
             }
             
             Map<String, Object> response = new HashMap<>();
@@ -1059,6 +1073,16 @@ public class LocalNetworkController {
             errorResponse.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
+    }
+    
+    /**
+     * Normalize MAC address for comparison (uppercase, remove separators)
+     */
+    private String normalizeMacAddress(String macAddress) {
+        if (macAddress == null || macAddress.trim().isEmpty()) {
+            return "";
+        }
+        return macAddress.trim().toUpperCase().replaceAll("[:-]", "").replaceAll("\\s", "");
     }
 }
 

@@ -1250,6 +1250,8 @@
         "ADD_MAPPING": "追加",
         "EDIT_MAPPING": "編集",
         "DELETE_MAPPING": "削除",
+        "DELETE_MAPPING_CONFIRM": "デバイス \"{{deviceName}}\" ({{ipAddress}}) のマッピングを削除してもよろしいですか？この操作は元に戻せません。",
+        "DELETING": "削除中...",
         "SAVE": "保存",
         "CANCEL": "キャンセル",
         "SAVING": "保存中...",

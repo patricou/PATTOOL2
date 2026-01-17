@@ -201,12 +201,13 @@ public class NetworkScanScheduler {
                 }
                 
                 // Always add a new entry to history, even if device already exists (to track detection times)
-                String normalizedMac = normalizeMacAddress(macAddress);
+                // Save MAC address with ":" format (e.g., AA:BB:CC:DD:EE:FF) for better readability in MongoDB
+                String formattedMac = formatMacAddressWithColons(macAddress);
                 
                 NewDeviceHistory historyEntry = new NewDeviceHistory();
                 historyEntry.setIpAddress((String) device.get("ipAddress"));
                 historyEntry.setHostname((String) device.get("hostname"));
-                historyEntry.setMacAddress(normalizedMac);
+                historyEntry.setMacAddress(formattedMac);
                 historyEntry.setVendor((String) device.get("vendor"));
                 historyEntry.setDeviceType((String) device.get("deviceType"));
                 historyEntry.setOs((String) device.get("os"));
@@ -360,5 +361,31 @@ public class NetworkScanScheduler {
             return "";
         }
         return macAddress.trim().toUpperCase().replaceAll("[:-]", "").replaceAll("\\s", "");
+    }
+    
+    /**
+     * Format MAC address with colons (e.g., AA:BB:CC:DD:EE:FF)
+     * Normalizes first, then adds colons every 2 characters
+     */
+    private String formatMacAddressWithColons(String macAddress) {
+        if (macAddress == null || macAddress.trim().isEmpty()) {
+            return "";
+        }
+        
+        // First normalize (remove separators and convert to uppercase)
+        String normalized = normalizeMacAddress(macAddress);
+        
+        // If normalized MAC is not exactly 12 characters, return as-is
+        if (normalized.length() != 12) {
+            return normalized;
+        }
+        
+        // Add colons every 2 characters: AA:BB:CC:DD:EE:FF
+        return normalized.substring(0, 2) + ":" +
+               normalized.substring(2, 4) + ":" +
+               normalized.substring(4, 6) + ":" +
+               normalized.substring(6, 8) + ":" +
+               normalized.substring(8, 10) + ":" +
+               normalized.substring(10, 12);
     }
 }

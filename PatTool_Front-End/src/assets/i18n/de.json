@@ -153,6 +153,8 @@
         "ADD_MAPPING": "Hinzufügen",
         "EDIT_MAPPING": "Bearbeiten",
         "DELETE_MAPPING": "Löschen",
+        "DELETE_MAPPING_CONFIRM": "Sind Sie sicher, dass Sie die Zuordnung für das Gerät \"{{deviceName}}\" ({{ipAddress}}) löschen möchten? Diese Aktion kann nicht rückgängig gemacht werden.",
+        "DELETING": "Löschen...",
         "SAVE": "Speichern",
         "CANCEL": "Abbrechen",
         "SAVING": "Speichern...",

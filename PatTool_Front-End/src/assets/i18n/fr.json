@@ -145,6 +145,8 @@
         "ADD_MAPPING": "Ajouter",
         "EDIT_MAPPING": "Modifier",
         "DELETE_MAPPING": "Supprimer",
+        "DELETE_MAPPING_CONFIRM": "Êtes-vous sûr de vouloir supprimer le mapping de l'appareil \"{{deviceName}}\" ({{ipAddress}}) ? Cette action est irréversible.",
+        "DELETING": "Suppression...",
         "SAVE": "Enregistrer",
         "CANCEL": "Annuler",
         "SAVING": "Enregistrement...",

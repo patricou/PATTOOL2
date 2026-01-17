@@ -150,6 +150,8 @@
         "ADD_MAPPING": "הוסף",
         "EDIT_MAPPING": "ערוך",
         "DELETE_MAPPING": "מחק",
+        "DELETE_MAPPING_CONFIRM": "האם אתה בטוח שברצונך למחוק את המיפוי של המכשיר \"{{deviceName}}\" ({{ipAddress}})? פעולה זו אינה ניתנת לביטול.",
+        "DELETING": "מוחק...",
         "SAVE": "שמור",
         "CANCEL": "ביטול",
         "SAVING": "שומר...",

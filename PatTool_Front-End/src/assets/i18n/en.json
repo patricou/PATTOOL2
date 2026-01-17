@@ -150,6 +150,8 @@
         "ADD_MAPPING": "Add",
         "EDIT_MAPPING": "Edit",
         "DELETE_MAPPING": "Delete",
+        "DELETE_MAPPING_CONFIRM": "Are you sure you want to delete the mapping for device \"{{deviceName}}\" ({{ipAddress}})? This action cannot be undone.",
+        "DELETING": "Deleting...",
         "SAVE": "Save",
         "CANCEL": "Cancel",
         "SAVING": "Saving...",
