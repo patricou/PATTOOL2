@@ -308,5 +308,39 @@ export class LocalNetworkService {
       )
     );
   }
+
+  /**
+   * Get all new device history entries from MongoDB
+   */
+  getNewDeviceHistory(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + "network/new-device-history", { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Clear all new device history entries
+   */
+  clearNewDeviceHistory(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete(this.API_URL + "network/new-device-history", { headers: headers })
+      )
+    );
+  }
+
+  /**
+   * Delete new device history entries by MAC address
+   */
+  deleteNewDeviceHistoryByMac(macAddress: string): Observable<any> {
+    const encodedMac = encodeURIComponent(macAddress);
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.delete(this.API_URL + "network/new-device-history/by-mac/" + encodedMac, { headers: headers })
+      )
+    );
+  }
 }
 

@@ -2,6 +2,8 @@ package com.pat.service;
 
 import com.pat.repo.NetworkDeviceMappingRepository;
 import com.pat.repo.MacVendorMappingRepository;
+import com.pat.repo.NewDeviceHistoryRepository;
+import com.pat.repo.domain.NewDeviceHistory;
 import com.pat.repo.domain.NetworkDeviceMapping;
 import com.pat.repo.domain.MacVendorMapping;
 import org.slf4j.Logger;
@@ -26,6 +28,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.Date;
 
 @Service
 public class LocalNetworkService {
@@ -39,6 +43,7 @@ public class LocalNetworkService {
     private final RestTemplate restTemplate;
     private final NetworkDeviceMappingRepository deviceMappingRepository;
     private final MacVendorMappingRepository macVendorMappingRepository;
+    private final NewDeviceHistoryRepository newDeviceHistoryRepository;
     private Map<String, String> routerDeviceMap = null; // Cache for router device names
     private final Map<String, String> vendorCache = new ConcurrentHashMap<>(); // In-memory cache for vendor lookups (OUI -> Vendor) - deprecated, use MongoDB instead
     
@@ -56,10 +61,11 @@ public class LocalNetworkService {
     
     
     @Autowired
-    public LocalNetworkService(RestTemplate restTemplate, NetworkDeviceMappingRepository deviceMappingRepository, MacVendorMappingRepository macVendorMappingRepository) {
+    public LocalNetworkService(RestTemplate restTemplate, NetworkDeviceMappingRepository deviceMappingRepository, MacVendorMappingRepository macVendorMappingRepository, NewDeviceHistoryRepository newDeviceHistoryRepository) {
         this.restTemplate = restTemplate;
         this.deviceMappingRepository = deviceMappingRepository;
         this.macVendorMappingRepository = macVendorMappingRepository;
+        this.newDeviceHistoryRepository = newDeviceHistoryRepository;
         log.debug("LocalNetworkService initialized. Device mapping repository: {}", deviceMappingRepository != null ? "OK" : "NULL");
         // Device mappings are now managed exclusively through MongoDB (CRUD operations via API)
     }
@@ -3400,6 +3406,111 @@ public class LocalNetworkService {
             log.debug("ARP lookup failed for {}: {}", ip, e.getMessage());
         }
         return null;
+    }
+
+    /**
+     * Detect and save new devices to history in MongoDB
+     * Compares found devices with known devices in MongoDB and saves new ones to history
+     * @param foundDevices List of devices found during scan
+     */
+    public void detectAndSaveNewDevicesToHistory(List<Map<String, Object>> foundDevices) {
+        if (foundDevices == null || foundDevices.isEmpty()) {
+            log.debug("No devices found, skipping new device detection");
+            return;
+        }
+
+        try {
+            // Load all existing device mappings from MongoDB
+            List<NetworkDeviceMapping> existingMappings = deviceMappingRepository.findAll();
+            Set<String> knownMacAddresses = existingMappings.stream()
+                    .map(NetworkDeviceMapping::getMacAddress)
+                    .filter(mac -> mac != null && !mac.trim().isEmpty())
+                    .map(this::normalizeMacAddress)
+                    .collect(Collectors.toSet());
+
+            log.debug("Loaded {} existing device mappings from MongoDB", existingMappings.size());
+            log.debug("Known MAC addresses: {}", knownMacAddresses.size());
+
+            // Find new devices (by MAC address)
+            List<Map<String, Object>> newDevices = new ArrayList<>();
+            for (Map<String, Object> device : foundDevices) {
+                String macAddress = (String) device.get("macAddress");
+                if (macAddress != null && !macAddress.trim().isEmpty()) {
+                    String normalizedMac = normalizeMacAddress(macAddress);
+                    if (!knownMacAddresses.contains(normalizedMac)) {
+                        // This is a new device
+                        newDevices.add(device);
+                        log.debug("New device detected: IP={}, MAC={}, Hostname={}", 
+                                device.get("ipAddress"), macAddress, device.get("hostname"));
+                    }
+                }
+            }
+
+            if (!newDevices.isEmpty()) {
+                log.debug("Saving {} new device(s) to history in MongoDB", newDevices.size());
+                saveNewDevicesToHistory(newDevices);
+            } else {
+                log.debug("No new devices found - history update skipped");
+            }
+        } catch (Exception e) {
+            log.error("Error detecting and saving new devices to history: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Save new devices to history in MongoDB
+     * @param newDevices List of new devices to save
+     */
+    private void saveNewDevicesToHistory(List<Map<String, Object>> newDevices) {
+        try {
+            for (Map<String, Object> device : newDevices) {
+                String macAddress = (String) device.get("macAddress");
+                
+                // Skip if no MAC address
+                if (macAddress == null || macAddress.trim().isEmpty()) {
+                    continue;
+                }
+                
+                // Always add a new entry to history, even if device already exists (to track detection times)
+                String normalizedMac = normalizeMacAddress(macAddress);
+                
+                NewDeviceHistory historyEntry = new NewDeviceHistory();
+                historyEntry.setIpAddress((String) device.get("ipAddress"));
+                historyEntry.setHostname((String) device.get("hostname"));
+                historyEntry.setMacAddress(normalizedMac);
+                historyEntry.setVendor((String) device.get("vendor"));
+                historyEntry.setDeviceType((String) device.get("deviceType"));
+                historyEntry.setOs((String) device.get("os"));
+                
+                // Convert open ports list to comma-separated string
+                @SuppressWarnings("unchecked")
+                List<Integer> openPorts = (List<Integer>) device.get("openPorts");
+                if (openPorts != null && !openPorts.isEmpty()) {
+                    String portsStr = openPorts.stream()
+                            .map(String::valueOf)
+                            .collect(Collectors.joining(", "));
+                    historyEntry.setOpenPorts(portsStr);
+                }
+                
+                historyEntry.setDetectionDate(new Date());
+                
+                newDeviceHistoryRepository.save(historyEntry);
+                log.debug("Saved new device detection to history: IP={}, MAC={}, DetectionDate={}", 
+                        historyEntry.getIpAddress(), historyEntry.getMacAddress(), historyEntry.getDetectionDate());
+            }
+        } catch (Exception e) {
+            log.error("Error saving new devices to history: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Normalize MAC address for comparison (uppercase, remove separators)
+     */
+    private String normalizeMacAddress(String macAddress) {
+        if (macAddress == null || macAddress.trim().isEmpty()) {
+            return "";
+        }
+        return macAddress.trim().toUpperCase().replaceAll("[:-]", "").replaceAll("\\s", "");
     }
 
 }

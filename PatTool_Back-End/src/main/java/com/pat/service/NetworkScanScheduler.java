@@ -2,7 +2,9 @@ package com.pat.service;
 
 import com.pat.controller.MailController;
 import com.pat.repo.NetworkDeviceMappingRepository;
+import com.pat.repo.NewDeviceHistoryRepository;
 import com.pat.repo.domain.NetworkDeviceMapping;
+import com.pat.repo.domain.NewDeviceHistory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,6 +17,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.Date;
 
 /**
  * Scheduled task to scan the network and send email notification if new devices are found
@@ -31,6 +34,9 @@ public class NetworkScanScheduler {
 
     @Autowired
     private NetworkDeviceMappingRepository deviceMappingRepository;
+
+    @Autowired
+    private NewDeviceHistoryRepository newDeviceHistoryRepository;
 
     @Autowired
     private MailController mailController;
@@ -163,8 +169,11 @@ public class NetworkScanScheduler {
             log.debug("Network scan completed in {} ms. Found {} devices, {} new devices", 
                     scanDuration, foundDevices.size(), newDevices.size());
 
-            // Send email if new devices are found
+            // Save new devices to history in MongoDB
             if (!newDevices.isEmpty()) {
+                log.debug("Saving {} new device(s) to history in MongoDB", newDevices.size());
+                saveNewDevicesToHistory(newDevices);
+                
                 log.debug("Sending email notification for {} new device(s)", newDevices.size());
                 sendNewDeviceNotificationEmail(newDevices);
             } else {
@@ -176,6 +185,51 @@ public class NetworkScanScheduler {
         }
 
         log.debug("========== SCHEDULED NETWORK SCAN COMPLETED ==========");
+    }
+
+    /**
+     * Save new devices to history in MongoDB
+     */
+    private void saveNewDevicesToHistory(List<Map<String, Object>> newDevices) {
+        try {
+            for (Map<String, Object> device : newDevices) {
+                String macAddress = (String) device.get("macAddress");
+                
+                // Skip if no MAC address
+                if (macAddress == null || macAddress.trim().isEmpty()) {
+                    continue;
+                }
+                
+                // Always add a new entry to history, even if device already exists (to track detection times)
+                String normalizedMac = normalizeMacAddress(macAddress);
+                
+                NewDeviceHistory historyEntry = new NewDeviceHistory();
+                historyEntry.setIpAddress((String) device.get("ipAddress"));
+                historyEntry.setHostname((String) device.get("hostname"));
+                historyEntry.setMacAddress(normalizedMac);
+                historyEntry.setVendor((String) device.get("vendor"));
+                historyEntry.setDeviceType((String) device.get("deviceType"));
+                historyEntry.setOs((String) device.get("os"));
+                
+                // Convert open ports list to comma-separated string
+                @SuppressWarnings("unchecked")
+                List<Integer> openPorts = (List<Integer>) device.get("openPorts");
+                if (openPorts != null && !openPorts.isEmpty()) {
+                    String portsStr = openPorts.stream()
+                            .map(String::valueOf)
+                            .collect(Collectors.joining(", "));
+                    historyEntry.setOpenPorts(portsStr);
+                }
+                
+                historyEntry.setDetectionDate(new Date());
+                
+                newDeviceHistoryRepository.save(historyEntry);
+                log.debug("Saved new device detection to history: IP={}, MAC={}, DetectionDate={}", 
+                        historyEntry.getIpAddress(), historyEntry.getMacAddress(), historyEntry.getDetectionDate());
+            }
+        } catch (Exception e) {
+            log.error("Error saving new devices to history: {}", e.getMessage(), e);
+        }
     }
 
     /**

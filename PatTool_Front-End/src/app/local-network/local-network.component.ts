@@ -123,6 +123,17 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
   macVendorSortDirection: 'asc' | 'desc' = 'asc';
   private macVendorMappingsModalRef?: NgbModalRef;
 
+  // New Device History modal
+  @ViewChild('newDeviceHistoryModal') newDeviceHistoryModal!: TemplateRef<any>;
+  newDeviceHistory: any[] = [];
+  sortedNewDeviceHistory: any[] = [];
+  isLoadingNewDeviceHistory: boolean = false;
+  newDeviceHistoryError: string = '';
+  newDeviceHistoryInfo: string = '';
+  newDeviceHistorySortColumn: string = '';
+  newDeviceHistorySortDirection: 'asc' | 'desc' = 'desc';
+  private newDeviceHistoryModalRef?: NgbModalRef;
+
   // MAC Vendor mapping form
   editingMacVendorMapping: any = null;
   showMacVendorMappingForm: boolean = false;
@@ -1509,6 +1520,8 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
       : this.localNetworkService.createDeviceMapping(mappingData);
 
     const isEdit = !!this.editingMapping;
+    const macAddressToCleanup = this.mappingForm.macAddress ? this.mappingForm.macAddress.trim() : null;
+    
     operation.subscribe({
       next: (response) => {
         this.ngZone.run(() => {
@@ -1520,6 +1533,11 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
           this.editingMapping = null;
           this.mappingsError = '';
           this.cdr.detectChanges();
+          
+          // If this was a new device (not edit) and has MAC address, remove from history
+          if (!isEdit && macAddressToCleanup) {
+            this.cleanupHistoryForMacAddress(macAddressToCleanup);
+          }
           
           // Reload mappings after save
           setTimeout(() => {
@@ -2044,6 +2062,265 @@ export class LocalNetworkComponent implements OnInit, OnDestroy {
           this.cdr.detectChanges();
           console.error('Error updating scheduler status:', error);
           alert('Erreur lors de la mise à jour du statut du planificateur: ' + (error.error?.message || error.message || 'Erreur inconnue'));
+        });  
+      }
+    });
+  }
+
+  /**
+   * Open new device history modal and load data from MongoDB
+   */
+  openNewDeviceHistoryModal(): void {
+    this.isLoadingNewDeviceHistory = true;
+    this.newDeviceHistory = [];
+    this.newDeviceHistoryError = '';
+    this.newDeviceHistoryInfo = '';
+    
+    this.newDeviceHistoryModalRef = this.modalService.open(this.newDeviceHistoryModal, {
+      size: 'xl',
+      windowClass: 'slideshow-modal-wide',
+      backdrop: 'static',
+      keyboard: true
+    });
+
+    this.loadNewDeviceHistory();
+  }
+
+  /**
+   * Load new device history from MongoDB
+   */
+  loadNewDeviceHistory(): void {
+    this.isLoadingNewDeviceHistory = true;
+    this.newDeviceHistoryError = '';
+    this.newDeviceHistoryInfo = '';
+    
+    this.localNetworkService.getNewDeviceHistory().subscribe({
+      next: (response) => {
+        if (response && response.history) {
+          this.newDeviceHistory = response.history;
+          this.newDeviceHistoryError = '';
+          if (this.newDeviceHistory.length === 0) {
+            this.newDeviceHistoryInfo = 'Aucun historique trouvé. L\'historique sera rempli automatiquement lorsque de nouveaux appareils seront détectés.';
+          }
+        } else if (response && Array.isArray(response)) {
+          this.newDeviceHistory = response;
+          this.newDeviceHistoryError = '';
+          if (this.newDeviceHistory.length === 0) {
+            this.newDeviceHistoryInfo = 'Aucun historique trouvé. L\'historique sera rempli automatiquement lorsque de nouveaux appareils seront détectés.';
+          }
+        } else {
+          this.newDeviceHistory = [];
+          this.newDeviceHistoryInfo = this.translateService.instant('LOCAL_NETWORK.NO_HISTORY_DATA');
+        }
+        
+        // Initialize sorted array - sort by detection date descending by default
+        this.newDeviceHistorySortColumn = 'detectionDate';
+        this.newDeviceHistorySortDirection = 'desc';
+        this.sortedNewDeviceHistory = [...this.newDeviceHistory].sort((a, b) => {
+          const aDate = a.detectionDate ? new Date(a.detectionDate).getTime() : 0;
+          const bDate = b.detectionDate ? new Date(b.detectionDate).getTime() : 0;
+          return bDate - aDate; // Descending by default (newest first)
+        });
+        
+        this.isLoadingNewDeviceHistory = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.isLoadingNewDeviceHistory = false;
+        this.newDeviceHistory = [];
+        
+        if (error?.status === 403) {
+          this.newDeviceHistoryError = 'Accès refusé. Vous devez avoir le rôle administrateur.';
+        } else if (error?.status === 404) {
+          this.newDeviceHistoryError = 'Endpoint non trouvé. Vérifiez la configuration du backend.';
+        } else if (error?.error?.message) {
+          this.newDeviceHistoryError = `Erreur: ${error.error.message}`;
+        } else {
+          this.newDeviceHistoryError = `Erreur lors du chargement: ${error?.message || 'Erreur inconnue'}`;
+        }
+        
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /**
+   * Close new device history modal
+   */
+  closeNewDeviceHistoryModal(): void {
+    if (this.newDeviceHistoryModalRef) {
+      this.newDeviceHistoryModalRef.close();
+      this.newDeviceHistoryModalRef = undefined;
+    }
+  }
+
+  /**
+   * Sort new device history by column
+   */
+  sortNewDeviceHistory(column: string): void {
+    if (this.newDeviceHistorySortColumn === column) {
+      // Toggle direction if same column
+      this.newDeviceHistorySortDirection = this.newDeviceHistorySortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      // New column, start with descending for date, ascending for others
+      this.newDeviceHistorySortColumn = column;
+      this.newDeviceHistorySortDirection = column === 'detectionDate' ? 'desc' : 'asc';
+    }
+
+    this.sortedNewDeviceHistory = [...this.newDeviceHistory].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      if (column === 'ipAddress') {
+        aValue = a.ipAddress || '';
+        bValue = b.ipAddress || '';
+        // Sort IP addresses numerically
+        const aParts = aValue.split('.').map((p: string) => parseInt(p, 10));
+        const bParts = bValue.split('.').map((p: string) => parseInt(p, 10));
+        for (let i = 0; i < 4; i++) {
+          const aPart = aParts[i] || 0;
+          const bPart = bParts[i] || 0;
+          if (aPart !== bPart) {
+            return this.newDeviceHistorySortDirection === 'asc' ? aPart - bPart : bPart - aPart;
+          }
+        }
+        return 0;
+      } else if (column === 'hostname') {
+        aValue = (a.hostname || '').toLowerCase();
+        bValue = (b.hostname || '').toLowerCase();
+      } else if (column === 'macAddress') {
+        aValue = (a.macAddress || '').toLowerCase();
+        bValue = (b.macAddress || '').toLowerCase();
+      } else if (column === 'vendor') {
+        aValue = (a.vendor || '').toLowerCase();
+        bValue = (b.vendor || '').toLowerCase();
+      } else if (column === 'deviceType') {
+        aValue = (a.deviceType || '').toLowerCase();
+        bValue = (b.deviceType || '').toLowerCase();
+      } else if (column === 'detectionDate') {
+        aValue = a.detectionDate ? new Date(a.detectionDate).getTime() : 0;
+        bValue = b.detectionDate ? new Date(b.detectionDate).getTime() : 0;
+      } else {
+        return 0;
+      }
+
+      if (aValue < bValue) {
+        return this.newDeviceHistorySortDirection === 'asc' ? -1 : 1;
+      } else if (aValue > bValue) {
+        return this.newDeviceHistorySortDirection === 'asc' ? 1 : -1;
+      }
+      return 0;
+    });
+
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Get sort icon for new device history column header
+   */
+  getNewDeviceHistorySortIcon(column: string): string {
+    if (this.newDeviceHistorySortColumn !== column) {
+      return 'fa-sort';
+    }
+    return this.newDeviceHistorySortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down';
+  }
+
+  /**
+   * Clear all new device history entries
+   */
+  clearNewDeviceHistory(): void {
+    const confirmMessage = this.translateService.instant('LOCAL_NETWORK.CLEAR_HISTORY_CONFIRM');
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    this.newDeviceHistoryError = '';
+    this.newDeviceHistoryInfo = 'Suppression en cours...';
+
+    this.localNetworkService.clearNewDeviceHistory().subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          this.newDeviceHistoryInfo = `Historique vidé avec succès. ${response.deletedCount || 0} entrée(s) supprimée(s).`;
+          this.newDeviceHistoryError = '';
+          this.cdr.detectChanges();
+          
+          // Reload history after clear
+          setTimeout(() => {
+            this.ngZone.run(() => {
+              this.loadNewDeviceHistory();
+            });
+          }, 500);
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          this.newDeviceHistoryInfo = '';
+          if (error?.error?.message) {
+            this.newDeviceHistoryError = `Erreur: ${error.error.message}`;
+          } else if (error?.error?.error) {
+            this.newDeviceHistoryError = `Erreur: ${error.error.error}`;
+          } else {
+            this.newDeviceHistoryError = `Erreur: ${error?.message || 'Erreur inconnue'}`;
+          }
+          this.cdr.detectChanges();
+        });
+      }
+    });
+  }
+
+  /**
+   * Add a history entry to MongoDB and remove all entries with the same MAC address from history
+   */
+  addHistoryEntryToMongoDB(entry: any): void {
+    if (!entry || !entry.macAddress) {
+      const errorMsg = this.translateService.instant('LOCAL_NETWORK.ERROR_ADDING_DEVICE_NO_MAC');
+      alert(errorMsg);
+      return;
+    }
+
+    // Convert history entry to NetworkDevice format
+    const device: NetworkDevice = {
+      ipAddress: entry.ipAddress || '',
+      hostname: entry.hostname || null,
+      macAddress: entry.macAddress || '',
+      vendor: entry.vendor || null,
+      deviceType: entry.deviceType || null,
+      os: entry.os || null,
+      openPorts: entry.openPorts ? entry.openPorts.split(', ').map((p: string) => parseInt(p.trim(), 10)).filter((p: number) => !isNaN(p)) : [],
+      status: 'online',
+      lastSeen: entry.detectionDate ? new Date(entry.detectionDate) : new Date()
+    };
+
+    // Open the device mappings modal and pre-populate form with device data
+    // The cleanup will happen automatically in saveDeviceMapping when the device is saved
+    this.openMappingModalForDevice(device);
+  }
+
+  /**
+   * Clean up history entries for a specific MAC address after device is saved to MongoDB
+   */
+  private cleanupHistoryForMacAddress(macAddress: string): void {
+    if (!macAddress || macAddress.trim() === '') {
+      return;
+    }
+
+    // Normalize MAC address (remove colons, dashes, spaces, convert to uppercase)
+    const normalizedMac = macAddress.trim().toUpperCase().replace(/[:-]/g, '').replace(/\s/g, '');
+
+    // Delete all history entries with this MAC address
+    this.localNetworkService.deleteNewDeviceHistoryByMac(normalizedMac).subscribe({
+      next: (response) => {
+        this.ngZone.run(() => {
+          console.log(`Removed ${response.deletedCount || 0} history entries for MAC: ${normalizedMac}`);
+          // Reload history after cleanup if modal is still open
+          if (this.newDeviceHistoryModalRef) {
+            this.loadNewDeviceHistory();
+          }
+        });
+      },
+      error: (error) => {
+        this.ngZone.run(() => {
+          console.error(`Error removing history entries for MAC ${normalizedMac}:`, error);
         });
       }
     });

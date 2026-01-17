@@ -87,11 +87,11 @@
                                         <i class="fa fa-external-link"></i>
                                     </div>
                                     <div class="link-info">
-                                        <a href="{{ u.url }}" target="_blank" class="link-name" (click)="$event.stopPropagation()">
+                                        <a href="{{ u.url }}" target="_blank" class="link-name" [title]="u.url" (click)="$event.stopPropagation()">
                                             {{ u.linkName }}
                                         </a>
                                         <div class="link-meta">
-                                            <span class="link-url">{{ u.url }}</span>
+                                            <span class="link-url">{{ u.linkDescription || u.url }}</span>
                                             <span class="link-author" *ngIf="u.author">
                                                 <i class="fa fa-user"></i> {{ u.author.userName }} ({{ u.author.firstName }} {{ u.author.lastName }})
                                             </span>

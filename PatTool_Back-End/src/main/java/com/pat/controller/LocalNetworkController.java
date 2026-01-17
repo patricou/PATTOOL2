@@ -2,6 +2,7 @@ package com.pat.controller;
 
 import com.pat.repo.NetworkDeviceMappingRepository;
 import com.pat.repo.MacVendorMappingRepository;
+import com.pat.repo.NewDeviceHistoryRepository;
 import com.pat.service.LocalNetworkService;
 import com.pat.service.NetworkScanScheduler;
 import org.slf4j.Logger;
@@ -33,13 +34,15 @@ public class LocalNetworkController {
     private final LocalNetworkService localNetworkService;
     private final NetworkDeviceMappingRepository deviceMappingRepository;
     private final MacVendorMappingRepository macVendorMappingRepository;
+    private final NewDeviceHistoryRepository newDeviceHistoryRepository;
     private final NetworkScanScheduler networkScanScheduler;
 
     @Autowired
-    public LocalNetworkController(LocalNetworkService localNetworkService, NetworkDeviceMappingRepository deviceMappingRepository, MacVendorMappingRepository macVendorMappingRepository, NetworkScanScheduler networkScanScheduler) {
+    public LocalNetworkController(LocalNetworkService localNetworkService, NetworkDeviceMappingRepository deviceMappingRepository, MacVendorMappingRepository macVendorMappingRepository, NewDeviceHistoryRepository newDeviceHistoryRepository, NetworkScanScheduler networkScanScheduler) {
         this.localNetworkService = localNetworkService;
         this.deviceMappingRepository = deviceMappingRepository;
         this.macVendorMappingRepository = macVendorMappingRepository;
+        this.newDeviceHistoryRepository = newDeviceHistoryRepository;
         this.networkScanScheduler = networkScanScheduler;
     }
 
@@ -130,12 +133,19 @@ public class LocalNetworkController {
 
                 // Scan network with callback to send devices as they are found
                 final AtomicInteger devicesSent = new AtomicInteger(0);
+                final List<Map<String, Object>> allFoundDevices = new ArrayList<>(); // Collect all devices for history
+                
                 localNetworkService.scanLocalNetworkStreaming(useExternalVendorAPI, (device, progress, total) -> {
                     try {
                         String deviceIp = (String) device.get("ipAddress");
                         String deviceType = (String) device.get("deviceType");
                         String hostname = (String) device.get("hostname");
                         int sentCount = devicesSent.incrementAndGet();
+                        
+                        // Collect device for history check
+                        if (device != null && !device.isEmpty()) {
+                            allFoundDevices.add(new HashMap<>(device)); // Create a copy to avoid modification issues
+                        }
                         
                         String vendor = (String) device.get("vendor");
                         log.debug("[SSE] Sending device #{} via SSE: {} - Type: {} - Hostname: {} - Vendor: {} (progress: {}/{})", 
@@ -176,6 +186,12 @@ public class LocalNetworkController {
                 });
                 
                 log.debug("[{}] Total devices sent via SSE: {}", streamId, devicesSent.get());
+                
+                // Detect and save new devices to history
+                if (!allFoundDevices.isEmpty()) {
+                    log.debug("[{}] Checking for new devices and saving to history...", streamId);
+                    localNetworkService.detectAndSaveNewDevicesToHistory(allFoundDevices);
+                }
 
                 log.debug("[{}] Network scan service completed. Sending scan-completed event...", streamId);
 
@@ -907,6 +923,139 @@ public class LocalNetworkController {
             log.debug("Error setting scan scheduler enabled status", e);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "Failed to set scheduler status");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Get all new device history entries from MongoDB
+     */
+    @GetMapping("/new-device-history")
+    public ResponseEntity<?> getNewDeviceHistory() {
+        log.debug("========== GET NEW DEVICE HISTORY REQUESTED ==========");
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            List<com.pat.repo.domain.NewDeviceHistory> historyEntries = newDeviceHistoryRepository.findAllByOrderByDetectionDateDesc();
+            log.debug("Retrieved {} new device history entries from repository", historyEntries.size());
+            
+            List<Map<String, Object>> responseList = new ArrayList<>();
+            for (com.pat.repo.domain.NewDeviceHistory entry : historyEntries) {
+                Map<String, Object> entryData = new HashMap<>();
+                entryData.put("id", entry.getId());
+                entryData.put("ipAddress", entry.getIpAddress());
+                entryData.put("hostname", entry.getHostname());
+                entryData.put("macAddress", entry.getMacAddress());
+                entryData.put("vendor", entry.getVendor());
+                entryData.put("deviceType", entry.getDeviceType());
+                entryData.put("os", entry.getOs());
+                entryData.put("openPorts", entry.getOpenPorts());
+                entryData.put("detectionDate", entry.getDetectionDate());
+                responseList.add(entryData);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("history", responseList);
+            response.put("count", responseList.size());
+            
+            log.debug("Returning {} new device history entries to client", responseList.size());
+            log.debug("========== GET NEW DEVICE HISTORY COMPLETED ==========");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.debug("========== ERROR GETTING NEW DEVICE HISTORY ==========");
+            log.debug("Error getting new device history", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to get history");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Delete new device history entries by MAC address
+     */
+    @DeleteMapping("/new-device-history/by-mac/{macAddress}")
+    public ResponseEntity<?> deleteNewDeviceHistoryByMac(@PathVariable String macAddress) {
+        log.debug("========== DELETE NEW DEVICE HISTORY BY MAC REQUESTED ==========");
+        log.debug("MAC Address: {}", macAddress);
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            // Normalize MAC address for comparison
+            String normalizedMac = macAddress.trim().toUpperCase().replaceAll("[:-]", "").replaceAll("\\s", "");
+            
+            List<com.pat.repo.domain.NewDeviceHistory> entriesToDelete = newDeviceHistoryRepository.findByMacAddress(normalizedMac);
+            long countBefore = entriesToDelete.size();
+            
+            if (countBefore > 0) {
+                newDeviceHistoryRepository.deleteAll(entriesToDelete);
+                log.debug("Deleted {} new device history entries with MAC: {}", countBefore, normalizedMac);
+            } else {
+                log.debug("No history entries found with MAC: {}", normalizedMac);
+            }
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "New device history entries deleted successfully");
+            response.put("deletedCount", countBefore);
+            response.put("macAddress", normalizedMac);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.debug("========== ERROR DELETING NEW DEVICE HISTORY BY MAC ==========");
+            log.debug("Error deleting new device history by MAC", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to delete history entries");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * Delete all new device history entries
+     */
+    @DeleteMapping("/new-device-history")
+    public ResponseEntity<?> clearNewDeviceHistory() {
+        log.debug("========== CLEAR NEW DEVICE HISTORY REQUESTED ==========");
+        
+        if (!hasAdminRole()) {
+            log.debug("Access denied: Admin role required");
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Unauthorized");
+            errorResponse.put("message", "Admin role required");
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
+        }
+
+        try {
+            long countBefore = newDeviceHistoryRepository.count();
+            newDeviceHistoryRepository.deleteAll();
+            log.debug("Deleted {} new device history entries", countBefore);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "New device history cleared successfully");
+            response.put("deletedCount", countBefore);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.debug("========== ERROR CLEARING NEW DEVICE HISTORY ==========");
+            log.debug("Error clearing new device history", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to clear history");
             errorResponse.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
