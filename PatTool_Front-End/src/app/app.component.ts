@@ -37,6 +37,7 @@ export class AppComponent implements OnInit {
     public showToolsDropdown: boolean = false;
     public showLinksDropdown: boolean = false;
     public showIotDropdown: boolean = false;
+    public showApiDropdown: boolean = false;
     public showLanguageSubmenu: boolean = false;
     public showDocumentationSubmenu: boolean = false;
     public isDragOver: boolean = false;
@@ -127,7 +128,7 @@ export class AppComponent implements OnInit {
 
     navigateToHome(event: Event): void {
         // Only navigate if no dropdowns are open and it's not a dropdown trigger
-        if (!this.showEventsDropdown && !this.showIADropdown && !this.showToolsDropdown && !this.showIotDropdown) {
+        if (!this.showEventsDropdown && !this.showIADropdown && !this.showToolsDropdown && !this.showIotDropdown && !this.showApiDropdown) {
             event.preventDefault();
             event.stopPropagation();
             this.router.navigate(['']);
@@ -972,6 +973,7 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
         this.showIotDropdown = false; // Close other dropdown
+        this.showApiDropdown = false; // Close other dropdown
     }
 
     toggleIADropdown(event: Event): void {
@@ -982,6 +984,7 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
         this.showIotDropdown = false; // Close other dropdown
+        this.showApiDropdown = false; // Close other dropdown
     }
 
     toggleLinksDropdown(event: Event): void {
@@ -992,6 +995,7 @@ export class AppComponent implements OnInit {
         this.showIADropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
         this.showIotDropdown = false; // Close other dropdown
+        this.showApiDropdown = false; // Close other dropdown
     }
 
     toggleIotDropdown(event: Event): void {
@@ -1002,6 +1006,18 @@ export class AppComponent implements OnInit {
         this.showIADropdown = false; // Close other dropdown
         this.showToolsDropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
+        this.showApiDropdown = false; // Close other dropdown
+    }
+
+    toggleApiDropdown(event: Event): void {
+        event.preventDefault();
+        event.stopPropagation();
+        this.showApiDropdown = !this.showApiDropdown;
+        this.showEventsDropdown = false; // Close other dropdown
+        this.showIADropdown = false; // Close other dropdown
+        this.showToolsDropdown = false; // Close other dropdown
+        this.showLinksDropdown = false; // Close other dropdown
+        this.showIotDropdown = false; // Close other dropdown
     }
 
     toggleToolsDropdown(event: Event): void {
@@ -1012,6 +1028,7 @@ export class AppComponent implements OnInit {
         this.showIADropdown = false; // Close other dropdown
         this.showLinksDropdown = false; // Close other dropdown
         this.showIotDropdown = false; // Close other dropdown
+        this.showApiDropdown = false; // Close other dropdown
         if (!this.showToolsDropdown) {
             this.showLanguageSubmenu = false; // Close language submenu when tools dropdown closes
             this.showDocumentationSubmenu = false; // Close documentation submenu when tools dropdown closes
@@ -1255,6 +1272,7 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = false;
         this.showLinksDropdown = false;
         this.showIotDropdown = false;
+        this.showApiDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
     }
@@ -1265,6 +1283,7 @@ export class AppComponent implements OnInit {
         this.showToolsDropdown = false;
         this.showLinksDropdown = false;
         this.showIotDropdown = false;
+        this.showApiDropdown = false;
         this.showLanguageSubmenu = false;
         this.showDocumentationSubmenu = false;
     }

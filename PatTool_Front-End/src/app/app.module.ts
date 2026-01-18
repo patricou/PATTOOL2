@@ -37,6 +37,7 @@ import { SlideshowModalModule } from './shared/slideshow-modal/slideshow-modal.m
 import { TraceViewerModalModule } from './shared/trace-viewer-modal/trace-viewer-modal.module';
 import { CacheService } from './services/cache.service';
 import { FriendsService } from './services/friends.service';
+import { ApiService } from './services/api.service';
 import { AgGridModule } from 'ag-grid-angular';
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 
@@ -109,6 +110,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'system', 
 				loadComponent: () => import('./system/system.component').then(m => m.SystemComponent)
 			},
+			{ 
+				path: 'api/openweathermap', 
+				loadComponent: () => import('./openweathermap/openweathermap.component').then(m => m.OpenWeatherMapComponent)
+			},
 			{ path: '**', component: PageNotFoundComponent }
 		]),
 		NgbModule,
@@ -122,6 +127,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		LocalNetworkService,
 		CacheService,
 		FriendsService, // Provided globally because used by HomeEvenementsComponent (eager-loaded)
+		ApiService,
 		// to be able to do F5 in prod		
 		{ provide: LocationStrategy, useClass: HashLocationStrategy },
 		{ provide: TranslateLoader, useFactory: HttpLoaderFactory, deps: [HttpClient] },

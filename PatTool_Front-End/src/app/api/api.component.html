@@ -1,0 +1,186 @@
+<!-- Standard Title Section -->
+<div class="pat-title">
+    <h2>{{ 'API.TITLE' | translate }}</h2>
+    <app-navigation-buttons></app-navigation-buttons>
+</div>
+
+<!-- Main Content -->
+<div class="container mt-0">
+    <div class="row justify-content-center">
+        <div class="col-12">
+            
+            <!-- API Status Section -->
+            <div class="api-container" *ngIf="apiStatus">
+                <h3 class="api-title">
+                    <i class="fa fa-info-circle"></i> {{ 'API.STATUS' | translate }}
+                </h3>
+                <div class="status-card">
+                    <p><strong>{{ 'API.SERVICE' | translate }}:</strong> {{ apiStatus.service }}</p>
+                    <p><strong>{{ 'API.STATUS_LABEL' | translate }}:</strong> <span class="badge badge-success">{{ apiStatus.status }}</span></p>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="alert alert-danger" *ngIf="errorMessage" role="alert">
+                <i class="fa fa-exclamation-circle"></i> {{ errorMessage }}
+            </div>
+            <div class="alert alert-success" *ngIf="successMessage" role="alert">
+                <i class="fa fa-check-circle"></i> {{ successMessage }}
+            </div>
+
+            <!-- Current Weather Section -->
+            <div class="api-container">
+                <h3 class="api-title">
+                    <i class="fa fa-cloud"></i> {{ 'API.CURRENT_WEATHER' | translate }}
+                </h3>
+                
+                <div class="weather-controls">
+                    <div class="form-group">
+                        <label for="city">{{ 'API.CITY' | translate }}:</label>
+                        <input type="text" 
+                               id="city" 
+                               class="form-control" 
+                               [(ngModel)]="city" 
+                               [placeholder]="'API.CITY_PLACEHOLDER' | translate">
+                    </div>
+                    <div class="form-group">
+                        <label for="countryCode">{{ 'API.COUNTRY_CODE' | translate }}:</label>
+                        <input type="text" 
+                               id="countryCode" 
+                               class="form-control" 
+                               [(ngModel)]="countryCode" 
+                               [placeholder]="'API.COUNTRY_CODE_PLACEHOLDER' | translate">
+                    </div>
+                    <div class="button-group">
+                        <button (click)="getCurrentWeather()" 
+                                class="btn btn-primary" 
+                                [disabled]="isLoadingCurrentWeather">
+                            <i class="fa" [class.fa-cloud]="!isLoadingCurrentWeather" [class.fa-spinner]="isLoadingCurrentWeather" [class.fa-spin]="isLoadingCurrentWeather"></i>
+                            {{ 'API.GET_WEATHER_BY_CITY' | translate }}
+                        </button>
+                    </div>
+                </div>
+
+                <div class="weather-controls mt-3">
+                    <div class="form-group">
+                        <label for="lat">{{ 'API.LATITUDE' | translate }}:</label>
+                        <input type="number" 
+                               id="lat" 
+                               class="form-control" 
+                               [(ngModel)]="lat" 
+                               step="0.0001">
+                    </div>
+                    <div class="form-group">
+                        <label for="lon">{{ 'API.LONGITUDE' | translate }}:</label>
+                        <input type="number" 
+                               id="lon" 
+                               class="form-control" 
+                               [(ngModel)]="lon" 
+                               step="0.0001">
+                    </div>
+                    <div class="button-group">
+                        <button (click)="getCurrentWeatherByCoordinates()" 
+                                class="btn btn-info" 
+                                [disabled]="isLoadingCurrentWeather">
+                            <i class="fa" [class.fa-map-marker]="!isLoadingCurrentWeather" [class.fa-spinner]="isLoadingCurrentWeather" [class.fa-spin]="isLoadingCurrentWeather"></i>
+                            {{ 'API.GET_WEATHER_BY_COORDINATES' | translate }}
+                        </button>
+                        <button (click)="openTraceViewer()" 
+                                class="btn btn-secondary"
+                                title="{{ 'API.VIEW_ON_MAP' | translate }}">
+                            <i class="fa fa-map"></i>
+                            {{ 'API.VIEW_ON_MAP' | translate }}
+                        </button>
+                        <button (click)="openTraceViewerForSelection()" 
+                                class="btn btn-warning"
+                                title="{{ 'API.SELECT_ON_MAP' | translate }}">
+                            <i class="fa fa-crosshairs"></i>
+                            {{ 'API.SELECT_ON_MAP' | translate }}
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Current Weather Results -->
+                <div class="weather-results" *ngIf="currentWeather && !currentWeather.error">
+                    <div class="weather-card">
+                        <h4>
+                            <img [src]="getWeatherIconUrl(currentWeather.weather?.[0]?.icon)" 
+                                 [alt]="currentWeather.weather?.[0]?.description"
+                                 *ngIf="currentWeather.weather?.[0]?.icon">
+                            {{ currentWeather.name }}, {{ currentWeather.sys?.country }}
+                        </h4>
+                        <div class="weather-details">
+                            <div class="detail-item">
+                                <strong>{{ 'API.TEMPERATURE' | translate }}:</strong> {{ formatTemperature(currentWeather.main?.temp) }}
+                            </div>
+                            <div class="detail-item">
+                                <strong>{{ 'API.FEELS_LIKE' | translate }}:</strong> {{ formatTemperature(currentWeather.main?.feels_like) }}
+                            </div>
+                            <div class="detail-item">
+                                <strong>{{ 'API.DESCRIPTION' | translate }}:</strong> {{ currentWeather.weather?.[0]?.description }}
+                            </div>
+                            <div class="detail-item">
+                                <strong>{{ 'API.HUMIDITY' | translate }}:</strong> {{ currentWeather.main?.humidity }}%
+                            </div>
+                            <div class="detail-item">
+                                <strong>{{ 'API.PRESSURE' | translate }}:</strong> {{ currentWeather.main?.pressure }} hPa
+                            </div>
+                            <div class="detail-item">
+                                <strong>{{ 'API.WIND_SPEED' | translate }}:</strong> {{ currentWeather.wind?.speed }} m/s
+                            </div>
+                            <div class="detail-item">
+                                <strong>{{ 'API.VISIBILITY' | translate }}:</strong> {{ currentWeather.visibility ? (currentWeather.visibility / 1000).toFixed(1) + ' km' : ('API.N_A' | translate) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Forecast Section -->
+            <div class="api-container" style="margin-top: 10px;">
+                <h3 class="api-title">
+                    <i class="fa fa-calendar"></i> {{ 'API.FORECAST' | translate }}
+                </h3>
+                
+                <div class="weather-controls">
+                    <button (click)="getForecast()" 
+                            class="btn btn-success" 
+                            [disabled]="isLoadingForecast">
+                        <i class="fa" [class.fa-calendar]="!isLoadingForecast" [class.fa-spinner]="isLoadingForecast" [class.fa-spin]="isLoadingForecast"></i>
+                        {{ 'API.GET_FORECAST' | translate }}
+                    </button>
+                </div>
+
+                <!-- Forecast Results -->
+                <div class="forecast-results" *ngIf="forecast && !forecast.error">
+                    <div class="forecast-header">
+                        <small class="text-muted">{{ 'API.FORECAST_FOR' | translate }} {{ forecast.city?.name }}, {{ forecast.city?.country }}</small>
+                    </div>
+                    <div class="forecast-grid">
+                        <div class="forecast-card" *ngFor="let item of forecast.list?.slice(0, 10)">
+                            <div class="forecast-card-header">
+                                <div class="forecast-time">{{ formatDate(item.dt) }}</div>
+                                <img [src]="getWeatherIconUrl(item.weather?.[0]?.icon)" 
+                                     [alt]="item.weather?.[0]?.description"
+                                     class="forecast-icon-small"
+                                     *ngIf="item.weather?.[0]?.icon">
+                            </div>
+                            <div class="forecast-card-body">
+                                <div class="forecast-temp-main">{{ formatTemperature(item.main?.temp) }}</div>
+                                <div class="forecast-desc-small">{{ item.weather?.[0]?.description }}</div>
+                                <div class="forecast-meta">
+                                    <span class="forecast-meta-item"><i class="fa fa-tint"></i> {{ item.main?.humidity }}%</span>
+                                    <span class="forecast-meta-item"><i class="fa fa-wind"></i> {{ item.wind?.speed }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- Trace Viewer Modal -->
+<app-trace-viewer-modal></app-trace-viewer-modal>

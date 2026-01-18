@@ -91,6 +91,27 @@
                 </a>
             </li>
 
+            <!-- API Dropdown -->
+            <li class="nav-item dropdown">
+                <a class="nav-link dropdown-toggle" 
+                   href="#" 
+                   id="apiDropdown" 
+                   role="button"
+                   (click)="toggleApiDropdown($event)" 
+                   [attr.aria-expanded]="showApiDropdown">
+                    <i class="fa fa-plug"></i> API
+                </a>
+                <ul class="dropdown-menu" 
+                    [class.show]="showApiDropdown" 
+                    aria-labelledby="apiDropdown">
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['api/openweathermap']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-cloud"></i> OpenWeatherMap
+                    </a></li>
+                </ul>
+            </li>
+
             <!-- AI Dropdown -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" 

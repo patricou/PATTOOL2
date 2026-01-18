@@ -1,0 +1,266 @@
+.api-container {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.api-title {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 1rem;
+    border-bottom: 1px solid #007bff;
+    padding-bottom: 5px;
+    font-weight: 600;
+}
+
+.api-title i {
+    font-size: 0.9rem;
+    margin-right: 5px;
+}
+
+.status-card {
+    background: white;
+    padding: 8px;
+    border-radius: 3px;
+    border-left: 3px solid #28a745;
+    font-size: 0.85rem;
+}
+
+.status-card p {
+    margin: 2px 0;
+}
+
+.weather-controls {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.form-group {
+    flex: 1;
+    min-width: 120px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 2px;
+    font-weight: 500;
+    color: #555;
+    font-size: 0.8rem;
+}
+
+.form-group .form-control {
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    height: 28px;
+}
+
+.button-group {
+    display: flex;
+    gap: 5px;
+}
+
+.button-group .btn {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    height: 28px;
+    line-height: 1.2;
+}
+
+.weather-controls .btn {
+    padding: 3px 8px;
+    font-size: 0.75rem;
+    height: 26px;
+    line-height: 1.1;
+}
+
+.weather-controls .btn i {
+    font-size: 0.7rem;
+}
+
+.weather-results {
+    margin-top: 10px;
+}
+
+.weather-card {
+    background: white;
+    padding: 10px;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.weather-card h4 {
+    color: #007bff;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.weather-card h4 img {
+    width: 30px;
+    height: 30px;
+}
+
+.weather-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 6px;
+    font-size: 0.8rem;
+}
+
+.detail-item {
+    padding: 4px 6px;
+    background: #f8f9fa;
+    border-radius: 3px;
+    font-size: 0.8rem;
+}
+
+.detail-item strong {
+    font-size: 0.75rem;
+}
+
+.forecast-results {
+    margin-top: 10px;
+}
+
+.forecast-header {
+    margin-bottom: 6px;
+}
+
+.forecast-header small {
+    font-size: 0.7rem;
+    color: #666;
+}
+
+.forecast-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 4px;
+}
+
+.forecast-card {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 4px;
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.forecast-card:hover {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
+}
+
+.forecast-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3px;
+    padding-bottom: 3px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.forecast-time {
+    font-size: 0.65rem;
+    color: #666;
+    font-weight: 500;
+    flex: 1;
+    text-align: left;
+}
+
+.forecast-icon-small {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.forecast-card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.forecast-temp-main {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #007bff;
+    line-height: 1.2;
+}
+
+.forecast-desc-small {
+    font-size: 0.6rem;
+    color: #555;
+    text-transform: capitalize;
+    line-height: 1.1;
+    margin: 2px 0;
+}
+
+.forecast-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    margin-top: 2px;
+    font-size: 0.6rem;
+    color: #666;
+}
+
+.forecast-meta-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+
+.forecast-meta-item i {
+    font-size: 0.55rem;
+}
+
+.badge-success {
+    background-color: #28a745;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+}
+
+.alert {
+    padding: 6px 10px;
+    margin-bottom: 8px;
+    font-size: 0.8rem;
+}
+
+.alert i {
+    margin-right: 5px;
+}
+
+@media (max-width: 768px) {
+    .forecast-item {
+        grid-template-columns: 1fr;
+        text-align: center;
+        gap: 4px;
+    }
+    
+    .weather-controls {
+        flex-direction: column;
+    }
+    
+    .form-group {
+        width: 100%;
+    }
+    
+    .weather-details {
+        grid-template-columns: 1fr;
+    }
+    
+    .forecast-details {
+        flex-direction: row;
+        justify-content: center;
+    }
+}

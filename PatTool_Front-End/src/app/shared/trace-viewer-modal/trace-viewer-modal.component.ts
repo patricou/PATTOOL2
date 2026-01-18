@@ -37,6 +37,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('traceViewerModal') traceViewerModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@Output() closed = new EventEmitter<void>();
+	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number }>();
 
 	public isLoading = false;
 	public hasError = false;
@@ -54,6 +55,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private overlayLayer?: L.LayerGroup;
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
 	private pendingLocation: { lat: number; lng: number; label?: string } | null = null;
+	private selectionMode: boolean = false;
+	private selectionMarker?: L.Marker;
+	private locationSelectionClickHandler?: (e: L.LeafletMouseEvent) => void;
 
 	private static leafletIconsConfigured = false;
 	private fullscreenChangeHandler?: () => void;
@@ -148,6 +152,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.destroyMap();
 		this.cleanupFullscreenListener();
 		this.cleanupRightClickZoom();
+		this.cleanupLocationSelection();
 	}
 
 	@HostListener('window:keydown.escape', ['$event'])
@@ -190,7 +195,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.open({ blob, fileName });
 	}
 
-	public openAtLocation(lat: number, lng: number, label?: string, eventColor?: { r: number; g: number; b: number }): void {
+	public openAtLocation(lat: number, lng: number, label?: string, eventColor?: { r: number; g: number; b: number }, enableSelection: boolean = false): void {
 		if (Number.isNaN(lat) || Number.isNaN(lng)) {
 			return;
 		}
@@ -205,10 +210,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.eventColor = null;
 		}
 
+		// Store selection mode BEFORE calling open() which resets state
+		this.selectionMode = enableSelection;
+		console.log('openAtLocation called with enableSelection:', enableSelection, 'selectionMode set to:', this.selectionMode);
+
+		// Call open() which will call resetState() and reset selectionMode to false
 		this.open({
 			fileName,
 			location: { lat, lng, label }
 		});
+
+		// Restore selectionMode AFTER open() has reset it
+		this.selectionMode = enableSelection;
+		console.log('SelectionMode restored after open() to:', this.selectionMode);
 	}
 
 	public close(): void {
@@ -323,6 +337,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.ensureMapInitialization();
 		this.tryRenderPendingTrack();
 		this.tryRenderPendingLocation();
+		// Register location selection if in selection mode - wait longer for map to be ready
+		if (this.selectionMode) {
+			console.log('onModalShown: selectionMode is true, will register location selection');
+			setTimeout(() => {
+				console.log('onModalShown: calling registerLocationSelection after timeout');
+				this.registerLocationSelection();
+			}, 500);
+		} else {
+			console.log('onModalShown: selectionMode is false, skipping location selection registration');
+		}
 
 		// Apply event color after modal is fully shown
 		if (this.eventColor) {
@@ -434,7 +458,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 		};
 
 		this.map.whenReady(() => {
+			console.log('Map whenReady callback triggered, selectionMode:', this.selectionMode);
 			invalidate();
+			// Register location selection if in selection mode
+			if (this.selectionMode) {
+				console.log('Map whenReady: selectionMode is true, will register location selection');
+				setTimeout(() => {
+					console.log('Map whenReady: calling registerLocationSelection after timeout');
+					this.registerLocationSelection();
+				}, 300);
+			}
 			// Additional invalidateSize after map is ready
 			setTimeout(() => {
 				this.map?.invalidateSize();
@@ -579,6 +612,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		const { lat, lng, label } = this.pendingLocation;
+		
+		// In selection mode, don't create the standard marker (will be created by registerLocationSelection)
+		// and keep pendingLocation so registerLocationSelection can use it
+		if (this.selectionMode) {
+			// Just set the view and keep pendingLocation for registerLocationSelection
+			this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
+			this.map.setView([lat, lng], 14);
+			return;
+		}
+		
+		// Normal mode: create standard marker
 		this.pendingLocation = null;
 
 		this.overlayLayer.clearLayers();
@@ -783,6 +827,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackStats = null;
 		this.pendingTrackPoints = null;
 		this.pendingLocation = null;
+		this.selectionMode = false;
 		this.destroyMap();
 		this.cdr.detectChanges();
 	}
@@ -790,12 +835,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private destroyMap(): void {
 		if (this.map) {
 			this.cleanupRightClickZoom();
+			this.cleanupLocationSelection();
 			this.map.remove();
 			this.map = undefined;
 		}
 		this.overlayLayer = undefined;
 		this.pendingTrackPoints = null;
 		this.pendingLocation = null;
+		this.selectionMarker = undefined;
+		this.locationSelectionClickHandler = undefined;
 	}
 
 	private translate(key: string, params?: Record<string, any>): string {
@@ -1082,6 +1130,129 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.map.off('contextmenu', this.handleMapContextMenu);
 		const container = this.map.getContainer();
 		container.removeEventListener('contextmenu', this.preventContextMenu);
+	}
+
+	private registerLocationSelection(): void {
+		console.log('registerLocationSelection called', { map: !!this.map, selectionMode: this.selectionMode });
+		if (!this.map || !this.selectionMode) {
+			console.warn('registerLocationSelection aborted: map or selectionMode not set', { map: !!this.map, selectionMode: this.selectionMode });
+			return;
+		}
+		
+		// Clean up any existing handler first
+		if (this.locationSelectionClickHandler) {
+			this.map.off('click', this.locationSelectionClickHandler);
+		}
+		
+		// Create initial marker at current location if pendingLocation exists (blue marker for initial position)
+		if (this.pendingLocation && !this.selectionMarker) {
+			this.createSelectionMarker(this.pendingLocation.lat, this.pendingLocation.lng, true);
+		}
+		
+		// Register click handler for location selection
+		this.locationSelectionClickHandler = (e: L.LeafletMouseEvent) => {
+			console.log('Map clicked for location selection', e.latlng);
+			const lat = e.latlng.lat;
+			const lng = e.latlng.lng;
+			
+			// Create selection marker (will remove previous one if exists)
+			this.createSelectionMarker(lat, lng);
+			
+			// Emit location selected event
+			this.locationSelected.emit({ lat, lng });
+		};
+		
+		this.map.on('click', this.locationSelectionClickHandler);
+		console.log('Location selection click handler registered on map');
+	}
+
+	/**
+	 * Create a selection marker at the specified coordinates
+	 * @param lat Latitude
+	 * @param lng Longitude
+	 * @param isInitial If true, creates a blue marker (initial position), otherwise red (selected position)
+	 */
+	private createSelectionMarker(lat: number, lng: number, isInitial: boolean = false): void {
+		// Remove previous selection marker if exists
+		if (this.selectionMarker) {
+			try {
+				// Try removing from overlayLayer first
+				if (this.overlayLayer && this.overlayLayer.hasLayer(this.selectionMarker)) {
+					this.overlayLayer.removeLayer(this.selectionMarker);
+				}
+				// Also try removing directly from map (in case it was added there)
+				if (this.map && this.map.hasLayer(this.selectionMarker)) {
+					this.map.removeLayer(this.selectionMarker);
+				}
+				// Unbind popup and remove marker completely
+				this.selectionMarker.remove();
+			} catch (e) {
+				console.warn('Error removing previous marker:', e);
+			}
+			this.selectionMarker = undefined;
+		}
+		
+		// Choose color: blue for initial position, red for selected position
+		const markerColor = isInitial ? '#0066FF' : '#FF0000';
+		const markerClassName = isInitial ? 'custom-blue-marker' : 'custom-red-marker';
+		
+		// Create marker icon using SVG divIcon
+		const markerIcon = L.divIcon({
+			className: markerClassName,
+			html: `
+				<div style="width: 25px; height: 41px; position: relative;">
+					<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+						<path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.596 19.404 0 12.5 0z" fill="${markerColor}" stroke="#FFFFFF" stroke-width="1"/>
+						<circle cx="12.5" cy="12.5" r="5" fill="#FFFFFF"/>
+					</svg>
+				</div>
+			`,
+			iconSize: [25, 41],
+			iconAnchor: [12.5, 41],
+			popupAnchor: [0, -41]
+		});
+		
+		// Add new marker at location - add directly to map with high z-index
+		this.selectionMarker = L.marker([lat, lng], {
+			draggable: true,
+			icon: markerIcon,
+			zIndexOffset: 1000,
+			riseOnHover: true,
+			riseOffset: 250
+		}).bindPopup(`${isInitial ? 'Current' : 'Selected'}: ${lat.toFixed(5)}, ${lng.toFixed(5)}`).openPopup();
+		
+		// Add directly to map to ensure it's on top
+		this.selectionMarker.addTo(this.map!);
+		
+		console.log('Selection marker added at', lat, lng, 'isInitial:', isInitial, this.selectionMarker);
+		
+		// Handle marker drag end to update coordinates
+		this.selectionMarker.on('dragend', () => {
+			const pos = this.selectionMarker!.getLatLng();
+			// When dragged, it becomes a selected position (red)
+			this.createSelectionMarker(pos.lat, pos.lng, false);
+			this.locationSelected.emit({ lat: pos.lat, lng: pos.lng });
+		});
+	}
+
+	private cleanupLocationSelection(): void {
+		if (!this.map) {
+			return;
+		}
+		// Remove specific click handler if it exists
+		if (this.locationSelectionClickHandler) {
+			this.map.off('click', this.locationSelectionClickHandler);
+			this.locationSelectionClickHandler = undefined;
+		}
+		if (this.selectionMarker) {
+			// Remove from overlayLayer if it exists there
+			if (this.overlayLayer) {
+				this.overlayLayer.removeLayer(this.selectionMarker);
+			}
+			// Also remove directly from map (in case it was added there)
+			this.map.removeLayer(this.selectionMarker);
+			this.selectionMarker = undefined;
+		}
 	}
 
 	private closeModalInstance(): void {
