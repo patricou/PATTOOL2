@@ -1,0 +1,25 @@
+diff --git a/node_modules/ng2-charts/lib/ng-charts.provider.d.ts b/node_modules/ng2-charts/lib/ng-charts.provider.d.ts
+index 1a2ca00..0072c6f 100644
+--- a/node_modules/ng2-charts/lib/ng-charts.provider.d.ts
++++ b/node_modules/ng2-charts/lib/ng-charts.provider.d.ts
+@@ -1,6 +1,19 @@
+ import { InjectionToken } from '@angular/core';
+ import { ChartComponentLike, Defaults } from 'chart.js';
+-import { DeepPartial } from 'chart.js/dist/types/utils';
++
++// DeepPartial utility type - re-export from chart.js internal types
++// In chart.js v4, DeepPartial is defined in dist/types/utils.d.ts but not exported from main entry
++// We use a local definition to avoid import path issues
++type DeepPartial<T> = T extends Function
++  ? T
++  : T extends Array<infer U>
++    ? _DeepPartialArray<U>
++    : T extends object
++      ? _DeepPartialObject<T>
++      : T | undefined;
++
++type _DeepPartialArray<T> = Array<DeepPartial<T>>;
++type _DeepPartialObject<T> = { [P in keyof T]?: DeepPartial<T[P]> };
+ export declare const NG_CHARTS_CONFIGURATION: InjectionToken<NgChartsConfiguration>;
+ export type NgChartsConfiguration = {
+     /**

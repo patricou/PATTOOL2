@@ -67,4 +67,50 @@ export class IotService {
     );
   }
 
+  getThermometerHistory(deviceId: string): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const requestBody = { deviceId };
+        return this._http.post(this.API_URL + "govee/thermometer/history", requestBody, { headers: headers });
+      })
+    );
+  }
+
+  clearThermometerHistory(deviceId?: string): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const requestBody = deviceId ? { deviceId } : {};
+        return this._http.request('DELETE', this.API_URL + "govee/thermometer/history", {
+          body: requestBody,
+          headers: headers
+        });
+      })
+    );
+  }
+
+  refreshThermometers(user: Member): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + "govee/thermometer/refresh", user, { headers: headers })
+      )
+    );
+  }
+
+  getSchedulerStatus(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get(this.API_URL + "govee/thermometer/scheduler/status", { headers: headers })
+      )
+    );
+  }
+
+  toggleScheduler(enabled: boolean): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const requestBody = { enabled };
+        return this._http.post(this.API_URL + "govee/thermometer/scheduler/toggle", requestBody, { headers: headers });
+      })
+    );
+  }
+
 }

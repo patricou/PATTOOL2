@@ -28,7 +28,7 @@
                                     type="button">
                                 <i class="fa" [class.fa-play]="!isLoadingTest" [class.fa-spinner]="isLoadingTest" [class.fa-spin]="isLoadingTest"></i>
                                 <span *ngIf="!isLoadingTest">{{ "IOT.TEST" | translate }}</span>
-                                <span *ngIf="isLoadingTest">Chargement...</span>
+                                <span *ngIf="isLoadingTest">{{ "IOT.LOADING" | translate }}</span>
                             </button>
                             <div *ngIf="messageTestVisible" class="iot-message test-message">
                                 <strong>{{ "IOT.TEST_RESULT" | translate }}:</strong>
@@ -52,7 +52,7 @@
                                     type="button">
                                 <i class="fa" [class.fa-power-off]="!isLoadingPortail" [class.fa-spinner]="isLoadingPortail" [class.fa-spin]="isLoadingPortail"></i>
                                 <span *ngIf="!isLoadingPortail">{{ "IOT.OPCLG" | translate }}</span>
-                                <span *ngIf="isLoadingPortail">Chargement...</span>
+                                <span *ngIf="isLoadingPortail">{{ "IOT.LOADING" | translate }}</span>
                             </button>
                             <div *ngIf="messageVisible" class="iot-message portail-message">
                                 <strong>{{ "IOT.PORTAIL_STATUS" | translate }}:</strong>
@@ -65,14 +65,40 @@
 
             <!-- Govee Devices Container -->
             <div class="portail-container" style="margin-top: 30px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
                     <h3 class="portail-title" style="margin: 0;">{{ "IOT.GOVEE_TITLE" | translate }}</h3>
-                    <button (click)="loadGoveeDevices()" 
-                            class="btn btn-sm btn-primary" 
-                            [disabled]="isLoadingGovee">
-                        <i class="fa" [class.fa-refresh]="!isLoadingGovee" [class.fa-spinner]="isLoadingGovee" [class.fa-spin]="isLoadingGovee"></i>
-                        {{ "IOT.REFRESH" | translate }}
-                    </button>
+                    <div class="govee-header-buttons">
+                        <button (click)="loadAllThermometerHistory()" 
+                                class="btn btn-sm btn-info" 
+                                [disabled]="isLoadingHistory">
+                            <i class="fa" [class.fa-line-chart]="!isLoadingHistory" [class.fa-spinner]="isLoadingHistory" [class.fa-spin]="isLoadingHistory"></i>
+                            <span class="btn-text">{{ "IOT.SHOW_HISTORY" | translate }}</span>
+                        </button>
+                        <button (click)="refreshThermometers()" 
+                                class="btn btn-sm btn-success" 
+                                [disabled]="isRefreshingThermometers">
+                            <i class="fa" [class.fa-refresh]="!isRefreshingThermometers" [class.fa-spinner]="isRefreshingThermometers" [class.fa-spin]="isRefreshingThermometers"></i>
+                            <span class="btn-text">{{ "IOT.REFRESH_THERMOMETERS" | translate }}</span>
+                        </button>
+                        <div class="form-check form-switch d-flex align-items-center scheduler-switch">
+                            <input class="form-check-input" 
+                                   type="checkbox" 
+                                   role="switch"
+                                   id="schedulerToggle"
+                                   [checked]="schedulerEnabled"
+                                   (change)="toggleScheduler($event)"
+                                   [disabled]="isTogglingScheduler || isLoadingSchedulerStatus"
+                                   [title]="(schedulerEnabled ? 'IOT.DISABLE_AUTO_REFRESH' : 'IOT.ENABLE_AUTO_REFRESH') | translate">
+                            <label class="form-check-label ms-2" for="schedulerToggle" style="cursor: pointer; white-space: nowrap;">
+                                <span *ngIf="isTogglingScheduler || isLoadingSchedulerStatus">
+                                    <i class="fa fa-spinner fa-spin"></i>
+                                </span>
+                                <span *ngIf="!isTogglingScheduler && !isLoadingSchedulerStatus" class="scheduler-label-text">
+                                    {{ schedulerEnabled ? ("IOT.AUTO_REFRESH_ENABLED" | translate) : ("IOT.AUTO_REFRESH_DISABLED" | translate) }}
+                                </span>
+                            </label>
+                        </div>
+                    </div>
                 </div>
                 
                 <div *ngIf="isLoadingGovee" class="text-center" style="padding: 2rem;">
@@ -167,6 +193,155 @@
                         
                         <div class="govee-device-footer" *ngIf="isStateEmpty(device.state)">
                             <span class="text-muted">{{ "IOT.NO_SENSOR_DATA" | translate }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Thermometer History Chart Modal -->
+            <div class="modal fade" [class.show]="showHistoryChart" 
+                 *ngIf="showHistoryChart" 
+                 style="display: block; background: rgba(0,0,0,0.5);"
+                 (click)="closeHistoryChart()">
+                <div class="modal-dialog modal-fullscreen-lg-down" style="max-width: 95vw;" (click)="$event.stopPropagation()">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">
+                                <i class="fa fa-line-chart"></i> {{ "IOT.HISTORY_TITLE" | translate }}
+                            </h5>
+                            <div class="modal-header-controls">
+                                <div class="modal-controls-desktop d-none d-md-flex gap-2 align-items-center ms-auto">
+                                    <button type="button" 
+                                            class="btn btn-sm" 
+                                            [class.btn-outline-secondary]="allLinesVisible"
+                                            [class.btn-secondary]="!allLinesVisible"
+                                            (click)="toggleAllLines()"
+                                            [title]="(allLinesVisible ? 'IOT.HIDE_ALL_TOOLTIP' : 'IOT.SHOW_ALL_TOOLTIP') | translate">
+                                        <i class="fa" [class.fa-eye]="allLinesVisible" [class.fa-eye-slash]="!allLinesVisible"></i> 
+                                        <span class="d-none d-lg-inline">{{ (allLinesVisible ? "IOT.HIDE_ALL" : "IOT.SHOW_ALL") | translate }}</span>
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-sm" 
+                                            [class.btn-outline-info]="temperaturesVisible"
+                                            [class.btn-info]="!temperaturesVisible"
+                                            (click)="toggleTemperatures()"
+                                            [title]="(temperaturesVisible ? 'IOT.HIDE_TEMPERATURES_TOOLTIP' : 'IOT.SHOW_TEMPERATURES_TOOLTIP') | translate">
+                                        <i class="fa fa-thermometer-half"></i> 
+                                        <span class="d-none d-lg-inline">{{ (temperaturesVisible ? "IOT.HIDE_TEMPERATURES" : "IOT.SHOW_TEMPERATURES") | translate }}</span>
+                                    </button>
+                                    <button type="button" 
+                                            class="btn btn-sm" 
+                                            [class.btn-outline-primary]="humiditiesVisible"
+                                            [class.btn-primary]="!humiditiesVisible"
+                                            (click)="toggleHumidities()"
+                                            [title]="(humiditiesVisible ? 'IOT.HIDE_HUMIDITIES_TOOLTIP' : 'IOT.SHOW_HUMIDITIES_TOOLTIP') | translate">
+                                        <i class="fa fa-tint"></i> 
+                                        <span class="d-none d-lg-inline">{{ (humiditiesVisible ? "IOT.HIDE_HUMIDITIES" : "IOT.SHOW_HUMIDITIES") | translate }}</span>
+                                    </button>
+                                    <label class="form-label mb-0 d-none d-xl-inline">{{ "IOT.CHART_TYPE" | translate }}</label>
+                                    <select class="form-select form-select-sm" style="width: auto;" 
+                                            [(ngModel)]="selectedChartType" 
+                                            (change)="onChartTypeChange()">
+                                        <option value="line">{{ "IOT.CHART_TYPE_LINE" | translate }}</option>
+                                        <option value="bar">{{ "IOT.CHART_TYPE_BAR" | translate }}</option>
+                                        <option value="scatter">{{ "IOT.CHART_TYPE_SCATTER" | translate }}</option>
+                                    </select>
+                                </div>
+                                <div class="modal-controls-mobile d-md-none ms-auto">
+                                    <button type="button" 
+                                            class="btn btn-sm" 
+                                            [class.btn-outline-secondary]="allLinesVisible"
+                                            [class.btn-secondary]="!allLinesVisible"
+                                            (click)="toggleAllLines()"
+                                            [title]="(allLinesVisible ? 'IOT.HIDE_ALL_TOOLTIP' : 'IOT.SHOW_ALL_TOOLTIP') | translate">
+                                        <i class="fa" [class.fa-eye]="allLinesVisible" [class.fa-eye-slash]="!allLinesVisible"></i>
+                                    </button>
+                                    <select class="form-select form-select-sm d-inline-block" style="width: auto; max-width: 100px;" 
+                                            [(ngModel)]="selectedChartType" 
+                                            (change)="onChartTypeChange()">
+                                        <option value="line">{{ "IOT.CHART_TYPE_LINE" | translate }}</option>
+                                        <option value="bar">{{ "IOT.CHART_TYPE_BAR" | translate }}</option>
+                                        <option value="scatter">{{ "IOT.CHART_TYPE_SCATTER" | translate }}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="button" class="btn-close" (click)="closeHistoryChart()"></button>
+                        </div>
+                        <!-- Mobile controls row -->
+                        <div class="modal-mobile-controls d-md-none p-2 border-bottom">
+                            <div class="d-flex flex-wrap gap-2 justify-content-center">
+                                <button type="button" 
+                                        class="btn btn-sm" 
+                                        [class.btn-outline-secondary]="allLinesVisible"
+                                        [class.btn-secondary]="!allLinesVisible"
+                                        (click)="toggleAllLines()"
+                                        [title]="(allLinesVisible ? 'IOT.HIDE_ALL_TOOLTIP' : 'IOT.SHOW_ALL_TOOLTIP') | translate">
+                                    <i class="fa" [class.fa-eye]="allLinesVisible" [class.fa-eye-slash]="!allLinesVisible"></i> 
+                                    {{ (allLinesVisible ? "IOT.HIDE_ALL" : "IOT.SHOW_ALL") | translate }}
+                                </button>
+                                <button type="button" 
+                                        class="btn btn-sm" 
+                                        [class.btn-outline-info]="temperaturesVisible"
+                                        [class.btn-info]="!temperaturesVisible"
+                                        (click)="toggleTemperatures()"
+                                        [title]="(temperaturesVisible ? 'IOT.HIDE_TEMPERATURES_TOOLTIP' : 'IOT.SHOW_TEMPERATURES_TOOLTIP') | translate">
+                                    <i class="fa fa-thermometer-half"></i> 
+                                    {{ (temperaturesVisible ? "IOT.HIDE_TEMPERATURES" : "IOT.SHOW_TEMPERATURES") | translate }}
+                                </button>
+                                <button type="button" 
+                                        class="btn btn-sm" 
+                                        [class.btn-outline-primary]="humiditiesVisible"
+                                        [class.btn-primary]="!humiditiesVisible"
+                                        (click)="toggleHumidities()"
+                                        [title]="(humiditiesVisible ? 'IOT.HIDE_HUMIDITIES_TOOLTIP' : 'IOT.SHOW_HUMIDITIES_TOOLTIP') | translate">
+                                    <i class="fa fa-tint"></i> 
+                                    {{ (humiditiesVisible ? "IOT.HIDE_HUMIDITIES" : "IOT.SHOW_HUMIDITIES") | translate }}
+                                </button>
+                            </div>
+                        </div>
+                        <div class="modal-body">
+                            <div *ngIf="isLoadingHistory" class="text-center p-4">
+                                <i class="fa fa-spinner fa-spin fa-2x"></i>
+                                <p>{{ "IOT.LOADING_HISTORY" | translate }}</p>
+                            </div>
+                            
+                            <div *ngIf="historyError" class="alert alert-danger">
+                                <strong>{{ "IOT.ERROR" | translate }}:</strong> {{ historyError }}
+                            </div>
+                            
+                            <div *ngIf="!isLoadingHistory && !historyError && thermometerHistoryByDevice.size === 0" 
+                                 class="text-center p-4 text-muted">
+                                {{ "IOT.NO_HISTORY_AVAILABLE" | translate }}
+                            </div>
+                            
+                            <div *ngIf="!isLoadingHistory && !historyError && thermometerHistoryByDevice.size > 0">
+                                <div class="chart-container">
+                                    <canvas baseChart
+                                            [data]="lineChartData"
+                                            [options]="lineChartOptions"
+                                            [type]="selectedChartType">
+                                    </canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" 
+                                    class="btn btn-success" 
+                                    (click)="refreshThermometersInModal()"
+                                    [disabled]="isRefreshingThermometers">
+                                <i class="fa" [class.fa-refresh]="!isRefreshingThermometers" [class.fa-spinner]="isRefreshingThermometers" [class.fa-spin]="isRefreshingThermometers"></i>
+                                <span class="btn-text">{{ "IOT.REFRESH_SHORT" | translate }}</span>
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-danger" 
+                                    (click)="clearThermometerHistory()"
+                                    [disabled]="isClearingHistory">
+                                <i class="fa" [class.fa-trash]="!isClearingHistory" [class.fa-spinner]="isClearingHistory" [class.fa-spin]="isClearingHistory"></i>
+                                <span class="btn-text">{{ "IOT.CLEAR_HISTORY" | translate }}</span>
+                            </button>
+                            <button type="button" class="btn btn-secondary" (click)="closeHistoryChart()">
+                                <span class="btn-text">{{ "IOT.CLOSE" | translate }}</span>
+                            </button>
                         </div>
                     </div>
                 </div>

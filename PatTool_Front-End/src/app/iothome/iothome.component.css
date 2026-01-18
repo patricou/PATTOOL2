@@ -317,6 +317,18 @@
     margin-top: 1rem;
 }
 
+/* Govee header buttons container - Base styles for all screens */
+.govee-header-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.govee-header-buttons > * {
+    margin: 0;
+}
+
 /* Govee Device Card */
 .govee-device-card {
     background: white;
@@ -495,5 +507,243 @@
     
     .sensor-item {
         padding: 0.625rem;
+    }
+    
+    /* Govee header buttons container */
+    .govee-header-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+    }
+    
+    .govee-header-buttons > * {
+        margin: 0;
+    }
+    
+    /* Reduce button size in Govee section header on mobile */
+    .govee-header-buttons .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .govee-header-buttons .btn-sm i {
+        font-size: 0.8rem;
+    }
+    
+    .govee-header-buttons .scheduler-switch {
+        font-size: 0.75rem;
+    }
+    
+    .govee-header-buttons .scheduler-switch .form-check-input {
+        width: 1.5em;
+        height: 0.9em;
+    }
+    
+    .govee-header-buttons .scheduler-label-text {
+        font-size: 0.7rem;
+    }
+}
+
+@media (max-width: 480px) {
+    /* Even smaller buttons on very small screens */
+    .govee-header-buttons .btn-sm {
+        padding: 0.2rem 0.4rem;
+        font-size: 0.7rem;
+    }
+    
+    .govee-header-buttons .btn-sm i {
+        font-size: 0.75rem;
+    }
+    
+    /* Hide button text on very small screens, show only icons */
+    .govee-header-buttons .btn-sm .btn-text {
+        display: none;
+    }
+    
+    .govee-header-buttons .btn-sm {
+        min-width: 36px;
+        padding: 0.25rem 0.4rem;
+    }
+    
+    .govee-header-buttons .scheduler-switch {
+        font-size: 0.7rem;
+    }
+    
+    .govee-header-buttons .scheduler-label-text {
+        display: none;
+    }
+    
+    .govee-header-buttons .scheduler-switch .form-check-label {
+        margin-left: 0.25rem;
+    }
+}
+
+/* Modal Responsive Styles */
+.modal-header {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.modal-header-controls {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+}
+
+.modal-controls-desktop {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    margin-left: auto;
+}
+
+.modal-controls-mobile {
+    display: flex;
+    gap: 0.25rem;
+    align-items: center;
+    margin-left: auto;
+}
+
+.modal-mobile-controls {
+    background-color: #f8f9fa;
+}
+
+.chart-container {
+    width: 100%;
+    height: 600px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Mobile responsive for modal */
+@media (max-width: 768px) {
+    .modal-dialog {
+        margin: 0;
+        max-width: 100vw;
+        height: 100vh;
+    }
+    
+    .modal-content {
+        height: 100vh;
+        border-radius: 0;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .modal-header {
+        padding: 0.75rem;
+        flex-shrink: 0;
+    }
+    
+    .modal-title {
+        font-size: 1rem;
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .modal-header-controls {
+        order: 3;
+        width: 100%;
+        margin-top: 0.5rem;
+    }
+    
+    .modal-controls-mobile {
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .modal-mobile-controls {
+        flex-shrink: 0;
+    }
+    
+    .modal-mobile-controls .btn {
+        flex: 1;
+        min-width: 0;
+        font-size: 0.75rem;
+        padding: 0.375rem 0.5rem;
+    }
+    
+    .modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.75rem;
+        min-height: 0;
+    }
+    
+    .chart-container {
+        height: calc(100vh - 250px);
+        min-height: 400px;
+    }
+    
+    .modal-footer {
+        flex-shrink: 0;
+        padding: 0.75rem;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+    
+    .modal-footer .btn {
+        flex: 1;
+        min-width: 120px;
+        padding: 0.375rem 0.5rem;
+        font-size: 0.75rem;
+    }
+    
+    .modal-footer .btn i {
+        font-size: 0.8rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .modal-title {
+        font-size: 0.9rem;
+    }
+    
+    .modal-title i {
+        font-size: 0.9rem;
+    }
+    
+    .chart-container {
+        height: calc(100vh - 280px);
+        min-height: 350px;
+    }
+    
+    .modal-mobile-controls .btn {
+        font-size: 0.7rem;
+        padding: 0.3rem 0.4rem;
+    }
+    
+    .modal-mobile-controls .btn i {
+        font-size: 0.8rem;
+    }
+    
+    .modal-footer {
+        padding: 0.5rem;
+        gap: 0.375rem;
+    }
+    
+    .modal-footer .btn {
+        padding: 0.3rem 0.4rem;
+        font-size: 0.7rem;
+        min-width: 80px;
+    }
+    
+    .modal-footer .btn i {
+        font-size: 0.75rem;
+    }
+    
+    /* Hide button text on very small screens, show only icons */
+    .modal-footer .btn .btn-text {
+        display: none;
+    }
+    
+    .modal-footer .btn:not(:has(i)) {
+        min-width: 60px;
+    }
+    
+    .modal-footer .btn:has(i) {
+        min-width: 40px;
+        padding: 0.3rem;
     }
 }
