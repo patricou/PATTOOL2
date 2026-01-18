@@ -114,7 +114,8 @@
         "AUTO_REFRESH_ENABLED": "רענון אוטומטי מופעל",
         "AUTO_REFRESH_DISABLED": "רענון אוטומטי מושבת",
         "ENABLE_AUTO_REFRESH": "הפעל רענון אוטומטי",
-        "DISABLE_AUTO_REFRESH": "כבה רענון אוטומטי"
+        "DISABLE_AUTO_REFRESH": "כבה רענון אוטומטי",
+        "ENTRIES": "רשומות"
     },
     "LOCAL_NETWORK": {
         "TITLE": "סריקת רשת מקומית",

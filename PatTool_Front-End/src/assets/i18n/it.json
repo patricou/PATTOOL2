@@ -112,7 +112,8 @@
         "AUTO_REFRESH_ENABLED": "Aggiornamento automatico attivato",
         "AUTO_REFRESH_DISABLED": "Aggiornamento automatico disattivato",
         "ENABLE_AUTO_REFRESH": "Attiva aggiornamento automatico",
-        "DISABLE_AUTO_REFRESH": "Disattiva aggiornamento automatico"
+        "DISABLE_AUTO_REFRESH": "Disattiva aggiornamento automatico",
+        "ENTRIES": "voci"
     },
     "LOCAL_NETWORK": {
         "TITLE": "Scansione Rete Locale",

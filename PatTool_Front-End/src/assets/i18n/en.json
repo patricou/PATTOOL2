@@ -109,7 +109,8 @@
         "AUTO_REFRESH_ENABLED": "Auto refresh enabled",
         "AUTO_REFRESH_DISABLED": "Auto refresh disabled",
         "ENABLE_AUTO_REFRESH": "Enable automatic refresh",
-        "DISABLE_AUTO_REFRESH": "Disable automatic refresh"
+        "DISABLE_AUTO_REFRESH": "Disable automatic refresh",
+        "ENTRIES": "entries"
     },
     "LOCAL_NETWORK": {
         "TITLE": "Local Network Scan",

@@ -114,7 +114,8 @@
         "AUTO_REFRESH_ENABLED": "Actualización automática activada",
         "AUTO_REFRESH_DISABLED": "Actualización automática desactivada",
         "ENABLE_AUTO_REFRESH": "Activar actualización automática",
-        "DISABLE_AUTO_REFRESH": "Desactivar actualización automática"
+        "DISABLE_AUTO_REFRESH": "Desactivar actualización automática",
+        "ENTRIES": "entradas"
     },
     "LOCAL_NETWORK": {
         "TITLE": "Escaneo de Red Local",

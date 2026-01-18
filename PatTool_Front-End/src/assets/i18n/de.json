@@ -114,7 +114,8 @@
         "AUTO_REFRESH_ENABLED": "Automatische Aktualisierung aktiviert",
         "AUTO_REFRESH_DISABLED": "Automatische Aktualisierung deaktiviert",
         "ENABLE_AUTO_REFRESH": "Automatische Aktualisierung aktivieren",
-        "DISABLE_AUTO_REFRESH": "Automatische Aktualisierung deaktivieren"
+        "DISABLE_AUTO_REFRESH": "Automatische Aktualisierung deaktivieren",
+        "ENTRIES": "Einträge"
     },
     "LOCAL_NETWORK": {
         "TITLE": "Lokales Netzwerk-Scan",

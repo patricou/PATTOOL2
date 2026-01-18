@@ -114,7 +114,8 @@
         "AUTO_REFRESH_ENABLED": "自动刷新已启用",
         "AUTO_REFRESH_DISABLED": "自动刷新已禁用",
         "ENABLE_AUTO_REFRESH": "启用自动刷新",
-        "DISABLE_AUTO_REFRESH": "禁用自动刷新"
+        "DISABLE_AUTO_REFRESH": "禁用自动刷新",
+        "ENTRIES": "条目"
     },
     "LOCAL_NETWORK": {
         "TITLE": "本地网络扫描",

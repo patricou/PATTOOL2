@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { Member } from '../model/member';
 import { IotService } from '../services/iot.service';
@@ -72,6 +72,7 @@ export class IothomeComponent implements OnInit {
   isRefreshingThermometers: boolean = false;
   isClearingHistory: boolean = false;
   historyError: string = '';
+  totalHistoryCount: number = 0;
   
   // Scheduler status
   schedulerEnabled: boolean = true;
@@ -84,7 +85,7 @@ export class IothomeComponent implements OnInit {
   // Toggle states for buttons
   allLinesVisible: boolean = true;
   temperaturesVisible: boolean = true;
-  humiditiesVisible: boolean = true;
+  humiditiesVisible: boolean = false; // Hide humidity by default
   
   // Color palette for different devices
   private colorPalette: string[] = [
@@ -156,9 +157,10 @@ export class IothomeComponent implements OnInit {
             }
             if (context.parsed.y !== null) {
               // Formater la valeur selon le type
-              if (label.includes('Température')) {
+              const datasetType = (context.dataset as any).datasetType;
+              if (datasetType === 'temperature') {
                 label += context.parsed.y.toFixed(2) + '°C';
-              } else if (label.includes('Humidité')) {
+              } else if (datasetType === 'humidity') {
                 label += context.parsed.y.toFixed(2) + '%';
               } else {
                 label += context.parsed.y.toFixed(2);
@@ -198,7 +200,7 @@ export class IothomeComponent implements OnInit {
         position: 'left',
         title: {
           display: true,
-          text: 'Température (°C)'
+          text: this.translateService.instant('IOT.TEMPERATURE') + ' (°C)'
         }
       },
       y1: {
@@ -207,7 +209,7 @@ export class IothomeComponent implements OnInit {
         position: 'right',
         title: {
           display: true,
-          text: 'Humidité (%)'
+          text: this.translateService.instant('IOT.HUMIDITY') + ' (%)'
         },
         grid: {
           drawOnChartArea: false,
@@ -219,7 +221,8 @@ export class IothomeComponent implements OnInit {
   constructor(
     private _memberService: MembersService, 
     private _iotService: IotService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private translateService: TranslateService
   ) { }
 
   ngOnInit() {
@@ -836,6 +839,9 @@ export class IothomeComponent implements OnInit {
           this.thermometerHistoryByDevice = new Map();
           this.deviceColors = new Map();
           
+          // Get total count from response
+          this.totalHistoryCount = response.totalCount || 0;
+          
           const deviceIds = Object.keys(response.historyByDevice);
           deviceIds.forEach((deviceId, index) => {
             const history = response.historyByDevice[deviceId];
@@ -853,6 +859,7 @@ export class IothomeComponent implements OnInit {
           this.showHistoryChart = true;
         } else {
           this.thermometerHistoryByDevice = new Map();
+          this.totalHistoryCount = 0;
           this.showHistoryChart = false;
         }
         this.isLoadingHistory = false;
@@ -862,6 +869,7 @@ export class IothomeComponent implements OnInit {
         console.error("Error loading thermometer history:", error);
         this.historyError = error.error?.error || error.error?.message || error.message || 'Failed to load history';
         this.thermometerHistoryByDevice = new Map();
+        this.totalHistoryCount = 0;
         this.showHistoryChart = false;
         this.isLoadingHistory = false;
         this.cdr.detectChanges();
@@ -917,6 +925,7 @@ export class IothomeComponent implements OnInit {
         // Clear all local history
         this.thermometerHistoryByDevice = new Map();
         this.thermometerHistory = [];
+        this.totalHistoryCount = 0;
         this.showHistoryChart = false;
         this.isClearingHistory = false;
         this.cdr.detectChanges();
@@ -1348,13 +1357,14 @@ export class IothomeComponent implements OnInit {
       const backgroundColorOpacity = this.selectedChartType === 'bar' ? 'CC' : '20'; // CC = ~80% opacity, 20 = ~12% opacity
       
       datasets.push({
-        label: `${deviceName} - Température (°C)`,
+        label: `${deviceName} - ${this.translateService.instant('IOT.TEMPERATURE')} (°C)`,
         data: tempDataFormatted as any,
         borderColor: deviceColor,
         backgroundColor: deviceColor + backgroundColorOpacity,
         yAxisID: 'y',
         tension: 0.4,
         fill: false,
+        datasetType: 'temperature', // Identifier for filtering
         pointRadius: 2,
         pointHoverRadius: 5
       });
@@ -1397,7 +1407,7 @@ export class IothomeComponent implements OnInit {
         : humData;
 
       datasets.push({
-        label: `${deviceName} - Humidité (%)`,
+        label: `${deviceName} - ${this.translateService.instant('IOT.HUMIDITY')} (%)`,
         data: humDataFormatted as any,
         borderColor: deviceColor,
         backgroundColor: deviceColor + backgroundColorOpacity,
@@ -1407,7 +1417,9 @@ export class IothomeComponent implements OnInit {
         borderDash: [5, 5],
         pointRadius: 2,
         pointHoverRadius: 5,
-        pointStyle: 'circle'
+        pointStyle: 'circle',
+        datasetType: 'humidity', // Identifier for filtering
+        hidden: true // Hide humidity by default
       });
     });
 
@@ -1463,10 +1475,25 @@ export class IothomeComponent implements OnInit {
         const chart = this.chart.chart;
         chart.data.datasets.forEach((dataset, index) => {
           const label = dataset.label || '';
-          if (this.datasetVisibilityState.has(label)) {
-            const shouldBeHidden = this.datasetVisibilityState.get(label) === false;
-            const meta = chart.getDatasetMeta(index);
-            meta.hidden = shouldBeHidden;
+          const datasetType = (dataset as any).datasetType;
+          const meta = chart.getDatasetMeta(index);
+          
+          // Always apply default for humidity: hide by default
+          // Only restore saved state if it's a temperature dataset
+          if (datasetType === 'humidity') {
+            // Force hide humidity by default, regardless of saved state
+            // The dataset already has hidden: true, but we ensure it's applied
+            meta.hidden = true;
+            this.datasetVisibilityState.set(label, false); // Save state as hidden
+          } else if (datasetType === 'temperature') {
+            // For temperature, restore saved state or show by default
+            if (this.datasetVisibilityState.has(label)) {
+              const shouldBeHidden = this.datasetVisibilityState.get(label) === false;
+              meta.hidden = shouldBeHidden;
+            } else {
+              meta.hidden = false; // Show temperature by default
+              this.datasetVisibilityState.set(label, true); // Save state
+            }
           }
         });
         
@@ -1494,6 +1521,7 @@ export class IothomeComponent implements OnInit {
     
     chart.data.datasets.forEach((dataset, index) => {
       const label = dataset.label || '';
+      const datasetType = (dataset as any).datasetType;
       const meta = chart.getDatasetMeta(index);
       const isVisible = !meta.hidden;
       
@@ -1501,11 +1529,11 @@ export class IothomeComponent implements OnInit {
         allVisible = false;
       }
       
-      if (label.includes('Température') && isVisible) {
+      if (datasetType === 'temperature' && isVisible) {
         anyTempVisible = true;
       }
       
-      if (label.includes('Humidité') && isVisible) {
+      if (datasetType === 'humidity' && isVisible) {
         anyHumVisible = true;
       }
     });
@@ -1523,7 +1551,29 @@ export class IothomeComponent implements OnInit {
   initializeToggleStates(): void {
     this.allLinesVisible = true;
     this.temperaturesVisible = true;
-    this.humiditiesVisible = true;
+    this.humiditiesVisible = false; // Hide humidity by default
+    
+    // Hide humidity datasets in the chart (force hide, even if state was saved)
+    if (this.chart?.chart) {
+      const chart = this.chart.chart;
+      chart.data.datasets.forEach((dataset, index) => {
+        const label = dataset.label || '';
+        const datasetType = (dataset as any).datasetType;
+        if (datasetType === 'humidity') {
+          const meta = chart.getDatasetMeta(index);
+          meta.hidden = true; // Force hide humidity
+          this.datasetVisibilityState.set(label, false); // Save state as hidden
+        } else if (datasetType === 'temperature') {
+          // Ensure temperature is visible
+          const meta = chart.getDatasetMeta(index);
+          if (meta.hidden) {
+            meta.hidden = false;
+            this.datasetVisibilityState.set(label, true);
+          }
+        }
+      });
+      chart.update();
+    }
   }
 
   // Handle chart type change
@@ -1589,7 +1639,8 @@ export class IothomeComponent implements OnInit {
     
     chart.data.datasets.forEach((dataset, index) => {
       const label = dataset.label || '';
-      if (label.includes('Température')) {
+      const datasetType = (dataset as any).datasetType;
+      if (datasetType === 'temperature') {
         const meta = chart.getDatasetMeta(index);
         meta.hidden = true;
         this.datasetVisibilityState.set(label, false); // false = hidden
@@ -1612,7 +1663,8 @@ export class IothomeComponent implements OnInit {
     
     chart.data.datasets.forEach((dataset, index) => {
       const label = dataset.label || '';
-      if (label.includes('Température')) {
+      const datasetType = (dataset as any).datasetType;
+      if (datasetType === 'temperature') {
         const meta = chart.getDatasetMeta(index);
         meta.hidden = false;
         this.datasetVisibilityState.set(label, true); // true = visible
@@ -1635,7 +1687,8 @@ export class IothomeComponent implements OnInit {
     
     chart.data.datasets.forEach((dataset, index) => {
       const label = dataset.label || '';
-      if (label.includes('Humidité')) {
+      const datasetType = (dataset as any).datasetType;
+      if (datasetType === 'humidity') {
         const meta = chart.getDatasetMeta(index);
         meta.hidden = true;
         this.datasetVisibilityState.set(label, false); // false = hidden
@@ -1643,6 +1696,9 @@ export class IothomeComponent implements OnInit {
     });
     
     chart.update();
+    
+    // Update toggle states after hiding humidities
+    this.updateToggleStates();
   }
 
   // Show only humidity datasets
@@ -1658,7 +1714,8 @@ export class IothomeComponent implements OnInit {
     
     chart.data.datasets.forEach((dataset, index) => {
       const label = dataset.label || '';
-      if (label.includes('Humidité')) {
+      const datasetType = (dataset as any).datasetType;
+      if (datasetType === 'humidity') {
         const meta = chart.getDatasetMeta(index);
         meta.hidden = false;
         this.datasetVisibilityState.set(label, true); // true = visible
@@ -1709,7 +1766,8 @@ export class IothomeComponent implements OnInit {
     
     chart.data.datasets.forEach((dataset, index) => {
       const label = dataset.label || '';
-      if (label.includes('Température')) {
+      const datasetType = (dataset as any).datasetType;
+      if (datasetType === 'temperature') {
         const meta = chart.getDatasetMeta(index);
         if (!meta.hidden) {
           anyTempVisible = true;
@@ -1739,7 +1797,8 @@ export class IothomeComponent implements OnInit {
     
     chart.data.datasets.forEach((dataset, index) => {
       const label = dataset.label || '';
-      if (label.includes('Humidité')) {
+      const datasetType = (dataset as any).datasetType;
+      if (datasetType === 'humidity') {
         const meta = chart.getDatasetMeta(index);
         if (!meta.hidden) {
           anyHumVisible = true;
@@ -1753,8 +1812,7 @@ export class IothomeComponent implements OnInit {
       this.showHumidities();
     }
     
-    // Update toggle states
-    this.updateToggleStates();
+    // Note: updateToggleStates() is already called in hideHumidities() and showHumidities()
   }
 
   // Refresh thermometers from modal (and reload history)

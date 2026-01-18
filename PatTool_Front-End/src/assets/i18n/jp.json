@@ -114,7 +114,8 @@
         "AUTO_REFRESH_ENABLED": "自動更新が有効",
         "AUTO_REFRESH_DISABLED": "自動更新が無効",
         "ENABLE_AUTO_REFRESH": "自動更新を有効にする",
-        "DISABLE_AUTO_REFRESH": "自動更新を無効にする"
+        "DISABLE_AUTO_REFRESH": "自動更新を無効にする",
+        "ENTRIES": "エントリ"
     },
     "EVENTHOME": {
         "EVENTSLIST": "活動リスト：",

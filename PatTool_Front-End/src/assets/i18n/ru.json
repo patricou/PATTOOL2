@@ -122,7 +122,8 @@
         "AUTO_REFRESH_ENABLED": "Автообновление включено",
         "AUTO_REFRESH_DISABLED": "Автообновление выключено",
         "ENABLE_AUTO_REFRESH": "Включить автообновление",
-        "DISABLE_AUTO_REFRESH": "Выключить автообновление"
+        "DISABLE_AUTO_REFRESH": "Выключить автообновление",
+        "ENTRIES": "записей"
     },
     "LOCAL_NETWORK": {
         "TITLE": "Сканирование локальной сети",

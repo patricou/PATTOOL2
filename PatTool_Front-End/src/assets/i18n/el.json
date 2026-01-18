@@ -114,7 +114,8 @@
         "AUTO_REFRESH_ENABLED": "Αυτόματη ανανέωση ενεργοποιημένη",
         "AUTO_REFRESH_DISABLED": "Αυτόματη ανανέωση απενεργοποιημένη",
         "ENABLE_AUTO_REFRESH": "Ενεργοποίηση αυτόματης ανανέωσης",
-        "DISABLE_AUTO_REFRESH": "Απενεργοποίηση αυτόματης ανανέωσης"
+        "DISABLE_AUTO_REFRESH": "Απενεργοποίηση αυτόματης ανανέωσης",
+        "ENTRIES": "εγγραφές"
     },
     "EVENTHOME": {
         "EVENTSLIST": "Λίστα Δραστηριοτήτων:",

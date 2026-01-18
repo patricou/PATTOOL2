@@ -114,7 +114,8 @@
         "AUTO_REFRESH_ENABLED": "التحديث التلقائي مفعّل",
         "AUTO_REFRESH_DISABLED": "التحديث التلقائي معطّل",
         "ENABLE_AUTO_REFRESH": "تفعيل التحديث التلقائي",
-        "DISABLE_AUTO_REFRESH": "تعطيل التحديث التلقائي"
+        "DISABLE_AUTO_REFRESH": "تعطيل التحديث التلقائي",
+        "ENTRIES": "إدخالات"
     },
     "LOCAL_NETWORK": {
         "TITLE": "فحص الشبكة المحلية",

@@ -104,7 +104,8 @@
         "AUTO_REFRESH_ENABLED": "Rafraîchissement auto activé",
         "AUTO_REFRESH_DISABLED": "Rafraîchissement auto désactivé",
         "ENABLE_AUTO_REFRESH": "Activer le rafraîchissement automatique",
-        "DISABLE_AUTO_REFRESH": "Désactiver le rafraîchissement automatique"
+        "DISABLE_AUTO_REFRESH": "Désactiver le rafraîchissement automatique",
+        "ENTRIES": "entrées"
     },
     "LOCAL_NETWORK": {
         "TITLE": "Scan du Réseau Local",

@@ -112,7 +112,8 @@
         "AUTO_REFRESH_ENABLED": "स्वचालित ताज़ाकरण सक्षम",
         "AUTO_REFRESH_DISABLED": "स्वचालित ताज़ाकरण अक्षम",
         "ENABLE_AUTO_REFRESH": "स्वचालित ताज़ाकरण सक्षम करें",
-        "DISABLE_AUTO_REFRESH": "स्वचालित ताज़ाकरण अक्षम करें"
+        "DISABLE_AUTO_REFRESH": "स्वचालित ताज़ाकरण अक्षम करें",
+        "ENTRIES": "प्रविष्टियाँ"
     },
     "LOCAL_NETWORK": {
         "TITLE": "स्थानीय नेटवर्क स्कैन",

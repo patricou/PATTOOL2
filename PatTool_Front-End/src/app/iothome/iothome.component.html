@@ -208,6 +208,7 @@
                         <div class="modal-header">
                             <h5 class="modal-title">
                                 <i class="fa fa-line-chart"></i> {{ "IOT.HISTORY_TITLE" | translate }}
+                                <span class="badge bg-info ms-2" *ngIf="totalHistoryCount > 0">{{ totalHistoryCount }} {{ "IOT.ENTRIES" | translate }}</span>
                             </h5>
                             <div class="modal-header-controls">
                                 <div class="modal-controls-desktop d-none d-md-flex gap-2 align-items-center ms-auto">
