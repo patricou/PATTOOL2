@@ -293,7 +293,7 @@ export class SystemComponent implements OnInit {
 
   saveCache(): void {
     if (!this.isSaveCacheAuthorized) {
-      this.saveMessage = 'You are not authorized to save the cache.';
+      this.saveMessage = 'You are not authorized to execute maintenance tasks.';
       this.saveMessageVisible = true;
       setTimeout(() => {
         this.saveMessageVisible = false;
@@ -306,17 +306,14 @@ export class SystemComponent implements OnInit {
     this.saveMessageVisible = false;
     this._cacheService.saveCache(this.user).subscribe(
       response => {
-        console.log("Cache save response: " + JSON.stringify(response));
+        console.log("Maintenance tasks response: " + JSON.stringify(response));
         let responseData = response;
         if (response._body) {
           responseData = typeof response._body === 'string' ? JSON.parse(response._body) : response._body;
         }
         
         if (responseData.success) {
-          const entryCount = responseData.entryCount || 0;
-          const savedSizeMB = ((responseData.savedSizeBytes || 0) / (1024 * 1024)).toFixed(2);
-          const fileSizeMB = ((responseData.fileSizeBytes || 0) / (1024 * 1024)).toFixed(2);
-          this.saveMessage = `✅ Success: ${entryCount} entries saved (${savedSizeMB} MB, file: ${fileSizeMB} MB)`;
+          this.saveMessage = `✅ Success: ${responseData.message || 'Maintenance tasks executed successfully'}`;
         } else {
           this.saveMessage = `❌ Failed: ${responseData.message || 'Unknown error'}`;
         }

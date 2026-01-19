@@ -57,7 +57,7 @@ export class CacheService {
   saveCache(user: any): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers =>
-        this._http.post(this.API_URL + "cache/save", user, { headers: headers })
+        this._http.post(this.API_URL + "cache/maintenance", user, { headers: headers })
       )
     );
   }

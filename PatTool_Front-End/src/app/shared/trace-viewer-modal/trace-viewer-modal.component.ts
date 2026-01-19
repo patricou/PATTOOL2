@@ -212,7 +212,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		// Store selection mode BEFORE calling open() which resets state
 		this.selectionMode = enableSelection;
-		console.log('openAtLocation called with enableSelection:', enableSelection, 'selectionMode set to:', this.selectionMode);
 
 		// Call open() which will call resetState() and reset selectionMode to false
 		this.open({
@@ -222,7 +221,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		// Restore selectionMode AFTER open() has reset it
 		this.selectionMode = enableSelection;
-		console.log('SelectionMode restored after open() to:', this.selectionMode);
 	}
 
 	public close(): void {
@@ -339,13 +337,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.tryRenderPendingLocation();
 		// Register location selection if in selection mode - wait longer for map to be ready
 		if (this.selectionMode) {
-			console.log('onModalShown: selectionMode is true, will register location selection');
 			setTimeout(() => {
-				console.log('onModalShown: calling registerLocationSelection after timeout');
 				this.registerLocationSelection();
 			}, 500);
-		} else {
-			console.log('onModalShown: selectionMode is false, skipping location selection registration');
 		}
 
 		// Apply event color after modal is fully shown
@@ -458,13 +452,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		};
 
 		this.map.whenReady(() => {
-			console.log('Map whenReady callback triggered, selectionMode:', this.selectionMode);
 			invalidate();
 			// Register location selection if in selection mode
 			if (this.selectionMode) {
-				console.log('Map whenReady: selectionMode is true, will register location selection');
 				setTimeout(() => {
-					console.log('Map whenReady: calling registerLocationSelection after timeout');
 					this.registerLocationSelection();
 				}, 300);
 			}
@@ -1106,6 +1097,104 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.map.fitBounds(this.trackBounds, { padding: [24, 24] });
 	}
 
+	public async sharePosition(): Promise<void> {
+		if (!this.map) {
+			return;
+		}
+
+		let lat: number;
+		let lng: number;
+
+		// Priority: selectionMarker > pendingLocation > map center
+		if (this.selectionMarker) {
+			const pos = this.selectionMarker.getLatLng();
+			lat = pos.lat;
+			lng = pos.lng;
+		} else if (this.pendingLocation) {
+			lat = this.pendingLocation.lat;
+			lng = this.pendingLocation.lng;
+		} else {
+			const center = this.map.getCenter();
+			lat = center.lat;
+			lng = center.lng;
+		}
+
+		// Format: lat, lng
+		const positionText = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+		// Google Maps URL
+		const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+		// OpenStreetMap URL
+		const osmUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=15`;
+
+		// Try to use Web Share API if available
+		if (navigator.share) {
+			try {
+				const shareData: ShareData = {
+					title: this.translate('EVENTELEM.POSITION'),
+					text: `${this.translate('EVENTELEM.POSITION')}: ${positionText}`,
+					url: googleMapsUrl
+				};
+
+				await navigator.share(shareData);
+				// Share successful
+				return;
+			} catch (error: any) {
+				// User cancelled or error occurred
+				if (error.name !== 'AbortError') {
+					console.error('Error sharing position:', error);
+					// Fallback to clipboard if share fails
+					const clipboardText = `${positionText}\n${this.translate('EVENTELEM.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
+					this.copyToClipboard(clipboardText);
+				}
+				return;
+			}
+		}
+
+		// Fallback: copy to clipboard if Web Share API is not available
+		const clipboardText = `${positionText}\n${this.translate('EVENTELEM.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
+		this.copyToClipboard(clipboardText);
+	}
+
+	private copyToClipboardFallback(text: string): void {
+		// Create a temporary textarea element
+		const textarea = document.createElement('textarea');
+		textarea.value = text;
+		textarea.style.position = 'fixed';
+		textarea.style.opacity = '0';
+		textarea.style.left = '-999999px';
+		document.body.appendChild(textarea);
+
+		// Select and copy the text
+		textarea.select();
+		textarea.setSelectionRange(0, 99999); // For mobile devices
+
+		try {
+			const successful = document.execCommand('copy');
+			if (successful) {
+				const message = this.translate('EVENTELEM.POSITION_COPIED');
+				// Optional: show a toast notification here if you have a toast service
+			}
+		} catch (err) {
+			console.error('Failed to copy position:', err);
+		}
+
+		// Clean up
+		document.body.removeChild(textarea);
+	}
+
+	private copyToClipboard(text: string): void {
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			navigator.clipboard.writeText(text).then(() => {
+				const message = this.translate('EVENTELEM.POSITION_COPIED');
+				console.log(message, text);
+			}).catch(() => {
+				this.copyToClipboardFallback(text);
+			});
+		} else {
+			this.copyToClipboardFallback(text);
+		}
+	}
+
 	private registerRightClickZoom(): void {
 		if (!this.map) {
 			return;
@@ -1133,9 +1222,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private registerLocationSelection(): void {
-		console.log('registerLocationSelection called', { map: !!this.map, selectionMode: this.selectionMode });
 		if (!this.map || !this.selectionMode) {
-			console.warn('registerLocationSelection aborted: map or selectionMode not set', { map: !!this.map, selectionMode: this.selectionMode });
 			return;
 		}
 		
@@ -1151,7 +1238,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		
 		// Register click handler for location selection
 		this.locationSelectionClickHandler = (e: L.LeafletMouseEvent) => {
-			console.log('Map clicked for location selection', e.latlng);
 			const lat = e.latlng.lat;
 			const lng = e.latlng.lng;
 			
@@ -1163,7 +1249,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		};
 		
 		this.map.on('click', this.locationSelectionClickHandler);
-		console.log('Location selection click handler registered on map');
 	}
 
 	/**

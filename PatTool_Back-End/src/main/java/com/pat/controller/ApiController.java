@@ -29,7 +29,7 @@ public class ApiController {
     public Map<String, Object> getCurrentWeather(
             @RequestParam("city") String city,
             @RequestParam(value = "countryCode", required = false) String countryCode) {
-        log.info("Fetching current weather for city: {}, countryCode: {}", city, countryCode);
+        log.debug("Fetching current weather for city: {}, countryCode: {}", city, countryCode);
         return openWeatherService.getCurrentWeather(city, countryCode);
     }
 
@@ -43,7 +43,7 @@ public class ApiController {
     public Map<String, Object> getCurrentWeatherByCoordinates(
             @RequestParam("lat") Double lat,
             @RequestParam("lon") Double lon) {
-        log.info("Fetching current weather for coordinates: lat={}, lon={}", lat, lon);
+        log.debug("Fetching current weather for coordinates: lat={}, lon={}", lat, lon);
         return openWeatherService.getCurrentWeatherByCoordinates(lat, lon);
     }
 
@@ -57,7 +57,7 @@ public class ApiController {
     public Map<String, Object> getForecast(
             @RequestParam("city") String city,
             @RequestParam(value = "countryCode", required = false) String countryCode) {
-        log.info("Fetching forecast for city: {}, countryCode: {}", city, countryCode);
+        log.debug("Fetching forecast for city: {}, countryCode: {}", city, countryCode);
         return openWeatherService.getForecast(city, countryCode);
     }
 

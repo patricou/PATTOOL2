@@ -703,6 +703,7 @@
         "TRACK_NO_SOURCE": "कोई ट्रैक स्रोत उपलब्ध नहीं है।",
         "TRACK_BASEMAP": "बेसमैप",
         "TRACK_RECENTER": "ट्रैक को पुनः केंद्रित करें (R)",
+        "TRACK_SHARE_LOCATION": "स्थान साझा करें",
         "TRACK_INFO_TITLE": "जानकारी",
         "TRACK_INFO_DESC": "एक बेसमैप चुनें और इस विंडो को क्रॉस से बंद करें।",
         "TRACK_INFO_SHORTCUT": "R दबाएं ताकि मानचित्र ट्रैक पर पुनः केंद्रित हो जाए।",
@@ -1337,8 +1338,8 @@
         "COUNTRY_CODE_PLACEHOLDER": "उदा: IN",
         "LATITUDE": "अक्षांश",
         "LONGITUDE": "देशांतर",
-        "GET_WEATHER_BY_CITY": "शहर से मौसम प्राप्त करें",
-        "GET_WEATHER_BY_COORDINATES": "निर्देशांक से मौसम प्राप्त करें",
+        "GET_WEATHER_BY_CITY": "मौसम (शहर)",
+        "GET_WEATHER_BY_COORDINATES": "मौसम (GPS)",
         "TEMPERATURE": "तापमान",
         "FEELS_LIKE": "अनुभव",
         "DESCRIPTION": "विवरण",
@@ -1352,12 +1353,18 @@
         "FEELS": "अनुभव",
         "N_A": "उपलब्ध नहीं",
         "VIEW_ON_MAP": "मानचित्र पर देखें",
-        "SELECT_ON_MAP": "मानचित्र पर चुनें",
+        "SELECT_ON_MAP": "मानचित्र",
         "SELECT_LOCATION": "स्थान चुनें",
-        "REPOSITION_TO_USER": "उपयोगकर्ता स्थान पर पुनः स्थिति",
+        "REPOSITION_TO_USER": "मेरा स्थान",
         "USER_LOCATION": "उपयोगकर्ता स्थान",
+        "SHARE_POSITION": "स्थान साझा करें",
         "ERROR_GETTING_LOCATION": "उपयोगकर्ता स्थान प्राप्त करने में त्रुटि",
-        "COORDINATES_UPDATED": "निर्देशांक अपडेट किए गए: Lat {{lat}}, Lon {{lon}}"
+        "COORDINATES_UPDATED": "निर्देशांक अपडेट किए गए: Lat {{lat}}, Lon {{lon}}",
+        "SHARE_LOCATION": "स्थान साझा करें",
+        "POSITION": "स्थान",
+        "VIEW_ON_MAPS": "Google Maps पर देखें",
+        "POSITION_COPIED": "स्थान क्लिपबोर्ड पर कॉपी किया गया",
+        "COPY_MANUALLY": "ऊपर दिया गया टेक्स्ट मैन्युअल रूप से कॉपी करें"
     }
 }
 

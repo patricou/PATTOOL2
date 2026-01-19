@@ -263,4 +263,38 @@
         flex-direction: row;
         justify-content: center;
     }
+    
+    /* Masquer le texte des boutons sur mobile sauf pour les boutons de météo */
+    .btn-text {
+        display: none;
+    }
+    
+    /* Afficher le texte pour les boutons de météo même en mode mobile */
+    .btn-weather .btn-text {
+        display: inline;
+        margin-left: 5px;
+    }
+    
+    /* Ajuster le padding des boutons pour qu'ils soient carrés avec seulement les icônes */
+    .button-group .btn:not(.btn-weather),
+    .weather-controls .btn:not(.btn-weather) {
+        padding: 3px 8px;
+        min-width: 32px;
+        justify-content: center;
+    }
+    
+    /* Les boutons de météo gardent leur padding normal */
+    .btn-weather {
+        padding: 4px 10px;
+    }
+    
+    .button-group .btn i,
+    .weather-controls .btn i {
+        margin: 0;
+    }
+    
+    /* Espacement entre icône et texte pour les boutons de météo */
+    .btn-weather i {
+        margin-right: 5px;
+    }
 }

@@ -47,27 +47,27 @@ public class MongoConfig {
     @EventListener(ApplicationReadyEvent.class)
     public void verifyMongoConnection() {
         try {
-            log.info("========================================");
-            log.info("MongoDB Connection Verification");
-            log.info("========================================");
+            log.debug("========================================");
+            log.debug("MongoDB Connection Verification");
+            log.debug("========================================");
             
             // Check if using URI (MongoDB Atlas) or host/port (local)
             if (uri != null && !uri.isEmpty()) {
                 // Mask password in URI for security
                 String maskedUri = uri.replaceAll("://([^:]+):([^@]+)@", "://$1:***@");
-                log.info("Connection Type: MongoDB Atlas (URI)");
-                log.info("URI: {}", maskedUri);
+                log.debug("Connection Type: MongoDB Atlas (URI)");
+                log.debug("URI: {}", maskedUri);
             } else {
-                log.info("Connection Type: Local MongoDB");
-                log.info("Host: {}:{}", host.isEmpty() ? "localhost" : host, port);
-                log.info("Database: {}", database);
+                log.debug("Connection Type: Local MongoDB");
+                log.debug("Host: {}:{}", host.isEmpty() ? "localhost" : host, port);
+                log.debug("Database: {}", database);
             }
             
             // Test connection by getting database name
             String dbName = mongoTemplate.getDb().getName();
-            log.info("Connected to MongoDB database: {}", dbName);
-            log.info("MongoDB connection verified successfully");
-            log.info("========================================");
+            log.debug("Connected to MongoDB database: {}", dbName);
+            log.debug("MongoDB connection verified successfully");
+            log.debug("========================================");
         } catch (Exception e) {
             log.error("Failed to verify MongoDB connection", e);
         }

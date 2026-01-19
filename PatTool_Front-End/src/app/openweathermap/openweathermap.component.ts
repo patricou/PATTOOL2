@@ -402,4 +402,59 @@ export class OpenWeatherMapComponent implements OnInit {
     const label = this.translateService.instant('API.SELECT_LOCATION');
     this.traceViewerModalComponent.openAtLocation(initialLat, initialLon, label, undefined, true);
   }
+
+  /**
+   * Share the current position (latitude and longitude)
+   */
+  sharePosition(): void {
+    const positionText = `${this.lat}, ${this.lon}`;
+    const googleMapsUrl = `https://www.google.com/maps?q=${this.lat},${this.lon}`;
+    const shareText = `${this.translateService.instant('API.POSITION')}: ${positionText}\n${this.translateService.instant('API.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
+
+    // Try Web Share API first (if available on mobile devices)
+    if (navigator.share) {
+      navigator.share({
+        title: this.translateService.instant('API.SHARE_POSITION'),
+        text: shareText,
+        url: googleMapsUrl
+      }).catch((error) => {
+        // If share fails, fallback to clipboard
+        console.log('Web Share API failed, using clipboard:', error);
+        this.copyToClipboard(positionText, googleMapsUrl);
+      });
+    } else {
+      // Fallback to clipboard copy
+      this.copyToClipboard(positionText, googleMapsUrl);
+    }
+  }
+
+  /**
+   * Copy position to clipboard
+   */
+  private copyToClipboard(positionText: string, googleMapsUrl: string): void {
+    // Try to copy both the coordinates and the Google Maps URL
+    const textToCopy = `${positionText}\n${googleMapsUrl}`;
+    
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        this.successMessage = this.translateService.instant('API.POSITION_COPIED');
+        this.clearMessages();
+      }).catch((error) => {
+        console.error('Failed to copy to clipboard:', error);
+        // Fallback: show in alert
+        this.showPositionShareDialog(positionText, googleMapsUrl);
+      });
+    } else {
+      // Fallback for older browsers
+      this.showPositionShareDialog(positionText, googleMapsUrl);
+    }
+  }
+
+  /**
+   * Show position share dialog (fallback method)
+   */
+  private showPositionShareDialog(positionText: string, googleMapsUrl: string): void {
+    const message = `${this.translateService.instant('API.POSITION')}: ${positionText}\n\n${this.translateService.instant('API.VIEW_ON_MAPS')}: ${googleMapsUrl}\n\n${this.translateService.instant('API.COPY_MANUALLY')}`;
+    window.prompt(this.translateService.instant('API.SHARE_POSITION'), message);
+  }
 }

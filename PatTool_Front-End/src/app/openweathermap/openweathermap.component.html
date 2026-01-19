@@ -53,10 +53,10 @@
                     </div>
                     <div class="button-group">
                         <button (click)="getCurrentWeather()" 
-                                class="btn btn-primary" 
+                                class="btn btn-primary btn-weather" 
                                 [disabled]="isLoadingCurrentWeather">
                             <i class="fa" [class.fa-cloud]="!isLoadingCurrentWeather" [class.fa-spinner]="isLoadingCurrentWeather" [class.fa-spin]="isLoadingCurrentWeather"></i>
-                            {{ 'API.GET_WEATHER_BY_CITY' | translate }}
+                            <span class="btn-text">{{ 'API.GET_WEATHER_BY_CITY' | translate }}</span>
                         </button>
                     </div>
                 </div>
@@ -80,22 +80,28 @@
                     </div>
                     <div class="button-group">
                         <button (click)="getCurrentWeatherByCoordinates()" 
-                                class="btn btn-info" 
+                                class="btn btn-info btn-weather" 
                                 [disabled]="isLoadingCurrentWeather">
                             <i class="fa" [class.fa-map-marker]="!isLoadingCurrentWeather" [class.fa-spinner]="isLoadingCurrentWeather" [class.fa-spin]="isLoadingCurrentWeather"></i>
-                            {{ 'API.GET_WEATHER_BY_COORDINATES' | translate }}
+                            <span class="btn-text">{{ 'API.GET_WEATHER_BY_COORDINATES' | translate }}</span>
                         </button>
                         <button (click)="repositionToUserLocation()" 
-                                class="btn btn-secondary"
+                                class="btn btn-secondary btn-weather"
                                 title="{{ 'API.REPOSITION_TO_USER' | translate }}">
                             <i class="fa fa-crosshairs"></i>
-                            {{ 'API.REPOSITION_TO_USER' | translate }}
+                            <span class="btn-text">{{ 'API.REPOSITION_TO_USER' | translate }}</span>
                         </button>
                         <button (click)="openTraceViewerForSelection()" 
                                 class="btn btn-warning"
                                 title="{{ 'API.SELECT_ON_MAP' | translate }}">
                             <i class="fa fa-crosshairs"></i>
-                            {{ 'API.SELECT_ON_MAP' | translate }}
+                            <span class="btn-text">{{ 'API.SELECT_ON_MAP' | translate }}</span>
+                        </button>
+                        <button (click)="sharePosition()" 
+                                class="btn btn-success"
+                                title="{{ 'API.SHARE_POSITION' | translate }}">
+                            <i class="fa fa-share-alt"></i>
+                            <span class="btn-text">{{ 'API.SHARE_POSITION' | translate }}</span>
                         </button>
                     </div>
                 </div>
@@ -147,7 +153,7 @@
                             class="btn btn-success" 
                             [disabled]="isLoadingForecast">
                         <i class="fa" [class.fa-calendar]="!isLoadingForecast" [class.fa-spinner]="isLoadingForecast" [class.fa-spin]="isLoadingForecast"></i>
-                        {{ 'API.GET_FORECAST' | translate }}
+                        <span class="btn-text">{{ 'API.GET_FORECAST' | translate }}</span>
                     </button>
                 </div>
 

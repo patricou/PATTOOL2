@@ -722,6 +722,7 @@
         "TRACK_NO_SOURCE": "No track source provided.",
         "TRACK_BASEMAP": "Basemap",
         "TRACK_RECENTER": "Recenter track (R)",
+        "TRACK_SHARE_LOCATION": "Share Position",
         "TRACK_INFO_TITLE": "Track information",
         "TRACK_INFO_DESC": "Choose a basemap, then close this panel with the cross.",
         "TRACK_INFO_SHORTCUT": "Press R to recenter the map on the track.",
@@ -1086,11 +1087,11 @@
             "LANGUAGE": "Language"
         },
         "SAVE_CACHE": {
-            "TITLE": "Save Cache",
-            "DESC": "Save compressed images to disk",
-            "BUTTON": "Save",
-            "SAVING": "Saving...",
-            "NOT_AUTHORIZED": "You are not authorized to save the cache"
+            "TITLE": "Data Maintenance",
+            "DESC": "Executes maintenance tasks: saves compressed image cache and cleans up old Govee records (IoT thermometers). Govee records older than the configured retention period will be deleted.",
+            "BUTTON": "Execute",
+            "SAVING": "Executing...",
+            "NOT_AUTHORIZED": "You are not authorized to execute maintenance tasks"
         },
         "LOAD_CACHE": {
             "TITLE": "Load Cache",
@@ -1367,8 +1368,8 @@
         "COUNTRY_CODE_PLACEHOLDER": "e.g., FR",
         "LATITUDE": "Latitude",
         "LONGITUDE": "Longitude",
-        "GET_WEATHER_BY_CITY": "Get Weather by City",
-        "GET_WEATHER_BY_COORDINATES": "Get Weather by Coordinates",
+        "GET_WEATHER_BY_CITY": "Weather (city)",
+        "GET_WEATHER_BY_COORDINATES": "Weather (GPS)",
         "TEMPERATURE": "Temperature",
         "FEELS_LIKE": "Feels like",
         "DESCRIPTION": "Description",
@@ -1382,12 +1383,18 @@
         "FEELS": "Feels",
         "N_A": "N/A",
         "VIEW_ON_MAP": "View on Map",
-        "SELECT_ON_MAP": "Select on Map",
+        "SELECT_ON_MAP": "Map",
         "SELECT_LOCATION": "Select Location",
-        "REPOSITION_TO_USER": "Reposition to User Location",
+        "REPOSITION_TO_USER": "My Location",
         "USER_LOCATION": "User Location",
+        "SHARE_POSITION": "Share Position",
         "ERROR_GETTING_LOCATION": "Error getting user location",
-        "COORDINATES_UPDATED": "Coordinates updated: Lat {{lat}}, Lon {{lon}}"
+        "COORDINATES_UPDATED": "Coordinates updated: Lat {{lat}}, Lon {{lon}}",
+        "SHARE_LOCATION": "Share Position",
+        "POSITION": "Position",
+        "VIEW_ON_MAPS": "View on Google Maps",
+        "POSITION_COPIED": "Position copied to clipboard",
+        "COPY_MANUALLY": "Copy the text above manually"
     }
 }
 

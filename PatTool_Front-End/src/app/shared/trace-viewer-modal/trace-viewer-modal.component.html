@@ -39,6 +39,11 @@
                   (click)="recenterOnTrack()">
             <i class="fa fa-crosshairs me-1"></i> {{ 'EVENTELEM.TRACK_RECENTER' | translate }}
           </button>
+          <button type="button"
+                  class="btn btn-outline-light btn-sm mt-2 w-100"
+                  (click)="sharePosition()">
+            <i class="fa fa-share-alt me-1"></i> {{ 'EVENTELEM.TRACK_SHARE_LOCATION' | translate }}
+          </button>
         </div>
 
         <button *ngIf="isFullscreen"
@@ -99,6 +104,12 @@
               *ngIf="!isFullscreen"
               (click)="recenterOnTrack()">
         <i class="fa fa-crosshairs me-1"></i> {{ 'EVENTELEM.TRACK_RECENTER' | translate }}
+      </button>
+      <button type="button"
+              class="btn btn-outline-light"
+              *ngIf="!isFullscreen"
+              (click)="sharePosition()">
+        <i class="fa fa-share-alt me-1"></i> {{ 'EVENTELEM.TRACK_SHARE_LOCATION' | translate }}
       </button>
       <button type="button"
               class="btn btn-secondary"

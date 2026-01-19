@@ -37,9 +37,9 @@ public class MongoIndexConfig {
     @EventListener(ApplicationReadyEvent.class)
     public void createIndexes() {
         try {
-            log.info("========================================");
-            log.info("Creating MongoDB indexes for Evenement collection");
-            log.info("========================================");
+            log.debug("========================================");
+            log.debug("Creating MongoDB indexes for Evenement collection");
+            log.debug("========================================");
             
             // First, list existing indexes for verification
             listExistingIndexes();
@@ -154,9 +154,9 @@ public class MongoIndexConfig {
                 new Sort.Direction[]{Sort.Direction.ASC, Sort.Direction.DESC, Sort.Direction.DESC},
                 "Compound index on visibility + beginEventDate + creationDate for flexible date sorting");
 
-            log.info("========================================");
-            log.info("MongoDB indexes for 'evenements' collection created successfully");
-            log.info("========================================");
+            log.debug("========================================");
+            log.debug("MongoDB indexes for 'evenements' collection created successfully");
+            log.debug("========================================");
             
             // List indexes again to verify they were created
             listExistingIndexes();
@@ -176,9 +176,9 @@ public class MongoIndexConfig {
      */
     private void createUserConnectionLogIndexes() {
         try {
-            log.info("========================================");
-            log.info("Creating MongoDB indexes for UserConnectionLog collection");
-            log.info("========================================");
+            log.debug("========================================");
+            log.debug("Creating MongoDB indexes for UserConnectionLog collection");
+            log.debug("========================================");
 
             // List existing indexes
             listExistingIndexes("userConnectionLogs");
@@ -195,9 +195,9 @@ public class MongoIndexConfig {
             createIndexIfNotExists("userConnectionLogs", "member.$id", Sort.Direction.ASC,
                     "Index on member.$id for efficient log lookup by member");
 
-            log.info("========================================");
-            log.info("MongoDB indexes for 'userConnectionLogs' collection created successfully");
-            log.info("========================================");
+            log.debug("========================================");
+            log.debug("MongoDB indexes for 'userConnectionLogs' collection created successfully");
+            log.debug("========================================");
 
             // List indexes again to verify they were created
             listExistingIndexes("userConnectionLogs");
@@ -211,9 +211,9 @@ public class MongoIndexConfig {
      */
     private void createFriendGroupIndexes() {
         try {
-            log.info("========================================");
-            log.info("Creating MongoDB indexes for FriendGroup collection");
-            log.info("========================================");
+            log.debug("========================================");
+            log.debug("Creating MongoDB indexes for FriendGroup collection");
+            log.debug("========================================");
             
             // List existing indexes
             listExistingIndexes("friendgroups");
@@ -244,9 +244,9 @@ public class MongoIndexConfig {
             createIndexIfNotExists("friendgroups", "authorizedUsers.$id", Sort.Direction.ASC, 
                 "Index on authorizedUsers.$id for finding friend groups by authorized user");
 
-            log.info("========================================");
-            log.info("MongoDB indexes for 'friendgroups' collection created successfully");
-            log.info("========================================");
+            log.debug("========================================");
+            log.debug("MongoDB indexes for 'friendgroups' collection created successfully");
+            log.debug("========================================");
             
             // List indexes again to verify they were created
             listExistingIndexes("friendgroups");
@@ -263,9 +263,9 @@ public class MongoIndexConfig {
      */
     private void createDiscussionIndexes() {
         try {
-            log.info("========================================");
-            log.info("Creating MongoDB indexes for Discussion collection");
-            log.info("========================================");
+            log.debug("========================================");
+            log.debug("Creating MongoDB indexes for Discussion collection");
+            log.debug("========================================");
             
             // List existing indexes
             listExistingIndexes("discussions");
@@ -278,11 +278,11 @@ public class MongoIndexConfig {
 
             // 2. Index on _id is automatic in MongoDB, but ensure it exists
             // This is already the default, but we log it for completeness
-            log.info("✓ _id index exists by default (used for findById queries)");
+            log.debug("✓ _id index exists by default (used for findById queries)");
 
-            log.info("========================================");
-            log.info("MongoDB indexes for 'discussions' collection created successfully");
-            log.info("========================================");
+            log.debug("========================================");
+            log.debug("MongoDB indexes for 'discussions' collection created successfully");
+            log.debug("========================================");
             
             // List indexes again to verify they were created
             listExistingIndexes("discussions");
@@ -305,12 +305,12 @@ public class MongoIndexConfig {
         try {
             IndexOperations indexOps = mongoTemplate.indexOps(collectionName);
             var indexes = indexOps.getIndexInfo();
-            log.info("Existing indexes on '{}' collection: {}", collectionName, indexes.size());
+            log.debug("Existing indexes on '{}' collection: {}", collectionName, indexes.size());
             for (var indexInfo : indexes) {
-                log.info("  - {}: {}", indexInfo.getName(), indexInfo.toString());
+                log.debug("  - {}: {}", indexInfo.getName(), indexInfo.toString());
             }
         } catch (Exception e) {
-            log.warn("Could not list existing indexes for collection '{}': {}", collectionName, e.getMessage());
+            log.error("Could not list existing indexes for collection '{}': {}", collectionName, e.getMessage());
         }
     }
 
@@ -330,9 +330,9 @@ public class MongoIndexConfig {
             Index index = new Index().on(field, direction).named(field.replace(".", "_") + "_idx");
             String indexName = indexOps.ensureIndex(index);
             if (indexName != null && !indexName.isEmpty()) {
-                log.info("✓ Created index on '{}': {} ({})", collectionName, indexName, description);
+                log.debug("✓ Created index on '{}': {} ({})", collectionName, indexName, description);
             } else {
-                log.info("✓ Index on '{}'.{} already exists or was created ({})", collectionName, field, description);
+                log.debug("✓ Index on '{}'.{} already exists or was created ({})", collectionName, field, description);
             }
         } catch (Exception e) {
             log.error("Error creating index on '{}'.{}: {}", collectionName, field, e.getMessage(), e);
@@ -345,7 +345,7 @@ public class MongoIndexConfig {
     private void createCompoundIndexIfNotExists(String[] fields, Sort.Direction[] directions, String description) {
         try {
             if (fields.length != directions.length) {
-                log.warn("Fields and directions arrays must have the same length");
+                log.error("Fields and directions arrays must have the same length");
                 return;
             }
 
@@ -361,9 +361,9 @@ public class MongoIndexConfig {
             
             String createdIndexName = indexOps.ensureIndex(index);
             if (createdIndexName != null && !createdIndexName.isEmpty()) {
-                log.info("✓ Created compound index: {} ({})", createdIndexName, description);
+                log.debug("✓ Created compound index: {} ({})", createdIndexName, description);
             } else {
-                log.info("✓ Compound index on {} already exists or was created ({})", String.join(", ", fields), description);
+                log.debug("✓ Compound index on {} already exists or was created ({})", String.join(", ", fields), description);
             }
         } catch (Exception e) {
             log.error("Error creating compound index on {}: {}", 
@@ -388,18 +388,18 @@ public class MongoIndexConfig {
                 if (keyDoc != null && keyDoc.size() == 1 && keyDoc.containsKey(field)) {
                     Boolean isUnique = indexDoc.getBoolean("unique", false);
                     if (Boolean.TRUE.equals(isUnique)) {
-                        log.info("Found unique index '{}' on field '{}', dropping it to allow duplicate values", indexName, field);
+                        log.debug("Found unique index '{}' on field '{}', dropping it to allow duplicate values", indexName, field);
                         try {
                             collection.dropIndex(indexName);
-                            log.info("✓ Dropped unique index '{}' on field '{}'", indexName, field);
+                            log.debug("✓ Dropped unique index '{}' on field '{}'", indexName, field);
                         } catch (Exception dropException) {
-                            log.warn("Could not drop unique index '{}': {}", indexName, dropException.getMessage());
+                            log.error("Could not drop unique index '{}': {}", indexName, dropException.getMessage());
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            log.warn("Error checking/dropping unique index on field '{}': {}", field, e.getMessage());
+            log.error("Error checking/dropping unique index on field '{}': {}", field, e.getMessage());
         }
     }
 }

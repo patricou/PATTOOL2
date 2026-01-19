@@ -717,6 +717,7 @@
 		"TRACK_NO_SOURCE": "Aucune source de trace disponible.",
 		"TRACK_BASEMAP": "Fond de carte",
 		"TRACK_RECENTER": "Recentrer le tracé (R)",
+		"TRACK_SHARE_LOCATION": "Partager la position",
 		"TRACK_INFO_TITLE": "Informations",
 		"TRACK_INFO_DESC": "Choisissez un fond de carte puis refermez cette fenêtre avec la croix.",
 		"TRACK_INFO_SHORTCUT": "Appuyez sur R pour recentrer la carte sur le tracé.",
@@ -1081,11 +1082,11 @@
             "LANGUAGE": "Langue"
         },
         "SAVE_CACHE": {
-            "TITLE": "Sauvegarder le Cache",
-            "DESC": "Sauvegarder les images compressées sur le disque",
-            "BUTTON": "Sauvegarder",
-            "SAVING": "Sauvegarde...",
-            "NOT_AUTHORIZED": "Vous n'êtes pas autorisé à sauvegarder le cache"
+            "TITLE": "Data Maintenance",
+            "DESC": "Exécute les tâches de maintenance : sauvegarde du cache des images compressées et nettoyage des anciens enregistrements Govee (thermomètres IoT). Les enregistrements Govee plus anciens que la période de rétention configurée seront supprimés.",
+            "BUTTON": "Exécuter",
+            "SAVING": "Exécution...",
+            "NOT_AUTHORIZED": "Vous n'êtes pas autorisé à exécuter les tâches de maintenance"
         },
         "LOAD_CACHE": {
             "TITLE": "Charger le Cache",
@@ -1362,8 +1363,8 @@
         "COUNTRY_CODE_PLACEHOLDER": "ex: FR",
         "LATITUDE": "Latitude",
         "LONGITUDE": "Longitude",
-        "GET_WEATHER_BY_CITY": "Obtenir la météo par ville",
-        "GET_WEATHER_BY_COORDINATES": "Obtenir la météo par coordonnées",
+        "GET_WEATHER_BY_CITY": "Météo (ville)",
+        "GET_WEATHER_BY_COORDINATES": "Météo (GPS)",
         "TEMPERATURE": "Température",
         "FEELS_LIKE": "Ressenti",
         "DESCRIPTION": "Description",
@@ -1377,12 +1378,17 @@
         "FEELS": "Ressenti",
         "N_A": "N/D",
         "VIEW_ON_MAP": "Voir sur la carte",
-        "SELECT_ON_MAP": "Sélectionner sur la carte",
+        "SELECT_ON_MAP": "Carte",
         "SELECT_LOCATION": "Sélectionner un emplacement",
-        "REPOSITION_TO_USER": "Repositionner à ma position",
+        "REPOSITION_TO_USER": "Ma Position",
         "USER_LOCATION": "Ma position",
+        "SHARE_POSITION": "Partager la position",
         "ERROR_GETTING_LOCATION": "Erreur lors de la récupération de la position",
-        "COORDINATES_UPDATED": "Coordonnées mises à jour : Lat {{lat}}, Lon {{lon}}"
+        "COORDINATES_UPDATED": "Coordonnées mises à jour : Lat {{lat}}, Lon {{lon}}",
+        "POSITION": "Position",
+        "VIEW_ON_MAPS": "Voir sur Google Maps",
+        "POSITION_COPIED": "Position copiée dans le presse-papiers",
+        "COPY_MANUALLY": "Copiez manuellement le texte ci-dessus"
     }
 }
 

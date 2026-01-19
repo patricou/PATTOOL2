@@ -2,6 +2,7 @@ package com.pat.controller;
 
 import com.pat.repo.domain.Member;
 import com.pat.service.CachePersistenceService;
+import com.pat.service.MaintenanceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,6 +35,9 @@ public class CacheController {
     
     @Autowired
     private ApplicationContext applicationContext;
+    
+    @Autowired
+    private MaintenanceTask maintenanceTask;
     
     /**
      * Check if the current user has Admin role (case-insensitive)
@@ -364,6 +368,41 @@ public class CacheController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Error during shutdown process", e);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "Error: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+    
+    /**
+     * Execute maintenance tasks (cache save + Govee cleanup).
+     */
+    @PostMapping("/maintenance")
+    public ResponseEntity<Map<String, Object>> executeMaintenanceTasks(@RequestBody Member member) {
+        log.info("Maintenance tasks requested via REST API by user: {}", member.getId());
+        try {
+            // Check authorization - must have Admin role
+            if (!hasAdminRole()) {
+                Map<String, Object> response = new HashMap<>();
+                response.put("success", false);
+                response.put("authorized", false);
+                response.put("message", member.getUserName() + " : You are not authorized to execute maintenance tasks. Admin role required.");
+                log.warn("Unauthorized maintenance tasks attempt by user: {}", member.getId());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+            }
+            
+            // Execute maintenance tasks (cache save + Govee cleanup)
+            maintenanceTask.executeMaintenanceTasks();
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("authorized", true);
+            response.put("message", "Maintenance tasks executed successfully: cache saved and old Govee records cleaned up.");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error executing maintenance tasks via REST API", e);
             Map<String, Object> response = new HashMap<>();
             response.put("success", false);
             response.put("message", "Error: " + e.getMessage());
