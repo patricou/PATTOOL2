@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 import { environment } from '../../../environments/environment';
 import { Subject } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
@@ -140,6 +141,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		private readonly cdr: ChangeDetectorRef,
 		private readonly translateService: TranslateService,
 		private readonly fileService: FileService,
+		private readonly keycloakService: KeycloakService,
 		@Inject(DOCUMENT) private readonly document: Document
 	) {
 		this.configureLeafletIcons();
@@ -974,21 +976,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 				subdomains: 'abc',
 				attribution: '&copy; OpenStreetMap France & OSM contributors'
 			}),
-			'carto-light': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', {
-				maxZoom: 19,
-				subdomains: 'abcd',
-				attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OSM contributors'
-			}),
-			'carto-dark': L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', {
-				maxZoom: 19,
-				subdomains: 'abcd',
-				attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OSM contributors'
-			}),
-			'carto-voyager': L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png', {
-				maxZoom: 19,
-				subdomains: 'abcd',
-				attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OSM contributors'
-			}),
 			'esri-imagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
 				maxZoom: 19,
 				attribution: 'Tiles &copy; Esri'
@@ -1010,25 +997,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxZoom: 16,
 				attribution: 'Tiles &copy; Esri'
 			}),
-			'carto-positron-lite': L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/light_nolabels/{z}/{x}/{y}.png', {
-				maxZoom: 19,
-				subdomains: 'abcd',
-				attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors'
-			}),
-			'carto-dark-matter-lite': L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/dark_nolabels/{z}/{x}/{y}.png', {
-				maxZoom: 19,
-				subdomains: 'abcd',
-				attribution: '&copy; <a href="https://carto.com/attributions">CARTO</a> &copy; OpenStreetMap contributors'
-			}),
-			'hydda-full': L.tileLayer('https://{s}.tile.openstreetmap.se/hydda/full/{z}/{x}/{y}.png', {
-				maxZoom: 18,
-				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-			}),
-			'ign-plan': L.tileLayer(`https://data.geopf.fr/xyz/planignv2/{z}/{x}/{y}.png?apikey=${environment.IGN_API_KEY}`, {
+			'ign-plan': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
 			}),
-			'ign-ortho': L.tileLayer(`https://data.geopf.fr/xyz/ortho/{z}/{x}/{y}.jpg?apikey=${environment.IGN_API_KEY}`, {
+			'ign-ortho': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+				maxZoom: 19,
+				attribution: '&copy; IGN - Géoportail'
+			}),
+			'ign-cadastre': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+				maxZoom: 19,
+				attribution: '&copy; IGN - Géoportail'
+			}),
+			'ign-limites': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=LIMITES_ADMINISTRATIVES_EXPRESS.LATEST&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
 			})
@@ -1037,19 +1018,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.availableBaseLayers = [
 			{ id: 'osm-standard', label: 'OpenStreetMap' },
 			{ id: 'osm-fr', label: 'OpenStreetMap France' },
-			{ id: 'carto-light', label: 'Carto Light' },
-			{ id: 'carto-dark', label: 'Carto Dark' },
-			{ id: 'carto-voyager', label: 'Carto Voyager' },
 			{ id: 'esri-imagery', label: 'Esri Satellite' },
 			{ id: 'esri-topo', label: 'Esri Topographique' },
 			{ id: 'esri-street', label: 'Esri Streets' },
 			{ id: 'opentopomap', label: 'OpenTopoMap' },
 			{ id: 'esri-light-gray', label: 'Esri Light Gray' },
-			{ id: 'carto-positron-lite', label: 'Carto Positron Lite' },
-			{ id: 'carto-dark-matter-lite', label: 'Carto Dark Matter Lite' },
-			{ id: 'hydda-full', label: 'Hydda Full' },
 			{ id: 'ign-plan', label: 'IGN Plan' },
-			{ id: 'ign-ortho', label: 'IGN Ortho' }
+			{ id: 'ign-ortho', label: 'IGN Ortho' },
+			{ id: 'ign-cadastre', label: 'IGN Cadastre' },
+			{ id: 'ign-limites', label: 'IGN Limites Administratives' }
 		];
 
 		this.selectedBaseLayerId = 'opentopomap';
@@ -1126,12 +1103,70 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// OpenStreetMap URL
 		const osmUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=15`;
 
+		// Get current date and time in local timezone
+		const now = new Date();
+		let dateTimeStr: string;
+		try {
+			const lang = this.translateService.currentLang || 'fr-FR';
+			dateTimeStr = now.toLocaleString(lang, {
+				year: 'numeric',
+				month: '2-digit',
+				day: '2-digit',
+				hour: '2-digit',
+				minute: '2-digit',
+				second: '2-digit',
+				hour12: false
+			});
+		} catch (error) {
+			// Fallback to simple format if locale formatting fails
+			const day = String(now.getDate()).padStart(2, '0');
+			const month = String(now.getMonth() + 1).padStart(2, '0');
+			const year = now.getFullYear();
+			const hours = String(now.getHours()).padStart(2, '0');
+			const minutes = String(now.getMinutes()).padStart(2, '0');
+			const seconds = String(now.getSeconds()).padStart(2, '0');
+			dateTimeStr = `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+		}
+
+		// Check if opened from slideshow (has photo name in label or trackFileName)
+		const photoName = this.pendingLocation?.label || this.trackFileName;
+		const isFromSlideshow = photoName && photoName.trim().length > 0 && 
+			photoName !== this.translate('EVENTELEM.SEE_LOCATION');
+
+		// Create share text based on context
+		let shareText: string;
+		if (isFromSlideshow) {
+			// Opened from slideshow: use photo name
+			shareText = `Position de la photo : ${photoName} (${dateTimeStr})`;
+		} else {
+			// Opened directly: use user name
+			let userFullName = '';
+			try {
+				const user = this.keycloakService.getUserAsMember();
+				if (user.firstName && user.lastName) {
+					userFullName = `${user.firstName} ${user.lastName}`.trim();
+				} else if (user.firstName) {
+					userFullName = user.firstName;
+				} else if (user.lastName) {
+					userFullName = user.lastName;
+				} else if (user.userName) {
+					userFullName = user.userName;
+				}
+			} catch (error) {
+				console.warn('Could not get user info for share:', error);
+			}
+
+			shareText = userFullName 
+				? `Position de ${userFullName} (${dateTimeStr}): ${positionText}`
+				: `${this.translate('EVENTELEM.POSITION')} (${dateTimeStr}): ${positionText}`;
+		}
+
 		// Try to use Web Share API if available
 		if (navigator.share) {
 			try {
 				const shareData: ShareData = {
-					title: this.translate('EVENTELEM.POSITION'),
-					text: `${this.translate('EVENTELEM.POSITION')}: ${positionText}`,
+					title: shareText,
+					text: shareText,
 					url: googleMapsUrl
 				};
 
@@ -1143,7 +1178,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				if (error.name !== 'AbortError') {
 					console.error('Error sharing position:', error);
 					// Fallback to clipboard if share fails
-					const clipboardText = `${positionText}\n${this.translate('EVENTELEM.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
+					const clipboardText = `${shareText}\n${this.translate('EVENTELEM.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
 					this.copyToClipboard(clipboardText);
 				}
 				return;
@@ -1151,7 +1186,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		// Fallback: copy to clipboard if Web Share API is not available
-		const clipboardText = `${positionText}\n${this.translate('EVENTELEM.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
+		const clipboardText = `${shareText}\n${this.translate('EVENTELEM.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
 		this.copyToClipboard(clipboardText);
 	}
 

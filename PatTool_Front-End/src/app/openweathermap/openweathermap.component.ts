@@ -258,10 +258,14 @@ export class OpenWeatherMapComponent implements OnInit {
     this.apiService.getCurrentWeatherByCoordinates(lat, lon).subscribe({
       next: (response) => {
         if (response && !response.error && response.name) {
-          this.city = response.name;
-          if (response.sys && response.sys.country) {
-            this.countryCode = response.sys.country;
-          }
+          // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+          setTimeout(() => {
+            this.city = response.name;
+            if (response.sys && response.sys.country) {
+              this.countryCode = response.sys.country;
+            }
+            this.cdr.detectChanges();
+          }, 0);
         }
       },
       error: (error) => {
