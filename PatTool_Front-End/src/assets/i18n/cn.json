@@ -1370,6 +1370,8 @@
         "COORDINATES_UPDATED": "坐标已更新: Lat {{lat}}, Lon {{lon}}",
         "SHARE_LOCATION": "分享位置",
         "POSITION": "位置",
+        "POSITION_OF": "位置",
+        "PHOTO_POSITION": "照片位置",
         "VIEW_ON_MAPS": "在 Google 地图上查看",
         "POSITION_COPIED": "位置已复制到剪贴板",
         "COPY_MANUALLY": "请手动复制上面的文本"

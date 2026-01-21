@@ -1365,6 +1365,8 @@
         "COORDINATES_UPDATED": "Координаты обновлены: Lat {{lat}}, Lon {{lon}}",
         "SHARE_LOCATION": "Поделиться местоположением",
         "POSITION": "Местоположение",
+        "POSITION_OF": "Местоположение",
+        "PHOTO_POSITION": "Позиция фотографии",
         "VIEW_ON_MAPS": "Посмотреть на Google Maps",
         "POSITION_COPIED": "Местоположение скопировано в буфер обмена",
         "COPY_MANUALLY": "Скопируйте текст выше вручную"

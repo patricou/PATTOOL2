@@ -1375,6 +1375,8 @@
         "COORDINATES_UPDATED": "Coordenadas actualizadas: Lat {{lat}}, Lon {{lon}}",
         "SHARE_LOCATION": "Compartir Posición",
         "POSITION": "Posición",
+        "POSITION_OF": "Posición de",
+        "PHOTO_POSITION": "Posición de la foto",
         "VIEW_ON_MAPS": "Ver en Google Maps",
         "POSITION_COPIED": "Posición copiada al portapapeles",
         "COPY_MANUALLY": "Copie el texto anterior manualmente"

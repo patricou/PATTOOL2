@@ -1368,6 +1368,8 @@
         "COORDINATES_UPDATED": "تم تحديث الإحداثيات: Lat {{lat}}, Lon {{lon}}",
         "SHARE_LOCATION": "مشاركة الموقع",
         "POSITION": "الموقع",
+        "POSITION_OF": "موقع",
+        "PHOTO_POSITION": "موقع الصورة",
         "VIEW_ON_MAPS": "عرض على خرائط Google",
         "POSITION_COPIED": "تم نسخ الموقع إلى الحافظة",
         "COPY_MANUALLY": "انسخ النص أعلاه يدوياً"

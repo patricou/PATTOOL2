@@ -57,6 +57,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
 	private pendingLocation: { lat: number; lng: number; label?: string } | null = null;
 	private selectionMode: boolean = false;
+	private simpleShareMode: boolean = false;
 	private selectionMarker?: L.Marker;
 	private locationSelectionClickHandler?: (e: L.LeafletMouseEvent) => void;
 
@@ -197,7 +198,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.open({ blob, fileName });
 	}
 
-	public openAtLocation(lat: number, lng: number, label?: string, eventColor?: { r: number; g: number; b: number }, enableSelection: boolean = false): void {
+	public openAtLocation(lat: number, lng: number, label?: string, eventColor?: { r: number; g: number; b: number }, enableSelection: boolean = false, simpleShare: boolean = false): void {
 		if (Number.isNaN(lat) || Number.isNaN(lng)) {
 			return;
 		}
@@ -212,8 +213,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.eventColor = null;
 		}
 
-		// Store selection mode BEFORE calling open() which resets state
+		// Store selection mode and simple share mode BEFORE calling open() which resets state
 		this.selectionMode = enableSelection;
+		this.simpleShareMode = simpleShare;
 
 		// Call open() which will call resetState() and reset selectionMode to false
 		this.open({
@@ -221,8 +223,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			location: { lat, lng, label }
 		});
 
-		// Restore selectionMode AFTER open() has reset it
+		// Restore selectionMode and simpleShareMode AFTER open() has reset it
 		this.selectionMode = enableSelection;
+		this.simpleShareMode = simpleShare;
 	}
 
 	public close(): void {
@@ -821,6 +824,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.pendingTrackPoints = null;
 		this.pendingLocation = null;
 		this.selectionMode = false;
+		this.simpleShareMode = false;
 		this.destroyMap();
 		this.cdr.detectChanges();
 	}
@@ -1151,9 +1155,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		// Create share text based on context
 		let shareText: string;
-		if (isFromSlideshow) {
+		
+		// If simple share mode (from yellow "Carte" button), use simple format
+		if (this.simpleShareMode) {
+			shareText = `${this.translate('API.POSITION')}: ${positionText}`;
+		} else if (isFromSlideshow) {
 			// Opened from slideshow: use photo name
-			shareText = `Position de la photo : ${photoName} (${dateTimeStr})`;
+			shareText = `${this.translate('API.PHOTO_POSITION')} : ${photoName} (${dateTimeStr})`;
 		} else {
 			// Opened directly: use user name
 			let userFullName = '';
@@ -1172,9 +1180,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 				console.warn('Could not get user info for share:', error);
 			}
 
-			shareText = userFullName 
-				? `Position de ${userFullName} (${dateTimeStr}): ${positionText}`
-				: `${this.translate('EVENTELEM.POSITION')} (${dateTimeStr}): ${positionText}`;
+			const currentLang = this.translateService.currentLang || this.translateService.defaultLang || 'fr';
+			// For Japanese, Arabic, and Hindi, the name comes before "position"
+			const isRTLOrSpecialOrder = ['jp', 'ar', 'in'].includes(currentLang);
+			if (userFullName) {
+				if (isRTLOrSpecialOrder) {
+					// For Japanese: "Patrick Deschamps の位置"
+					// For Arabic/Hindi: similar structure
+					shareText = currentLang === 'jp' 
+						? `${userFullName} の${this.translate('API.POSITION')} (${dateTimeStr}): ${positionText}`
+						: `${userFullName} ${this.translate('API.POSITION_OF')} (${dateTimeStr}): ${positionText}`;
+				} else {
+					shareText = `${this.translate('API.POSITION_OF')} ${userFullName} (${dateTimeStr}): ${positionText}`;
+				}
+			} else {
+				shareText = `${this.translate('API.POSITION')} (${dateTimeStr}): ${positionText}`;
+			}
 		}
 
 		// Try to use Web Share API if available
@@ -1222,7 +1243,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		try {
 			const successful = document.execCommand('copy');
 			if (successful) {
-				const message = this.translate('EVENTELEM.POSITION_COPIED');
+				const message = this.translate('API.POSITION_COPIED');
 				// Optional: show a toast notification here if you have a toast service
 			}
 		} catch (err) {
@@ -1236,7 +1257,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private copyToClipboard(text: string): void {
 		if (navigator.clipboard && navigator.clipboard.writeText) {
 			navigator.clipboard.writeText(text).then(() => {
-				const message = this.translate('EVENTELEM.POSITION_COPIED');
+				const message = this.translate('API.POSITION_COPIED');
 				console.log(message, text);
 			}).catch(() => {
 				this.copyToClipboardFallback(text);

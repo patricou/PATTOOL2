@@ -1386,6 +1386,8 @@
         "ERROR_GETTING_LOCATION": "Erreur lors de la récupération de la position",
         "COORDINATES_UPDATED": "Coordonnées mises à jour : Lat {{lat}}, Lon {{lon}}",
         "POSITION": "Position",
+        "POSITION_OF": "Position de",
+        "PHOTO_POSITION": "Position de la photo",
         "VIEW_ON_MAPS": "Voir sur Google Maps",
         "POSITION_COPIED": "Position copiée dans le presse-papiers",
         "COPY_MANUALLY": "Copiez manuellement le texte ci-dessus"

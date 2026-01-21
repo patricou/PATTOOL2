@@ -1362,6 +1362,8 @@
         "COORDINATES_UPDATED": "निर्देशांक अपडेट किए गए: Lat {{lat}}, Lon {{lon}}",
         "SHARE_LOCATION": "स्थान साझा करें",
         "POSITION": "स्थान",
+        "POSITION_OF": "का स्थान",
+        "PHOTO_POSITION": "फोटो की स्थिति",
         "VIEW_ON_MAPS": "Google Maps पर देखें",
         "POSITION_COPIED": "स्थान क्लिपबोर्ड पर कॉपी किया गया",
         "COPY_MANUALLY": "ऊपर दिया गया टेक्स्ट मैन्युअल रूप से कॉपी करें"

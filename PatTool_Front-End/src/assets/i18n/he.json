@@ -1363,6 +1363,8 @@
         "COORDINATES_UPDATED": "קואורדינטות עודכנו: Lat {{lat}}, Lon {{lon}}",
         "SHARE_LOCATION": "שתף מיקום",
         "POSITION": "מיקום",
+        "POSITION_OF": "מיקום של",
+        "PHOTO_POSITION": "מיקום התמונה",
         "VIEW_ON_MAPS": "הצג ב-Google Maps",
         "POSITION_COPIED": "המיקום הועתק ללוח",
         "COPY_MANUALLY": "העתק את הטקסט למעלה ידנית"

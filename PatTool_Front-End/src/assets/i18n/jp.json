@@ -1250,6 +1250,8 @@
         "COORDINATES_UPDATED": "座標が更新されました: Lat {{lat}}, Lon {{lon}}",
         "SHARE_LOCATION": "位置を共有",
         "POSITION": "位置",
+        "POSITION_OF": "位置",
+        "PHOTO_POSITION": "写真の位置",
         "VIEW_ON_MAPS": "Google マップで表示",
         "POSITION_COPIED": "位置がクリップボードにコピーされました",
         "COPY_MANUALLY": "上記のテキストを手動でコピーしてください"

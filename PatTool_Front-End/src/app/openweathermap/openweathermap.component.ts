@@ -404,7 +404,8 @@ export class OpenWeatherMapComponent implements OnInit {
     const initialLat = this.lat || 48.8566;
     const initialLon = this.lon || 2.3522;
     const label = this.translateService.instant('API.SELECT_LOCATION');
-    this.traceViewerModalComponent.openAtLocation(initialLat, initialLon, label, undefined, true);
+    // Pass simpleShare: true to use simple format "Position : coordonnées" when sharing
+    this.traceViewerModalComponent.openAtLocation(initialLat, initialLon, label, undefined, true, true);
   }
 
   /**

@@ -1247,6 +1247,8 @@
         "COORDINATES_UPDATED": "Οι συντεταγμένες ενημερώθηκαν: Lat {{lat}}, Lon {{lon}}",
         "SHARE_LOCATION": "Κοινοποίηση Τοποθεσίας",
         "POSITION": "Τοποθεσία",
+        "POSITION_OF": "Τοποθεσία",
+        "PHOTO_POSITION": "Τοποθεσία φωτογραφίας",
         "VIEW_ON_MAPS": "Προβολή στο Google Maps",
         "POSITION_COPIED": "Η τοποθεσία αντιγράφηκε στο πρόχειρο",
         "COPY_MANUALLY": "Αντιγράψτε το παραπάνω κείμενο χειροκίνητα"
