@@ -1129,9 +1129,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		// Check if opened from slideshow (has photo name in label or trackFileName)
+		// A photo name typically has a file extension (.jpg, .png, etc.)
 		const photoName = this.pendingLocation?.label || this.trackFileName;
+		const seeLocationText = this.translate('EVENTELEM.SEE_LOCATION');
+		const userLocationText = this.translate('API.USER_LOCATION');
+		
+		// Check if it's a generic location label (not a photo name)
+		const isGenericLabel = !photoName || 
+			photoName === seeLocationText || 
+			photoName === userLocationText || 
+			photoName === 'Ma position' || 
+			photoName === 'My position' || 
+			photoName === 'User location' ||
+			photoName.toLowerCase().includes('position') && !photoName.match(/\.(jpg|jpeg|png|gif|bmp|webp|heic|heif|tiff|tif|mov|mp4|avi)$/i);
+		
+		// Consider it from slideshow only if it has a file extension and is not a generic label
+		const hasFileExtension = photoName && /\.(jpg|jpeg|png|gif|bmp|webp|heic|heif|tiff|tif|mov|mp4|avi)$/i.test(photoName);
+		
 		const isFromSlideshow = photoName && photoName.trim().length > 0 && 
-			photoName !== this.translate('EVENTELEM.SEE_LOCATION');
+			!isGenericLabel && hasFileExtension;
 
 		// Create share text based on context
 		let shareText: string;
