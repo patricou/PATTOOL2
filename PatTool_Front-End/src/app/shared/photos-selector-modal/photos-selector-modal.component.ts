@@ -154,6 +154,8 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     // Initialize default selection - defer to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
     setTimeout(() => {
       this.initializeDefaultSelection();
+      // Refresh cache again in case files were loaded between opening and this timeout
+      this.updateImageFilesCache();
       this.cdr.markForCheck();
     }, 0);
 
@@ -268,12 +270,16 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     // Use setTimeout to ensure modal is fully rendered and data might be loaded
     // Also defer to avoid ExpressionChangedAfterItHasBeenCheckedError
     setTimeout(() => {
+      // Refresh cache in case files were loaded asynchronously
+      this.updateImageFilesCache();
       this.checkAndSelectSingleOption();
       this.cdr.markForCheck();
     }, 100);
     
     // Also check again after a longer delay in case files are still loading
     setTimeout(() => {
+      // Refresh cache again in case files finished loading
+      this.updateImageFilesCache();
       this.checkAndSelectSingleOption();
       this.cdr.markForCheck();
     }, 500);
@@ -431,6 +437,12 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     const imageFiles = this.evenement.fileUploadeds.filter(file => this.isImageFile(file.fileName));
     this._hasImageFiles = imageFiles.length > 0;
     this._imageFilesCount = imageFiles.length;
+  }
+
+  // Public method to refresh cache - call this when files are loaded asynchronously
+  public refreshCache(): void {
+    this.updateImageFilesCache();
+    this.cdr.markForCheck();
   }
 
   private isImageFile(fileName: string): boolean {

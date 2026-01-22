@@ -1027,13 +1027,17 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					this.evenement.fileUploadeds.push(file);
 					// Trigger change detection for photos selector modal if it's open
 					if (this.photosSelectorModalComponent) {
+						// Refresh the cache to update the displayed photo count
+						this.photosSelectorModalComponent.refreshCache();
 						setTimeout(() => {
 							this.photosSelectorModalComponent.checkAndSelectSingleOption();
 						}, 100);
 					}
 				} else if (streamedFile.type === 'complete') {
-					// All files loaded - check if we need to auto-select in modal
+					// All files loaded - refresh cache and check if we need to auto-select in modal
 					if (this.photosSelectorModalComponent) {
+						// Refresh the cache to ensure all photos are visible
+						this.photosSelectorModalComponent.refreshCache();
 						setTimeout(() => {
 							this.photosSelectorModalComponent.checkAndSelectSingleOption();
 						}, 100);
