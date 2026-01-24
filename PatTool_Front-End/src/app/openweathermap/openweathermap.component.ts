@@ -412,8 +412,11 @@ export class OpenWeatherMapComponent implements OnInit {
    * Share the current position (latitude and longitude)
    */
   sharePosition(): void {
-    const positionText = `${this.lat}, ${this.lon}`;
-    const googleMapsUrl = `https://www.google.com/maps?q=${this.lat},${this.lon}`;
+    // Use toFixed(6) to ensure sufficient precision for GPS coordinates (6 decimals = ~0.11m accuracy)
+    const latStr = this.lat.toFixed(6);
+    const lonStr = this.lon.toFixed(6);
+    const positionText = `${latStr}, ${lonStr}`;
+    const googleMapsUrl = `https://www.google.com/maps?q=${latStr},${lonStr}`;
     const shareText = `${this.translateService.instant('API.POSITION')}: ${positionText}\n${this.translateService.instant('API.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
 
     // Try Web Share API first (if available on mobile devices)

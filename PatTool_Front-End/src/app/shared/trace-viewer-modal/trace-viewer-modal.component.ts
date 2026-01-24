@@ -203,7 +203,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		const fallback = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+		const fallback = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
 		const fileName = label && label.trim().length > 0 ? label : fallback;
 
 		// Store event color if provided
@@ -1100,12 +1100,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			lng = center.lng;
 		}
 
-		// Format: lat, lng
-		const positionText = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+		// Format: lat, lng (use toFixed(6) for sufficient GPS precision: 6 decimals = ~0.11m accuracy)
+		const latStr = lat.toFixed(6);
+		const lngStr = lng.toFixed(6);
+		const positionText = `${latStr}, ${lngStr}`;
 		// Google Maps URL
-		const googleMapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+		const googleMapsUrl = `https://www.google.com/maps?q=${latStr},${lngStr}`;
 		// OpenStreetMap URL
-		const osmUrl = `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}&zoom=15`;
+		const osmUrl = `https://www.openstreetmap.org/?mlat=${latStr}&mlon=${lngStr}&zoom=15`;
 
 		// Get current date and time in local timezone
 		const now = new Date();
@@ -1376,7 +1378,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			zIndexOffset: 1000,
 			riseOnHover: true,
 			riseOffset: 250
-		}).bindPopup(`${isInitial ? 'Current' : 'Selected'}: ${lat.toFixed(5)}, ${lng.toFixed(5)}`).openPopup();
+		}).bindPopup(`${isInitial ? 'Current' : 'Selected'}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`).openPopup();
 		
 		// Add directly to map to ensure it's on top
 		this.selectionMarker.addTo(this.map!);
