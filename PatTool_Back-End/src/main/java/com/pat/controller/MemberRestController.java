@@ -7,6 +7,7 @@ import com.pat.repo.UserConnectionLogRepository;
 import com.pat.service.ExceptionTrackingService;
 import com.pat.service.IpGeolocationService;
 import com.pat.service.KeycloakService;
+import com.pat.service.PositionService;
 import com.pat.service.UserConnectionLogPolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -60,6 +61,9 @@ public class MemberRestController {
 
     @Autowired
     private UserConnectionLogPolicy userConnectionLogPolicy;
+
+    @Autowired
+    private PositionService positionService;
 
     @Value("${app.connection.email.enabled:false}")
     private boolean connectionEmailEnabled;
@@ -217,6 +221,12 @@ public class MemberRestController {
                 member.setVisible(existingVisible != null ? existingVisible : true);
             }
             // If visible is provided in request (admin update), use the provided value
+            
+            // CRITICAL: Preserve existing positions from database before adding new one
+            if (memberWithId.getPositions() != null && !memberWithId.getPositions().isEmpty()) {
+                member.setPositions(new java.util.ArrayList<>(memberWithId.getPositions()));
+                log.debug("Preserved {} existing positions for user {}", memberWithId.getPositions().size(), member.getUserName());
+            }
             
             // Handle roles: preserve from request if provided (admin update), otherwise preserve existing or fetch from Keycloak
             if (member.getRoles() != null && !member.getRoles().trim().isEmpty()) {
@@ -389,6 +399,11 @@ public class MemberRestController {
             if (member.getVisible() == null) {
                 member.setVisible(existingMember.getVisible());
             }
+            // CRITICAL: Preserve existing positions from database before adding new one
+            if (existingMember.getPositions() != null && !existingMember.getPositions().isEmpty()) {
+                member.setPositions(new java.util.ArrayList<>(existingMember.getPositions()));
+                log.debug("Preserved {} existing positions for user {}", existingMember.getPositions().size(), member.getUserName());
+            }
             // Handle roles
             if (member.getRoles() == null || member.getRoles().trim().isEmpty()) {
                 if (existingMember.getRoles() != null && !existingMember.getRoles().trim().isEmpty()) {
@@ -397,6 +412,29 @@ public class MemberRestController {
                     updateMemberRolesFromKeycloak(member);
                 }
             }
+        }
+
+        // Handle position storage before saving member
+        try {
+            String ipAddress = request.getHeader("X-Forwarded-For");
+            if (ipAddress == null) {
+                ipAddress = request.getRemoteAddr();
+            }
+            
+            // Check if GPS coordinates were provided in the request
+            if (member.getRequestLatitude() != null && member.getRequestLongitude() != null) {
+                // GPS position provided - use it
+                positionService.addGpsPosition(member, member.getRequestLatitude(), member.getRequestLongitude());
+                log.debug("Added GPS position for user {}: lat={}, lon={}", member.getUserName(), 
+                    member.getRequestLatitude(), member.getRequestLongitude());
+            } else if (ipAddress != null && !ipAddress.trim().isEmpty() && !shouldSkipConnectionLog(ipAddress)) {
+                // No GPS coordinates - try to get position from IP
+                positionService.addIpPosition(member, ipAddress);
+                log.debug("Attempted to add IP position for user {} from IP: {}", member.getUserName(), ipAddress);
+            }
+        } catch (Exception e) {
+            log.warn("Error adding position for user {}: {}", member.getUserName(), e.getMessage());
+            // Don't fail the connection if position storage fails
         }
 
         // Save the member in Mlab ( if modif ( like email or... ) ( userName is unqiue )

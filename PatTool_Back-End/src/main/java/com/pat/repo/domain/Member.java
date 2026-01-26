@@ -3,9 +3,12 @@ package com.pat.repo.domain;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.pat.converter.RolesDeserializer;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Transient;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Date;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by patricou on 4/20/2017.
@@ -26,6 +29,13 @@ public class Member {
     private String locale; // User's language preference (e.g., "fr", "en")
     private String whatsappLink; // WhatsApp link for this member
     private Boolean visible; // User visibility flag (null = not set, will default to true for new users only)
+    private List<Position> positions; // List of user positions (GPS or IP-based)
+    
+    // Temporary fields for receiving GPS coordinates in connection request (not persisted to MongoDB)
+    @Transient
+    private Double requestLatitude; // GPS latitude from request
+    @Transient
+    private Double requestLongitude; // GPS longitude from request
 
     public Member( String firstName, String lastName, String userName, String addressEmail){
         this.firstName = firstName;
@@ -136,6 +146,33 @@ public class Member {
     public void setVisible(Boolean visible) {
         // Preserve the actual value (including null and false)
         this.visible = visible;
+    }
+    
+    public List<Position> getPositions() {
+        if (positions == null) {
+            positions = new ArrayList<>();
+        }
+        return positions;
+    }
+    
+    public void setPositions(List<Position> positions) {
+        this.positions = positions;
+    }
+    
+    public Double getRequestLatitude() {
+        return requestLatitude;
+    }
+    
+    public void setRequestLatitude(Double requestLatitude) {
+        this.requestLatitude = requestLatitude;
+    }
+    
+    public Double getRequestLongitude() {
+        return requestLongitude;
+    }
+    
+    public void setRequestLongitude(Double requestLongitude) {
+        this.requestLongitude = requestLongitude;
     }
 }
 

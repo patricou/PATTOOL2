@@ -15,6 +15,7 @@ interface TraceViewerSource {
 	blob?: Blob;
 	fileName: string;
 	location?: { lat: number; lng: number; label?: string };
+	positions?: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }>;
 }
 
 interface TraceStatistics {
@@ -56,6 +57,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private overlayLayer?: L.LayerGroup;
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
 	private pendingLocation: { lat: number; lng: number; label?: string } | null = null;
+	private pendingPositions: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }> | null = null;
 	private selectionMode: boolean = false;
 	private simpleShareMode: boolean = false;
 	private selectionMarker?: L.Marker;
@@ -228,6 +230,43 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.simpleShareMode = simpleShare;
 	}
 
+	/**
+	 * Open trace viewer with multiple positions (history)
+	 * @param positions Array of positions to display
+	 * @param fileName Label for the trace
+	 * @param eventColor Optional color for styling
+	 */
+	public openWithPositions(positions: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }>, fileName: string, eventColor?: { r: number; g: number; b: number }): void {
+		if (!positions || positions.length === 0) {
+			console.warn('No positions provided to openWithPositions');
+			return;
+		}
+
+		// Validate positions
+		const validPositions = positions.filter(p => 
+			p.lat != null && p.lng != null && 
+			!Number.isNaN(p.lat) && !Number.isNaN(p.lng)
+		);
+
+		if (validPositions.length === 0) {
+			console.warn('No valid positions provided');
+			return;
+		}
+
+		// Store event color if provided
+		if (eventColor) {
+			this.eventColor = eventColor;
+		} else {
+			this.eventColor = null;
+		}
+
+		// Open with positions
+		this.open({
+			fileName,
+			positions: validPositions
+		});
+	}
+
 	public close(): void {
 		if (this.document.fullscreenElement) {
 			const exitResult = this.document.exitFullscreen();
@@ -262,8 +301,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackFileName = source.fileName;
 		this.initializeBaseLayers();
 		this.pendingLocation = source.location ?? null;
+		this.pendingPositions = source.positions ?? null;
 		if (this.pendingLocation) {
 			this.pendingTrackPoints = null;
+			this.trackStats = null;
+		}
+		if (this.pendingPositions) {
+			this.pendingTrackPoints = null;
+			this.pendingLocation = null;
 			this.trackStats = null;
 		}
 
@@ -296,7 +341,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.resetTraceViewerColors();
 		}
 
-		if (this.pendingLocation) {
+		if (this.pendingPositions) {
+			this.scheduleMapInitialization();
+		} else if (this.pendingLocation) {
 			this.scheduleMapInitialization();
 		}
 
@@ -304,6 +351,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.readFromBlob(source.blob, source.fileName);
 		} else if (source.fileId) {
 			this.loadFromFileId(source.fileId, source.fileName);
+		} else if (source.positions && source.positions.length > 0) {
+			this.ensureMapInitialization();
+			this.tryRenderPendingPositions();
 		} else if (source.location) {
 			this.ensureMapInitialization();
 			this.tryRenderPendingLocation();
@@ -339,6 +389,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.initializeMap();
 		this.ensureMapInitialization();
 		this.tryRenderPendingTrack();
+		this.tryRenderPendingPositions();
 		this.tryRenderPendingLocation();
 		// Register location selection if in selection mode - wait longer for map to be ready
 		if (this.selectionMode) {
@@ -359,18 +410,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 		setTimeout(() => {
 			this.map?.invalidateSize();
 			this.tryRenderPendingTrack();
+			this.tryRenderPendingPositions();
 			this.tryRenderPendingLocation();
 		}, 50);
 		
 		setTimeout(() => {
 			this.map?.invalidateSize();
 			this.tryRenderPendingTrack();
+			this.tryRenderPendingPositions();
 			this.tryRenderPendingLocation();
 		}, 150);
 		
 		setTimeout(() => {
 			this.map?.invalidateSize();
 			this.tryRenderPendingTrack();
+			this.tryRenderPendingPositions();
 			this.tryRenderPendingLocation();
 		}, 300);
 	}
@@ -382,12 +436,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.initializeMap();
 				this.ensureMapInitialization();
 				this.tryRenderPendingTrack();
+				this.tryRenderPendingPositions();
 				this.tryRenderPendingLocation();
 				// Force invalidateSize after each attempt
 				if (this.map) {
 					setTimeout(() => {
 						this.map?.invalidateSize();
 						this.tryRenderPendingTrack();
+						this.tryRenderPendingPositions();
 						this.tryRenderPendingLocation();
 					}, 50);
 				}
@@ -442,16 +498,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const invalidate = () => {
 			this.tryRenderPendingTrack();
+			this.tryRenderPendingPositions();
 			this.tryRenderPendingLocation();
 			// Force multiple invalidateSize calls to ensure proper rendering
 			setTimeout(() => {
 				this.map?.invalidateSize();
 				this.tryRenderPendingTrack();
+				this.tryRenderPendingPositions();
 				this.tryRenderPendingLocation();
 			}, 50);
 			setTimeout(() => {
 				this.map?.invalidateSize();
 				this.tryRenderPendingTrack();
+				this.tryRenderPendingPositions();
 				this.tryRenderPendingLocation();
 			}, 150);
 		};
@@ -599,6 +658,98 @@ export class TraceViewerModalComponent implements OnDestroy {
 			points: points.length,
 			distanceKm: this.computeDistance(points)
 		};
+		this.cdr.detectChanges();
+	}
+
+	private tryRenderPendingPositions(): void {
+		if (!this.map || !this.overlayLayer || !this.pendingPositions || this.pendingPositions.length === 0) {
+			return;
+		}
+
+		const positions = this.pendingPositions;
+		this.pendingPositions = null;
+		const overlayLayer = this.overlayLayer; // Store in local variable for TypeScript
+
+		overlayLayer.clearLayers();
+
+		// Convert positions to LatLngTuple array for polyline
+		const points: L.LatLngTuple[] = positions.map(p => [p.lat, p.lng] as L.LatLngTuple);
+
+		// If we have multiple positions, draw a polyline connecting them
+		if (points.length > 1) {
+			const polyline = L.polyline(points, {
+				color: '#007bff',
+				weight: 3,
+				opacity: 0.7
+			});
+			polyline.addTo(overlayLayer);
+		}
+
+		// Add markers for each position
+		positions.forEach((pos, index) => {
+			const marker = L.marker([pos.lat, pos.lng]);
+			
+			// Create popup content with position info
+			let popupContent = '';
+			if (pos.label) {
+				popupContent += `<strong>${pos.label}</strong><br>`;
+			}
+			popupContent += `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}<br>`;
+			if (pos.type) {
+				popupContent += `Type: ${pos.type}<br>`;
+			}
+			if (pos.datetime) {
+				popupContent += `Date: ${new Date(pos.datetime).toLocaleString()}`;
+			}
+			
+			if (popupContent) {
+				marker.bindPopup(popupContent);
+			}
+
+			// Use different colors for GPS vs IP
+			const isGps = pos.type === 'GPS';
+			const markerColor = isGps ? '#28a745' : '#ffc107';
+			
+			// Create colored circle marker
+			const circleMarker = L.circleMarker([pos.lat, pos.lng], {
+				radius: 5,
+				color: markerColor,
+				fillColor: markerColor,
+				fillOpacity: 1,
+				weight: 2
+			});
+			
+			if (popupContent) {
+				circleMarker.bindPopup(popupContent);
+			}
+			
+			circleMarker.addTo(overlayLayer);
+		});
+
+		// Fit map to show all positions
+		if (points.length > 0) {
+			const bounds = L.latLngBounds(points);
+			this.trackBounds = bounds;
+			this.map.fitBounds(bounds, { padding: [24, 24] });
+		}
+
+		// Calculate statistics
+		this.trackStats = {
+			points: points.length,
+			distanceKm: points.length > 1 ? this.computeDistance(points) : null
+		};
+
+		this.map.invalidateSize();
+		setTimeout(() => {
+			this.map?.invalidateSize();
+		}, 50);
+		setTimeout(() => {
+			this.map?.invalidateSize();
+		}, 150);
+		setTimeout(() => {
+			this.map?.invalidateSize();
+		}, 300);
+
 		this.cdr.detectChanges();
 	}
 
@@ -823,6 +974,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.trackStats = null;
 		this.pendingTrackPoints = null;
 		this.pendingLocation = null;
+		this.pendingPositions = null;
 		this.selectionMode = false;
 		this.simpleShareMode = false;
 		this.destroyMap();
@@ -936,6 +1088,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			setTimeout(() => {
 				this.map?.invalidateSize();
 				this.tryRenderPendingTrack();
+				this.tryRenderPendingPositions();
 				this.tryRenderPendingLocation();
 			}, 0);
 		};

@@ -44,6 +44,17 @@ export class FriendsService {
                                     rolesArray = user.roles;
                                 }
                             }
+                            // Parse positions array if present
+                            let positions = undefined;
+                            if (user.positions && Array.isArray(user.positions)) {
+                                positions = user.positions.map((p: any) => ({
+                                    datetime: p.datetime ? new Date(p.datetime) : undefined,
+                                    type: p.type,
+                                    latitude: p.latitude,
+                                    longitude: p.longitude
+                                }));
+                            }
+                            
                             return new Member(
                                 user.id || '',
                                 user.addressEmail || '',
@@ -56,7 +67,8 @@ export class FriendsService {
                                 user.lastConnectionDate ? new Date(user.lastConnectionDate) : undefined,
                                 user.locale || undefined,
                                 user.whatsappLink || undefined,
-                                (user.visible !== undefined && user.visible !== null) ? user.visible : true
+                                (user.visible !== undefined && user.visible !== null) ? user.visible : true,
+                                positions
                             );
                         });
                     }),

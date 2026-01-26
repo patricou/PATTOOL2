@@ -526,6 +526,25 @@
   line-height: 1.3;
 }
 
+/* Position buttons - same size */
+.position-section .position-btn {
+  width: 200px;
+  flex: 0 0 200px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  box-sizing: border-box;
+}
+
+@media (max-width: 576px) {
+  .position-section .position-btn {
+    width: 100%;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
 /* Profile Info Styles for Group Cards */
 .group-card .profile-icon {
   margin-right: 6px;

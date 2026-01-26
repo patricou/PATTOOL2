@@ -284,6 +284,24 @@
         </div>
         <div class="user-actions">
           <div class="d-flex gap-2 flex-wrap align-items-center">
+            <!-- Position button -->
+            <button 
+              *ngIf="hasPosition(user)"
+              class="btn btn-xs btn-info compact-btn"
+              (click)="openUserPosition(user)"
+              [ngbTooltip]="'FRIENDS.VIEW_POSITION' | translate"
+              placement="top">
+              <i class="fa fa-map-marker"></i>
+            </button>
+            <button 
+              *ngIf="user.positions && user.positions.length > 1"
+              class="btn btn-xs btn-secondary compact-btn"
+              (click)="openUserPositionHistory(user)"
+              [ngbTooltip]="'FRIENDS.VIEW_POSITION_HISTORY' | translate"
+              placement="top">
+              <i class="fa fa-history"></i>
+              <span class="badge bg-light text-dark ms-1">{{ user.positions.length }}</span>
+            </button>
             <!-- WhatsApp Link button -->
             <button 
               *ngIf="user.whatsappLink"
@@ -865,6 +883,39 @@
               <i class="fa fa-key profile-icon"></i> 
               <strong class="profile-label">{{ 'FRIENDS.KEYCLOAK_ID' | translate }}:</strong> 
               <span class="profile-value">{{ currentUser.keycloakId }}</span>
+            </div>
+            
+            <!-- Position Section -->
+            <div class="position-section mt-3 pt-3 border-top" *ngIf="hasPosition(currentUser)">
+              <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
+                <button 
+                  class="btn btn-xs btn-info compact-btn position-btn"
+                  (click)="openUserPosition(currentUser)"
+                  [ngbTooltip]="'FRIENDS.VIEW_POSITION' | translate"
+                  placement="top">
+                  <i class="fa fa-map-marker"></i>
+                  <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.VIEW_POSITION' | translate }}</span>
+                </button>
+                <button 
+                  *ngIf="currentUser.positions && currentUser.positions.length > 1"
+                  class="btn btn-xs btn-secondary compact-btn position-btn"
+                  (click)="openUserPositionHistory(currentUser)"
+                  [ngbTooltip]="'FRIENDS.VIEW_POSITION_HISTORY' | translate"
+                  placement="top">
+                  <i class="fa fa-history"></i>
+                  <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.VIEW_POSITION_HISTORY' | translate }}</span>
+                  <span class="badge bg-light text-dark ms-1">{{ currentUser.positions.length }}</span>
+                </button>
+              </div>
+              <small class="text-muted d-block">
+                <i class="fa fa-info-circle"></i> 
+                <span *ngIf="getPositionType(currentUser) === 'GPS'">{{ 'FRIENDS.POSITION_GPS_AVAILABLE' | translate }}</span>
+                <span *ngIf="getPositionType(currentUser) === 'IP'">{{ 'FRIENDS.POSITION_IP_AVAILABLE' | translate }}</span>
+                <span *ngIf="getPositionType(currentUser) !== 'GPS' && getPositionType(currentUser) !== 'IP'">{{ 'FRIENDS.POSITION_AVAILABLE' | translate }}</span>
+                <span *ngIf="currentUser.positions && currentUser.positions.length > 1" class="ms-2">
+                  ({{ currentUser.positions.length }} {{ 'FRIENDS.POSITIONS' | translate }})
+                </span>
+              </small>
             </div>
             
             <!-- WhatsApp Link Section -->
@@ -1504,3 +1555,5 @@
   </div>
 </div>
 
+<!-- Trace Viewer Modal -->
+<app-trace-viewer-modal></app-trace-viewer-modal>

@@ -11,6 +11,7 @@ import { DiscussionModalComponent } from '../../communications/discussion-modal/
 import { DiscussionService } from '../../services/discussion.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
+import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 
 @Component({
   selector: 'app-friends',
@@ -21,7 +22,8 @@ import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigat
     NgbModule,
     TranslateModule,
     DiscussionModalComponent,
-    NavigationButtonsModule
+    NavigationButtonsModule,
+    TraceViewerModalComponent
   ],
   templateUrl: './friends.component.html',
   styleUrls: ['./friends.component.css']
@@ -34,10 +36,14 @@ export class FriendsComponent implements OnInit {
   public sentRequests: FriendRequest[] = [];
   public currentUser: Member = new Member("", "", "", "", "", [], "");
   public searchFilter: string = '';
-  public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'users';
+  public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'myuser';
   public selectedFriendIndex: number | null = null;
   public sortOption: 'dateCreation' | 'firstName' | 'lastName' | 'lastConnection' = 'dateCreation';
   public sortOptionFriends: 'dateCreation' | 'firstName' | 'lastName' = 'dateCreation';
+  
+  // Cached filtered users to avoid recalculating on every change detection
+  private _filteredUsers: Member[] = [];
+  private _filteredUsersCacheKey: string = '';
   
   // WhatsApp link editing for current user
   public editingMyWhatsappLink: boolean = false;
@@ -180,6 +186,8 @@ export class FriendsComponent implements OnInit {
   private originalSelectedUserRegistrationDate: Date | undefined = undefined;
   private originalSelectedUserLastConnectionDate: Date | undefined = undefined;
 
+  @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
+
   constructor(
     private _friendsService: FriendsService,
     private _memberService: MembersService,
@@ -239,6 +247,8 @@ export class FriendsComponent implements OnInit {
       users => {
         // Filter out current user
         this.allUsers = users.filter(u => u.id !== this.currentUser.id);
+        // Invalidate filtered users cache
+        this._filteredUsersCacheKey = '';
         // Load statuses for all users
         this.loadUserStatuses();
         checkComplete();
@@ -542,6 +552,15 @@ export class FriendsComponent implements OnInit {
   }
 
   getFilteredUsers(): Member[] {
+    // Create cache key based on inputs
+    const cacheKey = `${this.allUsers.length}-${this.searchFilter}-${this.sortOption}`;
+    
+    // Return cached result if inputs haven't changed
+    if (this._filteredUsersCacheKey === cacheKey && this._filteredUsers.length >= 0) {
+      return this._filteredUsers;
+    }
+    
+    // Recalculate filtered users
     let filtered = [...this.allUsers];
     
     if (this.searchFilter && this.searchFilter.trim()) {
@@ -560,7 +579,7 @@ export class FriendsComponent implements OnInit {
     }
     
     // Sort according to selected option
-    return filtered.sort((a, b) => {
+    const sorted = filtered.sort((a, b) => {
       switch (this.sortOption) {
         case 'dateCreation': {
           // Sort by registration date (newest first), then by last name if date is not available
@@ -646,6 +665,12 @@ export class FriendsComponent implements OnInit {
         }
       }
     });
+    
+    // Cache the result
+    this._filteredUsers = sorted;
+    this._filteredUsersCacheKey = cacheKey;
+    
+    return sorted;
   }
 
   getFilteredGroups(): FriendGroup[] {
@@ -1074,6 +1099,8 @@ export class FriendsComponent implements OnInit {
       next: (users) => {
         // Filter out current user
         this.allUsers = users.filter(u => u.id !== this.currentUser.id);
+        // Invalidate filtered users cache
+        this._filteredUsersCacheKey = '';
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -2421,6 +2448,120 @@ export class FriendsComponent implements OnInit {
       // Filter out uma_authorization and um_authorization
       return roleLower !== 'uma_authorization' && roleLower !== 'um_authorization';
     });
+  }
+
+  /**
+   * Check if a user has position data
+   */
+  hasPosition(user: Member): boolean {
+    if (!user) {
+      return false;
+    }
+    if (!user.positions || user.positions.length === 0) {
+      return false;
+    }
+    // Check if there's at least one position with valid coordinates
+    const hasValidPosition = user.positions.some(p => 
+      p.latitude != null && p.longitude != null && 
+      !isNaN(p.latitude) && !isNaN(p.longitude)
+    );
+    return hasValidPosition;
+  }
+
+  /**
+   * Get the latest position for a user
+   */
+  getLatestPosition(user: Member): { latitude: number; longitude: number; type?: string; datetime?: Date } | null {
+    if (!this.hasPosition(user) || !user.positions) {
+      return null;
+    }
+    
+    // Get the last position (most recent)
+    const latestPosition = user.positions[user.positions.length - 1];
+    if (latestPosition.latitude != null && latestPosition.longitude != null) {
+      return {
+        latitude: latestPosition.latitude,
+        longitude: latestPosition.longitude,
+        type: latestPosition.type,
+        datetime: latestPosition.datetime
+      };
+    }
+    
+    return null;
+  }
+
+  /**
+   * Get the position type (GPS or IP) for a user
+   */
+  getPositionType(user: Member): string | null {
+    const position = this.getLatestPosition(user);
+    return position ? position.type || null : null;
+  }
+
+  /**
+   * Open trace viewer with user's position
+   */
+  openUserPosition(user: Member): void {
+    if (!this.traceViewerModalComponent) {
+      console.error('TraceViewerModalComponent is not available');
+      return;
+    }
+
+    const position = this.getLatestPosition(user);
+    if (!position) {
+      console.warn('No position available for user:', user.userName);
+      return;
+    }
+
+    // Create a label for the position
+    const positionType = position.type === 'GPS' ? 'GPS' : 'IP';
+    const dateStr = position.datetime ? 
+      new Date(position.datetime).toLocaleString() : 
+      '';
+    const label = `${user.firstName} ${user.lastName} (${positionType}${dateStr ? ' - ' + dateStr : ''})`;
+
+    // Open trace viewer at the position
+    this.traceViewerModalComponent.openAtLocation(
+      position.latitude,
+      position.longitude,
+      label
+    );
+  }
+
+  /**
+   * Open trace viewer with user's position history
+   */
+  openUserPositionHistory(user: Member): void {
+    if (!this.traceViewerModalComponent) {
+      console.error('TraceViewerModalComponent is not available');
+      return;
+    }
+
+    if (!user.positions || user.positions.length === 0) {
+      console.warn('No positions available for user:', user.userName);
+      return;
+    }
+
+    // Convert positions to the format expected by trace viewer
+    const positions = user.positions
+      .filter(p => p.latitude != null && p.longitude != null && !isNaN(p.latitude) && !isNaN(p.longitude))
+      .map(p => ({
+        lat: p.latitude!,
+        lng: p.longitude!,
+        type: p.type,
+        datetime: p.datetime,
+        label: `${p.type || 'Position'} - ${p.datetime ? new Date(p.datetime).toLocaleString() : ''}`
+      }));
+
+    if (positions.length === 0) {
+      console.warn('No valid positions found for user:', user.userName);
+      return;
+    }
+
+    const fileName = `${user.firstName} ${user.lastName} - ${this._translateService.instant('FRIENDS.POSITION_HISTORY')}`;
+
+    // Open trace viewer with all positions
+    this.traceViewerModalComponent.openWithPositions(positions, fileName);
   }
 }
 

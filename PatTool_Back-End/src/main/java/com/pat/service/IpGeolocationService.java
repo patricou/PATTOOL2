@@ -24,6 +24,7 @@ public class IpGeolocationService {
     // Using CacheEntry to store value with timestamp
     private final Map<String, CacheEntry> locationCache = new ConcurrentHashMap<>();
     private final Map<String, CacheEntry> domainCache = new ConcurrentHashMap<>();
+    private final Map<String, CoordinatesCacheEntry> coordinatesCache = new ConcurrentHashMap<>();
     
     // Maximum cache size to prevent memory leak
     @Value("${app.ip.geolocation.cache.max-size:5000}")
@@ -39,6 +40,22 @@ public class IpGeolocationService {
         
         CacheEntry(String value) {
             this.value = value;
+            this.timestamp = System.currentTimeMillis();
+        }
+        
+        boolean isExpired(long ttlMillis) {
+            return (System.currentTimeMillis() - timestamp) > ttlMillis;
+        }
+    }
+    
+    private static class CoordinatesCacheEntry {
+        final Double latitude;
+        final Double longitude;
+        final long timestamp;
+        
+        CoordinatesCacheEntry(Double latitude, Double longitude) {
+            this.latitude = latitude;
+            this.longitude = longitude;
             this.timestamp = System.currentTimeMillis();
         }
         
@@ -93,8 +110,8 @@ public class IpGeolocationService {
 
         try {
             // Use ip-api.com free service (no API key required for basic usage)
-            // Format: http://ip-api.com/json/{ip}?fields=status,message,country,regionName,city,isp
-            String url = "http://ip-api.com/json/" + ipAddress + "?fields=status,message,country,regionName,city,isp,org";
+            // Format: http://ip-api.com/json/{ip}?fields=status,message,country,regionName,city,isp,lat,lon
+            String url = "http://ip-api.com/json/" + ipAddress + "?fields=status,message,country,regionName,city,isp,org,lat,lon";
             
             @SuppressWarnings("unchecked")
             Map<String, Object> response = restTemplate.getForObject(url, Map.class);
@@ -211,6 +228,76 @@ public class IpGeolocationService {
     }
 
     /**
+     * Get coordinates (latitude, longitude) for an IP address
+     * @param ipAddress IP address to lookup
+     * @return CoordinatesInfo object containing latitude and longitude, or null if lookup fails
+     */
+    public CoordinatesInfo getCoordinates(String ipAddress) {
+        if (ipAddress == null || ipAddress.trim().isEmpty()) {
+            return null;
+        }
+
+        // Check if it's a private/local IP
+        for (String pattern : PRIVATE_IP_PATTERNS) {
+            if (ipAddress.startsWith(pattern)) {
+                return null; // No coordinates for private IPs
+            }
+        }
+
+        // Check cache first
+        CoordinatesCacheEntry cached = coordinatesCache.get(ipAddress);
+        if (cached != null) {
+            long ttlMillis = cacheTtlHours * 60 * 60 * 1000;
+            if (!cached.isExpired(ttlMillis)) {
+                return new CoordinatesInfo(cached.latitude, cached.longitude);
+            } else {
+                // Remove expired entry
+                coordinatesCache.remove(ipAddress);
+            }
+        }
+        
+        // Enforce cache size limit
+        enforceCoordinatesCacheSizeLimit();
+
+        try {
+            // Use ip-api.com free service (no API key required for basic usage)
+            // Format: http://ip-api.com/json/{ip}?fields=status,message,lat,lon
+            String url = "http://ip-api.com/json/" + ipAddress + "?fields=status,message,lat,lon";
+            
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            
+            if (response != null) {
+                String status = (String) response.get("status");
+                
+                if ("success".equals(status)) {
+                    Object latObj = response.get("lat");
+                    Object lonObj = response.get("lon");
+                    
+                    if (latObj instanceof Number && lonObj instanceof Number) {
+                        Double latitude = ((Number) latObj).doubleValue();
+                        Double longitude = ((Number) lonObj).doubleValue();
+                        
+                        // Cache the result
+                        coordinatesCache.put(ipAddress, new CoordinatesCacheEntry(latitude, longitude));
+                        
+                        log.debug("IP {} coordinates: lat={}, lon={}", ipAddress, latitude, longitude);
+                        return new CoordinatesInfo(latitude, longitude);
+                    }
+                } else {
+                    String message = (String) response.get("message");
+                    log.warn("IP coordinates lookup failed for {}: {}", ipAddress, message);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error looking up IP coordinates for {}: {}", ipAddress, e.getMessage());
+            // Don't cache errors - might be temporary network issues
+        }
+        
+        return null;
+    }
+
+    /**
      * Get complete IP information including location and domain name
      * @param ipAddress IP address to lookup
      * @return IPInfo object containing location and domain name
@@ -220,6 +307,20 @@ public class IpGeolocationService {
         String domain = getDomainName(ipAddress);
         return new IPInfo(ipAddress, location, domain);
     }
+    
+    /**
+     * Get complete IP information including location, domain name, and coordinates
+     * @param ipAddress IP address to lookup
+     * @return ExtendedIPInfo object containing location, domain name, and coordinates
+     */
+    public ExtendedIPInfo getCompleteIpInfoWithCoordinates(String ipAddress) {
+        String location = getLocationInfo(ipAddress);
+        String domain = getDomainName(ipAddress);
+        CoordinatesInfo coordinates = getCoordinates(ipAddress);
+        return new ExtendedIPInfo(ipAddress, location, domain, 
+            coordinates != null ? coordinates.getLatitude() : null,
+            coordinates != null ? coordinates.getLongitude() : null);
+    }
 
     /**
      * Clear all caches (useful for testing or if needed)
@@ -227,6 +328,7 @@ public class IpGeolocationService {
     public void clearCache() {
         locationCache.clear();
         domainCache.clear();
+        coordinatesCache.clear();
     }
     
     /**
@@ -243,12 +345,45 @@ public class IpGeolocationService {
     }
     
     /**
+     * Enforce coordinates cache size limit by removing oldest entries
+     */
+    private void enforceCoordinatesCacheSizeLimit() {
+        if (coordinatesCache.size() >= maxCacheSize) {
+            String firstKey = coordinatesCache.keySet().iterator().next();
+            coordinatesCache.remove(firstKey);
+            log.debug("Coordinates cache size limit reached, removed entry: {}", firstKey);
+        }
+    }
+    
+    /**
      * Cleanup expired entries from caches
      */
     public void cleanupExpiredEntries() {
         long ttlMillis = cacheTtlHours * 60 * 60 * 1000;
         locationCache.entrySet().removeIf(entry -> entry.getValue().isExpired(ttlMillis));
         domainCache.entrySet().removeIf(entry -> entry.getValue().isExpired(ttlMillis));
+        coordinatesCache.entrySet().removeIf(entry -> entry.getValue().isExpired(ttlMillis));
+    }
+
+    /**
+     * Data class to hold coordinates information
+     */
+    public static class CoordinatesInfo {
+        private final Double latitude;
+        private final Double longitude;
+
+        public CoordinatesInfo(Double latitude, Double longitude) {
+            this.latitude = latitude;
+            this.longitude = longitude;
+        }
+
+        public Double getLatitude() {
+            return latitude;
+        }
+
+        public Double getLongitude() {
+            return longitude;
+        }
     }
 
     /**
@@ -275,6 +410,45 @@ public class IpGeolocationService {
 
         public String getDomainName() {
             return domainName;
+        }
+    }
+    
+    /**
+     * Data class to hold complete IP information including coordinates
+     */
+    public static class ExtendedIPInfo {
+        private final String ipAddress;
+        private final String location;
+        private final String domainName;
+        private final Double latitude;
+        private final Double longitude;
+
+        public ExtendedIPInfo(String ipAddress, String location, String domainName, Double latitude, Double longitude) {
+            this.ipAddress = ipAddress;
+            this.location = location;
+            this.domainName = domainName;
+            this.latitude = latitude;
+            this.longitude = longitude;
+        }
+
+        public String getIpAddress() {
+            return ipAddress;
+        }
+
+        public String getLocation() {
+            return location;
+        }
+
+        public String getDomainName() {
+            return domainName;
+        }
+
+        public Double getLatitude() {
+            return latitude;
+        }
+
+        public Double getLongitude() {
+            return longitude;
         }
     }
 }

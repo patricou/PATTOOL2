@@ -1,4 +1,11 @@
- export class Member{
+ export interface Position {
+    datetime?: Date;
+    type?: string; // "GPS" or "IP"
+    latitude?: number;
+    longitude?: number;
+}
+
+export class Member{
 
     constructor(  
         public id: string,
@@ -12,7 +19,10 @@
         public lastConnectionDate?: Date,
         public locale?: string,
         public whatsappLink?: string,
-        public visible?: boolean
+        public visible?: boolean,
+        public positions?: Position[],
+        public requestLatitude?: number, // Temporary field for sending GPS coordinates
+        public requestLongitude?: number  // Temporary field for sending GPS coordinates
     )
     {}
 }
