@@ -47,9 +47,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public trackFileName = '';
 	public trackStats: TraceStatistics | null = null;
 	public isFullscreen = false;
+	public showGpsCoordinates = false;
+	public currentLat: number = 0;
+	public currentLng: number = 0;
+	public clickedAddress: string = '';
+	public clickedLat: number = 0;
+	public clickedLng: number = 0;
+	private finalSelectedCoordinates?: { lat: number; lng: number };
+	public showAddress: boolean = false;
 
 	// Event color for styling
 	private eventColor: { r: number; g: number; b: number } | null = null;
+	private mapMoveHandler?: () => void;
+	private mapMouseMoveHandler?: (e: L.LeafletMouseEvent) => void;
+	private mapMouseOutHandler?: () => void;
+	private addressClickHandler?: (e: L.LeafletMouseEvent) => void;
+	private mapClickHandler?: (e: L.LeafletMouseEvent) => void;
 
 	private readonly destroy$ = new Subject<void>();
 	private modalRef?: NgbModalRef;
@@ -61,6 +74,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private selectionMode: boolean = false;
 	private simpleShareMode: boolean = false;
 	private selectionMarker?: L.Marker;
+	private clickMarker?: L.Marker;
 	private locationSelectionClickHandler?: (e: L.LeafletMouseEvent) => void;
 
 	private static leafletIconsConfigured = false;
@@ -105,6 +119,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.rightMouseRectangle.setBounds(L.latLngBounds(this.rightMouseStartLatLng, event.latlng));
 	};
 	private handleMapMouseUp = (event: L.LeafletMouseEvent) => {
+		// Restore crosshair cursor after drag
+		setTimeout(() => this.forceCrosshairCursor(), 0);
 		if (!this.map || !this.rightMouseZoomActive || !this.rightMouseStartLatLng || !this.rightMouseRectangle) {
 			return;
 		}
@@ -228,6 +244,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Restore selectionMode and simpleShareMode AFTER open() has reset it
 		this.selectionMode = enableSelection;
 		this.simpleShareMode = simpleShare;
+		
+		// Enable address display by default when opening from location
+		this.showAddress = true;
+		// Register address click handler to enable address display on map clicks
+		this.registerAddressClickHandler();
 	}
 
 	/**
@@ -384,6 +405,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
+	private forceCrosshairCursor(): void {
+		if (this.map && this.map.getContainer()) {
+			const mapContainer = this.map.getContainer();
+			// Custom red crosshair cursor (larger, red)
+			const redCrosshairCursor = 'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><line x1="16" y1="0" x2="16" y2="12" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="20" x2="16" y2="32" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="0" y1="16" x2="12" y2="16" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="20" y1="16" x2="32" y2="16" stroke="red" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="red"/></svg>\') 16 16, crosshair';
+			// Force crosshair cursor via inline style (highest priority)
+			mapContainer.style.cursor = redCrosshairCursor;
+			// Also remove leaflet-grab class if present
+			mapContainer.classList.remove('leaflet-grab');
+			
+			// Force cursor on all panes
+			const panes = mapContainer.querySelectorAll('.leaflet-pane, .leaflet-map-pane, .leaflet-tile-pane, .leaflet-overlay-pane');
+			panes.forEach((pane: Element) => {
+				(pane as HTMLElement).style.cursor = redCrosshairCursor;
+			});
+		}
+	}
+
 	private onModalShown(): void {
 		this.cdr.detectChanges();
 		this.initializeMap();
@@ -491,10 +530,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 			scrollWheelZoom: true
 		});
 
+		// Force crosshair cursor on map container
+		this.forceCrosshairCursor();
+
 		this.overlayLayer = L.layerGroup().addTo(this.map);
 		this.map.setView([46.2, 2.2], 6);
 		this.applySelectedBaseLayer();
 		this.registerRightClickZoom();
+
+		// Maintain crosshair cursor even when Leaflet changes classes
+		this.map.on('moveend', () => this.forceCrosshairCursor());
+		this.map.on('zoomend', () => this.forceCrosshairCursor());
 
 		const invalidate = () => {
 			this.tryRenderPendingTrack();
@@ -522,6 +568,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 				setTimeout(() => {
 					this.registerLocationSelection();
 				}, 300);
+			}
+			// Register map move handler (for when GPS coordinates are shown but mouse hasn't moved)
+			this.registerMapMoveHandler();
+			// If GPS coordinates are already enabled, register mouse move handler
+			if (this.showGpsCoordinates) {
+				this.registerMapMouseMoveHandler();
+				this.updateGpsCoordinatesFromCenter();
+			}
+			
+			// Register click handler for marker creation (always active)
+			this.registerMapClickHandler();
+			
+			// Register address click handler if address display is enabled
+			if (this.showAddress) {
+				this.registerAddressClickHandler();
 			}
 			// Additional invalidateSize after map is ready
 			setTimeout(() => {
@@ -685,28 +746,62 @@ export class TraceViewerModalComponent implements OnDestroy {
 			polyline.addTo(overlayLayer);
 		}
 
+		// Find the most recent position by datetime
+		let mostRecentIndex = -1;
+		let mostRecentDateTime: Date | null = null;
+		positions.forEach((pos, index) => {
+			if (pos.datetime) {
+				const posDate = new Date(pos.datetime);
+				if (!mostRecentDateTime || posDate > mostRecentDateTime) {
+					mostRecentDateTime = posDate;
+					mostRecentIndex = index;
+				}
+			}
+		});
+
 		// Add markers for each position
 		positions.forEach((pos, index) => {
-			const marker = L.marker([pos.lat, pos.lng]);
+			const isMostRecent = index === mostRecentIndex;
 			
-			// Create popup content with position info
-			let popupContent = '';
-			if (pos.label) {
-				popupContent += `<strong>${pos.label}</strong><br>`;
-			}
-			popupContent += `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}<br>`;
-			if (pos.type) {
-				popupContent += `Type: ${pos.type}<br>`;
-			}
-			if (pos.datetime) {
-				popupContent += `Date: ${new Date(pos.datetime).toLocaleString()}`;
-			}
+		// No popup content needed - address will be shown in overlay when clicking on markers
+		
+		if (isMostRecent) {
+			// Most recent position: red marker icon (pin shape)
+			const redMarkerIcon = L.divIcon({
+				className: 'custom-red-marker-icon',
+				html: `
+					<div style="width: 25px; height: 41px; position: relative;">
+						<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+							<path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.596 19.404 0 12.5 0z" fill="#dc3545" stroke="#ffffff" stroke-width="1"/>
+							<circle cx="12.5" cy="12.5" r="5" fill="#ffffff"/>
+						</svg>
+					</div>
+				`,
+				iconSize: [25, 41],
+				iconAnchor: [12.5, 41],
+				popupAnchor: [0, -41]
+			});
 			
-			if (popupContent) {
-				marker.bindPopup(popupContent);
-			}
-
-			// Use different colors for GPS vs IP
+			const redMarker = L.marker([pos.lat, pos.lng], {
+				icon: redMarkerIcon,
+				zIndexOffset: 1000,
+				riseOnHover: true
+			});
+			
+			// Show address in overlay on click - no popup needed
+			redMarker.on('click', (e: L.LeafletMouseEvent) => {
+				e.originalEvent?.stopPropagation();
+				L.DomEvent.stopPropagation(e);
+				if (e.originalEvent) {
+					L.DomEvent.preventDefault(e.originalEvent);
+				}
+				// Show address in overlay
+				this.showAddressInOverlay(pos.lat, pos.lng);
+			});
+			
+			redMarker.addTo(overlayLayer);
+		} else {
+			// Other positions: use different colors for GPS vs IP
 			const isGps = pos.type === 'GPS';
 			const markerColor = isGps ? '#28a745' : '#ffc107';
 			
@@ -719,11 +814,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 				weight: 2
 			});
 			
-			if (popupContent) {
-				circleMarker.bindPopup(popupContent);
-			}
+			// Show address in overlay on click - no popup needed
+			circleMarker.on('click', (e: L.LeafletMouseEvent) => {
+				e.originalEvent?.stopPropagation();
+				L.DomEvent.stopPropagation(e);
+				if (e.originalEvent) {
+					L.DomEvent.preventDefault(e.originalEvent);
+				}
+				// Show address in overlay
+				this.showAddressInOverlay(pos.lat, pos.lng);
+			});
 			
 			circleMarker.addTo(overlayLayer);
+		}
 		});
 
 		// Fit map to show all positions
@@ -776,12 +879,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const marker = L.marker([lat, lng]);
 		if (label && label.trim().length > 0) {
-			marker.bindPopup(label);
+		// Show address in overlay on click - no popup needed
+		marker.on('click', (e: L.LeafletMouseEvent) => {
+			e.originalEvent?.stopPropagation();
+			L.DomEvent.stopPropagation(e);
+			if (e.originalEvent) {
+				L.DomEvent.preventDefault(e.originalEvent);
+			}
+			// Show address in overlay
+			this.showAddressInOverlay(lat, lng);
+		});
 		}
 		marker.addTo(this.overlayLayer);
 
 		this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
 		this.map.setView([lat, lng], 14);
+		
+		// Show address automatically for initial location if address display is enabled
+		if (this.showAddress) {
+			this.showAddressInOverlay(lat, lng);
+		}
 		
 		// Force multiple invalidateSize calls to ensure map renders correctly
 		this.map.invalidateSize();
@@ -977,6 +1094,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.pendingPositions = null;
 		this.selectionMode = false;
 		this.simpleShareMode = false;
+		this.showGpsCoordinates = false;
+		this.currentLat = 0;
+		this.currentLng = 0;
+		this.clickedAddress = '';
+		this.clickedLat = 0;
+		this.clickedLng = 0;
+		this.showAddress = false;
+		this.cleanupMapMoveHandler();
+		this.cleanupMapMouseMoveHandler();
+		this.cleanupAddressClickHandler();
+		this.cleanupMapClickHandler();
 		this.destroyMap();
 		this.cdr.detectChanges();
 	}
@@ -985,6 +1113,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.map) {
 			this.cleanupRightClickZoom();
 			this.cleanupLocationSelection();
+			this.cleanupMapMoveHandler();
+			this.cleanupMapMouseMoveHandler();
 			this.map.remove();
 			this.map = undefined;
 		}
@@ -992,6 +1122,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.pendingTrackPoints = null;
 		this.pendingLocation = null;
 		this.selectionMarker = undefined;
+		this.clickMarker = undefined;
 		this.locationSelectionClickHandler = undefined;
 	}
 
@@ -1253,9 +1384,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			lng = center.lng;
 		}
 
-		// Format: lat, lng (use toFixed(6) for sufficient GPS precision: 6 decimals = ~0.11m accuracy)
-		const latStr = lat.toFixed(6);
-		const lngStr = lng.toFixed(6);
+		// Format: lat, lng (use toFixed(15) for maximum GPS precision: 15 decimals = maximum JavaScript floating-point precision)
+		const latStr = lat.toFixed(15);
+		const lngStr = lng.toFixed(15);
 		const positionText = `${latStr}, ${lngStr}`;
 		// Google Maps URL
 		const googleMapsUrl = `https://www.google.com/maps?q=${latStr},${lngStr}`;
@@ -1412,8 +1543,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private copyToClipboard(text: string): void {
 		if (navigator.clipboard && navigator.clipboard.writeText) {
 			navigator.clipboard.writeText(text).then(() => {
-				const message = this.translate('API.POSITION_COPIED');
-				console.log(message, text);
+				// Position copied successfully
 			}).catch(() => {
 				this.copyToClipboardFallback(text);
 			});
@@ -1461,6 +1591,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Create initial marker at current location if pendingLocation exists (blue marker for initial position)
 		if (this.pendingLocation && !this.selectionMarker) {
 			this.createSelectionMarker(this.pendingLocation.lat, this.pendingLocation.lng, true);
+			// Show address automatically for initial location if address display is enabled
+			if (this.showAddress) {
+				this.showAddressInOverlay(this.pendingLocation.lat, this.pendingLocation.lng);
+			}
 		}
 		
 		// Register click handler for location selection
@@ -1468,11 +1602,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 			const lat = e.latlng.lat;
 			const lng = e.latlng.lng;
 			
+			// Stop event propagation to prevent mapClickHandler from also firing
+			e.originalEvent?.stopPropagation();
+			L.DomEvent.stopPropagation(e);
+			
 			// Create selection marker (will remove previous one if exists)
 			this.createSelectionMarker(lat, lng);
 			
-			// Emit location selected event
-			this.locationSelected.emit({ lat, lng });
+			// Store coordinates for when modal closes (don't emit immediately)
+			// This allows coordinates to be sent to openweathermap when closing, even if address display is off
+			this.finalSelectedCoordinates = { lat, lng };
+			
+			// Show address in overlay if enabled
+			if (this.showAddress) {
+				this.showAddressInOverlay(lat, lng);
+			}
 		};
 		
 		this.map.on('click', this.locationSelectionClickHandler);
@@ -1525,26 +1669,105 @@ export class TraceViewerModalComponent implements OnDestroy {
 		});
 		
 		// Add new marker at location - add directly to map with high z-index
+		// Create marker without popup - address will be shown in overlay
 		this.selectionMarker = L.marker([lat, lng], {
 			draggable: true,
 			icon: markerIcon,
 			zIndexOffset: 1000,
 			riseOnHover: true,
 			riseOffset: 250
-		}).bindPopup(`${isInitial ? 'Current' : 'Selected'}: ${lat.toFixed(6)}, ${lng.toFixed(6)}`).openPopup();
+		});
+		
+		// Show address in overlay when marker is clicked
+		this.selectionMarker.on('click', (e: L.LeafletMouseEvent) => {
+			e.originalEvent?.stopPropagation();
+			L.DomEvent.stopPropagation(e);
+			if (e.originalEvent) {
+				L.DomEvent.preventDefault(e.originalEvent);
+			}
+			if (this.selectionMarker) {
+				this.showAddressInOverlay(lat, lng);
+			}
+		});
 		
 		// Add directly to map to ensure it's on top
 		this.selectionMarker.addTo(this.map!);
-		
-		console.log('Selection marker added at', lat, lng, 'isInitial:', isInitial, this.selectionMarker);
 		
 		// Handle marker drag end to update coordinates
 		this.selectionMarker.on('dragend', () => {
 			const pos = this.selectionMarker!.getLatLng();
 			// When dragged, it becomes a selected position (red)
 			this.createSelectionMarker(pos.lat, pos.lng, false);
-			this.locationSelected.emit({ lat: pos.lat, lng: pos.lng });
+			
+			// Store coordinates for when modal closes (don't emit immediately)
+			this.finalSelectedCoordinates = { lat: pos.lat, lng: pos.lng };
+			
+			// Show address in overlay if enabled
+			if (this.showAddress) {
+				this.showAddressInOverlay(pos.lat, pos.lng);
+			}
 		});
+	}
+
+	/**
+	 * Create a marker at clicked position (for general map clicks)
+	 */
+	private createClickMarker(lat: number, lng: number): void {
+		// Remove previous click marker if exists
+		if (this.clickMarker) {
+			try {
+				if (this.overlayLayer && this.overlayLayer.hasLayer(this.clickMarker)) {
+					this.overlayLayer.removeLayer(this.clickMarker);
+				}
+				if (this.map && this.map.hasLayer(this.clickMarker)) {
+					this.map.removeLayer(this.clickMarker);
+				}
+				this.clickMarker.remove();
+			} catch (e) {
+				console.warn('Error removing previous click marker:', e);
+			}
+			this.clickMarker = undefined;
+		}
+		
+		// Create red marker icon
+		const markerIcon = L.divIcon({
+			className: 'custom-red-marker',
+			html: `
+				<div style="width: 25px; height: 41px; position: relative;">
+					<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+						<path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.596 19.404 0 12.5 0z" fill="#FF0000" stroke="#FFFFFF" stroke-width="1"/>
+						<circle cx="12.5" cy="12.5" r="5" fill="#FFFFFF"/>
+					</svg>
+				</div>
+			`,
+			iconSize: [25, 41],
+			iconAnchor: [12.5, 41],
+			popupAnchor: [0, -41]
+		});
+		
+		// Create marker
+		this.clickMarker = L.marker([lat, lng], {
+			icon: markerIcon,
+			zIndexOffset: 1000,
+			riseOnHover: true,
+			riseOffset: 250
+		});
+		
+		// Show address in overlay when marker is clicked
+		this.clickMarker.on('click', (e: L.LeafletMouseEvent) => {
+			e.originalEvent?.stopPropagation();
+			L.DomEvent.stopPropagation(e);
+			if (e.originalEvent) {
+				L.DomEvent.preventDefault(e.originalEvent);
+			}
+			if (this.clickMarker) {
+				const pos = this.clickMarker.getLatLng();
+				this.showAddressInOverlay(pos.lat, pos.lng);
+			}
+		});
+		
+		// Add to map
+		this.clickMarker.addTo(this.map!);
 	}
 
 	private cleanupLocationSelection(): void {
@@ -1564,6 +1787,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// Also remove directly from map (in case it was added there)
 			this.map.removeLayer(this.selectionMarker);
 			this.selectionMarker = undefined;
+		}
+		// Remove click marker if exists
+		if (this.clickMarker) {
+			try {
+				if (this.overlayLayer && this.overlayLayer.hasLayer(this.clickMarker)) {
+					this.overlayLayer.removeLayer(this.clickMarker);
+				}
+				if (this.map && this.map.hasLayer(this.clickMarker)) {
+					this.map.removeLayer(this.clickMarker);
+				}
+				this.clickMarker.remove();
+			} catch (e) {
+				console.warn('Error removing click marker:', e);
+			}
+			this.clickMarker = undefined;
 		}
 	}
 
@@ -1624,6 +1862,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (this.document.fullscreenElement) {
 			this.document.exitFullscreen().catch(() => {});
 		}
+		// Emit coordinates to parent component when closing (if coordinates were selected)
+		if (this.finalSelectedCoordinates) {
+			this.locationSelected.emit(this.finalSelectedCoordinates);
+			this.finalSelectedCoordinates = undefined;
+		}
+		
 		this.modalRef = undefined;
 		if (!this.hasEmittedClosed) {
 			this.hasEmittedClosed = true;
@@ -1780,5 +2024,286 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// The slideshow component will handle reapplying colors when setTraceViewerOpen(false) is called
 		// This happens in the parent component's onTraceViewerClosed() method
 	}
+
+	public toggleGpsCoordinates(): void {
+		// showGpsCoordinates is already toggled by ngModel binding
+		if (this.showGpsCoordinates) {
+			// Ensure map is initialized before registering handlers
+			if (!this.map) {
+				setTimeout(() => this.toggleGpsCoordinates(), 100);
+				return;
+			}
+			this.registerMapMouseMoveHandler();
+			// Initialize with center if mouse hasn't moved yet
+			this.updateGpsCoordinatesFromCenter();
+		} else {
+			this.cleanupMapMouseMoveHandler();
+		}
+		this.cdr.detectChanges();
+	}
+
+	private registerMapMoveHandler(): void {
+		if (!this.map || this.mapMoveHandler) {
+			return;
+		}
+
+		this.mapMoveHandler = () => {
+			// Only update if GPS coordinates are shown and mouse hasn't moved
+			if (this.showGpsCoordinates && !this.mapMouseMoveHandler) {
+				this.updateGpsCoordinatesFromCenter();
+			}
+		};
+
+		this.map.on('move', this.mapMoveHandler);
+		this.map.on('moveend', this.mapMoveHandler);
+	}
+
+	private cleanupMapMoveHandler(): void {
+		if (!this.map || !this.mapMoveHandler) {
+			return;
+		}
+
+		this.map.off('move', this.mapMoveHandler);
+		this.map.off('moveend', this.mapMoveHandler);
+		this.mapMoveHandler = undefined;
+	}
+
+	private registerMapMouseMoveHandler(): void {
+		if (!this.map) {
+			return;
+		}
+
+		// Clean up existing handlers first to avoid duplicates
+		this.cleanupMapMouseMoveHandler();
+
+		// Update coordinates when user clicks on the map (for GPS coordinates display)
+		this.mapMouseMoveHandler = (e: L.LeafletMouseEvent) => {
+			this.currentLat = e.latlng.lat;
+			this.currentLng = e.latlng.lng;
+			this.cdr.detectChanges();
+		};
+
+		this.map.on('click', this.mapMouseMoveHandler);
+		
+		// Initialize with center coordinates
+		this.updateGpsCoordinatesFromCenter();
+	}
+
+	private cleanupMapMouseMoveHandler(): void {
+		if (!this.map) {
+			return;
+		}
+
+		if (this.mapMouseMoveHandler) {
+			this.map.off('click', this.mapMouseMoveHandler);
+			this.mapMouseMoveHandler = undefined;
+		}
+
+		if (this.mapMouseOutHandler) {
+			this.map.off('mouseout', this.mapMouseOutHandler);
+			this.mapMouseOutHandler = undefined;
+		}
+	}
+
+	/**
+	 * Register click handler for address display (independent of GPS coordinates)
+	 */
+	private registerAddressClickHandler(): void {
+		if (!this.map) {
+			return;
+		}
+
+		// Clean up existing handler first to avoid duplicates
+		this.cleanupAddressClickHandler();
+
+		// Register click handler for address display
+		// This handler works independently of showGpsCoordinates and selectionMode
+		// Note: marker creation is handled by registerMapClickHandler() which is always active
+		this.addressClickHandler = (e: L.LeafletMouseEvent) => {
+			const lat = e.latlng.lat;
+			const lng = e.latlng.lng;
+			
+			// Show address in overlay if enabled (works in all modes)
+			if (this.showAddress) {
+				this.showAddressInOverlay(lat, lng);
+			}
+		};
+
+		this.map.on('click', this.addressClickHandler);
+	}
+
+	/**
+	 * Clean up address click handler
+	 */
+	private cleanupAddressClickHandler(): void {
+		if (!this.map) {
+			return;
+		}
+
+		if (this.addressClickHandler) {
+			this.map.off('click', this.addressClickHandler);
+			this.addressClickHandler = undefined;
+		}
+	}
+
+	private updateGpsCoordinatesFromCenter(): void {
+		if (!this.map) {
+			return;
+		}
+
+		const center = this.map.getCenter();
+		this.currentLat = center.lat;
+		this.currentLng = center.lng;
+		this.cdr.detectChanges();
+	}
+
+	public copyGpsCoordinates(): void {
+		const coordinates = `${this.currentLat.toFixed(15)}, ${this.currentLng.toFixed(15)}`;
+		if (navigator.clipboard && navigator.clipboard.writeText) {
+			navigator.clipboard.writeText(coordinates).then(() => {
+				// Coordinates copied successfully
+			}).catch((err) => {
+				console.error('Failed to copy coordinates:', err);
+				this.copyToClipboardFallback(coordinates);
+			});
+		} else {
+			this.copyToClipboardFallback(coordinates);
+		}
+	}
+
+	/**
+	 * Register click handler for marker creation (always active, independent of showAddress)
+	 */
+	private registerMapClickHandler(): void {
+		if (!this.map) {
+			return;
+		}
+
+		// Clean up existing handler first to avoid duplicates
+		this.cleanupMapClickHandler();
+
+		// Register click handler for marker creation
+		// This handler works independently of showAddress and selectionMode
+		this.mapClickHandler = (e: L.LeafletMouseEvent) => {
+			const lat = e.latlng.lat;
+			const lng = e.latlng.lng;
+			
+			// Create click marker at clicked position (only if not in selection mode, as selectionMarker handles that)
+			if (!this.selectionMode) {
+				this.createClickMarker(lat, lng);
+			}
+		};
+
+		this.map.on('click', this.mapClickHandler);
+	}
+
+	/**
+	 * Clean up map click handler
+	 */
+	private cleanupMapClickHandler(): void {
+		if (!this.map) {
+			return;
+		}
+
+		if (this.mapClickHandler) {
+			this.map.off('click', this.mapClickHandler);
+			this.mapClickHandler = undefined;
+		}
+	}
+
+	/**
+	 * Handle showAddress switch change - register/unregister address click handler
+	 */
+	public onShowAddressChange(): void {
+		if (this.showAddress) {
+			// Register address click handler if not already registered
+			this.registerAddressClickHandler();
+		} else {
+			// Clean up address click handler
+			this.cleanupAddressClickHandler();
+		}
+	}
+
+	/**
+	 * Show address in overlay when clicking on a marker
+	 * Works independently of showGpsCoordinates switch
+	 */
+	private showAddressInOverlay(lat: number, lng: number): void {
+		if (!this.showAddress) {
+			return;
+		}
+		this.clickedLat = lat;
+		this.clickedLng = lng;
+		this.clickedAddress = 'Loading address...';
+		this.cdr.detectChanges();
+		
+		// Get address from coordinates
+		this.getAddressFromCoordinates(lat, lng);
+	}
+
+	/**
+	 * Get full address from coordinates using reverse geocoding (Nominatim)
+	 */
+	private getAddressFromCoordinates(lat: number, lng: number): void {
+		// Use Nominatim (OpenStreetMap) for reverse geocoding - free and no API key required
+		const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+		
+		fetch(url, {
+			headers: {
+				'User-Agent': 'PATTOOL Weather App', // Required by Nominatim
+				'Accept': 'application/json'
+			}
+		})
+		.then(response => {
+			if (!response.ok) {
+				throw new Error(`HTTP error! status: ${response.status}`);
+			}
+			return response.json();
+		})
+		.then(data => {
+			let address = '';
+			if (data && data.address) {
+				const addr = data.address;
+				const addressParts: string[] = [];
+				
+				// Build address from most specific to least specific
+				if (addr.house_number && addr.road) {
+					addressParts.push(`${addr.road} ${addr.house_number}`);
+				} else if (addr.road) {
+					addressParts.push(addr.road);
+				}
+				
+				if (addr.postcode) {
+					addressParts.push(addr.postcode);
+				}
+				
+				if (addr.city || addr.town || addr.village) {
+					addressParts.push(addr.city || addr.town || addr.village);
+				}
+				
+				if (addr.state || addr.region) {
+					addressParts.push(addr.state || addr.region);
+				}
+				
+				if (addr.country) {
+					addressParts.push(addr.country);
+				}
+				
+				address = addressParts.length > 0 ? addressParts.join(', ') : (data.display_name || '');
+			} else if (data && data.display_name) {
+				address = data.display_name;
+			}
+			
+			// Update overlay with address
+			this.clickedAddress = address || 'Address not found';
+			this.cdr.detectChanges();
+		})
+		.catch(error => {
+			console.error('Could not get address from coordinates:', error);
+			this.clickedAddress = 'Address not available';
+			this.cdr.detectChanges();
+		});
+	}
+
 }
 

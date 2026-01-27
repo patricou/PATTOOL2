@@ -22,6 +22,40 @@
       <div class="map-wrapper">
         <div #mapContainer id="trace-viewer-map-container" class="map-container" aria-label="Track map"></div>
 
+        <div *ngIf="showGpsCoordinates" class="gps-coordinates-overlay">
+          <div class="gps-coordinates-box">
+            <i class="fa fa-map-marker me-1"></i>
+            <span class="gps-coords-text">
+              {{ currentLat.toFixed(15) }}, {{ currentLng.toFixed(15) }}
+            </span>
+            <button type="button" 
+                    class="btn btn-link p-0 ms-2 gps-copy-btn" 
+                    (click)="copyGpsCoordinates(); $event.stopPropagation()"
+                    title="{{ 'EVENTELEM.COPY_COORDINATES' | translate }}">
+              <i class="fa fa-copy"></i>
+            </button>
+          </div>
+        </div>
+
+        <div *ngIf="clickedAddress && showAddress" class="clicked-address-overlay">
+          <div class="clicked-address-box">
+            <div class="clicked-address-header">
+              <i class="fa fa-map-marker me-1"></i>
+              <span>{{ clickedLat.toFixed(6) }}, {{ clickedLng.toFixed(6) }}</span>
+              <button type="button" 
+                      class="btn btn-link p-0 ms-auto clicked-address-close" 
+                      (click)="clickedAddress = ''; $event.stopPropagation()"
+                      title="Fermer">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+            <div class="clicked-address-content">
+              <i class="fa fa-home me-1"></i>
+              <span>{{ clickedAddress }}</span>
+            </div>
+          </div>
+        </div>
+
         <div *ngIf="isLoading" class="loading-overlay">
           <div class="spinner-border text-light" role="status" aria-hidden="true"></div>
           <span class="ms-2">{{ 'EVENTELEM.TRACK_LOADING' | translate }}</span>
@@ -34,6 +68,22 @@
                   (ngModelChange)="onBaseLayerChange($event)">
             <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.label }}</option>
           </select>
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="gps-coordinates-switch-fullscreen" 
+                   [(ngModel)]="showGpsCoordinates" 
+                   (change)="toggleGpsCoordinates()">
+            <label class="form-check-label gps-switch-label" for="gps-coordinates-switch-fullscreen">
+              {{ 'EVENTELEM.SHOW_GPS_COORDINATES' | translate }}
+            </label>
+          </div>
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="show-address-switch-fullscreen" 
+                   [(ngModel)]="showAddress"
+                   (change)="onShowAddressChange()">
+            <label class="form-check-label gps-switch-label" for="show-address-switch-fullscreen">
+              {{ 'EVENTELEM.SHOW_ADDRESS' | translate }}
+            </label>
+          </div>
           <button type="button"
                   class="btn btn-outline-light btn-sm mt-2 w-100"
                   (click)="recenterOnTrack()">
@@ -99,6 +149,22 @@
       </span>
     </div>
     <div class="d-flex gap-2 align-items-center flex-wrap">
+      <div class="form-check form-switch d-flex align-items-center">
+        <input class="form-check-input" type="checkbox" id="gps-coordinates-switch" 
+               [(ngModel)]="showGpsCoordinates" 
+               (change)="toggleGpsCoordinates()">
+        <label class="form-check-label ms-2 gps-switch-label" for="gps-coordinates-switch">
+          {{ 'EVENTELEM.SHOW_GPS_COORDINATES' | translate }}
+        </label>
+      </div>
+      <div class="form-check form-switch d-flex align-items-center">
+        <input class="form-check-input" type="checkbox" id="show-address-switch" 
+               [(ngModel)]="showAddress"
+               (change)="onShowAddressChange()">
+        <label class="form-check-label ms-2 gps-switch-label" for="show-address-switch">
+          {{ 'EVENTELEM.SHOW_ADDRESS' | translate }}
+        </label>
+      </div>
       <button type="button"
               class="btn btn-outline-light"
               *ngIf="!isFullscreen"

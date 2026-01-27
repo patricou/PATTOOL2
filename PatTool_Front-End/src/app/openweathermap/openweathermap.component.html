@@ -9,17 +9,6 @@
     <div class="row justify-content-center">
         <div class="col-12">
             
-            <!-- API Status Section -->
-            <div class="api-container" *ngIf="apiStatus">
-                <h3 class="api-title">
-                    <i class="fa fa-info-circle"></i> {{ 'API.STATUS' | translate }}
-                </h3>
-                <div class="status-card">
-                    <p><strong>{{ 'API.SERVICE' | translate }}:</strong> {{ apiStatus.service }}</p>
-                    <p><strong>{{ 'API.STATUS_LABEL' | translate }}:</strong> <span class="badge badge-success">{{ apiStatus.status }}</span></p>
-                </div>
-            </div>
-
             <!-- Messages -->
             <div class="alert alert-danger" *ngIf="errorMessage" role="alert">
                 <i class="fa fa-exclamation-circle"></i> {{ errorMessage }}
@@ -28,11 +17,39 @@
                 <i class="fa fa-check-circle"></i> {{ successMessage }}
             </div>
 
-            <!-- Current Weather Section -->
+            <!-- Current Position Section -->
             <div class="api-container">
                 <h3 class="api-title">
-                    <i class="fa fa-cloud"></i> {{ 'API.CURRENT_WEATHER' | translate }}
+                    <i class="fa fa-map-marker"></i> {{ 'API.CURRENT_POSITION' | translate }}
                 </h3>
+                
+                <div class="button-group" style="margin-bottom: 20px;">
+                    <button (click)="getUserPosition()" 
+                            class="btn btn-secondary btn-weather"
+                            [disabled]="isLoadingUserPosition"
+                            title="{{ 'API.REPOSITION_TO_USER' | translate }}">
+                        <i class="fa" [class.fa-crosshairs]="!isLoadingUserPosition" [class.fa-spinner]="isLoadingUserPosition" [class.fa-spin]="isLoadingUserPosition"></i>
+                        <span class="btn-text">{{ 'API.REPOSITION_TO_USER' | translate }}</span>
+                    </button>
+                    <button (click)="getCurrentWeatherByCoordinates()" 
+                            class="btn btn-info btn-weather" 
+                            [disabled]="isLoadingCurrentWeather">
+                        <i class="fa" [class.fa-map-marker]="!isLoadingCurrentWeather" [class.fa-spinner]="isLoadingCurrentWeather" [class.fa-spin]="isLoadingCurrentWeather"></i>
+                        <span class="btn-text">{{ 'API.GET_WEATHER_BY_COORDINATES' | translate }}</span>
+                    </button>
+                    <button (click)="openTraceViewerForSelection()" 
+                            class="btn btn-warning"
+                            title="{{ 'API.SELECT_ON_MAP' | translate }}">
+                        <i class="fa fa-map"></i>
+                        <span class="btn-text">{{ 'API.SELECT_ON_MAP' | translate }}</span>
+                    </button>
+                    <button (click)="sharePosition()" 
+                            class="btn btn-success"
+                            title="{{ 'API.SHARE_POSITION' | translate }}">
+                        <i class="fa fa-share-alt"></i>
+                        <span class="btn-text">{{ 'API.SHARE_POSITION' | translate }}</span>
+                    </button>
+                </div>
                 
                 <div class="weather-controls">
                     <div class="form-group">
@@ -50,14 +67,6 @@
                                class="form-control" 
                                [(ngModel)]="countryCode" 
                                [placeholder]="'API.COUNTRY_CODE_PLACEHOLDER' | translate">
-                    </div>
-                    <div class="button-group">
-                        <button (click)="getCurrentWeather()" 
-                                class="btn btn-primary btn-weather" 
-                                [disabled]="isLoadingCurrentWeather">
-                            <i class="fa" [class.fa-cloud]="!isLoadingCurrentWeather" [class.fa-spinner]="isLoadingCurrentWeather" [class.fa-spin]="isLoadingCurrentWeather"></i>
-                            <span class="btn-text">{{ 'API.GET_WEATHER_BY_CITY' | translate }}</span>
-                        </button>
                     </div>
                 </div>
 
@@ -78,63 +87,92 @@
                                [(ngModel)]="lon" 
                                step="0.000001">
                     </div>
-                    <div class="button-group">
-                        <button (click)="getCurrentWeatherByCoordinates()" 
-                                class="btn btn-info btn-weather" 
-                                [disabled]="isLoadingCurrentWeather">
-                            <i class="fa" [class.fa-map-marker]="!isLoadingCurrentWeather" [class.fa-spinner]="isLoadingCurrentWeather" [class.fa-spin]="isLoadingCurrentWeather"></i>
-                            <span class="btn-text">{{ 'API.GET_WEATHER_BY_COORDINATES' | translate }}</span>
-                        </button>
-                        <button (click)="repositionToUserLocation()" 
-                                class="btn btn-secondary btn-weather"
-                                title="{{ 'API.REPOSITION_TO_USER' | translate }}">
-                            <i class="fa fa-crosshairs"></i>
-                            <span class="btn-text">{{ 'API.REPOSITION_TO_USER' | translate }}</span>
-                        </button>
-                        <button (click)="openTraceViewerForSelection()" 
-                                class="btn btn-warning"
-                                title="{{ 'API.SELECT_ON_MAP' | translate }}">
-                            <i class="fa fa-crosshairs"></i>
-                            <span class="btn-text">{{ 'API.SELECT_ON_MAP' | translate }}</span>
-                        </button>
-                        <button (click)="sharePosition()" 
-                                class="btn btn-success"
-                                title="{{ 'API.SHARE_POSITION' | translate }}">
-                            <i class="fa fa-share-alt"></i>
-                            <span class="btn-text">{{ 'API.SHARE_POSITION' | translate }}</span>
-                        </button>
+                </div>
+
+                <!-- Address Display (when available, even without weather data) -->
+                <div class="address-display" *ngIf="fullAddress">
+                    <div class="address-card">
+                        <h4>
+                            <i class="fa fa-map-marker"></i>
+                            {{ 'API.ADDRESS' | translate }}
+                        </h4>
+                        <div class="full-address">
+                            <i class="fa fa-home"></i>
+                            <span>{{ fullAddress }}</span>
+                        </div>
                     </div>
                 </div>
 
+            </div>
+
+            <!-- Weather Data Section (separate from position) -->
+            <div class="api-container" *ngIf="currentWeather || isLoadingCurrentWeather">
+                <h3 class="api-title">
+                    <i class="fa fa-cloud"></i> {{ currentWeatherTitle || ('API.CURRENT_WEATHER' | translate) }}
+                </h3>
+                
                 <!-- Current Weather Results -->
-                <div class="weather-results" *ngIf="currentWeather && !currentWeather.error">
+                <div class="weather-results" *ngIf="isLoadingCurrentWeather">
+                    <div class="weather-card">
+                        <div class="weather-loading">
+                            <i class="fa fa-spinner fa-spin"></i>
+                            <span>{{ 'API.LOADING' | translate }}...</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="weather-results" *ngIf="currentWeather && !currentWeather.error && !isLoadingCurrentWeather">
                     <div class="weather-card">
                         <h4>
                             <img [src]="getWeatherIconUrl(currentWeather.weather?.[0]?.icon)" 
                                  [alt]="currentWeather.weather?.[0]?.description"
                                  *ngIf="currentWeather.weather?.[0]?.icon">
-                            {{ currentWeather.name }}, {{ currentWeather.sys?.country }}
+                            {{ city }}, {{ countryCode }}
                         </h4>
+                        
+                        <!-- Weather Condition Highlight -->
+                        <div class="weather-condition-highlight" *ngIf="currentWeather.weather?.[0]?.description">
+                            <div class="weather-condition-main">
+                                <img [src]="getWeatherIconUrl(currentWeather.weather?.[0]?.icon)" 
+                                     [alt]="currentWeather.weather?.[0]?.description"
+                                     class="weather-condition-icon-large"
+                                     *ngIf="currentWeather.weather?.[0]?.icon">
+                                <div class="weather-condition-text">
+                                    <div class="weather-condition-temp">{{ formatTemperature(currentWeather.main?.temp) }}</div>
+                                    <div class="weather-condition-desc">{{ currentWeather.weather?.[0]?.description | titlecase }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        
                         <div class="weather-details">
                             <div class="detail-item">
+                                <i class="fa fa-thermometer-half weather-detail-icon"></i>
                                 <strong>{{ 'API.TEMPERATURE' | translate }}:</strong> {{ formatTemperature(currentWeather.main?.temp) }}
                             </div>
                             <div class="detail-item">
+                                <i class="fa fa-thermometer weather-detail-icon"></i>
                                 <strong>{{ 'API.FEELS_LIKE' | translate }}:</strong> {{ formatTemperature(currentWeather.main?.feels_like) }}
                             </div>
                             <div class="detail-item">
+                                <img [src]="getWeatherIconUrl(currentWeather.weather?.[0]?.icon)" 
+                                     [alt]="currentWeather.weather?.[0]?.description"
+                                     class="weather-detail-icon-small"
+                                     *ngIf="currentWeather.weather?.[0]?.icon">
                                 <strong>{{ 'API.DESCRIPTION' | translate }}:</strong> {{ currentWeather.weather?.[0]?.description }}
                             </div>
                             <div class="detail-item">
+                                <i class="fa fa-tint weather-detail-icon"></i>
                                 <strong>{{ 'API.HUMIDITY' | translate }}:</strong> {{ currentWeather.main?.humidity }}%
                             </div>
                             <div class="detail-item">
+                                <i class="fa fa-compress weather-detail-icon"></i>
                                 <strong>{{ 'API.PRESSURE' | translate }}:</strong> {{ currentWeather.main?.pressure }} hPa
                             </div>
                             <div class="detail-item">
+                                <i class="fa fa-wind weather-detail-icon"></i>
                                 <strong>{{ 'API.WIND_SPEED' | translate }}:</strong> {{ currentWeather.wind?.speed }} m/s
                             </div>
                             <div class="detail-item">
+                                <i class="fa fa-eye weather-detail-icon"></i>
                                 <strong>{{ 'API.VISIBILITY' | translate }}:</strong> {{ currentWeather.visibility ? (currentWeather.visibility / 1000).toFixed(1) + ' km' : ('API.N_A' | translate) }}
                             </div>
                         </div>
@@ -145,7 +183,7 @@
             <!-- Forecast Section -->
             <div class="api-container" style="margin-top: 10px;">
                 <h3 class="api-title">
-                    <i class="fa fa-calendar"></i> {{ 'API.FORECAST' | translate }}
+                    <i class="fa fa-calendar"></i> {{ forecastTitle || ('API.FORECAST' | translate) }}
                 </h3>
                 
                 <div class="weather-controls">
@@ -162,8 +200,9 @@
                     <div class="forecast-header">
                         <small class="text-muted">{{ 'API.FORECAST_FOR' | translate }} {{ forecast.city?.name }}, {{ forecast.city?.country }}</small>
                     </div>
+                    
                     <div class="forecast-grid">
-                        <div class="forecast-card" *ngFor="let item of forecast.list?.slice(0, 10)">
+                        <div class="forecast-card" *ngFor="let item of forecast.list">
                             <div class="forecast-card-header">
                                 <div class="forecast-time">{{ formatDate(item.dt) }}</div>
                                 <img [src]="getWeatherIconUrl(item.weather?.[0]?.icon)" 
@@ -181,6 +220,44 @@
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Temperature Chart -->
+                    <div class="temperature-chart-container" *ngIf="forecast.list && forecast.list.length > 0">
+                        <canvas baseChart
+                                [data]="temperatureChartData"
+                                [options]="temperatureChartOptions"
+                                type="line">
+                        </canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Status Section (at the end) -->
+            <div class="api-container" *ngIf="apiStatus || nominatimStatus" style="margin-top: 20px;">
+                <h3 class="api-title">
+                    <i class="fa fa-info-circle"></i> {{ 'API.STATUS_APIS' | translate }}
+                </h3>
+                
+                <!-- OpenWeatherMap Status -->
+                <div class="status-card" *ngIf="apiStatus">
+                    <p><strong>{{ 'API.SERVICE' | translate }}:</strong> {{ apiStatus.service }}</p>
+                    <p><strong>{{ 'API.STATUS_LABEL' | translate }}:</strong> 
+                        <span class="badge" [class.badge-success]="apiStatus.status === 'available'" 
+                              [class.badge-danger]="apiStatus.status !== 'available'">
+                            {{ apiStatus.status }}
+                        </span>
+                    </p>
+                </div>
+                
+                <!-- Nominatim Status -->
+                <div class="status-card" *ngIf="nominatimStatus" style="margin-top: 10px;">
+                    <p><strong>{{ 'API.SERVICE' | translate }}:</strong> {{ nominatimStatus.service }}</p>
+                    <p><strong>{{ 'API.STATUS_LABEL' | translate }}:</strong> 
+                        <span class="badge" [class.badge-success]="nominatimStatus.status === 'available'" 
+                              [class.badge-danger]="nominatimStatus.status !== 'available'">
+                            {{ nominatimStatus.status }}
+                        </span>
+                    </p>
                 </div>
             </div>
 

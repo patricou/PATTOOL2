@@ -86,6 +86,25 @@ export class ApiService {
   }
 
   /**
+   * Get 5-day forecast by coordinates
+   * @param lat Latitude
+   * @param lon Longitude
+   */
+  getForecastByCoordinates(lat: number, lon: number): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const params = new HttpParams()
+          .set('lat', lat.toString())
+          .set('lon', lon.toString());
+        return this._http.get(this.API_URL + 'external/weather/forecast/coordinates', { 
+          headers: headers,
+          params: params
+        });
+      })
+    );
+  }
+
+  /**
    * Get API status
    */
   getApiStatus(): Observable<any> {

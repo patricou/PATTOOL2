@@ -33,7 +33,8 @@
         "IOT_HOME": "Αρχική IoT",
         "LOCAL_NETWORK": "Τοπικό Δίκτυο",
         "IA": "ΤΝ",
-        "PATGPT": "PatGPT"
+        "PATGPT": "PatGPT",
+        "POSITION_METEO": "Θέση/Καιρός"
     },
     "NAVIGATION": {
         "BACK": "Πίσω",
@@ -598,6 +599,8 @@
         "TRACK_BASEMAP": "Βασικός χάρτης",
         "TRACK_RECENTER": "Επανακεντρισμός διαδρομής (R)",
         "TRACK_SHARE_LOCATION": "Κοινοποίηση Τοποθεσίας",
+		"SHOW_GPS_COORDINATES": "Εμφάνιση συντεταγμένων GPS",
+		"SHOW_ADDRESS": "Εμφάνιση διεύθυνσης",
         "TRACK_INFO_TITLE": "Πληροφορίες",
         "TRACK_INFO_DESC": "Επιλέξτε έναν βασικό χάρτη και κλείστε αυτό το παράθυρο με το Χ.",
         "TRACK_INFO_SHORTCUT": "Πατήστε R για να επανακεντρώσετε τον χάρτη στη διαδρομή.",
@@ -1219,10 +1222,12 @@
         "NO_ID_ERROR": "Σφάλμα: το σχόλιο δεν έχει ID"
     },
     "API": {
-        "TITLE": "API - OpenWeatherMap",
+        "TITLE": "Θέση/Καιρός",
         "STATUS": "Κατάσταση API",
+        "STATUS_APIS": "Κατάσταση APIs",
         "SERVICE": "Υπηρεσία",
         "STATUS_LABEL": "Κατάσταση",
+        "CURRENT_POSITION": "Θέση",
         "CURRENT_WEATHER": "Τρέχον καιρό",
         "CITY": "Πόλη",
         "CITY_PLACEHOLDER": "π.χ. Παρίσι",
@@ -1246,6 +1251,7 @@
         "N_A": "Δ/Υ",
         "VIEW_ON_MAP": "Προβολή στον Χάρτη",
         "SELECT_ON_MAP": "Χάρτης",
+        "SHOW_WEATHER_ON_CLICK": "Εμφάνιση καιρού στο κλικ",
         "SELECT_LOCATION": "Επιλογή Τοποθεσίας",
         "REPOSITION_TO_USER": "Η Τοποθεσία Μου",
         "USER_LOCATION": "Θέση Χρήστη",

@@ -33,7 +33,8 @@
         "IOT_HOME": "Accueil IoT",
         "LOCAL_NETWORK": "Réseau Local",
         "IA": "IA",
-        "PATGPT": "PatGPT"
+        "PATGPT": "PatGPT",
+        "POSITION_METEO": "Position/Météo"
     },
     "NAVIGATION": {
         "BACK": "Retour",
@@ -718,6 +719,9 @@
 		"TRACK_BASEMAP": "Fond de carte",
 		"TRACK_RECENTER": "Recentrer le tracé (R)",
 		"TRACK_SHARE_LOCATION": "Partager la position",
+		"SHOW_GPS_COORDINATES": "Afficher les coordonnées GPS",
+		"SHOW_ADDRESS": "Afficher l'adresse",
+		"COPY_COORDINATES": "Copier les coordonnées",
 		"TRACK_INFO_TITLE": "Informations",
 		"TRACK_INFO_DESC": "Choisissez un fond de carte puis refermez cette fenêtre avec la croix.",
 		"TRACK_INFO_SHORTCUT": "Appuyez sur R pour recentrer la carte sur le tracé.",
@@ -1359,11 +1363,14 @@
         "NO_ID_ERROR": "Erreur : le commentaire n'a pas d'ID"
     },
     "API": {
-        "TITLE": "API - OpenWeatherMap",
+        "TITLE": "Position/Météo",
         "STATUS": "Statut de l'API",
+        "STATUS_APIS": "Statut des APIs",
         "SERVICE": "Service",
         "STATUS_LABEL": "Statut",
+        "CURRENT_POSITION": "Position",
         "CURRENT_WEATHER": "Météo Actuelle",
+        "ADDRESS": "Adresse",
         "CITY": "Ville",
         "CITY_PLACEHOLDER": "ex: Paris",
         "COUNTRY_CODE": "Code Pays (optionnel)",
@@ -1386,6 +1393,7 @@
         "N_A": "N/D",
         "VIEW_ON_MAP": "Voir sur la carte",
         "SELECT_ON_MAP": "Carte",
+        "SHOW_WEATHER_ON_CLICK": "Afficher la météo au clic",
         "SELECT_LOCATION": "Sélectionner un emplacement",
         "REPOSITION_TO_USER": "Ma Position",
         "USER_LOCATION": "Ma position",

@@ -86,6 +86,20 @@
     margin-top: 10px;
 }
 
+.weather-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 20px;
+    color: #007bff;
+    font-size: 0.9rem;
+}
+
+.weather-loading i {
+    font-size: 1.2rem;
+}
+
 .weather-card {
     background: white;
     padding: 10px;
@@ -107,6 +121,94 @@
     height: 30px;
 }
 
+.address-display {
+    margin-bottom: 15px;
+}
+
+.address-card {
+    background: white;
+    border-radius: 8px;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    border-left: 4px solid #17a2b8;
+}
+
+.address-card h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+    font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.address-card h4 i {
+    color: #17a2b8;
+}
+
+.full-address {
+    margin-top: 8px;
+    padding: 6px 8px;
+    background: #f0f0f0;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.full-address i {
+    color: #007bff;
+    font-size: 0.9rem;
+}
+
+.weather-condition-highlight {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    color: white;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.weather-condition-main {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.weather-condition-icon-large {
+    width: 80px;
+    height: 80px;
+    object-fit: contain;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.weather-condition-icon {
+    width: 40px;
+    height: 40px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+}
+
+.weather-condition-text {
+    flex: 1;
+}
+
+.weather-condition-temp {
+    font-size: 1.4rem;
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 2px;
+}
+
+.weather-condition-desc {
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0.95;
+    text-transform: capitalize;
+}
+
 .weather-details {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -115,14 +217,35 @@
 }
 
 .detail-item {
-    padding: 4px 6px;
+    padding: 8px 10px;
     background: #f8f9fa;
-    border-radius: 3px;
-    font-size: 0.8rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: background-color 0.2s ease;
+}
+
+.detail-item:hover {
+    background: #e9ecef;
 }
 
 .detail-item strong {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
+}
+
+.weather-detail-icon {
+    color: #007bff;
+    font-size: 1rem;
+    width: 20px;
+    text-align: center;
+}
+
+.weather-detail-icon-small {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
 }
 
 .forecast-results {
@@ -139,9 +262,33 @@
 }
 
 .forecast-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    display: flex;
+    flex-direction: row;
     gap: 4px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: #007bff #f8f9fa;
+}
+
+.forecast-grid::-webkit-scrollbar {
+    height: 8px;
+}
+
+.forecast-grid::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+
+.forecast-grid::-webkit-scrollbar-thumb {
+    background: #007bff;
+    border-radius: 4px;
+}
+
+.forecast-grid::-webkit-scrollbar-thumb:hover {
+    background: #0056b3;
 }
 
 .forecast-card {
@@ -151,6 +298,9 @@
     padding: 4px;
     text-align: center;
     transition: all 0.2s ease;
+    flex: 0 0 auto;
+    min-width: 100px;
+    max-width: 100px;
 }
 
 .forecast-card:hover {
@@ -176,8 +326,8 @@
 }
 
 .forecast-icon-small {
-    width: 20px;
-    height: 20px;
+    width: 35px;
+    height: 35px;
     flex-shrink: 0;
 }
 
@@ -222,8 +372,23 @@
     font-size: 0.55rem;
 }
 
+.temperature-chart-container {
+    width: 100%;
+    height: 400px;
+    margin: 15px 0;
+    background: white;
+    padding: 15px;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
 .badge-success {
     background-color: #28a745;
+    color: white;
+}
+
+.badge-danger {
+    background-color: #dc3545;
     color: white;
     padding: 2px 6px;
     border-radius: 3px;

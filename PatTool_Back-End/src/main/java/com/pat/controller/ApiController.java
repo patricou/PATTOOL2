@@ -58,7 +58,31 @@ public class ApiController {
             @RequestParam("city") String city,
             @RequestParam(value = "countryCode", required = false) String countryCode) {
         log.debug("Fetching forecast for city: {}, countryCode: {}", city, countryCode);
-        return openWeatherService.getForecast(city, countryCode);
+        Map<String, Object> result = openWeatherService.getForecast(city, countryCode);
+        
+        // If city not found, return a more user-friendly error message
+        if (result.containsKey("error")) {
+            String error = (String) result.get("error");
+            if (error != null && error.contains("City not found")) {
+                log.warn("Forecast not found for city: {} (countryCode: {}). Consider using coordinates instead.", city, countryCode);
+            }
+        }
+        
+        return result;
+    }
+
+    /**
+     * Get 5-day weather forecast by coordinates
+     * @param lat Latitude (required)
+     * @param lon Longitude (required)
+     * @return Forecast data
+     */
+    @GetMapping(value = "/weather/forecast/coordinates", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getForecastByCoordinates(
+            @RequestParam("lat") Double lat,
+            @RequestParam("lon") Double lon) {
+        log.debug("Fetching forecast for coordinates: lat={}, lon={}", lat, lon);
+        return openWeatherService.getForecastByCoordinates(lat, lon);
     }
 
     /**
@@ -73,7 +97,8 @@ public class ApiController {
         status.put("endpoints", new String[]{
             "/api/external/weather/current",
             "/api/external/weather/current/coordinates",
-            "/api/external/weather/forecast"
+            "/api/external/weather/forecast",
+            "/api/external/weather/forecast/coordinates"
         });
         return status;
     }

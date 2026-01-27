@@ -41,7 +41,8 @@
         "IOT_HOME": "IoT होम",
         "LOCAL_NETWORK": "स्थानीय नेटवर्क",
         "IA": "एआई",
-        "PATGPT": "PatGPT"
+        "PATGPT": "PatGPT",
+        "POSITION_METEO": "स्थिति/मौसम"
     },
     "NAVIGATION": {
         "BACK": "वापस",
@@ -704,6 +705,8 @@
         "TRACK_BASEMAP": "बेसमैप",
         "TRACK_RECENTER": "ट्रैक को पुनः केंद्रित करें (R)",
         "TRACK_SHARE_LOCATION": "स्थान साझा करें",
+		"SHOW_GPS_COORDINATES": "GPS निर्देशांक दिखाएं",
+		"SHOW_ADDRESS": "पता दिखाएं",
         "TRACK_INFO_TITLE": "जानकारी",
         "TRACK_INFO_DESC": "एक बेसमैप चुनें और इस विंडो को क्रॉस से बंद करें।",
         "TRACK_INFO_SHORTCUT": "R दबाएं ताकि मानचित्र ट्रैक पर पुनः केंद्रित हो जाए।",
@@ -1334,10 +1337,12 @@
         "NO_ID_ERROR": "त्रुटि: टिप्पणी में ID नहीं है"
     },
     "API": {
-        "TITLE": "API - OpenWeatherMap",
+        "TITLE": "स्थिति/मौसम",
         "STATUS": "API स्थिति",
+        "STATUS_APIS": "APIs स्थिति",
         "SERVICE": "सेवा",
         "STATUS_LABEL": "स्थिति",
+        "CURRENT_POSITION": "स्थिति",
         "CURRENT_WEATHER": "वर्तमान मौसम",
         "CITY": "शहर",
         "CITY_PLACEHOLDER": "उदा: पेरिस",
@@ -1361,6 +1366,7 @@
         "N_A": "उपलब्ध नहीं",
         "VIEW_ON_MAP": "मानचित्र पर देखें",
         "SELECT_ON_MAP": "मानचित्र",
+        "SHOW_WEATHER_ON_CLICK": "क्लिक पर मौसम दिखाएं",
         "SELECT_LOCATION": "स्थान चुनें",
         "REPOSITION_TO_USER": "मेरा स्थान",
         "USER_LOCATION": "उपयोगकर्ता स्थान",

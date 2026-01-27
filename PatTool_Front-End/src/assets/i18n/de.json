@@ -33,7 +33,8 @@
         "IOT_HOME": "IoT Startseite",
         "LOCAL_NETWORK": "Lokales Netzwerk",
         "IA": "KI",
-        "PATGPT": "PatGPT"
+        "PATGPT": "PatGPT",
+        "POSITION_METEO": "Position/Wetter"
     },
     "NAVIGATION": {
         "BACK": "Zurück",
@@ -718,6 +719,8 @@
         "TRACK_BASEMAP": "Grundkarte",
         "TRACK_RECENTER": "Strecke zentrieren (R)",
         "TRACK_SHARE_LOCATION": "Position teilen",
+		"SHOW_GPS_COORDINATES": "GPS-Koordinaten anzeigen",
+		"SHOW_ADDRESS": "Adresse anzeigen",
         "TRACK_INFO_TITLE": "Informationen",
         "TRACK_INFO_DESC": "Wählen Sie eine Grundkarte und schließen Sie dieses Fenster mit dem Kreuz.",
         "TRACK_INFO_SHORTCUT": "Drücken Sie R, um die Karte auf die Strecke zu zentrieren.",
@@ -1339,10 +1342,12 @@
         "NO_ID_ERROR": "Fehler: Der Kommentar hat keine ID"
     },
     "API": {
-        "TITLE": "API - OpenWeatherMap",
+        "TITLE": "Position/Wetter",
         "STATUS": "API-Status",
+        "STATUS_APIS": "Status der APIs",
         "SERVICE": "Service",
         "STATUS_LABEL": "Status",
+        "CURRENT_POSITION": "Position",
         "CURRENT_WEATHER": "Aktuelles Wetter",
         "CITY": "Stadt",
         "CITY_PLACEHOLDER": "z.B. Paris",
@@ -1366,6 +1371,7 @@
         "N_A": "N/V",
         "VIEW_ON_MAP": "Auf Karte anzeigen",
         "SELECT_ON_MAP": "Karte",
+        "SHOW_WEATHER_ON_CLICK": "Wetter beim Klicken anzeigen",
         "SELECT_LOCATION": "Standort auswählen",
         "REPOSITION_TO_USER": "Meine Position",
         "USER_LOCATION": "Benutzerposition",

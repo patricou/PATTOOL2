@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -182,10 +183,89 @@ public class OpenWeatherService {
             
             return response.getBody() != null ? response.getBody() : new HashMap<>();
             
+        } catch (HttpClientErrorException.NotFound e) {
+            // Handle 404 - city not found
+            log.warn("City not found for forecast: {} (countryCode: {})", city, countryCode);
+            Map<String, Object> errorMap = new HashMap<>();
+            errorMap.put("error", "City not found: " + city + (countryCode != null && !countryCode.isEmpty() ? ", " + countryCode : ""));
+            return errorMap;
         } catch (Exception e) {
             log.error("Error fetching forecast for city {}: ", city, e);
             Map<String, Object> errorMap = new HashMap<>();
-            errorMap.put("error", "Failed to fetch forecast: " + e.getMessage());
+            String errorMessage = e.getMessage();
+            if (e instanceof HttpClientErrorException) {
+                HttpClientErrorException httpEx = (HttpClientErrorException) e;
+                if (httpEx.getStatusCode() == HttpStatus.NOT_FOUND) {
+                    errorMessage = "City not found: " + city;
+                } else {
+                    errorMessage = "API error (" + httpEx.getStatusCode() + "): " + httpEx.getResponseBodyAsString();
+                }
+            }
+            errorMap.put("error", "Failed to fetch forecast: " + errorMessage);
+            return errorMap;
+        }
+    }
+
+    /**
+     * Get 5-day weather forecast by coordinates
+     * @param lat Latitude
+     * @param lon Longitude
+     * @return Forecast data
+     */
+    public Map<String, Object> getForecastByCoordinates(Double lat, Double lon) {
+        // Validate API key
+        if (openWeatherApiKey == null || openWeatherApiKey.trim().isEmpty()) {
+            log.error("OpenWeatherMap API key is not configured!");
+            Map<String, Object> errorMap = new HashMap<>();
+            errorMap.put("error", "API key is not configured. Please set openweathermap.api.key in application.properties");
+            return errorMap;
+        }
+        
+        String url = openWeatherApiBaseUrl + "/forecast";
+        
+        try {
+            log.debug("Calling OpenWeatherMap API forecast for coordinates: lat={}, lon={}", lat, lon);
+            
+            UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(url)
+                    .queryParam("lat", lat)
+                    .queryParam("lon", lon)
+                    .queryParam("appid", openWeatherApiKey.trim())
+                    .queryParam("units", "metric")
+                    .queryParam("lang", "fr");
+            
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            
+            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
+            
+            @SuppressWarnings("unchecked")
+            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
+                    builder.toUriString(),
+                    HttpMethod.GET,
+                    requestEntity,
+                    (Class<Map<String, Object>>) (Class<?>) Map.class
+            );
+            
+            return response.getBody() != null ? response.getBody() : new HashMap<>();
+            
+        } catch (HttpClientErrorException.NotFound e) {
+            log.warn("Location not found for forecast coordinates: lat={}, lon={}", lat, lon);
+            Map<String, Object> errorMap = new HashMap<>();
+            errorMap.put("error", "Location not found for coordinates: " + lat + ", " + lon);
+            return errorMap;
+        } catch (Exception e) {
+            log.error("Error fetching forecast for coordinates ({}, {}): ", lat, lon, e);
+            Map<String, Object> errorMap = new HashMap<>();
+            String errorMessage = e.getMessage();
+            if (e instanceof HttpClientErrorException) {
+                HttpClientErrorException httpEx = (HttpClientErrorException) e;
+                if (httpEx.getStatusCode() == HttpStatus.NOT_FOUND) {
+                    errorMessage = "Location not found for coordinates: " + lat + ", " + lon;
+                } else {
+                    errorMessage = "API error (" + httpEx.getStatusCode() + "): " + httpEx.getResponseBodyAsString();
+                }
+            }
+            errorMap.put("error", "Failed to fetch forecast: " + errorMessage);
             return errorMap;
         }
     }

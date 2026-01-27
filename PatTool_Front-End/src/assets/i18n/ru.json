@@ -41,7 +41,8 @@
         "IOT_HOME": "Главная IoT",
         "LOCAL_NETWORK": "Локальная сеть",
         "IA": "ИИ",
-        "PATGPT": "PatGPT"
+        "PATGPT": "PatGPT",
+        "POSITION_METEO": "Позиция/Погода"
     },
     "NAVIGATION": {
         "BACK": "Назад",
@@ -716,6 +717,8 @@
         "TRACK_BASEMAP": "Базовая карта",
         "TRACK_RECENTER": "Центрировать трек (R)",
         "TRACK_SHARE_LOCATION": "Поделиться местоположением",
+		"SHOW_GPS_COORDINATES": "Показать GPS координаты",
+		"SHOW_ADDRESS": "Показать адрес",
         "TRACK_INFO_TITLE": "Информация",
         "TRACK_INFO_DESC": "Выберите базовую карту и закройте это окно крестиком.",
         "TRACK_INFO_SHORTCUT": "Нажмите R, чтобы центрировать карту на треке.",
@@ -1337,10 +1340,12 @@
         "NO_ID_ERROR": "Ошибка: у комментария нет ID"
     },
     "API": {
-        "TITLE": "API - OpenWeatherMap",
+        "TITLE": "Позиция/Погода",
         "STATUS": "Статус API",
+        "STATUS_APIS": "Статус API",
         "SERVICE": "Сервис",
         "STATUS_LABEL": "Статус",
+        "CURRENT_POSITION": "Позиция",
         "CURRENT_WEATHER": "Текущая Погода",
         "CITY": "Город",
         "CITY_PLACEHOLDER": "напр: Париж",
@@ -1364,6 +1369,7 @@
         "N_A": "Н/Д",
         "VIEW_ON_MAP": "Показать на карте",
         "SELECT_ON_MAP": "Карта",
+        "SHOW_WEATHER_ON_CLICK": "Показывать погоду при клике",
         "SELECT_LOCATION": "Выбрать местоположение",
         "REPOSITION_TO_USER": "Моё местоположение",
         "USER_LOCATION": "Местоположение пользователя",

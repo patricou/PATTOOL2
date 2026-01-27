@@ -1,39 +1,100 @@
-import { Component, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { TranslateModule, TranslateService, LangChangeEvent } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { ApiService } from '../services/api.service';
+import { BaseChartDirective } from 'ng2-charts';
+import { ChartConfiguration, ChartOptions } from 'chart.js';
+import { Chart, registerables } from 'chart.js';
+import { Subscription } from 'rxjs';
+
+// Register Chart.js components
+Chart.register(...registerables);
 
 @Component({
   selector: 'app-openweathermap',
   templateUrl: './openweathermap.component.html',
   styleUrls: ['./openweathermap.component.css'],
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NavigationButtonsModule, TraceViewerModalComponent]
+  imports: [CommonModule, FormsModule, TranslateModule, NavigationButtonsModule, TraceViewerModalComponent, BaseChartDirective]
 })
-export class OpenWeatherMapComponent implements OnInit {
+export class OpenWeatherMapComponent implements OnInit, OnDestroy {
 
   @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
+  @ViewChild(BaseChartDirective) chart?: BaseChartDirective;
 
   // OpenWeatherMap data
   city: string = 'Paris';
   countryCode: string = 'FR';
   lat: number = 48.8566;
   lon: number = 2.3522;
+  private lastLat: number = 48.8566;
+  private lastLon: number = 2.3522;
   
   currentWeather: any = null;
   forecast: any = null;
   apiStatus: any = null;
+  nominatimStatus: any = null;
   
   isLoadingCurrentWeather: boolean = false;
   isLoadingForecast: boolean = false;
   isLoadingStatus: boolean = false;
+  isLoadingUserPosition: boolean = false;
   
   errorMessage: string = '';
   successMessage: string = '';
   private weatherFetchTimeout?: number;
+  forecastTitle: string = '';
+  currentWeatherTitle: string = '';
+  private langChangeSubscription?: Subscription;
+  fullAddress: string = '';
+
+  // Chart data for temperature forecast
+  public temperatureChartData: ChartConfiguration<'line'>['data'] = {
+    labels: [],
+    datasets: [
+      {
+        data: [],
+        label: 'Temperature (°C)',
+        borderColor: 'rgb(75, 192, 192)',
+        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+        tension: 0.4,
+        fill: true
+      }
+    ]
+  };
+
+  public temperatureChartOptions: ChartOptions<'line'> = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: true,
+        position: 'top'
+      },
+      title: {
+        display: true,
+        text: ''
+      }
+    },
+    scales: {
+      y: {
+        beginAtZero: false,
+        title: {
+          display: true,
+          text: 'Temperature (°C)'
+        }
+      },
+      x: {
+        title: {
+          display: true,
+          text: 'Date/Time'
+        }
+      }
+    }
+  };
 
   constructor(
     private apiService: ApiService,
@@ -43,7 +104,37 @@ export class OpenWeatherMapComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadApiStatus();
+    // Don't initialize title here, let loadUserLocation() do it after getting the actual location
     this.loadUserLocation();
+    
+    // Subscribe to language changes to update titles
+    this.langChangeSubscription = this.translateService.onLangChange.subscribe((event: LangChangeEvent) => {
+      this.updateCurrentWeatherTitle();
+      this.updateForecastTitle();
+    });
+  }
+
+  ngOnDestroy(): void {
+    if (this.langChangeSubscription) {
+      this.langChangeSubscription.unsubscribe();
+    }
+  }
+
+  /**
+   * Update current weather title with current city and country
+   */
+  private updateCurrentWeatherTitle(): void {
+    this.currentWeatherTitle = `${this.translateService.instant('API.CURRENT_WEATHER')} - ${this.city}, ${this.countryCode}`;
+  }
+
+  /**
+   * Update forecast title if forecast data exists
+   */
+  private updateForecastTitle(): void {
+    if (this.forecast && this.forecast.list && this.forecast.list.length > 0) {
+      // Recalculate forecast title with new language
+      this.updateTemperatureChart();
+    }
   }
 
   /**
@@ -53,6 +144,7 @@ export class OpenWeatherMapComponent implements OnInit {
     this.isLoadingStatus = true;
     this.errorMessage = '';
     
+    // Check OpenWeatherMap API status
     this.apiService.getApiStatus().subscribe({
       next: (response) => {
         this.apiStatus = response;
@@ -64,36 +156,45 @@ export class OpenWeatherMapComponent implements OnInit {
         this.isLoadingStatus = false;
       }
     });
+    
+    // Check Nominatim (OpenStreetMap) API status
+    this.checkNominatimStatus();
   }
 
   /**
-   * Get current weather for city
+   * Check Nominatim (OpenStreetMap) API status
    */
-  getCurrentWeather(): void {
-    if (!this.city || this.city.trim() === '') {
-      this.errorMessage = 'Please enter a city name';
-      return;
-    }
-
-    this.isLoadingCurrentWeather = true;
-    this.errorMessage = '';
-    this.currentWeather = null;
-
-    this.apiService.getCurrentWeather(this.city, this.countryCode || undefined).subscribe({
-      next: (response) => {
-        if (response.error) {
-          this.errorMessage = response.error;
-        } else {
-          this.currentWeather = response;
-          this.successMessage = `Weather data loaded for ${response.name || this.city}`;
-        }
-        this.isLoadingCurrentWeather = false;
-      },
-      error: (error) => {
-        console.error('Error fetching current weather:', error);
-        this.errorMessage = 'Error fetching weather: ' + (error.error?.message || error.message || 'Unknown error');
-        this.isLoadingCurrentWeather = false;
+  private checkNominatimStatus(): void {
+    // Test Nominatim API with a simple reverse geocoding request
+    const testUrl = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=48.8566&lon=2.3522&zoom=18&addressdetails=1';
+    
+    fetch(testUrl, {
+      headers: {
+        'User-Agent': 'PATTOOL Weather App',
+        'Accept': 'application/json'
       }
+    })
+    .then(response => {
+      if (response.ok) {
+        this.nominatimStatus = {
+          service: 'Nominatim (OpenStreetMap)',
+          status: 'available'
+        };
+      } else {
+        this.nominatimStatus = {
+          service: 'Nominatim (OpenStreetMap)',
+          status: 'unavailable'
+        };
+      }
+      this.cdr.detectChanges();
+    })
+    .catch(error => {
+      console.error('Error checking Nominatim status:', error);
+      this.nominatimStatus = {
+        service: 'Nominatim (OpenStreetMap)',
+        status: 'unavailable'
+      };
+      this.cdr.detectChanges();
     });
   }
 
@@ -101,22 +202,39 @@ export class OpenWeatherMapComponent implements OnInit {
    * Get current weather by coordinates
    */
   getCurrentWeatherByCoordinates(): void {
+    // Ensure we use the coordinates from the input fields
+    const lat = this.lat;
+    const lon = this.lon;
+    
+    // Validate coordinates
+    if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+      this.errorMessage = 'Invalid coordinates. Please set valid latitude and longitude.';
+      return;
+    }
+    
+    console.log('Fetching weather for coordinates:', lat, lon);
+    
     this.isLoadingCurrentWeather = true;
     this.errorMessage = '';
     this.currentWeather = null;
 
-    this.apiService.getCurrentWeatherByCoordinates(this.lat, this.lon).subscribe({
+    this.apiService.getCurrentWeatherByCoordinates(lat, lon).subscribe({
       next: (response) => {
         if (response.error) {
           this.errorMessage = response.error;
         } else {
           this.currentWeather = response;
-          this.city = response.name || this.city;
-          // Use setTimeout to update successMessage asynchronously to avoid ExpressionChangedAfterItHasBeenCheckedError
-          setTimeout(() => {
-            this.successMessage = `Weather data loaded for coordinates (${this.lat}, ${this.lon})`;
-            this.cdr.markForCheck();
-          }, 0);
+          // DO NOT update this.city with response.name - keep the city from Nominatim (address)
+          // Use this.city (from Nominatim) instead of response.name (from OpenWeatherMap) for consistency
+          // Update current weather title with city from Nominatim (this.city) and country from response
+          const countryCode = response.sys?.country || this.countryCode;
+          const location = countryCode ? `${this.city}, ${countryCode}` : this.city;
+          this.currentWeatherTitle = `${this.translateService.instant('API.CURRENT_WEATHER')} - ${location}`;
+          // Update country code if available from response, but keep city from Nominatim
+          if (response.sys?.country) {
+            this.countryCode = response.sys.country;
+          }
+          // DO NOT display success message - weather data is already visible in the UI
         }
         this.isLoadingCurrentWeather = false;
         this.cdr.markForCheck();
@@ -125,39 +243,151 @@ export class OpenWeatherMapComponent implements OnInit {
         console.error('Error fetching current weather by coordinates:', error);
         this.errorMessage = 'Error fetching weather: ' + (error.error?.message || error.message || 'Unknown error');
         this.isLoadingCurrentWeather = false;
+        this.cdr.markForCheck();
       }
     });
   }
 
   /**
-   * Get forecast for city
+   * Get forecast using coordinates
    */
   getForecast(): void {
-    if (!this.city || this.city.trim() === '') {
-      this.errorMessage = 'Please enter a city name';
+    // Ensure we use the coordinates from the input fields
+    const lat = this.lat;
+    const lon = this.lon;
+    
+    // Validate coordinates
+    if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
+      this.errorMessage = 'Coordinates are required for forecast. Please set latitude and longitude.';
       return;
     }
+    
+    console.log('Fetching forecast for coordinates:', lat, lon);
 
     this.isLoadingForecast = true;
     this.errorMessage = '';
     this.forecast = null;
+    this.cdr.markForCheck();
 
-    this.apiService.getForecast(this.city, this.countryCode || undefined).subscribe({
+    this.apiService.getForecastByCoordinates(lat, lon).subscribe({
       next: (response) => {
         if (response.error) {
           this.errorMessage = response.error;
         } else {
           this.forecast = response;
-          this.successMessage = `Forecast loaded for ${response.city?.name || this.city}`;
+          // Update chart with forecast data
+          this.updateTemperatureChart();
         }
         this.isLoadingForecast = false;
+        this.cdr.markForCheck();
       },
       error: (error) => {
         console.error('Error fetching forecast:', error);
         this.errorMessage = 'Error fetching forecast: ' + (error.error?.message || error.message || 'Unknown error');
         this.isLoadingForecast = false;
+        this.cdr.markForCheck();
       }
     });
+  }
+
+  /**
+   * Update temperature chart with forecast data
+   */
+  private updateTemperatureChart(): void {
+    if (!this.forecast || !this.forecast.list || this.forecast.list.length === 0) {
+      return;
+    }
+
+    const labels: string[] = [];
+    const temperatures: number[] = [];
+    let firstDate: Date | null = null;
+    let lastDate: Date | null = null;
+
+    // Get current language for date formatting
+    const currentLang = this.translateService.currentLang || 'fr-FR';
+
+    this.forecast.list.forEach((item: any) => {
+      if (item.dt && item.main?.temp !== undefined) {
+        const date = new Date(item.dt * 1000);
+        
+        // Track first and last dates
+        if (firstDate === null || date < firstDate) {
+          firstDate = date;
+        }
+        if (lastDate === null || date > lastDate) {
+          lastDate = date;
+        }
+        
+        // Format date based on user's language
+        const dateStr = date.toLocaleString(currentLang, {
+          day: '2-digit',
+          month: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        labels.push(dateStr);
+        temperatures.push(Math.round(item.main.temp));
+      }
+    });
+
+    // Update chart title with actual date range
+    if (firstDate !== null && lastDate !== null) {
+      const startDate: Date = firstDate;
+      const endDate: Date = lastDate;
+      const startStr = startDate.toLocaleDateString(currentLang, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      const endStr = endDate.toLocaleDateString(currentLang, {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+      
+      // Use the city from current weather (this.city) instead of forecast city
+      // to ensure consistency, as API may return different city names for same coordinates
+      const cityName = this.city || this.forecast.city?.name || 'Unknown';
+      const countryCode = this.countryCode || this.forecast.city?.country || '';
+      const location = countryCode ? `${cityName}, ${countryCode}` : cityName;
+      
+      // Update forecast section title with location
+      this.forecastTitle = startStr === endStr 
+        ? `${this.translateService.instant('API.FORECAST')} - ${location} - ${startStr}`
+        : `${this.translateService.instant('API.FORECAST')} - ${location} ${startStr} ${this.translateService.instant('TO')} ${endStr}`;
+      
+      // Update chart title
+      const chartTitleText = startStr === endStr 
+        ? `${this.translateService.instant('API.TEMPERATURE')} - ${startStr}`
+        : `${this.translateService.instant('API.TEMPERATURE')} ${startStr} ${this.translateService.instant('TO')} ${endStr}`;
+      
+      // Update title in options
+      if (this.temperatureChartOptions.plugins && this.temperatureChartOptions.plugins.title) {
+        this.temperatureChartOptions.plugins.title.text = chartTitleText;
+      }
+    }
+
+    this.temperatureChartData = {
+      labels: labels,
+      datasets: [
+        {
+          data: temperatures,
+          label: this.translateService.instant('API.TEMPERATURE'),
+          borderColor: 'rgb(75, 192, 192)',
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',
+          tension: 0.4,
+          fill: true
+        }
+      ]
+    };
+
+    // Update chart if it exists
+    this.cdr.detectChanges();
+    if (this.chart) {
+      setTimeout(() => {
+        this.chart?.update('none'); // 'none' prevents animation
+      }, 100);
+    }
   }
 
   /**
@@ -200,41 +430,6 @@ export class OpenWeatherMapComponent implements OnInit {
     }, 5000);
   }
 
-  /**
-   * Reposition map to user's current location
-   */
-  repositionToUserLocation(): void {
-    if (!this.traceViewerModalComponent) {
-      console.error('TraceViewerModalComponent is not available');
-      return;
-    }
-
-    this.getUserLocation().then((location) => {
-      this.lat = location.lat;
-      this.lon = location.lng;
-      
-      // Get city and country code from coordinates
-      this.getCityFromCoordinates(location.lat, location.lng);
-      
-      // Automatically fetch weather for the new coordinates
-      this.getCurrentWeatherByCoordinates();
-      
-      // Force change detection to ensure ViewChild is available
-      this.cdr.detectChanges();
-      
-      // Open trace viewer at user's location
-      const label = this.translateService.instant('API.USER_LOCATION');
-      // Use setTimeout to ensure modal service is ready
-      setTimeout(() => {
-        if (this.traceViewerModalComponent) {
-          this.traceViewerModalComponent.openAtLocation(location.lat, location.lng, label, undefined, false);
-        }
-      }, 0);
-    }).catch(() => {
-      this.errorMessage = this.translateService.instant('API.ERROR_GETTING_LOCATION');
-      this.clearMessages();
-    });
-  }
 
   /**
    * Load user's location and set as default coordinates
@@ -243,11 +438,48 @@ export class OpenWeatherMapComponent implements OnInit {
     this.getUserLocation().then((location) => {
       this.lat = location.lat;
       this.lon = location.lng;
-      // Get city and country code from coordinates
+      this.lastLat = location.lat;
+      this.lastLon = location.lng;
+      // Get city and country code from coordinates (title will be updated in the callback)
       this.getCityFromCoordinates(location.lat, location.lng);
     }).catch(() => {
       // Keep default values if location cannot be obtained
       console.log('Using default coordinates (Paris)');
+      this.lastLat = this.lat;
+      this.lastLon = this.lon;
+      // Initialize title with default location
+      this.updateCurrentWeatherTitle();
+    });
+  }
+
+  /**
+   * Get user's position and update coordinates
+   */
+  getUserPosition(): void {
+    this.isLoadingUserPosition = true;
+    this.errorMessage = '';
+    this.successMessage = '';
+    
+    this.getUserLocation().then((location) => {
+      this.lat = location.lat;
+      this.lon = location.lng;
+      // Reset weather data when getting new position
+      this.currentWeather = null;
+      this.forecast = null;
+      this.forecastTitle = '';
+      // Title will be updated by getFullAddressFromCoordinates with city and country
+      // Get full address, city and country from coordinates (using Nominatim, no OpenWeatherMap API call)
+      // This will also update city, countryCode, fullAddress and currentWeatherTitle
+      this.getFullAddressFromCoordinates(location.lat, location.lng).finally(() => {
+        this.isLoadingUserPosition = false;
+        this.cdr.detectChanges();
+      });
+    }).catch(() => {
+      this.errorMessage = this.translateService.instant('API.ERROR_GETTING_LOCATION');
+      this.successMessage = '';
+      this.isLoadingUserPosition = false;
+      this.clearMessages();
+      this.cdr.detectChanges();
     });
   }
 
@@ -264,6 +496,10 @@ export class OpenWeatherMapComponent implements OnInit {
             if (response.sys && response.sys.country) {
               this.countryCode = response.sys.country;
             }
+            // Update current weather title with the retrieved city
+            this.updateCurrentWeatherTitle();
+            // Get full address from coordinates
+            this.getFullAddressFromCoordinates(lat, lon);
             this.cdr.detectChanges();
           }, 0);
         }
@@ -271,7 +507,91 @@ export class OpenWeatherMapComponent implements OnInit {
       error: (error) => {
         // Silently fail - coordinates are set, city/country are optional
         console.log('Could not get city from coordinates:', error);
+        // Update title with coordinates if city retrieval fails
+        this.updateCurrentWeatherTitle();
+        // Still try to get full address
+        this.getFullAddressFromCoordinates(lat, lon);
       }
+    });
+  }
+
+  /**
+   * Get full address from coordinates using reverse geocoding (Nominatim)
+   */
+  private getFullAddressFromCoordinates(lat: number, lon: number): Promise<void> {
+    // Use Nominatim (OpenStreetMap) for reverse geocoding - free and no API key required
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
+    
+    return fetch(url, {
+      headers: {
+        'User-Agent': 'PATTOOL Weather App', // Required by Nominatim
+        'Accept': 'application/json'
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      if (data && data.address) {
+        const address = data.address;
+        const addressParts: string[] = [];
+        
+        // Build address from most specific to least specific
+        if (address.house_number && address.road) {
+          addressParts.push(`${address.road} ${address.house_number}`);
+        } else if (address.road) {
+          addressParts.push(address.road);
+        }
+        
+        if (address.postcode) {
+          addressParts.push(address.postcode);
+        }
+        
+        // Extract city (try city, town, village, municipality, or county)
+        const cityName = address.city || address.town || address.village || address.municipality || address.county || '';
+        if (cityName) {
+          addressParts.push(cityName);
+          // Update city in component (for select box)
+          this.city = cityName;
+        }
+        
+        if (address.state || address.region) {
+          addressParts.push(address.state || address.region);
+        }
+        
+        // Extract country code (ISO 3166-1 alpha-2)
+        if (address.country_code) {
+          // Nominatim returns lowercase country codes, convert to uppercase
+          this.countryCode = address.country_code.toUpperCase();
+        }
+        
+        if (address.country) {
+          addressParts.push(address.country);
+        }
+        
+        this.fullAddress = addressParts.length > 0 ? addressParts.join(', ') : data.display_name || '';
+      } else if (data && data.display_name) {
+        this.fullAddress = data.display_name;
+        // Try to extract city from display_name if address is not available
+        const parts = data.display_name.split(',');
+        if (parts.length > 0) {
+          this.city = parts[0].trim();
+        }
+      } else {
+        this.fullAddress = '';
+      }
+      
+      // Update current weather title with city and country
+      this.updateCurrentWeatherTitle();
+      this.cdr.detectChanges();
+    })
+    .catch(error => {
+      console.log('Could not get full address from coordinates:', error);
+      this.fullAddress = '';
+      this.cdr.detectChanges();
     });
   }
 
@@ -335,24 +655,39 @@ export class OpenWeatherMapComponent implements OnInit {
    * Handle location selected from trace viewer
    */
   onLocationSelected(location: { lat: number; lng: number }): void {
-    console.log('onLocationSelected called with:', location);
+    // Reset all weather data when returning from map
+    this.forecastTitle = '';
+    this.forecast = null;
+    this.currentWeather = null;
+    // Title will be updated by getFullAddressFromCoordinates with city and country
+    this.errorMessage = '';
+    this.successMessage = '';
+    this.isLoadingCurrentWeather = false;
+    this.isLoadingForecast = false;
+    this.cdr.markForCheck();
+    
+    // Check if coordinates have changed
+    const coordinatesChanged = Math.abs(this.lastLat - location.lat) > 0.0001 || 
+                                Math.abs(this.lastLon - location.lng) > 0.0001;
+    
     this.lat = location.lat;
     this.lon = location.lng;
     
-    // Immediately fetch weather and show alert
-    this.fetchAndShowWeatherAlert(location.lat, location.lng);
+    // Force change detection to update the input fields
+    this.cdr.detectChanges();
     
-    // Clear any pending weather fetch to debounce multiple rapid calls (e.g., from dragging marker)
-    if (this.weatherFetchTimeout) {
-      clearTimeout(this.weatherFetchTimeout);
+    // Get full address, city and country from coordinates (using Nominatim, no OpenWeatherMap API call)
+    // This will also update city, countryCode, fullAddress and currentWeatherTitle
+    this.getFullAddressFromCoordinates(location.lat, location.lng);
+    
+    // DO NOT fetch weather automatically - only update coordinates, address, city and country
+    // Weather will be fetched only when user clicks "Météo GPS" or "Obtenir les prévisions"
+    
+    // Update last known coordinates
+    if (coordinatesChanged) {
+      this.lastLat = location.lat;
+      this.lastLon = location.lng;
     }
-    
-    // Automatically fetch weather for the selected coordinates with debounce
-    // Use setTimeout to defer to next cycle and debounce rapid updates
-    this.weatherFetchTimeout = window.setTimeout(() => {
-      this.getCurrentWeatherByCoordinates();
-      this.weatherFetchTimeout = undefined;
-    }, 500); // 500ms debounce to avoid multiple calls during marker drag
   }
 
   /**
@@ -392,7 +727,7 @@ export class OpenWeatherMapComponent implements OnInit {
   }
 
   /**
-   * Open trace viewer in selection mode to pick coordinates
+   * Open trace viewer with current coordinates displayed in Latitude and Longitude fields
    */
   openTraceViewerForSelection(): void {
     if (!this.traceViewerModalComponent) {
@@ -403,8 +738,8 @@ export class OpenWeatherMapComponent implements OnInit {
     // Use current coordinates from the component (lat/lon fields)
     const initialLat = this.lat || 48.8566;
     const initialLon = this.lon || 2.3522;
-    const label = this.translateService.instant('API.SELECT_LOCATION');
-    // Pass simpleShare: true to use simple format "Position : coordonnées" when sharing
+    const label = `${initialLat.toFixed(6)}, ${initialLon.toFixed(6)}`;
+    // Open at location with coordinates, enable selection mode so clicks update coordinates, simple share mode
     this.traceViewerModalComponent.openAtLocation(initialLat, initialLon, label, undefined, true, true);
   }
 

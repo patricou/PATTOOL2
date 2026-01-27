@@ -33,7 +33,8 @@
         "IOT_HOME": "בית IoT",
         "LOCAL_NETWORK": "רשת מקומית",
         "IA": "בינה מלאכותית",
-        "PATGPT": "PatGPT"
+        "PATGPT": "PatGPT",
+        "POSITION_METEO": "מיקום/מזג אוויר"
     },
     "NAVIGATION": {
         "BACK": "חזור",
@@ -714,6 +715,8 @@
         "TRACK_BASEMAP": "מפת בסיס",
         "TRACK_RECENTER": "מרכז את המסלול (R)",
         "TRACK_SHARE_LOCATION": "שתף מיקום",
+		"SHOW_GPS_COORDINATES": "הצג קואורדינטות GPS",
+		"SHOW_ADDRESS": "הצג כתובת",
         "TRACK_INFO_TITLE": "מידע",
         "TRACK_INFO_DESC": "בחר מפת בסיס ולאחר מכן סגור את החלון בעזרת ה-X.",
         "TRACK_INFO_SHORTCUT": "לחץ R כדי למרכז מחדש את המפה על המסלול.",
@@ -1335,10 +1338,12 @@
         "NO_ID_ERROR": "שגיאה: לתגובה אין מזהה"
     },
     "API": {
-        "TITLE": "API - OpenWeatherMap",
+        "TITLE": "מיקום/מזג אוויר",
         "STATUS": "סטטוס API",
+        "STATUS_APIS": "סטטוס APIs",
         "SERVICE": "שירות",
         "STATUS_LABEL": "סטטוס",
+        "CURRENT_POSITION": "מיקום",
         "CURRENT_WEATHER": "מזג אוויר נוכחי",
         "CITY": "עיר",
         "CITY_PLACEHOLDER": "למשל: פריז",
@@ -1362,6 +1367,7 @@
         "N_A": "לא זמין",
         "VIEW_ON_MAP": "הצג במפה",
         "SELECT_ON_MAP": "מפה",
+        "SHOW_WEATHER_ON_CLICK": "הצג מזג אוויר בלחיצה",
         "SELECT_LOCATION": "בחר מיקום",
         "REPOSITION_TO_USER": "המיקום שלי",
         "USER_LOCATION": "מיקום המשתמש",

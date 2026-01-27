@@ -31,7 +31,8 @@
         "TOOLS": "Strumenti",
         "IOT": "IoT",
         "IA": "IA",
-        "PATGPT": "PatGPT"
+        "PATGPT": "PatGPT",
+        "POSITION_METEO": "Posizione/Meteo"
     },
     "NAVIGATION": {
         "BACK": "Indietro",
@@ -723,6 +724,8 @@
         "TRACK_BASEMAP": "Mappa di base",
         "TRACK_RECENTER": "Riposiziona il tracciato (R)",
         "TRACK_SHARE_LOCATION": "Condividi Posizione",
+		"SHOW_GPS_COORDINATES": "Mostra coordinate GPS",
+		"SHOW_ADDRESS": "Mostra indirizzo",
         "TRACK_INFO_TITLE": "Informazioni",
         "TRACK_INFO_DESC": "Scegli una mappa di base e chiudi questa finestra con la X.",
         "TRACK_INFO_SHORTCUT": "Premi R per recentrare la mappa sul tracciato.",
@@ -1344,10 +1347,12 @@
         "NO_ID_ERROR": "Errore: il commento non ha un ID"
     },
     "API": {
-        "TITLE": "API - OpenWeatherMap",
+        "TITLE": "Posizione/Meteo",
         "STATUS": "Stato API",
+        "STATUS_APIS": "Stato delle API",
         "SERVICE": "Servizio",
         "STATUS_LABEL": "Stato",
+        "CURRENT_POSITION": "Posizione",
         "CURRENT_WEATHER": "Meteo Attuale",
         "CITY": "Città",
         "CITY_PLACEHOLDER": "es: Parigi",
@@ -1371,6 +1376,7 @@
         "N_A": "N/D",
         "VIEW_ON_MAP": "Visualizza sulla Mappa",
         "SELECT_ON_MAP": "Mappa",
+        "SHOW_WEATHER_ON_CLICK": "Mostra meteo al clic",
         "SELECT_LOCATION": "Seleziona Posizione",
         "REPOSITION_TO_USER": "La Mia Posizione",
         "USER_LOCATION": "Posizione Utente",

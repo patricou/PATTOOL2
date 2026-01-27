@@ -33,7 +33,8 @@
         "IOT_HOME": "الصفحة الرئيسية لإنترنت الأشياء",
         "LOCAL_NETWORK": "الشبكة المحلية",
         "IA": "الذكاء الاصطناعي",
-        "PATGPT": "PatGPT"
+        "PATGPT": "PatGPT",
+        "POSITION_METEO": "الموقع/الطقس"
     },
     "NAVIGATION": {
         "BACK": "رجوع",
@@ -719,6 +720,8 @@
         "TRACK_BASEMAP": "خريطة الأساس",
         "TRACK_RECENTER": "إعادة تمركز المسار (R)",
         "TRACK_SHARE_LOCATION": "مشاركة الموقع",
+		"SHOW_GPS_COORDINATES": "إظهار إحداثيات GPS",
+		"SHOW_ADDRESS": "إظهار العنوان",
         "TRACK_INFO_TITLE": "معلومات",
         "TRACK_INFO_DESC": "اختر خريطة أساس ثم أغلق هذه النافذة بعلامة ×.",
         "TRACK_INFO_SHORTCUT": "اضغط R لإعادة تمركز الخريطة على المسار.",
@@ -1340,10 +1343,12 @@
         "NO_ID_ERROR": "خطأ: التعليق ليس له معرف"
     },
     "API": {
-        "TITLE": "API - OpenWeatherMap",
+        "TITLE": "الموقع/الطقس",
         "STATUS": "حالة API",
+        "STATUS_APIS": "حالة APIs",
         "SERVICE": "الخدمة",
         "STATUS_LABEL": "الحالة",
+        "CURRENT_POSITION": "الموقع",
         "CURRENT_WEATHER": "الطقس الحالي",
         "CITY": "المدينة",
         "CITY_PLACEHOLDER": "مثال: باريس",
@@ -1367,6 +1372,7 @@
         "N_A": "غير متاح",
         "VIEW_ON_MAP": "عرض على الخريطة",
         "SELECT_ON_MAP": "الخريطة",
+        "SHOW_WEATHER_ON_CLICK": "إظهار الطقس عند النقر",
         "SELECT_LOCATION": "تحديد الموقع",
         "REPOSITION_TO_USER": "موقعي",
         "USER_LOCATION": "موقع المستخدم",

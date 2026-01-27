@@ -33,7 +33,8 @@
         "IOT_HOME": "IoTホーム",
         "LOCAL_NETWORK": "ローカルネットワーク",
         "IA": "AI",
-        "PATGPT": "PatGPT"
+        "PATGPT": "PatGPT",
+        "POSITION_METEO": "位置/天気"
     },
     "NAVIGATION": {
         "BACK": "戻る",
@@ -601,6 +602,8 @@
         "TRACK_BASEMAP": "ベースマップ",
         "TRACK_RECENTER": "トラックを再中心表示 (R)",
         "TRACK_SHARE_LOCATION": "位置を共有",
+		"SHOW_GPS_COORDINATES": "GPS座標を表示",
+		"SHOW_ADDRESS": "住所を表示",
         "TRACK_INFO_TITLE": "情報",
         "TRACK_INFO_DESC": "ベースマップを選択し、右上の×でこのパネルを閉じてください。",
         "TRACK_INFO_SHORTCUT": "R を押すと地図がトラックの中心に戻ります。",
@@ -1222,10 +1225,12 @@
         "NO_ID_ERROR": "エラー：コメントにIDがありません"
     },
     "API": {
-        "TITLE": "API - OpenWeatherMap",
+        "TITLE": "位置/天気",
         "STATUS": "APIステータス",
+        "STATUS_APIS": "APIステータス",
         "SERVICE": "サービス",
         "STATUS_LABEL": "ステータス",
+        "CURRENT_POSITION": "位置",
         "CURRENT_WEATHER": "現在の天気",
         "CITY": "都市",
         "CITY_PLACEHOLDER": "例：パリ",
@@ -1249,6 +1254,7 @@
         "N_A": "該当なし",
         "VIEW_ON_MAP": "地図で表示",
         "SELECT_ON_MAP": "地図",
+        "SHOW_WEATHER_ON_CLICK": "クリック時に天気を表示",
         "SELECT_LOCATION": "位置を選択",
         "REPOSITION_TO_USER": "現在地",
         "USER_LOCATION": "ユーザー位置",

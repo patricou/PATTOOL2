@@ -33,7 +33,8 @@
         "IOT_HOME": "物联网首页",
         "LOCAL_NETWORK": "本地网络",
         "IA": "人工智能",
-        "PATGPT": "PatGPT"
+        "PATGPT": "PatGPT",
+        "POSITION_METEO": "位置/天气"
     },
     "NAVIGATION": {
         "BACK": "返回",
@@ -721,6 +722,8 @@
         "TRACK_BASEMAP": "底图",
         "TRACK_RECENTER": "重新居中轨迹 (R)",
         "TRACK_SHARE_LOCATION": "分享位置",
+		"SHOW_GPS_COORDINATES": "显示GPS坐标",
+		"SHOW_ADDRESS": "显示地址",
         "TRACK_INFO_TITLE": "信息",
         "TRACK_INFO_DESC": "选择一个底图，然后通过右上角的叉号关闭此窗口。",
         "TRACK_INFO_SHORTCUT": "按 R 键可将地图重新居中到轨迹上。",
@@ -1342,10 +1345,12 @@
         "NO_ID_ERROR": "错误：评论没有ID"
     },
     "API": {
-        "TITLE": "API - OpenWeatherMap",
+        "TITLE": "位置/天气",
         "STATUS": "API 状态",
+        "STATUS_APIS": "API 状态",
         "SERVICE": "服务",
         "STATUS_LABEL": "状态",
+        "CURRENT_POSITION": "位置",
         "CURRENT_WEATHER": "当前天气",
         "CITY": "城市",
         "CITY_PLACEHOLDER": "例如：巴黎",
@@ -1369,6 +1374,7 @@
         "N_A": "不适用",
         "VIEW_ON_MAP": "在地图上查看",
         "SELECT_ON_MAP": "地图",
+        "SHOW_WEATHER_ON_CLICK": "点击时显示天气",
         "SELECT_LOCATION": "选择位置",
         "REPOSITION_TO_USER": "我的位置",
         "USER_LOCATION": "用户位置",
