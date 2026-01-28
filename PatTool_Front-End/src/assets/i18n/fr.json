@@ -1405,7 +1405,32 @@
         "PHOTO_POSITION": "Position de la photo",
         "VIEW_ON_MAPS": "Voir sur Google Maps",
         "POSITION_COPIED": "Position copiée dans le presse-papiers",
-        "COPY_MANUALLY": "Copiez manuellement le texte ci-dessus"
+        "COPY_MANUALLY": "Copiez manuellement le texte ci-dessus",
+        "SEARCH_CITY": "Rechercher",
+        "CITY_REQUIRED": "Le nom de la ville est requis",
+        "COORDINATES_FOUND": "Coordonnées trouvées",
+        "CITY_NOT_FOUND": "Ville non trouvée",
+        "SELECT_CITY": "Sélectionner une ville",
+        "FORECAST_MODE": "Mode d'affichage",
+        "FORECAST_3H": "Toutes les 3 heures",
+        "FORECAST_1H": "Toutes les heures",
+        "FORECAST_DAILY": "Résumé quotidien",
+        "FORECAST_3H_INFO": "Prévisions toutes les 3 heures sur 5 jours",
+        "FORECAST_1H_INFO": "Prévisions toutes les heures (24 heures)",
+        "FORECAST_DAILY_INFO": "Résumé quotidien sur 5 jours",
+        "LOADING": "Chargement...",
+        "SHARE_CURRENT_WEATHER": "Partager la météo actuelle",
+        "SHARE_FORECAST": "Partager les prévisions",
+        "ADDRESS": "Adresse",
+        "COORDINATES": "Coordonnées GPS",
+        "NO_CURRENT_WEATHER": "Aucune donnée météo actuelle disponible",
+        "NO_FORECAST_DATA": "Aucune donnée de prévision disponible",
+        "SHARED_SUCCESSFULLY": "Partagé avec succès",
+        "COPIED_TO_CLIPBOARD": "Copié dans le presse-papiers",
+        "SHARE_FAILED": "Échec du partage",
+        "CHART_INCLUDED": "Graphique inclus dans la vue originale",
+        "SHARE_WEATHER": "Partager la météo",
+        "IMAGE_DATA_URL": "URL de l'image:"
     }
 }
 

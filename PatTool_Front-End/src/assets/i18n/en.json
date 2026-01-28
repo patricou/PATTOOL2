@@ -1411,7 +1411,32 @@
         "PHOTO_POSITION": "Photo position",
         "VIEW_ON_MAPS": "View on Google Maps",
         "POSITION_COPIED": "Position copied to clipboard",
-        "COPY_MANUALLY": "Copy the text above manually"
+        "COPY_MANUALLY": "Copy the text above manually",
+        "SEARCH_CITY": "Search",
+        "CITY_REQUIRED": "City name is required",
+        "COORDINATES_FOUND": "Coordinates found",
+        "CITY_NOT_FOUND": "City not found",
+        "SELECT_CITY": "Select a city",
+        "FORECAST_MODE": "Display Mode",
+        "FORECAST_3H": "Every 3 Hours",
+        "FORECAST_1H": "Hourly",
+        "FORECAST_DAILY": "Daily Summary",
+        "FORECAST_3H_INFO": "Forecast every 3 hours for 5 days",
+        "FORECAST_1H_INFO": "Hourly forecast (24 hours)",
+        "FORECAST_DAILY_INFO": "Daily summary for 5 days",
+        "LOADING": "Loading...",
+        "SHARE_CURRENT_WEATHER": "Share Current Weather",
+        "SHARE_FORECAST": "Share Forecast",
+        "ADDRESS": "Address",
+        "COORDINATES": "GPS Coordinates",
+        "NO_CURRENT_WEATHER": "No current weather data available",
+        "NO_FORECAST_DATA": "No forecast data available",
+        "SHARED_SUCCESSFULLY": "Shared successfully",
+        "COPIED_TO_CLIPBOARD": "Copied to clipboard",
+        "SHARE_FAILED": "Failed to share",
+        "CHART_INCLUDED": "Chart included in original view",
+        "SHARE_WEATHER": "Share Weather",
+        "IMAGE_DATA_URL": "Image URL:"
     }
 }
 

@@ -54,19 +54,79 @@
                 <div class="weather-controls">
                     <div class="form-group">
                         <label for="city">{{ 'API.CITY' | translate }}:</label>
-                        <input type="text" 
-                               id="city" 
-                               class="form-control" 
-                               [(ngModel)]="city" 
-                               [placeholder]="'API.CITY_PLACEHOLDER' | translate">
+                        <div class="input-group">
+                            <input type="text" 
+                                   id="city" 
+                                   class="form-control" 
+                                   [(ngModel)]="city" 
+                                   [placeholder]="'API.CITY_PLACEHOLDER' | translate"
+                                   (keyup.enter)="searchCityAndGetCoordinates()"
+                                   (focus)="closeCitySearchResults()">
+                            <button (click)="searchCityAndGetCoordinates()" 
+                                    class="btn btn-primary"
+                                    [disabled]="isLoadingCitySearch"
+                                    title="{{ 'API.SEARCH_CITY' | translate }}">
+                                <i class="fa" [class.fa-search]="!isLoadingCitySearch" [class.fa-spinner]="isLoadingCitySearch" [class.fa-spin]="isLoadingCitySearch"></i>
+                                <span class="btn-text">{{ 'API.SEARCH_CITY' | translate }}</span>
+                            </button>
+                        </div>
+                        <!-- City search results dropdown -->
+                        <div class="city-search-results" *ngIf="showCitySearchResults && citySearchResults.length > 0">
+                            <div class="city-search-results-header">
+                                <span>{{ 'API.SELECT_CITY' | translate }} ({{ citySearchResults.length }})</span>
+                                <button type="button" class="btn-close" (click)="closeCitySearchResults()" title="{{ 'API.CLOSE' | translate }}">
+                                    <i class="fa fa-times"></i>
+                                </button>
+                            </div>
+                            <div class="city-search-results-list">
+                                <div class="city-search-result-item" 
+                                     *ngFor="let result of citySearchResults" 
+                                     (click)="selectCityFromResults(result)">
+                                    <div class="city-search-result-header">
+                                        <div class="city-search-result-name">
+                                            <i class="fa fa-map-marker"></i> {{ result.cityName || result.displayName }}
+                                        </div>
+                                        <div class="city-search-result-country" *ngIf="result.countryCode">
+                                            <span class="country-badge">
+                                                <span class="country-flag">{{ getCountryFlag(result.countryCode) }}</span>
+                                                {{ result.countryCode }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="city-search-result-details">
+                                        <div class="city-search-result-address" *ngIf="result.detailedAddress">
+                                            <i class="fa fa-home"></i> {{ result.detailedAddress }}
+                                        </div>
+                                        <div class="city-search-result-info">
+                                            <span *ngIf="result.state">
+                                                <i class="fa fa-map"></i> {{ result.state }}
+                                            </span>
+                                            <span *ngIf="result.country">
+                                                <i class="fa fa-globe"></i> {{ result.country }}
+                                            </span>
+                                            <span *ngIf="result.postcode">
+                                                <i class="fa fa-envelope"></i> {{ result.postcode }}
+                                            </span>
+                                        </div>
+                                        <div class="city-search-result-coords">
+                                            <i class="fa fa-crosshairs"></i>
+                                            <small>{{ 'API.LATITUDE' | translate }}: {{ result.lat.toFixed(6) }}, {{ 'API.LONGITUDE' | translate }}: {{ result.lon.toFixed(6) }}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="countryCode">{{ 'API.COUNTRY_CODE' | translate }}:</label>
-                        <input type="text" 
-                               id="countryCode" 
-                               class="form-control" 
-                               [(ngModel)]="countryCode" 
-                               [placeholder]="'API.COUNTRY_CODE_PLACEHOLDER' | translate">
+                        <select id="countryCode" 
+                                class="form-control country-select" 
+                                [(ngModel)]="countryCode"
+                                (focus)="closeCitySearchResults()">
+                            <option *ngFor="let country of countryCodes" [value]="country.code">
+                                {{ country.code ? (getCountryFlag(country.code) + ' ' + country.code + ' - ' + country.name) : country.name }}
+                            </option>
+                        </select>
                     </div>
                 </div>
 
@@ -107,9 +167,19 @@
 
             <!-- Weather Data Section (separate from position) -->
             <div class="api-container" *ngIf="currentWeather || isLoadingCurrentWeather">
-                <h3 class="api-title">
-                    <i class="fa fa-cloud"></i> {{ currentWeatherTitle || ('API.CURRENT_WEATHER' | translate) }}
-                </h3>
+                <div class="api-title-container" style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 class="api-title" style="margin: 0;">
+                        <i class="fa fa-cloud"></i> {{ currentWeatherTitle || ('API.CURRENT_WEATHER' | translate) }}
+                    </h3>
+                    <!-- Share Current Weather Button -->
+                    <button (click)="shareCurrentWeather()" 
+                            class="btn btn-info btn-sm" 
+                            *ngIf="currentWeather && !currentWeather.error && !isLoadingCurrentWeather"
+                            style="margin-left: 10px;">
+                        <i class="fa fa-share-alt"></i>
+                        <span class="btn-text">{{ 'API.SHARE_CURRENT_WEATHER' | translate }}</span>
+                    </button>
+                </div>
                 
                 <!-- Current Weather Results -->
                 <div class="weather-results" *ngIf="isLoadingCurrentWeather">
@@ -193,16 +263,54 @@
                         <i class="fa" [class.fa-calendar]="!isLoadingForecast" [class.fa-spinner]="isLoadingForecast" [class.fa-spin]="isLoadingForecast"></i>
                         <span class="btn-text">{{ 'API.GET_FORECAST' | translate }}</span>
                     </button>
+                    
+                    <!-- Share Forecast Button -->
+                    <button (click)="shareForecast()" 
+                            class="btn btn-info btn-sm" 
+                            *ngIf="forecast && !forecast.error && displayForecastList && displayForecastList.length > 0"
+                            style="margin-left: 10px;">
+                        <i class="fa fa-share-alt"></i>
+                        <span class="btn-text">{{ 'API.SHARE_FORECAST' | translate }}</span>
+                    </button>
+                    
+                    <!-- Forecast Display Mode Selection -->
+                    <div class="forecast-mode-selection" *ngIf="forecast && forecast.list && forecast.list.length > 0">
+                        <label class="mode-selection-label">{{ 'API.FORECAST_MODE' | translate }}:</label>
+                        <div class="mode-buttons">
+                            <button type="button" 
+                                    class="btn btn-sm mode-btn"
+                                    [class.btn-primary]="forecastDisplayMode === 'hourly'"
+                                    [class.btn-outline-primary]="forecastDisplayMode !== 'hourly'"
+                                    (click)="setForecastDisplayMode('hourly')"
+                                    title="{{ 'API.FORECAST_3H' | translate }}">
+                                {{ 'API.FORECAST_3H' | translate }}
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-sm mode-btn"
+                                    [class.btn-primary]="forecastDisplayMode === 'daily'"
+                                    [class.btn-outline-primary]="forecastDisplayMode !== 'daily'"
+                                    (click)="setForecastDisplayMode('daily')"
+                                    title="{{ 'API.FORECAST_DAILY' | translate }}">
+                                {{ 'API.FORECAST_DAILY' | translate }}
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Forecast Results -->
                 <div class="forecast-results" *ngIf="forecast && !forecast.error">
                     <div class="forecast-header">
-                        <small class="text-muted">{{ 'API.FORECAST_FOR' | translate }} {{ forecast.city?.name }}, {{ forecast.city?.country }}</small>
+                        <small class="text-muted" *ngIf="forecast && forecast.city">
+                            {{ 'API.FORECAST_FOR' | translate }} {{ forecast.city?.name }}, {{ forecast.city?.country }}
+                        </small>
+                        <small class="text-muted forecast-mode-info" *ngIf="displayForecastList.length > 0">
+                            <span *ngIf="forecastDisplayMode === 'hourly'">({{ 'API.FORECAST_3H_INFO' | translate }})</span>
+                            <span *ngIf="forecastDisplayMode === 'daily'">({{ 'API.FORECAST_DAILY_INFO' | translate }})</span>
+                        </small>
                     </div>
                     
                     <div class="forecast-grid">
-                        <div class="forecast-card" *ngFor="let item of forecast.list">
+                        <div class="forecast-card" *ngFor="let item of displayForecastList">
                             <div class="forecast-card-header">
                                 <div class="forecast-time">{{ formatDate(item.dt) }}</div>
                                 <img [src]="getWeatherIconUrl(item.weather?.[0]?.icon)" 
@@ -211,18 +319,24 @@
                                      *ngIf="item.weather?.[0]?.icon">
                             </div>
                             <div class="forecast-card-body">
-                                <div class="forecast-temp-main">{{ formatTemperature(item.main?.temp) }}</div>
+                                <div class="forecast-temp-main" *ngIf="forecastDisplayMode === 'hourly'">
+                                    {{ formatTemperature(item.main?.temp) }}
+                                </div>
+                                <div class="forecast-temp-daily" *ngIf="forecastDisplayMode === 'daily'">
+                                    <div class="forecast-temp-max">{{ formatTemperature(item.main?.temp_max) }}</div>
+                                    <div class="forecast-temp-min">{{ formatTemperature(item.main?.temp_min) }}</div>
+                                </div>
                                 <div class="forecast-desc-small">{{ item.weather?.[0]?.description }}</div>
                                 <div class="forecast-meta">
-                                    <span class="forecast-meta-item"><i class="fa fa-tint"></i> {{ item.main?.humidity }}%</span>
-                                    <span class="forecast-meta-item"><i class="fa fa-wind"></i> {{ item.wind?.speed }}</span>
+                                    <span class="forecast-meta-item"><i class="fa fa-tint"></i> {{ Math.round(item.main?.humidity) }}%</span>
+                                    <span class="forecast-meta-item"><i class="fa fa-wind"></i> {{ item.wind?.speed?.toFixed(1) }}</span>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
                     <!-- Temperature Chart -->
-                    <div class="temperature-chart-container" *ngIf="forecast.list && forecast.list.length > 0">
+                    <div class="temperature-chart-container" *ngIf="displayForecastList && displayForecastList.length > 0">
                         <canvas baseChart
                                 [data]="temperatureChartData"
                                 [options]="temperatureChartOptions"

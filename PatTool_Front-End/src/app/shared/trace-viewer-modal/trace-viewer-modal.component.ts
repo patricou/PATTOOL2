@@ -71,6 +71,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private pendingTrackPoints: L.LatLngTuple[] | null = null;
 	private pendingLocation: { lat: number; lng: number; label?: string } | null = null;
 	private pendingPositions: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }> | null = null;
+	private lastRenderedPosition: { lat: number; lng: number } | null = null; // Store the most recent position after rendering
 	private selectionMode: boolean = false;
 	private simpleShareMode: boolean = false;
 	private selectionMarker?: L.Marker;
@@ -758,6 +759,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 			}
 		});
+		
+		// Store the most recent position for share functionality
+		const positionToStore = mostRecentIndex >= 0 ? positions[mostRecentIndex] : positions[positions.length - 1];
+		this.lastRenderedPosition = { lat: positionToStore.lat, lng: positionToStore.lng };
 
 		// Add markers for each position
 		positions.forEach((pos, index) => {
@@ -862,6 +867,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		const { lat, lng, label } = this.pendingLocation;
+		
+		// Store the location for share functionality
+		this.lastRenderedPosition = { lat, lng };
 		
 		// In selection mode, don't create the standard marker (will be created by registerLocationSelection)
 		// and keep pendingLocation so registerLocationSelection can use it
@@ -1092,6 +1100,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.pendingTrackPoints = null;
 		this.pendingLocation = null;
 		this.pendingPositions = null;
+		this.lastRenderedPosition = null;
 		this.selectionMode = false;
 		this.simpleShareMode = false;
 		this.showGpsCoordinates = false;
@@ -1370,15 +1379,41 @@ export class TraceViewerModalComponent implements OnDestroy {
 		let lat: number;
 		let lng: number;
 
-		// Priority: selectionMarker > pendingLocation > map center
+		// Priority: selectionMarker > clickMarker > pendingLocation > lastRenderedPosition > pendingPositions > map center
 		if (this.selectionMarker) {
 			const pos = this.selectionMarker.getLatLng();
+			lat = pos.lat;
+			lng = pos.lng;
+		} else if (this.clickMarker) {
+			const pos = this.clickMarker.getLatLng();
 			lat = pos.lat;
 			lng = pos.lng;
 		} else if (this.pendingLocation) {
 			lat = this.pendingLocation.lat;
 			lng = this.pendingLocation.lng;
+		} else if (this.lastRenderedPosition) {
+			// Use the last rendered position (photo position or most recent position from history)
+			lat = this.lastRenderedPosition.lat;
+			lng = this.lastRenderedPosition.lng;
+		} else if (this.pendingPositions && this.pendingPositions.length > 0) {
+			// Find the most recent position by datetime (if not yet rendered)
+			let mostRecentIndex = -1;
+			let mostRecentDateTime: Date | null = null;
+			this.pendingPositions.forEach((pos, index) => {
+				if (pos.datetime) {
+					const posDate = new Date(pos.datetime);
+					if (!mostRecentDateTime || posDate > mostRecentDateTime) {
+						mostRecentDateTime = posDate;
+						mostRecentIndex = index;
+					}
+				}
+			});
+			// Use most recent position if found, otherwise use the last one
+			const positionToUse = mostRecentIndex >= 0 ? this.pendingPositions[mostRecentIndex] : this.pendingPositions[this.pendingPositions.length - 1];
+			lat = positionToUse.lat;
+			lng = positionToUse.lng;
 		} else {
+			// Fallback to map center only as last resort
 			const center = this.map.getCenter();
 			lat = center.lat;
 			lng = center.lng;

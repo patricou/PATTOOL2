@@ -1379,7 +1379,30 @@
         "PHOTO_POSITION": "फोटो की स्थिति",
         "VIEW_ON_MAPS": "Google Maps पर देखें",
         "POSITION_COPIED": "स्थान क्लिपबोर्ड पर कॉपी किया गया",
-        "COPY_MANUALLY": "ऊपर दिया गया टेक्स्ट मैन्युअल रूप से कॉपी करें"
+        "COPY_MANUALLY": "ऊपर दिया गया टेक्स्ट मैन्युअल रूप से कॉपी करें",
+        "SEARCH_CITY": "खोजें",
+        "CITY_REQUIRED": "शहर का नाम आवश्यक है",
+        "COORDINATES_FOUND": "निर्देशांक मिले",
+        "CITY_NOT_FOUND": "शहर नहीं मिला",
+        "SELECT_CITY": "एक शहर चुनें",
+        "FORECAST_MODE": "प्रदर्शन मोड",
+        "FORECAST_3H": "हर 3 घंटे",
+        "FORECAST_1H": "हर घंटे",
+        "FORECAST_DAILY": "दैनिक सारांश",
+        "FORECAST_3H_INFO": "5 दिनों के लिए हर 3 घंटे पूर्वानुमान",
+        "FORECAST_1H_INFO": "प्रति घंटा पूर्वानुमान (24 घंटे)",
+        "FORECAST_DAILY_INFO": "5 दिनों के लिए दैनिक सारांश",
+        "LOADING": "लोड हो रहा है...",
+        "SHARE_CURRENT_WEATHER": "वर्तमान मौसम साझा करें",
+        "SHARE_FORECAST": "पूर्वानुमान साझा करें",
+        "ADDRESS": "पता",
+        "COORDINATES": "GPS निर्देशांक",
+        "NO_CURRENT_WEATHER": "कोई वर्तमान मौसम डेटा उपलब्ध नहीं",
+        "NO_FORECAST_DATA": "कोई पूर्वानुमान डेटा उपलब्ध नहीं",
+        "SHARED_SUCCESSFULLY": "सफलतापूर्वक साझा किया गया",
+        "COPIED_TO_CLIPBOARD": "क्लिपबोर्ड पर कॉपी किया गया",
+        "SHARE_FAILED": "साझाकरण विफल",
+        "CHART_INCLUDED": "मूल दृश्य में चार्ट शामिल है"
     }
 }
 

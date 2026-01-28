@@ -85,6 +85,7 @@ public class ApiController {
         return openWeatherService.getForecastByCoordinates(lat, lon);
     }
 
+
     /**
      * Test endpoint to check API configuration
      * @return Status information
