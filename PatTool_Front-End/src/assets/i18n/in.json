@@ -1273,7 +1273,10 @@
         "SORT_BY_DATE_CREATION": "निर्माण तिथि से क्रमबद्ध करें",
         "SORT_BY_FIRST_NAME": "पहले नाम से क्रमबद्ध करें",
         "SORT_BY_LAST_NAME": "अंतिम नाम से क्रमबद्ध करें",
-        "SORT_BY_LAST_CONNECTION": "अंतिम कनेक्शन से क्रमबद्ध करें"
+        "SORT_BY_LAST_CONNECTION": "अंतिम कनेक्शन से क्रमबद्ध करें",
+        "DELETE_ALL_POSITIONS": "सभी स्थितियाँ हटाएं",
+        "DELETE_ALL_POSITIONS_CONFIRM": "क्या आप वाकई सभी {{count}} स्थिति(स्थितियाँ) हटाना चाहते हैं? यह क्रिया अपरिवर्तनीय है।",
+        "DELETE_ALL_POSITIONS_ERROR": "स्थितियाँ हटाने में त्रुटि"
     },
     "STATISTICS": {
         "TITLE": "चर्चा सांख्यिकी",

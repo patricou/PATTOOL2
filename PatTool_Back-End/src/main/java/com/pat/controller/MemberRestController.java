@@ -18,7 +18,8 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
@@ -491,6 +492,55 @@ public class MemberRestController {
     public Member getMember(@PathVariable String id) {
         log.debug("Get Member : " +  id );
         return membersRepository.findById(id).orElse(null);
+    }
+
+    /**
+     * Delete all positions for a member
+     * Users can only delete their own positions, unless they are admin
+     * @param memberId The ID of the member whose positions should be deleted
+     * @return ResponseEntity with the updated member or error status
+     */
+    @RequestMapping(
+            value = "/{memberId}/positions",
+            method = RequestMethod.DELETE,
+            produces = { "application/json"}
+    )
+    public ResponseEntity<?> deleteAllPositions(@PathVariable String memberId) {
+        log.debug("Delete all positions for member: {}", memberId);
+        
+        try {
+            // Get the member
+            Member member = membersRepository.findById(memberId).orElse(null);
+            if (member == null) {
+                log.warn("Member not found: {}", memberId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Member not found");
+            }
+            
+            // Check authorization: user can only delete their own positions, unless they are admin
+            String currentUserId = getCurrentUserId();
+            boolean isAdmin = hasAdminRole();
+            
+            if (!isAdmin && (currentUserId == null || !currentUserId.equals(memberId))) {
+                log.warn("Unauthorized attempt to delete positions for member {} by user {}", memberId, currentUserId);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only delete your own positions");
+            }
+            
+            // Clear all positions
+            if (member.getPositions() != null) {
+                int positionCount = member.getPositions().size();
+                member.setPositions(new ArrayList<>());
+                membersRepository.save(member);
+                log.info("Deleted {} positions for member {}", positionCount, memberId);
+            } else {
+                log.debug("No positions to delete for member {}", memberId);
+            }
+            
+            return ResponseEntity.ok(member);
+            
+        } catch (Exception e) {
+            log.error("Error deleting positions for member {}: {}", memberId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error deleting positions: " + e.getMessage());
+        }
     }
 
     /**

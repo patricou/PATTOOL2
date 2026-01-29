@@ -1299,7 +1299,10 @@
         "SORT_BY_DATE_CREATION": "Trier par Date de Création",
         "SORT_BY_FIRST_NAME": "Trier par Prénom",
         "SORT_BY_LAST_NAME": "Trier par Nom",
-        "SORT_BY_LAST_CONNECTION": "Trier par Dernière Connexion"
+        "SORT_BY_LAST_CONNECTION": "Trier par Dernière Connexion",
+        "DELETE_ALL_POSITIONS": "Supprimer toutes les Positions",
+        "DELETE_ALL_POSITIONS_CONFIRM": "Êtes-vous sûr de vouloir supprimer toutes les {{count}} position(s) ? Cette action est irréversible.",
+        "DELETE_ALL_POSITIONS_ERROR": "Erreur lors de la suppression des positions"
     },
     "STATISTICS": {
         "TITLE": "Statistiques des Discussions",

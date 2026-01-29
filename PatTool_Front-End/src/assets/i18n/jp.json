@@ -1161,7 +1161,10 @@
         "SORT_BY_DATE_CREATION": "作成日で並べ替え",
         "SORT_BY_FIRST_NAME": "名で並べ替え",
         "SORT_BY_LAST_NAME": "姓で並べ替え",
-        "SORT_BY_LAST_CONNECTION": "最終接続で並べ替え"
+        "SORT_BY_LAST_CONNECTION": "最終接続で並べ替え",
+        "DELETE_ALL_POSITIONS": "すべての位置を削除",
+        "DELETE_ALL_POSITIONS_CONFIRM": "すべての {{count}} 位置を削除してもよろしいですか？この操作は元に戻せません。",
+        "DELETE_ALL_POSITIONS_ERROR": "位置の削除中にエラーが発生しました"
     },
     "STATISTICS": {
         "TITLE": "議論統計",

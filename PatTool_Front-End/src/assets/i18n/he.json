@@ -1274,7 +1274,10 @@
         "SORT_BY_DATE_CREATION": "מיין לפי תאריך יצירה",
         "SORT_BY_FIRST_NAME": "מיין לפי שם פרטי",
         "SORT_BY_LAST_NAME": "מיין לפי שם משפחה",
-        "SORT_BY_LAST_CONNECTION": "מיין לפי חיבור אחרון"
+        "SORT_BY_LAST_CONNECTION": "מיין לפי חיבור אחרון",
+        "DELETE_ALL_POSITIONS": "מחק את כל המיקומים",
+        "DELETE_ALL_POSITIONS_CONFIRM": "האם אתה בטוח שברצונך למחוק את כל {{count}} המיקום(ים)? פעולה זו אינה הפיכה.",
+        "DELETE_ALL_POSITIONS_ERROR": "שגיאה במחיקת המיקומים"
     },
     "STATISTICS": {
         "TITLE": "סטטיסטיקת דיונים",

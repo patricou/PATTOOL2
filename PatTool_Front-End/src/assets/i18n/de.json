@@ -1278,7 +1278,10 @@
         "SORT_BY_DATE_CREATION": "Nach Erstellungsdatum sortieren",
         "SORT_BY_FIRST_NAME": "Nach Vorname sortieren",
         "SORT_BY_LAST_NAME": "Nach Nachname sortieren",
-        "SORT_BY_LAST_CONNECTION": "Nach letzter Verbindung sortieren"
+        "SORT_BY_LAST_CONNECTION": "Nach letzter Verbindung sortieren",
+        "DELETE_ALL_POSITIONS": "Alle Positionen löschen",
+        "DELETE_ALL_POSITIONS_CONFIRM": "Sind Sie sicher, dass Sie alle {{count}} Position(en) löschen möchten? Diese Aktion ist unwiderruflich.",
+        "DELETE_ALL_POSITIONS_ERROR": "Fehler beim Löschen der Positionen"
     },
     "STATISTICS": {
         "TITLE": "Diskussionsstatistiken",

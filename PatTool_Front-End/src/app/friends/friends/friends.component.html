@@ -906,6 +906,15 @@
                   <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.VIEW_POSITION_HISTORY' | translate }}</span>
                   <span class="badge bg-light text-dark ms-1">{{ currentUser.positions.length }}</span>
                 </button>
+                <button 
+                  class="btn btn-xs btn-danger compact-btn position-btn"
+                  (click)="deleteAllPositions()"
+                  [ngbTooltip]="'FRIENDS.DELETE_ALL_POSITIONS' | translate"
+                  placement="top"
+                  [disabled]="loading">
+                  <i class="fa fa-trash"></i>
+                  <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.DELETE_ALL_POSITIONS' | translate }}</span>
+                </button>
               </div>
               <small class="text-muted d-block">
                 <i class="fa fa-info-circle"></i> 

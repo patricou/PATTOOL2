@@ -2563,5 +2563,48 @@ export class FriendsComponent implements OnInit {
     // Open trace viewer with all positions
     this.traceViewerModalComponent.openWithPositions(positions, fileName);
   }
+
+  /**
+   * Delete all positions for the current user
+   */
+  deleteAllPositions(): void {
+    if (!this.currentUser || !this.currentUser.id) {
+      this.errorMessage = this._translateService.instant('FRIENDS.ERROR_USER_NOT_LOADED');
+      return;
+    }
+
+    const positionCount = this.currentUser.positions ? this.currentUser.positions.length : 0;
+    if (positionCount === 0) {
+      return; // No positions to delete
+    }
+
+    // Ask for confirmation
+    const confirmMessage = this._translateService.instant('FRIENDS.DELETE_ALL_POSITIONS_CONFIRM', { count: positionCount });
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    this.loading = true;
+    this.errorMessage = '';
+
+    // Delete all positions using the dedicated endpoint
+    this._friendsService.deleteAllPositions(this.currentUser.id).subscribe(
+      (updatedMember) => {
+        // Update the current user
+        this.currentUser = updatedMember;
+        // Also update the user in the MembersService
+        this._memberService.setUser(updatedMember);
+        // Force change detection to update the view
+        this.cdr.detectChanges();
+        this.loading = false;
+        this.errorMessage = '';
+      },
+      error => {
+        console.error('Error deleting all positions:', error);
+        this.errorMessage = this._translateService.instant('FRIENDS.DELETE_ALL_POSITIONS_ERROR');
+        this.loading = false;
+      }
+    );
+  }
 }
 

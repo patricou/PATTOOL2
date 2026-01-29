@@ -1304,7 +1304,10 @@
         "SORT_BY_DATE_CREATION": "Sort by Date Creation",
         "SORT_BY_FIRST_NAME": "Sort by First Name",
         "SORT_BY_LAST_NAME": "Sort by Last Name",
-        "SORT_BY_LAST_CONNECTION": "Sort by Last Connection"
+        "SORT_BY_LAST_CONNECTION": "Sort by Last Connection",
+        "DELETE_ALL_POSITIONS": "Delete All Positions",
+        "DELETE_ALL_POSITIONS_CONFIRM": "Are you sure you want to delete all {{count}} position(s)? This action is irreversible.",
+        "DELETE_ALL_POSITIONS_ERROR": "Error deleting positions"
     },
     "STATISTICS": {
         "TITLE": "Discussion Statistics",

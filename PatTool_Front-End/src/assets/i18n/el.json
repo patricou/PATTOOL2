@@ -1158,7 +1158,10 @@
         "SORT_BY_DATE_CREATION": "Ταξινόμηση κατά Ημερομηνία Δημιουργίας",
         "SORT_BY_FIRST_NAME": "Ταξινόμηση κατά Όνομα",
         "SORT_BY_LAST_NAME": "Ταξινόμηση κατά Επώνυμο",
-        "SORT_BY_LAST_CONNECTION": "Ταξινόμηση κατά Τελευταία Σύνδεση"
+        "SORT_BY_LAST_CONNECTION": "Ταξινόμηση κατά Τελευταία Σύνδεση",
+        "DELETE_ALL_POSITIONS": "Διαγραφή Όλων των Θέσεων",
+        "DELETE_ALL_POSITIONS_CONFIRM": "Είστε βέβαιοι ότι θέλετε να διαγράψετε όλες τις {{count}} θέση(εις); Αυτή η ενέργεια είναι μη αναστρέψιμη.",
+        "DELETE_ALL_POSITIONS_ERROR": "Σφάλμα κατά τη διαγραφή των θέσεων"
     },
     "STATISTICS": {
         "TITLE": "Στατιστικά Συζητήσεων",

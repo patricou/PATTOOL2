@@ -1277,5 +1277,58 @@ export class FriendsService {
             })
         );
     }
+
+    /**
+     * Delete all positions for a member
+     * @param memberId The ID of the member whose positions should be deleted
+     * @return Observable<Member> The updated member
+     */
+    deleteAllPositions(memberId: string): Observable<Member> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => {
+                return new HttpHeaders({
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                });
+            }),
+            switchMap(headers => {
+                return this._http.delete<any>(this.API_URL + 'memb/' + memberId + '/positions', { headers: headers }).pipe(
+                    map((res: any) => {
+                        const rolesArray = res.roles ? (typeof res.roles === 'string' ? res.roles.split(',').map((r: string) => r.trim()) : res.roles) : [];
+                        // Parse positions array if present
+                        let positions = undefined;
+                        if (res.positions && Array.isArray(res.positions)) {
+                            positions = res.positions.map((p: any) => ({
+                                datetime: p.datetime ? new Date(p.datetime) : undefined,
+                                type: p.type,
+                                latitude: p.latitude,
+                                longitude: p.longitude
+                            }));
+                        }
+                        return new Member(
+                            res.id || '',
+                            res.addressEmail || '',
+                            res.firstName || '',
+                            res.lastName || '',
+                            res.userName || '',
+                            rolesArray,
+                            res.keycloakId || '',
+                            res.registrationDate ? new Date(res.registrationDate) : undefined,
+                            res.lastConnectionDate ? new Date(res.lastConnectionDate) : undefined,
+                            res.locale || undefined,
+                            res.whatsappLink || undefined,
+                            (res.visible !== undefined && res.visible !== null) ? res.visible : true,
+                            positions
+                        );
+                    }),
+                    catchError((error: any) => {
+                        console.error('Error deleting all positions:', error);
+                        throw error;
+                    })
+                );
+            })
+        );
+    }
 }
 

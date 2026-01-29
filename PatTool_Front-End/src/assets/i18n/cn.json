@@ -1281,7 +1281,10 @@
         "SORT_BY_DATE_CREATION": "按创建日期排序",
         "SORT_BY_FIRST_NAME": "按名字排序",
         "SORT_BY_LAST_NAME": "按姓氏排序",
-        "SORT_BY_LAST_CONNECTION": "按最后连接排序"
+        "SORT_BY_LAST_CONNECTION": "按最后连接排序",
+        "DELETE_ALL_POSITIONS": "删除所有位置",
+        "DELETE_ALL_POSITIONS_CONFIRM": "您确定要删除所有 {{count}} 个位置吗？此操作不可逆。",
+        "DELETE_ALL_POSITIONS_ERROR": "删除位置时出错"
     },
     "STATISTICS": {
         "TITLE": "讨论统计",

@@ -1286,7 +1286,10 @@
         "SORT_BY_DATE_CREATION": "Ordenar por Fecha de Creación",
         "SORT_BY_FIRST_NAME": "Ordenar por Nombre",
         "SORT_BY_LAST_NAME": "Ordenar por Apellido",
-        "SORT_BY_LAST_CONNECTION": "Ordenar por Última Conexión"
+        "SORT_BY_LAST_CONNECTION": "Ordenar por Última Conexión",
+        "DELETE_ALL_POSITIONS": "Eliminar Todas las Posiciones",
+        "DELETE_ALL_POSITIONS_CONFIRM": "¿Está seguro de que desea eliminar todas las {{count}} posición(es)? Esta acción es irreversible.",
+        "DELETE_ALL_POSITIONS_ERROR": "Error al eliminar las posiciones"
     },
     "STATISTICS": {
         "TITLE": "Estadísticas de Discusiones",
