@@ -37,14 +37,16 @@ public class ApiController {
      * Get current weather data by coordinates
      * @param lat Latitude (required)
      * @param lon Longitude (required)
+     * @param alt Optional altitude in meters
      * @return Current weather data
      */
     @GetMapping(value = "/weather/current/coordinates", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> getCurrentWeatherByCoordinates(
             @RequestParam("lat") Double lat,
-            @RequestParam("lon") Double lon) {
-        log.debug("Fetching current weather for coordinates: lat={}, lon={}", lat, lon);
-        return openWeatherService.getCurrentWeatherByCoordinates(lat, lon);
+            @RequestParam("lon") Double lon,
+            @RequestParam(value = "alt", required = false) Double alt) {
+        log.debug("Fetching current weather for coordinates: lat={}, lon={}, alt={}", lat, lon, alt);
+        return openWeatherService.getCurrentWeatherByCoordinates(lat, lon, alt);
     }
 
     /**
@@ -75,16 +77,35 @@ public class ApiController {
      * Get 5-day weather forecast by coordinates
      * @param lat Latitude (required)
      * @param lon Longitude (required)
+     * @param alt Optional altitude in meters
      * @return Forecast data
      */
     @GetMapping(value = "/weather/forecast/coordinates", produces = MediaType.APPLICATION_JSON_VALUE)
     public Map<String, Object> getForecastByCoordinates(
             @RequestParam("lat") Double lat,
-            @RequestParam("lon") Double lon) {
-        log.debug("Fetching forecast for coordinates: lat={}, lon={}", lat, lon);
-        return openWeatherService.getForecastByCoordinates(lat, lon);
+            @RequestParam("lon") Double lon,
+            @RequestParam(value = "alt", required = false) Double alt) {
+        log.debug("Fetching forecast for coordinates: lat={}, lon={}, alt={}", lat, lon, alt);
+        return openWeatherService.getForecastByCoordinates(lat, lon, alt);
     }
 
+
+    /**
+     * Get all available altitudes for coordinates with their sources
+     * Returns all altitudes that can be obtained (mobile, Nominatim, OpenElevation)
+     * @param lat Latitude (required)
+     * @param lon Longitude (required)
+     * @param alt Optional altitude from mobile device (in meters)
+     * @return List of all available altitudes with their sources
+     */
+    @GetMapping(value = "/weather/altitudes", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getAllAltitudes(
+            @RequestParam("lat") Double lat,
+            @RequestParam("lon") Double lon,
+            @RequestParam(value = "alt", required = false) Double alt) {
+        log.debug("Fetching all altitudes for coordinates: lat={}, lon={}, alt={}", lat, lon, alt);
+        return openWeatherService.getAllAltitudesWithSources(lat, lon, alt);
+    }
 
     /**
      * Test endpoint to check API configuration
@@ -99,7 +120,8 @@ public class ApiController {
             "/api/external/weather/current",
             "/api/external/weather/current/coordinates",
             "/api/external/weather/forecast",
-            "/api/external/weather/forecast/coordinates"
+            "/api/external/weather/forecast/coordinates",
+            "/api/external/weather/altitudes"
         });
         return status;
     }

@@ -33,6 +33,9 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   countryCode: string = 'FR';
   lat: number = 48.8566;
   lon: number = 2.3522;
+  alt: number | null = null; // Altitude in meters
+  altFromMobile: boolean = false; // Flag to indicate if altitude comes from mobile GPS
+  allAltitudes: any[] = []; // All available altitudes with sources
   private lastLat: number = 48.8566;
   private lastLon: number = 2.3522;
   
@@ -40,6 +43,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   forecast: any = null;
   apiStatus: any = null;
   nominatimStatus: any = null;
+  openElevationStatus: any = null;
   
   isLoadingCurrentWeather: boolean = false;
   isLoadingForecast: boolean = false;
@@ -423,6 +427,9 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
     
     // Check Nominatim (OpenStreetMap) API status
     this.checkNominatimStatus();
+    
+    // Check OpenElevation API status
+    this.checkOpenElevationStatus();
   }
 
   /**
@@ -463,12 +470,58 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Check OpenElevation API status
+   */
+  private checkOpenElevationStatus(): void {
+    // Test OpenElevation API with a simple elevation lookup request
+    const testUrl = 'https://api.open-elevation.com/api/v1/lookup?locations=48.8566,2.3522';
+    
+    fetch(testUrl, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    })
+    .then(response => {
+      if (response.ok) {
+        return response.json();
+      } else {
+        throw new Error('OpenElevation API returned error');
+      }
+    })
+    .then(data => {
+      // Check if response has the expected structure
+      if (data && data.results && data.results.length > 0 && data.results[0].elevation !== undefined) {
+        this.openElevationStatus = {
+          service: 'OpenElevation API',
+          status: 'available'
+        };
+      } else {
+        this.openElevationStatus = {
+          service: 'OpenElevation API',
+          status: 'unavailable'
+        };
+      }
+      this.cdr.detectChanges();
+    })
+    .catch(error => {
+      console.error('Error checking OpenElevation status:', error);
+      this.openElevationStatus = {
+        service: 'OpenElevation API',
+        status: 'unavailable'
+      };
+      this.cdr.detectChanges();
+    });
+  }
+
+  /**
    * Get current weather by coordinates
    */
   getCurrentWeatherByCoordinates(): void {
     // Ensure we use the coordinates from the input fields
     const lat = this.lat;
     const lon = this.lon;
+    // Only send altitude if it's really from mobile GPS
+    const alt = this.altFromMobile ? this.alt : null;
     
     // Validate coordinates
     if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
@@ -476,18 +529,29 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
       return;
     }
     
-    console.log('Fetching weather for coordinates:', lat, lon);
-    
     this.isLoadingCurrentWeather = true;
     this.errorMessage = '';
     this.currentWeather = null;
 
-    this.apiService.getCurrentWeatherByCoordinates(lat, lon).subscribe({
+    this.apiService.getCurrentWeatherByCoordinates(lat, lon, alt).subscribe({
       next: (response) => {
         if (response.error) {
           this.errorMessage = response.error;
         } else {
           this.currentWeather = response;
+          // Get all altitudes from response
+          if (response.altitudes && Array.isArray(response.altitudes)) {
+            this.allAltitudes = response.altitudes;
+          }
+          // If altitude is in response, update local alt value for consistency
+          if (response.altitude !== null && response.altitude !== undefined) {
+            this.alt = typeof response.altitude === 'number' ? response.altitude : parseFloat(String(response.altitude));
+          } else if (this.allAltitudes.length > 0) {
+            // Use first altitude from allAltitudes if no primary altitude in response
+            this.alt = this.allAltitudes[0].altitude;
+          }
+          // Force change detection to update altitude display
+          this.cdr.detectChanges();
           // DO NOT update this.city with response.name - keep the city from Nominatim (address)
           // Use this.city (from Nominatim) instead of response.name (from OpenWeatherMap) for consistency
           // Update current weather title with city from Nominatim (this.city) and country from response
@@ -519,6 +583,8 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
     // Ensure we use the coordinates from the input fields
     const lat = this.lat;
     const lon = this.lon;
+    // Only send altitude if it's really from mobile GPS
+    const alt = this.altFromMobile ? this.alt : null;
     
     // Validate coordinates
     if (!lat || !lon || isNaN(lat) || isNaN(lon)) {
@@ -526,14 +592,12 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
       return;
     }
     
-    console.log('Fetching forecast for coordinates:', lat, lon);
-
     this.isLoadingForecast = true;
     this.errorMessage = '';
     this.forecast = null;
     this.cdr.markForCheck();
 
-    this.apiService.getForecastByCoordinates(lat, lon).subscribe({
+    this.apiService.getForecastByCoordinates(lat, lon, alt).subscribe({
       next: (response) => {
         if (response.error) {
           this.errorMessage = response.error;
@@ -819,6 +883,102 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Get altitude for display (from currentWeather or local alt variable)
+   */
+  getDisplayAltitude(): number | null {
+    // First check if altitude is in currentWeather (from API response)
+    if (this.currentWeather && this.currentWeather.altitude !== null && this.currentWeather.altitude !== undefined) {
+      const alt = typeof this.currentWeather.altitude === 'number' 
+        ? this.currentWeather.altitude 
+        : parseFloat(String(this.currentWeather.altitude));
+      if (!isNaN(alt)) {
+        // Also update local alt for consistency
+        this.alt = alt;
+        return alt;
+      }
+    }
+    // Fallback to local alt variable (from mobile device or Nominatim)
+    if (this.alt !== null && this.alt !== undefined) {
+      const altValue = typeof this.alt === 'number' ? this.alt : parseFloat(String(this.alt));
+      return !isNaN(altValue) ? altValue : null;
+    }
+    return null;
+  }
+
+  /**
+   * Fetch all available altitudes when coordinates are available
+   */
+  private fetchAllAltitudes(lat: number, lon: number): void {
+    // Only send altitude to backend if it's really from mobile GPS
+    // Otherwise, let backend fetch it from other sources
+    const altToSend = this.altFromMobile ? this.alt : null;
+    this.apiService.getAllAltitudes(lat, lon, altToSend).subscribe({
+      next: (response) => {
+        if (response.altitudes && Array.isArray(response.altitudes)) {
+          this.allAltitudes = response.altitudes;
+          // Update primary alt with highest priority (first in array)
+          if (this.allAltitudes.length > 0) {
+            this.alt = this.allAltitudes[0].altitude;
+          }
+          this.cdr.detectChanges();
+        }
+      },
+      error: (error) => {
+        console.debug('Could not fetch altitudes:', error);
+      }
+    });
+  }
+
+  /**
+   * Get translated source description for altitude
+   */
+  getAltitudeSourceDescription(source: string): string {
+    switch (source) {
+      case 'mobile_device':
+        return this.translateService.instant('API.ALTITUDE_FROM_MOBILE');
+      case 'nominatim':
+        return this.translateService.instant('API.ALTITUDE_FROM_NOMINATIM');
+      case 'openelevation':
+        return this.translateService.instant('API.ALTITUDE_FROM_OPENELEVATION');
+      default:
+        return source;
+    }
+  }
+
+  /**
+   * Calculate average altitude from all available altitudes
+   */
+  getAverageAltitude(): number | null {
+    if (!this.allAltitudes || this.allAltitudes.length === 0) {
+      return null;
+    }
+    if (this.allAltitudes.length === 1) {
+      return this.allAltitudes[0].altitude;
+    }
+    const sum = this.allAltitudes.reduce((acc, altInfo) => acc + altInfo.altitude, 0);
+    return sum / this.allAltitudes.length;
+  }
+
+  /**
+   * Format coordinate to 10 decimals without trailing zeros
+   */
+  formatCoordinate(value: number | null | undefined): string {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '';
+    }
+    // Round to 10 decimals and remove trailing zeros
+    return parseFloat(value.toFixed(10)).toString();
+  }
+
+  /**
+   * Parse coordinate value from string
+   */
+  parseCoordinate(value: string): number | null {
+    const parsed = parseFloat(value);
+    return isNaN(parsed) ? null : parsed;
+  }
+
+  /**
    * Get weather icon URL
    */
   getWeatherIconUrl(icon: string): string {
@@ -866,7 +1026,15 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
 
     const location = `${this.city}, ${this.countryCode}`;
     const address = this.fullAddress || location;
-    const coordinates = `${this.lat}, ${this.lon}`;
+    
+    // Get best available altitude (average if available, otherwise display altitude)
+    const avgAltitude = this.getAverageAltitude();
+    const displayAltitude = this.getDisplayAltitude();
+    const bestAltitude = avgAltitude !== null ? avgAltitude : (displayAltitude !== null ? displayAltitude : null);
+    
+    const coordinates = bestAltitude !== null
+      ? `${this.lat}, ${this.lon}, ${bestAltitude.toFixed(1)}m`
+      : `${this.lat}, ${this.lon}`;
     const temp = this.formatTemperature(this.currentWeather.main?.temp);
     const feelsLike = this.formatTemperature(this.currentWeather.main?.feels_like);
     const description = this.currentWeather.weather?.[0]?.description || '';
@@ -874,14 +1042,19 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
     const windSpeed = this.currentWeather.wind?.speed || 0;
     const pressure = this.currentWeather.main?.pressure || 0;
 
-    const shareText = `${this.translateService.instant('API.CURRENT_WEATHER')} - ${location}\n\n` +
+    let shareText = `${this.translateService.instant('API.CURRENT_WEATHER')} - ${location}\n\n` +
       `${this.translateService.instant('API.TEMPERATURE')}: ${temp}\n` +
       `${this.translateService.instant('API.FEELS_LIKE')}: ${feelsLike}\n` +
       `${this.translateService.instant('API.DESCRIPTION')}: ${description}\n` +
       `${this.translateService.instant('API.HUMIDITY')}: ${humidity}%\n` +
       `${this.translateService.instant('API.WIND_SPEED')}: ${windSpeed} m/s\n` +
-      `${this.translateService.instant('API.PRESSURE')}: ${pressure} hPa\n\n` +
-      `${this.translateService.instant('API.ADDRESS')}: ${address}\n` +
+      `${this.translateService.instant('API.PRESSURE')}: ${pressure} hPa`;
+    
+    if (bestAltitude !== null) {
+      shareText += `\n${this.translateService.instant('API.ALTITUDE')}: ${bestAltitude.toFixed(1)} m`;
+    }
+    
+    shareText += `\n\n${this.translateService.instant('API.ADDRESS')}: ${address}\n` +
       `${this.translateService.instant('API.COORDINATES')}: ${coordinates}`;
 
     // Create composite image with text + chart (if available)
@@ -904,7 +1077,15 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
 
     const location = `${this.city}, ${this.countryCode}`;
     const address = this.fullAddress || location;
-    const coordinates = `${this.lat}, ${this.lon}`;
+    
+    // Get best available altitude (average if available, otherwise display altitude)
+    const avgAltitude = this.getAverageAltitude();
+    const displayAltitude = this.getDisplayAltitude();
+    const bestAltitude = avgAltitude !== null ? avgAltitude : (displayAltitude !== null ? displayAltitude : null);
+    
+    const coordinates = bestAltitude !== null
+      ? `${this.lat}, ${this.lon}, ${bestAltitude.toFixed(1)}m`
+      : `${this.lat}, ${this.lon}`;
     const modeLabel = this.getForecastModeLabel();
     
     let forecastText = `${this.translateService.instant('API.FORECAST')} - ${location} (${modeLabel})\n\n`;
@@ -926,6 +1107,10 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
 
     forecastText += `\n${this.translateService.instant('API.ADDRESS')}: ${address}\n` +
       `${this.translateService.instant('API.COORDINATES')}: ${coordinates}`;
+    
+    if (bestAltitude !== null) {
+      forecastText += `\n${this.translateService.instant('API.ALTITUDE')}: ${bestAltitude.toFixed(1)} m`;
+    }
 
     // Create composite image with text first, then chart
     const chartImage = await this.getChartAsImage();
@@ -1203,8 +1388,12 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
     this.getUserLocation().then((location) => {
       this.lat = location.lat;
       this.lon = location.lng;
+      this.alt = location.alt || null;
+      this.altFromMobile = (location as any).fromMobile || false; // Track if altitude is from mobile GPS
       this.lastLat = location.lat;
       this.lastLon = location.lng;
+      // Fetch all altitudes from backend
+      this.fetchAllAltitudes(location.lat, location.lng);
       // Get city and country code from coordinates (title will be updated in the callback)
       this.getCityFromCoordinates(location.lat, location.lng);
     }).catch(() => {
@@ -1212,6 +1401,9 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
       console.log('Using default coordinates (Paris)');
       this.lastLat = this.lat;
       this.lastLon = this.lon;
+      this.alt = null;
+      // Fetch all altitudes from backend even with default coordinates
+      this.fetchAllAltitudes(this.lat, this.lon);
       // Initialize title with default location
       this.updateCurrentWeatherTitle();
     });
@@ -1228,6 +1420,8 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
     this.getUserLocation().then((location) => {
       this.lat = location.lat;
       this.lon = location.lng;
+      this.alt = location.alt || null;
+      this.altFromMobile = (location as any).fromMobile || false; // Track if altitude is from mobile GPS
       // Reset weather data when getting new position
       this.currentWeather = null;
       this.forecast = null;
@@ -1417,7 +1611,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
    * Get city and country code from coordinates using reverse geocoding
    */
   private getCityFromCoordinates(lat: number, lon: number): void {
-    this.apiService.getCurrentWeatherByCoordinates(lat, lon).subscribe({
+    this.apiService.getCurrentWeatherByCoordinates(lat, lon, this.alt).subscribe({
       next: (response) => {
         if (response && !response.error && response.name) {
           // Use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
@@ -1447,6 +1641,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
 
   /**
    * Get full address from coordinates using reverse geocoding (Nominatim)
+   * Also extracts altitude from the same response to avoid duplicate API calls
    */
   private getFullAddressFromCoordinates(lat: number, lon: number): Promise<void> {
     // Use Nominatim (OpenStreetMap) for reverse geocoding - free and no API key required
@@ -1514,6 +1709,36 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
         this.fullAddress = '';
       }
       
+      // Extract altitude from Nominatim response if available (to avoid duplicate API call)
+      // Note: Nominatim typically does NOT provide elevation data, but we check anyway
+      // Only update if we don't already have altitude from mobile device
+      if (this.alt === null || this.alt === undefined) {
+        if (data && data.extratags && data.extratags.ele) {
+          try {
+            const elevation = parseFloat(data.extratags.ele);
+            if (!isNaN(elevation)) {
+              this.alt = elevation;
+              this.altFromMobile = false; // Not from mobile, from Nominatim
+            }
+          } catch (e) {
+            // Could not parse elevation from Nominatim extratags.ele
+          }
+        } else if (data && data.elevation) {
+          try {
+            const elevation = typeof data.elevation === 'number' ? data.elevation : parseFloat(data.elevation);
+            if (!isNaN(elevation)) {
+              this.alt = elevation;
+              this.altFromMobile = false; // Not from mobile, from Nominatim
+            }
+          } catch (e) {
+            // Could not parse elevation from Nominatim elevation field
+          }
+        }
+      }
+      
+      // Fetch all altitudes from backend
+      this.fetchAllAltitudes(lat, lon);
+      
       // Update current weather title with city and country
       this.updateCurrentWeatherTitle();
       this.cdr.detectChanges();
@@ -1528,23 +1753,30 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   /**
    * Get user's current location using GPS or IP geolocation
    */
-  private getUserLocation(): Promise<{ lat: number; lng: number }> {
+  private getUserLocation(): Promise<{ lat: number; lng: number; alt?: number | null }> {
     return new Promise((resolve, reject) => {
       // Try GPS first (more accurate)
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
+            // Capture altitude if available from mobile device
+            // Note: On PC, altitude is usually null or inaccurate
+            const altitude = position.coords.altitude !== null && !isNaN(position.coords.altitude) 
+              ? position.coords.altitude 
+              : null;
             resolve({
               lat: position.coords.latitude,
-              lng: position.coords.longitude
-            });
+              lng: position.coords.longitude,
+              alt: altitude,
+              fromMobile: altitude !== null // Only true if we actually got altitude from GPS
+            } as any);
           },
           (error) => {
             // GPS failed, try IP-based geolocation
             console.warn('GPS geolocation failed, trying IP-based:', error);
             this.getLocationFromIP().then(resolve).catch(() => {
               // Both failed, use default (Paris)
-              resolve({ lat: 48.8566, lng: 2.3522 });
+              resolve({ lat: 48.8566, lng: 2.3522, alt: null });
             });
           },
           {
@@ -1556,7 +1788,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
       } else {
         // Geolocation not supported, try IP-based
         this.getLocationFromIP().then(resolve).catch(() => {
-          resolve({ lat: 48.8566, lng: 2.3522 });
+          resolve({ lat: 48.8566, lng: 2.3522, alt: null });
         });
       }
     });
@@ -1565,14 +1797,14 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   /**
    * Get location from IP using a free geolocation API
    */
-  private getLocationFromIP(): Promise<{ lat: number; lng: number }> {
+  private getLocationFromIP(): Promise<{ lat: number; lng: number; alt?: number | null }> {
     return new Promise((resolve, reject) => {
       // Use ip-api.com free service (no API key required)
       fetch('http://ip-api.com/json/?fields=status,lat,lon')
         .then(response => response.json())
         .then(data => {
           if (data.status === 'success' && data.lat && data.lon) {
-            resolve({ lat: data.lat, lng: data.lon });
+            resolve({ lat: data.lat, lng: data.lon, alt: null });
           } else {
             reject(new Error('IP geolocation failed'));
           }
@@ -1584,7 +1816,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   /**
    * Handle location selected from trace viewer
    */
-  onLocationSelected(location: { lat: number; lng: number }): void {
+  onLocationSelected(location: { lat: number; lng: number; alt?: number | null }): void {
     // Reset all weather data when returning from map
     this.forecastTitle = '';
     this.forecast = null;
@@ -1602,6 +1834,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
     
     this.lat = location.lat;
     this.lon = location.lng;
+    this.alt = location.alt || null;
     
     // Force change detection to update the input fields
     this.cdr.detectChanges();
@@ -1624,7 +1857,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
    * Fetch weather for coordinates and display in alert box
    */
   private fetchAndShowWeatherAlert(lat: number, lon: number): void {
-    this.apiService.getCurrentWeatherByCoordinates(lat, lon).subscribe({
+    this.apiService.getCurrentWeatherByCoordinates(lat, lon, this.alt).subscribe({
       next: (response) => {
         if (response.error) {
           window.alert(`Error: ${response.error}`);
@@ -1680,9 +1913,21 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
     // Use toFixed(6) to ensure sufficient precision for GPS coordinates (6 decimals = ~0.11m accuracy)
     const latStr = this.lat.toFixed(6);
     const lonStr = this.lon.toFixed(6);
-    const positionText = `${latStr}, ${lonStr}`;
+    
+    // Get best available altitude (average if available, otherwise display altitude)
+    const avgAltitude = this.getAverageAltitude();
+    const displayAltitude = this.getDisplayAltitude();
+    const bestAltitude = avgAltitude !== null ? avgAltitude : (displayAltitude !== null ? displayAltitude : null);
+    
+    const altStr = bestAltitude !== null ? `, ${bestAltitude.toFixed(1)}m` : '';
+    const positionText = `${latStr}, ${lonStr}${altStr}`;
     const googleMapsUrl = `https://www.google.com/maps?q=${latStr},${lonStr}`;
-    const shareText = `${this.translateService.instant('API.POSITION')}: ${positionText}\n${this.translateService.instant('API.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
+    
+    let shareText = `${this.translateService.instant('API.POSITION')}: ${positionText}\n${this.translateService.instant('API.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
+    
+    if (bestAltitude !== null) {
+      shareText += `\n${this.translateService.instant('API.ALTITUDE')}: ${bestAltitude.toFixed(1)} m`;
+    }
 
     // Try Web Share API first (if available on mobile devices)
     if (navigator.share) {

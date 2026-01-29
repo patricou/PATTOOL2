@@ -22,6 +22,7 @@ export class ApiComponent implements OnInit {
   countryCode: string = 'FR';
   lat: number = 48.8566;
   lon: number = 2.3522;
+  alt: number | null = null; // Altitude in meters
   
   currentWeather: any = null;
   forecast: any = null;
@@ -103,7 +104,7 @@ export class ApiComponent implements OnInit {
     this.errorMessage = '';
     this.currentWeather = null;
 
-    this.apiService.getCurrentWeatherByCoordinates(this.lat, this.lon).subscribe({
+    this.apiService.getCurrentWeatherByCoordinates(this.lat, this.lon, this.alt).subscribe({
       next: (response) => {
         if (response.error) {
           this.errorMessage = response.error;
@@ -210,11 +211,13 @@ export class ApiComponent implements OnInit {
     this.getUserLocation().then((location) => {
       this.lat = location.lat;
       this.lon = location.lng;
+      this.alt = location.alt || null;
       // Get city and country code from coordinates
       this.getCityFromCoordinates(location.lat, location.lng);
     }).catch(() => {
       // Keep default values if location cannot be obtained
       console.log('Using default coordinates (Paris)');
+      this.alt = null;
     });
   }
 
@@ -222,7 +225,7 @@ export class ApiComponent implements OnInit {
    * Get city and country code from coordinates using reverse geocoding
    */
   private getCityFromCoordinates(lat: number, lon: number): void {
-    this.apiService.getCurrentWeatherByCoordinates(lat, lon).subscribe({
+    this.apiService.getCurrentWeatherByCoordinates(lat, lon, this.alt).subscribe({
       next: (response) => {
         if (response && !response.error && response.name) {
           this.city = response.name;
@@ -241,15 +244,20 @@ export class ApiComponent implements OnInit {
   /**
    * Get user's current location using GPS or IP geolocation
    */
-  private getUserLocation(): Promise<{ lat: number; lng: number }> {
+  private getUserLocation(): Promise<{ lat: number; lng: number; alt?: number | null }> {
     return new Promise((resolve, reject) => {
       // Try GPS first (more accurate)
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
+            // Capture altitude if available from mobile device
+            const altitude = position.coords.altitude !== null && !isNaN(position.coords.altitude) 
+              ? position.coords.altitude 
+              : null;
             resolve({
               lat: position.coords.latitude,
-              lng: position.coords.longitude
+              lng: position.coords.longitude,
+              alt: altitude
             });
           },
           (error) => {
@@ -257,7 +265,7 @@ export class ApiComponent implements OnInit {
             console.warn('GPS geolocation failed, trying IP-based:', error);
             this.getLocationFromIP().then(resolve).catch(() => {
               // Both failed, use default (Paris)
-              resolve({ lat: 48.8566, lng: 2.3522 });
+              resolve({ lat: 48.8566, lng: 2.3522, alt: null });
             });
           },
           {
@@ -269,7 +277,7 @@ export class ApiComponent implements OnInit {
       } else {
         // Geolocation not supported, try IP-based
         this.getLocationFromIP().then(resolve).catch(() => {
-          resolve({ lat: 48.8566, lng: 2.3522 });
+          resolve({ lat: 48.8566, lng: 2.3522, alt: null });
         });
       }
     });
@@ -278,14 +286,14 @@ export class ApiComponent implements OnInit {
   /**
    * Get location from IP using a free geolocation API
    */
-  private getLocationFromIP(): Promise<{ lat: number; lng: number }> {
+  private getLocationFromIP(): Promise<{ lat: number; lng: number; alt?: number | null }> {
     return new Promise((resolve, reject) => {
       // Use ip-api.com free service (no API key required)
       fetch('http://ip-api.com/json/?fields=status,lat,lon')
         .then(response => response.json())
         .then(data => {
           if (data.status === 'success' && data.lat && data.lon) {
-            resolve({ lat: data.lat, lng: data.lon });
+            resolve({ lat: data.lat, lng: data.lon, alt: null });
           } else {
             reject(new Error('IP geolocation failed'));
           }
@@ -312,6 +320,7 @@ export class ApiComponent implements OnInit {
         // Update lat/lon with user's location
         this.lat = location.lat;
         this.lon = location.lng;
+        this.alt = location.alt || null;
         
         const label = this.translateService.instant('API.SELECT_LOCATION');
         this.traceViewerModalComponent!.openAtLocation(location.lat, location.lng, label, undefined, true);

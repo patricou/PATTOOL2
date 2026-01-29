@@ -50,13 +50,17 @@ export class ApiService {
    * Get current weather by coordinates
    * @param lat Latitude
    * @param lon Longitude
+   * @param alt Optional altitude in meters
    */
-  getCurrentWeatherByCoordinates(lat: number, lon: number): Observable<any> {
+  getCurrentWeatherByCoordinates(lat: number, lon: number, alt?: number | null): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
-        const params = new HttpParams()
+        let params = new HttpParams()
           .set('lat', lat.toString())
           .set('lon', lon.toString());
+        if (alt !== null && alt !== undefined && !isNaN(alt)) {
+          params = params.set('alt', alt.toString());
+        }
         return this._http.get(this.API_URL + 'external/weather/current/coordinates', { 
           headers: headers,
           params: params
@@ -89,13 +93,17 @@ export class ApiService {
    * Get 5-day forecast by coordinates
    * @param lat Latitude
    * @param lon Longitude
+   * @param alt Optional altitude in meters
    */
-  getForecastByCoordinates(lat: number, lon: number): Observable<any> {
+  getForecastByCoordinates(lat: number, lon: number, alt?: number | null): Observable<any> {
     return this.getHeaderWithToken().pipe(
       switchMap(headers => {
-        const params = new HttpParams()
+        let params = new HttpParams()
           .set('lat', lat.toString())
           .set('lon', lon.toString());
+        if (alt !== null && alt !== undefined && !isNaN(alt)) {
+          params = params.set('alt', alt.toString());
+        }
         return this._http.get(this.API_URL + 'external/weather/forecast/coordinates', { 
           headers: headers,
           params: params
@@ -104,6 +112,29 @@ export class ApiService {
     );
   }
 
+
+  /**
+   * Get all available altitudes with sources for coordinates
+   * @param lat Latitude
+   * @param lon Longitude
+   * @param alt Optional altitude from mobile device
+   */
+  getAllAltitudes(lat: number, lon: number, alt?: number | null): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        let params = new HttpParams()
+          .set('lat', lat.toString())
+          .set('lon', lon.toString());
+        if (alt !== null && alt !== undefined && !isNaN(alt)) {
+          params = params.set('alt', alt.toString());
+        }
+        return this._http.get(this.API_URL + 'external/weather/altitudes', { 
+          headers: headers,
+          params: params
+        });
+      })
+    );
+  }
 
   /**
    * Get API status

@@ -159,7 +159,7 @@ public class IpGeolocationService {
                     return locationStr;
                 } else {
                     String message = (String) response.get("message");
-                    log.warn("IP geolocation lookup failed for {}: {}", ipAddress, message);
+                    log.error("IP geolocation lookup failed for {}: {}", ipAddress, message);
                     String errorMsg = "Lookup failed: " + (message != null ? message : "Unknown error");
                     locationCache.put(ipAddress, new CacheEntry(errorMsg));
                     return errorMsg;

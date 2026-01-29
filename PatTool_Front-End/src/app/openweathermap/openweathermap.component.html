@@ -131,21 +131,85 @@
                 </div>
 
                 <div class="weather-controls mt-3">
-                    <div class="form-group">
-                        <label for="lat">{{ 'API.LATITUDE' | translate }}:</label>
-                        <input type="number" 
-                               id="lat" 
-                               class="form-control" 
-                               [(ngModel)]="lat" 
-                               step="0.000001">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body" style="padding: 0.75rem;">
+                                    <h6 class="card-title" style="font-size: 0.875rem; margin-bottom: 0.5rem;">{{ 'API.LATITUDE' | translate }}</h6>
+                                    <input type="text" 
+                                           id="lat" 
+                                           class="form-control form-control-sm" 
+                                           [value]="formatCoordinate(lat)"
+                                           (blur)="lat = parseCoordinate($any($event.target).value) || lat"
+                                           style="font-size: 0.875rem;">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body" style="padding: 0.75rem;">
+                                    <h6 class="card-title" style="font-size: 0.875rem; margin-bottom: 0.5rem;">{{ 'API.LONGITUDE' | translate }}</h6>
+                                    <input type="text" 
+                                           id="lon" 
+                                           class="form-control form-control-sm" 
+                                           [value]="formatCoordinate(lon)"
+                                           (blur)="lon = parseCoordinate($any($event.target).value) || lon"
+                                           style="font-size: 0.875rem;">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4" *ngIf="allAltitudes && allAltitudes.length > 0">
+                            <div class="card">
+                                <div class="card-body" style="padding: 0.75rem;">
+                                    <h6 class="card-title" style="font-size: 0.875rem; margin-bottom: 0.5rem;">{{ 'API.ALTITUDE' | translate }}</h6>
+                                    <input type="text" 
+                                           class="form-control form-control-sm" 
+                                           [value]="allAltitudes[0].altitude.toFixed(1)" 
+                                           readonly
+                                           [title]="getAltitudeSourceDescription(allAltitudes[0].source)"
+                                           style="font-size: 0.875rem;">
+                                    <small class="text-muted" style="font-size: 0.7rem; margin-top: 3px; display: block;">
+                                        <i class="fa fa-info-circle"></i> {{ getAltitudeSourceDescription(allAltitudes[0].source) }}
+                                        <span *ngIf="allAltitudes[0].priority === 1" class="badge badge-primary ml-1" style="font-size: 0.65em;">{{ 'API.PRIORITY' | translate }}</span>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="lon">{{ 'API.LONGITUDE' | translate }}:</label>
-                        <input type="number" 
-                               id="lon" 
-                               class="form-control" 
-                               [(ngModel)]="lon" 
-                               step="0.000001">
+                    <div class="row mt-3" *ngIf="allAltitudes && allAltitudes.length > 1">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body" style="padding: 0.75rem;">
+                                    <h6 class="card-title" style="font-size: 0.875rem; margin-bottom: 0.5rem;">{{ 'API.ALTITUDE' | translate }} - {{ 'API.AVERAGE' | translate }}</h6>
+                                    <input type="text" 
+                                           class="form-control form-control-sm" 
+                                           [value]="getAverageAltitude() !== null ? getAverageAltitude()!.toFixed(1) : ''" 
+                                           readonly
+                                           style="font-size: 0.875rem;">
+                                    <small class="text-muted" style="font-size: 0.7rem; margin-top: 3px; display: block;">
+                                        {{ allAltitudes.length }} {{ 'API.SOURCE' | translate }}(s)
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-body" style="padding: 0.75rem;">
+                                    <h6 class="card-title" style="font-size: 0.875rem; margin-bottom: 0.5rem;">{{ 'API.ALTITUDE' | translate }} - {{ 'API.SOURCE' | translate }}</h6>
+                                    <div class="row">
+                                        <div *ngFor="let altInfo of allAltitudes; let i = index" class="col-12" style="margin-bottom: 8px;">
+                                            <div class="d-flex align-items-center">
+                                                <strong style="min-width: 70px; margin-right: 10px; font-size: 0.875rem;">{{ altInfo.altitude.toFixed(1) }} m</strong>
+                                                <span class="text-muted" style="font-size: 0.75rem;">
+                                                    <i class="fa fa-info-circle"></i> {{ getAltitudeSourceDescription(altInfo.source) }}
+                                                    <span *ngIf="i === 0" class="badge badge-primary ml-1" style="font-size: 0.65em;">{{ 'API.PRIORITY' | translate }}</span>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -167,15 +231,15 @@
 
             <!-- Weather Data Section (separate from position) -->
             <div class="api-container" *ngIf="currentWeather || isLoadingCurrentWeather">
-                <div class="api-title-container" style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 class="api-title" style="margin: 0;">
-                        <i class="fa fa-cloud"></i> {{ currentWeatherTitle || ('API.CURRENT_WEATHER' | translate) }}
-                    </h3>
+                <h3 class="api-title">
+                    <i class="fa fa-cloud"></i> {{ currentWeatherTitle || ('API.CURRENT_WEATHER' | translate) }}
+                </h3>
+                
+                <div class="weather-controls">
                     <!-- Share Current Weather Button -->
                     <button (click)="shareCurrentWeather()" 
-                            class="btn btn-info btn-sm" 
-                            *ngIf="currentWeather && !currentWeather.error && !isLoadingCurrentWeather"
-                            style="margin-left: 10px;">
+                            class="btn btn-info" 
+                            *ngIf="currentWeather && !currentWeather.error && !isLoadingCurrentWeather">
                         <i class="fa fa-share-alt"></i>
                         <span class="btn-text">{{ 'API.SHARE_CURRENT_WEATHER' | translate }}</span>
                     </button>
@@ -347,7 +411,7 @@
             </div>
 
             <!-- API Status Section (at the end) -->
-            <div class="api-container" *ngIf="apiStatus || nominatimStatus" style="margin-top: 20px;">
+            <div class="api-container" *ngIf="apiStatus || nominatimStatus || openElevationStatus" style="margin-top: 20px;">
                 <h3 class="api-title">
                     <i class="fa fa-info-circle"></i> {{ 'API.STATUS_APIS' | translate }}
                 </h3>
@@ -370,6 +434,17 @@
                         <span class="badge" [class.badge-success]="nominatimStatus.status === 'available'" 
                               [class.badge-danger]="nominatimStatus.status !== 'available'">
                             {{ nominatimStatus.status }}
+                        </span>
+                    </p>
+                </div>
+                
+                <!-- OpenElevation Status -->
+                <div class="status-card" *ngIf="openElevationStatus" style="margin-top: 10px;">
+                    <p><strong>{{ 'API.SERVICE' | translate }}:</strong> {{ openElevationStatus.service }}</p>
+                    <p><strong>{{ 'API.STATUS_LABEL' | translate }}:</strong> 
+                        <span class="badge" [class.badge-success]="openElevationStatus.status === 'available'" 
+                              [class.badge-danger]="openElevationStatus.status !== 'available'">
+                            {{ openElevationStatus.status }}
                         </span>
                     </p>
                 </div>

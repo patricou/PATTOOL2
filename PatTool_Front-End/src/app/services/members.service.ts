@@ -68,8 +68,6 @@ export class MembersService {
                             if (position && position.latitude != null && position.longitude != null) {
                                 userToSend.requestLatitude = position.latitude;
                                 userToSend.requestLongitude = position.longitude;
-                                // Log coordinates with full precision for debugging
-                                console.debug(`GPS coordinates: lat=${position.latitude}, lng=${position.longitude}`);
                             }
                             
                             // console.log("2|------------------> Just before user POST request : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds());

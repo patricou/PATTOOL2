@@ -5,6 +5,7 @@ import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
+import { ApiService } from '../../services/api.service';
 import { environment } from '../../../environments/environment';
 import { Subject } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
@@ -50,9 +51,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public showGpsCoordinates = false;
 	public currentLat: number = 0;
 	public currentLng: number = 0;
+	public currentAlt: number | null = null;
 	public clickedAddress: string = '';
 	public clickedLat: number = 0;
 	public clickedLng: number = 0;
+	public clickedAlt: number | null = null;
 	private finalSelectedCoordinates?: { lat: number; lng: number };
 	public showAddress: boolean = false;
 
@@ -162,6 +165,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		private readonly translateService: TranslateService,
 		private readonly fileService: FileService,
 		private readonly keycloakService: KeycloakService,
+		private readonly apiService: ApiService,
 		@Inject(DOCUMENT) private readonly document: Document
 	) {
 		this.configureLeafletIcons();
@@ -496,6 +500,85 @@ export class TraceViewerModalComponent implements OnDestroy {
 		attempt(400);
 	}
 
+	/**
+	 * Patches an element's addEventListener to use passive listeners for touchstart events.
+	 * Note: We do NOT make wheel events passive because Leaflet needs to call preventDefault()
+	 * on wheel events to prevent page scrolling when zooming the map.
+	 */
+	private patchElementForPassiveListeners(element: Element): void {
+		// Skip if already patched
+		if ((element as any).__passivePatched) {
+			return;
+		}
+
+		const elementAddEventListener = element.addEventListener.bind(element);
+		element.addEventListener = function(
+			type: string,
+			listener: EventListenerOrEventListenerObject,
+			options?: boolean | AddEventListenerOptions
+		) {
+			// Only make touchstart events passive (not wheel - Leaflet needs preventDefault for wheel)
+			if (type === 'touchstart') {
+				if (typeof options === 'object' && options !== null) {
+					// If passive is not explicitly set to false, make it true
+					if (options.passive === undefined) {
+						options = { ...options, passive: true };
+					}
+				} else if (options === undefined || options === false) {
+					// Convert to object with passive: true, capture: false
+					options = { passive: true, capture: false };
+				}
+				// If options is explicitly true (capture only), keep it but add passive
+				else if (options === true) {
+					options = { passive: true, capture: true };
+				}
+			}
+
+			return elementAddEventListener.call(this, type, listener, options);
+		};
+
+		(element as any).__passivePatched = true;
+	}
+
+	/**
+	 * Patches addEventListener on the container and all its children to use passive listeners
+	 * for touchstart events to avoid browser console violations.
+	 * Note: Wheel events are NOT made passive because Leaflet needs preventDefault() for zooming.
+	 * This should be called before creating the map.
+	 */
+	private patchContainerForPassiveListeners(container: HTMLElement): void {
+		// Patch the container itself
+		this.patchElementForPassiveListeners(container);
+
+		// Patch all existing child elements
+		const allElements = container.querySelectorAll('*');
+		allElements.forEach((el) => this.patchElementForPassiveListeners(el));
+
+		// Use MutationObserver to patch dynamically added elements (only if not already observing)
+		if (!(container as any).__passiveObserver) {
+			const observer = new MutationObserver((mutations) => {
+				mutations.forEach((mutation) => {
+					mutation.addedNodes.forEach((node) => {
+						if (node.nodeType === Node.ELEMENT_NODE) {
+							this.patchElementForPassiveListeners(node as Element);
+							// Also patch children of added nodes
+							const children = (node as Element).querySelectorAll('*');
+							children.forEach((el) => this.patchElementForPassiveListeners(el));
+						}
+					});
+				});
+			});
+
+			observer.observe(container, {
+				childList: true,
+				subtree: true
+			});
+
+			// Store observer for cleanup if needed
+			(container as any).__passiveObserver = observer;
+		}
+	}
+
 	private initializeMap(): void {
 		if (this.map) {
 			return;
@@ -521,6 +604,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
+		// Patch container for passive listeners BEFORE creating the map
+		// This ensures Leaflet's event listeners will use passive mode
+		this.patchContainerForPassiveListeners(container);
+
 		container.innerHTML = '';
 
 		this.map = L.map(container, {
@@ -530,6 +617,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 			zoomSnap: 0.5,
 			scrollWheelZoom: true
 		});
+
+		// Ensure all Leaflet-created elements are patched for passive listeners
+		// Use a small delay to let Leaflet finish its DOM initialization
+		setTimeout(() => {
+			const allElements = container.querySelectorAll('*');
+			allElements.forEach((el) => this.patchElementForPassiveListeners(el));
+		}, 0);
 
 		// Force crosshair cursor on map container
 		this.forceCrosshairCursor();
@@ -1106,9 +1200,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.showGpsCoordinates = false;
 		this.currentLat = 0;
 		this.currentLng = 0;
+		this.currentAlt = null;
 		this.clickedAddress = '';
 		this.clickedLat = 0;
 		this.clickedLng = 0;
+		this.clickedAlt = null;
 		this.showAddress = false;
 		this.cleanupMapMoveHandler();
 		this.cleanupMapMouseMoveHandler();
@@ -2115,6 +2211,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.mapMouseMoveHandler = (e: L.LeafletMouseEvent) => {
 			this.currentLat = e.latlng.lat;
 			this.currentLng = e.latlng.lng;
+			this.fetchAltitudeForCoordinates(e.latlng.lat, e.latlng.lng, 'current');
 			this.cdr.detectChanges();
 		};
 
@@ -2189,6 +2286,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const center = this.map.getCenter();
 		this.currentLat = center.lat;
 		this.currentLng = center.lng;
+		this.fetchAltitudeForCoordinates(center.lat, center.lng, 'current');
 		this.cdr.detectChanges();
 	}
 
@@ -2269,11 +2367,42 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.clickedLat = lat;
 		this.clickedLng = lng;
+		this.clickedAlt = null;
 		this.clickedAddress = 'Loading address...';
 		this.cdr.detectChanges();
 		
 		// Get address from coordinates
 		this.getAddressFromCoordinates(lat, lng);
+		// Get altitude for clicked coordinates
+		this.fetchAltitudeForCoordinates(lat, lng, 'clicked');
+	}
+
+	/**
+	 * Fetch altitude for coordinates
+	 */
+	private fetchAltitudeForCoordinates(lat: number, lng: number, type: 'current' | 'clicked'): void {
+		this.apiService.getAllAltitudes(lat, lng, null).subscribe({
+			next: (response) => {
+				if (response.altitudes && Array.isArray(response.altitudes) && response.altitudes.length > 0) {
+					// Use the first altitude (highest priority)
+					const altitude = response.altitudes[0].altitude;
+					if (type === 'current') {
+						this.currentAlt = altitude;
+					} else {
+						this.clickedAlt = altitude;
+					}
+					this.cdr.detectChanges();
+				}
+			},
+			error: (error) => {
+				console.debug('Could not fetch altitude:', error);
+				if (type === 'current') {
+					this.currentAlt = null;
+				} else {
+					this.clickedAlt = null;
+				}
+			}
+		});
 	}
 
 	/**
