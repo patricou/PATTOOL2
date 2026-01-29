@@ -1125,17 +1125,29 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
    */
   private async getChartAsImage(): Promise<string | null> {
     if (!this.chart || !this.chart.chart) {
+      console.log('Chart not available for image capture');
       return null;
     }
 
     try {
       const canvas = this.chart.chart.canvas;
       if (!canvas) {
+        console.log('Chart canvas not available');
         return null;
       }
 
-      // Convert canvas to image
-      const imageDataUrl = canvas.toDataURL('image/png');
+      // Wait a bit to ensure chart is fully rendered
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Convert canvas to image with high quality
+      const imageDataUrl = canvas.toDataURL('image/png', 1.0);
+      
+      // Verify the image was created (should start with 'data:image')
+      if (!imageDataUrl || !imageDataUrl.startsWith('data:image')) {
+        console.warn('Failed to create valid image data URL from chart');
+        return null;
+      }
+      
       return imageDataUrl;
     } catch (error) {
       console.warn('Failed to get chart as image:', error);
@@ -1279,6 +1291,38 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Convert data URL to blob
+   */
+  private dataURLtoBlob(dataURL: string): Blob {
+    const arr = dataURL.split(',');
+    const mime = arr[0].match(/:(.*?);/)?.[1] || 'image/png';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  }
+
+  /**
+   * Copy image to clipboard (if supported)
+   */
+  private async copyImageToClipboard(imageDataUrl: string): Promise<boolean> {
+    try {
+      const blob = this.dataURLtoBlob(imageDataUrl);
+      const clipboardItem = new ClipboardItem({ 'image/png': blob });
+      if (navigator.clipboard && navigator.clipboard.write) {
+        await navigator.clipboard.write([clipboardItem]);
+        return true;
+      }
+    } catch (error) {
+      console.log('Could not copy image to clipboard:', error);
+    }
+    return false;
+  }
+
+  /**
    * Share text using Web Share API or copy to clipboard
    * Optionally includes an image (composite with text + chart)
    */
@@ -1289,9 +1333,8 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
         // If we have an image, try to share it as a file
         if (imageDataUrl) {
           try {
-            // Convert data URL to blob
-            const response = await fetch(imageDataUrl);
-            const blob = await response.blob();
+            // Convert data URL to blob using proper conversion method
+            const blob = this.dataURLtoBlob(imageDataUrl);
             const file = new File([blob], 'weather-forecast.png', { type: 'image/png' });
             
             // Check if files can be shared
@@ -1305,10 +1348,52 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
               this.successMessage = this.translateService.instant('API.SHARED_SUCCESSFULLY') || 'Shared successfully';
               this.clearMessages();
               return;
+            } else {
+              // Files can't be shared, try to copy image to clipboard first
+              const imageCopied = await this.copyImageToClipboard(imageDataUrl);
+              const imageNote = imageCopied 
+                ? '\n\n' + (this.translateService.instant('API.IMAGE_COPIED_TO_CLIPBOARD') || 'Image copied to clipboard - you can paste it in your message')
+                : '';
+              
+              // Try to share with URL containing image data (some apps might support it)
+              console.log('File sharing not supported, trying with data URL in URL field');
+              try {
+                await navigator.share({
+                  title: title,
+                  text: text + imageNote,
+                  url: imageDataUrl
+                });
+                this.successMessage = this.translateService.instant('API.SHARED_SUCCESSFULLY') || 'Shared successfully';
+                this.clearMessages();
+                return;
+              } catch (urlError) {
+                console.log('Sharing with URL field failed, sharing text with image note:', urlError);
+                // Share text with note about image
+                await navigator.share({
+                  title: title,
+                  text: text + imageNote
+                });
+                this.successMessage = this.translateService.instant('API.SHARED_SUCCESSFULLY') || 'Shared successfully';
+                this.clearMessages();
+                return;
+              }
             }
           } catch (error) {
-            console.log('Could not share image file, trying text only:', error);
-            // Fall through to text-only share
+            console.log('Could not share image file, trying to copy to clipboard and share text:', error);
+            // Try to copy image to clipboard
+            const imageCopied = await this.copyImageToClipboard(imageDataUrl);
+            const imageNote = imageCopied 
+              ? '\n\n' + (this.translateService.instant('API.IMAGE_COPIED_TO_CLIPBOARD') || 'Image copied to clipboard - you can paste it in your message')
+              : '';
+            
+            // Share text with note about image
+            await navigator.share({
+              title: title,
+              text: text + imageNote
+            });
+            this.successMessage = this.translateService.instant('API.SHARED_SUCCESSFULLY') || 'Shared successfully';
+            this.clearMessages();
+            return;
           }
         }
 
