@@ -260,11 +260,21 @@ public class GoveeThermometerScheduler {
                         if (tempObj instanceof Number) {
                             tempValue = ((Number) tempObj).doubleValue();
                         } else {
-                            tempValue = Double.parseDouble(tempObj.toString());
+                            String tempStr = tempObj.toString().trim();
+                            if (tempStr.isEmpty()) {
+                                log.warn("Temperature value is empty for device: {}", deviceId);
+                                // Skip parsing empty string, temperature will remain null
+                                tempValue = Double.NaN;
+                            } else {
+                                tempValue = Double.parseDouble(tempStr);
+                            }
                         }
                         // Govee API returns temperature in Fahrenheit, convert to Celsius
                         // C = (F - 32) × 5/9
-                        temperature = (tempValue - 32) * 5.0 / 9.0;
+                        // Only convert if we have a valid value
+                        if (!Double.isNaN(tempValue)) {
+                            temperature = (tempValue - 32) * 5.0 / 9.0;
+                        }
                     } catch (NumberFormatException e) {
                         log.error("Could not parse temperature value: {}", tempObj, e);
                     }
@@ -280,7 +290,13 @@ public class GoveeThermometerScheduler {
                         if (humObj instanceof Number) {
                             humidity = ((Number) humObj).doubleValue();
                         } else {
-                            humidity = Double.parseDouble(humObj.toString());
+                            String humStr = humObj.toString().trim();
+                            if (humStr.isEmpty()) {
+                                log.warn("Humidity value is empty for device: {}", deviceId);
+                                // Skip parsing empty string
+                            } else {
+                                humidity = Double.parseDouble(humStr);
+                            }
                         }
                     } catch (NumberFormatException e) {
                         log.error("Could not parse humidity value: {}", humObj, e);

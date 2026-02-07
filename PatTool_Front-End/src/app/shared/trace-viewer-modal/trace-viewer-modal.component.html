@@ -57,6 +57,81 @@
           </div>
         </div>
 
+        <div *ngIf="showWeather && (currentWeather || isLoadingWeather)" class="weather-overlay">
+          <div class="weather-box">
+            <div class="weather-header">
+              <i class="fa fa-cloud-sun me-1"></i>
+              <span class="weather-address">{{ clickedWeatherAddress || ('EVENTELEM.LOADING_ADDRESS' | translate) }}</span>
+              <button type="button" 
+                      class="btn btn-link p-0 ms-auto weather-close" 
+                      (click)="currentWeather = null; $event.stopPropagation()"
+                      title="Fermer">
+                <i class="fa fa-times"></i>
+              </button>
+            </div>
+            <div class="weather-content" *ngIf="!isLoadingWeather && currentWeather">
+              <div class="weather-temp-row">
+                <img *ngIf="currentWeather.weather && currentWeather.weather[0]?.icon" 
+                     [src]="getWeatherIconUrl(currentWeather.weather[0].icon)" 
+                     alt="Weather icon"
+                     class="weather-icon">
+                <div class="weather-temp">
+                  {{ currentWeather.main?.temp ? Math.round(currentWeather.main.temp) : '--' }}°C
+                </div>
+              </div>
+              <div class="weather-desc" *ngIf="currentWeather.weather && currentWeather.weather[0]">
+                {{ currentWeather.weather[0].description }}
+              </div>
+              <div class="weather-details-grid">
+                <div class="weather-detail-item" *ngIf="currentWeather.main?.feels_like">
+                  <i class="fa fa-thermometer-half me-1"></i>
+                  <span class="weather-detail-label">Ressenti:</span>
+                  <span class="weather-detail-value">{{ Math.round(currentWeather.main.feels_like) }}°C</span>
+                </div>
+                <div class="weather-detail-item" *ngIf="currentWeather.main?.temp_min !== undefined && currentWeather.main?.temp_max !== undefined">
+                  <i class="fa fa-arrows-v me-1"></i>
+                  <span class="weather-detail-label">Min/Max:</span>
+                  <span class="weather-detail-value">{{ Math.round(currentWeather.main.temp_min) }}° / {{ Math.round(currentWeather.main.temp_max) }}°</span>
+                </div>
+                <div class="weather-detail-item" *ngIf="currentWeather.main?.humidity">
+                  <i class="fa fa-tint me-1"></i>
+                  <span class="weather-detail-label">Humidité:</span>
+                  <span class="weather-detail-value">{{ currentWeather.main.humidity }}%</span>
+                </div>
+                <div class="weather-detail-item" *ngIf="currentWeather.main?.pressure">
+                  <i class="fa fa-compress me-1"></i>
+                  <span class="weather-detail-label">Pression:</span>
+                  <span class="weather-detail-value">{{ currentWeather.main.pressure }} hPa</span>
+                </div>
+                <div class="weather-detail-item" *ngIf="currentWeather.wind?.speed">
+                  <i class="fa fa-wind me-1"></i>
+                  <span class="weather-detail-label">Vent:</span>
+                  <span class="weather-detail-value">{{ Math.round(currentWeather.wind.speed * 3.6) }} km/h</span>
+                  <span *ngIf="currentWeather.wind?.deg" class="weather-wind-direction" [style.transform]="'rotate(' + currentWeather.wind.deg + 'deg)'">
+                    <i class="fa fa-arrow-up"></i>
+                  </span>
+                </div>
+                <div class="weather-detail-item" *ngIf="currentWeather.visibility !== undefined">
+                  <i class="fa fa-eye me-1"></i>
+                  <span class="weather-detail-label">Visibilité:</span>
+                  <span class="weather-detail-value">{{ (currentWeather.visibility / 1000).toFixed(1) }} km</span>
+                </div>
+                <div class="weather-detail-item" *ngIf="currentWeather.clouds?.all !== undefined">
+                  <i class="fa fa-cloud me-1"></i>
+                  <span class="weather-detail-label">Nuages:</span>
+                  <span class="weather-detail-value">{{ currentWeather.clouds.all }}%</span>
+                </div>
+              </div>
+            </div>
+            <div class="weather-loading" *ngIf="isLoadingWeather">
+              <i class="fa fa-spinner fa-spin"></i> {{ 'EVENTELEM.LOADING_WEATHER' | translate }}
+            </div>
+            <div class="weather-error" *ngIf="!isLoadingWeather && !currentWeather">
+              {{ 'EVENTELEM.NO_WEATHER_DATA' | translate }}
+            </div>
+          </div>
+        </div>
+
         <div *ngIf="isLoading" class="loading-overlay">
           <div class="spinner-border text-light" role="status" aria-hidden="true"></div>
           <span class="ms-2">{{ 'EVENTELEM.TRACK_LOADING' | translate }}</span>
@@ -73,16 +148,24 @@
             <input class="form-check-input" type="checkbox" id="gps-coordinates-switch-fullscreen" 
                    [(ngModel)]="showGpsCoordinates" 
                    (change)="toggleGpsCoordinates()">
-            <label class="form-check-label gps-switch-label" for="gps-coordinates-switch-fullscreen">
-              {{ 'EVENTELEM.SHOW_GPS_COORDINATES' | translate }}
+            <label class="form-check-label gps-switch-label" for="gps-coordinates-switch-fullscreen" title="{{ 'EVENTELEM.SHOW_GPS_COORDINATES' | translate }}">
+              <i class="fa fa-crosshairs"></i> GPS
             </label>
           </div>
           <div class="form-check form-switch mt-2">
             <input class="form-check-input" type="checkbox" id="show-address-switch-fullscreen" 
                    [(ngModel)]="showAddress"
                    (change)="onShowAddressChange()">
-            <label class="form-check-label gps-switch-label" for="show-address-switch-fullscreen">
-              {{ 'EVENTELEM.SHOW_ADDRESS' | translate }}
+            <label class="form-check-label gps-switch-label" for="show-address-switch-fullscreen" title="{{ 'EVENTELEM.SHOW_ADDRESS' | translate }}">
+              <i class="fa fa-home"></i> Adresse
+            </label>
+          </div>
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="show-weather-switch-fullscreen" 
+                   [(ngModel)]="showWeather"
+                   (change)="onShowWeatherChange()">
+            <label class="form-check-label gps-switch-label" for="show-weather-switch-fullscreen" [title]="'EVENTELEM.SHOW_WEATHER' | translate">
+              <i class="fa fa-cloud-sun"></i> {{ 'EVENTELEM.WEATHER' | translate }}
             </label>
           </div>
           <button type="button"
@@ -154,16 +237,24 @@
         <input class="form-check-input" type="checkbox" id="gps-coordinates-switch" 
                [(ngModel)]="showGpsCoordinates" 
                (change)="toggleGpsCoordinates()">
-        <label class="form-check-label ms-2 gps-switch-label" for="gps-coordinates-switch">
-          {{ 'EVENTELEM.SHOW_GPS_COORDINATES' | translate }}
+        <label class="form-check-label ms-2 gps-switch-label" for="gps-coordinates-switch" title="{{ 'EVENTELEM.SHOW_GPS_COORDINATES' | translate }}">
+          <i class="fa fa-crosshairs"></i> GPS
         </label>
       </div>
       <div class="form-check form-switch d-flex align-items-center">
         <input class="form-check-input" type="checkbox" id="show-address-switch" 
                [(ngModel)]="showAddress"
                (change)="onShowAddressChange()">
-        <label class="form-check-label ms-2 gps-switch-label" for="show-address-switch">
-          {{ 'EVENTELEM.SHOW_ADDRESS' | translate }}
+        <label class="form-check-label ms-2 gps-switch-label" for="show-address-switch" title="{{ 'EVENTELEM.SHOW_ADDRESS' | translate }}">
+          <i class="fa fa-home"></i> Adresse
+        </label>
+      </div>
+      <div class="form-check form-switch d-flex align-items-center">
+        <input class="form-check-input" type="checkbox" id="show-weather-switch" 
+               [(ngModel)]="showWeather"
+               (change)="onShowWeatherChange()">
+        <label class="form-check-label ms-2 gps-switch-label" for="show-weather-switch" [title]="'EVENTELEM.SHOW_WEATHER' | translate">
+          <i class="fa fa-cloud-sun"></i> {{ 'EVENTELEM.WEATHER' | translate }}
         </label>
       </div>
       <button type="button"

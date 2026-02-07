@@ -436,6 +436,158 @@
 	background: transparent !important;
 }
 
+.weather-overlay {
+	position: absolute;
+	bottom: 20px;
+	right: 20px;
+	z-index: 1000;
+	pointer-events: none;
+}
+
+.weather-box {
+	background: rgba(255, 255, 255, 0.95);
+	border: 2px solid #007bff;
+	border-radius: 8px;
+	padding: 12px;
+	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+	pointer-events: auto;
+	max-width: 400px;
+	min-width: 250px;
+}
+
+.weather-header {
+	display: flex;
+	align-items: center;
+	font-weight: 600;
+	color: #007bff;
+	margin-bottom: 8px;
+	font-size: 0.9rem;
+}
+
+.weather-address {
+	flex: 1;
+	min-width: 0;
+	word-wrap: break-word;
+	white-space: normal;
+	line-height: 1.4;
+}
+
+.weather-content {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	color: #333;
+	font-size: 0.85rem;
+	line-height: 1.4;
+}
+
+.weather-temp-row {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.weather-temp {
+	font-size: 1.2rem;
+	font-weight: 600;
+	color: #333;
+}
+
+.weather-icon {
+	width: 48px;
+	height: 48px;
+	object-fit: contain;
+}
+
+.weather-desc {
+	font-size: 0.85rem;
+	color: #333;
+	text-transform: capitalize;
+}
+
+.weather-details {
+	font-size: 0.75rem;
+	color: #666;
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.weather-details-grid {
+	display: grid;
+	grid-template-columns: 1fr;
+	gap: 6px;
+	margin-top: 8px;
+	font-size: 0.8rem;
+}
+
+.weather-detail-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: #333;
+	padding: 4px 0;
+	border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.weather-detail-item:last-child {
+	border-bottom: none;
+}
+
+.weather-detail-item i {
+	color: #007bff;
+	font-size: 0.85rem;
+	width: 16px;
+	text-align: center;
+}
+
+.weather-detail-label {
+	font-weight: 500;
+	color: #666;
+	min-width: 70px;
+}
+
+.weather-detail-value {
+	font-weight: 600;
+	color: #333;
+	flex: 1;
+}
+
+.weather-wind-direction {
+	display: inline-block;
+	margin-left: 4px;
+	color: #007bff;
+	font-size: 0.75rem;
+}
+
+.weather-close {
+	color: #666;
+	font-size: 0.9rem;
+	padding: 2px 4px;
+}
+
+.weather-close:hover {
+	color: #000;
+}
+
+.weather-loading,
+.weather-error {
+	text-align: center;
+	padding: 8px;
+	color: #666;
+	font-size: 0.85rem;
+}
+
+.gps-switch-label {
+	font-size: 0.8rem !important;
+	white-space: nowrap;
+}
+
+.gps-switch-label i {
+	margin-right: 4px;
+}
+
 .gps-copy-btn:focus {
 	box-shadow: none;
 }

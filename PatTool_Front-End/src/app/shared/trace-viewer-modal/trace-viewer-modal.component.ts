@@ -42,6 +42,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 	@Output() closed = new EventEmitter<void>();
 	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number }>();
 
+	// Expose Math to template
+	Math = Math;
+
 	public isLoading = false;
 	public hasError = false;
 	public errorMessage = '';
@@ -58,6 +61,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public clickedAlt: number | null = null;
 	private finalSelectedCoordinates?: { lat: number; lng: number };
 	public showAddress: boolean = false;
+	public showWeather: boolean = false;
+	public currentWeather: any = null;
+	public isLoadingWeather: boolean = false;
+	public clickedWeatherLat: number = 0;
+	public clickedWeatherLng: number = 0;
+	public clickedWeatherAlt: number | null = null;
+	public clickedWeatherAddress: string = '';
 
 	// Event color for styling
 	private eventColor: { r: number; g: number; b: number } | null = null;
@@ -249,10 +259,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Restore selectionMode and simpleShareMode AFTER open() has reset it
 		this.selectionMode = enableSelection;
 		this.simpleShareMode = simpleShare;
-		
-		// Register address click handler to enable address display on map clicks
-		// (showAddress is already enabled by default in open() method)
-		this.registerAddressClickHandler();
 	}
 
 	/**
@@ -323,8 +329,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private open(source: TraceViewerSource): void {
 		this.resetState();
-		// Enable address display by default for all opening modes
-		this.showAddress = true;
 		this.trackFileName = source.fileName;
 		this.initializeBaseLayers();
 		this.pendingLocation = source.location ?? null;
@@ -667,19 +671,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 			// Register map move handler (for when GPS coordinates are shown but mouse hasn't moved)
 			this.registerMapMoveHandler();
-			// If GPS coordinates are already enabled, register mouse move handler
+			// Register GPS click handler (always active, but only updates if switch is enabled)
+			this.registerMapMouseMoveHandler();
+			// If GPS coordinates are already enabled, initialize with center
 			if (this.showGpsCoordinates) {
-				this.registerMapMouseMoveHandler();
 				this.updateGpsCoordinatesFromCenter();
 			}
 			
 			// Register click handler for marker creation (always active)
 			this.registerMapClickHandler();
 			
-			// Register address click handler if address display is enabled
-			if (this.showAddress) {
-				this.registerAddressClickHandler();
-			}
+			// Register address click handler (always active, but only updates if switch is enabled)
+			this.registerAddressClickHandler();
 			// Additional invalidateSize after map is ready
 			setTimeout(() => {
 				this.map?.invalidateSize();
@@ -881,15 +884,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 				riseOnHover: true
 			});
 			
-			// Show address in overlay on click - no popup needed
+			// Update switches on click - no popup needed
 			redMarker.on('click', (e: L.LeafletMouseEvent) => {
 				e.originalEvent?.stopPropagation();
 				L.DomEvent.stopPropagation(e);
 				if (e.originalEvent) {
 					L.DomEvent.preventDefault(e.originalEvent);
 				}
-				// Show address in overlay
-				this.showAddressInOverlay(pos.lat, pos.lng);
+				// Update all switches independently
+				this.updateSwitchesForPoint(pos.lat, pos.lng);
 			});
 			
 			redMarker.addTo(overlayLayer);
@@ -920,15 +923,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 				riseOnHover: true
 			});
 			
-			// Show address in overlay on click - no popup needed
+			// Update switches on click - no popup needed
 			positionMarker.on('click', (e: L.LeafletMouseEvent) => {
 				e.originalEvent?.stopPropagation();
 				L.DomEvent.stopPropagation(e);
 				if (e.originalEvent) {
 					L.DomEvent.preventDefault(e.originalEvent);
 				}
-				// Show address in overlay
-				this.showAddressInOverlay(pos.lat, pos.lng);
+				// Update all switches independently
+				this.updateSwitchesForPoint(pos.lat, pos.lng);
 			});
 			
 			positionMarker.addTo(overlayLayer);
@@ -988,15 +991,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const marker = L.marker([lat, lng]);
 		if (label && label.trim().length > 0) {
-		// Show address in overlay on click - no popup needed
+		// Update switches on click - no popup needed
 		marker.on('click', (e: L.LeafletMouseEvent) => {
 			e.originalEvent?.stopPropagation();
 			L.DomEvent.stopPropagation(e);
 			if (e.originalEvent) {
 				L.DomEvent.preventDefault(e.originalEvent);
 			}
-			// Show address in overlay
-			this.showAddressInOverlay(lat, lng);
+			// Update all switches independently
+			this.updateSwitchesForPoint(lat, lng);
 		});
 		}
 		marker.addTo(this.overlayLayer);
@@ -1377,7 +1380,6 @@ export class TraceViewerModalComponent implements OnDestroy {
 				subdomains: ['a', 'b', 'c'],
 				attribution: '&copy; OpenStreetMap France & OSM contributors',
 				tileSize: 256,
-				zoomOffset: 0
 			}),
 			'esri-imagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
 				maxZoom: 19,
@@ -1836,7 +1838,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			riseOffset: 250
 		});
 		
-		// Show address in overlay when marker is clicked
+		// Update switches when marker is clicked
 		this.selectionMarker.on('click', (e: L.LeafletMouseEvent) => {
 			e.originalEvent?.stopPropagation();
 			L.DomEvent.stopPropagation(e);
@@ -1844,7 +1846,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 				L.DomEvent.preventDefault(e.originalEvent);
 			}
 			if (this.selectionMarker) {
-				this.showAddressInOverlay(lat, lng);
+				const pos = this.selectionMarker.getLatLng();
+				this.updateSwitchesForPoint(pos.lat, pos.lng);
 			}
 		});
 		
@@ -1860,10 +1863,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// Store coordinates for when modal closes (don't emit immediately)
 			this.finalSelectedCoordinates = { lat: pos.lat, lng: pos.lng };
 			
-			// Show address in overlay if enabled
-			if (this.showAddress) {
-				this.showAddressInOverlay(pos.lat, pos.lng);
-			}
+			// Update all switches independently
+			this.updateSwitchesForPoint(pos.lat, pos.lng);
 		});
 	}
 
@@ -1911,7 +1912,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			riseOffset: 250
 		});
 		
-		// Show address in overlay when marker is clicked
+		// Update switches when marker is clicked
 		this.clickMarker.on('click', (e: L.LeafletMouseEvent) => {
 			e.originalEvent?.stopPropagation();
 			L.DomEvent.stopPropagation(e);
@@ -1920,7 +1921,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 			if (this.clickMarker) {
 				const pos = this.clickMarker.getLatLng();
-				this.showAddressInOverlay(pos.lat, pos.lng);
+				this.updateSwitchesForPoint(pos.lat, pos.lng);
 			}
 		});
 		
@@ -2186,16 +2187,17 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public toggleGpsCoordinates(): void {
 		// showGpsCoordinates is already toggled by ngModel binding
 		if (this.showGpsCoordinates) {
-			// Ensure map is initialized before registering handlers
+			// Ensure map is initialized before updating coordinates
 			if (!this.map) {
 				setTimeout(() => this.toggleGpsCoordinates(), 100);
 				return;
 			}
-			this.registerMapMouseMoveHandler();
+			// Ensure handler is registered (it should always be, but check just in case)
+			if (!this.mapMouseMoveHandler) {
+				this.registerMapMouseMoveHandler();
+			}
 			// Initialize with center if mouse hasn't moved yet
 			this.updateGpsCoordinatesFromCenter();
-		} else {
-			this.cleanupMapMouseMoveHandler();
 		}
 		this.cdr.detectChanges();
 	}
@@ -2235,11 +2237,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cleanupMapMouseMoveHandler();
 
 		// Update coordinates when user clicks on the map (for GPS coordinates display)
+		// Only update if GPS switch is enabled
 		this.mapMouseMoveHandler = (e: L.LeafletMouseEvent) => {
-			this.currentLat = e.latlng.lat;
-			this.currentLng = e.latlng.lng;
-			this.fetchAltitudeForCoordinates(e.latlng.lat, e.latlng.lng, 'current');
-			this.cdr.detectChanges();
+			if (this.showGpsCoordinates) {
+				this.currentLat = e.latlng.lat;
+				this.currentLng = e.latlng.lng;
+				this.fetchAltitudeForCoordinates(e.latlng.lat, e.latlng.lng, 'current');
+				this.cdr.detectChanges();
+			}
 		};
 
 		this.map.on('click', this.mapMouseMoveHandler);
@@ -2275,17 +2280,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Clean up existing handler first to avoid duplicates
 		this.cleanupAddressClickHandler();
 
-		// Register click handler for address display
-		// This handler works independently of showGpsCoordinates and selectionMode
+		// Register click handler for address and weather display
+		// This handler works independently - each switch updates only if enabled
 		// Note: marker creation is handled by registerMapClickHandler() which is always active
 		this.addressClickHandler = (e: L.LeafletMouseEvent) => {
 			const lat = e.latlng.lat;
 			const lng = e.latlng.lng;
 			
-			// Show address in overlay if enabled (works in all modes)
-			if (this.showAddress) {
-				this.showAddressInOverlay(lat, lng);
-			}
+			// Update all switches independently
+			this.updateSwitchesForPoint(lat, lng);
 		};
 
 		this.map.on('click', this.addressClickHandler);
@@ -2314,6 +2317,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.currentLat = center.lat;
 		this.currentLng = center.lng;
 		this.fetchAltitudeForCoordinates(center.lat, center.lng, 'current');
+		// Don't fetch weather here - weather should only be fetched on click or when weather switch is toggled
 		this.cdr.detectChanges();
 	}
 
@@ -2372,35 +2376,327 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	/**
-	 * Handle showAddress switch change - register/unregister address click handler
+	 * Handle showAddress switch change - address click handler is always registered
 	 */
 	public onShowAddressChange(): void {
+		// Handler is always registered, but only updates if switch is enabled
+		// If address was already fetched for a clicked point, just display it
 		if (this.showAddress) {
-			// Register address click handler if not already registered
-			this.registerAddressClickHandler();
+			
+			// If address was already fetched for a clicked point, just display it
+			if (this.clickedAddress && this.clickedLat && this.clickedLng) {
+				// Address already available, just ensure it's displayed
+				this.cdr.detectChanges();
+				return;
+			}
+			
+			let lat: number | null = null;
+			let lng: number | null = null;
+			let alt: number | null = null;
+			
+			// Priority 1: Use lastRenderedPosition (most recent point from trace/positions)
+			if (this.lastRenderedPosition) {
+				lat = this.lastRenderedPosition.lat;
+				lng = this.lastRenderedPosition.lng;
+				alt = this.currentAlt; // Use current altitude if available
+			}
+			// Priority 2: Use clicked position
+			else if (this.clickedLat && this.clickedLng) {
+				lat = this.clickedLat;
+				lng = this.clickedLng;
+				alt = this.clickedAlt;
+			}
+			// Priority 3: Use current position (center of map or mouse position)
+			else if (this.currentLat && this.currentLng) {
+				lat = this.currentLat;
+				lng = this.currentLng;
+				alt = this.currentAlt;
+			}
+			// Priority 4: Use map center if available
+			else if (this.map) {
+				const center = this.map.getCenter();
+				lat = center.lat;
+				lng = center.lng;
+				alt = null;
+			}
+			
+			if (lat !== null && lng !== null) {
+				// Update clicked coordinates for display
+				this.clickedLat = lat;
+				this.clickedLng = lng;
+				this.clickedAlt = alt;
+				this.clickedAddress = 'Loading address...';
+				this.cdr.detectChanges();
+				
+				// Get address and altitude
+				this.getAddressFromCoordinates(lat, lng);
+				this.fetchAltitudeForCoordinates(lat, lng, 'clicked');
+			}
+		}
+		// Handler is always registered, no need to clean up
+	}
+
+	/**
+	 * Handle showWeather switch change - fetch weather for most recent point or current position
+	 */
+	public onShowWeatherChange(): void {
+		if (this.showWeather) {
+			// If weather was already fetched for a clicked point, just display it
+			if (this.currentWeather && this.clickedWeatherLat && this.clickedWeatherLng) {
+				// Weather already available, just ensure address is loaded
+				if (!this.clickedWeatherAddress) {
+					this.getAddressFromCoordinatesForWeather(this.clickedWeatherLat, this.clickedWeatherLng);
+				}
+				this.cdr.detectChanges();
+				return;
+			}
+			
+			let lat: number | null = null;
+			let lng: number | null = null;
+			let alt: number | null = null;
+			
+			// Priority 1: Use lastRenderedPosition (most recent point from trace/positions)
+			if (this.lastRenderedPosition) {
+				lat = this.lastRenderedPosition.lat;
+				lng = this.lastRenderedPosition.lng;
+				alt = this.currentAlt; // Use current altitude if available
+			}
+			// Priority 2: Use clicked weather position
+			else if (this.clickedWeatherLat && this.clickedWeatherLng) {
+				lat = this.clickedWeatherLat;
+				lng = this.clickedWeatherLng;
+				alt = this.clickedWeatherAlt;
+			}
+			// Priority 3: Use current position (center of map or mouse position)
+			else if (this.currentLat && this.currentLng) {
+				lat = this.currentLat;
+				lng = this.currentLng;
+				alt = this.currentAlt;
+			}
+			// Priority 4: Use map center if available
+			else if (this.map) {
+				const center = this.map.getCenter();
+				lat = center.lat;
+				lng = center.lng;
+				alt = null;
+			}
+			
+			if (lat !== null && lng !== null) {
+				// Update clicked weather coordinates for display
+				this.clickedWeatherLat = lat;
+				this.clickedWeatherLng = lng;
+				this.clickedWeatherAlt = alt;
+				this.clickedWeatherAddress = '';
+				this.isLoadingWeather = true;
+				this.cdr.detectChanges();
+				
+				// Get address and altitude, then fetch weather
+				this.getAddressFromCoordinatesForWeather(lat, lng);
+				this.fetchAltitudeForCoordinates(lat, lng, 'clicked');
+				setTimeout(() => {
+					this.fetchWeather(lat!, lng!, this.clickedWeatherAlt);
+				}, 100);
+			}
 		} else {
-			// Clean up address click handler
-			this.cleanupAddressClickHandler();
+			this.currentWeather = null;
+		}
+	}
+
+	/**
+	 * Fetch weather data for given coordinates
+	 * @param showLoading If true, set isLoadingWeather flag (default: true)
+	 */
+	private fetchWeather(lat: number, lng: number, alt: number | null = null, showLoading: boolean = true): void {
+		if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+			return;
+		}
+
+		if (showLoading) {
+			this.isLoadingWeather = true;
+		}
+		this.apiService.getCurrentWeatherByCoordinates(lat, lng, alt).subscribe({
+			next: (response) => {
+				if (response.error) {
+					this.currentWeather = null;
+				} else {
+					this.currentWeather = response;
+				}
+				this.isLoadingWeather = false;
+			},
+			error: (error) => {
+				console.error('Error fetching weather:', error);
+				this.currentWeather = null;
+				this.isLoadingWeather = false;
+			}
+		});
+	}
+
+	/**
+	 * Get weather icon URL from OpenWeatherMap
+	 */
+	public getWeatherIconUrl(icon: string): string {
+		if (!icon) return '';
+		return `https://openweathermap.org/img/wn/${icon}@2x.png`;
+	}
+
+	/**
+	 * Show both address and weather in overlay when clicking on the map
+	 * Optimized to fetch address only once
+	 */
+	private showAddressAndWeatherInOverlay(lat: number, lng: number): void {
+		// Only show overlays if both switches are enabled
+		if (!this.showAddress || !this.showWeather) {
+			return;
+		}
+		
+		// Initialize both overlays
+		this.clickedLat = lat;
+		this.clickedLng = lng;
+		this.clickedAlt = null;
+		this.clickedAddress = 'Loading address...';
+		
+		this.clickedWeatherLat = lat;
+		this.clickedWeatherLng = lng;
+		this.clickedWeatherAlt = null;
+		this.clickedWeatherAddress = '';
+		this.currentWeather = null;
+		this.isLoadingWeather = true;
+		this.cdr.detectChanges();
+		
+		// Get address from coordinates (will be shared for both overlays)
+		this.getAddressFromCoordinates(lat, lng, true); // Pass true to also update weather address
+		// Get altitude for clicked coordinates
+		this.fetchAltitudeForCoordinates(lat, lng, 'clicked');
+		// Fetch weather (will use clickedWeatherAlt if available)
+		setTimeout(() => {
+			this.fetchWeather(lat, lng, this.clickedWeatherAlt);
+		}, 100);
+	}
+
+	/**
+	 * Fetch weather for clicked point (always, even if switch not enabled)
+	 * This ensures weather is available when switch is enabled later
+	 */
+	private fetchWeatherForClickedPoint(lat: number, lng: number): void {
+		// Get address from coordinates
+		this.getAddressFromCoordinatesForWeather(lat, lng);
+		// Get altitude for clicked coordinates first, then fetch weather
+		this.fetchAltitudeForCoordinates(lat, lng, 'clicked');
+		// Fetch weather (will use clickedWeatherAlt if available)
+		// Only show loading if switch is enabled
+		setTimeout(() => {
+			this.fetchWeather(lat, lng, this.clickedWeatherAlt, this.showWeather);
+		}, 100);
+	}
+
+	/**
+	 * Show weather in overlay when clicking on the map
+	 * Works independently of other switches
+	 */
+	private showWeatherInOverlay(lat: number, lng: number): void {
+		this.clickedWeatherLat = lat;
+		this.clickedWeatherLng = lng;
+		this.clickedWeatherAlt = null;
+		this.clickedWeatherAddress = '';
+		this.currentWeather = null;
+		this.isLoadingWeather = true;
+		this.cdr.detectChanges();
+		
+		// Use the shared method to fetch weather
+		this.fetchWeatherForClickedPoint(lat, lng);
+	}
+
+	/**
+	 * Get address from coordinates for weather overlay
+	 */
+	private getAddressFromCoordinatesForWeather(lat: number, lng: number): void {
+		const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+		
+		fetch(url, {
+			headers: {
+				'User-Agent': 'PATTOOL Weather App', // Required by Nominatim
+			}
+		})
+		.then(response => response.json())
+		.then(data => {
+			if (data && data.display_name) {
+				this.clickedWeatherAddress = data.display_name;
+			} else {
+				this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
+			}
+			this.cdr.detectChanges();
+		})
+		.catch(error => {
+			console.debug('Could not fetch address for weather:', error);
+			this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
+			this.cdr.detectChanges();
+		});
+	}
+
+	/**
+	 * Update all switches independently based on clicked coordinates
+	 * Each switch updates only if it is enabled
+	 */
+	private updateSwitchesForPoint(lat: number, lng: number): void {
+		// Update GPS coordinates if switch is enabled
+		if (this.showGpsCoordinates) {
+			this.currentLat = lat;
+			this.currentLng = lng;
+			this.fetchAltitudeForCoordinates(lat, lng, 'current');
+		}
+		
+		// Update address if switch is enabled
+		if (this.showAddress) {
+			this.clickedLat = lat;
+			this.clickedLng = lng;
+			this.clickedAlt = null;
+			this.clickedAddress = 'Loading address...';
+		}
+		
+		// Update weather if switch is enabled
+		if (this.showWeather) {
+			this.clickedWeatherLat = lat;
+			this.clickedWeatherLng = lng;
+			this.clickedWeatherAlt = null;
+			this.clickedWeatherAddress = '';
+			this.isLoadingWeather = true;
+		}
+		
+		this.cdr.detectChanges();
+		
+		// Fetch address (optimized: if both switches are enabled, fetch once and share)
+		if (this.showAddress && this.showWeather) {
+			// Both enabled: fetch address once and share it
+			this.getAddressFromCoordinates(lat, lng, true);
+		} else if (this.showAddress) {
+			// Only address enabled
+			this.getAddressFromCoordinates(lat, lng);
+		} else if (this.showWeather) {
+			// Only weather enabled
+			this.getAddressFromCoordinatesForWeather(lat, lng);
+		}
+		
+		// Fetch altitude (always fetch if at least one switch is enabled)
+		if (this.showAddress || this.showWeather || this.showGpsCoordinates) {
+			this.fetchAltitudeForCoordinates(lat, lng, 'clicked');
+		}
+		
+		// Fetch weather if switch is enabled
+		if (this.showWeather) {
+			setTimeout(() => {
+				this.fetchWeather(lat, lng, this.clickedWeatherAlt);
+			}, 100);
 		}
 	}
 
 	/**
 	 * Show address in overlay when clicking on a marker
 	 * Works independently of showGpsCoordinates switch
+	 * Note: This method should only be called when showAddress is true
 	 */
 	private showAddressInOverlay(lat: number, lng: number): void {
-		// Always show overlay when clicking on a marker, regardless of showAddress setting
-		this.clickedLat = lat;
-		this.clickedLng = lng;
-		this.clickedAlt = null;
-		this.clickedAddress = 'Loading address...';
-		this.showAddress = true; // Enable showAddress to display the overlay
-		this.cdr.detectChanges();
-		
-		// Get address from coordinates
-		this.getAddressFromCoordinates(lat, lng);
-		// Get altitude for clicked coordinates
-		this.fetchAltitudeForCoordinates(lat, lng, 'clicked');
+		// Use the unified method to update all switches
+		this.updateSwitchesForPoint(lat, lng);
 	}
 
 	/**
@@ -2416,6 +2712,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 						this.currentAlt = altitude;
 					} else {
 						this.clickedAlt = altitude;
+						this.clickedWeatherAlt = altitude; // Also update weather altitude
 					}
 					this.cdr.detectChanges();
 				}
@@ -2433,8 +2730,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	/**
 	 * Get full address from coordinates using reverse geocoding (Nominatim)
+	 * @param alsoUpdateWeatherAddress If true, also update clickedWeatherAddress to avoid duplicate API calls
 	 */
-	private getAddressFromCoordinates(lat: number, lng: number): void {
+	private getAddressFromCoordinates(lat: number, lng: number, alsoUpdateWeatherAddress: boolean = false): void {
 		// Use Nominatim (OpenStreetMap) for reverse geocoding - free and no API key required
 		const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
 		
@@ -2452,45 +2750,32 @@ export class TraceViewerModalComponent implements OnDestroy {
 		})
 		.then(data => {
 			let address = '';
-			if (data && data.address) {
-				const addr = data.address;
-				const addressParts: string[] = [];
-				
-				// Build address from most specific to least specific
-				if (addr.house_number && addr.road) {
-					addressParts.push(`${addr.road} ${addr.house_number}`);
-				} else if (addr.road) {
-					addressParts.push(addr.road);
-				}
-				
-				if (addr.postcode) {
-					addressParts.push(addr.postcode);
-				}
-				
-				if (addr.city || addr.town || addr.village) {
-					addressParts.push(addr.city || addr.town || addr.village);
-				}
-				
-				if (addr.state || addr.region) {
-					addressParts.push(addr.state || addr.region);
-				}
-				
-				if (addr.country) {
-					addressParts.push(addr.country);
-				}
-				
-				address = addressParts.length > 0 ? addressParts.join(', ') : (data.display_name || '');
-			} else if (data && data.display_name) {
+			if (data && data.display_name) {
 				address = data.display_name;
+			} else {
+				address = 'Address not found';
 			}
 			
 			// Update overlay with address
-			this.clickedAddress = address || 'Address not found';
+			this.clickedAddress = address;
+			
+			// Also update weather address if requested (to avoid duplicate API calls)
+			if (alsoUpdateWeatherAddress) {
+				this.clickedWeatherAddress = address;
+			}
+			
 			this.cdr.detectChanges();
 		})
 		.catch(error => {
 			console.error('Could not get address from coordinates:', error);
-			this.clickedAddress = 'Address not available';
+			const errorAddress = 'Address not available';
+			this.clickedAddress = errorAddress;
+			
+			// Also update weather address if requested
+			if (alsoUpdateWeatherAddress) {
+				this.clickedWeatherAddress = errorAddress;
+			}
+			
 			this.cdr.detectChanges();
 		});
 	}

@@ -56,6 +56,10 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   citySearchResults: any[] = [];
   showCitySearchResults: boolean = false;
   
+  // Clipboard coordinates for tooltip display
+  clipboardLat: number | null = null;
+  clipboardLon: number | null = null;
+  
   // Forecast display mode: 'hourly' (3-hour intervals) or 'daily' (daily summary)
   forecastDisplayMode: 'hourly' | 'daily' = 'hourly';
   displayForecastList: any[] = [];
@@ -520,9 +524,40 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
    * Get current weather by coordinates
    */
   getCurrentWeatherByCoordinates(): void {
-    // Ensure we use the coordinates from the input fields
-    const lat = this.lat;
-    const lon = this.lon;
+    // Read coordinates directly from input fields to ensure we have the latest values
+    // This is important because the fields use (blur) binding, so values might not be updated
+    // if user clicks the button before leaving the input field
+    const latInput = document.getElementById('lat') as HTMLInputElement;
+    const lonInput = document.getElementById('lon') as HTMLInputElement;
+    
+    let lat: number;
+    let lon: number;
+    
+    if (latInput && lonInput) {
+      // Parse values from input fields
+      const latValue = this.parseCoordinate(latInput.value);
+      const lonValue = this.parseCoordinate(lonInput.value);
+      
+      // Update component properties with parsed values
+      if (latValue !== null && !isNaN(latValue)) {
+        this.lat = latValue;
+        lat = latValue;
+      } else {
+        lat = this.lat;
+      }
+      
+      if (lonValue !== null && !isNaN(lonValue)) {
+        this.lon = lonValue;
+        lon = lonValue;
+      } else {
+        lon = this.lon;
+      }
+    } else {
+      // Fallback to component properties if inputs not found
+      lat = this.lat;
+      lon = this.lon;
+    }
+    
     // Only send altitude if it's really from mobile GPS
     const alt = this.altFromMobile ? this.alt : null;
     
@@ -1997,8 +2032,8 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
     const initialLat = this.lat;
     const initialLon = this.lon;
     const label = `${initialLat.toFixed(6)}, ${initialLon.toFixed(6)}`;
-    // Open at location with coordinates, disable selection mode (just display), simple share mode
-    this.traceViewerModalComponent.openAtLocation(initialLat, initialLon, label, undefined, false, true);
+    // Open at location with coordinates, enable selection mode so clicks update coordinates, simple share mode
+    this.traceViewerModalComponent.openAtLocation(initialLat, initialLon, label, undefined, true, true);
   }
 
   /**
@@ -2096,7 +2131,58 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Parse coordinates from text in format "lat, lng" and set lat/lon
+   * Read clipboard and parse coordinates for tooltip display
+   */
+  readClipboardCoordinates(): void {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then((text) => {
+        const coords = this.parseCoordinatesFromText(text);
+        if (coords) {
+          this.clipboardLat = coords.lat;
+          this.clipboardLon = coords.lon;
+        } else {
+          this.clipboardLat = null;
+          this.clipboardLon = null;
+        }
+        this.cdr.detectChanges();
+      }).catch((error) => {
+        // Silently fail - clipboard might not be accessible
+        this.clipboardLat = null;
+        this.clipboardLon = null;
+      });
+    } else {
+      this.clipboardLat = null;
+      this.clipboardLon = null;
+    }
+  }
+
+  /**
+   * Parse coordinates from text without setting them
+   * Returns {lat, lon} or null if invalid
+   */
+  private parseCoordinatesFromText(text: string): { lat: number; lon: number } | null {
+    if (!text || !text.trim()) {
+      return null;
+    }
+
+    // Remove extra whitespace and split by comma
+    const parts = text.trim().split(',').map(part => part.trim());
+    
+    if (parts.length >= 2) {
+      const latValue = parseFloat(parts[0]);
+      const lonValue = parseFloat(parts[1]);
+      
+      if (!isNaN(latValue) && !isNaN(lonValue)) {
+        return { lat: latValue, lon: lonValue };
+      }
+    }
+    
+    return null;
+  }
+
+  /**
+   * Parse coordinates from text in format "lat, lng" or "lat, lng, alt" and set lat/lon/alt
+   * Also updates address and altitude like onLocationSelected does
    */
   private parseAndSetCoordinates(text: string): void {
     if (!text || !text.trim()) {
@@ -2111,14 +2197,36 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
       const lonValue = parseFloat(parts[1]);
       
       if (!isNaN(latValue) && !isNaN(lonValue)) {
+        // Check if altitude is provided (format: "lat, lng, alt" or "lat, lng, altm")
+        let altValue: number | null = null;
+        if (parts.length >= 3) {
+          // Try to parse altitude, removing 'm' suffix if present
+          const altStr = parts[2].replace(/m$/i, '').trim();
+          const parsedAlt = parseFloat(altStr);
+          if (!isNaN(parsedAlt)) {
+            altValue = parsedAlt;
+          }
+        }
+        
+        // Update coordinates
         this.lat = latValue;
         this.lon = lonValue;
+        if (altValue !== null) {
+          this.alt = altValue;
+          this.altFromMobile = false; // Not from mobile, from pasted text
+        }
+        
+        // Update last known coordinates
+        this.lastLat = latValue;
+        this.lastLon = lonValue;
+        
         this.successMessage = this.translateService.instant('API.COORDINATES_UPDATED', { lat: latValue, lon: lonValue });
         this.clearMessages();
         this.cdr.detectChanges();
         
-        // Get full address from coordinates (using Nominatim)
-        // This will update city, countryCode, fullAddress and currentWeatherTitle
+        // Get full address, city and country from coordinates (using Nominatim)
+        // This will also update city, countryCode, fullAddress, currentWeatherTitle
+        // and fetch all altitudes from backend (which will override alt if not provided)
         this.getFullAddressFromCoordinates(latValue, lonValue);
       } else {
         this.errorMessage = this.translateService.instant('API.INVALID_COORDINATES');

@@ -127,7 +127,7 @@
   border-bottom: 3px solid transparent !important;
   border-right: none !important;
   border-left: none !important;
-  padding: 14px 24px;
+  padding: 10px 16px;
   transition: all 0.3s ease;
   white-space: nowrap;
   flex: 1;
@@ -136,9 +136,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.85rem;
   border-radius: 8px 8px 0 0;
   margin-bottom: -3px;
   width: 100%;
@@ -155,7 +155,7 @@
 }
 
 .nav-tabs .nav-link i {
-  font-size: 1rem;
+  font-size: 0.85rem;
   transition: color 0.25s ease;
 }
 
@@ -236,8 +236,8 @@
   }
   
   .nav-tabs .nav-link {
-    padding: 12px 18px;
-    font-size: 0.9rem;
+    padding: 8px 14px;
+    font-size: 0.8rem;
   }
 }
 
@@ -259,9 +259,9 @@
   }
   
   .nav-tabs .nav-link {
-    padding: 10px 14px;
-    font-size: 0.85rem;
-    gap: 6px;
+    padding: 8px 12px;
+    font-size: 0.75rem;
+    gap: 5px;
     flex: 0 0 auto;
     min-width: fit-content;
     width: auto;
@@ -289,14 +289,14 @@
     min-width: fit-content;
   }
   
-  .nav-tabs .nav-link {
-    padding: 8px 12px;
-    font-size: 0.75rem;
-    gap: 4px;
-    flex: 0 0 auto;
-    min-width: fit-content;
-    width: auto;
-  }
+    .nav-tabs .nav-link {
+      padding: 6px 10px;
+      font-size: 0.7rem;
+      gap: 4px;
+      flex: 0 0 auto;
+      min-width: fit-content;
+      width: auto;
+    }
   
   .nav-tabs .nav-link i {
     font-size: 0.85rem;
@@ -336,6 +336,49 @@
       margin: 0;
     }
   }
+}
+
+/* Invite Section - Smaller size */
+.invite-section {
+  padding: 0.5rem 0.75rem !important;
+  margin-bottom: 0.75rem !important;
+}
+
+.invite-section h5 {
+  font-size: 0.9rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+}
+
+.invite-section .profile-icon {
+  font-size: 0.85rem;
+  margin-right: 6px;
+}
+
+.invite-section .input-group {
+  font-size: 0.85rem;
+}
+
+.invite-section .input-group-text {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.invite-section .form-control,
+.invite-section .form-select {
+  padding: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.invite-section .btn {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.invite-section .btn i {
+  font-size: 0.8rem;
 }
 
 /* Search Container */
@@ -528,9 +571,9 @@
 
 /* Position buttons - same size as user action buttons (icon-only now) */
 .position-section .position-btn {
-  min-width: 36px;
-  width: 36px;
-  height: 36px;
+  min-width: 32px;
+  width: 32px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -845,10 +888,10 @@
 .request-actions button,
 .friend-actions button {
   white-space: nowrap;
-  /* Fixed width for icon-only buttons */
-  min-width: 36px;
-  width: 36px;
-  height: 36px;
+  /* Fixed width for icon-only buttons - same size as Groupes d'amis */
+  min-width: 32px;
+  width: 32px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -861,9 +904,9 @@
   .request-actions button,
   .friend-actions button,
   .position-section .position-btn {
-    min-width: 32px;
-    width: 32px;
-    height: 32px;
+    min-width: 28px;
+    width: 28px;
+    height: 24px;
     font-size: 0.7rem;
   }
   
@@ -871,7 +914,7 @@
   .request-actions button i,
   .friend-actions button i,
   .position-section .position-btn i {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
   }
 }
 
@@ -1639,15 +1682,16 @@
 .visibility-switch .form-check-input {
   margin-top: 0;
   cursor: pointer;
-  width: 2.5rem;
-  height: 1.25rem;
+  width: 1.75rem;
+  height: 0.9rem;
 }
 
 .visibility-switch .form-check-label {
-  margin-left: 8px;
+  margin-left: 6px;
   cursor: pointer;
   user-select: none;
   font-weight: 500;
+  font-size: 0.85rem;
 }
 
 .visibility-status {
@@ -1781,8 +1825,13 @@
   }
   
   .visibility-switch .form-check-input {
-    width: 2rem;
-    height: 1.1rem;
+    width: 1.5rem;
+    height: 0.8rem;
+  }
+  
+  .visibility-switch .form-check-label {
+    font-size: 0.75rem;
+    margin-left: 5px;
   }
 }
 

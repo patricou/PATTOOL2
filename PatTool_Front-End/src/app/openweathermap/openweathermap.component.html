@@ -146,11 +146,23 @@
                                         <button type="button" 
                                                 class="btn btn-xs btn-outline-primary"
                                                 (click)="pasteCoordinates()"
-                                                [ngbTooltip]="'API.PASTE_COORDINATES' | translate"
+                                                (mouseenter)="readClipboardCoordinates()"
+                                                [ngbTooltip]="pasteCoordinatesTooltipTemplate"
                                                 placement="top"
                                                 style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
                                             <i class="fa fa-paste"></i>
                                         </button>
+                                        <ng-template #pasteCoordinatesTooltipTemplate>
+                                            <div>
+                                                <div>{{ 'API.PASTE_COORDINATES' | translate }}</div>
+                                                <div *ngIf="clipboardLat !== null && clipboardLon !== null" style="font-size: 0.85rem; margin-top: 4px; color: #ccc;">
+                                                    {{ 'API.LATITUDE' | translate }}: {{ formatCoordinate(clipboardLat) }}, {{ 'API.LONGITUDE' | translate }}: {{ formatCoordinate(clipboardLon) }}
+                                                </div>
+                                                <div *ngIf="clipboardLat === null || clipboardLon === null" style="font-size: 0.85rem; margin-top: 4px; color: #999; font-style: italic;">
+                                                    (Presse-papier vide ou format invalide)
+                                                </div>
+                                            </div>
+                                        </ng-template>
                                     </div>
                                 </div>
                             </div>
