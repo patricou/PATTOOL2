@@ -50,7 +50,11 @@ public class FriendsRestController {
                     .anyMatch(authority -> authority.equalsIgnoreCase("ROLE_Admin") || 
                                          authority.equalsIgnoreCase("ROLE_admin"));
             
-            List<Member> allUsers = friendsService.getAllUsers(isAdmin);
+            // Get current user ID
+            Member currentUser = friendsService.getCurrentUser(authentication);
+            String currentUserId = currentUser != null ? currentUser.getId() : null;
+            
+            List<Member> allUsers = friendsService.getAllUsers(isAdmin, currentUserId);
             return ResponseEntity.ok(allUsers);
         } catch (Exception e) {
             log.error("Error getting users", e);

@@ -142,6 +142,16 @@
                                            [value]="formatCoordinate(lat)"
                                            (blur)="lat = parseCoordinate($any($event.target).value) || lat"
                                            style="font-size: 0.875rem;">
+                                    <div class="mt-2">
+                                        <button type="button" 
+                                                class="btn btn-xs btn-outline-primary"
+                                                (click)="pasteCoordinates()"
+                                                [ngbTooltip]="'API.PASTE_COORDINATES' | translate"
+                                                placement="top"
+                                                style="font-size: 0.75rem; padding: 0.25rem 0.5rem;">
+                                            <i class="fa fa-paste"></i>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>

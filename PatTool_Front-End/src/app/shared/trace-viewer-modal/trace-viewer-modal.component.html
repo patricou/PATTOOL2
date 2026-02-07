@@ -26,7 +26,7 @@
           <div class="gps-coordinates-box">
             <i class="fa fa-map-marker me-1"></i>
             <span class="gps-coords-text">
-              {{ currentLat.toFixed(15) }}, {{ currentLng.toFixed(15) }}
+              {{ currentLat.toFixed(7) }}, {{ currentLng.toFixed(7) }}
               <span *ngIf="currentAlt !== null" style="margin-left: 8px;">, {{ currentAlt.toFixed(1) }} m</span>
             </span>
             <button type="button" 
@@ -42,7 +42,7 @@
           <div class="clicked-address-box">
             <div class="clicked-address-header">
               <i class="fa fa-map-marker me-1"></i>
-              <span>{{ clickedLat.toFixed(6) }}, {{ clickedLng.toFixed(6) }}<span *ngIf="clickedAlt !== null" style="margin-left: 8px;">, {{ clickedAlt.toFixed(1) }} m</span></span>
+              <span>{{ clickedLat.toFixed(7) }}, {{ clickedLng.toFixed(7) }}<span *ngIf="clickedAlt !== null" style="margin-left: 8px;">, {{ clickedAlt.toFixed(1) }} m</span></span>
               <button type="button" 
                       class="btn btn-link p-0 ms-auto clicked-address-close" 
                       (click)="clickedAddress = ''; $event.stopPropagation()"

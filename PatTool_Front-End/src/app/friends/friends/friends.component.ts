@@ -1,7 +1,7 @@
-import { Component, OnInit, ChangeDetectorRef, ViewChild } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, ViewChild, TemplateRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { NgbModule, NgbDropdown, NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModule, NgbDropdown, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Member } from '../../model/member';
 import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../../model/friend';
@@ -187,8 +187,41 @@ export class FriendsComponent implements OnInit {
   private originalSelectedUserLastConnectionDate: Date | undefined = undefined;
 
   @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
+  @ViewChild('positionsModal') positionsModalTemplate?: TemplateRef<any>;
+  private positionsModalRef?: NgbModalRef;
+  
+  // Map to store addresses for each position (index -> address)
+  public positionAddresses: Map<number, string> = new Map();
+  public loadingAddresses: Map<number, boolean> = new Map();
+  // Track if address comes from cache (true) or API (false)
+  public addressFromCache: Map<number, boolean> = new Map();
+  
+  // Pre-computed sorted positions with all display data (to avoid multiple method calls in template)
+  // This ensures instant display of cached addresses without per-row delays
+  public sortedPositionsForDisplay: Array<{
+    position: any;
+    originalIndex: number;
+    address: string;
+    isLoading: boolean;
+    isFromCache: boolean;
+    formattedLat: string;
+    formattedLng: string;
+    formattedDate: string;
+  }> = [];
+  
+  // Column sorting state
+  public sortColumn: 'number' | 'latitude' | 'longitude' | 'address' | 'type' | 'date' | null = null;
+  public sortDirection: 'asc' | 'desc' = 'desc'; // Default: most recent first (date desc)
+  
+  // Control visibility of positions table to prevent progressive rendering
+  public positionsTableVisible: boolean = false;
+  
+  // Cache for addresses by rounded coordinates (to avoid duplicate API calls for similar coordinates)
+  // Key format: "lat_lng" with coordinates rounded to 6 decimal places
+  private addressCache: Map<string, string> = new Map();
 
   constructor(
+    private ngZone: NgZone,
     private _friendsService: FriendsService,
     private _memberService: MembersService,
     private _translateService: TranslateService,
@@ -245,10 +278,11 @@ export class FriendsComponent implements OnInit {
     // Load all users
     this._friendsService.getAllUsers().subscribe(
       users => {
-        // Filter out current user
-        this.allUsers = users.filter(u => u.id !== this.currentUser.id);
+        // Include all users (including current user)
+        this.allUsers = users;
         // Invalidate filtered users cache
         this._filteredUsersCacheKey = '';
+        this._filteredUsers = [];
         // Load statuses for all users
         this.loadUserStatuses();
         checkComplete();
@@ -1097,10 +1131,11 @@ export class FriendsComponent implements OnInit {
     // Load users
     this._friendsService.getAllUsers().subscribe({
       next: (users) => {
-        // Filter out current user
-        this.allUsers = users.filter(u => u.id !== this.currentUser.id);
+        // Include all users (including current user)
+        this.allUsers = users;
         // Invalidate filtered users cache
         this._filteredUsersCacheKey = '';
+        this._filteredUsers = [];
         this.loading = false;
         this.cdr.detectChanges();
       },
@@ -2598,10 +2633,694 @@ export class FriendsComponent implements OnInit {
         this.cdr.detectChanges();
         this.loading = false;
         this.errorMessage = '';
+        
+        // Close the positions modal if it's open
+        if (this.positionsModalRef) {
+          this.positionsModalRef.close('All positions deleted');
+          this.positionsModalRef = undefined;
+        }
       },
       error => {
         console.error('Error deleting all positions:', error);
         this.errorMessage = this._translateService.instant('FRIENDS.DELETE_ALL_POSITIONS_ERROR');
+        this.loading = false;
+      }
+    );
+  }
+
+  /**
+   * Open positions modal for a specific user (used in user cards)
+   */
+  openUserPositionsModal(user: Member): void {
+    if (!user) {
+      return;
+    }
+    
+    // Check if user has positions, if not show a message
+    if (!user.positions || user.positions.length === 0) {
+      alert(this._translateService.instant('FRIENDS.NO_POSITIONS'));
+      return;
+    }
+    
+    // Temporarily set currentUser to the selected user to use existing modal logic
+    const originalUser = this.currentUser;
+    this.currentUser = user;
+    
+    // Open the positions modal
+    this.openPositionsModal();
+    
+    // Restore original user after a short delay to ensure modal uses correct user data
+    setTimeout(() => {
+      this.currentUser = originalUser;
+    }, 100);
+  }
+
+  /**
+   * Open the positions modal for current user
+   */
+  openPositionsModal(): void {
+    if (!this.currentUser || !this.currentUser.positions || this.currentUser.positions.length === 0) {
+      return;
+    }
+
+    if (!this.positionsModalTemplate) {
+      console.error('Positions modal template not found');
+      return;
+    }
+
+    // Clear previous addresses and load addresses for all positions
+    this.positionAddresses.clear();
+    this.loadingAddresses.clear();
+    this.addressFromCache.clear();
+    
+    if (!this.currentUser || !this.currentUser.positions) {
+      return;
+    }
+    
+    // Initialize loading state for all positions first
+    this.currentUser.positions.forEach((position, index) => {
+      if (position.latitude != null && position.longitude != null) {
+        this.loadingAddresses.set(index, true); // Start with loading state
+      }
+    });
+    
+    // Get sorted positions (most recent first) to load addresses in that order
+    const sortedPositions = this.getSortedPositions();
+    
+    // Separate cached and non-cached positions (in sorted order - most recent first)
+    const positionsToLoad: Array<{lat: number, lng: number, index: number, cacheKey: string}> = [];
+    const cachedPositionsToLoad: Array<{index: number, address: string}> = [];
+    
+    sortedPositions.forEach((position) => {
+      // Find original index in currentUser.positions
+      if (!this.currentUser.positions) {
+        return;
+      }
+      
+      const originalIndex = this.currentUser.positions.findIndex(p => 
+        p.latitude === position.latitude && 
+        p.longitude === position.longitude &&
+        p.datetime === position.datetime
+      );
+      
+      if (originalIndex >= 0 && position.latitude != null && position.longitude != null) {
+        const cacheKey = this.getCacheKey(position.latitude, position.longitude);
+        const cachedAddress = this.addressCache.get(cacheKey);
+        
+        if (cachedAddress) {
+          // Store cached address to load after modal opens (no API call needed)
+          cachedPositionsToLoad.push({ index: originalIndex, address: cachedAddress });
+        } else {
+          // Queue for API call with delay (will be processed in sorted order - most recent first)
+          positionsToLoad.push({
+            lat: position.latitude,
+            lng: position.longitude,
+            index: originalIndex,
+            cacheKey: cacheKey
+          });
+        }
+      }
+    });
+    
+    // Load ALL cached addresses FIRST (synchronously, before opening modal)
+    // This ensures they're ready when the modal renders
+    cachedPositionsToLoad.forEach((cached) => {
+      this.positionAddresses.set(cached.index, cached.address);
+      this.loadingAddresses.set(cached.index, false);
+      this.addressFromCache.set(cached.index, true);
+    });
+    
+    // Pre-compute sorted positions with all display data (to avoid method calls and pipes in template)
+    // This ensures instant display without per-row delays
+    // IMPORTANT: Update the pre-computed array AFTER loading cached addresses
+    // Pre-compute ALL formatted values to avoid pipe evaluation delays
+    this.sortedPositionsForDisplay = sortedPositions.map((position, sortedIndex) => {
+      const originalIndex = this.currentUser.positions!.findIndex(p => 
+        p.latitude === position.latitude && 
+        p.longitude === position.longitude &&
+        p.datetime === position.datetime
+      );
+      
+      // Pre-format all values to avoid pipe evaluation delays
+      const formattedLat = position.latitude != null ? position.latitude.toFixed(6) : '-';
+      const formattedLng = position.longitude != null ? position.longitude.toFixed(6) : '-';
+      let formattedDate = '-';
+      if (position.datetime) {
+        const date = new Date(position.datetime);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const day = date.getDate().toString().padStart(2, '0');
+        const month = months[date.getMonth()];
+        const year = date.getFullYear();
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        formattedDate = `${day} ${month} ${year}, ${hours}:${minutes}`;
+      }
+      
+      return {
+        position: position,
+        originalIndex: originalIndex >= 0 ? originalIndex : sortedIndex,
+        address: originalIndex >= 0 ? (this.positionAddresses.get(originalIndex) || '') : '',
+        isLoading: originalIndex >= 0 ? (this.loadingAddresses.get(originalIndex) === true) : false,
+        isFromCache: originalIndex >= 0 ? (this.addressFromCache.get(originalIndex) === true) : false,
+        formattedLat: formattedLat,
+        formattedLng: formattedLng,
+        formattedDate: formattedDate
+      };
+    });
+    
+    // Initialize sorting state (default: date descending - most recent first)
+    this.sortColumn = 'date';
+    this.sortDirection = 'desc';
+    
+    // CRITICAL: Detach change detection BEFORE opening modal
+    // This prevents Angular from updating the DOM during modal opening
+    this.cdr.detach();
+    
+    // Hide table initially to prevent progressive rendering
+    this.positionsTableVisible = false;
+    
+    // Open modal (cached addresses and pre-computed data are already ready)
+    const modalRef = this.modalService.open(this.positionsModalTemplate, {
+      size: 'xl',
+      centered: true,
+      backdrop: 'static',
+      keyboard: true,
+      windowClass: 'positions-modal-wide'
+    });
+    
+    // Store modal reference to close it after deleting all positions
+    this.positionsModalRef = modalRef;
+    
+    // Reset modal reference when modal is closed
+    modalRef.result.finally(() => {
+      this.positionsModalRef = undefined;
+    });
+    
+    // CRITICAL: Wait for modal to be fully rendered in DOM, then show everything at once
+    // Use multiple requestAnimationFrame to ensure modal is completely ready
+    // Run outside Angular zone to avoid triggering change detection prematurely
+    this.ngZone.runOutsideAngular(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            // Now run in Angular zone to trigger change detection
+            this.ngZone.run(() => {
+              // Create a completely new array reference with all data
+              // This forces Angular to re-render the entire *ngFor in one go
+              this.sortedPositionsForDisplay = [...this.sortedPositionsForDisplay];
+              
+              // Show table all at once - this prevents progressive rendering
+              this.positionsTableVisible = true;
+              
+              // Reattach change detection
+              this.cdr.reattach();
+              
+              // Trigger ONE change detection for everything at once
+              // This should display all cached addresses instantly
+              this.cdr.detectChanges();
+            });
+          });
+        });
+      });
+    });
+    
+      // Load non-cached positions with delay to avoid rate limiting (only for API calls)
+      // IMPORTANT: Check cache again before each API call - coordinates might have been cached
+      // by a previous call in the queue (same cache key = same rounded coordinates)
+      let apiCallIndex = 0;
+      positionsToLoad.forEach((pos) => {
+        // Add delay between API calls to respect Nominatim rate limits (1 request per second)
+        setTimeout(() => {
+          // Check cache again before calling API - might have been cached by previous call
+          const cacheKey = this.getCacheKey(pos.lat, pos.lng);
+          const cachedAddress = this.addressCache.get(cacheKey);
+          
+          if (cachedAddress) {
+            // Use cached address (might have been cached by a previous call in the queue)
+            console.debug(`[Cache HIT in queue] Using cached address for coordinates (${pos.lat}, ${pos.lng}) -> cache key: ${cacheKey}, index: ${pos.index}`);
+            this.positionAddresses.set(pos.index, cachedAddress);
+            this.loadingAddresses.set(pos.index, false);
+            this.addressFromCache.set(pos.index, true);
+            
+            // Update pre-computed display data
+            const displayItem = this.sortedPositionsForDisplay.find(item => item.originalIndex === pos.index);
+            if (displayItem) {
+              displayItem.address = cachedAddress;
+              displayItem.isLoading = false;
+              displayItem.isFromCache = true;
+            }
+            
+            this.cdr.detectChanges();
+          } else {
+            // No cache, make API call (loadAddressForPosition will also check cache as a safety measure)
+            this.loadAddressForPosition(pos.lat, pos.lng, pos.index);
+          }
+        }, apiCallIndex * 1100); // 1.1 seconds between calls
+        apiCallIndex++;
+      });
+  }
+
+  /**
+   * Round coordinates to 4 decimal places (approximately 11m precision)
+   * This allows caching addresses for very similar coordinates
+   */
+  private roundCoordinate(coord: number): number {
+    // Round to 4 decimal places to ensure consistent cache keys for similar coordinates
+    return Math.round(coord * 10000) / 10000;
+  }
+
+  /**
+   * Get cache key from coordinates (rounded to 4 decimal places)
+   * Coordinates within ~11m of each other will have the same cache key
+   */
+  private getCacheKey(lat: number, lng: number): string {
+    const roundedLat = this.roundCoordinate(lat);
+    const roundedLng = this.roundCoordinate(lng);
+    // Use toFixed to ensure consistent string representation
+    return `${roundedLat.toFixed(4)}_${roundedLng.toFixed(4)}`;
+  }
+
+  /**
+   * Load address for a position using Nominatim reverse geocoding
+   * Uses cache to avoid duplicate API calls for similar coordinates
+   */
+  private loadAddressForPosition(lat: number, lng: number, index: number): void {
+    // Check cache first using rounded coordinates
+    const cacheKey = this.getCacheKey(lat, lng);
+    const cachedAddress = this.addressCache.get(cacheKey);
+    
+    if (cachedAddress) {
+      // Use cached address for similar coordinates
+      console.debug(`[Cache HIT] Using cached address for coordinates (${lat}, ${lng}) -> cache key: ${cacheKey}, index: ${index}`);
+      this.positionAddresses.set(index, cachedAddress);
+      this.loadingAddresses.set(index, false);
+      this.addressFromCache.set(index, true); // Mark as from cache
+      console.debug(`[Cache HIT] addressFromCache.set(${index}, true) - should be yellow`);
+      
+      // Update pre-computed display data for instant UI update
+      const displayItem = this.sortedPositionsForDisplay.find(item => item.originalIndex === index);
+      if (displayItem) {
+        displayItem.address = cachedAddress;
+        displayItem.isLoading = false;
+        displayItem.isFromCache = true;
+      }
+      
+      this.cdr.detectChanges();
+      return;
+    }
+    
+    console.debug(`[Cache MISS] No cached address for coordinates (${lat}, ${lng}) -> cache key: ${cacheKey}, index: ${index}, making API call`);
+
+    this.loadingAddresses.set(index, true);
+    
+    // Update pre-computed display data
+    const displayItem = this.sortedPositionsForDisplay.find(item => item.originalIndex === index);
+    if (displayItem) {
+      displayItem.isLoading = true;
+      displayItem.isFromCache = false;
+    }
+    
+    // Use full precision coordinates for API call (not rounded)
+    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat.toFixed(10)}&lon=${lng.toFixed(10)}&zoom=18&addressdetails=1`;
+    
+    fetch(url, {
+      headers: {
+        'User-Agent': 'PATTOOL Weather App',
+        'Accept': 'application/json'
+      }
+    })
+    .then(response => {
+      if (!response.ok) {
+        // Check for rate limiting (429) or other HTTP errors
+        if (response.status === 429) {
+          console.warn('Nominatim rate limit exceeded for coordinates:', lat, lng);
+          throw new Error('Rate limit exceeded');
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    })
+    .then(data => {
+      // Check if data is valid
+      if (!data) {
+        console.warn('Nominatim returned empty data for coordinates:', lat, lng);
+        const errorAddress = this._translateService.instant('FRIENDS.ADDRESS_NOT_FOUND');
+        this.addressCache.set(cacheKey, errorAddress);
+        this.positionAddresses.set(index, errorAddress);
+        this.loadingAddresses.set(index, false);
+        this.cdr.detectChanges();
+        return;
+      }
+
+      // Check for error in response
+      if (data.error) {
+        console.warn('Nominatim returned error:', data.error, 'for coordinates:', lat, lng);
+        const errorAddress = this._translateService.instant('FRIENDS.ADDRESS_NOT_FOUND');
+        this.addressCache.set(cacheKey, errorAddress);
+        this.positionAddresses.set(index, errorAddress);
+        this.loadingAddresses.set(index, false);
+        this.cdr.detectChanges();
+        return;
+      }
+
+      let address = '';
+      if (data && data.address) {
+        const addr = data.address;
+        const addressParts: string[] = [];
+        
+        // Build address from most specific to least specific
+        if (addr.house_number && addr.road) {
+          addressParts.push(`${addr.road} ${addr.house_number}`);
+        } else if (addr.road) {
+          addressParts.push(addr.road);
+        }
+        
+        if (addr.postcode) {
+          addressParts.push(addr.postcode);
+        }
+        
+        if (addr.city || addr.town || addr.village) {
+          addressParts.push(addr.city || addr.town || addr.village);
+        }
+        
+        if (addr.state || addr.region) {
+          addressParts.push(addr.state || addr.region);
+        }
+        
+        if (addr.country) {
+          addressParts.push(addr.country);
+        }
+        
+        address = addressParts.length > 0 ? addressParts.join(', ') : (data.display_name || '');
+      } else if (data && data.display_name) {
+        address = data.display_name;
+      }
+      
+      // If still no address, try to use display_name as fallback
+      if (!address && data.display_name) {
+        address = data.display_name;
+      }
+      
+      const finalAddress = address || this._translateService.instant('FRIENDS.ADDRESS_NOT_FOUND');
+      
+      // Store in cache for future use (using rounded coordinates as key)
+      console.debug(`[Cache SET] Storing address in cache for coordinates (${lat}, ${lng}) -> cache key: ${cacheKey}`);
+      this.addressCache.set(cacheKey, finalAddress);
+      
+      // Store for this position
+      this.positionAddresses.set(index, finalAddress);
+      this.loadingAddresses.set(index, false);
+      this.addressFromCache.set(index, false); // Mark as from API
+      
+      // Update pre-computed display data for instant UI update
+      const displayItem = this.sortedPositionsForDisplay.find(item => item.originalIndex === index);
+      if (displayItem) {
+        displayItem.address = finalAddress;
+        displayItem.isLoading = false;
+        displayItem.isFromCache = false;
+      }
+      
+      this.cdr.detectChanges();
+    })
+    .catch(error => {
+      console.error('Could not get address from coordinates:', error);
+      const errorAddress = this._translateService.instant('FRIENDS.ADDRESS_NOT_AVAILABLE');
+      
+      // Store error in cache to avoid repeated API calls for similar coordinates
+      this.addressCache.set(cacheKey, errorAddress);
+      
+      // Store for this position
+      this.positionAddresses.set(index, errorAddress);
+      this.loadingAddresses.set(index, false);
+      this.addressFromCache.set(index, false); // Mark as from API (even if error)
+      
+      // Update pre-computed display data for instant UI update
+      const displayItem = this.sortedPositionsForDisplay.find(item => item.originalIndex === index);
+      if (displayItem) {
+        displayItem.address = errorAddress;
+        displayItem.isLoading = false;
+        displayItem.isFromCache = false;
+      }
+      
+      this.cdr.detectChanges();
+    });
+  }
+
+  /**
+   * Get address for a position by index
+   */
+  getPositionAddress(index: number): string {
+    return this.positionAddresses.get(index) || '';
+  }
+
+  /**
+   * Check if address is loading for a position
+   */
+  isAddressLoading(index: number): boolean {
+    return this.loadingAddresses.get(index) === true;
+  }
+
+  /**
+   * Check if address comes from cache (true) or API (false)
+   */
+  isAddressFromCache(index: number): boolean {
+    return this.addressFromCache.get(index) === true;
+  }
+
+  /**
+   * Track by function for ngFor to avoid unnecessary re-renders
+   */
+  trackByPosition(index: number, item: any): any {
+    // Use originalIndex and datetime as unique identifier
+    return item.originalIndex + '_' + (item.position?.datetime || index);
+  }
+
+  /**
+   * Sort positions by column
+   */
+  sortBy(column: 'number' | 'latitude' | 'longitude' | 'address' | 'type' | 'date'): void {
+    // If clicking on the same column, toggle direction
+    if (this.sortColumn === column) {
+      this.sortDirection = this.sortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      // New column: default to ascending
+      this.sortColumn = column;
+      this.sortDirection = 'asc';
+    }
+    
+    // Sort the array
+    this.sortedPositionsForDisplay.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (column) {
+        case 'number':
+          // Sort by original index (keep original order)
+          comparison = a.originalIndex - b.originalIndex;
+          break;
+        case 'latitude':
+          const latA = a.position.latitude != null ? a.position.latitude : 0;
+          const latB = b.position.latitude != null ? b.position.latitude : 0;
+          comparison = latA - latB;
+          break;
+        case 'longitude':
+          const lngA = a.position.longitude != null ? a.position.longitude : 0;
+          const lngB = b.position.longitude != null ? b.position.longitude : 0;
+          comparison = lngA - lngB;
+          break;
+        case 'address':
+          const addrA = (a.address || '').toLowerCase();
+          const addrB = (b.address || '').toLowerCase();
+          comparison = addrA.localeCompare(addrB);
+          break;
+        case 'type':
+          const typeA = (a.position.type || '').toLowerCase();
+          const typeB = (b.position.type || '').toLowerCase();
+          comparison = typeA.localeCompare(typeB);
+          break;
+        case 'date':
+          const dateA = a.position.datetime ? new Date(a.position.datetime).getTime() : 0;
+          const dateB = b.position.datetime ? new Date(b.position.datetime).getTime() : 0;
+          comparison = dateA - dateB;
+          break;
+      }
+      
+      // Apply sort direction
+      return this.sortDirection === 'asc' ? comparison : -comparison;
+    });
+    
+    // Create new array reference to trigger change detection
+    this.sortedPositionsForDisplay = [...this.sortedPositionsForDisplay];
+    this.cdr.detectChanges();
+  }
+
+  /**
+   * Get positions sorted by date (descending - most recent first)
+   */
+  getSortedPositions(): any[] {
+    if (!this.currentUser || !this.currentUser.positions) {
+      return [];
+    }
+    // Sort by datetime descending (most recent first)
+    return [...this.currentUser.positions].sort((a, b) => {
+      const dateA = a.datetime ? new Date(a.datetime).getTime() : 0;
+      const dateB = b.datetime ? new Date(b.datetime).getTime() : 0;
+      return dateB - dateA; // Descending order
+    });
+  }
+
+  /**
+   * Get original index of a position in the sorted array
+   * This is needed to maintain correct mapping for addresses and cache status
+   */
+  getOriginalIndex(sortedIndex: number): number {
+    const sorted = this.getSortedPositions();
+    if (sortedIndex >= sorted.length || !this.currentUser || !this.currentUser.positions) {
+      return sortedIndex;
+    }
+    const sortedPosition = sorted[sortedIndex];
+    return this.currentUser.positions.findIndex(p => 
+      p.latitude === sortedPosition.latitude && 
+      p.longitude === sortedPosition.longitude &&
+      p.datetime === sortedPosition.datetime
+    );
+  }
+
+  /**
+   * Open all positions currently displayed in the grid in the trace viewer
+   * (uses sortedPositionsForDisplay to show only positions visible in the grid)
+   */
+  openAllPositionsInTraceViewer(): void {
+    if (!this.traceViewerModalComponent) {
+      console.error('TraceViewerModalComponent is not available');
+      return;
+    }
+
+    if (!this.sortedPositionsForDisplay || this.sortedPositionsForDisplay.length === 0) {
+      console.warn('No positions available in grid');
+      return;
+    }
+
+    // Convert positions from the grid to the format expected by trace viewer
+    // Use sortedPositionsForDisplay to show only positions currently visible in the grid
+    const positions = this.sortedPositionsForDisplay
+      .filter(item => item.position.latitude != null && item.position.longitude != null && 
+                      !isNaN(item.position.latitude) && !isNaN(item.position.longitude))
+      .map((item, index) => ({
+        lat: item.position.latitude!,
+        lng: item.position.longitude!,
+        type: item.position.type,
+        datetime: item.position.datetime,
+        label: `${this._translateService.instant('FRIENDS.POSITION')} #${index + 1} (${item.position.type || 'Position'}${item.position.datetime ? ' - ' + new Date(item.position.datetime).toLocaleString() : ''})`
+      }));
+
+    if (positions.length === 0) {
+      console.warn('No valid positions found in grid');
+      return;
+    }
+
+    const fileName = `${this.currentUser.firstName} ${this.currentUser.lastName} - ${this._translateService.instant('FRIENDS.ALL_POSITIONS')}`;
+
+    // Open trace viewer with all positions
+    this.traceViewerModalComponent.openWithPositions(positions, fileName);
+  }
+
+  /**
+   * Open a single position in the trace viewer
+   */
+  openPositionInTraceViewer(position: any, index: number): void {
+    if (!this.traceViewerModalComponent) {
+      console.error('TraceViewerModalComponent is not available');
+      return;
+    }
+
+    if (!position || position.latitude == null || position.longitude == null) {
+      console.warn('Invalid position:', position);
+      return;
+    }
+
+    // Create a label for the position
+    const positionType = position.type === 'GPS' ? 'GPS' : 'IP';
+    const dateStr = position.datetime ? 
+      new Date(position.datetime).toLocaleString() : 
+      '';
+    const label = `${this.currentUser.firstName} ${this.currentUser.lastName} - ${this._translateService.instant('FRIENDS.POSITION')} #${index + 1} (${positionType}${dateStr ? ' - ' + dateStr : ''})`;
+
+    // Open trace viewer at the position
+    this.traceViewerModalComponent.openAtLocation(
+      position.latitude,
+      position.longitude,
+      label
+    );
+  }
+
+  /**
+   * Delete a single position
+   */
+  deletePosition(index: number): void {
+    if (!this.currentUser || !this.currentUser.id || !this.currentUser.positions) {
+      this.errorMessage = this._translateService.instant('FRIENDS.ERROR_USER_NOT_LOADED');
+      return;
+    }
+
+    if (index < 0 || index >= this.currentUser.positions.length) {
+      console.error('Invalid position index:', index);
+      return;
+    }
+
+    const position = this.currentUser.positions[index];
+    const positionType = position.type || 'Position';
+    const dateStr = position.datetime ? 
+      new Date(position.datetime).toLocaleString() : 
+      '';
+    
+    // Ask for confirmation
+    const confirmMessage = this._translateService.instant('FRIENDS.DELETE_POSITION_CONFIRM', { 
+      index: index + 1,
+      type: positionType,
+      date: dateStr
+    });
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    this.loading = true;
+    this.errorMessage = '';
+
+    // Create a new array without the position to delete
+    const updatedPositions = [...this.currentUser.positions];
+    updatedPositions.splice(index, 1);
+
+    // Update the member with the new positions array
+    const updatedMember = new Member(
+      this.currentUser.id,
+      this.currentUser.addressEmail,
+      this.currentUser.firstName,
+      this.currentUser.lastName,
+      this.currentUser.userName,
+      this.currentUser.roles || [],
+      this.currentUser.keycloakId || '',
+      this.currentUser.registrationDate,
+      this.currentUser.lastConnectionDate,
+      this.currentUser.locale,
+      this.currentUser.whatsappLink,
+      this.currentUser.visible,
+      updatedPositions
+    );
+
+    this._friendsService.updateMember(updatedMember).subscribe(
+      (savedMember) => {
+        // Update the current user
+        this.currentUser = savedMember;
+        // Also update the user in the MembersService
+        this._memberService.setUser(savedMember);
+        // Force change detection to update the view
+        this.cdr.detectChanges();
+        this.loading = false;
+        this.errorMessage = '';
+      },
+      error => {
+        console.error('Error deleting position:', error);
+        this.errorMessage = this._translateService.instant('FRIENDS.DELETE_POSITION_ERROR');
         this.loading = false;
       }
     );

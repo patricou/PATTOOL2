@@ -250,9 +250,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.selectionMode = enableSelection;
 		this.simpleShareMode = simpleShare;
 		
-		// Enable address display by default when opening from location
-		this.showAddress = true;
 		// Register address click handler to enable address display on map clicks
+		// (showAddress is already enabled by default in open() method)
 		this.registerAddressClickHandler();
 	}
 
@@ -324,6 +323,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private open(source: TraceViewerSource): void {
 		this.resetState();
+		// Enable address display by default for all opening modes
+		this.showAddress = true;
 		this.trackFileName = source.fileName;
 		this.initializeBaseLayers();
 		this.pendingLocation = source.location ?? null;
@@ -828,18 +829,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		overlayLayer.clearLayers();
 
-		// Convert positions to LatLngTuple array for polyline
+		// Convert positions to LatLngTuple array (for bounds calculation only)
 		const points: L.LatLngTuple[] = positions.map(p => [p.lat, p.lng] as L.LatLngTuple);
 
-		// If we have multiple positions, draw a polyline connecting them
-		if (points.length > 1) {
-			const polyline = L.polyline(points, {
-				color: '#007bff',
-				weight: 3,
-				opacity: 0.7
-			});
-			polyline.addTo(overlayLayer);
-		}
+		// Don't draw lines between points - just show individual markers
+		// Removed polyline drawing to show only individual points
 
 		// Find the most recent position by datetime
 		let mostRecentIndex = -1;
@@ -900,21 +894,34 @@ export class TraceViewerModalComponent implements OnDestroy {
 			
 			redMarker.addTo(overlayLayer);
 		} else {
-			// Other positions: use different colors for GPS vs IP
+			// Other positions: use position icon (pin shape) with different colors for GPS vs IP
 			const isGps = pos.type === 'GPS';
-			const markerColor = isGps ? '#28a745' : '#ffc107';
+			const markerColor = isGps ? '#28a745' : '#ffc107'; // Green for GPS, yellow for IP
 			
-			// Create colored circle marker
-			const circleMarker = L.circleMarker([pos.lat, pos.lng], {
-				radius: 5,
-				color: markerColor,
-				fillColor: markerColor,
-				fillOpacity: 1,
-				weight: 2
+			// Create position icon (pin shape) instead of circle
+			const positionIcon = L.divIcon({
+				className: 'custom-position-marker-icon',
+				html: `
+					<div style="width: 25px; height: 41px; position: relative;">
+						<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+							<path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.596 19.404 0 12.5 0z" fill="${markerColor}" stroke="#ffffff" stroke-width="1"/>
+							<circle cx="12.5" cy="12.5" r="5" fill="#ffffff"/>
+						</svg>
+					</div>
+				`,
+				iconSize: [25, 41],
+				iconAnchor: [12.5, 41],
+				popupAnchor: [0, -41]
+			});
+			
+			const positionMarker = L.marker([pos.lat, pos.lng], {
+				icon: positionIcon,
+				zIndexOffset: 500,
+				riseOnHover: true
 			});
 			
 			// Show address in overlay on click - no popup needed
-			circleMarker.on('click', (e: L.LeafletMouseEvent) => {
+			positionMarker.on('click', (e: L.LeafletMouseEvent) => {
 				e.originalEvent?.stopPropagation();
 				L.DomEvent.stopPropagation(e);
 				if (e.originalEvent) {
@@ -924,7 +931,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.showAddressInOverlay(pos.lat, pos.lng);
 			});
 			
-			circleMarker.addTo(overlayLayer);
+			positionMarker.addTo(overlayLayer);
 		}
 		});
 
@@ -1366,8 +1373,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}),
 			'osm-fr': L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
 				maxZoom: 20,
-				subdomains: 'abc',
-				attribution: '&copy; OpenStreetMap France & OSM contributors'
+				minZoom: 0,
+				subdomains: ['a', 'b', 'c'],
+				attribution: '&copy; OpenStreetMap France & OSM contributors',
+				tileSize: 256,
+				zoomOffset: 0
 			}),
 			'esri-imagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
 				maxZoom: 19,
@@ -1450,6 +1460,23 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (nextLayer) {
 			nextLayer.addTo(this.map);
 			this.activeBaseLayer = nextLayer;
+			
+			// Force map to redraw and invalidate size, especially important for OpenStreetMap France
+			// This ensures all tiles are loaded and displayed correctly
+			this.map.invalidateSize();
+			
+			// Additional invalidateSize calls with delays to ensure tiles load properly
+			setTimeout(() => {
+				this.map?.invalidateSize();
+			}, 50);
+			setTimeout(() => {
+				this.map?.invalidateSize();
+			}, 200);
+			
+			// Force redraw of the layer to ensure all tiles are visible
+			if (nextLayer instanceof L.TileLayer) {
+				nextLayer.redraw();
+			}
 		}
 	}
 
@@ -2362,13 +2389,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 	 * Works independently of showGpsCoordinates switch
 	 */
 	private showAddressInOverlay(lat: number, lng: number): void {
-		if (!this.showAddress) {
-			return;
-		}
+		// Always show overlay when clicking on a marker, regardless of showAddress setting
 		this.clickedLat = lat;
 		this.clickedLng = lng;
 		this.clickedAlt = null;
 		this.clickedAddress = 'Loading address...';
+		this.showAddress = true; // Enable showAddress to display the overlay
 		this.cdr.detectChanges();
 		
 		// Get address from coordinates

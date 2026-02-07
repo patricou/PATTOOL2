@@ -47,9 +47,10 @@ public class FriendsService {
      * Get all users from MongoDB (synced from Keycloak)
      * Only returns users with visible=true for regular users
      * Returns all users for admins
+     * Always includes the current user, even if not visible
      */
-    public List<Member> getAllUsers(boolean isAdmin) {
-        log.debug("Getting users - Admin: {}", isAdmin);
+    public List<Member> getAllUsers(boolean isAdmin, String currentUserId) {
+        log.debug("Getting users - Admin: {}, CurrentUserId: {}", isAdmin, currentUserId);
         List<Member> allUsers = membersRepository.findAll();
         
         if (isAdmin) {
@@ -60,8 +61,13 @@ public class FriendsService {
             // Regular users only see visible users
             // visible=true or null (field not present) means visible
             // visible=false means hidden
+            // Always include the current user, even if not visible
             List<Member> visibleUsers = allUsers.stream()
                 .filter(user -> {
+                    // Always include current user
+                    if (currentUserId != null && currentUserId.equals(user.getId())) {
+                        return true;
+                    }
                     Boolean userVisible = user.getVisible();
                     // If null (field not present in old records), default to true (visible)
                     // If false, user is hidden
@@ -69,7 +75,7 @@ public class FriendsService {
                     return userVisible == null || userVisible;
                 })
                 .collect(java.util.stream.Collectors.toList());
-            log.debug("Regular user access - returning {} visible users out of {} total users", visibleUsers.size(), allUsers.size());
+            log.debug("Regular user access - returning {} visible users out of {} total users (including current user)", visibleUsers.size(), allUsers.size());
             return visibleUsers;
         }
     }

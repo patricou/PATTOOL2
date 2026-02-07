@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy, ViewChild, ChangeDetectorRef } from '@ang
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService, LangChangeEvent } from '@ngx-translate/core';
+import { NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { TraceViewerModalComponent } from '../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { ApiService } from '../services/api.service';
@@ -18,7 +19,7 @@ Chart.register(...registerables);
   templateUrl: './openweathermap.component.html',
   styleUrls: ['./openweathermap.component.css'],
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NavigationButtonsModule, TraceViewerModalComponent, BaseChartDirective]
+  imports: [CommonModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsModule, TraceViewerModalComponent, BaseChartDirective]
 })
 export class OpenWeatherMapComponent implements OnInit, OnDestroy {
 
@@ -27,6 +28,8 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
 
   // Expose Math to template
   Math = Math;
+  // Expose Number.isNaN to template
+  isNaN = Number.isNaN;
 
   // OpenWeatherMap data
   city: string = 'Paris';
@@ -1983,12 +1986,19 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
       return;
     }
 
+    // Check if coordinates are valid
+    if (this.lat == null || this.lon == null || isNaN(this.lat) || isNaN(this.lon)) {
+      this.errorMessage = this.translateService.instant('API.ERROR_GETTING_LOCATION');
+      this.clearMessages();
+      return;
+    }
+
     // Use current coordinates from the component (lat/lon fields)
-    const initialLat = this.lat || 48.8566;
-    const initialLon = this.lon || 2.3522;
+    const initialLat = this.lat;
+    const initialLon = this.lon;
     const label = `${initialLat.toFixed(6)}, ${initialLon.toFixed(6)}`;
-    // Open at location with coordinates, enable selection mode so clicks update coordinates, simple share mode
-    this.traceViewerModalComponent.openAtLocation(initialLat, initialLon, label, undefined, true, true);
+    // Open at location with coordinates, disable selection mode (just display), simple share mode
+    this.traceViewerModalComponent.openAtLocation(initialLat, initialLon, label, undefined, false, true);
   }
 
   /**
@@ -2059,5 +2069,64 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   private showPositionShareDialog(positionText: string, googleMapsUrl: string): void {
     const message = `${this.translateService.instant('API.POSITION')}: ${positionText}\n\n${this.translateService.instant('API.VIEW_ON_MAPS')}: ${googleMapsUrl}\n\n${this.translateService.instant('API.COPY_MANUALLY')}`;
     window.prompt(this.translateService.instant('API.SHARE_POSITION'), message);
+  }
+
+  /**
+   * Paste coordinates from clipboard in format "lat, lng" and update lat/lon fields
+   */
+  pasteCoordinates(): void {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      navigator.clipboard.readText().then((text) => {
+        this.parseAndSetCoordinates(text);
+      }).catch((error) => {
+        console.error('Failed to read from clipboard:', error);
+        // Fallback: show prompt to paste manually
+        const pastedText = window.prompt(this.translateService.instant('API.PASTE_COORDINATES'));
+        if (pastedText) {
+          this.parseAndSetCoordinates(pastedText);
+        }
+      });
+    } else {
+      // Fallback: show prompt to paste manually
+      const pastedText = window.prompt(this.translateService.instant('API.PASTE_COORDINATES'));
+      if (pastedText) {
+        this.parseAndSetCoordinates(pastedText);
+      }
+    }
+  }
+
+  /**
+   * Parse coordinates from text in format "lat, lng" and set lat/lon
+   */
+  private parseAndSetCoordinates(text: string): void {
+    if (!text || !text.trim()) {
+      return;
+    }
+
+    // Remove extra whitespace and split by comma
+    const parts = text.trim().split(',').map(part => part.trim());
+    
+    if (parts.length >= 2) {
+      const latValue = parseFloat(parts[0]);
+      const lonValue = parseFloat(parts[1]);
+      
+      if (!isNaN(latValue) && !isNaN(lonValue)) {
+        this.lat = latValue;
+        this.lon = lonValue;
+        this.successMessage = this.translateService.instant('API.COORDINATES_UPDATED', { lat: latValue, lon: lonValue });
+        this.clearMessages();
+        this.cdr.detectChanges();
+        
+        // Get full address from coordinates (using Nominatim)
+        // This will update city, countryCode, fullAddress and currentWeatherTitle
+        this.getFullAddressFromCoordinates(latValue, lonValue);
+      } else {
+        this.errorMessage = this.translateService.instant('API.INVALID_COORDINATES');
+        this.clearMessages();
+      }
+    } else {
+      this.errorMessage = this.translateService.instant('API.INVALID_COORDINATES');
+      this.clearMessages();
+    }
   }
 }

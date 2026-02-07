@@ -211,7 +211,7 @@
     <div class="users-list">
       <div *ngFor="let user of getFilteredUsers()" class="user-card compact-user-card">
         <!-- Card Header with User Name -->
-        <div class="user-header">
+        <div class="user-header" [ngClass]="{'current-user-header': user.id === currentUser.id}">
           <h6 class="mb-0 card-header-content">
             <span class="user-name">
               <i class="fa fa-user-circle me-2"></i>
@@ -284,23 +284,24 @@
         </div>
         <div class="user-actions">
           <div class="d-flex gap-2 flex-wrap align-items-center">
-            <!-- Position button -->
+            <!-- View All Positions button (visible only for admin or own user) -->
             <button 
-              *ngIf="hasPosition(user)"
+              *ngIf="hasAdminRole() || currentUser.id === user.id"
+              class="btn btn-xs btn-primary compact-btn"
+              (click)="openUserPositionsModal(user)"
+              [ngbTooltip]="'FRIENDS.VIEW_ALL_POSITIONS' | translate"
+              placement="top"
+              [disabled]="!user.positions || user.positions.length === 0">
+              <i class="fa fa-map"></i>
+            </button>
+            <!-- Position button (visible only for admin or own user) -->
+            <button 
+              *ngIf="(hasAdminRole() || currentUser.id === user.id) && hasPosition(user)"
               class="btn btn-xs btn-info compact-btn"
               (click)="openUserPosition(user)"
               [ngbTooltip]="'FRIENDS.VIEW_POSITION' | translate"
               placement="top">
               <i class="fa fa-map-marker"></i>
-            </button>
-            <button 
-              *ngIf="user.positions && user.positions.length > 1"
-              class="btn btn-xs btn-secondary compact-btn"
-              (click)="openUserPositionHistory(user)"
-              [ngbTooltip]="'FRIENDS.VIEW_POSITION_HISTORY' | translate"
-              placement="top">
-              <i class="fa fa-history"></i>
-              <span class="badge bg-light text-dark ms-1">{{ user.positions.length }}</span>
             </button>
             <!-- WhatsApp Link button -->
             <button 
@@ -314,24 +315,28 @@
             <button 
               *ngIf="getUserStatus(user) === 'none'"
               class="btn btn-primary btn-xs compact-btn"
-              (click)="sendFriendRequest(user.id)">
+              (click)="sendFriendRequest(user.id)"
+              [disabled]="user.id === currentUser.id"
+              [ngbTooltip]="'FRIENDS.SEND_REQUEST' | translate"
+              placement="top">
               <i class="fa fa-user-plus"></i>
-              <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.SEND_REQUEST' | translate }}</span>
             </button>
             <button 
               *ngIf="getUserStatus(user) === 'pending'"
               class="btn btn-warning btn-xs compact-btn"
-              disabled>
+              disabled
+              [ngbTooltip]="'FRIENDS.PENDING_REQUEST' | translate"
+              placement="top">
               <i class="fa fa-clock"></i>
-              <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.PENDING_REQUEST' | translate }}</span>
             </button>
             <button 
               *ngIf="getUserStatus(user) === 'sent'"
               class="btn btn-info btn-xs compact-btn"
               (click)="resendFriendRequest(user.id)"
-              title="{{ 'FRIENDS.RESEND_REQUEST' | translate }}">
+              [disabled]="user.id === currentUser.id"
+              [ngbTooltip]="'FRIENDS.RESEND_REQUEST' | translate"
+              placement="top">
               <i class="fa fa-paper-plane"></i>
-              <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.RESEND_REQUEST' | translate }}</span>
             </button>
             <span 
               *ngIf="getUserStatus(user) === 'friend'"
@@ -383,7 +388,7 @@
             <button 
               class="btn btn-success btn-xs compact-btn"
               (click)="sendFriendRequest(user.id)"
-               [disabled]="loading || !getFriendRequestMessage(user.id).trim()">
+               [disabled]="loading || !getFriendRequestMessage(user.id).trim() || user.id === currentUser.id">
               <i class="fa fa-paper-plane" *ngIf="!loading"></i>
               <i class="fa fa-spinner fa-spin" *ngIf="loading"></i>
               <span *ngIf="getUserStatus(user) === 'none'">{{ 'FRIENDS.SEND_REQUEST' | translate }}</span>
@@ -557,9 +562,10 @@
             </button>
             <button 
               class="btn btn-danger btn-xs compact-btn"
-              (click)="removeFriend(friend.id)">
+              (click)="removeFriend(friend.id)"
+              [ngbTooltip]="'FRIENDS.REMOVE_FRIEND' | translate"
+              placement="top">
               <i class="fa fa-user-times"></i>
-              <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.REMOVE_FRIEND' | translate }}</span>
             </button>
           </div>
         </div>
@@ -894,17 +900,14 @@
                   [ngbTooltip]="'FRIENDS.VIEW_POSITION' | translate"
                   placement="top">
                   <i class="fa fa-map-marker"></i>
-                  <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.VIEW_POSITION' | translate }}</span>
                 </button>
                 <button 
-                  *ngIf="currentUser.positions && currentUser.positions.length > 1"
-                  class="btn btn-xs btn-secondary compact-btn position-btn"
-                  (click)="openUserPositionHistory(currentUser)"
-                  [ngbTooltip]="'FRIENDS.VIEW_POSITION_HISTORY' | translate"
+                  *ngIf="currentUser.positions && currentUser.positions.length > 0"
+                  class="btn btn-xs btn-primary compact-btn position-btn"
+                  (click)="openPositionsModal()"
+                  [ngbTooltip]="'FRIENDS.VIEW_ALL_POSITIONS' | translate"
                   placement="top">
-                  <i class="fa fa-history"></i>
-                  <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.VIEW_POSITION_HISTORY' | translate }}</span>
-                  <span class="badge bg-light text-dark ms-1">{{ currentUser.positions.length }}</span>
+                  <i class="fa fa-map"></i>
                 </button>
                 <button 
                   class="btn btn-xs btn-danger compact-btn position-btn"
@@ -913,7 +916,6 @@
                   placement="top"
                   [disabled]="loading">
                   <i class="fa fa-trash"></i>
-                  <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.DELETE_ALL_POSITIONS' | translate }}</span>
                 </button>
               </div>
               <small class="text-muted d-block">
@@ -1563,6 +1565,139 @@
     </div>
   </div>
 </div>
+
+<!-- Positions Modal -->
+<ng-template #positionsModal let-modal>
+  <div class="modal-header">
+    <h5 class="modal-title">
+      <i class="fa fa-map-marker me-2"></i>
+      {{ 'FRIENDS.ALL_POSITIONS' | translate }}
+      <span *ngIf="currentUser.positions" class="badge bg-primary ms-2">{{ currentUser.positions.length }}</span>
+    </h5>
+    <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
+  </div>
+  <div class="modal-body">
+    <div *ngIf="!currentUser.positions || currentUser.positions.length === 0" class="text-center py-4">
+      <i class="fa fa-map-marker fa-3x text-muted mb-3"></i>
+      <p class="text-muted">{{ 'FRIENDS.NO_POSITIONS' | translate }}</p>
+    </div>
+    <div *ngIf="currentUser.positions && currentUser.positions.length > 0" class="table-responsive positions-table-container">
+      <table class="table table-hover table-striped" [style.display]="positionsTableVisible ? 'table' : 'none'">
+        <thead>
+          <tr>
+            <th style="width: 50px;">
+              <a href="javascript:void(0)" (click)="sortBy('number')" class="sortable-header text-decoration-none text-reset">
+                # <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'number', 'fa-sort-up': sortColumn === 'number' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'number' && sortDirection === 'desc'}"></i>
+              </a>
+            </th>
+            <th>
+              <a href="javascript:void(0)" (click)="sortBy('latitude')" class="sortable-header text-decoration-none text-reset">
+                {{ 'FRIENDS.LATITUDE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'latitude', 'fa-sort-up': sortColumn === 'latitude' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'latitude' && sortDirection === 'desc'}"></i>
+              </a>
+            </th>
+            <th>
+              <a href="javascript:void(0)" (click)="sortBy('longitude')" class="sortable-header text-decoration-none text-reset">
+                {{ 'FRIENDS.LONGITUDE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'longitude', 'fa-sort-up': sortColumn === 'longitude' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'longitude' && sortDirection === 'desc'}"></i>
+              </a>
+            </th>
+            <th>
+              <a href="javascript:void(0)" (click)="sortBy('address')" class="sortable-header text-decoration-none text-reset">
+                {{ 'FRIENDS.ADDRESS' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'address', 'fa-sort-up': sortColumn === 'address' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'address' && sortDirection === 'desc'}"></i>
+              </a>
+            </th>
+            <th>
+              <a href="javascript:void(0)" (click)="sortBy('type')" class="sortable-header text-decoration-none text-reset">
+                {{ 'FRIENDS.TYPE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'type', 'fa-sort-up': sortColumn === 'type' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'type' && sortDirection === 'desc'}"></i>
+              </a>
+            </th>
+            <th>
+              <a href="javascript:void(0)" (click)="sortBy('date')" class="sortable-header text-decoration-none text-reset">
+                {{ 'FRIENDS.DATE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'date', 'fa-sort-up': sortColumn === 'date' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'date' && sortDirection === 'desc'}"></i>
+              </a>
+            </th>
+            <th style="width: 200px;">{{ 'FRIENDS.ACTIONS' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of sortedPositionsForDisplay; let i = index; trackBy: trackByPosition">
+            <td [ngClass]="{'position-from-cache': item.isFromCache, 'position-from-api': !item.isFromCache && !item.isLoading && item.address}">{{ i + 1 }}</td>
+            <td>{{ item.formattedLat }}</td>
+            <td>{{ item.formattedLng }}</td>
+            <td>
+              <div *ngIf="item.isLoading" class="text-muted">
+                <i class="fa fa-spinner fa-spin me-1"></i>
+                <small>{{ 'FRIENDS.LOADING_ADDRESS' | translate }}</small>
+              </div>
+              <div *ngIf="!item.isLoading" class="text-muted small">
+                {{ item.address || '-' }}
+              </div>
+            </td>
+            <td>
+              <span *ngIf="item.position.type" class="badge" [ngClass]="{'bg-success': item.position.type === 'GPS', 'bg-info': item.position.type === 'IP'}">
+                {{ item.position.type }}
+              </span>
+              <span *ngIf="!item.position.type" class="text-muted">-</span>
+            </td>
+            <td>
+              <span *ngIf="item.formattedDate !== '-'">
+                <i class="fa fa-clock-o me-1"></i>
+                {{ item.formattedDate }}
+              </span>
+              <span *ngIf="item.formattedDate === '-'" class="text-muted">-</span>
+            </td>
+            <td>
+              <div class="d-flex gap-2">
+                <button 
+                  class="btn btn-sm btn-info"
+                  (click)="openPositionInTraceViewer(item.position, item.originalIndex)"
+                  [ngbTooltip]="'FRIENDS.VIEW_IN_TRACE_VIEWER' | translate"
+                  placement="top">
+                  <i class="fa fa-map"></i>
+                  <span class="d-none d-md-inline ms-1">{{ 'FRIENDS.VIEW' | translate }}</span>
+                </button>
+                <button 
+                  class="btn btn-sm btn-danger"
+                  (click)="deletePosition(item.originalIndex)"
+                  [ngbTooltip]="'FRIENDS.DELETE_POSITION' | translate"
+                  placement="top"
+                  [disabled]="loading">
+                  <i class="fa fa-trash"></i>
+                  <span class="d-none d-md-inline ms-1">{{ 'FRIENDS.DELETE' | translate }}</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button 
+      *ngIf="sortedPositionsForDisplay && sortedPositionsForDisplay.length > 0"
+      type="button" 
+      class="btn btn-info"
+      (click)="openAllPositionsInTraceViewer()"
+      [ngbTooltip]="'FRIENDS.VIEW_ALL_POSITIONS_IN_TRACE_VIEWER' | translate"
+      placement="top">
+      <i class="fa fa-map me-1"></i>
+      {{ 'FRIENDS.VIEW_ALL_IN_TRACE_VIEWER' | translate }}
+    </button>
+    <button 
+      *ngIf="currentUser.positions && currentUser.positions.length > 0"
+      type="button" 
+      class="btn btn-danger"
+      (click)="deleteAllPositions()"
+      [disabled]="loading"
+      [ngbTooltip]="'FRIENDS.DELETE_ALL_POSITIONS' | translate"
+      placement="top">
+      <i class="fa fa-trash me-1"></i>
+      {{ 'FRIENDS.DELETE_ALL_POSITIONS' | translate }}
+    </button>
+    <button type="button" class="btn btn-secondary" (click)="modal.close('Close click')">
+      {{ 'FRIENDS.CLOSE' | translate }}
+    </button>
+  </div>
+</ng-template>
 
 <!-- Trace Viewer Modal -->
 <app-trace-viewer-modal></app-trace-viewer-modal>

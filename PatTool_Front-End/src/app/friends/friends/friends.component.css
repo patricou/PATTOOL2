@@ -1,4 +1,4 @@
-.friends-container {
+﻿.friends-container {
   min-height: 100vh;
   background: #f8f9fa;
   padding: 0;
@@ -526,23 +526,17 @@
   line-height: 1.3;
 }
 
-/* Position buttons - same size */
+/* Position buttons - same size as user action buttons (icon-only now) */
 .position-section .position-btn {
-  width: 200px;
-  flex: 0 0 200px;
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  white-space: nowrap;
+  padding: 0;
   box-sizing: border-box;
-}
-
-@media (max-width: 576px) {
-  .position-section .position-btn {
-    width: 100%;
-    flex: 1 1 auto;
-    min-width: 0;
-  }
+  white-space: nowrap;
 }
 
 /* Profile Info Styles for Group Cards */
@@ -675,6 +669,18 @@
   border-radius: 8px 8px 0 0;
   width: calc(100% + 1.5rem);
   box-sizing: border-box;
+}
+
+.user-header.current-user-header {
+  background: #ff9800;
+  border-bottom: 1px solid #f57c00;
+  color: #fff;
+}
+
+.user-header.current-user-header h6,
+.user-header.current-user-header .user-name,
+.user-header.current-user-header .card-header-content {
+  color: #fff;
 }
 
 .user-header h6,
@@ -839,6 +845,34 @@
 .request-actions button,
 .friend-actions button {
   white-space: nowrap;
+  /* Fixed width for icon-only buttons */
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Mobile adjustments for action buttons */
+@media (max-width: 576px) {
+  .user-actions button,
+  .request-actions button,
+  .friend-actions button,
+  .position-section .position-btn {
+    min-width: 32px;
+    width: 32px;
+    height: 32px;
+    font-size: 0.7rem;
+  }
+  
+  .user-actions button i,
+  .request-actions button i,
+  .friend-actions button i,
+  .position-section .position-btn i {
+    font-size: 0.85rem;
+  }
 }
 
 /* No Results */
@@ -879,7 +913,7 @@
 }
 
 /* Responsive */
-/* Extra large screens (≥1400px) */
+/* Extra large screens (â‰¥1400px) */
 @media (min-width: 1400px) {
   .users-list,
   .requests-list,
@@ -2069,3 +2103,164 @@
   }
 }
 
+/* Positions modal table container with scroll */
+.positions-table-container {
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: auto;
+}
+
+.positions-table-container table {
+  margin-bottom: 0;
+  font-size: 0.875rem;
+  /* Force browser to render table all at once */
+  will-change: contents;
+  contain: layout style paint;
+}
+
+.positions-table-container thead {
+  position: sticky;
+  top: 0;
+  background-color: #fff;
+  z-index: 10;
+}
+
+.positions-table-container thead th {
+  background-color: #f8f9fa;
+  border-bottom: 2px solid #dee2e6;
+  font-size: 0.8rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.positions-table-container thead th .sortable-header {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: color 0.2s;
+}
+
+.positions-table-container thead th .sortable-header:hover {
+  color: #007bff !important;
+}
+
+.positions-table-container thead th .sortable-header i {
+  font-size: 0.7rem;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.positions-table-container thead th .sortable-header:hover i {
+  opacity: 1;
+}
+
+.positions-table-container thead th .sortable-header i.fa-sort-up,
+.positions-table-container thead th .sortable-header i.fa-sort-down {
+  opacity: 1;
+  color: #007bff;
+}
+
+.positions-table-container tbody td {
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  /* Optimize rendering for instant display */
+  will-change: contents;
+  contain: layout style;
+}
+
+.positions-table-container .btn {
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+}
+
+.positions-table-container .btn i {
+  font-size: 0.75rem;
+}
+
+.positions-modal-wide .modal-header h5 {
+  font-size: 1rem;
+}
+
+.positions-modal-wide .modal-footer .btn {
+  font-size: 0.8rem !important;
+  padding: 0.3rem 0.6rem !important;
+  line-height: 1.4 !important;
+  min-height: auto !important;
+}
+
+::ng-deep .positions-modal-wide .modal-footer .btn,
+::ng-deep .positions-modal-wide .modal-footer .btn.btn-info,
+::ng-deep .positions-modal-wide .modal-footer .btn.btn-secondary,
+::ng-deep .positions-modal-wide .modal-footer .btn.btn-danger {
+  font-size: 0.8rem !important;
+  padding: 0.3rem 0.6rem !important;
+  line-height: 1.4 !important;
+  min-height: auto !important;
+}
+
+/* Make the positions modal wider */
+.positions-modal-wide {
+  max-width: 98vw !important;
+  width: 98vw !important;
+}
+
+@media (min-width: 1400px) {
+  .positions-modal-wide {
+    max-width: 98vw !important;
+    width: 98vw !important;
+  }
+}
+
+/* Ensure date column has enough space */
+.positions-table-container th:nth-child(6),
+.positions-table-container td:nth-child(6) {
+  min-width: 180px;
+  white-space: nowrap;
+}
+
+/* Color position number based on address source */
+.positions-table-container td.position-from-cache {
+  color: #ffc107;
+  font-weight: 600;
+}
+
+.positions-table-container td.position-from-api {
+  color: #007bff;
+  font-weight: 600;
+}
+
+/* Style the positions modal to match other modals (border and header) */
+::ng-deep .positions-modal-wide .modal-content {
+  border: 4px solid white !important;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+::ng-deep .positions-modal-wide .modal-header {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: #fff;
+  border: none;
+  padding: 1rem 1.5rem;
+}
+
+::ng-deep .positions-modal-wide .modal-header h5 {
+  color: #fff;
+  font-size: 1rem;
+  margin: 0;
+}
+
+::ng-deep .positions-modal-wide .modal-header .btn-close {
+  filter: invert(1);
+  opacity: 0.8;
+}
+
+::ng-deep .positions-modal-wide .modal-header .btn-close:hover {
+  opacity: 1;
+}
+
+::ng-deep .positions-modal-wide .modal-header .badge {
+  background-color: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
