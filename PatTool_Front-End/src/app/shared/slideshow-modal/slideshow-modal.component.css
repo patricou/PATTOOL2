@@ -968,13 +968,14 @@
     justify-content: space-between;
     padding: 0 15px;
     pointer-events: none;
-    opacity: 1 !important;
+    opacity: 0 !important; /* Hidden by default */
     visibility: visible !important;
     transition: opacity 0.3s ease;
 }
 
-/* Afficher les contrôles toujours transparents */
-.slideshow-controls:hover {
+/* Show controls on hover of slideshow container or body */
+.slideshow-container:hover .slideshow-controls,
+.slideshow-body:hover .slideshow-controls {
     opacity: 1 !important;
 }
 
@@ -991,13 +992,13 @@
     transition: all 0.3s ease;
     border: 2px solid rgba(255, 255, 255, 0.3);
     padding: 0;
-    opacity: 0.5 !important; /* Toujours transparent mais visible */
+    opacity: 0.8 !important;
 }
 
-/* Afficher chaque bouton plus opaque au survol */
+/* Show each button more opaque on hover */
 .slideshow-controls:hover .btn,
 .slideshow-controls .btn:hover {
-    opacity: 0.8 !important;
+    opacity: 1 !important;
 }
 
 /* En plein écran, s'assurer que les boutons précédent/suivant sont bien visibles et au-dessus de tout */
@@ -1013,18 +1014,7 @@
     position: fixed !important;
 }
 
-:fullscreen .slideshow-controls:hover,
-:-webkit-full-screen .slideshow-controls:hover,
-:-moz-full-screen .slideshow-controls:hover,
-:-ms-fullscreen .slideshow-controls:hover,
-.slideshow-container:fullscreen .slideshow-controls:hover,
-.slideshow-container:-webkit-full-screen .slideshow-controls:hover,
-.slideshow-container:-moz-full-screen .slideshow-controls:hover,
-.slideshow-container:-ms-fullscreen .slideshow-controls:hover {
-    opacity: 1 !important;
-}
-
-/* En plein écran, les boutons sont toujours transparents */
+/* En plein écran, les boutons sont cachés par défaut et apparaissent au survol */
 :fullscreen .slideshow-controls,
 :-webkit-full-screen .slideshow-controls,
 :-moz-full-screen .slideshow-controls,
@@ -1033,6 +1023,17 @@
 .slideshow-container:-webkit-full-screen .slideshow-controls,
 .slideshow-container:-moz-full-screen .slideshow-controls,
 .slideshow-container:-ms-fullscreen .slideshow-controls {
+    opacity: 0 !important;
+}
+
+:fullscreen .slideshow-container:hover .slideshow-controls,
+:-webkit-full-screen .slideshow-container:hover .slideshow-controls,
+:-moz-full-screen .slideshow-container:hover .slideshow-controls,
+:-ms-fullscreen .slideshow-container:hover .slideshow-controls,
+.slideshow-container:fullscreen:hover .slideshow-controls,
+.slideshow-container:-webkit-full-screen:hover .slideshow-controls,
+.slideshow-container:-moz-full-screen:hover .slideshow-controls,
+.slideshow-container:-ms-fullscreen:hover .slideshow-controls {
     opacity: 1 !important;
 }
 
@@ -1055,7 +1056,7 @@
 .slideshow-container:-webkit-full-screen .slideshow-controls .btn,
 .slideshow-container:-moz-full-screen .slideshow-controls .btn,
 .slideshow-container:-ms-fullscreen .slideshow-controls .btn {
-    opacity: 0.5 !important; /* Toujours transparent mais visible */
+    opacity: 0.8 !important;
 }
 
 :fullscreen .slideshow-controls:hover .btn,
@@ -1074,7 +1075,7 @@
 .slideshow-container:-webkit-full-screen .slideshow-controls .btn:hover,
 .slideshow-container:-moz-full-screen .slideshow-controls .btn:hover,
 .slideshow-container:-ms-fullscreen .slideshow-controls .btn:hover {
-    opacity: 0.8 !important; /* Plus opaque au survol */
+    opacity: 1 !important; /* Fully opaque on hover */
 }
 
 .slideshow-header .btn,

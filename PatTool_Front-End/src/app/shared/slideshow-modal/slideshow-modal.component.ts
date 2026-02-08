@@ -76,6 +76,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public slideshowImages: string[] = [];
   private slideshowBlobs: Map<string, Blob> = new Map(); // Store original blobs by URL
   public currentSlideshowIndex: number = 0;
+  private pendingStartIndex: number | null = null; // Store startIndex when opening with empty array
   public isSlideshowActive: boolean = false;
   public slideshowInterval: any;
   public isFullscreen: boolean = false;
@@ -543,6 +544,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     // Reset all state variables
     this.currentSlideshowIndex = 0;
+    this.pendingStartIndex = null;
     this.currentSlideshowImageUrl = ''; // Explicitly clear cached current image URL
     this.isSlideshowActive = false;
     this.resetSlideshowZoom();
@@ -578,7 +580,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Open the slideshow modal
-  public open(images: SlideshowImageSource[], eventName: string = '', loadFromFileService: boolean = false, retryCount: number = 0, eventColor?: { r: number; g: number; b: number }): void {
+  public open(images: SlideshowImageSource[], eventName: string = '', loadFromFileService: boolean = false, retryCount: number = 0, eventColor?: { r: number; g: number; b: number }, startIndex: number = 0): void {
     // Allow opening with empty array for dynamic loading
     if (!images) {
       images = [];
@@ -607,7 +609,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.slideshowBlobs.clear();
     this.exifDataCache.clear();
     this.imageFileNames.clear();
-    this.currentSlideshowIndex = 0;
+    // Set starting index if provided and valid
+    if (images.length > 0) {
+      // If images are provided, set index immediately
+      this.currentSlideshowIndex = (startIndex >= 0 && startIndex < images.length) ? startIndex : 0;
+      this.pendingStartIndex = null;
+    } else {
+      // If no images yet (dynamic loading), store the startIndex for later
+      this.currentSlideshowIndex = 0;
+      this.pendingStartIndex = (startIndex >= 0) ? startIndex : null;
+    }
     this.currentSlideshowImageUrl = ''; // Explicitly clear cached current image URL
     this.isSlideshowActive = false;
     this.currentImageFileName = '';
@@ -1087,6 +1098,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Update current image URL if this is the current image
     if (imageIndex === this.currentSlideshowIndex) {
       this.updateCurrentSlideshowImageUrl();
+    }
+    
+    // If we have a pending startIndex and this is the image at that index, navigate to it
+    if (this.pendingStartIndex !== null && imageIndex === this.pendingStartIndex) {
+      this.currentSlideshowIndex = this.pendingStartIndex;
+      this.updateCurrentSlideshowImageUrl();
+      this.pendingStartIndex = null; // Clear pending index
+      this.cdr.detectChanges();
     }
     
     // Reset zoom when first image loads

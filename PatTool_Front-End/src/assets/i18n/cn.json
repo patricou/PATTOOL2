@@ -265,6 +265,7 @@
         "VIEW_LIST": "列表",
         "COMPACT_VIEW": "紧凑视图",
         "VIEW_DETAILS": "查看详情",
+        "EDIT_EVENT": "编辑活动",
         "EVENTS_FOUND": "返回结果",
         "PAGE": "页面",
         "TITLE_ONLY_HINT": "紧凑视图",
@@ -452,6 +453,7 @@
     "EVENTUPDT": {
         "TITLE": "修改活动",
         "SUBMIT": "修改",
+        "LOADING_EVENT_DATA": "正在加载活动数据...",
         "UNSAVED_CHANGES_CONFIRM": "您有未保存的更改。您确定要离开此页面吗？",
         "PHOTOFROMFS_UNAUTHORIZED": "您无权创建或编辑类型为'来自文件系统的照片'的链接。只有授权用户可以创建或编辑此类链接。",
         "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "错误：您无权更新带有'来自文件系统的照片'类型链接的活动。只有授权用户可以修改此类链接。"

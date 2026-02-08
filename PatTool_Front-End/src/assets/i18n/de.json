@@ -269,6 +269,7 @@
         "VIEW_LIST": "Liste",
         "COMPACT_VIEW": "Kompakte Ansicht",
         "VIEW_DETAILS": "Details anzeigen",
+        "EDIT_EVENT": "Ereignis bearbeiten",
         "EVENTS_FOUND": "zurückgegebenes Ergebnis(se)",
         "PAGE": "Seite",
         "TITLE_ONLY_HINT": "Kompakte Ansicht",
@@ -454,6 +455,7 @@
     "EVENTUPDT": {
         "TITLE": "Veranstaltung ändern",
         "SUBMIT": "Ändern",
+        "LOADING_EVENT_DATA": "Ereignisdaten werden geladen...",
         "UNSAVED_CHANGES_CONFIRM": "Sie haben ungespeicherte Änderungen. Möchten Sie diese Seite wirklich verlassen?",
         "PHOTOFROMFS_UNAUTHORIZED": "Sie sind nicht berechtigt, Links vom Typ 'Foto aus dem Dateisystem' zu erstellen oder zu bearbeiten. Nur der autorisierte Benutzer kann diese Art von Link erstellen oder bearbeiten.",
         "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Fehler: Sie sind nicht berechtigt, Ereignisse mit Links vom Typ 'Foto aus dem Dateisystem' zu aktualisieren. Nur der autorisierte Benutzer kann diese Art von Link ändern."
@@ -507,6 +509,7 @@
         "NO_ACCESS_USERS": "Keine Benutzer mit Zugriff gefunden",
         "TOTAL_USERS": "Gesamt Benutzer",
         "VIEW_DETAILS": "Details anzeigen",
+        "EDIT_EVENT": "Ereignis bearbeiten",
         "UPLOAD": "Datei hochladen (Bilder, Video, PDF, GPS-Spur)",
         "UPLOAD_PROGRESS": "Upload-Fortschritt",
         "WAITING_FOR_UPLOAD": "Warten auf Upload-Start...",

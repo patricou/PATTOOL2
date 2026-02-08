@@ -269,6 +269,7 @@
         "VIEW_LIST": "Lista",
         "COMPACT_VIEW": "Vista compacta",
         "VIEW_DETAILS": "Ver detalles",
+        "EDIT_EVENT": "Editar evento",
         "EVENTS_FOUND": "resultado(s) devuelto(s)",
         "PAGE": "Página",
         "TITLE_ONLY_HINT": "Vista compacta",
@@ -455,6 +456,7 @@
     "EVENTUPDT": {
         "TITLE": "Actualización de actividad",
         "SUBMIT": "Enviar",
+        "LOADING_EVENT_DATA": "Cargando datos del evento...",
         "UNSAVED_CHANGES_CONFIRM": "Tiene cambios sin guardar. ¿Está seguro de que desea salir de esta página?",
         "PHOTOFROMFS_UNAUTHORIZED": "No está autorizado a crear o editar enlaces de tipo 'Foto desde el sistema de archivos'. Solo el usuario autorizado puede crear o editar este tipo de enlace.",
         "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Error: No está autorizado a actualizar eventos con enlaces de tipo 'Foto desde el sistema de archivos'. Solo el usuario autorizado puede modificar este tipo de enlace."
@@ -524,6 +526,7 @@
         "NO_ACCESS_USERS": "No se encontraron usuarios con acceso",
         "TOTAL_USERS": "Total de usuarios",
         "VIEW_DETAILS": "Ver detalles",
+        "EDIT_EVENT": "Editar evento",
         "PDF_DOCUMENTS": "Documentos PDF",
         "OPEN_PDF": "Abrir",
         "DOWNLOAD_PDF": "Descargar",

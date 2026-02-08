@@ -262,6 +262,7 @@
         "VIEW_LIST": "Liste",
         "COMPACT_VIEW": "Vue compacte",
         "VIEW_DETAILS": "Voir les détails",
+        "EDIT_EVENT": "Modifier l'événement",
         "EVENTS_FOUND": "activité(s) retournée(s)",
         "PAGE": "Page",
         "TITLE_ONLY_HINT": "Vue compacte",
@@ -443,6 +444,7 @@
     "EVENTUPDT": {
         "TITLE": "Modification de l'Activité",
         "SUBMIT": "Modification",
+        "LOADING_EVENT_DATA": "Chargement des données de l'événement...",
         "UNSAVED_CHANGES_CONFIRM": "Vous avez des modifications non sauvegardées. Êtes-vous sûr de vouloir quitter cette page ?",
         "PHOTOFROMFS_UNAUTHORIZED": "Vous n'êtes pas autorisé à créer ou modifier des liens de type 'Photo depuis le système de fichiers'. Seul l'utilisateur autorisé peut créer ou modifier ce type de lien.",
         "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Erreur : Vous n'êtes pas autorisé à mettre à jour des événements avec des liens de type 'Photo depuis le système de fichiers'. Seul l'utilisateur autorisé peut modifier ce type de lien."

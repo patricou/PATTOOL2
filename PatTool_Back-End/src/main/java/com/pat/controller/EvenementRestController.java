@@ -7,6 +7,7 @@ import com.pat.repo.domain.FileUploaded;
 import com.pat.repo.domain.Friend;
 import com.pat.repo.domain.FriendGroup;
 import com.pat.repo.domain.Member;
+import com.pat.repo.domain.UrlEvent;
 import com.pat.repo.EvenementsRepository;
 import com.pat.repo.FriendGroupRepository;
 import com.pat.repo.FriendRepository;
@@ -1556,6 +1557,7 @@ public class EvenementRestController {
         }
 
         // Check if event contains PHOTOFROMFS links and validate authorization
+        // Only block if user is trying to modify PHOTOFROMFS links, not if they're just updating other fields like discussionId
         if (evenement.getUrlEvents() != null && !evenement.getUrlEvents().isEmpty()) {
             boolean hasPhotoFromFs = evenement.getUrlEvents().stream()
                 .filter(urlEvent -> urlEvent != null) // Filter out null entries
@@ -1563,14 +1565,64 @@ public class EvenementRestController {
                 .anyMatch(urlEvent -> "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl().trim()));
             
             if (hasPhotoFromFs) {
-                // Check if the user has FileSystem role
-                if (!hasFileSystemRole()) {
-                    log.warn("Unauthorized attempt to update PHOTOFROMFS link. User does not have FileSystem role.");
-                    // Return error with specific message to differentiate from friend group error
-                    java.util.Map<String, String> errorBody = new java.util.HashMap<>();
-                    errorBody.put("error", "PHOTOFROMFS_UNAUTHORIZED");
-                    errorBody.put("message", "You are not authorized to update events with 'Photo from File System' type links. Only the authorized user can modify this type of link.");
-                    return new ResponseEntity<java.util.Map<String, String>>(errorBody, HttpStatus.FORBIDDEN);
+                // Check if user is trying to modify PHOTOFROMFS links (not just updating other fields)
+                boolean isModifyingPhotoFromFs = false;
+                if (existingEvent != null) {
+                    // Get existing PHOTOFROMFS links (may be empty if event had none)
+                    java.util.List<UrlEvent> existingPhotoFromFs = (existingEvent.getUrlEvents() != null) 
+                        ? existingEvent.getUrlEvents().stream()
+                            .filter(urlEvent -> urlEvent != null && urlEvent.getTypeUrl() != null)
+                            .filter(urlEvent -> "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl().trim()))
+                            .collect(java.util.stream.Collectors.toList())
+                        : java.util.Collections.emptyList();
+                    
+                    java.util.List<UrlEvent> newPhotoFromFs = evenement.getUrlEvents().stream()
+                        .filter(urlEvent -> urlEvent != null && urlEvent.getTypeUrl() != null)
+                        .filter(urlEvent -> "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl().trim()))
+                        .collect(java.util.stream.Collectors.toList());
+                    
+                    // Check if PHOTOFROMFS links are being added, removed, or modified
+                    if (existingPhotoFromFs.size() != newPhotoFromFs.size()) {
+                        isModifyingPhotoFromFs = true; // Links added or removed
+                    } else if (!existingPhotoFromFs.isEmpty()) {
+                        // Check if any existing PHOTOFROMFS link has been modified
+                        // Since UrlEvent is an embedded document without ID, we compare by link and description
+                        for (UrlEvent existingLink : existingPhotoFromFs) {
+                            boolean foundUnchanged = newPhotoFromFs.stream().anyMatch(newLink -> 
+                                java.util.Objects.equals(newLink.getLink(), existingLink.getLink()) &&
+                                java.util.Objects.equals(newLink.getUrlDescription(), existingLink.getUrlDescription()) &&
+                                java.util.Objects.equals(newLink.getTypeUrl(), existingLink.getTypeUrl())
+                            );
+                            if (!foundUnchanged) {
+                                isModifyingPhotoFromFs = true; // A link was modified
+                                break;
+                            }
+                        }
+                    }
+                    // If existingPhotoFromFs is empty but newPhotoFromFs is not, user is adding PHOTOFROMFS links
+                    if (existingPhotoFromFs.isEmpty() && !newPhotoFromFs.isEmpty()) {
+                        isModifyingPhotoFromFs = true;
+                    }
+                } else {
+                    // No existing event found - this shouldn't happen in PUT, but if it does, block it
+                    isModifyingPhotoFromFs = true;
+                }
+                
+                // Only block if user is actually modifying PHOTOFROMFS links
+                if (isModifyingPhotoFromFs) {
+                    // Check if the user has FileSystem role
+                    if (!hasFileSystemRole()) {
+                        log.warn("Unauthorized attempt to update PHOTOFROMFS link. User does not have FileSystem role.");
+                        // Return error with specific message to differentiate from friend group error
+                        java.util.Map<String, String> errorBody = new java.util.HashMap<>();
+                        errorBody.put("error", "PHOTOFROMFS_UNAUTHORIZED");
+                        errorBody.put("message", "You are not authorized to update events with 'Photo from File System' type links. Only the authorized user can modify this type of link.");
+                        return new ResponseEntity<java.util.Map<String, String>>(errorBody, HttpStatus.FORBIDDEN);
+                    }
+                } else {
+                    // User is not modifying PHOTOFROMFS links, just updating other fields (like discussionId)
+                    // Allow the update to proceed
+                    log.debug("Event has PHOTOFROMFS links but user is not modifying them, allowing update for other fields");
                 }
             }
         }

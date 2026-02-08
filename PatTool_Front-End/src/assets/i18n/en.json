@@ -267,6 +267,7 @@
         "VIEW_LIST": "List",
         "COMPACT_VIEW": "Compact View",
         "VIEW_DETAILS": "View details",
+        "EDIT_EVENT": "Edit event",
         "EVENTS_FOUND": "result(s) returned",
         "PAGE": "Page",
         "TITLE_ONLY_HINT": "Compact view",
@@ -453,6 +454,7 @@
     "EVENTUPDT": {
         "TITLE": "Activity Update",
         "SUBMIT": "Submit",
+        "LOADING_EVENT_DATA": "Loading event data...",
         "UNSAVED_CHANGES_CONFIRM": "You have unsaved changes. Are you sure you want to leave this page?",
         "PHOTOFROMFS_UNAUTHORIZED": "You are not authorized to create or edit links of type 'Photo from File System'. Only the authorized user can create or edit this type of link.",
         "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "Error: You are not authorized to update events with links of type 'Photo from File System'. Only the authorized user can modify this type of link."

@@ -10,6 +10,69 @@
   overflow-y: auto;
 }
 
+/* Text color modes based on background brightness - ONLY TEXT COLORS, NOT BACKGROUNDS */
+.artistic-event-page.text-light-mode {
+  --text-primary: #000000;
+  --text-secondary: #1a1a1a;
+  --text-muted: #4a4a4a;
+  --text-inverse: #ffffff;
+}
+
+.artistic-event-page.text-dark-mode {
+  --text-primary: #ffffff;
+  --text-secondary: #e0e0e0;
+  --text-muted: #b0b0b0;
+  --text-inverse: #000000;
+}
+
+/* Apply text colors to ALL text elements - ONLY TEXT, NOT BACKGROUNDS */
+.artistic-event-page.text-light-mode,
+.artistic-event-page.text-light-mode * {
+  color: var(--text-primary, #000000) !important;
+}
+
+.artistic-event-page.text-dark-mode,
+.artistic-event-page.text-dark-mode * {
+  color: var(--text-primary, #ffffff) !important;
+}
+
+/* Exceptions for elements that should keep their own colors */
+.artistic-event-page.text-light-mode .rating-badge.rating-plus,
+.artistic-event-page.text-light-mode .rating-badge.rating-minus,
+.artistic-event-page.text-light-mode .action-container .rating-badge.rating-plus,
+.artistic-event-page.text-light-mode .action-container .rating-badge.rating-minus,
+.artistic-event-page.text-light-mode .star-icon.star-filled,
+.artistic-event-page.text-light-mode .star-icon.star-half,
+.artistic-event-page.text-light-mode .star-icon-compact.star-filled,
+.artistic-event-page.text-light-mode .star-icon-compact.star-half,
+.artistic-event-page.text-light-mode img,
+.artistic-event-page.text-light-mode video,
+.artistic-event-page.text-light-mode .card-header-compact i,
+.artistic-event-page.text-light-mode .photo-nav i {
+  color: inherit !important;
+}
+
+.artistic-event-page.text-dark-mode .rating-badge.rating-plus,
+.artistic-event-page.text-dark-mode .rating-badge.rating-minus,
+.artistic-event-page.text-dark-mode .action-container .rating-badge.rating-plus,
+.artistic-event-page.text-dark-mode .action-container .rating-badge.rating-minus,
+.artistic-event-page.text-dark-mode .star-icon.star-filled,
+.artistic-event-page.text-dark-mode .star-icon.star-half,
+.artistic-event-page.text-dark-mode .star-icon-compact.star-filled,
+.artistic-event-page.text-dark-mode .star-icon-compact.star-half,
+.artistic-event-page.text-dark-mode img,
+.artistic-event-page.text-dark-mode video,
+.artistic-event-page.text-dark-mode .card-header-compact i,
+.artistic-event-page.text-dark-mode .photo-nav i {
+  color: inherit !important;
+}
+
+/* Buttons - text color is already handled by the general rule above */
+
+/* Links - text color is already handled by the general rule above */
+
+/* Inputs and form elements - text color is already handled by the general rule above */
+
 /* Background Image Layer */
 .background-image-layer {
   position: fixed;
@@ -66,13 +129,31 @@
   z-index: 10;
 }
 
+.header-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.btn-edit-event {
+  flex-shrink: 0;
+  white-space: nowrap;
+  margin-left: auto;
+}
+
 .event-title {
   font-size: 2rem;
   font-weight: 800;
-  color: var(--text-color-light, #ffffff);
+  color: var(--text-primary, #ffffff);
   text-shadow: 0 0 15px rgba(0, 0, 0, 0.8), 2px 2px 4px rgba(0, 0, 0, 0.9);
   margin-bottom: 0.5rem;
   letter-spacing: 1px;
+}
+
+.text-light-mode .event-title {
+  text-shadow: 0 0 15px rgba(255, 255, 255, 0.8), 2px 2px 4px rgba(255, 255, 255, 0.9);
 }
 
 .event-meta {
@@ -88,12 +169,15 @@
   align-items: center;
   gap: 0.4rem;
   padding: 0.4rem 1rem;
-  background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
   border-radius: 15px;
-  color: var(--text-color-primary, #ffffff);
+  color: var(--text-primary, #ffffff);
   font-size: 0.85rem;
   font-weight: 500;
+}
+
+.meta-item {
+  background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
@@ -104,6 +188,170 @@
 .meta-item .owner-username {
   opacity: 0.9;
   font-weight: 500;
+}
+
+/* ============================================
+   ACTION CONTAINER (Upload + Notes)
+   ============================================ */
+
+.action-container {
+  padding: 1rem;
+  margin: 0 auto 1rem;
+  max-width: 1600px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  position: relative;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+}
+
+.action-container-inline {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto auto; /* Edit | Upload | Notes | Rating | Comment | Discussion */
+  align-items: center;
+  gap: 1rem;
+  position: relative;
+  min-height: 40px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.action-container .edit-event-wrapper {
+  grid-column: 1;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.action-container .file-upload-wrapper {
+  grid-column: 2;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.action-container .notes-section {
+  grid-column: 3;
+  min-width: 200px;
+  overflow: hidden;
+}
+
+.action-container .notes-content {
+  width: 100%;
+}
+
+.action-container .notes-text {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  color: var(--text-secondary, #e0e0e0);
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 0.9rem;
+}
+
+.action-container .notes-text {
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-secondary, #e0e0e0);
+}
+
+.action-container .rating-section {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+  grid-column: 4;
+  justify-self: center;
+  position: relative;
+  z-index: 1;
+}
+
+.action-container .add-commentary-wrapper {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  grid-column: 5;
+  justify-self: end;
+  z-index: 10;
+  position: relative;
+}
+
+.action-container .add-discussion-wrapper {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  grid-column: 6;
+  justify-self: end;
+  z-index: 10;
+  position: relative;
+}
+
+.action-container .add-commentary-wrapper button {
+  white-space: nowrap;
+}
+
+.action-container .star-rating-display {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+}
+
+.action-container .star-icon {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.action-container .star-icon.star-filled,
+.action-container .star-icon.star-filled i {
+  color: #FFD700 !important;
+}
+
+.action-container .star-icon.star-half,
+.action-container .star-icon.star-half i {
+  color: #FFD700 !important;
+}
+
+.action-container .star-rating-value {
+  margin-left: 0.25rem;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+  font-size: 0.9rem;
+}
+
+.action-container .rating-badge {
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+}
+
+.action-container .rating-badge.rating-plus {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 0.8), rgba(76, 175, 80, 1));
+  color: #ffffff !important; /* Keep white text on green background */
+}
+
+.action-container .rating-badge.rating-plus:hover {
+  background: linear-gradient(135deg, rgba(76, 175, 80, 1), rgba(76, 175, 80, 0.9));
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+}
+
+.action-container .rating-badge.rating-minus {
+  background: linear-gradient(135deg, rgba(220, 53, 69, 0.8), rgba(220, 53, 69, 1));
+  color: #ffffff !important; /* Keep white text on red background */
+}
+
+.action-container .rating-badge.rating-minus:hover {
+  background: linear-gradient(135deg, rgba(220, 53, 69, 1), rgba(220, 53, 69, 0.9));
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
 }
 
 /* ============================================
@@ -146,12 +394,63 @@
   /* Prevent overlapping - ensure each card occupies its own grid cell */
   position: relative;
   z-index: 1;
+  color: var(--text-primary, #ffffff);
 }
 
 .dynamic-card:hover {
   transform: translateY(-3px);
   box-shadow: 0 6px 25px rgba(0, 0, 0, 0.35);
   border-color: rgba(255, 255, 255, 0.25);
+}
+
+/* PHOTOFROMFS Card - Slightly different color */
+.photofromfs-card {
+  background: rgba(100, 181, 246, 0.12) !important;
+  border-color: rgba(100, 181, 246, 0.3) !important;
+}
+
+.photofromfs-card:hover {
+  border-color: rgba(100, 181, 246, 0.45) !important;
+  box-shadow: 0 6px 25px rgba(100, 181, 246, 0.2) !important;
+}
+
+/* PHOTOFROMFS Gallery Loading State */
+.photo-gallery-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem;
+  color: var(--text-primary, #ffffff);
+  gap: 1rem;
+}
+
+.photo-gallery-loading i {
+  font-size: 2rem;
+  color: rgba(100, 181, 246, 0.8);
+}
+
+.photo-gallery-loading span {
+  font-size: 0.9rem;
+}
+
+/* Photo loading placeholder */
+.photo-loading-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 200px;
+  color: var(--text-secondary, #e0e0e0);
+}
+
+.photo-loading-placeholder {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.photo-loading-placeholder i {
+  font-size: 2rem;
 }
 
 /* Card Sizes - All cards use span 1 to allow dense packing */
@@ -393,7 +692,7 @@
 .card-title-small {
   font-size: 0.95rem;
   font-weight: 700;
-  color: var(--badge-title-color, #ffffff);
+  color: var(--text-primary, #ffffff);
   margin: 0 0 0.5rem 0;
   padding-bottom: 0.5rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
@@ -415,7 +714,7 @@
 .card-text-small {
   font-size: 0.85rem;
   line-height: 1.5;
-  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  color: var(--text-primary, #ffffff);
   opacity: 0.95;
   margin: 0;
 }
@@ -424,7 +723,7 @@
 .description-text-beautiful {
   font-size: 1.2rem;
   line-height: 1.9;
-  color: var(--text-color-light, rgba(255, 255, 255, 0.98));
+  color: var(--text-primary, #ffffff);
   margin: 0;
   font-family: 'Georgia', 'Times New Roman', 'Palatino', 'Merriweather', serif;
   font-weight: 400;
@@ -441,12 +740,19 @@
   gap: 0.5rem;
   font-size: 0.9rem;
   font-weight: 700;
-  color: var(--badge-title-color, #ffffff);
+  color: var(--text-primary, #ffffff);
   margin-bottom: 0.75rem;
   padding-bottom: 0.5rem;
+  width: 100%;
+}
+
+.card-header-compact {
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
-  width: 100%;
+}
+
+.text-light-mode .card-header-compact {
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.7);
 }
 
 /* Cards with card-header-compact should always have column layout for the card container */
@@ -483,7 +789,7 @@
   font-size: 0.75rem;
   font-weight: 600;
   border: 1.5px solid;
-  color: var(--badge-title-color, #ffffff);
+  color: var(--text-primary, #ffffff);
 }
 
 .badge-public-compact {
@@ -523,9 +829,17 @@
 .members-count {
   display: block;
   font-size: 0.7rem;
-  color: var(--text-color-dark, rgba(255, 255, 255, 0.7));
   opacity: 0.85;
   margin-bottom: 0.4rem;
+  color: var(--text-secondary, #e0e0e0);
+}
+
+.text-light-mode .members-count {
+  color: var(--text-muted, #4a4a4a);
+}
+
+.text-dark-mode .members-count {
+  color: var(--text-secondary, #e0e0e0);
 }
 
 .members-tags-compact {
@@ -542,13 +856,17 @@
 .member-tag-compact {
   display: inline-block;
   padding: 0.25rem 0.6rem;
-  background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(5px);
   border-radius: 10px;
-  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
   opacity: 0.9;
   font-size: 0.7rem;
+  color: var(--text-primary, #ffffff);
+}
+
+.member-tag-compact {
+  background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
+  color: var(--text-primary, #ffffff);
 }
 
 /* Users with Access styling */
@@ -657,17 +975,33 @@
 }
 
 .info-label {
-  color: var(--text-color-dark, rgba(255, 255, 255, 0.7));
   opacity: 0.85;
   font-weight: 500;
   flex-shrink: 0;
+  color: var(--text-secondary, #e0e0e0);
+}
+
+.text-light-mode .info-label {
+  color: var(--text-muted, #4a4a4a);
+}
+
+.text-dark-mode .info-label {
+  color: var(--text-secondary, #e0e0e0);
 }
 
 .info-value {
-  color: var(--text-color-primary, #ffffff);
   font-weight: 600;
   text-align: right;
   flex: 1;
+  color: var(--text-primary, #ffffff);
+}
+
+.text-light-mode .info-value {
+  color: var(--text-primary, #000000);
+}
+
+.text-dark-mode .info-value {
+  color: var(--text-primary, #ffffff);
 }
 
 .status-badge-compact {
@@ -712,12 +1046,14 @@
   line-height: 1;
 }
 
-.star-icon-compact.star-filled {
-  color: #ffc107;
+.star-icon-compact.star-filled,
+.star-icon-compact.star-filled i {
+  color: #FFD700 !important;
 }
 
-.star-icon-compact.star-half {
-  color: #ffc107;
+.star-icon-compact.star-half,
+.star-icon-compact.star-half i {
+  color: #FFD700 !important;
 }
 
 .star-icon-compact.star-empty {
@@ -756,7 +1092,7 @@
   transition: all 0.2s ease;
   background: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(5px);
-  color: var(--badge-title-color, #ffffff);
+  color: var(--text-primary, #ffffff);
 }
 
 .rating-badge-compact.btn-rating {
@@ -777,7 +1113,7 @@
 
 .rating-plus {
   background: linear-gradient(135deg, rgba(40, 167, 69, 0.3), rgba(40, 167, 69, 0.5));
-  color: var(--badge-title-color, #ffffff);
+  color: var(--text-primary, #ffffff);
   border-color: rgba(40, 167, 69, 0.6);
 }
 
@@ -788,7 +1124,7 @@
 
 .rating-minus {
   background: linear-gradient(135deg, rgba(220, 53, 69, 0.3), rgba(220, 53, 69, 0.5));
-  color: var(--badge-title-color, #ffffff);
+  color: var(--text-primary, #ffffff);
   border-color: rgba(220, 53, 69, 0.6);
 }
 
@@ -809,19 +1145,30 @@
   position: relative;
   width: 100%;
   margin-top: 0.75rem;
+  overflow: visible; /* Allow indicators to be visible */
+  min-height: 400px; /* Ensure minimum height for indicators positioning */
+  padding-bottom: 50px; /* Add space at bottom for indicators */
 }
 
 .photo-viewer {
   position: relative;
   width: 100%;
-  overflow: hidden;
+  min-height: 400px;
+  overflow: hidden; /* Prevent horizontal overflow */
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1; /* Lower z-index so indicators appear above */
+  margin-bottom: 0; /* No margin to allow indicators to be positioned correctly */
 }
 
 .photo-slider {
   display: flex;
   transition: transform 0.5s ease;
+  width: 100%;
+  height: 100%;
 }
 
 .photo-frame {
@@ -832,41 +1179,37 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-}
-
-.photo-frame {
-  width: 100%;
-  flex-shrink: 0;
-  padding: 1rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
+  min-height: 400px; /* Fixed minimum height for consistent card height */
+  height: 400px; /* Fixed height so portrait and landscape have same height */
+  overflow: hidden; /* Prevent image from overflowing */
 }
 
 /* Only apply square aspect ratio constraint to portrait images */
 .photo-frame.portrait-frame {
-  aspect-ratio: 1 / 1;
-  overflow: hidden;
+  height: 400px; /* Same fixed height as landscape */
+  overflow: visible; /* Allow image to be fully visible */
 }
 
 .photo-img {
   width: auto;
-  max-width: calc(100% - 2rem);
   height: auto;
-  max-height: calc(100% - 2rem);
+  max-width: calc(100% - 2rem); /* Account for padding, prevent horizontal overflow */
+  max-height: calc(400px - 2rem); /* Fit within frame height */
   display: block;
   cursor: pointer;
   border-radius: 8px;
   object-fit: contain;
+  /* Ensure image fits completely within container without overflowing */
+  box-sizing: border-box;
 }
 
-/* For portrait images, ensure height doesn't exceed width */
+/* For portrait images, ensure they fit within the fixed height frame */
 .photo-frame.portrait-frame .photo-img {
-  width: 100%;
-  height: 100%;
   max-width: 100%;
-  max-height: 100%;
+  max-height: calc(400px - 2rem);
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 
 .photo-nav {
@@ -890,6 +1233,13 @@
               0 4px 12px rgba(0, 0, 0, 0.2);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   font-weight: 600;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.photo-gallery:hover .photo-nav {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .photo-nav:hover {
@@ -924,18 +1274,44 @@
   bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
+  display: flex !important; /* Force display */
   gap: 8px;
-  z-index: 10;
+  z-index: 100; /* Very high z-index to ensure visibility above everything */
+  max-width: calc(100% - 2rem); /* Don't exceed container width, account for padding */
+  overflow: visible; /* Allow indicators to be fully visible */
+  flex-wrap: nowrap;
+  justify-content: center;
+  padding: 0 1rem; /* Add padding to prevent touching edges */
+  box-sizing: border-box;
+  pointer-events: auto; /* Ensure indicators are clickable */
+  visibility: visible !important; /* Force visibility */
+  opacity: 1 !important; /* Force opacity */
+  width: auto; /* Auto width based on content */
+  background: transparent; /* Ensure no background blocking */
+}
+
+/* Ensure indicators are positioned relative to photo-gallery, not photo-viewer */
+.photo-gallery .photo-indicators {
+  position: absolute !important;
+  bottom: 12px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 .photo-indicator {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.6) !important; /* More visible */
   cursor: pointer;
   transition: all 0.2s ease;
+  display: block !important; /* Force display */
+  visibility: visible !important; /* Force visibility */
+  opacity: 1 !important; /* Force opacity */
+  flex-shrink: 0; /* Prevent shrinking */
 }
 
 .photo-indicator.active {
@@ -955,7 +1331,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  color: var(--text-primary, #ffffff);
   word-wrap: normal;
   overflow-wrap: normal;
   word-break: normal;
@@ -995,7 +1371,7 @@
 .description-text-compact {
   font-size: 1.3rem;
   line-height: 1.7;
-  color: var(--text-color-primary, rgba(255, 255, 255, 0.95));
+  color: var(--text-primary, #ffffff);
   font-weight: 500;
   margin: 0;
   padding: 0.75rem;
@@ -1067,7 +1443,7 @@
 .notes-text-compact {
   font-size: 0.85rem;
   line-height: 1.5;
-  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  color: var(--text-primary, #ffffff);
   opacity: 0.95;
   margin: 0;
   padding: 0.75rem;
@@ -1253,7 +1629,7 @@ select.compact-input:focus {
 .comment-text-compact {
   font-size: 0.8rem;
   line-height: 1.4;
-  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  color: var(--text-primary, #ffffff);
   opacity: 0.95;
 }
 
@@ -1480,7 +1856,7 @@ select.compact-input:focus {
 
 .pdf-name-compact {
   font-size: 0.75rem;
-  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  color: var(--text-primary, #ffffff);
   opacity: 0.95;
   flex: 1;
   margin-right: 0.5rem;
@@ -1531,7 +1907,7 @@ select.compact-input:focus {
 
 .track-name-compact {
   font-size: 0.75rem;
-  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  color: var(--text-primary, #ffffff);
   opacity: 0.95;
   display: flex;
   align-items: center;
@@ -1779,7 +2155,7 @@ select.compact-input:focus {
 .message-text-compact {
   font-size: 0.85rem;
   line-height: 1.5;
-  color: var(--text-color-primary, rgba(255, 255, 255, 0.9));
+  color: var(--text-primary, #ffffff);
   opacity: 0.95;
   margin: 0;
   word-wrap: normal;
@@ -1839,7 +2215,7 @@ select.compact-input:focus {
   border: 1px solid rgba(255, 255, 255, 0.3);
   transition: all 0.2s ease;
   cursor: pointer;
-  color: var(--badge-title-color, #ffffff);
+  color: var(--text-primary, #ffffff);
 }
 
 .rating-badge-compact.btn-rating {
@@ -1958,10 +2334,18 @@ select.compact-input:focus {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 
               0 0 0 1px rgba(255, 255, 255, 0.1) inset,
               0 4px 12px rgba(0, 0, 0, 0.2);
-  font-weight: 600;
+  font-weight: 700;
   font-size: 0.75rem;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.text-light-mode .btn-primary-compact,
+.text-light-mode .btn-secondary-compact,
+.text-light-mode .btn-danger-compact,
+.text-light-mode .btn-fs-compact,
+.text-light-mode .btn-success-compact {
+  text-shadow: 0 1px 3px rgba(255, 255, 255, 0.7);
 }
 
 .btn-primary-compact:hover,
@@ -1993,7 +2377,15 @@ select.compact-input:focus {
 .btn-fs-compact i,
 .btn-success-compact i {
   color: var(--badge-title-color, #ffffff) !important;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.7));
+}
+
+.text-light-mode .btn-primary-compact i,
+.text-light-mode .btn-secondary-compact i,
+.text-light-mode .btn-danger-compact i,
+.text-light-mode .btn-fs-compact i,
+.text-light-mode .btn-success-compact i {
+  filter: drop-shadow(0 1px 3px rgba(255, 255, 255, 0.7));
 }
 
 .upload-section-compact {
@@ -2129,6 +2521,7 @@ select.compact-input:focus {
   .photos-card,
   .comments-card,
   .urls-card,
+  .photofromfs-card,
   .pdfs-card,
   .tracks-card,
   .video-card,

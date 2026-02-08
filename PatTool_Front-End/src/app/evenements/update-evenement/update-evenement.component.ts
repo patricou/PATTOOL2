@@ -50,6 +50,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 	public evenement: Evenement = new Evenement(new Member("", "", "", "", "", [], ""), new Date(), "", new Date(), new Date(), new Date(), "Nouvel Evenement !!", "", [], new Date(), "", "", [], "", "", "", "", 0, 0, "", [], [], undefined);
 	private originalEvenement: Evenement | null = null;
 	public hasUnsavedChanges: boolean = false;
+	public isLoading: boolean = false;
 	// Removed ngx-mydatepicker options - using native HTML date inputs
 	// Using native HTML date inputs instead of ngx-mydatepicker
 	public author: string = "";
@@ -215,8 +216,9 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		}
 		
 		let id: string = this._route.snapshot.params['id'];
-		this._evenementsService.getEvenement(id).subscribe
-			(evenement => {
+		this.isLoading = true;
+		this._evenementsService.getEvenement(id).subscribe({
+			next: (evenement) => {
 				//console.log("EVenement : " + JSON.stringify(evenement));
 				this.evenement = evenement;
 				// Save original state for comparison
@@ -262,8 +264,13 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 						this.evenement.visibility = 'friendGroups';
 					}
 				}
+				this.isLoading = false;
+			},
+			error: (error) => {
+				console.error('Error loading event:', error);
+				this.isLoading = false;
 			}
-			);
+		});
 	}
 
 	// Sorted list of URL event types by translated label

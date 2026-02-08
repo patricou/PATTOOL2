@@ -8,7 +8,14 @@
 <div class="container mt-0">
     <div class="row justify-content-center">
         <div class="col-lg-10 col-xl-8">
-            <form #f="ngForm" novalidate autocomplete="false" (ngSubmit)=" f.valid && updateEvenement(f.value, f.valid) " class="modern-form">
+            <!-- Loading Spinner -->
+            <div *ngIf="isLoading" class="loading-spinner-container">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="sr-only">{{ 'COMMUN.LOADING' | translate }}</span>
+                </div>
+                <p class="loading-text">{{ 'EVENTUPDT.LOADING_EVENT_DATA' | translate }}</p>
+            </div>
+            <form #f="ngForm" novalidate autocomplete="false" (ngSubmit)=" f.valid && updateEvenement(f.value, f.valid) " class="modern-form" [style.display]="isLoading ? 'none' : 'block'">
                 
                 <!-- Basic Information Card -->
                 <div class="form-card">

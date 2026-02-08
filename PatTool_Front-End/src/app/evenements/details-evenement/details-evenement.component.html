@@ -25,7 +25,7 @@
 <app-trace-viewer-modal #traceViewerModalComponent (closed)="onTraceViewerClosed()"></app-trace-viewer-modal>
 
 <!-- Artistic Event Details Page -->
-<div *ngIf="evenement && !loading && !error" class="artistic-event-page">
+<div *ngIf="evenement && !loading && !error" class="artistic-event-page" [ngClass]="getTextColorClass()">
   
   <!-- Navigation Buttons - Below menu on the left -->
   <app-navigation-buttons></app-navigation-buttons>
@@ -42,12 +42,14 @@
     <!-- Header Section -->
     <header class="artistic-header">
       <div class="header-content">
-        <h1 class="event-title" [ngStyle]="getEventTitleStyles()">
-          {{ evenement.evenementName }}
-          <span class="event-color-badge" *ngIf="getCalculatedColor()" [ngStyle]="getColorBadgeStyles()">
-            RGB({{ getCalculatedColor()?.r }}, {{ getCalculatedColor()?.g }}, {{ getCalculatedColor()?.b }})
-          </span>
-        </h1>
+        <div class="header-title-row">
+          <h1 class="event-title" [ngStyle]="getEventTitleStyles()">
+            {{ evenement.evenementName }}
+            <span class="event-color-badge" *ngIf="getCalculatedColor()" [ngStyle]="getColorBadgeStyles()">
+              RGB({{ getCalculatedColor()?.r }}, {{ getCalculatedColor()?.g }}, {{ getCalculatedColor()?.b }})
+            </span>
+          </h1>
+        </div>
         <div class="event-meta">
           <span class="meta-item">
             <i class="fa fa-calendar"></i>
@@ -68,6 +70,101 @@
         </div>
       </div>
     </header>
+
+    <!-- Action Container - Below header badges -->
+    <div class="action-container" *ngIf="(user && evenement) || evenement">
+      <div class="action-container-inline">
+        <div class="edit-event-wrapper" *ngIf="isEventOwner()">
+          <button type="button"
+                  class="btn-compact btn-primary-compact"
+                  (click)="navigateToUpdateEvent()"
+                  [title]="'EVENTHOME.EDIT_EVENT' | translate">
+            <i class="fa fa-edit"></i> {{ 'EVENTHOME.EDIT_EVENT' | translate }}
+          </button>
+        </div>
+        <div class="file-upload-wrapper" *ngIf="user && evenement">
+          <label [for]="'file-upload-input-' + evenement.id" 
+                 class="btn-compact btn-success-compact">
+            <i class="fa fa-upload"></i> {{ 'EVENTELEM.UPLOAD' | translate }}
+          </label>
+          <input type="file" 
+                 [id]="'file-upload-input-' + evenement.id" 
+                 #fileInput 
+                 (change)="onFileSelected($event)" 
+                 multiple 
+                 accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar,.gpx,.kml,.kmz,.gdb,.tcx" 
+                 style="display: none;" />
+        </div>
+        <div class="notes-section" *ngIf="evenement && evenement.notes">
+          <div class="notes-content">
+            <p class="notes-text">{{ evenement.notes }}</p>
+          </div>
+        </div>
+        <div class="rating-section" *ngIf="evenement">
+          <button type="button" 
+                  class="rating-badge rating-plus btn-rating" 
+                  (click)="addRatePlus()"
+                  [ngbTooltip]="'COMMUN.ILIKE' | translate"
+                  placement="top">
+            <i class="fa fa-thumbs-up"></i> {{ evenement.ratingPlus || 0 }}
+          </button>
+          <!-- Star Rating Display -->
+          <div class="star-rating-display">
+            <span *ngFor="let star of getStarRating(); let i = index" 
+                  class="star-icon"
+                  [class.star-filled]="star === 1"
+                  [class.star-half]="star === 0.5"
+                  [class.star-empty]="star === 0">
+              <i class="fa" 
+                 [class.fa-star]="star === 1"
+                 [class.fa-star-half-o]="star === 0.5"
+                 [class.fa-star-o]="star === 0"></i>
+            </span>
+            <span class="star-rating-value" *ngIf="getOverallRating() > 0">
+              {{ getOverallRating() | number:'1.1-1' }}
+            </span>
+          </div>
+          <button type="button" 
+                  class="rating-badge rating-minus btn-rating" 
+                  (click)="addRateMinus()"
+                  [ngbTooltip]="'COMMUN.IDONTLIKE' | translate"
+                  placement="top">
+            <i class="fa fa-thumbs-down"></i> {{ evenement.ratingMinus || 0 }}
+          </button>
+        </div>
+        <div class="add-commentary-wrapper" *ngIf="evenement">
+          <button type="button"
+                  class="btn-compact btn-primary-compact"
+                  (click)="openAddCommentary(); $event.stopPropagation()"
+                  [title]="'Ajouter un commentaire'">
+            <i class="fa fa-comment"></i> <span class="btn-text">{{ 'EVENTHOME.COMMENTARIES' | translate }}</span>
+          </button>
+        </div>
+        <div class="add-discussion-wrapper" *ngIf="evenement">
+          <button type="button"
+                  class="btn-compact btn-primary-compact"
+                  (click)="openDiscussion(); $event.stopPropagation()"
+                  [title]="'EVENTELEM.OPEN_DISCUSSION' | translate">
+            <i class="fa fa-comments"></i> <span class="btn-text">{{ 'EVENTELEM.CHAT' | translate }}</span>
+          </button>
+        </div>
+      </div>
+      <!-- Hidden commentary editor for when there are no comments -->
+      <app-commentary-editor
+        *ngIf="evenement && (!evenement.commentaries || evenement.commentaries.length === 0)"
+        [showAddButton]="false"
+        #commentaryEditor
+        [commentaries]="evenement.commentaries || []"
+        [currentUser]="user"
+        [eventId]="evenement.id"
+        [eventColor]="getCalculatedColor()"
+        [useCalculatedColorsForModal]="true"
+        (commentaryAdded)="onCommentaryAdded($event)"
+        (commentaryUpdated)="onCommentaryUpdated($event)"
+        (commentaryDeleted)="onCommentaryDeleted($event)"
+        style="display: none;">
+      </app-commentary-editor>
+    </div>
 
     <!-- Main Content Container - Dynamic Grid -->
     <div class="dynamic-grid-container">
@@ -218,70 +315,12 @@
           </div>
         </div>
 
-        <!-- Rating Card - Medium Vertical -->
-        <div class="dynamic-card card-medium card-vertical rating-card"
-             *ngIf="evenement"
-             [ngClass]="getCardLayoutClasses('rating')"
-             [style.order]="getCardOrder('rating')">
-        <div class="card-header-compact">
-          <i class="fa fa-star"></i>
-          <span>{{ 'COMMUN.RATINGS' | translate }}</span>
-        </div>
-        <div class="rating-content-compact">
-          <!-- Star Rating Display -->
-          <div class="star-rating-display-compact">
-            <span *ngFor="let star of getStarRating(); let i = index" 
-                  class="star-icon-compact"
-                  [class.star-filled]="star === 1"
-                  [class.star-half]="star === 0.5"
-                  [class.star-empty]="star === 0">
-              <i class="fa" 
-                 [class.fa-star]="star === 1"
-                 [class.fa-star-half-o]="star === 0.5"
-                 [class.fa-star-o]="star === 0"></i>
-            </span>
-            <span class="star-rating-value-compact" *ngIf="getOverallRating() > 0">
-              {{ getOverallRating() | number:'1.1-1' }}
-            </span>
-          </div>
-          <div class="rating-compact">
-            <button type="button" 
-                    class="rating-badge-compact rating-plus btn-rating" 
-                    (click)="addRatePlus()"
-                    [ngbTooltip]="'COMMUN.ILIKE' | translate"
-                    placement="top">
-              <i class="fa fa-thumbs-up"></i> {{ evenement.ratingPlus || 0 }}
-            </button>
-            <button type="button" 
-                    class="rating-badge-compact rating-minus btn-rating" 
-                    (click)="addRateMinus()"
-                    [ngbTooltip]="'COMMUN.IDONTLIKE' | translate"
-                    placement="top">
-              <i class="fa fa-thumbs-down"></i> {{ evenement.ratingMinus || 0 }}
-            </button>
-          </div>
-        </div>
-      </div>
       <!-- End First Row Cards Container -->
 
-      <!-- Notes Card - Medium Vertical -->
-      <div class="dynamic-card card-medium card-vertical notes-card"
-           *ngIf="evenement && evenement.notes"
-           [ngClass]="getCardLayoutClasses('notes')"
-           [style.order]="getCardOrder('notes')"
-           [ngStyle]="getCardGridPosition('notes')">
-        <div class="card-header-compact">
-          <i class="fa fa-sticky-note"></i>
-          <span>{{ 'EVENTELEM.NOTES' | translate }}</span>
-        </div>
-        <div class="notes-content-compact">
-          <p class="notes-text-compact">{{ evenement.notes }}</p>
-        </div>
-      </div>
 
       <!-- Discussion Card - Large Vertical -->
       <div class="dynamic-card card-large card-vertical discussion-card"
-           *ngIf="hasDiscussion()"
+           *ngIf="hasDiscussion() && discussionMessages.length > 0"
            [ngClass]="getCardLayoutClasses('discussion')"
            [style.order]="getCardOrder('discussion')"
            [ngStyle]="getCardGridPosition('discussion')">
@@ -370,16 +409,23 @@
         </div>
       </div>
 
-      <!-- Photo Gallery - Large Horizontal -->
-      <div class="dynamic-card card-large card-horizontal photos-card"
+      <!-- Photo Gallery - Medium Vertical -->
+      <div class="dynamic-card card-medium card-vertical photos-card"
            *ngIf="photoItemsList.length > 0"
-           [ngClass]="getCardLayoutClasses('photos')"
-           [style.order]="getCardOrder('photos')"
-           [ngStyle]="getCardGridPosition('photos')">
+           [ngClass]="getCardLayoutClasses('upload')"
+           [style.order]="getCardOrder('upload')"
+           [ngStyle]="getCardGridPosition('upload')">
         <div class="card-header-compact">
           <i class="fa fa-camera"></i>
           <span>{{ 'EVENTELEM.PHOTOS' | translate }} ({{ photoItemsList.length }})</span>
-          <button type="button" class="btn-compact btn-primary-compact ms-auto" (click)="openPhotosMaximized(); $event.stopPropagation()" [title]="'EVENTELEM.MAXIMIZE' | translate">
+          <button type="button" 
+                  class="btn-compact btn-primary-compact ms-auto" 
+                  (click)="togglePhotoGalleryAutoplay(); $event.stopPropagation()" 
+                  [title]="isPhotoGalleryAutoplay ? ('EVENTELEM.STOP_AUTOPLAY' | translate) : ('EVENTELEM.START_AUTOPLAY' | translate)"
+                  *ngIf="photoItemsList.length > 1">
+            <i class="fa" [class.fa-pause]="isPhotoGalleryAutoplay" [class.fa-play]="!isPhotoGalleryAutoplay"></i>
+          </button>
+          <button type="button" class="btn-compact btn-primary-compact ms-2" (click)="openPhotosMaximized(); $event.stopPropagation()" [title]="'EVENTELEM.MAXIMIZE' | translate">
             <i class="fa fa-external-link"></i>
           </button>
         </div>
@@ -404,19 +450,12 @@
           <button class="photo-nav next" (click)="nextPhoto()" *ngIf="photoItemsList.length > 1">
             <i class="fa fa-chevron-right"></i>
           </button>
-          <div class="photo-indicators" *ngIf="photoItemsList.length > 1">
-            <span *ngFor="let photoItem of photoItemsList; let i = index" 
-                  class="photo-indicator" 
-                  [class.active]="i === currentPhotoIndex"
-                  (click)="goToPhoto(i)">
-            </span>
-          </div>
         </div>
       </div>
 
       <!-- Comments - Medium Vertical -->
       <div class="dynamic-card card-medium card-vertical comments-card"
-           *ngIf="evenement"
+           *ngIf="evenement && evenement.commentaries && evenement.commentaries.length > 0"
            [ngClass]="getCardLayoutClasses('comments')"
            [style.order]="getCardOrder('comments')">
         <div class="card-header-compact">
@@ -448,13 +487,13 @@
 
       <!-- URLs - Medium Vertical -->
       <div class="dynamic-card card-medium card-vertical urls-card"
-           *ngIf="evenement"
+           *ngIf="evenement && getNonPhotoFromFsUrlEventsCount() > 0"
            [ngClass]="getCardLayoutClasses('urls')"
            [style.order]="getCardOrder('urls')"
            [ngStyle]="getCardGridPosition('urls')">
         <div class="card-header-compact">
           <i class="fa fa-link"></i>
-          <span>{{ 'EVENTELEM.URLS' | translate }} ({{ evenement.urlEvents.length }})</span>
+          <span>{{ 'EVENTELEM.URLS' | translate }} ({{ getNonPhotoFromFsUrlEventsCount() }})</span>
           <button type="button"
                   class="btn-compact btn-primary-compact ms-auto"
                   *ngIf="!isAddingUrlEvent"
@@ -509,7 +548,7 @@
         </div>
 
         <div class="urls-list-compact">
-          <div *ngIf="!evenement.urlEvents || evenement.urlEvents.length === 0" class="empty-state-compact">
+          <div *ngIf="getNonPhotoFromFsUrlEventsCount() === 0" class="empty-state-compact">
             <i class="fa fa-link"></i>
             <p>{{ 'EVENTHOME.NO_LINKS_ADDED' | translate }}</p>
           </div>
@@ -608,6 +647,77 @@
           </div>
         </div>
       </div>
+
+      <!-- Photos from File System - One card per link with gallery -->
+      <ng-container *ngFor="let urlEvent of getPhotoFromFsUrlEvents()">
+        <div class="dynamic-card card-medium card-vertical photofromfs-card"
+             *ngIf="evenement && urlEvent.link"
+             [ngClass]="getCardLayoutClasses('upload')"
+             [style.order]="getCardOrder('upload')"
+             [ngStyle]="getCardGridPosition('upload')">
+          <div class="card-header-compact">
+            <i class="fa fa-folder-open"></i>
+            <span>{{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}</span>
+            <small class="url-meta-compact ms-2">({{ urlEvent.owner }} • {{ formatCommentaryDate(urlEvent.dateCreation) }})</small>
+            <button type="button" 
+                    class="btn-compact btn-primary-compact ms-auto" 
+                    (click)="togglePhotofromfsAutoplay(urlEvent.link); $event.stopPropagation()" 
+                    [title]="isPhotofromfsAutoplay(urlEvent.link) ? ('EVENTELEM.STOP_AUTOPLAY' | translate) : ('EVENTELEM.START_AUTOPLAY' | translate)"
+                    *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 1">
+              <i class="fa" [class.fa-pause]="isPhotofromfsAutoplay(urlEvent.link)" [class.fa-play]="!isPhotofromfsAutoplay(urlEvent.link)"></i>
+            </button>
+            <button type="button" 
+                    class="btn-compact btn-primary-compact ms-2" 
+                    (click)="openPhotofromfsMaximized(urlEvent.link, getPhotofromfsCurrentPhotoIndex(urlEvent.link)); $event.stopPropagation()" 
+                    [title]="'EVENTELEM.MAXIMIZE' | translate"
+                    [disabled]="getPhotofromfsPhotoItems(urlEvent.link).length === 0">
+              <i class="fa fa-external-link"></i>
+            </button>
+          </div>
+
+          <!-- Loading state -->
+          <div *ngIf="isPhotofromfsLoading(urlEvent.link)" class="photo-gallery-loading">
+            <i class="fa fa-spinner fa-spin"></i>
+            <span>{{ 'COMMUN.LOADING' | translate }}</span>
+          </div>
+
+          <!-- Gallery -->
+          <div class="photo-gallery" *ngIf="!isPhotofromfsLoading(urlEvent.link)">
+            <div *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length === 0 && !isPhotofromfsLoading(urlEvent.link)" class="empty-state-compact">
+              <i class="fa fa-folder-open"></i>
+              <p>{{ 'EVENTHOME.NO_LINKS_ADDED' | translate }}</p>
+            </div>
+
+            <div *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 0" class="photo-viewer">
+              <div class="photo-slider" [style.transform]="'translateX(-' + (getPhotofromfsCurrentPhotoIndex(urlEvent.link) * 100) + '%)'">
+                <div class="photo-frame" *ngFor="let photoItem of getPhotofromfsPhotoItems(urlEvent.link); let i = index">
+                  <img *ngIf="hasPhotofromfsImageLoaded(photoItem.imageUrl)"
+                       [src]="photoItem.imageUrl" 
+                       [alt]="photoItem.fileName" 
+                       class="photo-img"
+                       loading="lazy"
+                       (click)="openPhotofromfsMaximized(urlEvent.link, i)"
+                       (error)="onImageError($event)">
+                  <div *ngIf="!hasPhotofromfsImageLoaded(photoItem.imageUrl)" class="photo-loading-placeholder">
+                    <i class="fa fa-spinner fa-spin"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button class="photo-nav prev" 
+                    (click)="prevPhotofromfsPhoto(urlEvent.link)" 
+                    *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 1">
+              <i class="fa fa-chevron-left"></i>
+            </button>
+            <button class="photo-nav next" 
+                    (click)="nextPhotofromfsPhoto(urlEvent.link)" 
+                    *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 1">
+              <i class="fa fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </ng-container>
 
       <!-- PDFs - Small Vertical -->
       <div class="dynamic-card card-small card-vertical pdfs-card"
@@ -745,33 +855,6 @@
             (canplay)="onVideoLoaded($event, videoFile)">
             {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
           </video>
-        </div>
-      </div>
-
-      <!-- File Upload - Small Vertical -->
-      <div class="dynamic-card card-small card-vertical upload-card"
-           *ngIf="user && evenement"
-           [ngClass]="getCardLayoutClasses('upload')"
-           [style.order]="getCardOrder('upload')"
-           [ngStyle]="getCardGridPosition('upload')">
-        <div class="card-header-compact">
-          <i class="fa fa-upload"></i>
-          <span>{{ 'EVENTELEM.UPLOAD' | translate }}</span>
-        </div>
-        <div class="upload-section-compact">
-          <div class="file-upload-wrapper">
-            <label [for]="'file-upload-input-' + evenement.id" 
-                   class="btn-compact btn-success-compact">
-              <i class="fa fa-upload"></i> {{ 'EVENTELEM.UPLOAD' | translate }}
-            </label>
-            <input type="file" 
-                   [id]="'file-upload-input-' + evenement.id" 
-                   #fileInput 
-                   (change)="onFileSelected($event)" 
-                   multiple 
-                   accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar,.gpx,.kml,.kmz,.gdb,.tcx" 
-                   style="display: none;" />
-          </div>
         </div>
       </div>
 

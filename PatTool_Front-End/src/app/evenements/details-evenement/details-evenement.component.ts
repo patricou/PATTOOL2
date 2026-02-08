@@ -93,6 +93,31 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   // Photo gallery properties
   public currentPhotoIndex: number = 0;
+  public isPhotoGalleryAutoplay: boolean = true; // Auto-play by default
+  private photoGalleryAutoplayInterval: any = null;
+  
+  // PHOTOFROMFS galleries - one per link
+  public photofromfsPhotoItems: Map<string, Array<{
+    fileName: string;
+    imageUrl: SafeUrl;
+    relativePath: string;
+  }>> = new Map();
+  public photofromfsCurrentPhotoIndex: Map<string, number> = new Map();
+  public photofromfsLoading: Map<string, boolean> = new Map();
+  public photofromfsAutoplay: Map<string, boolean> = new Map(); // Auto-play by default for each gallery
+  private photofromfsAutoplayIntervals: Map<string, any> = new Map();
+  
+  // Cache for PHOTOFROMFS images (similar to slideshow modal)
+  private photofromfsImageCache: Map<string, {
+    blobUrl: string;
+    blob: Blob;
+    safeUrl: SafeUrl;
+  }> = new Map();
+  private photofromfsLoadingKeys: Set<string> = new Set();
+  private photofromfsLoadQueue: Map<string, Array<{
+    fileName: string;
+    priority: number;
+  }>> = new Map();
   
   // Fullscreen properties
   public isFullscreen: boolean = false;
@@ -445,6 +470,47 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.videoFileSizes.clear();
     this.videoLoadSuccess.clear();
     
+    // Stop all autoplay intervals
+    this.stopPhotoGalleryAutoplay();
+    this.photofromfsAutoplayIntervals.forEach((interval) => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    });
+    this.photofromfsAutoplayIntervals.clear();
+    
+    // Clean up PHOTOFROMFS image cache
+    this.photofromfsImageCache.forEach((cached) => {
+      if (cached.blobUrl && cached.blobUrl.startsWith('blob:')) {
+        try {
+          URL.revokeObjectURL(cached.blobUrl);
+        } catch (e) {
+          // Ignore errors when revoking
+        }
+      }
+    });
+    this.photofromfsImageCache.clear();
+    this.photofromfsLoadingKeys.clear();
+    this.photofromfsLoadQueue.clear();
+    
+    // Clean up PHOTOFROMFS photo items blob URLs
+    this.photofromfsPhotoItems.forEach((items, relativePath) => {
+      items.forEach((item) => {
+        const url = (item.imageUrl as any)?.changingThisBreaksApplicationSecurity;
+        if (url && url.startsWith('blob:')) {
+          try {
+            URL.revokeObjectURL(url);
+          } catch (e) {
+            // Ignore errors when revoking
+          }
+        }
+      });
+    });
+    this.photofromfsPhotoItems.clear();
+    this.photofromfsCurrentPhotoIndex.clear();
+    this.photofromfsLoading.clear();
+    this.photofromfsAutoplay.clear();
+    
     // Clean up photo items blob URLs
     this.photoItems.forEach((item) => {
       const url = (item.imageUrl as any).changingThisBreaksApplicationSecurity;
@@ -466,6 +532,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.user = null;
     this.friendGroups = [];
     this.friendGroupsLoaded = false;
+    
+    // Clear grid packing cache
+    this.cardPositionsCache.clear();
+    this.processedCards.clear();
+    this.gridOccupancy = [];
     
     // Clear upload related data
     this.selectedFiles = [];
@@ -1273,6 +1344,33 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     imageFiles.forEach(file => {
       this.loadImageFromFile(file.fieldId);
     });
+
+    // Start autoplay for photo gallery if enabled
+    // Wait a bit for images to start loading, then start autoplay
+    if (imageFiles.length > 1) {
+      setTimeout(() => {
+        if (this.isPhotoGalleryAutoplay && this.photoItemsList.length > 1) {
+          this.startPhotoGalleryAutoplay();
+        }
+      }, 1000);
+    }
+
+    // Load PHOTOFROMFS images
+    this.loadAllPhotofromfsImages();
+  }
+
+  // Load images for all PHOTOFROMFS links
+  private loadAllPhotofromfsImages(): void {
+    if (!this.evenement) {
+      return;
+    }
+
+    const photofromfsLinks = this.getPhotoFromFsUrlEvents();
+    photofromfsLinks.forEach(urlEvent => {
+      if (urlEvent.link) {
+        this.loadPhotofromfsImages(urlEvent.link);
+      }
+    });
   }
 
   // Load image with authentication
@@ -1325,6 +1423,16 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
             this.updateBackgroundImageUrl();
             this.cdr.markForCheck();
           }, 0);
+          
+          // Start autoplay when first few images are loaded (progressive start)
+          const loadedCount = this.photoItems.filter(item => {
+            const url = (item.imageUrl as any)?.changingThisBreaksApplicationSecurity;
+            return url && url.startsWith('blob:');
+          }).length;
+          
+          if (loadedCount >= 2 && this.isPhotoGalleryAutoplay && !this.photoGalleryAutoplayInterval && this.photoItems.length > 1) {
+            this.startPhotoGalleryAutoplay();
+          }
         }
       },
       error: (error) => {
@@ -1664,17 +1772,85 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           modalRef.componentInstance.eventColor = eventColor;
         }
       }
+      
+      // Reload discussion messages when modal is closed
+      modalRef.closed.subscribe(() => {
+        this.loadDiscussionMessages();
+        this.cdr.markForCheck();
+      });
     } catch (error) {
       console.error('Error opening discussion modal:', error);
     }
   }
 
-  // Open discussion if available
+  // Open discussion if available, create it if it doesn't exist
   public openDiscussion(): void {
-    if (!this.evenement?.discussionId) {
+    if (!this.evenement) {
       return;
     }
 
+    // If discussion doesn't exist, create it first
+    if (!this.evenement.discussionId) {
+      const discussionTitle = this.evenement.evenementName || 'Discussion';
+      this.discussionService.createDiscussion(discussionTitle).subscribe({
+        next: (discussion) => {
+          if (discussion && discussion.id) {
+            const discussionId = discussion.id;
+            // Try to update the event with the new discussionId
+            // Note: This may fail if user doesn't have permission to update events with PHOTOFROMFS links
+            // But the discussion will still work even if not linked to the event
+            this.evenement!.discussionId = discussionId;
+            this.evenementsService.putEvenement(this.evenement!).subscribe({
+              next: () => {
+                console.log('Discussion created and linked to event:', discussionId);
+                // Now open the discussion modal
+                this.openDiscussionModal(discussionId);
+              },
+              error: (error) => {
+                console.error('Error updating event with discussionId:', error);
+                const errorMessage = error?.error?.message || error?.message || '';
+                // Check if it's the PHOTOFROMFS authorization error
+                if (errorMessage.includes('Photo from File System') || errorMessage.includes('PHOTOFROMFS')) {
+                  // This is expected - user doesn't have permission to update events with PHOTOFROMFS links
+                  // But they can still create and use discussions
+                  // The discussion is created and works, we just can't persist the link in the event
+                  console.warn('Discussion created successfully (ID: ' + discussionId + ') but cannot be linked to event due to PHOTOFROMFS permissions. Discussion is still usable.');
+                  // Revert the local change since update failed
+                  this.evenement!.discussionId = undefined;
+                  // Still open the modal - the discussion exists and works independently
+                  this.openDiscussionModal(discussionId);
+                } else {
+                  // Other error - show alert but still try to use the discussion
+                  const fullErrorMessage = errorMessage || 'Erreur lors de la mise à jour de l\'événement';
+                  console.warn('Error linking discussion to event:', fullErrorMessage);
+                  // Revert the local change since update failed
+                  this.evenement!.discussionId = undefined;
+                  // Still open the modal - the discussion exists and works
+                  this.openDiscussionModal(discussionId);
+                }
+              }
+            });
+          } else {
+            const errorMsg = 'Erreur: La discussion n\'a pas pu être créée (aucun ID retourné)';
+            console.error(errorMsg);
+            alert(errorMsg);
+          }
+        },
+        error: (error) => {
+          console.error('Error creating discussion:', error);
+          const errorMessage = error?.error?.message || error?.message || 'Erreur inconnue';
+          const errorDetails = error?.error?.error || error?.statusText || '';
+          alert('Erreur lors de la création de la discussion:\n' + errorMessage + (errorDetails ? '\n' + errorDetails : ''));
+        }
+      });
+    } else {
+      // Discussion exists, open it directly
+      this.openDiscussionModal(this.evenement.discussionId);
+    }
+  }
+
+  // Helper method to open the discussion modal
+  private openDiscussionModal(discussionId: string): void {
     try {
       const modalRef = this.modalService.open(DiscussionModalComponent, {
         size: 'lg',
@@ -1686,11 +1862,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       
       if (modalRef && modalRef.componentInstance) {
         // Set the discussion ID and title
-        modalRef.componentInstance.discussionId = this.evenement.discussionId;
-        modalRef.componentInstance.title = this.evenement.evenementName || 'Discussion';
+        modalRef.componentInstance.discussionId = discussionId;
+        modalRef.componentInstance.title = this.evenement!.evenementName || 'Discussion';
         
         // Get event color for modal styling
-        const eventId = this.evenement.id || '';
+        const eventId = this.evenement!.id || '';
         const eventColor = this.eventColorService.getEventColor(eventId);
         if (eventColor) {
           modalRef.componentInstance.eventColor = eventColor;
@@ -1702,10 +1878,20 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           }, 300);
         }
       } else {
-        console.error('Failed to open discussion modal - modalRef or componentInstance is null');
+        const errorMsg = 'Erreur: Impossible d\'ouvrir la fenêtre de discussion';
+        console.error(errorMsg);
+        alert(errorMsg);
       }
-    } catch (error) {
+      
+      // Reload discussion messages when modal is closed
+      modalRef.closed.subscribe(() => {
+        this.loadDiscussionMessages();
+        this.cdr.markForCheck();
+      });
+    } catch (error: any) {
       console.error('Error opening discussion modal:', error);
+      const errorMessage = error?.message || 'Erreur inconnue lors de l\'ouverture de la fenêtre de discussion';
+      alert('Erreur: ' + errorMessage);
     }
   }
 
@@ -2628,6 +2814,21 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.router.navigate(['/even']);
   }
 
+  // Check if current user is the owner of the event
+  public isEventOwner(): boolean {
+    if (!this.user || !this.evenement || !this.evenement.author) {
+      return false;
+    }
+    return this.user.userName?.toLowerCase() === this.evenement.author.userName?.toLowerCase();
+  }
+
+  // Navigate to update event page
+  public navigateToUpdateEvent(): void {
+    if (this.evenement && this.evenement.id) {
+      this.router.navigate(['/updeven', this.evenement.id]);
+    }
+  }
+
   // Handle image load - detect portrait orientation
   public onImageLoad(event: any): void {
     const target = event.target as HTMLImageElement;
@@ -2930,11 +3131,412 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     return type ? type.id : 'OTHER';
   }
 
-  // Get sorted type keys for consistent display order
+  // Get sorted type keys for consistent display order (excluding PHOTOFROMFS)
   public getSortedTypeKeys(): string[] {
     const grouped = this.getGroupedUrlEvents();
-    const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'VIDEO', 'PHOTOS', 'PHOTOFROMFS', 'OTHER'];
+    const typeOrder = ['MAP', 'DOCUMENTATION', 'WEBSITE', 'VIDEO', 'PHOTOS', 'OTHER'];
     return typeOrder.filter(type => grouped[type] && grouped[type].length > 0);
+  }
+
+  // Get PHOTOFROMFS links only
+  public getPhotoFromFsUrlEvents(): UrlEvent[] {
+    if (!this.evenement || !this.evenement.urlEvents || this.evenement.urlEvents.length === 0) {
+      return [];
+    }
+    return this.evenement.urlEvents.filter(urlEvent => this.isPhotoFromFs(urlEvent));
+  }
+
+  // Get count of non-PHOTOFROMFS links for URLs card
+  public getNonPhotoFromFsUrlEventsCount(): number {
+    if (!this.evenement || !this.evenement.urlEvents || this.evenement.urlEvents.length === 0) {
+      return 0;
+    }
+    return this.evenement.urlEvents.filter(urlEvent => !this.isPhotoFromFs(urlEvent)).length;
+  }
+
+  // Get photo items for a specific PHOTOFROMFS link
+  public getPhotofromfsPhotoItems(relativePath: string): Array<{
+    fileName: string;
+    imageUrl: SafeUrl;
+    relativePath: string;
+  }> {
+    return this.photofromfsPhotoItems.get(relativePath) || [];
+  }
+
+  // Get current photo index for a specific PHOTOFROMFS link
+  public getPhotofromfsCurrentPhotoIndex(relativePath: string): number {
+    return this.photofromfsCurrentPhotoIndex.get(relativePath) || 0;
+  }
+
+  // Check if a PHOTOFROMFS link is loading
+  public isPhotofromfsLoading(relativePath: string): boolean {
+    return this.photofromfsLoading.get(relativePath) || false;
+  }
+
+  // Get cache key for PHOTOFROMFS images (same format as slideshow modal)
+  private getPhotofromfsCacheKey(relativePath: string, fileName: string, compress: boolean): string {
+    const compressKey = compress ? ':compressed' : ':original';
+    return `disk:${relativePath}/${fileName}${compressKey}`;
+  }
+
+  // Load images from file system for a specific PHOTOFROMFS link with cache and progressive loading
+  public loadPhotofromfsImages(relativePath: string, compress: boolean = true): void {
+    if (!relativePath || this.photofromfsLoading.get(relativePath)) {
+      return;
+    }
+
+    // Initialize if not exists
+    if (!this.photofromfsPhotoItems.has(relativePath)) {
+      this.photofromfsPhotoItems.set(relativePath, []);
+      this.photofromfsCurrentPhotoIndex.set(relativePath, 0);
+    }
+
+    this.photofromfsLoading.set(relativePath, true);
+
+    // List images from disk
+    const listSub = this.fileService.listImagesFromDisk(relativePath).subscribe({
+      next: (fileNames: string[]) => {
+        if (!fileNames || fileNames.length === 0) {
+          this.photofromfsLoading.set(relativePath, false);
+          return;
+        }
+
+        // Mark loading as false immediately so gallery can display
+        this.photofromfsLoading.set(relativePath, false);
+        
+        // Create placeholder entries for all images immediately (for faster UI update)
+        const placeholderImages: Array<{
+          fileName: string;
+          imageUrl: SafeUrl;
+          relativePath: string;
+        }> = fileNames.map(fileName => ({
+          fileName: fileName,
+          imageUrl: this.sanitizer.bypassSecurityTrustUrl(''), // Empty placeholder
+          relativePath: relativePath
+        }));
+        
+        this.photofromfsPhotoItems.set(relativePath, placeholderImages);
+        this.cdr.markForCheck();
+
+        // Sort files by priority: first few images get higher priority
+        const prioritizedFiles = fileNames.map((fileName, index) => ({
+          fileName,
+          priority: index < 5 ? 0 : index // First 5 images have priority 0
+        })).sort((a, b) => a.priority - b.priority);
+
+        // Load images with concurrency and cache
+        const maxConcurrent = 12;
+        let active = 0;
+        const queue = [...prioritizedFiles];
+        const loadedImages: Array<{
+          fileName: string;
+          imageUrl: SafeUrl;
+          relativePath: string;
+        }> = [];
+
+        const loadNext = () => {
+          if (active >= maxConcurrent || queue.length === 0) {
+            if (active === 0 && queue.length === 0) {
+              // All images loaded
+              this.photofromfsLoading.set(relativePath, false);
+              this.cdr.markForCheck();
+              
+              // Ensure autoplay is started if enabled (may have already started during progressive loading)
+              const currentItems = this.photofromfsPhotoItems.get(relativePath) || [];
+              if (currentItems.length > 1 && !this.photofromfsAutoplayIntervals.has(relativePath)) {
+                if (!this.photofromfsAutoplay.has(relativePath)) {
+                  this.photofromfsAutoplay.set(relativePath, true); // Default to true
+                }
+                if (this.photofromfsAutoplay.get(relativePath)) {
+                  this.startPhotofromfsAutoplay(relativePath);
+                }
+              }
+            }
+            return;
+          }
+
+          const { fileName } = queue.shift()!;
+          const cacheKey = this.getPhotofromfsCacheKey(relativePath, fileName, compress);
+          
+          // Check cache first
+          if (this.photofromfsImageCache.has(cacheKey)) {
+            const cached = this.photofromfsImageCache.get(cacheKey)!;
+            const imageItem = {
+              fileName: fileName,
+              imageUrl: cached.safeUrl,
+              relativePath: relativePath
+            };
+            
+            // Update the specific image in the array immediately
+            const currentItems = this.photofromfsPhotoItems.get(relativePath) || [];
+            const index = currentItems.findIndex(item => item.fileName === fileName);
+            if (index >= 0) {
+              currentItems[index] = imageItem;
+            } else {
+              currentItems.push(imageItem);
+            }
+            // Force update to trigger change detection immediately
+            this.photofromfsPhotoItems.set(relativePath, [...currentItems]);
+            this.cdr.detectChanges();
+            
+            // Start autoplay when first few images are loaded (progressive start)
+            const loadedCount = currentItems.filter(item => {
+              const url = (item.imageUrl as any)?.changingThisBreaksApplicationSecurity;
+              return url && url.startsWith('blob:') && url.length > 5;
+            }).length;
+            
+            if (loadedCount >= 2 && !this.photofromfsAutoplayIntervals.has(relativePath)) {
+              if (!this.photofromfsAutoplay.has(relativePath)) {
+                this.photofromfsAutoplay.set(relativePath, true);
+              }
+              if (this.photofromfsAutoplay.get(relativePath)) {
+                this.startPhotofromfsAutoplay(relativePath);
+              }
+            }
+            
+            // Continue loading next
+            loadNext();
+            return;
+          }
+
+          // Check if already loading
+          if (this.photofromfsLoadingKeys.has(cacheKey)) {
+            // Skip, will be handled when loading completes
+            loadNext();
+            return;
+          }
+
+          active++;
+          this.photofromfsLoadingKeys.add(cacheKey);
+
+          const imageSub = this.fileService.getImageFromDiskWithMetadata(relativePath, fileName, compress).subscribe({
+            next: (result: ImageDownloadResult) => {
+              const blob = new Blob([result.buffer], { type: 'image/*' });
+              const url = URL.createObjectURL(blob);
+              const safeUrl = this.sanitizer.bypassSecurityTrustUrl(url);
+
+              // Cache the image
+              this.photofromfsImageCache.set(cacheKey, {
+                blobUrl: url,
+                blob: blob,
+                safeUrl: safeUrl
+              });
+
+              const imageItem = {
+                fileName: fileName,
+                imageUrl: safeUrl,
+                relativePath: relativePath
+              };
+
+              // Update the specific image in the array immediately (progressive loading)
+              const currentItems = this.photofromfsPhotoItems.get(relativePath) || [];
+              const index = currentItems.findIndex(item => item.fileName === fileName);
+              if (index >= 0) {
+                currentItems[index] = imageItem;
+              } else {
+                currentItems.push(imageItem);
+              }
+              // Force update to trigger change detection immediately
+              this.photofromfsPhotoItems.set(relativePath, [...currentItems]);
+              this.cdr.detectChanges();
+              
+              // Start autoplay when first few images are loaded (progressive start)
+              const loadedCount = currentItems.filter(item => {
+                const url = (item.imageUrl as any)?.changingThisBreaksApplicationSecurity;
+                return url && url.startsWith('blob:') && url.length > 5;
+              }).length;
+              
+              if (loadedCount >= 2 && !this.photofromfsAutoplayIntervals.has(relativePath)) {
+                if (!this.photofromfsAutoplay.has(relativePath)) {
+                  this.photofromfsAutoplay.set(relativePath, true);
+                }
+                if (this.photofromfsAutoplay.get(relativePath)) {
+                  this.startPhotofromfsAutoplay(relativePath);
+                }
+              }
+            },
+            error: (error) => {
+              console.error('Error loading image:', fileName, error);
+              this.photofromfsLoadingKeys.delete(cacheKey);
+            },
+            complete: () => {
+              active--;
+              this.photofromfsLoadingKeys.delete(cacheKey);
+              loadNext();
+            }
+          });
+
+          this.trackSubscription(imageSub);
+        };
+
+        // Start loading (prioritized files will load first)
+        for (let i = 0; i < Math.min(maxConcurrent, prioritizedFiles.length); i++) {
+          loadNext();
+        }
+      },
+      error: (error) => {
+        console.error('Error listing images from disk:', error);
+        this.photofromfsLoading.set(relativePath, false);
+      }
+    });
+
+    this.trackSubscription(listSub);
+  }
+
+  // Navigation methods for PHOTOFROMFS galleries
+  public nextPhotofromfsPhoto(relativePath: string): void {
+    const items = this.getPhotofromfsPhotoItems(relativePath);
+    if (items.length > 0) {
+      const currentIndex = this.getPhotofromfsCurrentPhotoIndex(relativePath);
+      const newIndex = (currentIndex + 1) % items.length;
+      this.photofromfsCurrentPhotoIndex.set(relativePath, newIndex);
+    }
+  }
+
+  public prevPhotofromfsPhoto(relativePath: string): void {
+    const items = this.getPhotofromfsPhotoItems(relativePath);
+    if (items.length > 0) {
+      const currentIndex = this.getPhotofromfsCurrentPhotoIndex(relativePath);
+      const newIndex = currentIndex === 0 ? items.length - 1 : currentIndex - 1;
+      this.photofromfsCurrentPhotoIndex.set(relativePath, newIndex);
+    }
+  }
+
+  public goToPhotofromfsPhoto(relativePath: string, index: number): void {
+    const items = this.getPhotofromfsPhotoItems(relativePath);
+    if (index >= 0 && index < items.length) {
+      this.photofromfsCurrentPhotoIndex.set(relativePath, index);
+    }
+  }
+
+  // Open maximized slideshow for a specific PHOTOFROMFS link
+  public openPhotofromfsMaximized(relativePath: string, startIndex: number = 0): void {
+    // Use the existing openFsPhotosDiaporama method which handles the slideshow properly
+    this.openFsPhotosDiaporama(relativePath, true, startIndex);
+  }
+
+  // Check if photo indicators should be displayed (limit to avoid too many dots)
+  public shouldShowPhotoIndicators(count: number): boolean {
+    return count > 1; // Show indicators if more than 1 photo (removed 20 limit for now)
+  }
+
+  // Autoplay methods for main photo gallery
+  public startPhotoGalleryAutoplay(): void {
+    this.stopPhotoGalleryAutoplay();
+    if (this.photoItemsList.length <= 1) {
+      return;
+    }
+    
+    // Check if we have at least one loaded image
+    const hasLoadedImages = this.photoItemsList.some(item => {
+      const url = (item.imageUrl as any)?.changingThisBreaksApplicationSecurity;
+      return url && url.startsWith('blob:');
+    });
+    
+    if (!hasLoadedImages) {
+      // Wait a bit for images to load, then try again
+      setTimeout(() => {
+        if (this.isPhotoGalleryAutoplay && this.photoItemsList.length > 1) {
+          this.startPhotoGalleryAutoplay();
+        }
+      }, 500);
+      return;
+    }
+    
+    this.isPhotoGalleryAutoplay = true;
+    this.photoGalleryAutoplayInterval = setInterval(() => {
+      if (this.photoItemsList.length > 1) {
+        this.nextPhoto();
+        this.cdr.markForCheck();
+      } else {
+        this.stopPhotoGalleryAutoplay();
+      }
+    }, 3000); // Change photo every 3 seconds
+  }
+
+  public stopPhotoGalleryAutoplay(): void {
+    this.isPhotoGalleryAutoplay = false;
+    if (this.photoGalleryAutoplayInterval) {
+      clearInterval(this.photoGalleryAutoplayInterval);
+      this.photoGalleryAutoplayInterval = null;
+    }
+  }
+
+  public togglePhotoGalleryAutoplay(): void {
+    if (this.isPhotoGalleryAutoplay) {
+      this.stopPhotoGalleryAutoplay();
+    } else {
+      this.startPhotoGalleryAutoplay();
+    }
+  }
+
+  // Autoplay methods for PHOTOFROMFS galleries
+  public startPhotofromfsAutoplay(relativePath: string): void {
+    this.stopPhotofromfsAutoplay(relativePath);
+    const items = this.getPhotofromfsPhotoItems(relativePath);
+    if (items.length <= 1) {
+      return;
+    }
+    
+    // Check if we have at least one loaded image
+    const hasLoadedImages = items.some(item => {
+      const url = (item.imageUrl as any)?.changingThisBreaksApplicationSecurity;
+      return url && url.startsWith('blob:') && url.length > 5; // Not empty placeholder
+    });
+    
+    if (!hasLoadedImages) {
+      // Wait a bit for images to load, then try again
+      setTimeout(() => {
+        const currentItems = this.getPhotofromfsPhotoItems(relativePath);
+        const isAutoplay = this.photofromfsAutoplay.get(relativePath) ?? true;
+        if (isAutoplay && currentItems.length > 1) {
+          this.startPhotofromfsAutoplay(relativePath);
+        }
+      }, 500);
+      return;
+    }
+    
+    this.photofromfsAutoplay.set(relativePath, true);
+    const interval = setInterval(() => {
+      const currentItems = this.getPhotofromfsPhotoItems(relativePath);
+      if (currentItems.length > 1) {
+        this.nextPhotofromfsPhoto(relativePath);
+        this.cdr.markForCheck();
+      } else {
+        this.stopPhotofromfsAutoplay(relativePath);
+      }
+    }, 3000); // Change photo every 3 seconds
+    
+    this.photofromfsAutoplayIntervals.set(relativePath, interval);
+  }
+
+  public stopPhotofromfsAutoplay(relativePath: string): void {
+    this.photofromfsAutoplay.set(relativePath, false);
+    const interval = this.photofromfsAutoplayIntervals.get(relativePath);
+    if (interval) {
+      clearInterval(interval);
+      this.photofromfsAutoplayIntervals.delete(relativePath);
+    }
+  }
+
+  public togglePhotofromfsAutoplay(relativePath: string): void {
+    const isAutoplay = this.photofromfsAutoplay.get(relativePath) ?? true;
+    if (isAutoplay) {
+      this.stopPhotofromfsAutoplay(relativePath);
+    } else {
+      this.startPhotofromfsAutoplay(relativePath);
+    }
+  }
+
+  public isPhotofromfsAutoplay(relativePath: string): boolean {
+    return this.photofromfsAutoplay.get(relativePath) ?? true;
+  }
+
+  // Check if a PHOTOFROMFS image is loaded (has valid blob URL)
+  public hasPhotofromfsImageLoaded(imageUrl: SafeUrl): boolean {
+    if (!imageUrl) return false;
+    const url = (imageUrl as any)?.changingThisBreaksApplicationSecurity;
+    return url && url.startsWith('blob:') && url.length > 5;
   }
 
   // Format commentary date
@@ -4067,16 +4669,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     // Get event color for slideshow styling
     const eventColor = this.getCalculatedColor();
     
-    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined);
-    
-    // Set the starting image index if provided
-    if (startIndex >= 0 && startIndex < imageSources.length) {
-      setTimeout(() => {
-        if (this.slideshowModalComponent) {
-          this.slideshowModalComponent.onThumbnailClick(startIndex);
-        }
-      }, 100);
-    }
+    // Pass startIndex to open method
+    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined, startIndex);
   }
 
   public openSingleImageInSlideshow(fileId: string, fileName: string): void {
@@ -4169,6 +4763,33 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     return eventColor;
   }
 
+  // Calculate if background is light or dark to determine text color
+  public isBackgroundLight(): boolean {
+    const color = this.getCalculatedColor();
+    if (!color) {
+      // Default: background is dark (with brightness filter and dark overlay)
+      return false;
+    }
+
+    // Calculate brightness (0-255) using relative luminance formula
+    // The background has brightness(0.6) filter and rgba(0, 0, 0, 0.35) overlay
+    // So we need to account for these darkening effects
+    const baseBrightness = (0.299 * color.r + 0.587 * color.g + 0.114 * color.b);
+    // Apply brightness filter (0.6) and dark overlay (0.35 opacity black)
+    // The overlay reduces brightness: new = old * (1 - overlay_opacity) + black * overlay_opacity
+    // Since black is 0, it becomes: new = old * (1 - 0.35) = old * 0.65
+    const adjustedBrightness = baseBrightness * 0.6 * 0.65;
+    
+    // If adjusted brightness is above 100 (lowered threshold for dark backgrounds), consider it light
+    // But given the darkening effects, most backgrounds will be dark
+    return adjustedBrightness > 100;
+  }
+
+  // Get text color class based on background brightness
+  public getTextColorClass(): string {
+    return this.isBackgroundLight() ? 'text-dark-mode' : 'text-light-mode';
+  }
+
   // Get styles for color badge
   public getColorBadgeStyles(): { [key: string]: string } {
     const color = this.getCalculatedColor();
@@ -4235,7 +4856,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     }
   }
 
-  public openFsPhotosDiaporama(relativePath: string, compress: boolean = true): void {
+  public openFsPhotosDiaporama(relativePath: string, compress: boolean = true, startIndex: number = 0): void {
     // Open slideshow modal immediately with empty array - images will be loaded dynamically
     if (!this.slideshowModalComponent || !this.evenement) {
       console.error('Slideshow modal component or event not available');
@@ -4248,8 +4869,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     // Get event color for slideshow styling
     const eventColor = this.getCalculatedColor();
     
-    // Open modal immediately with empty array
-    this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined);
+    // Open modal immediately with empty array, but set startIndex for when images are loaded
+    this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined, startIndex);
     
     // Then list and load images dynamically
     const listSub = this.fileService.listImagesFromDisk(relativePath).subscribe({

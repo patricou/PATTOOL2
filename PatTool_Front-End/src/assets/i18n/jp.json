@@ -143,6 +143,7 @@
         "VIEW_LIST": "リスト",
         "COMPACT_VIEW": "コンパクト表示",
         "VIEW_DETAILS": "詳細を表示",
+        "EDIT_EVENT": "イベントを編集",
         "EVENTS_FOUND": "件の結果",
         "PAGE": "ページ",
         "TITLE_ONLY": "タイトルと説明のみ表示",
@@ -332,6 +333,7 @@
     "EVENTUPDT": {
         "TITLE": "活動の変更",
         "SUBMIT": "変更",
+        "LOADING_EVENT_DATA": "イベントデータを読み込み中...",
         "UNSAVED_CHANGES_CONFIRM": "保存されていない変更があります。このページを離れてもよろしいですか？",
         "PHOTOFROMFS_UNAUTHORIZED": "「ファイルシステムからの写真」タイプのリンクを作成または編集する権限がありません。承認されたユーザーのみがこのタイプのリンクを作成または編集できます。",
         "PHOTOFROMFS_UNAUTHORIZED_UPDATE": "エラー：「ファイルシステムからの写真」タイプのリンクを含むイベントを更新する権限がありません。承認されたユーザーのみがこのタイプのリンクを変更できます。"
