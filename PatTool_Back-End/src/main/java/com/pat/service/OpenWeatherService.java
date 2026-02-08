@@ -240,6 +240,9 @@ public class OpenWeatherService {
     /**
      * Get all available altitudes with their sources
      * Tries to get altitude from all possible sources and returns all available ones
+     * Priority order: OpenElevation (sea level) > Nominatim > Mobile GPS (may be HAE)
+     * Note: Mobile GPS altitude is often in HAE (Height Above Ellipsoid) which can differ
+     * from sea level by ~30m. OpenElevation provides accurate sea level altitude.
      * @param lat Latitude
      * @param lon Longitude
      * @param alt Optional altitude from mobile device (in meters)
@@ -249,15 +252,22 @@ public class OpenWeatherService {
         Map<String, Object> result = new HashMap<>();
         java.util.List<Map<String, Object>> altitudes = new java.util.ArrayList<>();
         
-        // Source 1: Mobile device
-        if (alt != null) {
-            Map<String, Object> mobileAlt = new HashMap<>();
-            mobileAlt.put("altitude", alt);
-            mobileAlt.put("source", "mobile_device");
-            mobileAlt.put("sourceDescription", "Altitude from mobile device GPS");
-            mobileAlt.put("priority", 1);
-            altitudes.add(mobileAlt);
-            log.info("Altitude from mobile device: {}m for coordinates ({}, {})", alt, lat, lon);
+        // Source 1: OpenElevation API (highest priority - provides accurate sea level altitude)
+        // This is preferred over mobile GPS because mobile GPS often uses HAE (Height Above Ellipsoid)
+        // which can differ from sea level by ~30 meters depending on location
+        try {
+            Double openElevationAlt = getAltitudeFromOpenElevation(lat, lon);
+            if (openElevationAlt != null) {
+                Map<String, Object> openElevationAltMap = new HashMap<>();
+                openElevationAltMap.put("altitude", openElevationAlt);
+                openElevationAltMap.put("source", "openelevation");
+                openElevationAltMap.put("sourceDescription", "Altitude from OpenElevation API (sea level)");
+                openElevationAltMap.put("priority", 1);
+                altitudes.add(openElevationAltMap);
+                log.info("Altitude from OpenElevation: {}m for coordinates ({}, {})", openElevationAlt, lat, lon);
+            }
+        } catch (Exception e) {
+            log.debug("Could not get altitude from OpenElevation: {}", e.getMessage());
         }
         
         // Source 2: Nominatim (though it typically doesn't provide elevation)
@@ -276,21 +286,25 @@ public class OpenWeatherService {
             log.debug("Could not get altitude from Nominatim: {}", e.getMessage());
         }
         
-        // Source 3: OpenElevation API (reliable fallback)
-        try {
-            Double openElevationAlt = getAltitudeFromOpenElevation(lat, lon);
-            if (openElevationAlt != null) {
-                Map<String, Object> openElevationAltMap = new HashMap<>();
-                openElevationAltMap.put("altitude", openElevationAlt);
-                openElevationAltMap.put("source", "openelevation");
-                openElevationAltMap.put("sourceDescription", "Altitude from OpenElevation API");
-                openElevationAltMap.put("priority", 3);
-                altitudes.add(openElevationAltMap);
-                log.debug("Altitude from OpenElevation: {}m for coordinates ({}, {})", openElevationAlt, lat, lon);
-            }
-        } catch (Exception e) {
-            log.debug("Could not get altitude from OpenElevation: {}", e.getMessage());
+        // Source 3: Mobile device (lowest priority - may be HAE instead of sea level)
+        // Mobile GPS altitude is often in HAE (Height Above Ellipsoid) which can be
+        // significantly different from sea level altitude (~30m difference possible)
+        if (alt != null) {
+            Map<String, Object> mobileAlt = new HashMap<>();
+            mobileAlt.put("altitude", alt);
+            mobileAlt.put("source", "mobile_device");
+            mobileAlt.put("sourceDescription", "Altitude from mobile device GPS (may be HAE)");
+            mobileAlt.put("priority", 3);
+            altitudes.add(mobileAlt);
+            log.info("Altitude from mobile device: {}m for coordinates ({}, {}) - Note: may be HAE instead of sea level", alt, lat, lon);
         }
+        
+        // Sort by priority (ascending) to ensure highest priority (lowest number) is first
+        altitudes.sort((a, b) -> {
+            Integer priorityA = (Integer) a.get("priority");
+            Integer priorityB = (Integer) b.get("priority");
+            return priorityA.compareTo(priorityB);
+        });
         
         result.put("altitudes", altitudes);
         result.put("count", altitudes.size());

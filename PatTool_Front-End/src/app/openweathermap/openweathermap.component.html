@@ -184,12 +184,27 @@
                             <div class="card">
                                 <div class="card-body" style="padding: 0.75rem;">
                                     <h6 class="card-title" style="font-size: 0.875rem; margin-bottom: 0.5rem;">{{ 'API.ALTITUDE' | translate }}</h6>
-                                    <input type="text" 
-                                           class="form-control form-control-sm" 
-                                           [value]="allAltitudes[0].altitude.toFixed(1)" 
-                                           readonly
-                                           [title]="getAltitudeSourceDescription(allAltitudes[0].source)"
-                                           style="font-size: 0.875rem;">
+                                    <div [ngbTooltip]="allAltitudesTooltipTemplate" 
+                                         placement="top"
+                                         triggers="mouseenter:mouseleave"
+                                         [openDelay]="200"
+                                         style="display: inline-block; width: 100%;">
+                                        <input type="text" 
+                                               class="form-control form-control-sm" 
+                                               [value]="allAltitudes[0].altitude.toFixed(1)" 
+                                               readonly
+                                               style="font-size: 0.875rem; cursor: help;">
+                                    </div>
+                                    <ng-template #allAltitudesTooltipTemplate>
+                                        <div style="white-space: pre-line; text-align: left;">
+                                            <strong>{{ 'API.ALTITUDE' | translate }}:</strong><br>
+                                            <span *ngFor="let altInfo of allAltitudes; let i = index">
+                                                {{ altInfo.altitude.toFixed(1) }} m - {{ getAltitudeSourceDescription(altInfo.source) }}
+                                                <span *ngIf="altInfo.priority === 1" style="color: #ffc107;"> ⭐</span>
+                                                <span *ngIf="i < allAltitudes.length - 1"><br></span>
+                                            </span>
+                                        </div>
+                                    </ng-template>
                                     <small class="text-muted" style="font-size: 0.7rem; margin-top: 3px; display: block;">
                                         <i class="fa fa-info-circle"></i> {{ getAltitudeSourceDescription(allAltitudes[0].source) }}
                                         <span *ngIf="allAltitudes[0].priority === 1" class="badge badge-primary ml-1" style="font-size: 0.65em;">{{ 'API.PRIORITY' | translate }}</span>
