@@ -146,4 +146,28 @@ export class ApiService {
       )
     );
   }
+
+  /**
+   * Get Thunderforest API key for map tiles
+   */
+  getThunderforestApiKey(): Observable<string> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<{apiKey: string}>(this.API_URL + 'external/thunderforest/apikey', { headers: headers })
+      ),
+      map(response => response.apiKey || '')
+    );
+  }
+
+  /**
+   * Get IGN API key for map tiles
+   */
+  getIgnApiKey(): Observable<string> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<{apiKey: string}>(this.API_URL + 'external/ign/apikey', { headers: headers })
+      ),
+      map(response => response.apiKey || '')
+    );
+  }
 }

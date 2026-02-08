@@ -4,6 +4,7 @@ import com.pat.service.OpenWeatherService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,6 +19,12 @@ public class ApiController {
 
     @Autowired
     private OpenWeatherService openWeatherService;
+
+    @Value("${thunderforest.api.key:}")
+    private String thunderforestApiKey;
+
+    @Value("${ign.api.key:}")
+    private String ignApiKey;
 
     /**
      * Get current weather data for a city
@@ -124,5 +131,27 @@ public class ApiController {
             "/api/external/weather/altitudes"
         });
         return status;
+    }
+
+    /**
+     * Get Thunderforest API key for map tiles
+     * @return API key
+     */
+    @GetMapping(value = "/thunderforest/apikey", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getThunderforestApiKey() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("apiKey", thunderforestApiKey != null && !thunderforestApiKey.isEmpty() ? thunderforestApiKey : "");
+        return result;
+    }
+
+    /**
+     * Get IGN API key for map tiles
+     * @return API key
+     */
+    @GetMapping(value = "/ign/apikey", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getIgnApiKey() {
+        Map<String, Object> result = new HashMap<>();
+        result.put("apiKey", ignApiKey != null && !ignApiKey.isEmpty() ? ignApiKey : "");
+        return result;
     }
 }

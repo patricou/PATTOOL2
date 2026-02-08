@@ -17,7 +17,6 @@ export const environment = {
     API_URL4FILE: "/uploadfile",
     API_URL4FILEONDISK: "/api/fsphotos",
     API_URL4UPLOADFILEONDISK: "/uploadondisk",
-    IGN_API_KEY: "essentiels",
     // Langages for the translator
     langs: ["ar", "cn", "de", "el", "en", "es", "fr", "he", "in", "it", "jp", "ru"]
 };

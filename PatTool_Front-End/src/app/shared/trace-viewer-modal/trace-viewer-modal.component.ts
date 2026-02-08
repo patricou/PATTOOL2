@@ -6,7 +6,6 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { ApiService } from '../../services/api.service';
-import { environment } from '../../../environments/environment';
 import { Subject } from 'rxjs';
 import { take, takeUntil } from 'rxjs/operators';
 import * as L from 'leaflet';
@@ -97,6 +96,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public availableBaseLayers: Array<{ id: string; label: string }> = [];
 	public selectedBaseLayerId: string = '';
 	private activeBaseLayer?: L.TileLayer | L.LayerGroup;
+	private thunderforestApiKey: string = '';
 	public isFullscreenInfoVisible = false;
 	private trackBounds: L.LatLngBounds | null = null;
 	private rightMouseZoomActive = false;
@@ -1369,6 +1369,40 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
+		// Create base layers first (without OpenCycleMap)
+		this.createBaseLayers();
+
+		// IGN open data layers don't require API key - removed API key fetching
+		// Only SCAN 25/100/OACI require personal API keys
+
+		// Fetch Thunderforest API key from backend and add OpenCycleMap when available
+		this.apiService.getThunderforestApiKey().pipe(
+			takeUntil(this.destroy$)
+		).subscribe({
+			next: (apiKey: string) => {
+				if (apiKey && apiKey.trim().length > 0) {
+					this.thunderforestApiKey = apiKey;
+					// Add OpenCycleMap layer
+					this.baseLayers['opencyclemap'] = L.tileLayer('https://{s}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=' + this.thunderforestApiKey, {
+						maxZoom: 18,
+						subdomains: ['a', 'b', 'c'],
+						attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://www.thunderforest.com">Thunderforest</a>'
+					});
+					// Add to available layers list and sort alphabetically
+					const openCycleMapEntry = { id: 'opencyclemap', label: 'OpenCycleMap (Randonnée/Vélo)' };
+					this.availableBaseLayers.push(openCycleMapEntry);
+					this.availableBaseLayers.sort((a, b) => a.label.localeCompare(b.label));
+				}
+			},
+			error: (error) => {
+				console.warn('Could not fetch Thunderforest API key:', error);
+			}
+		});
+	}
+
+	// Removed updateIgnLayersWithApiKey() - IGN open data layers don't require API key
+
+	private createBaseLayers(): void {
 		this.baseLayers = {
 			'osm-standard': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 				maxZoom: 19,
@@ -1398,24 +1432,28 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxZoom: 19,
 				attribution: 'Tiles &copy; Esri'
 			}),
-			'esri-topo': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
-				maxZoom: 19,
-				attribution: 'Tiles &copy; Esri'
-			}),
-			'esri-street': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-				maxZoom: 19,
-				attribution: 'Tiles &copy; Esri'
-			}),
+			// 'esri-topo': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', {
+			// 	maxZoom: 19,
+			// 	attribution: 'Tiles &copy; Esri'
+			// }),
+			// 'esri-street': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+			// 	maxZoom: 19,
+			// 	attribution: 'Tiles &copy; Esri'
+			// }),
 			'opentopomap': L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
 				maxZoom: 17,
 				subdomains: 'abc',
 				attribution: 'Map data: &copy; OSM contributors, SRTM'
 			}),
-			'esri-light-gray': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-				maxZoom: 16,
-				attribution: 'Tiles &copy; Esri'
-			}),
+			// 'esri-light-gray': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+			// 	maxZoom: 16,
+			// 	attribution: 'Tiles &copy; Esri'
+			// }),
 			'ign-plan': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+				maxZoom: 19,
+				attribution: '&copy; IGN - Géoportail'
+			}),
+			'ign-classic': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGN&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
 			}),
@@ -1431,14 +1469,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
 			}),
-			'ign-cartes': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN-EXPRESS.STANDARD&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-				maxZoom: 19,
-				attribution: '&copy; IGN - Géoportail'
-			}),
-			'ign-scan-express': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-				maxZoom: 19,
-				attribution: '&copy; IGN - Géoportail'
-			}),
+			// IGN Cartes (Scan Express) commented out - layer name may be incorrect or deprecated
+			// The layer GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN-EXPRESS.STANDARD doesn't seem to be available
+			// 'ign-cartes': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN-EXPRESS.STANDARD&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+			// 	maxZoom: 19,
+			// 	attribution: '&copy; IGN - Géoportail'
+			// }),
+			// SCAN 25® commented out - layer name may be incorrect or requires personal API key
+			// SCAN 25/100/OACI data requires a personal key obtained through registration on IGN website
+			// The layer name GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR returns 400 Bad Request
+			// 'ign-scan-express': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+			// 	maxZoom: 19,
+			// 	attribution: '&copy; IGN - Géoportail'
+			// }),
 			'ign-relief': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
@@ -1447,20 +1490,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
 			}),
+			'ign-topo': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+				maxZoom: 19,
+				attribution: '&copy; IGN - Géoportail'
+			}),
+			// IGN BD Topo commented out - not available as simple WMTS tile layer
+			// 'ign-bd-topo': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+			// 	maxZoom: 19,
+			// 	attribution: '&copy; IGN - Géoportail'
+			// }),
 			// Hiking and outdoor maps
-			'opencyclemap': L.tileLayer('https://{s}.tile.opencyclemap.org/cycle/{z}/{x}/{y}.png', {
-				maxZoom: 18,
-				subdomains: 'abc',
-				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://opencyclemap.org">OpenCycleMap</a>'
-			}),
-			'waymarked-trails-hiking': L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', {
-				maxZoom: 18,
-				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://waymarkedtrails.org">Waymarked Trails</a>'
-			}),
-			'waymarked-trails-cycling': L.tileLayer('https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png', {
-				maxZoom: 18,
-				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://waymarkedtrails.org">Waymarked Trails</a>'
-			}),
 			'osm-hot': L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
 				maxZoom: 19,
 				subdomains: ['a', 'b', 'c'],
@@ -1472,24 +1511,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 			{ id: 'osm-standard', label: 'OpenStreetMap' },
 			{ id: 'osm-fr', label: 'OpenStreetMap France' },
 			{ id: 'esri-imagery', label: 'Esri Satellite' },
-			{ id: 'esri-topo', label: 'Esri Topographique' },
-			{ id: 'esri-street', label: 'Esri Streets' },
+			// { id: 'esri-topo', label: 'Esri Topographique' },
+			// { id: 'esri-street', label: 'Esri Streets' },
 			{ id: 'opentopomap', label: 'OpenTopoMap' },
-			{ id: 'esri-light-gray', label: 'Esri Light Gray' },
+			// { id: 'esri-light-gray', label: 'Esri Light Gray' },
+			{ id: 'ign-classic', label: 'Carte IGN classique' },
 			{ id: 'ign-plan', label: 'IGN Plan' },
 			{ id: 'ign-ortho', label: 'IGN Ortho' },
 			{ id: 'ign-cadastre', label: 'IGN Cadastre' },
-			{ id: 'ign-limites', label: 'IGN Limites Administratives' },
-			{ id: 'ign-cartes', label: 'IGN Cartes (Scan Express)' },
-			{ id: 'ign-scan-express', label: 'IGN Scan 25 Tour' },
-			{ id: 'ign-relief', label: 'IGN Relief' },
-			{ id: 'ign-routes', label: 'IGN Routes' },
-			// Hiking and outdoor maps
-			{ id: 'opencyclemap', label: 'OpenCycleMap (Randonnée/Vélo)' },
-			{ id: 'waymarked-trails-hiking', label: 'Waymarked Trails (Randonnée)' },
-			{ id: 'waymarked-trails-cycling', label: 'Waymarked Trails (Vélo)' },
+			// { id: 'ign-cartes', label: 'IGN Cartes (Scan Express)' }, // Commented out - layer not available
+			// { id: 'ign-limites', label: 'IGN Limites Administratives' },
+			// { id: 'ign-topo', label: 'Carte Topographique IGN' }, // Commented out - same as IGN Plan (both use PLANIGNV2)
+			// { id: 'ign-relief', label: 'IGN Relief' },
+			// { id: 'ign-routes', label: 'IGN Routes' },
+			// { id: 'ign-scan-express', label: 'SCAN 25® : carte topographique détaillée à 1:25 000' }, // Commented out - layer returns 400 error, may require personal API key or correct layer name
+			// { id: 'ign-bd-topo', label: 'IGN BD Topo' }, // Commented out - not available as simple WMTS tile layer
+			// Hiking and outdoor maps (OpenCycleMap will be added when API key is fetched)
 			{ id: 'osm-hot', label: 'OSM Humanitarian' }
-		];
+		].sort((a, b) => a.label.localeCompare(b.label));
 
 		this.selectedBaseLayerId = 'opentopomap';
 	}
