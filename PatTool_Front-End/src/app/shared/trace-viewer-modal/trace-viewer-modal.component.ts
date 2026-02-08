@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
+﻿import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
@@ -274,8 +274,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		// Validate positions
-		const validPositions = positions.filter(p => 
-			p.lat != null && p.lng != null && 
+		const validPositions = positions.filter(p =>
+			p.lat != null && p.lng != null &&
 			!Number.isNaN(p.lat) && !Number.isNaN(p.lng)
 		);
 
@@ -313,7 +313,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	public toggleFullscreen(): void {
 		if (this.document.fullscreenElement) {
-			this.document.exitFullscreen().catch(() => {});
+			this.document.exitFullscreen().catch(() => { });
 			return;
 		}
 
@@ -323,7 +323,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.map?.invalidateSize();
 				this.tryRenderPendingTrack();
 				this.tryRenderPendingLocation();
-			}).catch(() => {});
+			}).catch(() => { });
 		}
 	}
 
@@ -424,7 +424,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			mapContainer.style.cursor = redCrosshairCursor;
 			// Also remove leaflet-grab class if present
 			mapContainer.classList.remove('leaflet-grab');
-			
+
 			// Force cursor on all panes
 			const panes = mapContainer.querySelectorAll('.leaflet-pane, .leaflet-map-pane, .leaflet-tile-pane, .leaflet-overlay-pane');
 			panes.forEach((pane: Element) => {
@@ -462,14 +462,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.tryRenderPendingPositions();
 			this.tryRenderPendingLocation();
 		}, 50);
-		
+
 		setTimeout(() => {
 			this.map?.invalidateSize();
 			this.tryRenderPendingTrack();
 			this.tryRenderPendingPositions();
 			this.tryRenderPendingLocation();
 		}, 150);
-		
+
 		setTimeout(() => {
 			this.map?.invalidateSize();
 			this.tryRenderPendingTrack();
@@ -517,7 +517,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		const elementAddEventListener = element.addEventListener.bind(element);
-		element.addEventListener = function(
+		element.addEventListener = function (
 			type: string,
 			listener: EventListenerOrEventListenerObject,
 			options?: boolean | AddEventListenerOptions
@@ -598,11 +598,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Check if container is visible before initializing
 		// Leaflet needs the container to be visible to calculate size correctly
 		const containerStyle = window.getComputedStyle(container);
-		const isContainerVisible = containerStyle.display !== 'none' && 
-		                           containerStyle.visibility !== 'hidden' &&
-		                           container.offsetWidth > 0 && 
-		                           container.offsetHeight > 0;
-		
+		const isContainerVisible = containerStyle.display !== 'none' &&
+			containerStyle.visibility !== 'hidden' &&
+			container.offsetWidth > 0 &&
+			container.offsetHeight > 0;
+
 		if (!isContainerVisible) {
 			// Wait a bit more for the container to become visible
 			setTimeout(() => this.initializeMap(), 100);
@@ -677,10 +677,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 			if (this.showGpsCoordinates) {
 				this.updateGpsCoordinatesFromCenter();
 			}
-			
+
 			// Register click handler for marker creation (always active)
 			this.registerMapClickHandler();
-			
+
 			// Register address click handler (always active, but only updates if switch is enabled)
 			this.registerAddressClickHandler();
 			// Additional invalidateSize after map is ready
@@ -688,14 +688,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.map?.invalidateSize();
 			}, 100);
 		});
-		
+
 		// Ensure base layer is loaded before invalidating
 		if (this.baseLayers['osm-standard']) {
 			this.baseLayers['osm-standard'].once('load', () => {
 				invalidate();
 			});
 		}
-		
+
 		// Force invalidateSize after a short delay to ensure container is fully rendered
 		setTimeout(() => {
 			this.map?.invalidateSize();
@@ -801,7 +801,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const bounds = polyline.getBounds();
 		this.trackBounds = bounds;
 		this.map.fitBounds(bounds, { padding: [24, 24] });
-		
+
 		// Force multiple invalidateSize calls to ensure map renders correctly
 		this.map.invalidateSize();
 		setTimeout(() => {
@@ -850,7 +850,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 			}
 		});
-		
+
 		// Store the most recent position for share functionality
 		const positionToStore = mostRecentIndex >= 0 ? positions[mostRecentIndex] : positions[positions.length - 1];
 		this.lastRenderedPosition = { lat: positionToStore.lat, lng: positionToStore.lng };
@@ -858,14 +858,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Add markers for each position
 		positions.forEach((pos, index) => {
 			const isMostRecent = index === mostRecentIndex;
-			
-		// No popup content needed - address will be shown in overlay when clicking on markers
-		
-		if (isMostRecent) {
-			// Most recent position: red marker icon (pin shape)
-			const redMarkerIcon = L.divIcon({
-				className: 'custom-red-marker-icon',
-				html: `
+
+			// No popup content needed - address will be shown in overlay when clicking on markers
+
+			if (isMostRecent) {
+				// Most recent position: red marker icon (pin shape)
+				const redMarkerIcon = L.divIcon({
+					className: 'custom-red-marker-icon',
+					html: `
 					<div style="width: 25px; height: 41px; position: relative;">
 						<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg" style="display: block;">
 							<path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.596 19.404 0 12.5 0z" fill="#dc3545" stroke="#ffffff" stroke-width="1"/>
@@ -873,38 +873,38 @@ export class TraceViewerModalComponent implements OnDestroy {
 						</svg>
 					</div>
 				`,
-				iconSize: [25, 41],
-				iconAnchor: [12.5, 41],
-				popupAnchor: [0, -41]
-			});
-			
-			const redMarker = L.marker([pos.lat, pos.lng], {
-				icon: redMarkerIcon,
-				zIndexOffset: 1000,
-				riseOnHover: true
-			});
-			
-			// Update switches on click - no popup needed
-			redMarker.on('click', (e: L.LeafletMouseEvent) => {
-				e.originalEvent?.stopPropagation();
-				L.DomEvent.stopPropagation(e);
-				if (e.originalEvent) {
-					L.DomEvent.preventDefault(e.originalEvent);
-				}
-				// Update all switches independently
-				this.updateSwitchesForPoint(pos.lat, pos.lng);
-			});
-			
-			redMarker.addTo(overlayLayer);
-		} else {
-			// Other positions: use position icon (pin shape) with different colors for GPS vs IP
-			const isGps = pos.type === 'GPS';
-			const markerColor = isGps ? '#28a745' : '#ffc107'; // Green for GPS, yellow for IP
-			
-			// Create position icon (pin shape) instead of circle
-			const positionIcon = L.divIcon({
-				className: 'custom-position-marker-icon',
-				html: `
+					iconSize: [25, 41],
+					iconAnchor: [12.5, 41],
+					popupAnchor: [0, -41]
+				});
+
+				const redMarker = L.marker([pos.lat, pos.lng], {
+					icon: redMarkerIcon,
+					zIndexOffset: 1000,
+					riseOnHover: true
+				});
+
+				// Update switches on click - no popup needed
+				redMarker.on('click', (e: L.LeafletMouseEvent) => {
+					e.originalEvent?.stopPropagation();
+					L.DomEvent.stopPropagation(e);
+					if (e.originalEvent) {
+						L.DomEvent.preventDefault(e.originalEvent);
+					}
+					// Update all switches independently
+					this.updateSwitchesForPoint(pos.lat, pos.lng);
+				});
+
+				redMarker.addTo(overlayLayer);
+			} else {
+				// Other positions: use position icon (pin shape) with different colors for GPS vs IP
+				const isGps = pos.type === 'GPS';
+				const markerColor = isGps ? '#28a745' : '#ffc107'; // Green for GPS, yellow for IP
+
+				// Create position icon (pin shape) instead of circle
+				const positionIcon = L.divIcon({
+					className: 'custom-position-marker-icon',
+					html: `
 					<div style="width: 25px; height: 41px; position: relative;">
 						<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg" style="display: block;">
 							<path d="M12.5 0C5.596 0 0 5.596 0 12.5c0 12.5 12.5 28.5 12.5 28.5s12.5-16 12.5-28.5C25 5.596 19.404 0 12.5 0z" fill="${markerColor}" stroke="#ffffff" stroke-width="1"/>
@@ -912,30 +912,30 @@ export class TraceViewerModalComponent implements OnDestroy {
 						</svg>
 					</div>
 				`,
-				iconSize: [25, 41],
-				iconAnchor: [12.5, 41],
-				popupAnchor: [0, -41]
-			});
-			
-			const positionMarker = L.marker([pos.lat, pos.lng], {
-				icon: positionIcon,
-				zIndexOffset: 500,
-				riseOnHover: true
-			});
-			
-			// Update switches on click - no popup needed
-			positionMarker.on('click', (e: L.LeafletMouseEvent) => {
-				e.originalEvent?.stopPropagation();
-				L.DomEvent.stopPropagation(e);
-				if (e.originalEvent) {
-					L.DomEvent.preventDefault(e.originalEvent);
-				}
-				// Update all switches independently
-				this.updateSwitchesForPoint(pos.lat, pos.lng);
-			});
-			
-			positionMarker.addTo(overlayLayer);
-		}
+					iconSize: [25, 41],
+					iconAnchor: [12.5, 41],
+					popupAnchor: [0, -41]
+				});
+
+				const positionMarker = L.marker([pos.lat, pos.lng], {
+					icon: positionIcon,
+					zIndexOffset: 500,
+					riseOnHover: true
+				});
+
+				// Update switches on click - no popup needed
+				positionMarker.on('click', (e: L.LeafletMouseEvent) => {
+					e.originalEvent?.stopPropagation();
+					L.DomEvent.stopPropagation(e);
+					if (e.originalEvent) {
+						L.DomEvent.preventDefault(e.originalEvent);
+					}
+					// Update all switches independently
+					this.updateSwitchesForPoint(pos.lat, pos.lng);
+				});
+
+				positionMarker.addTo(overlayLayer);
+			}
 		});
 
 		// Fit map to show all positions
@@ -971,10 +971,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 
 		const { lat, lng, label } = this.pendingLocation;
-		
+
 		// Store the location for share functionality
 		this.lastRenderedPosition = { lat, lng };
-		
+
 		// In selection mode, don't create the standard marker (will be created by registerLocationSelection)
 		// and keep pendingLocation so registerLocationSelection can use it
 		if (this.selectionMode) {
@@ -983,7 +983,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.map.setView([lat, lng], 14);
 			return;
 		}
-		
+
 		// Normal mode: create standard marker
 		this.pendingLocation = null;
 
@@ -991,27 +991,27 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const marker = L.marker([lat, lng]);
 		if (label && label.trim().length > 0) {
-		// Update switches on click - no popup needed
-		marker.on('click', (e: L.LeafletMouseEvent) => {
-			e.originalEvent?.stopPropagation();
-			L.DomEvent.stopPropagation(e);
-			if (e.originalEvent) {
-				L.DomEvent.preventDefault(e.originalEvent);
-			}
-			// Update all switches independently
-			this.updateSwitchesForPoint(lat, lng);
-		});
+			// Update switches on click - no popup needed
+			marker.on('click', (e: L.LeafletMouseEvent) => {
+				e.originalEvent?.stopPropagation();
+				L.DomEvent.stopPropagation(e);
+				if (e.originalEvent) {
+					L.DomEvent.preventDefault(e.originalEvent);
+				}
+				// Update all switches independently
+				this.updateSwitchesForPoint(lat, lng);
+			});
 		}
 		marker.addTo(this.overlayLayer);
 
 		this.trackBounds = L.latLngBounds([lat, lng], [lat, lng]);
 		this.map.setView([lat, lng], 14);
-		
+
 		// Show address automatically for initial location if address display is enabled
 		if (this.showAddress) {
 			this.showAddressInOverlay(lat, lng);
 		}
-		
+
 		// Force multiple invalidateSize calls to ensure map renders correctly
 		this.map.invalidateSize();
 		setTimeout(() => {
@@ -1453,10 +1453,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
 			}),
-			'ign-classic': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGN&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-				maxZoom: 19,
-				attribution: '&copy; IGN - Géoportail'
-			}),
+			'ign-classic': (() => {
+				// Create a hybrid layer: SCAN-REGIONAL for zoom 0-12, then PLANIGNV2 for zoom 13-19
+				// This provides classic IGN maps at lower zooms and detailed topographic maps at higher zooms
+				const scanRegional = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=IGNF_CARTES_SCAN-REGIONAL&STYLE=SCANREG&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+					minZoom: 0,
+					maxZoom: 13,
+					attribution: '&copy; IGN - GÃ©oportail',
+					zIndex: 1
+				});
+				const planIgn = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+					minZoom: 12,
+					maxZoom: 19,
+					attribution: '&copy; IGN - GÃ©oportail',
+					zIndex: 2
+				});
+				// Return a layer group that combines both
+				return L.layerGroup([scanRegional, planIgn]) as any;
+			})(),
 			'ign-ortho': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
@@ -1471,14 +1485,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}),
 			// IGN Cartes (Scan Express) commented out - layer name may be incorrect or deprecated
 			// The layer GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN-EXPRESS.STANDARD doesn't seem to be available
-			// 'ign-cartes': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN-EXPRESS.STANDARD&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+			// 'ign-cartes': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.BDUNI.J1.SCAN-EXPRESS.STANDARD&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 			// 	maxZoom: 19,
 			// 	attribution: '&copy; IGN - Géoportail'
 			// }),
 			// SCAN 25® commented out - layer name may be incorrect or requires personal API key
 			// SCAN 25/100/OACI data requires a personal key obtained through registration on IGN website
 			// The layer name GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR returns 400 Bad Request
-			// 'ign-scan-express': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+			// 'ign-scan-express': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.BDUNI.J1.SCAN25TOUR&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 			// 	maxZoom: 19,
 			// 	attribution: '&copy; IGN - Géoportail'
 			// }),
@@ -1495,7 +1509,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				attribution: '&copy; IGN - Géoportail'
 			}),
 			// IGN BD Topo commented out - not available as simple WMTS tile layer
-			// 'ign-bd-topo': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+			// 'ign-bd-topo': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.BDUNI.J1&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 			// 	maxZoom: 19,
 			// 	attribution: '&copy; IGN - Géoportail'
 			// }),
@@ -1521,7 +1535,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			{ id: 'ign-cadastre', label: 'IGN Cadastre' },
 			// { id: 'ign-cartes', label: 'IGN Cartes (Scan Express)' }, // Commented out - layer not available
 			// { id: 'ign-limites', label: 'IGN Limites Administratives' },
-			// { id: 'ign-topo', label: 'Carte Topographique IGN' }, // Commented out - same as IGN Plan (both use PLANIGNV2)
+			{ id: 'ign-topo', label: 'Carte Topographique IGN' },
 			// { id: 'ign-relief', label: 'IGN Relief' },
 			// { id: 'ign-routes', label: 'IGN Routes' },
 			// { id: 'ign-scan-express', label: 'SCAN 25® : carte topographique détaillée à 1:25 000' }, // Commented out - layer returns 400 error, may require personal API key or correct layer name
@@ -1558,10 +1572,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (nextLayer) {
 			nextLayer.addTo(this.map);
 			this.activeBaseLayer = nextLayer;
-			
+
 			// Force map to redraw and invalidate size
 			this.map.invalidateSize();
-			
+
 			// Additional invalidateSize calls with delays to ensure tiles load properly
 			setTimeout(() => {
 				this.map?.invalidateSize();
@@ -1569,7 +1583,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			setTimeout(() => {
 				this.map?.invalidateSize();
 			}, 200);
-			
+
 			// Force redraw of the layer to ensure all tiles are visible
 			if (nextLayer instanceof L.TileLayer) {
 				nextLayer.redraw();
@@ -1581,6 +1595,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 					}
 				});
 			}
+
+
+
+			// Force tile loading by triggering a zoom event (most reliable method)
+			setTimeout(() => {
+				if (this.map) {
+					const currentZoom = this.map.getZoom();
+					// Zoom in slightly then back to trigger tile loading
+					this.map.setZoom(currentZoom + 0.01, { animate: false });
+					setTimeout(() => {
+						this.map?.setZoom(currentZoom, { animate: false });
+						// Final invalidateSize to ensure rendering
+						setTimeout(() => {
+							this.map?.invalidateSize();
+						}, 100);
+					}, 100);
+				}
+			}, 100);
 		}
 	}
 
@@ -1685,25 +1717,25 @@ export class TraceViewerModalComponent implements OnDestroy {
 		const photoName = this.pendingLocation?.label || this.trackFileName;
 		const seeLocationText = this.translate('EVENTELEM.SEE_LOCATION');
 		const userLocationText = this.translate('API.USER_LOCATION');
-		
+
 		// Check if it's a generic location label (not a photo name)
-		const isGenericLabel = !photoName || 
-			photoName === seeLocationText || 
-			photoName === userLocationText || 
-			photoName === 'Ma position' || 
-			photoName === 'My position' || 
+		const isGenericLabel = !photoName ||
+			photoName === seeLocationText ||
+			photoName === userLocationText ||
+			photoName === 'Ma position' ||
+			photoName === 'My position' ||
 			photoName === 'User location' ||
 			photoName.toLowerCase().includes('position') && !photoName.match(/\.(jpg|jpeg|png|gif|bmp|webp|heic|heif|tiff|tif|mov|mp4|avi)$/i);
-		
+
 		// Consider it from slideshow only if it has a file extension and is not a generic label
 		const hasFileExtension = photoName && /\.(jpg|jpeg|png|gif|bmp|webp|heic|heif|tiff|tif|mov|mp4|avi)$/i.test(photoName);
-		
-		const isFromSlideshow = photoName && photoName.trim().length > 0 && 
+
+		const isFromSlideshow = photoName && photoName.trim().length > 0 &&
 			!isGenericLabel && hasFileExtension;
 
 		// Create share text based on context
 		let shareText: string;
-		
+
 		// If simple share mode (from yellow "Carte" button), use simple format
 		if (this.simpleShareMode) {
 			shareText = `${this.translate('API.POSITION')}: ${positionText}`;
@@ -1735,7 +1767,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				if (isRTLOrSpecialOrder) {
 					// For Japanese: "Patrick Deschamps の位置"
 					// For Arabic/Hindi: similar structure
-					shareText = currentLang === 'jp' 
+					shareText = currentLang === 'jp'
 						? `${userFullName} の${this.translate('API.POSITION')} (${dateTimeStr}): ${positionText}`
 						: `${userFullName} ${this.translate('API.POSITION_OF')} (${dateTimeStr}): ${positionText}`;
 				} else {
@@ -1844,12 +1876,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.map || !this.selectionMode) {
 			return;
 		}
-		
+
 		// Clean up any existing handler first
 		if (this.locationSelectionClickHandler) {
 			this.map.off('click', this.locationSelectionClickHandler);
 		}
-		
+
 		// Create initial marker at current location if pendingLocation exists (blue marker for initial position)
 		if (this.pendingLocation && !this.selectionMarker) {
 			this.createSelectionMarker(this.pendingLocation.lat, this.pendingLocation.lng, true);
@@ -1858,29 +1890,29 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.showAddressInOverlay(this.pendingLocation.lat, this.pendingLocation.lng);
 			}
 		}
-		
+
 		// Register click handler for location selection
 		this.locationSelectionClickHandler = (e: L.LeafletMouseEvent) => {
 			const lat = e.latlng.lat;
 			const lng = e.latlng.lng;
-			
+
 			// Stop event propagation to prevent mapClickHandler from also firing
 			e.originalEvent?.stopPropagation();
 			L.DomEvent.stopPropagation(e);
-			
+
 			// Create selection marker (will remove previous one if exists)
 			this.createSelectionMarker(lat, lng);
-			
+
 			// Store coordinates for when modal closes (don't emit immediately)
 			// This allows coordinates to be sent to openweathermap when closing, even if address display is off
 			this.finalSelectedCoordinates = { lat, lng };
-			
+
 			// Show address in overlay if enabled
 			if (this.showAddress) {
 				this.showAddressInOverlay(lat, lng);
 			}
 		};
-		
+
 		this.map.on('click', this.locationSelectionClickHandler);
 	}
 
@@ -1909,11 +1941,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 			this.selectionMarker = undefined;
 		}
-		
+
 		// Choose color: blue for initial position, red for selected position
 		const markerColor = isInitial ? '#0066FF' : '#FF0000';
 		const markerClassName = isInitial ? 'custom-blue-marker' : 'custom-red-marker';
-		
+
 		// Create marker icon using SVG divIcon
 		const markerIcon = L.divIcon({
 			className: markerClassName,
@@ -1929,7 +1961,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			iconAnchor: [12.5, 41],
 			popupAnchor: [0, -41]
 		});
-		
+
 		// Add new marker at location - add directly to map with high z-index
 		// Create marker without popup - address will be shown in overlay
 		this.selectionMarker = L.marker([lat, lng], {
@@ -1939,7 +1971,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			riseOnHover: true,
 			riseOffset: 250
 		});
-		
+
 		// Update switches when marker is clicked
 		this.selectionMarker.on('click', (e: L.LeafletMouseEvent) => {
 			e.originalEvent?.stopPropagation();
@@ -1952,19 +1984,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.updateSwitchesForPoint(pos.lat, pos.lng);
 			}
 		});
-		
+
 		// Add directly to map to ensure it's on top
 		this.selectionMarker.addTo(this.map!);
-		
+
 		// Handle marker drag end to update coordinates
 		this.selectionMarker.on('dragend', () => {
 			const pos = this.selectionMarker!.getLatLng();
 			// When dragged, it becomes a selected position (red)
 			this.createSelectionMarker(pos.lat, pos.lng, false);
-			
+
 			// Store coordinates for when modal closes (don't emit immediately)
 			this.finalSelectedCoordinates = { lat: pos.lat, lng: pos.lng };
-			
+
 			// Update all switches independently
 			this.updateSwitchesForPoint(pos.lat, pos.lng);
 		});
@@ -1989,7 +2021,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 			this.clickMarker = undefined;
 		}
-		
+
 		// Create red marker icon
 		const markerIcon = L.divIcon({
 			className: 'custom-red-marker',
@@ -2005,7 +2037,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			iconAnchor: [12.5, 41],
 			popupAnchor: [0, -41]
 		});
-		
+
 		// Create marker
 		this.clickMarker = L.marker([lat, lng], {
 			icon: markerIcon,
@@ -2013,7 +2045,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			riseOnHover: true,
 			riseOffset: 250
 		});
-		
+
 		// Update switches when marker is clicked
 		this.clickMarker.on('click', (e: L.LeafletMouseEvent) => {
 			e.originalEvent?.stopPropagation();
@@ -2026,7 +2058,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.updateSwitchesForPoint(pos.lat, pos.lng);
 			}
 		});
-		
+
 		// Add to map
 		this.clickMarker.addTo(this.map!);
 	}
@@ -2121,14 +2153,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cleanupFullscreenListener();
 		this.resetTraceViewerColors();
 		if (this.document.fullscreenElement) {
-			this.document.exitFullscreen().catch(() => {});
+			this.document.exitFullscreen().catch(() => { });
 		}
 		// Emit coordinates to parent component when closing (if coordinates were selected)
 		if (this.finalSelectedCoordinates) {
 			this.locationSelected.emit(this.finalSelectedCoordinates);
 			this.finalSelectedCoordinates = undefined;
 		}
-		
+
 		this.modalRef = undefined;
 		if (!this.hasEmittedClosed) {
 			this.hasEmittedClosed = true;
@@ -2193,7 +2225,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Apply CSS variables to the modal element - try multiple selectors for compatibility
 		const applyColors = (attempt: number = 0) => {
 			let modalElement: HTMLElement | null = null;
-			
+
 			// Try multiple ways to find the modal element
 			modalElement = document.querySelector('.modal.show .modal-content.slideshow-modal-wide') as HTMLElement;
 			if (!modalElement) {
@@ -2257,7 +2289,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 			}
 		}
-		
+
 		// Only reset colors from the trace viewer modal, not the slideshow
 		if (modalElement && modalElement.querySelector('.trace-viewer-body')) {
 			modalElement.style.removeProperty('--slideshow-header-bg');
@@ -2273,11 +2305,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			modalElement.style.removeProperty('--slideshow-footer-button-text');
 			modalElement.style.removeProperty('--slideshow-footer-button-hover-bg');
 		}
-		
+
 		// Reapply slideshow colors if slideshow is still open
 		this.reapplySlideshowColors();
 	}
-	
+
 	// Reapply slideshow colors after trace viewer closes
 	// Note: The actual reapplication is handled by the slideshow component via setTraceViewerOpen(false)
 	// This method is kept for potential future use but the slideshow component handles the color reapplication
@@ -2350,7 +2382,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		};
 
 		this.map.on('click', this.mapMouseMoveHandler);
-		
+
 		// Initialize with center coordinates
 		this.updateGpsCoordinatesFromCenter();
 	}
@@ -2388,7 +2420,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.addressClickHandler = (e: L.LeafletMouseEvent) => {
 			const lat = e.latlng.lat;
 			const lng = e.latlng.lng;
-			
+
 			// Update all switches independently
 			this.updateSwitchesForPoint(lat, lng);
 		};
@@ -2453,7 +2485,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.mapClickHandler = (e: L.LeafletMouseEvent) => {
 			const lat = e.latlng.lat;
 			const lng = e.latlng.lng;
-			
+
 			// Create click marker at clicked position (only if not in selection mode, as selectionMarker handles that)
 			if (!this.selectionMode) {
 				this.createClickMarker(lat, lng);
@@ -2484,18 +2516,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Handler is always registered, but only updates if switch is enabled
 		// If address was already fetched for a clicked point, just display it
 		if (this.showAddress) {
-			
+
 			// If address was already fetched for a clicked point, just display it
 			if (this.clickedAddress && this.clickedLat && this.clickedLng) {
 				// Address already available, just ensure it's displayed
 				this.cdr.detectChanges();
 				return;
 			}
-			
+
 			let lat: number | null = null;
 			let lng: number | null = null;
 			let alt: number | null = null;
-			
+
 			// Priority 1: Use lastRenderedPosition (most recent point from trace/positions)
 			if (this.lastRenderedPosition) {
 				lat = this.lastRenderedPosition.lat;
@@ -2521,7 +2553,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				lng = center.lng;
 				alt = null;
 			}
-			
+
 			if (lat !== null && lng !== null) {
 				// Update clicked coordinates for display
 				this.clickedLat = lat;
@@ -2529,7 +2561,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.clickedAlt = alt;
 				this.clickedAddress = 'Loading address...';
 				this.cdr.detectChanges();
-				
+
 				// Get address and altitude
 				this.getAddressFromCoordinates(lat, lng);
 				this.fetchAltitudeForCoordinates(lat, lng, 'clicked');
@@ -2552,11 +2584,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.cdr.detectChanges();
 				return;
 			}
-			
+
 			let lat: number | null = null;
 			let lng: number | null = null;
 			let alt: number | null = null;
-			
+
 			// Priority 1: Use lastRenderedPosition (most recent point from trace/positions)
 			if (this.lastRenderedPosition) {
 				lat = this.lastRenderedPosition.lat;
@@ -2582,7 +2614,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				lng = center.lng;
 				alt = null;
 			}
-			
+
 			if (lat !== null && lng !== null) {
 				// Update clicked weather coordinates for display
 				this.clickedWeatherLat = lat;
@@ -2591,7 +2623,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				this.clickedWeatherAddress = '';
 				this.isLoadingWeather = true;
 				this.cdr.detectChanges();
-				
+
 				// Get address and altitude, then fetch weather
 				this.getAddressFromCoordinatesForWeather(lat, lng);
 				this.fetchAltitudeForCoordinates(lat, lng, 'clicked');
@@ -2650,13 +2682,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.showAddress || !this.showWeather) {
 			return;
 		}
-		
+
 		// Initialize both overlays
 		this.clickedLat = lat;
 		this.clickedLng = lng;
 		this.clickedAlt = null;
 		this.clickedAddress = 'Loading address...';
-		
+
 		this.clickedWeatherLat = lat;
 		this.clickedWeatherLng = lng;
 		this.clickedWeatherAlt = null;
@@ -2664,7 +2696,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.currentWeather = null;
 		this.isLoadingWeather = true;
 		this.cdr.detectChanges();
-		
+
 		// Get address from coordinates (will be shared for both overlays)
 		this.getAddressFromCoordinates(lat, lng, true); // Pass true to also update weather address
 		// Get altitude for clicked coordinates
@@ -2703,7 +2735,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.currentWeather = null;
 		this.isLoadingWeather = true;
 		this.cdr.detectChanges();
-		
+
 		// Use the shared method to fetch weather
 		this.fetchWeatherForClickedPoint(lat, lng);
 	}
@@ -2713,26 +2745,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 	 */
 	private getAddressFromCoordinatesForWeather(lat: number, lng: number): void {
 		const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-		
+
 		fetch(url, {
 			headers: {
 				'User-Agent': 'PATTOOL Weather App', // Required by Nominatim
 			}
 		})
-		.then(response => response.json())
-		.then(data => {
-			if (data && data.display_name) {
-				this.clickedWeatherAddress = data.display_name;
-			} else {
+			.then(response => response.json())
+			.then(data => {
+				if (data && data.display_name) {
+					this.clickedWeatherAddress = data.display_name;
+				} else {
+					this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
+				}
+				this.cdr.detectChanges();
+			})
+			.catch(error => {
+				console.debug('Could not fetch address for weather:', error);
 				this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
-			}
-			this.cdr.detectChanges();
-		})
-		.catch(error => {
-			console.debug('Could not fetch address for weather:', error);
-			this.clickedWeatherAddress = `${lat.toFixed(7)}, ${lng.toFixed(7)}`;
-			this.cdr.detectChanges();
-		});
+				this.cdr.detectChanges();
+			});
 	}
 
 	/**
@@ -2746,7 +2778,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.currentLng = lng;
 			this.fetchAltitudeForCoordinates(lat, lng, 'current');
 		}
-		
+
 		// Update address if switch is enabled
 		if (this.showAddress) {
 			this.clickedLat = lat;
@@ -2754,7 +2786,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.clickedAlt = null;
 			this.clickedAddress = 'Loading address...';
 		}
-		
+
 		// Update weather if switch is enabled
 		if (this.showWeather) {
 			this.clickedWeatherLat = lat;
@@ -2763,9 +2795,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.clickedWeatherAddress = '';
 			this.isLoadingWeather = true;
 		}
-		
+
 		this.cdr.detectChanges();
-		
+
 		// Fetch address (optimized: if both switches are enabled, fetch once and share)
 		if (this.showAddress && this.showWeather) {
 			// Both enabled: fetch address once and share it
@@ -2777,12 +2809,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// Only weather enabled
 			this.getAddressFromCoordinatesForWeather(lat, lng);
 		}
-		
+
 		// Fetch altitude (always fetch if at least one switch is enabled)
 		if (this.showAddress || this.showWeather || this.showGpsCoordinates) {
 			this.fetchAltitudeForCoordinates(lat, lng, 'clicked');
 		}
-		
+
 		// Fetch weather if switch is enabled
 		if (this.showWeather) {
 			setTimeout(() => {
@@ -2837,49 +2869,49 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private getAddressFromCoordinates(lat: number, lng: number, alsoUpdateWeatherAddress: boolean = false): void {
 		// Use Nominatim (OpenStreetMap) for reverse geocoding - free and no API key required
 		const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
-		
+
 		fetch(url, {
 			headers: {
 				'User-Agent': 'PATTOOL Weather App', // Required by Nominatim
 				'Accept': 'application/json'
 			}
 		})
-		.then(response => {
-			if (!response.ok) {
-				throw new Error(`HTTP error! status: ${response.status}`);
-			}
-			return response.json();
-		})
-		.then(data => {
-			let address = '';
-			if (data && data.display_name) {
-				address = data.display_name;
-			} else {
-				address = 'Address not found';
-			}
-			
-			// Update overlay with address
-			this.clickedAddress = address;
-			
-			// Also update weather address if requested (to avoid duplicate API calls)
-			if (alsoUpdateWeatherAddress) {
-				this.clickedWeatherAddress = address;
-			}
-			
-			this.cdr.detectChanges();
-		})
-		.catch(error => {
-			console.error('Could not get address from coordinates:', error);
-			const errorAddress = 'Address not available';
-			this.clickedAddress = errorAddress;
-			
-			// Also update weather address if requested
-			if (alsoUpdateWeatherAddress) {
-				this.clickedWeatherAddress = errorAddress;
-			}
-			
-			this.cdr.detectChanges();
-		});
+			.then(response => {
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+				return response.json();
+			})
+			.then(data => {
+				let address = '';
+				if (data && data.display_name) {
+					address = data.display_name;
+				} else {
+					address = 'Address not found';
+				}
+
+				// Update overlay with address
+				this.clickedAddress = address;
+
+				// Also update weather address if requested (to avoid duplicate API calls)
+				if (alsoUpdateWeatherAddress) {
+					this.clickedWeatherAddress = address;
+				}
+
+				this.cdr.detectChanges();
+			})
+			.catch(error => {
+				console.error('Could not get address from coordinates:', error);
+				const errorAddress = 'Address not available';
+				this.clickedAddress = errorAddress;
+
+				// Also update weather address if requested
+				if (alsoUpdateWeatherAddress) {
+					this.clickedWeatherAddress = errorAddress;
+				}
+
+				this.cdr.detectChanges();
+			});
 	}
 
 }
