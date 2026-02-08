@@ -38,7 +38,7 @@ export class FriendsComponent implements OnInit {
   public searchFilter: string = '';
   public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'myuser';
   public selectedFriendIndex: number | null = null;
-  public sortOption: 'dateCreation' | 'firstName' | 'lastName' | 'lastConnection' = 'dateCreation';
+  public sortOption: 'dateCreation' | 'firstName' | 'lastName' | 'lastConnection' = 'lastConnection';
   public sortOptionFriends: 'dateCreation' | 'firstName' | 'lastName' = 'dateCreation';
   
   // Cached filtered users to avoid recalculating on every change detection

@@ -93,10 +93,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private static leafletIconsConfigured = false;
 	private fullscreenChangeHandler?: () => void;
-	private baseLayers: Record<string, L.TileLayer> = {};
+	private baseLayers: Record<string, L.TileLayer | L.LayerGroup> = {};
 	public availableBaseLayers: Array<{ id: string; label: string }> = [];
 	public selectedBaseLayerId: string = '';
-	private activeBaseLayer?: L.TileLayer;
+	private activeBaseLayer?: L.TileLayer | L.LayerGroup;
 	public isFullscreenInfoVisible = false;
 	private trackBounds: L.LatLngBounds | null = null;
 	private rightMouseZoomActive = false;
@@ -1374,13 +1374,26 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxZoom: 19,
 				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 			}),
-			'osm-fr': L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
-				maxZoom: 20,
-				minZoom: 0,
-				subdomains: ['a', 'b', 'c'],
-				attribution: '&copy; OpenStreetMap France & OSM contributors',
-				tileSize: 256,
-			}),
+			'osm-fr': (() => {
+				// Create a layer group with OSM standard as base and OSM France on top
+				// This ensures no missing tiles - if OSM France fails, OSM standard shows
+				const osmStandardBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+					maxZoom: 20,
+					attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+					opacity: 0.7, // Slightly transparent so OSM France shows through
+					zIndex: 1
+				});
+				const osmFrance = L.tileLayer('https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png', {
+					maxZoom: 20,
+					minZoom: 0,
+					subdomains: ['a', 'b', 'c'],
+					attribution: '&copy; OpenStreetMap France & OSM contributors',
+					tileSize: 256,
+					zIndex: 2
+				});
+				// Return a layer group that combines both
+				return L.layerGroup([osmStandardBase, osmFrance]) as any;
+			})(),
 			'esri-imagery': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
 				maxZoom: 19,
 				attribution: 'Tiles &copy; Esri'
@@ -1417,6 +1430,41 @@ export class TraceViewerModalComponent implements OnDestroy {
 			'ign-limites': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=LIMITES_ADMINISTRATIVES_EXPRESS.LATEST&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 				maxZoom: 19,
 				attribution: '&copy; IGN - Géoportail'
+			}),
+			'ign-cartes': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN-EXPRESS.STANDARD&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+				maxZoom: 19,
+				attribution: '&copy; IGN - Géoportail'
+			}),
+			'ign-scan-express': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+				maxZoom: 19,
+				attribution: '&copy; IGN - Géoportail'
+			}),
+			'ign-relief': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=ELEVATION.ELEVATIONGRIDCOVERAGE.HIGHRES&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+				maxZoom: 19,
+				attribution: '&copy; IGN - Géoportail'
+			}),
+			'ign-routes': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=TRANSPORTNETWORKS.ROADS&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
+				maxZoom: 19,
+				attribution: '&copy; IGN - Géoportail'
+			}),
+			// Hiking and outdoor maps
+			'opencyclemap': L.tileLayer('https://{s}.tile.opencyclemap.org/cycle/{z}/{x}/{y}.png', {
+				maxZoom: 18,
+				subdomains: 'abc',
+				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://opencyclemap.org">OpenCycleMap</a>'
+			}),
+			'waymarked-trails-hiking': L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', {
+				maxZoom: 18,
+				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://waymarkedtrails.org">Waymarked Trails</a>'
+			}),
+			'waymarked-trails-cycling': L.tileLayer('https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png', {
+				maxZoom: 18,
+				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://waymarkedtrails.org">Waymarked Trails</a>'
+			}),
+			'osm-hot': L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
+				maxZoom: 19,
+				subdomains: ['a', 'b', 'c'],
+				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">HOT</a>'
 			})
 		};
 
@@ -1431,7 +1479,16 @@ export class TraceViewerModalComponent implements OnDestroy {
 			{ id: 'ign-plan', label: 'IGN Plan' },
 			{ id: 'ign-ortho', label: 'IGN Ortho' },
 			{ id: 'ign-cadastre', label: 'IGN Cadastre' },
-			{ id: 'ign-limites', label: 'IGN Limites Administratives' }
+			{ id: 'ign-limites', label: 'IGN Limites Administratives' },
+			{ id: 'ign-cartes', label: 'IGN Cartes (Scan Express)' },
+			{ id: 'ign-scan-express', label: 'IGN Scan 25 Tour' },
+			{ id: 'ign-relief', label: 'IGN Relief' },
+			{ id: 'ign-routes', label: 'IGN Routes' },
+			// Hiking and outdoor maps
+			{ id: 'opencyclemap', label: 'OpenCycleMap (Randonnée/Vélo)' },
+			{ id: 'waymarked-trails-hiking', label: 'Waymarked Trails (Randonnée)' },
+			{ id: 'waymarked-trails-cycling', label: 'Waymarked Trails (Vélo)' },
+			{ id: 'osm-hot', label: 'OSM Humanitarian' }
 		];
 
 		this.selectedBaseLayerId = 'opentopomap';
@@ -1463,8 +1520,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			nextLayer.addTo(this.map);
 			this.activeBaseLayer = nextLayer;
 			
-			// Force map to redraw and invalidate size, especially important for OpenStreetMap France
-			// This ensures all tiles are loaded and displayed correctly
+			// Force map to redraw and invalidate size
 			this.map.invalidateSize();
 			
 			// Additional invalidateSize calls with delays to ensure tiles load properly
@@ -1478,6 +1534,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// Force redraw of the layer to ensure all tiles are visible
 			if (nextLayer instanceof L.TileLayer) {
 				nextLayer.redraw();
+			} else if (nextLayer instanceof L.LayerGroup) {
+				// For layer groups (like OSM France hybrid), redraw all tile layers inside
+				nextLayer.eachLayer((layer) => {
+					if (layer instanceof L.TileLayer) {
+						layer.redraw();
+					}
+				});
 			}
 		}
 	}
