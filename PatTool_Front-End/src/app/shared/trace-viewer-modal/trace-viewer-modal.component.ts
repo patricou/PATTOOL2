@@ -1597,20 +1597,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 			}
 
 
-
-			// Force tile loading by triggering a zoom event (most reliable method)
+			// Force tile loading by changing zoom level (most reliable method)
+			// This works at all zoom levels, including high zoom where micro-zoom fails
 			setTimeout(() => {
 				if (this.map) {
 					const currentZoom = this.map.getZoom();
-					// Zoom in slightly then back to trigger tile loading
-					this.map.setZoom(currentZoom + 0.01, { animate: false });
+					// Zoom out by 1 level, then back to force complete tile reload
+					this.map.setZoom(currentZoom - 1, { animate: false });
 					setTimeout(() => {
 						this.map?.setZoom(currentZoom, { animate: false });
 						// Final invalidateSize to ensure rendering
 						setTimeout(() => {
 							this.map?.invalidateSize();
-						}, 100);
-					}, 100);
+						}, 150);
+					}, 150);
 				}
 			}, 100);
 		}
