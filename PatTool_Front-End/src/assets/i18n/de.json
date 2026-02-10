@@ -366,6 +366,9 @@
         "PHOTOS": "Fotos",
         "MONGODB_PHOTOS_DESC": "Diashow der in MongoDB gespeicherten Fotos (hochgeladene Dateien).",
         "PHOTOS_FROM_FS_HEADING": "Fotos aus dem Dateisystem",
+        "PHOTOS_FROM_FS": "Fotos aus dem Dateisystem",
+        "VIDEOS": "Videos",
+        "SUMMARY": "Zusammenfassung",
         "OTHER_PHOTOS_LINKS": "Weitere Fotolinks (Web)"
     },
     "EVENTCREATION": {

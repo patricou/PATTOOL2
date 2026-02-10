@@ -363,6 +363,9 @@
         "PHOTOS": "照片",
         "MONGODB_PHOTOS_DESC": "MongoDB 中存储的照片幻灯片（已上传文件）。",
         "PHOTOS_FROM_FS_HEADING": "来自文件系统的照片",
+        "PHOTOS_FROM_FS": "来自文件系统的照片",
+        "VIDEOS": "视频",
+        "SUMMARY": "摘要",
         "OTHER_PHOTOS_LINKS": "其他照片链接（网页）"
     },
     "EVENTCREATION": {

@@ -18,6 +18,9 @@
         "PHOTOS": "फ़ोटो",
         "MONGODB_PHOTOS_DESC": "MongoDB में संग्रहीत फ़ोटो का स्लाइडशो (अपलोड की गई फ़ाइलें)।",
         "PHOTOS_FROM_FS_HEADING": "फ़ाइल सिस्टम से फ़ोटो",
+        "PHOTOS_FROM_FS": "फ़ाइल सिस्टम से फ़ोटो",
+        "VIDEOS": "वीडियो",
+        "SUMMARY": "सारांश",
         "FS_COMPRESSION_LABEL": "प्रदर्शन से पहले छवियों को संपीड़ित करें (अनुशंसित)",
         "OTHER_PHOTOS_LINKS": "अन्य फ़ोटो लिंक (वेब)"
     },

@@ -364,6 +364,10 @@
         "PHOTOS_SELECTION": "Photos Selection",
         "PHOTOS": "Photos",
         "MONGODB_PHOTOS_DESC": "Slideshow of photos stored in MongoDB (uploaded files).",
+        "PHOTOS_FROM_FS_HEADING": "Photos from file system",
+        "PHOTOS_FROM_FS": "Photos from file system",
+        "VIDEOS": "Videos",
+        "SUMMARY": "Summary",
         "OTHER_PHOTOS_LINKS": "Other photos links (web)"
     },
     "EVENTCREATION": {

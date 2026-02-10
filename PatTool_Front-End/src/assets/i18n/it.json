@@ -364,6 +364,9 @@
         "PHOTOS": "Foto",
         "MONGODB_PHOTOS_DESC": "Diaporama delle foto salvate in MongoDB (file caricati).",
         "PHOTOS_FROM_FS_HEADING": "Foto dal file system",
+        "PHOTOS_FROM_FS": "Foto dal file system",
+        "VIDEOS": "Video",
+        "SUMMARY": "Riepilogo",
         "FS_COMPRESSION_LABEL": "Comprimi le immagini prima della visualizzazione (consigliato)",
         "OTHER_PHOTOS_LINKS": "Altri link foto (web)"
     },

@@ -360,8 +360,12 @@
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "اختيار الصور",
+        "PHOTOS": "صور",
         "MONGODB_PHOTOS_DESC": "عرض شرائح للصور المخزنة في MongoDB (ملفات مرفوعة).",
         "PHOTOS_FROM_FS_HEADING": "صور من نظام الملفات",
+        "PHOTOS_FROM_FS": "صور من نظام الملفات",
+        "VIDEOS": "فيديوهات",
+        "SUMMARY": "ملخص",
         "OTHER_PHOTOS_LINKS": "روابط صور أخرى (ويب)"
     },
     "EVENTCREATION": {

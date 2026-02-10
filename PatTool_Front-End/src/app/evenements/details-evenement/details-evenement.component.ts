@@ -193,6 +193,12 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   private imageCompressionModalRef: any = null;
   private activeTimeouts = new Set<any>();
   @ViewChild('logContent') logContent!: ElementRef;
+  
+  // Route subscription for cleanup
+  private routeParamsSubscription?: Subscription;
+  
+  // Fullscreen event listeners for cleanup
+  private fullscreenHandlers: Array<{ event: string; handler: () => void }> = [];
 
   // ==============================
   // URL Events (Links) management
@@ -259,7 +265,12 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   // Get color from service and apply it to buttons and all text
   private applyEventColor(): void {
-    this.route.params.subscribe(params => {
+    // Unsubscribe previous subscription if exists
+    if (this.routeParamsSubscription) {
+      this.routeParamsSubscription.unsubscribe();
+    }
+    
+    this.routeParamsSubscription = this.route.params.subscribe(params => {
       const eventId = params['id'];
       if (eventId) {
         let color = this.eventColorService.getEventColor(eventId);
@@ -316,10 +327,48 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           // Box-shadow color for focus state
           const selectSelectedBgShadow = `rgba(${color.r}, ${color.g}, ${color.b}, 0.15)`;
           document.documentElement.style.setProperty('--select-selected-bg-shadow', selectSelectedBgShadow);
+          
+          // Create color variants for backgrounds
+          // Light variant (for cards, containers) - lighter and more transparent
+          const lightR = Math.min(255, color.r + 40);
+          const lightG = Math.min(255, color.g + 40);
+          const lightB = Math.min(255, color.b + 40);
+          document.documentElement.style.setProperty('--color-light', `rgba(${lightR}, ${lightG}, ${lightB}, 0.25)`);
+          document.documentElement.style.setProperty('--color-light-border', `rgba(${lightR}, ${lightG}, ${lightB}, 0.4)`);
+          
+          // Medium variant (for action containers, headers) - medium opacity
+          const mediumR = Math.min(255, color.r + 20);
+          const mediumG = Math.min(255, color.g + 20);
+          const mediumB = Math.min(255, color.b + 20);
+          document.documentElement.style.setProperty('--color-medium', `rgba(${mediumR}, ${mediumG}, ${mediumB}, 0.35)`);
+          document.documentElement.style.setProperty('--color-medium-border', `rgba(${mediumR}, ${mediumG}, ${mediumB}, 0.5)`);
+          
+          // Dark variant (for strong backgrounds) - darker and more opaque
+          const darkR = Math.max(0, color.r - 30);
+          const darkG = Math.max(0, color.g - 30);
+          const darkB = Math.max(0, color.b - 30);
+          document.documentElement.style.setProperty('--color-dark', `rgba(${darkR}, ${darkG}, ${darkB}, 0.5)`);
+          document.documentElement.style.setProperty('--color-dark-border', `rgba(${darkR}, ${darkG}, ${darkB}, 0.6)`);
+          
+          // Very light variant (for subtle backgrounds) - very light and transparent
+          const veryLightR = Math.min(255, color.r + 60);
+          const veryLightG = Math.min(255, color.g + 60);
+          const veryLightB = Math.min(255, color.b + 60);
+          document.documentElement.style.setProperty('--color-very-light', `rgba(${veryLightR}, ${veryLightG}, ${veryLightB}, 0.15)`);
+          document.documentElement.style.setProperty('--color-very-light-border', `rgba(${veryLightR}, ${veryLightG}, ${veryLightB}, 0.25)`);
+          
+          // Original color with different opacities
+          document.documentElement.style.setProperty('--color-original-light', `rgba(${color.r}, ${color.g}, ${color.b}, 0.2)`);
+          document.documentElement.style.setProperty('--color-original-medium', `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`);
+          document.documentElement.style.setProperty('--color-original-dark', `rgba(${color.r}, ${color.g}, ${color.b}, 0.4)`);
         } else {
           // Set default colors if no color is found
           document.documentElement.style.setProperty('--text-color-primary', 'rgba(255, 255, 255, 0.9)');
           document.documentElement.style.setProperty('--text-color-dark', 'rgba(255, 255, 255, 0.7)');
+          document.documentElement.style.setProperty('--color-light', 'rgba(255, 255, 255, 0.2)');
+          document.documentElement.style.setProperty('--color-medium', 'rgba(255, 255, 255, 0.3)');
+          document.documentElement.style.setProperty('--color-dark', 'rgba(255, 255, 255, 0.4)');
+          document.documentElement.style.setProperty('--color-very-light', 'rgba(255, 255, 255, 0.15)');
         }
       }
     });
@@ -425,8 +474,25 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    // ============================================
+    // COMPREHENSIVE MEMORY CLEANUP
+    // ============================================
+    // This method ensures all resources are properly released when the component is destroyed
+    // to prevent memory leaks and ensure clean component lifecycle management.
+    
     this.cancelFsDownloads();
     this.onSlideshowClosed();
+    
+    // Unsubscribe route params subscription
+    if (this.routeParamsSubscription && !this.routeParamsSubscription.closed) {
+      this.routeParamsSubscription.unsubscribe();
+    }
+    
+    // Remove fullscreen event listeners
+    this.fullscreenHandlers.forEach(({ event, handler }) => {
+      document.removeEventListener(event, handler);
+    });
+    this.fullscreenHandlers = [];
     
     // Cancel all active HTTP subscriptions to prevent backend errors when connection is closed
     this.activeSubscriptions.forEach(sub => {
@@ -577,6 +643,36 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     // Reset photo gallery
     this.currentPhotoIndex = 0;
     this.isFullscreen = false;
+    
+    // Close any open modals
+    if (this.qualityModalRef) {
+      try {
+        this.qualityModalRef.close();
+      } catch (e) {
+        // Ignore errors
+      }
+      this.qualityModalRef = null;
+    }
+    
+    if (this.imageCompressionModalRef) {
+      try {
+        this.imageCompressionModalRef.close();
+      } catch (e) {
+        // Ignore errors
+      }
+      this.imageCompressionModalRef = null;
+    }
+    
+    // Clear ViewChild references (Angular will handle these, but we can null them for clarity)
+    this.slideshowModalComponent = null as any;
+    this.traceViewerModalComponent = null as any;
+    this.commentaryEditor = null;
+    this.discussionMessagesContainer = null as any;
+    
+    // Clear event access users
+    this.eventAccessUsers = [];
+    this.isLoadingEventAccessUsers = false;
+    this.isEventAccessUsersExpanded = false;
   }
 
   private loadEventDetails(): void {
@@ -1774,10 +1870,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       }
       
       // Reload discussion messages when modal is closed
-      modalRef.closed.subscribe(() => {
+      const closedSubscription = modalRef.closed.subscribe(() => {
         this.loadDiscussionMessages();
         this.cdr.markForCheck();
       });
+      this.trackSubscription(closedSubscription);
     } catch (error) {
       console.error('Error opening discussion modal:', error);
     }
@@ -1884,10 +1981,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       }
       
       // Reload discussion messages when modal is closed
-      modalRef.closed.subscribe(() => {
+      const closedSubscription = modalRef.closed.subscribe(() => {
         this.loadDiscussionMessages();
         this.cdr.markForCheck();
       });
+      this.trackSubscription(closedSubscription);
     } catch (error: any) {
       console.error('Error opening discussion modal:', error);
       const errorMessage = error?.message || 'Erreur inconnue lors de l\'ouverture de la fenêtre de discussion';
@@ -4642,10 +4740,18 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
     };
 
-    document.addEventListener('fullscreenchange', handleFullscreenChange);
-    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
-    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
-    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+    // Store handlers for cleanup
+    const events = [
+      { event: 'fullscreenchange', handler: handleFullscreenChange },
+      { event: 'webkitfullscreenchange', handler: handleFullscreenChange },
+      { event: 'mozfullscreenchange', handler: handleFullscreenChange },
+      { event: 'MSFullscreenChange', handler: handleFullscreenChange }
+    ];
+    
+    events.forEach(({ event, handler }) => {
+      document.addEventListener(event, handler);
+      this.fullscreenHandlers.push({ event, handler });
+    });
   }
 
   // =========================

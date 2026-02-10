@@ -136,7 +136,7 @@
           <button type="button"
                   class="btn-compact btn-primary-compact"
                   (click)="openAddCommentary(); $event.stopPropagation()"
-                  [title]="'Ajouter un commentaire'">
+                  [title]="'EVENTHOME.ADD_COMMENTARY' | translate">
             <i class="fa fa-comment"></i> <span class="btn-text">{{ 'EVENTHOME.COMMENTARIES' | translate }}</span>
           </button>
         </div>
@@ -396,7 +396,7 @@
                          style="max-width: 100%; height: auto;"
                          (loadeddata)="onDiscussionVideoLoaded($event)"
                          (canplay)="onDiscussionVideoLoaded($event)">
-                    Your browser does not support the video tag.
+                    {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
                   </video>
                   <div *ngIf="!hasDiscussionFileUrl(message.videoFileName || '', 'videos', message.videoUrl)" class="discussion-message-loading">
                     <i class="fa fa-spinner fa-spin"></i> {{ 'EVENTELEM.LOADING_VIDEOS' | translate }}
@@ -817,7 +817,7 @@
             <span>{{ videoFile.fileName }}<span *ngIf="getVideoFileSize(videoFile)" class="video-size-badge"> ({{ getVideoFileSize(videoFile) }})</span></span>
           </div>
           <button *ngIf="isFileOwner(videoFile.uploaderMember)"
-                  class="btn-compact btn-danger-compact"
+                  class="btn-compact btn-danger-compact ms-auto"
                   (click)="delFile(videoFile.fieldId)"
                   title="{{ 'EVENTELEM.DELETEFILE' | translate }}">
             <i class="fa fa-trash"></i>
@@ -862,6 +862,50 @@
     <!-- End Dynamic Grid -->
   </div>
   <!-- End Content Layer -->
+  
+  <!-- Footer Summary -->
+  <footer class="event-footer-summary" *ngIf="evenement">
+    <div class="footer-summary-content">
+      <div class="summary-title">
+        <i class="fa fa-list"></i>
+        <span>{{ 'EVENTELEM.SUMMARY' | translate }}</span>
+      </div>
+      <div class="summary-items">
+        <div class="summary-item" *ngIf="photoItemsList.length > 0">
+          <i class="fa fa-camera"></i>
+          <span>{{ 'EVENTELEM.PHOTOS' | translate }}: {{ photoItemsList.length }}</span>
+        </div>
+        <div class="summary-item" *ngIf="getPhotoFromFsUrlEvents().length > 0">
+          <i class="fa fa-folder-open"></i>
+          <span>{{ 'EVENTELEM.PHOTOS_FROM_FS' | translate }}: {{ getPhotoFromFsUrlEvents().length }}</span>
+        </div>
+        <div class="summary-item" *ngIf="evenement.commentaries && evenement.commentaries.length > 0">
+          <i class="fa fa-comments"></i>
+          <span>{{ 'EVENTHOME.COMMENTARIES' | translate }}: {{ evenement.commentaries.length }}</span>
+        </div>
+        <div class="summary-item" *ngIf="hasDiscussion() && discussionMessages.length > 0">
+          <i class="fa fa-comments"></i>
+          <span>{{ 'EVENTELEM.CHAT' | translate }}: {{ discussionMessages.length }}</span>
+        </div>
+        <div class="summary-item" *ngIf="getNonPhotoFromFsUrlEventsCount() > 0">
+          <i class="fa fa-link"></i>
+          <span>{{ 'EVENTELEM.URLS' | translate }}: {{ getNonPhotoFromFsUrlEventsCount() }}</span>
+        </div>
+        <div class="summary-item" *ngIf="getPdfFiles().length > 0">
+          <i class="fa fa-file-pdf-o"></i>
+          <span>{{ 'EVENTELEM.PDF_DOCUMENTS' | translate }}: {{ getPdfFiles().length }}</span>
+        </div>
+        <div class="summary-item" *ngIf="getVideoFiles().length > 0">
+          <i class="fa fa-video-camera"></i>
+          <span>{{ 'EVENTELEM.VIDEOS' | translate }}: {{ getVideoFiles().length }}</span>
+        </div>
+        <div class="summary-item" *ngIf="getTrackFiles().length > 0">
+          <i class="fa fa-map-marker"></i>
+          <span>{{ 'EVENTELEM.TRACK_FILES' | translate }}: {{ getTrackFiles().length }}</span>
+        </div>
+      </div>
+    </div>
+  </footer>
 </div>
 <!-- End Artistic Event Page -->
 

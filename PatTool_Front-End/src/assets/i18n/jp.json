@@ -242,6 +242,9 @@
         "PHOTOS": "写真",
         "MONGODB_PHOTOS_DESC": "MongoDB に保存された写真のスライドショー（アップロード済みファイル）。",
         "PHOTOS_FROM_FS_HEADING": "ファイルシステムからの写真",
+        "PHOTOS_FROM_FS": "ファイルシステムからの写真",
+        "VIDEOS": "動画",
+        "SUMMARY": "概要",
         "FS_COMPRESSION_LABEL": "表示する前に画像を圧縮します（推奨）",
         "OTHER_PHOTOS_LINKS": "その他の写真リンク（Web）"
     },
