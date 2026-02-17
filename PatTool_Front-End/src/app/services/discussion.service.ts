@@ -92,6 +92,16 @@ export class DiscussionService {
           'Content-Type': 'application/json; charset=UTF-8',
           'Authorization': 'Bearer ' + token
         });
+      }),
+      catchError((error) => {
+        // If token retrieval fails, log but don't propagate to prevent cascading errors
+        // The interceptor will handle 401 errors appropriately
+        console.warn('[DISCUSSION SERVICE] Token retrieval failed in getHeaderWithToken:', error);
+        // Return empty headers - the HTTP request will fail with 401 and interceptor will handle it
+        return of(new HttpHeaders({
+          'Accept': 'application/json',
+          'Content-Type': 'application/json; charset=UTF-8'
+        }));
       })
     );
   }
@@ -719,8 +729,17 @@ export class DiscussionService {
         return of(blobUrl);
       }),
       catchError((error) => {
-        console.error('Error getting file URL:', url, error);
-        throw error;
+        // Silently handle 404/401/403 errors - these are expected scenarios
+        // 404 = file not found (normal), 401/403 = auth issues (handled by interceptor or expected for missing files)
+        // Don't log to console to avoid spam and don't re-throw to prevent redirects
+        if (error?.status === 404 || error?.status === 401 || error?.status === 403) {
+          // Return empty observable instead of throwing to prevent token refresh and redirects
+          return of('');
+        }
+        // For other errors, log but don't throw to prevent token refresh
+        console.error('[DISCUSSION SERVICE] Error getting file URL:', url, error);
+        // Return empty observable instead of throwing to prevent token refresh attempts
+        return of('');
       })
     );
   }

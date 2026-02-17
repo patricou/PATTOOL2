@@ -129,6 +129,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   private discussionFileUrlCache: Map<string, string> = new Map();
   // Store blobs separately to recreate blob URLs if needed
   private discussionFileBlobCache: Map<string, Blob> = new Map();
+  // Store deleted image filenames (messageId -> filename) for error display
+  private discussionImageErrors: Map<string, string> = new Map();
   // Cache for video URLs (blob URLs)
   private videoUrlCache: Map<string, SafeUrl> = new Map();
   // Track videos that have successfully loaded to avoid false error logs
@@ -253,14 +255,43 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Display any stored errors from previous page load
-    this.displayStoredErrors();
+    const eventId = this.route.snapshot.paramMap.get('id');
     
-    // Get color from service and apply it first
-    this.applyEventColor();
-    
-    this.loadFriendGroups();
-    this.loadEventDetails();
+    try {
+      // Display any stored errors from previous page load
+      this.displayStoredErrors();
+      
+      // Get color from service and apply it first
+      try {
+        this.applyEventColor();
+      } catch (colorError) {
+        console.error('[DETAILS-EVENEMENT] Error applying event color in ngOnInit:', colorError);
+        // Don't let color errors prevent initialization
+      }
+      
+      try {
+        this.loadFriendGroups();
+      } catch (friendError) {
+        console.error('[DETAILS-EVENEMENT] Error loading friend groups:', friendError);
+        // Don't let friend group errors prevent initialization
+      }
+      
+      try {
+        this.loadEventDetails();
+      } catch (eventError) {
+        console.error('[DETAILS-EVENEMENT] Error loading event details:', eventError);
+        // Set error state but don't navigate
+        this.error = this.translateService.instant('EVENTELEM.ERROR_LOADING_EVENT') || 'Error loading event';
+        this.loading = false;
+        // Don't navigate - stay on page to show error
+      }
+    } catch (initError) {
+      // Catch any unexpected errors during initialization
+      console.error('[DETAILS-EVENEMENT] Unexpected error in ngOnInit:', initError);
+      this.error = this.translateService.instant('EVENTELEM.ERROR_LOADING_EVENT') || 'Error initializing page';
+      this.loading = false;
+      // Don't navigate - stay on page to show error
+    }
   }
 
   // Get color from service and apply it to buttons and all text
@@ -391,40 +422,109 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         errors.push({ type: 'Image Load Error', ...JSON.parse(imageError) });
       }
       
-      // Check for discussion errors
+      // Check for discussion errors (filter out 404 errors as they are expected)
       const discussionError = localStorage.getItem('last_discussion_error');
       if (discussionError) {
-        errors.push({ type: 'Discussion File Error', ...JSON.parse(discussionError) });
+        const errorData = JSON.parse(discussionError);
+        // Only include non-404 errors (404 = file not found, which is normal)
+        if (errorData.status !== 404) {
+          errors.push({ type: 'Discussion File Error', ...errorData });
+        } else {
+          // Clean up 404 error from localStorage
+          try {
+            localStorage.removeItem('last_discussion_error');
+          } catch (e) {
+            // Ignore storage errors
+          }
+        }
       }
       
-      // Check for discussion image errors history
+      // Check for discussion image errors history (filter out 404/401/403 errors as they are expected)
       const discussionImageErrors = localStorage.getItem('discussion_image_errors');
       if (discussionImageErrors) {
         const history = JSON.parse(discussionImageErrors);
-        if (history.length > 0) {
-          errors.push({ type: 'Discussion Image Errors History', count: history.length, errors: history });
+        // Filter out 404/401/403 errors (file not found or auth issues are normal)
+        const significantErrors = history.filter((err: any) => 
+          err.status !== 404 && err.status !== 401 && err.status !== 403
+        );
+        if (significantErrors.length > 0) {
+          errors.push({ type: 'Discussion Image Errors History', count: significantErrors.length, errors: significantErrors });
+        }
+        // Clean up localStorage by removing filtered errors from history
+        if (significantErrors.length !== history.length) {
+          try {
+            if (significantErrors.length === 0) {
+              // Remove the key entirely if no significant errors remain
+              localStorage.removeItem('discussion_image_errors');
+            } else {
+              localStorage.setItem('discussion_image_errors', JSON.stringify(significantErrors));
+            }
+          } catch (e) {
+            // Ignore storage errors
+          }
         }
       }
       
-      // Check for discussion video errors history
+      // Check for discussion video errors history (filter out 404/401/403 errors as they are expected)
       const discussionVideoErrors = localStorage.getItem('discussion_video_errors');
       if (discussionVideoErrors) {
         const history = JSON.parse(discussionVideoErrors);
-        if (history.length > 0) {
-          errors.push({ type: 'Discussion Video Errors History', count: history.length, errors: history });
+        // Filter out 404/401/403 errors (file not found or auth issues are normal)
+        const significantErrors = history.filter((err: any) => 
+          err.status !== 404 && err.status !== 401 && err.status !== 403
+        );
+        if (significantErrors.length > 0) {
+          errors.push({ type: 'Discussion Video Errors History', count: significantErrors.length, errors: significantErrors });
+        }
+        // Clean up localStorage by removing filtered errors from history
+        if (significantErrors.length !== history.length) {
+          try {
+            if (significantErrors.length === 0) {
+              // Remove the key entirely if no significant errors remain
+              localStorage.removeItem('discussion_video_errors');
+            } else {
+              localStorage.setItem('discussion_video_errors', JSON.stringify(significantErrors));
+            }
+          } catch (e) {
+            // Ignore storage errors
+          }
         }
       }
       
-      // Check for discussion messages errors
+      // Check for discussion messages errors (filter out 401/403 as they're handled by interceptor)
       const discussionMessagesError = localStorage.getItem('last_discussion_messages_error');
       if (discussionMessagesError) {
-        errors.push({ type: 'Discussion Messages Error', ...JSON.parse(discussionMessagesError) });
+        const errorData = JSON.parse(discussionMessagesError);
+        // Only include non-auth errors (401/403 are handled by interceptor and shouldn't cause navigation)
+        if (errorData.status !== 401 && errorData.status !== 403) {
+          errors.push({ type: 'Discussion Messages Error', ...errorData });
+        } else {
+          // Clean up auth errors from localStorage as they're expected
+          try {
+            localStorage.removeItem('last_discussion_messages_error');
+          } catch (e) {
+            // Ignore storage errors
+          }
+        }
       }
       
-      // Check for event load errors
+      // Check for event load errors (filter out 401/403 as they're handled by interceptor)
+      // Don't let stored event errors cause navigation - they're from previous loads
       const eventError = localStorage.getItem('last_event_error');
       if (eventError) {
-        errors.push({ type: 'Event Load Error', ...JSON.parse(eventError) });
+        const errorData = JSON.parse(eventError);
+        // Only log non-auth errors (401/403 are handled by interceptor)
+        // Don't set this.error from stored errors - only from current load
+        if (errorData.status !== 401 && errorData.status !== 403) {
+          errors.push({ type: 'Event Load Error (from previous load)', ...errorData });
+        } else {
+          // Clean up auth errors from localStorage as they're expected
+          try {
+            localStorage.removeItem('last_event_error');
+          } catch (e) {
+            // Ignore storage errors
+          }
+        }
       }
       
       // Check for video error history
@@ -436,14 +536,18 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         }
       }
       
-      // Display all errors in console
+      // Display all errors in console (but don't let them affect navigation)
+      // These are just informational - they won't cause the page to redirect
       if (errors.length > 0) {
-        console.group('🔴 ERRORS FROM PREVIOUS PAGE LOAD (stored in localStorage)');
+        console.group('🔴 ERRORS FROM PREVIOUS PAGE LOAD (stored in localStorage) - These are informational only and won\'t cause navigation');
         errors.forEach((error, index) => {
           console.error(`[${index + 1}] ${error.type}:`, error);
         });
         console.groupEnd();
       }
+      
+      // IMPORTANT: This method only displays errors - it does NOT set this.error or navigate
+      // Navigation is only triggered by actual HTTP errors during loadEventDetails()
     } catch (e) {
       // Ignore errors in error display
     }
@@ -676,58 +780,118 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   }
 
   private loadEventDetails(): void {
-    const eventId = this.route.snapshot.paramMap.get('id');
-    
-    if (!eventId) {
-      this.error = 'ID d\'événement manquant';
-      this.loading = false;
-      return;
-    }
+    try {
+      const eventId = this.route.snapshot.paramMap.get('id');
+      
+      if (!eventId) {
+        console.error('[loadEventDetails] Missing event ID in route parameters');
+        this.error = this.translateService.instant('EVENTELEM.MISSING_EVENT_ID');
+        this.loading = false;
+        // Don't navigate - show error instead
+        return;
+      }
 
-    // Load current user
-    this.user = this.membersService.getUser();
+      // Load current user
+      try {
+        this.user = this.membersService.getUser();
+      } catch (userError) {
+        console.error('[loadEventDetails] Error getting user:', userError);
+        // Continue anyway - user might be null but we can still try to load event
+      }
 
     // Load event details
     const subscription = this.evenementsService.getEvenement(eventId).subscribe({
       next: (evenement: Evenement) => {
-        this.evenement = evenement;
+        try {
+          this.evenement = evenement;
 
-        // Re-apply event color after event is loaded to ensure it's available
-        this.applyEventColor();
+          // Re-apply event color after event is loaded to ensure it's available
+          try {
+            this.applyEventColor();
+          } catch (colorError) {
+            console.error('Error applying event color:', colorError);
+            // Don't let color errors prevent page from loading
+          }
 
-        // Ensure arrays exist so we can add links/comments from the details view
-        if (!this.evenement.urlEvents) {
-          this.evenement.urlEvents = [];
+          // Ensure arrays exist so we can add links/comments from the details view
+          if (!this.evenement.urlEvents) {
+            this.evenement.urlEvents = [];
+          }
+          if (!this.evenement.commentaries) {
+            this.evenement.commentaries = [];
+          }
+
+          // Initialize "new" forms with current user
+          this.newUrlEvent = new UrlEvent("", new Date(), this.user?.userName || "", "", "");
+          this.newCommentary = new Commentary(this.user?.userName || "", "", new Date());
+
+          // Prepare photo gallery with error handling
+          try {
+            this.preparePhotoGallery();
+          } catch (photoError) {
+            console.error('Error preparing photo gallery:', photoError);
+            // Don't let photo gallery errors prevent page from loading
+          }
+
+          // Update background image after photo gallery is prepared
+          setTimeout(() => {
+            try {
+              this.updateBackgroundImageUrl();
+            } catch (bgError) {
+              console.error('Error updating background image:', bgError);
+              // Don't let background image errors prevent page from loading
+            }
+          }, 0);
+
+          this.loading = false;
+
+          // Reset grid packing algorithm for optimal card placement
+          try {
+            this.resetGridPacking();
+          } catch (gridError) {
+            console.error('Error resetting grid:', gridError);
+            // Don't let grid errors prevent page from loading
+          }
+
+          // Initialize grid after reset to prepare for card placement
+          // Note: initializeGrid() will be called automatically by getCardGridPosition when needed
+          
+          // Load video URLs with a small delay to ensure authentication is ready
+          // This prevents 401 errors that could trigger redirects
+          setTimeout(() => {
+            try {
+              this.loadVideoUrls();
+            } catch (videoError) {
+              console.error('Error loading video URLs:', videoError);
+              // Don't let video loading errors prevent page from loading or cause navigation
+            }
+          }, 100);
+
+          // Load discussion messages if discussionId exists
+          if (evenement.discussionId) {
+            try {
+              this.loadDiscussionMessages();
+            } catch (discussionError) {
+              console.error('Error loading discussion messages:', discussionError);
+              // Don't let discussion errors prevent page from loading or cause navigation
+            }
+          }
+
+          // Load event access users
+          try {
+            this.loadEventAccessUsers();
+          } catch (accessError) {
+            console.error('Error loading event access users:', accessError);
+            // Don't let access user errors prevent page from loading or cause navigation
+          }
+        } catch (mainError) {
+          // Catch any unexpected errors in the main next handler
+          console.error('Unexpected error in event load success handler:', mainError);
+          // Set error state but don't navigate - let user see the error
+          this.error = this.translateService.instant('EVENTELEM.ERROR_LOADING_EVENT') || 'Error loading event details';
+          this.loading = false;
+          // Don't navigate - stay on page to show error
         }
-        if (!this.evenement.commentaries) {
-          this.evenement.commentaries = [];
-        }
-
-        // Initialize "new" forms with current user
-        this.newUrlEvent = new UrlEvent("", new Date(), this.user?.userName || "", "", "");
-        this.newCommentary = new Commentary(this.user?.userName || "", "", new Date());
-
-        this.preparePhotoGallery();
-        // Update background image after photo gallery is prepared
-        setTimeout(() => {
-          this.updateBackgroundImageUrl();
-        }, 0);
-        this.loading = false;
-        // Reset grid packing algorithm for optimal card placement
-        this.resetGridPacking();
-        // Initialize grid after reset to prepare for card placement
-        // Note: initializeGrid() will be called automatically by getCardGridPosition when needed
-        // Load video URLs with a small delay to ensure authentication is ready
-        // This prevents 401 errors that could trigger redirects
-        setTimeout(() => {
-          this.loadVideoUrls();
-        }, 100);
-        // Load discussion messages if discussionId exists
-        if (evenement.discussionId) {
-          this.loadDiscussionMessages();
-        }
-        // Load event access users
-        this.loadEventAccessUsers();
       },
       error: (error: any) => {
         // Log to localStorage FIRST so it persists even if redirect happens
@@ -756,21 +920,36 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           return;
         }
         
+        // Handle 403 Forbidden - user doesn't have access but don't navigate away
+        // Let them see the error message instead of redirecting
+        if (error?.status === 403) {
+          this.error = this.translateService.instant('EVENTELEM.ERROR_ACCESS_DENIED') || 'Access denied';
+          this.loading = false;
+          return;
+        }
+        
         // Handle status 0 errors (network/CORS issues)
         if (error?.status === 0 || error?.status === null) {
           console.error('Network error - Backend may be unreachable or CORS issue');
-          this.error = 'Impossible de se connecter au serveur. Vérifiez que le serveur est démarré et accessible.';
+          this.error = this.translateService.instant('EVENTELEM.ERROR_CONNECTING');
         } else if (error?.status === 404) {
-          this.error = 'Événement introuvable';
+          this.error = this.translateService.instant('EVENTELEM.EVENT_NOT_FOUND');
         } else {
-          this.error = 'Erreur lors du chargement de l\'événement';
+          this.error = this.translateService.instant('EVENTELEM.ERROR_LOADING_EVENT');
         }
         this.loading = false;
       }
     });
     
-    // Track the subscription to ensure proper cleanup
-    this.trackSubscription(subscription);
+      // Track the subscription to ensure proper cleanup
+      this.trackSubscription(subscription);
+    } catch (loadError) {
+      // Catch any synchronous errors in loadEventDetails
+      console.error('[loadEventDetails] Unexpected error:', loadError);
+      this.error = this.translateService.instant('EVENTELEM.ERROR_LOADING_EVENT') || 'Error loading event';
+      this.loading = false;
+      // Don't navigate - stay on page to show error
+    }
   }
 
   // ==============================
@@ -927,7 +1106,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     if (idx < 0) return;
 
     if (!this.canDeleteUrlEvent(urlEvent)) {
-      alert("Vous n'avez pas l'autorisation de supprimer ce lien.");
+      alert(this.translateService.instant('EVENTELEM.UNAUTHORIZED_DELETE_LINK'));
       return;
     }
 
@@ -1342,7 +1521,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
     const c = this.evenement.commentaries[index];
     if (!this.canDeleteCommentary(c)) {
-      alert("Vous n'avez pas l'autorisation de supprimer ce commentaire.");
+      alert(this.translateService.instant('EVENTELEM.UNAUTHORIZED_DELETE_COMMENTARY'));
       return;
     }
 
@@ -1366,7 +1545,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error adding commentary:', error);
-        alert('Erreur lors de l\'ajout du commentaire');
+        alert(this.translateService.instant('EVENTELEM.ERROR_ADDING_COMMENTARY'));
       }
     });
   }
@@ -1382,7 +1561,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error updating commentary:', error);
-        alert('Erreur lors de la modification du commentaire');
+        alert(this.translateService.instant('EVENTELEM.ERROR_UPDATING_COMMENTARY'));
       }
     });
   }
@@ -1398,7 +1577,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         console.error('Error deleting commentary:', error);
-        alert('Erreur lors de la suppression du commentaire');
+        alert(this.translateService.instant('EVENTELEM.ERROR_DELETING_COMMENTARY'));
       }
     });
   }
@@ -1788,6 +1967,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.isLoadingEventAccessUsers = true;
     this.eventAccessUsers = [];
     this.isEventAccessUsersExpanded = false;
+    // Mark for check to prevent ExpressionChangedAfterItHasBeenCheckedError
+    this.cdr.markForCheck();
     
     const subscription = this.evenementsService.getEventAccessUsers(this.evenement.id).subscribe({
       next: (users: any[]) => {
@@ -1818,11 +1999,21 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           );
         });
         this.isLoadingEventAccessUsers = false;
+        // Mark for check to prevent ExpressionChangedAfterItHasBeenCheckedError
+        this.cdr.markForCheck();
       },
       error: (error) => {
-        console.error('Error loading event access users:', error);
+        // Log error but don't let it affect the page display
+        // 403 errors are expected if user doesn't have permission to view access users
+        // Don't navigate away or show error - just silently fail
+        if (error?.status !== 403 && error?.status !== 401) {
+          console.error('Error loading event access users:', error);
+        }
         this.eventAccessUsers = [];
         this.isLoadingEventAccessUsers = false;
+        // Mark for check to prevent ExpressionChangedAfterItHasBeenCheckedError
+        this.cdr.markForCheck();
+        // Don't propagate error - this is a non-critical feature
       }
     });
     
@@ -1832,6 +2023,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   // Toggle event access users expanded/collapsed
   public toggleEventAccessUsersExpanded(): void {
     this.isEventAccessUsersExpanded = !this.isEventAccessUsersExpanded;
+    // Mark for check to prevent ExpressionChangedAfterItHasBeenCheckedError
+    this.cdr.markForCheck();
   }
 
   // Open user WhatsApp link
@@ -1899,7 +2092,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
             this.evenement!.discussionId = discussionId;
             this.evenementsService.putEvenement(this.evenement!).subscribe({
               next: () => {
-                console.log('Discussion created and linked to event:', discussionId);
                 // Now open the discussion modal
                 this.openDiscussionModal(discussionId);
               },
@@ -1935,9 +2127,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         },
         error: (error) => {
           console.error('Error creating discussion:', error);
-          const errorMessage = error?.error?.message || error?.message || 'Erreur inconnue';
+          const errorMessage = error?.error?.message || error?.message || this.translateService.instant('COMMUN.ERROR');
           const errorDetails = error?.error?.error || error?.statusText || '';
-          alert('Erreur lors de la création de la discussion:\n' + errorMessage + (errorDetails ? '\n' + errorDetails : ''));
+          const baseMessage = this.translateService.instant('EVENTELEM.ERROR_CREATING_DISCUSSION');
+          alert(baseMessage + ':\n' + errorMessage + (errorDetails ? '\n' + errorDetails : ''));
         }
       });
     } else {
@@ -1988,8 +2181,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       this.trackSubscription(closedSubscription);
     } catch (error: any) {
       console.error('Error opening discussion modal:', error);
-      const errorMessage = error?.message || 'Erreur inconnue lors de l\'ouverture de la fenêtre de discussion';
-      alert('Erreur: ' + errorMessage);
+      const errorMessage = error?.message || this.translateService.instant('EVENTELEM.ERROR_OPENING_DISCUSSION');
+      alert(this.translateService.instant('COMMUN.ERROR') + ': ' + errorMessage);
     }
   }
 
@@ -2029,8 +2222,17 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         
         console.error('[DISCUSSION MESSAGES ERROR]', errorInfo);
         
-        // Return empty to prevent redirects
-        this.discussionError = 'Error loading discussion';
+        // Handle 403 Forbidden - user doesn't have access to discussion
+        // Don't show error, just silently fail (discussion card won't show)
+        if (error?.status === 403 || error?.status === 401) {
+          this.isLoadingDiscussion = false;
+          this.discussionMessages = [];
+          this.discussionError = null; // Don't show error for permission issues
+          return EMPTY;
+        }
+        
+        // Return empty to prevent redirects for other errors
+        this.discussionError = this.translateService.instant('EVENTELEM.ERROR_LOADING_DISCUSSION');
         this.isLoadingDiscussion = false;
         this.discussionMessages = [];
         return EMPTY;
@@ -2095,7 +2297,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.discussionService.getFileUrl(discussionId, 'images', realFilename).pipe(
           catchError((error) => {
             // Catch ALL errors in the pipe to prevent interceptor from redirecting
-            // Log to localStorage FIRST (before console) so it persists even after redirect
             const errorInfo = {
               type: 'discussion_image_error',
               filename: realFilename,
@@ -2108,22 +2309,33 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
               fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
             };
             
-            try {
-              localStorage.setItem('last_discussion_error', JSON.stringify(errorInfo));
-              // Also append to an array to keep history
-              const errorHistory = JSON.parse(localStorage.getItem('discussion_image_errors') || '[]');
-              errorHistory.push(errorInfo);
-              // Keep only last 50 errors
-              if (errorHistory.length > 50) {
-                errorHistory.shift();
-              }
-              localStorage.setItem('discussion_image_errors', JSON.stringify(errorHistory));
-            } catch (e) {
-              // Ignore storage errors
+            // If 404 error, store the filename for error message display
+            if (error?.status === 404 && message.id) {
+              this.discussionImageErrors.set(message.id, realFilename);
+              this.cdr.detectChanges();
             }
             
-            // Log to console with detailed info
-            console.error('[DISCUSSION IMAGE LOAD ERROR]', errorInfo);
+            // Only store significant errors in localStorage
+            // 404 = file not found (expected), 401/403 = auth issues (handled by interceptor)
+            // These shouldn't pollute error logs or cause navigation
+            if (error?.status !== 404 && error?.status !== 401 && error?.status !== 403) {
+              try {
+                localStorage.setItem('last_discussion_error', JSON.stringify(errorInfo));
+                // Also append to an array to keep history
+                const errorHistory = JSON.parse(localStorage.getItem('discussion_image_errors') || '[]');
+                errorHistory.push(errorInfo);
+                // Keep only last 50 errors
+                if (errorHistory.length > 50) {
+                  errorHistory.shift();
+                }
+                localStorage.setItem('discussion_image_errors', JSON.stringify(errorHistory));
+              } catch (e) {
+                // Ignore storage errors
+              }
+              
+              // Log to console with detailed info for significant errors
+              console.error('[DISCUSSION IMAGE LOAD ERROR]', errorInfo);
+            }
             
             // Return empty to prevent any redirects
             return EMPTY;
@@ -2187,7 +2399,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.discussionService.getFileUrl(discussionId, 'videos', realFilename).pipe(
           catchError((error) => {
             // Catch ALL errors in the pipe to prevent interceptor from redirecting
-            // Log to localStorage FIRST (before console) so it persists even after redirect
             const errorInfo = {
               type: 'discussion_video_error',
               filename: realFilename,
@@ -2200,22 +2411,27 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
               fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
             };
             
-            try {
-              localStorage.setItem('last_discussion_error', JSON.stringify(errorInfo));
-              // Also append to an array to keep history
-              const errorHistory = JSON.parse(localStorage.getItem('discussion_video_errors') || '[]');
-              errorHistory.push(errorInfo);
-              // Keep only last 50 errors
-              if (errorHistory.length > 50) {
-                errorHistory.shift();
+            // Only store significant errors in localStorage
+            // 404 = file not found (expected), 401/403 = auth issues (handled by interceptor)
+            // These shouldn't pollute error logs or cause navigation
+            if (error?.status !== 404 && error?.status !== 401 && error?.status !== 403) {
+              try {
+                localStorage.setItem('last_discussion_error', JSON.stringify(errorInfo));
+                // Also append to an array to keep history
+                const errorHistory = JSON.parse(localStorage.getItem('discussion_video_errors') || '[]');
+                errorHistory.push(errorInfo);
+                // Keep only last 50 errors
+                if (errorHistory.length > 50) {
+                  errorHistory.shift();
+                }
+                localStorage.setItem('discussion_video_errors', JSON.stringify(errorHistory));
+              } catch (e) {
+                // Ignore storage errors
               }
-              localStorage.setItem('discussion_video_errors', JSON.stringify(errorHistory));
-            } catch (e) {
-              // Ignore storage errors
+              
+              // Log to console with detailed info for significant errors
+              console.error('[DISCUSSION VIDEO LOAD ERROR]', errorInfo);
             }
-            
-            // Log to console with detailed info
-            console.error('[DISCUSSION VIDEO LOAD ERROR]', errorInfo);
             
             // Return empty to prevent any redirects
             return EMPTY;
@@ -2247,7 +2463,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       videoElement.play().catch((error) => {
         // Autoplay was prevented - this is normal in some browsers
         // User will need to click play manually
-        console.log('Discussion video autoplay prevented, user interaction required');
       });
     }
   }
@@ -2333,23 +2548,47 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     }
 
     // If not in cache, trigger loading (will be cached when ready)
-    this.discussionService.getFileUrl(this.evenement.discussionId, subfolder, realFilename).subscribe({
+    // Use pipe(catchError) to prevent errors from reaching the interceptor and causing redirects
+    const subscription = this.discussionService.getFileUrl(this.evenement.discussionId, subfolder, realFilename).pipe(
+      catchError((error) => {
+        // Catch ALL errors in the pipe to prevent interceptor from redirecting
+        // 404 errors are expected (file not found), 401/403 are auth issues handled by interceptor
+        // Don't log 404/401/403 errors to avoid console spam
+        if (error?.status !== 401 && error?.status !== 404 && error?.status !== 403) {
+          console.error('Error loading discussion file:', error);
+        }
+        // Return empty to prevent error propagation and redirects
+        return EMPTY;
+      })
+    ).subscribe({
       next: (blobUrl: string) => {
         this.discussionFileUrlCache.set(cacheKey, blobUrl);
         // Trigger change detection to update the view
         this.cdr.detectChanges();
       },
       error: (error) => {
-        // Don't log 401/404 errors as they will trigger redirect via interceptor or are expected
-        // Only log other errors to avoid console spam
-        if (error?.status !== 401 && error?.status !== 404) {
-          console.error('Error loading discussion file:', error);
+        // Should not reach here as errors are caught in pipe
+        // But just in case, handle silently
+        if (error?.status !== 401 && error?.status !== 404 && error?.status !== 403) {
+          console.error('Unexpected error in discussion file subscription:', error);
         }
-        // Don't throw or propagate the error to avoid triggering redirects
       }
     });
+    
+    // Track subscription to ensure proper cleanup
+    this.trackSubscription(subscription);
 
     return '';
+  }
+
+  // Check if discussion image has an error (404 - file deleted)
+  public hasDiscussionImageError(messageId?: string): boolean {
+    return messageId ? this.discussionImageErrors.has(messageId) : false;
+  }
+
+  // Get deleted image filename for error message
+  public getDeletedImageFilename(messageId?: string): string {
+    return messageId ? (this.discussionImageErrors.get(messageId) || '') : '';
   }
   
   // Check if discussion file URL is available in cache
@@ -2475,7 +2714,19 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   // Helper to fetch a new discussion image blob
   private fetchNewDiscussionImageBlob(discussionId: string, filename: string, cacheKey: string, resolve: (blob: Blob | undefined) => void): void {
-    const subscription = this.discussionService.getFileUrl(discussionId, 'images', filename).subscribe({
+    // Use pipe(catchError) to prevent errors from reaching the interceptor and causing redirects
+    const subscription = this.discussionService.getFileUrl(discussionId, 'images', filename).pipe(
+      catchError((error) => {
+        // Catch ALL errors in the pipe to prevent interceptor from redirecting
+        // 404 errors are expected (file not found), 401/403 are auth issues
+        if (error?.status !== 401 && error?.status !== 404 && error?.status !== 403) {
+          console.error('Error loading discussion image:', error);
+        }
+        // Resolve with undefined and return empty to prevent error propagation
+        resolve(undefined);
+        return EMPTY;
+      })
+    ).subscribe({
       next: (blobUrl: string) => {
         // Get the blob from the blob URL
         fetch(blobUrl)
@@ -2500,8 +2751,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           });
       },
       error: (error) => {
-        if (error?.status !== 401 && error?.status !== 404) {
-          console.error('Error loading discussion image:', error);
+        // Should not reach here as errors are caught in pipe
+        // But just in case, handle silently
+        if (error?.status !== 401 && error?.status !== 404 && error?.status !== 403) {
+          console.error('Unexpected error in discussion image subscription:', error);
         }
         resolve(undefined);
       }
@@ -2834,7 +3087,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.activeSubscriptions.delete(subscription);
         if (error.name !== 'AbortError' && error.status !== 0) {
           console.error('Error loading PDF file:', error);
-          alert('Erreur lors du chargement du fichier PDF');
+          alert(this.translateService.instant('EVENTELEM.ERROR_LOADING_PDF'));
         }
       }
     });
@@ -2881,7 +3134,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.activeSubscriptions.delete(subscription);
         if (error.name !== 'AbortError' && error.status !== 0) {
           console.error('Error loading image:', error);
-          alert('Erreur lors du chargement de l\'image');
+          alert(this.translateService.instant('EVENTELEM.ERROR_LOADING_IMAGE'));
         }
       }
     });
@@ -2909,6 +3162,8 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
   // Navigate back
   public goBack(): void {
+    // This method should ONLY be called by user interaction (button click)
+    // Never call this automatically - always show errors instead of navigating away
     this.router.navigate(['/even']);
   }
 
@@ -2968,7 +3223,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       videoElement.play().catch((error) => {
         // Autoplay was prevented - this is normal in some browsers
         // User will need to click play manually
-        console.log('Video autoplay prevented, user interaction required:', videoFile?.fileName);
       });
     }
   }
@@ -4318,7 +4572,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
 
     // Permission guard (UI already hides button, but keep a hard check)
     if (!this.isFileOwner(fileToDelete.uploaderMember)) {
-      alert("Vous n'avez pas l'autorisation de supprimer ce fichier.");
+      alert(this.translateService.instant('EVENTELEM.UNAUTHORIZED_DELETE_FILE'));
       return;
     }
 
@@ -4355,7 +4609,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       },
       error: (error: any) => {
         console.error('Error deleting file from MongoDB:', error);
-        alert('Error deleting file from database. Please try again.');
+        alert(this.translateService.instant('EVENTELEM.ERROR_DELETING_FILE'));
       }
     });
 
@@ -5366,12 +5620,12 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
           }, 600);
         },
         error: (error: any) => {
-          let errorMessage = "Error uploading files.";
+          let errorMessage = this.translateService.instant('EVENTELEM.ERROR_UPLOADING');
           
           if (error.status === 0) {
-            errorMessage = "Unable to connect to server. Please check that the backend service is running.";
+            errorMessage = this.translateService.instant('EVENTELEM.ERROR_CONNECTING');
           } else if (error.status === 401) {
-            errorMessage = "Authentication failed. Please log in again.";
+            errorMessage = this.translateService.instant('EVENTELEM.ERROR_AUTHENTICATION');
             // Log error before any potential redirect
             this.addErrorLog(`❌ Upload error: ${errorMessage} (Status: ${error.status})`);
             // Don't redirect here - let interceptor handle it
@@ -5381,11 +5635,11 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
             }, 1000);
             return;
           } else if (error.status === 403) {
-            errorMessage = "Access denied. You don't have permission to upload files.";
+            errorMessage = this.translateService.instant('EVENTELEM.ERROR_ACCESS_DENIED');
           } else if (error.status === 413) {
-            errorMessage = "File too large. Please select smaller files.";
+            errorMessage = this.translateService.instant('EVENTELEM.ERROR_FILE_TOO_LARGE');
           } else if (error.status >= 500) {
-            errorMessage = "Server error. Please try again later.";
+            errorMessage = this.translateService.instant('EVENTELEM.ERROR_SERVER');
           } else if (error.error && error.error.message) {
             errorMessage = error.error.message;
           }

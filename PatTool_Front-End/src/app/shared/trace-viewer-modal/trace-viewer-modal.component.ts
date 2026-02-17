@@ -2656,11 +2656,19 @@ export class TraceViewerModalComponent implements OnDestroy {
 					this.currentWeather = response;
 				}
 				this.isLoadingWeather = false;
+				// Use setTimeout to defer change detection to next tick, preventing ExpressionChangedAfterItHasBeenCheckedError
+				setTimeout(() => {
+					this.cdr.markForCheck();
+				}, 0);
 			},
 			error: (error) => {
 				console.error('Error fetching weather:', error);
 				this.currentWeather = null;
 				this.isLoadingWeather = false;
+				// Use setTimeout to defer change detection to next tick, preventing ExpressionChangedAfterItHasBeenCheckedError
+				setTimeout(() => {
+					this.cdr.markForCheck();
+				}, 0);
 			}
 		});
 	}

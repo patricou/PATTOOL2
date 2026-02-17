@@ -370,15 +370,19 @@
                 
                 <!-- Message Image -->
                 <div class="message-image-compact" *ngIf="message.imageUrl">
-                  <img *ngIf="hasDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl)"
+                  <img *ngIf="hasDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl) && !hasDiscussionImageError(message.id)"
                        [src]="getDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl)" 
-                       [alt]="message.imageFileName || 'Image'"
+                       [alt]="message.imageFileName || ('EVENTELEM.IMAGE' | translate)"
                        class="discussion-image-compact"
                        loading="lazy"
                        (error)="onImageError($event)"
                        (click)="openImageInModal(message)"
                        style="max-width: 100%; height: auto;">
-                  <div *ngIf="!hasDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl)" class="discussion-message-loading">
+                  <div *ngIf="hasDiscussionImageError(message.id)" class="discussion-message-error text-center p-2" style="background: rgba(255, 0, 0, 0.1); border: 1px solid rgba(255, 0, 0, 0.3); border-radius: 4px; color: #ff6b6b;">
+                    <i class="fa fa-exclamation-triangle"></i>
+                    <small>{{ 'EVENTELEM.IMAGE_DELETED' | translate: {filename: getDeletedImageFilename(message.id)} }}</small>
+                  </div>
+                  <div *ngIf="!hasDiscussionFileUrl(message.imageFileName || '', 'images', message.imageUrl) && !hasDiscussionImageError(message.id)" class="discussion-message-loading">
                     <i class="fa fa-spinner fa-spin"></i> {{ 'EVENTELEM.LOADING_IMAGES' | translate }}
                   </div>
                 </div>
@@ -464,7 +468,7 @@
           <button type="button"
                   class="btn-compact btn-primary-compact ms-auto"
                   (click)="openAddCommentary(); $event.stopPropagation()"
-                  [title]="'Ajouter un commentaire'"
+                  [title]="'EVENTHOME.ADD_COMMENTARY' | translate"
                   [ngStyle]="getCommentsAddButtonStyle()">
             <i class="fa fa-plus"></i>
           </button>
@@ -516,7 +520,7 @@
                      name="newUrlLink"
                      type="text"
                      class="compact-input"
-                     placeholder="https://example.com"
+                     [placeholder]="'EVENTHOME.PLACEHOLDER_URL' | translate"
                      (input)="onNewLinkInputChange($any($event.target).value)"
                      (blur)="onNewLinkBlur()">
               <button *ngIf="newUrlEvent.typeUrl === 'PHOTOFROMFS'"
@@ -612,7 +616,7 @@
                              name="editUrlLink"
                              type="text"
                              class="compact-input"
-                             placeholder="https://example.com"
+                             [placeholder]="'EVENTHOME.PLACEHOLDER_URL' | translate"
                              (input)="onEditLinkInputChange($any($event.target).value)"
                              (blur)="onEditLinkBlur()">
                       <button *ngIf="editingUrlEvent.typeUrl === 'PHOTOFROMFS'"
@@ -923,7 +927,7 @@
         <span *ngIf="isFullscreen">{{ 'EVENTELEM.EXIT_FULLSCREEN' | translate }}</span>
       </button>
     </div>
-    <button type="button" class="btn-close" (click)="c()" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+    <button type="button" class="btn-close" (click)="c()" [attr.aria-label]="'COMMUN.CLOSE' | translate"><span aria-hidden="true">&times;</span></button>
   </div>
   <div class="modal-body text-center">
     <img [src]="selectedImageUrl" [alt]="selectedImageAlt" class="img-fluid modal-image" style="max-width: 100%; height: auto;" />
@@ -958,7 +962,7 @@
     </div>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-secondary" (click)="modal.dismiss('Cancel click')" [disabled]="isUploading">
+    <button type="button" class="btn btn-secondary" (click)="modal.dismiss()" [disabled]="isUploading">
       {{ 'COMMUN.CLOSE' | translate }}
     </button>
   </div>

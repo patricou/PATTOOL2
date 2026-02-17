@@ -422,11 +422,16 @@ public class DiscussionRestController {
 
         // Generate unique filename
         String originalFilename = file.getOriginalFilename();
+        String baseName = "file";
         String extension = "";
         if (originalFilename != null && originalFilename.contains(".")) {
-            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            int lastDotIndex = originalFilename.lastIndexOf(".");
+            baseName = originalFilename.substring(0, lastDotIndex);
+            extension = originalFilename.substring(lastDotIndex); // Includes the dot
+        } else if (originalFilename != null) {
+            baseName = originalFilename;
         }
-        String filename = System.currentTimeMillis() + "_" + (originalFilename != null ? originalFilename : "file") + extension;
+        String filename = System.currentTimeMillis() + "_" + baseName + extension;
         Path filePath = discussionDir.resolve(filename);
 
         // Save file

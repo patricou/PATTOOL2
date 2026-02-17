@@ -114,9 +114,14 @@ export class KeycloakService {
             resolve(refreshedToken);
           })
           .error(() => {
-            console.log('Failed to refresh token - session expired, redirecting to login');
+            console.warn('[KEYCLOAK SERVICE] ⚠️ Failed to refresh token - session expired, redirecting to login');
+            console.trace('[KEYCLOAK SERVICE] Stack trace for token refresh failure:');
             // Session expired - redirect to Keycloak login
-            this.redirectToLogin();
+            // BUT: Only redirect if we're not already on a login/error page
+            const currentPath = window.location.pathname;
+            if (!currentPath.includes('login') && !currentPath.includes('error')) {
+              this.redirectToLogin();
+            }
             reject('Token refresh failed');
           });
       } else {
@@ -132,26 +137,33 @@ export class KeycloakService {
    * Redirects to Keycloak login page when session has expired
    */
   redirectToLogin(): void {
+    console.warn('[KEYCLOAK SERVICE] ⚠️ redirectToLogin() called - Current URL:', window.location.href);
+    console.trace('[KEYCLOAK SERVICE] Stack trace for redirectToLogin():');
+    
     try {
       if (KeycloakService.auth.authz && typeof KeycloakService.auth.authz.login === 'function') {
         // Use Keycloak's login method to redirect to login page
+        console.warn('[KEYCLOAK SERVICE] Using Keycloak login() method to redirect');
         KeycloakService.auth.authz.login({
           redirectUri: window.location.href
         });
       } else {
         // If Keycloak is not initialized or login method not available, construct login URL manually
+        console.warn('[KEYCLOAK SERVICE] Keycloak login() not available, constructing URL manually');
         const loginUrl = this.getLoginUrl();
         if (loginUrl) {
+          console.warn('[KEYCLOAK SERVICE] Redirecting to:', loginUrl);
           window.location.href = loginUrl;
         } else {
-          console.error('Unable to construct login URL - Keycloak not properly initialized');
+          console.error('[KEYCLOAK SERVICE] Unable to construct login URL - Keycloak not properly initialized');
         }
       }
     } catch (error) {
-      console.error('Error redirecting to login:', error);
+      console.error('[KEYCLOAK SERVICE] Error redirecting to login:', error);
       // Fallback: try to construct URL manually
       const loginUrl = this.getLoginUrl();
       if (loginUrl) {
+        console.warn('[KEYCLOAK SERVICE] Fallback redirect to:', loginUrl);
         window.location.href = loginUrl;
       }
     }
