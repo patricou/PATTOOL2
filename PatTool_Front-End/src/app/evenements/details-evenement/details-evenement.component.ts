@@ -3248,64 +3248,6 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     return '';
   }
 
-  // Resize image to icon size for WhatsApp sharing
-  private resizeImageToIcon(blob: Blob, maxWidth: number, maxHeight: number): Promise<Blob | null> {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(blob);
-      
-      img.onload = () => {
-        try {
-          // Calculate icon dimensions maintaining aspect ratio
-          let width = img.width;
-          let height = img.height;
-          
-          if (width > maxWidth || height > maxHeight) {
-            const ratio = Math.min(maxWidth / width, maxHeight / height);
-            width = Math.round(width * ratio);
-            height = Math.round(height * ratio);
-          }
-          
-          // Create canvas and draw resized image
-          const canvas = document.createElement('canvas');
-          canvas.width = width;
-          canvas.height = height;
-          
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            URL.revokeObjectURL(objectUrl);
-            resolve(null);
-            return;
-          }
-          
-          // Use high-quality image rendering
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          
-          // Draw image on canvas
-          ctx.drawImage(img, 0, 0, width, height);
-          
-          // Convert canvas to blob (use JPEG for smaller file size)
-          canvas.toBlob((iconBlob) => {
-            URL.revokeObjectURL(objectUrl);
-            resolve(iconBlob);
-          }, 'image/jpeg', 0.8);
-        } catch (error) {
-          URL.revokeObjectURL(objectUrl);
-          console.log('Error resizing image to icon:', error);
-          resolve(null);
-        }
-      };
-      
-      img.onerror = () => {
-        URL.revokeObjectURL(objectUrl);
-        resolve(null);
-      };
-      
-      img.src = objectUrl;
-    });
-  }
-
   // Get event URL
   public getEventUrl(): string {
     if (!this.evenement || !this.evenement.id) {
@@ -3374,35 +3316,30 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         });
         
         if (imageBlob) {
-          // Resize image to icon size (80x80px) before sharing
-          const iconBlob = await this.resizeImageToIcon(imageBlob, 80, 80);
+          // Determine file extension from MIME type
+          let extension = 'jpg';
+          if (imageBlob.type.includes('png')) extension = 'png';
+          else if (imageBlob.type.includes('gif')) extension = 'gif';
+          else if (imageBlob.type.includes('webp')) extension = 'webp';
           
-          if (iconBlob) {
-            // Determine file extension from MIME type
-            let extension = 'jpg';
-            if (iconBlob.type.includes('png')) extension = 'png';
-            else if (iconBlob.type.includes('gif')) extension = 'gif';
-            else if (iconBlob.type.includes('webp')) extension = 'webp';
+          const fileName = `event-image.${extension}`;
+          const file = new File([imageBlob], fileName, { type: imageBlob.type });
+          
+          // Try to share with image and text together
+          // The image will appear first, then the text message
+          if (navigator.canShare && navigator.canShare({ files: [file], text: message })) {
+            await navigator.share({
+              title: this.evenement.evenementName || 'Activité',
+              text: message,
+              files: [file]
+            });
             
-            const fileName = `event-icon.${extension}`;
-            const file = new File([iconBlob], fileName, { type: iconBlob.type });
-            
-            // Try to share with image and text together
-            // The image will appear first, then the text message
-            if (navigator.canShare && navigator.canShare({ files: [file], text: message })) {
-              await navigator.share({
-                title: this.evenement.evenementName || 'Activité',
-                text: message,
-                files: [file]
-              });
-              
-              // Close modal
-              if (this.whatsappShareModalRef) {
-                this.whatsappShareModalRef.close();
-                this.whatsappShareModalRef = null;
-              }
-              return;
+            // Close modal
+            if (this.whatsappShareModalRef) {
+              this.whatsappShareModalRef.close();
+              this.whatsappShareModalRef = null;
             }
+            return;
           }
         }
       } catch (shareError) {
