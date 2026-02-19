@@ -148,6 +148,14 @@
             <i class="fa fa-comments"></i> <span class="btn-text">{{ 'EVENTELEM.CHAT' | translate }}</span>
           </button>
         </div>
+        <div class="share-whatsapp-wrapper" *ngIf="evenement">
+          <button type="button"
+                  class="btn-compact btn-success-compact"
+                  (click)="shareOnWhatsApp(); $event.stopPropagation()"
+                  [title]="'EVENTELEM.SHARE_WHATSAPP' | translate">
+            <i class="fa fa-whatsapp"></i> <span class="btn-text">{{ 'EVENTELEM.SHARE_WHATSAPP' | translate }}</span>
+          </button>
+        </div>
       </div>
       <!-- Hidden commentary editor for when there are no comments -->
       <app-commentary-editor
@@ -1041,3 +1049,65 @@
   </div>
 </ng-template>
 
+<!-- WhatsApp Share Modal -->
+<ng-template #whatsappShareModal let-modal>
+  <div class="modal-header bg-success text-white">
+    <h5 class="modal-title">
+      <i class="fa fa-whatsapp me-2"></i>
+      {{ 'EVENTELEM.SHARE_WHATSAPP' | translate }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" (click)="cancelWhatsAppShare()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <div *ngIf="evenement" class="whatsapp-share-content">
+      <!-- Event Image -->
+      <div class="text-center mb-3">
+        <img [src]="getMainEventImageUrl()" 
+             [alt]="evenement.evenementName" 
+             class="img-fluid rounded"
+             style="max-width: 80px; max-height: 80px; object-fit: cover; border: 2px solid #007bff; padding: 2px;">
+      </div>
+      
+      <!-- Event Title -->
+      <div class="mb-3">
+        <a [href]="getEventUrl()" target="_blank" style="text-decoration: none; display: block;">
+          <h3 class="fw-bold text-white text-center p-3 rounded" style="background-color: #007bff;">
+            {{ evenement.evenementName }}
+          </h3>
+        </a>
+      </div>
+      
+      <!-- Optional Message -->
+      <div class="mb-3">
+        <label for="whatsappMessage" class="form-label">
+          {{ 'EVENTELEM.OPTIONAL_MESSAGE' | translate }}
+        </label>
+        <textarea 
+          id="whatsappMessage"
+          class="form-control" 
+          rows="4"
+          [(ngModel)]="whatsappShareMessage"
+          [placeholder]="'EVENTELEM.MESSAGE_PLACEHOLDER' | translate"
+          style="resize: vertical;"></textarea>
+        <small class="form-text text-muted">
+          {{ 'EVENTELEM.MESSAGE_OPTIONAL_HINT' | translate }}
+        </small>
+      </div>
+      
+      <!-- Preview Info -->
+      <div class="alert alert-info small mb-0">
+        <i class="fa fa-info-circle me-2"></i>
+        {{ 'EVENTELEM.WHATSAPP_SHARE_INFO' | translate }}
+      </div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="cancelWhatsAppShare()">
+      {{ 'EVENTELEM.CANCEL' | translate }}
+    </button>
+    <button type="button" class="btn btn-success" (click)="confirmWhatsAppShare()">
+      <i class="fa fa-whatsapp me-2"></i>
+      {{ 'EVENTELEM.SHARE_NOW' | translate }}
+    </button>
+  </div>
+</ng-template>

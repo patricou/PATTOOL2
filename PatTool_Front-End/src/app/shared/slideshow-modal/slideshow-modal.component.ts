@@ -5047,7 +5047,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       
       // Prepare share data with file
       const shareData: any = {
-        title: 'Partager une image',
         files: [file]
       };
       
@@ -5088,7 +5087,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           });
           
           const urlShareData = {
-            title: 'Partager une image',
             url: dataUrl
           };
           
@@ -5101,7 +5099,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       } else {
         // For non-blob URLs, try sharing the URL directly
         const urlShareData = {
-          title: 'Partager une image',
           url: currentImageUrl
         };
         

@@ -148,6 +148,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   @ViewChild('discussionMessagesContainer', { read: ElementRef }) discussionMessagesContainer!: ElementRef;
   @ViewChild('directoryInput') directoryInput!: any;
   @ViewChild('editDirectoryInput') editDirectoryInput!: any;
+  @ViewChild('whatsappShareModal', { static: false }) whatsappShareModal!: TemplateRef<any>;
 
   // Slideshow properties (now handled by SlideshowModalComponent - kept for backward compatibility but not used)
 
@@ -195,6 +196,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   private imageCompressionModalRef: any = null;
   private activeTimeouts = new Set<any>();
   @ViewChild('logContent') logContent!: ElementRef;
+  
+  // WhatsApp share properties
+  public whatsappShareMessage: string = '';
+  private whatsappShareModalRef: any = null;
   
   // Route subscription for cleanup
   private routeParamsSubscription?: Subscription;
@@ -3179,6 +3184,190 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   public navigateToUpdateEvent(): void {
     if (this.evenement && this.evenement.id) {
       this.router.navigate(['/updeven', this.evenement.id]);
+    }
+  }
+
+  // Open WhatsApp share modal
+  public shareOnWhatsApp(): void {
+    if (!this.evenement || !this.evenement.id) {
+      return;
+    }
+    
+    // Set default message inviting to see the activity
+    this.whatsappShareMessage = this.translateService.instant('EVENTELEM.DEFAULT_SHARE_MESSAGE');
+    
+    // Open modal
+    if (this.whatsappShareModal) {
+      this.whatsappShareModalRef = this.modalService.open(this.whatsappShareModal, {
+        size: 'lg',
+        centered: true,
+        windowClass: 'whatsapp-share-modal'
+      });
+    }
+  }
+
+  // Get main event image URL
+  public getMainEventImageUrl(): SafeUrl {
+    if (!this.evenement) {
+      return this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+    }
+    
+    // Use thumbnail if available
+    if (this.evenement.thumbnail && this.evenement.thumbnail.fieldId) {
+      return this.getImageUrl(this.evenement.thumbnail.fieldId);
+    }
+    
+    // Use first photo if available
+    if (this.photoItemsList && this.photoItemsList.length > 0) {
+      return this.photoItemsList[0].imageUrl;
+    }
+    
+    // Default fallback
+    return this.sanitizer.bypassSecurityTrustUrl("assets/images/images.jpg");
+  }
+
+  // Get main event image URL as string (for sharing)
+  public getMainEventImageUrlString(): string {
+    if (!this.evenement) {
+      return '';
+    }
+    
+    // Use thumbnail if available
+    if (this.evenement.thumbnail && this.evenement.thumbnail.fieldId) {
+      return `${this.API_URL4FILE}/file/${this.evenement.thumbnail.fieldId}`;
+    }
+    
+    // Use first photo if available
+    if (this.photoItemsList && this.photoItemsList.length > 0) {
+      const firstPhoto = this.photoItemsList[0];
+      if (firstPhoto.file && firstPhoto.file.fieldId) {
+        return `${this.API_URL4FILE}/file/${firstPhoto.file.fieldId}`;
+      }
+    }
+    
+    return '';
+  }
+
+  // Get event URL
+  public getEventUrl(): string {
+    if (!this.evenement || !this.evenement.id) {
+      return '';
+    }
+    return window.location.origin + this.router.url;
+  }
+
+  // Confirm WhatsApp share
+  public async confirmWhatsAppShare(): Promise<void> {
+    if (!this.evenement || !this.evenement.id) {
+      return;
+    }
+    
+    // Get the current URL
+    const currentUrl = window.location.origin + this.router.url;
+    
+    // Get image fieldId if available
+    let imageFieldId: string | null = null;
+    if (this.evenement.thumbnail && this.evenement.thumbnail.fieldId) {
+      imageFieldId = this.evenement.thumbnail.fieldId;
+    } else if (this.photoItemsList && this.photoItemsList.length > 0) {
+      imageFieldId = this.photoItemsList[0].file.fieldId;
+    }
+    
+    // Build the message with clickable title
+    // In WhatsApp, URLs are automatically clickable when properly formatted
+    // Format: Title in bold, then clickable URL on separate line, then optional message
+    let message = `*${this.evenement.evenementName || 'Activité'}*\n\n`;
+    // Ensure URL is on its own line with proper spacing for WhatsApp Web to detect it as clickable
+    message += `${currentUrl}\n\n`;
+    
+    // Add optional user message
+    if (this.whatsappShareMessage && this.whatsappShareMessage.trim()) {
+      message += `${this.whatsappShareMessage.trim()}`;
+    }
+    
+    // Try to use Web Share API first (supports images on mobile)
+    // This allows sharing image and text together in the same message
+    if (navigator.share && imageFieldId) {
+      try {
+        // Get image blob using authenticated file service
+        const imageBlob = await new Promise<Blob | null>((resolve) => {
+          const sub = this.fileService.getFile(imageFieldId!).subscribe({
+            next: (res: any) => {
+              // Try to detect MIME type from response or default to jpeg
+              let mimeType = 'image/jpeg';
+              if (res instanceof Blob && res.type) {
+                mimeType = res.type;
+              }
+              const blob = new Blob([res], { type: mimeType });
+              resolve(blob);
+            },
+            error: (error) => {
+              console.log('Error fetching image for share:', error);
+              resolve(null);
+            }
+          });
+          // Timeout after 5 seconds
+          setTimeout(() => {
+            if (!sub.closed) {
+              sub.unsubscribe();
+              resolve(null);
+            }
+          }, 5000);
+        });
+        
+        if (imageBlob) {
+          // Determine file extension from MIME type
+          let extension = 'jpg';
+          if (imageBlob.type.includes('png')) extension = 'png';
+          else if (imageBlob.type.includes('gif')) extension = 'gif';
+          else if (imageBlob.type.includes('webp')) extension = 'webp';
+          
+          const fileName = `event-image.${extension}`;
+          const file = new File([imageBlob], fileName, { type: imageBlob.type });
+          
+          // Try to share with image and text together
+          if (navigator.canShare && navigator.canShare({ files: [file], text: message })) {
+            await navigator.share({
+              title: this.evenement.evenementName || 'Activité',
+              text: message,
+              files: [file]
+            });
+            
+            // Close modal
+            if (this.whatsappShareModalRef) {
+              this.whatsappShareModalRef.close();
+              this.whatsappShareModalRef = null;
+            }
+            return;
+          }
+        }
+      } catch (shareError) {
+        console.log('Web Share API failed, falling back to wa.me:', shareError);
+        // Fall through to wa.me method
+      }
+    }
+    
+    // Fallback to wa.me (standard WhatsApp share)
+    // Ensure URL is on its own line for better clickability in WhatsApp Web
+    // The URL will create a preview if the page has Open Graph meta tags
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    
+    // Close modal
+    if (this.whatsappShareModalRef) {
+      this.whatsappShareModalRef.close();
+      this.whatsappShareModalRef = null;
+    }
+    
+    // Open WhatsApp in a new window/tab
+    window.open(whatsappUrl, '_blank');
+  }
+
+  // Cancel WhatsApp share
+  public cancelWhatsAppShare(): void {
+    this.whatsappShareMessage = '';
+    if (this.whatsappShareModalRef) {
+      this.whatsappShareModalRef.close();
+      this.whatsappShareModalRef = null;
     }
   }
 
