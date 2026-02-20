@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, TemplateRef, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, TemplateRef, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, ActivatedRoute, Router } from '@angular/router';
@@ -51,7 +51,7 @@ import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
     CommentaryEditor
   ]
 })
-export class DetailsEvenementComponent implements OnInit, OnDestroy {
+export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestroy {
 
   public evenement: Evenement | null = null;
   public user: Member | null = null;
@@ -195,6 +195,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
   private imageCompressionModalRef: any = null;
   private activeTimeouts = new Set<any>();
+  private activeIntervals = new Set<any>();
   @ViewChild('logContent') logContent!: ElementRef;
   
   // WhatsApp share properties
@@ -262,6 +263,21 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     const eventId = this.route.snapshot.paramMap.get('id');
     
+    // Reset scroll position to top for non-mobile mode
+    if (window.innerWidth >= 769) {
+      // Reset body and html scroll
+      document.body.scrollTop = 0;
+      document.documentElement.scrollTop = 0;
+      // Reset artistic-event-page scroll after view init
+      const timeoutId = setTimeout(() => {
+        const pageElement = document.querySelector('.artistic-event-page') as HTMLElement;
+        if (pageElement) {
+          pageElement.scrollTop = 0;
+        }
+      }, 0);
+      this.trackTimeout(timeoutId);
+    }
+    
     try {
       // Display any stored errors from previous page load
       this.displayStoredErrors();
@@ -296,6 +312,23 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       this.error = this.translateService.instant('EVENTELEM.ERROR_LOADING_EVENT') || 'Error initializing page';
       this.loading = false;
       // Don't navigate - stay on page to show error
+    }
+  }
+
+  ngAfterViewInit(): void {
+    // Reset scroll position to top for non-mobile mode after view is initialized
+    if (window.innerWidth >= 769) {
+      const timeoutId = setTimeout(() => {
+        // Reset body and html scroll
+        document.body.scrollTop = 0;
+        document.documentElement.scrollTop = 0;
+        // Reset artistic-event-page scroll
+        const pageElement = document.querySelector('.artistic-event-page') as HTMLElement;
+        if (pageElement) {
+          pageElement.scrollTop = 0;
+        }
+      }, 100);
+      this.trackTimeout(timeoutId);
     }
   }
 
@@ -650,9 +683,17 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     this.photofromfsAutoplayIntervals.forEach((interval) => {
       if (interval) {
         clearInterval(interval);
+        this.activeIntervals.delete(interval);
       }
     });
     this.photofromfsAutoplayIntervals.clear();
+    
+    // Also clear photoGalleryAutoplayInterval if it exists
+    if (this.photoGalleryAutoplayInterval) {
+      clearInterval(this.photoGalleryAutoplayInterval);
+      this.activeIntervals.delete(this.photoGalleryAutoplayInterval);
+      this.photoGalleryAutoplayInterval = null;
+    }
     
     // Clean up PHOTOFROMFS image cache
     this.photofromfsImageCache.forEach((cached) => {
@@ -744,6 +785,14 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
       }
     });
     this.activeTimeouts.clear();
+    
+    // Clear intervals
+    this.activeIntervals.forEach((interval: any) => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    });
+    this.activeIntervals.clear();
     
     // Clear error and loading states
     this.error = null;
@@ -2914,6 +2963,14 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
     });
   }
 
+  private trackTimeout(timeoutId: any): void {
+    this.activeTimeouts.add(timeoutId);
+  }
+
+  private trackInterval(intervalId: any): void {
+    this.activeIntervals.add(intervalId);
+  }
+
   // Format event date with time
   public formatEventDateTime(date: Date, time: string): string {
     if (!date) return '';
@@ -3994,6 +4051,7 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.stopPhotoGalleryAutoplay();
       }
     }, 3000); // Change photo every 3 seconds
+    this.trackInterval(this.photoGalleryAutoplayInterval);
   }
 
   public stopPhotoGalleryAutoplay(): void {
@@ -4048,8 +4106,10 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         this.stopPhotofromfsAutoplay(relativePath);
       }
     }, 3000); // Change photo every 3 seconds
+    this.trackInterval(interval);
     
     this.photofromfsAutoplayIntervals.set(relativePath, interval);
+    this.trackInterval(interval);
   }
 
   public stopPhotofromfsAutoplay(relativePath: string): void {
@@ -5714,11 +5774,14 @@ export class DetailsEvenementComponent implements OnInit, OnDestroy {
         );
         this.trackSubscription(logSubscription);
       }, 1000); // Poll every second
+      this.trackInterval(pollIntervalId);
       
       // Clear interval when upload completes
-      setTimeout(() => {
+      const cleanupTimeout = setTimeout(() => {
         clearInterval(pollIntervalId);
+        this.activeIntervals.delete(pollIntervalId);
       }, 300000); // Stop after 5 minutes
+      this.trackTimeout(cleanupTimeout);
     }
 
     // Upload files

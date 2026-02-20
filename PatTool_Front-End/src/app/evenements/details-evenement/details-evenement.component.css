@@ -8,23 +8,24 @@
   width: 100%;
   overflow-x: hidden;
   overflow-y: auto;
-  /* Custom scrollbar styling - visible scrollbar */
-  scrollbar-width: auto;
+  /* Custom scrollbar styling */
+  scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.6) rgba(0, 0, 0, 0.3);
 }
 
+/* Webkit scrollbar (Chrome, Safari, Edge) */
 .artistic-event-page::-webkit-scrollbar {
-  width: 10px;
+  width: 12px;
 }
 
 .artistic-event-page::-webkit-scrollbar-track {
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 5px;
+  border-radius: 6px;
 }
 
 .artistic-event-page::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.6);
-  border-radius: 5px;
+  border-radius: 6px;
   border: 1px solid rgba(0, 0, 0, 0.2);
 }
 
@@ -32,24 +33,8 @@
   background: rgba(255, 255, 255, 0.8);
 }
 
-/* Custom scrollbar for webkit browsers (Chrome, Safari, Edge) */
-.artistic-event-page::-webkit-scrollbar {
-  width: 10px;
-}
-
-.artistic-event-page::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 5px;
-}
-
-.artistic-event-page::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.4);
-  border-radius: 5px;
-  border: 2px solid rgba(0, 0, 0, 0.2);
-}
-
-.artistic-event-page::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.6);
+.artistic-event-page::-webkit-scrollbar-corner {
+  background: rgba(0, 0, 0, 0.3);
 }
 
 /* Text color modes based on background brightness - ONLY TEXT COLORS, NOT BACKGROUNDS */
@@ -273,7 +258,7 @@
 
 .action-container-inline {
   display: grid;
-  grid-template-columns: auto auto 1fr auto auto auto; /* Edit | Upload | Notes | Rating | Comment | Discussion */
+  grid-template-columns: auto auto auto auto auto 1fr auto; /* Comment | Discussion | WhatsApp | Edit | Upload | Notes | Rating */
   align-items: center;
   gap: 1rem;
   position: relative;
@@ -342,6 +327,7 @@
     flex: 0 0 auto;
     z-index: 10;
     position: relative;
+    order: 1; /* First position on the left */
   }
 
   .action-container .add-discussion-wrapper {
@@ -350,6 +336,32 @@
     flex: 0 0 auto;
     z-index: 10;
     position: relative;
+    order: 2; /* Second position on the left */
+  }
+
+  .action-container .share-whatsapp-wrapper {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    z-index: 10;
+    position: relative;
+    order: 3; /* Third position on the left */
+  }
+  
+  .action-container .edit-event-wrapper {
+    order: 4; /* After the 3 buttons */
+  }
+  
+  .action-container .file-upload-wrapper {
+    order: 5; /* After edit button */
+  }
+  
+  .action-container .notes-section {
+    order: 6; /* After upload button */
+  }
+  
+  .action-container .rating-section {
+    order: 7; /* Last position on the right */
   }
 
 .action-container .add-commentary-wrapper button {
@@ -832,9 +844,19 @@
   flex-direction: row; /* Header content should be horizontal */
 }
 
-.card-header-compact i {
-  color: #ffd700;
-  font-size: 1rem;
+/* ICONS IN CARD HEADERS - BASE RULE */
+.card-header-compact > i {
+  display: inline-block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  color: #ffd700 !important;
+  font-size: 1rem !important;
+  margin-right: 0.5rem !important;
+  flex-shrink: 0 !important;
+}
+
+.upload-card .card-header-compact > i {
+  color: #28a745 !important;
 }
 
 /* ============================================
@@ -1500,6 +1522,52 @@
   gap: 0.75rem;
   flex: 1;
   min-height: 0;
+}
+
+/* Table style for type card - better alignment */
+.type-card .info-list-compact {
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.type-card .info-item-compact {
+  display: table-row;
+  width: 100%;
+}
+
+.type-card .info-label,
+.type-card .info-value {
+  display: table-cell;
+  padding: 0.6rem 0.8rem;
+  vertical-align: middle;
+  font-size: 1rem;
+}
+
+.type-card .info-label {
+  font-weight: 600;
+  text-align: center;
+  width: 40%;
+  min-width: 120px;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 1rem;
+}
+
+.type-card .info-value {
+  font-weight: 500;
+  text-align: center;
+  padding-left: 1rem;
+  font-size: 1rem;
+}
+
+.type-card .status-badge-compact {
+  display: table-cell;
+  padding: 0.6rem 0.8rem;
+  padding-left: 1rem;
+  vertical-align: middle;
+  font-size: 0.95rem;
+  text-align: center;
 }
 
 /* ============================================
@@ -2535,40 +2603,62 @@ select.compact-input:focus {
      BASE LAYOUT & SCROLLING
      ============================================ */
   
-  /* Main page container - enable scrolling with visible scrollbar */
+  /* FORCE ICONS TO BE VISIBLE - DIRECT CHILD SELECTOR */
+  .card-header-compact > i.fa {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #ffd700 !important;
+    font-size: 1rem !important;
+    margin-right: 0.5rem !important;
+    width: auto !important;
+    height: auto !important;
+    line-height: 1rem !important;
+  }
+  
+  .upload-card .card-header-compact > i.fa {
+    color: #28a745 !important;
+  }
+  
+  /* Buttons keep their original colors */
+  .card-header-compact .btn-compact i {
+    color: inherit !important;
+  }
+  
+  /* Scrollbar for mobile mode */
   .artistic-event-page {
     overflow-x: hidden;
     overflow-y: auto;
-    width: 100%;
-    max-width: 100vw;
-    position: relative;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: auto;
+    scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.7) rgba(0, 0, 0, 0.4);
   }
   
   .artistic-event-page::-webkit-scrollbar {
-    width: 12px;
+    width: 14px;
   }
   
   .artistic-event-page::-webkit-scrollbar-track {
     background: rgba(0, 0, 0, 0.4);
-    border-radius: 6px;
+    border-radius: 7px;
   }
   
   .artistic-event-page::-webkit-scrollbar-thumb {
     background: rgba(255, 255, 255, 0.7);
-    border-radius: 6px;
-    border: 2px solid rgba(0, 0, 0, 0.3);
+    border-radius: 7px;
+    border: 1px solid rgba(0, 0, 0, 0.3);
   }
   
   .artistic-event-page::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.85);
+  }
+  
+  .artistic-event-page::-webkit-scrollbar-corner {
+    background: rgba(0, 0, 0, 0.4);
   }
   
   /* Content layer */
   .content-layer {
-    padding: 0.5rem 0.75rem 2rem 0.75rem;
+    padding: 0.5rem 0.6rem 3rem 0.6rem;
     overflow-x: hidden;
     overflow-y: visible;
     position: relative;
@@ -2623,28 +2713,110 @@ select.compact-input:focus {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
   }
 
+  /* ============================================
+     ACTION CONTAINER - MOBILE MODE (FROM SCRATCH)
+     ============================================ */
+  
+  /* ============================================
+     ACTION CONTAINER - MOBILE MODE (TWO SEPARATE TABLES)
+     ============================================ */
+  
+  /* Container: block to allow two separate tables */
   .action-container-inline {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 0.4rem !important;
+    display: block !important;
+    width: 100% !important;
     grid-template-columns: none !important;
+  }
+  
+  /* FIRST TABLE: Buttons row */
+  .action-container .buttons-table-row {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  /* Buttons as table cells - centered */
+  .action-container .add-commentary-wrapper,
+  .action-container .add-discussion-wrapper,
+  .action-container .share-whatsapp-wrapper,
+  .action-container .edit-event-wrapper,
+  .action-container .file-upload-wrapper,
+  .action-container .notes-section {
+    display: table-cell !important;
+    vertical-align: middle !important;
+    text-align: center !important;
+    padding: 0.3rem !important;
+    border: 1px solid #000000 !important;
+  }
+  
+  /* Center content in button cells */
+  .action-container .add-commentary-wrapper > *,
+  .action-container .add-discussion-wrapper > *,
+  .action-container .share-whatsapp-wrapper > *,
+  .action-container .edit-event-wrapper > *,
+  .action-container .file-upload-wrapper > *,
+  .action-container .notes-section > * {
+    margin: 0 auto !important;
+    display: flex !important;
+    justify-content: center !important;
     align-items: center !important;
   }
   
-  .action-container .edit-event-wrapper,
-  .action-container .file-upload-wrapper,
-  .action-container .add-commentary-wrapper,
-  .action-container .add-discussion-wrapper,
-  .action-container .rating-section {
-    grid-column: auto !important;
+  /* Make file upload button same size as other buttons in mobile */
+  .action-container .file-upload-wrapper label.btn-compact {
+    width: auto !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0.35rem 0.4rem !important;
+    font-size: 0 !important; /* Hide text, show only icon */
+  }
+  
+  .action-container .file-upload-wrapper label.btn-compact i {
+    font-size: 0.65rem !important; /* Restore icon size */
+  }
+  
+  /* SECOND TABLE: Rating row */
+  .action-container .rating-table-row {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+  }
+  
+  /* Rating section: use flexbox for content layout */
+  .action-container .rating-table-row .rating-section {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    padding: 0.5rem !important;
+    border: 1px solid #000000 !important;
+  }
+  
+  /* Green button (thumbs-up) on the left */
+  .action-container .rating-table-row .rating-section .rating-plus {
+    order: 1 !important;
     flex: 0 0 auto !important;
   }
   
-  .action-container .notes-section {
-    grid-column: auto !important;
-    flex: 1 1 100% !important;
-    order: 10 !important;
-    margin-top: 0.5rem !important;
+  /* Stars in the center */
+  .action-container .rating-table-row .rating-section .star-rating-display {
+    order: 2 !important;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+  
+  /* Red button (thumbs-down) on the right */
+  .action-container .rating-table-row .rating-section .rating-minus {
+    order: 3 !important;
+    flex: 0 0 auto !important;
   }
   
   .action-container .notes-text {
@@ -2738,7 +2910,7 @@ select.compact-input:focus {
   
   /* Card styling */
   .dynamic-card {
-    padding: 0.7rem;
+    padding: 0.75rem 1.2rem !important;
     border-radius: 14px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   }
@@ -2747,34 +2919,205 @@ select.compact-input:focus {
     flex-direction: column;
   }
   
+  /* ============================================
+     CARD HEADERS - COMPLETE REDESIGN
+     ============================================ */
+  
   .card-header-compact {
-    font-size: 0.8rem;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    padding-bottom: 0.5rem;
-    margin-bottom: 0.6rem;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 0.5rem !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    padding: 0.5rem 0 !important;
+    margin-bottom: 0.75rem !important;
+    margin-left: -1.2rem !important;
+    margin-right: -1.2rem !important;
+    padding-left: 1.2rem !important;
+    padding-right: 1.2rem !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+    width: calc(100% + 2.4rem) !important;
   }
   
-  .card-header-compact i {
-    font-size: 0.9rem;
+  /* ICON - FORCE VISIBLE */
+  .card-header-compact > i {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #ffd700 !important;
+    font-size: 1.2rem !important;
+    margin-right: 0.5rem !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    height: auto !important;
+  }
+  
+  .upload-card .card-header-compact > i {
+    color: #28a745 !important;
+  }
+  
+  /* TITLE SPAN */
+  .card-header-compact > span {
+    flex: 1 !important;
+    text-align: left !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+  }
+  
+  /* BUTTONS IN HEADER */
+  .card-header-compact .btn-compact {
+    flex-shrink: 0 !important;
+    padding: 0.25rem 0.3rem !important;
+    min-width: 24px !important;
+    min-height: 24px !important;
+    font-size: 0.6rem !important;
+    border-radius: 6px !important;
+    margin-left: auto !important;
+  }
+  
+  .card-header-compact .btn-compact i {
+    font-size: 0.7rem !important;
+    color: inherit !important;
   }
   
   /* ============================================
-     BUTTONS - SMALL & ICON-FOCUSED
+     CARD CONTENT - BETTER TEXT ALIGNMENT
+     ============================================ */
+  
+  .card-body-compact,
+  .description-content-compact,
+  .visibility-content-compact {
+    padding: 0.5rem 0.4rem;
+    text-align: left;
+  }
+  
+  /* Table style for type card in mobile - larger font and better alignment */
+  .type-card .type-content-compact {
+    padding: 0.5rem 0.3rem;
+    text-align: center;
+  }
+  
+  .type-card .info-list-compact {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    padding: 0 !important;
+  }
+  
+  .type-card .info-item-compact {
+    display: table-row !important;
+    width: 100% !important;
+    padding: 0 !important;
+  }
+  
+  .type-card .info-label,
+  .type-card .info-value,
+  .type-card .status-badge-compact {
+    display: table-cell !important;
+    padding: 0.6rem 0.7rem !important;
+    vertical-align: middle !important;
+    font-size: 0.95rem !important;
+  }
+  
+  .type-card .info-label {
+    font-weight: 600 !important;
+    text-align: center !important;
+    width: 40% !important;
+    min-width: 100px !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+  }
+  
+  .type-card .info-value {
+    font-weight: 500 !important;
+    text-align: center !important;
+    padding-left: 0.8rem !important;
+  }
+  
+  .type-card .status-badge-compact {
+    padding-left: 0.8rem !important;
+    text-align: center !important;
+  }
+  
+  /* Other cards keep flex layout */
+  .info-list-compact:not(.type-card .info-list-compact) {
+    padding: 0.5rem 0.4rem;
+    text-align: left;
+  }
+  
+  .description-text-compact,
+  .notes-text-compact,
+  .message-text-compact,
+  .comment-text-compact {
+    text-align: left;
+    padding: 0.4rem 0.3rem;
+    line-height: 1.5;
+  }
+  
+  .info-item-compact:not(.type-card .info-item-compact) {
+    padding: 0.4rem 0.3rem;
+    text-align: left;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+  }
+  
+  .info-label:not(.type-card .info-label) {
+    text-align: left;
+    margin-right: 0.5rem;
+    padding-left: 0.1rem;
+    flex-shrink: 0;
+  }
+  
+  .info-value:not(.type-card .info-value) {
+    text-align: left;
+    flex: 1;
+    padding-left: 0.1rem;
+    text-align: right;
+  }
+  
+  /* Ensure all text in cards is properly aligned */
+  .dynamic-card p,
+  .dynamic-card span,
+  .dynamic-card div:not(.card-header-compact):not(.btn-compact) {
+    text-align: left;
+  }
+  
+  /* ============================================
+     BUTTONS - SMALLER & MORE COMPACT
      ============================================ */
   
   .btn-compact {
-    padding: 0.4rem 0.5rem;
-    font-size: 0.7rem;
-    min-width: 36px;
-    min-height: 36px;
-    border-radius: 10px;
-    gap: 0.3rem;
+    padding: 0.3rem 0.45rem;
+    font-size: 0.65rem;
+    min-width: 32px;
+    min-height: 32px;
+    border-radius: 8px;
+    gap: 0.25rem;
   }
   
   /* Hide button text, show only icons */
   .btn-compact .btn-text {
     display: none !important;
+  }
+  
+  /* Hide text in action container buttons (Modifier, Télécharger, etc.) - keep only icons */
+  .action-container .btn-compact {
+    font-size: 0 !important; /* Hide all text */
+  }
+  
+  .action-container .btn-compact i {
+    font-size: 0.65rem !important; /* Restore icon size */
+  }
+  
+  .action-container label.btn-compact {
+    font-size: 0 !important; /* Hide text in label buttons */
+  }
+  
+  .action-container label.btn-compact i {
+    font-size: 0.65rem !important; /* Restore icon size in labels */
   }
   
   /* Ensure buttons are never full width */
@@ -2793,50 +3136,50 @@ select.compact-input:focus {
   
   /* Action container buttons - even smaller */
   .action-container .btn-compact {
-    padding: 0.35rem 0.4rem;
-    min-width: 32px;
-    min-height: 32px;
-    border-radius: 8px;
-  }
-  
-  .action-container .btn-compact i {
-    font-size: 0.85rem;
-    margin: 0;
-  }
-  
-  /* Card header buttons */
-  .card-header-compact .btn-compact {
     padding: 0.3rem 0.35rem;
     min-width: 28px;
     min-height: 28px;
-    border-radius: 8px;
+    border-radius: 7px;
+    font-size: 0 !important; /* Hide all text, show only icons */
   }
   
-  .card-header-compact .btn-compact i {
-    font-size: 0.75rem;
+  .action-container .btn-compact i {
+    font-size: 0.75rem !important;
+    margin: 0;
   }
   
+  /* Hide text in label buttons (file upload) */
+  .action-container label.btn-compact {
+    font-size: 0 !important; /* Hide all text */
+  }
+  
+  .action-container label.btn-compact i {
+    font-size: 0.75rem !important; /* Restore icon size */
+  }
+  
+  /* Card header buttons - already defined above in card-header-compact section */
+  /* Additional override for consistency */
   .card-header-compact .btn-compact .btn-text {
     display: none !important;
   }
   
   /* Rating buttons */
   .rating-badge.btn-rating {
-    padding: 0.35rem 0.45rem;
-    min-width: 38px;
-    min-height: 38px;
-    font-size: 0.7rem;
-    border-radius: 10px;
+    padding: 0.3rem 0.4rem;
+    min-width: 32px;
+    min-height: 32px;
+    font-size: 0.65rem;
+    border-radius: 8px;
   }
   
   .rating-badge.btn-rating i {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
   
   .rating-section {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.35rem;
     flex-wrap: wrap;
   }
   
@@ -2845,9 +3188,10 @@ select.compact-input:focus {
      ============================================ */
   
   .description-text-compact {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     line-height: 1.6;
-    padding: 0.5rem;
+    padding: 0.5rem 0.3rem;
+    text-align: left;
   }
   
   /* ============================================
@@ -2928,7 +3272,7 @@ select.compact-input:focus {
   .discussion-message-compact {
     width: 88%;
     max-width: 88%;
-    padding: 0.6rem;
+    padding: 0.5rem 0.4rem;
     border-radius: 12px;
   }
   
@@ -2936,20 +3280,25 @@ select.compact-input:focus {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.3rem;
+    padding-left: 0.2rem;
   }
   
   .message-author-compact {
     font-size: 0.75rem;
+    text-align: left;
   }
   
   .message-date-compact {
     font-size: 0.65rem;
+    text-align: left;
   }
   
   .message-text-compact {
     font-size: 0.8rem;
     word-wrap: break-word;
     overflow-wrap: anywhere;
+    text-align: left;
+    padding: 0.3rem 0.2rem;
   }
   
   .discussion-image-compact,
@@ -2982,22 +3331,28 @@ select.compact-input:focus {
   }
   
   .comment-item-compact {
-    padding: 0.6rem;
+    padding: 0.5rem 0.4rem;
     border-radius: 10px;
   }
   
   .comment-author-compact {
     font-size: 0.75rem;
+    text-align: left;
+    padding-left: 0.2rem;
   }
   
   .comment-date-compact {
     font-size: 0.65rem;
+    text-align: left;
+    padding-left: 0.2rem;
   }
   
   .comment-text-compact {
     font-size: 0.75rem;
     word-wrap: break-word;
     overflow-wrap: anywhere;
+    text-align: left;
+    padding: 0.3rem 0.2rem;
   }
   
   /* Commentary content */
@@ -3039,7 +3394,7 @@ select.compact-input:focus {
   }
   
   .url-item-compact {
-    padding: 0.5rem;
+    padding: 0.5rem 0.4rem;
     border-radius: 10px;
   }
   
@@ -3047,10 +3402,14 @@ select.compact-input:focus {
     font-size: 0.75rem;
     word-wrap: break-word;
     overflow-wrap: anywhere;
+    text-align: left;
+    padding: 0.2rem 0;
   }
   
   .url-meta-compact {
     font-size: 0.65rem;
+    text-align: left;
+    padding-left: 0.2rem;
   }
   
   /* ============================================
@@ -3081,10 +3440,10 @@ select.compact-input:focus {
   
   .pdf-item-compact,
   .track-item-compact {
-    padding: 0.6rem;
+    padding: 0.5rem 0.4rem;
     flex-direction: column;
     align-items: flex-start;
-    gap: 0.4rem;
+    gap: 0.35rem;
     border-radius: 10px;
   }
   
@@ -3094,6 +3453,8 @@ select.compact-input:focus {
     width: 100%;
     word-wrap: break-word;
     overflow-wrap: anywhere;
+    text-align: left;
+    padding-left: 0.2rem;
   }
   
   .pdf-actions-compact,
@@ -3101,14 +3462,30 @@ select.compact-input:focus {
     width: auto;
     max-width: 100%;
     justify-content: flex-start;
-    gap: 0.4rem;
+    gap: 0.35rem;
     flex-wrap: wrap;
+    padding-left: 0.2rem;
+  }
+  
+  .pdf-actions-compact .btn-compact,
+  .track-actions-compact .btn-compact {
+    padding: 0.25rem 0.35rem;
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 0.65rem;
+  }
+  
+  .pdf-actions-compact .btn-compact i,
+  .track-actions-compact .btn-compact i {
+    font-size: 0.7rem;
   }
   
   .pdf-meta-compact,
   .track-meta-compact {
     font-size: 0.65rem;
     width: 100%;
+    text-align: left;
+    padding-left: 0.2rem;
   }
   
   /* ============================================
@@ -3174,7 +3551,7 @@ select.compact-input:focus {
   
   .compact-form-actions {
     flex-direction: row;
-    gap: 0.4rem;
+    gap: 0.35rem;
     justify-content: flex-end;
     flex-wrap: wrap;
     margin-top: 0.5rem;
@@ -3182,9 +3559,12 @@ select.compact-input:focus {
   
   .compact-form-actions .btn-compact {
     flex: 0 0 auto;
-    min-width: 70px;
+    min-width: 60px;
+    min-height: 30px;
     width: auto;
     max-width: none;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.65rem;
   }
   
   .compact-input-group {
@@ -3193,7 +3573,7 @@ select.compact-input:focus {
   }
   
   .compact-item-actions {
-    gap: 0.4rem;
+    gap: 0.35rem;
     flex-wrap: wrap;
     margin-top: 0.5rem;
     width: auto;
@@ -3203,6 +3583,14 @@ select.compact-input:focus {
   .compact-item-actions .btn-compact {
     width: auto;
     max-width: none;
+    padding: 0.25rem 0.35rem;
+    min-width: 28px;
+    min-height: 28px;
+    font-size: 0.65rem;
+  }
+  
+  .compact-item-actions .btn-compact i {
+    font-size: 0.7rem;
   }
   
   /* ============================================
@@ -3234,18 +3622,26 @@ select.compact-input:focus {
   }
   
   .info-item-compact {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.3rem;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+    padding: 0.4rem 0.3rem;
+    text-align: left;
   }
   
   .info-label {
     font-size: 0.7rem;
+    text-align: left;
+    padding-left: 0.2rem;
+    flex-shrink: 0;
   }
   
   .info-value {
     font-size: 0.7rem;
-    text-align: left;
+    text-align: right;
+    padding-left: 0.2rem;
+    flex: 1;
   }
   
   .badge-compact {
@@ -3272,8 +3668,10 @@ select.compact-input:focus {
   }
   
   .btn-whatsapp-compact {
-    font-size: 0.7rem;
-    padding: 0.4rem 0.6rem;
+    font-size: 0.65rem;
+    padding: 0.3rem 0.45rem;
+    min-width: 32px;
+    min-height: 32px;
     width: auto;
     min-width: auto;
     max-width: 100%;
@@ -3483,6 +3881,63 @@ select.compact-input:focus {
   }
 }
 
+/* ============================================
+   NON-MOBILE MODE: Restore original layout
+   ============================================ */
+
+@media (min-width: 769px) {
+  /* Restore original grid layout for action-container-inline */
+  .action-container-inline {
+    display: grid !important;
+    grid-template-columns: auto auto auto auto auto 1fr auto !important;
+    align-items: center !important;
+    gap: 1rem !important;
+    width: 100% !important;
+  }
+  
+  /* Remove table layout from buttons-table-row in non-mobile */
+  .action-container .buttons-table-row {
+    display: contents !important;
+  }
+  
+  /* Remove table layout from rating-table-row in non-mobile */
+  .action-container .rating-table-row {
+    display: contents !important;
+  }
+  
+  /* Restore original display for buttons in non-mobile */
+  .action-container .add-commentary-wrapper,
+  .action-container .add-discussion-wrapper,
+  .action-container .share-whatsapp-wrapper,
+  .action-container .edit-event-wrapper,
+  .action-container .file-upload-wrapper,
+  .action-container .notes-section {
+    display: flex !important;
+    align-items: center !important;
+    border: none !important;
+    padding: 0 !important;
+  }
+  
+  /* Restore original rating section layout in non-mobile */
+  .action-container .rating-section {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.4rem !important;
+    flex: 0 0 auto !important;
+    border: none !important;
+    padding: 0 !important;
+    justify-content: flex-end !important;
+  }
+  
+  /* Remove flexbox order overrides in non-mobile */
+  .action-container .rating-section .rating-plus,
+  .action-container .rating-section .rating-minus,
+  .action-container .rating-section .star-rating-display {
+    order: 0 !important;
+    flex: 0 0 auto !important;
+  }
+}
+
 /* Extra Small Devices */
 @media (max-width: 480px) {
   .content-layer {
@@ -3539,27 +3994,106 @@ select.compact-input:focus {
     border-radius: 12px !important;
   }
 
+  /* ============================================
+     ACTION CONTAINER - MOBILE MODE (TWO SEPARATE TABLES)
+     ============================================ */
+  
+  /* Container: block to allow two separate tables */
   .action-container-inline {
-    display: flex !important;
-    flex-wrap: wrap !important;
-    gap: 0.4rem !important;
+    display: block !important;
+    width: 100% !important;
     grid-template-columns: none !important;
   }
   
-  .action-container .edit-event-wrapper,
-  .action-container .file-upload-wrapper,
+  /* FIRST TABLE: Buttons row */
+  .action-container .buttons-table-row {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  /* Buttons as table cells - centered */
   .action-container .add-commentary-wrapper,
   .action-container .add-discussion-wrapper,
-  .action-container .rating-section {
-    grid-column: auto !important;
+  .action-container .share-whatsapp-wrapper,
+  .action-container .edit-event-wrapper,
+  .action-container .file-upload-wrapper,
+  .action-container .notes-section {
+    display: table-cell !important;
+    vertical-align: middle !important;
+    text-align: center !important;
+    padding: 0.3rem !important;
+    border: 1px solid #000000 !important;
+  }
+  
+  /* Center content in button cells */
+  .action-container .add-commentary-wrapper > *,
+  .action-container .add-discussion-wrapper > *,
+  .action-container .share-whatsapp-wrapper > *,
+  .action-container .edit-event-wrapper > *,
+  .action-container .file-upload-wrapper > *,
+  .action-container .notes-section > * {
+    margin: 0 auto !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+  
+  /* Make file upload button same size as other buttons in mobile */
+  .action-container .file-upload-wrapper label.btn-compact {
+    width: auto !important;
+    min-width: 32px !important;
+    max-width: 32px !important;
+    min-height: 32px !important;
+    padding: 0.35rem 0.4rem !important;
+    font-size: 0 !important; /* Hide text, show only icon - same as other buttons */
+  }
+  
+  .action-container .file-upload-wrapper label.btn-compact i {
+    font-size: 0.65rem !important; /* Restore icon size */
+  }
+  
+  /* SECOND TABLE: Rating row */
+  .action-container .rating-table-row {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border-spacing: 0 !important;
+  }
+  
+  /* Rating section: use flexbox for content layout - green button left, stars center, red button right */
+  .action-container .rating-table-row .rating-section {
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+    padding: 0.5rem !important;
+    border: 1px solid #000000 !important;
+  }
+  
+  /* Green button (thumbs-up) on the left */
+  .action-container .rating-table-row .rating-section .rating-plus {
+    order: 1 !important;
     flex: 0 0 auto !important;
   }
   
-  .action-container .notes-section {
-    grid-column: auto !important;
-    flex: 1 1 100% !important;
-    order: 10 !important;
-    margin-top: 0.4rem !important;
+  /* Stars in the center */
+  .action-container .rating-table-row .rating-section .star-rating-display {
+    order: 2 !important;
+    flex: 1 1 auto !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
+  
+  /* Red button (thumbs-down) on the right */
+  .action-container .rating-table-row .rating-section .rating-minus {
+    order: 3 !important;
+    flex: 0 0 auto !important;
   }
   
   /* Ensure touch targets are at least 44x44px */
@@ -3572,14 +4106,33 @@ select.compact-input:focus {
   /* Smaller buttons in action container */
   .action-container .btn-compact {
     min-width: 32px;
+    max-width: 32px; /* Fixed width to keep buttons compact */
     min-height: 32px;
     padding: 0.35rem 0.4rem !important;
+    flex-shrink: 0 !important; /* Don't shrink buttons */
   }
   
   /* Hide button text on mobile, show only icons */
   .action-container .btn-compact .btn-text,
   .card-header-compact .btn-compact .btn-text {
     display: none !important;
+  }
+  
+  /* Hide text in action container buttons (Modifier, Télécharger, etc.) - keep only icons */
+  .action-container .btn-compact {
+    font-size: 0 !important; /* Hide all text */
+  }
+  
+  .action-container .btn-compact i {
+    font-size: 0.75rem !important; /* Restore icon size */
+  }
+  
+  .action-container label.btn-compact {
+    font-size: 0 !important; /* Hide text in label buttons */
+  }
+  
+  .action-container label.btn-compact i {
+    font-size: 0.75rem !important; /* Restore icon size in labels */
   }
   
   /* Photo navigation - hidden on mobile */
@@ -3652,37 +4205,7 @@ select.compact-input:focus {
     hyphens: none;
   }
   
-  /* Prevent horizontal scrolling and enable vertical scrolling with scrollbar */
-  .artistic-event-page {
-    overflow-x: hidden;
-    overflow-y: auto;
-    width: 100%;
-    max-width: 100vw;
-    position: relative;
-    -webkit-overflow-scrolling: touch;
-    /* Custom scrollbar for mobile */
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.5) rgba(0, 0, 0, 0.3);
-  }
-  
-  /* Custom scrollbar for webkit browsers on mobile */
-  .artistic-event-page::-webkit-scrollbar {
-    width: 8px;
-  }
-  
-  .artistic-event-page::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 4px;
-  }
-  
-  .artistic-event-page::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.5);
-    border-radius: 4px;
-  }
-  
-  .artistic-event-page::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.7);
-  }
+  /* Scrollbar rules already defined above in @media (max-width: 768px) - no duplicate needed */
   
   .content-layer {
     max-width: 100%;
@@ -4140,19 +4663,49 @@ select.compact-input:focus {
 
 /* Responsive card headers */
 @media (max-width: 576px) {
+  /* CARD HEADERS - WITH PROPER MARGINS FOR ICONS AND BUTTONS */
   .card-header-compact {
-    font-size: 0.75rem !important;
+    font-size: 1rem !important;
+    gap: 0.4rem !important;
     padding-bottom: 0.4rem !important;
     margin-bottom: 0.5rem !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    margin-left: -1rem !important;
+    margin-right: -1rem !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    width: calc(100% + 2rem) !important;
   }
   
-  .card-header-compact i {
-    font-size: 0.85rem !important;
+  .card-header-compact > i {
+    font-size: 1.1rem !important;
+    margin-right: 0.4rem !important;
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #ffd700 !important;
+  }
+  
+  .upload-card .card-header-compact > i {
+    color: #28a745 !important;
+  }
+  
+  .card-header-compact > span {
+    font-size: 1rem !important;
+    text-align: left !important;
   }
   
   .card-header-compact .btn-compact {
-    padding: 0.25rem 0.4rem !important;
+    padding: 0.2rem 0.25rem !important;
+    min-width: 22px !important;
+    min-height: 22px !important;
+    font-size: 0.55rem !important;
+  }
+  
+  .card-header-compact .btn-compact i {
     font-size: 0.65rem !important;
+    color: inherit !important;
   }
 }
 
@@ -4168,7 +4721,7 @@ select.compact-input:focus {
   }
   
   .dynamic-card {
-    padding: 0.5rem !important;
+    padding: 0.5rem 1rem !important;
     border-radius: 10px !important;
   }
   
@@ -4275,15 +4828,20 @@ select.compact-input:focus {
 /* Responsive table-like layouts */
 @media (max-width: 768px) {
   .info-item-compact {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
   }
   
-  .info-label,
-  .info-value {
-    width: 100%;
+  .info-label {
+    flex-shrink: 0;
     text-align: left;
+  }
+  
+  .info-value {
+    flex: 1;
+    text-align: right;
   }
   
   .pdf-item-compact,
@@ -4475,18 +5033,8 @@ select.compact-input:focus {
   }
 }
 
-/* Ensure all containers respect viewport */
-html, body {
-  overflow-x: hidden;
-  max-width: 100vw;
-}
 
-.artistic-event-page {
-  width: 100%;
-  max-width: 100vw;
-  overflow-x: hidden;
-  position: relative;
-}
+/* Removed duplicate - scrollbar rules are already defined at the top */
 
 /* Responsive spacing utilities */
 @media (max-width: 768px) {

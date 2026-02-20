@@ -217,8 +217,21 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		
 		let id: string = this._route.snapshot.params['id'];
 		this.isLoading = true;
-		this._evenementsService.getEvenement(id).subscribe({
+		
+		// Add timeout fallback to ensure loading state is cleared even if subscription doesn't complete
+		const timeoutId = setTimeout(() => {
+			if (this.isLoading) {
+				console.warn('Event loading timeout - clearing loading state');
+				this.isLoading = false;
+				this.ngZone.run(() => {
+					this.cdr.detectChanges();
+				});
+			}
+		}, 30000); // 30 second timeout
+		
+		const subscription = this._evenementsService.getEvenement(id).subscribe({
 			next: (evenement) => {
+				clearTimeout(timeoutId);
 				//console.log("EVenement : " + JSON.stringify(evenement));
 				this.evenement = evenement;
 				// Save original state for comparison
@@ -265,12 +278,24 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 					}
 				}
 				this.isLoading = false;
+				// Force change detection to ensure UI updates, especially in mobile mode
+				this.ngZone.run(() => {
+					this.cdr.detectChanges();
+				});
 			},
 			error: (error) => {
+				clearTimeout(timeoutId);
 				console.error('Error loading event:', error);
 				this.isLoading = false;
+				// Force change detection to ensure UI updates, especially in mobile mode
+				this.ngZone.run(() => {
+					this.cdr.detectChanges();
+				});
 			}
 		});
+		
+		// Track subscription for cleanup
+		this.activeSubscriptions.add(subscription);
 	}
 
 	// Sorted list of URL event types by translated label

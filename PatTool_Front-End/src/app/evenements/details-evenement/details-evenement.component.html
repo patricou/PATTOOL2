@@ -74,87 +74,93 @@
     <!-- Action Container - Below header badges -->
     <div class="action-container" *ngIf="(user && evenement) || evenement">
       <div class="action-container-inline">
-        <div class="edit-event-wrapper" *ngIf="isEventOwner()">
-          <button type="button"
-                  class="btn-compact btn-primary-compact"
-                  (click)="navigateToUpdateEvent()"
-                  [title]="'EVENTHOME.EDIT_EVENT' | translate">
-            <i class="fa fa-edit"></i> {{ 'EVENTHOME.EDIT_EVENT' | translate }}
-          </button>
-        </div>
-        <div class="file-upload-wrapper" *ngIf="user && evenement">
-          <label [for]="'file-upload-input-' + evenement.id" 
-                 class="btn-compact btn-success-compact">
-            <i class="fa fa-upload"></i> {{ 'EVENTELEM.UPLOAD' | translate }}
-          </label>
-          <input type="file" 
-                 [id]="'file-upload-input-' + evenement.id" 
-                 #fileInput 
-                 (change)="onFileSelected($event)" 
-                 multiple 
-                 accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar,.gpx,.kml,.kmz,.gdb,.tcx" 
-                 style="display: none;" />
-        </div>
-        <div class="notes-section" *ngIf="evenement && evenement.notes">
-          <div class="notes-content">
-            <p class="notes-text">{{ evenement.notes }}</p>
+        <!-- First table: buttons row -->
+        <div class="buttons-table-row">
+          <div class="add-commentary-wrapper" *ngIf="evenement">
+            <button type="button"
+                    class="btn-compact btn-primary-compact"
+                    (click)="openAddCommentary(); $event.stopPropagation()"
+                    [title]="'EVENTHOME.ADD_COMMENTARY' | translate">
+              <i class="fa fa-comment"></i> <span class="btn-text">{{ 'EVENTHOME.COMMENTARIES' | translate }}</span>
+            </button>
+          </div>
+          <div class="add-discussion-wrapper" *ngIf="evenement">
+            <button type="button"
+                    class="btn-compact btn-primary-compact"
+                    (click)="openDiscussion(); $event.stopPropagation()"
+                    [title]="'EVENTELEM.OPEN_DISCUSSION' | translate">
+              <i class="fa fa-comments"></i> <span class="btn-text">{{ 'EVENTELEM.CHAT' | translate }}</span>
+            </button>
+          </div>
+          <div class="share-whatsapp-wrapper" *ngIf="evenement">
+            <button type="button"
+                    class="btn-compact btn-success-compact"
+                    (click)="shareOnWhatsApp(); $event.stopPropagation()"
+                    [title]="'EVENTELEM.SHARE_WHATSAPP' | translate">
+              <i class="fa fa-whatsapp"></i> <span class="btn-text">{{ 'EVENTELEM.SHARE_WHATSAPP' | translate }}</span>
+            </button>
+          </div>
+          <div class="edit-event-wrapper" *ngIf="isEventOwner()">
+            <button type="button"
+                    class="btn-compact btn-primary-compact"
+                    (click)="navigateToUpdateEvent()"
+                    [title]="'EVENTHOME.EDIT_EVENT' | translate">
+              <i class="fa fa-edit"></i> {{ 'EVENTHOME.EDIT_EVENT' | translate }}
+            </button>
+          </div>
+          <div class="file-upload-wrapper" *ngIf="user && evenement">
+            <label [for]="'file-upload-input-' + evenement.id" 
+                   class="btn-compact btn-success-compact">
+              <i class="fa fa-upload"></i> {{ 'EVENTELEM.UPLOAD' | translate }}
+            </label>
+            <input type="file" 
+                   [id]="'file-upload-input-' + evenement.id" 
+                   #fileInput 
+                   (change)="onFileSelected($event)" 
+                   multiple 
+                   accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar,.gpx,.kml,.kmz,.gdb,.tcx" 
+                   style="display: none;" />
+          </div>
+          <div class="notes-section" *ngIf="evenement && evenement.notes">
+            <div class="notes-content">
+              <p class="notes-text">{{ evenement.notes }}</p>
+            </div>
           </div>
         </div>
-        <div class="rating-section" *ngIf="evenement">
-          <button type="button" 
-                  class="rating-badge rating-plus btn-rating" 
-                  (click)="addRatePlus()"
-                  [ngbTooltip]="'COMMUN.ILIKE' | translate"
-                  placement="top">
-            <i class="fa fa-thumbs-up"></i> {{ evenement.ratingPlus || 0 }}
-          </button>
-          <!-- Star Rating Display -->
-          <div class="star-rating-display">
-            <span *ngFor="let star of getStarRating(); let i = index" 
-                  class="star-icon"
-                  [class.star-filled]="star === 1"
-                  [class.star-half]="star === 0.5"
-                  [class.star-empty]="star === 0">
-              <i class="fa" 
-                 [class.fa-star]="star === 1"
-                 [class.fa-star-half-o]="star === 0.5"
-                 [class.fa-star-o]="star === 0"></i>
-            </span>
-            <span class="star-rating-value" *ngIf="getOverallRating() > 0">
-              {{ getOverallRating() | number:'1.1-1' }}
-            </span>
+        <!-- Second table: rating row -->
+        <div class="rating-table-row" *ngIf="evenement">
+          <div class="rating-section">
+            <button type="button" 
+                    class="rating-badge rating-plus btn-rating" 
+                    (click)="addRatePlus()"
+                    [ngbTooltip]="'COMMUN.ILIKE' | translate"
+                    placement="top">
+              <i class="fa fa-thumbs-up"></i> {{ evenement.ratingPlus || 0 }}
+            </button>
+            <!-- Star Rating Display -->
+            <div class="star-rating-display">
+              <span *ngFor="let star of getStarRating(); let i = index" 
+                    class="star-icon"
+                    [class.star-filled]="star === 1"
+                    [class.star-half]="star === 0.5"
+                    [class.star-empty]="star === 0">
+                <i class="fa" 
+                   [class.fa-star]="star === 1"
+                   [class.fa-star-half-o]="star === 0.5"
+                   [class.fa-star-o]="star === 0"></i>
+              </span>
+              <span class="star-rating-value" *ngIf="getOverallRating() > 0">
+                {{ getOverallRating() | number:'1.1-1' }}
+              </span>
+            </div>
+            <button type="button" 
+                    class="rating-badge rating-minus btn-rating" 
+                    (click)="addRateMinus()"
+                    [ngbTooltip]="'COMMUN.IDONTLIKE' | translate"
+                    placement="top">
+              <i class="fa fa-thumbs-down"></i> {{ evenement.ratingMinus || 0 }}
+            </button>
           </div>
-          <button type="button" 
-                  class="rating-badge rating-minus btn-rating" 
-                  (click)="addRateMinus()"
-                  [ngbTooltip]="'COMMUN.IDONTLIKE' | translate"
-                  placement="top">
-            <i class="fa fa-thumbs-down"></i> {{ evenement.ratingMinus || 0 }}
-          </button>
-        </div>
-        <div class="add-commentary-wrapper" *ngIf="evenement">
-          <button type="button"
-                  class="btn-compact btn-primary-compact"
-                  (click)="openAddCommentary(); $event.stopPropagation()"
-                  [title]="'EVENTHOME.ADD_COMMENTARY' | translate">
-            <i class="fa fa-comment"></i> <span class="btn-text">{{ 'EVENTHOME.COMMENTARIES' | translate }}</span>
-          </button>
-        </div>
-        <div class="add-discussion-wrapper" *ngIf="evenement">
-          <button type="button"
-                  class="btn-compact btn-primary-compact"
-                  (click)="openDiscussion(); $event.stopPropagation()"
-                  [title]="'EVENTELEM.OPEN_DISCUSSION' | translate">
-            <i class="fa fa-comments"></i> <span class="btn-text">{{ 'EVENTELEM.CHAT' | translate }}</span>
-          </button>
-        </div>
-        <div class="share-whatsapp-wrapper" *ngIf="evenement">
-          <button type="button"
-                  class="btn-compact btn-success-compact"
-                  (click)="shareOnWhatsApp(); $event.stopPropagation()"
-                  [title]="'EVENTELEM.SHARE_WHATSAPP' | translate">
-            <i class="fa fa-whatsapp"></i> <span class="btn-text">{{ 'EVENTELEM.SHARE_WHATSAPP' | translate }}</span>
-          </button>
         </div>
       </div>
       <!-- Hidden commentary editor for when there are no comments -->
