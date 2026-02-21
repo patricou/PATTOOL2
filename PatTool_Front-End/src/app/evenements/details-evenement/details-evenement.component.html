@@ -108,17 +108,20 @@
               <i class="fa fa-edit"></i> {{ 'EVENTHOME.EDIT_EVENT' | translate }}
             </button>
           </div>
-          <div class="file-upload-wrapper" *ngIf="user && evenement">
+          <div class="file-upload-wrapper me-1" *ngIf="user && evenement"
+               placement="top"
+               [ngbTooltip]="'EVENTELEM.UPLOAD' | translate">
             <label [for]="'file-upload-input-' + evenement.id" 
-                   class="btn-compact btn-success-compact">
-              <i class="fa fa-upload"></i> {{ 'EVENTELEM.UPLOAD' | translate }}
+                   class="btn-compact btn-upload-compact">
+              <i class="fa fa-upload" aria-hidden="true"></i>
+              {{ 'EVENTELEM.UPLOAD_LABEL' | translate }}
             </label>
-            <input type="file" 
-                   [id]="'file-upload-input-' + evenement.id" 
-                   #fileInput 
-                   (change)="onFileSelected($event)" 
-                   multiple 
-                   accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar,.gpx,.kml,.kmz,.gdb,.tcx" 
+            <input type="file"
+                   [id]="'file-upload-input-' + evenement.id"
+                   #fileInput
+                   (change)="onFileSelected($event)"
+                   multiple
+                   accept="image/*,video/*,.mp4,.webm,.ogg,.ogv,.mov,.avi,.mkv,.flv,.wmv,.m4v,.3gp,.pdf,.doc,.docx,.xls,.xlsx,.ods,.odt,.txt,.zip,.rar,.gpx,.kml,.kmz,.gdb,.tcx"
                    style="display: none;" />
           </div>
           <div class="notes-section" *ngIf="evenement && evenement.notes">
@@ -884,43 +887,19 @@
   <!-- Footer Summary -->
   <footer class="event-footer-summary" *ngIf="evenement">
     <div class="footer-summary-content">
-      <div class="summary-title">
+      <div class="summary-header">
         <i class="fa fa-list"></i>
         <span>{{ 'EVENTELEM.SUMMARY' | translate }}</span>
       </div>
       <div class="summary-items">
-        <div class="summary-item" *ngIf="photoItemsList.length > 0">
-          <i class="fa fa-camera"></i>
-          <span>{{ 'EVENTELEM.PHOTOS' | translate }}: {{ photoItemsList.length }}</span>
-        </div>
-        <div class="summary-item" *ngIf="getPhotoFromFsUrlEvents().length > 0">
-          <i class="fa fa-folder-open"></i>
-          <span>{{ 'EVENTELEM.PHOTOS_FROM_FS' | translate }}: {{ getPhotoFromFsUrlEvents().length }}</span>
-        </div>
-        <div class="summary-item" *ngIf="evenement.commentaries && evenement.commentaries.length > 0">
-          <i class="fa fa-comments"></i>
-          <span>{{ 'EVENTHOME.COMMENTARIES' | translate }}: {{ evenement.commentaries.length }}</span>
-        </div>
-        <div class="summary-item" *ngIf="hasDiscussion() && discussionMessages.length > 0">
-          <i class="fa fa-comments"></i>
-          <span>{{ 'EVENTELEM.CHAT' | translate }}: {{ discussionMessages.length }}</span>
-        </div>
-        <div class="summary-item" *ngIf="getNonPhotoFromFsUrlEventsCount() > 0">
-          <i class="fa fa-link"></i>
-          <span>{{ 'EVENTELEM.URLS' | translate }}: {{ getNonPhotoFromFsUrlEventsCount() }}</span>
-        </div>
-        <div class="summary-item" *ngIf="getPdfFiles().length > 0">
-          <i class="fa fa-file-pdf-o"></i>
-          <span>{{ 'EVENTELEM.PDF_DOCUMENTS' | translate }}: {{ getPdfFiles().length }}</span>
-        </div>
-        <div class="summary-item" *ngIf="getVideoFiles().length > 0">
-          <i class="fa fa-video-camera"></i>
-          <span>{{ 'EVENTELEM.VIDEOS' | translate }}: {{ getVideoFiles().length }}</span>
-        </div>
-        <div class="summary-item" *ngIf="getTrackFiles().length > 0">
-          <i class="fa fa-map-marker"></i>
-          <span>{{ 'EVENTELEM.TRACK_FILES' | translate }}: {{ getTrackFiles().length }}</span>
-        </div>
+        <span class="summary-line" *ngIf="photoItemsList.length > 0">{{ 'EVENTELEM.PHOTOS' | translate }}: {{ photoItemsList.length }}</span>
+        <span class="summary-line" *ngIf="getPhotoFromFsUrlEvents().length > 0">{{ 'EVENTELEM.PHOTOS_FROM_FS' | translate }}: {{ getPhotoFromFsUrlEvents().length }}</span>
+        <span class="summary-line" *ngIf="evenement.commentaries && evenement.commentaries.length > 0">{{ 'EVENTHOME.COMMENTARIES' | translate }}: {{ evenement.commentaries.length }}</span>
+        <span class="summary-line" *ngIf="hasDiscussion() && discussionMessages.length > 0">{{ 'EVENTELEM.CHAT' | translate }}: {{ discussionMessages.length }}</span>
+        <span class="summary-line" *ngIf="getNonPhotoFromFsUrlEventsCount() > 0">{{ 'EVENTELEM.URLS' | translate }}: {{ getNonPhotoFromFsUrlEventsCount() }}</span>
+        <span class="summary-line" *ngIf="getPdfFiles().length > 0">{{ 'EVENTELEM.PDF_DOCUMENTS' | translate }}: {{ getPdfFiles().length }}</span>
+        <span class="summary-line" *ngIf="getVideoFiles().length > 0">{{ 'EVENTELEM.VIDEOS' | translate }}: {{ getVideoFiles().length }}</span>
+        <span class="summary-line" *ngIf="getTrackFiles().length > 0">{{ 'EVENTELEM.TRACK_FILES' | translate }}: {{ getTrackFiles().length }}</span>
       </div>
     </div>
   </footer>

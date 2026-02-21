@@ -513,6 +513,7 @@
         "TOTAL_USERS": "Totale utenti",
         "VIEW_DETAILS": "Visualizza dettagli",
         "UPLOAD": "Carica un file (Immagini, Video, PDF, Traccia GPS)",
+        "UPLOAD_LABEL": "Carica un file",
         "UPLOAD_PROGRESS": "Avanzamento caricamento",
         "WAITING_FOR_UPLOAD": "In attesa dell'avvio del caricamento...",
         "USE_AS_THUMBNAIL": "Vuoi usare \"{{fileName}}\" come immagine per questa attività?",

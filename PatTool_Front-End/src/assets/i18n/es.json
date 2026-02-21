@@ -513,6 +513,7 @@
         "CLOSE": "Cerrar evento",
         "OPEN": "Abrir evento",
         "UPLOAD": "Subir un archivo (Imágenes, Vídeo, PDF, Traza GPS)",
+        "UPLOAD_LABEL": "Subir un archivo",
         "UPLOAD_PROGRESS": "Progreso de carga",
         "WAITING_FOR_UPLOAD": "Esperando que comience la carga...",
         "USE_AS_THUMBNAIL": "¿Desea usar \"{{fileName}}\" como imagen de esta actividad?",

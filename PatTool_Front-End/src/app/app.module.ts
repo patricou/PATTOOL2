@@ -114,7 +114,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'api/openweathermap', 
 				loadComponent: () => import('./openweathermap/openweathermap.component').then(m => m.OpenWeatherMapComponent)
 			},
-			{ path: '**', component: PageNotFoundComponent }
+			{ path: '**', redirectTo: 'home', pathMatch: 'full' }
 		]),
 		NgbModule,
 	],

@@ -391,6 +391,7 @@
         "TOTAL_USERS": "ユーザー総数",
         "VIEW_DETAILS": "詳細を表示",
         "UPLOAD": "ファイルをアップロード（画像、動画、PDF、GPSトラック）",
+        "UPLOAD_LABEL": "ファイルをアップロード",
         "UPLOAD_PROGRESS": "アップロードの進行状況",
         "WAITING_FOR_UPLOAD": "アップロードの開始を待っています...",
         "USE_AS_THUMBNAIL": "この活動の画像として \"{{fileName}}\" を使用しますか？",

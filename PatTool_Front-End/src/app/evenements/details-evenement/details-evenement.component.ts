@@ -348,96 +348,87 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
           color = this.eventColorService.getEventColor(this.evenement.evenementName);
         }
         if (color) {
-          // Calculate brightness to determine if we need lighter or darker variants
-          // Using luminance formula: 0.299*R + 0.587*G + 0.114*B
-          const brightness = (0.299 * color.r + 0.587 * color.g + 0.114 * color.b);
+          // Single lightened color for all card backgrounds (same as getLightenedCalculatedColor)
+          const lightenFactor = 0.35;
+          const c = {
+            r: Math.round(color.r + (255 - color.r) * lightenFactor),
+            g: Math.round(color.g + (255 - color.g) * lightenFactor),
+            b: Math.round(color.b + (255 - color.b) * lightenFactor)
+          };
+
+          // Brightness from lightened color for text/UI
+          const brightness = (0.299 * c.r + 0.587 * c.g + 0.114 * c.b);
           const isBright = brightness > 128;
           
-          // Inverse color for badges and card titles (white if dark, dark if bright)
           const badgeTitleColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
           document.documentElement.style.setProperty('--badge-title-color', badgeTitleColor);
           
-          // Inverse colors for all text based on brightness for better visibility
-          // If calculated color is bright, use dark text; if dark, use light text
-          // Primary text (main content, titles, headers)
           const primaryTextColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
           document.documentElement.style.setProperty('--text-color-primary', primaryTextColor);
           
-          // Light variant (for emphasis, important text like event title, description)
           const lightTextColor = isBright ? 'rgb(10, 20, 35)' : 'rgb(245, 245, 245)';
           document.documentElement.style.setProperty('--text-color-light', lightTextColor);
           
-          // Dark variant (for secondary text, labels) - slightly less contrast
           const darkTextColor = isBright ? 'rgb(60, 70, 90)' : 'rgb(200, 200, 200)';
           document.documentElement.style.setProperty('--text-color-dark', darkTextColor);
           
-          // Very light variant (for subtle text, empty states) - medium contrast
           const veryLightTextColor = isBright ? 'rgb(40, 50, 70)' : 'rgb(220, 220, 220)';
           document.documentElement.style.setProperty('--text-color-very-light', veryLightTextColor);
           
-          // Very dark variant (for low contrast text like empty stars) - lower contrast
           const veryDarkTextColor = isBright ? 'rgb(100, 110, 130)' : 'rgb(150, 150, 150)';
           document.documentElement.style.setProperty('--text-color-very-dark', veryDarkTextColor);
           
-          // Button text color - use the calculated color for buttons (they have their own background)
-          document.documentElement.style.setProperty('--btn-text-color', `rgb(${color.r}, ${color.g}, ${color.b})`);
+          document.documentElement.style.setProperty('--btn-text-color', `rgb(${c.r}, ${c.g}, ${c.b})`);
           
-          // Dropdown select colors based on calculated color
-          // Selected option background (the highlighted blue item)
-          const selectSelectedBg = `rgba(${color.r}, ${color.g}, ${color.b}, 0.8)`;
-          // Dropdown background (unselected options - the grey background)
-          const selectDropdownBg = `rgba(${Math.max(0, color.r - 50)}, ${Math.max(0, color.g - 50)}, ${Math.max(0, color.b - 50)}, 0.85)`;
-          // Text color for options (reuse brightness and isBright already calculated above)
+          const selectSelectedBg = `rgba(${c.r}, ${c.g}, ${c.b}, 0.8)`;
+          const selectDropdownBg = `rgba(${Math.max(0, c.r - 50)}, ${Math.max(0, c.g - 50)}, ${Math.max(0, c.b - 50)}, 0.85)`;
           const selectTextColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
-          
           document.documentElement.style.setProperty('--select-selected-bg', selectSelectedBg);
           document.documentElement.style.setProperty('--select-dropdown-bg', selectDropdownBg);
           document.documentElement.style.setProperty('--select-text-color', selectTextColor);
-          // Box-shadow color for focus state
-          const selectSelectedBgShadow = `rgba(${color.r}, ${color.g}, ${color.b}, 0.15)`;
-          document.documentElement.style.setProperty('--select-selected-bg-shadow', selectSelectedBgShadow);
+          document.documentElement.style.setProperty('--select-selected-bg-shadow', `rgba(${c.r}, ${c.g}, ${c.b}, 0.15)`);
           
-          // Create color variants for backgrounds
-          // Light variant (for cards, containers) - lighter and more transparent
-          const lightR = Math.min(255, color.r + 40);
-          const lightG = Math.min(255, color.g + 40);
-          const lightB = Math.min(255, color.b + 40);
-          document.documentElement.style.setProperty('--color-light', `rgba(${lightR}, ${lightG}, ${lightB}, 0.25)`);
-          document.documentElement.style.setProperty('--color-light-border', `rgba(${lightR}, ${lightG}, ${lightB}, 0.4)`);
-          
-          // Medium variant (for action containers, headers) - medium opacity
-          const mediumR = Math.min(255, color.r + 20);
-          const mediumG = Math.min(255, color.g + 20);
-          const mediumB = Math.min(255, color.b + 20);
-          document.documentElement.style.setProperty('--color-medium', `rgba(${mediumR}, ${mediumG}, ${mediumB}, 0.35)`);
-          document.documentElement.style.setProperty('--color-medium-border', `rgba(${mediumR}, ${mediumG}, ${mediumB}, 0.5)`);
-          
-          // Dark variant (for strong backgrounds) - darker and more opaque
-          const darkR = Math.max(0, color.r - 30);
-          const darkG = Math.max(0, color.g - 30);
-          const darkB = Math.max(0, color.b - 30);
-          document.documentElement.style.setProperty('--color-dark', `rgba(${darkR}, ${darkG}, ${darkB}, 0.5)`);
-          document.documentElement.style.setProperty('--color-dark-border', `rgba(${darkR}, ${darkG}, ${darkB}, 0.6)`);
-          
-          // Very light variant (for subtle backgrounds) - very light and transparent
-          const veryLightR = Math.min(255, color.r + 60);
-          const veryLightG = Math.min(255, color.g + 60);
-          const veryLightB = Math.min(255, color.b + 60);
-          document.documentElement.style.setProperty('--color-very-light', `rgba(${veryLightR}, ${veryLightG}, ${veryLightB}, 0.15)`);
-          document.documentElement.style.setProperty('--color-very-light-border', `rgba(${veryLightR}, ${veryLightG}, ${veryLightB}, 0.25)`);
-          
-          // Original color with different opacities
-          document.documentElement.style.setProperty('--color-original-light', `rgba(${color.r}, ${color.g}, ${color.b}, 0.2)`);
-          document.documentElement.style.setProperty('--color-original-medium', `rgba(${color.r}, ${color.g}, ${color.b}, 0.3)`);
-          document.documentElement.style.setProperty('--color-original-dark', `rgba(${color.r}, ${color.g}, ${color.b}, 0.4)`);
+          // Card backgrounds: only the lightened color, no opacities
+          document.documentElement.style.setProperty('--color-light', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          document.documentElement.style.setProperty('--color-light-border', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          document.documentElement.style.setProperty('--color-medium', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          document.documentElement.style.setProperty('--color-medium-border', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          document.documentElement.style.setProperty('--color-dark', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          document.documentElement.style.setProperty('--color-dark-border', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          document.documentElement.style.setProperty('--color-very-light', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          document.documentElement.style.setProperty('--color-very-light-border', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          document.documentElement.style.setProperty('--color-original-light', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          document.documentElement.style.setProperty('--color-original-medium', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          document.documentElement.style.setProperty('--color-original-dark', `rgb(${c.r}, ${c.g}, ${c.b})`);
+          // Card header gradient (lighter -> darker)
+          const headerStartR = Math.min(255, c.r + 45);
+          const headerStartG = Math.min(255, c.g + 45);
+          const headerStartB = Math.min(255, c.b + 45);
+          const headerEndR = Math.max(0, c.r - 25);
+          const headerEndG = Math.max(0, c.g - 25);
+          const headerEndB = Math.max(0, c.b - 25);
+          document.documentElement.style.setProperty('--card-header-gradient-start', `rgb(${headerStartR}, ${headerStartG}, ${headerStartB})`);
+          document.documentElement.style.setProperty('--card-header-gradient-end', `rgb(${headerEndR}, ${headerEndG}, ${headerEndB})`);
+          // Event title gradient
+          document.documentElement.style.setProperty('--event-title-gradient-start', `rgb(${headerStartR}, ${headerStartG}, ${headerStartB})`);
+          document.documentElement.style.setProperty('--event-title-gradient-end', `rgb(${headerEndR}, ${headerEndG}, ${headerEndB})`);
+          // Action bar (boutons): gradient from calculated color to lightened
+          document.documentElement.style.setProperty('--action-bar-gradient-start', `rgb(${color.r}, ${color.g}, ${color.b})`);
+          document.documentElement.style.setProperty('--action-bar-gradient-end', `rgb(${c.r}, ${c.g}, ${c.b})`);
         } else {
-          // Set default colors if no color is found
-          document.documentElement.style.setProperty('--text-color-primary', 'rgba(255, 255, 255, 0.9)');
-          document.documentElement.style.setProperty('--text-color-dark', 'rgba(255, 255, 255, 0.7)');
-          document.documentElement.style.setProperty('--color-light', 'rgba(255, 255, 255, 0.2)');
-          document.documentElement.style.setProperty('--color-medium', 'rgba(255, 255, 255, 0.3)');
-          document.documentElement.style.setProperty('--color-dark', 'rgba(255, 255, 255, 0.4)');
-          document.documentElement.style.setProperty('--color-very-light', 'rgba(255, 255, 255, 0.15)');
+          // Set default colors if no color is found (no opacities)
+          document.documentElement.style.setProperty('--text-color-primary', 'rgb(255, 255, 255)');
+          document.documentElement.style.setProperty('--text-color-dark', 'rgb(255, 255, 255)');
+          document.documentElement.style.setProperty('--color-light', 'rgb(255, 255, 255)');
+          document.documentElement.style.setProperty('--color-medium', 'rgb(255, 255, 255)');
+          document.documentElement.style.setProperty('--color-dark', 'rgb(255, 255, 255)');
+          document.documentElement.style.setProperty('--color-very-light', 'rgb(255, 255, 255)');
+          document.documentElement.style.setProperty('--card-header-gradient-start', 'rgb(255, 255, 255)');
+          document.documentElement.style.setProperty('--card-header-gradient-end', 'rgb(240, 240, 240)');
+          document.documentElement.style.setProperty('--event-title-gradient-start', 'rgb(255, 255, 255)');
+          document.documentElement.style.setProperty('--event-title-gradient-end', 'rgb(240, 240, 240)');
+          document.documentElement.style.setProperty('--action-bar-gradient-start', 'rgb(255, 255, 255)');
+          document.documentElement.style.setProperty('--action-bar-gradient-end', 'rgb(240, 240, 240)');
         }
       }
     });
@@ -5308,22 +5299,14 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     return (urlEvent.typeUrl || '').toUpperCase().trim() === 'PHOTOFROMFS';
   }
 
-  // Get styles for event title with calculated color background
+  // Get styles for event title with calculated color background (couleur éclaircie comme le badge)
   public getEventTitleStyles(): { [key: string]: string } {
     if (!this.evenement) {
       return {};
     }
 
-    const eventId = this.evenement.id || '';
-    let eventColor = this.eventColorService.getEventColor(eventId);
-    
-    // If color not found, try with evenementName as fallback
-    if (!eventColor && this.evenement.evenementName) {
-      eventColor = this.eventColorService.getEventColor(this.evenement.evenementName);
-    }
-
+    const eventColor = this.getLightenedCalculatedColor();
     if (!eventColor) {
-      // Default styles if no color found
       return {
         'background-color': 'rgba(40, 167, 69, 0.6)',
         'color': '#ffffff',
@@ -5333,21 +5316,11 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       };
     }
 
-    // Calculate brightness to determine text color
     const brightness = (0.299 * eventColor.r + 0.587 * eventColor.g + 0.114 * eventColor.b);
     const isBright = brightness > 128;
     const textColor = isBright ? 'rgb(2, 6, 23)' : 'rgb(255, 255, 255)';
 
-    // Create gradient background with event color
-    const bgR1 = Math.min(255, eventColor.r + 20);
-    const bgG1 = Math.min(255, eventColor.g + 20);
-    const bgB1 = Math.min(255, eventColor.b + 20);
-    const bgR2 = Math.max(0, eventColor.r - 10);
-    const bgG2 = Math.max(0, eventColor.g - 10);
-    const bgB2 = Math.max(0, eventColor.b - 10);
-
     return {
-      'background': `linear-gradient(135deg, rgba(${bgR1}, ${bgG1}, ${bgB1}, 0.8) 0%, rgba(${bgR2}, ${bgG2}, ${bgB2}, 0.8) 100%)`,
       'color': textColor,
       'padding': '0.5rem 1rem',
       'border-radius': '8px',
@@ -5373,6 +5346,20 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     return eventColor;
   }
 
+  /** Returns a lightened version of the calculated event color for badges/title display. */
+  public getLightenedCalculatedColor(): { r: number; g: number; b: number } | null {
+    const color = this.getCalculatedColor();
+    if (!color) {
+      return null;
+    }
+    const factor = 0.35; // blend toward white (0 = no change, 1 = full white)
+    return {
+      r: Math.round(color.r + (255 - color.r) * factor),
+      g: Math.round(color.g + (255 - color.g) * factor),
+      b: Math.round(color.b + (255 - color.b) * factor)
+    };
+  }
+
   // Calculate if background is light or dark to determine text color
   public isBackgroundLight(): boolean {
     const color = this.getCalculatedColor();
@@ -5395,14 +5382,17 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     return adjustedBrightness > 100;
   }
 
-  // Get text color class based on background brightness
+  // Get text color class based on background brightness (when no calculated color, use black text and icons)
   public getTextColorClass(): string {
+    if (!this.getCalculatedColor()) {
+      return 'text-light-mode';
+    }
     return this.isBackgroundLight() ? 'text-dark-mode' : 'text-light-mode';
   }
 
-  // Get styles for color badge
+  // Get styles for color badge (couleur éclaircie pour l’affichage)
   public getColorBadgeStyles(): { [key: string]: string } {
-    const color = this.getCalculatedColor();
+    const color = this.getLightenedCalculatedColor();
     if (!color) {
       return {};
     }

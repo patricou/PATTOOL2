@@ -515,6 +515,7 @@
         "VIEW_DETAILS": "Details anzeigen",
         "EDIT_EVENT": "Ereignis bearbeiten",
         "UPLOAD": "Datei hochladen (Bilder, Video, PDF, GPS-Spur)",
+        "UPLOAD_LABEL": "Datei hochladen",
         "UPLOAD_PROGRESS": "Upload-Fortschritt",
         "WAITING_FOR_UPLOAD": "Warten auf Upload-Start...",
         "USE_AS_THUMBNAIL": "Möchten Sie \"{{fileName}}\" als Bild für diese Veranstaltung verwenden?",

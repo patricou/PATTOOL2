@@ -511,6 +511,7 @@
         "TOTAL_USERS": "إجمالي المستخدمين",
         "VIEW_DETAILS": "عرض التفاصيل",
         "UPLOAD": "رفع ملف (صور، فيديو، PDF، مسار GPS)",
+        "UPLOAD_LABEL": "رفع ملف",
         "UPLOAD_PROGRESS": "تقدم الرفع",
         "WAITING_FOR_UPLOAD": "في انتظار بدء الرفع...",
         "USE_AS_THUMBNAIL": "هل تريد استخدام \"{{fileName}}\" كصورة لهذا النشاط؟",

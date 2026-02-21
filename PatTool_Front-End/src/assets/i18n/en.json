@@ -514,6 +514,7 @@
         "OPEN": "Open Event",
         "CANCEL": "Cancel Event",
         "UPLOAD": "Upload a File (Images, Video, PDF, GPS Track)",
+        "UPLOAD_LABEL": "Upload a file",
         "UPLOAD_PROGRESS": "Upload Progress",
         "WAITING_FOR_UPLOAD": "Waiting for upload to start...",
         "USE_AS_THUMBNAIL": "Do you want to use \"{{fileName}}\" as the image for this activity?",

@@ -507,6 +507,7 @@
         "TOTAL_USERS": "Total d'utilisateurs",
         "VIEW_DETAILS": "Voir les détails",
         "UPLOAD": "Télécharger un fichier (Images, Vidéo, PDF, Trace GPS)",
+        "UPLOAD_LABEL": "Télécharger un fichier",
         "UPLOAD_PROGRESS": "Progression du téléchargement",
         "WAITING_FOR_UPLOAD": "En attente du début du téléchargement...",
         "USE_AS_THUMBNAIL": "Voulez-vous utiliser \"{{fileName}}\" comme image de cette activité ?",

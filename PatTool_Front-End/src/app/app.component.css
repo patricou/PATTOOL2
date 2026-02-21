@@ -768,6 +768,21 @@ body > .tooltip {
     z-index: 99999 !important;
 }
 
+/* Mode mobile : ne pas afficher les tooltips */
+@media (max-width: 768px) {
+    body .tooltip,
+    body > .tooltip,
+    .tooltip,
+    .tooltip.show,
+    ::ng-deep .tooltip,
+    ::ng-deep .tooltip.show {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+    }
+}
+
 /* Ensure navbar and pat-title don't interfere with tooltips */
 .navbar {
     z-index: 1030 !important;

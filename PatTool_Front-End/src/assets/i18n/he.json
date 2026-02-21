@@ -521,6 +521,7 @@
         "TOTAL_USERS": "סה\"כ משתמשים",
         "VIEW_DETAILS": "הצג פרטים",
         "UPLOAD": "העלה קובץ (תמונות, וידאו, PDF, מסלול GPS)",
+        "UPLOAD_LABEL": "העלה קובץ",
         "UPLOAD_PROGRESS": "התקדמות העלאה",
         "WAITING_FOR_UPLOAD": "ממתין להתחלת ההעלאה...",
         "USE_AS_THUMBNAIL": "האם ברצונך להשתמש ב-\"{{fileName}}\" כתמונה לפעילות זו?",

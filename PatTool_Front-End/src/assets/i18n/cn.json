@@ -511,6 +511,7 @@
         "TOTAL_USERS": "用户总数",
         "VIEW_DETAILS": "查看详情",
         "UPLOAD": "上传文件（图片、视频、PDF、GPS轨迹）",
+        "UPLOAD_LABEL": "上传文件",
         "UPLOAD_PROGRESS": "上传进度",
         "WAITING_FOR_UPLOAD": "等待上传开始...",
         "USE_AS_THUMBNAIL": "您想使用 \"{{fileName}}\" 作为此活动的图片吗？",

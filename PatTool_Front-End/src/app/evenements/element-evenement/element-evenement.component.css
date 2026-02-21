@@ -1036,3 +1036,14 @@
     width: 100%;
   }
 }
+
+/* Mode mobile : ne pas afficher les tooltips */
+@media (max-width: 768px) {
+  ::ng-deep .tooltip,
+  ::ng-deep .tooltip.show {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+}
