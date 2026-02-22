@@ -100,6 +100,22 @@
               <i class="fa fa-whatsapp"></i> <span class="btn-text">{{ 'EVENTELEM.SHARE_WHATSAPP' | translate }}</span>
             </button>
           </div>
+          <div class="share-email-wrapper" *ngIf="evenement">
+            <button type="button"
+                    class="btn-compact btn-primary-compact"
+                    (click)="openShareByEmailModal(); $event.stopPropagation()"
+                    [title]="'EVENTELEM.SHARE_BY_MAIL' | translate">
+              <i class="fa fa-envelope"></i> <span class="btn-text">{{ 'EVENTELEM.SHARE_BY_MAIL' | translate }}</span>
+            </button>
+          </div>
+          <div class="add-web-link-wrapper" *ngIf="user && evenement">
+            <button type="button"
+                    class="btn-compact btn-primary-compact"
+                    (click)="startAddWebLink(); $event.stopPropagation()"
+                    [title]="'EVENTHOME.ADD_WEB_LINK' | translate">
+              <i class="fa fa-link"></i> <span class="btn-text">{{ 'EVENTHOME.ADD_WEB_LINK' | translate }}</span>
+            </button>
+          </div>
           <div class="edit-event-wrapper" *ngIf="isEventOwner()">
             <button type="button"
                     class="btn-compact btn-primary-compact"
@@ -506,9 +522,9 @@
         </div>
       </div>
 
-      <!-- URLs - Medium Vertical -->
-      <div class="dynamic-card card-medium card-vertical urls-card"
-           *ngIf="evenement && getNonPhotoFromFsUrlEventsCount() > 0"
+      <!-- URLs - Medium Vertical (visible when there are links or when adding one) -->
+      <div #urlsCard class="dynamic-card card-medium card-vertical urls-card"
+           *ngIf="evenement && (getNonPhotoFromFsUrlEventsCount() > 0 || isAddingUrlEvent)"
            [ngClass]="getCardLayoutClasses('urls')"
            [style.order]="getCardOrder('urls')"
            [ngStyle]="getCardGridPosition('urls')">
@@ -593,6 +609,13 @@
                       <i class="fa {{ getUrlEventIcon(urlEvent) }}"></i>
                       {{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}
                     </a>
+                    <button type="button"
+                            class="btn-compact btn-primary-compact btn-open-link-compact"
+                            *ngIf="!isPhotoFromFs(urlEvent) && urlEvent.link"
+                            (click)="openUrlInNewWindow(urlEvent.link); $event.preventDefault(); $event.stopPropagation()"
+                            [title]="'EVENTELEM.OPEN_LINK_NEW_WINDOW' | translate">
+                      <i class="fa fa-external-link"></i>
+                    </button>
                     <small class="url-meta-compact">{{ urlEvent.owner }} • {{ formatCommentaryDate(urlEvent.dateCreation) }}</small>
                   </div>
 
@@ -884,14 +907,11 @@
   </div>
   <!-- End Content Layer -->
   
-  <!-- Footer Summary -->
+  <!-- Footer Summary: full-width strip, one line -->
   <footer class="event-footer-summary" *ngIf="evenement">
-    <div class="footer-summary-content">
-      <div class="summary-header">
-        <i class="fa fa-list"></i>
-        <span>{{ 'EVENTELEM.SUMMARY' | translate }}</span>
-      </div>
-      <div class="summary-items">
+    <div class="summary-inner">
+      <span class="summary-label">{{ 'EVENTELEM.SUMMARY' | translate }}</span>
+      <span class="summary-stats">
         <span class="summary-line" *ngIf="photoItemsList.length > 0">{{ 'EVENTELEM.PHOTOS' | translate }}: {{ photoItemsList.length }}</span>
         <span class="summary-line" *ngIf="getPhotoFromFsUrlEvents().length > 0">{{ 'EVENTELEM.PHOTOS_FROM_FS' | translate }}: {{ getPhotoFromFsUrlEvents().length }}</span>
         <span class="summary-line" *ngIf="evenement.commentaries && evenement.commentaries.length > 0">{{ 'EVENTHOME.COMMENTARIES' | translate }}: {{ evenement.commentaries.length }}</span>
@@ -900,7 +920,7 @@
         <span class="summary-line" *ngIf="getPdfFiles().length > 0">{{ 'EVENTELEM.PDF_DOCUMENTS' | translate }}: {{ getPdfFiles().length }}</span>
         <span class="summary-line" *ngIf="getVideoFiles().length > 0">{{ 'EVENTELEM.VIDEOS' | translate }}: {{ getVideoFiles().length }}</span>
         <span class="summary-line" *ngIf="getTrackFiles().length > 0">{{ 'EVENTELEM.TRACK_FILES' | translate }}: {{ getTrackFiles().length }}</span>
-      </div>
+      </span>
     </div>
   </footer>
 </div>
@@ -1093,6 +1113,95 @@
     <button type="button" class="btn btn-success" (click)="confirmWhatsAppShare()">
       <i class="fa fa-whatsapp me-2"></i>
       {{ 'EVENTELEM.SHARE_NOW' | translate }}
+    </button>
+  </div>
+</ng-template>
+
+<!-- Share by Email Modal -->
+<ng-template #shareByEmailModal let-modal>
+  <div class="modal-header" [ngStyle]="getShareByEmailHeaderStyle()">
+    <h5 class="modal-title text-white">
+      <i class="fa fa-envelope me-2"></i>
+      {{ 'EVENTELEM.SHARE_BY_MAIL' | translate }}
+    </h5>
+    <button type="button" class="btn-close btn-close-white" (click)="closeShareByEmailModal()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+  </div>
+  <div class="modal-body">
+    <div *ngIf="evenement" class="share-email-content">
+      <!-- Email language (mail content only) - dropdown avec drapeaux flag-icons -->
+      <div class="mb-3">
+        <label for="shareByEmailMailLang" class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_LANG_LABEL' | translate }}</label>
+        <div class="btn-group" ngbDropdown #mailLangDropdown="ngbDropdown" role="group">
+          <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" style="max-width: 12rem; text-align: left;" id="shareByEmailMailLang" ngbDropdownToggle>
+            <ng-container *ngIf="getShareByEmailMailLangOption() as opt">
+              <span class="fi fi-{{ opt.flagCode }} me-1" aria-hidden="true"></span>
+              <span>{{ opt.labelKey | translate }}</span>
+            </ng-container>
+          </button>
+          <div class="dropdown-menu" ngbDropdownMenu aria-labelledby="shareByEmailMailLang" style="max-height: 280px; overflow-y: auto;">
+            <button *ngFor="let opt of shareByEmailMailLangOptions" type="button" class="dropdown-item d-flex align-items-center" (click)="shareByEmailMailLang = opt.code; mailLangDropdown.close()">
+              <span class="fi fi-{{ opt.flagCode }} me-2" aria-hidden="true"></span>
+              <span>{{ opt.labelKey | translate }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <!-- Recipients: PatTool users -->
+      <div class="mb-3">
+        <label class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_PATTOOL_USERS' | translate }}</label>
+        <div *ngIf="!shareByEmailLoading && shareByEmailAllMembers.length > 0" class="mb-2 d-flex align-items-center flex-wrap gap-2">
+          <button type="button" class="btn btn-sm btn-outline-primary" (click)="shareByEmailSelectAllWithAccess()">
+            {{ 'EVENTELEM.SHARE_MAIL_SELECT_ACCESS' | translate }}
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="shareByEmailDeselectAll()">
+            {{ 'EVENTELEM.SHARE_MAIL_DESELECT_ALL' | translate }}
+          </button>
+          <span class="text-muted small">{{ 'EVENTELEM.SHARE_MAIL_RECIPIENT_COUNT' | translate:{ count: shareByEmailRecipientCount } }}</span>
+        </div>
+        <div *ngIf="shareByEmailLoading" class="text-muted small">
+          <i class="fa fa-spinner fa-spin me-1"></i> {{ 'EVENTELEM.SHARE_MAIL_LOADING' | translate }}
+        </div>
+        <div *ngIf="!shareByEmailLoading && shareByEmailAllMembers.length === 0" class="text-muted small">
+          {{ 'EVENTELEM.SHARE_MAIL_NO_USERS' | translate }}
+        </div>
+        <div *ngIf="!shareByEmailLoading && shareByEmailAllMembers.length > 0" class="share-email-user-list border rounded p-2" style="max-height: 180px; overflow-y: auto;">
+          <div *ngFor="let m of shareByEmailAllMembers; trackBy: trackByShareByEmailMemberId" class="form-check">
+            <input type="checkbox" class="form-check-input" [id]="'share-email-user-' + m.id"
+                   [checked]="shareByEmailPatToolSelectedSet.has(m.addressEmail)"
+                   (change)="toggleShareByEmailUser(m.addressEmail)">
+            <label class="form-check-label" [for]="'share-email-user-' + m.id">
+              {{ m.firstName }} {{ m.lastName }} ({{ m.addressEmail }})
+            </label>
+          </div>
+        </div>
+      </div>
+      <!-- External emails -->
+      <div class="mb-3">
+        <label for="shareByEmailExternal" class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_OTHER_EMAILS' | translate }}</label>
+        <textarea id="shareByEmailExternal" class="form-control" rows="2"
+                  [(ngModel)]="shareByEmailExternalEmails"
+                  [placeholder]="'EVENTELEM.SHARE_MAIL_OTHER_PLACEHOLDER' | translate"></textarea>
+        <small class="form-text text-muted">{{ 'EVENTELEM.SHARE_MAIL_OTHER_HINT' | translate }}</small>
+      </div>
+      <!-- Free text message -->
+      <div class="mb-3">
+        <label for="shareByEmailMessage" class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_MESSAGE' | translate }}</label>
+        <textarea id="shareByEmailMessage" class="form-control" rows="4"
+                  [(ngModel)]="shareByEmailMessage"
+                  [placeholder]="'EVENTELEM.SHARE_MAIL_MESSAGE_PLACEHOLDER' | translate"></textarea>
+      </div>
+      <div *ngIf="shareByEmailError" class="alert alert-danger small mb-2">{{ shareByEmailError }}</div>
+      <div *ngIf="shareByEmailSuccess" class="alert alert-success small mb-2">{{ shareByEmailSuccess }}</div>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button type="button" class="btn btn-secondary" (click)="closeShareByEmailModal()">
+      {{ 'EVENTELEM.CANCEL' | translate }}
+    </button>
+    <button type="button" class="btn btn-primary" (click)="sendShareByEmail()" [disabled]="shareByEmailSending">
+      <i class="fa fa-spinner fa-spin me-2" *ngIf="shareByEmailSending"></i>
+      <i class="fa fa-envelope me-2" *ngIf="!shareByEmailSending"></i>
+      {{ 'EVENTELEM.SHARE_MAIL_SEND' | translate }}
     </button>
   </div>
 </ng-template>

@@ -491,4 +491,42 @@ export class EvenementsService {
 		);
 	}
 
+	/**
+	 * Share event by email. Sends HTML email with thumbnail, type, dates, title, description, link to activity.
+	 * @param eventId Event id
+	 * @param toEmails List of recipient emails (PatTool users or external)
+	 * @param customMessage Optional free text message
+	 * @param color Optional RGB for email styling (lightened on server)
+	 * @param eventUrl Optional URL of the activity (e.g. for "View activity" link in email)
+	 * @param eventTypeLabel Optional translated activity type label (e.g. "Randonnée", "VTT")
+	 * @param senderName Optional name of the connected user sending the email
+	 * @param mailLang Language of the email content (fr, en, de, etc.) – does not change interface language
+	 */
+	shareEventByEmail(
+		eventId: string,
+		toEmails: string[],
+		customMessage?: string,
+		color?: { r: number; g: number; b: number },
+		eventUrl?: string,
+		eventTypeLabel?: string,
+		senderName?: string,
+		mailLang?: string
+	): Observable<{ sent: number; total: number }> {
+		const url = this.API_URL + "even/" + eventId + "/share-email";
+		const body: any = { toEmails };
+		if (customMessage != null) body.customMessage = customMessage;
+		if (color != null) {
+			body.colorR = color.r;
+			body.colorG = color.g;
+			body.colorB = color.b;
+		}
+		if (eventUrl != null && eventUrl.trim().length > 0) body.eventUrl = eventUrl.trim();
+		if (eventTypeLabel != null && eventTypeLabel.trim().length > 0) body.eventTypeLabel = eventTypeLabel.trim();
+		if (senderName != null && senderName.trim().length > 0) body.senderName = senderName.trim();
+		if (mailLang != null && mailLang.trim().length > 0) body.mailLang = mailLang.trim();
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers => this._http.post<{ sent: number; total: number }>(url, body, { headers: headers }))
+		);
+	}
+
 }

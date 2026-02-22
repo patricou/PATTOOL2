@@ -149,6 +149,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   @ViewChild('directoryInput') directoryInput!: any;
   @ViewChild('editDirectoryInput') editDirectoryInput!: any;
   @ViewChild('whatsappShareModal', { static: false }) whatsappShareModal!: TemplateRef<any>;
+  @ViewChild('shareByEmailModal', { static: false }) shareByEmailModal!: TemplateRef<any>;
+  @ViewChild('urlsCard', { read: ElementRef }) urlsCardRef!: ElementRef;
 
   // Slideshow properties (now handled by SlideshowModalComponent - kept for backward compatibility but not used)
 
@@ -164,6 +166,55 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   // Friend groups for WhatsApp links
   public friendGroups: FriendGroup[] = [];
   private friendGroupsLoaded: boolean = false;
+
+  // Share by email modal
+  public shareByEmailModalRef: any = null;
+  public shareByEmailPatToolSelected: string[] = [];
+  /** Set des emails sélectionnés (pour lookup O(1) dans le template, évite indexOf à chaque CD). */
+  public shareByEmailPatToolSelectedSet: Set<string> = new Set();
+  public shareByEmailExternalEmails: string = '';
+  public shareByEmailMessage: string = '';
+  public shareByEmailMailLang: string = 'fr';
+  /** code = langue mail, flagCode = code pays ISO pour flag-icons (fi fi-xx) */
+  public shareByEmailMailLangOptions: { code: string; labelKey: string; flagCode: string }[] = [
+    { code: 'fr', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_FR', flagCode: 'fr' },
+    { code: 'en', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_EN', flagCode: 'gb' },
+    { code: 'de', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_DE', flagCode: 'de' },
+    { code: 'es', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_ES', flagCode: 'es' },
+    { code: 'it', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_IT', flagCode: 'it' },
+    { code: 'el', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_EL', flagCode: 'gr' },
+    { code: 'he', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_HE', flagCode: 'il' },
+    { code: 'jp', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_JP', flagCode: 'jp' },
+    { code: 'ru', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_RU', flagCode: 'ru' },
+    { code: 'cn', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_CN', flagCode: 'cn' },
+    { code: 'ar', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_AR', flagCode: 'sa' },
+    { code: 'in', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_IN', flagCode: 'in' }
+  ];
+  public shareByEmailAllMembers: Member[] = [];
+  public shareByEmailLoading: boolean = false;
+  public shareByEmailSending: boolean = false;
+  public shareByEmailError: string | null = null;
+  public shareByEmailSuccess: string | null = null;
+
+  /** Option de langue du mail actuellement sélectionnée (pour afficher drapeau + libellé). */
+  public getShareByEmailMailLangOption(): { code: string; labelKey: string; flagCode: string } | undefined {
+    return this.shareByEmailMailLangOptions.find(o => o.code === this.shareByEmailMailLang) ?? this.shareByEmailMailLangOptions[0];
+  }
+
+  /** Nombre total d'adresses email sélectionnées (PatTool + adresses libres). */
+  public get shareByEmailRecipientCount(): number {
+    const patCount = (this.shareByEmailPatToolSelected || []).length;
+    const external = (this.shareByEmailExternalEmails || '')
+      .split(/[\s,;]+/)
+      .map((e: string) => e.trim())
+      .filter((e: string) => e.length > 0);
+    return patCount + external.length;
+  }
+
+  /** trackBy pour la liste des utilisateurs dans la modale partage par mail (performance). */
+  public trackByShareByEmailMemberId(_index: number, m: Member): string {
+    return m.id ?? m.addressEmail ?? '';
+  }
 
   // Event access users
   public eventAccessUsers: Member[] = [];
@@ -204,6 +255,9 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   
   // Route subscription for cleanup
   private routeParamsSubscription?: Subscription;
+
+  // Guard to avoid multiple simultaneous dominant color recalculations
+  private recalculatingEventColor = false;
   
   // Fullscreen event listeners for cleanup
   private fullscreenHandlers: Array<{ event: string; handler: () => void }> = [];
@@ -429,9 +483,128 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
           document.documentElement.style.setProperty('--event-title-gradient-end', 'rgb(240, 240, 240)');
           document.documentElement.style.setProperty('--action-bar-gradient-start', 'rgb(255, 255, 255)');
           document.documentElement.style.setProperty('--action-bar-gradient-end', 'rgb(240, 240, 240)');
+          // Recalculate color from event image and cache it, then re-apply
+          this.recalculateAndCacheEventColor(eventId);
         }
       }
     });
+  }
+
+  /**
+   * Get the first available image fieldId for dominant color extraction (thumbnail or first image in fileUploadeds).
+   */
+  private getFirstImageFieldId(): string | null {
+    if (!this.evenement) {
+      return null;
+    }
+    if (this.evenement.thumbnail?.fieldId && this.isImageFile(this.evenement.thumbnail.fileName || '')) {
+      return this.evenement.thumbnail.fieldId;
+    }
+    const imageFiles = (this.evenement.fileUploadeds || []).filter(f => this.isImageFile(f.fileName || ''));
+    return imageFiles[0]?.fieldId ?? null;
+  }
+
+  /**
+   * Extract dominant color from an image using canvas (same approach as element-evenement).
+   */
+  private extractDominantColorFromImage(img: HTMLImageElement): { r: number; g: number; b: number } | null {
+    try {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return null;
+      }
+      const maxSize = 200;
+      const imgWidth = img.naturalWidth || img.width;
+      const imgHeight = img.naturalHeight || img.height;
+      let canvasWidth = imgWidth;
+      let canvasHeight = imgHeight;
+      if (imgWidth > maxSize || imgHeight > maxSize) {
+        const scale = Math.min(maxSize / imgWidth, maxSize / imgHeight);
+        canvasWidth = Math.floor(imgWidth * scale);
+        canvasHeight = Math.floor(imgHeight * scale);
+      }
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+      ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight);
+      const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+      const pixels = imageData.data;
+      const pixelStep = 80;
+      let r = 0, g = 0, b = 0;
+      let pixelCount = 0;
+      for (let i = 0; i < pixels.length; i += pixelStep) {
+        r += pixels[i];
+        g += pixels[i + 1];
+        b += pixels[i + 2];
+        pixelCount++;
+      }
+      if (pixelCount === 0) {
+        return null;
+      }
+      const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+      return {
+        r: clamp(r / pixelCount),
+        g: clamp(g / pixelCount),
+        b: clamp(b / pixelCount)
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * When the event color is not in the service (e.g. direct navigation to details), recalculate it from the first event image and cache it.
+   */
+  private recalculateAndCacheEventColor(eventId: string): void {
+    if (!this.evenement || this.recalculatingEventColor) {
+      return;
+    }
+    const imageFieldId = this.getFirstImageFieldId();
+    if (!imageFieldId) {
+      return;
+    }
+    this.recalculatingEventColor = true;
+    const subscription = this.fileService.getFile(imageFieldId).pipe(
+      catchError(() => {
+        this.recalculatingEventColor = false;
+        return EMPTY;
+      }),
+      map((res: unknown) => {
+        const blob = res instanceof Blob ? res : new Blob([res as BlobPart], { type: 'application/octet-stream' });
+        return URL.createObjectURL(blob);
+      })
+    ).subscribe({
+      next: (objectUrl: string) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          try {
+            const color = this.extractDominantColorFromImage(img);
+            URL.revokeObjectURL(objectUrl);
+            // Only cache and apply if still on the same event (user may have navigated away)
+            if (color && this.evenement && (this.evenement.id === eventId || this.evenement.evenementName === eventId)) {
+              this.eventColorService.setEventColor(eventId, color);
+              if (this.evenement.evenementName) {
+                this.eventColorService.setEventColor(this.evenement.evenementName, color);
+              }
+              this.applyEventColor();
+              this.cdr.markForCheck();
+            }
+          } finally {
+            this.recalculatingEventColor = false;
+          }
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          this.recalculatingEventColor = false;
+        };
+        img.src = objectUrl;
+      },
+      error: () => {
+        this.recalculatingEventColor = false;
+      }
+    });
+    this.activeSubscriptions.add(subscription);
   }
 
   // Display stored errors from localStorage
@@ -565,7 +738,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         }
       }
       
-      // Display all errors in console (but don't let them affect navigation)
+      // Display all errors in console once (but don't let them affect navigation)
       // These are just informational - they won't cause the page to redirect
       if (errors.length > 0) {
         console.group('🔴 ERRORS FROM PREVIOUS PAGE LOAD (stored in localStorage) - These are informational only and won\'t cause navigation');
@@ -573,6 +746,13 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
           console.error(`[${index + 1}] ${error.type}:`, error);
         });
         console.groupEnd();
+        // Clear stored errors after showing once so they don't reappear on every visit
+        try {
+          localStorage.removeItem('last_event_error');
+          localStorage.removeItem('last_discussion_messages_error');
+        } catch (e) {
+          // Ignore storage errors
+        }
       }
       
       // IMPORTANT: This method only displays errors - it does NOT set this.error or navigate
@@ -975,7 +1155,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         
         // Handle status 0 errors (network/CORS issues)
         if (error?.status === 0 || error?.status === null) {
-          console.error('Network error - Backend may be unreachable or CORS issue');
+          const apiBase = (environment && (environment as any).API_URL) || 'http://localhost:8000/api/';
+          console.error(
+            'Network error (status 0): Backend unreachable or CORS. Ensure the backend is running at',
+            apiBase.replace(/\/api\/?$/, ''),
+            '— e.g. start the Spring Boot app (PatTool_Back-End).'
+          );
           this.error = this.translateService.instant('EVENTELEM.ERROR_CONNECTING');
         } else if (error?.status === 404) {
           this.error = this.translateService.instant('EVENTELEM.EVENT_NOT_FOUND');
@@ -1060,6 +1245,19 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     }
     this.isAddingUrlEvent = true;
     this.newUrlEvent = new UrlEvent("", new Date(), this.user?.userName || "", "", "");
+  }
+
+  /** Opens the add-link form with type "WEBSITE" and scrolls to the URLs card. */
+  public startAddWebLink(): void {
+    if (!this.user) {
+      this.user = this.membersService.getUser();
+    }
+    this.isAddingUrlEvent = true;
+    this.newUrlEvent = new UrlEvent("WEBSITE", new Date(), this.user?.userName || "", "", "");
+    this.cdr.detectChanges();
+    setTimeout(() => {
+      this.urlsCardRef?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
   }
 
   public cancelAddUrlEvent(): void {
@@ -1161,6 +1359,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
     this.evenement.urlEvents.splice(idx, 1);
     this.persistEventChanges();
+  }
+
+  /** Open link in a new browser window/tab */
+  public openUrlInNewWindow(url: string): void {
+    if (!url || !url.trim()) return;
+    this.nativeWindow?.open(url.trim(), '_blank', 'noopener,noreferrer');
   }
 
   public onNewLinkInputChange(value: string): void {
@@ -3418,6 +3622,148 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       this.whatsappShareModalRef.close();
       this.whatsappShareModalRef = null;
     }
+  }
+
+  // --- Share by Email ---
+  public openShareByEmailModal(): void {
+    this.shareByEmailPatToolSelected = (this.eventAccessUsers || [])
+      .map(m => m.addressEmail)
+      .filter((email): email is string => !!email && email.trim().length > 0);
+    this.syncShareByEmailSelectedSet();
+    this.shareByEmailExternalEmails = '';
+    this.shareByEmailMessage = '';
+    this.shareByEmailError = null;
+    this.shareByEmailSuccess = null;
+    this.shareByEmailAllMembers = [];
+    this.shareByEmailLoading = true;
+    // Langue du mail par défaut = langue de l'appli (celle choisie dans le menu principal)
+    const appLang = this.translateService.currentLang || this.translateService.defaultLang || 'fr';
+    const supported = this.shareByEmailMailLangOptions.map(o => o.code);
+    this.shareByEmailMailLang = supported.includes(appLang) ? appLang : 'fr';
+    this.cdr.markForCheck();
+    const sub = this.membersService.getListMembers().subscribe({
+      next: (members: Member[]) => {
+        const visibleOnly = (members || []).filter(m => m.visible !== false);
+        this.shareByEmailAllMembers = visibleOnly.slice().sort((a, b) => {
+          const cmpFirst = (a.firstName || '').toLowerCase().localeCompare((b.firstName || '').toLowerCase());
+          if (cmpFirst !== 0) return cmpFirst;
+          return (a.lastName || '').toLowerCase().localeCompare((b.lastName || '').toLowerCase());
+        });
+        this.shareByEmailLoading = false;
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.shareByEmailLoading = false;
+        this.shareByEmailError = this.translateService.instant('EVENTELEM.SHARE_MAIL_LOAD_ERROR');
+        this.cdr.markForCheck();
+      }
+    });
+    this.activeSubscriptions.add(sub);
+    if (this.shareByEmailModal) {
+      this.shareByEmailModalRef = this.modalService.open(this.shareByEmailModal, {
+        size: 'lg',
+        centered: true,
+        windowClass: 'share-by-email-modal'
+      });
+    }
+  }
+
+  public closeShareByEmailModal(): void {
+    if (this.shareByEmailModalRef) {
+      this.shareByEmailModalRef.close();
+      this.shareByEmailModalRef = null;
+    }
+  }
+
+  public toggleShareByEmailUser(email: string): void {
+    const idx = this.shareByEmailPatToolSelected.indexOf(email);
+    if (idx === -1) {
+      this.shareByEmailPatToolSelected = [...this.shareByEmailPatToolSelected, email];
+    } else {
+      this.shareByEmailPatToolSelected = this.shareByEmailPatToolSelected.filter(e => e !== email);
+    }
+    this.syncShareByEmailSelectedSet();
+  }
+
+  private syncShareByEmailSelectedSet(): void {
+    this.shareByEmailPatToolSelectedSet = new Set(this.shareByEmailPatToolSelected || []);
+  }
+
+  /** Select all users who have access to the activity. */
+  public shareByEmailSelectAllWithAccess(): void {
+    const accessEmails = (this.eventAccessUsers || [])
+      .map(m => m.addressEmail)
+      .filter((email): email is string => !!email && email.trim().length > 0);
+    this.shareByEmailPatToolSelected = [...new Set([...this.shareByEmailPatToolSelected, ...accessEmails])];
+    this.syncShareByEmailSelectedSet();
+    this.cdr.markForCheck();
+  }
+
+  /** Deselect all PatTool users. */
+  public shareByEmailDeselectAll(): void {
+    this.shareByEmailPatToolSelected = [];
+    this.syncShareByEmailSelectedSet();
+    this.cdr.markForCheck();
+  }
+
+  public getShareByEmailHeaderStyle(): { [key: string]: string } {
+    const color = this.getLightenedCalculatedColor();
+    if (!color) {
+      return { backgroundColor: '#0d6efd' };
+    }
+    return {
+      backgroundColor: `rgb(${color.r}, ${color.g}, ${color.b})`
+    };
+  }
+
+  public sendShareByEmail(): void {
+    if (!this.evenement?.id) return;
+    const emails: string[] = [...this.shareByEmailPatToolSelected];
+    const external = (this.shareByEmailExternalEmails || '')
+      .split(/[\s,;]+/)
+      .map(e => e.trim())
+      .filter(e => e.length > 0);
+    emails.push(...external);
+    emails.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+    if (emails.length === 0) {
+      this.shareByEmailError = this.translateService.instant('EVENTELEM.SHARE_MAIL_NO_RECIPIENTS');
+      this.cdr.markForCheck();
+      return;
+    }
+    this.shareByEmailError = null;
+    this.shareByEmailSuccess = null;
+    this.shareByEmailSending = true;
+    this.cdr.markForCheck();
+    const color = this.getLightenedCalculatedColor() || undefined;
+    const eventUrl = this.getEventUrl() || undefined;
+    const eventTypeLabel = this.evenement.type != null
+      ? this.translateService.instant(this.getEventTypeLabel(this.evenement.type))
+      : undefined;
+    const senderName = this.user
+      ? [this.user.firstName, this.user.lastName].filter(Boolean).join(' ').trim() || this.user.userName || this.user.addressEmail || ''
+      : '';
+    const sub = this.evenementsService.shareEventByEmail(
+      this.evenement.id,
+      emails,
+      this.shareByEmailMessage || undefined,
+      color ? { r: color.r, g: color.g, b: color.b } : undefined,
+      eventUrl,
+      eventTypeLabel,
+      senderName || undefined,
+      this.shareByEmailMailLang || 'fr'
+    ).subscribe({
+      next: (res) => {
+        this.shareByEmailSending = false;
+        this.shareByEmailSuccess = this.translateService.instant('EVENTELEM.SHARE_MAIL_SENT', { sent: res.sent, total: res.total });
+        this.cdr.markForCheck();
+      },
+      error: (err) => {
+        this.shareByEmailSending = false;
+        this.shareByEmailError = err?.error?.error || err?.message || this.translateService.instant('EVENTELEM.SHARE_MAIL_SEND_ERROR');
+        this.cdr.markForCheck();
+      }
+    });
+    this.activeSubscriptions.add(sub);
   }
 
   // Handle image load - detect portrait orientation

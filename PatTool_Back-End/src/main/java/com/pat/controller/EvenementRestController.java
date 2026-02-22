@@ -36,8 +36,10 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import org.bson.types.ObjectId;
+import com.mongodb.client.gridfs.model.GridFSFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -52,6 +54,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 import jakarta.annotation.PreDestroy;
+import java.util.Map;
+import java.text.SimpleDateFormat;
+import org.springframework.data.mongodb.gridfs.GridFsResource;
+import org.springframework.core.io.ByteArrayResource;
 
 /**
  * Created by patricou on 4/20/2017.
@@ -2338,6 +2344,208 @@ public class EvenementRestController {
             log.error("Error getting event access users: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    /**
+     * Share event by email: send HTML email with event thumbnail, type, dates, title, description and optional custom message.
+     * Request body: { "toEmails": ["a@b.com", ...], "customMessage": "...", "colorR": 120, "colorG": 130, "colorB": 140 } (color optional)
+     */
+    @PostMapping(value = "/{eventId}/share-email", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<?> shareEventByEmail(@PathVariable String eventId, @RequestBody Map<String, Object> body) {
+        try {
+            @SuppressWarnings("unchecked")
+            List<String> toEmails = (List<String>) body.get("toEmails");
+            if (toEmails == null || toEmails.isEmpty()) {
+                return ResponseEntity.badRequest().body(Map.of("error", "toEmails is required and must not be empty"));
+            }
+            String customMessage = body.get("customMessage") != null ? body.get("customMessage").toString() : "";
+            String eventUrl = body.get("eventUrl") != null ? body.get("eventUrl").toString().trim() : null;
+            if (eventUrl != null && eventUrl.isEmpty()) eventUrl = null;
+            String eventTypeLabel = body.get("eventTypeLabel") != null ? body.get("eventTypeLabel").toString().trim() : null;
+            if (eventTypeLabel != null && eventTypeLabel.isEmpty()) eventTypeLabel = null;
+            String senderName = body.get("senderName") != null ? body.get("senderName").toString().trim() : null;
+            if (senderName != null && senderName.isEmpty()) senderName = null;
+            String mailLang = body.get("mailLang") != null ? body.get("mailLang").toString().trim() : null;
+            if (mailLang == null || mailLang.isEmpty()) mailLang = "fr";
+            Integer colorR = body.get("colorR") != null ? ((Number) body.get("colorR")).intValue() : null;
+            Integer colorG = body.get("colorG") != null ? ((Number) body.get("colorG")).intValue() : null;
+            Integer colorB = body.get("colorB") != null ? ((Number) body.get("colorB")).intValue() : null;
+
+            Evenement evenement = evenementsRepository.findById(eventId).orElse(null);
+            if (evenement == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Event not found"));
+            }
+
+            String imageFieldId = null;
+            String imageContentType = "image/jpeg";
+            if (evenement.getThumbnail() != null && evenement.getThumbnail().getFieldId() != null) {
+                imageFieldId = evenement.getThumbnail().getFieldId();
+                if (evenement.getThumbnail().getFileType() != null && !evenement.getThumbnail().getFileType().isEmpty()) {
+                    imageContentType = evenement.getThumbnail().getFileType();
+                }
+            }
+            if (imageFieldId == null && evenement.getFileUploadeds() != null) {
+                for (FileUploaded f : evenement.getFileUploadeds()) {
+                    if (f.getFieldId() != null && f.getFileName() != null && isImageFileName(f.getFileName())) {
+                        imageFieldId = f.getFieldId();
+                        if (f.getFileType() != null && !f.getFileType().isEmpty()) {
+                            imageContentType = f.getFileType();
+                        }
+                        break;
+                    }
+                }
+            }
+
+            int r = colorR != null ? colorR : 100;
+            int g = colorG != null ? colorG : 120;
+            int b = colorB != null ? colorB : 140;
+            double lighten = 0.35;
+            int lr = (int) Math.round(r + (255 - r) * lighten);
+            int lg = (int) Math.round(g + (255 - g) * lighten);
+            int lb = (int) Math.round(b + (255 - b) * lighten);
+            String headerColor = String.format("#%02x%02x%02x", Math.min(255, lr), Math.min(255, lg), Math.min(255, lb));
+
+            String subject = "PatTool – " + (evenement.getEvenementName() != null ? evenement.getEvenementName() : "Événement");
+            String htmlBody = generateShareEventEmailHtml(mailLang, evenement, customMessage, headerColor, imageFieldId != null, eventUrl, eventTypeLabel, senderName);
+            String plainText = htmlToPlainTextForShare(htmlBody);
+
+            String bcc = mailController.getMailSentTo();
+            int sent = 0;
+            byte[] imageBytes = null;
+            if (imageFieldId != null) {
+                try {
+                    ObjectId imageObjectId = new ObjectId(imageFieldId);
+                    GridFSFile gridFsFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(imageObjectId)));
+                    if (gridFsFile == null) {
+                        log.debug("Event image {} not found in GridFS, sending share email without image", imageFieldId);
+                    } else {
+                        GridFsResource gridResource = gridFsTemplate.getResource(gridFsFile);
+                        try (InputStream is = gridResource.getInputStream()) {
+                            imageBytes = is.readAllBytes();
+                        }
+                    }
+                } catch (IllegalArgumentException e) {
+                    log.debug("Invalid image fieldId for share email: {}", imageFieldId);
+                } catch (IOException e) {
+                    log.warn("Could not read event image for share email: {}", e.getMessage());
+                }
+            }
+            for (String email : toEmails) {
+                String trimmed = email != null ? email.trim() : "";
+                if (trimmed.isEmpty()) continue;
+                if (!mailController.isValidEmail(trimmed)) {
+                    log.warn("Skipping invalid email for share: {}", trimmed);
+                    continue;
+                }
+                if (imageBytes != null && imageBytes.length > 0) {
+                    try {
+                        ByteArrayResource imageResource = new ByteArrayResource(imageBytes);
+                        mailController.sendMailToRecipientWithInline(trimmed, subject, htmlBody, plainText,
+                                "eventImage", imageResource, imageContentType, bcc);
+                        sent++;
+                    } catch (Exception e) {
+                        log.error("Failed to send share email to {}: {}", trimmed, e.getMessage(), e);
+                    }
+                } else {
+                    mailController.sendMailToRecipient(trimmed, subject, htmlBody, true, null, bcc);
+                    sent++;
+                }
+            }
+            return ResponseEntity.ok(Map.of("sent", sent, "total", toEmails.size()));
+        } catch (Exception e) {
+            log.error("Error sharing event by email: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    private boolean isImageFileName(String fileName) {
+        if (fileName == null) return false;
+        String lower = fileName.toLowerCase();
+        return lower.endsWith(".jpg") || lower.endsWith(".jpeg") || lower.endsWith(".png") || lower.endsWith(".gif") || lower.endsWith(".webp");
+    }
+
+    private String generateShareEventEmailHtml(String mailLang, Evenement evenement, String customMessage, String headerColor, boolean hasImage, String eventUrl, String eventTypeLabel, String senderName) {
+        Map<String, String> t = EmailShareMessages.getMessages(mailLang);
+        SimpleDateFormat sdfTime = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+        StringBuilder sb = new StringBuilder();
+        sb.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
+        sb.append("<style>");
+        sb.append("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 15px; line-height: 1.6; color: #2c3e50; margin: 0; padding: 20px; background: #f5f5f5; }");
+        sb.append(".container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; }");
+        sb.append(".header { background: ").append(headerColor).append("; color: white; padding: 20px; text-align: center; }");
+        sb.append(".header h1 { margin: 0; font-size: 22px; font-weight: 700; }");
+        sb.append(".img-wrap { text-align: center; padding: 16px; background: #fafafa; }");
+        sb.append(".img-wrap img { max-width: 100%; height: auto; border-radius: 8px; }");
+        sb.append(".content { padding: 24px; }");
+        sb.append(".info-item { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 6px; }");
+        sb.append(".info-label { font-weight: 700; color: #495057; margin-right: 8px; }");
+        sb.append(".event-link { display: inline-block; margin: 16px 0 0 0; padding: 12px 24px; background: ").append(headerColor).append("; color: white !important; text-decoration: none; border-radius: 8px; font-weight: 600; }");
+        sb.append(".event-link-wrap { text-align: center; margin-top: 20px; }");
+        sb.append(".footer { background: #e9ecef; padding: 16px; text-align: center; color: #6c757d; font-size: 12px; }");
+        sb.append(".message-under-photo { padding: 16px 24px; background: #fff; border-bottom: 1px solid #eee; font-weight: 700; }");
+        sb.append(".email-note { margin-top: 12px; font-size: 13px; color: #6c757d; }");
+        sb.append("</style></head><body><div class='container'>");
+        String title = evenement.getEvenementName() != null ? evenement.getEvenementName() : t.get(EmailShareMessages.EVENT_FALLBACK);
+        sb.append("<div class='header'><h1>").append(escapeHtml(title)).append("</h1></div>");
+        if (hasImage) {
+            sb.append("<div class='img-wrap'><img src='cid:eventImage' alt='' style='max-width:100%;'/></div>");
+        }
+        if (customMessage != null && !customMessage.trim().isEmpty()) {
+            String msgHtml = escapeHtml(customMessage.trim()).replace("&lt;br&gt;", "<br>").replace("&lt;br/&gt;", "<br/>").replace("&lt;br /&gt;", "<br/>");
+            msgHtml = msgHtml.replace("\n", "<br/>");
+            sb.append("<div class='message-under-photo'>").append(msgHtml).append("</div>");
+        }
+        sb.append("<div class='content'>");
+        String typeDisplay = (eventTypeLabel != null && !eventTypeLabel.isEmpty()) ? eventTypeLabel : (evenement.getType() != null ? evenement.getType() : "");
+        if (!typeDisplay.isEmpty()) {
+            sb.append("<div class='info-item'><span class='info-label'>").append(escapeHtml(t.get(EmailShareMessages.TYPE))).append(":</span>").append(escapeHtml(typeDisplay)).append("</div>");
+        }
+        if (evenement.getBeginEventDate() != null) {
+            sb.append("<div class='info-item'><span class='info-label'>").append(escapeHtml(t.get(EmailShareMessages.BEGIN))).append(":</span>").append(escapeHtml(sdfTime.format(evenement.getBeginEventDate()))).append("</div>");
+        }
+        if (evenement.getEndEventDate() != null) {
+            sb.append("<div class='info-item'><span class='info-label'>").append(escapeHtml(t.get(EmailShareMessages.END))).append(":</span>").append(escapeHtml(sdfTime.format(evenement.getEndEventDate()))).append("</div>");
+        }
+        if (evenement.getStartLocation() != null && !evenement.getStartLocation().isEmpty()) {
+            sb.append("<div class='info-item'><span class='info-label'>").append(escapeHtml(t.get(EmailShareMessages.LOCATION))).append(":</span>").append(escapeHtml(evenement.getStartLocation())).append("</div>");
+        }
+        if (evenement.getComments() != null && !evenement.getComments().isEmpty()) {
+            sb.append("<div class='info-item'><span class='info-label'>").append(escapeHtml(t.get(EmailShareMessages.DESCRIPTION))).append(":</span>").append(escapeHtml(evenement.getComments())).append("</div>");
+        }
+        if (eventUrl != null && !eventUrl.isEmpty()) {
+            sb.append("<div class='event-link-wrap'><a href='").append(escapeHtml(eventUrl)).append("' class='event-link'>").append(escapeHtml(t.get(EmailShareMessages.VIEW_ACTIVITY))).append("</a></div>");
+            sb.append("<p class='email-note'>").append(escapeHtml(t.get(EmailShareMessages.ACCESS_NOTE))).append("</p>");
+            sb.append("<p class='email-note'>").append(escapeHtml(t.get(EmailShareMessages.UPLOAD_FILES_NOTE))).append("</p>");
+        }
+        sb.append("</div>");
+        if (senderName != null && !senderName.isEmpty()) {
+            sb.append("<div class='footer'>").append(escapeHtml(String.format(t.get(EmailShareMessages.SENT_BY), senderName))).append("</div>");
+        } else {
+            sb.append("<div class='footer'>").append(escapeHtml(t.get(EmailShareMessages.SENT_VIA))).append("</div>");
+        }
+        sb.append("</div></body></html>");
+        return sb.toString();
+    }
+
+    /** Darken a hex color by the given factor (0 = black, 1 = unchanged). */
+    private static String darkenHexColor(String hex, double factor) {
+        if (hex == null || !hex.startsWith("#") || hex.length() != 7) return "#0d6efd";
+        try {
+            int r = Integer.parseInt(hex.substring(1, 3), 16);
+            int g = Integer.parseInt(hex.substring(3, 5), 16);
+            int b = Integer.parseInt(hex.substring(5, 7), 16);
+            r = Math.max(0, (int) Math.round(r * factor));
+            g = Math.max(0, (int) Math.round(g * factor));
+            b = Math.max(0, (int) Math.round(b * factor));
+            return String.format("#%02x%02x%02x", r, g, b);
+        } catch (NumberFormatException e) {
+            return "#0d6efd";
+        }
+    }
+
+    private String htmlToPlainTextForShare(String html) {
+        if (html == null) return "";
+        return html.replaceAll("<[^>]+>", " ").replaceAll("&nbsp;", " ").replaceAll("\\s+", " ").trim();
     }
     
     /**

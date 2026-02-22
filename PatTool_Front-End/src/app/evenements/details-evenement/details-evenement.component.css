@@ -266,7 +266,7 @@
 
 .action-container-inline {
   display: grid;
-  grid-template-columns: auto auto auto auto auto 1fr auto; /* Comment | Discussion | WhatsApp | Edit | Upload | Notes | Rating */
+  grid-template-columns: auto auto auto auto auto auto 1fr auto; /* Comment | Discussion | WhatsApp | Email | Web link | Edit | Upload | Notes | Rating */
   align-items: center;
   gap: 1rem;
   position: relative;
@@ -347,7 +347,8 @@
     order: 2; /* Second position on the left */
   }
 
-  .action-container .share-whatsapp-wrapper {
+  .action-container .share-whatsapp-wrapper,
+  .action-container .share-email-wrapper {
     display: flex;
     align-items: center;
     flex: 0 0 auto;
@@ -355,21 +356,30 @@
     position: relative;
     order: 3; /* Third position on the left */
   }
+
+  .action-container .add-web-link-wrapper {
+    display: flex;
+    align-items: center;
+    flex: 0 0 auto;
+    z-index: 10;
+    position: relative;
+    order: 4; /* After share buttons */
+  }
   
   .action-container .edit-event-wrapper {
-    order: 4; /* After the 3 buttons */
+    order: 5; /* After web link button */
   }
   
   .action-container .file-upload-wrapper {
-    order: 5; /* After edit button */
+    order: 6; /* After edit button */
   }
   
   .action-container .notes-section {
-    order: 6; /* After upload button */
+    order: 7; /* After upload button */
   }
   
   .action-container .rating-section {
-    order: 7; /* Last position on the right */
+    order: 8; /* Last position on the right */
   }
 
 .action-container .add-commentary-wrapper button {
@@ -463,13 +473,13 @@
    ============================================ */
 
 .dynamic-card {
+  --card-padding-x: 1rem;
   background: var(--color-light, rgba(255, 255, 255, 0.35));
   backdrop-filter: blur(12px) saturate(160%);
   -webkit-backdrop-filter: blur(12px) saturate(160%);
   border-radius: 15px;
-  padding: 1rem;
-  padding-top: 0;
-  padding-bottom: 0.5rem;
+  padding: 0 var(--card-padding-x) 0.5rem var(--card-padding-x);
+  padding-top: 0 !important; /* header flush with card top, no gap */
   border: 1px solid var(--color-light-border, rgba(255, 255, 255, 0.35));
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
   transition: all 0.3s ease;
@@ -834,9 +844,9 @@
   font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary, #ffffff);
-  margin: 0 -1rem 0.75rem -1rem;
-  padding: 0.5rem 1rem 0.5rem 1rem;
-  width: calc(100% + 2rem);
+  margin: 0 calc(-1 * var(--card-padding-x, 1rem)) 0.75rem calc(-1 * var(--card-padding-x, 1rem));
+  padding: 0.5rem var(--card-padding-x, 1rem);
+  width: calc(100% + 2 * var(--card-padding-x, 1rem));
   border-bottom: 1px solid rgba(255, 255, 255, 0.15);
   background: linear-gradient(135deg, var(--card-header-gradient-start, rgba(255, 255, 255, 0.15)) 0%, var(--card-header-gradient-end, rgba(255, 255, 255, 0.08)) 100%);
   border-radius: 15px 15px 0 0;
@@ -1927,6 +1937,25 @@ select.compact-input:focus {
 
 .url-link-compact {
   margin-bottom: 0.4rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.url-link-compact .url-link-text {
+  flex: 0 1 auto;
+}
+
+.btn-open-link-compact {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 0.25rem 0.4rem;
+  min-width: 28px;
+}
+
+.btn-open-link-compact i {
+  font-size: 0.75rem;
 }
 
 .url-link-text {
@@ -1947,6 +1976,11 @@ select.compact-input:focus {
 .url-link-text i {
   color: #ffd700;
   font-size: 0.75rem;
+}
+
+.url-link-compact .url-meta-compact {
+  flex-basis: 100%;
+  margin-bottom: 0;
 }
 
 .url-meta-compact {
@@ -2789,6 +2823,8 @@ select.compact-input:focus {
   .action-container .add-commentary-wrapper,
   .action-container .add-discussion-wrapper,
   .action-container .share-whatsapp-wrapper,
+  .action-container .share-email-wrapper,
+  .action-container .add-web-link-wrapper,
   .action-container .edit-event-wrapper,
   .action-container .file-upload-wrapper,
   .action-container .notes-section {
@@ -2803,6 +2839,8 @@ select.compact-input:focus {
   .action-container .add-commentary-wrapper > *,
   .action-container .add-discussion-wrapper > *,
   .action-container .share-whatsapp-wrapper > *,
+  .action-container .share-email-wrapper > *,
+  .action-container .add-web-link-wrapper > *,
   .action-container .edit-event-wrapper > *,
   .action-container .file-upload-wrapper > *,
   .action-container .notes-section > * {
@@ -2955,7 +2993,9 @@ select.compact-input:focus {
   
   /* Card styling */
   .dynamic-card {
-    padding: 0.75rem 1.2rem !important;
+    --card-padding-x: 1.2rem;
+    padding: 0 1.2rem 0.5rem 1.2rem !important;
+    padding-top: 0 !important;
     border-radius: 14px;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   }
@@ -2975,14 +3015,12 @@ select.compact-input:focus {
     gap: 0.5rem !important;
     font-size: 1.1rem !important;
     font-weight: 700 !important;
-    padding: 0.5rem 0 !important;
+    padding: 0.5rem var(--card-padding-x, 1rem) !important;
     margin-bottom: 0.75rem !important;
-    margin-left: -1.2rem !important;
-    margin-right: -1.2rem !important;
-    padding-left: 1.2rem !important;
-    padding-right: 1.2rem !important;
+    margin-left: calc(-1 * var(--card-padding-x, 1rem)) !important;
+    margin-right: calc(-1 * var(--card-padding-x, 1rem)) !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
-    width: calc(100% + 2.4rem) !important;
+    width: calc(100% + 2 * var(--card-padding-x, 1rem)) !important;
   }
   
   /* ICON - FORCE VISIBLE */
@@ -3787,59 +3825,20 @@ select.compact-input:focus {
     -webkit-tap-highlight-color: rgba(255, 255, 255, 0.2);
   }
   
-  /* ============================================
-     FOOTER SUMMARY
-     ============================================ */
-  
-  .event-footer-summary {
-    position: relative;
-    z-index: 3;
-    width: 100%;
-    padding: 0 1rem 0.6rem 1rem;
-    margin-top: 1rem;
-    background: var(--color-light, rgba(255, 255, 255, 0.35));
-    backdrop-filter: blur(10px);
-    border-top: 2px solid var(--color-light-border, rgba(255, 255, 255, 0.2));
-    border-radius: 12px 12px 0 0;
+  /* Footer summary – responsive */
+  .summary-inner {
+    padding: 0.55rem 1rem;
+    font-size: 0.8rem;
+    gap: 0.5rem 1rem;
   }
   
-  .footer-summary-content {
-    max-width: 1600px;
-    margin: 0 auto;
-  }
-  
-  .summary-header {
-    font-size: 0.85rem;
-    margin: 0 -1rem 0.45rem -1rem;
-    padding: 0.4rem 1rem;
-  }
-  
-  .summary-header i {
-    font-size: 0.9rem;
-  }
-  
-  .summary-items {
-    font-size: 0.75rem;
-    gap: 0 0.4rem;
-  }
-  
-  /* Mobile footer */
   @media (max-width: 768px) {
     .event-footer-summary {
-      padding: 0 0.6rem 0.5rem 0.6rem;
-      margin-top: 0.75rem;
-      border-radius: 12px 12px 0 0;
+      margin-top: 1rem;
     }
-    
-    .summary-header {
-      font-size: 0.8rem;
-      margin: 0 -0.6rem 0.4rem -0.6rem;
-      padding: 0.35rem 0.6rem;
-      width: calc(100% + 1.2rem);
-    }
-    
-    .summary-items {
-      font-size: 0.7rem;
+    .summary-inner {
+      padding: 0.5rem 0.75rem;
+      font-size: 0.75rem;
     }
   }
 }
@@ -3858,7 +3857,9 @@ select.compact-input:focus {
   }
   
   .dynamic-card {
-    padding: 0.6rem;
+    --card-padding-x: 0.6rem;
+    padding: 0 0.6rem 0.5rem 0.6rem;
+    padding-top: 0 !important;
   }
   
   .btn-compact {
@@ -3892,7 +3893,7 @@ select.compact-input:focus {
   /* Restore original grid layout for action-container-inline */
   .action-container-inline {
     display: grid !important;
-    grid-template-columns: auto auto auto auto auto 1fr auto !important;
+    grid-template-columns: auto auto auto auto auto auto 1fr auto !important;
     align-items: center !important;
     gap: 1rem !important;
     width: 100% !important;
@@ -3912,6 +3913,8 @@ select.compact-input:focus {
   .action-container .add-commentary-wrapper,
   .action-container .add-discussion-wrapper,
   .action-container .share-whatsapp-wrapper,
+  .action-container .share-email-wrapper,
+  .action-container .add-web-link-wrapper,
   .action-container .edit-event-wrapper,
   .action-container .file-upload-wrapper,
   .action-container .notes-section {
@@ -3952,7 +3955,9 @@ select.compact-input:focus {
   }
   
   .dynamic-card {
-    padding: 0.6rem;
+    --card-padding-x: 0.6rem;
+    padding: 0 0.6rem 0.5rem 0.6rem;
+    padding-top: 0 !important;
   }
   
   .card-title-small {
@@ -4021,6 +4026,8 @@ select.compact-input:focus {
   .action-container .add-commentary-wrapper,
   .action-container .add-discussion-wrapper,
   .action-container .share-whatsapp-wrapper,
+  .action-container .share-email-wrapper,
+  .action-container .add-web-link-wrapper,
   .action-container .edit-event-wrapper,
   .action-container .file-upload-wrapper,
   .action-container .notes-section {
@@ -4035,6 +4042,8 @@ select.compact-input:focus {
   .action-container .add-commentary-wrapper > *,
   .action-container .add-discussion-wrapper > *,
   .action-container .share-whatsapp-wrapper > *,
+  .action-container .share-email-wrapper > *,
+  .action-container .add-web-link-wrapper > *,
   .action-container .edit-event-wrapper > *,
   .action-container .file-upload-wrapper > *,
   .action-container .notes-section > * {
@@ -4329,7 +4338,9 @@ select.compact-input:focus {
   }
   
   .dynamic-card {
-    padding: 1.25rem;
+    --card-padding-x: 1.25rem;
+    padding: 0 1.25rem 0.5rem 1.25rem;
+    padding-top: 0 !important;
   }
 }
 
@@ -4346,65 +4357,61 @@ select.compact-input:focus {
 }
 
 /* ============================================
-   FOOTER SUMMARY - COMPACT
+   FOOTER SUMMARY – full width, minimal
    ============================================ */
 
+/* Footer: background and text contrast (override global * color for footer only) */
 .event-footer-summary {
   position: relative;
   z-index: 3;
   width: 100%;
-  padding: 0 1rem 0.6rem 1rem;
-  margin-top: 1rem;
-  background: var(--color-light, rgba(255, 255, 255, 0.35));
-  backdrop-filter: blur(12px);
-  border-top: 2px solid var(--color-light-border, rgba(255, 255, 255, 0.2));
-  border-radius: 15px 15px 0 0;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+  margin-top: 1.5rem;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(8px);
+  border-top: 3px solid var(--action-bar-gradient-start, rgba(100, 120, 180, 0.9));
 }
 
-.text-light-mode .event-footer-summary {
-  background: var(--color-light, rgba(255, 255, 255, 0.35));
-  border-top: 2px solid var(--color-light-border, rgba(0, 0, 0, 0.2));
+/* Dark footer → light text (page in dark-mode) */
+.artistic-event-page.text-dark-mode .event-footer-summary,
+.artistic-event-page.text-dark-mode .event-footer-summary * {
+  color: rgba(255, 255, 255, 0.95) !important;
 }
 
-.footer-summary-content {
-  max-width: 1600px;
-  margin: 0 auto;
+/* Light footer → dark text (page in light-mode) */
+.artistic-event-page.text-light-mode .event-footer-summary {
+  background: rgba(255, 255, 255, 0.12);
+  border-top-color: var(--action-bar-gradient-start, rgba(80, 100, 160, 0.85));
 }
 
-.summary-header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--text-primary, #ffffff);
-  margin: 0 -1rem 0.5rem -1rem;
-  padding: 0.45rem 1rem;
-  width: calc(100% + 2rem);
-  background: linear-gradient(135deg, var(--card-header-gradient-start, rgba(255, 255, 255, 0.15)) 0%, var(--card-header-gradient-end, rgba(255, 255, 255, 0.08)) 100%);
-  border-radius: 15px 15px 0 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+.artistic-event-page.text-light-mode .event-footer-summary,
+.artistic-event-page.text-light-mode .event-footer-summary * {
+  color: rgba(0, 0, 0, 0.9) !important;
 }
 
-.text-light-mode .summary-header {
-  border-bottom-color: rgba(0, 0, 0, 0.15);
-}
-
-.summary-header i {
-  color: #ffd700;
-  font-size: 0.95rem;
-  opacity: 0.9;
-}
-
-.summary-items {
+.summary-inner {
   display: flex;
   flex-wrap: wrap;
-  gap: 0 0.5rem;
-  align-items: baseline;
-  font-size: 0.8rem;
-  color: var(--text-primary, #ffffff);
+  align-items: center;
+  gap: 0.75rem 1.25rem;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.8125rem;
+}
+
+.summary-label {
+  font-weight: 600;
   opacity: 0.95;
+  flex-shrink: 0;
+}
+
+.summary-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.5rem;
+  opacity: 0.9;
 }
 
 .summary-line {
@@ -4413,8 +4420,8 @@ select.compact-input:focus {
 
 .summary-line:not(:last-child)::after {
   content: " · ";
-  margin-left: 0.5rem;
-  opacity: 0.7;
+  margin-left: 0.25rem;
+  opacity: 0.65;
 }
 
 /* ============================================
@@ -4522,6 +4529,14 @@ select.compact-input:focus {
   border: 4px solid white !important;
   border-radius: 8px;
   overflow: hidden;
+}
+
+/* Border around the Share by Email modal */
+::ng-deep .share-by-email-modal .modal-content {
+  border: 3px solid white !important;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
 }
 
 /* ============================================
@@ -4636,15 +4651,14 @@ select.compact-input:focus {
   .card-header-compact {
     font-size: 1rem !important;
     gap: 0.4rem !important;
+    padding: 0.5rem var(--card-padding-x, 1rem) !important;
     padding-bottom: 0.4rem !important;
     margin-bottom: 0.5rem !important;
     justify-content: flex-start !important;
     text-align: left !important;
-    margin-left: -1rem !important;
-    margin-right: -1rem !important;
-    padding-left: 1rem !important;
-    padding-right: 1rem !important;
-    width: calc(100% + 2rem) !important;
+    margin-left: calc(-1 * var(--card-padding-x, 1rem)) !important;
+    margin-right: calc(-1 * var(--card-padding-x, 1rem)) !important;
+    width: calc(100% + 2 * var(--card-padding-x, 1rem)) !important;
   }
   
   .card-header-compact > i {
@@ -4690,7 +4704,9 @@ select.compact-input:focus {
   }
   
   .dynamic-card {
-    padding: 0.5rem 1rem !important;
+    --card-padding-x: 1rem;
+    padding: 0 1rem 0.5rem 1rem !important;
+    padding-top: 0 !important;
     border-radius: 10px !important;
   }
   
@@ -4715,7 +4731,9 @@ select.compact-input:focus {
   }
   
   .dynamic-card {
-    padding: 0.6rem !important;
+    --card-padding-x: 0.6rem;
+    padding: 0 0.6rem 0.5rem 0.6rem !important;
+    padding-top: 0 !important;
   }
   
   .discussion-card,
@@ -4960,13 +4978,13 @@ select.compact-input:focus {
   .card-header-compact {
     flex-wrap: wrap;
     gap: 0.5rem;
-    width: calc(100% + 2rem) !important;
-    min-width: calc(100% + 2rem) !important;
-    max-width: calc(100% + 2rem) !important;
-    margin-left: -1rem !important;
-    margin-right: -1rem !important;
-    left: -1rem;
-    right: -1rem;
+    width: calc(100% + 2 * var(--card-padding-x, 1rem)) !important;
+    min-width: calc(100% + 2 * var(--card-padding-x, 1rem)) !important;
+    max-width: calc(100% + 2 * var(--card-padding-x, 1rem)) !important;
+    margin-left: calc(-1 * var(--card-padding-x, 1rem)) !important;
+    margin-right: calc(-1 * var(--card-padding-x, 1rem)) !important;
+    left: calc(-1 * var(--card-padding-x, 1rem));
+    right: calc(-1 * var(--card-padding-x, 1rem));
   }
   
   .card-header-compact > span {
@@ -5053,4 +5071,9 @@ select.compact-input:focus {
 
 .first-row-cards-container {
   gap: clamp(0.5rem, 1.2vw, 1rem);
+}
+
+/* Keep card header flush with top: no gap between card edge and header (overrides responsive padding) */
+.dynamic-card {
+  padding-top: 0 !important;
 }

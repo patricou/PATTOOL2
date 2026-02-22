@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -100,8 +101,42 @@ public class MailController {
         
         log.debug("=== END MAIL SENDING ATTEMPT (TO SPECIFIC RECIPIENT) ===\n");
         return null;
-    };
-    
+    }
+
+    /**
+     * Send HTML email to a single recipient with an inline image (e.g. event thumbnail).
+     * HTML body should reference the image with src="cid:contentId".
+     */
+    public String sendMailToRecipientWithInline(String recipientEmail, String subject, String htmlBody, String plainText,
+            String inlineContentId, Resource imageResource, String imageContentType, String bcc) {
+        log.debug("=== MAIL SENDING ATTEMPT (WITH INLINE IMAGE) ===");
+        log.debug("Subject: {}", subject);
+        log.debug("To: {}", recipientEmail);
+        log.debug("From: {}", mailSentFrom);
+        log.debug("Mail enabled (app.sendmail): {}", sendmail);
+
+        try {
+            if (sendmail && recipientEmail != null && !recipientEmail.trim().isEmpty()) {
+                smtpMailSender.sendMailWithInlineImage(mailSentFrom, recipientEmail, null, bcc, subject, htmlBody, plainText,
+                        inlineContentId, imageResource, imageContentType);
+                log.debug("✓ Mail with inline image sent successfully to {} - Subject: '{}'", recipientEmail, subject);
+            } else {
+                if (!sendmail) {
+                    log.warn("✗ Mail sending skipped - app.sendmail is set to false");
+                } else {
+                    log.warn("✗ Mail sending skipped - recipient email is empty");
+                }
+            }
+        } catch (Exception e) {
+            log.error("✗ ERROR sending mail to {} - Subject: '{}' - Error: {}",
+                    recipientEmail, subject, e.getMessage(), e);
+            e.printStackTrace();
+        }
+
+        log.debug("=== END MAIL SENDING ATTEMPT (WITH INLINE IMAGE) ===\n");
+        return null;
+    }
+
     // REST endpoint for sending emails via HTTP
     @PostMapping(value = "sendmail")
     public String sendMailViaRest(@RequestParam String subject, @RequestParam String body){

@@ -8,6 +8,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.core.io.Resource;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -131,7 +132,49 @@ public class SmtpMailSender {
             }
         }
     }
-    
+
+    /**
+     * Send HTML email to one or more recipients (comma-separated) with an inline image.
+     * HTML body should reference the image with src="cid:contentId".
+     */
+    @Async
+    public void sendMailWithInlineImage(String from, String to, String cc, String bcc, String subject,
+            String htmlBody, String plainText, String inlineContentId, Resource imageResource, String imageContentType) {
+        String[] recipients = parseRecipients(to);
+        for (String recipient : recipients) {
+            MimeMessage mail = javaMailSender.createMimeMessage();
+            try {
+                MimeMessageHelper helper = new MimeMessageHelper(mail, true, "UTF-8");
+                helper.setTo(recipient);
+                if (cc != null && !cc.trim().isEmpty()) {
+                    helper.setCc(parseRecipients(cc));
+                }
+                if (bcc != null && !bcc.trim().isEmpty()) {
+                    helper.setBcc(parseRecipients(bcc));
+                }
+                helper.setReplyTo(from);
+                helper.setFrom(from, "PatTool Application");
+                helper.setSubject(subject);
+                helper.setText(plainText != null ? plainText : htmlToPlainText(htmlBody), htmlBody);
+                helper.addInline(inlineContentId, imageResource, imageContentType);
+                mail.setHeader("X-Mailer", "PatTool Application");
+                mail.setHeader("X-Priority", "3");
+                mail.setHeader("Importance", "Normal");
+                mail.setHeader("List-Unsubscribe", "<mailto:" + from + "?subject=Unsubscribe>");
+                mail.setHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
+                if (mail.getMessageID() == null) {
+                    mail.setHeader("Message-ID", generateMessageId());
+                }
+                log.debug("Sending email with inline image via SMTP - To: {}, Subject: {}", recipient, subject);
+                javaMailSender.send(mail);
+                log.debug("Email with inline image sent successfully to {} - Subject: '{}'", recipient, subject);
+            } catch (Exception e) {
+                log.error("Failed to send email with inline image to {}: {}", recipient, e.getMessage(), e);
+                throw new RuntimeException("Failed to send email with inline image: " + e.getMessage(), e);
+            }
+        }
+    }
+
     /**
      * Convert HTML to plain text for email clients that don't support HTML
      * This helps avoid spam filters by providing a text alternative

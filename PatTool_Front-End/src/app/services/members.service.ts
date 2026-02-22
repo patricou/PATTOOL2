@@ -178,4 +178,36 @@ export class MembersService {
         return this.user;
     }
 
+    /**
+     * Get list of all members (PatTool users). Requires authentication.
+     */
+    getListMembers(): Observable<Member[]> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => new HttpHeaders({
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            })),
+            switchMap(headers => this._http.get<any[]>(this.API_URL + 'memb', { headers: headers }).pipe(
+                map((raw: any[]) => (raw || []).map((m: any) => {
+                    const rolesArray = m.roles ? (typeof m.roles === 'string' ? m.roles.split(',').map((r: string) => r.trim()).filter((r: string) => r.length) : m.roles) : [];
+                    return new Member(
+                        m.id || '',
+                        m.addressEmail || '',
+                        m.firstName || '',
+                        m.lastName || '',
+                        m.userName || '',
+                        rolesArray,
+                        m.keycloakId || '',
+                        m.registrationDate ? new Date(m.registrationDate) : undefined,
+                        m.lastConnectionDate ? new Date(m.lastConnectionDate) : undefined,
+                        m.locale || undefined,
+                        m.whatsappLink || undefined,
+                        m.visible !== undefined ? m.visible : true
+                    );
+                }))
+            ))
+        );
+    }
+
 }
