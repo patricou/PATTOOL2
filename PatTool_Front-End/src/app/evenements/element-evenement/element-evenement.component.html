@@ -444,7 +444,9 @@
 
 <!-- Comments Modal -->
 <ng-template #commentsModal let-c="close" let-d="dismiss">
-    <div class="modal-header bg-primary text-white selector-header rounded-top">
+    <div class="modal-header text-white selector-header rounded-top"
+         [ngStyle]="getCommentsModalHeaderStyle()"
+         [class.bg-primary]="!getCalculatedColor()">
         <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
             <i class="fa fa-comments"></i> {{ 'EVENTHOME.COMMENTARIES' | translate }} - {{ evenement.evenementName }}
         </h5>

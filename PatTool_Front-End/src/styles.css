@@ -80,6 +80,49 @@ img, video, canvas {
     overflow: hidden !important;
 }
 
+/* Comments modal: adapt to mobile screen (element-evenement) - global selectors so they apply to modal in overlay */
+@media (max-width: 767.98px) {
+    .modal.comments-modal .modal-dialog,
+    .modal.comments-modal.show .modal-dialog,
+    .modal.comments-modal .modal-dialog.modal-lg {
+        --bs-modal-width: 100% !important;
+        --bs-modal-margin: 0.5rem !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        margin: 0.5rem !important;
+        max-height: calc(100vh - 1rem) !important;
+        height: auto !important;
+    }
+    .modal.comments-modal .modal-content,
+    .modal.comments-modal.show .modal-content {
+        max-height: calc(100vh - 1rem) !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+    .modal.comments-modal .modal-body,
+    .modal.comments-modal.show .modal-body {
+        overflow-y: auto !important;
+        overflow-x: hidden !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        -webkit-overflow-scrolling: touch;
+    }
+    .modal.comments-modal .modal-header,
+    .modal.comments-modal.show .modal-header {
+        flex-shrink: 0;
+        padding: 0.5rem 0.75rem;
+    }
+    .modal.comments-modal .modal-header .modal-title {
+        font-size: 0.95rem !important;
+        white-space: normal;
+        line-height: 1.3;
+    }
+    .modal.comments-modal .modal-footer {
+        flex-shrink: 0;
+        padding: 0.5rem 0.75rem;
+    }
+}
+
 /* Prevent body scroll when photos selector modal is open - Very high specificity to override slideshow rules */
 /* Using [class*=""] to increase specificity and ensure these rules override slideshow CSS */
 body[class*=""]:has(.fs-selector-modal),

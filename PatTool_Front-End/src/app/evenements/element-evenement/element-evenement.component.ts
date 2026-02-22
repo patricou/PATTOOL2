@@ -6446,6 +6446,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return eventColor;
 	}
 
+	/** Style for the comments modal header background (calculated event color). */
+	public getCommentsModalHeaderStyle(): { [key: string]: string } {
+		const c = this.getCalculatedColor();
+		if (c) {
+			return { 'background-color': `rgb(${c.r},${c.g},${c.b})` };
+		}
+		return {};
+	}
+
 	public openCommentsModal(): void {
 		this.forceCloseTooltips();
 		
@@ -6456,13 +6465,15 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			document.documentElement.scrollTop || 
 			document.body.scrollTop || 0;
 		
-		// Open the modal - CSS will block scroll automatically
+		// On mobile use fullscreen so the modal fits the screen; on desktop use large size
+		const isMobile = typeof window !== 'undefined' && window.innerWidth <= 767.98;
 		const modalRef = this.modalService.open(this.commentsModal, { 
-			size: 'lg',
+			size: isMobile ? undefined : 'lg',
+			fullscreen: isMobile ? true : false,
 			backdrop: 'static',
 			keyboard: false,
 			animation: true,
-			centered: true,
+			centered: !isMobile,
 			windowClass: 'comments-modal'
 		});
 		
