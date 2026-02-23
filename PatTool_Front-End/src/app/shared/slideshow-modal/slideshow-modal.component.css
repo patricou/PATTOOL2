@@ -1349,10 +1349,12 @@ body.slideshow-fullscreen-active .slideshow-footer {
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        max-height: 70vh !important;
+        max-height: 88vh !important;
         min-height: auto !important;
         height: auto !important;
         vertical-align: middle !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
     }
     
     /* Modal content adjustments - reduced height on mobile */
@@ -1371,13 +1373,14 @@ body.slideshow-fullscreen-active .slideshow-footer {
     ::ng-deep .modal.show .modal-xl.modal-dialog .modal-content:has(.slideshow-body) {
         max-width: 98vw !important;
         width: 98vw !important;
-        max-height: 70vh !important;
-        height: 70vh !important;
+        max-height: 88vh !important;
+        height: 88vh !important;
         display: flex !important;
         flex-direction: column !important;
         position: relative !important;
         margin: 0 auto !important;
         overflow: hidden !important;
+        border-radius: 8px !important;
     }
     
     .slideshow-header {

@@ -2817,31 +2817,20 @@ export class FriendsComponent implements OnInit {
     });
     
     // CRITICAL: Wait for modal to be fully rendered in DOM, then show everything at once
-    // Use multiple requestAnimationFrame to ensure modal is completely ready
-    // Run outside Angular zone to avoid triggering change detection prematurely
+    // Use setTimeout so modal is in DOM on all devices (rAF can run too early on mobile)
     this.ngZone.runOutsideAngular(() => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            // Now run in Angular zone to trigger change detection
-            this.ngZone.run(() => {
-              // Create a completely new array reference with all data
-              // This forces Angular to re-render the entire *ngFor in one go
-              this.sortedPositionsForDisplay = [...this.sortedPositionsForDisplay];
-              
-              // Show table all at once - this prevents progressive rendering
-              this.positionsTableVisible = true;
-              
-              // Reattach change detection
-              this.cdr.reattach();
-              
-              // Trigger ONE change detection for everything at once
-              // This should display all cached addresses instantly
-              this.cdr.detectChanges();
-            });
-          });
+      setTimeout(() => {
+        this.ngZone.run(() => {
+          // Create a completely new array reference with all data
+          this.sortedPositionsForDisplay = [...this.sortedPositionsForDisplay];
+          // Show table all at once - this prevents progressive rendering
+          this.positionsTableVisible = true;
+          // Reattach change detection
+          this.cdr.reattach();
+          // Trigger ONE change detection for everything at once
+          this.cdr.detectChanges();
         });
-      });
+      }, 150);
     });
     
       // Load non-cached positions with delay to avoid rate limiting (only for API calls)
@@ -2857,7 +2846,6 @@ export class FriendsComponent implements OnInit {
           
           if (cachedAddress) {
             // Use cached address (might have been cached by a previous call in the queue)
-            console.debug(`[Cache HIT in queue] Using cached address for coordinates (${pos.lat}, ${pos.lng}) -> cache key: ${cacheKey}, index: ${pos.index}`);
             this.positionAddresses.set(pos.index, cachedAddress);
             this.loadingAddresses.set(pos.index, false);
             this.addressFromCache.set(pos.index, true);
@@ -2911,12 +2899,10 @@ export class FriendsComponent implements OnInit {
     
     if (cachedAddress) {
       // Use cached address for similar coordinates
-      console.debug(`[Cache HIT] Using cached address for coordinates (${lat}, ${lng}) -> cache key: ${cacheKey}, index: ${index}`);
       this.positionAddresses.set(index, cachedAddress);
       this.loadingAddresses.set(index, false);
       this.addressFromCache.set(index, true); // Mark as from cache
-      console.debug(`[Cache HIT] addressFromCache.set(${index}, true) - should be yellow`);
-      
+
       // Update pre-computed display data for instant UI update
       const displayItem = this.sortedPositionsForDisplay.find(item => item.originalIndex === index);
       if (displayItem) {
@@ -2928,8 +2914,6 @@ export class FriendsComponent implements OnInit {
       this.cdr.detectChanges();
       return;
     }
-    
-    console.debug(`[Cache MISS] No cached address for coordinates (${lat}, ${lng}) -> cache key: ${cacheKey}, index: ${index}, making API call`);
 
     this.loadingAddresses.set(index, true);
     
@@ -3024,7 +3008,6 @@ export class FriendsComponent implements OnInit {
       const finalAddress = address || this._translateService.instant('FRIENDS.ADDRESS_NOT_FOUND');
       
       // Store in cache for future use (using rounded coordinates as key)
-      console.debug(`[Cache SET] Storing address in cache for coordinates (${lat}, ${lng}) -> cache key: ${cacheKey}`);
       this.addressCache.set(cacheKey, finalAddress);
       
       // Store for this position

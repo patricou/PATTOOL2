@@ -1,4 +1,4 @@
-﻿.friends-container {
+.friends-container {
   min-height: 100vh;
   background: #f8f9fa;
   padding: 0;
@@ -2312,4 +2312,139 @@
   background-color: rgba(255, 255, 255, 0.3);
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+/* ========== Positions modal: mobile ========== (card list, vertical scroll only) */
+@media (max-width: 768px) {
+  ::ng-deep .positions-modal-wide .modal-dialog {
+    max-width: 98vw !important;
+    width: 98vw !important;
+    margin: 0.5rem auto !important;
+    max-height: calc(100vh - 1rem) !important;
+    height: calc(100vh - 1rem) !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  ::ng-deep .positions-modal-wide .modal-content {
+    max-height: calc(100vh - 1rem) !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  ::ng-deep .positions-modal-wide .modal-header {
+    padding: 0.5rem 0.75rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  ::ng-deep .positions-modal-wide .modal-header h5 {
+    font-size: 0.9rem !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: calc(100% - 40px) !important;
+  }
+
+  ::ng-deep .positions-modal-wide .modal-body.positions-modal-body {
+    flex: 1 1 0 !important;
+    min-height: 0 !important;
+    min-width: 0 !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    padding: 0.5rem !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+
+  /* Mobile: card list (no table on mobile) */
+  .positions-mobile-list {
+    display: block !important;
+    width: 100% !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    padding-bottom: 0.5rem;
+  }
+
+  .positions-mobile-card {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  }
+
+  .positions-mobile-card:last-child {
+    margin-bottom: 0;
+  }
+
+  .positions-mobile-card-header {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center;
+    gap: 0.25rem;
+    margin-bottom: 0.35rem;
+    font-size: 0.9rem;
+  }
+
+  .positions-mobile-card-num {
+    font-weight: 700;
+    color: #212529;
+  }
+
+  .positions-mobile-card-num.position-from-cache {
+    color: #b38600;
+  }
+
+  .positions-mobile-card-num.position-from-api {
+    color: #007bff;
+  }
+
+  .positions-mobile-card-date {
+    font-size: 0.8rem;
+    color: #6c757d;
+  }
+
+  .positions-mobile-card-coords {
+    font-size: 0.75rem;
+    margin-bottom: 0.35rem;
+    word-break: break-all;
+  }
+
+  .positions-mobile-card-address {
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+    line-height: 1.35;
+    word-break: break-word;
+  }
+
+  .positions-mobile-card-actions {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+
+  .positions-mobile-card-actions .btn {
+    font-size: 0.8rem !important;
+    padding: 0.35rem 0.6rem !important;
+  }
+
+  ::ng-deep .positions-modal-wide .modal-footer {
+    flex-wrap: wrap !important;
+    gap: 0.35rem !important;
+    padding: 0.5rem 0.75rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  ::ng-deep .positions-modal-wide .modal-footer .btn,
+  ::ng-deep .positions-modal-wide .modal-footer .btn.btn-info,
+  ::ng-deep .positions-modal-wide .modal-footer .btn.btn-secondary,
+  ::ng-deep .positions-modal-wide .modal-footer .btn.btn-danger {
+    font-size: 0.75rem !important;
+    padding: 0.25rem 0.5rem !important;
+  }
 }

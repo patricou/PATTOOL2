@@ -54,6 +54,8 @@
 		min-height: 100vh !important;
 		height: 100vh !important;
 		margin: 0 !important;
+		border-radius: 8px !important;
+		overflow: hidden !important;
 	}
 	@supports (height: 100dvh) {
 		::ng-deep .modal.show:has(.trace-viewer-body) .modal-dialog,
@@ -79,7 +81,7 @@
 		display: flex !important;
 		flex-direction: column !important;
 		overflow: hidden !important;
-		border-radius: 0 !important;
+		border-radius: 8px !important;
 	}
 	@supports (height: 100dvh) {
 		::ng-deep .modal.show:has(.trace-viewer-body) .modal-content,

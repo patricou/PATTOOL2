@@ -1576,99 +1576,133 @@
     </h5>
     <button type="button" class="btn-close" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
   </div>
-  <div class="modal-body">
+  <div class="modal-body positions-modal-body">
     <div *ngIf="!currentUser.positions || currentUser.positions.length === 0" class="text-center py-4">
       <i class="fa fa-map-marker fa-3x text-muted mb-3"></i>
       <p class="text-muted">{{ 'FRIENDS.NO_POSITIONS' | translate }}</p>
     </div>
-    <div *ngIf="currentUser.positions && currentUser.positions.length > 0" class="table-responsive positions-table-container">
-      <table class="table table-hover table-striped" [style.display]="positionsTableVisible ? 'table' : 'none'">
-        <thead>
-          <tr>
-            <th style="width: 50px;">
-              <a href="javascript:void(0)" (click)="sortBy('number')" class="sortable-header text-decoration-none text-reset">
-                # <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'number', 'fa-sort-up': sortColumn === 'number' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'number' && sortDirection === 'desc'}"></i>
-              </a>
-            </th>
-            <th>
-              <a href="javascript:void(0)" (click)="sortBy('latitude')" class="sortable-header text-decoration-none text-reset">
-                {{ 'FRIENDS.LATITUDE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'latitude', 'fa-sort-up': sortColumn === 'latitude' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'latitude' && sortDirection === 'desc'}"></i>
-              </a>
-            </th>
-            <th>
-              <a href="javascript:void(0)" (click)="sortBy('longitude')" class="sortable-header text-decoration-none text-reset">
-                {{ 'FRIENDS.LONGITUDE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'longitude', 'fa-sort-up': sortColumn === 'longitude' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'longitude' && sortDirection === 'desc'}"></i>
-              </a>
-            </th>
-            <th>
-              <a href="javascript:void(0)" (click)="sortBy('address')" class="sortable-header text-decoration-none text-reset">
-                {{ 'FRIENDS.ADDRESS' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'address', 'fa-sort-up': sortColumn === 'address' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'address' && sortDirection === 'desc'}"></i>
-              </a>
-            </th>
-            <th>
-              <a href="javascript:void(0)" (click)="sortBy('type')" class="sortable-header text-decoration-none text-reset">
-                {{ 'FRIENDS.TYPE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'type', 'fa-sort-up': sortColumn === 'type' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'type' && sortDirection === 'desc'}"></i>
-              </a>
-            </th>
-            <th>
-              <a href="javascript:void(0)" (click)="sortBy('date')" class="sortable-header text-decoration-none text-reset">
-                {{ 'FRIENDS.DATE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'date', 'fa-sort-up': sortColumn === 'date' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'date' && sortDirection === 'desc'}"></i>
-              </a>
-            </th>
-            <th style="width: 200px;">{{ 'FRIENDS.ACTIONS' | translate }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let item of sortedPositionsForDisplay; let i = index; trackBy: trackByPosition">
-            <td [ngClass]="{'position-from-cache': item.isFromCache, 'position-from-api': !item.isFromCache && !item.isLoading && item.address}">{{ i + 1 }}</td>
-            <td>{{ item.formattedLat }}</td>
-            <td>{{ item.formattedLng }}</td>
-            <td>
-              <div *ngIf="item.isLoading" class="text-muted">
-                <i class="fa fa-spinner fa-spin me-1"></i>
-                <small>{{ 'FRIENDS.LOADING_ADDRESS' | translate }}</small>
-              </div>
-              <div *ngIf="!item.isLoading" class="text-muted small">
-                {{ item.address || '-' }}
-              </div>
-            </td>
-            <td>
-              <span *ngIf="item.position.type" class="badge" [ngClass]="{'bg-success': item.position.type === 'GPS', 'bg-info': item.position.type === 'IP'}">
-                {{ item.position.type }}
-              </span>
-              <span *ngIf="!item.position.type" class="text-muted">-</span>
-            </td>
-            <td>
-              <span *ngIf="item.formattedDate !== '-'">
-                <i class="fa fa-clock-o me-1"></i>
-                {{ item.formattedDate }}
-              </span>
-              <span *ngIf="item.formattedDate === '-'" class="text-muted">-</span>
-            </td>
-            <td>
-              <div class="d-flex gap-2">
-                <button 
-                  class="btn btn-sm btn-info"
-                  (click)="openPositionInTraceViewer(item.position, item.originalIndex)"
-                  [ngbTooltip]="'FRIENDS.VIEW_IN_TRACE_VIEWER' | translate"
-                  placement="top">
-                  <i class="fa fa-map"></i>
-                  <span class="d-none d-md-inline ms-1">{{ 'FRIENDS.VIEW' | translate }}</span>
-                </button>
-                <button 
-                  class="btn btn-sm btn-danger"
-                  (click)="deletePosition(item.originalIndex)"
-                  [ngbTooltip]="'FRIENDS.DELETE_POSITION' | translate"
-                  placement="top"
-                  [disabled]="loading">
-                  <i class="fa fa-trash"></i>
-                  <span class="d-none d-md-inline ms-1">{{ 'FRIENDS.DELETE' | translate }}</span>
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+
+    <!-- Desktop: table -->
+    <div *ngIf="currentUser.positions && currentUser.positions.length > 0" class="positions-table-wrapper d-none d-md-block">
+      <div class="table-responsive positions-table-container">
+        <table class="table table-hover table-striped" [style.display]="positionsTableVisible ? 'table' : 'none'">
+          <thead>
+            <tr>
+              <th style="width: 50px;">
+                <a href="javascript:void(0)" (click)="sortBy('number')" class="sortable-header text-decoration-none text-reset">
+                  # <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'number', 'fa-sort-up': sortColumn === 'number' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'number' && sortDirection === 'desc'}"></i>
+                </a>
+              </th>
+              <th>
+                <a href="javascript:void(0)" (click)="sortBy('latitude')" class="sortable-header text-decoration-none text-reset">
+                  {{ 'FRIENDS.LATITUDE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'latitude', 'fa-sort-up': sortColumn === 'latitude' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'latitude' && sortDirection === 'desc'}"></i>
+                </a>
+              </th>
+              <th>
+                <a href="javascript:void(0)" (click)="sortBy('longitude')" class="sortable-header text-decoration-none text-reset">
+                  {{ 'FRIENDS.LONGITUDE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'longitude', 'fa-sort-up': sortColumn === 'longitude' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'longitude' && sortDirection === 'desc'}"></i>
+                </a>
+              </th>
+              <th>
+                <a href="javascript:void(0)" (click)="sortBy('address')" class="sortable-header text-decoration-none text-reset">
+                  {{ 'FRIENDS.ADDRESS' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'address', 'fa-sort-up': sortColumn === 'address' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'address' && sortDirection === 'desc'}"></i>
+                </a>
+              </th>
+              <th>
+                <a href="javascript:void(0)" (click)="sortBy('type')" class="sortable-header text-decoration-none text-reset">
+                  {{ 'FRIENDS.TYPE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'type', 'fa-sort-up': sortColumn === 'type' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'type' && sortDirection === 'desc'}"></i>
+                </a>
+              </th>
+              <th>
+                <a href="javascript:void(0)" (click)="sortBy('date')" class="sortable-header text-decoration-none text-reset">
+                  {{ 'FRIENDS.DATE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'date', 'fa-sort-up': sortColumn === 'date' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'date' && sortDirection === 'desc'}"></i>
+                </a>
+              </th>
+              <th style="width: 200px;">{{ 'FRIENDS.ACTIONS' | translate }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of sortedPositionsForDisplay; let i = index; trackBy: trackByPosition">
+              <td [ngClass]="{'position-from-cache': item.isFromCache, 'position-from-api': !item.isFromCache && !item.isLoading && item.address}">{{ i + 1 }}</td>
+              <td>{{ item.formattedLat }}</td>
+              <td>{{ item.formattedLng }}</td>
+              <td>
+                <div *ngIf="item.isLoading" class="text-muted">
+                  <i class="fa fa-spinner fa-spin me-1"></i>
+                  <small>{{ 'FRIENDS.LOADING_ADDRESS' | translate }}</small>
+                </div>
+                <div *ngIf="!item.isLoading" class="text-muted small">
+                  {{ item.address || '-' }}
+                </div>
+              </td>
+              <td>
+                <span *ngIf="item.position.type" class="badge" [ngClass]="{'bg-success': item.position.type === 'GPS', 'bg-info': item.position.type === 'IP'}">
+                  {{ item.position.type }}
+                </span>
+                <span *ngIf="!item.position.type" class="text-muted">-</span>
+              </td>
+              <td>
+                <span *ngIf="item.formattedDate !== '-'">
+                  <i class="fa fa-clock-o me-1"></i>
+                  {{ item.formattedDate }}
+                </span>
+                <span *ngIf="item.formattedDate === '-'" class="text-muted">-</span>
+              </td>
+              <td>
+                <div class="d-flex gap-2">
+                  <button 
+                    class="btn btn-sm btn-info"
+                    (click)="openPositionInTraceViewer(item.position, item.originalIndex)"
+                    [ngbTooltip]="'FRIENDS.VIEW_IN_TRACE_VIEWER' | translate"
+                    placement="top">
+                    <i class="fa fa-map"></i>
+                    <span class="ms-1">{{ 'FRIENDS.VIEW' | translate }}</span>
+                  </button>
+                  <button 
+                    class="btn btn-sm btn-danger"
+                    (click)="deletePosition(item.originalIndex)"
+                    [ngbTooltip]="'FRIENDS.DELETE_POSITION' | translate"
+                    placement="top"
+                    [disabled]="loading">
+                    <i class="fa fa-trash"></i>
+                    <span class="ms-1">{{ 'FRIENDS.DELETE' | translate }}</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Mobile: card list (vertical scroll only) -->
+    <div *ngIf="currentUser.positions && currentUser.positions.length > 0" class="positions-mobile-list d-md-none" [style.display]="positionsTableVisible ? 'block' : 'none'">
+      <div *ngFor="let item of sortedPositionsForDisplay; let i = index; trackBy: trackByPosition" class="positions-mobile-card">
+        <div class="positions-mobile-card-header">
+          <span class="positions-mobile-card-num" [ngClass]="{'position-from-cache': item.isFromCache, 'position-from-api': !item.isFromCache && !item.isLoading && item.address}">{{ i + 1 }}</span>
+          <span *ngIf="item.position.type" class="badge ms-2" [ngClass]="{'bg-success': item.position.type === 'GPS', 'bg-info': item.position.type === 'IP'}">{{ item.position.type }}</span>
+          <span *ngIf="item.formattedDate !== '-'" class="positions-mobile-card-date ms-2">
+            <i class="fa fa-clock-o me-1"></i>{{ item.formattedDate }}
+          </span>
+        </div>
+        <div class="positions-mobile-card-coords small text-muted">
+          {{ item.formattedLat }}, {{ item.formattedLng }}
+        </div>
+        <div class="positions-mobile-card-address">
+          <span *ngIf="item.isLoading" class="text-muted">
+            <i class="fa fa-spinner fa-spin me-1"></i>{{ 'FRIENDS.LOADING_ADDRESS' | translate }}
+          </span>
+          <span *ngIf="!item.isLoading">{{ item.address || '-' }}</span>
+        </div>
+        <div class="positions-mobile-card-actions">
+          <button type="button" class="btn btn-sm btn-info" (click)="openPositionInTraceViewer(item.position, item.originalIndex)">
+            <i class="fa fa-map me-1"></i>{{ 'FRIENDS.VIEW' | translate }}
+          </button>
+          <button type="button" class="btn btn-sm btn-danger" (click)="deletePosition(item.originalIndex)" [disabled]="loading">
+            <i class="fa fa-trash me-1"></i>{{ 'FRIENDS.DELETE' | translate }}
+          </button>
+        </div>
+      </div>
     </div>
   </div>
   <div class="modal-footer">
