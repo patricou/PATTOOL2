@@ -43,6 +43,11 @@
 
 @media (max-width: 768px) {
 	/* Trace viewer plus haut en mobile : plein écran (100dvh = hauteur visible sur mobile) */
+	::ng-deep .modal.show:has(.trace-viewer-body),
+	::ng-deep .modal:has(.trace-viewer-body) {
+		padding: 0 !important;
+		align-items: stretch !important;
+	}
 	::ng-deep .modal.show:has(.trace-viewer-body) .modal-dialog,
 	::ng-deep .modal.show .modal-dialog:has(.trace-viewer-body),
 	::ng-deep .modal.show .modal-xl.modal-dialog:has(.trace-viewer-body),
@@ -56,6 +61,7 @@
 		margin: 0 !important;
 		border-radius: 8px !important;
 		overflow: hidden !important;
+		flex: 1 1 auto !important;
 	}
 	@supports (height: 100dvh) {
 		::ng-deep .modal.show:has(.trace-viewer-body) .modal-dialog,

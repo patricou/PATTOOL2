@@ -1349,7 +1349,7 @@ body.slideshow-fullscreen-active .slideshow-footer {
         display: flex !important;
         align-items: center !important;
         justify-content: center !important;
-        max-height: 88vh !important;
+        max-height: 93vh !important;
         min-height: auto !important;
         height: auto !important;
         vertical-align: middle !important;
@@ -1373,8 +1373,8 @@ body.slideshow-fullscreen-active .slideshow-footer {
     ::ng-deep .modal.show .modal-xl.modal-dialog .modal-content:has(.slideshow-body) {
         max-width: 98vw !important;
         width: 98vw !important;
-        max-height: 88vh !important;
-        height: 88vh !important;
+        max-height: 93vh !important;
+        height: 93vh !important;
         display: flex !important;
         flex-direction: column !important;
         position: relative !important;
