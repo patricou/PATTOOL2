@@ -5636,12 +5636,19 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       return;
     }
     
-    // Convert photoItems to SlideshowImageSource array
-    const imageSources: SlideshowImageSource[] = this.photoItemsList.map(photoItem => ({
-      fileId: photoItem.file.fieldId,
-      blobUrl: undefined,
-      fileName: photoItem.file.fileName
-    }));
+    // Convert photoItems to SlideshowImageSource array.
+    // Pass blobUrl when the image is already loaded (detail page gallery) so the slideshow displays
+    // instantly without re-fetching. Otherwise the slideshow would fetch every image by fileId and
+    // take a long time to show the first photo (same as element-evenement uses pre-loaded blobs).
+    const imageSources: SlideshowImageSource[] = this.photoItemsList.map(photoItem => {
+      const rawUrl = (photoItem.imageUrl as any)?.changingThisBreaksApplicationSecurity;
+      const isBlobUrl = typeof rawUrl === 'string' && rawUrl.startsWith('blob:');
+      return {
+        fileId: photoItem.file.fieldId,
+        blobUrl: isBlobUrl ? rawUrl : undefined,
+        fileName: photoItem.file.fileName
+      };
+    });
     
     // Get event color for slideshow styling
     const eventColor = this.getCalculatedColor();
