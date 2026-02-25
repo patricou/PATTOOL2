@@ -8,7 +8,16 @@
 
 <!-- Main Content -->
 <div class="container mt-0">
-  <div class="row">
+  <!-- Loading Spinner -->
+  <div *ngIf="loading" class="links-admin-loading">
+    <div class="spinner-border text-primary" role="status">
+      <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
+    </div>
+    <p class="links-admin-loading-text">{{ 'COMMUN.LOADING' | translate }}...</p>
+  </div>
+
+  <!-- Tabs + Content (hidden while loading) -->
+  <div *ngIf="!loading" class="row">
     <div class="col-12">
       <!-- Tabs Navigation -->
       <ul class="nav nav-tabs mb-3" role="tablist">
@@ -409,8 +418,6 @@
     </div>
   </div>
 </div>
-
-<!-- JSON Modal -->
 <div *ngIf="showJSONModal" class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1050;" tabindex="-1" role="dialog" (click)="closeJSONModal()">
   <div class="modal-dialog modal-lg modal-dialog-centered" role="document" (click)="$event.stopPropagation()" style="z-index: 1055;">
     <div class="modal-content">

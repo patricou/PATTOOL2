@@ -34,29 +34,49 @@ export class LinksComponent implements OnInit {
   public searchSuggestions: urllink[] = [];
   public showSuggestions: boolean = false;
   public openUrlOnClick: boolean = true;
+  public loading: boolean = true;
 
   constructor(private _memberService: MembersService, private _urlLinkService: UrllinkService, private _commonValuesService: CommonvaluesService, private router: Router) { }
 
   ngOnInit() {
+    this.loading = true;
     // to get urls when user.id is not empty
     this.waitForNonEmptyValue().then(() => {
       let now = new Date();
+      let linksLoaded = false;
+      let categoriesLoaded = false;
+      const maybeDone = () => {
+        if (linksLoaded && categoriesLoaded) {
+          this.loading = false;
+        }
+      };
 
       this._urlLinkService
         .getLinks(this.user)
         .subscribe(ulks => {
-          //alert(JSON.stringify(ulks));
           this.urllinks = ulks;
+          linksLoaded = true;
+          maybeDone();
         }
-          , err => alert("Error getting urllink" + err));
+          , err => {
+            alert("Error getting urllink" + err);
+            linksLoaded = true;
+            maybeDone();
+          });
 
       // to get Categories - INSIDE waitForNonEmptyValue so user.id is set
       this._urlLinkService
         .getCategories(this.user)
         .subscribe(categ => {
           this.categories = categ;
+          categoriesLoaded = true;
+          maybeDone();
         }
-          , err => alert("Error getting Category" + err));
+          , err => {
+            alert("Error getting Category" + err);
+            categoriesLoaded = true;
+            maybeDone();
+          });
     });
   }
 

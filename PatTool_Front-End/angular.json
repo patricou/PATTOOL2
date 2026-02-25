@@ -29,6 +29,11 @@
               "src/favicon.ico",
               "src/assets",
               {
+                "glob": "manifest.webmanifest",
+                "input": "src",
+                "output": "/"
+              },
+              {
                 "glob": "robots.txt",
                 "input": "src/assets",
                 "output": "/"
@@ -124,6 +129,11 @@
             "assets": [
               "src/favicon.ico",
               "src/assets",
+              {
+                "glob": "manifest.webmanifest",
+                "input": "src",
+                "output": "/"
+              },
               {
                 "glob": "robots.txt",
                 "input": "src/assets",

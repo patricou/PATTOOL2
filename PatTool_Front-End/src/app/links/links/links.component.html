@@ -7,6 +7,16 @@
 
     <!-- Main Content -->
     <div class="main-content">
+        <!-- Loading Spinner -->
+        <div *ngIf="loading" class="links-loading">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
+            </div>
+            <p class="links-loading-text">{{ 'COMMUN.LOADING' | translate }}...</p>
+        </div>
+
+        <!-- Search Filter + Links Grid (hidden while loading) -->
+        <ng-container *ngIf="!loading">
         <!-- Search Filter -->
         <div class="search-container">
             <button class="btn btn-primary btn-sm admin-button" 
@@ -126,5 +136,6 @@
                 </div>
             </ng-container>
         </div>
+        </ng-container>
     </div>
 </div>

@@ -160,3 +160,24 @@
   display: block;
   max-width: 100%;
 }
+
+/* Loading spinner - while categories/links are loading */
+.links-admin-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 280px;
+  gap: 1rem;
+}
+
+.links-admin-loading .spinner-border {
+  width: 3rem;
+  height: 3rem;
+}
+
+.links-admin-loading-text {
+  margin: 0;
+  color: #6c757d;
+  font-size: 1rem;
+}

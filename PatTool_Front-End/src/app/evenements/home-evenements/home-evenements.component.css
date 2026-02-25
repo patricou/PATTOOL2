@@ -68,6 +68,28 @@
     /* Ensure smooth scrolling */
     scroll-behavior: smooth;
 }
+
+/* Loading spinner - while events are loading and no cards yet */
+.events-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 280px;
+    gap: 1rem;
+    padding: 2rem;
+}
+
+.events-loading .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+.events-loading-text {
+    margin: 0;
+    color: #212529;
+    font-size: 1rem;
+}
 .pat-jumbotron-element {
     padding-top: 25px;
     padding-bottom: 5px;

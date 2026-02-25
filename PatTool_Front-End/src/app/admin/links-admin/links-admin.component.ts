@@ -52,6 +52,7 @@ export class LinksAdminComponent implements OnInit {
   public showJSONModal: boolean = false;
   public categoriesJSON: string = '';
   public urllinksJSON: string = '';
+  public loading: boolean = true;
 
   constructor(
     private _urlLinkService: UrllinkService,
@@ -59,10 +60,42 @@ export class LinksAdminComponent implements OnInit {
   ) { }
 
   ngOnInit() {
+    this.loading = true;
     this.waitForNonEmptyValue().then(() => {
-      this.loadCategories();
-      this.loadLinks();
-      // Initialize newCategory with patricou author
+      let categoriesLoaded = false;
+      let linksLoaded = false;
+      const maybeDone = () => {
+        if (categoriesLoaded && linksLoaded) {
+          this.loading = false;
+        }
+      };
+
+      this._urlLinkService.getCategories(this.user).subscribe(
+        categories => {
+          this.categories = categories;
+          categoriesLoaded = true;
+          maybeDone();
+        },
+        error => {
+          alert("Error getting categories: " + error);
+          categoriesLoaded = true;
+          maybeDone();
+        }
+      );
+
+      this._urlLinkService.getLinks(this.user).subscribe(
+        links => {
+          this.urllinks = links;
+          linksLoaded = true;
+          maybeDone();
+        },
+        error => {
+          alert("Error getting links: " + error);
+          linksLoaded = true;
+          maybeDone();
+        }
+      );
+
       this.newCategory = this.createNewCategory();
     });
   }

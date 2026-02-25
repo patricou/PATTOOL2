@@ -329,8 +329,16 @@
     </div>
 </div>
 <div class="container-fluid">
-    <!-- Vue normale (cartes complètes) -->
-    <div #cardsContainer class="row cards-container" *ngIf="!isCompactView" [class.cards-animated]="cardsReady">
+    <!-- Loading Spinner - shown while loading and no cards yet -->
+    <div *ngIf="isLoading && getVisibleEventsCount() === 0" class="events-loading">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
+        </div>
+        <p class="events-loading-text">{{ 'COMMUN.LOADING' | translate }}...</p>
+    </div>
+
+    <!-- Vue normale (cartes complètes) - hidden while spinner is shown -->
+    <div #cardsContainer class="row cards-container" *ngIf="!isCompactView && (getVisibleEventsCount() > 0 || !isLoading)" [class.cards-animated]="cardsReady">
         <div #patCard class="col-xl-3 col-lg-4 col-md-6 col-sm-12 card-group pat-card" 
              *ngFor="let evenement of filteredEvents; trackBy: trackEvent; let i = index"
              [attr.data-event-id]="evenement.id">
@@ -347,8 +355,8 @@
         <div #infiniteScrollAnchor class="infinite-scroll-anchor" aria-hidden="true"></div>
     </div>
 
-    <!-- Vue compacte (liste) -->
-    <div class="compact-view" *ngIf="isCompactView">
+    <!-- Vue compacte (liste) - hidden while spinner is shown -->
+    <div class="compact-view" *ngIf="isCompactView && (getVisibleEventsCount() > 0 || !isLoading)">
         <div class="compact-card" *ngFor="let evenement of filteredEvents; trackBy: trackEvent" 
              (click)="openEventDetails(evenement)">
             <div class="compact-image">

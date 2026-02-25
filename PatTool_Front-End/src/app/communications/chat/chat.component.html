@@ -64,12 +64,12 @@
         </div>
     </div>
 
-    <!-- Loading State -->
+    <!-- Loading State (same pattern: spinner + message below) -->
     <div *ngIf="isLoading" class="discussions-loading">
         <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">Loading...</span>
+            <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
         </div>
-        <p>{{ connectionStatus || ("CHAT.LOADING_DISCUSSIONS" | translate) }}</p>
+        <p class="discussions-loading-text">{{ 'COMMUN.LOADING' | translate }}...</p>
     </div>
 
     <!-- Discussions List -->

@@ -7,11 +7,11 @@
 </div>
 
 <div class="modal-body">
-  <div *ngIf="isLoading" class="text-center py-4">
+  <div *ngIf="isLoading" class="text-center py-4 statistics-loading">
     <div class="spinner-border text-primary" role="status">
-      <span class="visually-hidden">Loading...</span>
+      <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
     </div>
-    <p class="mt-2">{{ 'STATISTICS.LOADING' | translate }}</p>
+    <p class="statistics-loading-text">{{ 'COMMUN.LOADING' | translate }}...</p>
   </div>
 
   <div *ngIf="error" class="alert alert-danger">
