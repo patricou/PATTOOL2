@@ -57,7 +57,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   public user: Member | null = null;
   public loading: boolean = true;
   public error: string | null = null;
-  
+  /** Set when backend returns 403 (no access); used to show owner name/email in message */
+  public accessDeniedOwnerName: string | null = null;
+  public accessDeniedOwnerEmail: string | null = null;
+  public accessDeniedEventName: string | null = null;
+  public accessDenied: boolean = false;
+
   // API URLs
   public API_URL: string = environment.API_URL;
   public API_URL4FILE: string = environment.API_URL4FILE;
@@ -344,13 +349,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         // Don't let color errors prevent initialization
       }
       
-      try {
-        this.loadFriendGroups();
-      } catch (friendError) {
-        console.error('[DETAILS-EVENEMENT] Error loading friend groups:', friendError);
-        // Don't let friend group errors prevent initialization
-      }
-      
+      // Load event first; loadFriendGroups is called only after event loads successfully (in loadEventDetails)
+      // so that a 401 from friend groups does not redirect before we can show 403 "ask owner" message
       try {
         this.loadEventDetails();
       } catch (eventError) {
@@ -358,7 +358,6 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         // Set error state but don't navigate
         this.error = this.translateService.instant('EVENTELEM.ERROR_LOADING_EVENT') || 'Error loading event';
         this.loading = false;
-        // Don't navigate - stay on page to show error
       }
     } catch (initError) {
       // Catch any unexpected errors during initialization
@@ -967,6 +966,10 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     
     // Clear error and loading states
     this.error = null;
+    this.accessDenied = false;
+    this.accessDeniedOwnerName = null;
+    this.accessDeniedOwnerEmail = null;
+    this.accessDeniedEventName = null;
     this.loading = true;
     
     // Reset photo gallery
@@ -1035,7 +1038,13 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
             this.applyEventColor();
           } catch (colorError) {
             console.error('Error applying event color:', colorError);
-            // Don't let color errors prevent page from loading
+          }
+
+          // Load friend groups only after event loaded (avoids 401 from friend groups redirecting before 403 message)
+          try {
+            this.loadFriendGroups();
+          } catch (friendError) {
+            console.error('Error loading friend groups:', friendError);
           }
 
           // Ensure arrays exist so we can add links/comments from the details view
@@ -1145,10 +1154,14 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
           return;
         }
         
-        // Handle 403 Forbidden - user doesn't have access but don't navigate away
-        // Let them see the error message instead of redirecting
+        // Handle 403 Forbidden - user doesn't have access: show "ask owner" message with owner name/email
         if (error?.status === 403) {
-          this.error = this.translateService.instant('EVENTELEM.ERROR_ACCESS_DENIED') || 'Access denied';
+          const body = error?.error;
+          this.accessDenied = true;
+          this.accessDeniedOwnerName = (body?.ownerName != null && String(body.ownerName).trim()) ? String(body.ownerName).trim() : null;
+          this.accessDeniedOwnerEmail = (body?.ownerEmail != null && String(body.ownerEmail).trim()) ? String(body.ownerEmail).trim() : null;
+          this.accessDeniedEventName = (body?.eventName != null && String(body.eventName).trim()) ? String(body.eventName).trim() : null;
+          this.error = ''; // Message is rendered in template with translate pipe so it follows current language
           this.loading = false;
           return;
         }
@@ -3422,6 +3435,50 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     // This method should ONLY be called by user interaction (button click)
     // Never call this automatically - always show errors instead of navigating away
     this.router.navigate(['/even']);
+  }
+
+  /**
+   * Returns a mailto: URL to open the user's email client to contact the activity owner (when access denied).
+   * Subject includes the activity name; body is pre-filled with "Bonjour &lt;prénom organisateur&gt;" and signed by requester first + last name.
+   */
+  public getMailToOwnerUrl(): string {
+    if (!this.accessDeniedOwnerEmail) {
+      return 'mailto:';
+    }
+    const subjectKey = this.accessDeniedEventName
+      ? 'EVENTELEM.SEND_EMAIL_TO_OWNER_SUBJECT_WITH_NAME'
+      : 'EVENTELEM.SEND_EMAIL_TO_OWNER_SUBJECT';
+    const subject = this.translateService.instant(subjectKey, { eventName: this.accessDeniedEventName || '' });
+    const ownerFirstName = this.accessDeniedOwnerName
+      ? (this.accessDeniedOwnerName.trim().split(/\s+/)[0] || this.accessDeniedOwnerName.trim())
+      : '';
+    let requesterFullName = '';
+    try {
+      if (KeycloakService.auth?.authz?.tokenParsed) {
+        const member = this.keycloakService.getUserAsMember();
+        requesterFullName = [member.firstName, member.lastName].filter(Boolean).join(' ').trim();
+      }
+    } catch (_) {
+      // Not logged in or token not available
+    }
+    const body = this.translateService.instant('EVENTELEM.SEND_EMAIL_TO_OWNER_BODY', {
+      eventName: this.accessDeniedEventName || '',
+      ownerFirstName,
+      requesterFullName
+    });
+    const encodedSubject = encodeURIComponent(subject);
+    const encodedBody = encodeURIComponent(body);
+    return `mailto:${encodeURIComponent(this.accessDeniedOwnerEmail)}?subject=${encodedSubject}&body=${encodedBody}`;
+  }
+
+  /**
+   * Opens the default email client to send a message to the activity owner (when access denied).
+   */
+  public openMailToOwner(): void {
+    const url = this.getMailToOwnerUrl();
+    if (url !== 'mailto:') {
+      window.open(url, '_blank');
+    }
   }
 
   // Check if current user is the owner of the event

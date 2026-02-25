@@ -39,6 +39,8 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
   
   public selectedFsLink: string = '';
   public fsCompressionEnabled: boolean = true;
+  /** When true, modal shows "Chargement des photos…" until parent sets it to false after loading files */
+  public loadingFiles: boolean = false;
   private modalRef?: NgbModalRef;
   
   // Cached values to avoid ExpressionChangedAfterItHasBeenCheckedError

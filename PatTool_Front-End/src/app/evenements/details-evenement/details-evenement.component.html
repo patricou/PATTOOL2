@@ -1,21 +1,43 @@
 <!-- Loading Spinner -->
 <div *ngIf="loading" class="loading-container">
   <div class="spinner-border text-primary" role="status">
-    <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
+    <span class="visually-hidden">{{ 'EVENTELEM.CHECKING_ACCESS' | translate }}</span>
   </div>
-  <p class="mt-3 text-muted">{{ 'COMMUN.LOADING' | translate }}</p>
+  <p class="mt-3 text-muted">{{ 'EVENTELEM.CHECKING_ACCESS' | translate }}</p>
 </div>
 
 <!-- Error Message -->
-<div *ngIf="error && !loading" class="error-container">
+<div *ngIf="(error !== null || accessDenied) && !loading" class="error-container">
   <div class="alert alert-danger" role="alert">
     <i class="fa fa-exclamation-triangle me-2"></i>
-    {{ error }}
+    <strong *ngIf="accessDenied">{{ 'EVENTELEM.EVENT_ACCESS_DENIED_TITLE' | translate }}</strong>
+    <strong *ngIf="accessDenied"><br></strong>
+    <ng-container *ngIf="accessDenied">
+      <p class="mt-2 mb-0">
+        {{ 'EVENTELEM.EVENT_ACCESS_DENIED_NO_ACCOUNT' | translate }}
+      </p>
+      <p class="mt-2 mb-0">
+        {{ 'EVENTELEM.EVENT_ACCESS_DENIED_BE_FRIEND' | translate }}
+      </p>
+      <p class="mt-1 mb-0">
+        {{ 'EVENTELEM.EVENT_ACCESS_DENIED_HOW_TO_ADD_FRIEND' | translate:{ friendsLabel: ('FRIENDS.TITLE' | translate), allUsersLabel: ('FRIENDS.ALL_USERS' | translate), sendRequestLabel: ('FRIENDS.SEND_REQUEST' | translate), ownerName: (accessDeniedOwnerName || ('EVENTELEM.OWNER_UNKNOWN' | translate)) } }}
+      </p>
+      <p class="mt-2 mb-0">
+        {{ 'EVENTELEM.EVENT_ACCESS_DENIED_CONTACT_OWNER' | translate:{ ownerName: (accessDeniedOwnerName || ('EVENTELEM.OWNER_UNKNOWN' | translate)) } }}
+      </p>
+    </ng-container>
+    <span *ngIf="!accessDenied">{{ error }}</span>
   </div>
-  <button class="btn btn-primary" (click)="goBack()">
-    <i class="fa fa-arrow-left me-2"></i>
-    {{ 'COMMUN.BACK' | translate }}
-  </button>
+  <div class="mt-2 d-flex flex-wrap gap-2">
+    <button class="btn btn-primary" (click)="goBack()">
+      <i class="fa fa-arrow-left me-2"></i>
+      {{ 'EVENTELEM.BACK_TO_ACTIVITIES' | translate }}
+    </button>
+    <button *ngIf="accessDenied && accessDeniedOwnerEmail" type="button" class="btn btn-outline-primary" (click)="openMailToOwner()">
+      <i class="fa fa-envelope me-2"></i>
+      {{ 'EVENTELEM.SEND_EMAIL_TO_OWNER' | translate }}
+    </button>
+  </div>
 </div>
 
 <!-- Slideshow Modal Component (always available) -->

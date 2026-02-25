@@ -1,0 +1,11 @@
+.acces-refuse-container {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.acces-refuse-container .card {
+  max-width: 480px;
+}

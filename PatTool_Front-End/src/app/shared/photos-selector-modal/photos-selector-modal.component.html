@@ -7,14 +7,22 @@
     <button type="button" class="btn-close" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss('Cross click')"></button>
   </div>
   <div class="modal-body">
+    <!-- Loading state while parent loads files from server -->
+    <div *ngIf="loadingFiles" class="text-center py-5">
+      <div class="spinner-border text-primary mb-3" role="status">
+        <span class="visually-hidden">{{ 'EVENTELEM.LOADING_PHOTOS' | translate }}</span>
+      </div>
+      <p class="text-muted mb-0">{{ 'EVENTELEM.LOADING_PHOTOS' | translate }}</p>
+    </div>
+
     <!-- Message when no options are available -->
-    <div *ngIf="!hasAnyPhotoOptions()" class="text-center py-4">
+    <div *ngIf="!loadingFiles && !hasAnyPhotoOptions()" class="text-center py-4">
       <i class="fa fa-image fa-3x text-muted mb-3"></i>
       <p class="text-muted">{{ getNoPhotosAvailableMessage() }}</p>
     </div>
 
     <!-- Uploaded photos section (MongoDB) -->
-    <div *ngIf="hasImageFiles()" class="mb-3">
+    <div *ngIf="!loadingFiles && hasImageFiles()" class="mb-3">
       <!-- Section Header -->
       <div class="photo-section-header mb-2">
         <div class="photo-section-title">
@@ -36,7 +44,7 @@
     </div>
 
     <!-- Filesystem links list -->
-    <div class="mb-2" *ngIf="getPhotoFromFsLinks().length > 0">
+    <div class="mb-2" *ngIf="!loadingFiles && getPhotoFromFsLinks().length > 0">
       <!-- Section Header -->
       <div class="photo-section-header mb-2">
         <div class="photo-section-title clickable-photo-section-header"
@@ -76,7 +84,7 @@
     </div>
 
     <!-- Other Photos links (type PHOTOS) -->
-    <div class="mb-2" *ngIf="getPhotosUrlLinks().length > 0">
+    <div class="mb-2" *ngIf="!loadingFiles && getPhotosUrlLinks().length > 0">
       <!-- Section Header -->
       <div class="photo-section-header mb-2">
         <div class="photo-section-title clickable-photo-section-header"
@@ -108,7 +116,7 @@
     </div>
   </div>
   <div class="modal-footer">
-    <button type="button" class="btn btn-primary" [disabled]="!hasValidSelection()" (click)="confirmSelection(modal)">
+    <button type="button" class="btn btn-primary" [disabled]="loadingFiles || !hasValidSelection()" (click)="confirmSelection(modal)">
       <i class="fa fa-play"></i> {{ 'EVENTELEM.SLIDESHOW' | translate }}
     </button>
     <button type="button" class="btn btn-secondary ms-auto" (click)="modal.dismiss('Cancel')">

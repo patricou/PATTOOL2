@@ -42,6 +42,11 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                     });
                     return next.handle(authReq).pipe(
                         catchError((error: HttpErrorResponse) => {
+                            // For GET event detail: do NOT redirect on 401/403 - let component show "ask owner" or error
+                            const isEventDetailRequest = req.method === 'GET' && /\/api\/even\/[^/]+$/i.test(req.url);
+                            if (isEventDetailRequest && (error.status === 401 || error.status === 403)) {
+                                return throwError(() => error);
+                            }
                             // Handle 401 Unauthorized - session expired
                             if (error.status === 401) {
                                 console.warn('[KEYCLOAK INTERCEPTOR] ⚠️ Received 401 Unauthorized - session expired, redirecting to login');
@@ -55,9 +60,13 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                     );
                 } else {
                     // If no token available, proceed without auth header
-                    // This allows the request to fail with 401 which will be caught and handled
+                    const isEventDetailRequest = req.method === 'GET' && /\/api\/even\/[^/]+$/i.test(req.url);
                     return next.handle(req).pipe(
                         catchError((error: HttpErrorResponse) => {
+                            // For GET event detail: do NOT redirect - let component show "ask owner" message
+                            if (isEventDetailRequest && (error.status === 401 || error.status === 403)) {
+                                return throwError(() => error);
+                            }
                             // Handle 401 Unauthorized - session expired
                             if (error.status === 401) {
                                 console.warn('[KEYCLOAK INTERCEPTOR] ⚠️ Received 401 Unauthorized - no token available, redirecting to login');
@@ -71,26 +80,35 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                 }
             }),
             catchError(error => {
-                // If token retrieval fails, check if this is a file request that might be 404
-                // For discussion file requests, don't redirect on token failure - let the request proceed
-                // The service will handle 404 errors gracefully
+                // If token retrieval fails, check if we should still proceed (no redirect)
                 const isDiscussionFileRequest = req.url.includes('/api/discussions/files/');
+                // GET event detail by ID: allow request without token so backend can return 403 (no access)
+                // and the details-evenement component can show "ask owner for access" instead of redirecting
+                const isEventDetailRequest = req.method === 'GET' && /\/api\/even\/[^/]+$/i.test(req.url);
                 
                 if (isDiscussionFileRequest) {
                     // For discussion file requests, proceed without token
-                    // The backend will return 404 if file doesn't exist, which is expected
-                    // Don't redirect to login for missing files
                     console.debug('[KEYCLOAK INTERCEPTOR] Token retrieval failed for discussion file request - proceeding without token (file may not exist)');
                     return next.handle(req).pipe(
                         catchError((httpError: HttpErrorResponse) => {
-                            // For 404 errors on discussion files, don't redirect - these are expected
                             if (httpError.status === 404) {
                                 return throwError(() => httpError);
                             }
-                            // For 401 on discussion files, still don't redirect immediately
-                            // Let the service handle it
                             if (httpError.status === 401) {
                                 console.debug('[KEYCLOAK INTERCEPTOR] 401 on discussion file request - not redirecting (may be missing file)');
+                                return throwError(() => httpError);
+                            }
+                            return throwError(() => httpError);
+                        })
+                    );
+                }
+                
+                if (isEventDetailRequest) {
+                    console.debug('[KEYCLOAK INTERCEPTOR] Token retrieval failed for event detail request - proceeding without token (backend will return 403 if no access)');
+                    return next.handle(req).pipe(
+                        catchError((httpError: HttpErrorResponse) => {
+                            // Do NOT redirect on 401/403 for event detail - let component show "ask owner" message
+                            if (httpError.status === 401 || httpError.status === 403) {
                                 return throwError(() => httpError);
                             }
                             return throwError(() => httpError);
@@ -102,7 +120,6 @@ export class KeycloakHttpInterceptor implements HttpInterceptor {
                 console.warn('[KEYCLOAK INTERCEPTOR] ⚠️ Token retrieval failed - redirecting to login');
                 console.trace('[KEYCLOAK INTERCEPTOR] Stack trace:');
                 this.keycloakService.redirectToLogin();
-                // Return error to prevent the request from proceeding
                 return throwError(() => error);
             })
         );

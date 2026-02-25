@@ -170,6 +170,184 @@
 		margin-right: 0 !important;
 		margin-left: 0 !important;
 	}
+
+	/* Footer trace viewer: select + stats more compact */
+	.trace-stats {
+		font-size: 0.8rem !important;
+		gap: 0.2rem !important;
+	}
+	.trace-stats label.form-label {
+		font-size: 0.7rem !important;
+		margin-bottom: 0.15rem !important;
+	}
+	.trace-stats select,
+	#trace-base-layer {
+		font-size: 0.75rem !important;
+		padding: 0.2rem 0.4rem !important;
+		min-height: 28px !important;
+		height: 28px !important;
+	}
+	.slideshow-footer .form-check {
+		margin: 0 !important;
+	}
+	.slideshow-footer .form-check-input {
+		width: 1.8em !important;
+		height: 1em !important;
+		margin-top: 0 !important;
+	}
+	.slideshow-footer .form-check-label {
+		margin-left: 0.25rem !important;
+	}
+	.slideshow-footer .btn {
+		font-size: 0 !important;
+		min-width: 32px !important;
+		min-height: 32px !important;
+		padding: 0.25rem !important;
+	}
+	.slideshow-footer .d-flex.gap-2 {
+		gap: 0.25rem !important;
+	}
+
+	/* Fullscreen: boîtier de sélection très compact (mobile) */
+	.fullscreen-selector {
+		padding: 0.25rem 0.35rem !important;
+		min-width: 130px !important;
+		max-width: 150px !important;
+		bottom: 6px !important;
+		left: 6px !important;
+		border-radius: 4px !important;
+	}
+	.fullscreen-selector label {
+		font-size: 0.65rem !important;
+		margin-bottom: 0.15rem !important;
+	}
+	.fullscreen-selector select.form-select {
+		font-size: 0.7rem !important;
+		padding: 0.15rem 0.3rem !important;
+		min-height: 24px !important;
+		height: 24px !important;
+	}
+	.fullscreen-selector .form-check {
+		margin-top: 0.2rem !important;
+	}
+	.fullscreen-selector .form-check-input {
+		width: 1.5em !important;
+		height: 0.85em !important;
+	}
+	.fullscreen-selector .form-check-label,
+	.fullscreen-selector .gps-switch-label {
+		font-size: 0.7rem !important;
+	}
+	.fullscreen-selector .btn {
+		font-size: 0.7rem !important;
+		padding: 0.2rem 0.3rem !important;
+		margin-top: 0.2rem !important;
+		min-height: 24px !important;
+	}
+	.fullscreen-selector .btn i {
+		font-size: 0.75rem !important;
+		margin-right: 0.2rem !important;
+	}
+
+	/* Bouton "Fond de carte" en plein écran */
+	.fullscreen-info-btn {
+		padding: 0.3rem 0.5rem !important;
+		font-size: 0.75rem !important;
+		top: 8px !important;
+		right: 8px !important;
+	}
+	.fullscreen-info-btn i {
+		font-size: 0.8rem !important;
+	}
+	.fullscreen-info-btn .ms-2 {
+		margin-left: 0.25rem !important;
+	}
+
+	/* Panneau info plein écran (basemap) plus compact */
+	.fullscreen-info-panel {
+		width: min(280px, 90vw) !important;
+		padding: 0.6rem 0.75rem !important;
+	}
+	.fullscreen-info-panel .info-header h6,
+	.fullscreen-info-panel .btn {
+		font-size: 0.85rem !important;
+	}
+	.fullscreen-info-panel .info-body .btn {
+		padding: 0.25rem 0.5rem !important;
+		font-size: 0.8rem !important;
+		margin-bottom: 0.35rem !important;
+	}
+}
+
+/* Plein écran : boîtier et contrôles compacts (tous écrans) */
+.map-wrapper:fullscreen .fullscreen-selector,
+.map-wrapper:-webkit-full-screen .fullscreen-selector,
+.map-wrapper:-moz-full-screen .fullscreen-selector,
+.map-wrapper:-ms-fullscreen .fullscreen-selector {
+	padding: 0.25rem 0.35rem !important;
+	min-width: 130px !important;
+	max-width: 160px !important;
+	bottom: 6px !important;
+	left: 6px !important;
+	border-radius: 4px !important;
+}
+.map-wrapper:fullscreen .fullscreen-selector label,
+.map-wrapper:-webkit-full-screen .fullscreen-selector label {
+	font-size: 0.65rem !important;
+	margin-bottom: 0.15rem !important;
+}
+.map-wrapper:fullscreen .fullscreen-selector select.form-select,
+.map-wrapper:-webkit-full-screen .fullscreen-selector select.form-select {
+	font-size: 0.7rem !important;
+	padding: 0.15rem 0.3rem !important;
+	min-height: 24px !important;
+	height: 24px !important;
+}
+.map-wrapper:fullscreen .fullscreen-selector .form-check,
+.map-wrapper:-webkit-full-screen .fullscreen-selector .form-check {
+	margin-top: 0.2rem !important;
+}
+.map-wrapper:fullscreen .fullscreen-selector .form-check-input,
+.map-wrapper:-webkit-full-screen .fullscreen-selector .form-check-input {
+	width: 1.5em !important;
+	height: 0.85em !important;
+}
+.map-wrapper:fullscreen .fullscreen-selector .form-check-label,
+.map-wrapper:fullscreen .fullscreen-selector .gps-switch-label,
+.map-wrapper:-webkit-full-screen .fullscreen-selector .form-check-label,
+.map-wrapper:-webkit-full-screen .fullscreen-selector .gps-switch-label {
+	font-size: 0.7rem !important;
+}
+.map-wrapper:fullscreen .fullscreen-selector .btn,
+.map-wrapper:-webkit-full-screen .fullscreen-selector .btn {
+	font-size: 0.7rem !important;
+	padding: 0.2rem 0.3rem !important;
+	margin-top: 0.2rem !important;
+	min-height: 24px !important;
+}
+.map-wrapper:fullscreen .fullscreen-info-btn,
+.map-wrapper:-webkit-full-screen .fullscreen-info-btn {
+	padding: 0.25rem 0.4rem !important;
+	font-size: 0.7rem !important;
+	top: 6px !important;
+	right: 6px !important;
+}
+.map-wrapper:fullscreen .fullscreen-info-panel,
+.map-wrapper:-webkit-full-screen .fullscreen-info-panel {
+	width: min(280px, 90vw) !important;
+	padding: 0.6rem 0.75rem !important;
+}
+.map-wrapper:fullscreen .fullscreen-info-panel .info-header h6,
+.map-wrapper:fullscreen .fullscreen-info-panel .btn,
+.map-wrapper:-webkit-full-screen .fullscreen-info-panel .info-header h6,
+.map-wrapper:-webkit-full-screen .fullscreen-info-panel .btn {
+	font-size: 0.85rem !important;
+}
+.map-wrapper:fullscreen .fullscreen-info-panel .info-body .btn,
+.map-wrapper:-webkit-full-screen .fullscreen-info-panel .info-body .btn {
+	padding: 0.25rem 0.5rem !important;
+	font-size: 0.8rem !important;
+	margin-bottom: 0.35rem !important;
 }
 
 .trace-viewer-body {

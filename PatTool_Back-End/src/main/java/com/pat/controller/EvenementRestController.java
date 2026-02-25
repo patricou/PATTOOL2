@@ -1159,13 +1159,43 @@ public class EvenementRestController {
     }
 
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)
-    public ResponseEntity<Evenement> getEvenement(@PathVariable String id) {
+    public ResponseEntity<?> getEvenement(@PathVariable String id) {
         //log.info("Get evenement {id} : " + id );
         Evenement evenement = evenementsRepository.findById(id).orElse(null);
         
         if (evenement == null) {
             log.warn("Event not found for ID: {}", id);
             return ResponseEntity.notFound().build();
+        }
+        
+        // Enforce visibility: only return event if current user has access
+        String currentUserId = getCurrentUserId();
+        if (!discussionService.canUserAccessEventForDetail(id, currentUserId)) {
+            log.info("User {} does not have access to event {} (visibility: {})", 
+                currentUserId != null ? currentUserId : "anonymous", id, evenement.getVisibility());
+            Map<String, Object> body = new java.util.HashMap<>();
+            body.put("code", "EVENT_ACCESS_DENIED");
+            body.put("eventId", id);
+            body.put("message", "You do not have permission to view this event. Ask the activity owner to grant you access.");
+            String ownerName = "";
+            String ownerEmail = "";
+            if (evenement.getAuthor() != null) {
+                Member author = evenement.getAuthor();
+                if (author.getFirstName() != null || author.getLastName() != null) {
+                    ownerName = (author.getFirstName() != null ? author.getFirstName() : "").trim() + " " + (author.getLastName() != null ? author.getLastName() : "").trim();
+                }
+                if (ownerName.trim().isEmpty() && author.getUserName() != null) {
+                    ownerName = author.getUserName().trim();
+                }
+                if (author.getAddressEmail() != null) {
+                    ownerEmail = author.getAddressEmail().trim();
+                }
+            }
+            body.put("ownerName", ownerName.trim().isEmpty() ? null : ownerName.trim());
+            body.put("ownerEmail", ownerEmail.isEmpty() ? null : ownerEmail);
+            String eventName = evenement.getEvenementName() != null ? evenement.getEvenementName().trim() : "";
+            body.put("eventName", eventName.isEmpty() ? null : eventName);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
         }
         
         // Handle discussionId: if it exists but the discussion doesn't, create it (like for FriendGroup)
@@ -1197,15 +1227,22 @@ public class EvenementRestController {
      * Uses MongoTemplate directly to ensure we get the complete document with all files
      */
     @RequestMapping(value = "/{id}/files", method = RequestMethod.GET)
-    public ResponseEntity<List<FileUploaded>> getEventFiles(@PathVariable String id) {
+    public ResponseEntity<?> getEventFiles(@PathVariable String id) {
         try {
             // Use repository to fetch the complete document from MongoDB
-            // This ensures all fileUploadeds are properly loaded including DBRefs
             Evenement evenement = evenementsRepository.findById(id).orElse(null);
             
             if (evenement == null) {
                 log.warn("Event not found for ID: {}", id);
                 return ResponseEntity.notFound().build();
+            }
+            
+            // Enforce visibility: same check as getEvenement
+            String currentUserId = getCurrentUserId();
+            if (!discussionService.canUserAccessEventForDetail(id, currentUserId)) {
+                log.info("User {} does not have access to event {} files (visibility: {})", 
+                    currentUserId != null ? currentUserId : "anonymous", id, evenement.getVisibility());
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
             }
             
             List<FileUploaded> files = evenement.getFileUploadeds();
@@ -1258,6 +1295,22 @@ public class EvenementRestController {
                         emitter.complete();
                     } catch (Exception e) {
                         emitter.completeWithError(new RuntimeException("Event not found"));
+                    }
+                    return;
+                }
+                
+                // Enforce visibility: same check as getEvenement
+                String currentUserId = getCurrentUserId();
+                if (!discussionService.canUserAccessEventForDetail(id, currentUserId)) {
+                    log.info("User {} does not have access to event {} files stream (visibility: {})", 
+                        currentUserId != null ? currentUserId : "anonymous", id, evenement.getVisibility());
+                    try {
+                        emitter.send(SseEmitter.event()
+                            .name("error")
+                            .data("Access denied"));
+                        emitter.complete();
+                    } catch (Exception e) {
+                        emitter.completeWithError(new RuntimeException("Access denied"));
                     }
                     return;
                 }

@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -167,6 +168,10 @@ public class SecurityConfig {
                 // ============================================
                 // IoT endpoints - require Iot role
                 .requestMatchers("/iot", "/api/testarduino", "/api/opcl").hasRole("Iot")
+                
+                // GET event details by ID: allow anonymous so controller can return 403 (no access) instead of 401
+                // This way the frontend can show "ask owner for access" instead of redirecting to login
+                .requestMatchers(HttpMethod.GET, "/api/even/*").permitAll()
                 
                 // ============================================
                 // AUTHENTICATED API ENDPOINTS - Default: All APIs require authentication

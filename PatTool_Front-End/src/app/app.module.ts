@@ -19,6 +19,7 @@ import { AboutComponent } from './other/about/about.component';
 import { CreateEvenementComponent } from './evenements/create-evenement/create-evenement.component';
 import { UpdateEvenementComponent } from './evenements/update-evenement/update-evenement.component';
 import { DetailsEvenementComponent } from './evenements/details-evenement/details-evenement.component';
+import { AccesRefuseEvenementComponent } from './evenements/acces-refuse-evenement/acces-refuse-evenement.component';
 import { KeycloakService } from './keycloak/keycloak.service';
 import { KeycloakHttpInterceptor } from './keycloak/keycloak.http';
 import { HTTP_INTERCEPTORS } from '@angular/common/http';
@@ -59,6 +60,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 		AppComponent,
 		PageNotFoundComponent,
 		DetailsEvenementComponent,
+		AccesRefuseEvenementComponent,
 		HomeModule,
 		EvenementsModule,
 		ChatModule,
@@ -81,6 +83,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 			{ path: 'neweven', component: CreateEvenementComponent },
 			{ path: 'updeven/:id', component: UpdateEvenementComponent, canDeactivate: [UnsavedChangesGuard] },
 			{ path: 'details-evenement/:id', component: DetailsEvenementComponent },
+			{ path: 'acces-refuse-evenement/:id', component: AccesRefuseEvenementComponent },
 			{ path: 'results', component: ChatComponent },
 			{ path: 'maps', component: AboutComponent },
 			{ path: 'links-admin', component: LinksAdminComponent },

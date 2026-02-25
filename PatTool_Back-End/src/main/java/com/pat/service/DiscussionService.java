@@ -1336,6 +1336,53 @@ public class DiscussionService {
     }
     
     /**
+     * Check if a user can access an event by ID (for detail view / direct link).
+     * Used by the event details API to enforce visibility before returning the event.
+     * 
+     * @param eventId Event ID
+     * @param userId Current user ID (from auth), or null if not authenticated
+     * @return true if the user can see the event, false otherwise
+     */
+    public boolean canUserAccessEventForDetail(String eventId, String userId) {
+        if (eventId == null || eventId.trim().isEmpty()) {
+            return false;
+        }
+        java.util.Optional<com.pat.repo.domain.Evenement> eventOpt = evenementsRepository.findById(eventId);
+        if (!eventOpt.isPresent()) {
+            return false;
+        }
+        com.pat.repo.domain.Evenement event = eventOpt.get();
+        String visibility = event.getVisibility();
+        // Public (or null) events are visible to everyone
+        if (visibility == null || "public".equals(visibility)) {
+            return true;
+        }
+        // Non-public events require an authenticated user
+        if (userId == null || userId.trim().isEmpty()) {
+            return false;
+        }
+        java.util.Optional<Member> userOpt = membersRepository.findById(userId);
+        Member user = userOpt.orElse(null);
+        if (user == null) {
+            return false;
+        }
+        java.util.Set<String> friendIds = loadFriendIds(user);
+        java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroups = loadAccessibleFriendGroups(user);
+        if (canUserAccessEvent(event, user, friendIds, accessibleGroups)) {
+            return true;
+        }
+        // Also check friendGroupIds (list) - user may have access via any of the groups
+        if (event.getFriendGroupIds() != null) {
+            for (String gid : event.getFriendGroupIds()) {
+                if (gid != null && accessibleGroups.containsKey(gid)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    /**
      * Check if user can access a friend group
      * User can access if they are owner, member, or authorized user
      */

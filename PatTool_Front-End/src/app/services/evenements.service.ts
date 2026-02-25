@@ -37,50 +37,54 @@ export class EvenementsService {
 	}
 	// GET  + {id}
 	getEvenement(id: string): Observable<Evenement> {
+		const url = this.API_URL + "even/" + id;
+		const mapToEvenement = (evenement: any): Evenement => {
+			if (!evenement) {
+				throw new Error('Event not found');
+			}
+			return new Evenement(
+				evenement.author,
+				evenement.closeInscriptionDate,
+				evenement.comments,
+				evenement.creationDate,
+				evenement.endEventDate,
+				evenement.beginEventDate,
+				evenement.evenementName,
+				evenement.id,
+				evenement.members,
+				evenement.openInscriptionDate,
+				evenement.status,
+				evenement.type,
+				evenement.fileUploadeds,
+				evenement.startHour,
+				evenement.diffculty,
+				evenement.startLocation,
+				evenement.durationEstimation,
+				evenement.ratingPlus,
+				evenement.ratingMinus,
+				evenement.visibility,
+				evenement.urlEvents || [],
+				evenement.commentaries || [],
+				evenement.thumbnail,
+				evenement.friendGroupId,
+				evenement.friendGroupIds,
+				evenement.discussionId
+			);
+		};
+		// Delay = getToken() (Keycloak) + network + backend. We do not retry on 403 so message shows as soon as 403 is received.
 		return this.getHeaderWithToken().pipe(
-			switchMap(headers => this._http.get<any>(this.API_URL + "even/" + id, { headers: headers })
-				.pipe(
-					catchError(error => {
-						// Log the error for debugging
-						console.error('[EvenementsService] Error loading event:', error);
-						// Re-throw the error so the component can handle it
-						return throwError(() => error);
-					}),
-					map(evenement => {
-						if (!evenement) {
-							throw new Error('Event not found');
-						}
-						return 							new Evenement(
-								evenement.author,
-								evenement.closeInscriptionDate,
-								evenement.comments,
-								evenement.creationDate,
-								evenement.endEventDate,
-								evenement.beginEventDate,
-								evenement.evenementName,
-								evenement.id,
-								evenement.members,
-								evenement.openInscriptionDate,
-								evenement.status,
-								evenement.type,
-							evenement.fileUploadeds,
-							evenement.startHour,
-							evenement.diffculty,
-							evenement.startLocation,
-							evenement.durationEstimation,
-							evenement.ratingPlus,
-							evenement.ratingMinus,
-							evenement.visibility,
-							evenement.urlEvents || [],
-							evenement.commentaries || [],
-							evenement.thumbnail,
-							evenement.friendGroupId,
-							evenement.friendGroupIds,
-							evenement.discussionId
-						)
-					})
-				)
-			)
+			switchMap(headers => this._http.get<any>(url, { headers: headers })),
+			catchError((firstError: any) => {
+				if (firstError?.status === 403) {
+					return throwError(() => firstError);
+				}
+				return this._http.get<any>(url);
+			}),
+			map(mapToEvenement),
+			catchError(error => {
+				console.error('[EvenementsService] Error loading event:', error);
+				return throwError(() => error);
+			})
 		);
 	}
 
