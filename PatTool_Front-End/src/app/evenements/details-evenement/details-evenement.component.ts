@@ -4177,7 +4177,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     return `disk:${relativePath}/${fileName}${compressKey}`;
   }
 
-  // Load images from file system for a specific PHOTOFROMFS link with cache and progressive loading
+  // Load images from file system for a specific PHOTOFROMFS link with cache and streaming (like slideshow)
   public loadPhotofromfsImages(relativePath: string, compress: boolean = true): void {
     if (!relativePath || this.photofromfsLoading.get(relativePath)) {
       return;
@@ -4216,161 +4216,123 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         this.photofromfsPhotoItems.set(relativePath, placeholderImages);
         this.cdr.markForCheck();
 
-        // Sort files by priority: first few images get higher priority
-        const prioritizedFiles = fileNames.map((fileName, index) => ({
-          fileName,
-          priority: index < 5 ? 0 : index // First 5 images have priority 0
-        })).sort((a, b) => a.priority - b.priority);
-
-        // Load images with concurrency and cache
+        // Streaming order: index 0 first (visible slide), then 1, 2, 3... like slideshow
+        const orderedItems = fileNames.map((fileName, index) => ({ fileName, index }));
         const maxConcurrent = 12;
         let active = 0;
-        const queue = [...prioritizedFiles];
-        const loadedImages: Array<{
-          fileName: string;
-          imageUrl: SafeUrl;
-          relativePath: string;
-        }> = [];
+        let queueIndex = 0; // Next index to load (0 = first image, load alone; then 1,2,...)
 
-        const loadNext = () => {
-          if (active >= maxConcurrent || queue.length === 0) {
-            if (active === 0 && queue.length === 0) {
-              // All images loaded
-              this.photofromfsLoading.set(relativePath, false);
-              this.cdr.markForCheck();
-              
-              // Ensure autoplay is started if enabled (may have already started during progressive loading)
-              const currentItems = this.photofromfsPhotoItems.get(relativePath) || [];
-              if (currentItems.length > 1 && !this.photofromfsAutoplayIntervals.has(relativePath)) {
-                if (!this.photofromfsAutoplay.has(relativePath)) {
-                  this.photofromfsAutoplay.set(relativePath, true); // Default to true
-                }
-                if (this.photofromfsAutoplay.get(relativePath)) {
-                  this.startPhotofromfsAutoplay(relativePath);
-                }
-              }
-            }
-            return;
+        const updateItemAtIndex = (fileName: string, imageItem: { fileName: string; imageUrl: SafeUrl; relativePath: string }) => {
+          const currentItems = this.photofromfsPhotoItems.get(relativePath) || [];
+          const idx = currentItems.findIndex(item => item.fileName === fileName);
+          if (idx >= 0) {
+            currentItems[idx] = imageItem;
+          } else {
+            currentItems.push(imageItem);
           }
+          this.photofromfsPhotoItems.set(relativePath, [...currentItems]);
+          this.cdr.detectChanges();
+        };
 
-          const { fileName } = queue.shift()!;
+        const maybeStartAutoplay = () => {
+          const currentItems = this.photofromfsPhotoItems.get(relativePath) || [];
+          const loadedCount = currentItems.filter(item => {
+            const url = (item.imageUrl as any)?.changingThisBreaksApplicationSecurity;
+            return url && url.startsWith('blob:') && url.length > 5;
+          }).length;
+          if (loadedCount >= 2 && !this.photofromfsAutoplayIntervals.has(relativePath)) {
+            if (!this.photofromfsAutoplay.has(relativePath)) {
+              this.photofromfsAutoplay.set(relativePath, true);
+            }
+            if (this.photofromfsAutoplay.get(relativePath)) {
+              this.startPhotofromfsAutoplay(relativePath);
+            }
+          }
+        };
+
+        const loadOne = (item: { fileName: string; index: number }, onComplete: () => void) => {
+          const { fileName } = item;
           const cacheKey = this.getPhotofromfsCacheKey(relativePath, fileName, compress);
           
-          // Check cache first
           if (this.photofromfsImageCache.has(cacheKey)) {
             const cached = this.photofromfsImageCache.get(cacheKey)!;
-            const imageItem = {
-              fileName: fileName,
-              imageUrl: cached.safeUrl,
-              relativePath: relativePath
-            };
-            
-            // Update the specific image in the array immediately
-            const currentItems = this.photofromfsPhotoItems.get(relativePath) || [];
-            const index = currentItems.findIndex(item => item.fileName === fileName);
-            if (index >= 0) {
-              currentItems[index] = imageItem;
-            } else {
-              currentItems.push(imageItem);
-            }
-            // Force update to trigger change detection immediately
-            this.photofromfsPhotoItems.set(relativePath, [...currentItems]);
-            this.cdr.detectChanges();
-            
-            // Start autoplay when first few images are loaded (progressive start)
-            const loadedCount = currentItems.filter(item => {
-              const url = (item.imageUrl as any)?.changingThisBreaksApplicationSecurity;
-              return url && url.startsWith('blob:') && url.length > 5;
-            }).length;
-            
-            if (loadedCount >= 2 && !this.photofromfsAutoplayIntervals.has(relativePath)) {
-              if (!this.photofromfsAutoplay.has(relativePath)) {
-                this.photofromfsAutoplay.set(relativePath, true);
-              }
-              if (this.photofromfsAutoplay.get(relativePath)) {
-                this.startPhotofromfsAutoplay(relativePath);
-              }
-            }
-            
-            // Continue loading next
-            loadNext();
+            const imageItem = { fileName, imageUrl: cached.safeUrl, relativePath };
+            updateItemAtIndex(fileName, imageItem);
+            maybeStartAutoplay();
+            onComplete();
             return;
           }
-
-          // Check if already loading
           if (this.photofromfsLoadingKeys.has(cacheKey)) {
-            // Skip, will be handled when loading completes
-            loadNext();
+            onComplete();
             return;
           }
 
-          active++;
           this.photofromfsLoadingKeys.add(cacheKey);
-
           const imageSub = this.fileService.getImageFromDiskWithMetadata(relativePath, fileName, compress).subscribe({
             next: (result: ImageDownloadResult) => {
               const blob = new Blob([result.buffer], { type: 'image/*' });
               const url = URL.createObjectURL(blob);
               const safeUrl = this.sanitizer.bypassSecurityTrustUrl(url);
-
-              // Cache the image
-              this.photofromfsImageCache.set(cacheKey, {
-                blobUrl: url,
-                blob: blob,
-                safeUrl: safeUrl
-              });
-
-              const imageItem = {
-                fileName: fileName,
-                imageUrl: safeUrl,
-                relativePath: relativePath
-              };
-
-              // Update the specific image in the array immediately (progressive loading)
-              const currentItems = this.photofromfsPhotoItems.get(relativePath) || [];
-              const index = currentItems.findIndex(item => item.fileName === fileName);
-              if (index >= 0) {
-                currentItems[index] = imageItem;
-              } else {
-                currentItems.push(imageItem);
-              }
-              // Force update to trigger change detection immediately
-              this.photofromfsPhotoItems.set(relativePath, [...currentItems]);
-              this.cdr.detectChanges();
-              
-              // Start autoplay when first few images are loaded (progressive start)
-              const loadedCount = currentItems.filter(item => {
-                const url = (item.imageUrl as any)?.changingThisBreaksApplicationSecurity;
-                return url && url.startsWith('blob:') && url.length > 5;
-              }).length;
-              
-              if (loadedCount >= 2 && !this.photofromfsAutoplayIntervals.has(relativePath)) {
-                if (!this.photofromfsAutoplay.has(relativePath)) {
-                  this.photofromfsAutoplay.set(relativePath, true);
-                }
-                if (this.photofromfsAutoplay.get(relativePath)) {
-                  this.startPhotofromfsAutoplay(relativePath);
-                }
-              }
+              this.photofromfsImageCache.set(cacheKey, { blobUrl: url, blob, safeUrl });
+              const imageItem = { fileName, imageUrl: safeUrl, relativePath };
+              updateItemAtIndex(fileName, imageItem);
+              maybeStartAutoplay();
             },
-            error: (error) => {
-              console.error('Error loading image:', fileName, error);
+            error: (err) => {
+              console.error('Error loading image:', fileName, err);
               this.photofromfsLoadingKeys.delete(cacheKey);
             },
             complete: () => {
-              active--;
               this.photofromfsLoadingKeys.delete(cacheKey);
-              loadNext();
+              onComplete();
             }
           });
-
           this.trackSubscription(imageSub);
         };
 
-        // Start loading (prioritized files will load first)
-        for (let i = 0; i < Math.min(maxConcurrent, prioritizedFiles.length); i++) {
-          loadNext();
+        // Phase 1: load first image alone (streaming: visible slide appears as soon as possible)
+        const runQueue = () => {
+          while (active < maxConcurrent && queueIndex < orderedItems.length) {
+            const item = orderedItems[queueIndex];
+            queueIndex++;
+            active++;
+            loadOne(item, () => {
+              active--;
+              if (active === 0 && queueIndex >= orderedItems.length) {
+                this.photofromfsLoading.set(relativePath, false);
+                this.cdr.markForCheck();
+                const currentItems = this.photofromfsPhotoItems.get(relativePath) || [];
+                if (currentItems.length > 1 && !this.photofromfsAutoplayIntervals.has(relativePath)) {
+                  if (!this.photofromfsAutoplay.has(relativePath)) {
+                    this.photofromfsAutoplay.set(relativePath, true);
+                  }
+                  if (this.photofromfsAutoplay.get(relativePath)) {
+                    this.startPhotofromfsAutoplay(relativePath);
+                  }
+                }
+              } else {
+                runQueue();
+              }
+            });
+          }
+        };
+
+        // Load first image alone first; when done, start the rest with concurrency
+        if (orderedItems.length === 0) {
+          this.photofromfsLoading.set(relativePath, false);
+          this.cdr.markForCheck();
+          return;
         }
+        loadOne(orderedItems[0], () => {
+          queueIndex = 1; // already loaded index 0
+          if (queueIndex >= orderedItems.length) {
+            // Only one image: we're done
+            this.photofromfsLoading.set(relativePath, false);
+            this.cdr.markForCheck();
+          } else {
+            runQueue();
+          }
+        });
       },
       error: (error) => {
         console.error('Error listing images from disk:', error);
