@@ -241,6 +241,7 @@
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "写真の選択",
+        "LOADING_PHOTOS": "写真を読み込み中…",
         "PHOTOS": "写真",
         "MONGODB_PHOTOS_DESC": "MongoDB に保存された写真のスライドショー（アップロード済みファイル）。",
         "PHOTOS_FROM_FS_HEADING": "ファイルシステムからの写真",
@@ -433,6 +434,7 @@
         "VIEW_JSON": "JSON形式でイベントを表示",
         "FORMAT_JSON": "JSON形式",
         "PHOTOS_SELECTION": "写真の選択",
+        "LOADING_PHOTOS": "写真を読み込み中…",
         "PHOTOS": "写真",
         "MONGODB_PHOTOS_DESC": "MongoDB に保存された写真のスライドショー（アップロード済みファイル）。",
         "PHOTOS_FROM_FS_HEADING": "ファイルシステムからの写真",

@@ -365,6 +365,7 @@
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "Fotoauswahl",
+        "LOADING_PHOTOS": "Fotos werden geladen…",
         "PHOTOS": "Fotos",
         "MONGODB_PHOTOS_DESC": "Diashow der in MongoDB gespeicherten Fotos (hochgeladene Dateien).",
         "PHOTOS_FROM_FS_HEADING": "Fotos aus dem Dateisystem",
@@ -557,6 +558,7 @@
         "VIEW_JSON": "Veranstaltung im JSON-Format anzeigen",
         "FORMAT_JSON": "JSON-Format",
         "PHOTOS_SELECTION": "Fotoauswahl",
+        "LOADING_PHOTOS": "Fotos werden geladen…",
         "PHOTOS": "Fotos",
         "MONGODB_PHOTOS_DESC": "Diashow der in MongoDB gespeicherten Fotos (hochgeladene Dateien).",
         "PHOTOS_FROM_FS_HEADING": "Fotos aus dem Dateisystem",

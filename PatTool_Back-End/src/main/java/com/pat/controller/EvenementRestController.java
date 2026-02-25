@@ -1218,6 +1218,16 @@ public class EvenementRestController {
             }
         }
         
+        // When fileUploadeds is empty but thumbnail exists (inconsistent DB state), include thumbnail in list
+        // so the frontend "Gestion des Fichiers" count and modal match what the stream/files endpoint return
+        if (evenement.getFileUploadeds() == null || evenement.getFileUploadeds().isEmpty()) {
+            if (evenement.getThumbnail() != null) {
+                java.util.List<FileUploaded> withThumbnail = new java.util.ArrayList<>();
+                withThumbnail.add(evenement.getThumbnail());
+                evenement.setFileUploadeds(withThumbnail);
+            }
+        }
+        
         return ResponseEntity.ok(evenement);
     }
     
@@ -1261,8 +1271,6 @@ public class EvenementRestController {
                 }
             }
             
-            log.debug("Returning {} files for event {} (event exists: true, includes thumbnail: {})", 
-                files.size(), id, evenement.getThumbnail() != null);
             return ResponseEntity.ok(files);
         } catch (Exception e) {
             log.error("Error loading files for event {}", id, e);
@@ -1279,6 +1287,20 @@ public class EvenementRestController {
     @GetMapping(value = "/{id}/files/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter streamEventFiles(@PathVariable String id) {
         SseEmitter emitter = new SseEmitter(Long.MAX_VALUE); // No timeout
+        
+        // Capture current user in request thread; runAsync runs in another thread where SecurityContext is not propagated
+        final String currentUserId = getCurrentUserId();
+        
+        // Fail fast if no user (should not happen when endpoint is .authenticated() and token is sent)
+        if (currentUserId == null) {
+            try {
+                emitter.send(SseEmitter.event().name("error").data("Access denied"));
+                emitter.complete();
+            } catch (Exception e) {
+                emitter.completeWithError(new RuntimeException("Access denied"));
+            }
+            return emitter;
+        }
         
         CompletableFuture.runAsync(() -> {
             try {
@@ -1299,8 +1321,7 @@ public class EvenementRestController {
                     return;
                 }
                 
-                // Enforce visibility: same check as getEvenement
-                String currentUserId = getCurrentUserId();
+                // Enforce visibility: same check as getEvenement (use currentUserId captured from request thread)
                 if (!discussionService.canUserAccessEventForDetail(id, currentUserId)) {
                     log.info("User {} does not have access to event {} files stream (visibility: {})", 
                         currentUserId != null ? currentUserId : "anonymous", id, evenement.getVisibility());

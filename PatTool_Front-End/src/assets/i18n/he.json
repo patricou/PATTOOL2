@@ -459,6 +459,7 @@
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "בחירת תמונות",
+        "LOADING_PHOTOS": "טוען תמונות…",
         "PHOTOS": "תמונות",
         "MONGODB_PHOTOS_DESC": "מצגת תמונות המאוחסנות ב- MongoDB (קבצים שהועלו).",
         "PHOTOS_FROM_FS_HEADING": "תמונות ממערכת הקבצים",

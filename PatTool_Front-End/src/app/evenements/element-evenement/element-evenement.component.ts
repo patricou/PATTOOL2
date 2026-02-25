@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, OnChanges, SimpleChanges, TemplateRef, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, Output, ViewChild, EventEmitter, AfterViewInit, AfterViewChecked, OnChanges, SimpleChanges, TemplateRef, ElementRef, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -13,7 +13,7 @@ import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace
 import * as JSZip from 'jszip';
 
 import { Observable, firstValueFrom, Subscription, of } from 'rxjs';
-import { map, take, catchError, switchMap } from 'rxjs/operators';
+import { map, take, catchError, switchMap, tap } from 'rxjs/operators';
 import { UploadedFile } from '../../model/uploadedfile';
 import { Member } from '../../model/member';
 import { Evenement } from '../../model/evenement';
@@ -53,7 +53,7 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
 	styleUrls: ['./element-evenement.component.css'],
 	providers: [NgbRatingConfig]
 })
-export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges {
+export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestroy, OnChanges, AfterViewChecked {
 
 	public selectedFiles: File[] = [];
 	public API_URL: string = environment.API_URL;
@@ -282,6 +282,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	// Cache for all friend groups loaded by ID (including groups user is not a member of)
 	private allEventFriendGroupsCache: Map<string, FriendGroup> = new Map();
 	private loadingFriendGroups: Set<string> = new Set();
+	/** Prevents multiple triggers for "Gestion des Fichiers" count load; set when we're author and count is 0 and we've started load */
+	private _fileCountLoadTriggered = false;
 
 	@Output()
 	addMember: EventEmitter<Evenement> = new EventEmitter<Evenement>();
@@ -557,6 +559,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
                 this.photosSelectorModalComponent.evenement = this.evenement;
                 this.photosSelectorModalComponent.includeUploadedChoice = includeUploadedChoice;
                 this.photosSelectorModalComponent.user = this.user;
+                this.photosSelectorModalComponent.loadingFiles = false;
                 this.photosSelectorModalComponent.open();
             }
             return;
@@ -576,6 +579,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
             this.photosSelectorModalComponent.evenement = this.evenement;
             this.photosSelectorModalComponent.includeUploadedChoice = includeUploadedChoice;
             this.photosSelectorModalComponent.user = this.user;
+            this.photosSelectorModalComponent.loadingFiles = false;
             this.photosSelectorModalComponent.open();
         }
     }
@@ -966,18 +970,71 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 	}
 
+	// Ensure fileUploadeds is loaded (same source as details-evenement: GET even/{id})
+	// When the card gets evenement from the list API, fileUploadeds is often empty; this loads it.
+	private ensureEventFilesLoaded(): Observable<void> {
+		const eventId = this.evenement?.id;
+		const eventName = this.evenement?.evenementName;
+		if (!this.evenement?.id || !this._evenementsService) {
+			return of(undefined);
+		}
+		if (this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0) {
+			return of(undefined);
+		}
+		return this._evenementsService.getEvenement(this.evenement.id).pipe(
+			take(1),
+			tap((full) => {
+				this.evenement.fileUploadeds = full.fileUploadeds ?? [];
+			}),
+			map(() => undefined),
+			catchError((err) => {
+				// Fallback: load files via REST endpoint so the modal can still show them
+				return this._evenementsService.getEventFiles(this.evenement.id).pipe(
+					take(1),
+					tap((files) => {
+						if (files && files.length > 0) {
+							this.evenement.fileUploadeds = files;
+						}
+					}),
+					map(() => undefined),
+					catchError(() => of(undefined))
+				);
+			})
+		);
+	}
+
 	// Unified photos opener (uploaded photos or FS photos)
 	public openPhotos(): void {
 		this.forceCloseTooltips();
 		
-		// ALWAYS open the photos selector modal first, regardless of photo count
-		// This ensures the user always sees the "Selection de Photo" modal
-		this.openFsPhotosSelector(true);
+		const filesAlreadyLoaded = !!(this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0);
+		const eventId = this.evenement?.id;
+		const eventName = this.evenement?.evenementName;
 		
-		// Load files in background if not already loaded (non-blocking)
-		if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
-			this.loadFilesForSlideshow();
+		if (filesAlreadyLoaded) {
+			this.openFsPhotosSelector(true);
+			return;
 		}
+		
+		// Open modal with loading state, then load full event (same as details-evenement) and refresh
+		if (!this.photosSelectorModalComponent) {
+			return;
+		}
+		this.photosSelectorModalComponent.evenement = this.evenement;
+		this.photosSelectorModalComponent.includeUploadedChoice = true;
+		this.photosSelectorModalComponent.user = this.user;
+		this.photosSelectorModalComponent.loadingFiles = true;
+		this.photosSelectorModalComponent.open();
+		
+		const sub = this.ensureEventFilesLoaded().subscribe(() => {
+			this.photosSelectorModalComponent.loadingFiles = false;
+			this.photosSelectorModalComponent.refreshCache();
+			setTimeout(() => {
+				this.photosSelectorModalComponent.checkAndSelectSingleOption();
+				this.cdr.detectChanges();
+			}, 50);
+		});
+		this.allSubscriptions.push(sub);
 	}
 	
 	// Open photos when files are already loaded
@@ -1357,6 +1414,31 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Load all friend groups associated with this event (even if user is not a member)
 		this.loadAllEventFriendGroups();
+		
+		// Load fileUploadeds in background for author so "Gestion des fichiers" button shows correct count
+		this.scheduleFileCountLoad();
+	}
+	
+	/** Schedule loading file count for "Gestion des Fichiers" button (author only). Only when we don't know the count yet; 0 after load is valid. */
+	private scheduleFileCountLoad(): void {
+		const tryLoad = (): void => {
+			if (this._fileCountLoadTriggered) return;
+			if (!this.evenement?.id || !this._evenementsService) return;
+			// Skip if we already have files (count known and > 0). Empty array means "not loaded yet" from list API, so we still load once.
+			if (this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0) return;
+			try {
+				if (!this.isAuthor()) return;
+			} catch {
+				return;
+			}
+			this._fileCountLoadTriggered = true;
+			const sub = this.ensureEventFilesLoaded().subscribe(() => this.cdr.detectChanges());
+			this.allSubscriptions.push(sub);
+		};
+		tryLoad();
+		this.activeTimeouts.add(setTimeout(() => tryLoad(), 300));
+		this.activeTimeouts.add(setTimeout(() => tryLoad(), 800));
+		this.activeTimeouts.add(setTimeout(() => tryLoad(), 1800));
 	}
 	
 	// Cache friend groups associated with this event (only groups the user has access to)
@@ -1405,10 +1487,23 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				// Clear cache and reload friend groups when event changes
 				this.allEventFriendGroupsCache.clear();
 				this.loadAllEventFriendGroups();
+				this._fileCountLoadTriggered = false; // allow load for new event
 			}
 			
 			const previousEvenement = changes['evenement'].previousValue;
 			const currentEvenement = changes['evenement'].currentValue;
+			
+			// When event reference changes, reload file count for author so "Gestion des Fichiers" button is correct
+			if (currentEvenement?.id && this._evenementsService) {
+				try {
+					if (this.isAuthor() && (!currentEvenement.fileUploadeds || currentEvenement.fileUploadeds.length === 0)) {
+						const sub = this.ensureEventFilesLoaded().subscribe(() => this.cdr.detectChanges());
+						this.allSubscriptions.push(sub);
+					}
+				} catch {
+					// user not ready
+				}
+			}
 			
 			// Check if event ID is the same (same event, just updated)
 			if (previousEvenement && currentEvenement) {
@@ -1424,6 +1519,17 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					
 					// Files will be loaded on-demand when buttons are clicked
 				}
+			}
+		}
+		// When user becomes available (e.g. after auth), load file count for author so "Gestion des Fichiers" shows correct number
+		if (changes['user'] && this.evenement?.id && this._evenementsService && (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0)) {
+			try {
+				if (this.isAuthor()) {
+					const sub = this.ensureEventFilesLoaded().subscribe(() => this.cdr.detectChanges());
+					this.allSubscriptions.push(sub);
+				}
+			} catch {
+				// user not ready
 			}
 		}
 	}
@@ -3726,6 +3832,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}, 300);
 	}
 	
+	/** When "Gestion des Fichiers" button is visible with count 0, trigger load once. 0 after load is valid (event has no files). */
+	ngAfterViewChecked(): void {
+		if (this._fileCountLoadTriggered) return;
+		if (!this.evenement?.id || !this._evenementsService) return;
+		if (this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0) return;
+		try {
+			if (!this.isAuthor()) return;
+		} catch {
+			return;
+		}
+		this._fileCountLoadTriggered = true;
+		const sub = this.ensureEventFilesLoaded().subscribe(() => this.cdr.detectChanges());
+		this.allSubscriptions.push(sub);
+	}
+	
 	// Setup automatic tooltip closing when modals or overlays appear
 	private setupTooltipAutoClose(): void {
 		if (this.tooltipMutationObserver) {
@@ -4454,7 +4575,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private fileStreamSubscription: Subscription | null = null;
 	
 	public onFilesButtonClick(content: any): void {
-		this.openFilesModal(content);
+		this.forceCloseTooltips();
+		// Load full event (fileUploadeds) first if needed, same as details-evenement, then open modal
+		const sub = this.ensureEventFilesLoaded().subscribe(() => {
+			this.openFilesModal(content);
+		});
+		this.allSubscriptions.push(sub);
 	}
 	
 	public openFilesModal(content: any): void {
@@ -4593,6 +4719,22 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.cdr.markForCheck();
 		}, 0);
 		
+		// If we already have fileUploadeds (e.g. just loaded via ensureEventFilesLoaded), use them and skip clear+stream
+		const alreadyHasFiles = this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0;
+		if (alreadyHasFiles) {
+			setTimeout(() => {
+				this.isLoadingFiles = false;
+				this.cdr.markForCheck();
+				// Load thumbnails for existing files
+				this.evenement.fileUploadeds.forEach(f => {
+					if (this.isImageFile(f.fileName)) this.loadFileThumbnail(f);
+					else if (this.isVideoFile(f.fileName)) this.loadVideoThumbnail(f);
+				});
+				setTimeout(() => this.autoExpandFileTypesWithLessThanFour(), 100);
+			}, 50);
+			return;
+		}
+		
 		// Wait for modal to be fully rendered before initializing array and starting file load
 		setTimeout(() => {
 			// Clear existing files and initialize empty array after modal is rendered
@@ -4665,25 +4807,25 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 							this.isLoadingFiles = false;
 							this.cdr.markForCheck();
 						}, 0);
-						console.log(`Completed streaming ${this.evenement.fileUploadeds.length} files for event ${this.evenement.id}`);
 						// Auto-expand types with less than 4 elements
 						setTimeout(() => {
 							this.autoExpandFileTypesWithLessThanFour();
 						}, 100);
 					} else if (streamedFile.type === 'error') {
-						// Error received from server
-						console.error('Error from server:', streamedFile.data);
-						setTimeout(() => {
-							this.isLoadingFiles = false;
-							this.cdr.markForCheck();
-						}, 0);
+						// Error received from server - try REST fallback in case stream-specific issue
+						if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
+							this.loadFilesFallback();
+						} else {
+							setTimeout(() => {
+								this.isLoadingFiles = false;
+								this.cdr.markForCheck();
+							}, 0);
+						}
 					}
 				},
 				error: (error) => {
-					console.error('Error streaming files for event', this.evenement.id, ':', error);
 					// Fallback to non-streaming endpoint if streaming fails
 					if (!this.evenement.fileUploadeds || this.evenement.fileUploadeds.length === 0) {
-						console.log('Streaming failed, trying fallback endpoint...');
 						this.loadFilesFallback();
 					} else {
 						setTimeout(() => {
@@ -4742,7 +4884,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						this.cdr.markForCheck();
 					}, 0);
 					
-					console.log(`Loaded ${files.length} files via fallback endpoint for event ${this.evenement.id}`);
 					setTimeout(() => {
 						this.isLoadingFiles = false;
 						this.cdr.markForCheck();
@@ -4753,7 +4894,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						this.autoExpandFileTypesWithLessThanFour();
 					}, 100);
 				} else {
-					console.log(`No files found for event ${this.evenement.id} via fallback endpoint`);
 					setTimeout(() => {
 						this.isLoadingFiles = false;
 						this.cdr.markForCheck();
@@ -4761,7 +4901,6 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				}
 			},
 			error: (error) => {
-				console.error('Error loading files via fallback endpoint:', error);
 				setTimeout(() => {
 					this.isLoadingFiles = false;
 					this.cdr.markForCheck();
@@ -6168,6 +6307,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.slideshowInterval = null;
 		}
 		
+		// Unsubscribe file stream (Gestion des Fichiers modal) to avoid leak when navigating away with modal open
+		if (this.fileStreamSubscription) {
+			this.fileStreamSubscription.unsubscribe();
+			this.fileStreamSubscription = null;
+		}
+		
 		// Remove keyboard listener
 		this.removeKeyboardListener();
 		
@@ -6360,7 +6505,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return count;
 	}
 
-	// Safe getter for fileUploadeds length to prevent ExpressionChangedAfterItHasBeenCheckedError
+	// Safe getter for fileUploadeds length to prevent ExpressionChangedAfterItHasBeenCheckedError.
+	// 0 is valid (event has no files); only load in background when we don't know the count yet.
 	public getFileUploadedsLength(): number {
 		return this.evenement?.fileUploadeds?.length || 0;
 	}

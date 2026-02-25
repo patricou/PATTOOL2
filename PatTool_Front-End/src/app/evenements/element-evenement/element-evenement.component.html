@@ -321,13 +321,12 @@
     
     <a *ngIf="isAuthor()"
        class="btn btn-sm btn-outline-primary mb-1 me-1 dynamic-footer-btn" 
-       [hidden]="!isAnyFiles()" 
        [ngStyle]="getFooterButtonStyles('download')"
        (click)="onFilesButtonClick(filesModal); $event.stopPropagation()"
        placement="top" 
        ngbTooltip="{{ 'EVENTELEM.FILESDOWNLOAD'| translate }}"
        (mouseleave)="onTooltipMouseLeave($event)">
-        <i class="fa fa-download" aria-hidden="true"></i><span *ngIf="getFilesCount() > 1"> {{ getFilesCount() }}</span>
+        <i class="fa fa-download" aria-hidden="true"></i> {{ getFileUploadedsLength() }}
     </a>
 
     <div *ngIf="isAuthor()"

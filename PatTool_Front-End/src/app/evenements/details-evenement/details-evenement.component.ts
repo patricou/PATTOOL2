@@ -1068,14 +1068,14 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
           }
 
           // Update background image after photo gallery is prepared
-          setTimeout(() => {
+          const t1 = setTimeout(() => {
             try {
               this.updateBackgroundImageUrl();
             } catch (bgError) {
               console.error('Error updating background image:', bgError);
-              // Don't let background image errors prevent page from loading
             }
           }, 0);
+          this.trackTimeout(t1);
 
           this.loading = false;
 
@@ -1091,15 +1091,14 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
           // Note: initializeGrid() will be called automatically by getCardGridPosition when needed
           
           // Load video URLs with a small delay to ensure authentication is ready
-          // This prevents 401 errors that could trigger redirects
-          setTimeout(() => {
+          const t2 = setTimeout(() => {
             try {
               this.loadVideoUrls();
             } catch (videoError) {
               console.error('Error loading video URLs:', videoError);
-              // Don't let video loading errors prevent page from loading or cause navigation
             }
           }, 100);
+          this.trackTimeout(t2);
 
           // Load discussion messages if discussionId exists
           if (evenement.discussionId) {
@@ -1268,9 +1267,10 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     this.isAddingUrlEvent = true;
     this.newUrlEvent = new UrlEvent("WEBSITE", new Date(), this.user?.userName || "", "", "");
     this.cdr.detectChanges();
-    setTimeout(() => {
+    const scrollTimeout = setTimeout(() => {
       this.urlsCardRef?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }, 150);
+    this.trackTimeout(scrollTimeout);
   }
 
   public cancelAddUrlEvent(): void {
@@ -1799,7 +1799,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   public onCommentaryAdded(commentary: Commentary): void {
     if (!this.evenement || !this.evenement.id) return;
     
-    this.evenementsService.addCommentary(this.evenement.id, commentary).subscribe({
+    const sub = this.evenementsService.addCommentary(this.evenement.id, commentary).subscribe({
       next: (updatedEvent) => {
         if (updatedEvent && updatedEvent.commentaries) {
           this.evenement!.commentaries = updatedEvent.commentaries;
@@ -1810,12 +1810,13 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         alert(this.translateService.instant('EVENTELEM.ERROR_ADDING_COMMENTARY'));
       }
     });
+    this.trackSubscription(sub);
   }
 
   public onCommentaryUpdated(event: { commentId: string; commentary: Commentary }): void {
     if (!this.evenement || !this.evenement.id) return;
     
-    this.evenementsService.updateCommentary(this.evenement.id, event.commentId, event.commentary).subscribe({
+    const sub = this.evenementsService.updateCommentary(this.evenement.id, event.commentId, event.commentary).subscribe({
       next: (updatedEvent) => {
         if (updatedEvent && updatedEvent.commentaries) {
           this.evenement!.commentaries = updatedEvent.commentaries;
@@ -1826,12 +1827,13 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         alert(this.translateService.instant('EVENTELEM.ERROR_UPDATING_COMMENTARY'));
       }
     });
+    this.trackSubscription(sub);
   }
 
   public onCommentaryDeleted(commentId: string): void {
     if (!this.evenement || !this.evenement.id) return;
     
-    this.evenementsService.deleteCommentary(this.evenement.id, commentId).subscribe({
+    const sub = this.evenementsService.deleteCommentary(this.evenement.id, commentId).subscribe({
       next: (updatedEvent) => {
         if (updatedEvent && updatedEvent.commentaries) {
           this.evenement!.commentaries = updatedEvent.commentaries;
@@ -1842,6 +1844,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         alert(this.translateService.instant('EVENTELEM.ERROR_DELETING_COMMENTARY'));
       }
     });
+    this.trackSubscription(sub);
   }
 
   // Prepare photo gallery with comments overlay
@@ -2344,15 +2347,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     // If discussion doesn't exist, create it first
     if (!this.evenement.discussionId) {
       const discussionTitle = this.evenement.evenementName || 'Discussion';
-      this.discussionService.createDiscussion(discussionTitle).subscribe({
+      const createSub = this.discussionService.createDiscussion(discussionTitle).subscribe({
         next: (discussion) => {
           if (discussion && discussion.id) {
             const discussionId = discussion.id;
-            // Try to update the event with the new discussionId
-            // Note: This may fail if user doesn't have permission to update events with PHOTOFROMFS links
-            // But the discussion will still work even if not linked to the event
             this.evenement!.discussionId = discussionId;
-            this.evenementsService.putEvenement(this.evenement!).subscribe({
+            const putSub = this.evenementsService.putEvenement(this.evenement!).subscribe({
               next: () => {
                 // Now open the discussion modal
                 this.openDiscussionModal(discussionId);
@@ -2381,6 +2381,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
                 }
               }
             });
+            this.trackSubscription(putSub);
           } else {
             const errorMsg = 'Erreur: La discussion n\'a pas pu être créée (aucun ID retourné)';
             console.error(errorMsg);
@@ -2395,6 +2396,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
           alert(baseMessage + ':\n' + errorMessage + (errorDetails ? '\n' + errorDetails : ''));
         }
       });
+      this.trackSubscription(createSub);
     } else {
       // Discussion exists, open it directly
       this.openDiscussionModal(this.evenement.discussionId);
@@ -2423,11 +2425,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         if (eventColor) {
           modalRef.componentInstance.eventColor = eventColor;
           // Force color application after a short delay to ensure modal is rendered
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             if (modalRef.componentInstance) {
               modalRef.componentInstance.applyEventColorToModal();
             }
           }, 300);
+          this.trackTimeout(timeoutId);
         }
       } else {
         const errorMsg = 'Erreur: Impossible d\'ouvrir la fenêtre de discussion';
@@ -3615,13 +3618,15 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
               resolve(null);
             }
           });
+          this.trackSubscription(sub);
           // Timeout after 5 seconds
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             if (!sub.closed) {
               sub.unsubscribe();
               resolve(null);
             }
           }, 5000);
+          this.trackTimeout(timeoutId);
         });
         
         if (imageBlob) {
@@ -5449,7 +5454,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
   // Open PDF in new tab (same method as element-evenement)
   public openPdfInPage(pdfFile: UploadedFile): void {
-    this.getFileBlobUrl(pdfFile.fieldId).subscribe({
+    const sub = this.getFileBlobUrl(pdfFile.fieldId).subscribe({
       next: (blob: any) => {
         // Create a new blob with proper MIME type for PDF
         const pdfBlob = new Blob([blob], { type: 'application/pdf' });
@@ -5466,9 +5471,10 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         }
         
         // Clean up the URL after a delay to allow the browser to load it
-        setTimeout(() => {
+        const revokeId = setTimeout(() => {
           URL.revokeObjectURL(objectUrl);
         }, 10000);
+        this.trackTimeout(revokeId);
       },
       error: (error) => {
         if (error.name !== 'AbortError' && error.status !== 0) {
@@ -5476,6 +5482,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         }
       }
     });
+    this.trackSubscription(sub);
   }
 
   // Get icon for track file type
@@ -5512,7 +5519,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       return;
     }
 
-    this.getFileBlobUrl(trackFile.fieldId).subscribe({
+    const sub = this.getFileBlobUrl(trackFile.fieldId).subscribe({
       next: (blob: any) => {
         // Create object URL for the blob
         const objectUrl = URL.createObjectURL(blob);
@@ -5526,9 +5533,10 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         document.body.removeChild(link);
         
         // Clean up the URL after a delay
-        setTimeout(() => {
+        const revokeId = setTimeout(() => {
           URL.revokeObjectURL(objectUrl);
         }, 100);
+        this.trackTimeout(revokeId);
       },
       error: (error) => {
         if (error.name !== 'AbortError' && error.status !== 0) {
@@ -5536,11 +5544,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         }
       }
     });
+    this.trackSubscription(sub);
   }
 
   // Download PDF file (same method as element-evenement)
   public downloadPdf(pdfFile: UploadedFile): void {
-    this.getFileBlobUrl(pdfFile.fieldId).subscribe({
+    const sub = this.getFileBlobUrl(pdfFile.fieldId).subscribe({
       next: (blob: any) => {
         // Create a new blob with proper MIME type for PDF
         const pdfBlob = new Blob([blob], { type: 'application/pdf' });
@@ -5560,9 +5569,10 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         document.body.removeChild(link);
         
         // Clean up the URL after a delay
-        setTimeout(() => {
+        const revokeId = setTimeout(() => {
           URL.revokeObjectURL(objectUrl);
         }, 1000);
+        this.trackTimeout(revokeId);
       },
       error: (error) => {
         if (error.name !== 'AbortError' && error.status !== 0) {
@@ -5570,6 +5580,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         }
       }
     });
+    this.trackSubscription(sub);
   }
 
   // Get file URL for download
@@ -6259,11 +6270,13 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
             }, 1000);
           }
           }, 500); // Wait 500ms for final logs (matching element-evenement)
+          this.trackTimeout(cleanupTimeout);
           
           // Store timeout to clean up if needed
-          setTimeout(() => {
+          const emptyTimeout = setTimeout(() => {
             // Cleanup after timeout
           }, 600);
+          this.trackTimeout(emptyTimeout);
         },
         error: (error: any) => {
           let errorMessage = this.translateService.instant('EVENTELEM.ERROR_UPLOADING');

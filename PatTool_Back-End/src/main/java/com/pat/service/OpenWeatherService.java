@@ -264,7 +264,6 @@ public class OpenWeatherService {
                 openElevationAltMap.put("sourceDescription", "Altitude from OpenElevation API (sea level)");
                 openElevationAltMap.put("priority", 1);
                 altitudes.add(openElevationAltMap);
-                log.info("Altitude from OpenElevation: {}m for coordinates ({}, {})", openElevationAlt, lat, lon);
             }
         } catch (Exception e) {
             log.debug("Could not get altitude from OpenElevation: {}", e.getMessage());

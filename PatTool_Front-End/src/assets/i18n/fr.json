@@ -550,6 +550,7 @@
         "VIEW_JSON": "Voir l'événement au format JSON",
         "FORMAT_JSON": "Format JSON",
         "PHOTOS_SELECTION": "Sélection de photos",
+        "LOADING_PHOTOS": "Chargement des photos…",
         "PHOTOS": "Photos",
         "MONGODB_PHOTOS_DESC": "Diaporama des photos stockées dans la base MongoDB (fichiers uploadés).",
         "PHOTOS_FROM_FS_HEADING": "Photos depuis le système de fichiers",

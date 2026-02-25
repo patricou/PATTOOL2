@@ -15,6 +15,7 @@
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "Выбор фотографий",
+        "LOADING_PHOTOS": "Загрузка фотографий…",
         "PHOTOS": "Фото",
         "MONGODB_PHOTOS_DESC": "Слайд-шоу фотографий, хранящихся в MongoDB (загруженные файлы).",
         "PHOTOS_FROM_FS_HEADING": "Фотографии из файловой системы",

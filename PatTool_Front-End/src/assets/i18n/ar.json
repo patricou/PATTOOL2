@@ -362,6 +362,7 @@
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "اختيار الصور",
+        "LOADING_PHOTOS": "جاري تحميل الصور…",
         "PHOTOS": "صور",
         "MONGODB_PHOTOS_DESC": "عرض شرائح للصور المخزنة في MongoDB (ملفات مرفوعة).",
         "PHOTOS_FROM_FS_HEADING": "صور من نظام الملفات",
@@ -553,6 +554,7 @@
         "VIEW_JSON": "عرض الحدث بتنسيق JSON",
         "FORMAT_JSON": "تنسيق JSON",
         "PHOTOS_SELECTION": "اختيار الصور",
+        "LOADING_PHOTOS": "جاري تحميل الصور…",
         "MONGODB_PHOTOS_DESC": "عرض شرائح للصور المخزنة في MongoDB (ملفات مرفوعة).",
         "PHOTOS_FROM_FS_HEADING": "صور من نظام الملفات",
         "FS_COMPRESSION_LABEL": "ضغط الصور قبل العرض (موصى به)",

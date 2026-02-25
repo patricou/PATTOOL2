@@ -15,6 +15,7 @@
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "फोटो चयन",
+        "LOADING_PHOTOS": "फ़ोटो लोड हो रहे हैं…",
         "PHOTOS": "फ़ोटो",
         "MONGODB_PHOTOS_DESC": "MongoDB में संग्रहीत फ़ोटो का स्लाइडशो (अपलोड की गई फ़ाइलें)।",
         "PHOTOS_FROM_FS_HEADING": "फ़ाइल सिस्टम से फ़ोटो",

@@ -364,6 +364,7 @@
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "Photos Selection",
+        "LOADING_PHOTOS": "Loading photos…",
         "PHOTOS": "Photos",
         "MONGODB_PHOTOS_DESC": "Slideshow of photos stored in MongoDB (uploaded files).",
         "PHOTOS_FROM_FS_HEADING": "Photos from file system",
@@ -564,6 +565,7 @@
         "VIEW_JSON": "View event in JSON format",
         "FORMAT_JSON": "Format JSON",
         "PHOTOS_SELECTION": "Photos Selection",
+        "LOADING_PHOTOS": "Loading photos…",
         "PHOTOS": "Photos",
         "MONGODB_PHOTOS_DESC": "Slideshow of photos stored in MongoDB (uploaded files).",
         "PHOTOS_FROM_FS_HEADING": "Photos from file system",

@@ -173,6 +173,9 @@ public class SecurityConfig {
                 // This way the frontend can show "ask owner for access" instead of redirecting to login
                 .requestMatchers(HttpMethod.GET, "/api/even/*").permitAll()
                 
+                // Stream event files (SSE): require authentication so SecurityContext has user and getCurrentUserId() works
+                .requestMatchers(HttpMethod.GET, "/api/even/*/files/stream").authenticated()
+                
                 // ============================================
                 // AUTHENTICATED API ENDPOINTS - Default: All APIs require authentication
                 // ============================================

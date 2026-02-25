@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, from, Subject, throwError } from 'rxjs';
-import { map, switchMap, catchError } from 'rxjs/operators';
+import { map, switchMap, catchError, timeout } from 'rxjs/operators';
 import { Evenement } from '../model/evenement';
 import { Commentary } from '../model/commentary';
 import { environment } from '../../environments/environment';
@@ -71,20 +71,19 @@ export class EvenementsService {
 				evenement.discussionId
 			);
 		};
-		// Delay = getToken() (Keycloak) + network + backend. We do not retry on 403 so message shows as soon as 403 is received.
+		// Timeout on getToken() so direct link to /details-evenement/xxx shows "Accès refusé" quickly when user has no access (avoids waiting for Keycloak init)
 		return this.getHeaderWithToken().pipe(
+			timeout(2000),
 			switchMap(headers => this._http.get<any>(url, { headers: headers })),
 			catchError((firstError: any) => {
 				if (firstError?.status === 403) {
 					return throwError(() => firstError);
 				}
+				// Timeout on getToken() or other: try without auth so backend can return 403 quickly (GET /api/even/:id is permitAll)
 				return this._http.get<any>(url);
 			}),
 			map(mapToEvenement),
-			catchError(error => {
-				console.error('[EvenementsService] Error loading event:', error);
-				return throwError(() => error);
-			})
+			catchError(error => throwError(() => error))
 		);
 	}
 
@@ -115,7 +114,9 @@ export class EvenementsService {
 	streamEventFiles(id: string): Observable<StreamedFile> {
 		const subject = new Subject<StreamedFile>();
 		
-		this.getHeaderWithToken().subscribe({
+		this.getHeaderWithToken().pipe(
+			timeout(15000) // Avoid hanging if getToken() never resolves
+		).subscribe({
 			next: (headers) => {
 				const token = headers.get('Authorization') || '';
 				const url = this.API_URL + "even/" + id + "/files/stream";

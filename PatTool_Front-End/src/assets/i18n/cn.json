@@ -362,6 +362,7 @@
     },
     "EVENTELEM": {
         "PHOTOS_SELECTION": "照片选择",
+        "LOADING_PHOTOS": "正在加载照片…",
         "PHOTOS": "照片",
         "MONGODB_PHOTOS_DESC": "MongoDB 中存储的照片幻灯片（已上传文件）。",
         "PHOTOS_FROM_FS_HEADING": "来自文件系统的照片",
@@ -553,6 +554,7 @@
         "VIEW_JSON": "以JSON格式查看活动",
         "FORMAT_JSON": "JSON格式",
         "PHOTOS_SELECTION": "照片选择",
+        "LOADING_PHOTOS": "正在加载照片…",
         "PHOTOS": "照片",
         "MONGODB_PHOTOS_DESC": "MongoDB 中存储的照片幻灯片（已上传文件）。",
         "PHOTOS_FROM_FS_HEADING": "来自文件系统的照片",
