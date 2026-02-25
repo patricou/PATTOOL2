@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, from, Subject, throwError } from 'rxjs';
+import { Observable, from, Subject, throwError, of } from 'rxjs';
 import { map, switchMap, catchError, timeout } from 'rxjs/operators';
 import { Evenement } from '../model/evenement';
 import { Commentary } from '../model/commentary';
@@ -290,7 +290,17 @@ export class EvenementsService {
 	streamEvents(name: string, userId: string, visibilityFilter?: string, adminOverride?: boolean): Observable<StreamedEvent> {
 		const subject = new Subject<StreamedEvent>();
 		
-		this.getHeaderWithToken().subscribe({
+		// Timeout on getToken() so slow Keycloak doesn't block card load; after timeout try without auth (backend may return only public events or 403)
+		this.getHeaderWithToken().pipe(
+			timeout(5000),
+			catchError((tokenError: any) => {
+				// Timeout or token error: proceed without auth so stream can start; backend will use empty userId
+				return of(new HttpHeaders({
+					'Accept': 'text/event-stream',
+					'Authorization': ''
+				}));
+			})
+		).subscribe({
 			next: (headers) => {
 				const token = headers.get('Authorization') || '';
 				const url = this.API_URL + "even/stream/" + encodeURIComponent(name);

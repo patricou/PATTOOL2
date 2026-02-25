@@ -782,15 +782,21 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	private waitForNonEmptyValue(): Promise<void> {
+		const maxWaitMs = 4000; // Don't block stream forever if user load is slow
+		const pollIntervalMs = 100;
+		const start = Date.now();
 		return new Promise<void>((resolve) => {
 			const checkValue = () => {
 				if (this.user.id !== "") {
 					resolve();
+				} else if (Date.now() - start >= maxWaitMs) {
+					// Timeout: start stream anyway with empty userId (backend will return public events only)
+					resolve();
 				} else {
-					setTimeout(checkValue, 100);
+					setTimeout(checkValue, pollIntervalMs);
 				}
 			};
-			checkValue(); // Déclencher la première vérification
+			checkValue();
 		});
 	}
 
