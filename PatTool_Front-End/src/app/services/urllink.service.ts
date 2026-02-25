@@ -3,7 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { environment } from '../../environments/environment';
 import { Observable, from } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { map, switchMap, timeout, catchError } from 'rxjs/operators';
 import { urllink } from '../model/urllink';
 import { Category } from '../model/Category';
 import { Member } from '../model/member';
@@ -18,12 +18,20 @@ export class UrllinkService {
 	// Get the header with token for Keycloak Security
 	private getHeaderWithToken(): Observable<HttpHeaders> {
 		return from(this._keycloakService.getToken()).pipe(
+			timeout(5000), // Avoid blocking if Keycloak is slow
 			map((token: string) => {
 				return new HttpHeaders({
 					'Accept': 'application/json',
 					'Content-Type': 'application/json',
 					'Authorization': 'Bearer ' + token
 				});
+			}),
+			catchError(() => {
+				// Timeout or error: return empty auth so request is sent (backend may return 401 or public data)
+				return from(Promise.resolve(new HttpHeaders({
+					'Accept': 'application/json',
+					'Content-Type': 'application/json'
+				})));
 			})
 		);
 	}

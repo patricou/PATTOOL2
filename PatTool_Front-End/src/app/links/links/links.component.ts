@@ -81,16 +81,20 @@ export class LinksComponent implements OnInit {
   }
 
   private waitForNonEmptyValue(): Promise<void> {
+    const maxWaitMs = 4000; // Don't block forever if user load is slow
+    const pollIntervalMs = 100;
+    const start = Date.now();
     return new Promise<void>((resolve) => {
       const checkValue = () => {
         if (this.user.id !== "") {
           resolve();
+        } else if (Date.now() - start >= maxWaitMs) {
+          resolve(); // Timeout: continue with empty user (APIs may return limited data)
         } else {
-          let now = new Date();
-          setTimeout(checkValue, 100); // Appeler checkValue de manière récursive après 100ms
+          setTimeout(checkValue, pollIntervalMs);
         }
       };
-      checkValue(); // Déclencher la première vérification
+      checkValue();
     });
   }
 
