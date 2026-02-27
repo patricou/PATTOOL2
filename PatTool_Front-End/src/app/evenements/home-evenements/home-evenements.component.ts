@@ -787,10 +787,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		const start = Date.now();
 		return new Promise<void>((resolve) => {
 			const checkValue = () => {
-				if (this.user.id !== "") {
+				// Always read current user from service: after clearing browser data, app.component
+				// sets user.id asynchronously via getUserId().subscribe(); the component's this.user
+				// is a stale reference and never gets that id if we only poll this.user.id.
+				const currentUser = this._memberService.getUser();
+				if (currentUser.id !== "") {
+					this.user = currentUser;
 					resolve();
 				} else if (Date.now() - start >= maxWaitMs) {
 					// Timeout: start stream anyway with empty userId (backend will return public events only)
+					this.user = currentUser;
 					resolve();
 				} else {
 					setTimeout(checkValue, pollIntervalMs);
@@ -914,6 +920,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			if (requestToken !== this.feedRequestToken) {
 				return;
 			}
+			// Use latest user from service (id may have been set just after wait resolved)
+			this.user = this._memberService.getUser();
 			this.eventsSubscription?.unsubscribe();
 			
 			// Stream all events - capture adminOverride value at call time

@@ -1098,6 +1098,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Update current image URL if this is the current image
     if (imageIndex === this.currentSlideshowIndex) {
       this.updateCurrentSlideshowImageUrl();
+      // Ensure the view updates immediately so the first (or current) image is shown as soon as it's available
+      this.cdr.detectChanges();
     }
     
     // If we have a pending startIndex and this is the image at that index, navigate to it
@@ -4138,24 +4140,28 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   // Fullscreen
   public toggleFullscreen(): void {
     // Check current fullscreen state directly from document (more reliable than this.isFullscreen)
-    const isCurrentlyFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement || 
+    const isCurrentlyFullscreen = !!(document.fullscreenElement || (document as any).webkitFullscreenElement ||
       (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
-    
-    const slideshowContainer = document.querySelector('.slideshow-container');
-    const slideshowImageWrapper = document.querySelector('.slideshow-image-wrapper');
-    const imageElement = slideshowContainer || slideshowImageWrapper;
-    if (!imageElement) return;
-    
+
+    // Use the component's container (parent of #slideshowContainer = .slideshow-image-wrapper).
+    // requestFullscreen on the .slideshow-container so the whole slide area goes truly fullscreen;
+    // querySelector can return a wrong instance if multiple modals exist in DOM.
+    const wrapper = this.slideshowContainerRef?.nativeElement as HTMLElement;
+    const container = wrapper?.parentElement as HTMLElement; // .slideshow-container
+    const elementToFullscreen = container || wrapper;
+    if (!elementToFullscreen) return;
+
     if (!isCurrentlyFullscreen) {
-      // Enter fullscreen
-      if ((imageElement as any).requestFullscreen) {
-        (imageElement as any).requestFullscreen();
-      } else if ((imageElement as any).webkitRequestFullscreen) {
-        (imageElement as any).webkitRequestFullscreen();
-      } else if ((imageElement as any).mozRequestFullScreen) {
-        (imageElement as any).mozRequestFullScreen();
-      } else if ((imageElement as any).msRequestFullscreen) {
-        (imageElement as any).msRequestFullscreen();
+      // Enter fullscreen: request on the container so the slide area fills the whole screen
+      const el = elementToFullscreen as any;
+      if (el.requestFullscreen) {
+        el.requestFullscreen();
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      } else if (el.mozRequestFullScreen) {
+        el.mozRequestFullScreen();
+      } else if (el.msRequestFullscreen) {
+        el.msRequestFullscreen();
       }
     } else {
       // Exit fullscreen
