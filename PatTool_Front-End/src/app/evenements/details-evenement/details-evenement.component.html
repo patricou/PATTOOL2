@@ -17,13 +17,20 @@
         {{ 'EVENTELEM.EVENT_ACCESS_DENIED_NO_ACCOUNT' | translate }}
       </p>
       <p class="mt-2 mb-0">
-        {{ 'EVENTELEM.EVENT_ACCESS_DENIED_BE_FRIEND' | translate }}
+        {{ 'EVENTELEM.EVENT_ACCESS_DENIED_INTRO' | translate:{ ownerName: (accessDeniedOwnerName || ('EVENTELEM.OWNER_UNKNOWN' | translate)) } }}
       </p>
-      <p class="mt-1 mb-0">
-        {{ 'EVENTELEM.EVENT_ACCESS_DENIED_HOW_TO_ADD_FRIEND' | translate:{ friendsLabel: ('FRIENDS.TITLE' | translate), allUsersLabel: ('FRIENDS.ALL_USERS' | translate), sendRequestLabel: ('FRIENDS.SEND_REQUEST' | translate), ownerName: (accessDeniedOwnerName || ('EVENTELEM.OWNER_UNKNOWN' | translate)) } }}
+      <p class="mt-2 mb-1">
+        {{ 'EVENTELEM.EVENT_ACCESS_DENIED_STEP1' | translate:{ friendsLabel: ('FRIENDS.TITLE' | translate), allUsersLabel: ('FRIENDS.ALL_USERS' | translate), sendRequestLabel: ('FRIENDS.SEND_REQUEST' | translate), ownerName: (accessDeniedOwnerName || ('EVENTELEM.OWNER_UNKNOWN' | translate)) } }}
       </p>
       <p class="mt-2 mb-0">
-        {{ 'EVENTELEM.EVENT_ACCESS_DENIED_CONTACT_OWNER' | translate:{ ownerName: (accessDeniedOwnerName || ('EVENTELEM.OWNER_UNKNOWN' | translate)) } }}
+        {{ 'EVENTELEM.EVENT_ACCESS_DENIED_STEP2' | translate:{ eventName: (accessDeniedEventName || ''), ownerName: (accessDeniedOwnerName || ('EVENTELEM.OWNER_UNKNOWN' | translate)) } }}
+        <ng-container *ngIf="accessDeniedOwnerEmail">
+          <br class="mt-1">
+          <a [href]="getMailToOwnerUrl()" class="alert-link" target="_blank" rel="noopener">
+            {{ 'EVENTELEM.EVENT_ACCESS_DENIED_EMAIL_LINK' | translate:{ ownerName: (accessDeniedOwnerName || ('EVENTELEM.OWNER_UNKNOWN' | translate)) } }}
+            <span class="ms-1">({{ accessDeniedOwnerEmail }})</span>
+          </a>
+        </ng-container>
       </p>
     </ng-container>
     <span *ngIf="!accessDenied">{{ error }}</span>
@@ -33,10 +40,10 @@
       <i class="fa fa-arrow-left me-2"></i>
       {{ 'EVENTELEM.BACK_TO_ACTIVITIES' | translate }}
     </button>
-    <button *ngIf="accessDenied && accessDeniedOwnerEmail" type="button" class="btn btn-outline-primary" (click)="openMailToOwner()">
+    <a *ngIf="accessDenied && accessDeniedOwnerEmail" [href]="getMailToOwnerUrl()" class="btn btn-outline-primary" target="_blank" rel="noopener">
       <i class="fa fa-envelope me-2"></i>
       {{ 'EVENTELEM.SEND_EMAIL_TO_OWNER' | translate }}
-    </button>
+    </a>
   </div>
 </div>
 
@@ -468,7 +475,78 @@
         </div>
       </div>
 
-      <!-- Photo Gallery - Medium Vertical -->
+      <!-- Photos from File System - One card per link with gallery (before MongoDB photos) -->
+      <ng-container *ngFor="let urlEvent of getPhotoFromFsUrlEvents()">
+        <div class="dynamic-card card-medium card-vertical photofromfs-card"
+             *ngIf="evenement && urlEvent.link"
+             [ngClass]="getCardLayoutClasses('upload')"
+             [style.order]="getCardOrder('upload')"
+             [ngStyle]="getCardGridPosition('upload')">
+          <div class="card-header-compact">
+            <i class="fa fa-folder-open"></i>
+            <span>{{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}</span>
+            <small class="url-meta-compact ms-2">({{ urlEvent.owner }} • {{ formatCommentaryDate(urlEvent.dateCreation) }})</small>
+            <button type="button" 
+                    class="btn-compact btn-primary-compact ms-auto" 
+                    (click)="togglePhotofromfsAutoplay(urlEvent.link); $event.stopPropagation()" 
+                    [title]="isPhotofromfsAutoplay(urlEvent.link) ? ('EVENTELEM.STOP_AUTOPLAY' | translate) : ('EVENTELEM.START_AUTOPLAY' | translate)"
+                    *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 1">
+              <i class="fa" [class.fa-pause]="isPhotofromfsAutoplay(urlEvent.link)" [class.fa-play]="!isPhotofromfsAutoplay(urlEvent.link)"></i>
+            </button>
+            <button type="button" 
+                    class="btn-compact btn-primary-compact ms-2" 
+                    (click)="openPhotofromfsMaximized(urlEvent.link, getPhotofromfsCurrentPhotoIndex(urlEvent.link)); $event.stopPropagation()" 
+                    [title]="'EVENTELEM.MAXIMIZE' | translate"
+                    [disabled]="getPhotofromfsPhotoItems(urlEvent.link).length === 0">
+              <i class="fa fa-external-link"></i>
+            </button>
+          </div>
+
+          <!-- Loading state -->
+          <div *ngIf="isPhotofromfsLoading(urlEvent.link)" class="photo-gallery-loading">
+            <i class="fa fa-spinner fa-spin"></i>
+            <span>{{ 'COMMUN.LOADING' | translate }}</span>
+          </div>
+
+          <!-- Gallery -->
+          <div class="photo-gallery" *ngIf="!isPhotofromfsLoading(urlEvent.link)">
+            <div *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length === 0 && !isPhotofromfsLoading(urlEvent.link)" class="empty-state-compact">
+              <i class="fa fa-folder-open"></i>
+              <p>{{ 'EVENTHOME.NO_LINKS_ADDED' | translate }}</p>
+            </div>
+
+            <div *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 0" class="photo-viewer">
+              <div class="photo-slider" [style.transform]="'translateX(-' + (getPhotofromfsCurrentPhotoIndex(urlEvent.link) * 100) + '%)'">
+                <div class="photo-frame" *ngFor="let photoItem of getPhotofromfsPhotoItems(urlEvent.link); let i = index">
+                  <img *ngIf="hasPhotofromfsImageLoaded(photoItem.imageUrl)"
+                       [src]="photoItem.imageUrl" 
+                       [alt]="photoItem.fileName" 
+                       class="photo-img"
+                       loading="lazy"
+                       (click)="openPhotofromfsMaximized(urlEvent.link, i)"
+                       (error)="onImageError($event)">
+                  <div *ngIf="!hasPhotofromfsImageLoaded(photoItem.imageUrl)" class="photo-loading-placeholder">
+                    <i class="fa fa-spinner fa-spin"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button class="photo-nav prev" 
+                    (click)="prevPhotofromfsPhoto(urlEvent.link)" 
+                    *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 1">
+              <i class="fa fa-chevron-left"></i>
+            </button>
+            <button class="photo-nav next" 
+                    (click)="nextPhotofromfsPhoto(urlEvent.link)" 
+                    *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 1">
+              <i class="fa fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- Photo Gallery (MongoDB) - Medium Vertical -->
       <div class="dynamic-card card-medium card-vertical photos-card"
            *ngIf="photoItemsList.length > 0"
            [ngClass]="getCardLayoutClasses('upload')"
@@ -713,77 +791,6 @@
           </div>
         </div>
       </div>
-
-      <!-- Photos from File System - One card per link with gallery -->
-      <ng-container *ngFor="let urlEvent of getPhotoFromFsUrlEvents()">
-        <div class="dynamic-card card-medium card-vertical photofromfs-card"
-             *ngIf="evenement && urlEvent.link"
-             [ngClass]="getCardLayoutClasses('upload')"
-             [style.order]="getCardOrder('upload')"
-             [ngStyle]="getCardGridPosition('upload')">
-          <div class="card-header-compact">
-            <i class="fa fa-folder-open"></i>
-            <span>{{ urlEvent.urlDescription || getWebsiteTitle(urlEvent.link) }}</span>
-            <small class="url-meta-compact ms-2">({{ urlEvent.owner }} • {{ formatCommentaryDate(urlEvent.dateCreation) }})</small>
-            <button type="button" 
-                    class="btn-compact btn-primary-compact ms-auto" 
-                    (click)="togglePhotofromfsAutoplay(urlEvent.link); $event.stopPropagation()" 
-                    [title]="isPhotofromfsAutoplay(urlEvent.link) ? ('EVENTELEM.STOP_AUTOPLAY' | translate) : ('EVENTELEM.START_AUTOPLAY' | translate)"
-                    *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 1">
-              <i class="fa" [class.fa-pause]="isPhotofromfsAutoplay(urlEvent.link)" [class.fa-play]="!isPhotofromfsAutoplay(urlEvent.link)"></i>
-            </button>
-            <button type="button" 
-                    class="btn-compact btn-primary-compact ms-2" 
-                    (click)="openPhotofromfsMaximized(urlEvent.link, getPhotofromfsCurrentPhotoIndex(urlEvent.link)); $event.stopPropagation()" 
-                    [title]="'EVENTELEM.MAXIMIZE' | translate"
-                    [disabled]="getPhotofromfsPhotoItems(urlEvent.link).length === 0">
-              <i class="fa fa-external-link"></i>
-            </button>
-          </div>
-
-          <!-- Loading state -->
-          <div *ngIf="isPhotofromfsLoading(urlEvent.link)" class="photo-gallery-loading">
-            <i class="fa fa-spinner fa-spin"></i>
-            <span>{{ 'COMMUN.LOADING' | translate }}</span>
-          </div>
-
-          <!-- Gallery -->
-          <div class="photo-gallery" *ngIf="!isPhotofromfsLoading(urlEvent.link)">
-            <div *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length === 0 && !isPhotofromfsLoading(urlEvent.link)" class="empty-state-compact">
-              <i class="fa fa-folder-open"></i>
-              <p>{{ 'EVENTHOME.NO_LINKS_ADDED' | translate }}</p>
-            </div>
-
-            <div *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 0" class="photo-viewer">
-              <div class="photo-slider" [style.transform]="'translateX(-' + (getPhotofromfsCurrentPhotoIndex(urlEvent.link) * 100) + '%)'">
-                <div class="photo-frame" *ngFor="let photoItem of getPhotofromfsPhotoItems(urlEvent.link); let i = index">
-                  <img *ngIf="hasPhotofromfsImageLoaded(photoItem.imageUrl)"
-                       [src]="photoItem.imageUrl" 
-                       [alt]="photoItem.fileName" 
-                       class="photo-img"
-                       loading="lazy"
-                       (click)="openPhotofromfsMaximized(urlEvent.link, i)"
-                       (error)="onImageError($event)">
-                  <div *ngIf="!hasPhotofromfsImageLoaded(photoItem.imageUrl)" class="photo-loading-placeholder">
-                    <i class="fa fa-spinner fa-spin"></i>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <button class="photo-nav prev" 
-                    (click)="prevPhotofromfsPhoto(urlEvent.link)" 
-                    *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 1">
-              <i class="fa fa-chevron-left"></i>
-            </button>
-            <button class="photo-nav next" 
-                    (click)="nextPhotofromfsPhoto(urlEvent.link)" 
-                    *ngIf="getPhotofromfsPhotoItems(urlEvent.link).length > 1">
-              <i class="fa fa-chevron-right"></i>
-            </button>
-          </div>
-        </div>
-      </ng-container>
 
       <!-- PDFs - Small Vertical -->
       <div class="dynamic-card card-small card-vertical pdfs-card"

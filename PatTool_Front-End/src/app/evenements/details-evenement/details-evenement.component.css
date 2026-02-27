@@ -1491,18 +1491,31 @@
 .description-content-compact {
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
   gap: 0.75rem;
   flex: 1;
   min-height: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 50%, rgba(255, 215, 0, 0.06) 100%);
+  border-radius: 0 0 12px 12px;
+  /* Bordure relief : clair en haut/gauche, sombre en bas/droite */
+  box-shadow:
+    inset 2px 2px 4px rgba(255, 255, 255, 0.12),
+    inset -2px -2px 4px rgba(0, 0, 0, 0.25),
+    0 2px 8px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: none;
 }
 
 .description-text-compact {
-  font-size: 1.3rem;
+  font-size: 1.6rem;
   line-height: 1.7;
   color: var(--text-primary, #ffffff);
   font-weight: 500;
   margin: 0;
   padding: 0.75rem;
+  text-align: center;
   background: rgba(255, 255, 255, 0.06);
   backdrop-filter: blur(8px);
   border-radius: 10px;
@@ -3069,10 +3082,16 @@ select.compact-input:focus {
      ============================================ */
   
   .card-body-compact,
-  .description-content-compact,
   .visibility-content-compact {
     padding: 0.5rem 0.4rem;
     text-align: left;
+  }
+
+  .description-content-compact {
+    padding: 0.5rem 0.4rem;
+    text-align: center;
+    justify-content: center;
+    align-items: center;
   }
   
   /* Table style for type card in mobile - larger font and better alignment */
@@ -3136,6 +3155,10 @@ select.compact-input:focus {
     text-align: left;
     padding: 0.4rem 0.3rem;
     line-height: 1.5;
+  }
+
+  .description-text-compact {
+    text-align: center;
   }
   
   .info-item-compact:not(.type-card .info-item-compact) {
@@ -3271,10 +3294,10 @@ select.compact-input:focus {
      ============================================ */
   
   .description-text-compact {
-    font-size: 0.9rem;
+    font-size: 1.05rem;
     line-height: 1.6;
     padding: 0.5rem 0.3rem;
-    text-align: left;
+    text-align: center;
   }
   
   /* ============================================
@@ -4623,7 +4646,7 @@ select.compact-input:focus {
 
 /* Improve text responsiveness */
 .description-text-compact {
-  font-size: clamp(0.9rem, 2vw, 1.3rem);
+  font-size: clamp(1rem, 2.2vw, 1.6rem);
   line-height: 1.6;
 }
 
@@ -5054,7 +5077,6 @@ select.compact-input:focus {
 }
 
 .card-text-small,
-.description-text-compact,
 .notes-text-compact {
   font-size: clamp(0.8rem, 1.8vw, 1rem);
 }

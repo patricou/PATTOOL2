@@ -80,7 +80,19 @@ export class EvenementsService {
 					return throwError(() => firstError);
 				}
 				// Timeout on getToken() or other: try without auth so backend can return 403 quickly (GET /api/even/:id is permitAll)
-				return this._http.get<any>(url);
+				return this._http.get<any>(url).pipe(
+					catchError((noAuthError: any) => {
+						// If unauthenticated request returned 403, retry once with auth (user may have access but token was slow)
+						if (noAuthError?.status === 403) {
+							return this.getHeaderWithToken().pipe(
+								timeout(5000),
+								switchMap(headers => this._http.get<any>(url, { headers: headers })),
+								catchError(() => throwError(() => noAuthError))
+							);
+						}
+						return throwError(() => noAuthError);
+					})
+				);
 			}),
 			map(mapToEvenement),
 			catchError(error => throwError(() => error))

@@ -1304,6 +1304,27 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							this.scrollToTop();
 						});
 					}
+				} else {
+					// First streamed event is not in the displayed list (firstDisplayedIndex === -1) but we already have some cards.
+					// This can happen after race/return navigation: we must add it at 0 so the list stays in sync with stream order,
+					// otherwise we never fill up to CARDS_PER_PAGE (e.g. stuck at 4).
+					this.evenements.unshift(this.allStreamedEvents[0]);
+					this.lastFilterValue = '';
+					this.lastEventsLength = 0;
+					if (firstStreamedId) {
+						const loadingInfo: LoadingEventInfo = {
+							eventId: firstStreamedId,
+							cardLoadStart: Date.now()
+						};
+						this.loadingEvents.set(firstStreamedId, loadingInfo);
+						this.pendingCardLoadEnds.add(firstStreamedId);
+						this.scheduleCardLoadEndBatch();
+					}
+					this.queueThumbnailLoad(this.allStreamedEvents[0]);
+					// Trim to CARDS_PER_PAGE so we don't exceed after unshift
+					if (this.evenements.length > this.CARDS_PER_PAGE) {
+						this.evenements = this.evenements.slice(0, this.CARDS_PER_PAGE);
+					}
 				}
 			}
 		}

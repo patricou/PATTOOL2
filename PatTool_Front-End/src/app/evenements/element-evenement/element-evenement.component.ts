@@ -5574,8 +5574,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	public isThumbnailFile(uploadedFile: UploadedFile | null | undefined): boolean {
-		const name = uploadedFile && uploadedFile.fileName ? uploadedFile.fileName.toLowerCase() : '';
-		return name.includes('thumbnail');
+		if (!uploadedFile || !this.evenement?.thumbnail) {
+			return false;
+		}
+		// Only the file that is the current card image (evenement.thumbnail) should be considered
+		// as thumbnail — disable only that one's star button (to change card image).
+		return uploadedFile.fieldId === this.evenement.thumbnail.fieldId;
 	}
 
 	// Invalidate thumbnail cache to force reload
