@@ -892,6 +892,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.streamingTimeoutId = setTimeout(() => {
 			if (requestToken === this.feedRequestToken && this.isLoading) {
 				// Removed log: Streaming timeout (too verbose)
+				// Ensure all received events are displayed (fix: on mobile, stream may stall after a few events)
+				this.updateDisplayedEvents();
+				this.computeFilteredEvents();
+				this.scheduleChangeDetection();
 				this.isLoading = false;
 				this.isLoadingNextPage = false;
 				this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
@@ -989,6 +993,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 									this.scheduleChangeDetection(isInitialCards);
 								} else {
 									// Not enough events yet, batch with very short delay
+									// On mobile use slightly longer delay so more events can arrive before first paint (avoids "only 4" after full reload)
+									const batchDelayMs = this.isMobile ? 80 : 5;
 									this.sseEventBatchTimeout = setTimeout(() => {
 										// Display all available events up to CARDS_PER_PAGE
 										this.updateDisplayedEvents();
@@ -998,7 +1004,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 										this.scheduleChangeDetection(isInitialCards);
 										
 										this.sseEventBatchTimeout = null;
-									}, 5); // Very short delay (5ms) to batch rapid SSE events, but display quickly
+									}, batchDelayMs);
 								}
 							}
 						} else if (streamedEvent.type === 'complete') {
@@ -1125,9 +1131,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						if (requestToken !== this.feedRequestToken) {
 							return;
 						}
+						// Display any events received before the error (e.g. mobile connection drop)
+						this.updateDisplayedEvents();
+						this.computeFilteredEvents();
+						this.scheduleChangeDetection();
 						this.isLoadingNextPage = false;
 						this.isLoading = false;
-						this.hasMoreEvents = false;
+						this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
 						// Always unblock scrolling on error
 						this.unblockPageScroll();
 						this.shouldBlockScroll = false;
