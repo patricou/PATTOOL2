@@ -174,6 +174,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private changeDetectionScheduled: boolean = false; // Flag to prevent multiple change detection calls
 	private pendingChangeDetection: boolean = false; // Flag to track if change detection is needed
 	private logScrollRafId: number | null = null; // Throttle log scroll operations
+	/** Stream a démarré sans user.id (timeout 8s) → on pourra recharger une fois si user arrive */
+	private _streamHadEmptyUserId = false;
+	private _reloadScheduledForUser = false;
 
 	constructor(private _evenementsService: EvenementsService,
 		private _memberService: MembersService,
@@ -198,6 +201,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	ngOnInit() {
 		this.user = this._memberService.getUser();
 		this.cardsReady = false;
+		// Demander le token tout de suite pour qu’il soit prêt au chargement du stream
+		this._keycloakService.getToken().then(() => {}).catch(() => {});
 		
 		// Re-read filter value from service to ensure we have the latest value when returning to home
 		this.dataFIlter = this._commonValuesService.getDataFilter();
@@ -781,29 +786,39 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		});
 	}
 
-	private waitForNonEmptyValue(): Promise<void> {
-		const maxWaitMs = 4000; // Don't block stream forever if user load is slow
+	private waitForNonEmptyValue(): Promise<{ startedWithEmptyUserId: boolean }> {
+		const maxWaitMs = 8000; // Attendre plus longtemps pour avoir user.id (évite stream avec seulement le public)
 		const pollIntervalMs = 100;
 		const start = Date.now();
-		return new Promise<void>((resolve) => {
+		return new Promise<{ startedWithEmptyUserId: boolean }>((resolve) => {
 			const checkValue = () => {
-				// Always read current user from service: after clearing browser data, app.component
-				// sets user.id asynchronously via getUserId().subscribe(); the component's this.user
-				// is a stale reference and never gets that id if we only poll this.user.id.
 				const currentUser = this._memberService.getUser();
 				if (currentUser.id !== "") {
 					this.user = currentUser;
-					resolve();
+					resolve({ startedWithEmptyUserId: false });
 				} else if (Date.now() - start >= maxWaitMs) {
-					// Timeout: start stream anyway with empty userId (backend will return public events only)
 					this.user = currentUser;
-					resolve();
+					resolve({ startedWithEmptyUserId: true });
 				} else {
 					setTimeout(checkValue, pollIntervalMs);
 				}
 			};
 			checkValue();
 		});
+	}
+
+	/** Si le stream a démarré sans user.id, recharger une fois quand l’user est prêt (filet de sécurité). */
+	private scheduleSingleReloadWhenUserReady(): void {
+		if (this._reloadScheduledForUser) return;
+		this._reloadScheduledForUser = true;
+		setTimeout(() => {
+			const u = this._memberService.getUser();
+			if (u?.id && u.id !== '') {
+				this.user = u;
+				this.resetAndLoadEvents();
+			}
+			this._reloadScheduledForUser = false;
+		}, 3000);
 	}
 
 	private resetAndLoadEvents(): void {
@@ -879,6 +894,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 
 		const requestToken = this.feedRequestToken;
+		this._streamHadEmptyUserId = false;
 		const rawFilter = (this.dataFIlter ?? "").trim();
 		const searchString = rawFilter === "" ? "*" : rawFilter;
 
@@ -907,6 +923,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				this.hasMoreEvents = this.evenements.length < this.allStreamedEvents.length;
 				this.unblockPageScroll();
 				this.shouldBlockScroll = false;
+				if (this._streamHadEmptyUserId) this.scheduleSingleReloadWhenUserReady();
 				// Setup observer after timeout
 				setTimeout(() => {
 					if (this.infiniteScrollAnchor?.nativeElement) {
@@ -916,10 +933,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		}, 10000); // 10 second timeout - shorter for faster response
 
-		this.waitForNonEmptyValue().then(() => {
+		this.waitForNonEmptyValue().then(({ startedWithEmptyUserId }) => {
 			if (requestToken !== this.feedRequestToken) {
 				return;
 			}
+			this._streamHadEmptyUserId = startedWithEmptyUserId;
 			// Use latest user from service (id may have been set just after wait resolved)
 			this.user = this._memberService.getUser();
 			this.eventsSubscription?.unsubscribe();
@@ -1045,6 +1063,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 							// Always unblock scroll when streaming completes
 							this.unblockPageScroll();
 							this.shouldBlockScroll = false;
+							if (startedWithEmptyUserId) this.scheduleSingleReloadWhenUserReady();
 							
 							// Mark card load end after cards are rendered
 							setTimeout(() => {
@@ -1139,6 +1158,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						if (requestToken !== this.feedRequestToken) {
 							return;
 						}
+						if (startedWithEmptyUserId) this.scheduleSingleReloadWhenUserReady();
 						// Display any events received before the error (e.g. mobile connection drop)
 						this.updateDisplayedEvents();
 						this.computeFilteredEvents();

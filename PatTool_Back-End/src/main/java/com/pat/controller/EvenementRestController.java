@@ -1195,7 +1195,8 @@ public class EvenementRestController {
             body.put("ownerEmail", ownerEmail.isEmpty() ? null : ownerEmail);
             String eventName = evenement.getEvenementName() != null ? evenement.getEvenementName().trim() : "";
             body.put("eventName", eventName.isEmpty() ? null : eventName);
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+            // 200 + body EVENT_ACCESS_DENIED pour que le front affiche le message immédiatement (sans passer par le flux erreur HTTP)
+            return ResponseEntity.ok().body(body);
         }
         
         // Handle discussionId: if it exists but the discussion doesn't, create it (like for FriendGroup)

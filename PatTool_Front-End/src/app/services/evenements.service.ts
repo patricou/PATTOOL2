@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, from, Subject, throwError, of } from 'rxjs';
-import { map, switchMap, catchError, timeout } from 'rxjs/operators';
+import { Observable, from, Subject, throwError, of, merge } from 'rxjs';
+import { map, switchMap, catchError, timeout, take } from 'rxjs/operators';
 import { Evenement } from '../model/evenement';
 import { Commentary } from '../model/commentary';
 import { environment } from '../../environments/environment';
@@ -71,30 +71,38 @@ export class EvenementsService {
 				evenement.discussionId
 			);
 		};
-		// Timeout on getToken() so direct link to /details-evenement/xxx shows "Accès refusé" quickly when user has no access (avoids waiting for Keycloak init)
-		return this.getHeaderWithToken().pipe(
-			timeout(2000),
+		// Backend renvoie 200 + body EVENT_ACCESS_DENIED (plus de 403) → on convertit en erreur pour le handler
+		const isEventAccessDenied = (err: any) => err?.error?.code === 'EVENT_ACCESS_DENIED';
+		const handleResponse = (response: any) => {
+			if (response?.code === 'EVENT_ACCESS_DENIED') {
+				return throwError(() => ({ error: response }));
+			}
+			return of(mapToEvenement(response));
+		};
+		// Requête sans auth en premier pour afficher "accès refusé" tout de suite (pas d'attente du token)
+		const noAuthGet = this._http.get<any>(url).pipe(switchMap(handleResponse));
+		// Requête avec token en parallèle (pour les utilisateurs qui ont accès)
+		const authGet = this.getHeaderWithToken().pipe(
+			timeout(5000),
 			switchMap(headers => this._http.get<any>(url, { headers: headers })),
+			switchMap(handleResponse)
+		);
+		return merge(noAuthGet, authGet).pipe(
+			take(1),
 			catchError((firstError: any) => {
-				if (firstError?.status === 403) {
+				if (isEventAccessDenied(firstError)) {
 					return throwError(() => firstError);
 				}
-				// Timeout on getToken() or other: try without auth so backend can return 403 quickly (GET /api/even/:id is permitAll)
-				return this._http.get<any>(url).pipe(
-					catchError((noAuthError: any) => {
-						// If unauthenticated request returned 403, retry once with auth (user may have access but token was slow)
-						if (noAuthError?.status === 403) {
-							return this.getHeaderWithToken().pipe(
-								timeout(5000),
-								switchMap(headers => this._http.get<any>(url, { headers: headers })),
-								catchError(() => throwError(() => noAuthError))
-							);
-						}
-						return throwError(() => noAuthError);
-					})
-				);
+				if (firstError?.status === 403) {
+					return this.getHeaderWithToken().pipe(
+						timeout(5000),
+						switchMap(headers => this._http.get<any>(url, { headers: headers })),
+						switchMap(handleResponse),
+						catchError(() => throwError(() => firstError))
+					);
+				}
+				return throwError(() => firstError);
 			}),
-			map(mapToEvenement),
 			catchError(error => throwError(() => error))
 		);
 	}
@@ -302,9 +310,9 @@ export class EvenementsService {
 	streamEvents(name: string, userId: string, visibilityFilter?: string, adminOverride?: boolean): Observable<StreamedEvent> {
 		const subject = new Subject<StreamedEvent>();
 		
-		// Timeout on getToken() so slow Keycloak doesn't block card load; after timeout try without auth (backend may return only public events or 403)
+		// Donner plus de temps au token (déjà demandé en avance dans ngOnInit home-evenements)
 		this.getHeaderWithToken().pipe(
-			timeout(5000),
+			timeout(10000),
 			catchError((tokenError: any) => {
 				// Timeout or token error: proceed without auth so stream can start; backend will use empty userId
 				return of(new HttpHeaders({

@@ -57,7 +57,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
   public user: Member | null = null;
   public loading: boolean = true;
   public error: string | null = null;
-  /** Set when backend returns 403 (no access); used to show owner name/email in message */
+  /** Set when backend returns EVENT_ACCESS_DENIED in response body (no access); used to show owner name/email in message */
   public accessDeniedOwnerName: string | null = null;
   public accessDeniedOwnerEmail: string | null = null;
   public accessDeniedEventName: string | null = null;
@@ -709,17 +709,14 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         }
       }
       
-      // Check for event load errors (filter out 401/403 as they're handled by interceptor)
-      // Don't let stored event errors cause navigation - they're from previous loads
+      // Check for event load errors (filter out 401/403 and EVENT_ACCESS_DENIED - expected or already shown)
       const eventError = localStorage.getItem('last_event_error');
       if (eventError) {
         const errorData = JSON.parse(eventError);
-        // Only log non-auth errors (401/403 are handled by interceptor)
-        // Don't set this.error from stored errors - only from current load
-        if (errorData.status !== 401 && errorData.status !== 403) {
+        const isAccessDenied = errorData?.error?.code === 'EVENT_ACCESS_DENIED';
+        if (errorData.status !== 401 && errorData.status !== 403 && !isAccessDenied) {
           errors.push({ type: 'Event Load Error (from previous load)', ...errorData });
         } else {
-          // Clean up auth errors from localStorage as they're expected
           try {
             localStorage.removeItem('last_event_error');
           } catch (e) {
@@ -1127,7 +1124,20 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         }
       },
       error: (error: any) => {
-        // Log to localStorage FIRST so it persists even if redirect happens
+        // Handle access denied first: do not store as error (expected case, we show the "ask owner" message)
+        const isEventAccessDenied = error?.error?.code === 'EVENT_ACCESS_DENIED';
+        if (isEventAccessDenied) {
+          const body = error?.error;
+          this.accessDenied = true;
+          this.accessDeniedOwnerName = (body?.ownerName != null && String(body.ownerName).trim()) ? String(body.ownerName).trim() : null;
+          this.accessDeniedOwnerEmail = (body?.ownerEmail != null && String(body.ownerEmail).trim()) ? String(body.ownerEmail).trim() : null;
+          this.accessDeniedEventName = (body?.eventName != null && String(body.eventName).trim()) ? String(body.eventName).trim() : null;
+          this.error = '';
+          this.loading = false;
+          return;
+        }
+
+        // Log to localStorage only for real errors (not access denied)
         const errorInfo = {
           type: 'event_load_error',
           status: error?.status,
@@ -1135,7 +1145,9 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
           message: error?.message,
           url: error?.url,
           timestamp: new Date().toISOString(),
-          fullError: JSON.stringify(error, Object.getOwnPropertyNames(error))
+          fullError: typeof error?.error === 'object' && error?.error !== null
+            ? JSON.stringify({ status: error?.status, message: error?.message, error: error?.error })
+            : String(error?.error ?? error)
         };
         
         try {
@@ -1147,20 +1159,13 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         console.error('[EVENT LOAD ERROR]', errorInfo);
         
         // If it's a 401, the interceptor will redirect to login
-        // Don't set error message as user will be redirected
         if (error?.status === 401) {
-          // Interceptor will handle redirect, just return
           return;
         }
         
-        // Handle 403 Forbidden - user doesn't have access: show "ask owner" message with owner name/email
         if (error?.status === 403) {
-          const body = error?.error;
-          this.accessDenied = true;
-          this.accessDeniedOwnerName = (body?.ownerName != null && String(body.ownerName).trim()) ? String(body.ownerName).trim() : null;
-          this.accessDeniedOwnerEmail = (body?.ownerEmail != null && String(body.ownerEmail).trim()) ? String(body.ownerEmail).trim() : null;
-          this.accessDeniedEventName = (body?.eventName != null && String(body.eventName).trim()) ? String(body.eventName).trim() : null;
-          this.error = ''; // Message is rendered in template with translate pipe so it follows current language
+          this.accessDenied = false;
+          this.error = this.translateService.instant('EVENTELEM.ERROR_LOADING_EVENT');
           this.loading = false;
           return;
         }
