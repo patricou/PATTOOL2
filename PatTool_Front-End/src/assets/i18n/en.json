@@ -1597,7 +1597,18 @@
         "ALTITUDE_LOAD_ERROR": "Could not load altitude.",
         "COPY_COORDINATES": "Copy coordinates",
         "COPY_ADDRESS": "Copy address",
-        "COPIED": "Copied!"
+        "COPIED": "Copied!",
+        "PASTE_ADDRESS": "Paste address",
+        "PASTE_COORDINATES": "Paste coordinates",
+        "PASTE_ERROR": "Could not read clipboard.",
+        "PASTE_ADDRESS_SHORT": "Address",
+        "FIND_GPS_SHORT": "GPS",
+        "PASTE_COORDINATES_SHORT": "GPS",
+        "MY_POSITION_SHORT": "Position",
+        "GET_ADDRESS_SHORT": "Address",
+        "COPY_COORDINATES_SHORT": "Coords",
+        "COPY_ADDRESS_SHORT": "Address",
+        "SHOW_ON_MAP_SHORT": "Map"
     }
 }
 

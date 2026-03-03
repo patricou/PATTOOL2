@@ -1576,6 +1576,17 @@
         "ALTITUDE_LOAD_ERROR": "標高を読み込めませんでした。",
         "COPY_COORDINATES": "座標をコピー",
         "COPY_ADDRESS": "住所をコピー",
-        "COPIED": "コピーしました！"
+        "COPIED": "コピーしました！",
+        "PASTE_ADDRESS": "住所を貼り付け",
+        "PASTE_COORDINATES": "座標を貼り付け",
+        "PASTE_ERROR": "クリップボードを読み取れませんでした。",
+        "PASTE_ADDRESS_SHORT": "住所",
+        "FIND_GPS_SHORT": "GPS",
+        "PASTE_COORDINATES_SHORT": "GPS",
+        "MY_POSITION_SHORT": "位置",
+        "GET_ADDRESS_SHORT": "住所",
+        "COPY_COORDINATES_SHORT": "座標",
+        "COPY_ADDRESS_SHORT": "住所",
+        "SHOW_ON_MAP_SHORT": "地図"
     }
 }

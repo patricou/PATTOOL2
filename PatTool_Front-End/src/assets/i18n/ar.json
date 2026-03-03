@@ -1569,6 +1569,17 @@
         "ALTITUDE_LOAD_ERROR": "تعذر تحميل الارتفاع.",
         "COPY_COORDINATES": "نسخ الإحداثيات",
         "COPY_ADDRESS": "نسخ العنوان",
-        "COPIED": "تم النسخ!"
+        "COPIED": "تم النسخ!",
+        "PASTE_ADDRESS": "لصق العنوان",
+        "PASTE_COORDINATES": "لصق الإحداثيات",
+        "PASTE_ERROR": "تعذر قراءة الحافظة.",
+        "PASTE_ADDRESS_SHORT": "العنوان",
+        "FIND_GPS_SHORT": "GPS",
+        "PASTE_COORDINATES_SHORT": "GPS",
+        "MY_POSITION_SHORT": "الموقع",
+        "GET_ADDRESS_SHORT": "العنوان",
+        "COPY_COORDINATES_SHORT": "الإحداثيات",
+        "COPY_ADDRESS_SHORT": "العنوان",
+        "SHOW_ON_MAP_SHORT": "الخريطة"
     }
 }

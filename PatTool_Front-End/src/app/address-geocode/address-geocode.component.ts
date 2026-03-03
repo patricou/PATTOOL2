@@ -1,4 +1,4 @@
-import { Component, ViewChild } from '@angular/core';
+import { Component, ViewChild, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -56,9 +56,35 @@ export class AddressGeocodeComponent {
 	copyFeedback: string = '';
 	copyFeedbackReverse: string = '';
 
+	/** Paste from clipboard into address or coordinates field. */
+	async pasteAddress(): Promise<void> {
+		this.errorMessage = '';
+		try {
+			const text = await navigator.clipboard.readText();
+			if (text != null && text.trim()) {
+				this.addressQuery = text.trim();
+			}
+		} catch {
+			this.errorMessage = this.translateService.instant('ADDRESS_GEOCODE.PASTE_ERROR');
+		}
+	}
+
+	async pasteCoordinates(): Promise<void> {
+		this.errorMessageReverse = '';
+		try {
+			const text = await navigator.clipboard.readText();
+			if (text != null && text.trim()) {
+				this.coordinatesInput = text.trim();
+			}
+		} catch {
+			this.errorMessageReverse = this.translateService.instant('ADDRESS_GEOCODE.PASTE_ERROR');
+		}
+	}
+
 	constructor(
 		private readonly translateService: TranslateService,
-		private readonly apiService: ApiService
+		private readonly apiService: ApiService,
+		private readonly ngZone: NgZone
 	) {}
 
 	/**
@@ -308,16 +334,20 @@ export class AddressGeocodeComponent {
 		this.isLoadingMyPosition = true;
 		navigator.geolocation.getCurrentPosition(
 			(position) => {
-				const lat = position.coords.latitude;
-				const lon = position.coords.longitude;
-				const alt = position.coords.altitude != null && !isNaN(position.coords.altitude) ? position.coords.altitude : undefined;
-				this.coordinatesInput = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
-				this.isLoadingMyPosition = false;
-				this.getAddressFromCoordinates(alt);
+				this.ngZone.run(() => {
+					const lat = position.coords.latitude;
+					const lon = position.coords.longitude;
+					const alt = position.coords.altitude != null && !isNaN(position.coords.altitude) ? position.coords.altitude : undefined;
+					this.coordinatesInput = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+					this.isLoadingMyPosition = false;
+					this.getAddressFromCoordinates(alt);
+				});
 			},
 			(err) => {
-				this.isLoadingMyPosition = false;
-				this.errorMessageReverse = this.translateService.instant('ADDRESS_GEOCODE.ERROR_GETTING_LOCATION') + ': ' + (err.message || err.code || '');
+				this.ngZone.run(() => {
+					this.isLoadingMyPosition = false;
+					this.errorMessageReverse = this.translateService.instant('ADDRESS_GEOCODE.ERROR_GETTING_LOCATION') + ': ' + (err.message || err.code || '');
+				});
 			},
 			{ enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
 		);

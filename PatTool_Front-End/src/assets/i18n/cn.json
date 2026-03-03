@@ -1570,6 +1570,17 @@
         "ALTITUDE_LOAD_ERROR": "无法加载海拔。",
         "COPY_COORDINATES": "复制坐标",
         "COPY_ADDRESS": "复制地址",
-        "COPIED": "已复制！"
+        "COPIED": "已复制！",
+        "PASTE_ADDRESS": "粘贴地址",
+        "PASTE_COORDINATES": "粘贴坐标",
+        "PASTE_ERROR": "无法读取剪贴板。",
+        "PASTE_ADDRESS_SHORT": "地址",
+        "FIND_GPS_SHORT": "GPS",
+        "PASTE_COORDINATES_SHORT": "GPS",
+        "MY_POSITION_SHORT": "位置",
+        "GET_ADDRESS_SHORT": "地址",
+        "COPY_COORDINATES_SHORT": "坐标",
+        "COPY_ADDRESS_SHORT": "地址",
+        "SHOW_ON_MAP_SHORT": "地图"
     }
 }

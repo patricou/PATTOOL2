@@ -1568,6 +1568,17 @@
         "ALTITUDE_LOAD_ERROR": "Höhe konnte nicht geladen werden.",
         "COPY_COORDINATES": "Koordinaten kopieren",
         "COPY_ADDRESS": "Adresse kopieren",
-        "COPIED": "Kopiert!"
+        "COPIED": "Kopiert!",
+        "PASTE_ADDRESS": "Adresse einfügen",
+        "PASTE_COORDINATES": "Koordinaten einfügen",
+        "PASTE_ERROR": "Zwischenablage konnte nicht gelesen werden.",
+        "PASTE_ADDRESS_SHORT": "Adresse",
+        "FIND_GPS_SHORT": "GPS",
+        "PASTE_COORDINATES_SHORT": "GPS",
+        "MY_POSITION_SHORT": "Position",
+        "GET_ADDRESS_SHORT": "Adresse",
+        "COPY_COORDINATES_SHORT": "Koord.",
+        "COPY_ADDRESS_SHORT": "Adresse",
+        "SHOW_ON_MAP_SHORT": "Karte"
     }
 }

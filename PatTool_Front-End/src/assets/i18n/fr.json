@@ -1586,7 +1586,18 @@
         "ALTITUDE_LOAD_ERROR": "Impossible de récupérer l'altitude.",
         "COPY_COORDINATES": "Copier les coordonnées GPS",
         "COPY_ADDRESS": "Copier l'adresse",
-        "COPIED": "Copié !"
+        "COPIED": "Copié !",
+        "PASTE_ADDRESS": "Coller l'adresse",
+        "PASTE_COORDINATES": "Coller les coordonnées",
+        "PASTE_ERROR": "Impossible de lire le presse-papiers.",
+        "PASTE_ADDRESS_SHORT": "Adresse",
+        "FIND_GPS_SHORT": "GPS",
+        "PASTE_COORDINATES_SHORT": "GPS",
+        "MY_POSITION_SHORT": "Position",
+        "GET_ADDRESS_SHORT": "Adresse",
+        "COPY_COORDINATES_SHORT": "Coords",
+        "COPY_ADDRESS_SHORT": "Adresse",
+        "SHOW_ON_MAP_SHORT": "Carte"
     }
 }
 

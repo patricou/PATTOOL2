@@ -1564,6 +1564,17 @@
         "ALTITUDE_LOAD_ERROR": "Не удалось загрузить высоту.",
         "COPY_COORDINATES": "Копировать координаты",
         "COPY_ADDRESS": "Копировать адрес",
-        "COPIED": "Скопировано!"
+        "COPIED": "Скопировано!",
+        "PASTE_ADDRESS": "Вставить адрес",
+        "PASTE_COORDINATES": "Вставить координаты",
+        "PASTE_ERROR": "Не удалось прочитать буфер обмена.",
+        "PASTE_ADDRESS_SHORT": "Адрес",
+        "FIND_GPS_SHORT": "GPS",
+        "PASTE_COORDINATES_SHORT": "GPS",
+        "MY_POSITION_SHORT": "Позиция",
+        "GET_ADDRESS_SHORT": "Адрес",
+        "COPY_COORDINATES_SHORT": "Коорд.",
+        "COPY_ADDRESS_SHORT": "Адрес",
+        "SHOW_ON_MAP_SHORT": "Карта"
     }
 }

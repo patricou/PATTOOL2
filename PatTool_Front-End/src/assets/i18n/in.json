@@ -1561,7 +1561,18 @@
         "ALTITUDE_LOAD_ERROR": "ऊंचाई लोड नहीं हो सकी।",
         "COPY_COORDINATES": "निर्देशांक कॉपी करें",
         "COPY_ADDRESS": "पता कॉपी करें",
-        "COPIED": "कॉपी हो गया!"
+        "COPIED": "कॉपी हो गया!",
+        "PASTE_ADDRESS": "पता पेस्ट करें",
+        "PASTE_COORDINATES": "निर्देशांक पेस्ट करें",
+        "PASTE_ERROR": "क्लिपबोर्ड पढ़ा नहीं जा सका।",
+        "PASTE_ADDRESS_SHORT": "पता",
+        "FIND_GPS_SHORT": "GPS",
+        "PASTE_COORDINATES_SHORT": "GPS",
+        "MY_POSITION_SHORT": "स्थिति",
+        "GET_ADDRESS_SHORT": "पता",
+        "COPY_COORDINATES_SHORT": "निर्देशांक",
+        "COPY_ADDRESS_SHORT": "पता",
+        "SHOW_ON_MAP_SHORT": "मानचित्र"
     }
 }
 

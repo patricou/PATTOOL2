@@ -1574,6 +1574,17 @@
         "ALTITUDE_LOAD_ERROR": "Αδυναμία φόρτωσης υψομέτρου.",
         "COPY_COORDINATES": "Αντιγραφή συντεταγμένων",
         "COPY_ADDRESS": "Αντιγραφή διεύθυνσης",
-        "COPIED": "Αντιγράφηκε!"
+        "COPIED": "Αντιγράφηκε!",
+        "PASTE_ADDRESS": "Επικόλληση διεύθυνσης",
+        "PASTE_COORDINATES": "Επικόλληση συντεταγμένων",
+        "PASTE_ERROR": "Αδυναμία ανάγνωσης του προχείρου.",
+        "PASTE_ADDRESS_SHORT": "Διεύθυνση",
+        "FIND_GPS_SHORT": "GPS",
+        "PASTE_COORDINATES_SHORT": "GPS",
+        "MY_POSITION_SHORT": "Θέση",
+        "GET_ADDRESS_SHORT": "Διεύθυνση",
+        "COPY_COORDINATES_SHORT": "Συντετ.",
+        "COPY_ADDRESS_SHORT": "Διεύθυνση",
+        "SHOW_ON_MAP_SHORT": "Χάρτης"
     }
 }

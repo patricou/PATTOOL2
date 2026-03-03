@@ -1562,6 +1562,17 @@
         "ALTITUDE_LOAD_ERROR": "לא ניתן לטעון את הגובה.",
         "COPY_COORDINATES": "העתק קואורדינטות",
         "COPY_ADDRESS": "העתק כתובת",
-        "COPIED": "הועתק!"
+        "COPIED": "הועתק!",
+        "PASTE_ADDRESS": "הדבק כתובת",
+        "PASTE_COORDINATES": "הדבק קואורדינטות",
+        "PASTE_ERROR": "לא ניתן לקרוא את הלוח.",
+        "PASTE_ADDRESS_SHORT": "כתובת",
+        "FIND_GPS_SHORT": "GPS",
+        "PASTE_COORDINATES_SHORT": "GPS",
+        "MY_POSITION_SHORT": "מיקום",
+        "GET_ADDRESS_SHORT": "כתובת",
+        "COPY_COORDINATES_SHORT": "קואורד'",
+        "COPY_ADDRESS_SHORT": "כתובת",
+        "SHOW_ON_MAP_SHORT": "מפה"
     }
 }

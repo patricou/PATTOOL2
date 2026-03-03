@@ -236,7 +236,7 @@ export class FriendsComponent implements OnInit {
     
     // Wait for user ID to be set
     this.waitForNonEmptyValue().then(() => {
-      this.loadData();
+      this.ngZone.run(() => this.loadData());
     });
   }
 
@@ -1684,13 +1684,17 @@ export class FriendsComponent implements OnInit {
     });
 
     Promise.all(operations).then(() => {
-      this.loadFriendGroups();
-      this.cancelManagingAuthorizedUsers();
-      this.loading = false;
+      this.ngZone.run(() => {
+        this.loadFriendGroups();
+        this.cancelManagingAuthorizedUsers();
+        this.loading = false;
+      });
     }).catch(error => {
-      console.error('Error managing authorized users:', error);
-      this.errorMessage = 'Error managing authorized users';
-      this.loading = false;
+      this.ngZone.run(() => {
+        console.error('Error managing authorized users:', error);
+        this.errorMessage = 'Error managing authorized users';
+        this.loading = false;
+      });
     });
   }
 
@@ -2671,7 +2675,9 @@ export class FriendsComponent implements OnInit {
     
     // Restore original user after a short delay to ensure modal uses correct user data
     setTimeout(() => {
-      this.currentUser = originalUser;
+      this.ngZone.run(() => {
+        this.currentUser = originalUser;
+      });
     }, 100);
   }
 
