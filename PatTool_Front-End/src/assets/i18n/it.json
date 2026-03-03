@@ -32,7 +32,9 @@
         "IOT": "IoT",
         "IA": "IA",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "Posizione/Meteo"
+        "GEO": "Geo",
+        "POSITION_METEO": "Posizione/Meteo",
+        "ADDRESS_TO_MAP": "Indirizzo/GPS sulla mappa"
     },
     "NAVIGATION": {
         "BACK": "Indietro",
@@ -1545,5 +1547,31 @@
         "COPIED_TO_CLIPBOARD": "Copiato negli appunti",
         "SHARE_FAILED": "Condivisione fallita",
         "CHART_INCLUDED": "Grafico incluso nella vista originale"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "Indirizzo a GPS / Mappa",
+        "ENTER_ADDRESS": "Inserisci indirizzo",
+        "ADDRESS_PLACEHOLDER": "es. Colosseo, Roma",
+        "ADDRESS_REQUIRED": "Inserisci un indirizzo.",
+        "FIND_GPS": "Trova GPS",
+        "RESULTS": "Risultati",
+        "NO_RESULTS": "Nessun risultato per questo indirizzo.",
+        "ERROR": "Errore",
+        "SELECT_FIRST": "Seleziona un risultato e clicca Mostra sulla mappa.",
+        "SHOW_ON_MAP": "Mostra sulla mappa",
+        "SELECTED": "Posizione selezionata",
+        "CLICK_TO_SELECT": "Clicca un risultato per selezionarlo, poi usa \"Mostra sulla mappa\".",
+        "ENTER_COORDINATES": "Inserisci coordinate GPS",
+        "COORDINATES_PLACEHOLDER": "es. 48.8566, 2.3522 o 48.8566 2.3522",
+        "GET_ADDRESS": "Ottieni indirizzo",
+        "INVALID_COORDINATES": "Coordinate non valide. Usa: latitudine longitudine (es. 48.8566 2.3522).",
+        "ADDRESS_NOT_FOUND": "Indirizzo non trovato",
+        "MY_POSITION": "La mia posizione",
+        "GEOLOCATION_NOT_SUPPORTED": "La geolocalizzazione non è supportata dal browser.",
+        "ERROR_GETTING_LOCATION": "Errore nel recupero della posizione",
+        "ALTITUDE_LOAD_ERROR": "Impossibile caricare l'altitudine.",
+        "COPY_COORDINATES": "Copia coordinate",
+        "COPY_ADDRESS": "Copia indirizzo",
+        "COPIED": "Copiato!"
     }
 }

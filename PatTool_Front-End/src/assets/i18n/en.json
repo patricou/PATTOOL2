@@ -34,7 +34,9 @@
         "LOCAL_NETWORK": "Local Network",
         "IA": "AI",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "Position/Weather"
+        "GEO": "Geo",
+        "POSITION_METEO": "Position/Weather",
+        "ADDRESS_TO_MAP": "Address/GPS to map"
     },
     "NAVIGATION": {
         "BACK": "Back",
@@ -1570,6 +1572,32 @@
         "CHART_INCLUDED": "Chart included in original view",
         "SHARE_WEATHER": "Share Weather",
         "IMAGE_DATA_URL": "Image URL:"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "Address to GPS / Map",
+        "ENTER_ADDRESS": "Enter address",
+        "ADDRESS_PLACEHOLDER": "e.g. 10 Downing Street, London",
+        "ADDRESS_REQUIRED": "Please enter an address.",
+        "FIND_GPS": "Find GPS",
+        "RESULTS": "Results",
+        "NO_RESULTS": "No results found for this address.",
+        "ERROR": "Error",
+        "SELECT_FIRST": "Select a result first, then click Show on map.",
+        "SHOW_ON_MAP": "Show on map",
+        "SELECTED": "Selected location",
+        "CLICK_TO_SELECT": "Click a result to select it, then use \"Show on map\" to display it in the map viewer.",
+        "ENTER_COORDINATES": "Enter GPS coordinates",
+        "COORDINATES_PLACEHOLDER": "e.g. 48.8566, 2.3522 or 48.8566 2.3522",
+        "GET_ADDRESS": "Get address",
+        "INVALID_COORDINATES": "Invalid coordinates. Use: latitude longitude (e.g. 48.8566 2.3522) or lat, lon.",
+        "ADDRESS_NOT_FOUND": "Address not found",
+        "MY_POSITION": "My position",
+        "GEOLOCATION_NOT_SUPPORTED": "Geolocation is not supported by your browser.",
+        "ERROR_GETTING_LOCATION": "Error getting location",
+        "ALTITUDE_LOAD_ERROR": "Could not load altitude.",
+        "COPY_COORDINATES": "Copy coordinates",
+        "COPY_ADDRESS": "Copy address",
+        "COPIED": "Copied!"
     }
 }
 

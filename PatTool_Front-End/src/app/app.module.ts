@@ -117,6 +117,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'api/openweathermap', 
 				loadComponent: () => import('./openweathermap/openweathermap.component').then(m => m.OpenWeatherMapComponent)
 			},
+			{ 
+				path: 'api/address-geocode', 
+				loadComponent: () => import('./address-geocode/address-geocode.component').then(m => m.AddressGeocodeComponent)
+			},
 			{ path: '**', redirectTo: 'home', pathMatch: 'full' }
 		]),
 		NgbModule,

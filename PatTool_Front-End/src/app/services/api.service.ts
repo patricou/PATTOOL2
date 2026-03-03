@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { Observable, from } from 'rxjs';
-import { map, switchMap } from 'rxjs/operators';
+import { map, switchMap, catchError } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 
 @Injectable()
@@ -114,25 +114,22 @@ export class ApiService {
 
 
   /**
-   * Get all available altitudes with sources for coordinates
-   * @param lat Latitude
-   * @param lon Longitude
-   * @param alt Optional altitude from mobile device
+   * Get all available altitudes with sources for coordinates.
+   * Tries with auth first; if that fails (e.g. not logged in), retries without token (backend allows anonymous GET).
    */
   getAllAltitudes(lat: number, lon: number, alt?: number | null): Observable<any> {
+    const url = this.API_URL + 'external/weather/altitudes';
+    let params = new HttpParams().set('lat', lat.toString()).set('lon', lon.toString());
+    if (alt !== null && alt !== undefined && !isNaN(alt)) {
+      params = params.set('alt', alt.toString());
+    }
+    const requestNoAuth = () => this._http.get(url, {
+      headers: new HttpHeaders({ 'Accept': 'application/json', 'Content-Type': 'application/json; charset=UTF-8' }),
+      params
+    });
     return this.getHeaderWithToken().pipe(
-      switchMap(headers => {
-        let params = new HttpParams()
-          .set('lat', lat.toString())
-          .set('lon', lon.toString());
-        if (alt !== null && alt !== undefined && !isNaN(alt)) {
-          params = params.set('alt', alt.toString());
-        }
-        return this._http.get(this.API_URL + 'external/weather/altitudes', { 
-          headers: headers,
-          params: params
-        });
-      })
+      switchMap(headers => this._http.get(url, { headers: headers, params: params })),
+      catchError(() => requestNoAuth())
     );
   }
 
@@ -168,6 +165,43 @@ export class ApiService {
         this._http.get<{apiKey: string}>(this.API_URL + 'external/ign/apikey', { headers: headers })
       ),
       map(response => response.apiKey || '')
+    );
+  }
+
+  /**
+   * Geocode: address query → list of results (lat, lon, displayName, address).
+   * Uses backend proxy to Nominatim.
+   */
+  geocodeSearch(query: string): Observable<any[]> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const params = new HttpParams().set('q', query);
+        return this._http.get<any[]>(this.API_URL + 'external/geocode/search', { headers: headers, params: params });
+      })
+    );
+  }
+
+  /**
+   * Reverse geocode: (lat, lon) → full Nominatim response (display_name, address, extratags, etc.).
+   * Uses backend proxy to Nominatim.
+   */
+  geocodeReverse(lat: number, lon: number): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers => {
+        const params = new HttpParams().set('lat', lat.toString()).set('lon', lon.toString());
+        return this._http.get<any>(this.API_URL + 'external/geocode/reverse', { headers: headers, params: params });
+      })
+    );
+  }
+
+  /**
+   * Get approximate location (lat, lon) from client IP via backend.
+   */
+  getLocationByIp(): Observable<{ status: string; lat?: number; lon?: number }> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.get<{ status: string; lat?: number; lon?: number }>(this.API_URL + 'external/geocode/location-by-ip', { headers: headers })
+      )
     );
   }
 }

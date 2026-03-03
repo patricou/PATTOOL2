@@ -18,6 +18,7 @@ public class OpenWeatherService {
     private static final Logger log = LoggerFactory.getLogger(OpenWeatherService.class);
 
     private final RestTemplate restTemplate;
+    private final GeocodeService geocodeService;
 
     @Value("${openweathermap.api.base.url:https://api.openweathermap.org/data/2.5}")
     private String openWeatherApiBaseUrl;
@@ -25,8 +26,9 @@ public class OpenWeatherService {
     @Value("${openweathermap.api.key:}")
     private String openWeatherApiKey;
 
-    public OpenWeatherService(RestTemplate restTemplate) {
+    public OpenWeatherService(RestTemplate restTemplate, GeocodeService geocodeService) {
         this.restTemplate = restTemplate;
+        this.geocodeService = geocodeService;
         // Log API key status (only first 4 chars for security)
         if (openWeatherApiKey != null && !openWeatherApiKey.trim().isEmpty()) {
             log.info("OpenWeatherMap API key loaded (length: {}, starts with: {})", 
@@ -90,74 +92,52 @@ public class OpenWeatherService {
     }
 
     /**
-     * Get altitude from Nominatim only (without fallback to OpenElevation)
+     * Get altitude from Nominatim response only (no fallback to OpenElevation).
+     * Uses GeocodeService.reverse() to avoid duplicating Nominatim API calls.
      * @param lat Latitude
      * @param lon Longitude
      * @return Altitude in meters, or null if not available
      */
     private Double getAltitudeFromNominatimOnly(Double lat, Double lon) {
         try {
-            String url = "https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lon + "&zoom=18&addressdetails=1";
-            
-            HttpHeaders headers = new HttpHeaders();
-            headers.set("User-Agent", "PATTOOL Weather App");
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            
-            HttpEntity<String> requestEntity = new HttpEntity<>(headers);
-            
-            @SuppressWarnings("unchecked")
-            ResponseEntity<Map<String, Object>> response = restTemplate.exchange(
-                    url,
-                    HttpMethod.GET,
-                    requestEntity,
-                    (Class<Map<String, Object>>) (Class<?>) Map.class
-            );
-            
-            if (response.getBody() != null) {
-                Map<String, Object> body = response.getBody();
-                log.debug("Nominatim response keys for ({}, {}): {}", lat, lon, body.keySet());
-                
-                // Nominatim may return elevation in the 'extratags' or directly (rare)
-                if (body.containsKey("extratags")) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> extratags = (Map<String, Object>) body.get("extratags");
-                    if (extratags != null) {
-                        log.debug("Nominatim extratags keys: {}", extratags.keySet());
-                        if (extratags.containsKey("ele")) {
-                            try {
-                                String eleStr = extratags.get("ele").toString();
-                                Double altitude = Double.parseDouble(eleStr);
-                                log.info("Altitude found in Nominatim extratags.ele: {}m for coordinates ({}, {})", altitude, lat, lon);
-                                return altitude;
-                            } catch (NumberFormatException e) {
-                                log.debug("Could not parse elevation from Nominatim extratags.ele: {}", e.getMessage());
-                            }
-                        }
-                    }
-                }
-                // Try alternative: some Nominatim instances return elevation directly (very rare)
-                if (body.containsKey("elevation")) {
+            Map<String, Object> body = geocodeService.reverse(lat, lon);
+            if (body == null) return null;
+            log.debug("Nominatim response keys for ({}, {}): {}", lat, lon, body.keySet());
+            // Nominatim may return elevation in the 'extratags' or directly (rare)
+            if (body.containsKey("extratags")) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> extratags = (Map<String, Object>) body.get("extratags");
+                if (extratags != null && extratags.containsKey("ele")) {
                     try {
-                        Object elevation = body.get("elevation");
-                        if (elevation instanceof Number) {
-                            Double altitude = ((Number) elevation).doubleValue();
-                            log.info("Altitude found in Nominatim elevation field: {}m for coordinates ({}, {})", altitude, lat, lon);
-                            return altitude;
-                        } else if (elevation instanceof String) {
-                            Double altitude = Double.parseDouble((String) elevation);
-                            log.info("Altitude found in Nominatim elevation field (string): {}m for coordinates ({}, {})", altitude, lat, lon);
-                            return altitude;
-                        }
-                    } catch (Exception e) {
-                        log.debug("Could not parse elevation from Nominatim elevation field: {}", e.getMessage());
+                        String eleStr = extratags.get("ele").toString();
+                        Double altitude = Double.parseDouble(eleStr);
+                        log.info("Altitude found in Nominatim extratags.ele: {}m for coordinates ({}, {})", altitude, lat, lon);
+                        return altitude;
+                    } catch (NumberFormatException e) {
+                        log.debug("Could not parse elevation from Nominatim extratags.ele: {}", e.getMessage());
                     }
                 }
-                log.debug("No altitude found in Nominatim response for coordinates ({}, {}). Nominatim typically does not provide elevation data.", lat, lon);
             }
+            if (body.containsKey("elevation")) {
+                try {
+                    Object elevation = body.get("elevation");
+                    if (elevation instanceof Number) {
+                        Double altitude = ((Number) elevation).doubleValue();
+                        log.info("Altitude found in Nominatim elevation field: {}m for coordinates ({}, {})", altitude, lat, lon);
+                        return altitude;
+                    } else if (elevation instanceof String) {
+                        Double altitude = Double.parseDouble((String) elevation);
+                        log.info("Altitude found in Nominatim elevation field (string): {}m for coordinates ({}, {})", altitude, lat, lon);
+                        return altitude;
+                    }
+                } catch (Exception e) {
+                    log.debug("Could not parse elevation from Nominatim elevation field: {}", e.getMessage());
+                }
+            }
+            log.debug("No altitude found in Nominatim response for coordinates ({}, {}). Nominatim typically does not provide elevation data.", lat, lon);
         } catch (Exception e) {
-            log.error("Error calling Nominatim for altitude at coordinates ({}, {}): {}", lat, lon, e.getMessage());
+            log.error("Error getting altitude from Nominatim for coordinates ({}, {}): {}", lat, lon, e.getMessage());
         }
-        // Return null - no fallback here, caller will handle multiple sources
         return null;
     }
 

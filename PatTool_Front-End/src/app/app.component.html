@@ -91,7 +91,7 @@
                 </a>
             </li>
 
-            <!-- API Dropdown -->
+            <!-- Geo Dropdown (position, weather, map) -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" 
                    href="#" 
@@ -99,7 +99,7 @@
                    role="button"
                    (click)="toggleApiDropdown($event)" 
                    [attr.aria-expanded]="showApiDropdown">
-                    <i class="fa fa-plug"></i> API
+                    <i class="fa fa-map-marker me-1"></i> {{ 'MENU.GEO' | translate }}
                 </a>
                 <ul class="dropdown-menu" 
                     [class.show]="showApiDropdown" 
@@ -108,6 +108,11 @@
                            [routerLink]="['api/openweathermap']" 
                            (click)="closeMenu()">
                         <i class="fa fa-cloud"></i> {{ 'MENU.POSITION_METEO' | translate }}
+                    </a></li>
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['api/address-geocode']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-map-marker"></i> {{ 'MENU.ADDRESS_TO_MAP' | translate }}
                     </a></li>
                 </ul>
             </li>

@@ -34,7 +34,9 @@
         "LOCAL_NETWORK": "רשת מקומית",
         "IA": "בינה מלאכותית",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "מיקום/מזג אוויר"
+        "GEO": "גאו",
+        "POSITION_METEO": "מיקום/מזג אוויר",
+        "ADDRESS_TO_MAP": "כתובת/GPS למפה"
     },
     "NAVIGATION": {
         "BACK": "חזור",
@@ -1535,5 +1537,31 @@
         "COPIED_TO_CLIPBOARD": "הועתק ללוח",
         "SHARE_FAILED": "השיתוף נכשל",
         "CHART_INCLUDED": "הגרף כלול בתצוגה המקורית"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "כתובת ל-GPS / מפה",
+        "ENTER_ADDRESS": "הזן כתובת",
+        "ADDRESS_PLACEHOLDER": "לדוגמה: רחוב הרצל, תל אביב",
+        "ADDRESS_REQUIRED": "אנא הזן כתובת.",
+        "FIND_GPS": "חפש GPS",
+        "RESULTS": "תוצאות",
+        "NO_RESULTS": "לא נמצאו תוצאות עבור כתובת זו.",
+        "ERROR": "שגיאה",
+        "SELECT_FIRST": "בחר תחילה תוצאה ולאחר מכן לחץ על הצג במפה.",
+        "SHOW_ON_MAP": "הצג במפה",
+        "SELECTED": "מיקום נבחר",
+        "CLICK_TO_SELECT": "לחץ על תוצאה כדי לבחור אותה, ואז השתמש ב\"הצג במפה\".",
+        "ENTER_COORDINATES": "הזן קואורדינטות GPS",
+        "COORDINATES_PLACEHOLDER": "לדוגמה: 48.8566, 2.3522 או 48.8566 2.3522",
+        "GET_ADDRESS": "קבל כתובת",
+        "INVALID_COORDINATES": "קואורדינטות לא תקינות. השתמש ב: קו רוחב קו אורך (לדוגמה 48.8566 2.3522).",
+        "ADDRESS_NOT_FOUND": "הכתובת לא נמצאה",
+        "MY_POSITION": "המיקום שלי",
+        "GEOLOCATION_NOT_SUPPORTED": "הדפדפן שלך לא תומך במיקום גאוגרפי.",
+        "ERROR_GETTING_LOCATION": "שגיאה בקבלת המיקום",
+        "ALTITUDE_LOAD_ERROR": "לא ניתן לטעון את הגובה.",
+        "COPY_COORDINATES": "העתק קואורדינטות",
+        "COPY_ADDRESS": "העתק כתובת",
+        "COPIED": "הועתק!"
     }
 }

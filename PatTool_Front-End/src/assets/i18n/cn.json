@@ -34,7 +34,9 @@
         "LOCAL_NETWORK": "本地网络",
         "IA": "人工智能",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "位置/天气"
+        "GEO": "地理",
+        "POSITION_METEO": "位置/天气",
+        "ADDRESS_TO_MAP": "地址/GPS到地图"
     },
     "NAVIGATION": {
         "BACK": "返回",
@@ -1543,5 +1545,31 @@
         "COPIED_TO_CLIPBOARD": "已复制到剪贴板",
         "SHARE_FAILED": "分享失败",
         "CHART_INCLUDED": "图表包含在原始视图中"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "地址转GPS/地图",
+        "ENTER_ADDRESS": "输入地址",
+        "ADDRESS_PLACEHOLDER": "例如：伦敦唐宁街10号",
+        "ADDRESS_REQUIRED": "请输入地址。",
+        "FIND_GPS": "查找GPS",
+        "RESULTS": "结果",
+        "NO_RESULTS": "未找到该地址的结果。",
+        "ERROR": "错误",
+        "SELECT_FIRST": "请先选择一个结果，然后点击“在地图上显示”。",
+        "SHOW_ON_MAP": "在地图上显示",
+        "SELECTED": "已选位置",
+        "CLICK_TO_SELECT": "点击结果进行选择，然后使用“在地图上显示”在地图查看器中显示。",
+        "ENTER_COORDINATES": "输入GPS坐标",
+        "COORDINATES_PLACEHOLDER": "例如：48.8566, 2.3522 或 48.8566 2.3522",
+        "GET_ADDRESS": "获取地址",
+        "INVALID_COORDINATES": "坐标无效。请使用：纬度 经度（例如 48.8566 2.3522）或 纬度, 经度。",
+        "ADDRESS_NOT_FOUND": "未找到地址",
+        "MY_POSITION": "我的位置",
+        "GEOLOCATION_NOT_SUPPORTED": "您的浏览器不支持地理定位。",
+        "ERROR_GETTING_LOCATION": "获取位置时出错",
+        "ALTITUDE_LOAD_ERROR": "无法加载海拔。",
+        "COPY_COORDINATES": "复制坐标",
+        "COPY_ADDRESS": "复制地址",
+        "COPIED": "已复制！"
     }
 }

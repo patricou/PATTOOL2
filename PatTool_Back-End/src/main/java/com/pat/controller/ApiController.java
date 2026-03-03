@@ -1,5 +1,7 @@
 package com.pat.controller;
 
+import com.pat.service.GeocodeService;
+import com.pat.service.IpGeolocationService;
 import com.pat.service.OpenWeatherService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,7 +10,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -19,6 +23,12 @@ public class ApiController {
 
     @Autowired
     private OpenWeatherService openWeatherService;
+
+    @Autowired
+    private GeocodeService geocodeService;
+
+    @Autowired
+    private IpGeolocationService ipGeolocationService;
 
     @Value("${thunderforest.api.key:}")
     private String thunderforestApiKey;
@@ -152,6 +162,56 @@ public class ApiController {
     public Map<String, Object> getIgnApiKey() {
         Map<String, Object> result = new HashMap<>();
         result.put("apiKey", ignApiKey != null && !ignApiKey.isEmpty() ? ignApiKey : "");
+        return result;
+    }
+
+    /**
+     * Geocode: address query → list of results (lat, lon, displayName, address).
+     * Proxies to Nominatim (OpenStreetMap).
+     */
+    @GetMapping(value = "/geocode/search", produces = MediaType.APPLICATION_JSON_VALUE)
+    public List<Map<String, Object>> geocodeSearch(@RequestParam("q") String query) {
+        log.debug("Geocode search: q={}", query);
+        return geocodeService.search(query);
+    }
+
+    /**
+     * Reverse geocode: (lat, lon) → display name.
+     * Proxies to Nominatim (OpenStreetMap).
+     */
+    @GetMapping(value = "/geocode/reverse", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> geocodeReverse(
+            @RequestParam("lat") Double lat,
+            @RequestParam("lon") Double lon) {
+        log.debug("Geocode reverse: lat={}, lon={}", lat, lon);
+        return geocodeService.reverse(lat, lon);
+    }
+
+    /**
+     * Get approximate location (lat, lon) from client IP.
+     * Proxies to ip-api.com via IpGeolocationService.
+     */
+    @GetMapping(value = "/geocode/location-by-ip", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> getLocationByIp(HttpServletRequest request) {
+        String ipAddress = request.getHeader("X-Forwarded-For");
+        if (ipAddress == null || ipAddress.trim().isEmpty()) {
+            ipAddress = request.getRemoteAddr();
+        } else {
+            int comma = ipAddress.indexOf(',');
+            if (comma > 0) {
+                ipAddress = ipAddress.substring(0, comma).trim();
+            }
+        }
+        log.debug("Location by IP: client ip={}", ipAddress);
+        IpGeolocationService.CoordinatesInfo coords = ipGeolocationService.getCoordinates(ipAddress);
+        Map<String, Object> result = new HashMap<>();
+        if (coords != null && coords.getLatitude() != null && coords.getLongitude() != null) {
+            result.put("status", "success");
+            result.put("lat", coords.getLatitude());
+            result.put("lon", coords.getLongitude());
+        } else {
+            result.put("status", "fail");
+        }
         return result;
     }
 }

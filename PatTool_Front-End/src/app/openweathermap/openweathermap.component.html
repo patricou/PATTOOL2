@@ -180,7 +180,7 @@
                                 </div>
                             </div>
                         </div>
-                        <div class="col-md-4" *ngIf="allAltitudes && allAltitudes.length > 0">
+                        <div class="col-md-4">
                             <div class="card">
                                 <div class="card-body" style="padding: 0.75rem;">
                                     <h6 class="card-title" style="font-size: 0.875rem; margin-bottom: 0.5rem;">{{ 'API.ALTITUDE' | translate }}</h6>
@@ -188,12 +188,16 @@
                                          placement="top"
                                          triggers="mouseenter:mouseleave"
                                          [openDelay]="200"
-                                         style="display: inline-block; width: 100%;">
+                                         style="display: inline-block; width: 100%;"
+                                         *ngIf="allAltitudes && allAltitudes.length > 0">
                                         <input type="text" 
                                                class="form-control form-control-sm" 
                                                [value]="allAltitudes[0].altitude.toFixed(1)" 
                                                readonly
                                                style="font-size: 0.875rem; cursor: help;">
+                                    </div>
+                                    <div *ngIf="!allAltitudes || allAltitudes.length === 0" class="form-control form-control-sm" style="font-size: 0.875rem; cursor: default; background: var(--bs-secondary-bg);">
+                                        —
                                     </div>
                                     <ng-template #allAltitudesTooltipTemplate>
                                         <div style="white-space: pre-line; text-align: left;">
@@ -205,7 +209,7 @@
                                             </span>
                                         </div>
                                     </ng-template>
-                                    <small class="text-muted" style="font-size: 0.7rem; margin-top: 3px; display: block;">
+                                    <small class="text-muted" style="font-size: 0.7rem; margin-top: 3px; display: block;" *ngIf="allAltitudes && allAltitudes.length > 0">
                                         <i class="fa fa-info-circle"></i> {{ getAltitudeSourceDescription(allAltitudes[0].source) }}
                                         <span *ngIf="allAltitudes[0].priority === 1" class="badge badge-primary ml-1" style="font-size: 0.65em;">{{ 'API.PRIORITY' | translate }}</span>
                                     </small>
@@ -260,6 +264,17 @@
                         <div class="full-address">
                             <i class="fa fa-home"></i>
                             <span>{{ fullAddress }}</span>
+                        </div>
+                        <div class="full-address mt-2" style="font-size: 0.9rem;">
+                            <i class="fa fa-mountain"></i>
+                            <strong>{{ 'API.ALTITUDE' | translate }}:</strong>
+                            <span *ngIf="!allAltitudes || allAltitudes.length === 0">—</span>
+                            <ng-container *ngIf="allAltitudes && allAltitudes.length > 0">
+                                <div *ngFor="let altInfo of allAltitudes" class="mt-1">
+                                    <strong>{{ altInfo.altitude.toFixed(1) }} m</strong>
+                                    <span class="text-muted ms-1"> – {{ getAltitudeSourceDescription(altInfo.source) }}</span>
+                                </div>
+                            </ng-container>
                         </div>
                     </div>
                 </div>

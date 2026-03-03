@@ -46,7 +46,9 @@
         "LOCAL_NETWORK": "स्थानीय नेटवर्क",
         "IA": "एआई",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "स्थिति/मौसम"
+        "GEO": "जियो",
+        "POSITION_METEO": "स्थिति/मौसम",
+        "ADDRESS_TO_MAP": "पता/GPS मानचित्र पर"
     },
     "NAVIGATION": {
         "BACK": "वापस",
@@ -1534,6 +1536,32 @@
         "COPIED_TO_CLIPBOARD": "क्लिपबोर्ड पर कॉपी किया गया",
         "SHARE_FAILED": "साझाकरण विफल",
         "CHART_INCLUDED": "मूल दृश्य में चार्ट शामिल है"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "पता GPS/मानचित्र पर",
+        "ENTER_ADDRESS": "पता दर्ज करें",
+        "ADDRESS_PLACEHOLDER": "उदा. कनॉट प्लेस, दिल्ली",
+        "ADDRESS_REQUIRED": "कृपया एक पता दर्ज करें।",
+        "FIND_GPS": "GPS खोजें",
+        "RESULTS": "परिणाम",
+        "NO_RESULTS": "इस पते के लिए कोई परिणाम नहीं मिला।",
+        "ERROR": "त्रुटि",
+        "SELECT_FIRST": "पहले एक परिणाम चुनें, फिर मानचित्र पर दिखाएं पर क्लिक करें।",
+        "SHOW_ON_MAP": "मानचित्र पर दिखाएं",
+        "SELECTED": "चयनित स्थान",
+        "CLICK_TO_SELECT": "चुनने के लिए परिणाम पर क्लिक करें, फिर \"मानचित्र पर दिखाएं\" का उपयोग करें।",
+        "ENTER_COORDINATES": "GPS निर्देशांक दर्ज करें",
+        "COORDINATES_PLACEHOLDER": "उदा. 48.8566, 2.3522 या 48.8566 2.3522",
+        "GET_ADDRESS": "पता प्राप्त करें",
+        "INVALID_COORDINATES": "अमान्य निर्देशांक। प्रारूप: अक्षांश देशांतर (उदा. 48.8566 2.3522)।",
+        "ADDRESS_NOT_FOUND": "पता नहीं मिला",
+        "MY_POSITION": "मेरी स्थिति",
+        "GEOLOCATION_NOT_SUPPORTED": "आपका ब्राउज़र भू-स्थान का समर्थन नहीं करता।",
+        "ERROR_GETTING_LOCATION": "स्थान प्राप्त करने में त्रुटि",
+        "ALTITUDE_LOAD_ERROR": "ऊंचाई लोड नहीं हो सकी।",
+        "COPY_COORDINATES": "निर्देशांक कॉपी करें",
+        "COPY_ADDRESS": "पता कॉपी करें",
+        "COPIED": "कॉपी हो गया!"
     }
 }
 

@@ -440,39 +440,24 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Check Nominatim (OpenStreetMap) API status
+   * Check Nominatim (OpenStreetMap) API status via backend
    */
   private checkNominatimStatus(): void {
-    // Test Nominatim API with a simple reverse geocoding request
-    const testUrl = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=48.8566&lon=2.3522&zoom=18&addressdetails=1';
-    
-    fetch(testUrl, {
-      headers: {
-        'User-Agent': 'PATTOOL Weather App',
-        'Accept': 'application/json'
-      }
-    })
-    .then(response => {
-      if (response.ok) {
+    this.apiService.geocodeReverse(48.8566, 2.3522).subscribe({
+      next: () => {
         this.nominatimStatus = {
           service: 'Nominatim (OpenStreetMap)',
           status: 'available'
         };
-      } else {
+        this.cdr.detectChanges();
+      },
+      error: () => {
         this.nominatimStatus = {
           service: 'Nominatim (OpenStreetMap)',
           status: 'unavailable'
         };
+        this.cdr.detectChanges();
       }
-      this.cdr.detectChanges();
-    })
-    .catch(error => {
-      console.error('Error checking Nominatim status:', error);
-      this.nominatimStatus = {
-        service: 'Nominatim (OpenStreetMap)',
-        status: 'unavailable'
-      };
-      this.cdr.detectChanges();
     });
   }
 
@@ -1552,7 +1537,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
       // Title will be updated by getFullAddressFromCoordinates with city and country
       // Get full address, city and country from coordinates (using Nominatim, no OpenWeatherMap API call)
       // This will also update city, countryCode, fullAddress and currentWeatherTitle
-      this.getFullAddressFromCoordinates(location.lat, location.lng).finally(() => {
+      this.getFullAddressFromCoordinates(location.lat, location.lng, () => {
         this.isLoadingUserPosition = false;
         this.cdr.detectChanges();
       });
@@ -1587,99 +1572,70 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
       query += ', ' + this.countryCode.trim();
     }
 
-    // Use Nominatim (OpenStreetMap) for forward geocoding - free and no API key required
-    // Increase limit to get multiple results
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=10&addressdetails=1`;
-    
-    fetch(url, {
-      headers: {
-        'User-Agent': 'PATTOOL Weather App', // Required by Nominatim
-        'Accept': 'application/json'
-      }
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data && Array.isArray(data) && data.length > 0) {
-        // Store all results
-        this.citySearchResults = data.map((result: any) => {
-          const address = result.address || {};
-          const cityName = address.city || address.town || address.village || 
-                          address.municipality || address.county || result.display_name?.split(',')[0] || '';
-          const country = address.country || '';
-          const countryCode = address.country_code ? address.country_code.toUpperCase() : '';
-          const state = address.state || address.region || '';
-          const postcode = address.postcode || '';
-          const road = address.road || '';
-          const houseNumber = address.house_number || '';
-          
-          // Build display name
-          const displayParts: string[] = [];
-          if (cityName) displayParts.push(cityName);
-          if (state) displayParts.push(state);
-          if (country) displayParts.push(country);
-          const displayName = displayParts.length > 0 ? displayParts.join(', ') : result.display_name || '';
-          
-          // Build detailed address
-          const addressParts: string[] = [];
-          if (houseNumber && road) {
-            addressParts.push(`${road} ${houseNumber}`);
-          } else if (road) {
-            addressParts.push(road);
-          }
-          if (postcode) {
-            addressParts.push(postcode);
-          }
-          if (cityName) {
-            addressParts.push(cityName);
-          }
-          if (state) {
-            addressParts.push(state);
-          }
-          if (country) {
-            addressParts.push(country);
-          }
-          const detailedAddress = addressParts.length > 0 ? addressParts.join(', ') : result.display_name || '';
-          
-          return {
-            lat: parseFloat(result.lat),
-            lon: parseFloat(result.lon),
-            displayName: displayName,
-            cityName: cityName,
-            country: country,
-            countryCode: countryCode,
-            state: state,
-            postcode: postcode,
-            road: road,
-            houseNumber: houseNumber,
-            detailedAddress: detailedAddress,
-            fullAddress: result.display_name || displayName,
-            originalResult: result
-          };
-        });
-        
-        // Show the results dropdown
-        this.showCitySearchResults = true;
+    // Use backend geocode (Nominatim proxy)
+    this.apiService.geocodeSearch(query).subscribe({
+      next: (data: any[]) => {
+        if (data && data.length > 0) {
+          this.citySearchResults = data.map((result: any) => {
+            const address = result.address || {};
+            const cityName = address.city || address.town || address.village ||
+                address.municipality || address.county || (result.displayName || result.display_name || '').split(',')[0] || '';
+            const country = address.country || '';
+            const countryCode = address.country_code ? address.country_code.toUpperCase() : '';
+            const state = address.state || address.region || '';
+            const postcode = address.postcode || '';
+            const road = address.road || '';
+            const houseNumber = address.house_number || '';
+            const display_name = result.displayName || result.display_name || '';
+            const displayParts: string[] = [];
+            if (cityName) displayParts.push(cityName);
+            if (state) displayParts.push(state);
+            if (country) displayParts.push(country);
+            const displayName = displayParts.length > 0 ? displayParts.join(', ') : display_name;
+            const addressParts: string[] = [];
+            if (houseNumber && road) {
+              addressParts.push(`${road} ${houseNumber}`);
+            } else if (road) {
+              addressParts.push(road);
+            }
+            if (postcode) addressParts.push(postcode);
+            if (cityName) addressParts.push(cityName);
+            if (state) addressParts.push(state);
+            if (country) addressParts.push(country);
+            const detailedAddress = addressParts.length > 0 ? addressParts.join(', ') : display_name;
+            return {
+              lat: typeof result.lat === 'number' ? result.lat : parseFloat(result.lat),
+              lon: typeof result.lon === 'number' ? result.lon : parseFloat(result.lon),
+              displayName,
+              cityName,
+              country,
+              countryCode,
+              state,
+              postcode,
+              road,
+              houseNumber,
+              detailedAddress,
+              fullAddress: display_name,
+              originalResult: result
+            };
+          });
+          this.showCitySearchResults = true;
+        } else {
+          this.errorMessage = this.translateService.instant('API.CITY_NOT_FOUND') || `City not found: ${this.city}`;
+          this.showCitySearchResults = false;
+          this.clearMessages();
+        }
         this.isLoadingCitySearch = false;
         this.cdr.detectChanges();
-      } else {
-        this.errorMessage = this.translateService.instant('API.CITY_NOT_FOUND') || `City not found: ${this.city}`;
+      },
+      error: (error) => {
+        console.error('Error searching city:', error);
+        this.errorMessage = 'Error searching city: ' + (error?.message || 'Unknown error');
         this.isLoadingCitySearch = false;
         this.showCitySearchResults = false;
         this.clearMessages();
+        this.cdr.detectChanges();
       }
-    })
-    .catch(error => {
-      console.error('Error searching city:', error);
-      this.errorMessage = 'Error searching city: ' + (error.message || 'Unknown error');
-      this.isLoadingCitySearch = false;
-      this.showCitySearchResults = false;
-      this.clearMessages();
-      this.cdr.detectChanges();
     });
   }
 
@@ -1715,7 +1671,7 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
     this.citySearchResults = [];
     
     // Get full address from coordinates (using Nominatim reverse geocoding)
-    this.getFullAddressFromCoordinates(this.lat, this.lon).finally(() => {
+    this.getFullAddressFromCoordinates(this.lat, this.lon, () => {
       this.successMessage = this.translateService.instant('API.COORDINATES_FOUND') || 'Coordinates found';
       this.clearMessages();
       this.cdr.detectChanges();
@@ -1763,113 +1719,78 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get full address from coordinates using reverse geocoding (Nominatim)
-   * Also extracts altitude from the same response to avoid duplicate API calls
+   * Get full address from coordinates using reverse geocoding (via backend → Nominatim)
+   * Also extracts altitude from the same response to avoid duplicate API calls.
+   * @param onDone optional callback called when done (success or error)
    */
-  private getFullAddressFromCoordinates(lat: number, lon: number): Promise<void> {
-    // Use Nominatim (OpenStreetMap) for reverse geocoding - free and no API key required
-    const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`;
-    
-    return fetch(url, {
-      headers: {
-        'User-Agent': 'PATTOOL Weather App', // Required by Nominatim
-        'Accept': 'application/json'
-      }
-    })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data && data.address) {
-        const address = data.address;
-        const addressParts: string[] = [];
-        
-        // Build address from most specific to least specific
-        if (address.house_number && address.road) {
-          addressParts.push(`${address.road} ${address.house_number}`);
-        } else if (address.road) {
-          addressParts.push(address.road);
+  private getFullAddressFromCoordinates(lat: number, lon: number, onDone?: () => void): void {
+    this.apiService.geocodeReverse(lat, lon).subscribe({
+      next: (data: any) => {
+        if (data && data.address) {
+          const address = data.address;
+          const addressParts: string[] = [];
+          if (address.house_number && address.road) {
+            addressParts.push(`${address.road} ${address.house_number}`);
+          } else if (address.road) {
+            addressParts.push(address.road);
+          }
+          if (address.postcode) {
+            addressParts.push(address.postcode);
+          }
+          const cityName = address.city || address.town || address.village || address.municipality || address.county || '';
+          if (cityName) {
+            addressParts.push(cityName);
+            this.city = cityName;
+          }
+          if (address.state || address.region) {
+            addressParts.push(address.state || address.region);
+          }
+          if (address.country_code) {
+            this.countryCode = address.country_code.toUpperCase();
+          }
+          if (address.country) {
+            addressParts.push(address.country);
+          }
+          this.fullAddress = addressParts.length > 0 ? addressParts.join(', ') : (data.display_name || data.displayName || '');
+        } else if (data && (data.display_name || data.displayName)) {
+          this.fullAddress = data.display_name || data.displayName;
+          const parts = (data.display_name || data.displayName).split(',');
+          if (parts.length > 0) {
+            this.city = parts[0].trim();
+          }
+        } else {
+          this.fullAddress = '';
         }
-        
-        if (address.postcode) {
-          addressParts.push(address.postcode);
+        if (this.alt === null || this.alt === undefined) {
+          if (data?.extratags?.ele) {
+            try {
+              const elevation = parseFloat(data.extratags.ele);
+              if (!isNaN(elevation)) {
+                this.alt = elevation;
+                this.altFromMobile = false;
+              }
+            } catch (e) {}
+          } else if (data?.elevation != null) {
+            try {
+              const elevation = typeof data.elevation === 'number' ? data.elevation : parseFloat(data.elevation);
+              if (!isNaN(elevation)) {
+                this.alt = elevation;
+                this.altFromMobile = false;
+              }
+            } catch (e) {}
+          }
         }
-        
-        // Extract city (try city, town, village, municipality, or county)
-        const cityName = address.city || address.town || address.village || address.municipality || address.county || '';
-        if (cityName) {
-          addressParts.push(cityName);
-          // Update city in component (for select box)
-          this.city = cityName;
-        }
-        
-        if (address.state || address.region) {
-          addressParts.push(address.state || address.region);
-        }
-        
-        // Extract country code (ISO 3166-1 alpha-2)
-        if (address.country_code) {
-          // Nominatim returns lowercase country codes, convert to uppercase
-          this.countryCode = address.country_code.toUpperCase();
-        }
-        
-        if (address.country) {
-          addressParts.push(address.country);
-        }
-        
-        this.fullAddress = addressParts.length > 0 ? addressParts.join(', ') : data.display_name || '';
-      } else if (data && data.display_name) {
-        this.fullAddress = data.display_name;
-        // Try to extract city from display_name if address is not available
-        const parts = data.display_name.split(',');
-        if (parts.length > 0) {
-          this.city = parts[0].trim();
-        }
-      } else {
+        this.fetchAllAltitudes(lat, lon);
+        this.updateCurrentWeatherTitle();
+        this.cdr.detectChanges();
+        onDone?.();
+      },
+      error: (error) => {
+        console.log('Could not get full address from coordinates:', error);
         this.fullAddress = '';
+        this.cdr.detectChanges();
+        onDone?.();
       }
-      
-      // Extract altitude from Nominatim response if available (to avoid duplicate API call)
-      // Note: Nominatim typically does NOT provide elevation data, but we check anyway
-      // Only update if we don't already have altitude from mobile device
-      if (this.alt === null || this.alt === undefined) {
-        if (data && data.extratags && data.extratags.ele) {
-          try {
-            const elevation = parseFloat(data.extratags.ele);
-            if (!isNaN(elevation)) {
-              this.alt = elevation;
-              this.altFromMobile = false; // Not from mobile, from Nominatim
-            }
-          } catch (e) {
-            // Could not parse elevation from Nominatim extratags.ele
-          }
-        } else if (data && data.elevation) {
-          try {
-            const elevation = typeof data.elevation === 'number' ? data.elevation : parseFloat(data.elevation);
-            if (!isNaN(elevation)) {
-              this.alt = elevation;
-              this.altFromMobile = false; // Not from mobile, from Nominatim
-            }
-          } catch (e) {
-            // Could not parse elevation from Nominatim elevation field
-          }
-        }
-      }
-      
-      // Fetch all altitudes from backend
-      this.fetchAllAltitudes(lat, lon);
-      
-      // Update current weather title with city and country
-      this.updateCurrentWeatherTitle();
-      this.cdr.detectChanges();
-    })
-    .catch(error => {
-      console.log('Could not get full address from coordinates:', error);
-      this.fullAddress = '';
-      this.cdr.detectChanges();
     });
   }
 
@@ -1918,21 +1839,20 @@ export class OpenWeatherMapComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Get location from IP using a free geolocation API
+   * Get location from IP via backend (ip-api.com proxy)
    */
   private getLocationFromIP(): Promise<{ lat: number; lng: number; alt?: number | null }> {
     return new Promise((resolve, reject) => {
-      // Use ip-api.com free service (no API key required)
-      fetch('http://ip-api.com/json/?fields=status,lat,lon')
-        .then(response => response.json())
-        .then(data => {
-          if (data.status === 'success' && data.lat && data.lon) {
+      this.apiService.getLocationByIp().subscribe({
+        next: (data) => {
+          if (data.status === 'success' && data.lat != null && data.lon != null) {
             resolve({ lat: data.lat, lng: data.lon, alt: null });
           } else {
             reject(new Error('IP geolocation failed'));
           }
-        })
-        .catch(() => reject(new Error('IP geolocation request failed')));
+        },
+        error: () => reject(new Error('IP geolocation request failed'))
+      });
     });
   }
 

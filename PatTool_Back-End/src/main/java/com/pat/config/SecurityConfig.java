@@ -173,6 +173,10 @@ public class SecurityConfig {
                 // This way the frontend can show "ask owner for access" instead of redirecting to login
                 .requestMatchers(HttpMethod.GET, "/api/even/*").permitAll()
                 
+                // Geo: geocode and altitudes (no sensitive data, allow without login for address/map tools)
+                .requestMatchers(HttpMethod.GET, "/api/external/geocode/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/external/weather/altitudes").permitAll()
+                
                 // Stream event files (SSE): require authentication so SecurityContext has user and getCurrentUserId() works
                 .requestMatchers(HttpMethod.GET, "/api/even/*/files/stream").authenticated()
                 

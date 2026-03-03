@@ -34,7 +34,9 @@
         "LOCAL_NETWORK": "الشبكة المحلية",
         "IA": "الذكاء الاصطناعي",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "الموقع/الطقس"
+        "GEO": "جيو",
+        "POSITION_METEO": "الموقع/الطقس",
+        "ADDRESS_TO_MAP": "العنوان/GPS على الخريطة"
     },
     "NAVIGATION": {
         "BACK": "رجوع",
@@ -1542,5 +1544,31 @@
         "COPIED_TO_CLIPBOARD": "تم النسخ إلى الحافظة",
         "SHARE_FAILED": "فشلت المشاركة",
         "CHART_INCLUDED": "الرسم البياني مدرج في العرض الأصلي"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "العنوان إلى GPS / الخريطة",
+        "ENTER_ADDRESS": "أدخل العنوان",
+        "ADDRESS_PLACEHOLDER": "مثال: شارع المعز، القاهرة",
+        "ADDRESS_REQUIRED": "يرجى إدخال عنوان.",
+        "FIND_GPS": "البحث عن GPS",
+        "RESULTS": "النتائج",
+        "NO_RESULTS": "لم يتم العثور على نتائج لهذا العنوان.",
+        "ERROR": "خطأ",
+        "SELECT_FIRST": "اختر نتيجة أولاً، ثم انقر على عرض على الخريطة.",
+        "SHOW_ON_MAP": "عرض على الخريطة",
+        "SELECTED": "الموقع المحدد",
+        "CLICK_TO_SELECT": "انقر على نتيجة لتحديدها، ثم استخدم \"عرض على الخريطة\".",
+        "ENTER_COORDINATES": "أدخل إحداثيات GPS",
+        "COORDINATES_PLACEHOLDER": "مثال: 48.8566, 2.3522 أو 48.8566 2.3522",
+        "GET_ADDRESS": "الحصول على العنوان",
+        "INVALID_COORDINATES": "إحداثيات غير صالحة. استخدم: خط العرض خط الطول (مثال: 48.8566 2.3522).",
+        "ADDRESS_NOT_FOUND": "لم يتم العثور على العنوان",
+        "MY_POSITION": "موقعي",
+        "GEOLOCATION_NOT_SUPPORTED": "متصفحك لا يدعم تحديد الموقع الجغرافي.",
+        "ERROR_GETTING_LOCATION": "خطأ في الحصول على الموقع",
+        "ALTITUDE_LOAD_ERROR": "تعذر تحميل الارتفاع.",
+        "COPY_COORDINATES": "نسخ الإحداثيات",
+        "COPY_ADDRESS": "نسخ العنوان",
+        "COPIED": "تم النسخ!"
     }
 }

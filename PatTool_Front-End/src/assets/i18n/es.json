@@ -34,7 +34,9 @@
         "LOCAL_NETWORK": "Red Local",
         "IA": "AI",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "Posición/Clima"
+        "GEO": "Geo",
+        "POSITION_METEO": "Posición/Clima",
+        "ADDRESS_TO_MAP": "Dirección/GPS al mapa"
     },
     "NAVIGATION": {
         "BACK": "Atrás",
@@ -1549,5 +1551,31 @@
         "COPIED_TO_CLIPBOARD": "Copiado al portapapeles",
         "SHARE_FAILED": "Error al compartir",
         "CHART_INCLUDED": "Gráfico incluido en la vista original"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "Dirección a GPS / Mapa",
+        "ENTER_ADDRESS": "Introducir dirección",
+        "ADDRESS_PLACEHOLDER": "ej. Plaza Mayor, Madrid",
+        "ADDRESS_REQUIRED": "Introduzca una dirección.",
+        "FIND_GPS": "Buscar GPS",
+        "RESULTS": "Resultados",
+        "NO_RESULTS": "No se encontraron resultados para esta dirección.",
+        "ERROR": "Error",
+        "SELECT_FIRST": "Seleccione un resultado y luego pulse Mostrar en mapa.",
+        "SHOW_ON_MAP": "Mostrar en mapa",
+        "SELECTED": "Ubicación seleccionada",
+        "CLICK_TO_SELECT": "Haga clic en un resultado para seleccionarlo y use \"Mostrar en mapa\".",
+        "ENTER_COORDINATES": "Introducir coordenadas GPS",
+        "COORDINATES_PLACEHOLDER": "ej. 48.8566, 2.3522 o 48.8566 2.3522",
+        "GET_ADDRESS": "Obtener dirección",
+        "INVALID_COORDINATES": "Coordenadas no válidas. Use: latitud longitud (ej. 48.8566 2.3522).",
+        "ADDRESS_NOT_FOUND": "Dirección no encontrada",
+        "MY_POSITION": "Mi posición",
+        "GEOLOCATION_NOT_SUPPORTED": "La geolocalización no es compatible con su navegador.",
+        "ERROR_GETTING_LOCATION": "Error al obtener la ubicación",
+        "ALTITUDE_LOAD_ERROR": "No se pudo cargar la altitud.",
+        "COPY_COORDINATES": "Copiar coordenadas",
+        "COPY_ADDRESS": "Copiar dirección",
+        "COPIED": "¡Copiado!"
     }
 }

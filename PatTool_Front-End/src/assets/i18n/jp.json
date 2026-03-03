@@ -34,7 +34,9 @@
         "LOCAL_NETWORK": "ローカルネットワーク",
         "IA": "AI",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "位置/天気"
+        "GEO": "ジオ",
+        "POSITION_METEO": "位置/天気",
+        "ADDRESS_TO_MAP": "住所/GPSを地図に"
     },
     "NAVIGATION": {
         "BACK": "戻る",
@@ -1549,5 +1551,31 @@
         "COPIED_TO_CLIPBOARD": "クリップボードにコピーされました",
         "SHARE_FAILED": "共有に失敗しました",
         "CHART_INCLUDED": "元のビューにグラフが含まれています"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "住所をGPS/地図に変換",
+        "ENTER_ADDRESS": "住所を入力",
+        "ADDRESS_PLACEHOLDER": "例：東京都渋谷区...",
+        "ADDRESS_REQUIRED": "住所を入力してください。",
+        "FIND_GPS": "GPSを検索",
+        "RESULTS": "検索結果",
+        "NO_RESULTS": "この住所では結果が見つかりませんでした。",
+        "ERROR": "エラー",
+        "SELECT_FIRST": "まず結果を選択してから「地図に表示」をクリックしてください。",
+        "SHOW_ON_MAP": "地図に表示",
+        "SELECTED": "選択した場所",
+        "CLICK_TO_SELECT": "結果をクリックして選択し、「地図に表示」で地図ビューアに表示します。",
+        "ENTER_COORDINATES": "GPS座標を入力",
+        "COORDINATES_PLACEHOLDER": "例：48.8566, 2.3522 または 48.8566 2.3522",
+        "GET_ADDRESS": "住所を取得",
+        "INVALID_COORDINATES": "座標が無効です。緯度 経度（例：48.8566 2.3522）または 緯度, 経度 の形式で入力してください。",
+        "ADDRESS_NOT_FOUND": "住所が見つかりません",
+        "MY_POSITION": "現在地",
+        "GEOLOCATION_NOT_SUPPORTED": "お使いのブラウザは位置情報に対応していません。",
+        "ERROR_GETTING_LOCATION": "位置の取得中にエラーが発生しました",
+        "ALTITUDE_LOAD_ERROR": "標高を読み込めませんでした。",
+        "COPY_COORDINATES": "座標をコピー",
+        "COPY_ADDRESS": "住所をコピー",
+        "COPIED": "コピーしました！"
     }
 }

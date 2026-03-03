@@ -1,0 +1,119 @@
+.api-container {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.api-title {
+    color: #333;
+    margin-bottom: 10px;
+    font-size: 1rem;
+    border-bottom: 1px solid #007bff;
+    padding-bottom: 5px;
+    font-weight: 600;
+}
+
+.api-title i {
+    font-size: 0.9rem;
+    margin-right: 5px;
+}
+
+.weather-controls {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+
+.form-group {
+    flex: 1;
+    min-width: 120px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 2px;
+    font-weight: 500;
+    color: #555;
+    font-size: 0.8rem;
+}
+
+.form-group .form-control {
+    padding: 4px 8px;
+    font-size: 0.85rem;
+    height: 28px;
+}
+
+.input-group .btn {
+    white-space: nowrap;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    height: 28px;
+    line-height: 1.2;
+}
+
+.weather-controls .btn {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    height: 28px;
+    line-height: 1.2;
+}
+
+.weather-controls .btn i {
+    font-size: 0.75rem;
+}
+
+.address-results .list-group-item {
+    cursor: pointer;
+}
+
+.address-results .list-group-item:hover {
+    background-color: #f8f9fa;
+}
+
+.address-results .list-group-item.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+/* Same button size in results list as Position/Météo */
+.address-results .btn {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    height: 28px;
+    line-height: 1.2;
+}
+
+.address-results .btn i {
+    font-size: 0.75rem;
+}
+
+.btn-text {
+    white-space: nowrap;
+}
+
+/* Same button size for card actions (Show on map) as Position/Météo */
+.api-container .card .btn {
+    padding: 4px 10px;
+    font-size: 0.8rem;
+    height: 28px;
+    line-height: 1.2;
+}
+
+.api-container .card .btn i {
+    font-size: 0.75rem;
+}
+
+@media (max-width: 576px) {
+    .address-results .d-flex.w-100 {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    .address-results .btn-sm.ms-2 {
+        margin-left: 0 !important;
+        margin-top: 8px;
+    }
+}

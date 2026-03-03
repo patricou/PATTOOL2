@@ -34,7 +34,9 @@
         "LOCAL_NETWORK": "Lokales Netzwerk",
         "IA": "KI",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "Position/Wetter"
+        "GEO": "Geo",
+        "POSITION_METEO": "Position/Wetter",
+        "ADDRESS_TO_MAP": "Adresse/GPS auf Karte"
     },
     "NAVIGATION": {
         "BACK": "Zurück",
@@ -1541,5 +1543,31 @@
         "COPIED_TO_CLIPBOARD": "In Zwischenablage kopiert",
         "SHARE_FAILED": "Teilen fehlgeschlagen",
         "CHART_INCLUDED": "Diagramm in der ursprünglichen Ansicht enthalten"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "Adresse zu GPS / Karte",
+        "ENTER_ADDRESS": "Adresse eingeben",
+        "ADDRESS_PLACEHOLDER": "z.B. Brandenburger Tor, Berlin",
+        "ADDRESS_REQUIRED": "Bitte geben Sie eine Adresse ein.",
+        "FIND_GPS": "GPS suchen",
+        "RESULTS": "Ergebnisse",
+        "NO_RESULTS": "Keine Ergebnisse für diese Adresse.",
+        "ERROR": "Fehler",
+        "SELECT_FIRST": "Wählen Sie zuerst ein Ergebnis aus, dann klicken Sie auf Auf Karte anzeigen.",
+        "SHOW_ON_MAP": "Auf Karte anzeigen",
+        "SELECTED": "Ausgewählter Ort",
+        "CLICK_TO_SELECT": "Klicken Sie auf ein Ergebnis zur Auswahl, dann nutzen Sie \"Auf Karte anzeigen\".",
+        "ENTER_COORDINATES": "GPS-Koordinaten eingeben",
+        "COORDINATES_PLACEHOLDER": "z.B. 48.8566, 2.3522 oder 48.8566 2.3522",
+        "GET_ADDRESS": "Adresse abrufen",
+        "INVALID_COORDINATES": "Ungültige Koordinaten. Format: Breite Länge (z.B. 48.8566 2.3522).",
+        "ADDRESS_NOT_FOUND": "Adresse nicht gefunden",
+        "MY_POSITION": "Mein Standort",
+        "GEOLOCATION_NOT_SUPPORTED": "Geolokalisierung wird von Ihrem Browser nicht unterstützt.",
+        "ERROR_GETTING_LOCATION": "Fehler beim Abrufen des Standorts",
+        "ALTITUDE_LOAD_ERROR": "Höhe konnte nicht geladen werden.",
+        "COPY_COORDINATES": "Koordinaten kopieren",
+        "COPY_ADDRESS": "Adresse kopieren",
+        "COPIED": "Kopiert!"
     }
 }

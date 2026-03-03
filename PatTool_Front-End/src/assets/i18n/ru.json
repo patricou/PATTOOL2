@@ -46,7 +46,9 @@
         "LOCAL_NETWORK": "Локальная сеть",
         "IA": "ИИ",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "Позиция/Погода"
+        "GEO": "Гео",
+        "POSITION_METEO": "Позиция/Погода",
+        "ADDRESS_TO_MAP": "Адрес/GPS на карте"
     },
     "NAVIGATION": {
         "BACK": "Назад",
@@ -1537,5 +1539,31 @@
         "COPIED_TO_CLIPBOARD": "Скопировано в буфер обмена",
         "SHARE_FAILED": "Не удалось поделиться",
         "CHART_INCLUDED": "График включен в исходное представление"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "Адрес в GPS / на карту",
+        "ENTER_ADDRESS": "Введите адрес",
+        "ADDRESS_PLACEHOLDER": "напр. Красная площадь, Москва",
+        "ADDRESS_REQUIRED": "Пожалуйста, введите адрес.",
+        "FIND_GPS": "Найти GPS",
+        "RESULTS": "Результаты",
+        "NO_RESULTS": "По этому адресу ничего не найдено.",
+        "ERROR": "Ошибка",
+        "SELECT_FIRST": "Сначала выберите результат, затем нажмите «Показать на карте».",
+        "SHOW_ON_MAP": "Показать на карте",
+        "SELECTED": "Выбранное место",
+        "CLICK_TO_SELECT": "Нажмите на результат для выбора, затем используйте «Показать на карте».",
+        "ENTER_COORDINATES": "Введите координаты GPS",
+        "COORDINATES_PLACEHOLDER": "напр. 48.8566, 2.3522 или 48.8566 2.3522",
+        "GET_ADDRESS": "Получить адрес",
+        "INVALID_COORDINATES": "Неверные координаты. Формат: широта долгота (напр. 48.8566 2.3522).",
+        "ADDRESS_NOT_FOUND": "Адрес не найден",
+        "MY_POSITION": "Моё местоположение",
+        "GEOLOCATION_NOT_SUPPORTED": "Ваш браузер не поддерживает геолокацию.",
+        "ERROR_GETTING_LOCATION": "Ошибка получения местоположения",
+        "ALTITUDE_LOAD_ERROR": "Не удалось загрузить высоту.",
+        "COPY_COORDINATES": "Копировать координаты",
+        "COPY_ADDRESS": "Копировать адрес",
+        "COPIED": "Скопировано!"
     }
 }

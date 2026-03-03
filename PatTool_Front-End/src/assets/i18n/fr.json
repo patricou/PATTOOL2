@@ -34,7 +34,9 @@
         "LOCAL_NETWORK": "Réseau Local",
         "IA": "IA",
         "PATGPT": "PatGPT",
-        "POSITION_METEO": "Position/Météo"
+        "GEO": "Géo",
+        "POSITION_METEO": "Position/Météo",
+        "ADDRESS_TO_MAP": "Adresse/GPS vers carte"
     },
     "NAVIGATION": {
         "BACK": "Retour",
@@ -1559,6 +1561,32 @@
         "CHART_INCLUDED": "Graphique inclus dans la vue originale",
         "SHARE_WEATHER": "Partager la météo",
         "IMAGE_DATA_URL": "URL de l'image:"
+    },
+    "ADDRESS_GEOCODE": {
+        "TITLE": "Adresse vers GPS / Carte",
+        "ENTER_ADDRESS": "Saisir une adresse",
+        "ADDRESS_PLACEHOLDER": "ex. 10 rue de Rivoli, Paris",
+        "ADDRESS_REQUIRED": "Veuillez saisir une adresse.",
+        "FIND_GPS": "Trouver les coordonnées GPS",
+        "RESULTS": "Résultats",
+        "NO_RESULTS": "Aucun résultat pour cette adresse.",
+        "ERROR": "Erreur",
+        "SELECT_FIRST": "Sélectionnez d'abord un résultat, puis cliquez sur Afficher sur la carte.",
+        "SHOW_ON_MAP": "Afficher sur la carte",
+        "SELECTED": "Emplacement sélectionné",
+        "CLICK_TO_SELECT": "Cliquez sur un résultat pour le sélectionner, puis utilisez \"Afficher sur la carte\" pour l'afficher dans la carte.",
+        "ENTER_COORDINATES": "Saisir les coordonnées GPS",
+        "COORDINATES_PLACEHOLDER": "ex. 48.8566, 2.3522 ou 48.8566 2.3522",
+        "GET_ADDRESS": "Obtenir l'adresse",
+        "INVALID_COORDINATES": "Coordonnées invalides. Utilisez : latitude longitude (ex. 48.8566 2.3522) ou lat, lon.",
+        "ADDRESS_NOT_FOUND": "Adresse non trouvée",
+        "MY_POSITION": "Ma position",
+        "GEOLOCATION_NOT_SUPPORTED": "La géolocalisation n'est pas prise en charge par votre navigateur.",
+        "ERROR_GETTING_LOCATION": "Erreur lors de la récupération de la position",
+        "ALTITUDE_LOAD_ERROR": "Impossible de récupérer l'altitude.",
+        "COPY_COORDINATES": "Copier les coordonnées GPS",
+        "COPY_ADDRESS": "Copier l'adresse",
+        "COPIED": "Copié !"
     }
 }
 
