@@ -212,13 +212,6 @@
                                             <i class="fa fa-copy me-1"></i>
                                             <span class="d-none d-sm-inline">{{ 'ADDRESS_GEOCODE.COPY_COORDINATES' | translate }}</span>
                                         </button>
-                                        <button type="button"
-                                                class="btn btn-outline-secondary btn-sm"
-                                                (click)="copySelectedAddress()"
-                                                [title]="'ADDRESS_GEOCODE.COPY_ADDRESS' | translate">
-                                            <i class="fa fa-copy me-1"></i>
-                                            <span class="d-none d-sm-inline">{{ 'ADDRESS_GEOCODE.COPY_ADDRESS' | translate }}</span>
-                                        </button>
                                 <span class="small text-success" *ngIf="copyFeedback">{{ copyFeedback }}</span>
                                 <button type="button"
                                     class="btn btn-warning"
@@ -307,13 +300,6 @@
                                 </div>
                             </div>
                             <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-                                <button type="button"
-                                        class="btn btn-outline-secondary btn-sm"
-                                        (click)="copyReverseCoordinates()"
-                                        [title]="'ADDRESS_GEOCODE.COPY_COORDINATES' | translate">
-                                    <i class="fa fa-copy me-1"></i>
-                                    <span class="d-none d-sm-inline">{{ 'ADDRESS_GEOCODE.COPY_COORDINATES' | translate }}</span>
-                                </button>
                                 <button type="button"
                                         class="btn btn-outline-secondary btn-sm"
                                         (click)="copyReverseAddress()"
