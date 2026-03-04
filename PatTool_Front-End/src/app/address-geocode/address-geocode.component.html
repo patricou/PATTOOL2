@@ -15,7 +15,96 @@
                 <i class="fa fa-exclamation-circle"></i> {{ errorMessageReverse }}
             </div>
 
+            <!-- Ma Position (en premier) -->
             <div class="api-container">
+                <h3 class="api-title">
+                    <i class="fa fa-crosshairs"></i> {{ 'ADDRESS_GEOCODE.MY_POSITION' | translate }}
+                </h3>
+                <div class="alert alert-danger" *ngIf="errorMessageMyPosition" role="alert">
+                    <i class="fa fa-exclamation-circle"></i> {{ errorMessageMyPosition }}
+                </div>
+                <div class="weather-controls">
+                    <button type="button"
+                            class="btn btn-secondary"
+                            [disabled]="isLoadingMyPosition"
+                            (click)="getMyPosition()"
+                            [title]="'ADDRESS_GEOCODE.MY_POSITION' | translate">
+                        <i class="fa" [class.fa-crosshairs]="!isLoadingMyPosition" [class.fa-spinner]="isLoadingMyPosition" [class.fa-spin]="isLoadingMyPosition"></i>
+                        <span class="ms-1">{{ 'ADDRESS_GEOCODE.MY_POSITION' | translate }}</span>
+                    </button>
+                </div>
+                <div class="mt-3" *ngIf="myPositionLat != null && myPositionLon != null">
+                    <div class="card">
+                        <div class="card-body">
+                            <div class="flex-grow-1">
+                                <strong>{{ 'API.ADDRESS' | translate }}</strong>
+                                <div class="small text-muted mt-1">{{ myPositionAddress || '…' }}</div>
+                            </div>
+                            <div class="row g-2 mt-2">
+                                <div class="col-md-4" *ngIf="myPositionLat != null && myPositionLon != null">
+                                    <div class="card h-100">
+                                        <div class="card-body py-2">
+                                            <div class="small text-muted">{{ 'API.LATITUDE' | translate }}</div>
+                                            <strong>{{ myPositionLat.toFixed(6) }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4" *ngIf="myPositionLat != null && myPositionLon != null">
+                                    <div class="card h-100">
+                                        <div class="card-body py-2">
+                                            <div class="small text-muted">{{ 'API.LONGITUDE' | translate }}</div>
+                                            <strong>{{ myPositionLon.toFixed(6) }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="card h-100">
+                                        <div class="card-body py-2">
+                                            <div class="small text-muted">{{ 'API.ALTITUDE' | translate }}</div>
+                                            <span *ngIf="myPositionAltitudeLoading"><i class="fa fa-spinner fa-spin"></i></span>
+                                            <ng-container *ngIf="!myPositionAltitudeLoading">
+                                                <span *ngIf="myPositionAltitudes.length === 0 && !myPositionAltitudeError">—</span>
+                                                <span *ngIf="myPositionAltitudeError" class="text-danger small">{{ 'ADDRESS_GEOCODE.ALTITUDE_LOAD_ERROR' | translate }}</span>
+                                                <div *ngFor="let altInfo of myPositionAltitudes" class="small">
+                                                    <strong>{{ altInfo.altitude | number:'1.1-1' }} m</strong>
+                                                    <span class="text-muted"> – {{ getAltitudeSourceDescription(altInfo.source) }}</span>
+                                                </div>
+                                            </ng-container>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+                                <button type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        (click)="copyMyPositionCoordinates()"
+                                        [title]="'ADDRESS_GEOCODE.COPY_COORDINATES' | translate">
+                                    <i class="fa fa-copy me-1"></i>
+                                    <span class="d-none d-sm-inline">{{ 'ADDRESS_GEOCODE.COPY_COORDINATES' | translate }}</span>
+                                </button>
+                                <button type="button"
+                                        class="btn btn-outline-secondary btn-sm"
+                                        (click)="copyMyPositionAddress()"
+                                        [title]="'ADDRESS_GEOCODE.COPY_ADDRESS' | translate">
+                                    <i class="fa fa-copy me-1"></i>
+                                    <span class="d-none d-sm-inline">{{ 'ADDRESS_GEOCODE.COPY_ADDRESS' | translate }}</span>
+                                </button>
+                                <span class="small text-success" *ngIf="copyFeedbackMyPosition">{{ copyFeedbackMyPosition }}</span>
+                                <button type="button"
+                                    class="btn btn-warning"
+                                    (click)="showMyPositionOnMap()"
+                                    [title]="'ADDRESS_GEOCODE.SHOW_ON_MAP' | translate">
+                                    <i class="fa fa-map me-1"></i>
+                                    <span class="d-none d-sm-inline">{{ 'ADDRESS_GEOCODE.SHOW_ON_MAP' | translate }}</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trouver l'adresse -->
+            <div class="api-container mt-4">
                 <h3 class="api-title">
                     <i class="fa fa-map-marker"></i> {{ 'ADDRESS_GEOCODE.ENTER_ADDRESS' | translate }}
                 </h3>
@@ -30,13 +119,6 @@
                                    [placeholder]="'ADDRESS_GEOCODE.ADDRESS_PLACEHOLDER' | translate"
                                    (keyup.enter)="searchAddress()">
                             <button type="button"
-                                    class="btn btn-outline-secondary"
-                                    (click)="pasteAddress()"
-                                    [title]="'ADDRESS_GEOCODE.PASTE_ADDRESS' | translate">
-                                <i class="fa fa-clipboard"></i>
-                                <span class="d-none d-sm-inline ms-1">{{ 'ADDRESS_GEOCODE.PASTE_ADDRESS' | translate }}</span>
-                            </button>
-                            <button type="button"
                                     class="btn btn-primary"
                                     [disabled]="isLoading"
                                     (click)="searchAddress()"
@@ -48,8 +130,6 @@
                         </div>
                     </div>
                 </div>
-
-                <!-- Results list -->
                 <div class="address-results" *ngIf="results.length > 0">
                     <h4 class="api-title small mt-3">{{ 'ADDRESS_GEOCODE.RESULTS' | translate }} ({{ results.length }})</h4>
                     <div class="row g-2 mt-1">
@@ -173,21 +253,6 @@
                                    [(ngModel)]="coordinatesInput"
                                    [placeholder]="'ADDRESS_GEOCODE.COORDINATES_PLACEHOLDER' | translate"
                                    (keyup.enter)="getAddressFromCoordinates()">
-                            <button type="button"
-                                    class="btn btn-outline-secondary"
-                                    (click)="pasteCoordinates()"
-                                    [title]="'ADDRESS_GEOCODE.PASTE_COORDINATES' | translate">
-                                <i class="fa fa-clipboard"></i>
-                                <span class="d-none d-sm-inline ms-1">{{ 'ADDRESS_GEOCODE.PASTE_COORDINATES' | translate }}</span>
-                            </button>
-                            <button type="button"
-                                    class="btn btn-secondary"
-                                    [disabled]="isLoadingMyPosition"
-                                    (click)="getMyPosition()"
-                                    [title]="'ADDRESS_GEOCODE.MY_POSITION' | translate">
-                                <i class="fa" [class.fa-crosshairs]="!isLoadingMyPosition" [class.fa-spinner]="isLoadingMyPosition" [class.fa-spin]="isLoadingMyPosition"></i>
-                                <span class="d-none d-sm-inline ms-1">{{ 'ADDRESS_GEOCODE.MY_POSITION' | translate }}</span>
-                            </button>
                             <button type="button"
                                     class="btn btn-info"
                                     [disabled]="isLoadingReverse"

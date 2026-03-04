@@ -1,4 +1,4 @@
-import { Component, ViewChild, NgZone } from '@angular/core';
+import { Component, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -48,6 +48,16 @@ export class AddressGeocodeComponent {
 	errorMessageReverse: string = '';
 	isLoadingMyPosition: boolean = false;
 
+	// Ma Position block (dedicated state)
+	myPositionAddress: string = '';
+	myPositionLat: number | null = null;
+	myPositionLon: number | null = null;
+	myPositionAltitudes: Array<{ altitude: number; source: string; sourceDescription?: string }> = [];
+	myPositionAltitudeLoading: boolean = false;
+	myPositionAltitudeError: boolean = false;
+	errorMessageMyPosition: string = '';
+	copyFeedbackMyPosition: string = '';
+
 	// Altitude for selected address result (from search) – all sources
 	selectedAltitudes: Array<{ altitude: number; source: string; sourceDescription?: string }> = [];
 	selectedAltitudeLoading: boolean = false;
@@ -56,35 +66,11 @@ export class AddressGeocodeComponent {
 	copyFeedback: string = '';
 	copyFeedbackReverse: string = '';
 
-	/** Paste from clipboard into address or coordinates field. */
-	async pasteAddress(): Promise<void> {
-		this.errorMessage = '';
-		try {
-			const text = await navigator.clipboard.readText();
-			if (text != null && text.trim()) {
-				this.addressQuery = text.trim();
-			}
-		} catch {
-			this.errorMessage = this.translateService.instant('ADDRESS_GEOCODE.PASTE_ERROR');
-		}
-	}
-
-	async pasteCoordinates(): Promise<void> {
-		this.errorMessageReverse = '';
-		try {
-			const text = await navigator.clipboard.readText();
-			if (text != null && text.trim()) {
-				this.coordinatesInput = text.trim();
-			}
-		} catch {
-			this.errorMessageReverse = this.translateService.instant('ADDRESS_GEOCODE.PASTE_ERROR');
-		}
-	}
-
 	constructor(
 		private readonly translateService: TranslateService,
 		private readonly apiService: ApiService,
-		private readonly ngZone: NgZone
+		private readonly ngZone: NgZone,
+		private readonly cdr: ChangeDetectorRef
 	) {}
 
 	/**
@@ -120,13 +106,16 @@ export class AddressGeocodeComponent {
 					// Un seul résultat : le sélectionner pour charger l'altitude
 					this.selectResult(this.results[0]);
 				}
+				this.cdr.detectChanges();
 			},
 			error: (err) => {
 				this.errorMessage = this.translateService.instant('ADDRESS_GEOCODE.ERROR') + ': ' + (err?.message || String(err));
 				this.results = [];
+				this.cdr.detectChanges();
 			},
 			complete: () => {
 				this.isLoading = false;
+				this.cdr.detectChanges();
 			}
 		});
 	}
@@ -150,12 +139,17 @@ export class AddressGeocodeComponent {
 						}));
 				}
 				this.selectedAltitudeError = false;
+				this.cdr.detectChanges();
 			},
 			error: () => {
 				this.selectedAltitudes = [];
 				this.selectedAltitudeError = true;
+				this.cdr.detectChanges();
 			},
-			complete: () => { this.selectedAltitudeLoading = false; }
+			complete: () => {
+				this.selectedAltitudeLoading = false;
+				this.cdr.detectChanges();
+			}
 		});
 	}
 
@@ -248,6 +242,7 @@ export class AddressGeocodeComponent {
 				this.reverseLon = data.lon ?? lon;
 				this.reverseAddressResult = (data?.displayName ?? data?.display_name ?? '')?.trim() || this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_NOT_FOUND');
 				this.fetchReverseAltitude(lat, lon, deviceAlt);
+				this.cdr.detectChanges();
 			},
 			error: (err) => {
 				this.errorMessageReverse = this.translateService.instant('ADDRESS_GEOCODE.ERROR') + ': ' + (err?.message || String(err));
@@ -256,9 +251,11 @@ export class AddressGeocodeComponent {
 				this.reverseLon = null;
 				this.reverseAltitudes = [];
 				this.reverseAltitudeError = false;
+				this.cdr.detectChanges();
 			},
 			complete: () => {
 				this.isLoadingReverse = false;
+				this.cdr.detectChanges();
 			}
 		});
 	}
@@ -280,12 +277,17 @@ export class AddressGeocodeComponent {
 						}));
 				}
 				this.reverseAltitudeError = false;
+				this.cdr.detectChanges();
 			},
 			error: () => {
 				this.reverseAltitudes = [];
 				this.reverseAltitudeError = true;
+				this.cdr.detectChanges();
 			},
-			complete: () => { this.reverseAltitudeLoading = false; }
+			complete: () => {
+				this.reverseAltitudeLoading = false;
+				this.cdr.detectChanges();
+			}
 		});
 	}
 
@@ -345,29 +347,100 @@ export class AddressGeocodeComponent {
 	 */
 	getMyPosition(): void {
 		if (!navigator.geolocation) {
-			this.errorMessageReverse = this.translateService.instant('ADDRESS_GEOCODE.GEOLOCATION_NOT_SUPPORTED');
+			this.errorMessageMyPosition = this.translateService.instant('ADDRESS_GEOCODE.GEOLOCATION_NOT_SUPPORTED');
 			return;
 		}
-		this.errorMessageReverse = '';
+		this.errorMessageMyPosition = '';
+		this.myPositionAddress = '';
+		this.myPositionLat = null;
+		this.myPositionLon = null;
+		this.myPositionAltitudes = [];
+		this.myPositionAltitudeError = false;
 		this.isLoadingMyPosition = true;
+		this.cdr.detectChanges();
 		navigator.geolocation.getCurrentPosition(
 			(position) => {
 				this.ngZone.run(() => {
 					const lat = position.coords.latitude;
 					const lon = position.coords.longitude;
 					const alt = position.coords.altitude != null && !isNaN(position.coords.altitude) ? position.coords.altitude : undefined;
-					this.coordinatesInput = `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
 					this.isLoadingMyPosition = false;
-					this.getAddressFromCoordinates(alt);
+					this.fetchMyPositionAddressAndAltitude(lat, lon, alt);
+					this.cdr.detectChanges();
 				});
 			},
 			(err) => {
 				this.ngZone.run(() => {
 					this.isLoadingMyPosition = false;
-					this.errorMessageReverse = this.translateService.instant('ADDRESS_GEOCODE.ERROR_GETTING_LOCATION') + ': ' + (err.message || err.code || '');
+					this.errorMessageMyPosition = this.translateService.instant('ADDRESS_GEOCODE.ERROR_GETTING_LOCATION') + ': ' + (err.message || err.code || '');
+					this.cdr.detectChanges();
 				});
 			},
 			{ enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
 		);
+	}
+
+	/** Fetch address and altitude for "Ma Position" and fill myPosition* state. */
+	private fetchMyPositionAddressAndAltitude(lat: number, lon: number, altFromDevice?: number): void {
+		this.myPositionLat = lat;
+		this.myPositionLon = lon;
+		this.myPositionAltitudeLoading = true;
+		this.myPositionAltitudes = [];
+		this.apiService.geocodeReverse(lat, lon).subscribe({
+			next: (data) => {
+				this.myPositionAddress = (data?.displayName ?? data?.display_name ?? '')?.trim() || this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_NOT_FOUND');
+				this.cdr.detectChanges();
+			},
+			error: () => {
+				this.myPositionAddress = this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_NOT_FOUND');
+				this.cdr.detectChanges();
+			}
+		});
+		this.apiService.getAllAltitudes(lat, lon, altFromDevice ?? undefined).subscribe({
+			next: (data: any) => {
+				const list = data?.altitudes;
+				if (list && Array.isArray(list)) {
+					this.myPositionAltitudes = list
+						.filter((a: any) => a != null && a.altitude != null)
+						.map((a: any) => ({
+							altitude: typeof a.altitude === 'number' ? a.altitude : parseFloat(a.altitude),
+							source: a.source || '',
+							sourceDescription: a.sourceDescription
+						}));
+				}
+				this.myPositionAltitudeError = false;
+				this.cdr.detectChanges();
+			},
+			error: () => {
+				this.myPositionAltitudes = [];
+				this.myPositionAltitudeError = true;
+				this.cdr.detectChanges();
+			},
+			complete: () => {
+				this.myPositionAltitudeLoading = false;
+				this.cdr.detectChanges();
+			}
+		});
+	}
+
+	showMyPositionOnMap(): void {
+		if (this.myPositionLat == null || this.myPositionLon == null || !this.traceViewerModalComponent) return;
+		const label = this.myPositionAddress || `${this.myPositionLat.toFixed(6)}, ${this.myPositionLon.toFixed(6)}`;
+		this.traceViewerModalComponent.openAtLocation(this.myPositionLat, this.myPositionLon, label, undefined, false);
+	}
+
+	async copyMyPositionCoordinates(): Promise<void> {
+		if (this.myPositionLat == null || this.myPositionLon == null) return;
+		const text = `${this.myPositionLat.toFixed(6)}, ${this.myPositionLon.toFixed(6)}`;
+		const ok = await this.copyToClipboard(text);
+		this.copyFeedbackMyPosition = ok ? this.translateService.instant('ADDRESS_GEOCODE.COPIED') : '';
+		if (ok) setTimeout(() => { this.copyFeedbackMyPosition = ''; }, 2000);
+	}
+
+	async copyMyPositionAddress(): Promise<void> {
+		if (!this.myPositionAddress?.trim()) return;
+		const ok = await this.copyToClipboard(this.myPositionAddress);
+		this.copyFeedbackMyPosition = ok ? this.translateService.instant('ADDRESS_GEOCODE.COPIED') : '';
+		if (ok) setTimeout(() => { this.copyFeedbackMyPosition = ''; }, 2000);
 	}
 }
