@@ -812,6 +812,8 @@
         "TRACK_BASEMAP": "Базовая карта",
         "TRACK_RECENTER": "Центрировать трек (R)",
         "TRACK_SHARE_LOCATION": "Поделиться местоположением",
+        "CARTES_GOUV_FR": "cartes.gouv.fr",
+        "CARTES_GOUV_FR_TITLE": "Открыть сервис публичных карт в новой вкладке",
 		"SHOW_GPS_COORDINATES": "Показать GPS координаты",
 		"SHOW_ADDRESS": "Показать адрес",
 		"SHOW_WEATHER": "Показать погоду",

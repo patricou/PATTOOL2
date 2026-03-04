@@ -810,6 +810,8 @@
         "TRACK_BASEMAP": "מפת בסיס",
         "TRACK_RECENTER": "מרכז את המסלול (R)",
         "TRACK_SHARE_LOCATION": "שתף מיקום",
+        "CARTES_GOUV_FR": "cartes.gouv.fr",
+        "CARTES_GOUV_FR_TITLE": "פתח את שירות המפות הציבורי בטאב חדש",
 		"SHOW_GPS_COORDINATES": "הצג קואורדינטות GPS",
 		"SHOW_ADDRESS": "הצג כתובת",
 		"SHOW_WEATHER": "הצג מזג אוויר",

@@ -818,6 +818,8 @@
         "TRACK_BASEMAP": "底图",
         "TRACK_RECENTER": "重新居中轨迹 (R)",
         "TRACK_SHARE_LOCATION": "分享位置",
+        "CARTES_GOUV_FR": "cartes.gouv.fr",
+        "CARTES_GOUV_FR_TITLE": "在新标签页中打开公共地图服务",
 		"SHOW_GPS_COORDINATES": "显示GPS坐标",
 		"SHOW_ADDRESS": "显示地址",
 		"SHOW_WEATHER": "显示天气",

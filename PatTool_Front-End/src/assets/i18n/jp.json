@@ -698,6 +698,8 @@
         "TRACK_BASEMAP": "ベースマップ",
         "TRACK_RECENTER": "トラックを再中心表示 (R)",
         "TRACK_SHARE_LOCATION": "位置を共有",
+        "CARTES_GOUV_FR": "cartes.gouv.fr",
+        "CARTES_GOUV_FR_TITLE": "新しいタブで公式地図サービスを開く",
 		"SHOW_GPS_COORDINATES": "GPS座標を表示",
 		"SHOW_ADDRESS": "住所を表示",
 		"SHOW_WEATHER": "天気を表示",

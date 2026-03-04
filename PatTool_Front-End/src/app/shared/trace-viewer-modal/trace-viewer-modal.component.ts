@@ -1,4 +1,4 @@
-﻿import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
@@ -67,6 +67,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public clickedWeatherLng: number = 0;
 	public clickedWeatherAlt: number | null = null;
 	public clickedWeatherAddress: string = '';
+	/** Afficher les sentiers randonnée (Waymarked Trails) par-dessus le fond de carte. */
+	public showHikingTrailsOverlay: boolean = false;
+	private hikingTrailsOverlay?: L.TileLayer;
+	/** Afficher les pistes cyclables (Waymarked Trails) par-dessus le fond de carte. */
+	public showCyclingTrailsOverlay: boolean = false;
+	private cyclingTrailsOverlay?: L.TileLayer;
 
 	// Event color for styling
 	private eventColor: { r: number; g: number; b: number } | null = null;
@@ -92,6 +98,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private static leafletIconsConfigured = false;
 	private fullscreenChangeHandler?: () => void;
+	private orientationMediaQuery: MediaQueryList | null = null;
+	private orientationChangeHandler?: () => void;
 	private baseLayers: Record<string, L.TileLayer | L.LayerGroup> = {};
 	public availableBaseLayers: Array<{ id: string; label: string }> = [];
 	public selectedBaseLayerId: string = '';
@@ -187,6 +195,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.close();
 		this.destroyMap();
 		this.cleanupFullscreenListener();
+		this.cleanupOrientationListener();
 		this.cleanupRightClickZoom();
 		this.cleanupLocationSelection();
 	}
@@ -361,6 +370,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.modalRef.dismissed.pipe(take(1)).subscribe(() => finalizeModal());
 		this.subscribeToModalVisibility();
 		this.registerFullscreenListener();
+		this.registerOrientationListener();
 		this.registerEscapeKeydownListener();
 
 		// Apply event color after modal is rendered
@@ -1216,6 +1226,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.clickedLng = 0;
 		this.clickedAlt = null;
 		this.showAddress = false;
+		this.showHikingTrailsOverlay = false;
+		this.showCyclingTrailsOverlay = false;
 		this.cleanupMapMoveHandler();
 		this.cleanupMapMouseMoveHandler();
 		this.cleanupAddressClickHandler();
@@ -1234,6 +1246,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.map = undefined;
 		}
 		this.overlayLayer = undefined;
+		this.hikingTrailsOverlay = undefined;
+		this.cyclingTrailsOverlay = undefined;
 		this.pendingTrackPoints = null;
 		this.pendingLocation = null;
 		this.selectionMarker = undefined;
@@ -1349,6 +1363,39 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
+	private isMobileViewport(): boolean {
+		return this.document.defaultView != null && (
+			this.document.defaultView.innerHeight <= 500 ||
+			this.document.defaultView.innerWidth <= 768
+		);
+	}
+
+	private registerOrientationListener(): void {
+		if (!this.document.defaultView) {
+			return;
+		}
+		this.cleanupOrientationListener();
+		const landscape = this.document.defaultView.matchMedia('(orientation: landscape)');
+		this.orientationMediaQuery = landscape;
+		this.orientationChangeHandler = () => {
+			if (!landscape.matches || !this.modalRef || this.document.fullscreenElement) {
+				return;
+			}
+			if (this.isMobileViewport()) {
+				this.toggleFullscreen();
+			}
+		};
+		landscape.addEventListener('change', this.orientationChangeHandler);
+	}
+
+	private cleanupOrientationListener(): void {
+		if (this.orientationMediaQuery && this.orientationChangeHandler) {
+			this.orientationMediaQuery.removeEventListener('change', this.orientationChangeHandler);
+			this.orientationMediaQuery = null;
+			this.orientationChangeHandler = undefined;
+		}
+	}
+
 	private findMapContainerElement(): HTMLDivElement | null {
 		let element = this.document.getElementById('trace-viewer-map-container') as HTMLDivElement | null;
 		if (!element) {
@@ -1372,8 +1419,34 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Create base layers first (without OpenCycleMap)
 		this.createBaseLayers();
 
-		// IGN open data layers don't require API key - removed API key fetching
-		// Only SCAN 25/100/OACI require personal API keys
+		// Fetch IGN API key: si configurée, on ajoute SCAN 25® par-dessus Plan IGN pour zoom 13+ (sans enlever Plan IGN → pas de fond gris)
+		this.apiService.getIgnApiKey().pipe(
+			takeUntil(this.destroy$)
+		).subscribe({
+			next: (apiKey: string) => {
+				if (!apiKey || apiKey.trim().length === 0) {
+					return;
+				}
+				const ignClassicGroup = this.baseLayers['ign-classic'];
+				if (!ignClassicGroup || !(ignClassicGroup instanceof L.LayerGroup)) {
+					return;
+				}
+				const scan25Tour = L.tileLayer(
+					'https://data.geopf.fr/private/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&apikey=' + encodeURIComponent(apiKey) +
+					'&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}',
+					{
+						minZoom: 13,
+						maxZoom: 19,
+						attribution: '&copy; IGN - Géoportail',
+						zIndex: 3
+					}
+				);
+				ignClassicGroup.addLayer(scan25Tour);
+			},
+			error: (err) => {
+				console.warn('Could not fetch IGN API key:', err);
+			}
+		});
 
 		// Fetch Thunderforest API key from backend and add OpenCycleMap when available
 		this.apiService.getThunderforestApiKey().pipe(
@@ -1382,8 +1455,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			next: (apiKey: string) => {
 				if (apiKey && apiKey.trim().length > 0) {
 					this.thunderforestApiKey = apiKey;
-					// Add OpenCycleMap layer
+					// Add OpenCycleMap layer (vélo / rando)
 					this.baseLayers['opencyclemap'] = L.tileLayer('https://{s}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=' + this.thunderforestApiKey, {
+						maxZoom: 18,
+						subdomains: ['a', 'b', 'c'],
+						attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://www.thunderforest.com">Thunderforest</a>'
+					});
+					// Add Thunderforest Outdoors (carte rando : sentiers, relief, SAC)
+					this.baseLayers['thunderforest-outdoors'] = L.tileLayer('https://{s}.tile.thunderforest.com/outdoors/{z}/{x}/{y}.png?apikey=' + this.thunderforestApiKey, {
 						maxZoom: 18,
 						subdomains: ['a', 'b', 'c'],
 						attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://www.thunderforest.com">Thunderforest</a>'
@@ -1391,6 +1470,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 					// Add to available layers list and sort alphabetically
 					const openCycleMapEntry = { id: 'opencyclemap', label: 'OpenCycleMap (Randonnée/Vélo)' };
 					this.availableBaseLayers.push(openCycleMapEntry);
+					this.availableBaseLayers.push({ id: 'thunderforest-outdoors', label: 'Thunderforest Outdoors (Rando)' });
 					this.availableBaseLayers.sort((a, b) => a.label.localeCompare(b.label));
 				}
 			},
@@ -1454,21 +1534,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 				attribution: '&copy; IGN - Géoportail'
 			}),
 			'ign-classic': (() => {
-				// Create a hybrid layer: SCAN-REGIONAL for zoom 0-12, then PLANIGNV2 for zoom 13-19
-				// This provides classic IGN maps at lower zooms and detailed topographic maps at higher zooms
+				// Carte IGN classique avec GR (magenta). Zoom 0-12 : SCAN-REGIONAL. Zoom 13+ : Plan IGN par défaut.
+				// Si une clé API IGN est configurée, le zoom 13+ utilisera SCAN 25® (carte détaillée 1:25k avec GR).
 				const scanRegional = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=IGNF_CARTES_SCAN-REGIONAL&STYLE=SCANREG&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 					minZoom: 0,
-					maxZoom: 13,
-					attribution: '&copy; IGN - GÃ©oportail',
+					maxZoom: 12,
+					attribution: '&copy; IGN - Géoportail',
 					zIndex: 1
 				});
 				const planIgn = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-					minZoom: 12,
+					minZoom: 13,
 					maxZoom: 19,
-					attribution: '&copy; IGN - GÃ©oportail',
+					attribution: '&copy; IGN - Géoportail',
 					zIndex: 2
 				});
-				// Return a layer group that combines both
 				return L.layerGroup([scanRegional, planIgn]) as any;
 			})(),
 			'ign-ortho': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=ORTHOIMAGERY.ORTHOPHOTOS&STYLE=normal&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
@@ -1513,11 +1592,11 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// 	maxZoom: 19,
 			// 	attribution: '&copy; IGN - Géoportail'
 			// }),
-			// Hiking and outdoor maps
-			'osm-hot': L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
-				maxZoom: 19,
-				subdomains: ['a', 'b', 'c'],
-				attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by <a href="https://www.hotosm.org/" target="_blank">HOT</a>'
+			// CyclOSM : carte vélo / rando (hébergée par OSM France)
+			'cyclosm': L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
+				maxZoom: 18,
+				subdomains: 'abc',
+				attribution: '&copy; <a href="https://www.cyclosm.org">CyclOSM</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 			})
 		};
 
@@ -1541,7 +1620,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			// { id: 'ign-scan-express', label: 'SCAN 25® : carte topographique détaillée à 1:25 000' }, // Commented out - layer returns 400 error, may require personal API key or correct layer name
 			// { id: 'ign-bd-topo', label: 'IGN BD Topo' }, // Commented out - not available as simple WMTS tile layer
 			// Hiking and outdoor maps (OpenCycleMap will be added when API key is fetched)
-			{ id: 'osm-hot', label: 'OSM Humanitarian' }
+			{ id: 'cyclosm', label: 'CyclOSM (Vélo / Rando)' }
 		].sort((a, b) => a.label.localeCompare(b.label));
 
 		this.selectedBaseLayerId = 'opentopomap';
@@ -1614,6 +1693,58 @@ export class TraceViewerModalComponent implements OnDestroy {
 				}
 			}, 100);
 		}
+		this.applyHikingTrailsOverlay();
+		this.applyCyclingTrailsOverlay();
+	}
+
+	/**
+	 * Affiche ou masque la couche sentiers randonnée (Waymarked Trails) par-dessus le fond de carte.
+	 */
+	private applyHikingTrailsOverlay(): void {
+		if (!this.map) {
+			return;
+		}
+		this.hikingTrailsOverlay?.remove();
+		if (this.showHikingTrailsOverlay) {
+			if (!this.hikingTrailsOverlay) {
+				this.hikingTrailsOverlay = L.tileLayer('https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', {
+					maxZoom: 18,
+					opacity: 0.95,
+					zIndex: 10
+				});
+			}
+			this.hikingTrailsOverlay.addTo(this.map);
+		}
+	}
+
+	public onHikingTrailsOverlayChange(): void {
+		this.applyHikingTrailsOverlay();
+		this.cdr.detectChanges();
+	}
+
+	/**
+	 * Affiche ou masque la couche pistes cyclables (Waymarked Trails) par-dessus le fond de carte.
+	 */
+	private applyCyclingTrailsOverlay(): void {
+		if (!this.map) {
+			return;
+		}
+		this.cyclingTrailsOverlay?.remove();
+		if (this.showCyclingTrailsOverlay) {
+			if (!this.cyclingTrailsOverlay) {
+				this.cyclingTrailsOverlay = L.tileLayer('https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png', {
+					maxZoom: 18,
+					opacity: 0.95,
+					zIndex: 11
+				});
+			}
+			this.cyclingTrailsOverlay.addTo(this.map);
+		}
+	}
+
+	public onCyclingTrailsOverlayChange(): void {
+		this.applyCyclingTrailsOverlay();
+		this.cdr.detectChanges();
 	}
 
 	public toggleSelectionOverlay(): void {
@@ -2151,6 +2282,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.isFullscreenInfoVisible = false;
 		this.destroyMap();
 		this.cleanupFullscreenListener();
+		this.cleanupOrientationListener();
 		this.resetTraceViewerColors();
 		if (this.document.fullscreenElement) {
 			this.document.exitFullscreen().catch(() => { });

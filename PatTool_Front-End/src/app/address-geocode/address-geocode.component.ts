@@ -443,4 +443,55 @@ export class AddressGeocodeComponent {
 		this.copyFeedbackMyPosition = ok ? this.translateService.instant('ADDRESS_GEOCODE.COPIED') : '';
 		if (ok) setTimeout(() => { this.copyFeedbackMyPosition = ''; }, 2000);
 	}
+
+	/**
+	 * Share position (like Position/météo): Web Share API or open WhatsApp with pre-filled message.
+	 */
+	private sharePosition(lat: number, lon: number, altitude: number | null, _label?: string): void {
+		const latStr = lat.toFixed(6);
+		const lonStr = lon.toFixed(6);
+		const altStr = altitude !== null ? `, ${altitude.toFixed(1)}m` : '';
+		const positionText = `${latStr}, ${lonStr}${altStr}`;
+		const googleMapsUrl = `https://www.google.com/maps?q=${latStr},${lonStr}`;
+		let shareText = `${this.translateService.instant('API.POSITION')}: ${positionText}\n${this.translateService.instant('API.VIEW_ON_MAPS')}: ${googleMapsUrl}`;
+		if (altitude !== null) {
+			shareText += `\n${this.translateService.instant('API.ALTITUDE')}: ${altitude.toFixed(1)} m`;
+		}
+		if (navigator.share) {
+			navigator.share({
+				title: this.translateService.instant('API.SHARE_POSITION'),
+				text: shareText,
+				url: googleMapsUrl
+			}).catch((err) => {
+				if (err?.name !== 'AbortError') {
+					this.openWhatsAppShare(shareText);
+				}
+			});
+		} else {
+			this.openWhatsAppShare(shareText);
+		}
+	}
+
+	private openWhatsAppShare(shareText: string): void {
+		const encoded = encodeURIComponent(shareText);
+		window.open(`https://wa.me/?text=${encoded}`, '_blank');
+	}
+
+	shareMyPosition(): void {
+		if (this.myPositionLat == null || this.myPositionLon == null) return;
+		const alt = this.myPositionAltitudes?.length > 0 ? this.myPositionAltitudes[0].altitude : null;
+		this.sharePosition(this.myPositionLat, this.myPositionLon, alt);
+	}
+
+	shareSelectedPosition(): void {
+		if (!this.selectedResult) return;
+		const alt = this.selectedAltitudes?.length > 0 ? this.selectedAltitudes[0].altitude : null;
+		this.sharePosition(this.selectedResult.lat, this.selectedResult.lon, alt);
+	}
+
+	shareReversePosition(): void {
+		if (this.reverseLat == null || this.reverseLon == null) return;
+		const alt = this.reverseAltitudes?.length > 0 ? this.reverseAltitudes[0].altitude : null;
+		this.sharePosition(this.reverseLat, this.reverseLon, alt);
+	}
 }

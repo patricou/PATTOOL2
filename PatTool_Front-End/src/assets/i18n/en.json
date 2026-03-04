@@ -821,6 +821,8 @@
         "TRACK_BASEMAP": "Basemap",
         "TRACK_RECENTER": "Recenter track (R)",
         "TRACK_SHARE_LOCATION": "Share Position",
+        "CARTES_GOUV_FR": "cartes.gouv.fr",
+        "CARTES_GOUV_FR_TITLE": "Open the public map service in a new tab",
         "SHOW_GPS_COORDINATES": "Show GPS Coordinates",
         "SHOW_ADDRESS": "Show Address",
         "SHOW_WEATHER": "Show Weather",

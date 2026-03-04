@@ -811,6 +811,8 @@
 		"TRACK_BASEMAP": "Fond de carte",
 		"TRACK_RECENTER": "Recentrer le tracé (R)",
 		"TRACK_SHARE_LOCATION": "Partager la position",
+		"CARTES_GOUV_FR": "cartes.gouv.fr",
+		"CARTES_GOUV_FR_TITLE": "Ouvrir le service public des cartes dans un nouvel onglet",
 		"SHOW_GPS_COORDINATES": "Afficher les coordonnées GPS",
 		"SHOW_ADDRESS": "Afficher l'adresse",
 		"SHOW_WEATHER": "Afficher la météo",

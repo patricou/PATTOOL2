@@ -823,6 +823,8 @@
         "TRACK_BASEMAP": "Mapa base",
         "TRACK_RECENTER": "Centrar la ruta (R)",
         "TRACK_SHARE_LOCATION": "Compartir Posición",
+        "CARTES_GOUV_FR": "cartes.gouv.fr",
+        "CARTES_GOUV_FR_TITLE": "Abrir el servicio público de mapas en una nueva pestaña",
 		"SHOW_GPS_COORDINATES": "Mostrar coordenadas GPS",
 		"SHOW_ADDRESS": "Mostrar dirección",
 		"SHOW_WEATHER": "Mostrar clima",

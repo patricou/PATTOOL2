@@ -820,6 +820,8 @@
         "TRACK_BASEMAP": "Mappa di base",
         "TRACK_RECENTER": "Riposiziona il tracciato (R)",
         "TRACK_SHARE_LOCATION": "Condividi Posizione",
+        "CARTES_GOUV_FR": "cartes.gouv.fr",
+        "CARTES_GOUV_FR_TITLE": "Apri il servizio cartografico pubblico in una nuova scheda",
 		"SHOW_GPS_COORDINATES": "Mostra coordinate GPS",
 		"SHOW_ADDRESS": "Mostra indirizzo",
 		"SHOW_WEATHER": "Mostra meteo",

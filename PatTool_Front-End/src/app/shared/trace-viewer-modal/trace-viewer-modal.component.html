@@ -145,14 +145,6 @@
             <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.label }}</option>
           </select>
           <div class="form-check form-switch mt-2">
-            <input class="form-check-input" type="checkbox" id="gps-coordinates-switch-fullscreen" 
-                   [(ngModel)]="showGpsCoordinates" 
-                   (change)="toggleGpsCoordinates()">
-            <label class="form-check-label gps-switch-label" for="gps-coordinates-switch-fullscreen" title="{{ 'EVENTELEM.SHOW_GPS_COORDINATES' | translate }}">
-              <i class="fa fa-crosshairs"></i> GPS
-            </label>
-          </div>
-          <div class="form-check form-switch mt-2">
             <input class="form-check-input" type="checkbox" id="show-address-switch-fullscreen" 
                    [(ngModel)]="showAddress"
                    (change)="onShowAddressChange()">
@@ -168,6 +160,27 @@
               <i class="fa fa-cloud-sun"></i> {{ 'EVENTELEM.WEATHER' | translate }}
             </label>
           </div>
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="show-hiking-overlay-fullscreen" 
+                   [(ngModel)]="showHikingTrailsOverlay"
+                   (ngModelChange)="onHikingTrailsOverlayChange()">
+            <label class="form-check-label gps-switch-label" for="show-hiking-overlay-fullscreen" title="Sentiers randonnée (GR, GRP)">
+              <i class="fa fa-map-signs"></i> Sentiers rando
+            </label>
+          </div>
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="show-cycling-overlay-fullscreen" 
+                   [(ngModel)]="showCyclingTrailsOverlay"
+                   (ngModelChange)="onCyclingTrailsOverlayChange()">
+            <label class="form-check-label gps-switch-label" for="show-cycling-overlay-fullscreen" title="Pistes cyclables (EuroVelo, véloroutes)">
+              <i class="fa fa-bicycle"></i> Pistes vélo
+            </label>
+          </div>
+          <a href="https://cartes.gouv.fr/explorer-les-cartes/" target="_blank" rel="noopener noreferrer"
+             class="btn btn-outline-light btn-sm mt-2 w-100"
+             [attr.title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
+            <i class="fa fa-map me-1"></i>{{ 'EVENTELEM.CARTES_GOUV_FR' | translate }}
+          </a>
           <button type="button"
                   class="btn btn-outline-light btn-sm mt-2 w-100"
                   (click)="recenterOnTrack()">
@@ -234,14 +247,6 @@
     </div>
     <div class="d-flex gap-2 align-items-center flex-wrap">
       <div class="form-check form-switch d-flex align-items-center">
-        <input class="form-check-input" type="checkbox" id="gps-coordinates-switch" 
-               [(ngModel)]="showGpsCoordinates" 
-               (change)="toggleGpsCoordinates()">
-        <label class="form-check-label ms-2 gps-switch-label" for="gps-coordinates-switch" title="{{ 'EVENTELEM.SHOW_GPS_COORDINATES' | translate }}">
-          <i class="fa fa-crosshairs"></i> GPS
-        </label>
-      </div>
-      <div class="form-check form-switch d-flex align-items-center">
         <input class="form-check-input" type="checkbox" id="show-address-switch" 
                [(ngModel)]="showAddress"
                (change)="onShowAddressChange()">
@@ -257,6 +262,27 @@
           <i class="fa fa-cloud-sun"></i> {{ 'EVENTELEM.WEATHER' | translate }}
         </label>
       </div>
+      <div class="form-check form-switch d-flex align-items-center">
+        <input class="form-check-input" type="checkbox" id="show-hiking-overlay-switch" 
+               [(ngModel)]="showHikingTrailsOverlay"
+               (ngModelChange)="onHikingTrailsOverlayChange()">
+        <label class="form-check-label ms-2 gps-switch-label" for="show-hiking-overlay-switch" title="Sentiers randonnée (GR, GRP)">
+          <i class="fa fa-map-signs"></i> Sentiers rando
+        </label>
+      </div>
+      <div class="form-check form-switch d-flex align-items-center">
+        <input class="form-check-input" type="checkbox" id="show-cycling-overlay-switch" 
+               [(ngModel)]="showCyclingTrailsOverlay"
+               (ngModelChange)="onCyclingTrailsOverlayChange()">
+        <label class="form-check-label ms-2 gps-switch-label" for="show-cycling-overlay-switch" title="Pistes cyclables (EuroVelo, véloroutes)">
+          <i class="fa fa-bicycle"></i> Pistes vélo
+        </label>
+      </div>
+      <a href="https://cartes.gouv.fr/explorer-les-cartes/" target="_blank" rel="noopener noreferrer"
+         class="btn btn-outline-light btn-sm"
+         [attr.title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
+        <i class="fa fa-map me-1"></i>{{ 'EVENTELEM.CARTES_GOUV_FR' | translate }}
+      </a>
       <button type="button"
               class="btn btn-outline-light"
               *ngIf="!isFullscreen"

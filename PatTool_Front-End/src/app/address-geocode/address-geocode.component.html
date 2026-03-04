@@ -91,6 +91,13 @@
                                 </button>
                                 <span class="small text-success" *ngIf="copyFeedbackMyPosition">{{ copyFeedbackMyPosition }}</span>
                                 <button type="button"
+                                    class="btn btn-success"
+                                    (click)="shareMyPosition()"
+                                    [title]="'API.SHARE_POSITION' | translate">
+                                    <i class="fa fa-share-alt me-1"></i>
+                                    <span class="d-none d-sm-inline">{{ 'API.SHARE_POSITION' | translate }}</span>
+                                </button>
+                                <button type="button"
                                     class="btn btn-warning"
                                     (click)="showMyPositionOnMap()"
                                     [title]="'ADDRESS_GEOCODE.SHOW_ON_MAP' | translate">
@@ -214,6 +221,13 @@
                                         </button>
                                 <span class="small text-success" *ngIf="copyFeedback">{{ copyFeedback }}</span>
                                 <button type="button"
+                                    class="btn btn-success"
+                                    (click)="shareSelectedPosition()"
+                                    [title]="'API.SHARE_POSITION' | translate">
+                                    <i class="fa fa-share-alt me-1"></i>
+                                    <span class="d-none d-sm-inline">{{ 'API.SHARE_POSITION' | translate }}</span>
+                                </button>
+                                <button type="button"
                                     class="btn btn-warning"
                                     (click)="showOnMap()"
                                     [title]="'ADDRESS_GEOCODE.SHOW_ON_MAP' | translate">
@@ -308,6 +322,13 @@
                                     <span class="d-none d-sm-inline">{{ 'ADDRESS_GEOCODE.COPY_ADDRESS' | translate }}</span>
                                 </button>
                                 <span class="small text-success" *ngIf="copyFeedbackReverse">{{ copyFeedbackReverse }}</span>
+                                <button type="button"
+                                    class="btn btn-success"
+                                    (click)="shareReversePosition()"
+                                    [title]="'API.SHARE_POSITION' | translate">
+                                    <i class="fa fa-share-alt me-1"></i>
+                                    <span class="d-none d-sm-inline">{{ 'API.SHARE_POSITION' | translate }}</span>
+                                </button>
                                 <button type="button"
                                     class="btn btn-warning"
                                     (click)="showReverseOnMap()"

@@ -816,6 +816,8 @@
         "TRACK_BASEMAP": "Grundkarte",
         "TRACK_RECENTER": "Strecke zentrieren (R)",
         "TRACK_SHARE_LOCATION": "Position teilen",
+        "CARTES_GOUV_FR": "cartes.gouv.fr",
+        "CARTES_GOUV_FR_TITLE": "Öffentlichen Kartendienst in neuem Tab öffnen",
 		"SHOW_GPS_COORDINATES": "GPS-Koordinaten anzeigen",
 		"SHOW_ADDRESS": "Adresse anzeigen",
 		"SHOW_WEATHER": "Wetter anzeigen",
