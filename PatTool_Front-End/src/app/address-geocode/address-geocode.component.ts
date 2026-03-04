@@ -91,6 +91,8 @@ export class AddressGeocodeComponent {
 	 * Geocode address via backend (Nominatim).
 	 */
 	searchAddress(): void {
+		// Dismiss keyboard on mobile so results are visible
+		(document.activeElement as HTMLElement)?.blur();
 		const query = this.addressQuery?.trim();
 		if (!query) {
 			this.errorMessage = this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_REQUIRED');
@@ -191,6 +193,20 @@ export class AddressGeocodeComponent {
 		this.showOnMap();
 	}
 
+	/** Mobile: trigger search on first tap (touchend) so keyboard dismiss doesn't consume the tap. */
+	onSearchAddressTouch(event: TouchEvent): void {
+		if (this.isLoading) return;
+		event.preventDefault();
+		this.searchAddress();
+	}
+
+	/** Mobile: trigger reverse geocode on first tap (touchend). */
+	onGetAddressTouch(event: TouchEvent): void {
+		if (this.isLoadingReverse) return;
+		event.preventDefault();
+		this.getAddressFromCoordinates();
+	}
+
 	/**
 	 * Parse coordinates from input: "lat, lon" or "lat lon" or "lat,lon".
 	 */
@@ -210,6 +226,8 @@ export class AddressGeocodeComponent {
 	 * @param deviceAlt Optional altitude from device GPS (e.g. from "Ma position") to include in altitude sources.
 	 */
 	getAddressFromCoordinates(deviceAlt?: number | null): void {
+		// Dismiss keyboard on mobile so result is visible
+		(document.activeElement as HTMLElement)?.blur();
 		const parsed = this.parseCoordinatesInput(this.coordinatesInput);
 		if (!parsed) {
 			this.errorMessageReverse = this.translateService.instant('ADDRESS_GEOCODE.INVALID_COORDINATES');

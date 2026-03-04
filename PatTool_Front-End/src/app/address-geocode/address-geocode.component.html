@@ -40,6 +40,7 @@
                                     class="btn btn-primary"
                                     [disabled]="isLoading"
                                     (click)="searchAddress()"
+                                    (touchend)="onSearchAddressTouch($event)"
                                     [title]="'ADDRESS_GEOCODE.FIND_GPS' | translate">
                                 <i class="fa" [class.fa-search]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
                                 <span class="d-none d-sm-inline ms-1">{{ 'ADDRESS_GEOCODE.FIND_GPS' | translate }}</span>
@@ -191,6 +192,7 @@
                                     class="btn btn-info"
                                     [disabled]="isLoadingReverse"
                                     (click)="getAddressFromCoordinates()"
+                                    (touchend)="onGetAddressTouch($event)"
                                     [title]="'ADDRESS_GEOCODE.GET_ADDRESS' | translate">
                                 <i class="fa" [class.fa-home]="!isLoadingReverse" [class.fa-spinner]="isLoadingReverse" [class.fa-spin]="isLoadingReverse"></i>
                                 <span class="d-none d-sm-inline ms-1">{{ 'ADDRESS_GEOCODE.GET_ADDRESS' | translate }}</span>
