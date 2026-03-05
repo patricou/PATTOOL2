@@ -105,7 +105,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .headers(headers -> headers
                 // Content Security Policy - restrict resource loading
-                // frame-src: Required for Keycloak login iframe, check-sso iframe, and Firebase iframes
+                // frame-src: Required for Keycloak login iframe, check-sso iframe, Firebase iframes, and cartes.gouv.fr embed (Toutes les cartes IGN)
                 // script-src: Allow Bootstrap CDN, Firebase, and inline scripts
                 // style-src: Allow Google Fonts, Bootstrap CDN, Font Awesome, Flag Icons
                 // font-src: Allow Google Fonts (fonts.gstatic.com) and Font Awesome (maxcdn.bootstrapcdn.com)
@@ -120,7 +120,7 @@ public class SecurityConfig {
                         "media-src 'self' data: https: blob:; " +
                         "font-src 'self' data: https://fonts.gstatic.com https://maxcdn.bootstrapcdn.com; " +
                         "connect-src 'self' blob: http://localhost:8080 http://localhost:8000 https://www.patrickdeschamps.com:8543 https://cdn.jsdelivr.net https://sportpat-5e155.firebaseio.com https://*.firebaseio.com https://sportpat-5e155.firebaseapp.com https://*.firebaseapp.com https://*.googleapis.com https://www.googleapis.com https://*.gstatic.com https://www.gstatic.com https://nominatim.openstreetmap.org https://api.open-elevation.com wss://sportpat-5e155.firebaseio.com wss://*.firebaseio.com ws://localhost:8000 http://localhost:8000/ws; " +
-                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://*.firebaseio.com https://sportpat-5e155.firebaseio.com https://www.google.com https://maps.google.com https://*.google.com;")
+                        "frame-src 'self' https://www.patrickdeschamps.com:8543 http://localhost:8080 https://*.firebaseio.com https://sportpat-5e155.firebaseio.com https://www.google.com https://maps.google.com https://*.google.com https://cartes.gouv.fr;")
                 )
                 // Note: frameOptions is not set to allow Keycloak iframes
                 // Security is handled by CSP frame-src directive above
