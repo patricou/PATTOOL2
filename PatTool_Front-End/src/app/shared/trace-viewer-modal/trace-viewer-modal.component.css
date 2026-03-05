@@ -719,6 +719,11 @@
 	border-color: #20c997;
 }
 
+.zoom-footer-label {
+	font-size: 0.8rem;
+	font-style: italic;
+}
+
 .fullscreen-selector {
 	position: absolute;
 	bottom: 20px;
@@ -1042,4 +1047,89 @@
 	font-weight: 500;
 	letter-spacing: 0.02em;
 	white-space: nowrap;
+}
+
+/* Modale embed cartes.gouv.fr – même taille que le trace viewer (65vw, 90vh) */
+::ng-deep .cartes-gouv-embed-modal .modal-dialog {
+	max-width: 65vw !important;
+	width: 65vw !important;
+	height: 90vh !important;
+	max-height: 90vh !important;
+	margin: 1.75rem auto !important;
+	display: flex !important;
+	align-items: stretch !important;
+	justify-content: center !important;
+}
+::ng-deep .cartes-gouv-embed-modal .modal-content {
+	max-width: 65vw !important;
+	width: 100% !important;
+	height: 100% !important;
+	max-height: 90vh !important;
+	display: flex !important;
+	flex-direction: column !important;
+	border: 4px solid var(--slideshow-border, white) !important;
+	border-radius: 8px !important;
+}
+::ng-deep .cartes-gouv-embed-modal .modal-body.cartes-gouv-embed-body {
+	flex: 1 1 auto !important;
+	min-height: 0 !important;
+	overflow: hidden !important;
+}
+@media (max-width: 768px) {
+	::ng-deep .cartes-gouv-embed-modal .modal-dialog {
+		max-width: 100vw !important;
+		width: 100vw !important;
+		max-height: 100vh !important;
+		min-height: 100vh !important;
+		height: 100vh !important;
+		margin: 0 !important;
+	}
+	@supports (height: 100dvh) {
+		::ng-deep .cartes-gouv-embed-modal .modal-dialog {
+			max-height: 100dvh !important;
+			min-height: 100dvh !important;
+			height: 100dvh !important;
+		}
+	}
+	::ng-deep .cartes-gouv-embed-modal .modal-content {
+		max-width: 100vw !important;
+		width: 100% !important;
+		max-height: 100vh !important;
+		height: 100% !important;
+	}
+	@supports (height: 100dvh) {
+		::ng-deep .cartes-gouv-embed-modal .modal-content {
+			max-height: 100dvh !important;
+			height: 100dvh !important;
+		}
+	}
+}
+::ng-deep .cartes-gouv-embed-modal .modal-header {
+	background: var(--slideshow-footer-bg, #2c3e50);
+	color: #fff;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+	flex-shrink: 0 !important;
+}
+::ng-deep .cartes-gouv-embed-modal .modal-title { color: #fff; }
+::ng-deep .cartes-gouv-embed-modal .btn-close-white { filter: invert(1) grayscale(100%); }
+::ng-deep .cartes-gouv-embed-modal .modal-content.cartes-gouv-fullscreen-active,
+::ng-deep .cartes-gouv-embed-modal .modal-content:fullscreen,
+::ng-deep .cartes-gouv-embed-modal .modal-content:-webkit-full-screen {
+	display: flex !important;
+	flex-direction: column !important;
+	border: none !important;
+	border-radius: 0 !important;
+	box-shadow: none !important;
+}
+::ng-deep .cartes-gouv-embed-modal .modal-content.cartes-gouv-fullscreen-active .modal-header,
+::ng-deep .cartes-gouv-embed-modal .modal-content:fullscreen .modal-header,
+::ng-deep .cartes-gouv-embed-modal .modal-content:-webkit-full-screen .modal-header {
+	display: none !important;
+}
+::ng-deep .cartes-gouv-embed-modal .modal-content.cartes-gouv-fullscreen-active .modal-body,
+::ng-deep .cartes-gouv-embed-modal .modal-content:fullscreen .modal-body,
+::ng-deep .cartes-gouv-embed-modal .modal-content:-webkit-full-screen .modal-body {
+	flex: 1 !important;
+	min-height: 0 !important;
+	height: auto !important;
 }

@@ -2049,21 +2049,19 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     try {
       this.focusFixInProgress = true;
       
-      // Use cached modal or query once
-      if (!this.cachedModal) {
-        this.cachedModal = document.querySelector('.modal.show');
-      }
-      const modal = this.cachedModal;
+      // Use the topmost visible modal (last in DOM when multiple are open)
+      const modals = document.querySelectorAll('.modal.show');
+      const modal = modals.length > 0 ? (modals[modals.length - 1] as HTMLElement) : null;
       if (!modal) {
         this.focusFixInProgress = false;
         return;
       }
+      this.cachedModal = modal;
       
-      // Use cached app-root or query once
-      if (!this.cachedAppRoot) {
-        this.cachedAppRoot = document.querySelector('app-root') as HTMLElement;
+      const appRoot = this.cachedAppRoot || (document.querySelector('app-root') as HTMLElement);
+      if (appRoot) {
+        this.cachedAppRoot = appRoot;
       }
-      const appRoot = this.cachedAppRoot;
       if (!appRoot || appRoot.getAttribute('aria-hidden') !== 'true') {
         this.focusFixInProgress = false;
         return;
@@ -2152,8 +2150,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.ariaHiddenObserver = new MutationObserver((mutations) => {
       for (const mutation of mutations) {
         if (mutation.type === 'attributes' && mutation.attributeName === 'aria-hidden') {
-          const target = mutation.target as HTMLElement;
-          if (target === appRoot && target.getAttribute('aria-hidden') === 'true') {
+          const target = mutation.target as HTMLElement | null;
+          if (target && target === appRoot && target.getAttribute('aria-hidden') === 'true') {
             // Bootstrap just added aria-hidden to app-root, immediately blur any focused elements
             // Do this synchronously to prevent the warning
             const activeElement = document.activeElement as HTMLElement;
@@ -2185,29 +2183,27 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Move focus to the modal's first focusable element
   private moveFocusToModal(): void {
-    // Use cached modal
-    if (!this.cachedModal) {
-      this.cachedModal = document.querySelector('.modal.show');
-    }
-    const modal = this.cachedModal;
+    const modals = document.querySelectorAll('.modal.show');
+    const modal = modals.length > 0 ? (modals[modals.length - 1] as HTMLElement) : null;
     if (!modal) {
       return;
     }
-    
+    this.cachedModal = modal;
+
     // Try close button first
-    const closeButton = modal.querySelector('.slideshow-header button[aria-label="Close"]') as HTMLElement;
-    if (closeButton) {
+    const closeButton = modal.querySelector('.modal-header button[aria-label="Close"], .slideshow-header button[aria-label="Close"], .btn-close') as HTMLElement | null;
+    if (closeButton && typeof closeButton.focus === 'function') {
       closeButton.focus();
       return;
     }
-    
+
     // Fallback: find first focusable element in modal
     const focusableElements = modal.querySelectorAll(
       'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
     );
-    
-    if (focusableElements.length > 0) {
-      (focusableElements[0] as HTMLElement).focus();
+    const first = focusableElements.length > 0 ? (focusableElements[0] as HTMLElement) : null;
+    if (first && typeof first.focus === 'function') {
+      first.focus();
     }
   }
   

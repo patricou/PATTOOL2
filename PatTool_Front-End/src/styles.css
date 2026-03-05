@@ -80,6 +80,39 @@ img, video, canvas {
     overflow: hidden !important;
 }
 
+/* Modale Toutes les cartes IGN – pas de bord en plein écran (règle globale car l’élément fullscreen peut être reparenté) */
+.modal-content.cartes-gouv-fullscreen-active,
+.modal-content.cartes-gouv-fullscreen-active:fullscreen,
+.modal-content.cartes-gouv-fullscreen-active:-webkit-full-screen {
+    border: none !important;
+    border-width: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+/* Enlever tout bord sur le body en plein écran */
+.modal-content.cartes-gouv-fullscreen-active .modal-body,
+.modal-content.cartes-gouv-fullscreen-active:fullscreen .modal-body,
+.modal-content.cartes-gouv-fullscreen-active:-webkit-full-screen .modal-body {
+    border: none !important;
+    border-width: 0 !important;
+    outline: none !important;
+}
+/* Cible aussi l’élément fullscreen via pseudo-class au cas où la classe n’est pas appliquée */
+.modal-content:fullscreen:has(.cartes-gouv-embed-body),
+.modal-content:-webkit-full-screen:has(.cartes-gouv-embed-body) {
+    border: none !important;
+    border-width: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
+.modal-content.cartes-gouv-fullscreen-active .modal-header,
+.modal-content.cartes-gouv-fullscreen-active:fullscreen .modal-header,
+.modal-content.cartes-gouv-fullscreen-active:-webkit-full-screen .modal-header {
+    display: none !important;
+}
+
 /* Comments modal: adapt to mobile screen (element-evenement) - global selectors so they apply to modal in overlay */
 @media (max-width: 767.98px) {
     .modal.comments-modal .modal-dialog,

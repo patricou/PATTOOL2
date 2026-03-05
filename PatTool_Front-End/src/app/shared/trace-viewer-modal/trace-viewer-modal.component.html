@@ -60,7 +60,7 @@
         <div *ngIf="showWeather && (currentWeather || isLoadingWeather)" class="weather-overlay">
           <div class="weather-box">
             <div class="weather-header">
-              <i class="fa fa-cloud-sun me-1"></i>
+              <i class="fa fa-cloud me-1"></i>
               <span class="weather-address">{{ clickedWeatherAddress || ('EVENTELEM.LOADING_ADDRESS' | translate) }}</span>
               <button type="button" 
                       class="btn btn-link p-0 ms-auto weather-close" 
@@ -138,11 +138,11 @@
         </div>
 
         <div *ngIf="isFullscreen" class="fullscreen-selector">
-          <label class="small mb-1">{{ 'EVENTELEM.TRACK_BASEMAP' | translate }}</label>
           <select class="form-select form-select-sm"
                   [ngModel]="selectedBaseLayerId"
-                  (ngModelChange)="onBaseLayerChange($event)">
-            <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.label }}</option>
+                  (ngModelChange)="onBaseLayerChange($event)"
+                  [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP' | translate">
+            <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
           </select>
           <div class="form-check form-switch mt-2">
             <input class="form-check-input" type="checkbox" id="show-address-switch-fullscreen" 
@@ -157,7 +157,7 @@
                    [(ngModel)]="showWeather"
                    (change)="onShowWeatherChange()">
             <label class="form-check-label gps-switch-label" for="show-weather-switch-fullscreen" [title]="'EVENTELEM.SHOW_WEATHER' | translate">
-              <i class="fa fa-cloud-sun"></i> {{ 'EVENTELEM.WEATHER' | translate }}
+              <i class="fa fa-cloud me-1" aria-hidden="true"></i>{{ 'EVENTELEM.WEATHER' | translate }}
             </label>
           </div>
           <div class="form-check form-switch mt-2">
@@ -176,11 +176,6 @@
               <i class="fa fa-bicycle"></i> Pistes vélo
             </label>
           </div>
-          <a href="https://cartes.gouv.fr/explorer-les-cartes/" target="_blank" rel="noopener noreferrer"
-             class="btn btn-outline-light btn-sm mt-2 w-100"
-             [attr.title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
-            <i class="fa fa-map me-1"></i>{{ 'EVENTELEM.CARTES_GOUV_FR' | translate }}
-          </a>
           <button type="button"
                   class="btn btn-outline-light btn-sm mt-2 w-100"
                   (click)="recenterOnTrack()">
@@ -198,7 +193,6 @@
                 type="button"
                 (click)="toggleFullscreenInfo()">
           <i class="fa fa-info"></i>
-          <span class="ms-2">{{ 'EVENTELEM.TRACK_BASEMAP' | translate }}</span>
         </button>
 
         <div *ngIf="isFullscreen && isFullscreenInfoVisible" class="fullscreen-info-panel">
@@ -211,13 +205,13 @@
           <div class="info-body">
             <p class="small mb-3">{{ 'EVENTELEM.TRACK_INFO_DESC' | translate }}</p>
             <p class="small mb-3">{{ 'EVENTELEM.TRACK_INFO_SHORTCUT' | translate }}</p>
-            <div class="mb-2 text-uppercase fw-bold small">{{ 'EVENTELEM.TRACK_BASEMAP' | translate }}</div>
+            <p class="small mb-3">{{ 'EVENTELEM.TRACK_INFO_SHORTCUT' | translate }}</p>
             <button type="button"
                     class="btn btn-outline-light w-100 mb-2"
                     *ngFor="let layer of availableBaseLayers"
                     [class.active]="layer.id === selectedBaseLayerId"
                     (click)="onBaseLayerChange(layer.id)">
-              {{ layer.label }}
+              {{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}
             </button>
           </div>
         </div>
@@ -227,11 +221,11 @@
 
   <div class="modal-footer slideshow-footer">
     <div class="trace-stats" *ngIf="availableBaseLayers.length > 0 && !isFullscreen">
-      <label for="trace-base-layer" class="form-label mb-0">{{ 'EVENTELEM.TRACK_BASEMAP' | translate }}</label>
       <select id="trace-base-layer" class="form-select form-select-sm"
               [ngModel]="selectedBaseLayerId"
-              (ngModelChange)="onBaseLayerChange($event)">
-        <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.label }}</option>
+              (ngModelChange)="onBaseLayerChange($event)"
+              [attr.aria-label]="'EVENTELEM.TRACK_BASEMAP' | translate">
+        <option *ngFor="let layer of availableBaseLayers" [value]="layer.id">{{ layer.labelKey ? (layer.labelKey | translate) : layer.label }}</option>
       </select>
     </div>
 
@@ -244,6 +238,9 @@
         <i class="fa fa-arrows-h me-1" aria-hidden="true"></i>
         {{ 'EVENTELEM.TRACK_DISTANCE' | translate:{ km: trackStats.distanceKm } }}
       </span>
+    </div>
+    <div class="trace-stats" *ngIf="isMapReady">
+      <span class="zoom-footer-label"><i class="fa fa-search me-1" aria-hidden="true"></i>Zoom {{ currentZoom }}</span>
     </div>
     <div class="d-flex gap-2 align-items-center flex-wrap">
       <div class="form-check form-switch d-flex align-items-center">
@@ -259,7 +256,7 @@
                [(ngModel)]="showWeather"
                (change)="onShowWeatherChange()">
         <label class="form-check-label ms-2 gps-switch-label" for="show-weather-switch" [title]="'EVENTELEM.SHOW_WEATHER' | translate">
-          <i class="fa fa-cloud-sun"></i> {{ 'EVENTELEM.WEATHER' | translate }}
+          <i class="fa fa-cloud me-1" aria-hidden="true"></i>{{ 'EVENTELEM.WEATHER' | translate }}
         </label>
       </div>
       <div class="form-check form-switch d-flex align-items-center">
@@ -278,11 +275,6 @@
           <i class="fa fa-bicycle"></i> Pistes vélo
         </label>
       </div>
-      <a href="https://cartes.gouv.fr/explorer-les-cartes/" target="_blank" rel="noopener noreferrer"
-         class="btn btn-outline-light btn-sm"
-         [attr.title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
-        <i class="fa fa-map me-1"></i>{{ 'EVENTELEM.CARTES_GOUV_FR' | translate }}
-      </a>
       <button type="button"
               class="btn btn-outline-light"
               *ngIf="!isFullscreen"
@@ -310,6 +302,29 @@
         {{ 'COMMUN.CLOSE' | translate }}
       </button>
     </div>
+  </div>
+</ng-template>
+
+<ng-template #cartesGouvModal let-modal>
+  <div class="modal-header">
+    <h5 class="modal-title"><i class="fa fa-map me-2"></i>{{ 'EVENTELEM.CARTES_GOUV_FR' | translate }}</h5>
+    <div class="d-flex align-items-center gap-2 ms-auto">
+      <button type="button" class="btn btn-outline-light btn-sm" (click)="toggleCartesGouvFullscreen()" [title]="cartesGouvFullscreen ? ('EVENTELEM.EXIT_FULLSCREEN' | translate) : ('EVENTELEM.FULLSCREEN' | translate)">
+        <i class="fa" [ngClass]="cartesGouvFullscreen ? 'fa-compress' : 'fa-arrows-alt'"></i>
+        <span class="ms-1">{{ (cartesGouvFullscreen ? 'EVENTELEM.EXIT_FULLSCREEN' : 'EVENTELEM.FULLSCREEN') | translate }}</span>
+      </button>
+      <button type="button" class="btn-close btn-close-white" aria-label="Fermer" (click)="closeCartesGouvEmbed()"></button>
+    </div>
+  </div>
+  <div class="modal-body p-0 position-relative cartes-gouv-embed-body">
+    <iframe *ngIf="cartesGouvEmbedUrl"
+            [src]="cartesGouvEmbedUrl"
+            width="100%"
+            height="100%"
+            style="border: 0; position: absolute; top: 0; left: 0; right: 0; bottom: 0;"
+            sandbox="allow-forms allow-scripts allow-same-origin"
+            allowfullscreen
+            title="Cartes gouvernement françaises"></iframe>
   </div>
 </ng-template>
 

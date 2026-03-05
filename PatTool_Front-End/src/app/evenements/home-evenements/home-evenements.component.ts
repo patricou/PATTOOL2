@@ -2945,6 +2945,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			entries.forEach(entry => {
 				if (entry.isIntersecting) {
 					const element = entry.target as HTMLElement;
+					if (!element) return;
 					const eventId = element.getAttribute('data-event-id');
 					if (eventId) {
 						const event = this.evenements.find(e => (e.id || this.getEventKey(e)) === eventId);

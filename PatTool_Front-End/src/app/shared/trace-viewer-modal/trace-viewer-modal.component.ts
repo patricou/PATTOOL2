@@ -1,5 +1,6 @@
 import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, Inject, OnDestroy, Output, TemplateRef, ViewChild } from '@angular/core';
 import { CommonModule, DOCUMENT } from '@angular/common';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
 import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -37,6 +38,7 @@ interface TraceStatistics {
 })
 export class TraceViewerModalComponent implements OnDestroy {
 	@ViewChild('traceViewerModal') traceViewerModal!: TemplateRef<any>;
+	@ViewChild('cartesGouvModal') cartesGouvModal!: TemplateRef<any>;
 	@ViewChild('mapContainer', { static: false }) mapContainerRef?: ElementRef<HTMLDivElement>;
 	@Output() closed = new EventEmitter<void>();
 	@Output() locationSelected = new EventEmitter<{ lat: number; lng: number }>();
@@ -101,9 +103,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private orientationMediaQuery: MediaQueryList | null = null;
 	private orientationChangeHandler?: () => void;
 	private baseLayers: Record<string, L.TileLayer | L.LayerGroup> = {};
-	public availableBaseLayers: Array<{ id: string; label: string }> = [];
+	public availableBaseLayers: Array<{ id: string; label: string; labelKey?: string }> = [];
 	public selectedBaseLayerId: string = '';
+	/** Dernier fond de carte affiché avant d’ouvrir « Toutes les cartes IGN », pour le rétablir à la fermeture de la modale. */
+	private lastBaseLayerBeforeCartesGouv: string = 'ign-classic';
 	private activeBaseLayer?: L.TileLayer | L.LayerGroup;
+	/** Niveau de zoom actuel de la carte (affiché dans un coin). */
+	public currentZoom: number = 6;
+	/** True une fois la carte initialisée (pour afficher l’overlay zoom). */
+	public isMapReady = false;
+	/** URL d’embed cartes.gouv.fr (position + zoom) pour la modale iframe. */
+	public cartesGouvEmbedUrl: SafeResourceUrl | null = null;
+	private cartesGouvModalRef?: NgbModalRef;
+	public cartesGouvFullscreen = false;
+	private cartesGouvFullscreenChangeListener?: () => void;
 	private thunderforestApiKey: string = '';
 	public isFullscreenInfoVisible = false;
 	private trackBounds: L.LatLngBounds | null = null;
@@ -184,6 +197,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		private readonly fileService: FileService,
 		private readonly keycloakService: KeycloakService,
 		private readonly apiService: ApiService,
+		private readonly sanitizer: DomSanitizer,
 		@Inject(DOCUMENT) private readonly document: Document
 	) {
 		this.configureLeafletIcons();
@@ -318,6 +332,101 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.closeModalInstance();
+	}
+
+	/** Ouvre la modale cartes.gouv.fr en embed avec la position et le zoom actuels de la carte. */
+	public openCartesGouvEmbed(): void {
+		let lng: number;
+		let lat: number;
+		let z: number;
+		if (this.map) {
+			const center = this.map.getCenter();
+			lat = center.lat;
+			lng = center.lng;
+			z = this.map.getZoom();
+		} else {
+			lat = this.currentLat || 46.25;
+			lng = this.currentLng || 2.2;
+			z = this.currentZoom || 6;
+		}
+		const c = `${lng.toFixed(6)},${lat.toFixed(6)}`;
+		const embedUrl = `https://cartes.gouv.fr/explorer-les-cartes/embed?c=${encodeURIComponent(c)}&z=${z}&l=GEOGRAPHICALGRIDSYSTEMS.MAPS$GEOPORTAIL:OGC:WMTS(1;1;1;0)&permalinkShare=yes`;
+		this.cartesGouvEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl);
+		this.cdr.detectChanges();
+		this.cartesGouvModalRef = this.modalService.open(this.cartesGouvModal, {
+			size: 'xl',
+			centered: true,
+			backdrop: 'static',
+			windowClass: 'cartes-gouv-embed-modal'
+		});
+		this.cartesGouvFullscreenChangeListener = () => this.onCartesGouvFullscreenChange();
+		this.document.addEventListener('fullscreenchange', this.cartesGouvFullscreenChangeListener);
+		this.cartesGouvModalRef.result.catch(() => {
+			this.cartesGouvEmbedUrl = null;
+			this.cleanupCartesGouvFullscreenListener();
+		});
+	}
+
+	public closeCartesGouvEmbed(): void {
+		if (this.document.fullscreenElement) {
+			this.document.exitFullscreen().catch(() => {});
+		}
+		this.cartesGouvModalRef?.close();
+		this.cartesGouvModalRef = undefined;
+		this.cartesGouvEmbedUrl = null;
+		this.cleanupCartesGouvFullscreenListener();
+		// Remettre le fond de carte précédent pour que resélectionner « Toutes les cartes IGN » rouvre la modale
+		this.selectedBaseLayerId = this.lastBaseLayerBeforeCartesGouv;
+		this.applySelectedBaseLayer();
+		this.cdr.detectChanges();
+	}
+
+	private getCartesGouvModalContent(): HTMLElement | null {
+		return this.document.querySelector('.cartes-gouv-embed-modal .modal-content') as HTMLElement | null;
+	}
+
+	public toggleCartesGouvFullscreen(): void {
+		const el = this.getCartesGouvModalContent();
+		if (!el) return;
+		if (this.document.fullscreenElement) {
+			this.document.exitFullscreen().then(() => this.onCartesGouvFullscreenChange()).catch(() => {});
+			return;
+		}
+		el.classList.add('cartes-gouv-fullscreen-active');
+		el.requestFullscreen().then(() => this.onCartesGouvFullscreenChange()).catch(() => {
+			el.classList.remove('cartes-gouv-fullscreen-active');
+		});
+	}
+
+	private onCartesGouvFullscreenChange(): void {
+		this.cartesGouvFullscreen = !!this.document.fullscreenElement;
+		const el = this.getCartesGouvModalContent();
+		if (el) {
+			if (this.cartesGouvFullscreen) {
+				el.classList.add('cartes-gouv-fullscreen-active');
+				el.style.setProperty('border', 'none', 'important');
+				el.style.setProperty('border-radius', '0', 'important');
+				el.style.setProperty('box-shadow', 'none', 'important');
+				el.style.setProperty('outline', 'none', 'important');
+			} else {
+				el.classList.remove('cartes-gouv-fullscreen-active');
+				el.style.removeProperty('border');
+				el.style.removeProperty('border-radius');
+				el.style.removeProperty('box-shadow');
+				el.style.removeProperty('outline');
+			}
+		}
+		this.cdr.detectChanges();
+	}
+
+	private cleanupCartesGouvFullscreenListener(): void {
+		if (this.cartesGouvFullscreenChangeListener) {
+			this.document.removeEventListener('fullscreenchange', this.cartesGouvFullscreenChangeListener);
+			this.cartesGouvFullscreenChangeListener = undefined;
+		}
+		const el = this.getCartesGouvModalContent();
+		if (el) el.classList.remove('cartes-gouv-fullscreen-active');
+		this.cartesGouvFullscreen = false;
 	}
 
 	public toggleFullscreen(): void {
@@ -650,7 +759,13 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		// Maintain crosshair cursor even when Leaflet changes classes
 		this.map.on('moveend', () => this.forceCrosshairCursor());
-		this.map.on('zoomend', () => this.forceCrosshairCursor());
+		this.map.on('zoomend', () => {
+			this.forceCrosshairCursor();
+			this.currentZoom = this.map!.getZoom();
+			this.cdr.detectChanges();
+		});
+		this.currentZoom = this.map.getZoom();
+		this.cdr.detectChanges();
 
 		const invalidate = () => {
 			this.tryRenderPendingTrack();
@@ -672,6 +787,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 		};
 
 		this.map.whenReady(() => {
+			this.isMapReady = true;
+			this.cdr.detectChanges();
 			invalidate();
 			// Register location selection if in selection mode
 			if (this.selectionMode) {
@@ -1237,6 +1354,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private destroyMap(): void {
+		this.isMapReady = false;
 		if (this.map) {
 			this.cleanupRightClickZoom();
 			this.cleanupLocationSelection();
@@ -1312,6 +1430,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private extractLatLngFromAttributes(node: Element): L.LatLngTuple | null {
+		if (!node) return null;
 		const lat = parseFloat(node.getAttribute('lat') || node.getAttribute('latitude') || '');
 		const lon = parseFloat(node.getAttribute('lon') || node.getAttribute('lng') || node.getAttribute('longitude') || '');
 
@@ -1419,34 +1538,36 @@ export class TraceViewerModalComponent implements OnDestroy {
 		// Create base layers first (without OpenCycleMap)
 		this.createBaseLayers();
 
-		// Fetch IGN API key: si configurée, on ajoute SCAN 25® par-dessus Plan IGN pour zoom 13+ (sans enlever Plan IGN → pas de fond gris)
-		this.apiService.getIgnApiKey().pipe(
-			takeUntil(this.destroy$)
-		).subscribe({
-			next: (apiKey: string) => {
-				if (!apiKey || apiKey.trim().length === 0) {
-					return;
-				}
-				const ignClassicGroup = this.baseLayers['ign-classic'];
-				if (!ignClassicGroup || !(ignClassicGroup instanceof L.LayerGroup)) {
-					return;
-				}
-				const scan25Tour = L.tileLayer(
-					'https://data.geopf.fr/private/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&apikey=' + encodeURIComponent(apiKey) +
-					'&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}',
-					{
-						minZoom: 13,
-						maxZoom: 19,
-						attribution: '&copy; IGN - Géoportail',
-						zIndex: 3
+		// Fetch IGN API key: si configurée, on ajoute SCAN 25® (vraie carte IGN topo avec GR) par-dessus Plan IGN pour zoom 13+
+				this.apiService.getIgnApiKey().pipe(
+					takeUntil(this.destroy$)
+				).subscribe({
+					next: (apiKey: string) => {
+						if (!apiKey || apiKey.trim().length === 0) {
+							return;
+						}
+						const ignClassicGroup = this.baseLayers['ign-classic'];
+						if (!ignClassicGroup || !(ignClassicGroup instanceof L.LayerGroup)) {
+							return;
+						}
+						// SCAN 25® Touristique = vraie carte IGN topographique avec GR (magenta), contours, relief.
+						// apikey en premier, SERVICE/VERSION une seule fois (exigence Géoportail).
+						const scan25Tour = L.tileLayer(
+							'https://data.geopf.fr/private/wmts?apikey=' + encodeURIComponent(apiKey) +
+							'&REQUEST=GetTile&SERVICE=WMTS&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.MAPS.SCAN25TOUR&STYLE=normal&FORMAT=image/jpeg&TILEMATRIXSET=PM&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+							{
+								minZoom: 13,
+								maxZoom: 19,
+								attribution: '&copy; IGN - Géoportail',
+								zIndex: 3
+							}
+						);
+						ignClassicGroup.addLayer(scan25Tour);
+					},
+					error: (err) => {
+						console.warn('Could not fetch IGN API key:', err);
 					}
-				);
-				ignClassicGroup.addLayer(scan25Tour);
-			},
-			error: (err) => {
-				console.warn('Could not fetch IGN API key:', err);
-			}
-		});
+				});
 
 		// Fetch Thunderforest API key from backend and add OpenCycleMap when available
 		this.apiService.getThunderforestApiKey().pipe(
@@ -1468,9 +1589,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 						attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://www.thunderforest.com">Thunderforest</a>'
 					});
 					// Add to available layers list and sort alphabetically
-					const openCycleMapEntry = { id: 'opencyclemap', label: 'OpenCycleMap (Randonnée/Vélo)' };
+					const openCycleMapEntry = { id: 'opencyclemap', label: 'OpenCycleMap' };
 					this.availableBaseLayers.push(openCycleMapEntry);
-					this.availableBaseLayers.push({ id: 'thunderforest-outdoors', label: 'Thunderforest Outdoors (Rando)' });
+					this.availableBaseLayers.push({ id: 'thunderforest-outdoors', label: 'TF Outdoors' });
 					this.availableBaseLayers.sort((a, b) => a.label.localeCompare(b.label));
 				}
 			},
@@ -1534,8 +1655,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				attribution: '&copy; IGN - Géoportail'
 			}),
 			'ign-classic': (() => {
-				// Carte IGN classique avec GR (magenta). Zoom 0-12 : SCAN-REGIONAL. Zoom 13+ : Plan IGN par défaut.
-				// Si une clé API IGN est configurée, le zoom 13+ utilisera SCAN 25® (carte détaillée 1:25k avec GR).
+				// Zoom 0 à 12 : SCAN-REGIONAL (IGN ne sert pas le zoom 13 → 404). Zoom 12+ : Plan IGN, zoom 13+ : SCAN 25® si clé API.
 				const scanRegional = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=IGNF_CARTES_SCAN-REGIONAL&STYLE=SCANREG&FORMAT=image/jpeg&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
 					minZoom: 0,
 					maxZoom: 12,
@@ -1543,7 +1663,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 					zIndex: 1
 				});
 				const planIgn = L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&VERSION=1.0.0&REQUEST=GetTile&TILEMATRIXSET=PM&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&FORMAT=image/png&TILECOL={x}&TILEROW={y}&TILEMATRIX={z}', {
-					minZoom: 13,
+					minZoom: 12,
 					maxZoom: 19,
 					attribution: '&copy; IGN - Géoportail',
 					zIndex: 2
@@ -1602,31 +1722,28 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		this.availableBaseLayers = [
 			{ id: 'osm-standard', label: 'OpenStreetMap' },
-			{ id: 'osm-fr', label: 'OpenStreetMap France' },
+			{ id: 'osm-fr', label: 'OSM France' },
 			{ id: 'esri-imagery', label: 'Esri Satellite' },
-			// { id: 'esri-topo', label: 'Esri Topographique' },
-			// { id: 'esri-street', label: 'Esri Streets' },
 			{ id: 'opentopomap', label: 'OpenTopoMap' },
-			// { id: 'esri-light-gray', label: 'Esri Light Gray' },
-			{ id: 'ign-classic', label: 'Carte IGN classique' },
+			{ id: 'cartes-gouv', label: 'cartes.gouv.fr', labelKey: 'EVENTELEM.CARTES_GOUV_FR' },
+			{ id: 'ign-classic', label: 'IGN Classique' },
 			{ id: 'ign-plan', label: 'IGN Plan' },
 			{ id: 'ign-ortho', label: 'IGN Ortho' },
 			{ id: 'ign-cadastre', label: 'IGN Cadastre' },
-			// { id: 'ign-cartes', label: 'IGN Cartes (Scan Express)' }, // Commented out - layer not available
-			// { id: 'ign-limites', label: 'IGN Limites Administratives' },
-			{ id: 'ign-topo', label: 'Carte Topographique IGN' },
-			// { id: 'ign-relief', label: 'IGN Relief' },
-			// { id: 'ign-routes', label: 'IGN Routes' },
-			// { id: 'ign-scan-express', label: 'SCAN 25® : carte topographique détaillée à 1:25 000' }, // Commented out - layer returns 400 error, may require personal API key or correct layer name
-			// { id: 'ign-bd-topo', label: 'IGN BD Topo' }, // Commented out - not available as simple WMTS tile layer
-			// Hiking and outdoor maps (OpenCycleMap will be added when API key is fetched)
-			{ id: 'cyclosm', label: 'CyclOSM (Vélo / Rando)' }
+			{ id: 'ign-topo', label: 'IGN Topo' },
+			{ id: 'cyclosm', label: 'CyclOSM' }
 		].sort((a, b) => a.label.localeCompare(b.label));
 
 		this.selectedBaseLayerId = 'opentopomap';
 	}
 
 	public onBaseLayerChange(layerId: string): void {
+		if (layerId === 'cartes-gouv') {
+			this.lastBaseLayerBeforeCartesGouv = this.selectedBaseLayerId === 'cartes-gouv' ? this.lastBaseLayerBeforeCartesGouv : this.selectedBaseLayerId;
+			this.selectedBaseLayerId = 'cartes-gouv';
+			setTimeout(() => this.openCartesGouvEmbed(), 0);
+			return;
+		}
 		this.selectedBaseLayerId = layerId;
 		this.applySelectedBaseLayer();
 	}
@@ -1640,6 +1757,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private applySelectedBaseLayer(): void {
 		if (!this.map) {
+			return;
+		}
+		if (this.selectedBaseLayerId === 'cartes-gouv') {
 			return;
 		}
 
@@ -2230,6 +2350,15 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private closeModalInstance(): void {
+		if (this.cartesGouvModalRef) {
+			if (this.document.fullscreenElement) {
+				this.document.exitFullscreen().catch(() => {});
+			}
+			try { this.cartesGouvModalRef.close(); } catch { }
+			this.cartesGouvModalRef = undefined;
+			this.cartesGouvEmbedUrl = null;
+			this.cleanupCartesGouvFullscreenListener();
+		}
 		const ref = this.modalRef;
 		if (ref) {
 			try {
