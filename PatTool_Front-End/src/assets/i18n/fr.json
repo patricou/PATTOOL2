@@ -812,6 +812,7 @@
 		"TRACK_IGN_SCAN25_HINT": "SCAN 25® (détail avec GR) à partir du zoom 13 si clé IGN configurée.",
 		"TRACK_RECENTER": "Recentrer (R)",
 		"TRACK_SHARE_LOCATION": "Partager",
+		"TRACK_FOLLOW_DEVICE": "Suivre ma position",
 		"CARTES_GOUV_FR": "Toutes les cartes IGN",
 		"CARTES_GOUV_FR_TITLE": "Ouvrir le service public des cartes dans un nouvel onglet",
 		"SHOW_GPS_COORDINATES": "Afficher les coordonnées GPS",

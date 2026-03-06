@@ -1006,6 +1006,11 @@
 	margin-right: 4px;
 }
 
+.device-countdown {
+	font-weight: 600;
+	color: #20c997;
+}
+
 .gps-copy-btn:focus {
 	box-shadow: none;
 }

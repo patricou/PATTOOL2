@@ -176,6 +176,15 @@
               <i class="fa fa-bicycle"></i> Pistes vélo
             </label>
           </div>
+          <div class="form-check form-switch mt-2">
+            <input class="form-check-input" type="checkbox" id="follow-device-location-fullscreen" 
+                   [(ngModel)]="followDeviceLocation"
+                   (ngModelChange)="onFollowDeviceLocationChange()">
+            <label class="form-check-label gps-switch-label" for="follow-device-location-fullscreen" [title]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
+              <i class="fa fa-location-arrow"></i> {{ 'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate }}
+              <span *ngIf="followDeviceLocation" class="ms-1 device-countdown">({{ deviceLocationCountdown }} s)</span>
+            </label>
+          </div>
           <button type="button"
                   class="btn btn-outline-light btn-sm mt-2 w-100"
                   (click)="recenterOnTrack()">
@@ -185,6 +194,12 @@
                   class="btn btn-outline-light btn-sm mt-2 w-100"
                   (click)="sharePosition()">
             <i class="fa fa-share-alt me-1"></i> {{ 'EVENTELEM.TRACK_SHARE_LOCATION' | translate }}
+          </button>
+          <button type="button"
+                  class="btn btn-outline-light btn-sm mt-2 w-100"
+                  (click)="openCartesGouvEmbed()"
+                  [title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
+            <i class="fa fa-map me-1"></i> IGN
           </button>
         </div>
 
@@ -275,6 +290,15 @@
           <i class="fa fa-bicycle"></i> Pistes vélo
         </label>
       </div>
+      <div class="form-check form-switch d-flex align-items-center">
+        <input class="form-check-input" type="checkbox" id="follow-device-location-switch" 
+               [(ngModel)]="followDeviceLocation"
+               (ngModelChange)="onFollowDeviceLocationChange()">
+        <label class="form-check-label ms-2 gps-switch-label" for="follow-device-location-switch" [title]="'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate">
+          <i class="fa fa-location-arrow"></i> {{ 'EVENTELEM.TRACK_FOLLOW_DEVICE' | translate }}
+          <span *ngIf="followDeviceLocation" class="ms-1 device-countdown">({{ deviceLocationCountdown }} s)</span>
+        </label>
+      </div>
       <button type="button"
               class="btn btn-outline-light"
               *ngIf="!isFullscreen"
@@ -286,6 +310,13 @@
               *ngIf="!isFullscreen"
               (click)="sharePosition()">
         <i class="fa fa-share-alt me-1"></i> {{ 'EVENTELEM.TRACK_SHARE_LOCATION' | translate }}
+      </button>
+      <button type="button"
+              class="btn btn-outline-light"
+              *ngIf="!isFullscreen"
+              (click)="openCartesGouvEmbed()"
+              [title]="'EVENTELEM.CARTES_GOUV_FR_TITLE' | translate">
+        <i class="fa fa-map me-1"></i> IGN
       </button>
       <button type="button"
               class="btn btn-secondary"

@@ -822,6 +822,7 @@
         "TRACK_IGN_SCAN25_HINT": "SCAN 25® (detail with GR) from zoom 13 if IGN API key is set.",
         "TRACK_RECENTER": "Recenter (R)",
         "TRACK_SHARE_LOCATION": "Share",
+        "TRACK_FOLLOW_DEVICE": "Follow my position",
         "CARTES_GOUV_FR": "All IGN maps",
         "CARTES_GOUV_FR_TITLE": "Open the public map service in a new tab",
         "SHOW_GPS_COORDINATES": "Show GPS Coordinates",

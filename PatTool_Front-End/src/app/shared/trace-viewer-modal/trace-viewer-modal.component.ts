@@ -76,6 +76,12 @@ export class TraceViewerModalComponent implements OnDestroy {
 	public showCyclingTrailsOverlay: boolean = false;
 	private cyclingTrailsOverlay?: L.TileLayer;
 
+	/** Suivre la position GPS de l'appareil : recentrage carte toutes les 10 s. */
+	public followDeviceLocation: boolean = false;
+	/** Compteur visible (secondes restantes avant prochaine mise à jour), 0 = en cours de mise à jour. */
+	public deviceLocationCountdown: number = 0;
+	private deviceLocationCountdownId: ReturnType<typeof setInterval> | null = null;
+
 	// Event color for styling
 	private eventColor: { r: number; g: number; b: number } | null = null;
 	private mapMoveHandler?: () => void;
@@ -204,6 +210,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	ngOnDestroy(): void {
+		this.stopFollowDeviceLocation();
 		this.destroy$.next();
 		this.destroy$.complete();
 		this.close();
@@ -322,6 +329,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	public close(): void {
+		this.stopFollowDeviceLocation();
 		if (this.document.fullscreenElement) {
 			const exitResult = this.document.exitFullscreen();
 			if (exitResult && typeof exitResult.then === 'function') {
@@ -349,9 +357,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			lng = this.currentLng || 2.2;
 			z = this.currentZoom || 6;
 		}
-		const c = `${lng.toFixed(6)},${lat.toFixed(6)}`;
-		const embedUrl = `https://cartes.gouv.fr/explorer-les-cartes/embed?c=${encodeURIComponent(c)}&z=${z}&l=GEOGRAPHICALGRIDSYSTEMS.MAPS$GEOPORTAIL:OGC:WMTS(1;1;1;0)&permalinkShare=yes`;
-		this.cartesGouvEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl);
+		this.updateCartesGouvEmbedUrl(lat, lng, z);
 		this.cdr.detectChanges();
 		this.cartesGouvModalRef = this.modalService.open(this.cartesGouvModal, {
 			size: 'xl',
@@ -365,6 +371,14 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.cartesGouvEmbedUrl = null;
 			this.cleanupCartesGouvFullscreenListener();
 		});
+	}
+
+	/** Met à jour l’URL d’embed cartes.gouv.fr (position + zoom). Utilisé à l’ouverture et quand « Suivre ma position » recentre. */
+	private updateCartesGouvEmbedUrl(lat: number, lng: number, z: number): void {
+		const c = `${lng.toFixed(6)},${lat.toFixed(6)}`;
+		const embedUrl = `https://cartes.gouv.fr/explorer-les-cartes/embed?c=${encodeURIComponent(c)}&z=${z}&l=GEOGRAPHICALGRIDSYSTEMS.MAPS$GEOPORTAIL:OGC:WMTS(1;1;1;0)&permalinkShare=yes`;
+		this.cartesGouvEmbedUrl = this.sanitizer.bypassSecurityTrustResourceUrl(embedUrl);
+		this.cdr.markForCheck();
 	}
 
 	public closeCartesGouvEmbed(): void {
@@ -1879,6 +1893,67 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 		this.map.fitBounds(this.trackBounds, { padding: [24, 24] });
+	}
+
+	/** Active/désactive le suivi de la position GPS de l'appareil (recentrage carte toutes les 10 s). */
+	public onFollowDeviceLocationChange(): void {
+		if (this.followDeviceLocation) {
+			this.startFollowDeviceLocation();
+		} else {
+			this.stopFollowDeviceLocation();
+		}
+	}
+
+	private startFollowDeviceLocation(): void {
+		this.stopFollowDeviceLocation();
+		if (!this.map || !navigator.geolocation) {
+			this.followDeviceLocation = false;
+			this.cdr.markForCheck();
+			return;
+		}
+		this.deviceLocationCountdown = 10;
+		this.fetchDevicePositionAndRecenter();
+		this.deviceLocationCountdownId = setInterval(() => {
+			this.deviceLocationCountdown = Math.max(0, this.deviceLocationCountdown - 1);
+			this.cdr.markForCheck();
+			if (this.deviceLocationCountdown === 0) {
+				this.fetchDevicePositionAndRecenter();
+				this.deviceLocationCountdown = 10;
+			}
+		}, 1000);
+		this.cdr.markForCheck();
+	}
+
+	private stopFollowDeviceLocation(): void {
+		if (this.deviceLocationCountdownId) {
+			clearInterval(this.deviceLocationCountdownId);
+			this.deviceLocationCountdownId = null;
+		}
+		this.deviceLocationCountdown = 0;
+		this.cdr.markForCheck();
+	}
+
+	private fetchDevicePositionAndRecenter(): void {
+		if (!this.map || !this.followDeviceLocation || !navigator.geolocation) {
+			return;
+		}
+		navigator.geolocation.getCurrentPosition(
+			(pos) => {
+				if (!this.map || !this.followDeviceLocation) {
+					return;
+				}
+				const lat = pos.coords.latitude;
+				const lng = pos.coords.longitude;
+				const zoom = this.map.getZoom();
+				this.map.setView([lat, lng], zoom);
+				this.cdr.markForCheck();
+			},
+			() => {
+				// Erreur géolocalisation : on laisse le compteur continuer, réessai au prochain cycle
+				this.cdr.markForCheck();
+			},
+			{ enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+		);
 	}
 
 	public async sharePosition(): Promise<void> {
