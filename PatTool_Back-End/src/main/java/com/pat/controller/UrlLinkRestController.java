@@ -3,9 +3,12 @@ package com.pat.controller;
 import com.pat.repo.domain.UrlLink;
 import com.pat.repo.domain.Friend;
 import com.pat.repo.domain.Member;
+import com.pat.repo.domain.CategoryLink;
 import com.pat.repo.UrlLinkRepository;
+import com.pat.repo.CategoryLinkRepository;
 import com.pat.repo.FriendRepository;
 import com.pat.repo.MembersRepository;
+import com.pat.controller.dto.LinksViewDTO;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,8 +19,11 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.LinkedHashMap;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api")
@@ -27,6 +33,9 @@ public class UrlLinkRestController {
 
     @Autowired
     UrlLinkRepository urlLinkRepository;
+
+    @Autowired
+    CategoryLinkRepository categoryLinkRepository;
     
     @Autowired
     FriendRepository friendRepository;
@@ -84,6 +93,106 @@ public class UrlLinkRestController {
         return allLinks.stream()
             .filter(link -> link.getVisibility() == null || "public".equals(link.getVisibility()))
             .collect(Collectors.toList());
+    }
+
+    /**
+     * Single endpoint for the links page: returns categories and links grouped by category
+     * in one JSON response. Reduces round-trips and allows faster display.
+     */
+    @GetMapping(value = "/links-view", produces = MediaType.APPLICATION_JSON_VALUE)
+    public LinksViewDTO getLinksView(@RequestHeader(value = "user-id", required = false) String userId) {
+        log.debug("Get links-view for user: {}", userId);
+
+        // 1) Categories (same filter as CategoryLinkRestController)
+        Sort categorySort = Sort.by(Sort.Direction.ASC, "categoryName");
+        List<CategoryLink> allCategories = categoryLinkRepository.findAll(categorySort);
+        List<CategoryLink> categories;
+        if (userId != null && !userId.isEmpty()) {
+            categories = allCategories.stream()
+                .filter(category -> {
+                    if (category.getVisibility() == null || "public".equals(category.getVisibility())) {
+                        return true;
+                    }
+                    if ("private".equals(category.getVisibility()) && category.getAuthor() != null) {
+                        return userId.equals(category.getAuthor().getId());
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+        } else {
+            categories = allCategories.stream()
+                .filter(category -> category.getVisibility() == null || "public".equals(category.getVisibility()))
+                .collect(Collectors.toList());
+        }
+
+        // 2) Links (same filter as getUrlLink)
+        Sort linkSort = Sort.by(Sort.Direction.ASC, "linkName");
+        List<UrlLink> allLinks = urlLinkRepository.findAll(linkSort);
+        List<String> friendIds = java.util.Collections.emptyList();
+        if (userId != null && !userId.isEmpty()) {
+            Optional<Member> currentUserOpt = membersRepository.findById(userId);
+            if (currentUserOpt.isPresent()) {
+                Member currentUser = currentUserOpt.get();
+                List<Friend> friendships = friendRepository.findByUser1OrUser2(currentUser, currentUser);
+                friendIds = friendships.stream()
+                    .flatMap(friendship -> java.util.stream.Stream.of(
+                        friendship.getUser1() != null && !friendship.getUser1().getId().equals(userId) ? friendship.getUser1().getId() : null,
+                        friendship.getUser2() != null && !friendship.getUser2().getId().equals(userId) ? friendship.getUser2().getId() : null
+                    ))
+                    .filter(id -> id != null)
+                    .collect(Collectors.toList());
+            }
+        }
+        final List<String> finalFriendIds = friendIds;
+        List<UrlLink> filteredLinks;
+        if (userId != null && !userId.isEmpty()) {
+            filteredLinks = allLinks.stream()
+                .filter(link -> {
+                    if (link.getVisibility() == null || "public".equals(link.getVisibility())) {
+                        return true;
+                    }
+                    if ("private".equals(link.getVisibility()) && link.getAuthor() != null) {
+                        return userId.equals(link.getAuthor().getId());
+                    }
+                    if ("friends".equals(link.getVisibility()) && link.getAuthor() != null) {
+                        if (userId.equals(link.getAuthor().getId())) {
+                            return true;
+                        }
+                        return finalFriendIds.contains(link.getAuthor().getId());
+                    }
+                    return false;
+                })
+                .collect(Collectors.toList());
+        } else {
+            filteredLinks = allLinks.stream()
+                .filter(link -> link.getVisibility() == null || "public".equals(link.getVisibility()))
+                .collect(Collectors.toList());
+        }
+
+        // 3) Group links by categoryLinkID
+        Map<String, List<UrlLink>> linksByCategoryId = new LinkedHashMap<>();
+        for (CategoryLink c : categories) {
+            String id = c.getCategoryLinkID();
+            linksByCategoryId.put(id, new ArrayList<>());
+        }
+        for (UrlLink link : filteredLinks) {
+            String catId = link.getCategoryLinkID();
+            linksByCategoryId.computeIfAbsent(catId, k -> new ArrayList<>()).add(link);
+        }
+
+        // 4) Ne pas envoyer les positions des auteurs (allège le JSON)
+        for (UrlLink link : filteredLinks) {
+            if (link.getAuthor() != null) {
+                link.getAuthor().setPositions(java.util.Collections.emptyList());
+            }
+        }
+        for (CategoryLink cat : categories) {
+            if (cat.getAuthor() != null) {
+                cat.getAuthor().setPositions(java.util.Collections.emptyList());
+            }
+        }
+
+        return new LinksViewDTO(categories, linksByCategoryId);
     }
 
     @GetMapping(value="/urllink/id/{id}", produces = MediaType.APPLICATION_JSON_VALUE)

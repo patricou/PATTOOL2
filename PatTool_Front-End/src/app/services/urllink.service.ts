@@ -46,6 +46,22 @@ export class UrllinkService {
 		);
 	}
 
+	/**
+	 * Single GET that returns categories and links grouped by category (one JSON).
+	 * Use this for the links page for faster load (one round-trip).
+	 */
+	getLinksView(user: Member): Observable<{ categories: Category[]; linksByCategoryId: Record<string, urllink[]> }> {
+		return this.getHeaderWithToken().pipe(
+			switchMap(headers => {
+				const headersWithUser = headers.set('user-id', user.id || '');
+				return this._http.get<{ categories: Category[]; linksByCategoryId: Record<string, urllink[]> }>(
+					this.API_URL + "links-view",
+					{ headers: headersWithUser }
+				);
+			})
+		);
+	}
+
 	getCategories(user: Member): Observable<any> {
 		return this.getHeaderWithToken().pipe(
 			switchMap(headers => {

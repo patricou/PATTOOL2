@@ -36,47 +36,31 @@ export class LinksComponent implements OnInit {
   public openUrlOnClick: boolean = true;
   public loading: boolean = true;
 
+  /** Pre-computed for template: categoryLinkID -> list of filtered links (category + visible + search). */
+  filteredLinksByCategoryId: Record<string, urllink[]> = {};
+  /** Pre-computed for template: categoryLinkID -> count of visible links (category + visible, no search). */
+  categoryLinkCountById: Record<string, number> = {};
+  /** Links grouped by category from backend (single GET). Used by refreshFilteredLinks. */
+  linksByCategoryId: Record<string, urllink[]> = {};
+
   constructor(private _memberService: MembersService, private _urlLinkService: UrllinkService, private _commonValuesService: CommonvaluesService, private router: Router) { }
 
   ngOnInit() {
     this.loading = true;
-    // to get urls when user.id is not empty
     this.waitForNonEmptyValue().then(() => {
-      let now = new Date();
-      let linksLoaded = false;
-      let categoriesLoaded = false;
-      const maybeDone = () => {
-        if (linksLoaded && categoriesLoaded) {
+      this._urlLinkService.getLinksView(this.user).subscribe({
+        next: (res) => {
+          this.categories = res.categories ?? [];
+          this.linksByCategoryId = res.linksByCategoryId ?? {};
+          this.urllinks = Object.values(this.linksByCategoryId).flat();
+          this.refreshFilteredLinks();
+          this.loading = false;
+        },
+        error: (err) => {
+          alert('Error loading links: ' + err);
           this.loading = false;
         }
-      };
-
-      this._urlLinkService
-        .getLinks(this.user)
-        .subscribe(ulks => {
-          this.urllinks = ulks;
-          linksLoaded = true;
-          maybeDone();
-        }
-          , err => {
-            alert("Error getting urllink" + err);
-            linksLoaded = true;
-            maybeDone();
-          });
-
-      // to get Categories - INSIDE waitForNonEmptyValue so user.id is set
-      this._urlLinkService
-        .getCategories(this.user)
-        .subscribe(categ => {
-          this.categories = categ;
-          categoriesLoaded = true;
-          maybeDone();
-        }
-          , err => {
-            alert("Error getting Category" + err);
-            categoriesLoaded = true;
-            maybeDone();
-          });
+      });
     });
   }
 
@@ -121,7 +105,7 @@ export class LinksComponent implements OnInit {
     // Call your service to update the visibility in the database
     this._urlLinkService.updateVisibility(urllink).subscribe(
       response => {
-        // Update successful
+        this.refreshFilteredLinks();
         console.log('Visibility updated to:', urllink.visibility);
       },
       error => {
@@ -168,6 +152,22 @@ export class LinksComponent implements OnInit {
     }).length;
   }
 
+  /** Recompute filtered links and counts; call when linksByCategoryId, categories, or searchFilter change. */
+  refreshFilteredLinks(): void {
+    const countById: Record<string, number> = {};
+    const linksById: Record<string, urllink[]> = {};
+    for (const c of this.categories) {
+      const id = c.categoryLinkID;
+      const visibleLinks = this.linksByCategoryId[id] ?? [];
+      countById[id] = visibleLinks.length;
+      linksById[id] = this.searchFilter?.trim()
+        ? visibleLinks.filter(u => this.matchesSearchFilter(u))
+        : visibleLinks;
+    }
+    this.categoryLinkCountById = countById;
+    this.filteredLinksByCategoryId = linksById;
+  }
+
   isCategoryVisible(category: Category): boolean {
     // Categories are already filtered by the backend
     // Just return true for all categories received
@@ -189,7 +189,8 @@ export class LinksComponent implements OnInit {
 
   onSearchChange(): void {
     // This method will be called when the search input changes
-    
+    this.refreshFilteredLinks();
+
     if (!this.searchFilter || this.searchFilter.trim().length < 2) {
       this.searchSuggestions = [];
       this.showSuggestions = false;
@@ -249,6 +250,14 @@ export class LinksComponent implements OnInit {
 
   isCategoryExpanded(categoryIndex: number): boolean {
     return this.expandedCategoryIndex === categoryIndex;
+  }
+
+  trackByCategoryId(_index: number, c: Category): string {
+    return c.categoryLinkID;
+  }
+
+  trackByLinkId(_index: number, u: urllink): string {
+    return u.id ?? `${u.url}-${u.linkName}`;
   }
 
   getCategoryIcon(categoryName: string): string {

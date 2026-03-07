@@ -71,7 +71,7 @@
         </div>
         
         <div class="links-grid">
-            <ng-container *ngFor="let c of categories; let i = index">
+            <ng-container *ngFor="let c of categories; let i = index; trackBy: trackByCategoryId">
                 <div class="category-card" 
                      *ngIf="isCategoryVisible(c)"
                      [class.expanded]="isCategoryExpanded(i)">
@@ -81,7 +81,7 @@
                     </div>
                     <h3 class="category-title">
                         {{c.categoryName}}
-                        <span class="category-count">({{ getCategoryLinksCount(c) }})</span>
+                        <span class="category-count">({{ categoryLinkCountById[c.categoryLinkID] ?? 0 }})</span>
                     </h3>
                     <div class="expand-icon">
                         <i class="fa" [ngClass]="isCategoryExpanded(i) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
@@ -89,7 +89,7 @@
                 </div>
                 <div class="card-content" *ngIf="isCategoryExpanded(i)">
                     <div class="links-list">
-                        <ng-container *ngFor="let u of getCategoryLinks(c)">
+                        <ng-container *ngFor="let u of (filteredLinksByCategoryId[c.categoryLinkID] ?? []); trackBy: trackByLinkId">
                             <div class="link-item">
                                 <div class="link-content">
                                     <div class="link-icon">
@@ -124,7 +124,7 @@
                                 </div>
                             </div>
                         </ng-container>
-                        <div class="empty-state" *ngIf="getCategoryLinks(c).length === 0">
+                        <div class="empty-state" *ngIf="(filteredLinksByCategoryId[c.categoryLinkID] ?? []).length === 0">
                             <i class="fa fa-folder-open" *ngIf="!searchFilter"></i>
                             <i class="fa fa-search" *ngIf="searchFilter"></i>
                             <p *ngIf="!searchFilter">{{ 'LINKS.NO_LINKS' | translate }}</p>
