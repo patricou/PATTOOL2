@@ -11,13 +11,14 @@ import { CommonvaluesService } from './services/commonvalues.service';
 import { environment } from '../environments/environment';
 import { FileService } from './services/file.service';
 import * as piexif from 'piexifjs';
+import { NavigationButtonsComponent } from './shared/navigation-buttons/navigation-buttons.component';
 
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.css'],
     standalone: true,
-    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule]
+    imports: [CommonModule, RouterModule, FormsModule, TranslateModule, NgbModule, NavigationButtonsComponent]
 })
 export class AppComponent implements OnInit {
 

@@ -4316,28 +4316,6 @@ select.compact-input:focus {
   .card-header-compact .btn-compact i {
     font-size: 0.7rem;
   }
-  
-  /* Navigation buttons positioning on mobile */
-  ::ng-deep app-navigation-buttons .navigation-buttons {
-    top: 60px !important;
-    left: 0.5rem !important;
-    gap: 0.25rem !important;
-    padding: 0.4rem !important;
-  }
-  
-  ::ng-deep app-navigation-buttons .nav-btn {
-    padding: 0.3rem 0.5rem !important;
-    font-size: 0.7rem !important;
-    min-width: auto !important;
-  }
-  
-  ::ng-deep app-navigation-buttons .btn-text {
-    display: none !important; /* Hide text on mobile, show only icons */
-  }
-  
-  ::ng-deep app-navigation-buttons .nav-btn i {
-    font-size: 0.8rem !important;
-  }
 }
 
 /* Large screens (1400px and above) */
