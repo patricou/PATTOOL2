@@ -1189,8 +1189,13 @@ export class AppComponent implements OnInit {
                 const isMobile = window.innerWidth <= 991.98;
                 
                 if (isMobile) {
-                    // In mobile mode, don't position with fixed, let CSS handle it
-                    // Just ensure it's visible
+                    // On mobile: keep submenu inside the dropdown (don't use fixed position).
+                    // If it was previously moved to body (desktop), put it back.
+                    if (submenuElement.parentElement?.tagName === 'BODY') {
+                        parentItem.appendChild(submenuElement);
+                    }
+                    // Clear any inline styles so mobile CSS (position: static) applies
+                    submenuElement.removeAttribute('style');
                     submenuElement.classList.add('show');
                     submenuElement.setAttribute('data-visible', 'true');
                     return;

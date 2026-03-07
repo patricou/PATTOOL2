@@ -952,22 +952,15 @@
     }
 }
 
-/* Type options - 2 per line on desktop, 1 per line on mobile */
+/* Type options - 2 columns on mobile and desktop */
 .type-options {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
 }
 
-@media (min-width: 768px) {
-    .type-options {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 0.5rem;
-    }
-    
-    .type-option {
-        margin-bottom: 0 !important;
-    }
+.type-option {
+    margin-bottom: 0 !important;
 }
 
 /* Visibility options - 2 per line on desktop, 1 per line on mobile (like type options) */

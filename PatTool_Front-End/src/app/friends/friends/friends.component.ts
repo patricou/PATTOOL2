@@ -36,7 +36,7 @@ export class FriendsComponent implements OnInit {
   public sentRequests: FriendRequest[] = [];
   public currentUser: Member = new Member("", "", "", "", "", [], "");
   public searchFilter: string = '';
-  public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'myuser';
+  public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'requests';
   public selectedFriendIndex: number | null = null;
   public sortOption: 'dateCreation' | 'firstName' | 'lastName' | 'lastConnection' = 'lastConnection';
   public sortOptionFriends: 'dateCreation' | 'firstName' | 'lastName' = 'dateCreation';
@@ -256,6 +256,7 @@ export class FriendsComponent implements OnInit {
   loadData() {
     this.loading = true;
     this.errorMessage = '';
+    this.cdr.detectChanges();
 
     // Refresh currentUser from service to ensure we have the latest data including whatsappLink
     const serviceUser = this._memberService.getUser();
@@ -272,6 +273,7 @@ export class FriendsComponent implements OnInit {
       completedRequests++;
       if (completedRequests >= totalRequests) {
         this.loading = false;
+        this.cdr.detectChanges();
       }
     };
 

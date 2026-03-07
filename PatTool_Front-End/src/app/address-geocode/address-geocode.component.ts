@@ -1,4 +1,4 @@
-import { Component, ViewChild, NgZone, ChangeDetectorRef } from '@angular/core';
+import { Component, ViewChild, NgZone, ChangeDetectorRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
@@ -26,7 +26,7 @@ export interface GeocodeResult {
 		TraceViewerModalComponent
 	]
 })
-export class AddressGeocodeComponent {
+export class AddressGeocodeComponent implements OnInit {
 
 	@ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
 
@@ -72,6 +72,11 @@ export class AddressGeocodeComponent {
 		private readonly ngZone: NgZone,
 		private readonly cdr: ChangeDetectorRef
 	) {}
+
+	ngOnInit(): void {
+		// Récupérer la position automatiquement à l'arrivée sur la page (le bouton "Ma position" reste disponible pour rafraîchir)
+		this.getMyPosition();
+	}
 
 	/**
 	 * Geocode address via backend (Nominatim).

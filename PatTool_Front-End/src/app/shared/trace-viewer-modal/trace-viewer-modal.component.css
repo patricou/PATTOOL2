@@ -648,7 +648,7 @@
 	height: 100%;
 }
 
-/* Custom red crosshair cursor - larger size */
+/* Curseur croix rouge personnalisé sur la carte */
 :host ::ng-deep .leaflet-container,
 :host ::ng-deep .leaflet-container.leaflet-grab,
 :host ::ng-deep .leaflet-container.leaflet-touch,
@@ -1009,6 +1009,12 @@
 .device-countdown {
 	font-weight: 600;
 	color: #20c997;
+}
+
+/* Marqueur « position appareil » (Suivre ma position) : pas de fond Leaflet par défaut */
+:host ::ng-deep .device-location-marker {
+	background: none !important;
+	border: none !important;
 }
 
 .gps-copy-btn:focus {

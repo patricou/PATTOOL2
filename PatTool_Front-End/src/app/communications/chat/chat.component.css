@@ -1147,4 +1147,21 @@
     .discussion-card {
         min-height: 180px;
     }
+
+    /* Filter/sort boxes on separate lines on mobile */
+    .filter-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .filter-section-redesigned .filter-input-container-desktop {
+        min-width: 0;
+        max-width: none;
+    }
+
+    .sort-section-redesigned .sort-input-container-desktop {
+        min-width: 0;
+        max-width: none;
+    }
 }

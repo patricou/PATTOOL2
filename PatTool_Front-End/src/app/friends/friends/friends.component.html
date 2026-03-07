@@ -13,8 +13,22 @@
     {{ errorMessage }}
   </div>
 
-  <!-- Tabs -->
-  <ul class="nav nav-tabs" role="tablist">
+  <!-- Tabs: mobile = select dropdown, desktop = tab bar -->
+  <div class="friends-tabs-mobile d-md-none">
+    <label for="friendsTabSelect" class="friends-tabs-mobile-label">{{ 'FRIENDS.TITLE' | translate }}</label>
+    <select id="friendsTabSelect" 
+            class="form-select friends-tabs-select"
+            [ngModel]="activeTab" 
+            (ngModelChange)="setActiveTab($event)">
+      <option value="myuser">{{ 'FRIENDS.MY_USER' | translate }}</option>
+      <option value="users">{{ 'FRIENDS.ALL_USERS' | translate }} ({{ allUsers.length }})</option>
+      <option value="requests">{{ 'FRIENDS.REQUESTS' | translate }} ({{ pendingRequests.length }})</option>
+      <option value="friends">{{ 'FRIENDS.MY_FRIENDS' | translate }} ({{ friends.length }})</option>
+      <option value="groups">{{ 'FRIENDS.FRIEND_GROUPS' | translate }} ({{ friendGroups.length }})</option>
+    </select>
+  </div>
+
+  <ul class="nav nav-tabs friends-tabs-desktop d-none d-md-flex" role="tablist">
     <li class="nav-item" role="presentation">
       <button 
         class="nav-link" 
@@ -419,6 +433,9 @@
     <div *ngIf="pendingRequests.length === 0" class="no-results no-results-centered">
       <i class="fa fa-inbox fa-3x"></i>
       <p>{{ 'FRIENDS.NO_PENDING_REQUESTS' | translate }}</p>
+      <button type="button" class="btn btn-primary btn-see-all-users mt-3" (click)="setActiveTab('users')">
+        <i class="fa fa-user-plus me-2"></i>{{ 'FRIENDS.SEE_ALL_USERS' | translate }}
+      </button>
     </div>
 
     <div *ngIf="pendingRequests.length > 0" class="requests-list">
@@ -1067,8 +1084,8 @@
                     <th style="width: 50px;"></th>
                     <th>{{ 'FRIENDS.NAME' | translate }}</th>
                     <th>{{ 'FRIENDS.USERNAME' | translate }}</th>
-                    <th>{{ 'FRIENDS.ORIGIN' | translate }}</th>
                     <th>{{ 'FRIENDS.ACTIONS' | translate }}</th>
+                    <th>{{ 'FRIENDS.ORIGIN' | translate }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1098,18 +1115,6 @@
                       <i class="fa fa-at"></i> {{ getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).userName }}
                     </td>
                     <td>
-                      <span *ngIf="getFriendshipOrigin(friend).type === 'direct'" class="origin-badge direct-badge">
-                        <i class="fa fa-heart me-1"></i>{{ 'FRIENDS.DIRECT_FRIENDSHIP' | translate }}
-                      </span>
-                      <span *ngIf="getFriendshipOrigin(friend).type === 'both' && getFriendshipOrigin(friend).groups && getFriendshipOrigin(friend).groups!.length > 0" class="origin-badge both-badge">
-                        <i class="fa fa-heart me-1"></i>{{ 'FRIENDS.DIRECT_FRIENDSHIP' | translate }} + 
-                        <i class="fa fa-users me-1"></i>
-                        <span *ngFor="let groupName of getFriendshipOrigin(friend).groups; let last = last">
-                          {{ groupName }}<span *ngIf="!last">, </span>
-                        </span>
-                      </span>
-                    </td>
-                    <td>
                       <button 
                         *ngIf="getOtherUserFromFriend(friend, hasAdminRole() && selectedUserForUpdate ? selectedUserForUpdate : currentUser).whatsappLink"
                         class="btn btn-xs btn-success compact-btn"
@@ -1118,6 +1123,22 @@
                         placement="top">
                         <i class="fa fa-whatsapp"></i>
                       </button>
+                    </td>
+                    <td>
+                      <span *ngIf="getFriendshipOrigin(friend).type === 'direct'" class="origin-badge direct-badge">
+                        <i class="fa fa-heart me-1"></i>{{ 'FRIENDS.DIRECT_FRIENDSHIP' | translate }}
+                      </span>
+                      <span *ngIf="getFriendshipOrigin(friend).type === 'both' && getFriendshipOrigin(friend).groups && getFriendshipOrigin(friend).groups!.length > 0" class="origin-badge both-badge">
+                        <span class="origin-badge-main">
+                          <i class="fa fa-heart me-1"></i>{{ 'FRIENDS.DIRECT_FRIENDSHIP' | translate }}
+                          <i class="fa fa-users ms-1"></i>
+                        </span>
+                        <span class="origin-badge-groups">
+                          <ng-container *ngFor="let groupName of getFriendshipOrigin(friend).groups">
+                            <span class="origin-group-pill">{{ groupName }}</span>
+                          </ng-container>
+                        </span>
+                      </span>
                     </td>
                   </tr>
                 </tbody>
@@ -1138,8 +1159,8 @@
                     <th style="width: 30px;"></th>
                     <th>{{ 'FRIENDS.NAME' | translate }}</th>
                     <th>{{ 'FRIENDS.USERNAME' | translate }}</th>
-                    <th>{{ 'FRIENDS.GROUPS' | translate }}</th>
                     <th>{{ 'FRIENDS.ACTIONS' | translate }}</th>
+                    <th>{{ 'FRIENDS.GROUPS' | translate }}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1161,14 +1182,6 @@
                       <i class="fa fa-at"></i> {{ item.member.userName }}
                     </td>
                     <td>
-                      <span class="origin-badge group-badge">
-                        <i class="fa fa-users me-1"></i>
-                        <span *ngFor="let groupName of item.groups; let last = last">
-                          {{ groupName }}<span *ngIf="!last">, </span>
-                        </span>
-                      </span>
-                    </td>
-                    <td>
                       <button 
                         *ngIf="item.member.whatsappLink"
                         class="btn btn-xs btn-success compact-btn"
@@ -1177,6 +1190,16 @@
                         placement="top">
                         <i class="fa fa-whatsapp"></i>
                       </button>
+                    </td>
+                    <td>
+                      <span class="origin-badge group-badge">
+                        <i class="fa fa-users me-1"></i>
+                        <span class="origin-badge-groups">
+                          <ng-container *ngFor="let groupName of item.groups">
+                            <span class="origin-group-pill">{{ groupName }}</span>
+                          </ng-container>
+                        </span>
+                      </span>
                     </td>
                   </tr>
                 </tbody>

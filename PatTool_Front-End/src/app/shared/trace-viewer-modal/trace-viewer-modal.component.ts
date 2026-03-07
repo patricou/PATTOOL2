@@ -81,6 +81,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 	/** Compteur visible (secondes restantes avant prochaine mise à jour), 0 = en cours de mise à jour. */
 	public deviceLocationCountdown: number = 0;
 	private deviceLocationCountdownId: ReturnType<typeof setInterval> | null = null;
+	/** Marqueur affiché sur la carte pour la position GPS de l'appareil quand « Suivre ma position » est actif. */
+	private deviceLocationMarker?: L.Marker;
 
 	// Event color for styling
 	private eventColor: { r: number; g: number; b: number } | null = null;
@@ -551,14 +553,10 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private forceCrosshairCursor(): void {
 		if (this.map && this.map.getContainer()) {
 			const mapContainer = this.map.getContainer();
-			// Custom red crosshair cursor (larger, red)
 			const redCrosshairCursor = 'url(\'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32"><line x1="16" y1="0" x2="16" y2="12" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="16" y1="20" x2="16" y2="32" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="0" y1="16" x2="12" y2="16" stroke="red" stroke-width="2" stroke-linecap="round"/><line x1="20" y1="16" x2="32" y2="16" stroke="red" stroke-width="2" stroke-linecap="round"/><circle cx="16" cy="16" r="2" fill="red"/></svg>\') 16 16, crosshair';
-			// Force crosshair cursor via inline style (highest priority)
 			mapContainer.style.cursor = redCrosshairCursor;
-			// Also remove leaflet-grab class if present
 			mapContainer.classList.remove('leaflet-grab');
 
-			// Force cursor on all panes
 			const panes = mapContainer.querySelectorAll('.leaflet-pane, .leaflet-map-pane, .leaflet-tile-pane, .leaflet-overlay-pane');
 			panes.forEach((pane: Element) => {
 				(pane as HTMLElement).style.cursor = redCrosshairCursor;
@@ -1380,6 +1378,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.overlayLayer = undefined;
 		this.hikingTrailsOverlay = undefined;
 		this.cyclingTrailsOverlay = undefined;
+		this.removeDeviceLocationMarker();
 		this.pendingTrackPoints = null;
 		this.pendingLocation = null;
 		this.selectionMarker = undefined;
@@ -1929,8 +1928,39 @@ export class TraceViewerModalComponent implements OnDestroy {
 			clearInterval(this.deviceLocationCountdownId);
 			this.deviceLocationCountdownId = null;
 		}
+		this.removeDeviceLocationMarker();
 		this.deviceLocationCountdown = 0;
 		this.cdr.markForCheck();
+	}
+
+	/** Affiche ou met à jour le marqueur « position appareil » sur la carte. */
+	private updateDeviceLocationMarker(lat: number, lng: number): void {
+		if (!this.map) {
+			return;
+		}
+		if (this.deviceLocationMarker) {
+			this.deviceLocationMarker.setLatLng([lat, lng]);
+			return;
+		}
+		const icon = L.divIcon({
+			className: 'device-location-marker',
+			html: '<span style="display:block;width:14px;height:14px;border-radius:50%;background:red;border:2px solid white;box-shadow:0 0 4px rgba(0,0,0,0.6);"></span>',
+			iconSize: [14, 14],
+			iconAnchor: [7, 7]
+		});
+		this.deviceLocationMarker = L.marker([lat, lng], { icon, zIndexOffset: 1000 });
+		this.deviceLocationMarker.addTo(this.map);
+	}
+
+	/** Supprime le marqueur « position appareil » de la carte. */
+	private removeDeviceLocationMarker(): void {
+		if (this.deviceLocationMarker) {
+			if (this.map && this.map.hasLayer(this.deviceLocationMarker)) {
+				this.map.removeLayer(this.deviceLocationMarker);
+			}
+			this.deviceLocationMarker.remove();
+			this.deviceLocationMarker = undefined;
+		}
 	}
 
 	private fetchDevicePositionAndRecenter(): void {
@@ -1946,6 +1976,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 				const lng = pos.coords.longitude;
 				const zoom = this.map.getZoom();
 				this.map.setView([lat, lng], zoom);
+				this.updateDeviceLocationMarker(lat, lng);
 				this.cdr.markForCheck();
 			},
 			() => {
