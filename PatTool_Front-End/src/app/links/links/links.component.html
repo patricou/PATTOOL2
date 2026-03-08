@@ -81,7 +81,7 @@
                     </div>
                     <h3 class="category-title">
                         {{c.categoryName}}
-                        <span class="category-count">({{ categoryLinkCountById[c.categoryLinkID] ?? 0 }})</span>
+                        <span class="category-count">({{ categoryLinkCountById[c.categoryLinkID] }})</span>
                     </h3>
                     <div class="expand-icon">
                         <i class="fa" [ngClass]="isCategoryExpanded(i) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
@@ -89,7 +89,7 @@
                 </div>
                 <div class="card-content" *ngIf="isCategoryExpanded(i)">
                     <div class="links-list">
-                        <ng-container *ngFor="let u of (filteredLinksByCategoryId[c.categoryLinkID] ?? []); trackBy: trackByLinkId">
+                        <ng-container *ngFor="let u of filteredLinksByCategoryId[c.categoryLinkID]; trackBy: trackByLinkId">
                             <div class="link-item">
                                 <div class="link-content">
                                     <div class="link-icon">
@@ -124,7 +124,7 @@
                                 </div>
                             </div>
                         </ng-container>
-                        <div class="empty-state" *ngIf="(filteredLinksByCategoryId[c.categoryLinkID] ?? []).length === 0">
+                        <div class="empty-state" *ngIf="filteredLinksByCategoryId[c.categoryLinkID].length === 0">
                             <i class="fa fa-folder-open" *ngIf="!searchFilter"></i>
                             <i class="fa fa-search" *ngIf="searchFilter"></i>
                             <p *ngIf="!searchFilter">{{ 'LINKS.NO_LINKS' | translate }}</p>

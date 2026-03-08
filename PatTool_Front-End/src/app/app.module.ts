@@ -122,7 +122,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./address-geocode/address-geocode.component').then(m => m.AddressGeocodeComponent)
 			},
 			{ path: '**', redirectTo: 'home', pathMatch: 'full' }
-		]),
+		], { onSameUrlNavigation: 'reload' }),
 		NgbModule,
 	],
 	providers: [

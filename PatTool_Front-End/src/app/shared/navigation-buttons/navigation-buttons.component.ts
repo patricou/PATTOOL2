@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Location } from '@angular/common';
+import { Router } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 
 @Component({
@@ -15,7 +16,10 @@ export class NavigationButtonsComponent implements OnInit {
   canGoBack: boolean = false;
   canGoForward: boolean = false;
 
-  constructor(private location: Location) {}
+  constructor(
+    private location: Location,
+    private router: Router
+  ) {}
 
   ngOnInit() {
     this.updateNavigationState();
@@ -38,8 +42,11 @@ export class NavigationButtonsComponent implements OnInit {
   }
 
   refreshPage() {
-    // Rafraîchir la page actuelle
-    window.location.reload();
+    // Force reload of current page: navigate away then back so the route component is destroyed and recreated
+    const currentUrl = this.router.url;
+    this.router.navigateByUrl('/home').then(() => {
+      this.router.navigateByUrl(currentUrl);
+    });
   }
 
   private updateNavigationState() {
