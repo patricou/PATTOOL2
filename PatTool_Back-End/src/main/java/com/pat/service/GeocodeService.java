@@ -21,6 +21,7 @@ public class GeocodeService {
     /** Nominatim allows max 1 request per second. */
     private static final long MIN_REQUEST_INTERVAL_MS = 1_100L;
     private static final int RETRY_DELAY_MS = 2_000;
+    private static final int MAX_ATTEMPTS_REVERSE = 3;
 
     private final RestTemplate restTemplate;
     private final Lock rateLimitLock = new ReentrantLock();
@@ -127,7 +128,7 @@ public class GeocodeService {
 
         Map<String, Object> fallback = fallbackReverseResult(lat, lon);
 
-        for (int attempt = 0; attempt < 2; attempt++) {
+        for (int attempt = 0; attempt < MAX_ATTEMPTS_REVERSE; attempt++) {
             throttle();
             try {
                 ResponseEntity<Map> response = restTemplate.exchange(
@@ -140,7 +141,14 @@ public class GeocodeService {
                 if (body == null) {
                     return fallback;
                 }
-                body.put("displayName", body.get("display_name") != null ? body.get("display_name").toString() : "");
+                Object rawDisplayName = body.get("display_name");
+                String displayNameStr = rawDisplayName != null ? rawDisplayName.toString().trim() : "";
+                if (displayNameStr.isEmpty()) {
+                    body.put("displayName", fallback.get("displayName"));
+                    body.put("display_name", fallback.get("display_name"));
+                } else {
+                    body.put("displayName", displayNameStr);
+                }
                 body.put("lat", lat);
                 body.put("lon", lon);
                 log.debug("Reverse geocode for ({}, {}) returned: {}", lat, lon, body.get("display_name"));
@@ -148,7 +156,7 @@ public class GeocodeService {
             } catch (HttpClientErrorException e) {
                 if (e.getStatusCode() == HttpStatus.TOO_MANY_REQUESTS) {
                     log.warn("Reverse geocode rate limited (429) for ({}, {}), attempt {}", lat, lon, attempt + 1);
-                    if (attempt == 0) {
+                    if (attempt < MAX_ATTEMPTS_REVERSE - 1) {
                         try {
                             Thread.sleep(RETRY_DELAY_MS);
                         } catch (InterruptedException ie) {
@@ -171,9 +179,10 @@ public class GeocodeService {
     }
 
     private static Map<String, Object> fallbackReverseResult(double lat, double lon) {
+        String coordsLabel = String.format("%.6f, %.6f", lat, lon);
         Map<String, Object> empty = new HashMap<>();
-        empty.put("displayName", "");
-        empty.put("display_name", "");
+        empty.put("displayName", coordsLabel);
+        empty.put("display_name", coordsLabel);
         empty.put("lat", lat);
         empty.put("lon", lon);
         return empty;

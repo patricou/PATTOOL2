@@ -355,6 +355,9 @@ export class AddressGeocodeComponent implements OnInit {
 			this.errorMessageMyPosition = this.translateService.instant('ADDRESS_GEOCODE.GEOLOCATION_NOT_SUPPORTED');
 			return;
 		}
+		if (this.isLoadingMyPosition) {
+			return;
+		}
 		this.errorMessageMyPosition = '';
 		this.myPositionAddress = '';
 		this.myPositionLat = null;
@@ -391,13 +394,21 @@ export class AddressGeocodeComponent implements OnInit {
 		this.myPositionLon = lon;
 		this.myPositionAltitudeLoading = true;
 		this.myPositionAltitudes = [];
+		const isCoordinatesOnly = (s: string) => /^-?\d+\.?\d*,\s*-?\d+\.?\d*$/.test((s || '').trim());
 		this.apiService.geocodeReverse(lat, lon).subscribe({
 			next: (data) => {
-				this.myPositionAddress = (data?.displayName ?? data?.display_name ?? '')?.trim() || this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_NOT_FOUND');
+				const newAddress = (data?.displayName ?? data?.display_name ?? '')?.trim() || this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_NOT_FOUND');
+				const isNewRealAddress = newAddress.length > 0 && !isCoordinatesOnly(newAddress) && newAddress !== this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_NOT_FOUND');
+				const currentIsReal = this.myPositionAddress.length > 0 && !isCoordinatesOnly(this.myPositionAddress) && this.myPositionAddress !== this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_NOT_FOUND');
+				if (isNewRealAddress || !currentIsReal) {
+					this.myPositionAddress = newAddress;
+				}
 				this.cdr.detectChanges();
 			},
 			error: () => {
-				this.myPositionAddress = this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_NOT_FOUND');
+				if (!this.myPositionAddress || isCoordinatesOnly(this.myPositionAddress) || this.myPositionAddress === this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_NOT_FOUND')) {
+					this.myPositionAddress = this.translateService.instant('ADDRESS_GEOCODE.ADDRESS_NOT_FOUND');
+				}
 				this.cdr.detectChanges();
 			}
 		});
