@@ -363,7 +363,7 @@
         </div>
         
         <!-- Custom Message Prompt for Friend Request -->
-        <div *ngIf="friendRequestMessagePrompts.get(user.id) && (getUserStatus(user) === 'none' || getUserStatus(user) === 'sent')" class="alert alert-info compact-alert mt-2">
+        <div *ngIf="friendRequestPromptUserId === user.id && (getUserStatus(user) === 'none' || getUserStatus(user) === 'sent')" class="alert alert-info compact-alert mt-2">
           <i class="fa fa-question-circle"></i>
           <span class="compact-text">{{ 'FRIENDS.ADD_CUSTOM_MESSAGE' | translate }}</span>
           <div class="mt-2 d-flex gap-2">
@@ -384,7 +384,7 @@
         </div>
         
         <!-- Custom Message Input for Friend Request -->
-        <div *ngIf="friendRequestMessageInputs.get(user.id) && (getUserStatus(user) === 'none' || getUserStatus(user) === 'sent')" class="alert alert-info compact-alert mt-2">
+        <div *ngIf="friendRequestInputUserId === user.id && (getUserStatus(user) === 'none' || getUserStatus(user) === 'sent')" class="alert alert-info compact-alert mt-2">
           <div class="mb-2">
             <label [for]="'friendRequestMessage-' + user.id" class="compact-text">
               <i class="fa fa-envelope"></i>
@@ -428,75 +428,99 @@
   </div>
 
   <!-- Tab Content: Friend Requests -->
-  <div *ngIf="activeTab === 'requests'" class="tab-content">
-    <div *ngIf="pendingRequests.length === 0" class="no-results no-results-centered">
-      <i class="fa fa-inbox fa-3x"></i>
-      <p>{{ 'FRIENDS.NO_PENDING_REQUESTS' | translate }}</p>
-      <button type="button" class="btn btn-primary btn-see-all-users mt-3" (click)="setActiveTab('users')">
-        <i class="fa fa-user-plus me-2"></i>{{ 'FRIENDS.SEE_ALL_USERS' | translate }}
-      </button>
-    </div>
-
-    <div *ngIf="pendingRequests.length > 0" class="requests-list">
-      <div *ngFor="let request of getSortedPendingRequests()" class="request-card compact-user-card">
-        <!-- Card Header with User Name -->
-        <div class="request-header">
-          <h6 class="mb-0 card-header-content">
-            <span class="user-name">
-              <i class="fa fa-user-circle me-2"></i>
-              {{ request.requester.firstName }} {{ request.requester.lastName }}
-            </span>
-            <span class="header-indicators">
-              <span class="status-indicator connection-indicator" 
-                    [style.background-color]="getUserOnlineStatus(request.requester.id).online ? '#28a745' : '#dc3545'"
-                    [style.border]="getUserOnlineStatus(request.requester.id).online ? '2px solid #28a745' : '2px solid #dc3545'"
-                    [ngbTooltip]="getUserOnlineStatus(request.requester.id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
-                    placement="top"></span>
-              <span class="status-indicator visibility-indicator" 
-                    [style.background-color]="(request.requester.visible !== undefined && request.requester.visible !== null) ? (request.requester.visible ? '#28a745' : '#dc3545') : '#28a745'"
-                    [style.border]="(request.requester.visible !== undefined && request.requester.visible !== null) ? (request.requester.visible ? '2px solid #28a745' : '2px solid #dc3545') : '2px solid #28a745'"
-                    [ngbTooltip]="(request.requester.visible !== undefined && request.requester.visible !== null) ? (request.requester.visible ? ('FRIENDS.VISIBLE' | translate) : ('FRIENDS.HIDDEN' | translate)) : ('FRIENDS.VISIBLE' | translate)"
-                    placement="top"></span>
-            </span>
-          </h6>
-        </div>
-        <div class="request-info">
-          <div class="request-details">
-            <p class="text-muted compact-text mb-2">
-              <i class="fa fa-at profile-icon"></i> 
-              <span class="profile-value">{{ request.requester.userName }}</span>
-            </p>
-            <p class="text-muted compact-text mb-2" *ngIf="request.requester.registrationDate">
-              <i class="fa fa-calendar-plus-o profile-icon"></i> 
-              <span class="profile-value">{{ request.requester.registrationDate | date:'short' }}</span>
-            </p>
-            <p class="text-muted compact-text mb-2">
-              <i class="fa fa-clock profile-icon"></i>
-              <strong class="profile-label">{{ 'FRIENDS.REQUEST_DATE' | translate }}:</strong> 
-              <span class="profile-value">{{ request.requestDate | date:'short' }}</span>
-            </p>
-            <div *ngIf="request.message" class="alert alert-info compact-text mb-0 mt-2">
-              <i class="fa fa-envelope me-1"></i>
-              <strong>{{ 'FRIENDS.CUSTOM_MESSAGE' | translate }}:</strong>
-              <p class="mb-0 mt-1" style="white-space: pre-wrap;">{{ request.message }}</p>
-            </div>
+  <div *ngIf="activeTab === 'requests'" class="tab-content requests-tab">
+    <!-- Container 1: Demandes d'amis en attente (en premier) -->
+    <div class="requests-container requests-container-pending">
+      <h3 class="requests-container-title">
+        <i class="fa fa-envelope-open-o me-2"></i>
+        {{ 'FRIENDS.REQUESTS_PENDING' | translate }}
+        <span *ngIf="pendingRequests.length > 0" class="badge requests-badge">{{ pendingRequests.length }}</span>
+      </h3>
+      <div *ngIf="pendingRequests.length === 0" class="requests-empty-state">
+        <div class="requests-empty-card">
+          <div class="requests-empty-icon">
+            <i class="fa fa-inbox"></i>
           </div>
-        </div>
-        <div class="request-actions">
-          <button 
-            class="btn btn-success btn-xs compact-btn"
-            (click)="approveRequest(request.id)">
-            <i class="fa fa-check"></i>
-            <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.APPROVE' | translate }}</span>
-          </button>
-          <button 
-            class="btn btn-danger btn-xs compact-btn"
-            (click)="rejectRequest(request.id)">
-            <i class="fa fa-times"></i>
-            <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.REJECT' | translate }}</span>
+          <h4 class="requests-empty-title">{{ 'FRIENDS.NO_PENDING_REQUESTS' | translate }}</h4>
+          <p class="requests-empty-text text-muted">{{ 'FRIENDS.NO_PENDING_REQUESTS_HINT' | translate }}</p>
+          <button type="button" class="btn btn-outline-primary" (click)="setActiveTab('users')">
+            <i class="fa fa-users me-2"></i>{{ 'FRIENDS.SEE_ALL_USERS' | translate }}
           </button>
         </div>
       </div>
+      <div *ngIf="pendingRequests.length > 0" class="requests-list">
+        <div *ngFor="let request of getSortedPendingRequests()" class="request-card compact-user-card">
+          <div class="request-header">
+            <h6 class="mb-0 card-header-content">
+              <span class="user-name">
+                <i class="fa fa-user-circle me-2"></i>
+                {{ request.requester.firstName }} {{ request.requester.lastName }}
+              </span>
+              <span class="header-indicators">
+                <span class="status-indicator connection-indicator"
+                      [style.background-color]="getUserOnlineStatus(request.requester.id).online ? '#28a745' : '#dc3545'"
+                      [style.border]="getUserOnlineStatus(request.requester.id).online ? '2px solid #28a745' : '2px solid #dc3545'"
+                      [ngbTooltip]="getUserOnlineStatus(request.requester.id).online ? ('FRIENDS.ONLINE' | translate) : ('FRIENDS.OFFLINE' | translate)"
+                      placement="top"></span>
+                <span class="status-indicator visibility-indicator"
+                      [style.background-color]="(request.requester.visible !== undefined && request.requester.visible !== null) ? (request.requester.visible ? '#28a745' : '#dc3545') : '#28a745'"
+                      [style.border]="(request.requester.visible !== undefined && request.requester.visible !== null) ? (request.requester.visible ? '2px solid #28a745' : '2px solid #dc3545') : '2px solid #28a745'"
+                      [ngbTooltip]="(request.requester.visible !== undefined && request.requester.visible !== null) ? (request.requester.visible ? ('FRIENDS.VISIBLE' | translate) : ('FRIENDS.HIDDEN' | translate)) : ('FRIENDS.VISIBLE' | translate)"
+                      placement="top"></span>
+              </span>
+            </h6>
+          </div>
+          <div class="request-info">
+            <div class="request-details">
+              <p class="text-muted compact-text mb-2">
+                <i class="fa fa-at profile-icon"></i>
+                <span class="profile-value">{{ request.requester.userName }}</span>
+              </p>
+              <p class="text-muted compact-text mb-2" *ngIf="request.requester.registrationDate">
+                <i class="fa fa-calendar-plus-o profile-icon"></i>
+                <span class="profile-value">{{ request.requester.registrationDate | date:'short' }}</span>
+              </p>
+              <p class="text-muted compact-text mb-2">
+                <i class="fa fa-clock profile-icon"></i>
+                <strong class="profile-label">{{ 'FRIENDS.REQUEST_DATE' | translate }}:</strong>
+                <span class="profile-value">{{ request.requestDate | date:'short' }}</span>
+              </p>
+              <div *ngIf="request.message" class="alert alert-info compact-text mb-0 mt-2">
+                <i class="fa fa-envelope me-1"></i>
+                <strong>{{ 'FRIENDS.CUSTOM_MESSAGE' | translate }}:</strong>
+                <p class="mb-0 mt-1" style="white-space: pre-wrap;">{{ request.message }}</p>
+              </div>
+            </div>
+          </div>
+          <div class="request-actions">
+            <button
+              class="btn btn-success btn-xs compact-btn"
+              (click)="approveRequest(request.id)">
+              <i class="fa fa-check"></i>
+              <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.APPROVE' | translate }}</span>
+            </button>
+            <button
+              class="btn btn-danger btn-xs compact-btn"
+              (click)="rejectRequest(request.id)">
+              <i class="fa fa-times"></i>
+              <span class="d-none d-sm-inline ms-1">{{ 'FRIENDS.REJECT' | translate }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Container 2: Envoyer des demandes (une seule fois le bouton) -->
+    <div class="requests-container requests-container-send">
+      <h3 class="requests-container-title">
+        <i class="fa fa-user-plus me-2"></i>
+        {{ 'FRIENDS.SEND_REQUESTS_SECTION' | translate }}
+      </h3>
+      <p class="requests-container-desc text-muted">{{ 'FRIENDS.SEND_REQUESTS_SECTION_DESC' | translate }}</p>
+      <button type="button" class="btn btn-primary btn-send-requests-action" (click)="openSendRequestModal()">
+        <i class="fa fa-user-plus me-2"></i>
+        {{ 'FRIENDS.SHOW_USER_LIST' | translate }}
+      </button>
     </div>
   </div>
 
@@ -1753,6 +1777,123 @@
     </button>
     <button type="button" class="btn btn-secondary" (click)="modal.close('Close click')">
       {{ 'FRIENDS.CLOSE' | translate }}
+    </button>
+  </div>
+</ng-template>
+
+<!-- Send friend request from Requests tab: user list modal -->
+<ng-template #sendRequestModal let-modal>
+  <div class="modal-header send-request-modal-header">
+    <div class="send-request-modal-title-wrap">
+      <h5 class="modal-title">
+        <i class="fa fa-user-plus me-2"></i>
+        {{ 'FRIENDS.MODAL_SEND_REQUESTS_TITLE' | translate }}
+      </h5>
+      <p class="send-request-modal-subtitle mb-0">{{ 'FRIENDS.SELECT_USERS_PROMPT' | translate }}</p>
+    </div>
+    <button type="button" class="btn-close btn-close-white" aria-label="Close" (click)="modal.dismiss('Cross click')"></button>
+  </div>
+  <div class="modal-body send-request-modal-body">
+    <div *ngIf="loading" class="send-request-loading">
+      <i class="fa fa-spinner fa-spin send-request-loading-icon"></i>
+      <p class="send-request-loading-text">{{ 'FRIENDS.LOADING' | translate }}</p>
+    </div>
+    <div *ngIf="!loading && getUsersForRequestModal().length === 0" class="send-request-empty">
+      <i class="fa fa-users send-request-empty-icon"></i>
+      <p class="send-request-empty-text">{{ 'FRIENDS.NO_USERS_AVAILABLE_FOR_REQUEST' | translate }}</p>
+    </div>
+
+    <!-- Step: ask for custom message -->
+    <div *ngIf="!loading && getUsersForRequestModal().length > 0 && sendRequestModalMessageStep === 'prompt'" class="send-request-message-prompt">
+      <p class="send-request-message-prompt-text">
+        <i class="fa fa-question-circle me-2"></i>
+        {{ 'FRIENDS.ADD_CUSTOM_MESSAGE' | translate }}
+      </p>
+      <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-primary" (click)="sendRequestModalConfirmMessage()">
+          <i class="fa fa-check me-2"></i>{{ 'FRIENDS.YES' | translate }}
+        </button>
+        <button type="button" class="btn btn-secondary" (click)="sendRequestModalSkipMessage()">
+          <i class="fa fa-times me-2"></i>{{ 'FRIENDS.NO' | translate }}
+        </button>
+        <button type="button" class="btn btn-outline-secondary" (click)="sendRequestModalBackToList()">
+          <i class="fa fa-arrow-left me-2"></i>{{ 'FRIENDS.BACK' | translate }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: enter custom message -->
+    <div *ngIf="!loading && getUsersForRequestModal().length > 0 && sendRequestModalMessageStep === 'input'" class="send-request-message-input">
+      <label class="form-label">
+        <i class="fa fa-envelope me-2"></i>{{ 'FRIENDS.CUSTOM_MESSAGE' | translate }} ({{ 'FRIENDS.OPTIONAL' | translate }})
+      </label>
+      <textarea class="form-control send-request-message-textarea"
+                [(ngModel)]="sendRequestModalMessage"
+                [placeholder]="'FRIENDS.CUSTOM_MESSAGE_PLACEHOLDER' | translate"
+                rows="4"></textarea>
+      <div class="d-flex flex-wrap gap-2 mt-2">
+        <button type="button" class="btn btn-send-requests-submit" (click)="sendRequestModalSendWithMessage()" [disabled]="sendingSelectedRequests">
+          <i class="fa fa-spinner fa-spin me-2" *ngIf="sendingSelectedRequests"></i>
+          <i class="fa fa-paper-plane me-2" *ngIf="!sendingSelectedRequests"></i>
+          {{ 'FRIENDS.SEND_SELECTED_REQUESTS' | translate }}
+          <span *ngIf="getSelectedUsersForRequestCount() > 0" class="send-request-count">{{ getSelectedUsersForRequestCount() }}</span>
+        </button>
+        <button type="button" class="btn btn-outline-secondary" (click)="sendRequestModalBackToList()">
+          <i class="fa fa-arrow-left me-2"></i>{{ 'FRIENDS.BACK' | translate }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Step: list of users -->
+    <div *ngIf="!loading && getUsersForRequestModal().length > 0 && sendRequestModalMessageStep === 'none'" class="send-request-list">
+      <div class="send-request-sort">
+        <label class="send-request-sort-label">{{ 'FRIENDS.SORT_BY' | translate }}</label>
+        <select class="form-select form-select-sm send-request-sort-select"
+                [(ngModel)]="sendRequestModalSort">
+          <option value="lastName">{{ 'FRIENDS.SORT_BY_LAST_NAME' | translate }}</option>
+          <option value="firstName">{{ 'FRIENDS.SORT_BY_FIRST_NAME' | translate }}</option>
+          <option value="userName">{{ 'FRIENDS.SORT_BY_USERNAME' | translate }}</option>
+        </select>
+      </div>
+      <label *ngFor="let user of getSortedUsersForRequestModal()"
+             class="send-request-item"
+             [class.send-request-item-selected]="isUserSelectedForRequest(user.id)">
+        <span class="send-request-item-check">
+          <input type="checkbox"
+                 class="form-check-input"
+                 [checked]="isUserSelectedForRequest(user.id)"
+                 (change)="toggleUserForRequest(user.id)"
+                 [disabled]="user.id === currentUser.id">
+        </span>
+        <span class="send-request-item-avatar">
+          <i class="fa fa-user-circle"></i>
+        </span>
+        <span class="send-request-item-info">
+          <span class="send-request-item-name">{{ user.firstName }} {{ user.lastName }}</span>
+          <span class="send-request-item-username">@{{ user.userName }}</span>
+        </span>
+        <span *ngIf="getUserStatus(user) === 'none'" class="send-request-item-badge send-request-item-badge-new">
+          {{ 'FRIENDS.SEND_REQUEST' | translate }}
+        </span>
+        <span *ngIf="getUserStatus(user) === 'sent'" class="send-request-item-badge send-request-item-badge-resend">
+          {{ 'FRIENDS.RESEND_REQUEST' | translate }}
+        </span>
+      </label>
+    </div>
+  </div>
+  <div class="modal-footer send-request-modal-footer">
+    <button type="button" class="btn btn-light" (click)="modal.dismiss('Cancel')">
+      {{ 'FRIENDS.CANCEL' | translate }}
+    </button>
+    <button *ngIf="sendRequestModalMessageStep === 'none'"
+            type="button"
+            class="btn btn-send-requests-submit"
+            (click)="sendRequestModalShowMessagePrompt()"
+            [disabled]="getSelectedUsersForRequestCount() === 0 || sendingSelectedRequests">
+      <i class="fa fa-spinner fa-spin me-2" *ngIf="sendingSelectedRequests"></i>
+      <i class="fa fa-paper-plane me-2" *ngIf="!sendingSelectedRequests"></i>
+      {{ 'FRIENDS.SEND_SELECTED_REQUESTS' | translate }}
+      <span *ngIf="getSelectedUsersForRequestCount() > 0" class="send-request-count">{{ getSelectedUsersForRequestCount() }}</span>
     </button>
   </div>
 </ng-template>

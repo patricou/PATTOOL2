@@ -2674,12 +2674,464 @@
     padding: 0.5rem 0.75rem !important;
     flex-shrink: 0 !important;
   }
+}
 
-  ::ng-deep .positions-modal-wide .modal-footer .btn,
-  ::ng-deep .positions-modal-wide .modal-footer .btn.btn-info,
-  ::ng-deep .positions-modal-wide .modal-footer .btn.btn-secondary,
-  ::ng-deep .positions-modal-wide .modal-footer .btn.btn-danger {
-    font-size: 0.75rem !important;
-    padding: 0.25rem 0.5rem !important;
-  }
+/* ========== Tab Demandes d'amitié ========== */
+.requests-tab {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.requests-container {
+  width: 100%;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 1.25rem 1.5rem;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #dee2e6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.requests-container-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #212529;
+  margin: 0 0 1rem 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.requests-container-title .requests-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35em 0.65em;
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  border-radius: 20px;
+}
+
+.requests-container-desc {
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.requests-container-send .btn-send-requests-action {
+  font-weight: 600;
+  padding: 0.5rem 1.25rem;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 123, 255, 0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.requests-container-send .btn-send-requests-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.35);
+}
+
+.requests-empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+  padding: 1.5rem 1rem;
+}
+
+.requests-empty-card {
+  text-align: center;
+  max-width: 420px;
+}
+
+.requests-empty-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1rem;
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.requests-empty-icon i {
+  font-size: 2.2rem;
+  color: #6c757d;
+}
+
+.requests-empty-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #212529;
+  margin-bottom: 0.4rem;
+}
+
+.requests-empty-text {
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+  line-height: 1.5;
+}
+
+.requests-empty-card .btn {
+  border-radius: 10px;
+  font-weight: 600;
+  padding: 0.5rem 1.25rem;
+}
+
+.requests-container-pending .requests-list {
+  margin-top: 0;
+}
+
+/* Réduction font et boutons dans l'onglet Demandes d'amis */
+.requests-tab .requests-container {
+  padding: 1rem 1.25rem;
+}
+
+.requests-tab .requests-container-title {
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+}
+
+.requests-tab .requests-container-title .requests-badge {
+  font-size: 0.65rem;
+  padding: 0.25em 0.5em;
+}
+
+.requests-tab .requests-container-desc {
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+}
+
+.requests-tab .requests-container-send .btn-send-requests-action {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.9rem;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.requests-tab .requests-empty-icon {
+  width: 56px;
+  height: 56px;
+  margin-bottom: 0.75rem;
+}
+
+.requests-tab .requests-empty-icon i {
+  font-size: 1.75rem;
+}
+
+.requests-tab .requests-empty-title {
+  font-size: 1rem;
+}
+
+.requests-tab .requests-empty-text {
+  font-size: 0.8rem;
+  margin-bottom: 0.75rem;
+}
+
+.requests-tab .requests-empty-card .btn {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.9rem;
+}
+
+.requests-tab .requests-container-pending .request-card.compact-user-card {
+  padding: 0.5rem 0.6rem !important;
+  font-size: 0.8rem;
+}
+
+.requests-tab .requests-container-pending .request-header,
+.requests-tab .requests-container-pending .friend-header {
+  padding: 0.35rem 0.6rem;
+  margin: -0.5rem -0.6rem 0.5rem -0.6rem;
+  width: calc(100% + 1.2rem);
+}
+
+.requests-tab .requests-container-pending .request-header h6,
+.requests-tab .requests-container-pending .friend-header h6 {
+  font-size: 0.9rem;
+}
+
+.requests-tab .requests-container-pending .request-details p,
+.requests-tab .requests-container-pending .request-info .compact-text {
+  font-size: 0.75rem;
+  margin-bottom: 0.2rem;
+}
+
+.requests-tab .requests-container-pending .request-actions {
+  padding-top: 0.5rem;
+  gap: 0.4rem;
+}
+
+.requests-tab .requests-container-pending .request-actions button,
+.requests-tab .requests-container-pending .friend-actions button {
+  font-size: 0.75rem !important;
+  padding: 0.25rem 0.5rem !important;
+  min-width: 26px;
+}
+
+.requests-tab .requests-container-pending .request-actions button i,
+.requests-tab .requests-container-pending .friend-actions button i {
+  font-size: 0.7rem;
+}
+
+.requests-tab .requests-container-pending .profile-icon {
+  font-size: 0.7rem;
+}
+
+.requests-tab .requests-container-pending .alert {
+  font-size: 0.75rem;
+  padding: 0.4rem 0.6rem;
+}
+
+/* ========== Modale Envoyer des demandes d'amis ========== */
+::ng-deep .send-request-modal-window .modal-content {
+  border: 4px solid white !important;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+
+::ng-deep .send-request-modal-window .modal-header.send-request-modal-header {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: #fff;
+  border: none;
+  padding: 1.25rem 1.5rem;
+}
+
+::ng-deep .send-request-modal-window .modal-header .modal-title {
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+::ng-deep .send-request-modal-window .modal-header .btn-close-white {
+  filter: invert(1);
+  opacity: 0.9;
+}
+
+::ng-deep .send-request-modal-window .modal-header .btn-close-white:hover {
+  opacity: 1;
+}
+
+.send-request-modal-title-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.send-request-modal-subtitle {
+  font-size: 0.875rem;
+  opacity: 0.95;
+  margin-top: 0.35rem;
+  line-height: 1.4;
+}
+
+::ng-deep .send-request-modal-window .modal-body.send-request-modal-body {
+  padding: 1.25rem 1.5rem;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: #f8f9fa;
+}
+
+.send-request-loading,
+.send-request-empty {
+  text-align: center;
+  padding: 2.5rem 1rem;
+}
+
+.send-request-loading-icon {
+  font-size: 2.5rem;
+  color: #007bff;
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+.send-request-loading-text,
+.send-request-empty-text {
+  color: #6c757d;
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.send-request-empty-icon {
+  font-size: 3rem;
+  color: #adb5bd;
+  margin-bottom: 0.75rem;
+  display: block;
+}
+
+.send-request-message-prompt {
+  padding: 1rem 0;
+}
+
+.send-request-message-prompt-text {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+  color: #495057;
+}
+
+.send-request-message-input .send-request-message-textarea {
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.send-request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.send-request-sort {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.send-request-sort-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #495057;
+  margin: 0;
+}
+
+.send-request-sort-select {
+  width: auto;
+  min-width: 180px;
+  font-size: 0.875rem;
+}
+
+.send-request-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: #fff;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.send-request-item:hover {
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+}
+
+.send-request-item-selected {
+  border-color: #007bff;
+  background: #f0f7ff !important;
+  box-shadow: 0 2px 12px rgba(0, 123, 255, 0.15);
+}
+
+.send-request-item-check {
+  flex-shrink: 0;
+}
+
+.send-request-item-check .form-check-input {
+  width: 1.2rem;
+  height: 1.2rem;
+  cursor: pointer;
+  margin: 0;
+}
+
+.send-request-item-avatar {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.send-request-item-avatar i {
+  font-size: 1.5rem;
+  color: #6c757d;
+}
+
+.send-request-item-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.send-request-item-name {
+  font-weight: 600;
+  color: #212529;
+  font-size: 0.95rem;
+}
+
+.send-request-item-username {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.send-request-item-badge {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.35em 0.65em;
+  border-radius: 20px;
+  text-transform: none;
+}
+
+.send-request-item-badge-new {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: #fff;
+}
+
+.send-request-item-badge-resend {
+  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+  color: #fff;
+}
+
+::ng-deep .send-request-modal-window .modal-footer.send-request-modal-footer {
+  padding: 1rem 1.5rem;
+  background: #fff;
+  border-top: 1px solid #e9ecef;
+  gap: 0.75rem;
+}
+
+::ng-deep .send-request-modal-window .btn-send-requests-submit {
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: #fff;
+  font-weight: 600;
+  padding: 0.5rem 1.25rem;
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+  display: inline-flex;
+  align-items: center;
+}
+
+::ng-deep .send-request-modal-window .btn-send-requests-submit:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 123, 255, 0.4);
+  transform: translateY(-1px);
+}
+
+::ng-deep .send-request-modal-window .btn-send-requests-submit:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.send-request-count {
+  margin-left: 0.5rem;
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  padding: 0.2em 0.5em;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
 }

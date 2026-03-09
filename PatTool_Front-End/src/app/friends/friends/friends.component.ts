@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { NgbModule, NgbDropdown, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import { forkJoin } from 'rxjs';
 import { Member } from '../../model/member';
 import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../../model/friend';
 import { FriendsService } from '../../services/friends.service';
@@ -152,6 +153,10 @@ export class FriendsComponent implements OnInit {
   public friendRequestMessagePrompts: Map<string, boolean> = new Map(); // userId -> show prompt
   public friendRequestMessageInputs: Map<string, boolean> = new Map(); // userId -> show input
   public friendRequestMessages: Map<string, string> = new Map(); // userId -> message
+  /** User ID for which the "add custom message?" prompt is shown (Angular tracks this) */
+  public friendRequestPromptUserId: string | null = null;
+  /** User ID for which the custom message textarea is shown (Angular tracks this) */
+  public friendRequestInputUserId: string | null = null;
   
   // Friend groups management
   public friendGroups: FriendGroup[] = [];
@@ -188,7 +193,15 @@ export class FriendsComponent implements OnInit {
 
   @ViewChild(TraceViewerModalComponent) traceViewerModalComponent?: TraceViewerModalComponent;
   @ViewChild('positionsModal') positionsModalTemplate?: TemplateRef<any>;
+  @ViewChild('sendRequestModal') sendRequestModalTemplate?: TemplateRef<any>;
   private positionsModalRef?: NgbModalRef;
+  private sendRequestModalRef?: NgbModalRef;
+  public selectedUserIdsForRequest: Set<string> = new Set();
+  public sendingSelectedRequests: boolean = false;
+  public sendRequestModalSort: 'firstName' | 'lastName' | 'userName' = 'lastName';
+  /** Modal step: none = list, prompt = ask message?, input = enter message */
+  public sendRequestModalMessageStep: 'none' | 'prompt' | 'input' = 'none';
+  public sendRequestModalMessage: string = '';
   
   // Map to store addresses for each position (index -> address)
   public positionAddresses: Map<number, string> = new Map();
@@ -351,6 +364,7 @@ export class FriendsComponent implements OnInit {
     // If we haven't asked about custom message yet, ask first
     if (!this.friendRequestMessagePrompts.get(userId) && !this.friendRequestMessageInputs.get(userId)) {
       this.friendRequestMessagePrompts.set(userId, true);
+      this.friendRequestPromptUserId = userId;
       return;
     }
 
@@ -370,6 +384,8 @@ export class FriendsComponent implements OnInit {
         this.friendRequestMessagePrompts.delete(userId);
         this.friendRequestMessageInputs.delete(userId);
         this.friendRequestMessages.delete(userId);
+        this.friendRequestPromptUserId = null;
+        this.friendRequestInputUserId = null;
         this.loadAllUsers(); // Reload only users
         this.loading = false;
       },
@@ -410,6 +426,7 @@ export class FriendsComponent implements OnInit {
         this.friendRequestMessages.set(userId, sentRequest.message);
       }
       this.friendRequestMessagePrompts.set(userId, true);
+      this.friendRequestPromptUserId = userId;
       return;
     }
 
@@ -431,6 +448,8 @@ export class FriendsComponent implements OnInit {
         this.friendRequestMessagePrompts.delete(userId);
         this.friendRequestMessageInputs.delete(userId);
         this.friendRequestMessages.delete(userId);
+        this.friendRequestPromptUserId = null;
+        this.friendRequestInputUserId = null;
         this.loadAllUsers(); // Reload only users
         this.loading = false;
       },
@@ -440,6 +459,138 @@ export class FriendsComponent implements OnInit {
         this.loading = false;
       }
     );
+  }
+
+  /**
+   * Users that can receive a friend request from the "Demande d'amis" modal (status none or sent, exclude self).
+   */
+  getUsersForRequestModal(): Member[] {
+    return this.allUsers.filter(u => u.id !== this.currentUser.id && (this.getUserStatus(u) === 'none' || this.getUserStatus(u) === 'sent'));
+  }
+
+  /** Users for the send-request modal, sorted by the selected field. */
+  getSortedUsersForRequestModal(): Member[] {
+    const list = this.getUsersForRequestModal();
+    const key = this.sendRequestModalSort;
+    return [...list].sort((a, b) => {
+      const va = (a[key] || '').toString().toLowerCase();
+      const vb = (b[key] || '').toString().toLowerCase();
+      return va.localeCompare(vb, undefined, { sensitivity: 'base' });
+    });
+  }
+
+  toggleUserForRequest(userId: string): void {
+    if (userId === this.currentUser.id) return;
+    const user = this.allUsers.find(u => u.id === userId);
+    if (!user || (this.getUserStatus(user) !== 'none' && this.getUserStatus(user) !== 'sent')) return;
+    if (this.selectedUserIdsForRequest.has(userId)) {
+      this.selectedUserIdsForRequest.delete(userId);
+    } else {
+      this.selectedUserIdsForRequest.add(userId);
+    }
+    this.selectedUserIdsForRequest = new Set(this.selectedUserIdsForRequest);
+    this.cdr.detectChanges();
+  }
+
+  isUserSelectedForRequest(userId: string): boolean {
+    return this.selectedUserIdsForRequest.has(userId);
+  }
+
+  getSelectedUsersForRequestCount(): number {
+    return this.selectedUserIdsForRequest.size;
+  }
+
+  openSendRequestModal(): void {
+    this.selectedUserIdsForRequest = new Set();
+    this.sendRequestModalMessageStep = 'none';
+    this.sendRequestModalMessage = '';
+    this.loading = true;
+    const done = () => {
+      this.loading = false;
+      if (!this.sendRequestModalTemplate) return;
+      this.sendRequestModalRef = this.modalService.open(this.sendRequestModalTemplate, {
+        size: 'lg',
+        scrollable: true,
+        backdrop: 'static',
+        windowClass: 'send-request-modal-window'
+      });
+      this.sendRequestModalRef.result.finally(() => {
+        this.sendRequestModalRef = undefined;
+        this.selectedUserIdsForRequest = new Set();
+        this.sendRequestModalMessageStep = 'none';
+        this.sendRequestModalMessage = '';
+        this.cdr.detectChanges();
+      });
+      this.cdr.detectChanges();
+    };
+    let count = 0;
+    const total = 4;
+    const check = () => { count++; if (count >= total) done(); };
+    this._friendsService.getAllUsers().subscribe({ next: (users) => { this.allUsers = users; this._filteredUsersCacheKey = ''; this._filteredUsers = []; check(); }, error: () => check() });
+    this._friendsService.getSentRequests().subscribe({ next: (r) => { this.sentRequests = r; check(); }, error: () => check() });
+    this._friendsService.getPendingRequests().subscribe({ next: (r) => { this.pendingRequests = r; check(); }, error: () => check() });
+    this._friendsService.getFriends().subscribe({ next: (f) => { this.friends = f; check(); }, error: () => check() });
+  }
+
+  sendSelectedFriendRequests(message?: string): void {
+    const ids = Array.from(this.selectedUserIdsForRequest);
+    if (ids.length === 0) return;
+    const msg = (message !== undefined && message !== null) ? (message.trim() || undefined) : undefined;
+    this.sendingSelectedRequests = true;
+    const requests = ids.map(userId => this._friendsService.sendFriendRequest(userId, msg));
+    forkJoin(requests).subscribe({
+      next: () => {
+        this.sendingSelectedRequests = false;
+        this.sendRequestModalRef?.close('Send');
+        this.sendRequestModalMessageStep = 'none';
+        this.sendRequestModalMessage = '';
+        this.loadAllUsers();
+        this.loadPendingRequests();
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error sending friend requests:', err);
+        this.errorMessage = 'Error sending friend requests';
+        this.sendingSelectedRequests = false;
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  /** Show the "add custom message?" prompt in the modal before sending. */
+  sendRequestModalShowMessagePrompt(): void {
+    if (this.getSelectedUsersForRequestCount() === 0) return;
+    this.sendRequestModalMessageStep = 'prompt';
+  }
+
+  /** User chose Yes: show message input. Pre-fill with existing message only if exactly one user is selected and has a sent request with a message. */
+  sendRequestModalConfirmMessage(): void {
+    this.sendRequestModalMessage = '';
+    if (this.selectedUserIdsForRequest.size === 1) {
+      const userId = Array.from(this.selectedUserIdsForRequest)[0];
+      const sentRequest = this.sentRequests.find(r => r.recipient.id === userId);
+      if (sentRequest?.message?.trim()) {
+        this.sendRequestModalMessage = sentRequest.message.trim();
+      }
+    }
+    this.sendRequestModalMessageStep = 'input';
+  }
+
+  /** User chose No: send without message. */
+  sendRequestModalSkipMessage(): void {
+    this.sendRequestModalMessageStep = 'none';
+    this.sendSelectedFriendRequests(undefined);
+  }
+
+  /** User clicked send from the message input step. */
+  sendRequestModalSendWithMessage(): void {
+    this.sendSelectedFriendRequests(this.sendRequestModalMessage);
+  }
+
+  /** Back from prompt or input step to the list. */
+  sendRequestModalBackToList(): void {
+    this.sendRequestModalMessageStep = 'none';
+    this.sendRequestModalMessage = '';
   }
 
   approveRequest(requestId: string) {
@@ -947,6 +1098,8 @@ export class FriendsComponent implements OnInit {
     this.friendRequestMessagePrompts.clear();
     this.friendRequestMessageInputs.clear();
     this.friendRequestMessages.clear();
+    this.friendRequestPromptUserId = null;
+    this.friendRequestInputUserId = null;
     // Refresh only the data for the selected tab
     switch(tab) {
       case 'users':
@@ -1089,12 +1242,16 @@ export class FriendsComponent implements OnInit {
   confirmAddFriendRequestMessage(userId: string) {
     this.friendRequestMessageInputs.set(userId, true);
     this.friendRequestMessagePrompts.set(userId, false);
+    this.friendRequestPromptUserId = null;
+    this.friendRequestInputUserId = userId;
   }
 
   skipFriendRequestMessage(userId: string) {
     this.friendRequestMessageInputs.set(userId, false);
     this.friendRequestMessagePrompts.set(userId, false);
     this.friendRequestMessages.delete(userId);
+    this.friendRequestPromptUserId = null;
+    this.friendRequestInputUserId = null;
     // Proceed with sending friend request without custom message
     const message = undefined;
     this.loading = true;
@@ -1115,6 +1272,8 @@ export class FriendsComponent implements OnInit {
     this.friendRequestMessagePrompts.delete(userId);
     this.friendRequestMessageInputs.delete(userId);
     this.friendRequestMessages.delete(userId);
+    this.friendRequestPromptUserId = null;
+    this.friendRequestInputUserId = null;
   }
 
   getFriendRequestMessage(userId: string): string {
