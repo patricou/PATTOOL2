@@ -3095,6 +3095,23 @@
   color: #fff;
 }
 
+/* Mobile: mettre les badges à la ligne dans la modale */
+@media (max-width: 767px) {
+  .send-request-item {
+    flex-wrap: wrap;
+  }
+  .send-request-item-info {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+  .send-request-item-badge {
+    flex-basis: 100%;
+    margin-top: 0.4rem;
+    margin-left: 0;
+    padding-left: calc(1.2rem + 40px + 0.75rem); /* aligné sous le nom (checkbox + avatar + gap) */
+  }
+}
+
 ::ng-deep .send-request-modal-window .modal-footer.send-request-modal-footer {
   padding: 1rem 1.5rem;
   background: #fff;
