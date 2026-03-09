@@ -39,8 +39,8 @@ export class FriendsComponent implements OnInit {
   public searchFilter: string = '';
   public activeTab: 'users' | 'requests' | 'friends' | 'groups' | 'myuser' = 'requests';
   public selectedFriendIndex: number | null = null;
-  public sortOption: 'dateCreation' | 'firstName' | 'lastName' | 'lastConnection' = 'lastConnection';
-  public sortOptionFriends: 'dateCreation' | 'firstName' | 'lastName' = 'dateCreation';
+  public sortOption: 'dateCreation' | 'firstName' | 'lastName' | 'lastConnection' | 'userName' = 'lastConnection';
+  public sortOptionFriends: 'dateCreation' | 'firstName' | 'lastName' | 'userName' = 'dateCreation';
   
   // Cached filtered users to avoid recalculating on every change detection
   private _filteredUsers: Member[] = [];
@@ -844,6 +844,18 @@ export class FriendsComponent implements OnInit {
           return firstNameA.localeCompare(firstNameB);
         }
           
+        case 'userName': {
+          // Sort by username (case-insensitive), then by last name if equal
+          const userNameA = (a.userName || '').toLowerCase().trim();
+          const userNameB = (b.userName || '').toLowerCase().trim();
+          if (userNameA !== userNameB) {
+            return userNameA.localeCompare(userNameB);
+          }
+          const lastNameA = (a.lastName || '').toLowerCase().trim();
+          const lastNameB = (b.lastName || '').toLowerCase().trim();
+          return lastNameA.localeCompare(lastNameB);
+        }
+          
         default: {
           // Default: sort by last name
           const lastNameA = (a.lastName || '').toLowerCase().trim();
@@ -953,6 +965,19 @@ export class FriendsComponent implements OnInit {
           const firstNameA = (userA.firstName || '').toLowerCase().trim();
           const firstNameB = (userB.firstName || '').toLowerCase().trim();
           return firstNameA.localeCompare(firstNameB);
+        }
+
+        case 'userName': {
+          // Sort by username
+          const userNameA = (userA.userName || '').toLowerCase().trim();
+          const userNameB = (userB.userName || '').toLowerCase().trim();
+          if (userNameA !== userNameB) {
+            return userNameA.localeCompare(userNameB, undefined, { sensitivity: 'base' });
+          }
+          // If usernames are equal, sort by last name
+          const lastNameA = (userA.lastName || '').toLowerCase().trim();
+          const lastNameB = (userB.lastName || '').toLowerCase().trim();
+          return lastNameA.localeCompare(lastNameB);
         }
           
         default: {

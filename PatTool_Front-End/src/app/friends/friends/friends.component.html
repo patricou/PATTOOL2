@@ -141,6 +141,7 @@
             <option value="firstName">{{ 'FRIENDS.SORT_BY_FIRST_NAME' | translate }}</option>
             <option value="lastName">{{ 'FRIENDS.SORT_BY_LAST_NAME' | translate }}</option>
             <option value="lastConnection">{{ 'FRIENDS.SORT_BY_LAST_CONNECTION' | translate }}</option>
+            <option value="userName">{{ 'FRIENDS.SORT_BY_USERNAME' | translate }}</option>
           </select>
         </div>
       </div>
@@ -528,16 +529,17 @@
   <div *ngIf="activeTab === 'friends'" class="tab-content">
     <!-- Sort Selector -->
     <div *ngIf="friends.length > 0" class="d-flex gap-2 align-items-center mb-3">
-      <div class="input-group" style="min-width: 200px;">
+      <div class="input-group input-group-sm friends-sort-group">
         <span class="input-group-text">
           <i class="fa fa-sort"></i>
         </span>
         <select 
-          class="form-select" 
+          class="form-select form-select-sm" 
           [(ngModel)]="sortOptionFriends">
           <option value="dateCreation">{{ 'FRIENDS.SORT_BY_DATE_CREATION' | translate }}</option>
           <option value="firstName">{{ 'FRIENDS.SORT_BY_FIRST_NAME' | translate }}</option>
           <option value="lastName">{{ 'FRIENDS.SORT_BY_LAST_NAME' | translate }}</option>
+          <option value="userName">{{ 'FRIENDS.SORT_BY_USERNAME' | translate }}</option>
         </select>
       </div>
     </div>
@@ -1280,20 +1282,20 @@
   <div *ngIf="activeTab === 'groups'" class="tab-content">
     <!-- Search Filter and Create Button on same line -->
     <div *ngIf="!isCreatingGroup && !editingGroupId" class="d-flex gap-2 align-items-center mb-3">
-      <div class="flex-grow-1">
-        <div class="input-group">
+      <div class="flex-grow-1 groups-search-wrap">
+        <div class="input-group input-group-sm groups-search-input">
           <span class="input-group-text">
             <i class="fa fa-search"></i>
           </span>
           <input 
             type="text" 
-            class="form-control" 
+            class="form-control form-control-sm" 
             [(ngModel)]="searchFilter"
             [placeholder]="'FRIENDS.SEARCH_GROUPS_PLACEHOLDER' | translate">
         </div>
       </div>
       <button 
-        class="btn btn-primary btn-sm"
+        class="btn btn-primary btn-sm btn-create-group"
         (click)="startCreatingGroup()">
         <i class="fa fa-plus"></i>
         {{ 'FRIENDS.CREATE_GROUP' | translate }}
