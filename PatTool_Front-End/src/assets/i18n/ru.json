@@ -1419,6 +1419,7 @@
         "ADDRESS": "Адрес",
         "LOADING_ADDRESS": "Загрузка...",
         "ADDRESS_NOT_FOUND": "Адрес не найден",
+        "SHOW_ADDRESS": "Показать адрес",
         "ADDRESS_NOT_AVAILABLE": "Адрес недоступен",
         "CLOSE": "Закрыть"
     },
@@ -1579,6 +1580,7 @@
         "GET_ADDRESS": "Получить адрес",
         "INVALID_COORDINATES": "Неверные координаты. Формат: широта долгота (напр. 48.8566 2.3522).",
         "ADDRESS_NOT_FOUND": "Адрес не найден",
+        "SHOW_ADDRESS": "Показать адрес",
         "MY_POSITION": "Моё местоположение",
         "GEOLOCATION_NOT_SUPPORTED": "Ваш браузер не поддерживает геолокацию.",
         "ERROR_GETTING_LOCATION": "Ошибка получения местоположения",

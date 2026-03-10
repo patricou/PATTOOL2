@@ -1303,6 +1303,7 @@
         "ADDRESS": "Διεύθυνση",
         "LOADING_ADDRESS": "Φόρτωση...",
         "ADDRESS_NOT_FOUND": "Διεύθυνση δεν βρέθηκε",
+        "SHOW_ADDRESS": "Εμφάνιση διεύθυνσης",
         "ADDRESS_NOT_AVAILABLE": "Διεύθυνση δεν είναι διαθέσιμη",
         "CLOSE": "Κλείσιμο"
     },

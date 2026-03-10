@@ -1416,6 +1416,7 @@
         "ADDRESS": "पता",
         "LOADING_ADDRESS": "लोड हो रहा है...",
         "ADDRESS_NOT_FOUND": "पता नहीं मिला",
+        "SHOW_ADDRESS": "पता दिखाएं",
         "ADDRESS_NOT_AVAILABLE": "पता उपलब्ध नहीं है",
         "CLOSE": "बंद करें"
     },
@@ -1576,6 +1577,7 @@
         "GET_ADDRESS": "पता प्राप्त करें",
         "INVALID_COORDINATES": "अमान्य निर्देशांक। प्रारूप: अक्षांश देशांतर (उदा. 48.8566 2.3522)।",
         "ADDRESS_NOT_FOUND": "पता नहीं मिला",
+        "SHOW_ADDRESS": "पता दिखाएं",
         "MY_POSITION": "मेरी स्थिति",
         "GEOLOCATION_NOT_SUPPORTED": "आपका ब्राउज़र भू-स्थान का समर्थन नहीं करता।",
         "ERROR_GETTING_LOCATION": "स्थान प्राप्त करने में त्रुटि",

@@ -1305,6 +1305,7 @@
         "ADDRESS": "住所",
         "LOADING_ADDRESS": "読み込み中...",
         "ADDRESS_NOT_FOUND": "住所が見つかりません",
+        "SHOW_ADDRESS": "住所を表示",
         "ADDRESS_NOT_AVAILABLE": "住所が利用できません",
         "CLOSE": "閉じる"
     },
@@ -1591,6 +1592,7 @@
         "GET_ADDRESS": "住所を取得",
         "INVALID_COORDINATES": "座標が無効です。緯度 経度（例：48.8566 2.3522）または 緯度, 経度 の形式で入力してください。",
         "ADDRESS_NOT_FOUND": "住所が見つかりません",
+        "SHOW_ADDRESS": "住所を表示",
         "MY_POSITION": "現在地",
         "GEOLOCATION_NOT_SUPPORTED": "お使いのブラウザは位置情報に対応していません。",
         "ERROR_GETTING_LOCATION": "位置の取得中にエラーが発生しました",

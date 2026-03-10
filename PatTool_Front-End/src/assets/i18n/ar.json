@@ -1424,6 +1424,7 @@
         "ADDRESS": "العنوان",
         "LOADING_ADDRESS": "جارٍ التحميل...",
         "ADDRESS_NOT_FOUND": "العنوان غير موجود",
+        "SHOW_ADDRESS": "إظهار العنوان",
         "ADDRESS_NOT_AVAILABLE": "العنوان غير متاح",
         "CLOSE": "إغلاق"
     },

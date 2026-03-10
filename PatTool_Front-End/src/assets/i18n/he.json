@@ -1417,6 +1417,7 @@
         "ADDRESS": "כתובת",
         "LOADING_ADDRESS": "טוען...",
         "ADDRESS_NOT_FOUND": "כתובת לא נמצאה",
+        "SHOW_ADDRESS": "הצג כתובת",
         "ADDRESS_NOT_AVAILABLE": "כתובת לא זמינה",
         "CLOSE": "סגור"
     },

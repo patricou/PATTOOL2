@@ -1425,6 +1425,7 @@
         "ADDRESS": "地址",
         "LOADING_ADDRESS": "加载中...",
         "ADDRESS_NOT_FOUND": "未找到地址",
+        "SHOW_ADDRESS": "显示地址",
         "ADDRESS_NOT_AVAILABLE": "地址不可用",
         "CLOSE": "关闭"
     },
@@ -1585,6 +1586,7 @@
         "GET_ADDRESS": "获取地址",
         "INVALID_COORDINATES": "坐标无效。请使用：纬度 经度（例如 48.8566 2.3522）或 纬度, 经度。",
         "ADDRESS_NOT_FOUND": "未找到地址",
+        "SHOW_ADDRESS": "显示地址",
         "MY_POSITION": "我的位置",
         "GEOLOCATION_NOT_SUPPORTED": "您的浏览器不支持地理定位。",
         "ERROR_GETTING_LOCATION": "获取位置时出错",
