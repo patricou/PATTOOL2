@@ -1441,6 +1441,7 @@
         "ADDRESS": "Adresse",
         "LOADING_ADDRESS": "Chargement...",
         "ADDRESS_NOT_FOUND": "Adresse non trouvée",
+        "SHOW_ADDRESS": "Afficher l'adresse",
         "ADDRESS_NOT_AVAILABLE": "Adresse non disponible",
         "CLOSE": "Fermer"
     },

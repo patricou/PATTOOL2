@@ -1678,12 +1678,29 @@
               <td>{{ item.formattedLat }}</td>
               <td>{{ item.formattedLng }}</td>
               <td>
-                <div *ngIf="item.isLoading" class="text-muted">
-                  <i class="fa fa-spinner fa-spin me-1"></i>
-                  <small>{{ 'FRIENDS.LOADING_ADDRESS' | translate }}</small>
+                <div *ngIf="item.showAddressByDefault">
+                  <div *ngIf="item.isLoading" class="text-muted">
+                    <i class="fa fa-spinner fa-spin me-1"></i>
+                    <small>{{ 'FRIENDS.LOADING_ADDRESS' | translate }}</small>
+                  </div>
+                  <div *ngIf="!item.isLoading" class="text-muted small">
+                    {{ item.address || '-' }}
+                  </div>
                 </div>
-                <div *ngIf="!item.isLoading" class="text-muted small">
-                  {{ item.address || '-' }}
+                <div *ngIf="!item.showAddressByDefault">
+                  <div *ngIf="item.isLoading" class="text-muted">
+                    <i class="fa fa-spinner fa-spin me-1"></i>
+                    <small>{{ 'FRIENDS.LOADING_ADDRESS' | translate }}</small>
+                  </div>
+                  <div *ngIf="!item.isLoading && item.address" class="text-muted small">
+                    {{ item.address }}
+                  </div>
+                  <button *ngIf="!item.isLoading && !item.address"
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    (click)="loadAddressOnDemand(item)">
+                    <i class="fa fa-map-marker me-1"></i>{{ 'FRIENDS.SHOW_ADDRESS' | translate }}
+                  </button>
                 </div>
               </td>
               <td>
@@ -1746,10 +1763,24 @@
           {{ item.formattedLat }}, {{ item.formattedLng }}
         </div>
         <div class="positions-mobile-card-address">
-          <span *ngIf="item.isLoading" class="text-muted">
-            <i class="fa fa-spinner fa-spin me-1"></i>{{ 'FRIENDS.LOADING_ADDRESS' | translate }}
-          </span>
-          <span *ngIf="!item.isLoading">{{ item.address || '-' }}</span>
+          <ng-container *ngIf="item.showAddressByDefault">
+            <span *ngIf="item.isLoading" class="text-muted">
+              <i class="fa fa-spinner fa-spin me-1"></i>{{ 'FRIENDS.LOADING_ADDRESS' | translate }}
+            </span>
+            <span *ngIf="!item.isLoading">{{ item.address || '-' }}</span>
+          </ng-container>
+          <ng-container *ngIf="!item.showAddressByDefault">
+            <span *ngIf="item.isLoading" class="text-muted">
+              <i class="fa fa-spinner fa-spin me-1"></i>{{ 'FRIENDS.LOADING_ADDRESS' | translate }}
+            </span>
+            <span *ngIf="!item.isLoading && item.address">{{ item.address }}</span>
+            <button *ngIf="!item.isLoading && !item.address"
+              type="button"
+              class="btn btn-sm btn-outline-secondary mt-1"
+              (click)="loadAddressOnDemand(item)">
+              <i class="fa fa-map-marker me-1"></i>{{ 'FRIENDS.SHOW_ADDRESS' | translate }}
+            </button>
+          </ng-container>
         </div>
         <div class="positions-mobile-card-actions">
           <button type="button" class="btn btn-sm btn-info" (click)="openPositionInTraceViewer(item.position, item.originalIndex)">

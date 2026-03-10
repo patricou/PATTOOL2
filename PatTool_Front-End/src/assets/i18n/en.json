@@ -1451,6 +1451,7 @@
         "ADDRESS": "Address",
         "LOADING_ADDRESS": "Loading...",
         "ADDRESS_NOT_FOUND": "Address not found",
+        "SHOW_ADDRESS": "Show address",
         "ADDRESS_NOT_AVAILABLE": "Address not available",
         "CLOSE": "Close"
     },

@@ -1427,6 +1427,7 @@
         "ADDRESS": "Indirizzo",
         "LOADING_ADDRESS": "Caricamento...",
         "ADDRESS_NOT_FOUND": "Indirizzo non trovato",
+        "SHOW_ADDRESS": "Mostra indirizzo",
         "ADDRESS_NOT_AVAILABLE": "Indirizzo non disponibile",
         "CLOSE": "Chiudi"
     },
@@ -1587,6 +1588,7 @@
         "GET_ADDRESS": "Ottieni indirizzo",
         "INVALID_COORDINATES": "Coordinate non valide. Usa: latitudine longitudine (es. 48.8566 2.3522).",
         "ADDRESS_NOT_FOUND": "Indirizzo non trovato",
+        "SHOW_ADDRESS": "Mostra indirizzo",
         "MY_POSITION": "La mia posizione",
         "GEOLOCATION_NOT_SUPPORTED": "La geolocalizzazione non è supportata dal browser.",
         "ERROR_GETTING_LOCATION": "Errore nel recupero della posizione",

@@ -217,12 +217,16 @@ export class FriendsComponent implements OnInit {
     address: string;
     isLoading: boolean;
     isFromCache: boolean;
+    showAddressByDefault: boolean; // true for last 10 (most recent) - address loaded automatically
     formattedLat: string;
     formattedLng: string;
     formattedDate: string;
     formattedDateFrom: string;
     formattedDateTo: string;
   }> = [];
+  
+  /** Only the last (most recent) N positions get their address loaded automatically; others show a "Show address" button */
+  private static readonly POSITIONS_AUTO_LOAD_ADDRESS_LIMIT = 10;
   
   // Column sorting state
   public sortColumn: 'number' | 'latitude' | 'longitude' | 'address' | 'type' | 'date' | null = null;
@@ -2894,21 +2898,15 @@ export class FriendsComponent implements OnInit {
       return;
     }
     
-    // Initialize loading state for all positions first
-    this.currentUser.positions.forEach((position, index) => {
-      if (position.latitude != null && position.longitude != null) {
-        this.loadingAddresses.set(index, true); // Start with loading state
-      }
-    });
-    
     // Get sorted positions (most recent first) to load addresses in that order
     const sortedPositions = this.getSortedPositions();
     
     // Separate cached and non-cached positions (in sorted order - most recent first)
+    // Only auto-load address for the last (most recent) POSITIONS_AUTO_LOAD_ADDRESS_LIMIT positions
     const positionsToLoad: Array<{lat: number, lng: number, index: number, cacheKey: string}> = [];
     const cachedPositionsToLoad: Array<{index: number, address: string}> = [];
     
-    sortedPositions.forEach((position) => {
+    sortedPositions.forEach((position, sortedIndex) => {
       // Find original index in currentUser.positions
       if (!this.currentUser.positions) {
         return;
@@ -2925,10 +2923,10 @@ export class FriendsComponent implements OnInit {
         const cachedAddress = this.addressCache.get(cacheKey);
         
         if (cachedAddress) {
-          // Store cached address to load after modal opens (no API call needed)
+          // Always pre-fill from cache (no API call needed, instant display)
           cachedPositionsToLoad.push({ index: originalIndex, address: cachedAddress });
-        } else {
-          // Queue for API call with delay (will be processed in sorted order - most recent first)
+        } else if (sortedIndex < FriendsComponent.POSITIONS_AUTO_LOAD_ADDRESS_LIMIT) {
+          // Queue for API call only for the last (most recent) N positions
           positionsToLoad.push({
             lat: position.latitude,
             lng: position.longitude,
@@ -2938,6 +2936,9 @@ export class FriendsComponent implements OnInit {
         }
       }
     });
+    
+    // Set loading state only for positions we're about to load (first N non-cached)
+    positionsToLoad.forEach((pos) => this.loadingAddresses.set(pos.index, true));
     
     // Load ALL cached addresses FIRST (synchronously, before opening modal)
     // This ensures they're ready when the modal renders
@@ -2985,6 +2986,7 @@ export class FriendsComponent implements OnInit {
         address: originalIndex >= 0 ? (this.positionAddresses.get(originalIndex) || '') : '',
         isLoading: originalIndex >= 0 ? (this.loadingAddresses.get(originalIndex) === true) : false,
         isFromCache: originalIndex >= 0 ? (this.addressFromCache.get(originalIndex) === true) : false,
+        showAddressByDefault: sortedIndex < FriendsComponent.POSITIONS_AUTO_LOAD_ADDRESS_LIMIT,
         formattedLat: formattedLat,
         formattedLng: formattedLng,
         formattedDate: formattedDate,
@@ -3100,15 +3102,10 @@ export class FriendsComponent implements OnInit {
           this.cdr.detectChanges();
           return;
         }
-        this.currentUser!.positions.forEach((position, index) => {
-          if (position.latitude != null && position.longitude != null) {
-            this.loadingAddresses.set(index, true);
-          }
-        });
         const sortedPositions = this.getSortedPositions();
         const positionsToLoad: Array<{ lat: number; lng: number; index: number; cacheKey: string }> = [];
         const cachedPositionsToLoad: Array<{ index: number; address: string }> = [];
-        sortedPositions.forEach((position) => {
+        sortedPositions.forEach((position, sortedIndex) => {
           if (!this.currentUser!.positions) return;
           const originalIndex = this.currentUser!.positions.findIndex(p =>
             p.latitude === position.latitude &&
@@ -3119,8 +3116,9 @@ export class FriendsComponent implements OnInit {
             const cacheKey = this.getCacheKey(position.latitude, position.longitude);
             const cachedAddress = this.addressCache.get(cacheKey);
             if (cachedAddress) {
+              // Always pre-fill from cache (no API call needed, instant display)
               cachedPositionsToLoad.push({ index: originalIndex, address: cachedAddress });
-            } else {
+            } else if (sortedIndex < FriendsComponent.POSITIONS_AUTO_LOAD_ADDRESS_LIMIT) {
               positionsToLoad.push({
                 lat: position.latitude,
                 lng: position.longitude,
@@ -3130,6 +3128,7 @@ export class FriendsComponent implements OnInit {
             }
           }
         });
+        positionsToLoad.forEach((pos) => this.loadingAddresses.set(pos.index, true));
         cachedPositionsToLoad.forEach((cached) => {
           this.positionAddresses.set(cached.index, cached.address);
           this.loadingAddresses.set(cached.index, false);
@@ -3164,6 +3163,7 @@ export class FriendsComponent implements OnInit {
             address: originalIndex >= 0 ? (this.positionAddresses.get(originalIndex) || '') : '',
             isLoading: originalIndex >= 0 ? (this.loadingAddresses.get(originalIndex) === true) : false,
             isFromCache: originalIndex >= 0 ? (this.addressFromCache.get(originalIndex) === true) : false,
+            showAddressByDefault: sortedIndex < FriendsComponent.POSITIONS_AUTO_LOAD_ADDRESS_LIMIT,
             formattedLat,
             formattedLng,
             formattedDate,
@@ -3226,11 +3226,84 @@ export class FriendsComponent implements OnInit {
   }
 
   /**
+   * Load address on demand when user clicks "Show address" for positions beyond the last 10
+   */
+  loadAddressOnDemand(item: { position: any; originalIndex: number }): void {
+    if (item.position?.latitude == null || item.position?.longitude == null) return;
+    this.loadAddressForPosition(item.position.latitude, item.position.longitude, item.originalIndex);
+  }
+
+  /**
+   * Rebuild sortedPositionsForDisplay after a position is deleted.
+   * Re-indexes the address maps by new position indices (using coordinate cache),
+   * so addresses already loaded remain visible after deletion.
+   */
+  private _rebuildPositionsDisplay(): void {
+    if (!this.currentUser?.positions) {
+      this.sortedPositionsForDisplay = [];
+      this.cdr.reattach();
+      this.cdr.detectChanges();
+      return;
+    }
+
+    // Re-build address maps with fresh indices for the updated positions array
+    const newPositionAddresses = new Map<number, string>();
+    const newLoadingAddresses  = new Map<number, boolean>();
+    const newAddressFromCache  = new Map<number, boolean>();
+
+    this.currentUser.positions.forEach((position, index) => {
+      if (position.latitude == null || position.longitude == null) return;
+      const cacheKey = this.getCacheKey(position.latitude, position.longitude);
+      const cached = this.addressCache.get(cacheKey);
+      if (cached) {
+        newPositionAddresses.set(index, cached);
+        newLoadingAddresses.set(index, false);
+        newAddressFromCache.set(index, true);
+      }
+    });
+
+    this.positionAddresses = newPositionAddresses;
+    this.loadingAddresses  = newLoadingAddresses;
+    this.addressFromCache  = newAddressFromCache;
+
+    const sortedPositions = this.getSortedPositions();
+    const formatDate = (d: Date | string | undefined): string => {
+      if (!d) return '-';
+      const date = new Date(d);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return `${date.getDate().toString().padStart(2, '0')} ${months[date.getMonth()]} ${date.getFullYear()}, ${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    };
+
+    this.sortedPositionsForDisplay = sortedPositions.map((position, sortedIndex) => {
+      const originalIndex = this.currentUser!.positions!.findIndex(p =>
+        p.latitude === position.latitude &&
+        p.longitude === position.longitude &&
+        p.datetime === position.datetime
+      );
+      return {
+        position,
+        originalIndex: originalIndex >= 0 ? originalIndex : sortedIndex,
+        address:     originalIndex >= 0 ? (this.positionAddresses.get(originalIndex) || '') : '',
+        isLoading:   false,
+        isFromCache: originalIndex >= 0 ? (this.addressFromCache.get(originalIndex) === true) : false,
+        showAddressByDefault: sortedIndex < FriendsComponent.POSITIONS_AUTO_LOAD_ADDRESS_LIMIT,
+        formattedLat:      position.latitude  != null ? position.latitude.toFixed(6)  : '-',
+        formattedLng:      position.longitude != null ? position.longitude.toFixed(6) : '-',
+        formattedDate:     formatDate(position.datetime),
+        formattedDateFrom: formatDate(position.dateFrom ?? position.datetime),
+        formattedDateTo:   formatDate(position.dateTo   ?? position.datetime)
+      };
+    });
+
+    this.cdr.reattach();
+    this.cdr.detectChanges();
+  }
+
+  /**
    * Load address for a position using Nominatim reverse geocoding
    * Uses cache to avoid duplicate API calls for similar coordinates
    */
   private loadAddressForPosition(lat: number, lng: number, index: number): void {
-    // Check cache first using rounded coordinates
     const cacheKey = this.getCacheKey(lat, lng);
     const cachedAddress = this.addressCache.get(cacheKey);
     
@@ -3606,37 +3679,13 @@ export class FriendsComponent implements OnInit {
     this.loading = true;
     this.errorMessage = '';
 
-    // Create a new array without the position to delete
-    const updatedPositions = [...this.currentUser.positions];
-    updatedPositions.splice(index, 1);
-
-    // Update the member with the new positions array
-    const updatedMember = new Member(
-      this.currentUser.id,
-      this.currentUser.addressEmail,
-      this.currentUser.firstName,
-      this.currentUser.lastName,
-      this.currentUser.userName,
-      this.currentUser.roles || [],
-      this.currentUser.keycloakId || '',
-      this.currentUser.registrationDate,
-      this.currentUser.lastConnectionDate,
-      this.currentUser.locale,
-      this.currentUser.whatsappLink,
-      this.currentUser.visible,
-      updatedPositions
-    );
-
-    this._friendsService.updateMember(updatedMember).subscribe(
+    this._friendsService.deletePosition(this.currentUser.id, index).subscribe(
       (savedMember) => {
-        // Update the current user
         this.currentUser = savedMember;
-        // Also update the user in the MembersService
         this._memberService.setUser(savedMember);
-        // Force change detection to update the view
-        this.cdr.detectChanges();
         this.loading = false;
         this.errorMessage = '';
+        this._rebuildPositionsDisplay();
       },
       error => {
         console.error('Error deleting position:', error);

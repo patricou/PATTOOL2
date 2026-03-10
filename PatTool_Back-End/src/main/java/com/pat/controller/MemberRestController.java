@@ -495,6 +495,49 @@ public class MemberRestController {
     }
 
     /**
+     * Delete a single position for a member by index
+     * Users can only delete their own positions, unless they are admin
+     */
+    @RequestMapping(
+            value = "/{memberId}/positions/{positionIndex}",
+            method = RequestMethod.DELETE,
+            produces = { "application/json"}
+    )
+    public ResponseEntity<?> deletePosition(@PathVariable String memberId, @PathVariable int positionIndex) {
+        log.debug("Delete position {} for member: {}", positionIndex, memberId);
+
+        try {
+            Member member = membersRepository.findById(memberId).orElse(null);
+            if (member == null) {
+                log.warn("Member not found: {}", memberId);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Member not found");
+            }
+
+            String currentUserId = getCurrentUserId();
+            boolean isAdmin = hasAdminRole();
+            if (!isAdmin && (currentUserId == null || !currentUserId.equals(memberId))) {
+                log.warn("Unauthorized attempt to delete position for member {} by user {}", memberId, currentUserId);
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("You can only delete your own positions");
+            }
+
+            if (member.getPositions() == null || positionIndex < 0 || positionIndex >= member.getPositions().size()) {
+                log.warn("Invalid position index {} for member {}", positionIndex, memberId);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid position index");
+            }
+
+            member.getPositions().remove(positionIndex);
+            membersRepository.save(member);
+            log.info("Deleted position {} for member {}", positionIndex, memberId);
+
+            return ResponseEntity.ok(member);
+
+        } catch (Exception e) {
+            log.error("Error deleting position for member {}: {}", memberId, e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error deleting position: " + e.getMessage());
+        }
+    }
+
+    /**
      * Delete all positions for a member
      * Users can only delete their own positions, unless they are admin
      * @param memberId The ID of the member whose positions should be deleted

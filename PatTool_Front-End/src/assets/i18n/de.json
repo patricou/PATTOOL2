@@ -1423,6 +1423,7 @@
         "ADDRESS": "Adresse",
         "LOADING_ADDRESS": "Lädt...",
         "ADDRESS_NOT_FOUND": "Adresse nicht gefunden",
+        "SHOW_ADDRESS": "Adresse anzeigen",
         "ADDRESS_NOT_AVAILABLE": "Adresse nicht verfügbar",
         "CLOSE": "Schließen"
     },
@@ -1583,6 +1584,7 @@
         "GET_ADDRESS": "Adresse abrufen",
         "INVALID_COORDINATES": "Ungültige Koordinaten. Format: Breite Länge (z.B. 48.8566 2.3522).",
         "ADDRESS_NOT_FOUND": "Adresse nicht gefunden",
+        "SHOW_ADDRESS": "Adresse anzeigen",
         "MY_POSITION": "Mein Standort",
         "GEOLOCATION_NOT_SUPPORTED": "Geolokalisierung wird von Ihrem Browser nicht unterstützt.",
         "ERROR_GETTING_LOCATION": "Fehler beim Abrufen des Standorts",
