@@ -7,8 +7,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Date;
-import java.util.Calendar;
 
 /**
  * Service to handle position storage for members
@@ -24,7 +25,7 @@ public class PositionService {
 
     /**
      * Add a GPS position to a member
-     * If the last position has the same coordinates, it will be removed and replaced with the new one
+     * If the last position(s) have the same coordinates (same address), they are removed so only the latest is kept
      * @param member The member to add the position to
      * @param latitude Latitude coordinate
      * @param longitude Longitude coordinate
@@ -44,34 +45,41 @@ public class PositionService {
             member.setPositions(new java.util.ArrayList<>());
         }
         
-        // Check if the last position has the same coordinates AND is from the same day
-        if (!member.getPositions().isEmpty()) {
+        // Remove consecutive previous positions with the same address (compare coordinates rounded to 4 decimals)
+        // dateFrom = datetime of the immediate previous position (first one we remove)
+        Date dateFrom = null;
+        while (!member.getPositions().isEmpty()) {
             Position lastPosition = member.getPositions().get(member.getPositions().size() - 1);
-            if (lastPosition.getLatitude() != null && lastPosition.getLongitude() != null &&
-                lastPosition.getLatitude().equals(latitude) && lastPosition.getLongitude().equals(longitude) &&
-                isSameDay(lastPosition.getDatetime(), new Date())) {
-                // Remove the last position (same coordinates and same day)
+            if (sameAddressRounded4(lastPosition.getLatitude(), lastPosition.getLongitude(), latitude, longitude)) {
+                if (dateFrom == null) {
+                    dateFrom = lastPosition.getDateFrom() != null ? lastPosition.getDateFrom() : lastPosition.getDatetime();
+                }
                 member.getPositions().remove(member.getPositions().size() - 1);
-                log.debug("Removed duplicate GPS position for member {} (same coordinates and same day): lat={}, lon={}", 
+                log.debug("Removed duplicate GPS position for member {} (same address): lat={}, lon={}",
                     member.getUserName(), latitude, longitude);
+            } else {
+                break;
             }
         }
         
-        // Add the new position
-        Position position = new Position(new Date(), "GPS", latitude, longitude);
+        Date dateTo = new Date();
+        if (dateFrom == null) {
+            dateFrom = dateTo;
+        }
+        // Add the new position (full precision), with date range when we merged with previous
+        Position position = new Position(dateFrom, dateTo, "GPS", latitude, longitude);
         member.getPositions().add(position);
         
-        // Keep only the last 30 positions
+        // Keep only the last 50 positions
         limitPositions(member);
         
-        // Log with full precision to verify coordinates are stored correctly
-        log.debug("Added GPS position for member {}: lat={}, lon={} (full precision preserved)", 
+        log.debug("Added GPS position for member {}: lat={}, lon={} (full precision preserved)",
             member.getUserName(), latitude, longitude);
     }
 
     /**
      * Add an IP-based position to a member
-     * If the last position has the same coordinates, it will be removed and replaced with the new one
+     * If the last position(s) have the same coordinates (same address), they are removed so only the latest is kept
      * @param member The member to add the position to
      * @param ipAddress IP address to lookup coordinates from
      */
@@ -90,33 +98,43 @@ public class PositionService {
             IpGeolocationService.CoordinatesInfo coordinates = ipGeolocationService.getCoordinates(ipAddress);
             
             if (coordinates != null && coordinates.getLatitude() != null && coordinates.getLongitude() != null) {
+                Double lat = coordinates.getLatitude();
+                Double lon = coordinates.getLongitude();
+
                 if (member.getPositions() == null) {
                     member.setPositions(new java.util.ArrayList<>());
                 }
                 
-                // Check if the last position has the same coordinates AND is from the same day
-                if (!member.getPositions().isEmpty()) {
+                // Remove consecutive previous positions with the same address (compare coordinates rounded to 4 decimals)
+                // dateFrom = datetime of the immediate previous position (first one we remove)
+                Date dateFrom = null;
+                while (!member.getPositions().isEmpty()) {
                     Position lastPosition = member.getPositions().get(member.getPositions().size() - 1);
-                    if (lastPosition.getLatitude() != null && lastPosition.getLongitude() != null &&
-                        lastPosition.getLatitude().equals(coordinates.getLatitude()) && 
-                        lastPosition.getLongitude().equals(coordinates.getLongitude()) &&
-                        isSameDay(lastPosition.getDatetime(), new Date())) {
-                        // Remove the last position (same coordinates and same day)
+                    if (sameAddressRounded4(lastPosition.getLatitude(), lastPosition.getLongitude(), lat, lon)) {
+                        if (dateFrom == null) {
+                            dateFrom = lastPosition.getDateFrom() != null ? lastPosition.getDateFrom() : lastPosition.getDatetime();
+                        }
                         member.getPositions().remove(member.getPositions().size() - 1);
-                        log.debug("Removed duplicate IP position for member {} (same coordinates and same day): lat={}, lon={} (from IP: {})", 
-                            member.getUserName(), coordinates.getLatitude(), coordinates.getLongitude(), ipAddress);
+                        log.debug("Removed duplicate IP position for member {} (same address): lat={}, lon={} (from IP: {})",
+                            member.getUserName(), lat, lon, ipAddress);
+                    } else {
+                        break;
                     }
                 }
                 
-                // Add the new position
-                Position position = new Position(new Date(), "IP", coordinates.getLatitude(), coordinates.getLongitude());
+                Date dateTo = new Date();
+                if (dateFrom == null) {
+                    dateFrom = dateTo;
+                }
+                // Add the new position (full precision), with date range when we merged with previous
+                Position position = new Position(dateFrom, dateTo, "IP", lat, lon);
                 member.getPositions().add(position);
                 
-                // Keep only the last 30 positions
+                // Keep only the last 50 positions
                 limitPositions(member);
                 
                 log.debug("Added IP position for member {}: lat={}, lon={} (from IP: {})", 
-                    member.getUserName(), coordinates.getLatitude(), coordinates.getLongitude(), ipAddress);
+                    member.getUserName(), lat, lon, ipAddress);
             } else {
                 log.debug("Could not determine coordinates from IP address {} for member {}", ipAddress, member.getUserName());
             }
@@ -140,7 +158,7 @@ public class PositionService {
     }
     
     /**
-     * Limit the positions list to the last 30 positions
+     * Limit the positions list to the last 50 positions
      * @param member The member whose positions should be limited
      */
     private void limitPositions(Member member) {
@@ -148,7 +166,7 @@ public class PositionService {
             return;
         }
         
-        final int MAX_POSITIONS = 30;
+        final int MAX_POSITIONS = 50;
         if (member.getPositions().size() > MAX_POSITIONS) {
             // Keep only the last MAX_POSITIONS positions (most recent)
             java.util.List<Position> positions = member.getPositions();
@@ -160,24 +178,25 @@ public class PositionService {
                 member.getUserName(), MAX_POSITIONS, positions.size() - MAX_POSITIONS);
         }
     }
-    
+
     /**
-     * Check if two dates are on the same day (ignoring time)
-     * @param date1 First date
-     * @param date2 Second date
-     * @return true if both dates are on the same day
+     * Round a coordinate to 4 decimal places (used only for comparison, not storage)
      */
-    private boolean isSameDay(Date date1, Date date2) {
-        if (date1 == null || date2 == null) {
+    private static double roundTo4Decimals(Double value) {
+        if (value == null) {
+            return 0.0;
+        }
+        return BigDecimal.valueOf(value).setScale(4, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    /**
+     * True if both coordinate pairs are equal when rounded to 4 decimal places (same address for deduplication)
+     */
+    private static boolean sameAddressRounded4(Double lat1, Double lon1, Double lat2, Double lon2) {
+        if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) {
             return false;
         }
-        
-        Calendar cal1 = Calendar.getInstance();
-        cal1.setTime(date1);
-        Calendar cal2 = Calendar.getInstance();
-        cal2.setTime(date2);
-        
-        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
-               cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR);
+        return Double.compare(roundTo4Decimals(lat1), roundTo4Decimals(lat2)) == 0
+            && Double.compare(roundTo4Decimals(lon1), roundTo4Decimals(lon2)) == 0;
     }
 }

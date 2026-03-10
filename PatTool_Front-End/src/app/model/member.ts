@@ -1,5 +1,7 @@
  export interface Position {
     datetime?: Date;
+    dateFrom?: Date;
+    dateTo?: Date;
     type?: string; // "GPS" or "IP"
     latitude?: number;
     longitude?: number;

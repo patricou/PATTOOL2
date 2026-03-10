@@ -220,6 +220,8 @@ export class FriendsComponent implements OnInit {
     formattedLat: string;
     formattedLng: string;
     formattedDate: string;
+    formattedDateFrom: string;
+    formattedDateTo: string;
   }> = [];
   
   // Column sorting state
@@ -228,6 +230,9 @@ export class FriendsComponent implements OnInit {
   
   // Control visibility of positions table to prevent progressive rendering
   public positionsTableVisible: boolean = false;
+  
+  // Refresh state for positions modal
+  public positionsModalRefreshing: boolean = false;
   
   // Cache for addresses by rounded coordinates (to avoid duplicate API calls for similar coordinates)
   // Key format: "lat_lng" with coordinates rounded to 6 decimal places
@@ -2956,17 +2961,23 @@ export class FriendsComponent implements OnInit {
       // Pre-format all values to avoid pipe evaluation delays
       const formattedLat = position.latitude != null ? position.latitude.toFixed(6) : '-';
       const formattedLng = position.longitude != null ? position.longitude.toFixed(6) : '-';
-      let formattedDate = '-';
-      if (position.datetime) {
-        const date = new Date(position.datetime);
+      const formatDate = (d: Date | string | undefined): string => {
+        if (!d) return '-';
+        const date = new Date(d);
         const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
         const day = date.getDate().toString().padStart(2, '0');
         const month = months[date.getMonth()];
         const year = date.getFullYear();
         const hours = date.getHours().toString().padStart(2, '0');
         const minutes = date.getMinutes().toString().padStart(2, '0');
-        formattedDate = `${day} ${month} ${year}, ${hours}:${minutes}`;
+        return `${day} ${month} ${year}, ${hours}:${minutes}`;
+      };
+      let formattedDate = '-';
+      if (position.datetime) {
+        formattedDate = formatDate(position.datetime);
       }
+      const formattedDateFrom = formatDate(position.dateFrom ?? position.datetime);
+      const formattedDateTo = formatDate(position.dateTo ?? position.datetime);
       
       return {
         position: position,
@@ -2976,7 +2987,9 @@ export class FriendsComponent implements OnInit {
         isFromCache: originalIndex >= 0 ? (this.addressFromCache.get(originalIndex) === true) : false,
         formattedLat: formattedLat,
         formattedLng: formattedLng,
-        formattedDate: formattedDate
+        formattedDate: formattedDate,
+        formattedDateFrom: formattedDateFrom,
+        formattedDateTo: formattedDateTo
       };
     });
     
@@ -3058,6 +3071,138 @@ export class FriendsComponent implements OnInit {
         }, apiCallIndex * 1100); // 1.1 seconds between calls
         apiCallIndex++;
       });
+  }
+
+  /**
+   * Refresh positions in the "Toutes les positions" modal (reload from API and rebuild display)
+   */
+  refreshPositionsInModal(): void {
+    if (!this.currentUser?.id || !this.positionsModalRef) {
+      return;
+    }
+    this.positionsModalRefreshing = true;
+    this.cdr.detectChanges();
+    this._friendsService.getAllUsers().subscribe({
+      next: (users) => {
+        const updated = users.find(u => u.id === this.currentUser!.id);
+        if (!updated) {
+          this.positionsModalRefreshing = false;
+          this.cdr.detectChanges();
+          return;
+        }
+        this.currentUser!.positions = updated.positions ?? [];
+        this.positionAddresses.clear();
+        this.loadingAddresses.clear();
+        this.addressFromCache.clear();
+        if (!this.currentUser!.positions || this.currentUser!.positions.length === 0) {
+          this.sortedPositionsForDisplay = [];
+          this.positionsModalRefreshing = false;
+          this.cdr.detectChanges();
+          return;
+        }
+        this.currentUser!.positions.forEach((position, index) => {
+          if (position.latitude != null && position.longitude != null) {
+            this.loadingAddresses.set(index, true);
+          }
+        });
+        const sortedPositions = this.getSortedPositions();
+        const positionsToLoad: Array<{ lat: number; lng: number; index: number; cacheKey: string }> = [];
+        const cachedPositionsToLoad: Array<{ index: number; address: string }> = [];
+        sortedPositions.forEach((position) => {
+          if (!this.currentUser!.positions) return;
+          const originalIndex = this.currentUser!.positions.findIndex(p =>
+            p.latitude === position.latitude &&
+            p.longitude === position.longitude &&
+            p.datetime === position.datetime
+          );
+          if (originalIndex >= 0 && position.latitude != null && position.longitude != null) {
+            const cacheKey = this.getCacheKey(position.latitude, position.longitude);
+            const cachedAddress = this.addressCache.get(cacheKey);
+            if (cachedAddress) {
+              cachedPositionsToLoad.push({ index: originalIndex, address: cachedAddress });
+            } else {
+              positionsToLoad.push({
+                lat: position.latitude,
+                lng: position.longitude,
+                index: originalIndex,
+                cacheKey: cacheKey
+              });
+            }
+          }
+        });
+        cachedPositionsToLoad.forEach((cached) => {
+          this.positionAddresses.set(cached.index, cached.address);
+          this.loadingAddresses.set(cached.index, false);
+          this.addressFromCache.set(cached.index, true);
+        });
+        const formatDate = (d: Date | string | undefined): string => {
+          if (!d) return '-';
+          const date = new Date(d);
+          const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+          const day = date.getDate().toString().padStart(2, '0');
+          const month = months[date.getMonth()];
+          const year = date.getFullYear();
+          const hours = date.getHours().toString().padStart(2, '0');
+          const minutes = date.getMinutes().toString().padStart(2, '0');
+          return `${day} ${month} ${year}, ${hours}:${minutes}`;
+        };
+        this.sortedPositionsForDisplay = sortedPositions.map((position, sortedIndex) => {
+          const originalIndex = this.currentUser!.positions!.findIndex(p =>
+            p.latitude === position.latitude &&
+            p.longitude === position.longitude &&
+            p.datetime === position.datetime
+          );
+          const formattedLat = position.latitude != null ? position.latitude.toFixed(6) : '-';
+          const formattedLng = position.longitude != null ? position.longitude.toFixed(6) : '-';
+          let formattedDate = '-';
+          if (position.datetime) formattedDate = formatDate(position.datetime);
+          const formattedDateFrom = formatDate(position.dateFrom ?? position.datetime);
+          const formattedDateTo = formatDate(position.dateTo ?? position.datetime);
+          return {
+            position,
+            originalIndex: originalIndex >= 0 ? originalIndex : sortedIndex,
+            address: originalIndex >= 0 ? (this.positionAddresses.get(originalIndex) || '') : '',
+            isLoading: originalIndex >= 0 ? (this.loadingAddresses.get(originalIndex) === true) : false,
+            isFromCache: originalIndex >= 0 ? (this.addressFromCache.get(originalIndex) === true) : false,
+            formattedLat,
+            formattedLng,
+            formattedDate,
+            formattedDateFrom,
+            formattedDateTo
+          };
+        });
+        this.sortColumn = 'date';
+        this.sortDirection = 'desc';
+        let apiCallIndex = 0;
+        positionsToLoad.forEach((pos) => {
+          setTimeout(() => {
+            const cacheKey = this.getCacheKey(pos.lat, pos.lng);
+            const cachedAddress = this.addressCache.get(cacheKey);
+            if (cachedAddress) {
+              this.positionAddresses.set(pos.index, cachedAddress);
+              this.loadingAddresses.set(pos.index, false);
+              this.addressFromCache.set(pos.index, true);
+              const displayItem = this.sortedPositionsForDisplay.find(item => item.originalIndex === pos.index);
+              if (displayItem) {
+                displayItem.address = cachedAddress;
+                displayItem.isLoading = false;
+                displayItem.isFromCache = true;
+              }
+              this.cdr.detectChanges();
+            } else {
+              this.loadAddressForPosition(pos.lat, pos.lng, pos.index);
+            }
+          }, apiCallIndex * 1100);
+          apiCallIndex++;
+        });
+        this.positionsModalRefreshing = false;
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.positionsModalRefreshing = false;
+        this.cdr.detectChanges();
+      }
+    });
   }
 
   /**

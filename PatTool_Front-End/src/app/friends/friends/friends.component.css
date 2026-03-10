@@ -2522,10 +2522,12 @@
   }
 }
 
-/* Ensure date column has enough space */
+/* Ensure Du and Au date columns stay on one line */
 .positions-table-container th:nth-child(6),
-.positions-table-container td:nth-child(6) {
-  min-width: 180px;
+.positions-table-container td:nth-child(6),
+.positions-table-container th:nth-child(7),
+.positions-table-container td:nth-child(7) {
+  min-width: 140px;
   white-space: nowrap;
 }
 

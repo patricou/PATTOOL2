@@ -1409,6 +1409,8 @@
         "DELETE_POSITION_ERROR": "स्थिति हटाने में त्रुटि",
         "TYPE": "प्रकार",
         "DATE": "तारीख",
+        "DATE_FROM": "से",
+        "DATE_TO": "तक",
         "LATITUDE": "अक्षांश",
         "LONGITUDE": "देशांतर",
         "ADDRESS": "पता",

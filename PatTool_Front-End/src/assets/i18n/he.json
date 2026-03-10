@@ -1410,6 +1410,8 @@
         "DELETE_POSITION_ERROR": "שגיאה במחיקת המיקום",
         "TYPE": "סוג",
         "DATE": "תאריך",
+        "DATE_FROM": "מ",
+        "DATE_TO": "עד",
         "LATITUDE": "קו רוחב",
         "LONGITUDE": "קו אורך",
         "ADDRESS": "כתובת",

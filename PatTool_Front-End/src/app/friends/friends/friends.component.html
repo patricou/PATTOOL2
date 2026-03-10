@@ -1665,9 +1665,10 @@
               </th>
               <th>
                 <a href="javascript:void(0)" (click)="sortBy('date')" class="sortable-header text-decoration-none text-reset">
-                  {{ 'FRIENDS.DATE' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'date', 'fa-sort-up': sortColumn === 'date' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'date' && sortDirection === 'desc'}"></i>
+                  {{ 'FRIENDS.DATE_FROM' | translate }} <i class="fa" [ngClass]="{'fa-sort': sortColumn !== 'date', 'fa-sort-up': sortColumn === 'date' && sortDirection === 'asc', 'fa-sort-down': sortColumn === 'date' && sortDirection === 'desc'}"></i>
                 </a>
               </th>
+              <th>{{ 'FRIENDS.DATE_TO' | translate }}</th>
               <th style="width: 200px;">{{ 'FRIENDS.ACTIONS' | translate }}</th>
             </tr>
           </thead>
@@ -1691,12 +1692,13 @@
                 </span>
                 <span *ngIf="!item.position.type" class="text-muted">-</span>
               </td>
-              <td>
-                <span *ngIf="item.formattedDate !== '-'">
-                  <i class="fa fa-clock-o me-1"></i>
-                  {{ item.formattedDate }}
-                </span>
-                <span *ngIf="item.formattedDate === '-'" class="text-muted">-</span>
+              <td class="text-nowrap">
+                <span *ngIf="item.formattedDateFrom !== '-'">{{ item.formattedDateFrom }}</span>
+                <span *ngIf="item.formattedDateFrom === '-'" class="text-muted">-</span>
+              </td>
+              <td class="text-nowrap">
+                <span *ngIf="item.formattedDateTo !== '-'">{{ item.formattedDateTo }}</span>
+                <span *ngIf="item.formattedDateTo === '-'" class="text-muted">-</span>
               </td>
               <td>
                 <div class="d-flex gap-2">
@@ -1735,6 +1737,11 @@
             <i class="fa fa-clock-o me-1"></i>{{ item.formattedDate }}
           </span>
         </div>
+        <div *ngIf="item.formattedDateFrom !== '-' || item.formattedDateTo !== '-'" class="positions-mobile-card-daterange small text-muted mb-1">
+          <span *ngIf="item.formattedDateFrom !== '-'">{{ 'FRIENDS.DATE_FROM' | translate }}: {{ item.formattedDateFrom }}</span>
+          <span *ngIf="item.formattedDateFrom !== '-' && item.formattedDateTo !== '-'"> — </span>
+          <span *ngIf="item.formattedDateTo !== '-'">{{ 'FRIENDS.DATE_TO' | translate }}: {{ item.formattedDateTo }}</span>
+        </div>
         <div class="positions-mobile-card-coords small text-muted">
           {{ item.formattedLat }}, {{ item.formattedLng }}
         </div>
@@ -1756,6 +1763,16 @@
     </div>
   </div>
   <div class="modal-footer">
+    <button 
+      type="button" 
+      class="btn btn-secondary"
+      (click)="refreshPositionsInModal()"
+      [disabled]="positionsModalRefreshing"
+      [ngbTooltip]="'FRIENDS.REFRESH' | translate"
+      placement="top">
+      <i class="fa me-1" [ngClass]="{'fa-refresh': !positionsModalRefreshing, 'fa-spinner fa-spin': positionsModalRefreshing}"></i>
+      {{ 'FRIENDS.REFRESH' | translate }}
+    </button>
     <button 
       *ngIf="sortedPositionsForDisplay && sortedPositionsForDisplay.length > 0"
       type="button" 

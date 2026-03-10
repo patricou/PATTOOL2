@@ -1416,6 +1416,8 @@
         "DELETE_POSITION_ERROR": "Fehler beim Löschen der Position",
         "TYPE": "Typ",
         "DATE": "Datum",
+        "DATE_FROM": "Von",
+        "DATE_TO": "Bis",
         "LATITUDE": "Breitengrad",
         "LONGITUDE": "Längengrad",
         "ADDRESS": "Adresse",

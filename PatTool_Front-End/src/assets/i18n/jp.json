@@ -1298,6 +1298,8 @@
         "DELETE_POSITION_ERROR": "位置の削除中にエラーが発生しました",
         "TYPE": "タイプ",
         "DATE": "日付",
+        "DATE_FROM": "から",
+        "DATE_TO": "まで",
         "LATITUDE": "緯度",
         "LONGITUDE": "経度",
         "ADDRESS": "住所",

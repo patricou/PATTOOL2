@@ -1418,6 +1418,8 @@
         "DELETE_POSITION_ERROR": "删除位置时出错",
         "TYPE": "类型",
         "DATE": "日期",
+        "DATE_FROM": "自",
+        "DATE_TO": "至",
         "LATITUDE": "纬度",
         "LONGITUDE": "经度",
         "ADDRESS": "地址",

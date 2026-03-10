@@ -1424,6 +1424,8 @@
         "DELETE_POSITION_ERROR": "Error al eliminar la posición",
         "TYPE": "Tipo",
         "DATE": "Fecha",
+        "DATE_FROM": "Desde",
+        "DATE_TO": "Hasta",
         "LATITUDE": "Latitud",
         "LONGITUDE": "Longitud",
         "ADDRESS": "Dirección",

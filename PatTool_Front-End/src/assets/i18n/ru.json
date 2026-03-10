@@ -1412,6 +1412,8 @@
         "DELETE_POSITION_ERROR": "Ошибка при удалении позиции",
         "TYPE": "Тип",
         "DATE": "Дата",
+        "DATE_FROM": "С",
+        "DATE_TO": "По",
         "LATITUDE": "Широта",
         "LONGITUDE": "Долгота",
         "ADDRESS": "Адрес",

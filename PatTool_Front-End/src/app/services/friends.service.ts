@@ -49,6 +49,8 @@ export class FriendsService {
                             if (user.positions && Array.isArray(user.positions)) {
                                 positions = user.positions.map((p: any) => ({
                                     datetime: p.datetime ? new Date(p.datetime) : undefined,
+                                    dateFrom: p.dateFrom ? new Date(p.dateFrom) : undefined,
+                                    dateTo: p.dateTo ? new Date(p.dateTo) : undefined,
                                     type: p.type,
                                     latitude: p.latitude,
                                     longitude: p.longitude
@@ -1301,6 +1303,8 @@ export class FriendsService {
                         if (res.positions && Array.isArray(res.positions)) {
                             positions = res.positions.map((p: any) => ({
                                 datetime: p.datetime ? new Date(p.datetime) : undefined,
+                                dateFrom: p.dateFrom ? new Date(p.dateFrom) : undefined,
+                                dateTo: p.dateTo ? new Date(p.dateTo) : undefined,
                                 type: p.type,
                                 latitude: p.latitude,
                                 longitude: p.longitude
