@@ -48,7 +48,8 @@
         "PATGPT": "PatGPT",
         "GEO": "Гео",
         "POSITION_METEO": "Позиция/Погода",
-        "ADDRESS_TO_MAP": "Адрес/GPS на карте"
+        "ADDRESS_TO_MAP": "Адрес/GPS на карте",
+        "PHOTOS": "Фото"
     },
     "NAVIGATION": {
         "BACK": "Назад",
@@ -1599,5 +1600,17 @@
         "COPY_COORDINATES_SHORT": "Коорд.",
         "COPY_ADDRESS_SHORT": "Адрес",
         "SHOW_ON_MAP_SHORT": "Карта"
+    },
+    "PHOTO_TIMELINE": {
+        "TITLE": "Стена фотографий",
+        "ON_THIS_DAY": "В этот день",
+        "ON_THIS_DAY_DESC": "{{count}} фото за этот день в предыдущие годы",
+        "PHOTOS": "фото",
+        "EVENTS": "событий",
+        "SEARCH_PLACEHOLDER": "Поиск по названию события...",
+        "LOADING": "Загрузка фотографий...",
+        "RETRY": "Повторить",
+        "NO_PHOTOS": "Нет фотографий",
+        "NO_PHOTOS_DESC": "Фотографии ваших мероприятий появятся здесь в виде красивой стены воспоминаний."
     }
 }

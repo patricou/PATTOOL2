@@ -36,7 +36,8 @@
         "PATGPT": "PatGPT",
         "GEO": "Geo",
         "POSITION_METEO": "Posición/Clima",
-        "ADDRESS_TO_MAP": "Dirección/GPS al mapa"
+        "ADDRESS_TO_MAP": "Dirección/GPS al mapa",
+        "PHOTOS": "Fotos"
     },
     "NAVIGATION": {
         "BACK": "Atrás",
@@ -1611,5 +1612,17 @@
         "COPY_COORDINATES_SHORT": "Coords.",
         "COPY_ADDRESS_SHORT": "Dirección",
         "SHOW_ON_MAP_SHORT": "Mapa"
+    },
+    "PHOTO_TIMELINE": {
+        "TITLE": "Muro de Fotos",
+        "ON_THIS_DAY": "Un día como hoy",
+        "ON_THIS_DAY_DESC": "{{count}} foto(s) de este día en años anteriores",
+        "PHOTOS": "foto(s)",
+        "EVENTS": "evento(s)",
+        "SEARCH_PLACEHOLDER": "Buscar por nombre de evento...",
+        "LOADING": "Cargando fotos...",
+        "RETRY": "Reintentar",
+        "NO_PHOTOS": "Sin fotos",
+        "NO_PHOTOS_DESC": "Las fotos de tus eventos aparecerán aquí como un hermoso muro de recuerdos."
     }
 }

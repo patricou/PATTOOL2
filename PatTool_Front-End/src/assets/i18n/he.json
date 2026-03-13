@@ -36,7 +36,8 @@
         "PATGPT": "PatGPT",
         "GEO": "גאו",
         "POSITION_METEO": "מיקום/מזג אוויר",
-        "ADDRESS_TO_MAP": "כתובת/GPS למפה"
+        "ADDRESS_TO_MAP": "כתובת/GPS למפה",
+        "PHOTOS": "תמונות"
     },
     "NAVIGATION": {
         "BACK": "חזור",
@@ -1596,5 +1597,17 @@
         "COPY_COORDINATES_SHORT": "קואורד'",
         "COPY_ADDRESS_SHORT": "כתובת",
         "SHOW_ON_MAP_SHORT": "מפה"
+    },
+    "PHOTO_TIMELINE": {
+        "TITLE": "קיר תמונות",
+        "ON_THIS_DAY": "היום בהיסטוריה",
+        "ON_THIS_DAY_DESC": "{{count}} תמונות מהיום הזה בשנים קודמות",
+        "PHOTOS": "תמונות",
+        "EVENTS": "אירועים",
+        "SEARCH_PLACEHOLDER": "חיפוש לפי שם אירוע...",
+        "LOADING": "טוען תמונות...",
+        "RETRY": "נסה שוב",
+        "NO_PHOTOS": "אין תמונות",
+        "NO_PHOTOS_DESC": "תמונות מהאירועים שלך יופיעו כאן כקיר זיכרונות יפה."
     }
 }

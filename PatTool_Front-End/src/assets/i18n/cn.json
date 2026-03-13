@@ -36,7 +36,8 @@
         "PATGPT": "PatGPT",
         "GEO": "地理",
         "POSITION_METEO": "位置/天气",
-        "ADDRESS_TO_MAP": "地址/GPS到地图"
+        "ADDRESS_TO_MAP": "地址/GPS到地图",
+        "PHOTOS": "照片"
     },
     "NAVIGATION": {
         "BACK": "返回",
@@ -1605,5 +1606,17 @@
         "COPY_COORDINATES_SHORT": "坐标",
         "COPY_ADDRESS_SHORT": "地址",
         "SHOW_ON_MAP_SHORT": "地图"
+    },
+    "PHOTO_TIMELINE": {
+        "TITLE": "照片墙",
+        "ON_THIS_DAY": "历史上的今天",
+        "ON_THIS_DAY_DESC": "往年今日的 {{count}} 张照片",
+        "PHOTOS": "张照片",
+        "EVENTS": "个活动",
+        "SEARCH_PLACEHOLDER": "按活动名称搜索...",
+        "LOADING": "正在加载照片...",
+        "RETRY": "重试",
+        "NO_PHOTOS": "暂无照片",
+        "NO_PHOTOS_DESC": "您活动中的照片将以精美的照片墙形式展示在这里。"
     }
 }

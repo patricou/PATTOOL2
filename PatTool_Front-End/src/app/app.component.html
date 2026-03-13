@@ -46,6 +46,11 @@
                            (click)="closeMenu()">
                         <i class="fa fa-plus"></i> {{ 'MENU.EVENTSCREATION' | translate }}
                     </a></li>
+                    <li><a class="dropdown-item" 
+                           [routerLink]="['photos']" 
+                           (click)="closeMenu()">
+                        <i class="fa fa-picture-o"></i> {{ 'MENU.PHOTOS' | translate }}
+                    </a></li>
                 </ul>
             </li>
 

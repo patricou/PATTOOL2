@@ -36,7 +36,8 @@
         "PATGPT": "PatGPT",
         "GEO": "Geo",
         "POSITION_METEO": "Position/Weather",
-        "ADDRESS_TO_MAP": "Address/GPS to map"
+        "ADDRESS_TO_MAP": "Address/GPS to map",
+        "PHOTOS": "Photos"
     },
     "NAVIGATION": {
         "BACK": "Back",
@@ -1633,6 +1634,18 @@
         "COPY_COORDINATES_SHORT": "Coords",
         "COPY_ADDRESS_SHORT": "Address",
         "SHOW_ON_MAP_SHORT": "Map"
+    },
+    "PHOTO_TIMELINE": {
+        "TITLE": "Photo Timeline",
+        "ON_THIS_DAY": "On This Day",
+        "ON_THIS_DAY_DESC": "{{count}} photo(s) from this day in previous years",
+        "PHOTOS": "photo(s)",
+        "EVENTS": "event(s)",
+        "SEARCH_PLACEHOLDER": "Search by event name...",
+        "LOADING": "Loading photos...",
+        "RETRY": "Retry",
+        "NO_PHOTOS": "No photos yet",
+        "NO_PHOTOS_DESC": "Photos from your events will appear here as a beautiful timeline."
     }
 }
 

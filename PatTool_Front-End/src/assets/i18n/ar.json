@@ -36,7 +36,8 @@
         "PATGPT": "PatGPT",
         "GEO": "جيو",
         "POSITION_METEO": "الموقع/الطقس",
-        "ADDRESS_TO_MAP": "العنوان/GPS على الخريطة"
+        "ADDRESS_TO_MAP": "العنوان/GPS على الخريطة",
+        "PHOTOS": "صور"
     },
     "NAVIGATION": {
         "BACK": "رجوع",
@@ -1603,5 +1604,17 @@
         "COPY_COORDINATES_SHORT": "الإحداثيات",
         "COPY_ADDRESS_SHORT": "العنوان",
         "SHOW_ON_MAP_SHORT": "الخريطة"
+    },
+    "PHOTO_TIMELINE": {
+        "TITLE": "جدار الصور",
+        "ON_THIS_DAY": "في مثل هذا اليوم",
+        "ON_THIS_DAY_DESC": "{{count}} صورة من هذا اليوم في السنوات السابقة",
+        "PHOTOS": "صورة",
+        "EVENTS": "حدث",
+        "SEARCH_PLACEHOLDER": "البحث بالاسم...",
+        "LOADING": "جاري تحميل الصور...",
+        "RETRY": "إعادة المحاولة",
+        "NO_PHOTOS": "لا توجد صور",
+        "NO_PHOTOS_DESC": "ستظهر صور أنشطتك هنا كجدار ذكريات جميل."
     }
 }

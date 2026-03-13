@@ -36,7 +36,8 @@
         "PATGPT": "PatGPT",
         "GEO": "Géo",
         "POSITION_METEO": "Position/Météo",
-        "ADDRESS_TO_MAP": "Adresse/GPS vers carte"
+        "ADDRESS_TO_MAP": "Adresse/GPS vers carte",
+        "PHOTOS": "Photos"
     },
     "NAVIGATION": {
         "BACK": "Retour",
@@ -1622,6 +1623,18 @@
         "COPY_COORDINATES_SHORT": "Coords",
         "COPY_ADDRESS_SHORT": "Adresse",
         "SHOW_ON_MAP_SHORT": "Carte"
+    },
+    "PHOTO_TIMELINE": {
+        "TITLE": "Mur de Photos",
+        "ON_THIS_DAY": "Ce jour-là",
+        "ON_THIS_DAY_DESC": "{{count}} photo(s) de ce jour les années précédentes",
+        "PHOTOS": "photo(s)",
+        "EVENTS": "événement(s)",
+        "SEARCH_PLACEHOLDER": "Rechercher par nom d'événement...",
+        "LOADING": "Chargement des photos...",
+        "RETRY": "Réessayer",
+        "NO_PHOTOS": "Aucune photo",
+        "NO_PHOTOS_DESC": "Les photos de vos activités apparaîtront ici sous forme d'un magnifique mur de souvenirs."
     }
 }
 

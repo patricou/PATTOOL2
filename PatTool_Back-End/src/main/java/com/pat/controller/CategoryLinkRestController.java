@@ -111,39 +111,53 @@ public class CategoryLinkRestController {
     @PutMapping("/{id}")
     public ResponseEntity<CategoryLink> updateCategory(@PathVariable String id, @RequestBody CategoryLink categoryDetails) {
         log.info("Update category with id: {}", id);
-        Optional<CategoryLink> categoryOptional = categoryLinkRepository.findById(id);
-        
-        if (categoryOptional.isPresent()) {
-            CategoryLink category = categoryOptional.get();
-            
-            // Capitalize first letter of name if provided
-            if (categoryDetails.getCategoryName() != null && !categoryDetails.getCategoryName().isEmpty()) {
-                String name = categoryDetails.getCategoryName();
-                category.setCategoryName(name.substring(0, 1).toUpperCase() + name.substring(1).toLowerCase());
+        log.info("Received payload - name: {}, description: {}, visibility: {}, categoryLinkID: {}",
+                categoryDetails.getCategoryName(), categoryDetails.getCategoryDescription(),
+                categoryDetails.getVisibility(), categoryDetails.getCategoryLinkID());
+        try {
+            Optional<CategoryLink> categoryOptional = categoryLinkRepository.findById(id);
+
+            if (categoryOptional.isPresent()) {
+                CategoryLink category = categoryOptional.get();
+
+                // Capitalize first letter of name if provided
+                if (categoryDetails.getCategoryName() != null && !categoryDetails.getCategoryName().isEmpty()) {
+                    String name = categoryDetails.getCategoryName();
+                    category.setCategoryName(name.substring(0, 1).toUpperCase() + name.substring(1).toLowerCase());
+                }
+
+                // Capitalize first letter of description if provided
+                if (categoryDetails.getCategoryDescription() != null && !categoryDetails.getCategoryDescription().isEmpty()) {
+                    String description = categoryDetails.getCategoryDescription();
+                    category.setCategoryDescription(description.substring(0, 1).toUpperCase() + description.substring(1).toLowerCase());
+                }
+
+                if (categoryDetails.getCategoryLinkID() != null) {
+                    category.setCategoryLinkID(categoryDetails.getCategoryLinkID());
+                }
+
+                // Update visibility if provided
+                if (categoryDetails.getVisibility() != null && !categoryDetails.getVisibility().isEmpty()) {
+                    category.setVisibility(categoryDetails.getVisibility());
+                }
+
+                // Update author if provided
+                if (categoryDetails.getAuthor() != null) {
+                    category.setAuthor(categoryDetails.getAuthor());
+                }
+
+                log.info("Saving category - name: {}, description: {}, visibility: {}", 
+                        category.getCategoryName(), category.getCategoryDescription(), category.getVisibility());
+                CategoryLink updatedCategory = categoryLinkRepository.save(category);
+                log.info("Category saved successfully with id: {}", updatedCategory.getId());
+                return ResponseEntity.ok(updatedCategory);
+            } else {
+                log.warn("Category not found with id: {}", id);
+                return ResponseEntity.notFound().build();
             }
-            
-            // Capitalize first letter of description if provided
-            if (categoryDetails.getCategoryDescription() != null && !categoryDetails.getCategoryDescription().isEmpty()) {
-                String description = categoryDetails.getCategoryDescription();
-                category.setCategoryDescription(description.substring(0, 1).toUpperCase() + description.substring(1).toLowerCase());
-            }
-            
-            category.setCategoryLinkID(categoryDetails.getCategoryLinkID());
-            
-            // Update visibility if provided
-            if (categoryDetails.getVisibility() != null && !categoryDetails.getVisibility().isEmpty()) {
-                category.setVisibility(categoryDetails.getVisibility());
-            }
-            
-            // Update author if provided
-            if (categoryDetails.getAuthor() != null) {
-                category.setAuthor(categoryDetails.getAuthor());
-            }
-            
-            CategoryLink updatedCategory = categoryLinkRepository.save(category);
-            return ResponseEntity.ok(updatedCategory);
-        } else {
-            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("Error updating category with id: {}", id, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

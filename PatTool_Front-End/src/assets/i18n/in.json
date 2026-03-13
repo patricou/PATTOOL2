@@ -48,7 +48,8 @@
         "PATGPT": "PatGPT",
         "GEO": "जियो",
         "POSITION_METEO": "स्थिति/मौसम",
-        "ADDRESS_TO_MAP": "पता/GPS मानचित्र पर"
+        "ADDRESS_TO_MAP": "पता/GPS मानचित्र पर",
+        "PHOTOS": "तस्वीरें"
     },
     "NAVIGATION": {
         "BACK": "वापस",
@@ -1596,6 +1597,18 @@
         "COPY_COORDINATES_SHORT": "निर्देशांक",
         "COPY_ADDRESS_SHORT": "पता",
         "SHOW_ON_MAP_SHORT": "मानचित्र"
+    },
+    "PHOTO_TIMELINE": {
+        "TITLE": "फोटो दीवार",
+        "ON_THIS_DAY": "आज के दिन",
+        "ON_THIS_DAY_DESC": "पिछले वर्षों में इस दिन की {{count}} तस्वीर(ें)",
+        "PHOTOS": "तस्वीर(ें)",
+        "EVENTS": "कार्यक्रम",
+        "SEARCH_PLACEHOLDER": "कार्यक्रम के नाम से खोजें...",
+        "LOADING": "तस्वीरें लोड हो रही हैं...",
+        "RETRY": "पुनः प्रयास करें",
+        "NO_PHOTOS": "कोई तस्वीर नहीं",
+        "NO_PHOTOS_DESC": "आपके कार्यक्रमों की तस्वीरें यहाँ एक सुंदर फोटो दीवार के रूप में दिखाई देंगी।"
     }
 }
 

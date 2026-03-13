@@ -36,7 +36,8 @@
         "PATGPT": "PatGPT",
         "GEO": "ジオ",
         "POSITION_METEO": "位置/天気",
-        "ADDRESS_TO_MAP": "住所/GPSを地図に"
+        "ADDRESS_TO_MAP": "住所/GPSを地図に",
+        "PHOTOS": "写真"
     },
     "NAVIGATION": {
         "BACK": "戻る",
@@ -1611,5 +1612,17 @@
         "COPY_COORDINATES_SHORT": "座標",
         "COPY_ADDRESS_SHORT": "住所",
         "SHOW_ON_MAP_SHORT": "地図"
+    },
+    "PHOTO_TIMELINE": {
+        "TITLE": "フォトウォール",
+        "ON_THIS_DAY": "この日の思い出",
+        "ON_THIS_DAY_DESC": "過去の同じ日の写真 {{count}} 枚",
+        "PHOTOS": "枚の写真",
+        "EVENTS": "件のイベント",
+        "SEARCH_PLACEHOLDER": "イベント名で検索...",
+        "LOADING": "写真を読み込み中...",
+        "RETRY": "再試行",
+        "NO_PHOTOS": "写真がありません",
+        "NO_PHOTOS_DESC": "イベントの写真が美しいフォトウォールとしてここに表示されます。"
     }
 }

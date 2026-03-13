@@ -110,6 +110,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				loadComponent: () => import('./local-network/local-network.component').then(m => m.LocalNetworkComponent)
 			},
 			{ 
+				path: 'photos', 
+				loadChildren: () => import('./photo-timeline/photo-timeline.module').then(m => m.PhotoTimelineModule)
+			},
+			{ 
 				path: 'system', 
 				loadComponent: () => import('./system/system.component').then(m => m.SystemComponent)
 			},

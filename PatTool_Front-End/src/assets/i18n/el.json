@@ -36,7 +36,8 @@
         "PATGPT": "PatGPT",
         "GEO": "Geo",
         "POSITION_METEO": "Θέση/Καιρός",
-        "ADDRESS_TO_MAP": "Διεύθυνση/GPS στον χάρτη"
+        "ADDRESS_TO_MAP": "Διεύθυνση/GPS στον χάρτη",
+        "PHOTOS": "Φωτογραφίες"
     },
     "NAVIGATION": {
         "BACK": "Πίσω",
@@ -1608,5 +1609,17 @@
         "COPY_COORDINATES_SHORT": "Συντετ.",
         "COPY_ADDRESS_SHORT": "Διεύθυνση",
         "SHOW_ON_MAP_SHORT": "Χάρτης"
+    },
+    "PHOTO_TIMELINE": {
+        "TITLE": "Τοίχος Φωτογραφιών",
+        "ON_THIS_DAY": "Σαν σήμερα",
+        "ON_THIS_DAY_DESC": "{{count}} φωτογραφία(ες) από αυτή τη μέρα τα προηγούμενα χρόνια",
+        "PHOTOS": "φωτογραφία(ες)",
+        "EVENTS": "εκδήλωση(εις)",
+        "SEARCH_PLACEHOLDER": "Αναζήτηση με όνομα εκδήλωσης...",
+        "LOADING": "Φόρτωση φωτογραφιών...",
+        "RETRY": "Επανάληψη",
+        "NO_PHOTOS": "Δεν υπάρχουν φωτογραφίες",
+        "NO_PHOTOS_DESC": "Οι φωτογραφίες από τις εκδηλώσεις σας θα εμφανιστούν εδώ ως ένα όμορφο τοίχο αναμνήσεων."
     }
 }
