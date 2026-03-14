@@ -174,6 +174,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	/** Event ids for which we already requested file list (stream excludes fileUploadeds; we load on-demand so cards show videos). */
 	private eventIdsWithFilesRequested: Set<string> = new Set();
 	private cardLoadEndBatchTimeout: ReturnType<typeof setTimeout> | null = null;
+	private uploadLogsModalRef: any = null;
 	private changeDetectionScheduled: boolean = false; // Flag to prevent multiple change detection calls
 	private pendingChangeDetection: boolean = false; // Flag to track if change detection is needed
 	private logScrollRafId: number | null = null; // Throttle log scroll operations
@@ -3278,6 +3279,18 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.debugInfoUpdateInterval = undefined;
 		}
 		
+		// Clear poll interval (e.g. upload logs polling)
+		if (this.pollIntervalId) {
+			clearInterval(this.pollIntervalId);
+			this.pollIntervalId = null;
+		}
+		
+		// Close upload logs modal if open
+		if (this.uploadLogsModalRef) {
+			try { this.uploadLogsModalRef.dismiss(); } catch (_) {}
+			this.uploadLogsModalRef = null;
+		}
+		
 		// Clean up log scroll RAF
 		if (this.logScrollRafId !== null) {
 			cancelAnimationFrame(this.logScrollRafId);
@@ -4201,15 +4214,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.uploadLogs = [];
 		
 		// Open upload logs modal
-		let modalRef: any;
 		if (this.uploadLogsModal) {
-			modalRef = this.modalService.open(this.uploadLogsModal, {
+			this.uploadLogsModalRef = this.modalService.open(this.uploadLogsModal, {
 				centered: true,
 				backdrop: 'static',
 				keyboard: false,
 				size: 'xl',
 				windowClass: 'upload-logs-modal'
 			});
+			this.uploadLogsModalRef.result.finally(() => { this.uploadLogsModalRef = null; });
 		}
 		
 		// Generate session ID

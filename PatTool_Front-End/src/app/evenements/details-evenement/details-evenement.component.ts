@@ -832,6 +832,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     });
     this.discussionFileUrlCache.clear();
     this.discussionFileBlobCache.clear();
+    this.discussionImageErrors.clear();
     
     // Clean up video URLs
     this.videoUrlCache.forEach((safeUrl) => {
@@ -994,6 +995,24 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         // Ignore errors
       }
       this.imageCompressionModalRef = null;
+    }
+    
+    if (this.shareByEmailModalRef) {
+      try {
+        this.shareByEmailModalRef.dismiss();
+      } catch (e) {
+        // Ignore errors
+      }
+      this.shareByEmailModalRef = null;
+    }
+    
+    if (this.whatsappShareModalRef) {
+      try {
+        this.whatsappShareModalRef.dismiss();
+      } catch (e) {
+        // Ignore errors
+      }
+      this.whatsappShareModalRef = null;
     }
     
     // Clear ViewChild references (Angular will handle these, but we can null them for clarity)

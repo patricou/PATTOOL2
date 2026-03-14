@@ -6486,6 +6486,24 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	
 	ngOnDestroy() {
+		// Close any open modals to prevent memory leaks when navigating away
+		if (this.uploadLogsModalRef) {
+			try { this.uploadLogsModalRef.dismiss(); } catch (_) {}
+			this.uploadLogsModalRef = null;
+		}
+		if (this.qualityModalRef) {
+			try { this.qualityModalRef.dismiss(); } catch (_) {}
+			this.qualityModalRef = null;
+		}
+		if (this.imageCompressionModalRef) {
+			try { this.imageCompressionModalRef.dismiss(); } catch (_) {}
+			this.imageCompressionModalRef = null;
+		}
+		if (this.currentVisibilityModalRef) {
+			try { this.currentVisibilityModalRef.dismiss(); } catch (_) {}
+			this.currentVisibilityModalRef = null;
+		}
+		
 		// Stop card slideshow if active
 		this.stopCardSlideshow();
 		

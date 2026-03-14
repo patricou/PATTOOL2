@@ -121,6 +121,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             this.intersectionObserver.disconnect();
             this.intersectionObserver = null;
         }
+        if (this.imageCompressionModalRef) {
+            try { this.imageCompressionModalRef.dismiss(); } catch (_) {}
+            this.imageCompressionModalRef = null;
+        }
         this.thumbnailCache.forEach(url => {
             if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         });
@@ -427,6 +431,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
                 this.cdr.markForCheck();
             },
             error: () => {
+                if (this.destroyed) return;
                 this.loadingVideos.delete(id);
                 this.cdr.markForCheck();
             }
@@ -438,13 +443,17 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         this.loadingThumbnails.add(photo.fileId);
         const sub = this.fileService.getFile(photo.fileId).subscribe({
             next: (data: ArrayBuffer) => {
+                if (this.destroyed) return;
                 const blob = new Blob([data], { type: photo.fileType });
                 const url = URL.createObjectURL(blob);
                 this.thumbnailCache.set(photo.fileId, url);
                 this.loadingThumbnails.delete(photo.fileId);
+                this.cdr.markForCheck();
             },
             error: () => {
+                if (this.destroyed) return;
                 this.loadingThumbnails.delete(photo.fileId);
+                this.cdr.markForCheck();
             }
         });
         this.subscriptions.push(sub);
