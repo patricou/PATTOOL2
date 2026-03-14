@@ -129,6 +129,9 @@ public class PhotoTimelineRestController {
         private String eventType;
         private String eventDescription;
         private Date eventDate;
+        private String visibility;
+        private String friendGroupId;
+        private List<String> friendGroupIds;
         private List<TimelinePhoto> photos;
         private List<TimelinePhoto> videos;
         private List<FsPhotoLink> fsPhotoLinks;
@@ -145,6 +148,12 @@ public class PhotoTimelineRestController {
         public void setEventDescription(String eventDescription) { this.eventDescription = eventDescription; }
         public Date getEventDate() { return eventDate; }
         public void setEventDate(Date eventDate) { this.eventDate = eventDate; }
+        public String getVisibility() { return visibility; }
+        public void setVisibility(String visibility) { this.visibility = visibility; }
+        public String getFriendGroupId() { return friendGroupId; }
+        public void setFriendGroupId(String friendGroupId) { this.friendGroupId = friendGroupId; }
+        public List<String> getFriendGroupIds() { return friendGroupIds; }
+        public void setFriendGroupIds(List<String> friendGroupIds) { this.friendGroupIds = friendGroupIds; }
         public List<TimelinePhoto> getPhotos() { return photos; }
         public void setPhotos(List<TimelinePhoto> photos) { this.photos = photos; }
         public List<TimelinePhoto> getVideos() { return videos; }
@@ -185,11 +194,12 @@ public class PhotoTimelineRestController {
             @RequestHeader(value = "user-id", required = false) String userId,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "1") int size,
-            @RequestParam(value = "search", required = false) String search) {
+            @RequestParam(value = "search", required = false) String search,
+            @RequestParam(value = "visibility", required = false) String visibility) {
         try {
             long start = System.currentTimeMillis();
 
-            Criteria accessCriteria = getCachedAccessCriteria(userId);
+            Criteria accessCriteria = getAccessCriteria(userId, visibility);
             Criteria hasImage = Criteria.where("fileUploadeds.fileType").regex("^image/");
             Criteria mainCriteria = new Criteria().andOperator(accessCriteria, hasImage);
             if (search != null && !search.trim().isEmpty()) {
@@ -207,7 +217,10 @@ public class PhotoTimelineRestController {
                     .include("comments")
                     .include("beginEventDate")
                     .include("fileUploadeds")
-                    .include("urlEvents");
+                    .include("urlEvents")
+                    .include("visibility")
+                    .include("friendGroupId")
+                    .include("friendGroupIds");
 
             List<Evenement> events = mongoTemplate.find(pagedQuery, Evenement.class);
 
@@ -230,6 +243,9 @@ public class PhotoTimelineRestController {
                     group.setEventType(e.getType());
                     group.setEventDescription(e.getComments());
                     group.setEventDate(e.getBeginEventDate());
+                    group.setVisibility(e.getVisibility());
+                    group.setFriendGroupId(e.getFriendGroupId());
+                    group.setFriendGroupIds(e.getFriendGroupIds());
                     group.setPhotos(photos);
                     group.setVideos(videos != null ? videos : Collections.emptyList());
                     group.setFsPhotoLinks(fsLinks);
@@ -267,10 +283,11 @@ public class PhotoTimelineRestController {
             @RequestHeader(value = "user-id", required = false) String userId,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "1") int size,
-            @RequestParam(value = "search", required = false) String search) {
+            @RequestParam(value = "search", required = false) String search,
+            @RequestParam(value = "visibility", required = false) String visibility) {
         try {
             long start = System.currentTimeMillis();
-            Criteria accessCriteria = getCachedAccessCriteria(userId);
+            Criteria accessCriteria = getAccessCriteria(userId, visibility);
 
             Criteria hasVideo = new Criteria().orOperator(
                     Criteria.where("fileUploadeds.fileType").regex("^video/"),
@@ -291,7 +308,10 @@ public class PhotoTimelineRestController {
                     .include("type")
                     .include("comments")
                     .include("beginEventDate")
-                    .include("fileUploadeds");
+                    .include("fileUploadeds")
+                    .include("visibility")
+                    .include("friendGroupId")
+                    .include("friendGroupIds");
 
             List<Evenement> events = mongoTemplate.find(pagedQuery, Evenement.class);
 
@@ -312,6 +332,9 @@ public class PhotoTimelineRestController {
                     group.setEventType(e.getType());
                     group.setEventDescription(e.getComments());
                     group.setEventDate(e.getBeginEventDate());
+                    group.setVisibility(e.getVisibility());
+                    group.setFriendGroupId(e.getFriendGroupId());
+                    group.setFriendGroupIds(e.getFriendGroupIds());
                     group.setPhotos(videos);
                     group.setFsPhotoLinks(Collections.emptyList());
                     groups.add(group);
@@ -339,10 +362,11 @@ public class PhotoTimelineRestController {
 
     @GetMapping(value = "/timeline/onthisday", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<List<TimelinePhoto>> getOnThisDay(
-            @RequestHeader(value = "user-id", required = false) String userId) {
+            @RequestHeader(value = "user-id", required = false) String userId,
+            @RequestParam(value = "visibility", required = false) String visibility) {
         try {
             long start = System.currentTimeMillis();
-            Criteria accessCriteria = getCachedAccessCriteria(userId);
+            Criteria accessCriteria = getAccessCriteria(userId, visibility);
             List<TimelinePhoto> onThisDay = findOnThisDayPhotos(accessCriteria);
             long elapsed = System.currentTimeMillis() - start;
             log.debug("On-this-day: {} photos in {}ms for user {}", onThisDay.size(), elapsed, userId);
@@ -477,6 +501,14 @@ public class PhotoTimelineRestController {
         ACCENT_REGEX_MAP.put('n', "[nñNÑ]");
     }
 
+    /** When visibility filter is set and not "all", use filtered criteria (no cache). Otherwise use cached full access. */
+    private Criteria getAccessCriteria(String userId, String visibility) {
+        if (visibility != null && !visibility.trim().isEmpty() && !"all".equals(visibility.trim())) {
+            return buildAccessCriteriaForVisibility(visibility.trim(), userId);
+        }
+        return getCachedAccessCriteria(userId);
+    }
+
     private Criteria getCachedAccessCriteria(String userId) {
         String cacheKey = userId != null ? userId : "__anon__";
         CachedAccessCriteria cached = accessCriteriaCache.get(cacheKey);
@@ -486,6 +518,111 @@ public class PhotoTimelineRestController {
         Criteria criteria = buildAccessCriteria(userId);
         accessCriteriaCache.put(cacheKey, new CachedAccessCriteria(criteria));
         return criteria;
+    }
+
+    /**
+     * Build access criteria for a specific visibility type (same logic as EvenementRestController).
+     * Used when filtering by visibility in the photo/video timeline.
+     */
+    private Criteria buildAccessCriteriaForVisibility(String visibilityFilter, String userId) {
+        if ("public".equals(visibilityFilter)) {
+            return Criteria.where("visibility").is("public");
+        }
+        if ("private".equals(visibilityFilter)) {
+            if (userId != null && !userId.isEmpty()) {
+                return new Criteria().andOperator(
+                    Criteria.where("visibility").is("private"),
+                    buildAuthorCriteria(userId)
+                );
+            }
+            return Criteria.where("_id").is("__NO_MATCH__");
+        }
+        if ("friends".equals(visibilityFilter)) {
+            if (userId != null && !userId.isEmpty()) {
+                List<Criteria> list = new ArrayList<>();
+                list.add(new Criteria().andOperator(
+                    Criteria.where("visibility").is("friends"),
+                    buildAuthorCriteria(userId)
+                ));
+                Criteria friendsEvents = buildFriendsVisibilityCriteria(userId);
+                if (friendsEvents != null) {
+                    list.add(friendsEvents);
+                }
+                if (list.isEmpty()) {
+                    return Criteria.where("_id").is("__NO_MATCH__");
+                }
+                return list.size() == 1 ? list.get(0) : new Criteria().orOperator(list.toArray(new Criteria[0]));
+            }
+            return Criteria.where("_id").is("__NO_MATCH__");
+        }
+        // Friend group ID or name — same logic as EvenementRestController.buildAccessCriteriaForVisibility
+        String filterValue = visibilityFilter;
+        if (userId != null && !userId.isEmpty()) {
+            try {
+                Member currentUser = membersRepository.findById(userId).orElse(null);
+                if (currentUser == null) {
+                    return Criteria.where("_id").is("__NO_MATCH__");
+                }
+                List<FriendGroup> userFriendGroups = friendGroupRepository.findByMembersContaining(currentUser);
+                boolean isUserMember = false;
+                String matchedGroupId = null;
+                String matchedGroupName = null;
+                for (FriendGroup group : userFriendGroups) {
+                    if (group.getId() != null && group.getId().equals(filterValue)) {
+                        isUserMember = true;
+                        matchedGroupId = group.getId();
+                        if (group.getName() != null) {
+                            matchedGroupName = group.getName();
+                        }
+                        break;
+                    }
+                    if (group.getName() != null && group.getName().equals(filterValue)) {
+                        isUserMember = true;
+                        if (group.getId() != null) {
+                            matchedGroupId = group.getId();
+                        }
+                        matchedGroupName = group.getName();
+                        break;
+                    }
+                }
+                if (!isUserMember) {
+                    try {
+                        Optional<FriendGroup> groupOpt = friendGroupRepository.findById(filterValue);
+                        if (groupOpt.isPresent()) {
+                            FriendGroup g = groupOpt.get();
+                            matchedGroupId = g.getId();
+                            if (g.getName() != null) {
+                                matchedGroupName = g.getName();
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+                List<Criteria> groupCriteriaList = new ArrayList<>();
+                if (matchedGroupId != null) {
+                    groupCriteriaList.add(Criteria.where("friendGroupId").is(matchedGroupId));
+                    groupCriteriaList.add(Criteria.where("friendGroupIds").is(matchedGroupId));
+                }
+                if (matchedGroupName != null) {
+                    groupCriteriaList.add(Criteria.where("visibility").is(matchedGroupName));
+                }
+                groupCriteriaList.add(Criteria.where("friendGroupId").is(filterValue));
+                groupCriteriaList.add(Criteria.where("friendGroupIds").is(filterValue));
+                groupCriteriaList.add(Criteria.where("visibility").is(filterValue));
+                if (groupCriteriaList.isEmpty()) {
+                    return Criteria.where("_id").is("__NO_MATCH__");
+                }
+                Criteria groupCriteria = groupCriteriaList.size() == 1
+                    ? groupCriteriaList.get(0)
+                    : new Criteria().orOperator(groupCriteriaList.toArray(new Criteria[0]));
+                log.debug("Photo timeline visibility filter '{}': matchedGroupId={}, matchedGroupName={}, criteria count={}",
+                    filterValue, matchedGroupId, matchedGroupName, groupCriteriaList.size());
+                return groupCriteria;
+            } catch (Exception e) {
+                log.debug("Error building friend group access criteria: {}", e.getMessage());
+                return Criteria.where("_id").is("__NO_MATCH__");
+            }
+        }
+        return Criteria.where("_id").is("__NO_MATCH__");
     }
 
     private List<TimelinePhoto> findOnThisDayPhotos(Criteria accessCriteria) {

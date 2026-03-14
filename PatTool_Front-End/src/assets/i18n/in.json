@@ -49,7 +49,8 @@
         "GEO": "जियो",
         "POSITION_METEO": "स्थिति/मौसम",
         "ADDRESS_TO_MAP": "पता/GPS मानचित्र पर",
-        "PHOTOS": "फोटो वॉल"
+        "PHOTOS": "फोटो वॉल",
+        "LINKS_ADMINISTRATION": "प्रशासन"
     },
     "NAVIGATION": {
         "BACK": "वापस",

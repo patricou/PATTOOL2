@@ -37,7 +37,8 @@
         "GEO": "地理",
         "POSITION_METEO": "位置/天气",
         "ADDRESS_TO_MAP": "地址/GPS到地图",
-        "PHOTOS": "照片墙"
+        "PHOTOS": "照片墙",
+        "LINKS_ADMINISTRATION": "管理"
     },
     "NAVIGATION": {
         "BACK": "返回",

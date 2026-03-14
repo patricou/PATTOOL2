@@ -11,6 +11,8 @@ import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/vide
 import { PhotoTimelineService, TimelineResponse, TimelineGroup, TimelinePhoto, FsPhotoLink } from '../../services/photo-timeline.service';
 import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
+import { FriendsService } from '../../services/friends.service';
+import { FriendGroup } from '../../model/friend';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { Subscription } from 'rxjs';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
@@ -61,6 +63,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     isFetchingVideos = false;
     errorMessage = '';
     searchFilter = '';
+    /** Visibility filter: 'all', 'public', 'private', 'friends', or friend group id (same as home-evenements). */
+    selectedVisibilityFilter = 'all';
+    friendGroups: FriendGroup[] = [];
     hasMore = true;
     hasMoreVideos = true;
 
@@ -93,6 +98,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         private photoTimelineService: PhotoTimelineService,
         private membersService: MembersService,
         private fileService: FileService,
+        private friendsService: FriendsService,
         private modalService: NgbModal,
         private translate: TranslateService,
         private cdr: ChangeDetectorRef,
@@ -144,9 +150,71 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             if (user && user.id) {
                 clearInterval(this.waitInterval);
                 this.userId = user.id;
+                this.loadFriendGroups();
                 this.startStreaming();
             }
         }, 200);
+    }
+
+    private loadFriendGroups(): void {
+        this.friendsService.getFriendGroups().subscribe({
+            next: (groups) => {
+                this.friendGroups = groups && Array.isArray(groups) ? groups : [];
+                this.cdr.markForCheck();
+            },
+            error: () => { this.friendGroups = []; }
+        });
+    }
+
+    /** Sorted friend groups for the visibility filter dropdown (same as home-evenements). */
+    getSortedFriendGroups(): FriendGroup[] {
+        if (!this.friendGroups?.length) return [];
+        return [...this.friendGroups].sort((a, b) =>
+            (a.name || '').toLowerCase().localeCompare((b.name || '').toLowerCase())
+        );
+    }
+
+    onVisibilityFilterChange(): void {
+        this.loadTimeline();
+    }
+
+    /** Liste des badges de visibilité à afficher (un ou plusieurs groupes possibles). */
+    getVisibilityBadges(group: TimelineGroup): Array<{ text: string; badgeClass: string }> {
+        const result: Array<{ text: string; badgeClass: string }> = [];
+        const v = group.visibility;
+        if (!v && !group.friendGroupIds?.length && !group.friendGroupId) return result;
+
+        if (v === 'public') {
+            result.push({ text: this.translate.instant('EVENTCREATION.PUBLIC'), badgeClass: 'bg-success' });
+            return result;
+        }
+        if (v === 'private') {
+            result.push({ text: this.translate.instant('EVENTCREATION.PRIVATE'), badgeClass: 'bg-warning text-dark' });
+            return result;
+        }
+        if (v === 'friends') {
+            result.push({ text: this.translate.instant('EVENTCREATION.FRIENDS'), badgeClass: 'bg-info' });
+            return result;
+        }
+
+        const seenIds = new Set<string>();
+        if (group.friendGroupIds?.length && this.friendGroups?.length) {
+            for (const id of group.friendGroupIds) {
+                if (seenIds.has(id)) continue;
+                seenIds.add(id);
+                const g = this.friendGroups.find(f => f.id === id);
+                result.push({ text: g?.name || id, badgeClass: 'bg-primary' });
+            }
+        }
+        if (group.friendGroupId && !seenIds.has(group.friendGroupId)) {
+            seenIds.add(group.friendGroupId);
+            const g = this.friendGroups?.find(f => f.id === group.friendGroupId);
+            result.push({ text: g?.name || group.friendGroupId, badgeClass: 'bg-primary' });
+        }
+        if (result.length === 0 && v && v !== 'public' && v !== 'private' && v !== 'friends') {
+            result.push({ text: v, badgeClass: 'bg-primary' });
+        }
+        return result;
     }
 
     loadTimeline(): void {
@@ -170,7 +238,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     }
 
     private loadOnThisDay(): void {
-        const sub = this.photoTimelineService.getOnThisDay(this.userId).subscribe({
+        const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
+        const sub = this.photoTimelineService.getOnThisDay(this.userId, visibility).subscribe({
             next: (photos) => { this.onThisDay = photos || []; },
             error: () => { this.onThisDay = []; }
         });
@@ -182,7 +251,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         this.isFetching = true;
 
         const search = this.searchFilter.trim() || undefined;
-        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, 1, search).subscribe({
+        const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
+        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, 1, search, visibility).subscribe({
             next: (response: TimelineResponse) => {
                 // Defer state updates to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError (NG0100)
                 setTimeout(() => {
@@ -231,7 +301,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         this.isFetchingVideos = true;
 
         const search = this.searchFilter.trim() || undefined;
-        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, 1, search).subscribe({
+        const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
+        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, 1, search, visibility).subscribe({
             next: (response: TimelineResponse) => {
                 setTimeout(() => {
                     if (this.destroyed) return;
@@ -686,6 +757,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             'Fiche': 'fa-file-text-o'
         };
         return icons[type] || 'fa-calendar';
+    }
+
+    trackByIndex(index: number): number {
+        return index;
     }
 
     trackByGroupId(index: number, group: TimelineGroup): string {

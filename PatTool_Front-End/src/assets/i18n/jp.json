@@ -37,7 +37,8 @@
         "GEO": "ジオ",
         "POSITION_METEO": "位置/天気",
         "ADDRESS_TO_MAP": "住所/GPSを地図に",
-        "PHOTOS": "フォトウォール"
+        "PHOTOS": "フォトウォール",
+        "LINKS_ADMINISTRATION": "管理"
     },
     "NAVIGATION": {
         "BACK": "戻る",

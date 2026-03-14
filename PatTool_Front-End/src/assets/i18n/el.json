@@ -37,7 +37,8 @@
         "GEO": "Geo",
         "POSITION_METEO": "Θέση/Καιρός",
         "ADDRESS_TO_MAP": "Διεύθυνση/GPS στον χάρτη",
-        "PHOTOS": "Τείχος φωτογραφιών"
+        "PHOTOS": "Τείχος φωτογραφιών",
+        "LINKS_ADMINISTRATION": "Διαχείριση"
     },
     "NAVIGATION": {
         "BACK": "Πίσω",

@@ -27,6 +27,9 @@ export interface TimelineGroup {
     eventType: string;
     eventDescription?: string;
     eventDate: string;
+    visibility?: string;
+    friendGroupId?: string;
+    friendGroupIds?: string[];
     photos: TimelinePhoto[];
     videos?: TimelinePhoto[];
     fsPhotoLinks: FsPhotoLink[];
@@ -61,7 +64,7 @@ export class PhotoTimelineService {
         );
     }
 
-    getTimeline(userId: string, page: number = 0, size: number = 1, search?: string): Observable<TimelineResponse> {
+    getTimeline(userId: string, page: number = 0, size: number = 1, search?: string, visibility?: string): Observable<TimelineResponse> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 const h = headers.set('user-id', userId);
@@ -69,13 +72,16 @@ export class PhotoTimelineService {
                 if (search != null && search.trim() !== '') {
                     url += '&search=' + encodeURIComponent(search.trim());
                 }
+                if (visibility != null && visibility.trim() !== '' && visibility.trim() !== 'all') {
+                    url += '&visibility=' + encodeURIComponent(visibility.trim());
+                }
                 return this._http.get<TimelineResponse>(url, { headers: h });
             })
         );
     }
 
     /** Video timeline (separate stream for "mur de photos"). Same structure as getTimeline but for videos only. */
-    getVideoTimeline(userId: string, page: number = 0, size: number = 1, search?: string): Observable<TimelineResponse> {
+    getVideoTimeline(userId: string, page: number = 0, size: number = 1, search?: string, visibility?: string): Observable<TimelineResponse> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 const h = headers.set('user-id', userId);
@@ -83,19 +89,23 @@ export class PhotoTimelineService {
                 if (search != null && search.trim() !== '') {
                     url += '&search=' + encodeURIComponent(search.trim());
                 }
+                if (visibility != null && visibility.trim() !== '' && visibility.trim() !== 'all') {
+                    url += '&visibility=' + encodeURIComponent(visibility.trim());
+                }
                 return this._http.get<TimelineResponse>(url, { headers: h });
             })
         );
     }
 
-    getOnThisDay(userId: string): Observable<TimelinePhoto[]> {
+    getOnThisDay(userId: string, visibility?: string): Observable<TimelinePhoto[]> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 const h = headers.set('user-id', userId);
-                return this._http.get<TimelinePhoto[]>(
-                    `${this.API_URL}photos/timeline/onthisday`,
-                    { headers: h }
-                );
+                let url = `${this.API_URL}photos/timeline/onthisday`;
+                if (visibility != null && visibility.trim() !== '' && visibility.trim() !== 'all') {
+                    url += '?visibility=' + encodeURIComponent(visibility.trim());
+                }
+                return this._http.get<TimelinePhoto[]>(url, { headers: h });
             })
         );
     }

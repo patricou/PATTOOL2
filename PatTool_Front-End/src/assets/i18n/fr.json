@@ -37,7 +37,8 @@
         "GEO": "Géo",
         "POSITION_METEO": "Position/Météo",
         "ADDRESS_TO_MAP": "Adresse/GPS vers carte",
-        "PHOTOS": "Mur de Photos"
+        "PHOTOS": "Mur de Photos",
+        "LINKS_ADMINISTRATION": "Administration"
     },
     "NAVIGATION": {
         "BACK": "Retour",

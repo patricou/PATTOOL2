@@ -37,7 +37,8 @@
         "GEO": "גאו",
         "POSITION_METEO": "מיקום/מזג אוויר",
         "ADDRESS_TO_MAP": "כתובת/GPS למפה",
-        "PHOTOS": "קיר תמונות"
+        "PHOTOS": "קיר תמונות",
+        "LINKS_ADMINISTRATION": "ניהול"
     },
     "NAVIGATION": {
         "BACK": "חזור",

@@ -37,7 +37,8 @@
         "GEO": "جيو",
         "POSITION_METEO": "الموقع/الطقس",
         "ADDRESS_TO_MAP": "العنوان/GPS على الخريطة",
-        "PHOTOS": "جدار الصور"
+        "PHOTOS": "جدار الصور",
+        "LINKS_ADMINISTRATION": "الإدارة"
     },
     "NAVIGATION": {
         "BACK": "رجوع",

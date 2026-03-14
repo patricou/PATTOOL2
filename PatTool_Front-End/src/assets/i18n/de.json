@@ -37,7 +37,8 @@
         "GEO": "Geo",
         "POSITION_METEO": "Position/Wetter",
         "ADDRESS_TO_MAP": "Adresse/GPS auf Karte",
-        "PHOTOS": "Fotowand"
+        "PHOTOS": "Fotowand",
+        "LINKS_ADMINISTRATION": "Verwaltung"
     },
     "NAVIGATION": {
         "BACK": "Zurück",

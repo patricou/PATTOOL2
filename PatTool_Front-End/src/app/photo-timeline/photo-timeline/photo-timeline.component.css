@@ -140,6 +140,32 @@
     max-width: 400px;
 }
 
+.timeline-visibility-filter {
+    flex: 0 0 auto;
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-width: 140px;
+    max-width: 200px;
+}
+
+.timeline-visibility-filter .search-icon {
+    position: absolute;
+    left: 10px;
+    color: #6c757d;
+    font-size: 0.85rem;
+    z-index: 1;
+    pointer-events: none;
+}
+
+.timeline-visibility-filter .form-select {
+    border-radius: 8px;
+    border-color: #dee2e6;
+    background: #fff;
+    color: #212529;
+    padding-left: 32px;
+}
+
 .timeline-search .input-group {
     border-radius: 8px;
     overflow: hidden;
@@ -288,6 +314,17 @@
 
 .group-count i {
     margin-right: 0.2rem;
+}
+
+.group-visibility-badges {
+    display: inline-block;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+.group-visibility-badges .badge {
+    font-size: 0.7rem;
+    font-weight: 500;
 }
 
 /* Masonry Grid */
