@@ -25,6 +25,7 @@ export interface TimelineGroup {
     eventId: string;
     eventName: string;
     eventType: string;
+    eventDescription?: string;
     eventDate: string;
     photos: TimelinePhoto[];
     videos?: TimelinePhoto[];

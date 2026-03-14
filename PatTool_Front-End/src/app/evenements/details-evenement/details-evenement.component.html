@@ -48,7 +48,8 @@
 </div>
 
 <!-- Slideshow Modal Component (always available) -->
-<app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()" (openLocationInTrace)="onSlideshowLocationInTrace($event)"></app-slideshow-modal>
+<app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()" (openLocationInTrace)="onSlideshowLocationInTrace($event)" (addToDb)="onAddToDbFromSlideshow($event)"></app-slideshow-modal>
+<!-- Add-to-DB overlay and toast are rendered by AddToDbLayerService in body (#pat-add-to-db-layer) so they appear above the slideshow modal -->
 
 <!-- Trace Viewer Modal Component -->
 <app-trace-viewer-modal #traceViewerModalComponent (closed)="onTraceViewerClosed()"></app-trace-viewer-modal>

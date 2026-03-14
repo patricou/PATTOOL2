@@ -124,6 +124,7 @@ public class PhotoTimelineRestController {
         private String eventId;
         private String eventName;
         private String eventType;
+        private String eventDescription;
         private Date eventDate;
         private List<TimelinePhoto> photos;
         private List<TimelinePhoto> videos;
@@ -137,6 +138,8 @@ public class PhotoTimelineRestController {
         public void setEventName(String eventName) { this.eventName = eventName; }
         public String getEventType() { return eventType; }
         public void setEventType(String eventType) { this.eventType = eventType; }
+        public String getEventDescription() { return eventDescription; }
+        public void setEventDescription(String eventDescription) { this.eventDescription = eventDescription; }
         public Date getEventDate() { return eventDate; }
         public void setEventDate(Date eventDate) { this.eventDate = eventDate; }
         public List<TimelinePhoto> getPhotos() { return photos; }
@@ -195,6 +198,7 @@ public class PhotoTimelineRestController {
                     .include("id")
                     .include("evenementName")
                     .include("type")
+                    .include("comments")
                     .include("beginEventDate")
                     .include("fileUploadeds")
                     .include("urlEvents");
@@ -218,6 +222,7 @@ public class PhotoTimelineRestController {
                     group.setEventId(e.getId());
                     group.setEventName(e.getEvenementName());
                     group.setEventType(e.getType());
+                    group.setEventDescription(e.getComments());
                     group.setEventDate(e.getBeginEventDate());
                     group.setPhotos(photos);
                     group.setVideos(videos != null ? videos : Collections.emptyList());
@@ -274,6 +279,7 @@ public class PhotoTimelineRestController {
                     .include("id")
                     .include("evenementName")
                     .include("type")
+                    .include("comments")
                     .include("beginEventDate")
                     .include("fileUploadeds");
 
@@ -294,6 +300,7 @@ public class PhotoTimelineRestController {
                     group.setEventId(e.getId());
                     group.setEventName(e.getEvenementName());
                     group.setEventType(e.getType());
+                    group.setEventDescription(e.getComments());
                     group.setEventDate(e.getBeginEventDate());
                     group.setPhotos(videos);
                     group.setFsPhotoLinks(Collections.emptyList());

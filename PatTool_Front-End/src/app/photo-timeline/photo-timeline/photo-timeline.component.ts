@@ -321,12 +321,26 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     }
 
     get filteredGroups(): TimelineGroup[] {
-        const filter = this.searchFilter.toLowerCase().trim();
-        if (!filter) return this.visibleGroups;
-        return this.visibleGroups.filter(g =>
-            g.eventName.toLowerCase().includes(filter) ||
-            (g.eventType && g.eventType.toLowerCase().includes(filter))
-        );
+        const raw = this.searchFilter.trim();
+        if (!raw) return this.visibleGroups;
+        const filter = this.normalizeForSearch(raw);
+        return this.visibleGroups.filter(g => this.groupMatchesSearch(g, filter));
+    }
+
+    /** Filtre comme home-evenements : nom, description, type, descriptions des liens FS. Normalisation sans accents. */
+    private groupMatchesSearch(g: TimelineGroup, filter: string): boolean {
+        const n = (s: string) => this.normalizeForSearch(s);
+        if (n(g.eventName || '').includes(filter)) return true;
+        if (n(g.eventType || '').includes(filter)) return true;
+        if (n(g.eventDescription || '').includes(filter)) return true;
+        const fsLinks = g.fsPhotoLinks || [];
+        if (fsLinks.some(link => n(link.description || '').includes(filter))) return true;
+        return false;
+    }
+
+    private normalizeForSearch(value: string): string {
+        if (!value) return '';
+        return value.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
     }
 
     onFilterChange(): void {

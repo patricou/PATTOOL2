@@ -6,8 +6,9 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { Observable, Subscription, of, EMPTY } from 'rxjs';
-import { map, catchError } from 'rxjs/operators';
-import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { map, catchError, take } from 'rxjs/operators';
+import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent, SlideshowAddToDbEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { AddToDbLayerService } from '../../services/add-to-db-layer.service';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
 import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
@@ -316,7 +317,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     private ngZone: NgZone,
     private eventColorService: EventColorService,
     private keycloakService: KeycloakService,
-    private eventVideoPreloadService: EventVideoPreloadService
+    private eventVideoPreloadService: EventVideoPreloadService,
+    private addToDbLayer: AddToDbLayerService
   ) {
     this.nativeWindow = winRef.getNativeWindow();
   }
@@ -5985,6 +5987,84 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     if (this.traceViewerModalComponent) {
       this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, eventColor || undefined);
     }
+  }
+
+  /** Called when user clicks "Ajouter dans la DB" in the slideshow (e.g. FS photos). Uploads current image to the event. */
+  public onAddToDbFromSlideshow(event: SlideshowAddToDbEvent): void {
+    const user = this.user;
+    if (!event?.eventId || !event?.blob || !user?.id) {
+      return;
+    }
+    this.askForImageCompression(1).then(shouldCompress => {
+      if (shouldCompress === null || !user) return;
+      this.addToDbLayer.showOverlay(this.translateService.instant('PHOTO_TIMELINE.UPLOADING'));
+      this.cdr.markForCheck();
+
+      const file = new File([event.blob], event.fileName || 'photo.jpg', { type: event.blob.type || 'image/jpeg' });
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      formData.append('allowOriginal', (!shouldCompress).toString());
+      const uploadUrl = `${this.API_URL4FILE}/${user.id}/${event.eventId}`;
+      const sub = this.fileService.postFileToUrl(formData, user, uploadUrl).subscribe({
+        next: (responseBody: unknown) => {
+          const list = Array.isArray(responseBody) ? responseBody : null;
+          const addedCount = list != null ? list.length : 0;
+          if (addedCount === 0) {
+            this.addToDbLayer.hideOverlay();
+            this.addToDbLayer.showToast(
+              this.translateService.instant('PHOTO_TIMELINE.TOAST_ERROR_TITLE'),
+              this.translateService.instant('PHOTO_TIMELINE.UPLOAD_ERROR') + ' (serveur n\'a pas renvoyé de fichier)',
+              false
+            );
+            this.cdr.markForCheck();
+            setTimeout(() => { this.addToDbLayer.hideToast(); this.cdr.markForCheck(); }, 6000);
+            return;
+          }
+          this.addToDbLayer.hideOverlay();
+          this.addToDbLayer.showToast(
+            this.translateService.instant('PHOTO_TIMELINE.TOAST_SUCCESS_TITLE'),
+            this.translateService.instant('PHOTO_TIMELINE.UPLOAD_SUCCESS', { fileName: event.fileName || file.name }),
+            true
+          );
+          this.cdr.markForCheck();
+          setTimeout(() => { this.addToDbLayer.hideToast(); this.cdr.markForCheck(); }, 4000);
+          const eventIdToRefetch = event.eventId;
+          setTimeout(() => {
+            const refetchSub = this.evenementsService.getEvenement(eventIdToRefetch).pipe(take(1)).subscribe({
+              next: (full) => {
+                if (this.evenement && this.evenement.id === eventIdToRefetch) {
+                  this.evenement.fileUploadeds = full.fileUploadeds ?? [];
+                  this.preparePhotoGallery();
+                }
+                this.cdr.markForCheck();
+              }
+            });
+            this.activeSubscriptions.add(refetchSub);
+          }, 200);
+        },
+        error: (err) => {
+          console.error('Error adding photo to DB:', err);
+          this.addToDbLayer.hideOverlay();
+          const uploadError = err?.headers?.get('X-Upload-Error');
+          let detail = '';
+          if (err?.status === 0) {
+            detail = ' (server connection lost — may be out of memory or disk full)';
+          } else if (err?.status === 507) {
+            detail = uploadError ? ` (${uploadError})` : ' (storage full)';
+          } else if (uploadError) {
+            detail = ` (${uploadError})`;
+          }
+          this.addToDbLayer.showToast(
+            this.translateService.instant('PHOTO_TIMELINE.TOAST_ERROR_TITLE'),
+            this.translateService.instant('PHOTO_TIMELINE.UPLOAD_ERROR') + detail,
+            false
+          );
+          this.cdr.markForCheck();
+          setTimeout(() => { this.addToDbLayer.hideToast(); this.cdr.markForCheck(); }, 8000);
+        }
+      });
+      this.activeSubscriptions.add(sub);
+    });
   }
 
   public onTraceViewerClosed(): void {
