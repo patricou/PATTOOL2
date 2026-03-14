@@ -1,16 +1,17 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from '../../shared/slideshow-modal/slideshow-modal.module';
-import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { SlideshowModalComponent, SlideshowImageSource, SlideshowAddToDbEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { PhotoTimelineService, TimelineResponse, TimelineGroup, TimelinePhoto, FsPhotoLink } from '../../services/photo-timeline.service';
 import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
-import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { Subscription } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 const BUFFER_AHEAD = 3;
 const SCROLL_THRESHOLD_PX = 400;
@@ -25,6 +26,7 @@ const SCROLL_THRESHOLD_PX = 400;
         FormsModule,
         RouterModule,
         TranslateModule,
+        NgbModule,
         NavigationButtonsModule,
         SlideshowModalModule
     ]
@@ -33,6 +35,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
     @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
     @ViewChild('scrollSentinel') scrollSentinel!: ElementRef;
+    @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
 
     visibleGroups: TimelineGroup[] = [];
     bufferedGroups: TimelineGroup[] = [];
@@ -44,6 +47,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     searchFilter = '';
     hasMore = true;
 
+    compressImages = true;
+    isUploading = false;
+    uploadMessage = '';
+    uploadSuccess = false;
+
     thumbnailCache: Map<string, string> = new Map();
     loadingThumbnails: Set<string> = new Set();
 
@@ -52,13 +60,20 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     private subscriptions: Subscription[] = [];
     private waitInterval: any;
     private intersectionObserver: IntersectionObserver | null = null;
+    private imageCompressionModalRef: NgbModalRef | null = null;
+    private currentFsSlideshowEventId = '';
+    /** True when at least one photo was added to DB during the current slideshow session; used to refresh timeline on close */
+    private addedPhotoToDbDuringSlideshow = false;
+    /** Set to true in ngOnDestroy so pending setTimeout/async callbacks can no-op and avoid memory leaks */
+    private destroyed = false;
 
     constructor(
         private photoTimelineService: PhotoTimelineService,
         private membersService: MembersService,
         private fileService: FileService,
         private modalService: NgbModal,
-        private translate: TranslateService
+        private translate: TranslateService,
+        private cdr: ChangeDetectorRef
     ) {}
 
     ngOnInit(): void {
@@ -66,12 +81,24 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
+        this.destroyed = true;
         this.subscriptions.forEach(s => s.unsubscribe());
-        if (this.waitInterval) clearInterval(this.waitInterval);
-        if (this.intersectionObserver) this.intersectionObserver.disconnect();
+        this.subscriptions = [];
+        this.fsSlideshowSubs.forEach(s => { if (s && !s.closed) s.unsubscribe(); });
+        this.fsSlideshowSubs = [];
+        if (this.waitInterval) {
+            clearInterval(this.waitInterval);
+            this.waitInterval = null;
+        }
+        if (this.intersectionObserver) {
+            this.intersectionObserver.disconnect();
+            this.intersectionObserver = null;
+        }
         this.thumbnailCache.forEach(url => {
             if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         });
+        this.thumbnailCache.clear();
+        this.loadingThumbnails.clear();
     }
 
     private waitForUser(): void {
@@ -115,35 +142,44 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
         const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, 1).subscribe({
             next: (response: TimelineResponse) => {
-                this.isFetching = false;
-                this.hasMore = response.hasMore;
-                this.nextPage = response.page + 1;
+                // Defer state updates to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError (NG0100)
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    this.isFetching = false;
+                    this.hasMore = response.hasMore;
+                    this.nextPage = response.page + 1;
 
-                if (response.groups.length > 0) {
-                    const group = response.groups[0];
+                    if (response.groups.length > 0) {
+                        const group = response.groups[0];
 
-                    if (this.isLoading) {
-                        this.visibleGroups.push(group);
-                        this.isLoading = false;
-                        this.preloadThumbnailsForGroup(group);
-                        setTimeout(() => this.setupIntersectionObserver(), 50);
-                    } else {
-                        this.bufferedGroups.push(group);
-                        this.preloadThumbnailsForGroup(group);
+                        if (this.isLoading) {
+                            this.visibleGroups.push(group);
+                            this.isLoading = false;
+                            this.preloadThumbnailsForGroup(group);
+                            setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
+                        } else {
+                            this.bufferedGroups.push(group);
+                            this.preloadThumbnailsForGroup(group);
+                        }
                     }
-                }
 
-                if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) {
-                    this.fetchNext();
-                }
+                    if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) {
+                        this.fetchNext();
+                    }
+                    this.cdr.markForCheck();
+                }, 0);
             },
             error: (err) => {
                 console.error('Error loading photo timeline:', err);
-                this.isFetching = false;
-                if (this.isLoading) {
-                    this.errorMessage = 'Error loading photos';
-                    this.isLoading = false;
-                }
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    this.isFetching = false;
+                    if (this.isLoading) {
+                        this.errorMessage = 'Error loading photos';
+                        this.isLoading = false;
+                    }
+                    this.cdr.markForCheck();
+                }, 0);
             }
         });
         this.subscriptions.push(sub);
@@ -163,7 +199,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             this.fetchNext();
         }
 
-        setTimeout(() => this.setupIntersectionObserver(), 50);
+        setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
     }
 
     private setupIntersectionObserver(): void {
@@ -268,11 +304,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     private fsSlideshowLoadingActive = false;
     private fsSlideshowSubs: Subscription[] = [];
 
-    openFsSlideshow(fsLink: FsPhotoLink, eventName: string): void {
+    openFsSlideshow(fsLink: FsPhotoLink, eventName: string, eventId: string): void {
         if (!this.slideshowModalComponent) return;
 
         this.fsSlideshowLoadingActive = true;
-        this.slideshowModalComponent.open([], eventName, false);
+        this.currentFsSlideshowEventId = eventId;
+        this.slideshowModalComponent.open([], eventName, false, 0, undefined, 0, eventId);
 
         const listSub = this.fileService.listImagesFromDisk(fsLink.path).subscribe({
             next: (fileNames: string[]) => {
@@ -300,8 +337,124 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
     onSlideshowClosed(): void {
         this.fsSlideshowLoadingActive = false;
+        this.currentFsSlideshowEventId = '';
         this.fsSlideshowSubs.forEach(s => { if (s && !s.closed) s.unsubscribe(); });
         this.fsSlideshowSubs = [];
+        // Refresh timeline so newly added photo(s) appear immediately in the wall
+        if (this.addedPhotoToDbDuringSlideshow) {
+            this.addedPhotoToDbDuringSlideshow = false;
+            this.loadTimeline();
+        }
+    }
+
+    onAddToDb(event: SlideshowAddToDbEvent): void {
+        this.askForImageCompression().then(shouldCompress => {
+            if (shouldCompress === null) return;
+            // Switch ON (compress) → shouldCompress=true → allowOriginal=false → backend compresses
+            this.uploadImageToEvent(event.blob, event.fileName, event.eventId, !shouldCompress);
+        });
+    }
+
+    private askForImageCompression(): Promise<boolean | null> {
+        return new Promise((resolve) => {
+            this.compressImages = true;
+
+            if (this.imageCompressionModal) {
+                this.imageCompressionModalRef = this.modalService.open(this.imageCompressionModal, {
+                    centered: true,
+                    backdrop: 'static',
+                    keyboard: false,
+                    size: 'md',
+                    windowClass: 'compression-quality-modal'
+                });
+
+                this.imageCompressionModalRef.result.then(
+                    (result: boolean) => {
+                        this.imageCompressionModalRef = null;
+                        resolve(result);
+                    },
+                    () => {
+                        this.imageCompressionModalRef = null;
+                        resolve(null);
+                    }
+                );
+            } else {
+                const choice = confirm(this.translate.instant('EVENTELEM.IMAGE_COMPRESSION_MESSAGE', { count: 1 }));
+                resolve(choice);
+            }
+        });
+    }
+
+    confirmImageCompression(): void {
+        if (this.imageCompressionModalRef) {
+            this.imageCompressionModalRef.close(this.compressImages);
+        }
+    }
+
+    cancelImageCompression(): void {
+        if (this.imageCompressionModalRef) {
+            this.imageCompressionModalRef.dismiss();
+        }
+    }
+
+    private uploadImageToEvent(blob: Blob, fileName: string, eventId: string, allowOriginal: boolean): void {
+        this.isUploading = true;
+        this.uploadMessage = '';
+        this.uploadSuccess = false;
+
+        const file = new File([blob], fileName, { type: blob.type || 'image/jpeg' });
+        const formData = new FormData();
+        formData.append('file', file, file.name);
+        // allowOriginal=false when switch ON → backend compresses image before storing in MongoDB
+        formData.append('allowOriginal', allowOriginal.toString());
+
+        const user = this.membersService.getUser();
+        const uploadUrl = `${environment.API_URL4FILE}/${user.id}/${eventId}`;
+
+        const sub = this.fileService.postFileToUrl(formData, user, uploadUrl).subscribe({
+            next: () => {
+                this.addedPhotoToDbDuringSlideshow = true;
+                const message = this.translate.instant('PHOTO_TIMELINE.UPLOAD_SUCCESS', { fileName });
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    this.isUploading = false;
+                    this.uploadSuccess = true;
+                    this.uploadMessage = message;
+                    this.cdr.markForCheck();
+                    setTimeout(() => {
+                        if (this.destroyed) return;
+                        this.uploadMessage = '';
+                        this.uploadSuccess = false;
+                        this.cdr.markForCheck();
+                    }, 4000);
+                }, 0);
+            },
+            error: (err) => {
+                console.error('Error uploading image to DB:', err);
+                const uploadError = err?.headers?.get('X-Upload-Error');
+                let detail = '';
+                if (err?.status === 0) {
+                    detail = ' (server connection lost — may be out of memory or disk full)';
+                } else if (err?.status === 507) {
+                    detail = uploadError ? ` (${uploadError})` : ' (storage full)';
+                } else if (uploadError) {
+                    detail = ` (${uploadError})`;
+                }
+                const message = this.translate.instant('PHOTO_TIMELINE.UPLOAD_ERROR') + detail;
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    this.isUploading = false;
+                    this.uploadMessage = message;
+                    this.cdr.markForCheck();
+                    setTimeout(() => {
+                        if (this.destroyed) return;
+                        this.uploadMessage = '';
+                        this.cdr.markForCheck();
+                    }, 8000);
+                }, 0);
+            }
+        });
+        this.subscriptions.push(sub);
     }
 
     formatEventDate(dateStr: string): string {

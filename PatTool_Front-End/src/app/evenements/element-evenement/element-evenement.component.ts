@@ -5,7 +5,7 @@ import { RouterModule, Router } from '@angular/router';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgbModule, NgbModal, NgbRatingConfig } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent, SlideshowAddToDbEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
@@ -30,6 +30,7 @@ import { FriendGroup } from '../../model/friend';
 import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
 import { DiscussionService } from '../../services/discussion.service';
 import { EventColorService } from '../../services/event-color.service';
+import { AddToDbLayerService } from '../../services/add-to-db-layer.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 
@@ -63,6 +64,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	public uploadLogs: string[] = [];
 	public isUploading: boolean = false;
 	public uploadLogsModalRef: any = null;
+	/** Toast when adding photo to DB from slideshow (FS photos) */
+	public addToDbMessage: string = '';
+	public addToDbSuccess: boolean = false;
+	public isAddToDbUploading: boolean = false;
+	/** Persistent error so user has time to read it (no redirect, modal stays open) */
+	public lastUploadError: string | null = null;
+	public lastUploadErrorDetail: string = '';
 	// Video compression quality selection
 	public selectedCompressionQuality: 'low' | 'medium' | 'high' | 'very-high' | 'original' = 'very-high';
 	public showQualitySelection: boolean = false;
@@ -348,7 +356,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		private eventColorService: EventColorService,
 		private _keycloakService: KeycloakService,
 		private cdr: ChangeDetectorRef,
-		private ngZone: NgZone
+		private ngZone: NgZone,
+		private addToDbLayer: AddToDbLayerService
 	) {
 		// Rating config 
 		this.ratingConfig.max = 10;
@@ -687,8 +696,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			});
 		};
 		
-		// Open modal immediately with empty array
-		this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined);
+		// Open modal immediately with empty array (images loaded from disk); pass eventId so "Ajouter dans la DB" is available
+		this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined, 0, this.evenement?.id);
 		
 		// Immediately maintain scroll position after modal opens to prevent any movement
 		requestAnimationFrame(() => {
@@ -850,6 +859,109 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (this.slideshowModalComponent) {
 			this.slideshowModalComponent.setTraceViewerOpen(false);
 		}
+	}
+
+	/** Called when user clicks "Ajouter dans la DB" in the slideshow (FS photos). Uploads current image to the event. */
+	public onAddToDbFromSlideshow(event: SlideshowAddToDbEvent): void {
+		if (!event?.eventId || !event?.blob || !this.user?.id) {
+			return;
+		}
+		this.askForImageCompression(1).then(shouldCompress => {
+			if (shouldCompress === null) return;
+			this.addToDbMessage = '';
+			this.addToDbSuccess = false;
+			this.isAddToDbUploading = true;
+			this.addToDbLayer.showOverlay(this.translateService.instant('PHOTO_TIMELINE.UPLOADING'));
+			this.cdr.markForCheck();
+
+			const file = new File([event.blob], event.fileName || 'photo.jpg', { type: event.blob.type || 'image/jpeg' });
+			const formData = new FormData();
+			formData.append('file', file, file.name);
+			// Switch ON (compress) → shouldCompress=true → allowOriginal=false → backend compresses
+			formData.append('allowOriginal', (!shouldCompress).toString());
+			const uploadUrl = `${this.API_URL4FILE}/${this.user.id}/${event.eventId}`;
+			const sub = this._fileService.postFileToUrl(formData, this.user, uploadUrl).subscribe({
+				next: (responseBody: unknown) => {
+					// Backend returns 201 with List<FileUploaded>; ensure we got a non-empty list so the file was really saved
+					const list = Array.isArray(responseBody) ? responseBody : null;
+					const addedCount = list != null ? list.length : 0;
+					if (addedCount === 0) {
+						this.isAddToDbUploading = false;
+						this.addToDbLayer.hideOverlay();
+						this.addToDbSuccess = false;
+						this.addToDbMessage = this.translateService.instant('PHOTO_TIMELINE.UPLOAD_ERROR') + ' (serveur n’a pas renvoyé de fichier)';
+						this.addToDbLayer.showToast(
+							this.translateService.instant('PHOTO_TIMELINE.TOAST_ERROR_TITLE'),
+							this.addToDbMessage,
+							false
+						);
+						this.cdr.markForCheck();
+						setTimeout(() => { this.addToDbMessage = ''; this.addToDbLayer.hideToast(); this.cdr.markForCheck(); }, 6000);
+						return;
+					}
+					this.isAddToDbUploading = false;
+					this.addToDbLayer.hideOverlay();
+					this.addToDbSuccess = true;
+					this.addToDbMessage = this.translateService.instant('PHOTO_TIMELINE.UPLOAD_SUCCESS', { fileName: event.fileName || file.name });
+					this.addToDbLayer.showToast(
+						this.translateService.instant('PHOTO_TIMELINE.TOAST_SUCCESS_TITLE'),
+						this.addToDbMessage,
+						true
+					);
+					this.cdr.markForCheck();
+					setTimeout(() => {
+						this.addToDbMessage = '';
+						this.addToDbLayer.hideToast();
+						this.cdr.markForCheck();
+					}, 4000);
+					// Reload event files for the event we uploaded to (use event.eventId, same as upload URL)
+					const eventIdToRefetch = event.eventId;
+					setTimeout(() => {
+						const refetchSub = this._evenementsService.getEvenement(eventIdToRefetch).pipe(take(1)).subscribe({
+							next: (full) => {
+								// Only update this card if it's the same event we uploaded to
+								if (this.evenement && this.evenement.id === eventIdToRefetch) {
+									this.evenement.fileUploadeds = full.fileUploadeds ?? [];
+									if (this.photosSelectorModalComponent) {
+										this.photosSelectorModalComponent.refreshCache();
+									}
+								}
+								this.cdr.markForCheck();
+							}
+						});
+						this.allSubscriptions.push(refetchSub);
+					}, 200);
+				},
+				error: (err) => {
+					console.error('Error adding photo to DB:', err);
+					this.isAddToDbUploading = false;
+					this.addToDbLayer.hideOverlay();
+					this.addToDbSuccess = false;
+					const uploadError = err?.headers?.get('X-Upload-Error');
+					let detail = '';
+					if (err?.status === 0) {
+						detail = ' (server connection lost — may be out of memory or disk full)';
+					} else if (err?.status === 507) {
+						detail = uploadError ? ` (${uploadError})` : ' (storage full)';
+					} else if (uploadError) {
+						detail = ` (${uploadError})`;
+					}
+					this.addToDbMessage = this.translateService.instant('PHOTO_TIMELINE.UPLOAD_ERROR') + detail;
+					this.addToDbLayer.showToast(
+						this.translateService.instant('PHOTO_TIMELINE.TOAST_ERROR_TITLE'),
+						this.addToDbMessage,
+						false
+					);
+					this.cdr.markForCheck();
+					setTimeout(() => {
+						this.addToDbMessage = '';
+						this.addToDbLayer.hideToast();
+						this.cdr.markForCheck();
+					}, 8000);
+				}
+			});
+			this.allSubscriptions.push(sub);
+		});
 	}
 
 	public onVideoshowClosed(): void {
@@ -1617,7 +1729,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 		this.isUploading = true;
 		this.uploadLogs = [];
-		
+		this.lastUploadError = null;
+		this.lastUploadErrorDetail = '';
+
 		// Open upload logs modal
 		if (this.uploadLogsModal) {
 			const savedScrollY = window.scrollY || window.pageYOffset || document.documentElement.scrollTop;
@@ -1853,13 +1967,20 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Start polling for server logs
 		let lastLogCount = 0;
+		let consecutiveErrors = 0;
 		this.pollIntervalId = setInterval(() => {
+			if (consecutiveErrors >= 5) {
+				if (this.pollIntervalId) {
+					clearInterval(this.pollIntervalId);
+					this.pollIntervalId = null;
+				}
+				return;
+			}
 			const logSubscription = this._fileService.getUploadLogs(sessionId).subscribe(
 				(serverLogs: string[]) => {
-					// Ensure the callback runs in Angular zone for proper change detection
+					consecutiveErrors = 0;
 					this.ngZone.run(() => {
 						if (serverLogs.length > lastLogCount) {
-							// New logs available
 							for (let i = lastLogCount; i < serverLogs.length; i++) {
 								this.addLog(serverLogs[i]);
 							}
@@ -1868,11 +1989,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					});
 				},
 				(error: any) => {
-					console.error('Error fetching logs:', error);
+					consecutiveErrors++;
 				}
 			);
 			this.allSubscriptions.push(logSubscription);
-		}, 500); // Poll every 500ms
+		}, 1500); // Poll every 1.5s to avoid flooding the server (was 500ms)
 
 		const uploadSubscription = this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId)
 			.subscribe({
@@ -1910,7 +2031,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						setTimeout(() => this.activeTimeouts.delete(cleanupTimeout), 600);
 				},
 				error: (error: any) => {
-					console.error('File upload error:', error);
+					console.info('File upload error:', error);
 					if (this.pollIntervalId) {
 						clearInterval(this.pollIntervalId);
 						this.pollIntervalId = null;
@@ -1918,19 +2039,32 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					
 					let errorMessage = "Error uploading files.";
 					
+					// Check for server-provided error detail in header
+					const uploadError = error.headers?.get('X-Upload-Error');
+					
 					if (error.status === 0) {
-						errorMessage = "Unable to connect to server. Please check that the backend service is running.";
+						errorMessage = "Connection lost to server (likely backend crash or out of memory). Try: 1) Restart the backend. 2) Upload a smaller image. 3) Start the backend with more memory (e.g. -Xmx512m).";
 					} else if (error.status === 401) {
 						errorMessage = "Authentication failed. Please log in again.";
 					} else if (error.status === 403) {
 						errorMessage = "Access denied. You don't have permission to upload files.";
+					} else if (error.status === 507) {
+						errorMessage = uploadError || "Storage error: MongoDB disk may be full or server out of memory.";
 					} else if (error.status >= 500) {
-						errorMessage = "Server error. Please try again later.";
+						errorMessage = uploadError || "Server error. Please try again later.";
 					} else if (error.error && error.error.message) {
 						errorMessage = error.error.message;
 					}
 					
+					if (uploadError && !errorMessage.includes(uploadError)) {
+						errorMessage += ` (${uploadError})`;
+					}
+					
 					this.addErrorLog(`❌ Upload error: ${errorMessage}`);
+					// Keep error visible in modal so user has time to read it (no redirect anymore)
+					this.lastUploadError = errorMessage;
+					this.lastUploadErrorDetail = `HTTP ${error.status || '?'} ${error.statusText || ''} — ${error.url || ''}`;
+					this.ngZone.run(() => this.cdr.detectChanges());
 					
 					const errorTimeout = setTimeout(() => {
 						this.isUploading = false;
@@ -2148,6 +2282,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		});
 	}
 
+	/** Dismiss the persistent upload error so user can try again or close the modal */
+	public clearLastUploadError(): void {
+		this.lastUploadError = null;
+		this.lastUploadErrorDetail = '';
+	}
+
 	private generateSessionId(): string {
 		return 'upload-' + Date.now() + '-' + Math.random().toString(36).substring(7);
 	}
@@ -2236,6 +2376,18 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						this.invalidateThumbnailCache();
 						this.reloadEventCard();
 					}, 100);
+				}
+				
+				// Load thumbnails for any image in the updated list that isn't cached yet (e.g. files modal may be open)
+				if (this.evenement.fileUploadeds && this.evenement.fileUploadeds.length > 0) {
+					setTimeout(() => {
+						this.evenement.fileUploadeds.forEach((f: UploadedFile) => {
+							if (this.isImageFile(f.fileName) && !this.fileThumbnailsCache.has(f.fieldId) && !this.fileThumbnailsLoading.has(f.fieldId)) {
+								this.loadFileThumbnail(f);
+							}
+						});
+						this.cdr.detectChanges();
+					}, 150);
 				}
 				
 				// Emit update to parent component to refresh the view
@@ -5098,6 +5250,38 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		}
 	}
 
+	/**
+	 * When a file list thumbnail fails to load (e.g. blob URL was revoked), clear caches
+	 * and reload the thumbnail from the server so it can display.
+	 */
+	onFileThumbnailError(event: Event, fieldId: string): void {
+		const target = event?.target as HTMLImageElement;
+		if (target) {
+			target.style.display = 'none';
+		}
+		// Clear local cache so getFileThumbnail returns null and we show loading state
+		this.fileThumbnailsCache.delete(fieldId);
+		this.fileThumbnailsLoadTimes.delete(fieldId);
+		// Revoke and remove from shared blob URL cache so we don't reuse a dead URL
+		const blobUrl = ElementEvenementComponent.blobUrlCache.get(fieldId);
+		if (blobUrl && typeof blobUrl === 'object' && 'changingThisBreaksApplicationSecurity' in blobUrl) {
+			const url = blobUrl['changingThisBreaksApplicationSecurity'];
+			if (url && typeof url === 'string' && url.startsWith('blob:')) {
+				try {
+					this.nativeWindow.URL.revokeObjectURL(url);
+				} catch (_) { /* ignore */ }
+			}
+		}
+		ElementEvenementComponent.blobUrlCache.delete(fieldId);
+		ElementEvenementComponent.clearFileLoading(fieldId);
+		// Reload thumbnail from server
+		const file = this.evenement?.fileUploadeds?.find(f => f.fieldId === fieldId);
+		if (file && this.isImageFile(file.fileName)) {
+			this.loadFileThumbnail(file);
+			this.cdr.detectChanges();
+		}
+	}
+
 	// Track when file thumbnail is actually displayed
 	public onFileThumbnailLoaded(fileId: string): void {
 		const loadTime = this.fileThumbnailsLoadTimes.get(fileId);
@@ -7124,7 +7308,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Open the slideshow modal immediately - images will be loaded dynamically
 		if (this.slideshowModalComponent) {
-			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined);
+			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined, 0, this.evenement?.id);
 			
 			// Immediately maintain scroll position after modal opens to prevent any movement
 			requestAnimationFrame(() => {
@@ -7198,7 +7382,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Open the slideshow modal with just this one image
 		if (this.slideshowModalComponent) {
-			this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined);
+			this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined, 0, this.evenement?.id);
 		} else {
 			console.error('Slideshow modal component not available');
 		}

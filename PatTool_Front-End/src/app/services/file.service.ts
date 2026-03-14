@@ -33,18 +33,18 @@ export class FileService {
     constructor(private _http: HttpClient, private _keycloakService: KeycloakService) {
     }
 
-    // List images from disk for a given relative path
+    // List images from disk for a given relative path (minimal headers to avoid 400 + CORS when token/user header is large)
     listImagesFromDisk(relativePath: string): Observable<string[]> {
-        return this.getHeaderWithToken().pipe(
+        return this.getHeaderWithTokenMinimal().pipe(
             switchMap(headers =>
                 this._http.get<string[]>(`${this.API_URL4FILEONDISK}/list?relativePath=${encodeURIComponent(relativePath)}`, { headers })
             )
         );
     }
 
-    // Get an image binary from disk for given path and filename
+    // Get an image binary from disk for given path and filename (minimal headers to avoid 400 + CORS)
     getImageFromDisk(relativePath: string, fileName: string, compress: boolean = false): Observable<ArrayBuffer> {
-        return this.getHeaderWithToken().pipe(
+        return this.getHeaderWithTokenMinimal().pipe(
             switchMap(headers =>
                 this._http.get(`${this.API_URL4FILEONDISK}/image?relativePath=${encodeURIComponent(relativePath)}&fileName=${encodeURIComponent(fileName)}${compress ? '&compress=true' : ''}`,
                     { headers, responseType: 'arraybuffer' })
@@ -53,7 +53,7 @@ export class FileService {
     }
 
     getImageFromDiskWithMetadata(relativePath: string, fileName: string, compress: boolean = false): Observable<ImageDownloadResult> {
-        return this.getHeaderWithToken().pipe(
+        return this.getHeaderWithTokenMinimal().pipe(
             switchMap(headers =>
                 this._http.get(`${this.API_URL4FILEONDISK}/image?relativePath=${encodeURIComponent(relativePath)}&fileName=${encodeURIComponent(fileName)}${compress ? '&compress=true' : ''}`,
                     { headers, responseType: 'arraybuffer', observe: 'response' })
@@ -78,9 +78,17 @@ export class FileService {
             })
         );
     }
-    // GET file - returns original file
+
+    /** Minimal headers (Authorization only) to avoid 400 from Tomcat when header size is too large (e.g. big 'user' JSON). */
+    private getHeaderWithTokenMinimal(): Observable<HttpHeaders> {
+        return from(this._keycloakService.getToken()).pipe(
+            map((token: string) => new HttpHeaders({ 'Authorization': 'Bearer ' + token }))
+        );
+    }
+
+    // GET file - returns original file (minimal headers to avoid 400 + CORS block)
     getFile(fileId: string): Observable<any> {
-        return this.getHeaderWithToken().pipe(
+        return this.getHeaderWithTokenMinimal().pipe(
             switchMap(headers =>
                 this._http.get(this.API_URL + "file/" + fileId, { headers: headers, responseType: 'arraybuffer' })
             )
@@ -88,7 +96,7 @@ export class FileService {
     }
 
     getFileWithMetadata(fileId: string): Observable<ImageDownloadResult> {
-        return this.getHeaderWithToken().pipe(
+        return this.getHeaderWithTokenMinimal().pipe(
             switchMap(headers =>
                 this._http.get(this.API_URL + "file/" + fileId, { headers: headers, responseType: 'arraybuffer', observe: 'response' })
             ),
@@ -183,24 +191,20 @@ export class FileService {
         // NOTE: Do NOT add sessionId here - it should already be in FormData from the caller
         // Adding it here causes duplication when the caller also adds it
 
-        // console.log("Upload URL:", url);
-        // console.log("User info:", JSON.stringify(user));
-        if (sessionId) {
-            // console.log("Session ID:", sessionId);
-        }
-
-        return this.getHeaderWithToken().pipe(
+        // Use minimal headers (Authorization only) to avoid 400/connection issues from large 'user' header
+        return this.getHeaderWithTokenMinimal().pipe(
             switchMap(headers => {
-                // console.log("Request headers:", headers);
                 return this._http.post(url, formData, { headers: headers, responseType: 'json' });
             })
         );
     }
 
-    // Get upload logs (polling endpoint)
+    // Get upload logs (polling endpoint). Send only Authorization to avoid 400 from Tomcat (large 'user' header)
+    // and so error responses go through Spring and include CORS headers.
     getUploadLogs(sessionId: string): Observable<string[]> {
-        return this.getHeaderWithToken().pipe(
-            switchMap(headers => {
+        return from(this._keycloakService.getToken()).pipe(
+            switchMap((token: string) => {
+                const headers = new HttpHeaders({ 'Authorization': 'Bearer ' + token });
                 return this._http.get<string[]>(`${this.API_URL}file/upload-logs/${sessionId}`, { headers });
             })
         );
@@ -220,10 +224,10 @@ export class FileService {
         );
     }
 
-    // PUT file - update evenement and delete file from GridFS
+    // PUT file - update evenement and delete file from GridFS (minimal headers to avoid 400 + CORS block)
     updateFile(evenement: any, user: Member): Observable<any> {
         this.user = user;
-        return this.getHeaderWithToken().pipe(
+        return this.getHeaderWithTokenMinimal().pipe(
             switchMap(headers => {
                 return this._http.put(this.API_URL + "file", evenement, { headers: headers, responseType: 'json' });
             })

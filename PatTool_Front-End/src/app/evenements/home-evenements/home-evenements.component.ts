@@ -3627,8 +3627,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			return;
 		}
 		
-		// Open modal immediately with empty array
-		this.slideshowModalComponent.open([], evenement.evenementName, false);
+		// Open modal immediately with empty array (images from FS); pass eventId so "Ajouter dans la DB" is available
+		this.slideshowModalComponent.open([], evenement.evenementName, false, 0, undefined, 0, evenement?.id);
 		
 		// Then list and load images dynamically
 		const listImagesSubscription = this._fileService.listImagesFromDisk(relativePath).subscribe({
@@ -3695,7 +3695,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		// Open the slideshow modal immediately - images will be loaded dynamically
 		if (this.slideshowModalComponent) {
-			this.slideshowModalComponent.open(imageSources, evenement.evenementName, true);
+			this.slideshowModalComponent.open(imageSources, evenement.evenementName, true, 0, undefined, 0, evenement?.id);
 		}
 	}
 
@@ -3713,8 +3713,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			fileName: fileName
 		};
 
-		// Open the slideshow modal with just this one image
-		this.slideshowModalComponent.open([imageSource], eventName, true);
+		// Open the slideshow modal with just this one image (eventId not available in this context)
+		this.slideshowModalComponent.open([imageSource], eventName, true, 0, undefined, 0, undefined);
 	}
 
 	// Get the file url with the bearer token for authentication
@@ -4226,11 +4226,19 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		
 		// Start polling for server logs
 		let lastLogCount = 0;
+		let consecutiveErrors = 0;
 		this.pollIntervalId = setInterval(() => {
+			if (consecutiveErrors >= 5) {
+				if (this.pollIntervalId) {
+					clearInterval(this.pollIntervalId);
+					this.pollIntervalId = null;
+				}
+				return;
+			}
 			const logSubscription = this._fileService.getUploadLogs(sessionId).subscribe(
 				(serverLogs: string[]) => {
+					consecutiveErrors = 0;
 					if (serverLogs.length > lastLogCount) {
-						// New logs available
 						for (let i = lastLogCount; i < serverLogs.length; i++) {
 							this.addLog(serverLogs[i]);
 						}
@@ -4238,11 +4246,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					}
 				},
 				(error: any) => {
-					console.error('Error fetching logs:', error);
+					consecutiveErrors++;
 				}
 			);
 			this.allSubscriptions.push(logSubscription);
-		}, 500); // Poll every 500ms
+		}, 1500); // Poll every 1.5s to avoid flooding the server
 
 		const uploadSubscription = this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId)
 			.subscribe({

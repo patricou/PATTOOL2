@@ -2961,7 +2961,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       const eventColor = this.getCalculatedColor();
       
       // Open slideshow with all discussion images
-      this.slideshowModalComponent.open(validImageSources, this.evenement!.evenementName, false, 0, eventColor || undefined);
+      this.slideshowModalComponent.open(validImageSources, this.evenement!.evenementName, false, 0, eventColor || undefined, 0, this.evenement?.id);
       
       // Set the clicked image as the starting image
       // Use setTimeout to ensure slideshow is fully initialized
@@ -5659,7 +5659,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     const eventColor = this.getCalculatedColor();
     
     // Pass startIndex to open method
-    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined, startIndex);
+    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined, startIndex, this.evenement?.id);
   }
 
   public openSingleImageInSlideshow(fileId: string, fileName: string): void {
@@ -5679,7 +5679,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     // Get event color for slideshow styling
     const eventColor = this.getCalculatedColor();
     
-    this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined);
+    this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined, 0, this.evenement?.id);
   }
 
   // Check if URL event is PHOTOFROMFS type
@@ -5858,7 +5858,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     const eventColor = this.getCalculatedColor();
     
     // Open modal immediately with empty array, but set startIndex for when images are loaded
-    this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined, startIndex);
+    this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined, startIndex, this.evenement?.id);
     
     // Then list and load images dynamically
     const listSub = this.fileService.listImagesFromDisk(relativePath).subscribe({
@@ -6133,10 +6133,15 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     // Subscribe to upload logs
     if (sessionId) {
       let lastLogCount = 0;
+      let consecutiveErrors = 0;
       const pollIntervalId = setInterval(() => {
+        if (consecutiveErrors >= 5) {
+          clearInterval(pollIntervalId);
+          return;
+        }
         const logSubscription = this.fileService.getUploadLogs(sessionId).subscribe(
           (serverLogs: string[]) => {
-            // Ensure the callback runs in Angular zone for proper change detection
+            consecutiveErrors = 0;
             this.ngZone.run(() => {
               if (serverLogs.length > lastLogCount) {
                 for (let i = lastLogCount; i < serverLogs.length; i++) {
@@ -6147,7 +6152,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
             });
           },
           (error) => {
-            console.error('Error receiving upload logs:', error);
+            consecutiveErrors++;
           }
         );
         this.trackSubscription(logSubscription);

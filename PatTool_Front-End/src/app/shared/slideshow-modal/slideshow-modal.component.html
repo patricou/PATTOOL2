@@ -31,7 +31,7 @@
             <span>{{ 'EVENTELEM.MAP_LOADING' | translate }}</span>
           </div>
         </div>
-        <img #slideshowImgEl *ngIf="slideshowImages.length > 0 && currentSlideshowImageUrl && (!showMapView || !currentMapUrl)" 
+        <img #slideshowImgEl *ngIf="showMainSlideshowImage" 
              [src]="currentSlideshowImageUrl" 
              alt="Slideshow image {{ currentSlideshowIndex + 1 }}"
              crossorigin="anonymous"
@@ -55,8 +55,8 @@
             <i class="fa fa-spinner fa-spin"></i>
           </div>
         </div>
-        <!-- Loading spinner for fileId-based images (when current image URL is empty or loading) -->
-        <div *ngIf="slideshowImages.length > 0 && isCurrentImageLoading() && !isCurrentFilesystemVariantLoading() && (!showMapView || !currentMapUrl)"
+        <!-- Loading spinner for fileId-based images (when current image URL is empty or loading); use cached flag to avoid NG0100 -->
+        <div *ngIf="showFileIdLoadingSpinner"
              class="slideshow-filesystem-loading">
           <div class="slideshow-filesystem-loading-content">
             <i class="fa fa-spinner fa-spin"></i>
@@ -95,7 +95,7 @@
           <div class="debug-line"><strong>{{ 'EVENTELEM.DEBUG_IMAGE_POINT_CENTER_Y' | translate }}</strong> {{ getVisibleImageCenterPointY() | number:'1.2-2' }}px</div>
           <div class="debug-line" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #00ff00;"><strong>{{ 'EVENTELEM.DEBUG_NOTE' | translate }}</strong> {{ 'EVENTELEM.DEBUG_NOTE_TEXT' | translate }}</div>
         </div>
-        <div *ngIf="slideshowImages.length === 0" class="slideshow-loading">
+        <div *ngIf="showSlideshowEmptyState" class="slideshow-loading">
           <i class="fa fa-spinner fa-spin fa-3x"></i>
           <p>{{ 'EVENTELEM.LOADING_IMAGES' | translate }}</p>
         </div>
@@ -286,6 +286,13 @@
               [disabled]="slideshowImages.length <= 1">
         <i class="fa me-1" [ngClass]="showThumbnails ? 'fa-eye-slash' : 'fa-eye'"></i>
         <span>{{ (showThumbnails ? 'EVENTELEM.HIDE_THUMBNAILS' : 'EVENTELEM.SHOW_THUMBNAILS') | translate }}</span>
+      </button>
+      <button type="button" class="btn btn-warning"
+              *ngIf="shouldShowAddToDbButton()"
+              (click)="emitAddToDb()"
+              [disabled]="slideshowImages.length === 0">
+        <i class="fa fa-database me-1"></i>
+        <span>{{ 'EVENTELEM.ADD_TO_DB' | translate }}</span>
       </button>
       <button type="button" class="btn btn-secondary ms-auto" (click)="onSlideshowClose(c)">
         <i class="fa fa-times"></i> <span>{{ 'COMMUN.CLOSE' | translate }}</span>

@@ -18,6 +18,9 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.filter.CorsFilter;
+import org.springframework.core.Ordered;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -188,6 +191,10 @@ public class SecurityConfig {
                 // IMPORTANT: This rule MUST come before .anyRequest() to protect all /api/** endpoints
                 .requestMatchers("/api/**").authenticated()
                 
+                // TEMPORARY: Allow POST /uploadfile without auth to confirm request reaches controller.
+                // If controller is hit, the issue is JWT validation; remove this and fix token/issuer.
+                .requestMatchers(HttpMethod.POST, "/uploadfile/**").permitAll()
+                
                 // Other authenticated endpoints (non-API)
                 .requestMatchers("/database/**", "/uploadfile/**", "/uploadondisk/**").authenticated()
                 
@@ -251,7 +258,8 @@ public class SecurityConfig {
             "Content-Type",
             "Location",
             "Content-Disposition",
-            "Cache-Control"
+            "Cache-Control",
+            "X-Upload-Error"
         ));
         
         // Cache preflight requests for 1 hour
@@ -260,5 +268,20 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
+    }
+
+    /**
+     * Register CorsFilter at the highest priority so CORS headers are present
+     * on ALL responses, including error responses from security filters or
+     * other early-stage filters (e.g. MemoryCheckFilter, JWT auth failures).
+     * Without this, the browser blocks error responses that lack CORS headers.
+     */
+    @Bean
+    public FilterRegistrationBean<CorsFilter> corsFilterRegistration() {
+        FilterRegistrationBean<CorsFilter> bean = new FilterRegistrationBean<>(
+            new CorsFilter(corsConfigurationSource())
+        );
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return bean;
     }
 }

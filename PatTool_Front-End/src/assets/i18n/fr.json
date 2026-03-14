@@ -37,7 +37,7 @@
         "GEO": "Géo",
         "POSITION_METEO": "Position/Météo",
         "ADDRESS_TO_MAP": "Adresse/GPS vers carte",
-        "PHOTOS": "Photos"
+        "PHOTOS": "Mur de Photos"
     },
     "NAVIGATION": {
         "BACK": "Retour",
@@ -514,6 +514,7 @@
         "UPLOAD": "Téléverser un fichier (Images, Vidéo, PDF, Trace GPS)",
         "UPLOAD_LABEL": "Téléverser un fichier",
         "UPLOAD_PROGRESS": "Progression du téléversement",
+        "UPLOAD_ERROR": "Erreur de téléversement",
         "WAITING_FOR_UPLOAD": "En attente du début du téléversement...",
         "USE_AS_THUMBNAIL": "Voulez-vous utiliser \"{{fileName}}\" comme image de cette activité ?",
         "COMPRESSION_QUALITY_TITLE": "Choisissez la qualité de compression pour {{count}} vidéo(s) :",
@@ -761,6 +762,7 @@
         "ZOOM_IN": "Zoomer",
         "ZOOM_OUT": "Dézoomer",
         "ZOOM_RESET": "Réinitialiser le zoom",
+        "ADD_TO_DB": "Ajouter dans la DB",
         "SHARE": "Partager",
         "SHARE_IMAGE_TOOLTIP": "Partager l'image (WhatsApp, etc.)",
         "INFO_PANEL_ACTIVE": "Panneau d'info actif",
@@ -1634,7 +1636,12 @@
         "LOADING": "Chargement des photos...",
         "RETRY": "Réessayer",
         "NO_PHOTOS": "Aucune photo",
-        "NO_PHOTOS_DESC": "Les photos de vos activités apparaîtront ici sous forme d'un magnifique mur de souvenirs."
+        "NO_PHOTOS_DESC": "Les photos de vos activités apparaîtront ici sous forme d'un magnifique mur de souvenirs.",
+        "UPLOADING": "Ajout de la photo en cours...",
+        "UPLOAD_SUCCESS": "Photo \"{{fileName}}\" ajoutée avec succès !",
+        "UPLOAD_ERROR": "Erreur lors de l'ajout de la photo.",
+        "TOAST_SUCCESS_TITLE": "Succès",
+        "TOAST_ERROR_TITLE": "Erreur"
     }
 }
 

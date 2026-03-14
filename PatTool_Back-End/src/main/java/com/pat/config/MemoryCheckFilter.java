@@ -20,7 +20,7 @@ import java.io.IOException;
  * Rejects requests if memory usage is critical to prevent OutOfMemoryError
  */
 @Component
-@Order(1) // High priority - check memory early in the filter chain
+@Order(10) // After CorsFilter (HIGHEST_PRECEDENCE) so CORS headers are always present
 public class MemoryCheckFilter implements Filter {
 
     private static final Logger log = LoggerFactory.getLogger(MemoryCheckFilter.class);
@@ -57,6 +57,16 @@ public class MemoryCheckFilter implements Filter {
             }
         }
         
+        // Log upload requests early (before multipart parsing) to diagnose crashes
+        if (requestPath.startsWith("/uploadfile")) {
+            Runtime rt = Runtime.getRuntime();
+            long available = rt.maxMemory() - rt.totalMemory() + rt.freeMemory();
+            String contentLength = httpRequest.getHeader("Content-Length");
+            log.debug("[UPLOAD FILTER] {} {} Content-Length={}, heap available={} MB / {} MB max",
+                    httpRequest.getMethod(), requestPath, contentLength,
+                    available / (1024 * 1024), rt.maxMemory() / (1024 * 1024));
+        }
+        
         if (!shouldSkip) {
             // Check memory usage before processing request
             boolean memoryOk = memoryMonitoringService.checkMemoryUsage();
@@ -85,6 +95,9 @@ public class MemoryCheckFilter implements Filter {
         }
         
         // Memory is OK or path is excluded - continue processing
+        if (requestPath.startsWith("/uploadfile") && "POST".equalsIgnoreCase(httpRequest.getMethod())) {
+            log.debug("[UPLOAD FILTER] Passing to dispatcher (multipart parse will happen next)");
+        }
         chain.doFilter(request, response);
     }
 }

@@ -37,7 +37,7 @@
         "GEO": "ジオ",
         "POSITION_METEO": "位置/天気",
         "ADDRESS_TO_MAP": "住所/GPSを地図に",
-        "PHOTOS": "写真"
+        "PHOTOS": "フォトウォール"
     },
     "NAVIGATION": {
         "BACK": "戻る",
@@ -648,6 +648,7 @@
         "ZOOM_IN": "ズームイン",
         "ZOOM_OUT": "ズームアウト",
         "ZOOM_RESET": "ズームリセット",
+        "ADD_TO_DB": "DBに追加",
         "SHARE": "共有",
         "SHARE_IMAGE_TOOLTIP": "画像を共有（WhatsAppなど）",
         "INFO_PANEL_ACTIVE": "情報パネルがアクティブ",
@@ -1623,6 +1624,11 @@
         "LOADING": "写真を読み込み中...",
         "RETRY": "再試行",
         "NO_PHOTOS": "写真がありません",
-        "NO_PHOTOS_DESC": "イベントの写真が美しいフォトウォールとしてここに表示されます。"
+        "NO_PHOTOS_DESC": "イベントの写真が美しいフォトウォールとしてここに表示されます。",
+        "UPLOADING": "データベースに写真を追加しています...",
+        "UPLOAD_SUCCESS": "写真「{{fileName}}」を正常に追加しました！",
+        "UPLOAD_ERROR": "写真のデータベースへの追加中にエラーが発生しました。",
+        "TOAST_SUCCESS_TITLE": "成功",
+        "TOAST_ERROR_TITLE": "エラー"
     }
 }

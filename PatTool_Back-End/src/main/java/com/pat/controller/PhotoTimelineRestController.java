@@ -232,7 +232,7 @@ public class PhotoTimelineRestController {
             response.setOnThisDay(Collections.emptyList());
 
             long elapsed = System.currentTimeMillis() - start;
-            log.info("Photo timeline page {} ({} groups) served in {}ms for user {}",
+            log.debug("Photo timeline page {} ({} groups) served in {}ms for user {}",
                     page, groups.size(), elapsed, userId);
 
             return ResponseEntity.ok(response);
@@ -250,7 +250,7 @@ public class PhotoTimelineRestController {
             Criteria accessCriteria = getCachedAccessCriteria(userId);
             List<TimelinePhoto> onThisDay = findOnThisDayPhotos(accessCriteria);
             long elapsed = System.currentTimeMillis() - start;
-            log.info("On-this-day: {} photos in {}ms for user {}", onThisDay.size(), elapsed, userId);
+            log.debug("On-this-day: {} photos in {}ms for user {}", onThisDay.size(), elapsed, userId);
             return ResponseEntity.ok(onThisDay);
         } catch (Exception e) {
             log.error("Error finding on-this-day photos", e);

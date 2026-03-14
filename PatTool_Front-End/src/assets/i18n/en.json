@@ -37,7 +37,7 @@
         "GEO": "Geo",
         "POSITION_METEO": "Position/Weather",
         "ADDRESS_TO_MAP": "Address/GPS to map",
-        "PHOTOS": "Photos"
+        "PHOTOS": "Photo Wall"
     },
     "NAVIGATION": {
         "BACK": "Back",
@@ -522,6 +522,7 @@
         "UPLOAD": "Upload a File (Images, Video, PDF, GPS Track)",
         "UPLOAD_LABEL": "Upload a file",
         "UPLOAD_PROGRESS": "Upload Progress",
+        "UPLOAD_ERROR": "Upload error",
         "WAITING_FOR_UPLOAD": "Waiting for upload to start...",
         "USE_AS_THUMBNAIL": "Do you want to use \"{{fileName}}\" as the image for this activity?",
         "COMPRESSION_QUALITY_TITLE": "Choose compression quality for {{count}} video(s):",
@@ -771,6 +772,7 @@
         "ZOOM_IN": "Zoom in",
         "ZOOM_OUT": "Zoom out",
         "ZOOM_RESET": "Reset zoom",
+        "ADD_TO_DB": "Add to DB",
         "SHARE": "Share",
         "SHARE_IMAGE_TOOLTIP": "Share image (WhatsApp, etc.)",
         "INFO_PANEL_ACTIVE": "Info Panel Active",
@@ -1645,7 +1647,12 @@
         "LOADING": "Loading photos...",
         "RETRY": "Retry",
         "NO_PHOTOS": "No photos yet",
-        "NO_PHOTOS_DESC": "Photos from your events will appear here as a beautiful timeline."
+        "NO_PHOTOS_DESC": "Photos from your events will appear here as a beautiful timeline.",
+        "UPLOADING": "Adding photo to database...",
+        "UPLOAD_SUCCESS": "Photo \"{{fileName}}\" added successfully!",
+        "UPLOAD_ERROR": "Error adding photo to database.",
+        "TOAST_SUCCESS_TITLE": "Success",
+        "TOAST_ERROR_TITLE": "Error"
     }
 }
 

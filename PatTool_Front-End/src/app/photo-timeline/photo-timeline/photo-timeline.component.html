@@ -111,7 +111,7 @@
                 <div class="group-fs-buttons" *ngIf="group.fsPhotoLinks && group.fsPhotoLinks.length > 0">
                     <button class="btn btn-outline-primary btn-sm fs-slideshow-btn"
                             *ngFor="let fsLink of group.fsPhotoLinks"
-                            (click)="openFsSlideshow(fsLink, group.eventName)"
+                            (click)="openFsSlideshow(fsLink, group.eventName, group.eventId)"
                             [title]="fsLink.description || fsLink.path">
                         <i class="fa fa-desktop"></i>
                         {{ fsLink.description || 'Photos' }}
@@ -162,5 +162,54 @@
     </div>
 </div>
 
+<!-- Upload status toast (confirmation when adding photo to DB) -->
+<div class="upload-toast" *ngIf="uploadMessage" [class.upload-toast-success]="uploadSuccess" [class.upload-toast-error]="!uploadSuccess" role="alert">
+    <i class="fa fa-2x" [ngClass]="uploadSuccess ? 'fa-check-circle' : 'fa-exclamation-circle'"></i>
+    <span class="upload-toast-content">
+        <strong>{{ (uploadSuccess ? 'PHOTO_TIMELINE.TOAST_SUCCESS_TITLE' : 'PHOTO_TIMELINE.TOAST_ERROR_TITLE') | translate }}</strong>
+        <span class="d-block mt-1">{{ uploadMessage }}</span>
+    </span>
+</div>
+<div class="upload-overlay" *ngIf="isUploading">
+    <div class="spinner-border text-light" role="status"></div>
+    <span class="text-light mt-2">{{ 'PHOTO_TIMELINE.UPLOADING' | translate }}</span>
+</div>
+
+<!-- Image Compression Selection Modal -->
+<ng-template #imageCompressionModal let-modal>
+    <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">
+            <i class="fa fa-image me-2"></i>
+            {{ 'EVENTELEM.IMAGE_COMPRESSION_TITLE' | translate }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="cancelImageCompression()" aria-label="Close"></button>
+    </div>
+    <div class="modal-body">
+        <p>{{ 'EVENTELEM.IMAGE_COMPRESSION_MESSAGE' | translate: {count: 1} }}</p>
+        <div class="form-group mb-3">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="compressImagesSwitchTimeline" [(ngModel)]="compressImages">
+                <label class="form-check-label" for="compressImagesSwitchTimeline">
+                    {{ 'EVENTELEM.COMPRESS_IMAGES' | translate }}
+                </label>
+            </div>
+        </div>
+        <div class="alert alert-info small">
+            <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED' | translate }}:</strong> {{ 'EVENTELEM.COMPRESS_IMAGES_ENABLED_DETAILS' | translate }}<br>
+            <strong>{{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED' | translate }}:</strong> {{ 'EVENTELEM.COMPRESS_IMAGES_DISABLED_DETAILS' | translate }}
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="cancelImageCompression()">
+            {{ 'EVENTELEM.CANCEL' | translate }}
+        </button>
+        <button type="button" class="btn btn-primary" (click)="confirmImageCompression()">
+            {{ 'EVENTELEM.CONFIRM' | translate }}
+        </button>
+    </div>
+</ng-template>
+
 <!-- Slideshow Modal Component (always available) -->
-<app-slideshow-modal #slideshowModalComponent (closed)="onSlideshowClosed()"></app-slideshow-modal>
+<app-slideshow-modal #slideshowModalComponent 
+    (closed)="onSlideshowClosed()" 
+    (addToDb)="onAddToDb($event)"></app-slideshow-modal>

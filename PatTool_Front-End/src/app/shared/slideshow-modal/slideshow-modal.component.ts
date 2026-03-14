@@ -37,6 +37,12 @@ export interface SlideshowLocationEvent {
   eventColor?: { r: number; g: number; b: number };
 }
 
+export interface SlideshowAddToDbEvent {
+  blob: Blob;
+  fileName: string;
+  eventId: string;
+}
+
 interface PatMetadata {
   originalSizeBytes?: number;
   originalSizeKilobytes?: number;
@@ -61,8 +67,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   @Input() eventName: string = '';
   @Input() loadFromFileService: boolean = false; // If true, use fileId to load images via FileService
   
+  @Input() eventId: string = '';
+
   @Output() closed = new EventEmitter<void>();
   @Output() openLocationInTrace = new EventEmitter<SlideshowLocationEvent>();
+  @Output() addToDb = new EventEmitter<SlideshowAddToDbEvent>();
   
   // Event color for styling
   private eventColor: { r: number; g: number; b: number } | null = null;
@@ -329,7 +338,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }> = new Map();
   private filesystemVariantLoading: Set<number> = new Set();
   private filesystemOriginalPrefetching: Set<number> = new Set();
-  
+
+  /** Cached value for *ngIf loading spinner; updated only in setTimeout(0) to avoid NG0100 */
+  public showFileIdLoadingSpinner = false;
+  /** Cached for *ngIf "no images" block (template ~line 98); set sync in open(), updated in setTimeout(0) in addImages() */
+  public showSlideshowEmptyState = true;
+  /** Cached for img *ngIf (template ~line 33); updated only in setTimeout(0) to avoid NG0100 */
+  public showMainSlideshowImage = false;
+
   constructor(
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
@@ -580,7 +596,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Open the slideshow modal
-  public open(images: SlideshowImageSource[], eventName: string = '', loadFromFileService: boolean = false, retryCount: number = 0, eventColor?: { r: number; g: number; b: number }, startIndex: number = 0): void {
+  public open(images: SlideshowImageSource[], eventName: string = '', loadFromFileService: boolean = false, retryCount: number = 0, eventColor?: { r: number; g: number; b: number }, startIndex: number = 0, eventId?: string): void {
     // Allow opening with empty array for dynamic loading
     if (!images) {
       images = [];
@@ -594,7 +610,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.images = images;
     this.eventName = eventName;
     this.loadFromFileService = loadFromFileService;
-    
+    this.eventId = eventId || '';
+    this.showFileIdLoadingSpinner = false;
+
     // Store event color if provided
     if (eventColor) {
       this.eventColor = eventColor;
@@ -649,6 +667,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.filesystemImageVariants.clear();
     // Create a new cancel subject for this session
     this.cancelImageLoadsSubject = new Subject<void>();
+    
+    // Load images BEFORE opening modal so first CD sees stable slideshowImages.length (avoids NG0100 at template line 98)
+    if (images.length > 0) {
+      this.loadImages();
+      this.updateFileIdLoadingSpinner();
+      this.showSlideshowEmptyState = this.slideshowImages.length === 0;
+      this.showMainSlideshowImage = this.slideshowImages.length > 0 && !!this.currentSlideshowImageUrl && (!this.showMapView || !this.currentMapUrl);
+    } else {
+      this.showSlideshowEmptyState = true;
+      this.showMainSlideshowImage = false;
+    }
     
     // Ensure ViewChild is available (use setTimeout to ensure it's initialized)
     if (!this.slideshowModal) {
@@ -775,13 +804,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.closed.emit();
       });
       
-      // Load images (will be empty array if loading dynamically)
-      if (images.length > 0) {
-        // Initialize thumbnails array
-        this.thumbnails = new Array(images.length).fill('');
-        // Load main images (thumbnails will be generated automatically when images load)
-        this.loadImages();
-      }
+      // Images already loaded above (before modal open) when images.length > 0; this branch is for dynamic loading only
     } catch (error) {
       // Retry once more if there's an error
       if (retryCount < 3) {
@@ -912,7 +935,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
                 this.pendingImageLoads.delete(cacheKey);
               }
               this.activeImageLoads--;
-              // Process next in queue immediately
+              setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
               this.processImageLoadQueue();
             }
           );
@@ -960,7 +983,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
                 this.pendingImageLoads.delete(cacheKey);
               }
               this.activeImageLoads--;
-              // Process next in queue immediately
+              setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
               this.processImageLoadQueue();
             }
           );
@@ -1012,14 +1035,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Handle image loaded - add to slideshow (thumbnail generation is decoupled)
+  // Defer state updates to next tick to avoid NG0100 when opening from Photo timeline
   private handleImageLoaded(objectUrl: string, blob: Blob | null, imageIndex: number, metadata?: PatMetadata): void {
+    setTimeout(() => this.applyImageLoaded(objectUrl, blob, imageIndex, metadata), 0);
+  }
+
+  private applyImageLoaded(objectUrl: string, blob: Blob | null, imageIndex: number, metadata?: PatMetadata): void {
     // Insert image at its correct position in the sorted order (imageIndex)
-    // This ensures images appear in the correct order even if they load asynchronously
     const slideshowIndex = imageIndex;
     if (slideshowIndex < this.slideshowImages.length) {
       this.slideshowImages[slideshowIndex] = objectUrl;
     } else {
-      // Fallback: if array wasn't pre-allocated, extend it
       while (this.slideshowImages.length <= slideshowIndex) {
         this.slideshowImages.push('');
       }
@@ -1063,54 +1089,39 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (effectiveMetadata) {
       this.imagePatMetadata.set(objectUrl, effectiveMetadata);
     }
-    
-    // Map slideshowImages index to this.images index
+
     this.slideshowIndexToImageIndex.set(slideshowIndex, imageIndex);
     this.imageUrlToThumbnailIndex.set(objectUrl, imageIndex);
-    
-    // Store blob for thumbnail generation (completely decoupled - will be processed by independent process)
+
     if (blob) {
       this.thumbnailBlobStorage.set(imageIndex, blob);
-      // NO thumbnail generation here - it's completely decoupled and handled by independent process
-    }
-    
-    // Pre-load EXIF data in background (non-blocking)
-    if (blob) {
-      this.preloadExifData(objectUrl, blob).catch(() => {
-        // Silently fail if EXIF loading fails
-      });
     }
 
-    // Count actually loaded images (non-empty strings)
+    if (blob) {
+      this.preloadExifData(objectUrl, blob).catch(() => {});
+    }
+
     const loadedImagesCount = this.slideshowImages.filter(url => url && url !== '').length;
-    
-    // Update showThumbnails in next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
-    // Double-check userToggledThumbnails inside setTimeout to prevent race condition with toggleThumbnails()
+
     if (loadedImagesCount > 1 && !this.showThumbnails && !this.userToggledThumbnails) {
       setTimeout(() => {
-        // Re-check userToggledThumbnails to prevent race condition if user toggled thumbnails during setTimeout delay
         if (!this.userToggledThumbnails && !this.showThumbnails) {
           this.showThumbnails = true;
         }
+        this.cdr.markForCheck();
       }, 0);
     }
-    
-    // Update current image URL if this is the current image
+
     if (imageIndex === this.currentSlideshowIndex) {
       this.updateCurrentSlideshowImageUrl();
-      // Ensure the view updates immediately so the first (or current) image is shown as soon as it's available
-      this.cdr.detectChanges();
     }
-    
-    // If we have a pending startIndex and this is the image at that index, navigate to it
+
     if (this.pendingStartIndex !== null && imageIndex === this.pendingStartIndex) {
       this.currentSlideshowIndex = this.pendingStartIndex;
       this.updateCurrentSlideshowImageUrl();
-      this.pendingStartIndex = null; // Clear pending index
-      this.cdr.detectChanges();
+      this.pendingStartIndex = null;
     }
-    
-    // Reset zoom when first image loads
+
     if (loadedImagesCount === 1 && imageIndex === 0) {
       setTimeout(() => {
         this.resetSlideshowZoom();
@@ -1121,8 +1132,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         }, 200);
       }, 100);
     }
-    
-    this.cdr.detectChanges();
+
+    // Defer spinner and img visibility updates to next tick to avoid NG0100
+    setTimeout(() => {
+      this.updateFileIdLoadingSpinner();
+      this.updateShowMainSlideshowImage();
+    }, 0);
+    this.cdr.markForCheck();
   }
 
   private assignImageFileName(imageIndex: number, objectUrl: string): void {
@@ -1265,6 +1281,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         this.queueImageLoad(imageSource, imageIndex, priority);
       }
     });
+    // Defer empty-state update to avoid NG0100 (template line 98)
+    setTimeout(() => {
+      this.showSlideshowEmptyState = this.slideshowImages.length === 0;
+      this.cdr.markForCheck();
+    }, 0);
   }
   
   // Queue thumbnail generation for parallel processing (completely decoupled from image loading)
@@ -3782,6 +3803,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const currentTranslateY = this.slideshowTranslateY;
     this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
     this.updateCurrentSlideshowImageUrl();
+    setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
     this.updateCurrentImageLocation();
     // Reset saved position when changing image
     this.hasSavedPosition = false;
@@ -3826,6 +3848,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const currentTranslateY = this.slideshowTranslateY;
     this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
     this.updateCurrentSlideshowImageUrl();
+    setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
     this.updateCurrentImageLocation();
     // Reset saved position when changing image
     this.hasSavedPosition = false;
@@ -3863,17 +3886,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }, 0);
   }
   
+  /** Pure getter: do not mutate state. Used by template (e.g. isCurrentImageLoading); use currentSlideshowImageUrl for display. */
   public getCurrentSlideshowImage(): string {
     if (this.slideshowImages.length === 0 || this.currentSlideshowIndex >= this.slideshowImages.length) {
-      this.currentSlideshowImageUrl = '';
       return '';
     }
-    const url = this.slideshowImages[this.currentSlideshowIndex];
-    // Update cached URL when accessed
-    if (this.currentSlideshowImageUrl !== url) {
-      this.currentSlideshowImageUrl = url;
-    }
-    return url;
+    return this.slideshowImages[this.currentSlideshowIndex] || '';
   }
   
   // Update cached current image URL - call this whenever currentSlideshowIndex changes
@@ -3885,6 +3903,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     // Update blurred background image when URL changes
     this.updateBackgroundImageStyle();
+    // Defer flag update to avoid NG0100 (img *ngIf at line 33)
+    setTimeout(() => this.updateShowMainSlideshowImage(), 0);
   }
 
   // Check if current image is loading (for fileId-based images)
@@ -3912,6 +3932,23 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     
     return false;
   }
+
+  /** Update showFileIdLoadingSpinner from current state; call only from setTimeout(0) to avoid NG0100 */
+  private updateFileIdLoadingSpinner(): void {
+    this.showFileIdLoadingSpinner = this.slideshowImages.length > 0
+      && this.isCurrentImageLoading()
+      && !this.isCurrentFilesystemVariantLoading()
+      && (!this.showMapView || !this.currentMapUrl);
+    this.cdr.markForCheck();
+  }
+
+  /** Update showMainSlideshowImage from current state; call only from setTimeout(0) to avoid NG0100 */
+  private updateShowMainSlideshowImage(): void {
+    this.showMainSlideshowImage = this.slideshowImages.length > 0
+      && !!this.currentSlideshowImageUrl
+      && (!this.showMapView || !this.currentMapUrl);
+    this.cdr.markForCheck();
+  }
   
   public getCurrentImageFileName(): string {
     const currentImageUrl = this.getCurrentSlideshowImage();
@@ -3928,6 +3965,40 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     const imageSource = this.images[imageIndex];
     return !!(imageSource && imageSource.relativePath && imageSource.fileName);
+  }
+
+  /** True if at least one image in the slideshow comes from the file system (relativePath + fileName). */
+  public hasAnyFilesystemImage(): boolean {
+    if (!this.images || this.images.length === 0) return false;
+    return this.images.some(src => !!(src && src.relativePath && src.fileName));
+  }
+
+  public shouldShowAddToDbButton(): boolean {
+    if (!this.eventId) return false;
+    return this.hasAnyFilesystemImage();
+  }
+
+  public emitAddToDb(): void {
+    if (!this.eventId) return;
+    const currentImageUrl = this.getCurrentSlideshowImage();
+    if (!currentImageUrl) return;
+
+    let blob = this.slideshowBlobs.get(currentImageUrl);
+    if (!blob) {
+      const imageIndex = this.slideshowIndexToImageIndex.get(this.currentSlideshowIndex);
+      if (imageIndex !== undefined) {
+        const imageSource = this.images[imageIndex];
+        const cacheKey = imageSource ? this.getImageCacheKey(imageSource) : null;
+        if (cacheKey) {
+          const cached = this.imageCache.get(cacheKey);
+          if (cached) blob = cached.blob;
+        }
+      }
+    }
+    if (!blob) return;
+
+    const fileName = this.getCurrentImageFileName() || `photo_${Date.now()}.jpg`;
+    this.addToDb.emit({ blob, fileName, eventId: this.eventId });
   }
 
   public isCurrentFilesystemVariantLoading(): boolean {
@@ -6303,6 +6374,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (index >= 0 && index < this.slideshowImages.length) {
       this.currentSlideshowIndex = index;
       this.updateCurrentSlideshowImageUrl();
+      setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
       this.updateCurrentImageLocation();
       // Scroll to center active thumbnail (with delay to ensure DOM update)
       setTimeout(() => {

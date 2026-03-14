@@ -1537,7 +1537,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		};
 
 		// Ouvrir le slideshow avec cette image
-		this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true);
+		this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, undefined, 0, this.evenement?.id);
 	}
 
 	public openPdfFile(fileId: string, fileName: string): void {
@@ -1792,13 +1792,17 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		
 		// Start polling for server logs
 		let lastLogCount = 0;
+		let consecutiveErrors = 0;
 		const pollInterval = setInterval(() => {
+			if (consecutiveErrors >= 5) {
+				clearInterval(pollInterval);
+				return;
+			}
 			this._fileService.getUploadLogs(sessionId).subscribe(
 				(serverLogs: string[]) => {
-					// Ensure the callback runs in Angular zone for proper change detection
+					consecutiveErrors = 0;
 					this.ngZone.run(() => {
 						if (serverLogs.length > lastLogCount) {
-							// New logs available
 							for (let i = lastLogCount; i < serverLogs.length; i++) {
 								this.addLog(serverLogs[i]);
 							}
@@ -1807,10 +1811,10 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 					});
 				},
 				(error) => {
-					console.error('Error fetching logs:', error);
+					consecutiveErrors++;
 				}
 			);
-		}, 500); // Poll every 500ms
+		}, 1500); // Poll every 1.5s to avoid flooding the server
 
 		// Build the correct upload URL
 		const uploadUrl = `${environment.API_URL4FILE}/${this.user.id}/${this.evenement.id}`;
@@ -1874,10 +1878,8 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 						remainingPolls--;
 						this._fileService.getUploadLogs(sessionId).subscribe(
 							(serverLogs: string[]) => {
-								// Ensure the callback runs in Angular zone for proper change detection
 								this.ngZone.run(() => {
 									if (serverLogs.length > lastLogCount) {
-										// New logs available
 										for (let i = lastLogCount; i < serverLogs.length; i++) {
 											this.addLog(serverLogs[i]);
 										}
@@ -1885,9 +1887,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 									}
 								});
 							},
-							(error) => {
-								console.error('Error fetching remaining logs:', error);
-							}
+							() => {}
 						);
 						
 						if (remainingPolls <= 0) {
@@ -2441,7 +2441,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		this.fsSlideshowLoadingActive = true;
 		
 		// Open modal immediately with empty array
-		this.slideshowModalComponent.open([], this.evenement.evenementName, false);
+		this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, undefined, 0, this.evenement?.id);
 		
 		// Then list and load images dynamically
 		const listSub = this._fileService.listImagesFromDisk(relativePath).subscribe({

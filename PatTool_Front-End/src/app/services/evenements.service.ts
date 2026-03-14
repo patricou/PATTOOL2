@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, from, Subject, throwError, of, merge } from 'rxjs';
-import { map, switchMap, catchError, timeout, take } from 'rxjs/operators';
+import { Observable, from, Subject, throwError, of } from 'rxjs';
+import { map, switchMap, catchError, timeout } from 'rxjs/operators';
 import { Evenement } from '../model/evenement';
 import { Commentary } from '../model/commentary';
 import { environment } from '../../environments/environment';
@@ -79,31 +79,20 @@ export class EvenementsService {
 			}
 			return of(mapToEvenement(response));
 		};
-		// Requête sans auth en premier pour afficher "accès refusé" tout de suite (pas d'attente du token)
-		const noAuthGet = this._http.get<any>(url).pipe(switchMap(handleResponse));
-		// Requête avec token en parallèle (pour les utilisateurs qui ont accès)
-		const authGet = this.getHeaderWithToken().pipe(
+		// Single request with token to avoid duplicate requests (merge + take(1) was cancelling the second request, showing as failed in Network tab)
+		return this.getHeaderWithToken().pipe(
 			timeout(5000),
 			switchMap(headers => this._http.get<any>(url, { headers: headers })),
-			switchMap(handleResponse)
-		);
-		return merge(noAuthGet, authGet).pipe(
-			take(1),
-			catchError((firstError: any) => {
-				if (isEventAccessDenied(firstError)) {
-					return throwError(() => firstError);
+			switchMap(handleResponse),
+			catchError((err: any) => {
+				if (isEventAccessDenied(err)) {
+					return throwError(() => err);
 				}
-				if (firstError?.status === 403) {
-					return this.getHeaderWithToken().pipe(
-						timeout(5000),
-						switchMap(headers => this._http.get<any>(url, { headers: headers })),
-						switchMap(handleResponse),
-						catchError(() => throwError(() => firstError))
-					);
+				if (err?.status === 401 || err?.status === 403) {
+					return throwError(() => err);
 				}
-				return throwError(() => firstError);
-			}),
-			catchError(error => throwError(() => error))
+				return throwError(() => err);
+			})
 		);
 	}
 

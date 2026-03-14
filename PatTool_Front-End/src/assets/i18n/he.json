@@ -37,7 +37,7 @@
         "GEO": "גאו",
         "POSITION_METEO": "מיקום/מזג אוויר",
         "ADDRESS_TO_MAP": "כתובת/GPS למפה",
-        "PHOTOS": "תמונות"
+        "PHOTOS": "קיר תמונות"
     },
     "NAVIGATION": {
         "BACK": "חזור",
@@ -760,6 +760,7 @@
         "ZOOM_IN": "הגדל",
         "ZOOM_OUT": "הקטן",
         "ZOOM_RESET": "איפוס זום",
+        "ADD_TO_DB": "הוסף למסד הנתונים",
         "SHARE": "שתף",
         "SHARE_IMAGE_TOOLTIP": "שתף תמונה (WhatsApp וכו')",
         "INFO_PANEL_ACTIVE": "לוח מידע פעיל",
@@ -1608,6 +1609,11 @@
         "LOADING": "טוען תמונות...",
         "RETRY": "נסה שוב",
         "NO_PHOTOS": "אין תמונות",
-        "NO_PHOTOS_DESC": "תמונות מהאירועים שלך יופיעו כאן כקיר זיכרונות יפה."
+        "NO_PHOTOS_DESC": "תמונות מהאירועים שלך יופיעו כאן כקיר זיכרונות יפה.",
+        "UPLOADING": "מוסיף תמונה למסד הנתונים...",
+        "UPLOAD_SUCCESS": "התמונה \"{{fileName}}\" נוספה בהצלחה!",
+        "UPLOAD_ERROR": "שגיאה בהוספת התמונה למסד הנתונים.",
+        "TOAST_SUCCESS_TITLE": "הצלחה",
+        "TOAST_ERROR_TITLE": "שגיאה"
     }
 }

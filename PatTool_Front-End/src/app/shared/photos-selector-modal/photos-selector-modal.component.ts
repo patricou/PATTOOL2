@@ -1,4 +1,4 @@
-import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitter, ViewChild, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnChanges, OnDestroy, SimpleChanges, Input, Output, EventEmitter, ViewChild, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -27,7 +27,7 @@ export interface PhotosSelectionResult {
     TranslateModule
   ]
 })
-export class PhotosSelectorModalComponent implements OnInit, OnChanges {
+export class PhotosSelectorModalComponent implements OnInit, OnChanges, OnDestroy {
   @Input() evenement!: Evenement;
   @Input() includeUploadedChoice: boolean = false;
   @Input() user!: Member;
@@ -55,6 +55,9 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
 
   // Section expansion state management
   private expandedSections: Map<string, boolean> = new Map();
+
+  /** Set to true in ngOnDestroy so pending setTimeout/RAF callbacks no-op and modal is closed to avoid leaks */
+  private destroyed = false;
 
   // Toggle expanded state for a section
   public toggleSectionExpansion(sectionKey: string): void {
@@ -118,6 +121,19 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     setTimeout(() => {
       this.initializeDefaultSelection();
     }, 0);
+  }
+
+  ngOnDestroy(): void {
+    this.destroyed = true;
+    if (this.modalRef) {
+      try {
+        this.modalRef.dismiss();
+      } catch (_) {
+        // ignore if already closed
+      }
+      this.modalRef = undefined;
+    }
+    this.unblockPageScroll();
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -197,6 +213,7 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     // Use the saved original position (or current if reopening)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        if (this.destroyed) return;
         // Always restore to the original saved position
         window.scrollTo(0, this.savedScrollPosition);
         document.documentElement.scrollTop = this.savedScrollPosition;
@@ -204,6 +221,7 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
         
         // Also check after a delay in case slideshow restoration was still in progress
         setTimeout(() => {
+          if (this.destroyed) return;
           window.scrollTo(0, this.savedScrollPosition);
           document.documentElement.scrollTop = this.savedScrollPosition;
           document.body.scrollTop = this.savedScrollPosition;
@@ -213,6 +231,7 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
 
     // Apply fixed width after modal is opened (multiple attempts to ensure it's applied)
     const applyWidth = () => {
+      if (this.destroyed) return;
       // Try multiple selectors to find the modal dialog
       const selectors = [
         '.fs-selector-modal.modal-dialog',
@@ -272,6 +291,7 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     // Use setTimeout to ensure modal is fully rendered and data might be loaded
     // Also defer to avoid ExpressionChangedAfterItHasBeenCheckedError
     setTimeout(() => {
+      if (this.destroyed) return;
       // Refresh cache in case files were loaded asynchronously
       this.updateImageFilesCache();
       this.checkAndSelectSingleOption();
@@ -280,6 +300,7 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     
     // Also check again after a longer delay in case files are still loading
     setTimeout(() => {
+      if (this.destroyed) return;
       // Refresh cache again in case files finished loading
       this.updateImageFilesCache();
       this.checkAndSelectSingleOption();
@@ -476,7 +497,7 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     
     // Also capture after a short delay to catch any delayed scroll restoration from previous modal
     // The slideshow uses a 300ms delay, so we wait slightly longer (350ms) to ensure it's complete
-    setTimeout(capturePosition, 350);
+    setTimeout(() => { if (!this.destroyed) capturePosition(); }, 350);
   }
   
   // Restore scroll position - single smooth restore after Bootstrap cleanup
@@ -503,8 +524,12 @@ export class PhotosSelectorModalComponent implements OnInit, OnChanges {
     // Use requestAnimationFrame to ensure DOM is ready, then restore
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        if (this.destroyed) return;
         // Restore after Bootstrap cleanup is complete
-        setTimeout(restoreScroll, 300);
+        setTimeout(() => {
+          if (this.destroyed) return;
+          restoreScroll();
+        }, 300);
       });
     });
   }

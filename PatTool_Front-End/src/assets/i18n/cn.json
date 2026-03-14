@@ -37,7 +37,7 @@
         "GEO": "地理",
         "POSITION_METEO": "位置/天气",
         "ADDRESS_TO_MAP": "地址/GPS到地图",
-        "PHOTOS": "照片"
+        "PHOTOS": "照片墙"
     },
     "NAVIGATION": {
         "BACK": "返回",
@@ -768,6 +768,7 @@
         "ZOOM_IN": "放大",
         "ZOOM_OUT": "缩小",
         "ZOOM_RESET": "重置缩放",
+        "ADD_TO_DB": "添加到数据库",
         "SHARE": "分享",
         "SHARE_IMAGE_TOOLTIP": "分享图片（WhatsApp 等）",
         "INFO_PANEL_ACTIVE": "信息面板已激活",
@@ -1617,6 +1618,11 @@
         "LOADING": "正在加载照片...",
         "RETRY": "重试",
         "NO_PHOTOS": "暂无照片",
-        "NO_PHOTOS_DESC": "您活动中的照片将以精美的照片墙形式展示在这里。"
+        "NO_PHOTOS_DESC": "您活动中的照片将以精美的照片墙形式展示在这里。",
+        "UPLOADING": "正在将照片添加到数据库...",
+        "UPLOAD_SUCCESS": "照片 \"{{fileName}}\" 已成功添加！",
+        "UPLOAD_ERROR": "添加照片到数据库时出错。",
+        "TOAST_SUCCESS_TITLE": "成功",
+        "TOAST_ERROR_TITLE": "错误"
     }
 }

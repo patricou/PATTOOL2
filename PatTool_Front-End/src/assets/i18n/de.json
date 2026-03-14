@@ -37,7 +37,7 @@
         "GEO": "Geo",
         "POSITION_METEO": "Position/Wetter",
         "ADDRESS_TO_MAP": "Adresse/GPS auf Karte",
-        "PHOTOS": "Fotos"
+        "PHOTOS": "Fotowand"
     },
     "NAVIGATION": {
         "BACK": "Zurück",
@@ -766,6 +766,7 @@
         "ZOOM_IN": "Einzoomen",
         "ZOOM_OUT": "Auszoomen",
         "ZOOM_RESET": "Zoom zurücksetzen",
+        "ADD_TO_DB": "In DB hinzufügen",
         "SHARE": "Teilen",
         "SHARE_IMAGE_TOOLTIP": "Bild teilen (WhatsApp, etc.)",
         "INFO_PANEL_ACTIVE": "Info-Panel aktiv",
@@ -1615,6 +1616,11 @@
         "LOADING": "Fotos werden geladen...",
         "RETRY": "Erneut versuchen",
         "NO_PHOTOS": "Keine Fotos",
-        "NO_PHOTOS_DESC": "Fotos Ihrer Veranstaltungen erscheinen hier als schöne Zeitleiste."
+        "NO_PHOTOS_DESC": "Fotos Ihrer Veranstaltungen erscheinen hier als schöne Zeitleiste.",
+        "UPLOADING": "Foto wird zur Datenbank hinzugefügt...",
+        "UPLOAD_SUCCESS": "Foto \"{{fileName}}\" erfolgreich hinzugefügt!",
+        "UPLOAD_ERROR": "Fehler beim Hinzufügen des Fotos zur Datenbank.",
+        "TOAST_SUCCESS_TITLE": "Erfolg",
+        "TOAST_ERROR_TITLE": "Fehler"
     }
 }

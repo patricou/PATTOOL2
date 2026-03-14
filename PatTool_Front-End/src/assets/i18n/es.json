@@ -37,7 +37,7 @@
         "GEO": "Geo",
         "POSITION_METEO": "Posición/Clima",
         "ADDRESS_TO_MAP": "Dirección/GPS al mapa",
-        "PHOTOS": "Fotos"
+        "PHOTOS": "Muro de fotos"
     },
     "NAVIGATION": {
         "BACK": "Atrás",
@@ -773,6 +773,7 @@
         "ZOOM_IN": "Acercar",
         "ZOOM_OUT": "Alejar",
         "ZOOM_RESET": "Restablecer zoom",
+        "ADD_TO_DB": "Añadir a la DB",
         "SHARE": "Compartir",
         "SHARE_IMAGE_TOOLTIP": "Compartir imagen (WhatsApp, etc.)",
         "INFO_PANEL_ACTIVE": "Panel de información activo",
@@ -1623,6 +1624,11 @@
         "LOADING": "Cargando fotos...",
         "RETRY": "Reintentar",
         "NO_PHOTOS": "Sin fotos",
-        "NO_PHOTOS_DESC": "Las fotos de tus eventos aparecerán aquí como un hermoso muro de recuerdos."
+        "NO_PHOTOS_DESC": "Las fotos de tus eventos aparecerán aquí como un hermoso muro de recuerdos.",
+        "UPLOADING": "Añadiendo foto a la base de datos...",
+        "UPLOAD_SUCCESS": "¡Foto \"{{fileName}}\" añadida con éxito!",
+        "UPLOAD_ERROR": "Error al añadir la foto a la base de datos.",
+        "TOAST_SUCCESS_TITLE": "Éxito",
+        "TOAST_ERROR_TITLE": "Error"
     }
 }

@@ -129,7 +129,7 @@ public class ImageCompressionService {
         this.cacheMaxSizeBytes = Math.max(50L * 1024 * 1024, (long) cacheMaxSizeMB * 1024 * 1024); // Minimum 50MB, default 500MB
         Duration effectiveTtl = cacheTtl != null ? cacheTtl : Duration.ofHours(1);
         this.cacheTtlMillis = Math.max(0L, effectiveTtl.toMillis());
-        log.info(
+        log.debug(
             "ImageCompressionService initialized with {} concurrent compression permits, cache enabled (maxEntries={}, maxSize={} MB, ttl={} ms)",
             permits,
             this.cacheMaxEntries,

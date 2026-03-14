@@ -1040,3 +1040,54 @@
     pointer-events: none !important;
   }
 }
+
+/* Toast when adding photo to DB from slideshow (above modals) */
+.add-to-db-toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  padding: 1.1rem 1.75rem;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 1rem;
+  z-index: 10000001;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: addToDbSlideIn 0.35s ease-out;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  max-width: 90vw;
+}
+.add-to-db-toast-success { background-color: #198754; }
+.add-to-db-toast-error { background-color: #dc3545; }
+.add-to-db-toast i { flex-shrink: 0; margin-top: 0.1rem; font-size: 1.5rem; }
+.add-to-db-toast-content { flex: 1; }
+.add-to-db-toast-content strong { font-size: 1.05rem; }
+@keyframes addToDbSlideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+/* Above slideshow modal (slideshow uses z-index up to 9999999) */
+.add-to-db-overlay {
+  position: fixed;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000000;
+}
+.add-to-db-overlay .spinner-border {
+  width: 3rem;
+  height: 3rem;
+  border-width: 0.3em;
+  color: #fff;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+}
+.add-to-db-overlay .text-light {
+  font-size: 1.15rem;
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+  letter-spacing: 0.02em;
+}
