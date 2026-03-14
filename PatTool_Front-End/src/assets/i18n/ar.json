@@ -62,7 +62,10 @@
         "SEARCH_PLACEHOLDER": "البحث بالاسم أو الرابط...",
         "NO_SEARCH_RESULTS": "لم يتم العثور على نتائج لهذا البحث",
         "OPEN_URL_ON_CLICK": "فتح الرابط عند النقر",
-        "ADMIN_BUTTON": "الإدارة"
+        "ADMIN_BUTTON": "الإدارة",
+        "CATEGORIES": {
+            "ADMINISTRATIF": "إداري"
+        }
     },
     "IOT": {
         "TITLE": "التحكم في المنزل",

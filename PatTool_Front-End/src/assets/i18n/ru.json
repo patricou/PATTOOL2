@@ -74,7 +74,10 @@
         "SEARCH_PLACEHOLDER": "Поиск по имени или URL...",
         "NO_SEARCH_RESULTS": "Результаты для этого поиска не найдены",
         "OPEN_URL_ON_CLICK": "Открыть URL при клике",
-        "ADMIN_BUTTON": "Администрирование"
+        "ADMIN_BUTTON": "Администрирование",
+        "CATEGORIES": {
+            "ADMINISTRATIF": "Администрирование"
+        }
     },
     "IOT": {
         "TITLE": "Управление домом",

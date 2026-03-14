@@ -62,7 +62,10 @@
         "SEARCH_PLACEHOLDER": "חיפוש לפי שם או כתובת...",
         "NO_SEARCH_RESULTS": "לא נמצאו תוצאות לחיפוש זה",
         "OPEN_URL_ON_CLICK": "פתח כתובת בלחיצה",
-        "ADMIN_BUTTON": "ניהול"
+        "ADMIN_BUTTON": "ניהול",
+        "CATEGORIES": {
+            "ADMINISTRATIF": "מנהלי"
+        }
     },
     "IOT": {
         "TITLE": "שליטה בבית",

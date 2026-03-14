@@ -80,7 +80,7 @@
                         <i class="fa" [ngClass]="getCategoryIcon(c.categoryName)"></i>
                     </div>
                     <h3 class="category-title">
-                        {{c.categoryName}}
+                        {{ getCategoryTranslationKey(c.categoryName) | translate }}
                         <span class="category-count">({{ categoryLinkCountById[c.categoryLinkID] }})</span>
                     </h3>
                     <div class="expand-icon">

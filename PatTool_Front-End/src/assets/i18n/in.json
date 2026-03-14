@@ -1083,7 +1083,10 @@
         "SEARCH_PLACEHOLDER": "नाम या URL से खोजें...",
         "NO_SEARCH_RESULTS": "इस खोज के लिए कोई परिणाम नहीं मिला",
         "OPEN_URL_ON_CLICK": "क्लिक पर URL खोलें",
-        "ADMIN_BUTTON": "प्रशासन"
+        "ADMIN_BUTTON": "प्रशासन",
+        "CATEGORIES": {
+            "ADMINISTRATIF": "प्रशासनिक"
+        }
     },
     "LINKSADMIN": {
         "TITLE": "लिंक प्रशासन",

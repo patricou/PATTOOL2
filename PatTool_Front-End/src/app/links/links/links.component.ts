@@ -260,6 +260,15 @@ export class LinksComponent implements OnInit {
     return u.id ?? `${u.url}-${u.linkName}`;
   }
 
+  /** Returns translation key for category name if one exists, otherwise the raw name (displayed as-is). */
+  getCategoryTranslationKey(categoryName: string): string {
+    const normalizedName = (categoryName || '').trim().toLowerCase();
+    const keyMap: { [key: string]: string } = {
+      'administratif': 'LINKS.CATEGORIES.ADMINISTRATIF'
+    };
+    return keyMap[normalizedName] || categoryName || '';
+  }
+
   getCategoryIcon(categoryName: string): string {
     // Normalize the category name (trim whitespace and convert to lowercase for comparison)
     const normalizedName = categoryName ? categoryName.trim().toLowerCase() : '';

@@ -62,7 +62,10 @@
         "SEARCH_PLACEHOLDER": "Buscar por nombre o URL...",
         "NO_SEARCH_RESULTS": "No se encontraron resultados para esta búsqueda",
         "OPEN_URL_ON_CLICK": "Abrir URL al hacer clic",
-        "ADMIN_BUTTON": "Administración"
+        "ADMIN_BUTTON": "Administración",
+        "CATEGORIES": {
+            "ADMINISTRATIF": "Administrativo"
+        }
     },
     "IOT": {
         "TITLE": "Control de Casa",

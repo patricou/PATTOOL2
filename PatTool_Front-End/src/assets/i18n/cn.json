@@ -62,7 +62,10 @@
         "SEARCH_PLACEHOLDER": "按名称或URL搜索...",
         "NO_SEARCH_RESULTS": "未找到搜索结果",
         "OPEN_URL_ON_CLICK": "点击时打开URL",
-        "ADMIN_BUTTON": "管理"
+        "ADMIN_BUTTON": "管理",
+        "CATEGORIES": {
+            "ADMINISTRATIF": "行政"
+        }
     },
     "IOT": {
         "TITLE": "家庭控制",

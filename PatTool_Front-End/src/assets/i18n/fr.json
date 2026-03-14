@@ -1102,7 +1102,10 @@
         "SEARCH_PLACEHOLDER": "Rechercher par nom ou URL...",
         "NO_SEARCH_RESULTS": "Aucun résultat trouvé pour cette recherche",
         "OPEN_URL_ON_CLICK": "Ouvrir l'URL au clic",
-        "ADMIN_BUTTON": "Administration"
+        "ADMIN_BUTTON": "Administration",
+        "CATEGORIES": {
+            "ADMINISTRATIF": "Administratif"
+        }
     },
     "LINKSADMIN": {
         "TITLE": "Administration des Liens",
