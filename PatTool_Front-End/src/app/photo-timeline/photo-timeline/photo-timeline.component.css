@@ -355,6 +355,52 @@
     display: block;
 }
 
+/* Video groups (mur de photos - stream vidéos) */
+.timeline-video-groups .group-date-badge .fa-video-camera {
+    color: #e94560;
+}
+
+.video-card {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    cursor: pointer;
+}
+
+.video-card-inner {
+    min-height: 180px;
+}
+
+.video-placeholder {
+    width: 100%;
+    height: 180px;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.video-placeholder .fa-play-circle-o {
+    opacity: 0.9;
+}
+
+.video-card:hover .video-placeholder {
+    color: rgba(255, 255, 255, 0.95);
+}
+
+.video-card-inline .timeline-video {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 10px;
+}
+
+.video-card-inline .photo-overlay {
+    opacity: 0.8;
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
     .masonry-grid {

@@ -308,6 +308,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public thumbnails: string[] = []; // Array of thumbnail blob URLs, indexed by slideshowImages index
   public isLoadingThumbnails: boolean = false;
   private loadingThumbnailImageIndices: Set<number> = new Set(); // Track which image indices are currently loading (by this.images index)
+  private loadingImageIndices: Set<number> = new Set(); // Track which image indices are currently loading (full image fetch) – show spinner on thumbnail
   private pendingThumbnailImageIndices: Set<number> = new Set(); // Track indices that are pending loading state update (to prevent duplicates)
   private thumbnailBlobs: Map<string, Blob> = new Map(); // Store thumbnail blobs by thumbnail URL
   private imageUrlToThumbnailIndex: Map<string, number> = new Map(); // Map image URL to its index in this.images
@@ -539,6 +540,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.slideshowIndexToImageIndex.clear();
     this.imageCache.clear();
     this.loadingImageKeys.clear();
+    this.loadingImageIndices.clear();
     this.imagePatMetadata.clear();
     this.imageLocations.clear();
     this.mapUrlCache.clear();
@@ -660,6 +662,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.startIndependentThumbnailGeneration();
     this.imageCache.clear();
     this.loadingImageKeys.clear();
+    this.loadingImageIndices.clear();
     this.pendingImageLoads.clear();
     this.imageLocations.clear();
     this.mapUrlCache.clear();
@@ -878,6 +881,11 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           this.pendingImageLoads.set(cacheKey, []);
         }
         this.pendingImageLoads.get(cacheKey)!.push(imageIndex);
+        // Show spinner on this thumbnail while waiting for the shared load
+        this.ngZone.run(() => {
+          this.loadingImageIndices.add(imageIndex);
+          this.cdr.markForCheck();
+        });
         // Process next in queue (no need to increment activeImageLoads for pending images)
         this.processImageLoadQueue();
         continue;
@@ -889,6 +897,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (cacheKey) {
         this.loadingImageKeys.add(cacheKey);
       }
+      
+      // Show spinner on this thumbnail while the full image loads
+      this.ngZone.run(() => {
+        this.loadingImageIndices.add(imageIndex);
+        this.cdr.markForCheck();
+      });
       
       // Start the request immediately (don't wait)
       const startRequest = () => {
@@ -932,11 +946,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             (error) => {
               if (cacheKey) {
                 this.loadingImageKeys.delete(cacheKey);
+                const pendingIndices = this.pendingImageLoads.get(cacheKey);
+                if (pendingIndices) {
+                  pendingIndices.forEach(idx => this.loadingImageIndices.delete(idx));
+                }
                 this.pendingImageLoads.delete(cacheKey);
               }
+              this.loadingImageIndices.delete(imageIndex);
               this.activeImageLoads--;
               setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
               this.processImageLoadQueue();
+              this.ngZone.run(() => this.cdr.markForCheck());
             }
           );
           this.imageLoadingSubs.push(subscription);
@@ -980,11 +1000,17 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
             (error) => {
               if (cacheKey) {
                 this.loadingImageKeys.delete(cacheKey);
+                const pendingIndices = this.pendingImageLoads.get(cacheKey);
+                if (pendingIndices) {
+                  pendingIndices.forEach(idx => this.loadingImageIndices.delete(idx));
+                }
                 this.pendingImageLoads.delete(cacheKey);
               }
+              this.loadingImageIndices.delete(imageIndex);
               this.activeImageLoads--;
               setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
               this.processImageLoadQueue();
+              this.ngZone.run(() => this.cdr.markForCheck());
             }
           );
           this.imageLoadingSubs.push(subscription);
@@ -1024,6 +1050,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
           if (cacheKey) {
             this.loadingImageKeys.delete(cacheKey);
           }
+          this.loadingImageIndices.delete(imageIndex);
           this.activeImageLoads--;
           this.processImageLoadQueue();
         }
@@ -1041,6 +1068,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   private applyImageLoaded(objectUrl: string, blob: Blob | null, imageIndex: number, metadata?: PatMetadata): void {
+    this.loadingImageIndices.delete(imageIndex);
     // Insert image at its correct position in the sorted order (imageIndex)
     const slideshowIndex = imageIndex;
     if (slideshowIndex < this.slideshowImages.length) {
@@ -1213,6 +1241,10 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Images will be inserted at their correct index position, not appended
     this.slideshowImages = new Array(this.images.length).fill('');
     
+    for (let i = 0; i < this.images.length; i++) {
+      this.slideshowIndexToImageIndex.set(i, i);
+    }
+    
     // Queue all images for loading with priority (first images loaded first)
     this.images.forEach((imageSource, imageIndex) => {
       if (!imageSource) return;
@@ -1259,6 +1291,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Extend thumbnails array as well
     while (this.thumbnails.length < newLength) {
       this.thumbnails.push('');
+    }
+    for (let i = startIndex; i < newLength; i++) {
+      this.slideshowIndexToImageIndex.set(i, i);
     }
     
     newImages.forEach((imageSource, relativeIndex) => {
@@ -6360,13 +6395,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Check if a specific thumbnail is loading (by slideshow index)
   public isThumbnailLoading(slideshowIndex: number): boolean {
-    // Convert slideshow index to image index
-    const imageIndex = this.slideshowIndexToImageIndex.get(slideshowIndex);
-    if (imageIndex === undefined) {
-      return false;
-    }
-    // Check if this image index is loading
-    return this.loadingThumbnailImageIndices.has(imageIndex);
+    const imageIndex = this.slideshowIndexToImageIndex.get(slideshowIndex) ?? slideshowIndex;
+    return this.loadingImageIndices.has(imageIndex) || this.loadingThumbnailImageIndices.has(imageIndex);
   }
   
   // Handle thumbnail click - change to that image

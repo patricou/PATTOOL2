@@ -6,15 +6,27 @@ import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from '../../shared/slideshow-modal/slideshow-modal.module';
 import { SlideshowModalComponent, SlideshowImageSource, SlideshowAddToDbEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { VideoshowModalModule } from '../../shared/videoshow-modal/videoshow-modal.module';
+import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotoTimelineService, TimelineResponse, TimelineGroup, TimelinePhoto, FsPhotoLink } from '../../services/photo-timeline.service';
 import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { Subscription } from 'rxjs';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 
 const BUFFER_AHEAD = 3;
-const SCROLL_THRESHOLD_PX = 400;
+/** Hauteur approximative d'un bloc événement (px) pour précharger 3 événements en avance. */
+const EVENT_BLOCK_HEIGHT_PX = 500;
+const PREFETCH_EVENTS_AHEAD = 3;
+
+export interface GroupMediaItem {
+    type: 'photo' | 'video';
+    item: TimelinePhoto;
+    photoIndex?: number; // index parmi les photos uniquement (pour le slideshow)
+}
+const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HEIGHT_PX);
 
 @Component({
     selector: 'app-photo-timeline',
@@ -28,24 +40,29 @@ const SCROLL_THRESHOLD_PX = 400;
         TranslateModule,
         NgbModule,
         NavigationButtonsModule,
-        SlideshowModalModule
+        SlideshowModalModule,
+        VideoshowModalModule
     ]
 })
 export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
     @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
+    @ViewChild('videoshowModalComponent') videoshowModalComponent!: VideoshowModalComponent;
     @ViewChild('scrollSentinel') scrollSentinel!: ElementRef;
     @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
 
     visibleGroups: TimelineGroup[] = [];
     bufferedGroups: TimelineGroup[] = [];
+    bufferedVideoGroups: TimelineGroup[] = [];
     onThisDay: TimelinePhoto[] = [];
 
     isLoading = true;
     isFetching = false;
+    isFetchingVideos = false;
     errorMessage = '';
     searchFilter = '';
     hasMore = true;
+    hasMoreVideos = true;
 
     compressImages = true;
     isUploading = false;
@@ -54,9 +71,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
     thumbnailCache: Map<string, string> = new Map();
     loadingThumbnails: Set<string> = new Set();
+    videoUrlCache: Map<string, string> = new Map();
+    videoSafeUrlCache: Map<string, SafeUrl> = new Map(); // même instance SafeUrl pour éviter rechargements
+    loadingVideos: Set<string> = new Set();
 
     private userId = '';
     private nextPage = 0;
+    private nextPageVideos = 0;
     private subscriptions: Subscription[] = [];
     private waitInterval: any;
     private intersectionObserver: IntersectionObserver | null = null;
@@ -73,7 +94,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         private fileService: FileService,
         private modalService: NgbModal,
         private translate: TranslateService,
-        private cdr: ChangeDetectorRef
+        private cdr: ChangeDetectorRef,
+        private sanitizer: DomSanitizer
     ) {}
 
     ngOnInit(): void {
@@ -99,6 +121,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         });
         this.thumbnailCache.clear();
         this.loadingThumbnails.clear();
+        this.videoUrlCache.forEach(url => {
+            if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+        });
+        this.videoUrlCache.clear();
+        this.videoSafeUrlCache.clear();
+        this.loadingVideos.clear();
     }
 
     private waitForUser(): void {
@@ -116,15 +144,19 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         this.isLoading = true;
         this.errorMessage = '';
         this.nextPage = 0;
+        this.nextPageVideos = 0;
         this.visibleGroups = [];
         this.bufferedGroups = [];
+        this.bufferedVideoGroups = [];
         this.hasMore = true;
+        this.hasMoreVideos = true;
         this.onThisDay = [];
         this.startStreaming();
     }
 
     private startStreaming(): void {
         this.fetchNext();
+        this.fetchNextVideos();
         this.loadOnThisDay();
     }
 
@@ -150,21 +182,20 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
                     this.nextPage = response.page + 1;
 
                     if (response.groups.length > 0) {
-                        const group = response.groups[0];
-
-                        if (this.isLoading) {
-                            this.visibleGroups.push(group);
-                            this.isLoading = false;
-                            this.preloadThumbnailsForGroup(group);
-                            setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
-                        } else {
-                            this.bufferedGroups.push(group);
-                            this.preloadThumbnailsForGroup(group);
+                        this.bufferedGroups.push(response.groups[0]);
+                        if (this.visibleGroups.length === 0) {
+                            this.revealMore();
                         }
+                    } else if (this.isLoading && !response.hasMore && this.bufferedVideoGroups.length === 0) {
+                        this.isLoading = false;
+                        setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
                     }
 
                     if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) {
                         this.fetchNext();
+                    }
+                    if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) {
+                        this.fetchNextVideos();
                     }
                     this.cdr.markForCheck();
                 }, 0);
@@ -185,20 +216,75 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         this.subscriptions.push(sub);
     }
 
+    private fetchNextVideos(): void {
+        if (this.isFetchingVideos || !this.hasMoreVideos) return;
+        this.isFetchingVideos = true;
+
+        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, 1).subscribe({
+            next: (response: TimelineResponse) => {
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    this.isFetchingVideos = false;
+                    this.hasMoreVideos = response.hasMore;
+                    this.nextPageVideos = response.page + 1;
+
+                    if (response.groups.length > 0) {
+                        this.bufferedVideoGroups.push(response.groups[0]);
+                        if (this.visibleGroups.length === 0) {
+                            this.revealMore();
+                        }
+                    }
+
+                    if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) {
+                        this.fetchNextVideos();
+                    }
+                    this.cdr.markForCheck();
+                }, 0);
+            },
+            error: () => {
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    this.isFetchingVideos = false;
+                    this.cdr.markForCheck();
+                }, 0);
+            }
+        });
+        this.subscriptions.push(sub);
+    }
+
     /**
-     * Called when the user scrolls near the bottom.
-     * Moves buffered groups into visible, then fetches more to refill the buffer.
+     * Révèle un groupe (le plus ancien par date) depuis les buffers photo/vidéo,
+     * le normalise si c'est un groupe vidéo seul, et le met dans visibleGroups.
      */
     private revealMore(): void {
-        if (this.bufferedGroups.length === 0 && !this.hasMore) return;
+        if (this.bufferedGroups.length === 0 && this.bufferedVideoGroups.length === 0 &&
+            !this.hasMore && !this.hasMoreVideos) return;
 
-        const toReveal = this.bufferedGroups.splice(0, 1);
-        this.visibleGroups.push(...toReveal);
+        const gPhoto = this.bufferedGroups[0];
+        const gVideo = this.bufferedVideoGroups[0];
+        const datePhoto = gPhoto?.eventDate ? new Date(gPhoto.eventDate).getTime() : Infinity;
+        const dateVideo = gVideo?.eventDate ? new Date(gVideo.eventDate).getTime() : Infinity;
 
-        if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) {
-            this.fetchNext();
+        let group: TimelineGroup;
+        if (gVideo != null && (gPhoto == null || dateVideo <= datePhoto)) {
+            this.bufferedVideoGroups.splice(0, 1);
+            group = { ...gVideo, photos: [], videos: gVideo.photos || [] };
+        } else if (gPhoto != null) {
+            this.bufferedGroups.splice(0, 1);
+            group = gPhoto;
+        } else {
+            return;
         }
 
+        this.visibleGroups.push(group);
+        this.preloadThumbnailsForGroup(group);
+        if (this.visibleGroups.length === 1) {
+            this.isLoading = false;
+            setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
+        }
+
+        if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) this.fetchNext();
+        if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) this.fetchNextVideos();
         setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
     }
 
@@ -208,11 +294,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         }
 
         if (!this.scrollSentinel?.nativeElement) return;
-        if (!this.hasMore && this.bufferedGroups.length === 0) return;
+        if (!this.hasMore && this.bufferedGroups.length === 0 && !this.hasMoreVideos && this.bufferedVideoGroups.length === 0) return;
 
         this.intersectionObserver = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && (this.bufferedGroups.length > 0 || this.hasMore)) {
+                if (entries[0].isIntersecting && (this.bufferedGroups.length > 0 || this.hasMore || this.bufferedVideoGroups.length > 0 || this.hasMoreVideos)) {
                     this.revealMore();
                 }
             },
@@ -224,7 +310,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
     @HostListener('window:scroll')
     onWindowScroll(): void {
-        if (this.bufferedGroups.length === 0 && !this.hasMore) return;
+        if (this.bufferedGroups.length === 0 && !this.hasMore && this.bufferedVideoGroups.length === 0 && !this.hasMoreVideos) return;
 
         const scrollPosition = window.innerHeight + window.scrollY;
         const documentHeight = document.documentElement.scrollHeight;
@@ -251,6 +337,31 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         this.searchFilter = '';
     }
 
+    /** Média d'un groupe : photos et vidéos en parallèle (entrelacés), pas les vidéos en premier. */
+    getGroupMedia(group: TimelineGroup): GroupMediaItem[] {
+        const photos = group.photos || [];
+        const videos = group.videos || [];
+        const list: GroupMediaItem[] = [];
+        let photoIndex = 0;
+        const maxLen = Math.max(photos.length, videos.length);
+        for (let i = 0; i < maxLen; i++) {
+            if (photos[i]) {
+                list.push({ type: 'photo', item: photos[i], photoIndex: photoIndex++ });
+            }
+            if (videos[i]) {
+                list.push({ type: 'video', item: videos[i] });
+            }
+        }
+        return list;
+    }
+
+    private isVideoFile(fileName: string): boolean {
+        if (!fileName) return false;
+        const lower = fileName.toLowerCase();
+        const ext = ['.mp4', '.webm', '.ogg', '.ogv', '.mov', '.avi', '.mkv', '.m4v', '.3gp'];
+        return ext.some(e => lower.endsWith(e));
+    }
+
     getThumbnailUrl(photo: TimelinePhoto): string | null {
         if (this.thumbnailCache.has(photo.fileId)) {
             return this.thumbnailCache.get(photo.fileId)!;
@@ -259,6 +370,52 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             this.loadThumbnail(photo);
         }
         return null;
+    }
+
+    getVideoUrl(video: TimelinePhoto): SafeUrl | null {
+        const id = video.fileId;
+        if (this.videoSafeUrlCache.has(id)) {
+            return this.videoSafeUrlCache.get(id)!;
+        }
+        if (this.videoUrlCache.has(id)) {
+            const url = this.videoUrlCache.get(id)!;
+            const safe = this.sanitizer.bypassSecurityTrustUrl(url);
+            this.videoSafeUrlCache.set(id, safe);
+            return safe;
+        }
+        if (!this.loadingVideos.has(id)) {
+            this.loadVideoUrl(video);
+        }
+        return null;
+    }
+
+    private loadVideoUrl(video: TimelinePhoto): void {
+        const id = video.fileId;
+        if (this.videoUrlCache.has(id) || this.loadingVideos.has(id)) {
+            return;
+        }
+        this.loadingVideos.add(id);
+        const sub = this.fileService.getFile(id).subscribe({
+            next: (data: ArrayBuffer) => {
+                if (this.destroyed) return;
+                if (this.videoUrlCache.has(id)) {
+                    this.loadingVideos.delete(id);
+                    return;
+                }
+                const blob = new Blob([data], { type: video.fileType || 'video/mp4' });
+                const url = URL.createObjectURL(blob);
+                this.videoUrlCache.set(id, url);
+                const safe = this.sanitizer.bypassSecurityTrustUrl(url);
+                this.videoSafeUrlCache.set(id, safe);
+                this.loadingVideos.delete(id);
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                this.loadingVideos.delete(id);
+                this.cdr.markForCheck();
+            }
+        });
+        this.subscriptions.push(sub);
     }
 
     private loadThumbnail(photo: TimelinePhoto): void {
@@ -278,8 +435,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     }
 
     private preloadThumbnailsForGroup(group: TimelineGroup): void {
-        for (const photo of group.photos) {
+        for (const photo of group.photos || []) {
             this.getThumbnailUrl(photo);
+        }
+        for (const video of group.videos || []) {
+            this.getVideoUrl(video);
         }
     }
 
@@ -290,6 +450,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             fileName: p.fileName
         }));
         this.slideshowModalComponent.open(images, group.eventName, true, 0, undefined, startIndex);
+    }
+
+    /** Ouvre la vidéo dans le modal lecteur (mur de photos). */
+    openVideoInVideoshow(fileId: string, fileName: string, eventName: string): void {
+        if (!this.videoshowModalComponent) return;
+        const source: VideoshowVideoSource = { fileId, fileName };
+        this.videoshowModalComponent.open([source], eventName || '', true);
     }
 
     openOnThisDaySlideshow(index: number): void {
@@ -502,5 +669,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
     trackByPhotoId(index: number, photo: TimelinePhoto): string {
         return photo.fileId;
+    }
+
+    trackByMediaId(index: number, media: GroupMediaItem): string {
+        return media.item.fileId;
     }
 }

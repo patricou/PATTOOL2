@@ -29,6 +29,7 @@ import { VideoUploadProcessingService } from '../../services/video-upload-proces
 import { environment } from '../../../environments/environment';
 import { FriendGroup } from '../../model/friend';
 import { EventColorService } from '../../services/event-color.service';
+import { EventVideoPreloadService } from '../../services/event-video-preload.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 
@@ -314,7 +315,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     private cdr: ChangeDetectorRef,
     private ngZone: NgZone,
     private eventColorService: EventColorService,
-    private keycloakService: KeycloakService
+    private keycloakService: KeycloakService,
+    private eventVideoPreloadService: EventVideoPreloadService
   ) {
     this.nativeWindow = winRef.getNativeWindow();
   }
@@ -5268,11 +5270,24 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         return;
       }
       
-      // Check cache first - but still load size if not available
+      // Check local cache first - but still load size if not available
       if (this.videoUrlCache.has(file.fieldId) && this.videoFileSizes.has(file.fieldId)) {
         const cachedUrl = this.videoUrlCache.get(file.fieldId);
         if (cachedUrl) {
           this.videoUrls.set(file.fieldId, cachedUrl);
+          this.cdr.detectChanges();
+        }
+        return;
+      }
+      
+      // Use preload cache from wall (parallel video stream) if available
+      if (this.eventVideoPreloadService.hasCached(file.fieldId)) {
+        const cachedUrl = this.eventVideoPreloadService.getCachedUrl(file.fieldId);
+        const cachedSize = this.eventVideoPreloadService.getCachedSize(file.fieldId);
+        if (cachedUrl) {
+          this.videoUrlCache.set(file.fieldId, cachedUrl);
+          this.videoUrls.set(file.fieldId, cachedUrl);
+          if (cachedSize != null) this.videoFileSizes.set(file.fieldId, cachedSize);
           this.cdr.detectChanges();
         }
         return;

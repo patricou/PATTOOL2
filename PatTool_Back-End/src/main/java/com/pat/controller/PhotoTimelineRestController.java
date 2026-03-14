@@ -126,6 +126,7 @@ public class PhotoTimelineRestController {
         private String eventType;
         private Date eventDate;
         private List<TimelinePhoto> photos;
+        private List<TimelinePhoto> videos;
         private List<FsPhotoLink> fsPhotoLinks;
 
         public TimelineGroup() {}
@@ -140,6 +141,8 @@ public class PhotoTimelineRestController {
         public void setEventDate(Date eventDate) { this.eventDate = eventDate; }
         public List<TimelinePhoto> getPhotos() { return photos; }
         public void setPhotos(List<TimelinePhoto> photos) { this.photos = photos; }
+        public List<TimelinePhoto> getVideos() { return videos; }
+        public void setVideos(List<TimelinePhoto> videos) { this.videos = videos; }
         public List<FsPhotoLink> getFsPhotoLinks() { return fsPhotoLinks; }
         public void setFsPhotoLinks(List<FsPhotoLink> fsPhotoLinks) { this.fsPhotoLinks = fsPhotoLinks; }
     }
@@ -208,6 +211,7 @@ public class PhotoTimelineRestController {
 
             for (Evenement e : events) {
                 List<TimelinePhoto> photos = extractPhotos(e);
+                List<TimelinePhoto> videos = extractVideos(e);
                 List<FsPhotoLink> fsLinks = extractFsPhotoLinks(e);
                 if (!photos.isEmpty()) {
                     TimelineGroup group = new TimelineGroup();
@@ -216,6 +220,7 @@ public class PhotoTimelineRestController {
                     group.setEventType(e.getType());
                     group.setEventDate(e.getBeginEventDate());
                     group.setPhotos(photos);
+                    group.setVideos(videos != null ? videos : Collections.emptyList());
                     group.setFsPhotoLinks(fsLinks);
                     groups.add(group);
                     totalPhotosInPage += photos.size();
@@ -238,6 +243,79 @@ public class PhotoTimelineRestController {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Error building photo timeline", e);
+            return ResponseEntity.status(500).build();
+        }
+    }
+
+    /**
+     * Video timeline: events that have at least one video and NO photos (so they are not already in the main timeline).
+     * This avoids showing the same event twice on the wall (once as video-only, once as photos+videos).
+     */
+    @GetMapping(value = "/timeline/videos", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<TimelineResponse> getVideoTimeline(
+            @RequestHeader(value = "user-id", required = false) String userId,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "1") int size) {
+        try {
+            long start = System.currentTimeMillis();
+            Criteria accessCriteria = getCachedAccessCriteria(userId);
+
+            Criteria hasVideo = new Criteria().orOperator(
+                    Criteria.where("fileUploadeds.fileType").regex("^video/"),
+                    Criteria.where("fileUploadeds.fileName").regex(".*\\.(mp4|webm|ogg|ogv|mov|avi|mkv|m4v|3gp)$", "i"));
+            // Only events that have no image files → they won't appear in the main photo timeline
+            Criteria hasNoPhotos = new Criteria().norOperator(Criteria.where("fileUploadeds.fileType").regex("^image/"));
+            Criteria combined = new Criteria().andOperator(accessCriteria, hasVideo, hasNoPhotos);
+            Query pagedQuery = new Query(combined);
+            pagedQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
+            pagedQuery.skip((long) page * size);
+            pagedQuery.limit(size + 1);
+            pagedQuery.fields()
+                    .include("id")
+                    .include("evenementName")
+                    .include("type")
+                    .include("beginEventDate")
+                    .include("fileUploadeds");
+
+            List<Evenement> events = mongoTemplate.find(pagedQuery, Evenement.class);
+
+            boolean hasMore = events.size() > size;
+            if (hasMore) {
+                events = events.subList(0, size);
+            }
+
+            List<TimelineGroup> groups = new ArrayList<>();
+            int totalVideosInPage = 0;
+
+            for (Evenement e : events) {
+                List<TimelinePhoto> videos = extractVideos(e);
+                if (!videos.isEmpty()) {
+                    TimelineGroup group = new TimelineGroup();
+                    group.setEventId(e.getId());
+                    group.setEventName(e.getEvenementName());
+                    group.setEventType(e.getType());
+                    group.setEventDate(e.getBeginEventDate());
+                    group.setPhotos(videos);
+                    group.setFsPhotoLinks(Collections.emptyList());
+                    groups.add(group);
+                    totalVideosInPage += videos.size();
+                }
+            }
+
+            TimelineResponse response = new TimelineResponse();
+            response.setGroups(groups);
+            response.setTotalPhotos(totalVideosInPage);
+            response.setTotalGroups(-1);
+            response.setPage(page);
+            response.setPageSize(size);
+            response.setHasMore(hasMore);
+            response.setOnThisDay(Collections.emptyList());
+
+            long elapsed = System.currentTimeMillis() - start;
+            log.debug("Video timeline page {} ({} groups) served in {}ms for user {}", page, groups.size(), elapsed, userId);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error building video timeline", e);
             return ResponseEntity.status(500).build();
         }
     }
@@ -271,6 +349,8 @@ public class PhotoTimelineRestController {
         return links;
     }
 
+    private static final String[] VIDEO_EXTENSIONS = { ".mp4", ".webm", ".ogg", ".ogv", ".mov", ".avi", ".mkv", ".m4v", ".3gp" };
+
     private List<TimelinePhoto> extractPhotos(Evenement e) {
         List<TimelinePhoto> photos = new ArrayList<>();
         if (e.getFileUploadeds() == null) return photos;
@@ -289,6 +369,38 @@ public class PhotoTimelineRestController {
             }
         }
         return photos;
+    }
+
+    private boolean isVideoFile(FileUploaded file) {
+        if (file.getFileType() != null && file.getFileType().startsWith("video/")) return true;
+        String name = file.getFileName();
+        if (name == null) return false;
+        String lower = name.toLowerCase();
+        for (String ext : VIDEO_EXTENSIONS) {
+            if (lower.endsWith(ext)) return true;
+        }
+        return false;
+    }
+
+    private List<TimelinePhoto> extractVideos(Evenement e) {
+        List<TimelinePhoto> videos = new ArrayList<>();
+        if (e.getFileUploadeds() == null) return videos;
+        for (FileUploaded file : e.getFileUploadeds()) {
+            if (isVideoFile(file)) {
+                String type = file.getFileType() != null ? file.getFileType() : "video/mp4";
+                videos.add(new TimelinePhoto(
+                        file.getFieldId(),
+                        file.getFileName(),
+                        type,
+                        null,
+                        e.getId(),
+                        e.getEvenementName(),
+                        e.getType(),
+                        e.getBeginEventDate()
+                ));
+            }
+        }
+        return videos;
     }
 
     private Criteria getCachedAccessCriteria(String userId) {

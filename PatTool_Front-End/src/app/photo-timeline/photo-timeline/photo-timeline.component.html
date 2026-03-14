@@ -83,8 +83,8 @@
         </button>
     </div>
 
-    <!-- Empty State -->
-    <div class="timeline-empty" *ngIf="!isLoading && !errorMessage && filteredGroups.length === 0 && !hasMore">
+    <!-- Empty State (no photos and no videos) -->
+    <div class="timeline-empty" *ngIf="!isLoading && !errorMessage && filteredGroups.length === 0 && !hasMore && !hasMoreVideos">
         <i class="fa fa-camera fa-3x"></i>
         <h6>{{ 'PHOTO_TIMELINE.NO_PHOTOS' | translate }}</h6>
         <p>{{ 'PHOTO_TIMELINE.NO_PHOTOS_DESC' | translate }}</p>
@@ -105,7 +105,7 @@
                     </h6>
                     <span class="group-date">{{ formatEventDate(group.eventDate) }}</span>
                     <span class="group-count">
-                        <i class="fa fa-picture-o"></i> {{ group.photos.length }}
+                        <i class="fa fa-picture-o"></i> {{ (group.photos?.length || 0) + (group.videos?.length || 0) }}
                     </span>
                 </div>
                 <div class="group-fs-buttons" *ngIf="group.fsPhotoLinks && group.fsPhotoLinks.length > 0">
@@ -119,27 +119,53 @@
                 </div>
             </div>
 
-            <!-- Masonry Grid -->
+            <!-- Masonry Grid : photos et vidéos mélangés, vidéos en autoplay comme détail -->
             <div class="masonry-grid">
-                <div class="masonry-item" 
-                     *ngFor="let photo of group.photos; let i = index; trackBy: trackByPhotoId"
-                     (click)="openSlideshow(group, i)">
-                    <div class="photo-card">
-                        <img *ngIf="getThumbnailUrl(photo)" 
-                             [src]="getThumbnailUrl(photo)" 
-                             [alt]="photo.fileName"
-                             loading="lazy"
-                             class="photo-img">
-                        <div class="photo-placeholder" *ngIf="!getThumbnailUrl(photo)">
-                            <div class="placeholder-spinner">
-                                <div class="spinner-border spinner-border-sm text-light" role="status"></div>
+                <ng-container *ngFor="let media of getGroupMedia(group); trackBy: trackByMediaId">
+                    <!-- Photo -->
+                    <div class="masonry-item" 
+                         *ngIf="media.type === 'photo'"
+                         (click)="openSlideshow(group, media.photoIndex ?? 0)">
+                        <div class="photo-card">
+                            <img *ngIf="getThumbnailUrl(media.item)" 
+                                 [src]="getThumbnailUrl(media.item)" 
+                                 [alt]="media.item.fileName"
+                                 loading="lazy"
+                                 class="photo-img">
+                            <div class="photo-placeholder" *ngIf="!getThumbnailUrl(media.item)">
+                                <div class="placeholder-spinner">
+                                    <div class="spinner-border spinner-border-sm text-light" role="status"></div>
+                                </div>
+                            </div>
+                            <div class="photo-overlay">
+                                <span class="photo-name">{{ media.item.fileName }}</span>
                             </div>
                         </div>
-                        <div class="photo-overlay">
-                            <span class="photo-name">{{ photo.fileName }}</span>
+                    </div>
+                    <!-- Vidéo : lecture auto (autoplay muted loop) comme dans détail -->
+                    <div class="masonry-item video-card-inline" *ngIf="media.type === 'video'">
+                        <div class="photo-card video-card-inner">
+                            <div *ngIf="!getVideoUrl(media.item)" class="video-placeholder">
+                                <i class="fa fa-spinner fa-spin fa-2x"></i>
+                            </div>
+                            <video *ngIf="getVideoUrl(media.item)"
+                                   [src]="getVideoUrl(media.item)"
+                                   controls
+                                   autoplay
+                                   muted
+                                   loop
+                                   playsinline
+                                   preload="auto"
+                                   class="photo-img timeline-video"
+                                   [attr.alt]="media.item.fileName">
+                                {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
+                            </video>
+                            <div class="photo-overlay">
+                                <span class="photo-name">{{ media.item.fileName }}</span>
+                            </div>
                         </div>
                     </div>
-                </div>
+                </ng-container>
             </div>
         </div>
     </div>
@@ -148,13 +174,13 @@
     <div #scrollSentinel class="scroll-sentinel"></div>
 
     <!-- Streaming indicator (fetching next activity) -->
-    <div class="timeline-loading-more" *ngIf="isFetching && !isLoading">
+    <div class="timeline-loading-more" *ngIf="(isFetching || isFetchingVideos) && !isLoading">
         <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
         <span>{{ 'PHOTO_TIMELINE.LOADING' | translate }}</span>
     </div>
 
     <!-- All loaded indicator -->
-    <div class="timeline-all-loaded" *ngIf="!isLoading && !hasMore && bufferedGroups.length === 0 && visibleGroups.length > 0">
+    <div class="timeline-all-loaded" *ngIf="!isLoading && !hasMore && !hasMoreVideos && bufferedGroups.length === 0 && bufferedVideoGroups.length === 0 && visibleGroups.length > 0">
         <span class="text-muted">
             <i class="fa fa-check-circle"></i>
             {{ visibleGroups.length }} {{ 'PHOTO_TIMELINE.EVENTS' | translate }}
@@ -213,3 +239,6 @@
 <app-slideshow-modal #slideshowModalComponent 
     (closed)="onSlideshowClosed()" 
     (addToDb)="onAddToDb($event)"></app-slideshow-modal>
+
+<!-- Videoshow Modal (lecteur vidéo au clic sur une carte vidéo du mur) -->
+<app-videoshow-modal #videoshowModalComponent></app-videoshow-modal>

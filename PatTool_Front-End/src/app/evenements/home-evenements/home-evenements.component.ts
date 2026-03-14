@@ -21,6 +21,7 @@ import { WindowRefService } from '../../services/window-ref.service';
 import { FileService } from '../../services/file.service';
 import { CommonvaluesService } from '../../services/commonvalues.service';
 import { EvenementsService, StreamedEvent } from '../../services/evenements.service';
+import { EventVideoPreloadService } from '../../services/event-video-preload.service';
 import { environment } from '../../../environments/environment';
 import { ElementEvenementComponent } from '../element-evenement/element-evenement.component';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
@@ -170,6 +171,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	private readonly INITIAL_CARDS_IMMEDIATE_DETECTION = 8; // Number of initial cards to display with immediate change detection
 	private pendingThumbnailLoads: Set<string> = new Set(); // Track thumbnails currently being loaded
 	private pendingCardLoadEnds: Set<string> = new Set(); // Track cards waiting for loadEnd mark
+	/** Event ids for which we already requested file list (stream excludes fileUploadeds; we load on-demand so cards show videos). */
+	private eventIdsWithFilesRequested: Set<string> = new Set();
 	private cardLoadEndBatchTimeout: ReturnType<typeof setTimeout> | null = null;
 	private changeDetectionScheduled: boolean = false; // Flag to prevent multiple change detection calls
 	private pendingChangeDetection: boolean = false; // Flag to track if change detection is needed
@@ -190,7 +193,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		private cdr: ChangeDetectorRef,
 		private _friendsService: FriendsService,
 		private _http: HttpClient,
-		private _keycloakService: KeycloakService) {
+		private _keycloakService: KeycloakService,
+		private _videoPreloadService: EventVideoPreloadService) {
 		this.nativeWindow = winRef.getNativeWindow();
 		this.averageColor = this.defaultAverageColor;
 		this.averageTextColor = this.defaultAverageTextColor;
@@ -861,10 +865,14 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.filteredEvents = [];
 		this.allStreamedEvents = []; // Clear streamed events buffer
 		this.loadingEvents.clear(); // Clear loading events set
+		this.eventIdsWithFilesRequested.clear();
+		this._videoPreloadService.clear();
 		if (firstEvent) {
 			// Keep the first event that was loaded for return
 			this.allStreamedEvents = [firstEvent];
 			this.evenements = [firstEvent];
+			this.queueThumbnailLoad(firstEvent);
+			this.loadEventFilesForWall(firstEvent);
 		}
 		
 		this.resetColorAggregation();
@@ -1334,6 +1342,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						this.scheduleCardLoadEndBatch();
 					}
 					this.queueThumbnailLoad(this.allStreamedEvents[0]);
+					this.loadEventFilesForWall(this.allStreamedEvents[0]);
 					// Removed loadFileThumbnails() call to avoid double loading - queueThumbnailLoad() already loads the thumbnail
 					
 					// Scroll to top when first event is displayed (only on initial load, not when loading more pages)
@@ -1359,6 +1368,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						this.scheduleCardLoadEndBatch();
 					}
 					this.queueThumbnailLoad(this.allStreamedEvents[0]);
+					this.loadEventFilesForWall(this.allStreamedEvents[0]);
 					// Trim to CARDS_PER_PAGE so we don't exceed after unshift
 					if (this.evenements.length > this.CARDS_PER_PAGE) {
 						this.evenements = this.evenements.slice(0, this.CARDS_PER_PAGE);
@@ -1391,6 +1401,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						this.scheduleCardLoadEndBatch();
 					}
 					this.queueThumbnailLoad(event);
+					this.loadEventFilesForWall(event);
 					// Removed loadFileThumbnails() call to avoid double loading - queueThumbnailLoad() already loads the thumbnail
 				}
 			});
@@ -1469,8 +1480,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					this.scheduleCardLoadEndBatch();
 				}
 
-				// Load thumbnails
+				// Load thumbnails and file list (so cards show videos and preload can run)
 				this.queueThumbnailLoad(event);
+				this.loadEventFilesForWall(event);
 				// Removed loadFileThumbnails() call to avoid double loading - queueThumbnailLoad() already loads the thumbnail
 			}
 		});
@@ -2426,9 +2438,10 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				}
 			}
 			
-			// Déclencher le chargement via la queue (batch loading)
+			// Déclencher le chargement via la queue (batch loading) et charger la liste des fichiers (vidéos) pour la carte
 			if (!this.pendingThumbnailLoads.has(eventId)) {
 				this.queueThumbnailLoad(evenement);
+				this.loadEventFilesForWall(evenement);
 			}
 		}
 		
@@ -2873,6 +2886,28 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		});
 		
 		this.allSubscriptions.push(this.thumbnailLoadQueueSubscription);
+	}
+
+	/**
+	 * Load file list (including videos) for an event displayed on the wall.
+	 * The stream excludes fileUploadeds for performance; we load on-demand so cards show videos in the modal and can preload them.
+	 */
+	private loadEventFilesForWall(event: Evenement): void {
+		const eventId = event.id || this.getEventKey(event);
+		if (!eventId || this.eventIdsWithFilesRequested.has(eventId)) return;
+		if (event.fileUploadeds != null && event.fileUploadeds.length > 0) return; // Already have files (e.g. from details)
+		this.eventIdsWithFilesRequested.add(eventId);
+		this._evenementsService.getEventFiles(eventId).subscribe({
+			next: (files) => {
+				event.fileUploadeds = files || [];
+				this._videoPreloadService.preloadForEvent(event);
+				// Force full change detection so child cards (OnPush) see updated fileUploadeds and show videos
+				this.cdr.detectChanges();
+			},
+			error: () => {
+				this.eventIdsWithFilesRequested.delete(eventId);
+			}
+		});
 	}
 
 	// Queue an event's thumbnail for batch loading

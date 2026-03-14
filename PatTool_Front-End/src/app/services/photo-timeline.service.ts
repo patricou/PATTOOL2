@@ -27,6 +27,7 @@ export interface TimelineGroup {
     eventType: string;
     eventDate: string;
     photos: TimelinePhoto[];
+    videos?: TimelinePhoto[];
     fsPhotoLinks: FsPhotoLink[];
 }
 
@@ -65,6 +66,19 @@ export class PhotoTimelineService {
                 const h = headers.set('user-id', userId);
                 return this._http.get<TimelineResponse>(
                     `${this.API_URL}photos/timeline?page=${page}&size=${size}`,
+                    { headers: h }
+                );
+            })
+        );
+    }
+
+    /** Video timeline (separate stream for "mur de photos"). Same structure as getTimeline but for videos only. */
+    getVideoTimeline(userId: string, page: number = 0, size: number = 1): Observable<TimelineResponse> {
+        return this.getHeaderWithToken().pipe(
+            switchMap(headers => {
+                const h = headers.set('user-id', userId);
+                return this._http.get<TimelineResponse>(
+                    `${this.API_URL}photos/timeline/videos?page=${page}&size=${size}`,
                     { headers: h }
                 );
             })
