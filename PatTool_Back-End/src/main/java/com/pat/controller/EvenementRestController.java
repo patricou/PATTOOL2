@@ -1272,6 +1272,9 @@ public class EvenementRestController {
                 }
             }
             
+            // Do not expose uploader member positions in files response (home / file management)
+            clearUploaderMemberPositions(files);
+            
             return ResponseEntity.ok(files);
         } catch (Exception e) {
             log.error("Error loading files for event {}", id, e);
@@ -1374,6 +1377,9 @@ public class EvenementRestController {
                         files.add(evenement.getThumbnail());
                     }
                 }
+                
+                // Do not expose uploader member positions in files response (home / file management)
+                clearUploaderMemberPositions(files);
                 
                 // Send total count first (before any files)
                 try {
@@ -2104,6 +2110,18 @@ public class EvenementRestController {
             log.error("Interrupted while waiting for executor service to terminate", e);
             executorService.shutdownNow();
             Thread.currentThread().interrupt();
+        }
+    }
+
+    /**
+     * Clears positions on uploaderMember for each file so they are not exposed in files API (home / file management).
+     */
+    private void clearUploaderMemberPositions(List<FileUploaded> files) {
+        if (files == null) return;
+        for (FileUploaded f : files) {
+            if (f != null && f.getUploaderMember() != null) {
+                f.getUploaderMember().setPositions(null);
+            }
         }
     }
 
