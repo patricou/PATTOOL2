@@ -87,6 +87,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     private addedPhotoToDbDuringSlideshow = false;
     /** Set to true in ngOnDestroy so pending setTimeout/async callbacks can no-op and avoid memory leaks */
     private destroyed = false;
+    private searchDebounceId: ReturnType<typeof setTimeout> | null = null;
 
     constructor(
         private photoTimelineService: PhotoTimelineService,
@@ -111,6 +112,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         if (this.waitInterval) {
             clearInterval(this.waitInterval);
             this.waitInterval = null;
+        }
+        if (this.searchDebounceId != null) {
+            clearTimeout(this.searchDebounceId);
+            this.searchDebounceId = null;
         }
         if (this.intersectionObserver) {
             this.intersectionObserver.disconnect();
@@ -172,7 +177,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         if (this.isFetching || !this.hasMore) return;
         this.isFetching = true;
 
-        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, 1).subscribe({
+        const search = this.searchFilter.trim() || undefined;
+        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, 1, search).subscribe({
             next: (response: TimelineResponse) => {
                 // Defer state updates to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError (NG0100)
                 setTimeout(() => {
@@ -220,7 +226,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         if (this.isFetchingVideos || !this.hasMoreVideos) return;
         this.isFetchingVideos = true;
 
-        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, 1).subscribe({
+        const search = this.searchFilter.trim() || undefined;
+        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, 1, search).subscribe({
             next: (response: TimelineResponse) => {
                 setTimeout(() => {
                     if (this.destroyed) return;
@@ -320,35 +327,30 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         }
     }
 
+    /** Groupes visibles ; le filtre est appliqué côté backend via le paramètre search. */
     get filteredGroups(): TimelineGroup[] {
-        const raw = this.searchFilter.trim();
-        if (!raw) return this.visibleGroups;
-        const filter = this.normalizeForSearch(raw);
-        return this.visibleGroups.filter(g => this.groupMatchesSearch(g, filter));
-    }
-
-    /** Filtre comme home-evenements : nom, description, type, descriptions des liens FS. Normalisation sans accents. */
-    private groupMatchesSearch(g: TimelineGroup, filter: string): boolean {
-        const n = (s: string) => this.normalizeForSearch(s);
-        if (n(g.eventName || '').includes(filter)) return true;
-        if (n(g.eventType || '').includes(filter)) return true;
-        if (n(g.eventDescription || '').includes(filter)) return true;
-        const fsLinks = g.fsPhotoLinks || [];
-        if (fsLinks.some(link => n(link.description || '').includes(filter))) return true;
-        return false;
-    }
-
-    private normalizeForSearch(value: string): string {
-        if (!value) return '';
-        return value.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+        return this.visibleGroups;
     }
 
     onFilterChange(): void {
-        // filteredGroups is a getter, re-evaluated automatically
+        if (this.searchDebounceId != null) {
+            clearTimeout(this.searchDebounceId);
+        }
+        this.searchDebounceId = setTimeout(() => {
+            this.searchDebounceId = null;
+            if (!this.destroyed) {
+                this.loadTimeline();
+            }
+        }, 400);
     }
 
     clearFilter(): void {
         this.searchFilter = '';
+        if (this.searchDebounceId != null) {
+            clearTimeout(this.searchDebounceId);
+            this.searchDebounceId = null;
+        }
+        this.loadTimeline();
     }
 
     /** Média d'un groupe : photos et vidéos en parallèle (entrelacés), pas les vidéos en premier. */

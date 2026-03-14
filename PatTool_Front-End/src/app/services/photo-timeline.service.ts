@@ -61,27 +61,29 @@ export class PhotoTimelineService {
         );
     }
 
-    getTimeline(userId: string, page: number = 0, size: number = 1): Observable<TimelineResponse> {
+    getTimeline(userId: string, page: number = 0, size: number = 1, search?: string): Observable<TimelineResponse> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 const h = headers.set('user-id', userId);
-                return this._http.get<TimelineResponse>(
-                    `${this.API_URL}photos/timeline?page=${page}&size=${size}`,
-                    { headers: h }
-                );
+                let url = `${this.API_URL}photos/timeline?page=${page}&size=${size}`;
+                if (search != null && search.trim() !== '') {
+                    url += '&search=' + encodeURIComponent(search.trim());
+                }
+                return this._http.get<TimelineResponse>(url, { headers: h });
             })
         );
     }
 
     /** Video timeline (separate stream for "mur de photos"). Same structure as getTimeline but for videos only. */
-    getVideoTimeline(userId: string, page: number = 0, size: number = 1): Observable<TimelineResponse> {
+    getVideoTimeline(userId: string, page: number = 0, size: number = 1, search?: string): Observable<TimelineResponse> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 const h = headers.set('user-id', userId);
-                return this._http.get<TimelineResponse>(
-                    `${this.API_URL}photos/timeline/videos?page=${page}&size=${size}`,
-                    { headers: h }
-                );
+                let url = `${this.API_URL}photos/timeline/videos?page=${page}&size=${size}`;
+                if (search != null && search.trim() !== '') {
+                    url += '&search=' + encodeURIComponent(search.trim());
+                }
+                return this._http.get<TimelineResponse>(url, { headers: h });
             })
         );
     }

@@ -20,10 +20,13 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.text.Normalizer;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Pattern;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/photos")
@@ -181,16 +184,19 @@ public class PhotoTimelineRestController {
     public ResponseEntity<TimelineResponse> getPhotoTimeline(
             @RequestHeader(value = "user-id", required = false) String userId,
             @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "1") int size) {
+            @RequestParam(value = "size", defaultValue = "1") int size,
+            @RequestParam(value = "search", required = false) String search) {
         try {
             long start = System.currentTimeMillis();
 
             Criteria accessCriteria = getCachedAccessCriteria(userId);
+            Criteria hasImage = Criteria.where("fileUploadeds.fileType").regex("^image/");
+            Criteria mainCriteria = new Criteria().andOperator(accessCriteria, hasImage);
+            if (search != null && !search.trim().isEmpty()) {
+                mainCriteria = new Criteria().andOperator(accessCriteria, hasImage, buildSearchCriteria(search.trim()));
+            }
 
-            // Fetch size+1 to know if there's a next page (avoids count query)
-            Query pagedQuery = new Query();
-            pagedQuery.addCriteria(accessCriteria);
-            pagedQuery.addCriteria(Criteria.where("fileUploadeds.fileType").regex("^image/"));
+            Query pagedQuery = new Query(mainCriteria);
             pagedQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
             pagedQuery.skip((long) page * size);
             pagedQuery.limit(size + 1);
@@ -260,7 +266,8 @@ public class PhotoTimelineRestController {
     public ResponseEntity<TimelineResponse> getVideoTimeline(
             @RequestHeader(value = "user-id", required = false) String userId,
             @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "1") int size) {
+            @RequestParam(value = "size", defaultValue = "1") int size,
+            @RequestParam(value = "search", required = false) String search) {
         try {
             long start = System.currentTimeMillis();
             Criteria accessCriteria = getCachedAccessCriteria(userId);
@@ -271,6 +278,9 @@ public class PhotoTimelineRestController {
             // Only events that have no image files → they won't appear in the main photo timeline
             Criteria hasNoPhotos = new Criteria().norOperator(Criteria.where("fileUploadeds.fileType").regex("^image/"));
             Criteria combined = new Criteria().andOperator(accessCriteria, hasVideo, hasNoPhotos);
+            if (search != null && !search.trim().isEmpty()) {
+                combined = new Criteria().andOperator(combined, buildSearchCriteria(search.trim()));
+            }
             Query pagedQuery = new Query(combined);
             pagedQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
             pagedQuery.skip((long) page * size);
@@ -408,6 +418,63 @@ public class PhotoTimelineRestController {
             }
         }
         return videos;
+    }
+
+    /**
+     * Critère de recherche texte (nom, description, type) — comme home-evenements.
+     * Insensible à la casse et aux accents (normalisation NFD), mot à n'importe quelle position.
+     */
+    private Criteria buildSearchCriteria(String search) {
+        if (search == null || search.trim().isEmpty()) {
+            return new Criteria();
+        }
+        String normalized = normalizeForSearch(search.trim());
+        if (normalized.isEmpty()) {
+            return new Criteria();
+        }
+        String regexPattern = ".*" + buildAccentInsensitiveRegex(normalized) + ".*";
+        Criteria nameMatch = Criteria.where("evenementName").regex(regexPattern);
+        Criteria commentsMatch = Criteria.where("comments").regex(regexPattern);
+        Criteria typeMatch = Criteria.where("type").regex(regexPattern);
+        return new Criteria().orOperator(nameMatch, commentsMatch, typeMatch);
+    }
+
+    /** Normalisation comme EvenementsRepositoryImpl : minuscules + NFD sans accents. */
+    private static String normalizeForSearch(String value) {
+        if (value == null || value.isEmpty()) return "";
+        String lower = value.toLowerCase(Locale.ROOT);
+        String nfd = Normalizer.normalize(lower, Normalizer.Form.NFD);
+        return nfd.replaceAll("\\p{M}", "");
+    }
+
+    /** Construit une regex où chaque lettre peut matcher ses variantes accentuées (a → [aàâäáå], etc.). */
+    private static String buildAccentInsensitiveRegex(String normalized) {
+        if (normalized == null || normalized.isEmpty()) return "";
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < normalized.length(); i++) {
+            char c = normalized.charAt(i);
+            String charClass = ACCENT_REGEX_MAP.get(c);
+            if (charClass != null) {
+                sb.append(charClass);
+            } else if (Character.isLetterOrDigit(c)) {
+                sb.append("[").append(Character.toUpperCase(c)).append(Character.toLowerCase(c)).append("]");
+            } else {
+                sb.append(Pattern.quote(String.valueOf(c)));
+            }
+        }
+        return sb.toString();
+    }
+
+    private static final Map<Character, String> ACCENT_REGEX_MAP = new HashMap<>();
+    static {
+        ACCENT_REGEX_MAP.put('a', "[aàâäáåAÀÂÄÁÅ]");
+        ACCENT_REGEX_MAP.put('e', "[eéèêëEÉÈÊË]");
+        ACCENT_REGEX_MAP.put('i', "[iîïìIÎÏÌ]");
+        ACCENT_REGEX_MAP.put('o', "[oôöòóOÔÖÒÓ]");
+        ACCENT_REGEX_MAP.put('u', "[uùûüúUÙÛÜÚ]");
+        ACCENT_REGEX_MAP.put('y', "[yÿýYŸÝ]");
+        ACCENT_REGEX_MAP.put('c', "[cçCÇ]");
+        ACCENT_REGEX_MAP.put('n', "[nñNÑ]");
     }
 
     private Criteria getCachedAccessCriteria(String userId) {
