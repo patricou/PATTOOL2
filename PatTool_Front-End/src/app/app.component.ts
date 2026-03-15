@@ -859,7 +859,10 @@ export class AppComponent implements OnInit {
                         error: (error: any) => {
                             console.error('|--> Upload error for:', fileToUpload.name, error);
                             this.uploadResults.failed++;
-                            const errorMsg = error.error || error.message || "Upload failed";
+                            let errorMsg = error.error || error.message || "Upload failed";
+                            if (error.status === 0) {
+                                errorMsg = "Network error (status 0): is the backend running on the upload URL? Check CORS and that the server is up.";
+                            }
                             this.uploadResults.errors.push(`${fileToUpload.name}: ${errorMsg}`);
                             
                             // Update file status to failed

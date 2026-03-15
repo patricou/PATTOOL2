@@ -118,7 +118,7 @@
                     </h6>
                     <span class="group-date">{{ formatEventDate(group.eventDate) }}</span>
                     <span class="group-count">
-                        <i class="fa fa-picture-o"></i> {{ (group.photos?.length || 0) + (group.videos?.length || 0) }}
+                        <i class="fa fa-picture-o"></i> {{ (group.photos.length || 0) + ((group.videos?.length) ?? 0) }}
                     </span>
                     <ng-container *ngIf="getVisibilityBadges(group) as visibilityBadges">
                         <span class="group-visibility-badges" *ngIf="visibilityBadges.length">

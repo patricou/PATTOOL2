@@ -35,7 +35,7 @@ public class SecurityConfig {
     @Value("${keycloak.realm}")
     private String keycloakRealm;
 
-    @Value("${app.cors.allowed-origins:http://localhost:4200,http://localhost:8000}")
+    @Value("${app.cors.allowed-origins:http://localhost:4200,http://127.0.0.1:4200,http://localhost:8000,http://127.0.0.1:8000}")
     private String allowedOrigins;
 
     @Value("${keycloak.client-id:tutorial-frontend}")
@@ -144,6 +144,12 @@ public class SecurityConfig {
                 )
             )
             .authorizeHttpRequests(authz -> authz
+                // ============================================
+                // CORS PREFLIGHT - Allow OPTIONS without auth so browser preflight succeeds
+                // (actual POST/GET still require auth via Authorization header)
+                // ============================================
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                
                 // ============================================
                 // SECURITY BLOCKS - Explicitly deny access first
                 // ============================================

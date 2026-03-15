@@ -210,17 +210,15 @@ export class FileService {
         );
     }
 
-    // POST file on disk    
+    // POST file on disk - use minimal headers to avoid ERR_CONNECTION_RESET from Tomcat
+    // (large 'user' header can exceed Tomcat max-http-header-size and cause connection reset)
     postFileOnDisk(formData: FormData, user: Member): Observable<any> {
         this.user = user;
-        // console.log("Upload URL:", this.API_URL4FILEONDISK);
-        // console.log("User info:", JSON.stringify(user));
 
-        return this.getHeaderWithToken().pipe(
-            switchMap(headers => {
-                // console.log("Request headers:", headers);
-                return this._http.post(this.API_URL4UPLOADFILEONDISK, formData, { headers: headers, responseType: 'text' });
-            })
+        return this.getHeaderWithTokenMinimal().pipe(
+            switchMap(headers =>
+                this._http.post(this.API_URL4UPLOADFILEONDISK, formData, { headers, responseType: 'text' })
+            )
         );
     }
 
