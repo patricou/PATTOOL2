@@ -909,6 +909,13 @@
     line-height: 1;
 }
 
+.btn-photos-wall {
+    border: 1px solid rgba(15, 23, 42, 0.15) !important;
+}
+.btn-photos-wall:hover {
+    border-color: rgba(15, 23, 42, 0.25) !important;
+}
+
 .compact-view-selector-redesigned {
     display: flex;
     align-items: center;
@@ -1184,6 +1191,30 @@
 
 .mobile-results-badge .count-value {
     font-variant-numeric: tabular-nums;
+}
+
+/* Bouton Mur de Photos en mobile (à la place du badge nombre d'événements) */
+.mobile-photos-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 45px;
+    height: 36px;
+    padding: 0.35rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid #dee2e6;
+    background-color: #f8f9fa;
+    color: #495057;
+    text-decoration: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    transition: background-color 0.2s, color 0.2s;
+}
+.mobile-photos-btn:hover {
+    background-color: #e9ecef;
+    color: #212529;
 }
 
 .btn-toggle-view-mobile {

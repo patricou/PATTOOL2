@@ -19,6 +19,10 @@ import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 
 const BUFFER_AHEAD = 3;
+/** Nombre de groupes (activités) à charger par requête API. */
+const PAGE_SIZE = 12;
+/** Nombre d'activités affichées dès l'ouverture (comme home-evenements affiche 8 cartes). */
+const INITIAL_VISIBLE_GROUPS = 8;
 /** Hauteur approximative d'un bloc événement (px) pour précharger 3 événements en avance. */
 const EVENT_BLOCK_HEIGHT_PX = 500;
 const PREFETCH_EVENTS_AHEAD = 3;
@@ -252,7 +256,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
-        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, 1, search, visibility).subscribe({
+        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, PAGE_SIZE, search, visibility).subscribe({
             next: (response: TimelineResponse) => {
                 // Defer state updates to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError (NG0100)
                 setTimeout(() => {
@@ -262,10 +266,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
                     this.nextPage = response.page + 1;
 
                     if (response.groups.length > 0) {
-                        this.bufferedGroups.push(response.groups[0]);
-                        if (this.visibleGroups.length === 0) {
-                            this.revealMore();
-                        }
+                        response.groups.forEach(g => this.bufferedGroups.push(g));
+                        this.revealInitialBatch();
                     } else if (this.isLoading && !response.hasMore && this.bufferedVideoGroups.length === 0) {
                         this.isLoading = false;
                         setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
@@ -302,7 +304,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
-        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, 1, search, visibility).subscribe({
+        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, PAGE_SIZE, search, visibility).subscribe({
             next: (response: TimelineResponse) => {
                 setTimeout(() => {
                     if (this.destroyed) return;
@@ -311,10 +313,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
                     this.nextPageVideos = response.page + 1;
 
                     if (response.groups.length > 0) {
-                        this.bufferedVideoGroups.push(response.groups[0]);
-                        if (this.visibleGroups.length === 0) {
-                            this.revealMore();
-                        }
+                        response.groups.forEach(g => this.bufferedVideoGroups.push(g));
+                        this.revealInitialBatch();
                     }
 
                     if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) {
@@ -332,6 +332,17 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             }
         });
         this.subscriptions.push(sub);
+    }
+
+    /**
+     * Révèle des groupes jusqu'à INITIAL_VISIBLE_GROUPS au premier chargement,
+     * pour afficher plusieurs activités dès l'ouverture (comme home-evenements).
+     */
+    private revealInitialBatch(): void {
+        while (this.visibleGroups.length < INITIAL_VISIBLE_GROUPS &&
+               (this.bufferedGroups.length > 0 || this.bufferedVideoGroups.length > 0)) {
+            this.revealMore();
+        }
     }
 
     /**

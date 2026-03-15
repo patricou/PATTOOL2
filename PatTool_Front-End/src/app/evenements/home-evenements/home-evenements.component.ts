@@ -792,7 +792,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	private waitForNonEmptyValue(): Promise<{ startedWithEmptyUserId: boolean }> {
-		const maxWaitMs = 8000; // Attendre plus longtemps pour avoir user.id (évite stream avec seulement le public)
+		const maxWaitMs = 15000; // Attendre longtemps pour avoir user.id (sinon le backend ne renvoie que le public)
 		const pollIntervalMs = 100;
 		const start = Date.now();
 		return new Promise<{ startedWithEmptyUserId: boolean }>((resolve) => {
@@ -823,7 +823,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				this.resetAndLoadEvents();
 			}
 			this._reloadScheduledForUser = false;
-		}, 3000);
+		}, 5000);
 	}
 
 	private resetAndLoadEvents(): void {

@@ -64,7 +64,7 @@ export class PhotoTimelineService {
         );
     }
 
-    getTimeline(userId: string, page: number = 0, size: number = 1, search?: string, visibility?: string): Observable<TimelineResponse> {
+    getTimeline(userId: string, page: number = 0, size: number = 12, search?: string, visibility?: string): Observable<TimelineResponse> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 const h = headers.set('user-id', userId);
@@ -81,7 +81,7 @@ export class PhotoTimelineService {
     }
 
     /** Video timeline (separate stream for "mur de photos"). Same structure as getTimeline but for videos only. */
-    getVideoTimeline(userId: string, page: number = 0, size: number = 1, search?: string, visibility?: string): Observable<TimelineResponse> {
+    getVideoTimeline(userId: string, page: number = 0, size: number = 12, search?: string, visibility?: string): Observable<TimelineResponse> {
         return this.getHeaderWithToken().pipe(
             switchMap(headers => {
                 const h = headers.set('user-id', userId);

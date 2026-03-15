@@ -201,10 +201,12 @@
                                     </option>
                                 </select>
                             </div>
-                            <div class="mobile-results-badge"
-                                [ngStyle]="{'background-color': averageColor, 'color': averageTextColor, 'border-color': averageBorderColor}">
-                                <span class="count-value">{{ getAllStreamedEventsCount() }}</span>
-                            </div>
+                            <a class="mobile-photos-btn btn flex-shrink-0" 
+                                routerLink="/photos"
+                                [ngbTooltip]="'MENU.PHOTOS' | translate" 
+                                placement="bottom" container="body">
+                                <i class="fa fa-image"></i>
+                            </a>
                         </div>
                     </div>
                 </div>
@@ -304,6 +306,15 @@
                                 <i class="fa fa-list"></i>
                             </button>
                         </div>
+
+                        <!-- Mur de photos -->
+                        <a class="btn btn-view-toggle-redesigned btn-photos-wall ms-2" 
+                            routerLink="/photos"
+                            ngbTooltip="{{ 'MENU.PHOTOS' | translate }}" 
+                            placement="bottom" container="body">
+                            <i class="fa fa-image"></i>
+                            <span class="d-none d-md-inline ms-1">{{ 'MENU.PHOTOS' | translate }}</span>
+                        </a>
                         
                         <!-- Compact View Selector -->
                         <div class="filter-section-redesigned me-2" style="flex: 0 0 auto;">

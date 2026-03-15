@@ -193,7 +193,7 @@ public class PhotoTimelineRestController {
     public ResponseEntity<TimelineResponse> getPhotoTimeline(
             @RequestHeader(value = "user-id", required = false) String userId,
             @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "1") int size,
+            @RequestParam(value = "size", defaultValue = "12") int size,
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "visibility", required = false) String visibility) {
         try {
@@ -282,7 +282,7 @@ public class PhotoTimelineRestController {
     public ResponseEntity<TimelineResponse> getVideoTimeline(
             @RequestHeader(value = "user-id", required = false) String userId,
             @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "1") int size,
+            @RequestParam(value = "size", defaultValue = "12") int size,
             @RequestParam(value = "search", required = false) String search,
             @RequestParam(value = "visibility", required = false) String visibility) {
         try {
