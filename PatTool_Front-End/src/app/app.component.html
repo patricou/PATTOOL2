@@ -216,7 +216,7 @@
                    role="button"
                    (click)="toggleToolsDropdown($event)" 
                    [attr.aria-expanded]="showToolsDropdown">
-                    <i class="fa fa-wrench"></i> {{ 'MENU.TOOLS' | translate }}
+                    <i class="fa fa-wrench"></i> <span>{{ 'MENU.TOOLS' | translate }}</span>
                 </a>
                 <ul class="dropdown-menu" 
                     [class.show]="showToolsDropdown" 
