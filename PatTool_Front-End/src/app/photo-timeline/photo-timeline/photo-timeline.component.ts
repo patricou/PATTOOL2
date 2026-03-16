@@ -5,7 +5,8 @@ import { RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from '../../shared/slideshow-modal/slideshow-modal.module';
-import { SlideshowModalComponent, SlideshowImageSource, SlideshowAddToDbEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { SlideshowModalComponent, SlideshowImageSource, SlideshowAddToDbEvent, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { VideoshowModalModule } from '../../shared/videoshow-modal/videoshow-modal.module';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotoTimelineService, TimelineResponse, TimelineGroup, TimelinePhoto, FsPhotoLink } from '../../services/photo-timeline.service';
@@ -47,12 +48,14 @@ const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HE
         NgbModule,
         NavigationButtonsModule,
         SlideshowModalModule,
-        VideoshowModalModule
+        VideoshowModalModule,
+        TraceViewerModalComponent
     ]
 })
 export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
     @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
+    @ViewChild('traceViewerModalComponent') traceViewerModalComponent!: TraceViewerModalComponent;
     @ViewChild('videoshowModalComponent') videoshowModalComponent!: VideoshowModalComponent;
     @ViewChild('scrollSentinel') scrollSentinel!: ElementRef;
     @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
@@ -618,6 +621,26 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         if (this.addedPhotoToDbDuringSlideshow) {
             this.addedPhotoToDbDuringSlideshow = false;
             this.loadTimeline();
+        }
+    }
+
+    /** Opens the trace viewer at the photo location when user clicks "Open in trace" from the slideshow. */
+    onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
+        if (!event || typeof event.lat !== 'number' || typeof event.lng !== 'number') return;
+        const label = event.label?.trim()
+            ? event.label
+            : this.translate.instant('EVENTELEM.SEE_LOCATION');
+        if (this.slideshowModalComponent) {
+            this.slideshowModalComponent.setTraceViewerOpen(true);
+        }
+        if (this.traceViewerModalComponent) {
+            this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, event.eventColor);
+        }
+    }
+
+    onTraceViewerClosed(): void {
+        if (this.slideshowModalComponent) {
+            this.slideshowModalComponent.setTraceViewerOpen(false);
         }
     }
 

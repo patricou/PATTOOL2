@@ -1,8 +1,9 @@
 /* Simple and clean navbar styling */
 .navbar {
+    --navbar-height: 60px;
     background: linear-gradient(135deg, #000000 0%, #0d1a0d 20%, #1a331a 40%, #2d5a2d 50%, #1a331a 60%, #0d1a0d 80%, #000000 100%) !important;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-    min-height: 60px;
+    min-height: var(--navbar-height);
 }
 
 .navbar-brand {
@@ -445,8 +446,25 @@
     transform: translateX(5px);
 }
 
-/* Mobile responsive */
+/* Mobile responsive - menu and navbar constrained to screen width */
 @media (max-width: 991.98px) {
+    .navbar {
+        max-width: 100vw;
+        width: 100%;
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+    
+    .navbar-toggler {
+        margin-right: 0.5rem;
+    }
+    
+    .navbar .container-fluid,
+    .navbar .navbar-collapse {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+    
     .navbar-collapse {
         background: rgba(30, 30, 46, 0.95);
         backdrop-filter: blur(10px);

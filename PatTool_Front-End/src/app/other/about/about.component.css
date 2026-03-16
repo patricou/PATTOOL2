@@ -22,7 +22,7 @@
     font-family: "Open Sans", sans-serif;
 
     /* Typography scale (aligned by content type) */
-    --about-title: 1.6rem;        /* Page title (pat-title) */
+    --about-title: 1.25rem;       /* Page title (same as Mur de Photos) */
     --about-subtitle: 1.15rem;    /* Section subtitle / author ref */
     --about-card-title: 0.95rem;  /* Card header titles */
     --about-item-title: 0.9rem;   /* Item titles inside cards */

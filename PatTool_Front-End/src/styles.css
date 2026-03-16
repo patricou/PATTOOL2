@@ -632,16 +632,31 @@ html.modal-open[class*=""]:has(.upload-logs-modal) {
 }
 
 
-/* Responsive Navigation Title */
+/* Responsive Navigation Title - title takes only screen width on mobile */
 @media (max-width: 768px) {
     .pat-title {
         flex-direction: column;
         align-items: center;
         gap: 0.5rem;
+        width: 100%;
+        max-width: 100vw;
+        box-sizing: border-box;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+    
+    .pat-title h1,
+    .pat-title h2,
+    .pat-title h3,
+    .pat-title h4,
+    .pat-title h5,
+    .pat-title h6 {
+        font-size: 1.25rem;
     }
     
     .pat-title h2 {
-        font-size: 1.5rem;
         text-align: center;
         padding-left: 0 !important;
         padding-right: 0 !important;
@@ -654,6 +669,10 @@ html.modal-open[class*=""]:has(.upload-logs-modal) {
         transform: translateY(-50%) !important;
         margin: 0 !important;
     }
+}
+
+:root {
+    --navbar-height: 60px;
 }
 
 html,
@@ -803,7 +822,7 @@ input#message {
     color: white;
     padding: 20px 30px;
     margin: -20px -15px 20px -15px;
-    border-radius: 0 0 15px 15px;
+    border-radius: 0;
     box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
     text-align: center;
     position: relative;
@@ -815,6 +834,7 @@ input#message {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    box-sizing: border-box;
 }
 
 .pat-title::before {
@@ -828,26 +848,19 @@ input#message {
     pointer-events: none;
 }
 
+/* All page titles use same font size as Mur de Photos (h5 = 1.25rem) */
 .pat-title h1,
 .pat-title h2,
-.pat-title h3 {
+.pat-title h3,
+.pat-title h4,
+.pat-title h5,
+.pat-title h6 {
     margin: 0;
     font-weight: 600;
+    font-size: 1.25rem;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
     position: relative;
     z-index: 1;
-}
-
-.pat-title h1 {
-    font-size: 2.5rem;
-}
-
-.pat-title h2 {
-    font-size: 2rem;
-}
-
-.pat-title h3 {
-    font-size: 1.75rem;
 }
 
 .pat-title-subtitle {
@@ -856,4 +869,22 @@ input#message {
     margin-top: 5px;
     position: relative;
     z-index: 1;
+}
+
+/* Mobile/tablet: page title constrained to screen width (same breakpoint as navbar) */
+@media (max-width: 991.98px) {
+    html, body {
+        overflow-x: hidden;
+        max-width: 100vw;
+    }
+    
+    .pat-title {
+        width: 100%;
+        max-width: 100vw;
+        box-sizing: border-box;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
 }

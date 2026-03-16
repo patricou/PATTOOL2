@@ -5,7 +5,8 @@ import { RouterModule, Router } from '@angular/router';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent } from '../../shared/slideshow-modal/slideshow-modal.component';
+import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject, from } from 'rxjs';
 import { debounceTime, map, catchError, switchMap } from 'rxjs/operators';
@@ -54,7 +55,8 @@ interface LoadingEventInfo {
 		SlideshowModalComponent,
 		PhotosSelectorModalComponent,
 		ElementEvenementComponent,
-		NavigationButtonsModule
+		NavigationButtonsModule,
+		TraceViewerModalComponent
 	],
 	templateUrl: './home-evenements.component.html',
 	styleUrls: ['./home-evenements.component.css'],
@@ -80,7 +82,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	public isCompactView: boolean = false;
 	public controlsCollapsed: boolean = false;
 	public isMobile: boolean = false;
-	public isScrolled: boolean = false; // Track if user has scrolled to hide title
 	public eventThumbnails: Map<string, SafeUrl> = new Map();
 	private readonly CARDS_PER_PAGE = 8; // Number of cards to display at once
 	public nativeWindow: any;
@@ -136,8 +137,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	@ViewChild('chatMessagesContainer') chatMessagesContainer!: ElementRef;
 	@ViewChild('photosSelectorModalComponent') photosSelectorModalComponent!: PhotosSelectorModalComponent;
 	@ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
+	@ViewChild('traceViewerModalComponent') traceViewerModalComponent!: TraceViewerModalComponent;
 	@ViewChild('infiniteScrollAnchor') infiniteScrollAnchor?: ElementRef<HTMLDivElement>;
 	@ViewChild('cardsContainer', { static: false }) cardsContainer?: ElementRef<HTMLDivElement>;
+	@ViewChild('filterBar', { static: false }) filterBarRef?: ElementRef<HTMLElement>;
+	@ViewChild('titleElement', { read: ElementRef, static: false }) titleElementRef?: ElementRef<HTMLElement>;
+	private filterStuckObserver?: IntersectionObserver;
 	private eventsSubscription?: Subscription;
 	private searchSubscriptions: Subscription[] = [];
 	private allSubscriptions: Subscription[] = []; // Track all subscriptions for cleanup
@@ -611,20 +616,37 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		this.updateResponsiveState(width);
 	}
 
+	/** True when user has scrolled enough that the filter bar should stick under the navbar */
+	public isFilterStuck: boolean = false;
+
 	@HostListener('window:scroll', ['$event'])
 	onWindowScroll(event: Event): void {
-		// Simple scroll-based infinite scroll
 		this.checkScrollForLoadMore();
-		
-		// Hide title when scrolled - use requestAnimationFrame for immediate update
-		requestAnimationFrame(() => {
-			const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-			const newIsScrolled = scrollTop > 50; // Threshold to hide title
-			if (this.isScrolled !== newIsScrolled) {
-				this.isScrolled = newIsScrolled;
-				this.cdr.markForCheck(); // Trigger change detection for OnPush strategy
+	}
+
+	/** Update isFilterStuck so the filter bar sticks under the menu when the title has scrolled away.
+	 *  Uses IntersectionObserver on the title so it works on desktop and mobile (no scroll/touch quirks). */
+	private updateFilterStuck(): void {
+		if (!this.titleElementRef?.nativeElement) return;
+		const navbarHeight = 60;
+		this.filterStuckObserver?.disconnect();
+		this.filterStuckObserver = new IntersectionObserver(
+			(entries: IntersectionObserverEntry[]) => {
+				entries.forEach((entry: IntersectionObserverEntry) => {
+					const newStuck = !entry.isIntersecting;
+					if (this.isFilterStuck !== newStuck) {
+						this.isFilterStuck = newStuck;
+						this.cdr.markForCheck();
+					}
+				});
+			},
+			{
+				root: null,
+				rootMargin: `-${navbarHeight}px 0px 0px 0px`,
+				threshold: 0
 			}
-		});
+		);
+		this.filterStuckObserver.observe(this.titleElementRef.nativeElement);
 	}
 
 	// Check scroll position to load more events - SIMPLIFIED VERSION
@@ -694,6 +716,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	ngAfterViewInit() {
+		setTimeout(() => this.updateFilterStuck(), 0);
 		// used to not have to press enter when filter
 		// Listen to both mobile and desktop inputs
 		this.searchterms.changes.subscribe(() => {
@@ -3313,7 +3336,9 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Disconnect observers
 		this.disconnectThumbnailObserver();
 		this.disconnectInfiniteScrollObserver();
-		
+		this.filterStuckObserver?.disconnect();
+		this.filterStuckObserver = undefined;
+
 		// Clean up all timeouts
 		if (this.prefetchTimeoutId) {
 			clearTimeout(this.prefetchTimeoutId);
@@ -3763,6 +3788,28 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		// Open the slideshow modal with just this one image (eventId not available in this context)
 		this.slideshowModalComponent.open([imageSource], eventName, true, 0, undefined, 0, undefined);
+	}
+
+	/** Opens the trace viewer at the photo location when user clicks "Open in trace" from the slideshow (e.g. from photo wall). */
+	public onSlideshowLocationInTrace(event: SlideshowLocationEvent): void {
+		if (!event || typeof event.lat !== 'number' || typeof event.lng !== 'number') {
+			return;
+		}
+		const label = event.label && event.label.trim().length > 0
+			? event.label
+			: this.translateService.instant('EVENTELEM.SEE_LOCATION');
+		if (this.slideshowModalComponent) {
+			this.slideshowModalComponent.setTraceViewerOpen(true);
+		}
+		if (this.traceViewerModalComponent) {
+			this.traceViewerModalComponent.openAtLocation(event.lat, event.lng, label, event.eventColor);
+		}
+	}
+
+	public onTraceViewerClosed(): void {
+		if (this.slideshowModalComponent) {
+			this.slideshowModalComponent.setTraceViewerOpen(false);
+		}
 	}
 
 	// Get the file url with the bearer token for authentication

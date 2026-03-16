@@ -160,13 +160,13 @@
     </div>
 </div>
 
-<div class="pat-title" [class.hidden]="isScrolled" #titleElement>
+<div class="pat-title title-and-filter-block" #titleElement>
     <h2>{{ "EVENTHOME.EVENTSLIST" | translate }}</h2>
 </div>
-<div class="container-fluid">
+<div class="container-fluid filter-bar-container" [class.filter-stuck]="isFilterStuck">
     <div class="row">
         <div class="col-sm-12">
-            <div class="controls-bar sticky-filters" [class.title-hidden]="isScrolled">
+            <div class="controls-bar sticky-filters" #filterBar [class.filter-stuck]="isFilterStuck">
                 <!-- Mobile: Filter and Visibility Select only -->
                 <div class="mobile-filter-only d-md-none">
                     <div class="filter-section-mobile">
@@ -201,9 +201,9 @@
                                     </option>
                                 </select>
                             </div>
-                            <a class="mobile-photos-btn btn flex-shrink-0" 
+                            <a class="mobile-photos-btn btn flex-shrink-0 me-2"
                                 routerLink="/photos"
-                                [ngbTooltip]="'MENU.PHOTOS' | translate" 
+                                [ngbTooltip]="'MENU.PHOTOS' | translate"
                                 placement="bottom" container="body">
                                 <i class="fa fa-image"></i>
                             </a>
@@ -308,9 +308,9 @@
                         </div>
 
                         <!-- Mur de photos -->
-                        <a class="btn btn-view-toggle-redesigned btn-photos-wall ms-2" 
+                        <a class="btn btn-view-toggle-redesigned btn-photos-wall ms-2 me-2"
                             routerLink="/photos"
-                            ngbTooltip="{{ 'MENU.PHOTOS' | translate }}" 
+                            ngbTooltip="{{ 'MENU.PHOTOS' | translate }}"
                             placement="bottom" container="body">
                             <i class="fa fa-image"></i>
                             <span class="d-none d-md-inline ms-1">{{ 'MENU.PHOTOS' | translate }}</span>
@@ -823,7 +823,10 @@
     (selectionConfirmed)="onPhotosSelectionConfirmed($event)"></app-photos-selector-modal>
 
 <!-- Slideshow Modal Component -->
-<app-slideshow-modal #slideshowModalComponent></app-slideshow-modal>
+<app-slideshow-modal #slideshowModalComponent (openLocationInTrace)="onSlideshowLocationInTrace($event)"></app-slideshow-modal>
+
+<!-- Trace Viewer Modal (for "Open in trace" from slideshow) -->
+<app-trace-viewer-modal #traceViewerModalComponent (closed)="onTraceViewerClosed()"></app-trace-viewer-modal>
 
 <!-- Upload Logs Modal -->
 <ng-template #uploadLogsModal let-modal>

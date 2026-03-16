@@ -257,7 +257,10 @@
 <!-- Slideshow Modal Component (always available) -->
 <app-slideshow-modal #slideshowModalComponent 
     (closed)="onSlideshowClosed()" 
+    (openLocationInTrace)="onSlideshowLocationInTrace($event)"
     (addToDb)="onAddToDb($event)"></app-slideshow-modal>
+
+<app-trace-viewer-modal #traceViewerModalComponent (closed)="onTraceViewerClosed()"></app-trace-viewer-modal>
 
 <!-- Videoshow Modal (lecteur vidéo au clic sur une carte vidéo du mur) -->
 <app-videoshow-modal #videoshowModalComponent></app-videoshow-modal>
