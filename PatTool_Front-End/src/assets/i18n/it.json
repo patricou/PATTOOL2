@@ -1620,6 +1620,7 @@
         "FOR_EVENT": "Foto dell'evento: {{name}}",
         "FOR_EVENT_LOADING": "Nessuna foto o video per questo evento.",
         "VIEW_ALL_EVENTS": "Vedi tutti gli eventi",
+        "EVENT_CARD": "Scheda evento",
         "ON_THIS_DAY": "In questo giorno",
         "ON_THIS_DAY_DESC": "{{count}} foto di questo giorno negli anni precedenti",
         "PHOTOS": "foto",

@@ -80,6 +80,14 @@ img, video, canvas {
     overflow: hidden !important;
 }
 
+/* Event card modal: same width as one card on home evenements (col-xl-3 proportion) */
+::ng-deep .event-card-modal .modal-dialog,
+::ng-deep .modal.event-card-modal .modal-dialog {
+    max-width: 420px !important;
+    width: 100% !important;
+    margin: 1.75rem auto !important;
+}
+
 /* Add-to-DB overlay and toast: rendered in #pat-add-to-db-layer (body) so they appear above NgbModal slideshow */
 #pat-add-to-db-layer {
   position: fixed;

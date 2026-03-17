@@ -1624,6 +1624,7 @@
         "FOR_EVENT": "イベントの写真: {{name}}",
         "FOR_EVENT_LOADING": "このイベントの写真や動画はありません。",
         "VIEW_ALL_EVENTS": "すべてのイベントを表示",
+        "EVENT_CARD": "イベントカード",
         "ON_THIS_DAY": "この日の思い出",
         "ON_THIS_DAY_DESC": "過去の同じ日の写真 {{count}} 枚",
         "PHOTOS": "枚の写真",

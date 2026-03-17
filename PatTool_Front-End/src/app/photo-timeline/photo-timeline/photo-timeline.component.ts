@@ -10,6 +10,7 @@ import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace
 import { VideoshowModalModule } from '../../shared/videoshow-modal/videoshow-modal.module';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
 import { PhotoTimelineService, TimelineResponse, TimelineGroup, TimelinePhoto, FsPhotoLink } from '../../services/photo-timeline.service';
+import { EventCardModalComponent } from '../../shared/event-card-modal/event-card-modal.component';
 import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
 import { FriendsService } from '../../services/friends.service';
@@ -50,7 +51,8 @@ const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HE
         NavigationButtonsModule,
         SlideshowModalModule,
         VideoshowModalModule,
-        TraceViewerModalComponent
+        TraceViewerModalComponent,
+        EventCardModalComponent
     ]
 })
 export class PhotoTimelineComponent implements OnInit, OnDestroy {
@@ -597,6 +599,17 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             fileName: p.fileName
         }));
         this.slideshowModalComponent.open(images, group.eventName, true, 0, undefined, startIndex);
+    }
+
+    /** Ouvre la fiche événement (element-evenement) dans une fenêtre modale, mêmes proportions que sur la home événements. */
+    openEventCardModal(group: TimelineGroup): void {
+        const ref = this.modalService.open(EventCardModalComponent, {
+            windowClass: 'event-card-modal',
+            scrollable: true,
+            size: 'md'
+        });
+        ref.componentInstance.eventId = group.eventId;
+        ref.componentInstance.loadEvent();
     }
 
     /** Ouvre la vidéo dans le modal lecteur (mur de photos). */

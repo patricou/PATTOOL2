@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import jakarta.annotation.PostConstruct;
 
 import java.util.HashMap;
@@ -169,6 +170,8 @@ public class GoveeThermometerScheduler {
             log.debug("Scheduled thermometer refresh completed in {} ms. Saved: {}, Errors: {}", 
                     duration, savedCount, errorCount);
 
+        } catch (ResourceAccessException e) {
+            log.warn("Govee API timeout during scheduled thermometer refresh (non-blocking): {}", e.getMessage());
         } catch (Exception e) {
             log.error("Error during scheduled thermometer refresh: {}", e.getMessage(), e);
         }

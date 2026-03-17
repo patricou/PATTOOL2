@@ -290,6 +290,47 @@
     margin-left: auto;
 }
 
+/* Action buttons in group header: solid background for visibility on photo thumbnails */
+.group-action-btn {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    white-space: nowrap;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    background: rgba(255, 255, 255, 0.96);
+    color: #1a1a1a;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.5);
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+}
+.group-action-btn i {
+    margin-right: 0.35rem;
+    opacity: 0.9;
+}
+.group-action-btn:hover {
+    background: #fff;
+    color: #0d6efd;
+    border-color: rgba(13, 110, 253, 0.4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    transform: translateY(-1px);
+}
+.group-action-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+.group-action-btn--fs {
+    color: #0d6efd;
+}
+.group-action-btn--fs:hover {
+    background: #0d6efd;
+    color: #fff;
+    border-color: #0d6efd;
+}
+.group-action-btn--card:hover {
+    color: #495057;
+    border-color: rgba(0, 0, 0, 0.2);
+}
+
 .fs-slideshow-btn {
     font-size: 0.75rem;
     padding: 0.2rem 0.6rem;

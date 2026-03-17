@@ -1616,6 +1616,7 @@
         "FOR_EVENT": "Fotos für Veranstaltung: {{name}}",
         "FOR_EVENT_LOADING": "Keine Fotos oder Videos für diese Veranstaltung.",
         "VIEW_ALL_EVENTS": "Alle Veranstaltungen anzeigen",
+        "EVENT_CARD": "Veranstaltungskarte",
         "ON_THIS_DAY": "An diesem Tag",
         "ON_THIS_DAY_DESC": "{{count}} Foto(s) von diesem Tag in früheren Jahren",
         "PHOTOS": "Foto(s)",

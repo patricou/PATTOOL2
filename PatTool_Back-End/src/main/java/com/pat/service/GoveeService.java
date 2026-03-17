@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
@@ -98,6 +99,11 @@ public class GoveeService {
             
             return response.getBody() != null ? response.getBody() : new HashMap<>();
             
+        } catch (ResourceAccessException e) {
+            log.warn("Govee API timeout or I/O error for device {} (sku {}): {} - skipping device state", device, sku, e.getMessage());
+            Map<String, Object> errorMap = new HashMap<>();
+            errorMap.put("error", "Timeout or I/O error: " + e.getMessage());
+            return errorMap;
         } catch (org.springframework.web.client.HttpClientErrorException e) {
             String responseBody = e.getResponseBodyAsString();
             log.error("HTTP error fetching Govee device state - Status: {}, Response body: {}", 
@@ -213,7 +219,14 @@ public class GoveeService {
                     
                     // Try to get state if device is retrievable OR has sensor capabilities
                     if ((retrievable || hasSensorCapabilities) && deviceId != null && model != null && !model.isEmpty()) {
-                        Map<String, Object> stateResponse = getDeviceState(deviceId, model);
+                        Map<String, Object> stateResponse;
+                        try {
+                            stateResponse = getDeviceState(deviceId, model);
+                        } catch (Exception e) {
+                            log.warn("Failed to get state for device {} ({}): {} - skipping", deviceId, model, e.getMessage());
+                            stateResponse = new HashMap<>();
+                            stateResponse.put("error", e.getMessage());
+                        }
                         
                         // Extract state data from response according to Govee API format:
                         // Response structure: { "code": 200, "msg": "success", "payload": { "capabilities": [...] } }
@@ -283,7 +296,14 @@ public class GoveeService {
                         } else if (!retrievable && hasSensorCapabilities) {
                             // Device has sensor capabilities but is not marked as retrievable. Attempting state fetch anyway
                             if (deviceId != null && model != null && !model.isEmpty()) {
-                                Map<String, Object> stateResponse = getDeviceState(deviceId, model);
+                                Map<String, Object> stateResponse;
+                                try {
+                                    stateResponse = getDeviceState(deviceId, model);
+                                } catch (Exception e) {
+                                    log.warn("Failed to get state for device {} ({}): {} - skipping", deviceId, model, e.getMessage());
+                                    stateResponse = new HashMap<>();
+                                    stateResponse.put("error", e.getMessage());
+                                }
                                 
                                 Map<String, Object> state = new HashMap<>();
                                 if (stateResponse.containsKey("payload")) {

@@ -146,7 +146,7 @@
                     </ng-container>
                 </div>
                 <div class="group-fs-buttons" *ngIf="group.fsPhotoLinks && group.fsPhotoLinks.length > 0">
-                    <button class="btn btn-outline-primary btn-sm fs-slideshow-btn"
+                    <button class="btn btn-sm group-action-btn group-action-btn--fs"
                             *ngFor="let fsLink of group.fsPhotoLinks"
                             (click)="openFsSlideshow(fsLink, group.eventName, group.eventId)"
                             [title]="fsLink.description || fsLink.path">
@@ -154,6 +154,12 @@
                         {{ fsLink.description || 'Photos' }}
                     </button>
                 </div>
+                <button class="btn btn-sm group-action-btn group-action-btn--card ms-1"
+                        (click)="openEventCardModal(group)"
+                        [title]="'PHOTO_TIMELINE.EVENT_CARD' | translate">
+                    <i class="fa fa-id-card"></i>
+                    {{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}
+                </button>
             </div>
 
             <!-- Masonry Grid : photos et vidéos mélangés, vidéos en autoplay comme détail -->
