@@ -127,6 +127,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private allSubscriptions: Subscription[] = []; // Track all subscriptions for cleanup
 	private pollIntervalId: ReturnType<typeof setInterval> | null = null;
 	private activeTimeouts: Set<ReturnType<typeof setTimeout>> = new Set();
+	private componentDestroyed = false;
 	private fullscreenListeners: Array<{ element: Document | HTMLElement; event: string; handler: () => void }> = [];
 	private imageLoadHandlers: Array<{ element: HTMLImageElement; handler: () => void }> = []; // Track image load handlers for cleanup
 	public isFullscreen: boolean = false;
@@ -214,6 +215,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	private cardSlideshowLoadTimes: Map<string, { start: number; end: number; fileName: string; displayed: boolean }> = new Map();
 	private colorDetectionStartTime: number = 0;
 	private colorDetectionEndTime: number = 0;
+	/** Set in next tick to avoid NG0100 when *ngIf flips from false to true */
+	public showLoadTimeSection = false;
 	public loadingStats: {
 		componentInit: number;
 		thumbnailLoad: number;
@@ -363,6 +366,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.ratingConfig.max = 10;
 		this.ratingConfig.readonly = true;
 		this.nativeWindow = winRef.getNativeWindow();
+	}
+
+	/** Call markForCheck only if the view is not destroyed (avoids errors when closing modal). */
+	private safeMarkForCheck(): void {
+		const ref = this.cdr as ChangeDetectorRef & { destroyed?: boolean };
+		if (ref.destroyed !== true) {
+			this.cdr.markForCheck();
+		}
 	}
 
 	private static readonly thumbnailCache: Map<string, {
@@ -896,7 +907,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 							false
 						);
 						this.cdr.markForCheck();
-						setTimeout(() => { this.addToDbMessage = ''; this.addToDbLayer.hideToast(); this.cdr.markForCheck(); }, 6000);
+						const hideToastTimeout = setTimeout(() => {
+							if (this.componentDestroyed) return;
+							this.addToDbMessage = '';
+							this.addToDbLayer.hideToast();
+							this.safeMarkForCheck();
+						}, 6000);
+						this.activeTimeouts.add(hideToastTimeout);
 						return;
 					}
 					this.isAddToDbUploading = false;
@@ -909,11 +926,13 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						true
 					);
 					this.cdr.markForCheck();
-					setTimeout(() => {
+					const hideSuccessToastTimeout = setTimeout(() => {
+						if (this.componentDestroyed) return;
 						this.addToDbMessage = '';
 						this.addToDbLayer.hideToast();
-						this.cdr.markForCheck();
+						this.safeMarkForCheck();
 					}, 4000);
+					this.activeTimeouts.add(hideSuccessToastTimeout);
 					// Reload event files for the event we uploaded to (use event.eventId, same as upload URL)
 					const eventIdToRefetch = event.eventId;
 					setTimeout(() => {
@@ -1482,6 +1501,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		setTimeout(() => {
 			if (this.componentInitEndTime === 0) {
 				this.componentInitEndTime = performance.now();
+				this.scheduleUpdateShowLoadTime();
 			}
 		}, 100);
 		
@@ -2730,6 +2750,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			this.thumbnailImageLoadEndTime = performance.now();
 			// Emit card ready event when image actually loads - this ensures parent knows card is visible
 			this.emitCardReady();
+			this.scheduleUpdateShowLoadTime();
 		}
 		
 		// Track color detection start time
@@ -2806,6 +2827,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						if (this.thumbnailImageLoadEndTime === 0) {
 							this.thumbnailImageLoadEndTime = performance.now();
 							this.emitCardReady();
+							this.scheduleUpdateShowLoadTime();
 						}
 					}
 					// Remove listener after use
@@ -2950,13 +2972,21 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		this.photoFrameStylesCache = null;
 		this.photoImageStylesCache = null;
 		this.photoBorderColorCache = null;
-		this.cardBackgroundGradientCache = null;
+		// cardBackgroundGradientCache is updated below via setTimeout(0) to avoid NG0100
 		this.filesListGradientCache = null;
 		this.statusBadgeGradientCache = null;
 		this.visibilityBadgeGradientCache = null;
 		this.downloadAllButtonGradientCache = null;
 		this.ratingBadgeGradientCache = null;
 		this.footerButtonStylesCache.clear();
+		
+		// Update card background in next tick to avoid ExpressionChangedAfterItHasBeenCheckedError (NG0100)
+		const cardBgTimeout = setTimeout(() => {
+			if (this.componentDestroyed) return;
+			this.cardBackgroundGradientCache = this.getSolidColor(0.9);
+			this.safeMarkForCheck();
+		}, 0);
+		this.activeTimeouts.add(cardBgTimeout);
 		
 		// Clear friend groups cache
 		this.allEventFriendGroupsCache.clear();
@@ -3448,11 +3478,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	public getCardBackgroundGradient(): string {
-		if (!this.cardBackgroundGradientCache) {
-			// Use solid color instead of gradient
-			this.cardBackgroundGradientCache = this.getSolidColor(0.9);
-		}
-		return this.cardBackgroundGradientCache;
+		// Never assign in getter to avoid ExpressionChangedAfterItHasBeenCheckedError:
+		// cache is only set in finalizeColorCalculation/setDefaultColors via setTimeout(0)
+		return this.cardBackgroundGradientCache ?? this.getSolidColor(0.9);
 	}
 	
 	// Get gradient for status badges - based on calculated color
@@ -3958,6 +3986,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		// Track component initialization end time (when view is ready)
 		if (this.componentInitEndTime === 0) {
 			this.componentInitEndTime = performance.now();
+			this.scheduleUpdateShowLoadTime();
 		}
 		
 		// Verify thumbnail is loaded after view init
@@ -6486,6 +6515,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 
 	
 	ngOnDestroy() {
+		this.componentDestroyed = true;
+		try { this.cdr.detach(); } catch (_) { /* ignore if already destroyed */ }
 		// Close any open modals to prevent memory leaks when navigating away
 		if (this.uploadLogsModalRef) {
 			try { this.uploadLogsModalRef.dismiss(); } catch (_) {}
@@ -7074,6 +7105,16 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		} else {
 			return `${(ms / 1000).toFixed(2)} s`;
 		}
+	}
+
+	/** Schedules update of showLoadTimeSection in next tick to avoid NG0100 */
+	private scheduleUpdateShowLoadTime(): void {
+		const t = setTimeout(() => {
+			if (this.componentDestroyed) return;
+			this.showLoadTimeSection = this.getCurrentCardLoadTime() > 0;
+			this.safeMarkForCheck();
+		}, 0);
+		this.activeTimeouts.add(t);
 	}
 
 	// Get current card load time in milliseconds

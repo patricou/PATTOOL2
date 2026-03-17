@@ -2,6 +2,13 @@
     <h5><i class="fa fa-picture-o"></i> {{ 'PHOTO_TIMELINE.TITLE' | translate }}</h5>
 </div>
 
+<!-- Fiche événement overlay (no NgbModal = no console errors on close) -->
+<app-event-card-overlay
+    *ngIf="eventIdForCard"
+    [eventId]="eventIdForCard"
+    (closed)="closeEventCardOverlay()">
+</app-event-card-overlay>
+
 <!-- Filter by event banner -->
 <div class="alert alert-info py-2 mb-2 d-flex flex-wrap align-items-center gap-2" *ngIf="filterEventId">
     <span class="flex-grow-1">
@@ -74,22 +81,24 @@
                 </button>
             </div>
         </div>
-        <div class="timeline-visibility-filter">
-            <i class="fa fa-filter search-icon"></i>
-            <select class="form-select form-select-sm"
-                    [(ngModel)]="selectedVisibilityFilter"
-                    (ngModelChange)="onVisibilityFilterChange()"
-                    [title]="'EVENTCREATION.VISIBILITY' | translate">
-                <option value="all">{{ 'EVENTHOME.FILTER_ALL' | translate }}</option>
-                <option value="public">{{ 'EVENTCREATION.PUBLIC' | translate }}</option>
-                <option value="private">{{ 'EVENTCREATION.PRIVATE' | translate }}</option>
-                <option value="friends">{{ 'EVENTCREATION.FRIENDS' | translate }}</option>
-                <option *ngFor="let group of getSortedFriendGroups()" [value]="group.id">{{ group.name }}</option>
-            </select>
+        <div class="timeline-filter-refresh-row">
+            <div class="timeline-visibility-filter">
+                <i class="fa fa-filter search-icon"></i>
+                <select class="form-select form-select-sm"
+                        [(ngModel)]="selectedVisibilityFilter"
+                        (ngModelChange)="onVisibilityFilterChange()"
+                        [title]="'EVENTCREATION.VISIBILITY' | translate">
+                    <option value="all">{{ 'EVENTHOME.FILTER_ALL' | translate }}</option>
+                    <option value="public">{{ 'EVENTCREATION.PUBLIC' | translate }}</option>
+                    <option value="private">{{ 'EVENTCREATION.PRIVATE' | translate }}</option>
+                    <option value="friends">{{ 'EVENTCREATION.FRIENDS' | translate }}</option>
+                    <option *ngFor="let group of getSortedFriendGroups()" [value]="group.id">{{ group.name }}</option>
+                </select>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" (click)="loadTimeline()" [disabled]="isLoading">
+                <i class="fa fa-refresh" [class.fa-spin]="isLoading"></i>
+            </button>
         </div>
-        <button class="btn btn-outline-primary btn-sm" (click)="loadTimeline()" [disabled]="isLoading">
-            <i class="fa fa-refresh" [class.fa-spin]="isLoading"></i>
-        </button>
     </div>
 
     <!-- Loading State (initial load — waiting for first activity) -->
@@ -140,7 +149,7 @@
                             <span class="badge me-1" *ngFor="let vb of visibilityBadges; let i = index; trackBy: trackByIndex"
                                   [ngClass]="vb.badgeClass"
                                   [title]="'EVENTCREATION.VISIBILITY' | translate">
-                                <i class="fa fa-eye me-1"></i>{{ vb.text }}
+                                <i class="fa fa-eye me-1"></i><span class="group-action-btn-text">{{ vb.text }}</span>
                             </span>
                         </span>
                     </ng-container>
@@ -151,14 +160,14 @@
                             (click)="openFsSlideshow(fsLink, group.eventName, group.eventId)"
                             [title]="fsLink.description || fsLink.path">
                         <i class="fa fa-desktop"></i>
-                        {{ fsLink.description || 'Photos' }}
+                        <span class="group-action-btn-text">{{ fsLink.description || 'Photos' }}</span>
                     </button>
                 </div>
                 <button class="btn btn-sm group-action-btn group-action-btn--card ms-1"
                         (click)="openEventCardModal(group)"
                         [title]="'PHOTO_TIMELINE.EVENT_CARD' | translate">
                     <i class="fa fa-id-card"></i>
-                    {{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}
+                    <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}</span>
                 </button>
             </div>
 
