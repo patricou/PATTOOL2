@@ -127,9 +127,7 @@
 
     <!-- Photo Groups (displayed as they stream in) -->
     <div class="timeline-groups" *ngIf="!isLoading && filteredGroups.length > 0">
-        <div class="timeline-group" *ngFor="let group of filteredGroups; trackBy: trackByGroupId"
-             [class.has-thumbnail]="!!getGroupThumbnailUrl(group)"
-             [style]="getGroupThumbnailStyle(group)">
+        <div class="timeline-group" *ngFor="let group of filteredGroups; trackBy: trackByGroupId">
             
             <!-- Group Header -->
             <div class="group-header">
