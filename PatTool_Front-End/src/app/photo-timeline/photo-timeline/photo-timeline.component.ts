@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from '../../shared/slideshow-modal/slideshow-modal.module';
@@ -16,7 +16,8 @@ import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { Subscription } from 'rxjs';
-import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { map, distinctUntilChanged } from 'rxjs/operators';
+import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 
 const BUFFER_AHEAD = 3;
@@ -100,6 +101,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     /** Set to true in ngOnDestroy so pending setTimeout/async callbacks can no-op and avoid memory leaks */
     private destroyed = false;
     private searchDebounceId: ReturnType<typeof setTimeout> | null = null;
+    /** When set, timeline shows only photos/videos for this event (from query param eventId). */
+    filterEventId: string | undefined;
 
     constructor(
         private photoTimelineService: PhotoTimelineService,
@@ -109,11 +112,26 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         private modalService: NgbModal,
         private translate: TranslateService,
         private cdr: ChangeDetectorRef,
-        private sanitizer: DomSanitizer
+        private sanitizer: DomSanitizer,
+        private route: ActivatedRoute
     ) {}
 
     ngOnInit(): void {
         this.waitForUser();
+        // React to query param changes (e.g. "View all events" clears eventId) so the timeline reloads
+        const paramSub = this.route.queryParamMap.pipe(
+            map(q => q.get('eventId')),
+            map(id => (id != null && id.trim() !== '') ? id.trim() : undefined),
+            distinctUntilChanged()
+        ).subscribe(eventId => {
+            if (this.filterEventId === eventId) return;
+            this.filterEventId = eventId;
+            if (this.userId) {
+                this.loadTimeline();
+            }
+            this.cdr.markForCheck();
+        });
+        this.subscriptions.push(paramSub);
     }
 
     ngOnDestroy(): void {
@@ -152,6 +170,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     }
 
     private waitForUser(): void {
+        const eventId = this.route.snapshot.queryParamMap.get('eventId');
+        this.filterEventId = (eventId != null && eventId.trim() !== '') ? eventId.trim() : undefined;
+
         this.waitInterval = setInterval(() => {
             const user = this.membersService.getUser();
             if (user && user.id) {
@@ -241,7 +262,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     private startStreaming(): void {
         this.fetchNext();
         this.fetchNextVideos();
-        this.loadOnThisDay();
+        if (!this.filterEventId) {
+            this.loadOnThisDay();
+        }
     }
 
     private loadOnThisDay(): void {
@@ -259,7 +282,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
-        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, PAGE_SIZE, search, visibility).subscribe({
+        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, PAGE_SIZE, search, visibility, this.filterEventId).subscribe({
             next: (response: TimelineResponse) => {
                 // Defer state updates to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError (NG0100)
                 setTimeout(() => {
@@ -307,7 +330,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
-        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, PAGE_SIZE, search, visibility).subscribe({
+        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, PAGE_SIZE, search, visibility, this.filterEventId).subscribe({
             next: (response: TimelineResponse) => {
                 setTimeout(() => {
                     if (this.destroyed) return;
@@ -551,6 +574,20 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         for (const video of group.videos || []) {
             this.getVideoUrl(video);
         }
+    }
+
+    /** Returns the first photo's thumbnail URL for the group, or null. Used as background image for the group container. */
+    getGroupThumbnailUrl(group: TimelineGroup): string | null {
+        const first = (group.photos && group.photos.length > 0) ? group.photos[0] : null;
+        return first ? this.getThumbnailUrl(first) : null;
+    }
+
+    /** Safe style for background-image (thumbnail) on the group container. */
+    getGroupThumbnailStyle(group: TimelineGroup): SafeStyle | null {
+        const url = this.getGroupThumbnailUrl(group);
+        if (!url) return null;
+        const escaped = url.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+        return this.sanitizer.bypassSecurityTrustStyle(`background-image: url("${escaped}");`);
     }
 
     openSlideshow(group: TimelineGroup, startIndex: number): void {

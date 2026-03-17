@@ -195,15 +195,19 @@ public class PhotoTimelineRestController {
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "12") int size,
             @RequestParam(value = "search", required = false) String search,
-            @RequestParam(value = "visibility", required = false) String visibility) {
+            @RequestParam(value = "visibility", required = false) String visibility,
+            @RequestParam(value = "eventId", required = false) String eventId) {
         try {
             long start = System.currentTimeMillis();
 
             Criteria accessCriteria = getAccessCriteria(userId, visibility);
             Criteria hasImage = Criteria.where("fileUploadeds.fileType").regex("^image/");
             Criteria mainCriteria = new Criteria().andOperator(accessCriteria, hasImage);
+            if (eventId != null && !eventId.trim().isEmpty()) {
+                mainCriteria = new Criteria().andOperator(mainCriteria, Criteria.where("id").is(eventId.trim()));
+            }
             if (search != null && !search.trim().isEmpty()) {
-                mainCriteria = new Criteria().andOperator(accessCriteria, hasImage, buildSearchCriteria(search.trim()));
+                mainCriteria = new Criteria().andOperator(mainCriteria, buildSearchCriteria(search.trim()));
             }
 
             Query pagedQuery = new Query(mainCriteria);
@@ -284,7 +288,8 @@ public class PhotoTimelineRestController {
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "12") int size,
             @RequestParam(value = "search", required = false) String search,
-            @RequestParam(value = "visibility", required = false) String visibility) {
+            @RequestParam(value = "visibility", required = false) String visibility,
+            @RequestParam(value = "eventId", required = false) String eventId) {
         try {
             long start = System.currentTimeMillis();
             Criteria accessCriteria = getAccessCriteria(userId, visibility);
@@ -295,6 +300,9 @@ public class PhotoTimelineRestController {
             // Only events that have no image files → they won't appear in the main photo timeline
             Criteria hasNoPhotos = new Criteria().norOperator(Criteria.where("fileUploadeds.fileType").regex("^image/"));
             Criteria combined = new Criteria().andOperator(accessCriteria, hasVideo, hasNoPhotos);
+            if (eventId != null && !eventId.trim().isEmpty()) {
+                combined = new Criteria().andOperator(combined, Criteria.where("id").is(eventId.trim()));
+            }
             if (search != null && !search.trim().isEmpty()) {
                 combined = new Criteria().andOperator(combined, buildSearchCriteria(search.trim()));
             }

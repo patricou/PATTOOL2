@@ -657,6 +657,7 @@
 		"SLIDESHOW": "Фото слайд-шоу",
 		"SET_AS_CARD_IMAGE": "Сделать изображением карточки",
 		"SLIDESHOW_TITLE": "Слайд-шоу",
+		"WALL_PHOTOS_EVENT": "Открыть стену фотографий этого мероприятия",
 		"VIDEOSHOW_TITLE": "Видеоплеер",
 		"FULLSCREEN": "Полный экран",
 		"EXIT_FULLSCREEN": "Выйти из полноэкранного режима",
@@ -1608,6 +1609,9 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "Стена фотографий",
+        "FOR_EVENT": "Фото мероприятия: {{name}}",
+        "FOR_EVENT_LOADING": "Нет фото или видео для этого мероприятия.",
+        "VIEW_ALL_EVENTS": "Показать все мероприятия",
         "ON_THIS_DAY": "В этот день",
         "ON_THIS_DAY_DESC": "{{count}} фото за этот день в предыдущие годы",
         "PHOTOS": "фото",

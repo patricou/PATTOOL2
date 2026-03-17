@@ -642,6 +642,7 @@
 		"SLIDESHOW": "फ़ोटो स्लाइडशो",
 		"SET_AS_CARD_IMAGE": "कार्ड की छवि के रूप में उपयोग करें",
 		"SLIDESHOW_TITLE": "स्लाइडशो",
+		"WALL_PHOTOS_EVENT": "इस कार्यक्रम की फोटो दीवार खोलें",
 		"VIDEOSHOW_TITLE": "वीडियो प्लेयर",
 		"FULLSCREEN": "पूर्ण स्क्रीन",
 		"EXIT_FULLSCREEN": "पूर्ण स्क्रीन से बाहर निकलें",
@@ -1605,6 +1606,9 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "फोटो दीवार",
+        "FOR_EVENT": "कार्यक्रम की फोटो: {{name}}",
+        "FOR_EVENT_LOADING": "इस कार्यक्रम की कोई फोटो या वीडियो नहीं।",
+        "VIEW_ALL_EVENTS": "सभी कार्यक्रम देखें",
         "ON_THIS_DAY": "आज के दिन",
         "ON_THIS_DAY_DESC": "पिछले वर्षों में इस दिन की {{count}} तस्वीर(ें)",
         "PHOTOS": "तस्वीर(ें)",

@@ -665,6 +665,7 @@
 		"SLIDESHOW": "Presentazione di foto",
 		"SET_AS_CARD_IMAGE": "Usa come immagine della scheda",
 		"SLIDESHOW_TITLE": "Presentazione",
+		"WALL_PHOTOS_EVENT": "Apri il muro di foto di questo evento",
 		"VIDEOSHOW_TITLE": "Visualizzatore video",
 		"FULLSCREEN": "Schermo intero",
 		"EXIT_FULLSCREEN": "Esci da schermo intero",
@@ -1616,6 +1617,9 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "Muro di Foto",
+        "FOR_EVENT": "Foto dell'evento: {{name}}",
+        "FOR_EVENT_LOADING": "Nessuna foto o video per questo evento.",
+        "VIEW_ALL_EVENTS": "Vedi tutti gli eventi",
         "ON_THIS_DAY": "In questo giorno",
         "ON_THIS_DAY_DESC": "{{count}} foto di questo giorno negli anni precedenti",
         "PHOTOS": "foto",

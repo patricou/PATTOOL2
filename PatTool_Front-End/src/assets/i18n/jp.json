@@ -543,6 +543,7 @@
 		"SLIDESHOW": "写真スライドショー",
 		"SET_AS_CARD_IMAGE": "カードの画像として設定",
 		"SLIDESHOW_TITLE": "スライドショー",
+		"WALL_PHOTOS_EVENT": "このイベントのフォトウォールを開く",
 		"VIDEOSHOW_TITLE": "ビデオプレーヤー",
 		"FULLSCREEN": "フルスクリーン",
 		"EXIT_FULLSCREEN": "フルスクリーンを終了",
@@ -1620,6 +1621,9 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "フォトウォール",
+        "FOR_EVENT": "イベントの写真: {{name}}",
+        "FOR_EVENT_LOADING": "このイベントの写真や動画はありません。",
+        "VIEW_ALL_EVENTS": "すべてのイベントを表示",
         "ON_THIS_DAY": "この日の思い出",
         "ON_THIS_DAY_DESC": "過去の同じ日の写真 {{count}} 枚",
         "PHOTOS": "枚の写真",

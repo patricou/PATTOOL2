@@ -265,8 +265,9 @@
 }
 
 .action-container-inline {
-  display: grid;
-  grid-template-columns: auto auto auto auto auto auto 1fr auto; /* Comment | Discussion | WhatsApp | Email | Web link | Edit | Upload | Notes | Rating */
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
   position: relative;
@@ -2823,29 +2824,32 @@ select.compact-input:focus {
     grid-template-columns: none !important;
   }
   
-  /* FIRST TABLE: Buttons row */
+  /* FIRST ROW: flex so upload button can sit on its own row below, centered */
   .action-container .buttons-table-row {
-    display: table !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
     width: 100% !important;
-    border-collapse: collapse !important;
-    border-spacing: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.3rem !important;
     margin-bottom: 0.5rem !important;
   }
   
-  /* Buttons as table cells - centered */
+  /* Action buttons as flex items (first row) – exclude file-upload so it goes below */
   .action-container .add-commentary-wrapper,
   .action-container .add-discussion-wrapper,
   .action-container .share-whatsapp-wrapper,
   .action-container .share-email-wrapper,
+  .action-container .wall-photos-event-wrapper,
   .action-container .add-web-link-wrapper,
   .action-container .edit-event-wrapper,
-  .action-container .file-upload-wrapper,
   .action-container .notes-section {
-    display: table-cell !important;
-    vertical-align: middle !important;
-    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     padding: 0.3rem !important;
     border: 1px solid #000000 !important;
+    flex: 0 0 auto !important;
   }
   
   /* Center content in button cells */
@@ -2853,9 +2857,9 @@ select.compact-input:focus {
   .action-container .add-discussion-wrapper > *,
   .action-container .share-whatsapp-wrapper > *,
   .action-container .share-email-wrapper > *,
+  .action-container .wall-photos-event-wrapper > *,
   .action-container .add-web-link-wrapper > *,
   .action-container .edit-event-wrapper > *,
-  .action-container .file-upload-wrapper > *,
   .action-container .notes-section > * {
     margin: 0 auto !important;
     display: flex !important;
@@ -2863,7 +2867,24 @@ select.compact-input:focus {
     align-items: center !important;
   }
   
-  /* Bouton upload : garder le texte visible (fond blanc, fonte noire) */
+  /* White upload button: own row below the others, centered (mobile) */
+  .action-container .file-upload-wrapper {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    flex: 0 0 100% !important;
+    order: 99 !important;
+    padding: 0.5rem 0.3rem !important;
+    border: 1px solid #000000 !important;
+    margin-top: 0.25rem !important;
+  }
+  .action-container .file-upload-wrapper > * {
+    margin: 0 auto !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
   .action-container .file-upload-wrapper label.btn-upload-compact {
     font-size: 0.7rem !important;
     min-width: auto !important;
@@ -3912,53 +3933,135 @@ select.compact-input:focus {
    NON-MOBILE MODE: Restore original layout
    ============================================ */
 
+/* ============================================
+   ACTION BAR – Non-mobile: single line, compact, no scroll
+   ============================================ */
 @media (min-width: 769px) {
-  /* Restore original grid layout for action-container-inline */
+  .action-container {
+    padding: 0.5rem 0.75rem !important;
+  }
+
   .action-container-inline {
-    display: grid !important;
-    grid-template-columns: auto auto auto auto auto auto 1fr auto !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
     align-items: center !important;
-    gap: 1rem !important;
+    gap: 0.4rem !important;
     width: 100% !important;
+    min-height: 36px !important;
   }
-  
-  /* Remove table layout from buttons-table-row in non-mobile */
-  .action-container .buttons-table-row {
-    display: contents !important;
-  }
-  
-  /* Remove table layout from rating-table-row in non-mobile */
+
+  .action-container .buttons-table-row,
   .action-container .rating-table-row {
     display: contents !important;
   }
-  
-  /* Restore original display for buttons in non-mobile */
+
+  /* All action items: flex, no border, compact (include rating so it stays on the same row) */
   .action-container .add-commentary-wrapper,
   .action-container .add-discussion-wrapper,
   .action-container .share-whatsapp-wrapper,
   .action-container .share-email-wrapper,
+  .action-container .wall-photos-event-wrapper,
   .action-container .add-web-link-wrapper,
   .action-container .edit-event-wrapper,
   .action-container .file-upload-wrapper,
-  .action-container .notes-section {
-    display: flex !important;
-    align-items: center !important;
-    border: none !important;
-    padding: 0 !important;
-  }
-  
-  /* Restore original rating section layout in non-mobile */
+  .action-container .notes-section,
   .action-container .rating-section {
     display: flex !important;
     align-items: center !important;
-    gap: 0.4rem !important;
+    border: none !important;
+    padding: 0 !important;
+    flex: 0 0 auto !important;
+  }
+
+  /* Rating at the end of the row (right side) */
+  .action-container .rating-section {
+    order: 20 !important;
+    margin-left: auto !important;
+  }
+
+  /* Upload wrapper: do not take full width so the button stays visible on the row */
+  .action-container .file-upload-wrapper {
+    width: auto !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+  }
+  .action-container .file-upload-wrapper label.btn-upload-compact {
+    display: inline-flex !important;
+    align-items: center !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+  }
+
+  /* Compact pill buttons – with text */
+  .action-container .add-commentary-wrapper .btn-compact,
+  .action-container .add-discussion-wrapper .btn-compact,
+  .action-container .share-whatsapp-wrapper .btn-compact,
+  .action-container .share-email-wrapper .btn-compact,
+  .action-container .wall-photos-event-wrapper a.btn-compact,
+  .action-container .add-web-link-wrapper .btn-compact,
+  .action-container .edit-event-wrapper .btn-compact,
+  .action-container .file-upload-wrapper label.btn-compact {
+    padding: 0.35rem 0.55rem !important;
+    min-height: 32px !important;
+    font-size: 0.7rem !important;
+    border-radius: 8px !important;
+    gap: 0.35rem !important;
+    white-space: nowrap !important;
+  }
+  .action-container .add-commentary-wrapper .btn-compact i,
+  .action-container .add-discussion-wrapper .btn-compact i,
+  .action-container .share-whatsapp-wrapper .btn-compact i,
+  .action-container .share-email-wrapper .btn-compact i,
+  .action-container .wall-photos-event-wrapper a.btn-compact i,
+  .action-container .add-web-link-wrapper .btn-compact i,
+  .action-container .edit-event-wrapper .btn-compact i,
+  .action-container .file-upload-wrapper label.btn-compact i {
+    font-size: 0.75rem !important;
+  }
+
+  /* Notes on same line, truncate if long */
+  .action-container .notes-section {
+    flex: 0 1 auto !important;
+    max-width: 11rem !important;
+    min-width: 0 !important;
+    order: 10 !important;
+    margin-top: 0 !important;
+  }
+  .action-container .notes-section .notes-text {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    max-width: 100% !important;
+    padding: 0.25rem 0.4rem !important;
+    font-size: 0.7rem !important;
+  }
+
+  /* Rating: compact badges and stars */
+  .action-container .rating-section {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.25rem !important;
     flex: 0 0 auto !important;
     border: none !important;
     padding: 0 !important;
-    justify-content: flex-end !important;
   }
-  
-  /* Remove flexbox order overrides in non-mobile */
+  .action-container .rating-section .rating-badge {
+    padding: 0.2rem 0.35rem !important;
+    font-size: 0.7rem !important;
+    min-width: 0 !important;
+    border-radius: 6px !important;
+  }
+  .action-container .rating-section .star-rating-display {
+    gap: 0.15rem !important;
+  }
+  .action-container .rating-section .star-icon {
+    font-size: 0.85rem !important;
+  }
+  .action-container .rating-section .star-rating-value {
+    font-size: 0.75rem !important;
+    margin-left: 0.15rem !important;
+  }
   .action-container .rating-section .rating-plus,
   .action-container .rating-section .rating-minus,
   .action-container .rating-section .star-rating-display {
@@ -4036,29 +4139,32 @@ select.compact-input:focus {
     grid-template-columns: none !important;
   }
   
-  /* FIRST TABLE: Buttons row */
+  /* FIRST ROW: flex so upload button can sit on its own row below, centered */
   .action-container .buttons-table-row {
-    display: table !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
     width: 100% !important;
-    border-collapse: collapse !important;
-    border-spacing: 0 !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 0.3rem !important;
     margin-bottom: 0.5rem !important;
   }
   
-  /* Buttons as table cells - centered */
+  /* Action buttons as flex items (first row) – exclude file-upload so it goes below */
   .action-container .add-commentary-wrapper,
   .action-container .add-discussion-wrapper,
   .action-container .share-whatsapp-wrapper,
   .action-container .share-email-wrapper,
+  .action-container .wall-photos-event-wrapper,
   .action-container .add-web-link-wrapper,
   .action-container .edit-event-wrapper,
-  .action-container .file-upload-wrapper,
   .action-container .notes-section {
-    display: table-cell !important;
-    vertical-align: middle !important;
-    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     padding: 0.3rem !important;
     border: 1px solid #000000 !important;
+    flex: 0 0 auto !important;
   }
   
   /* Center content in button cells */
@@ -4066,9 +4172,9 @@ select.compact-input:focus {
   .action-container .add-discussion-wrapper > *,
   .action-container .share-whatsapp-wrapper > *,
   .action-container .share-email-wrapper > *,
+  .action-container .wall-photos-event-wrapper > *,
   .action-container .add-web-link-wrapper > *,
   .action-container .edit-event-wrapper > *,
-  .action-container .file-upload-wrapper > *,
   .action-container .notes-section > * {
     margin: 0 auto !important;
     display: flex !important;
@@ -4076,7 +4182,24 @@ select.compact-input:focus {
     align-items: center !important;
   }
   
-  /* Bouton upload : garder le texte visible (fond blanc, fonte noire) */
+  /* White upload button: own row below the others, centered (mobile) */
+  .action-container .file-upload-wrapper {
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 100% !important;
+    flex: 0 0 100% !important;
+    order: 99 !important;
+    padding: 0.5rem 0.3rem !important;
+    border: 1px solid #000000 !important;
+    margin-top: 0.25rem !important;
+  }
+  .action-container .file-upload-wrapper > * {
+    margin: 0 auto !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+  }
   .action-container .file-upload-wrapper label.btn-upload-compact {
     font-size: 0.7rem !important;
     min-width: auto !important;

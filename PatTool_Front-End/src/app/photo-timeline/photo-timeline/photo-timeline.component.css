@@ -226,12 +226,47 @@
 }
 
 .timeline-group {
-    background: #fff;
+    position: relative;
+    background-color: #f8f9fa;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     border-radius: 16px;
     padding: 1.25rem;
     border: 1px solid #e9ecef;
     transition: border-color 0.3s ease, box-shadow 0.3s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    overflow: hidden;
+}
+
+/* Overlay only when thumbnail is used as background */
+.timeline-group.has-thumbnail::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.5) 0%, rgba(0, 0, 0, 0.35) 30%, rgba(0, 0, 0, 0.25) 100%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.timeline-group .group-header,
+.timeline-group .masonry-grid {
+    position: relative;
+    z-index: 1;
+}
+
+/* When there's a background thumbnail, lighten text for contrast */
+.timeline-group.has-thumbnail .group-title a {
+    color: #fff;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+.timeline-group.has-thumbnail .group-title a:hover {
+    color: #e0e0e0;
+}
+.timeline-group.has-thumbnail .group-date,
+.timeline-group.has-thumbnail .group-count {
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 
 .timeline-group:hover {

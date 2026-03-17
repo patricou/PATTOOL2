@@ -662,6 +662,7 @@
 		"SLIDESHOW": "عرض شرائح الصور",
 		"SET_AS_CARD_IMAGE": "استخدام كصورة للبطاقة",
 		"SLIDESHOW_TITLE": "عرض شرائح",
+		"WALL_PHOTOS_EVENT": "فتح جدار الصور لهذا الحدث",
 		"VIDEOSHOW_TITLE": "مشغل الفيديو",
 		"FULLSCREEN": "ملء الشاشة",
 		"EXIT_FULLSCREEN": "الخروج من ملء الشاشة",
@@ -1612,6 +1613,9 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "جدار الصور",
+        "FOR_EVENT": "صور الحدث: {{name}}",
+        "FOR_EVENT_LOADING": "لا توجد صور أو فيديوهات لهذا الحدث.",
+        "VIEW_ALL_EVENTS": "عرض جميع الأحداث",
         "ON_THIS_DAY": "في مثل هذا اليوم",
         "ON_THIS_DAY_DESC": "{{count}} صورة من هذا اليوم في السنوات السابقة",
         "PHOTOS": "صورة",

@@ -655,6 +655,7 @@
 		"SLIDESHOW": "מצגת תמונות",
 		"SET_AS_CARD_IMAGE": "הגדר כתמונת הכרטיס",
 		"SLIDESHOW_TITLE": "מצגת",
+		"WALL_PHOTOS_EVENT": "פתח את קיר התמונות של אירוע זה",
 		"VIDEOSHOW_TITLE": "נגן וידאו",
 		"FULLSCREEN": "מסך מלא",
 		"EXIT_FULLSCREEN": "יציאה ממסך מלא",
@@ -1605,6 +1606,9 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "קיר תמונות",
+        "FOR_EVENT": "תמונות האירוע: {{name}}",
+        "FOR_EVENT_LOADING": "אין תמונות או סרטונים לאירוע זה.",
+        "VIEW_ALL_EVENTS": "הצג את כל האירועים",
         "ON_THIS_DAY": "היום בהיסטוריה",
         "ON_THIS_DAY_DESC": "{{count}} תמונות מהיום הזה בשנים קודמות",
         "PHOTOS": "תמונות",

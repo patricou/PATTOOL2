@@ -663,6 +663,7 @@
 		"SLIDESHOW": "照片幻灯片",
 		"SET_AS_CARD_IMAGE": "设置为卡片图片",
 		"SLIDESHOW_TITLE": "幻灯片",
+		"WALL_PHOTOS_EVENT": "打开此活动的照片墙",
 		"VIDEOSHOW_TITLE": "视频播放器",
 		"FULLSCREEN": "全屏",
 		"EXIT_FULLSCREEN": "退出全屏",
@@ -1614,6 +1615,9 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "照片墙",
+        "FOR_EVENT": "活动照片：{{name}}",
+        "FOR_EVENT_LOADING": "此活动暂无照片或视频。",
+        "VIEW_ALL_EVENTS": "查看所有活动",
         "ON_THIS_DAY": "历史上的今天",
         "ON_THIS_DAY_DESC": "往年今日的 {{count}} 张照片",
         "PHOTOS": "张照片",

@@ -318,6 +318,18 @@
             (mouseleave)="onTooltipMouseLeave($event)">
         <i class="fa fa-picture-o" aria-hidden="true"></i> {{ getTotalPhotosCount() }}
     </button>
+
+    <a class="btn btn-sm btn-outline-secondary mb-1 me-1 dynamic-footer-btn"
+       [routerLink]="['/photos']"
+       [queryParams]="{ eventId: evenement.id }"
+       [ngStyle]="getFooterButtonStyles('photos')"
+       placement="top"
+       container="body"
+       ngbTooltip="{{ 'EVENTELEM.WALL_PHOTOS_EVENT' | translate }}"
+       (mouseleave)="onTooltipMouseLeave($event)"
+       (click)="storeEventIdForReturn()">
+        <i class="fa fa-th-large" aria-hidden="true"></i>
+    </a>
     
     <a *ngIf="isAuthor()"
        class="btn btn-sm btn-outline-primary mb-1 me-1 dynamic-footer-btn" 

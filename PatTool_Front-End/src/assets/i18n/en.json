@@ -664,6 +664,7 @@
 		"SLIDESHOW": "Photo slideshow",
         "SET_AS_CARD_IMAGE": "Use as card image",
 		"SLIDESHOW_TITLE": "Slideshow",
+		"WALL_PHOTOS_EVENT": "Open photo wall for this event",
 		"VIDEOSHOW_TITLE": "Videoshow",
 		"FULLSCREEN": "Fullscreen",
 		"EXIT_FULLSCREEN": "Exit",
@@ -1643,6 +1644,9 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "Photo Timeline",
+        "FOR_EVENT": "Photos for event: {{name}}",
+        "FOR_EVENT_LOADING": "No photos or videos for this event.",
+        "VIEW_ALL_EVENTS": "View all events",
         "ON_THIS_DAY": "On This Day",
         "ON_THIS_DAY_DESC": "{{count}} photo(s) from this day in previous years",
         "PHOTOS": "photo(s)",

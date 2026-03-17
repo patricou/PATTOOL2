@@ -2,6 +2,19 @@
     <h5><i class="fa fa-picture-o"></i> {{ 'PHOTO_TIMELINE.TITLE' | translate }}</h5>
 </div>
 
+<!-- Filter by event banner -->
+<div class="alert alert-info py-2 mb-2 d-flex flex-wrap align-items-center gap-2" *ngIf="filterEventId">
+    <span class="flex-grow-1">
+        <i class="fa fa-filter me-1"></i>
+        <span *ngIf="visibleGroups.length > 0">{{ 'PHOTO_TIMELINE.FOR_EVENT' | translate: { name: visibleGroups[0].eventName } }}</span>
+        <span *ngIf="visibleGroups.length === 0 && !isLoading">{{ 'PHOTO_TIMELINE.FOR_EVENT_LOADING' | translate }}</span>
+        <span *ngIf="visibleGroups.length === 0 && isLoading">{{ 'COMMUN.LOADING' | translate }}...</span>
+    </span>
+    <a class="btn btn-sm btn-outline-primary" [routerLink]="['/photos']" [queryParams]="{}">
+        <i class="fa fa-th-list me-1"></i>{{ 'PHOTO_TIMELINE.VIEW_ALL_EVENTS' | translate }}
+    </a>
+</div>
+
 <div class="timeline-container">
 
     <!-- On This Day Banner -->
@@ -34,8 +47,8 @@
         </div>
     </div>
 
-    <!-- Search & Stats Bar -->
-    <div class="timeline-toolbar" *ngIf="!isLoading">
+    <!-- Search & Stats Bar (hidden when viewing a single event by id) -->
+    <div class="timeline-toolbar" *ngIf="!isLoading && !filterEventId">
         <div class="timeline-stats">
             <span class="badge bg-secondary">
                 <i class="fa fa-folder-o"></i>
@@ -105,7 +118,9 @@
 
     <!-- Photo Groups (displayed as they stream in) -->
     <div class="timeline-groups" *ngIf="!isLoading && filteredGroups.length > 0">
-        <div class="timeline-group" *ngFor="let group of filteredGroups; trackBy: trackByGroupId">
+        <div class="timeline-group" *ngFor="let group of filteredGroups; trackBy: trackByGroupId"
+             [class.has-thumbnail]="!!getGroupThumbnailUrl(group)"
+             [style]="getGroupThumbnailStyle(group)">
             
             <!-- Group Header -->
             <div class="group-header">
