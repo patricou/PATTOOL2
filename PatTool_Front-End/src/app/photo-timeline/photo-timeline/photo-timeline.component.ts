@@ -845,6 +845,15 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         return index;
     }
 
+    /** Format owner as "FirstName LastName (userName)" or "(userName)" if no names. */
+    getOwnerDisplay(group: TimelineGroup): string {
+        if (!group?.ownerUserName) return '';
+        const first = (group.ownerFirstName || '').trim();
+        const last = (group.ownerLastName || '').trim();
+        const names = [first, last].filter(Boolean).join(' ');
+        return names ? `${names} (${group.ownerUserName})` : group.ownerUserName;
+    }
+
     trackByGroupId(index: number, group: TimelineGroup): string {
         return group.eventId;
     }

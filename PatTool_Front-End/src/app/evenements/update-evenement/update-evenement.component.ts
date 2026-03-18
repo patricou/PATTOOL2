@@ -1537,7 +1537,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		};
 
 		// Ouvrir le slideshow avec cette image
-		this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, undefined, 0, this.evenement?.id);
+		this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, undefined, 0, this.evenement?.id, !!(this.evenement?.author && this.canEditEventFields()));
 	}
 
 	public openPdfFile(fileId: string, fileName: string): void {
@@ -2441,7 +2441,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		this.fsSlideshowLoadingActive = true;
 		
 		// Open modal immediately with empty array
-		this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, undefined, 0, this.evenement?.id);
+		this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, undefined, 0, this.evenement?.id, !!(this.evenement?.author && this.canEditEventFields()));
 		
 		// Then list and load images dynamically
 		const listSub = this._fileService.listImagesFromDisk(relativePath).subscribe({

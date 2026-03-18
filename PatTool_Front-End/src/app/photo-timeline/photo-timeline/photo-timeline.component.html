@@ -144,6 +144,9 @@
                     <h6 class="group-title">
                         <a [routerLink]="['/details-evenement', group.eventId]">{{ group.eventName }}</a>
                     </h6>
+                    <span class="group-owner text-muted" *ngIf="group.ownerUserName">
+                        <i class="fa fa-user me-1"></i>{{ 'PHOTO_TIMELINE.OWNER' | translate }}: {{ getOwnerDisplay(group) }}
+                    </span>
                     <span class="group-date">{{ formatEventDate(group.eventDate) }}</span>
                     <span class="group-count">
                         <i class="fa fa-picture-o"></i> {{ (group.photos.length || 0) + ((group.videos?.length) ?? 0) }}
@@ -167,6 +170,12 @@
                         <span class="group-action-btn-text">{{ fsLink.description || 'Photos' }}</span>
                     </button>
                 </div>
+                <a class="btn btn-sm group-action-btn group-action-btn--card ms-1"
+                   [routerLink]="['/details-evenement', group.eventId]"
+                   [title]="'PHOTO_TIMELINE.EVENT_DETAILS' | translate">
+                    <i class="fa fa-external-link"></i>
+                    <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_DETAILS' | translate }}</span>
+                </a>
                 <button class="btn btn-sm group-action-btn group-action-btn--card ms-1"
                         (click)="openEventCardModal(group)"
                         [title]="'PHOTO_TIMELINE.EVENT_CARD' | translate">

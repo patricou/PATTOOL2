@@ -2984,7 +2984,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       const eventColor = this.getCalculatedColor();
       
       // Open slideshow with all discussion images
-      this.slideshowModalComponent.open(validImageSources, this.evenement!.evenementName, false, 0, eventColor || undefined, 0, this.evenement?.id);
+      this.slideshowModalComponent.open(validImageSources, this.evenement!.evenementName, false, 0, eventColor || undefined, 0, this.evenement?.id, this.isEventOwner());
       
       // Set the clicked image as the starting image
       // Use setTimeout to ensure slideshow is fully initialized
@@ -5695,7 +5695,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     const eventColor = this.getCalculatedColor();
     
     // Pass startIndex to open method
-    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined, startIndex, this.evenement?.id);
+    this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined, startIndex, this.evenement?.id, this.isEventOwner());
   }
 
   public openSingleImageInSlideshow(fileId: string, fileName: string): void {
@@ -5715,7 +5715,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     // Get event color for slideshow styling
     const eventColor = this.getCalculatedColor();
     
-    this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined, 0, this.evenement?.id);
+    this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined, 0, this.evenement?.id, this.isEventOwner());
   }
 
   // Check if URL event is PHOTOFROMFS type
@@ -5894,7 +5894,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     const eventColor = this.getCalculatedColor();
     
     // Open modal immediately with empty array, but set startIndex for when images are loaded
-    this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined, startIndex, this.evenement?.id);
+    this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined, startIndex, this.evenement?.id, this.isEventOwner());
     
     // Then list and load images dynamically
     const listSub = this.fileService.listImagesFromDisk(relativePath).subscribe({

@@ -69,6 +69,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   @Input() eventId: string = '';
 
+  /** When true, the "Ajouter dans la DB" button is shown (only for event owner when event has an owner). Set via open(). */
+  private canAddToDb: boolean = false;
+
   @Output() closed = new EventEmitter<void>();
   @Output() openLocationInTrace = new EventEmitter<SlideshowLocationEvent>();
   @Output() addToDb = new EventEmitter<SlideshowAddToDbEvent>();
@@ -598,7 +601,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Open the slideshow modal
-  public open(images: SlideshowImageSource[], eventName: string = '', loadFromFileService: boolean = false, retryCount: number = 0, eventColor?: { r: number; g: number; b: number }, startIndex: number = 0, eventId?: string): void {
+  public open(images: SlideshowImageSource[], eventName: string = '', loadFromFileService: boolean = false, retryCount: number = 0, eventColor?: { r: number; g: number; b: number }, startIndex: number = 0, eventId?: string, canAddToDb: boolean = false): void {
     // Allow opening with empty array for dynamic loading
     if (!images) {
       images = [];
@@ -613,6 +616,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.eventName = eventName;
     this.loadFromFileService = loadFromFileService;
     this.eventId = eventId || '';
+    this.canAddToDb = !!canAddToDb;
     this.showFileIdLoadingSpinner = false;
 
     // Store event color if provided
@@ -685,7 +689,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Ensure ViewChild is available (use setTimeout to ensure it's initialized)
     if (!this.slideshowModal) {
       setTimeout(() => {
-        this.open(images, eventName, loadFromFileService, retryCount + 1);
+        this.open(images, eventName, loadFromFileService, retryCount + 1, eventColor, startIndex, eventId, this.canAddToDb);
       }, 100);
       return;
     }
@@ -812,7 +816,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Retry once more if there's an error
       if (retryCount < 3) {
         setTimeout(() => {
-          this.open(images, eventName, loadFromFileService, retryCount + 1);
+          this.open(images, eventName, loadFromFileService, retryCount + 1, eventColor, startIndex, eventId, this.canAddToDb);
         }, 200);
       }
     }
@@ -4008,8 +4012,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     return this.images.some(src => !!(src && src.relativePath && src.fileName));
   }
 
+  /** Show "Ajouter dans la DB" only when event has an owner and current user is that owner, and there are FS images. */
   public shouldShowAddToDbButton(): boolean {
-    if (!this.eventId) return false;
+    if (!this.eventId || !this.canAddToDb) return false;
     return this.hasAnyFilesystemImage();
   }
 

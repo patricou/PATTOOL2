@@ -1614,6 +1614,7 @@
         "FOR_EVENT_LOADING": "Нет фото или видео для этого мероприятия.",
         "VIEW_ALL_EVENTS": "Показать все мероприятия",
         "EVENT_CARD": "Карточка мероприятия",
+        "EVENT_DETAILS": "Подробнее о мероприятии",
         "ON_THIS_DAY": "В этот день",
         "ON_THIS_DAY_DESC": "{{count}} фото за этот день в предыдущие годы",
         "PHOTOS": "фото",
@@ -1627,6 +1628,7 @@
         "UPLOAD_SUCCESS": "Фото \"{{fileName}}\" успешно добавлено!",
         "UPLOAD_ERROR": "Ошибка при добавлении фото в базу данных.",
         "TOAST_SUCCESS_TITLE": "Успех",
-        "TOAST_ERROR_TITLE": "Ошибка"
+        "TOAST_ERROR_TITLE": "Ошибка",
+        "OWNER": "Владелец"
     }
 }

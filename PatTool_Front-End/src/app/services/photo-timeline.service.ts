@@ -33,6 +33,9 @@ export interface TimelineGroup {
     photos: TimelinePhoto[];
     videos?: TimelinePhoto[];
     fsPhotoLinks: FsPhotoLink[];
+    ownerFirstName?: string;
+    ownerLastName?: string;
+    ownerUserName?: string;
 }
 
 export interface TimelineResponse {

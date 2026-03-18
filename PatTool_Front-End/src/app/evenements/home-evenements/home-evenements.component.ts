@@ -3701,7 +3701,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		}
 		
 		// Open modal immediately with empty array (images from FS); pass eventId so "Ajouter dans la DB" is available
-		this.slideshowModalComponent.open([], evenement.evenementName, false, 0, undefined, 0, evenement?.id);
+		this.slideshowModalComponent.open([], evenement.evenementName, false, 0, undefined, 0, evenement?.id, !!(evenement?.author && this.isAuthor(evenement)));
 		
 		// Then list and load images dynamically
 		const listImagesSubscription = this._fileService.listImagesFromDisk(relativePath).subscribe({
@@ -3768,7 +3768,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 		// Open the slideshow modal immediately - images will be loaded dynamically
 		if (this.slideshowModalComponent) {
-			this.slideshowModalComponent.open(imageSources, evenement.evenementName, true, 0, undefined, 0, evenement?.id);
+			this.slideshowModalComponent.open(imageSources, evenement.evenementName, true, 0, undefined, 0, evenement?.id, !!(evenement?.author && this.isAuthor(evenement)));
 		}
 	}
 

@@ -1618,6 +1618,7 @@
         "FOR_EVENT_LOADING": "Keine Fotos oder Videos für diese Veranstaltung.",
         "VIEW_ALL_EVENTS": "Alle Veranstaltungen anzeigen",
         "EVENT_CARD": "Veranstaltungskarte",
+        "EVENT_DETAILS": "Veranstaltungsdetails",
         "ON_THIS_DAY": "An diesem Tag",
         "ON_THIS_DAY_DESC": "{{count}} Foto(s) von diesem Tag in früheren Jahren",
         "PHOTOS": "Foto(s)",
@@ -1631,6 +1632,7 @@
         "UPLOAD_SUCCESS": "Foto \"{{fileName}}\" erfolgreich hinzugefügt!",
         "UPLOAD_ERROR": "Fehler beim Hinzufügen des Fotos zur Datenbank.",
         "TOAST_SUCCESS_TITLE": "Erfolg",
-        "TOAST_ERROR_TITLE": "Fehler"
+        "TOAST_ERROR_TITLE": "Fehler",
+        "OWNER": "Eigentümer"
     }
 }

@@ -708,7 +708,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		};
 		
 		// Open modal immediately with empty array (images loaded from disk); pass eventId so "Ajouter dans la DB" is available
-		this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined, 0, this.evenement?.id);
+		this.slideshowModalComponent.open([], this.evenement.evenementName, false, 0, eventColor || undefined, 0, this.evenement?.id, this.isAuthor());
 		
 		// Immediately maintain scroll position after modal opens to prevent any movement
 		requestAnimationFrame(() => {
@@ -7367,7 +7367,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Open the slideshow modal immediately - images will be loaded dynamically
 		if (this.slideshowModalComponent) {
-			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined, 0, this.evenement?.id);
+			this.slideshowModalComponent.open(imageSources, this.evenement.evenementName, true, 0, eventColor || undefined, 0, this.evenement?.id, this.isAuthor());
 			
 			// Immediately maintain scroll position after modal opens to prevent any movement
 			requestAnimationFrame(() => {
@@ -7441,7 +7441,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Open the slideshow modal with just this one image
 		if (this.slideshowModalComponent) {
-			this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined, 0, this.evenement?.id);
+			this.slideshowModalComponent.open([imageSource], this.evenement.evenementName, true, 0, eventColor || undefined, 0, this.evenement?.id, this.isAuthor());
 		} else {
 			console.error('Slideshow modal component not available');
 		}

@@ -1611,6 +1611,7 @@
         "FOR_EVENT_LOADING": "אין תמונות או סרטונים לאירוע זה.",
         "VIEW_ALL_EVENTS": "הצג את כל האירועים",
         "EVENT_CARD": "כרטיס אירוע",
+        "EVENT_DETAILS": "פרטי האירוע",
         "ON_THIS_DAY": "היום בהיסטוריה",
         "ON_THIS_DAY_DESC": "{{count}} תמונות מהיום הזה בשנים קודמות",
         "PHOTOS": "תמונות",
@@ -1624,6 +1625,7 @@
         "UPLOAD_SUCCESS": "התמונה \"{{fileName}}\" נוספה בהצלחה!",
         "UPLOAD_ERROR": "שגיאה בהוספת התמונה למסד הנתונים.",
         "TOAST_SUCCESS_TITLE": "הצלחה",
-        "TOAST_ERROR_TITLE": "שגיאה"
+        "TOAST_ERROR_TITLE": "שגיאה",
+        "OWNER": "בעלים"
     }
 }

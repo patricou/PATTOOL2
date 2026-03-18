@@ -1638,6 +1638,7 @@
         "FOR_EVENT_LOADING": "Aucune photo ni vidéo pour cet événement.",
         "VIEW_ALL_EVENTS": "Voir tous les événements",
         "EVENT_CARD": "Fiche événement",
+        "EVENT_DETAILS": "Détail de l'événement",
         "ON_THIS_DAY": "Ce jour-là",
         "ON_THIS_DAY_DESC": "{{count}} photo(s) de ce jour les années précédentes",
         "PHOTOS": "photo(s)",
@@ -1651,7 +1652,8 @@
         "UPLOAD_SUCCESS": "Photo \"{{fileName}}\" ajoutée avec succès !",
         "UPLOAD_ERROR": "Erreur lors de l'ajout de la photo.",
         "TOAST_SUCCESS_TITLE": "Succès",
-        "TOAST_ERROR_TITLE": "Erreur"
+        "TOAST_ERROR_TITLE": "Erreur",
+        "OWNER": "Propriétaire"
     }
 }
 

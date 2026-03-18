@@ -135,6 +135,9 @@ public class PhotoTimelineRestController {
         private List<TimelinePhoto> photos;
         private List<TimelinePhoto> videos;
         private List<FsPhotoLink> fsPhotoLinks;
+        private String ownerFirstName;
+        private String ownerLastName;
+        private String ownerUserName;
 
         public TimelineGroup() {}
 
@@ -160,6 +163,12 @@ public class PhotoTimelineRestController {
         public void setVideos(List<TimelinePhoto> videos) { this.videos = videos; }
         public List<FsPhotoLink> getFsPhotoLinks() { return fsPhotoLinks; }
         public void setFsPhotoLinks(List<FsPhotoLink> fsPhotoLinks) { this.fsPhotoLinks = fsPhotoLinks; }
+        public String getOwnerFirstName() { return ownerFirstName; }
+        public void setOwnerFirstName(String ownerFirstName) { this.ownerFirstName = ownerFirstName; }
+        public String getOwnerLastName() { return ownerLastName; }
+        public void setOwnerLastName(String ownerLastName) { this.ownerLastName = ownerLastName; }
+        public String getOwnerUserName() { return ownerUserName; }
+        public void setOwnerUserName(String ownerUserName) { this.ownerUserName = ownerUserName; }
     }
 
     public static class TimelineResponse {
@@ -187,6 +196,16 @@ public class PhotoTimelineRestController {
         public void setHasMore(boolean hasMore) { this.hasMore = hasMore; }
         public List<TimelinePhoto> getOnThisDay() { return onThisDay; }
         public void setOnThisDay(List<TimelinePhoto> onThisDay) { this.onThisDay = onThisDay; }
+    }
+
+    /** Resolve event author (owner). With projection, DBRef is often not populated — load from repository if needed. */
+    private Member resolveEventAuthor(Evenement e) {
+        if (e == null || e.getAuthor() == null) return null;
+        Member author = e.getAuthor();
+        String id = author.getId();
+        if (id == null || id.isBlank()) return null;
+        if (author.getUserName() != null && !author.getUserName().isBlank()) return author;
+        return membersRepository.findById(id).orElse(null);
     }
 
     @GetMapping(value = "/timeline", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -229,7 +248,8 @@ public class PhotoTimelineRestController {
                     .include("urlEvents")
                     .include("visibility")
                     .include("friendGroupId")
-                    .include("friendGroupIds");
+                    .include("friendGroupIds")
+                    .include("author");
 
             List<Evenement> events = mongoTemplate.find(pagedQuery, Evenement.class);
 
@@ -258,6 +278,12 @@ public class PhotoTimelineRestController {
                     group.setPhotos(photos);
                     group.setVideos(videos != null ? videos : Collections.emptyList());
                     group.setFsPhotoLinks(fsLinks);
+                    Member owner = resolveEventAuthor(e);
+                    if (owner != null) {
+                        group.setOwnerFirstName(owner.getFirstName());
+                        group.setOwnerLastName(owner.getLastName());
+                        group.setOwnerUserName(owner.getUserName());
+                    }
                     groups.add(group);
                     totalPhotosInPage += photos.size();
                 }
@@ -299,16 +325,16 @@ public class PhotoTimelineRestController {
             long start = System.currentTimeMillis();
             Criteria accessCriteria = getAccessCriteria(userId, visibility);
 
+            Criteria hasVideo = new Criteria().orOperator(
+                    Criteria.where("fileUploadeds.fileType").regex("^video/"),
+                    Criteria.where("fileUploadeds.fileName").regex(".*\\.(mp4|webm|ogg|ogv|mov|avi|mkv|m4v|3gp)$", "i"));
+            // Only events that have no image files → avoid duplicating events that already appear in the main photo timeline (with photos+videos)
+            Criteria hasNoPhotos = new Criteria().norOperator(Criteria.where("fileUploadeds.fileType").regex("^image/"));
             Criteria combined;
             if (eventId != null && !eventId.trim().isEmpty()) {
-                // Single-event wall: load by id + access only, then filter by videos in Java
-                combined = new Criteria().andOperator(accessCriteria, eventIdCriteria(eventId.trim()));
+                // Single-event wall: same rule — only return this event in video timeline if it has videos and NO photos (otherwise it is already shown once in photo timeline)
+                combined = new Criteria().andOperator(accessCriteria, eventIdCriteria(eventId.trim()), hasVideo, hasNoPhotos);
             } else {
-                Criteria hasVideo = new Criteria().orOperator(
-                        Criteria.where("fileUploadeds.fileType").regex("^video/"),
-                        Criteria.where("fileUploadeds.fileName").regex(".*\\.(mp4|webm|ogg|ogv|mov|avi|mkv|m4v|3gp)$", "i"));
-                // Only events that have no image files → they won't appear in the main photo timeline
-                Criteria hasNoPhotos = new Criteria().norOperator(Criteria.where("fileUploadeds.fileType").regex("^image/"));
                 combined = new Criteria().andOperator(accessCriteria, hasVideo, hasNoPhotos);
             }
             if (search != null && !search.trim().isEmpty()) {
@@ -327,7 +353,8 @@ public class PhotoTimelineRestController {
                     .include("fileUploadeds")
                     .include("visibility")
                     .include("friendGroupId")
-                    .include("friendGroupIds");
+                    .include("friendGroupIds")
+                    .include("author");
 
             List<Evenement> events = mongoTemplate.find(pagedQuery, Evenement.class);
 
@@ -353,6 +380,12 @@ public class PhotoTimelineRestController {
                     group.setFriendGroupIds(e.getFriendGroupIds());
                     group.setPhotos(videos);
                     group.setFsPhotoLinks(Collections.emptyList());
+                    Member owner = resolveEventAuthor(e);
+                    if (owner != null) {
+                        group.setOwnerFirstName(owner.getFirstName());
+                        group.setOwnerLastName(owner.getLastName());
+                        group.setOwnerUserName(owner.getUserName());
+                    }
                     groups.add(group);
                     totalVideosInPage += videos.size();
                 }

@@ -1618,6 +1618,7 @@
         "FOR_EVENT_LOADING": "لا توجد صور أو فيديوهات لهذا الحدث.",
         "VIEW_ALL_EVENTS": "عرض جميع الأحداث",
         "EVENT_CARD": "بطاقة الحدث",
+        "EVENT_DETAILS": "تفاصيل الحدث",
         "ON_THIS_DAY": "في مثل هذا اليوم",
         "ON_THIS_DAY_DESC": "{{count}} صورة من هذا اليوم في السنوات السابقة",
         "PHOTOS": "صورة",
@@ -1631,6 +1632,7 @@
         "UPLOAD_SUCCESS": "تمت إضافة الصورة \"{{fileName}}\" بنجاح!",
         "UPLOAD_ERROR": "خطأ في إضافة الصورة إلى قاعدة البيانات.",
         "TOAST_SUCCESS_TITLE": "نجاح",
-        "TOAST_ERROR_TITLE": "خطأ"
+        "TOAST_ERROR_TITLE": "خطأ",
+        "OWNER": "المالك"
     }
 }

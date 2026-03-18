@@ -1611,6 +1611,7 @@
         "FOR_EVENT_LOADING": "इस कार्यक्रम की कोई फोटो या वीडियो नहीं।",
         "VIEW_ALL_EVENTS": "सभी कार्यक्रम देखें",
         "EVENT_CARD": "कार्यक्रम कार्ड",
+        "EVENT_DETAILS": "कार्यक्रम विवरण",
         "ON_THIS_DAY": "आज के दिन",
         "ON_THIS_DAY_DESC": "पिछले वर्षों में इस दिन की {{count}} तस्वीर(ें)",
         "PHOTOS": "तस्वीर(ें)",
@@ -1624,7 +1625,8 @@
         "UPLOAD_SUCCESS": "फोटो \"{{fileName}}\" सफलतापूर्वक जोड़ी गई!",
         "UPLOAD_ERROR": "फोटो को डेटाबेस में जोड़ने में त्रुटि।",
         "TOAST_SUCCESS_TITLE": "सफलता",
-        "TOAST_ERROR_TITLE": "त्रुटि"
+        "TOAST_ERROR_TITLE": "त्रुटि",
+        "OWNER": "मालिक"
     }
 }
 

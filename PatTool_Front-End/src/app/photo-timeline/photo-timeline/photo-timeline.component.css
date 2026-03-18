@@ -300,6 +300,7 @@
 .timeline-group.has-thumbnail .group-title a:hover {
     color: #e0e0e0;
 }
+.timeline-group.has-thumbnail .group-owner,
 .timeline-group.has-thumbnail .group-date,
 .timeline-group.has-thumbnail .group-count {
     color: rgba(255, 255, 255, 0.95);
@@ -413,6 +414,13 @@
 
 .group-title a:hover {
     color: #0d6efd;
+}
+
+.group-owner {
+    display: block;
+    color: #6c757d;
+    font-size: 0.8rem;
+    margin-bottom: 0.15rem;
 }
 
 .group-date {
