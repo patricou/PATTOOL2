@@ -1,3 +1,34 @@
+/* Titre centré, bouton "Accueil activités" à droite sur la même ligne */
+.pat-title.pat-title-with-actions {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+.pat-title.pat-title-with-actions .pat-title-spacer {
+    flex: 1;
+    min-width: 0;
+}
+.pat-title.pat-title-with-actions h5 {
+    margin: 0;
+    flex-shrink: 0;
+    white-space: nowrap;
+    text-align: center;
+}
+.pat-title.pat-title-with-actions .pat-title-actions {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    min-width: 0;
+}
+.pat-title.pat-title-with-actions .pat-title-actions a {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 0.875rem;
+}
+
 .timeline-container {
     max-width: 1400px;
     margin: 0 auto;

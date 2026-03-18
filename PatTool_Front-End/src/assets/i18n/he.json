@@ -1606,6 +1606,7 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "קיר תמונות",
+        "GO_TO_HOME_EVENTS": "דף אירועים",
         "FOR_EVENT": "תמונות האירוע: {{name}}",
         "FOR_EVENT_LOADING": "אין תמונות או סרטונים לאירוע זה.",
         "VIEW_ALL_EVENTS": "הצג את כל האירועים",

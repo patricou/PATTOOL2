@@ -160,8 +160,14 @@
     </div>
 </div>
 
-<div class="pat-title title-and-filter-block" #titleElement>
+<div class="pat-title title-and-filter-block title-with-photo-wall-btn" #titleElement>
+    <span class="pat-title-spacer"></span>
     <h2>{{ "EVENTHOME.EVENTSLIST" | translate }}</h2>
+    <span class="pat-title-actions">
+        <a class="btn btn-sm btn-outline-primary" routerLink="/photos" [title]="'PHOTO_TIMELINE.TITLE' | translate">
+            <i class="fa fa-picture-o me-0 me-md-1"></i><span class="d-none d-md-inline">{{ 'PHOTO_TIMELINE.TITLE' | translate }}</span>
+        </a>
+    </span>
 </div>
 <div class="container-fluid filter-bar-container" [class.filter-stuck]="isFilterStuck">
     <div class="row">

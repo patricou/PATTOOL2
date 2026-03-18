@@ -52,7 +52,7 @@ public class GoveeService {
             return response.getBody() != null ? response.getBody() : new HashMap<>();
             
         } catch (Exception e) {
-            log.error("Error fetching Govee devices: ", e);
+            log.error("Error fetching Govee devices: {}", e.getMessage());
             Map<String, Object> errorMap = new HashMap<>();
             errorMap.put("error", "Failed to fetch Govee devices: " + e.getMessage());
             return errorMap;
@@ -130,7 +130,7 @@ public class GoveeService {
             
             return errorMap;
         } catch (Exception e) {
-            log.error("Error fetching Govee device state: ", e);
+            log.error("Error fetching Govee device state: {}", e.getMessage());
             Map<String, Object> errorMap = new HashMap<>();
             errorMap.put("error", "Failed to fetch device state: " + e.getMessage());
             return errorMap;

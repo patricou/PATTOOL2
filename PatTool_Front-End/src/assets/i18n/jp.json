@@ -1621,6 +1621,7 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "フォトウォール",
+        "GO_TO_HOME_EVENTS": "イベント一覧",
         "FOR_EVENT": "イベントの写真: {{name}}",
         "FOR_EVENT_LOADING": "このイベントの写真や動画はありません。",
         "VIEW_ALL_EVENTS": "すべてのイベントを表示",

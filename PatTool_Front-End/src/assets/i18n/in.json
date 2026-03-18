@@ -1606,6 +1606,7 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "फोटो दीवार",
+        "GO_TO_HOME_EVENTS": "कार्यक्रम होम",
         "FOR_EVENT": "कार्यक्रम की फोटो: {{name}}",
         "FOR_EVENT_LOADING": "इस कार्यक्रम की कोई फोटो या वीडियो नहीं।",
         "VIEW_ALL_EVENTS": "सभी कार्यक्रम देखें",

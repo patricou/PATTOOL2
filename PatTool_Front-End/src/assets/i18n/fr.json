@@ -1633,6 +1633,7 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "Mur de Photos",
+        "GO_TO_HOME_EVENTS": "Accueil activités",
         "FOR_EVENT": "Photos de l'événement : {{name}}",
         "FOR_EVENT_LOADING": "Aucune photo ni vidéo pour cet événement.",
         "VIEW_ALL_EVENTS": "Voir tous les événements",

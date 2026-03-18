@@ -1615,6 +1615,7 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "照片墙",
+        "GO_TO_HOME_EVENTS": "活动首页",
         "FOR_EVENT": "活动照片：{{name}}",
         "FOR_EVENT_LOADING": "此活动暂无照片或视频。",
         "VIEW_ALL_EVENTS": "查看所有活动",

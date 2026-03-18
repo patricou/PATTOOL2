@@ -637,6 +637,36 @@
     margin-bottom: 0 !important;
 }
 
+/* Titre centré, bouton "Mur de Photos" à droite (même style que le mur de photos) */
+.home-evenements-wrapper .pat-title.title-with-photo-wall-btn {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    justify-content: space-between;
+}
+.home-evenements-wrapper .pat-title.title-with-photo-wall-btn .pat-title-spacer {
+    flex: 1;
+    min-width: 0;
+}
+.home-evenements-wrapper .pat-title.title-with-photo-wall-btn h2 {
+    flex-shrink: 0;
+    white-space: nowrap;
+    text-align: center;
+    margin: 0;
+}
+.home-evenements-wrapper .pat-title.title-with-photo-wall-btn .pat-title-actions {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    min-width: 0;
+}
+.home-evenements-wrapper .pat-title.title-with-photo-wall-btn .pat-title-actions a {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 0.875rem;
+}
+
 /* Filter bar container: full viewport width in all modes */
 .home-evenements-wrapper .filter-bar-container {
     width: 100vw;

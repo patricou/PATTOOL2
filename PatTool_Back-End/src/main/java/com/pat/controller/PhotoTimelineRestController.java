@@ -201,10 +201,14 @@ public class PhotoTimelineRestController {
             long start = System.currentTimeMillis();
 
             Criteria accessCriteria = getAccessCriteria(userId, visibility);
-            Criteria hasImage = Criteria.where("fileUploadeds.fileType").regex("^image/");
-            Criteria mainCriteria = new Criteria().andOperator(accessCriteria, hasImage);
+            Criteria mainCriteria;
             if (eventId != null && !eventId.trim().isEmpty()) {
-                mainCriteria = new Criteria().andOperator(mainCriteria, Criteria.where("id").is(eventId.trim()));
+                // Single-event wall: load by id + access only, then filter by photos in Java.
+                // This avoids missing events with one photo (e.g. regex/deserialization edge cases).
+                mainCriteria = new Criteria().andOperator(accessCriteria, eventIdCriteria(eventId.trim()));
+            } else {
+                Criteria hasImage = Criteria.where("fileUploadeds.fileType").regex("^image/");
+                mainCriteria = new Criteria().andOperator(accessCriteria, hasImage);
             }
             if (search != null && !search.trim().isEmpty()) {
                 mainCriteria = new Criteria().andOperator(mainCriteria, buildSearchCriteria(search.trim()));
@@ -221,6 +225,7 @@ public class PhotoTimelineRestController {
                     .include("comments")
                     .include("beginEventDate")
                     .include("fileUploadeds")
+                    .include("thumbnail")
                     .include("urlEvents")
                     .include("visibility")
                     .include("friendGroupId")
@@ -294,14 +299,17 @@ public class PhotoTimelineRestController {
             long start = System.currentTimeMillis();
             Criteria accessCriteria = getAccessCriteria(userId, visibility);
 
-            Criteria hasVideo = new Criteria().orOperator(
-                    Criteria.where("fileUploadeds.fileType").regex("^video/"),
-                    Criteria.where("fileUploadeds.fileName").regex(".*\\.(mp4|webm|ogg|ogv|mov|avi|mkv|m4v|3gp)$", "i"));
-            // Only events that have no image files → they won't appear in the main photo timeline
-            Criteria hasNoPhotos = new Criteria().norOperator(Criteria.where("fileUploadeds.fileType").regex("^image/"));
-            Criteria combined = new Criteria().andOperator(accessCriteria, hasVideo, hasNoPhotos);
+            Criteria combined;
             if (eventId != null && !eventId.trim().isEmpty()) {
-                combined = new Criteria().andOperator(combined, Criteria.where("id").is(eventId.trim()));
+                // Single-event wall: load by id + access only, then filter by videos in Java
+                combined = new Criteria().andOperator(accessCriteria, eventIdCriteria(eventId.trim()));
+            } else {
+                Criteria hasVideo = new Criteria().orOperator(
+                        Criteria.where("fileUploadeds.fileType").regex("^video/"),
+                        Criteria.where("fileUploadeds.fileName").regex(".*\\.(mp4|webm|ogg|ogv|mov|avi|mkv|m4v|3gp)$", "i"));
+                // Only events that have no image files → they won't appear in the main photo timeline
+                Criteria hasNoPhotos = new Criteria().norOperator(Criteria.where("fileUploadeds.fileType").regex("^image/"));
+                combined = new Criteria().andOperator(accessCriteria, hasVideo, hasNoPhotos);
             }
             if (search != null && !search.trim().isEmpty()) {
                 combined = new Criteria().andOperator(combined, buildSearchCriteria(search.trim()));
@@ -402,22 +410,38 @@ public class PhotoTimelineRestController {
 
     private List<TimelinePhoto> extractPhotos(Evenement e) {
         List<TimelinePhoto> photos = new ArrayList<>();
-        if (e.getFileUploadeds() == null) return photos;
-        for (FileUploaded file : e.getFileUploadeds()) {
-            if (file.getFileType() != null && file.getFileType().startsWith("image/")) {
-                photos.add(new TimelinePhoto(
-                        file.getFieldId(),
-                        file.getFileName(),
-                        file.getFileType(),
-                        null,
-                        e.getId(),
-                        e.getEvenementName(),
-                        e.getType(),
-                        e.getBeginEventDate()
-                ));
+        List<FileUploaded> files = e.getFileUploadeds();
+        if (files != null) {
+            for (FileUploaded file : files) {
+                if (isImageFile(file)) {
+                    photos.add(buildTimelinePhoto(file, e));
+                }
             }
         }
+        // When event has only one photo, fileUploadeds can be null/empty in some deserialization cases; use thumbnail as fallback
+        if (photos.isEmpty() && e.getThumbnail() != null && isImageFile(e.getThumbnail())) {
+            photos.add(buildTimelinePhoto(e.getThumbnail(), e));
+        }
         return photos;
+    }
+
+    private static boolean isImageFile(FileUploaded file) {
+        if (file == null) return false;
+        String type = file.getFileType();
+        return type != null && (type.toLowerCase(Locale.ROOT).startsWith("image/"));
+    }
+
+    private static TimelinePhoto buildTimelinePhoto(FileUploaded file, Evenement e) {
+        return new TimelinePhoto(
+                file.getFieldId(),
+                file.getFileName(),
+                file.getFileType(),
+                null,
+                e.getId(),
+                e.getEvenementName(),
+                e.getType(),
+                e.getBeginEventDate()
+        );
     }
 
     private boolean isVideoFile(FileUploaded file) {
@@ -450,6 +474,25 @@ public class PhotoTimelineRestController {
             }
         }
         return videos;
+    }
+
+    /**
+     * Criteria to match an event by id. MongoDB _id may be stored as ObjectId or as String;
+     * use ObjectId when the string is a valid 24-char hex so the timeline filter finds the event
+     * (e.g. when opening the photo wall for a single event with one photo).
+     */
+    private static Criteria eventIdCriteria(String eventId) {
+        if (eventId == null || eventId.isEmpty()) {
+            return new Criteria();
+        }
+        if (eventId.length() == 24 && eventId.matches("[0-9a-fA-F]{24}")) {
+            try {
+                return Criteria.where("id").is(new ObjectId(eventId));
+            } catch (IllegalArgumentException ignored) {
+                // fallback to string
+            }
+        }
+        return Criteria.where("id").is(eventId);
     }
 
     /**

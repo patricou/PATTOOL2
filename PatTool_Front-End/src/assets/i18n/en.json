@@ -1644,6 +1644,7 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "Photo Timeline",
+        "GO_TO_HOME_EVENTS": "Home events",
         "FOR_EVENT": "Photos for event: {{name}}",
         "FOR_EVENT_LOADING": "No photos or videos for this event.",
         "VIEW_ALL_EVENTS": "View all events",

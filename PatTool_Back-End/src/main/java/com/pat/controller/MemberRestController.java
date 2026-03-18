@@ -255,13 +255,16 @@ public class MemberRestController {
             
             // Check if IP should be excluded from email notifications (client or server IP)
             if (connectionEmailEnabled) {
-                if (!shouldExcludeEmail(ipAddress)) {
-                    // Send email for all users (including patricou)
+                if (!isConnectionEmailExcludedForUser(member) && !shouldExcludeEmail(ipAddress)) {
                     log.debug("Attempting to send connection email for user: {}", member.getUserName());
                     mailController.sendMail(subject, body, true); // true = HTML format
                     log.debug("Connection notification - Subject: '{}' From IP: {}", subject, getIp());
                 } else {
-                    log.debug("Email notification skipped - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
+                    if (isConnectionEmailExcludedForUser(member)) {
+                        log.debug("Connection email skipped for excluded user: {}", member.getUserName());
+                    } else {
+                        log.debug("Email notification skipped - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
+                    }
                 }
             } else {
                 log.debug("Connection email disabled via configuration - skipping send for user: {}", member.getUserName());
@@ -318,13 +321,16 @@ public class MemberRestController {
             
             // Check if IP should be excluded from email notifications (client or server IP)
             if (connectionEmailEnabled) {
-                if (!shouldExcludeEmail(ipAddress)) {
-                    // Send email for all users including new users (including patricou)
+                if (!isConnectionEmailExcludedForUser(member) && !shouldExcludeEmail(ipAddress)) {
                     log.debug("Attempting to send NEW USER connection email for: {}", member.getUserName());
                     mailController.sendMail(subject, body, true); // true = HTML format
                     log.debug("NEW USER connection notification - Subject: '{}' From IP: {}", subject, getIp());
                 } else {
-                    log.debug("Email notification skipped for NEW USER - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
+                    if (isConnectionEmailExcludedForUser(member)) {
+                        log.debug("NEW USER connection email skipped for excluded user: {}", member.getUserName());
+                    } else {
+                        log.debug("Email notification skipped for NEW USER - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
+                    }
                 }
             } else {
                 log.debug("Connection email disabled via configuration - skipping NEW USER notification for: {}", member.getUserName());
@@ -815,6 +821,17 @@ public class MemberRestController {
                    .replace(">", "&gt;")
                    .replace("\"", "&quot;")
                    .replace("'", "&#39;");
+    }
+
+    /**
+     * Whether connection email should not be sent for this user (e.g. to avoid self-notification).
+     * When true, no connection email is sent when this user connects.
+     */
+    private boolean isConnectionEmailExcludedForUser(Member member) {
+        if (member == null || member.getUserName() == null) {
+            return false;
+        }
+        return "Patricou".equalsIgnoreCase(member.getUserName().trim());
     }
 
     /**

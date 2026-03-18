@@ -6,8 +6,10 @@ import { Subscription } from 'rxjs';
 import { EvenementsService } from '../../services/evenements.service';
 import { MembersService } from '../../services/members.service';
 import { FileService } from '../../services/file.service';
+import { FriendsService } from '../../services/friends.service';
 import { Evenement } from '../../model/evenement';
 import { Member } from '../../model/member';
+import { FriendGroup } from '../../model/friend';
 import { ElementEvenementComponent } from '../../evenements/element-evenement/element-evenement.component';
 
 /**
@@ -20,9 +22,9 @@ import { ElementEvenementComponent } from '../../evenements/element-evenement/el
     template: `
         <div class="event-card-overlay-backdrop" (click)="close()" role="button" [attr.aria-label]="'COMMUN.CLOSE' | translate"></div>
         <div class="event-card-overlay-panel" role="dialog" aria-modal="true" (click)="$event.stopPropagation()">
-            <div class="event-card-overlay-header">
+            <div class="event-card-overlay-header event-card-overlay-header--blue">
                 <h5 class="event-card-overlay-title">{{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}</h5>
-                <button type="button" class="btn-close" (click)="close()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+                <button type="button" class="btn-close btn-close-white" (click)="close()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
             </div>
             <div class="event-card-overlay-body">
                 <div *ngIf="loading" class="event-card-loading">
@@ -34,6 +36,7 @@ import { ElementEvenementComponent } from '../../evenements/element-evenement/el
                     <element-evenement class="card"
                         [evenement]="evenement"
                         [user]="user"
+                        [friendGroups]="friendGroups"
                         [titleOnly]="false">
                     </element-evenement>
                 </div>
@@ -63,28 +66,38 @@ import { ElementEvenementComponent } from '../../evenements/element-evenement/el
             width: 100%;
             max-width: 420px;
             background: #fff;
-            border-radius: 0.5rem;
+            border-radius: 8px;
             box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-            max-height: 85vh;
+            max-height: calc(100vh - 2rem);
             display: flex;
             flex-direction: column;
             overflow: hidden;
+            border: 4px solid var(--event-card-border, white);
         }
         .event-card-overlay-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0.5rem 1rem;
-            border-bottom: 1px solid #dee2e6;
+            padding: 0.75rem 1rem;
             flex-shrink: 0;
         }
-        .event-card-overlay-title { margin: 0; font-size: 1.1rem; }
+        .event-card-overlay-header--blue {
+            background: var(--event-card-header-bg, linear-gradient(135deg, #0d6efd 0%, #0dcaf0 100%));
+            color: var(--event-card-header-text, white);
+            border: none;
+        }
+        .event-card-overlay-title {
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: inherit;
+        }
         .event-card-overlay-body {
             padding: 0;
             overflow: auto;
-            max-height: 80vh;
-            flex: 1;
+            flex: 0 1 auto;
             min-height: 0;
+            -webkit-overflow-scrolling: touch;
         }
         .event-card-loading {
             display: flex;
@@ -108,6 +121,7 @@ export class EventCardOverlayComponent implements OnDestroy, OnChanges {
     private evenementsService = inject(EvenementsService);
     private membersService = inject(MembersService);
     private fileService = inject(FileService);
+    private friendsService = inject(FriendsService);
     private sanitizer = inject(DomSanitizer);
     private cdr = inject(ChangeDetectorRef);
 
@@ -116,6 +130,7 @@ export class EventCardOverlayComponent implements OnDestroy, OnChanges {
 
     evenement: Evenement | null = null;
     user: Member | null = null;
+    friendGroups: FriendGroup[] = [];
     loading = true;
     error: string | null = null;
 
@@ -159,6 +174,19 @@ export class EventCardOverlayComponent implements OnDestroy, OnChanges {
             return;
         }
         this.user = this.membersService.getUser();
+        this.friendGroups = [];
+        const groupsSub = this.friendsService.getFriendGroups().subscribe({
+            next: (groups) => {
+                if (this.destroyed) return;
+                this.friendGroups = groups && Array.isArray(groups) ? groups : [];
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                if (!this.destroyed) this.friendGroups = [];
+                this.cdr.markForCheck();
+            }
+        });
+        this.subscriptions.push(groupsSub);
         const sub = this.evenementsService.getEvenement(id).subscribe({
             next: (ev) => this.onEventLoaded(ev),
             error: (err) => {

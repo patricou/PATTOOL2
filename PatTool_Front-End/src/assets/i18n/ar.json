@@ -1613,6 +1613,7 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "جدار الصور",
+        "GO_TO_HOME_EVENTS": "الصفحة الرئيسية للنشاطات",
         "FOR_EVENT": "صور الحدث: {{name}}",
         "FOR_EVENT_LOADING": "لا توجد صور أو فيديوهات لهذا الحدث.",
         "VIEW_ALL_EVENTS": "عرض جميع الأحداث",

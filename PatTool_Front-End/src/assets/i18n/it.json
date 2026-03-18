@@ -1617,6 +1617,7 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "Muro di Foto",
+        "GO_TO_HOME_EVENTS": "Home eventi",
         "FOR_EVENT": "Foto dell'evento: {{name}}",
         "FOR_EVENT_LOADING": "Nessuna foto o video per questo evento.",
         "VIEW_ALL_EVENTS": "Vedi tutti gli eventi",

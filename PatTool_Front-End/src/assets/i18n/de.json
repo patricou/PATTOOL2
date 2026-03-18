@@ -1613,6 +1613,7 @@
     },
     "PHOTO_TIMELINE": {
         "TITLE": "Foto-Zeitleiste",
+        "GO_TO_HOME_EVENTS": "Aktivitäten-Startseite",
         "FOR_EVENT": "Fotos für Veranstaltung: {{name}}",
         "FOR_EVENT_LOADING": "Keine Fotos oder Videos für diese Veranstaltung.",
         "VIEW_ALL_EVENTS": "Alle Veranstaltungen anzeigen",
