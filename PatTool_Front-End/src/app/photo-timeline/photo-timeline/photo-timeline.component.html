@@ -164,7 +164,7 @@
                 <div class="group-fs-buttons" *ngIf="group.fsPhotoLinks && group.fsPhotoLinks.length > 0">
                     <button class="btn btn-sm group-action-btn group-action-btn--fs"
                             *ngFor="let fsLink of group.fsPhotoLinks"
-                            (click)="openFsSlideshow(fsLink, group.eventName, group.eventId)"
+                            (click)="openFsSlideshow(fsLink, group)"
                             [title]="fsLink.description || fsLink.path">
                         <i class="fa fa-desktop"></i>
                         <span class="group-action-btn-text">{{ fsLink.description || 'Photos' }}</span>
@@ -209,22 +209,32 @@
                     </div>
                     <!-- Vidéo : lecture auto (autoplay muted loop) comme dans détail -->
                     <div class="masonry-item video-card-inline" *ngIf="media.type === 'video'">
-                        <div class="photo-card video-card-inner">
+                        <div class="photo-card video-card-inner timeline-video-card-wrap">
                             <div *ngIf="!getVideoUrl(media.item)" class="video-placeholder">
                                 <i class="fa fa-spinner fa-spin fa-2x"></i>
                             </div>
-                            <video *ngIf="getVideoUrl(media.item)"
-                                   [src]="getVideoUrl(media.item)"
-                                   controls
-                                   autoplay
-                                   [muted]="true"
-                                   loop
-                                   playsinline
-                                   preload="auto"
-                                   class="photo-img timeline-video"
-                                   [attr.alt]="media.item.fileName">
-                                {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
-                            </video>
+                            <ng-container *ngIf="getVideoUrl(media.item)">
+                                <video #tlWallVideo
+                                       [src]="getVideoUrl(media.item)"
+                                       controls
+                                       controlsList="nofullscreen"
+                                       autoplay
+                                       [muted]="true"
+                                       loop
+                                       playsinline
+                                       preload="auto"
+                                       class="photo-img timeline-video"
+                                       [attr.alt]="media.item.fileName">
+                                    {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
+                                </video>
+                                <button type="button"
+                                        class="timeline-video-fullscreen-btn"
+                                        (click)="enterTimelineVideoFullscreen(tlWallVideo, $event)"
+                                        [title]="'EVENTELEM.FULLSCREEN' | translate"
+                                        [attr.aria-label]="'EVENTELEM.FULLSCREEN' | translate">
+                                    <i class="fa fa-arrows-alt" aria-hidden="true"></i>
+                                </button>
+                            </ng-container>
                         </div>
                     </div>
                 </ng-container>

@@ -530,6 +530,59 @@
     min-height: 180px;
 }
 
+.timeline-video-card-wrap {
+    position: relative;
+}
+
+/* Bouton plein écran : visible au survol de la vidéo (souris) ou au focus clavier ; toujours visible au tactile. */
+.timeline-video-fullscreen-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 3;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, background 0.15s ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    .timeline-video-card-wrap:hover .timeline-video-fullscreen-btn,
+    .timeline-video-card-wrap:focus-within .timeline-video-fullscreen-btn {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+/* Pas de survol fiable (tactile) : garder le bouton utilisable */
+@media (hover: none), (pointer: coarse) {
+    .timeline-video-fullscreen-btn {
+        opacity: 0.9;
+        pointer-events: auto;
+    }
+}
+
+.timeline-video-fullscreen-btn:hover {
+    background: rgba(0, 0, 0, 0.78);
+    color: #fff;
+}
+
+.timeline-video-fullscreen-btn:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+}
+
 .video-placeholder {
     width: 100%;
     height: 180px;
@@ -554,6 +607,20 @@
     height: auto;
     display: block;
     border-radius: 10px;
+}
+
+/* Cible l’élément <video> en plein écran système */
+.timeline-video:fullscreen,
+.timeline-video:-webkit-full-screen,
+.timeline-video:-moz-full-screen,
+.timeline-video:-ms-fullscreen {
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    object-fit: contain;
+    background: #000;
+    border-radius: 0;
 }
 
 .video-card-inline .photo-overlay {

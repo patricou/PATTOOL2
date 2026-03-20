@@ -272,8 +272,21 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     private loadOnThisDay(): void {
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
         const sub = this.photoTimelineService.getOnThisDay(this.userId, visibility).subscribe({
-            next: (photos) => { this.onThisDay = photos || []; },
-            error: () => { this.onThisDay = []; }
+            next: (photos) => {
+                // Différer pour éviter NG0100 sur *ngIf="onThisDay.length > 0" (même cycle que la 1re vérif du template)
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    this.onThisDay = photos || [];
+                    this.cdr.markForCheck();
+                }, 0);
+            },
+            error: () => {
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    this.onThisDay = [];
+                    this.cdr.markForCheck();
+                }, 0);
+            }
         });
         this.subscriptions.push(sub);
     }
@@ -617,6 +630,46 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         this.videoshowModalComponent.open([source], eventName || '', true);
     }
 
+    /**
+     * Plein écran système (tout l’écran), pas le mode « agrandi dans la page » souvent déclenché
+     * par le bouton natif avec playsinline (notamment iOS / Safari).
+     */
+    enterTimelineVideoFullscreen(video: HTMLVideoElement, event: MouseEvent): void {
+        event.preventDefault();
+        event.stopPropagation();
+        if (this.destroyed || !video) {
+            return;
+        }
+
+        video.muted = false;
+
+        const v = video as any;
+        const requestFs =
+            v.requestFullscreen ||
+            v.webkitRequestFullscreen ||
+            v.mozRequestFullScreen ||
+            v.msRequestFullscreen;
+
+        const webkitEnter = (): void => {
+            if (typeof v.webkitEnterFullscreen === 'function') {
+                try {
+                    v.webkitEnterFullscreen();
+                } catch {
+                    /* ignore */
+                }
+            }
+        };
+
+        if (requestFs) {
+            const p = requestFs.call(v);
+            if (p && typeof p.catch === 'function') {
+                p.catch(() => webkitEnter());
+            }
+        } else {
+            webkitEnter();
+        }
+    }
+
     openOnThisDaySlideshow(index: number): void {
         if (!this.slideshowModalComponent) return;
         const images: SlideshowImageSource[] = this.onThisDay.map(p => ({
@@ -629,12 +682,25 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     private fsSlideshowLoadingActive = false;
     private fsSlideshowSubs: Subscription[] = [];
 
-    openFsSlideshow(fsLink: FsPhotoLink, eventName: string, eventId: string): void {
+    /** True when the signed-in user owns this timeline group (same rule as home-evenements isAuthor for add-to-DB). */
+    isTimelineGroupOwner(group: TimelineGroup): boolean {
+        const user = this.membersService.getUser();
+        if (!user || !group?.ownerUserName) {
+            return false;
+        }
+        return user.userName === group.ownerUserName;
+    }
+
+    openFsSlideshow(fsLink: FsPhotoLink, group: TimelineGroup): void {
         if (!this.slideshowModalComponent) return;
+
+        const eventId = group.eventId;
+        const eventName = group.eventName;
+        const canAddToDb = this.isTimelineGroupOwner(group);
 
         this.fsSlideshowLoadingActive = true;
         this.currentFsSlideshowEventId = eventId;
-        this.slideshowModalComponent.open([], eventName, false, 0, undefined, 0, eventId);
+        this.slideshowModalComponent.open([], eventName, false, 0, undefined, 0, eventId, canAddToDb);
 
         const listSub = this.fileService.listImagesFromDisk(fsLink.path).subscribe({
             next: (fileNames: string[]) => {

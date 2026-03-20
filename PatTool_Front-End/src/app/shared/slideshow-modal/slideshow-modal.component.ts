@@ -93,6 +93,12 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   public slideshowInterval: any;
   public isFullscreen: boolean = false;
   private modalRef?: NgbModalRef;
+
+  /** Counter UI only — not derived live in template (avoids NG0100 when index/length change mid-CD). */
+  public slideshowCounterCurrent = 0;
+  public slideshowCounterTotal = 0;
+  private slideshowCounterRefreshScheduled = false;
+  private deferredSlideshowTemplateFlagsScheduled = false;
   
   // Keyboard listener
   private keyboardListener?: (event: KeyboardEvent) => void;
@@ -294,7 +300,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   private cancelImageLoadsSubject!: Subject<void>;
   private imageLoadQueue: Array<{imageSource: SlideshowImageSource, imageIndex: number, priority: number}> = []; // Queue for image loading
   private activeImageLoads: number = 0; // Number of images currently being loaded
-  private maxConcurrentImageLoads: number = 48 ; // Maximum concurrent image loads (increased for faster loading)
+  /** Capped to avoid starving the first slide on HTTP/1.1 or slow links (was 48). */
+  private maxConcurrentImageLoads: number = 12;
   private imageCache: Map<string, {objectUrl: string, blob: Blob, metadata?: PatMetadata}> = new Map(); // Cache to avoid loading same image multiple times (key: fileId or relativePath+fileName)
   private loadingImageKeys: Set<string> = new Set(); // Track which image keys are currently loading
   private pendingImageLoads: Map<string, number[]> = new Map(); // Track pending image indices waiting for same image to load (key -> array of imageIndex)
@@ -378,6 +385,43 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.unblockPageScroll();
     // Then restore scroll position
     this.unlockScrollPosition();
+  }
+
+  private refreshSlideshowCounterDisplay(): void {
+    const total = this.slideshowImages.length;
+    this.slideshowCounterTotal = total;
+    if (total <= 0) {
+      this.slideshowCounterCurrent = 0;
+      return;
+    }
+    const idx = Math.min(Math.max(0, this.currentSlideshowIndex), total - 1);
+    this.slideshowCounterCurrent = idx + 1;
+  }
+
+  /** Coalesced: run after current synchronous CD (incl. dev check), then markForCheck. */
+  private scheduleSlideshowCounterRefresh(): void {
+    if (this.slideshowCounterRefreshScheduled) {
+      return;
+    }
+    this.slideshowCounterRefreshScheduled = true;
+    queueMicrotask(() => {
+      this.slideshowCounterRefreshScheduled = false;
+      this.refreshSlideshowCounterDisplay();
+      this.cdr.markForCheck();
+    });
+  }
+
+  /** Single setTimeout(0) for showMainSlideshowImage + showFileIdLoadingSpinner (avoids stacked Zone tasks per navigation). */
+  private scheduleDeferredSlideshowTemplateFlags(): void {
+    if (this.deferredSlideshowTemplateFlagsScheduled) {
+      return;
+    }
+    this.deferredSlideshowTemplateFlagsScheduled = true;
+    setTimeout(() => {
+      this.deferredSlideshowTemplateFlagsScheduled = false;
+      this.updateShowMainSlideshowImage();
+      this.updateFileIdLoadingSpinner();
+    }, 0);
   }
   
   // Centralized method to clean up all memory used by the slideshow
@@ -570,6 +614,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.isSlideshowActive = false;
     this.resetSlideshowZoom();
     this.isSlideshowModalOpen = false;
+    this.refreshSlideshowCounterDisplay();
     
     // Clean up double-click timeout
     if (this.clickTimeout) {
@@ -685,6 +730,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.showSlideshowEmptyState = true;
       this.showMainSlideshowImage = false;
     }
+    this.refreshSlideshowCounterDisplay();
     
     // Ensure ViewChild is available (use setTimeout to ensure it's initialized)
     if (!this.slideshowModal) {
@@ -1127,10 +1173,26 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
 
     if (blob) {
       this.thumbnailBlobStorage.set(imageIndex, blob);
+      const thumbnailPriority = imageIndex < 15 ? imageIndex + 10000 : imageIndex + 20000;
+      this.queueThumbnailGeneration(imageIndex, blob, thumbnailPriority);
     }
 
     if (blob) {
-      this.preloadExifData(objectUrl, blob).catch(() => {});
+      const preloadExifSoon =
+        imageIndex === this.currentSlideshowIndex ||
+        (this.pendingStartIndex !== null && imageIndex === this.pendingStartIndex);
+      if (preloadExifSoon) {
+        this.preloadExifData(objectUrl, blob).catch(() => {});
+      } else {
+        const url = objectUrl;
+        const b = blob;
+        const run = () => this.preloadExifData(url, b).catch(() => {});
+        if (typeof (window as any).requestIdleCallback === 'function') {
+          (window as any).requestIdleCallback(() => run(), { timeout: 6000 });
+        } else {
+          setTimeout(run, 300);
+        }
+      }
     }
 
     const loadedImagesCount = this.slideshowImages.filter(url => url && url !== '').length;
@@ -1149,27 +1211,31 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
 
     if (this.pendingStartIndex !== null && imageIndex === this.pendingStartIndex) {
-      this.currentSlideshowIndex = this.pendingStartIndex;
-      this.updateCurrentSlideshowImageUrl();
+      const startIdx = this.pendingStartIndex;
       this.pendingStartIndex = null;
+      // Defer index jump so it does not run in the same CD turn as progressive load (avoids NG0100 on counter)
+      setTimeout(() => {
+        this.currentSlideshowIndex = startIdx;
+        this.updateCurrentSlideshowImageUrl();
+        this.refreshSlideshowCounterDisplay();
+        this.cdr.markForCheck();
+      }, 0);
     }
 
-    if (loadedImagesCount === 1 && imageIndex === 0) {
-      setTimeout(() => {
+    if (loadedImagesCount === 1 && imageIndex === this.currentSlideshowIndex) {
+      requestAnimationFrame(() => {
         this.resetSlideshowZoom();
         this.updateContainerDimensions();
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           this.updateImageDimensions();
           this.updateContainerDimensions();
-        }, 200);
-      }, 100);
+        });
+      });
     }
 
     // Defer spinner and img visibility updates to next tick to avoid NG0100
-    setTimeout(() => {
-      this.updateFileIdLoadingSpinner();
-      this.updateShowMainSlideshowImage();
-    }, 0);
+    this.scheduleDeferredSlideshowTemplateFlags();
+    this.refreshSlideshowCounterDisplay();
     this.cdr.markForCheck();
   }
 
@@ -1249,13 +1315,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.slideshowIndexToImageIndex.set(i, i);
     }
     
-    // Queue all images for loading with priority (first images loaded first)
+    const startIdx = Math.min(Math.max(0, this.currentSlideshowIndex), Math.max(0, this.images.length - 1));
+    // Queue all images: current slide and neighbors first, then outward (stable tie-break by index)
     this.images.forEach((imageSource, imageIndex) => {
       if (!imageSource) return;
-      
-      // Priority: first 10 images have highest priority (0-9), then others (100+)
-      const priority = imageIndex < 10 ? imageIndex : imageIndex + 100;
-      
+
+      const priority = Math.abs(imageIndex - startIdx) * 10000 + imageIndex;
+
       if (this.loadFromFileService && imageSource.fileId) {
         this.queueImageLoad(imageSource, imageIndex, priority);
       } else if (imageSource.relativePath && imageSource.fileName && !imageSource.blobUrl) {
@@ -1266,16 +1332,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       }
     });
     
-    // Reset zoom when images are loaded (for blob URLs loaded immediately)
-    if (this.slideshowImages.length > 0) {
-      setTimeout(() => {
+    // Blob URLs fill synchronously — lay out as soon as the modal paints (no 100/200ms delay)
+    if (this.slideshowImages.some(u => !!u)) {
+      requestAnimationFrame(() => {
         this.resetSlideshowZoom();
         this.updateContainerDimensions();
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           this.updateImageDimensions();
           this.updateContainerDimensions();
-        }, 200);
-      }, 100);
+        });
+      });
     }
   }
   
@@ -1299,11 +1365,14 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     for (let i = startIndex; i < newLength; i++) {
       this.slideshowIndexToImageIndex.set(i, i);
     }
-    
+
+    const slideAnchor = Math.min(Math.max(0, this.currentSlideshowIndex), Math.max(0, newLength - 1));
+
     newImages.forEach((imageSource, relativeIndex) => {
       const imageIndex = startIndex + relativeIndex;
       this.images.push(imageSource);
-      
+      const priority = Math.abs(imageIndex - slideAnchor) * 10000 + imageIndex;
+
       if (imageSource.blobUrl && !this.slideshowImages.includes(imageSource.blobUrl)) {
         // Use provided blob URL directly (no network request needed)
         if (imageSource.blob) {
@@ -1311,12 +1380,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         }
         this.handleImageLoaded(imageSource.blobUrl, imageSource.blob || null, imageIndex, imageSource.patMetadata);
       } else if (imageSource.fileId && this.loadFromFileService && this.imageLoadActive) {
-        // Queue for loading via FileService
-        const priority = imageIndex + 1000; // Lower priority for dynamically added images
         this.queueImageLoad(imageSource, imageIndex, priority);
       } else if (imageSource.relativePath && imageSource.fileName && !imageSource.blobUrl) {
-        // Queue for loading from filesystem
-        const priority = imageIndex + 1000; // Lower priority for dynamically added images
         this.queueImageLoad(imageSource, imageIndex, priority);
       }
     });
@@ -1325,13 +1390,15 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.showSlideshowEmptyState = this.slideshowImages.length === 0;
       this.cdr.markForCheck();
     }, 0);
+    this.scheduleSlideshowCounterRefresh();
   }
   
   // Queue thumbnail generation for parallel processing (completely decoupled from image loading)
   private queueThumbnailGeneration(imageIndex: number, blob: Blob | null, priority: number = 0): void {
-    // Skip if already in queue or already loaded
+    // Skip if already in queue, in flight, or done (include pending — avoids duplicate queue rows that get dropped in process)
     if (this.thumbnailGenerationQueue.some(item => item.imageIndex === imageIndex) ||
         this.loadingThumbnailImageIndices.has(imageIndex) ||
+        this.pendingThumbnailImageIndices.has(imageIndex) ||
         this.thumbnails[imageIndex]) {
       return;
     }
@@ -1379,8 +1446,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Process stored blobs for thumbnail generation (completely independent from image loading)
       this.thumbnailBlobStorage.forEach((blob, imageIndex) => {
         // Only queue if not already generated, not loading, and not in queue
-        if (!this.thumbnails[imageIndex] && 
+        if (!this.thumbnails[imageIndex] &&
             !this.loadingThumbnailImageIndices.has(imageIndex) &&
+            !this.pendingThumbnailImageIndices.has(imageIndex) &&
             !this.thumbnailGenerationQueue.some(item => item.imageIndex === imageIndex)) {
           // Priority: first images have higher priority, but much lower than image loading
           const thumbnailPriority = imageIndex < 15 ? imageIndex + 10000 : imageIndex + 20000;
@@ -1424,53 +1492,43 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Mark as pending synchronously to prevent duplicates, but defer actual Set update
       // to avoid ExpressionChangedAfterItHasBeenCheckedError
       this.pendingThumbnailImageIndices.add(imageIndex);
-      
-      // Defer loading state updates to next change detection cycle
+      // Must increment synchronously: otherwise activeThumbnailGenerations stays 0 for the whole while-loop
+      // and every queued item starts generateThumbnailFromBlob in one turn (hundreds of decodes → missing/broken thumbs).
+      this.activeThumbnailGenerations++;
+      this.isLoadingThumbnails = true;
+
       setTimeout(() => {
         this.ngZone.run(() => {
           this.pendingThumbnailImageIndices.delete(imageIndex);
           this.loadingThumbnailImageIndices.add(imageIndex);
-          this.activeThumbnailGenerations++;
-          this.isLoadingThumbnails = true;
           this.cdr.markForCheck();
         });
       }, 0);
-      
-      // Generate thumbnail (completely independent from image loading)
+
       this.generateThumbnailFromBlob(blob).then(
         (thumbnailUrl) => {
-          if (this.thumbnailGenerationActive) {
-            // Defer updates to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
-            this.ngZone.run(() => {
+          this.ngZone.run(() => {
+            if (this.thumbnailGenerationActive) {
               this.thumbnails[imageIndex] = thumbnailUrl;
-              this.loadingThumbnailImageIndices.delete(imageIndex);
-              this.activeThumbnailGenerations--;
-              this.cdr.markForCheck();
-              // Process next in queue (non-blocking)
-              setTimeout(() => {
-                if (this.thumbnailGenerationActive) {
-                  this.processThumbnailGenerationQueue();
-                }
-              }, 0);
-            });
-          }
+            }
+            this.loadingThumbnailImageIndices.delete(imageIndex);
+            this.pendingThumbnailImageIndices.delete(imageIndex);
+            this.activeThumbnailGenerations = Math.max(0, this.activeThumbnailGenerations - 1);
+            this.cdr.markForCheck();
+            setTimeout(() => this.processThumbnailGenerationQueue(), 0);
+          });
         },
-        (error) => {
-          if (this.thumbnailGenerationActive) {
-            // Defer updates to next change detection cycle to avoid ExpressionChangedAfterItHasBeenCheckedError
-            this.ngZone.run(() => {
+        () => {
+          this.ngZone.run(() => {
+            if (this.thumbnailGenerationActive) {
               this.thumbnails[imageIndex] = '';
-              this.loadingThumbnailImageIndices.delete(imageIndex);
-              this.activeThumbnailGenerations--;
-              this.cdr.markForCheck();
-              // Process next in queue (non-blocking)
-              setTimeout(() => {
-                if (this.thumbnailGenerationActive) {
-                  this.processThumbnailGenerationQueue();
-                }
-              }, 0);
-            });
-          }
+            }
+            this.loadingThumbnailImageIndices.delete(imageIndex);
+            this.pendingThumbnailImageIndices.delete(imageIndex);
+            this.activeThumbnailGenerations = Math.max(0, this.activeThumbnailGenerations - 1);
+            this.cdr.markForCheck();
+            setTimeout(() => this.processThumbnailGenerationQueue(), 0);
+          });
         }
       );
     }
@@ -1725,19 +1783,24 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Handle image load event
   public onImageLoad(): void {
-    // Update dimensions when image loads - use requestAnimationFrame for better performance
-    requestAnimationFrame(() => {
-      this.updateImageDimensions();
-      this.updateContainerDimensions();
-      this.slideshowBackgroundImageUrl = this.getCurrentSlideshowImage();
-      // Update blurred background image
-      this.updateBackgroundImageStyle();
+    // Sortir vite du handler natif « load » (évite les violations perf Chrome / Zone sur gros fichiers)
+    const wasSwitchingVariant = this.isSwitchingVariant;
+    this.isSwitchingVariant = false;
+
+    this.ngZone.runOutsideAngular(() => {
+      requestAnimationFrame(() => {
+        this.ngZone.run(() => {
+          this.updateImageDimensions();
+          this.updateContainerDimensions();
+          this.slideshowBackgroundImageUrl = this.getCurrentSlideshowImage();
+          this.updateBackgroundImageStyle();
+          this.cdr.markForCheck();
+        });
+      });
     });
-    
+
     // Skip background color update if we're just switching variants (same image, different quality)
     // This prevents expensive recalculation when it's not needed
-    const wasSwitchingVariant = this.isSwitchingVariant;
-    this.isSwitchingVariant = false; // Reset flag after image loads
     
     // Defer background color calculation completely outside requestAnimationFrame
     // This expensive operation (canvas operations) should not block rendering
@@ -1757,9 +1820,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         }, 500);
       }
     }
-    
-    // Ensure programmatic event listeners are set up when image loads
-    this.setupProgrammaticEventListeners();
+
+    // Déjà asynchrone via setTimeout(0) dans setupProgrammaticEventListeners ; évite d’empiler sur la pile du load
+    queueMicrotask(() => this.setupProgrammaticEventListeners());
   }
 
   private updateAverageBackgroundColor(): void {
@@ -1956,8 +2019,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       this.translateX = Math.round(this.slideshowTranslateX);
       this.translateY = Math.round(this.slideshowTranslateY);
       
-      // Calculate visible portion of image (what part of original image is displayed)
-      this.calculateVisibleImagePortion();
+      // Une seule lecture layout : réutilise les tailles conteneur déjà mesurées (évite reflow forcé)
+      this.calculateVisibleImagePortion({ width: containerW, height: containerH });
     } catch (error) {
       this.resetAllDimensions();
     }
@@ -1978,7 +2041,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   }
   
   // Calculate what portion of the original image is currently visible
-  private calculateVisibleImagePortion(): void {
+  /** @param containerPixelSize si fourni, évite un second getBoundingClientRect (même frame que updateImageDimensions). */
+  private calculateVisibleImagePortion(containerPixelSize?: { width: number; height: number }): void {
     try {
       if (this.showMapView) {
         this.visibleImageOriginX = 0;
@@ -2026,10 +2090,16 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
         return;
       }
       
-      // Get container dimensions
-      const containerRect = container.getBoundingClientRect();
-      const containerW = containerRect.width || 1;
-      const containerH = containerRect.height || 1;
+      let containerW: number;
+      let containerH: number;
+      if (containerPixelSize && containerPixelSize.width > 0 && containerPixelSize.height > 0) {
+        containerW = containerPixelSize.width;
+        containerH = containerPixelSize.height;
+      } else {
+        const containerRect = container.getBoundingClientRect();
+        containerW = containerRect.width || 1;
+        containerH = containerRect.height || 1;
+      }
       
       // Use the calculated display dimensions from updateImageDimensions
       const imgBaseW = this.imageDisplayWidth || 1;
@@ -2540,9 +2610,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     // Set zoom to 1 to show the full image (not zoomed in)
     this.slideshowZoom = 1; 
     this.slideshowTranslateX = 0; 
-    this.slideshowTranslateY = 0;
-    // Force change detection to apply changes immediately (same behavior as button click)
-    this.cdr.detectChanges();
+    this.slideshowTranslateY = 0; 
+    // markForCheck: évite detectChanges() synchrone (très coûteux ici → violations Zone sur next/prev image)
+    this.cdr.markForCheck();
     // Recalculate dimensions when resetting zoom - use setTimeout to ensure DOM is updated
     setTimeout(() => {
       this.updateImageDimensions();
@@ -3369,9 +3439,8 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       if (isAtMinZoom) {
         this.slideshowTranslateX = 0;
         this.slideshowTranslateY = 0;
-        // Still update dimensions and visible portion for consistency
+        // updateImageDimensions recalcule aussi la portion visible (sans second getBoundingClientRect)
         this.updateImageDimensions();
-        this.calculateVisibleImagePortion();
         return;
       }
       
@@ -3406,9 +3475,6 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
       // Try to update dimensions even on error
       this.updateImageDimensions();
     }
-    
-    // Always recalculate visible portion when translation changes
-    this.calculateVisibleImagePortion();
   }
   
   // Touch handlers
@@ -3842,85 +3908,57 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     const currentTranslateY = this.slideshowTranslateY;
     this.currentSlideshowIndex = (this.currentSlideshowIndex + 1) % this.slideshowImages.length;
     this.updateCurrentSlideshowImageUrl();
-    setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
+    this.refreshSlideshowCounterDisplay();
     this.updateCurrentImageLocation();
     // Reset saved position when changing image
     this.hasSavedPosition = false;
-    // Scroll to center active thumbnail (with delay to ensure DOM update)
+    // Un seul setTimeout(0) : scroll vignettes + zoom (moins de violations Zone qu’en parallèle)
     setTimeout(() => {
       this.scrollToActiveThumbnail();
-    }, 50);
-    setTimeout(() => {
-      // Si le slideshow est en lecture automatique, conserver le zoom
       if (this.isSlideshowActive) {
         this.slideshowZoom = currentZoom;
         this.slideshowTranslateX = currentTranslateX;
         this.slideshowTranslateY = currentTranslateY;
         this.clampSlideshowTranslation();
       } else {
-        // Sinon, réinitialiser le zoom lors de la navigation manuelle
         this.resetSlideshowZoom();
-        this.updateImageDimensions();
       }
-        // Wait for image to load after src change - try multiple times
-        setTimeout(() => {
-          this.updateImageDimensions();
-          // Try again after a longer delay in case image is still loading
-          setTimeout(() => {
-            this.updateImageDimensions();
-          }, 200);
-        }, 100);
-        
-        // If info panel is visible, reload EXIF data for new image
-        if (this.showInfoPanel) {
-          setTimeout(() => {
-            this.loadExifDataForInfoPanel();
-          }, 100);
-        }
-      }, 0);
-    }
+      setTimeout(() => {
+        this.updateImageDimensions();
+        setTimeout(() => this.updateImageDimensions(), 200);
+      }, 100);
+      if (this.showInfoPanel) {
+        setTimeout(() => this.loadExifDataForInfoPanel(), 100);
+      }
+    }, 0);
+  }
   
-    public previousImage(): void {
+  public previousImage(): void {
     if (this.slideshowImages.length === 0) return;
     const currentZoom = this.slideshowZoom;
     const currentTranslateX = this.slideshowTranslateX;
     const currentTranslateY = this.slideshowTranslateY;
     this.currentSlideshowIndex = (this.currentSlideshowIndex - 1 + this.slideshowImages.length) % this.slideshowImages.length;
     this.updateCurrentSlideshowImageUrl();
-    setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
+    this.refreshSlideshowCounterDisplay();
     this.updateCurrentImageLocation();
-    // Reset saved position when changing image
     this.hasSavedPosition = false;
-    // Scroll to center active thumbnail (with delay to ensure DOM update)
     setTimeout(() => {
       this.scrollToActiveThumbnail();
-    }, 50);
-    setTimeout(() => {
-      // Si le slideshow est en lecture automatique, conserver le zoom
       if (this.isSlideshowActive) {
         this.slideshowZoom = currentZoom;
         this.slideshowTranslateX = currentTranslateX;
         this.slideshowTranslateY = currentTranslateY;
         this.clampSlideshowTranslation();
       } else {
-        // Sinon, réinitialiser le zoom lors de la navigation manuelle
         this.resetSlideshowZoom();
-        this.updateImageDimensions();
       }
-      // Wait for image to load after src change - try multiple times
       setTimeout(() => {
         this.updateImageDimensions();
-        // Try again after a longer delay in case image is still loading
-        setTimeout(() => {
-          this.updateImageDimensions();
-        }, 200);
+        setTimeout(() => this.updateImageDimensions(), 200);
       }, 100);
-      
-      // If info panel is visible, reload EXIF data for new image
       if (this.showInfoPanel) {
-        setTimeout(() => {
-          this.loadExifDataForInfoPanel();
-        }, 100);
+        setTimeout(() => this.loadExifDataForInfoPanel(), 100);
       }
     }, 0);
   }
@@ -3942,8 +3980,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     }
     // Update blurred background image when URL changes
     this.updateBackgroundImageStyle();
-    // Defer flag update to avoid NG0100 (img *ngIf at line 33)
-    setTimeout(() => this.updateShowMainSlideshowImage(), 0);
+    this.scheduleDeferredSlideshowTemplateFlags();
   }
 
   // Check if current image is loading (for fileId-based images)
@@ -4200,7 +4237,13 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     this.stopSlideshow();
     
     this.slideshowInterval = setInterval(() => {
-      this.nextImage();
+      // Defer past the current CD / dev-mode check pass (avoids NG0100 on slideshow counter)
+      setTimeout(() => {
+        if (!this.isSlideshowActive || this.slideshowImages.length <= 1) {
+          return;
+        }
+        this.nextImage();
+      }, 0);
     }, 3000);
     this.isSlideshowActive = true;
   }
@@ -6409,6 +6452,7 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     if (index >= 0 && index < this.slideshowImages.length) {
       this.currentSlideshowIndex = index;
       this.updateCurrentSlideshowImageUrl();
+      this.refreshSlideshowCounterDisplay();
       setTimeout(() => this.updateFileIdLoadingSpinner(), 0);
       this.updateCurrentImageLocation();
       // Scroll to center active thumbnail (with delay to ensure DOM update)
@@ -6761,12 +6805,18 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
   
   // Get thumbnail URL for an index (index is in slideshowImages array)
   public getThumbnailUrl(slideshowIndex: number): string {
-    // Get the corresponding image index in this.images
     const imageIndex = this.slideshowIndexToImageIndex.get(slideshowIndex);
     if (imageIndex !== undefined && imageIndex >= 0 && imageIndex < this.thumbnails.length && this.thumbnails[imageIndex]) {
       return this.thumbnails[imageIndex];
     }
-    return ''; // Return empty string if no thumbnail
+    // Canvas thumb not ready, failed, or never queued (e.g. no blob) — use main slide URL so the strip is never empty when the photo exists
+    if (slideshowIndex >= 0 && slideshowIndex < this.slideshowImages.length) {
+      const main = this.slideshowImages[slideshowIndex];
+      if (main && main.trim() !== '') {
+        return main;
+      }
+    }
+    return '';
   }
   
   // Check if thumbnail is current image
@@ -6774,12 +6824,9 @@ export class SlideshowModalComponent implements OnInit, AfterViewInit, OnDestroy
     return index === this.currentSlideshowIndex;
   }
   
-  // Handle thumbnail image error
-  public onThumbnailError(event: Event): void {
-    const target = event.target as HTMLElement;
-    if (target) {
-      target.style.display = 'none';
-    }
+  // Handle thumbnail image error — do not hide the node (that left an empty slot with no retry)
+  public onThumbnailError(_event: Event): void {
+    this.cdr.markForCheck();
   }
 
   // Detect image MIME type from ArrayBuffer data

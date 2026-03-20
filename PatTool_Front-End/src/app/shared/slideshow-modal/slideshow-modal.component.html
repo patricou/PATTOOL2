@@ -99,8 +99,8 @@
           <i class="fa fa-spinner fa-spin fa-3x"></i>
           <p>{{ 'EVENTELEM.LOADING_IMAGES' | translate }}</p>
         </div>
-        <div *ngIf="slideshowImages.length > 0" class="slideshow-counter">
-          {{ currentSlideshowIndex + 1 }} / {{ slideshowImages.length }}
+        <div *ngIf="slideshowCounterTotal > 0" class="slideshow-counter">
+          {{ slideshowCounterCurrent }} / {{ slideshowCounterTotal }}
         </div>
         
         <!-- Rectangle de sélection (clic droit et pinch zoom mobile) -->
