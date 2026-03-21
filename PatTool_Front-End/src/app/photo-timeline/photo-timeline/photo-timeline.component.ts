@@ -16,10 +16,12 @@ import { FileService } from '../../services/file.service';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
-import { Subscription } from 'rxjs';
-import { map, distinctUntilChanged } from 'rxjs/operators';
+import { forkJoin, of, Subscription } from 'rxjs';
+import { map, distinctUntilChanged, catchError } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
+import { EvenementsService } from '../../services/evenements.service';
+import { Member } from '../../model/member';
 
 const BUFFER_AHEAD = 3;
 /** Nombre de groupes (activités) à charger par requête API. */
@@ -62,6 +64,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     @ViewChild('videoshowModalComponent') videoshowModalComponent!: VideoshowModalComponent;
     @ViewChild('scrollSentinel') scrollSentinel!: ElementRef;
     @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
+    @ViewChild('wallWhatsappShareModal') wallWhatsappShareModal!: TemplateRef<any>;
+    @ViewChild('wallShareByEmailModal') wallShareByEmailModal!: TemplateRef<any>;
 
     visibleGroups: TimelineGroup[] = [];
     bufferedGroups: TimelineGroup[] = [];
@@ -106,11 +110,43 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     /** When set, timeline shows only photos/videos for this event (from query param eventId). */
     filterEventId: string | undefined;
 
+    /** Mur de photos : partage (propriétaire uniquement), même flux que détail événement */
+    shareWallContextGroup: TimelineGroup | null = null;
+    wallWhatsappShareMessage = '';
+    private wallWhatsappShareModalRef: NgbModalRef | null = null;
+    private wallShareByEmailModalRef: NgbModalRef | null = null;
+    wallShareByEmailPatToolSelected: string[] = [];
+    wallShareByEmailPatToolSelectedSet = new Set<string>();
+    wallShareByEmailExternalEmails = '';
+    wallShareByEmailMessage = '';
+    wallShareByEmailMailLang = 'fr';
+    wallShareByEmailMailLangOptions: { code: string; labelKey: string; flagCode: string }[] = [
+        { code: 'fr', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_FR', flagCode: 'fr' },
+        { code: 'en', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_EN', flagCode: 'gb' },
+        { code: 'de', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_DE', flagCode: 'de' },
+        { code: 'es', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_ES', flagCode: 'es' },
+        { code: 'it', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_IT', flagCode: 'it' },
+        { code: 'el', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_EL', flagCode: 'gr' },
+        { code: 'he', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_HE', flagCode: 'il' },
+        { code: 'jp', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_JP', flagCode: 'jp' },
+        { code: 'ru', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_RU', flagCode: 'ru' },
+        { code: 'cn', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_CN', flagCode: 'cn' },
+        { code: 'ar', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_AR', flagCode: 'sa' },
+        { code: 'in', labelKey: 'EVENTELEM.SHARE_MAIL_LANG_IN', flagCode: 'in' }
+    ];
+    wallShareByEmailAllMembers: Member[] = [];
+    wallShareByEmailLoading = false;
+    wallShareByEmailSending = false;
+    wallShareByEmailError: string | null = null;
+    wallShareByEmailSuccess: string | null = null;
+    wallShareEmailEventAccessUsers: Member[] = [];
+
     constructor(
         private photoTimelineService: PhotoTimelineService,
         private membersService: MembersService,
         private fileService: FileService,
         private friendsService: FriendsService,
+        private evenementsService: EvenementsService,
         private modalService: NgbModal,
         private translate: TranslateService,
         private cdr: ChangeDetectorRef,
@@ -157,6 +193,14 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         if (this.imageCompressionModalRef) {
             try { this.imageCompressionModalRef.dismiss(); } catch (_) {}
             this.imageCompressionModalRef = null;
+        }
+        if (this.wallWhatsappShareModalRef) {
+            try { this.wallWhatsappShareModalRef.dismiss(); } catch (_) {}
+            this.wallWhatsappShareModalRef = null;
+        }
+        if (this.wallShareByEmailModalRef) {
+            try { this.wallShareByEmailModalRef.dismiss(); } catch (_) {}
+            this.wallShareByEmailModalRef = null;
         }
         this.thumbnailCache.forEach(url => {
             if (url.startsWith('blob:')) URL.revokeObjectURL(url);
@@ -682,13 +726,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     private fsSlideshowLoadingActive = false;
     private fsSlideshowSubs: Subscription[] = [];
 
-    /** True when the signed-in user owns this timeline group (same rule as home-evenements isAuthor for add-to-DB). */
+    /** True when the signed-in user owns this timeline group (same rule as détail événement / add-to-DB). */
     isTimelineGroupOwner(group: TimelineGroup): boolean {
         const user = this.membersService.getUser();
-        if (!user || !group?.ownerUserName) {
+        if (!user?.userName || !group?.ownerUserName) {
             return false;
         }
-        return user.userName === group.ownerUserName;
+        return user.userName.toLowerCase() === group.ownerUserName.toLowerCase();
     }
 
     openFsSlideshow(fsLink: FsPhotoLink, group: TimelineGroup): void {
@@ -918,6 +962,330 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         const last = (group.ownerLastName || '').trim();
         const names = [first, last].filter(Boolean).join(' ');
         return names ? `${names} (${group.ownerUserName})` : group.ownerUserName;
+    }
+
+    getWallShareEventUrl(): string {
+        const g = this.shareWallContextGroup;
+        if (!g?.eventId) return '';
+        return `${window.location.origin}/#/details-evenement/${g.eventId}`;
+    }
+
+    getWallShareMainImageUrl(): SafeUrl {
+        const g = this.shareWallContextGroup;
+        if (!g?.photos?.length) {
+            return this.sanitizer.bypassSecurityTrustUrl('assets/images/images.jpg');
+        }
+        const first = g.photos[0];
+        const thumb = this.getThumbnailUrl(first);
+        if (thumb) {
+            return this.sanitizer.bypassSecurityTrustUrl(thumb);
+        }
+        return this.sanitizer.bypassSecurityTrustUrl('assets/images/images.jpg');
+    }
+
+    private wallShareFirstImageFieldId(): string | null {
+        const g = this.shareWallContextGroup;
+        const id = g?.photos?.[0]?.fileId;
+        return id && id.trim() ? id.trim() : null;
+    }
+
+    wallShareOnWhatsApp(group: TimelineGroup): void {
+        if (!this.isTimelineGroupOwner(group) || !group.eventId) return;
+        this.shareWallContextGroup = group;
+        this.wallWhatsappShareMessage = this.translate.instant('EVENTELEM.DEFAULT_SHARE_MESSAGE');
+        if (this.wallWhatsappShareModal) {
+            this.wallWhatsappShareModalRef = this.modalService.open(this.wallWhatsappShareModal, {
+                size: 'lg',
+                centered: true,
+                windowClass: 'whatsapp-share-modal'
+            });
+        }
+        this.cdr.markForCheck();
+    }
+
+    wallCancelWhatsAppShare(): void {
+        this.wallWhatsappShareMessage = '';
+        if (this.wallWhatsappShareModalRef) {
+            this.wallWhatsappShareModalRef.close();
+            this.wallWhatsappShareModalRef = null;
+        }
+    }
+
+    async wallConfirmWhatsAppShare(): Promise<void> {
+        const g = this.shareWallContextGroup;
+        if (!g?.eventId) return;
+
+        const eventUrl = this.getWallShareEventUrl();
+        let message = `*${g.eventName || 'Activité'}*\n\n${eventUrl}\n\n`;
+        if (this.wallWhatsappShareMessage?.trim()) {
+            message += this.wallWhatsappShareMessage.trim();
+        }
+
+        const imageFieldId = this.wallShareFirstImageFieldId();
+
+        if (navigator.share && imageFieldId) {
+            try {
+                const imageBlob = await new Promise<Blob | null>((resolve) => {
+                    const sub = this.fileService.getFile(imageFieldId).subscribe({
+                        next: (res: any) => {
+                            let mimeType = 'image/jpeg';
+                            if (res instanceof Blob && res.type) {
+                                mimeType = res.type;
+                            }
+                            resolve(new Blob([res], { type: mimeType }));
+                        },
+                        error: () => resolve(null)
+                    });
+                    this.subscriptions.push(sub);
+                    setTimeout(() => {
+                        if (!sub.closed) {
+                            sub.unsubscribe();
+                            resolve(null);
+                        }
+                    }, 5000);
+                });
+
+                if (imageBlob) {
+                    let extension = 'jpg';
+                    if (imageBlob.type.includes('png')) extension = 'png';
+                    else if (imageBlob.type.includes('gif')) extension = 'gif';
+                    else if (imageBlob.type.includes('webp')) extension = 'webp';
+
+                    const fileName = `event-image.${extension}`;
+                    const file = new File([imageBlob], fileName, { type: imageBlob.type });
+
+                    if (navigator.canShare && navigator.canShare({ files: [file], text: message })) {
+                        await navigator.share({
+                            title: g.eventName || 'Activité',
+                            text: message,
+                            files: [file]
+                        });
+                        this.wallCancelWhatsAppShare();
+                        return;
+                    }
+                }
+            } catch {
+                // fall through to wa.me
+            }
+        }
+
+        const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        if (this.wallWhatsappShareModalRef) {
+            this.wallWhatsappShareModalRef.close();
+            this.wallWhatsappShareModalRef = null;
+        }
+        window.open(whatsappUrl, '_blank');
+    }
+
+    getWallShareByEmailMailLangOption(): { code: string; labelKey: string; flagCode: string } | undefined {
+        return this.wallShareByEmailMailLangOptions.find(o => o.code === this.wallShareByEmailMailLang)
+            ?? this.wallShareByEmailMailLangOptions[0];
+    }
+
+    get wallShareByEmailRecipientCount(): number {
+        const patCount = (this.wallShareByEmailPatToolSelected || []).length;
+        const external = (this.wallShareByEmailExternalEmails || '')
+            .split(/[\s,;]+/)
+            .map((e: string) => e.trim())
+            .filter((e: string) => e.length > 0);
+        return patCount + external.length;
+    }
+
+    wallTrackByShareByEmailMemberId(_index: number, m: Member): string {
+        return m.id ?? m.addressEmail ?? '';
+    }
+
+    wallOpenShareByEmailModal(group: TimelineGroup): void {
+        if (!this.isTimelineGroupOwner(group) || !group.eventId) return;
+        this.shareWallContextGroup = group;
+        this.wallShareByEmailExternalEmails = '';
+        this.wallShareByEmailMessage = '';
+        this.wallShareByEmailError = null;
+        this.wallShareByEmailSuccess = null;
+        this.wallShareEmailEventAccessUsers = [];
+        this.wallShareByEmailPatToolSelected = [];
+        this.wallSyncShareByEmailSelectedSet();
+        this.wallShareByEmailLoading = true;
+        const appLang = this.translate.currentLang || this.translate.defaultLang || 'fr';
+        const supported = this.wallShareByEmailMailLangOptions.map(o => o.code);
+        this.wallShareByEmailMailLang = supported.includes(appLang) ? appLang : 'fr';
+
+        if (this.wallShareByEmailModal) {
+            this.wallShareByEmailModalRef = this.modalService.open(this.wallShareByEmailModal, {
+                size: 'lg',
+                centered: true,
+                windowClass: 'share-by-email-modal'
+            });
+        }
+
+        const sub = forkJoin({
+            access: this.evenementsService.getEventAccessUsers(group.eventId).pipe(catchError(() => of([] as any[]))),
+            members: this.membersService.getListMembers().pipe(catchError(() => of([] as Member[])))
+        }).subscribe({
+            next: ({ access, members }) => {
+                this.wallShareEmailEventAccessUsers = this.wallMapAccessUsersToMembers(access);
+                this.wallShareByEmailPatToolSelected = this.wallShareEmailEventAccessUsers
+                    .map(m => m.addressEmail)
+                    .filter((email): email is string => !!email && email.trim().length > 0);
+                this.wallSyncShareByEmailSelectedSet();
+                const visibleOnly = (members || []).filter(m => m.visible !== false);
+                this.wallShareByEmailAllMembers = visibleOnly.slice().sort((a, b) => {
+                    const cmpFirst = (a.firstName || '').toLowerCase().localeCompare((b.firstName || '').toLowerCase());
+                    if (cmpFirst !== 0) return cmpFirst;
+                    return (a.lastName || '').toLowerCase().localeCompare((b.lastName || '').toLowerCase());
+                });
+                this.wallShareByEmailLoading = false;
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                this.wallShareByEmailLoading = false;
+                this.wallShareByEmailError = this.translate.instant('EVENTELEM.SHARE_MAIL_LOAD_ERROR');
+                this.cdr.markForCheck();
+            }
+        });
+        this.subscriptions.push(sub);
+        this.cdr.markForCheck();
+    }
+
+    wallCloseShareByEmailModal(): void {
+        if (this.wallShareByEmailModalRef) {
+            this.wallShareByEmailModalRef.close();
+            this.wallShareByEmailModalRef = null;
+        }
+    }
+
+    wallToggleShareByEmailUser(email: string): void {
+        const idx = this.wallShareByEmailPatToolSelected.indexOf(email);
+        if (idx === -1) {
+            this.wallShareByEmailPatToolSelected = [...this.wallShareByEmailPatToolSelected, email];
+        } else {
+            this.wallShareByEmailPatToolSelected = this.wallShareByEmailPatToolSelected.filter(e => e !== email);
+        }
+        this.wallSyncShareByEmailSelectedSet();
+    }
+
+    private wallSyncShareByEmailSelectedSet(): void {
+        this.wallShareByEmailPatToolSelectedSet = new Set(this.wallShareByEmailPatToolSelected || []);
+    }
+
+    wallShareByEmailSelectAllWithAccess(): void {
+        const accessEmails = (this.wallShareEmailEventAccessUsers || [])
+            .map(m => m.addressEmail)
+            .filter((email): email is string => !!email && email.trim().length > 0);
+        this.wallShareByEmailPatToolSelected = [...new Set([...this.wallShareByEmailPatToolSelected, ...accessEmails])];
+        this.wallSyncShareByEmailSelectedSet();
+        this.cdr.markForCheck();
+    }
+
+    wallShareByEmailDeselectAll(): void {
+        this.wallShareByEmailPatToolSelected = [];
+        this.wallSyncShareByEmailSelectedSet();
+        this.cdr.markForCheck();
+    }
+
+    getWallShareByEmailHeaderStyle(): { [key: string]: string } {
+        return { backgroundColor: '#0d6efd' };
+    }
+
+    wallSendShareByEmail(): void {
+        const g = this.shareWallContextGroup;
+        if (!g?.eventId) return;
+
+        const emails: string[] = [...this.wallShareByEmailPatToolSelected];
+        const external = (this.wallShareByEmailExternalEmails || '')
+            .split(/[\s,;]+/)
+            .map(e => e.trim())
+            .filter(e => e.length > 0);
+        emails.push(...external);
+        emails.sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()));
+        if (emails.length === 0) {
+            this.wallShareByEmailError = this.translate.instant('EVENTELEM.SHARE_MAIL_NO_RECIPIENTS');
+            this.cdr.markForCheck();
+            return;
+        }
+        this.wallShareByEmailError = null;
+        this.wallShareByEmailSuccess = null;
+        this.wallShareByEmailSending = true;
+        this.cdr.markForCheck();
+
+        const eventUrl = this.getWallShareEventUrl() || undefined;
+        const eventTypeLabel = g.eventType != null
+            ? this.translate.instant(this.wallGetEventTypeLabelKey(g.eventType))
+            : undefined;
+        const user = this.membersService.getUser();
+        const senderName = user
+            ? [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || user.userName || user.addressEmail || ''
+            : '';
+
+        const sub = this.evenementsService.shareEventByEmail(
+            g.eventId,
+            emails,
+            this.wallShareByEmailMessage || undefined,
+            undefined,
+            eventUrl,
+            eventTypeLabel,
+            senderName || undefined,
+            this.wallShareByEmailMailLang || 'fr'
+        ).subscribe({
+            next: (res) => {
+                this.wallShareByEmailSending = false;
+                this.wallShareByEmailSuccess = this.translate.instant('EVENTELEM.SHARE_MAIL_SENT', { sent: res.sent, total: res.total });
+                this.cdr.markForCheck();
+            },
+            error: (err) => {
+                this.wallShareByEmailSending = false;
+                this.wallShareByEmailError = err?.error?.error || err?.message || this.translate.instant('EVENTELEM.SHARE_MAIL_SEND_ERROR');
+                this.cdr.markForCheck();
+            }
+        });
+        this.subscriptions.push(sub);
+    }
+
+    private wallGetEventTypeLabelKey(type: string): string {
+        const typeMap: { [key: string]: string } = {
+            '11': 'EVENTCREATION.TYPE.DOCUMENTS',
+            '3': 'EVENTCREATION.TYPE.RUN',
+            '6': 'EVENTCREATION.TYPE.PARTY',
+            '4': 'EVENTCREATION.TYPE.WALK',
+            '10': 'EVENTCREATION.TYPE.PHOTOS',
+            '9': 'EVENTCREATION.TYPE.RANDO',
+            '2': 'EVENTCREATION.TYPE.SKI',
+            '7': 'EVENTCREATION.TYPE.VACATION',
+            '5': 'EVENTCREATION.TYPE.BIKE',
+            '8': 'EVENTCREATION.TYPE.TRAVEL',
+            '1': 'EVENTCREATION.TYPE.VTT',
+            '13': 'EVENTCREATION.TYPE.WINE',
+            '14': 'EVENTCREATION.TYPE.OTHER',
+            '15': 'EVENTCREATION.TYPE.VISIT'
+        };
+        return typeMap[type] || 'EVENTCREATION.TYPE.OTHER';
+    }
+
+    private wallMapAccessUsersToMembers(users: any[]): Member[] {
+        return (users || []).map((user: any) => {
+            let rolesArray: string[] = [];
+            if (user.roles) {
+                if (typeof user.roles === 'string') {
+                    rolesArray = user.roles.split(',').map((r: string) => r.trim()).filter((r: string) => r.length > 0);
+                } else if (Array.isArray(user.roles)) {
+                    rolesArray = user.roles;
+                }
+            }
+            return new Member(
+                user.id || '',
+                user.addressEmail || '',
+                user.firstName || '',
+                user.lastName || '',
+                user.userName || '',
+                rolesArray,
+                user.keycloakId || '',
+                user.registrationDate ? new Date(user.registrationDate) : undefined,
+                user.lastConnectionDate ? new Date(user.lastConnectionDate) : undefined,
+                user.locale || undefined,
+                user.whatsappLink || undefined,
+                user.visible !== undefined ? user.visible : true
+            );
+        });
     }
 
     trackByGroupId(index: number, group: TimelineGroup): string {

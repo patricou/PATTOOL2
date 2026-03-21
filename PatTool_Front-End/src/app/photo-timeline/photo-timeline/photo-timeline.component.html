@@ -137,13 +137,54 @@
             
             <!-- Group Header -->
             <div class="group-header">
-                <div class="group-date-badge">
-                    <i class="fa" [ngClass]="getEventTypeIcon(group.eventType)"></i>
-                </div>
-                <div class="group-info">
+                <div class="group-header-title-line">
+                    <div class="group-date-badge">
+                        <i class="fa" [ngClass]="getEventTypeIcon(group.eventType)"></i>
+                    </div>
                     <h6 class="group-title">
                         <a [routerLink]="['/details-evenement', group.eventId]">{{ group.eventName }}</a>
                     </h6>
+                </div>
+                <div class="group-header-actions">
+                    <div class="group-fs-buttons" *ngIf="group.fsPhotoLinks && group.fsPhotoLinks.length > 0">
+                        <button class="btn btn-sm group-action-btn group-action-btn--fs"
+                                *ngFor="let fsLink of group.fsPhotoLinks"
+                                (click)="openFsSlideshow(fsLink, group)"
+                                [title]="fsLink.description || fsLink.path">
+                            <i class="fa fa-desktop"></i>
+                            <span class="group-action-btn-text">{{ fsLink.description || 'Photos' }}</span>
+                        </button>
+                    </div>
+                    <a class="btn btn-sm group-action-btn group-action-btn--card"
+                       [routerLink]="['/details-evenement', group.eventId]"
+                       [title]="'PHOTO_TIMELINE.EVENT_DETAILS' | translate">
+                        <i class="fa fa-external-link"></i>
+                        <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_DETAILS' | translate }}</span>
+                    </a>
+                    <button class="btn btn-sm group-action-btn group-action-btn--card"
+                            (click)="openEventCardModal(group)"
+                            [title]="'PHOTO_TIMELINE.EVENT_CARD' | translate">
+                        <i class="fa fa-id-card"></i>
+                        <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--whatsapp"
+                            *ngIf="isTimelineGroupOwner(group)"
+                            (click)="wallShareOnWhatsApp(group); $event.stopPropagation()"
+                            [title]="'EVENTELEM.SHARE_WHATSAPP' | translate">
+                        <i class="fa fa-whatsapp"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTELEM.SHARE_WHATSAPP' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--card"
+                            *ngIf="isTimelineGroupOwner(group)"
+                            (click)="wallOpenShareByEmailModal(group); $event.stopPropagation()"
+                            [title]="'EVENTELEM.SHARE_BY_MAIL' | translate">
+                        <i class="fa fa-envelope"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTELEM.SHARE_BY_MAIL' | translate }}</span>
+                    </button>
+                </div>
+                <div class="group-info group-header-meta">
                     <span class="group-owner text-muted" *ngIf="group.ownerUserName">
                         <i class="fa fa-user me-1"></i>{{ 'PHOTO_TIMELINE.OWNER' | translate }}: {{ getOwnerDisplay(group) }}
                     </span>
@@ -161,27 +202,6 @@
                         </span>
                     </ng-container>
                 </div>
-                <div class="group-fs-buttons" *ngIf="group.fsPhotoLinks && group.fsPhotoLinks.length > 0">
-                    <button class="btn btn-sm group-action-btn group-action-btn--fs"
-                            *ngFor="let fsLink of group.fsPhotoLinks"
-                            (click)="openFsSlideshow(fsLink, group)"
-                            [title]="fsLink.description || fsLink.path">
-                        <i class="fa fa-desktop"></i>
-                        <span class="group-action-btn-text">{{ fsLink.description || 'Photos' }}</span>
-                    </button>
-                </div>
-                <a class="btn btn-sm group-action-btn group-action-btn--card ms-1"
-                   [routerLink]="['/details-evenement', group.eventId]"
-                   [title]="'PHOTO_TIMELINE.EVENT_DETAILS' | translate">
-                    <i class="fa fa-external-link"></i>
-                    <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_DETAILS' | translate }}</span>
-                </a>
-                <button class="btn btn-sm group-action-btn group-action-btn--card ms-1"
-                        (click)="openEventCardModal(group)"
-                        [title]="'PHOTO_TIMELINE.EVENT_CARD' | translate">
-                    <i class="fa fa-id-card"></i>
-                    <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}</span>
-                </button>
             </div>
 
             <!-- Masonry Grid : photos et vidéos mélangés, vidéos en autoplay comme détail -->
@@ -272,6 +292,144 @@
     <div class="spinner-border text-light" role="status"></div>
     <span class="text-light mt-2">{{ 'PHOTO_TIMELINE.UPLOADING' | translate }}</span>
 </div>
+
+<ng-template #wallWhatsappShareModal let-modal>
+    <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">
+            <i class="fa fa-whatsapp me-2"></i>
+            {{ 'EVENTELEM.SHARE_WHATSAPP' | translate }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="wallCancelWhatsAppShare()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+    </div>
+    <div class="modal-body">
+        <div *ngIf="shareWallContextGroup" class="whatsapp-share-content">
+            <div class="text-center mb-3">
+                <img [src]="getWallShareMainImageUrl()"
+                     [alt]="shareWallContextGroup.eventName"
+                     class="img-fluid rounded"
+                     style="max-width: 80px; max-height: 80px; object-fit: cover; border: 2px solid #007bff; padding: 2px;">
+            </div>
+            <div class="mb-3">
+                <a [href]="getWallShareEventUrl()" target="_blank" rel="noopener noreferrer" style="text-decoration: none; display: block;">
+                    <h3 class="fw-bold text-white text-center p-3 rounded" style="background-color: #007bff;">
+                        {{ shareWallContextGroup.eventName }}
+                    </h3>
+                </a>
+            </div>
+            <div class="mb-3">
+                <label for="wallWhatsappMessageTimeline" class="form-label">
+                    {{ 'EVENTELEM.OPTIONAL_MESSAGE' | translate }}
+                </label>
+                <textarea id="wallWhatsappMessageTimeline"
+                          class="form-control"
+                          rows="4"
+                          [(ngModel)]="wallWhatsappShareMessage"
+                          [placeholder]="'EVENTELEM.MESSAGE_PLACEHOLDER' | translate"
+                          style="resize: vertical;"></textarea>
+                <small class="form-text text-muted">
+                    {{ 'EVENTELEM.MESSAGE_OPTIONAL_HINT' | translate }}
+                </small>
+            </div>
+            <div class="alert alert-info small mb-0">
+                <i class="fa fa-info-circle me-2"></i>
+                {{ 'EVENTELEM.WHATSAPP_SHARE_INFO' | translate }}
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="wallCancelWhatsAppShare()">
+            {{ 'EVENTELEM.CANCEL' | translate }}
+        </button>
+        <button type="button" class="btn btn-success" (click)="wallConfirmWhatsAppShare()">
+            <i class="fa fa-whatsapp me-2"></i>
+            {{ 'EVENTELEM.SHARE_NOW' | translate }}
+        </button>
+    </div>
+</ng-template>
+
+<ng-template #wallShareByEmailModal let-modal>
+    <div class="modal-header" [ngStyle]="getWallShareByEmailHeaderStyle()">
+        <h5 class="modal-title text-white">
+            <i class="fa fa-envelope me-2"></i>
+            {{ 'EVENTELEM.SHARE_BY_MAIL' | translate }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="wallCloseShareByEmailModal()" [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+    </div>
+    <div class="modal-body">
+        <div *ngIf="shareWallContextGroup" class="share-email-content">
+            <div class="mb-3">
+                <label for="wallShareByEmailMailLang" class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_LANG_LABEL' | translate }}</label>
+                <div class="btn-group" ngbDropdown #wallMailLangDropdown="ngbDropdown" role="group">
+                    <button type="button" class="btn btn-outline-secondary btn-sm dropdown-toggle" style="max-width: 12rem; text-align: left;" id="wallShareByEmailMailLang" ngbDropdownToggle>
+                        <ng-container *ngIf="getWallShareByEmailMailLangOption() as opt">
+                            <span class="fi fi-{{ opt.flagCode }} me-1" aria-hidden="true"></span>
+                            <span>{{ opt.labelKey | translate }}</span>
+                        </ng-container>
+                    </button>
+                    <div class="dropdown-menu" ngbDropdownMenu aria-labelledby="wallShareByEmailMailLang" style="max-height: 280px; overflow-y: auto;">
+                        <button *ngFor="let opt of wallShareByEmailMailLangOptions" type="button" class="dropdown-item d-flex align-items-center" (click)="wallShareByEmailMailLang = opt.code; wallMailLangDropdown.close()">
+                            <span class="fi fi-{{ opt.flagCode }} me-2" aria-hidden="true"></span>
+                            <span>{{ opt.labelKey | translate }}</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_PATTOOL_USERS' | translate }}</label>
+                <div *ngIf="!wallShareByEmailLoading && wallShareByEmailAllMembers.length > 0" class="mb-2 d-flex align-items-center flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-primary" (click)="wallShareByEmailSelectAllWithAccess()">
+                        {{ 'EVENTELEM.SHARE_MAIL_SELECT_ACCESS' | translate }}
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="wallShareByEmailDeselectAll()">
+                        {{ 'EVENTELEM.SHARE_MAIL_DESELECT_ALL' | translate }}
+                    </button>
+                    <span class="text-muted small">{{ 'EVENTELEM.SHARE_MAIL_RECIPIENT_COUNT' | translate:{ count: wallShareByEmailRecipientCount } }}</span>
+                </div>
+                <div *ngIf="wallShareByEmailLoading" class="text-muted small">
+                    <i class="fa fa-spinner fa-spin me-1"></i> {{ 'EVENTELEM.SHARE_MAIL_LOADING' | translate }}
+                </div>
+                <div *ngIf="!wallShareByEmailLoading && wallShareByEmailAllMembers.length === 0" class="text-muted small">
+                    {{ 'EVENTELEM.SHARE_MAIL_NO_USERS' | translate }}
+                </div>
+                <div *ngIf="!wallShareByEmailLoading && wallShareByEmailAllMembers.length > 0" class="share-email-user-list border rounded p-2" style="max-height: 180px; overflow-y: auto;">
+                    <div *ngFor="let m of wallShareByEmailAllMembers; trackBy: wallTrackByShareByEmailMemberId" class="form-check">
+                        <input type="checkbox" class="form-check-input" [id]="'wall-share-email-user-' + m.id"
+                               [checked]="wallShareByEmailPatToolSelectedSet.has(m.addressEmail)"
+                               (change)="wallToggleShareByEmailUser(m.addressEmail)">
+                        <label class="form-check-label" [for]="'wall-share-email-user-' + m.id">
+                            {{ m.firstName }} {{ m.lastName }} ({{ m.addressEmail }})
+                        </label>
+                    </div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <label for="wallShareByEmailExternal" class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_OTHER_EMAILS' | translate }}</label>
+                <textarea id="wallShareByEmailExternal" class="form-control" rows="2"
+                          [(ngModel)]="wallShareByEmailExternalEmails"
+                          [placeholder]="'EVENTELEM.SHARE_MAIL_OTHER_PLACEHOLDER' | translate"></textarea>
+                <small class="form-text text-muted">{{ 'EVENTELEM.SHARE_MAIL_OTHER_HINT' | translate }}</small>
+            </div>
+            <div class="mb-3">
+                <label for="wallShareByEmailMessage" class="form-label fw-bold">{{ 'EVENTELEM.SHARE_MAIL_MESSAGE' | translate }}</label>
+                <textarea id="wallShareByEmailMessage" class="form-control" rows="4"
+                          [(ngModel)]="wallShareByEmailMessage"
+                          [placeholder]="'EVENTELEM.SHARE_MAIL_MESSAGE_PLACEHOLDER' | translate"></textarea>
+            </div>
+            <div *ngIf="wallShareByEmailError" class="alert alert-danger small mb-2">{{ wallShareByEmailError }}</div>
+            <div *ngIf="wallShareByEmailSuccess" class="alert alert-success small mb-2">{{ wallShareByEmailSuccess }}</div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="wallCloseShareByEmailModal()">
+            {{ 'EVENTELEM.CANCEL' | translate }}
+        </button>
+        <button type="button" class="btn btn-primary" (click)="wallSendShareByEmail()" [disabled]="wallShareByEmailSending">
+            <i class="fa fa-spinner fa-spin me-2" *ngIf="wallShareByEmailSending"></i>
+            <i class="fa fa-envelope me-2" *ngIf="!wallShareByEmailSending"></i>
+            {{ 'EVENTELEM.SHARE_MAIL_SEND' | translate }}
+        </button>
+    </div>
+</ng-template>
 
 <!-- Image Compression Selection Modal -->
 <ng-template #imageCompressionModal let-modal>

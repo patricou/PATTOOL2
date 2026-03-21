@@ -7,6 +7,7 @@ import { PhotoTimelineComponent } from './photo-timeline/photo-timeline.componen
 import { TranslateHttpLoader } from '@ngx-translate/http-loader';
 import { TranslateLoader, TranslateModule } from '@ngx-translate/core';
 import { PhotoTimelineService } from '../services/photo-timeline.service';
+import { EvenementsService } from '../services/evenements.service';
 import { NavigationButtonsModule } from '../shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from '../shared/slideshow-modal/slideshow-modal.module';
 
@@ -35,6 +36,6 @@ export function HttpLoaderFactory(http: HttpClient) {
     ],
     declarations: [],
     exports: [PhotoTimelineComponent],
-    providers: [PhotoTimelineService]
+    providers: [PhotoTimelineService, EvenementsService]
 })
 export class PhotoTimelineModule { }
