@@ -145,7 +145,8 @@
                         <a [routerLink]="['/details-evenement', group.eventId]">{{ group.eventName }}</a>
                     </h6>
                 </div>
-                <div class="group-header-actions">
+                <div class="group-header-actions group-header-actions-fit">
+                    <div class="group-header-actions-fit-inner" ptScaleRowToFit>
                     <div class="group-fs-buttons" *ngIf="group.fsPhotoLinks && group.fsPhotoLinks.length > 0">
                         <button class="btn btn-sm group-action-btn group-action-btn--fs"
                                 *ngFor="let fsLink of group.fsPhotoLinks"
@@ -168,8 +169,17 @@
                         <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}</span>
                     </button>
                     <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--card"
+                            *ngIf="group.eventId"
+                            (click)="refreshTimelineGroup(group); $event.stopPropagation()"
+                            [disabled]="isTimelineGroupRefreshing(group)"
+                            [title]="'PHOTO_TIMELINE.REFRESH_EVENT' | translate">
+                        <i class="fa fa-refresh" [class.fa-spin]="isTimelineGroupRefreshing(group)"></i>
+                        <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.REFRESH_EVENT' | translate }}</span>
+                    </button>
+                    <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--whatsapp"
-                            *ngIf="isTimelineGroupOwner(group)"
+                            *ngIf="group.eventId"
                             (click)="wallShareOnWhatsApp(group); $event.stopPropagation()"
                             [title]="'EVENTELEM.SHARE_WHATSAPP' | translate">
                         <i class="fa fa-whatsapp"></i>
@@ -177,12 +187,13 @@
                     </button>
                     <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--card"
-                            *ngIf="isTimelineGroupOwner(group)"
+                            *ngIf="group.eventId"
                             (click)="wallOpenShareByEmailModal(group); $event.stopPropagation()"
                             [title]="'EVENTELEM.SHARE_BY_MAIL' | translate">
                         <i class="fa fa-envelope"></i>
                         <span class="group-action-btn-text">{{ 'EVENTELEM.SHARE_BY_MAIL' | translate }}</span>
                     </button>
+                    </div>
                 </div>
                 <div class="group-info group-header-meta">
                     <span class="group-owner text-muted" *ngIf="group.ownerUserName">
@@ -194,9 +205,13 @@
                     </span>
                     <ng-container *ngIf="getVisibilityBadges(group) as visibilityBadges">
                         <span class="group-visibility-badges" *ngIf="visibilityBadges.length">
-                            <span class="badge me-1" *ngFor="let vb of visibilityBadges; let i = index; trackBy: trackByIndex"
+                            <span class="badge me-1 wall-visibility-badge-btn" *ngFor="let vb of visibilityBadges; let i = index; trackBy: trackByIndex"
                                   [ngClass]="vb.badgeClass"
-                                  [title]="'EVENTCREATION.VISIBILITY' | translate">
+                                  role="button"
+                                  tabindex="0"
+                                  (click)="wallShowEventAccessUsers(group, $event)"
+                                  (keydown.enter)="wallShowEventAccessUsers(group, $event)"
+                                  [title]="'EVENTELEM.USERS_WITH_ACCESS' | translate">
                                 <i class="fa fa-eye me-1"></i><span class="group-action-btn-text">{{ vb.text }}</span>
                             </span>
                         </span>
@@ -418,6 +433,73 @@
             <i class="fa fa-spinner fa-spin me-2" *ngIf="wallShareByEmailSending"></i>
             <i class="fa fa-envelope me-2" *ngIf="!wallShareByEmailSending"></i>
             {{ 'EVENTELEM.SHARE_MAIL_SEND' | translate }}
+        </button>
+    </div>
+</ng-template>
+
+<!-- Utilisateurs ayant accès (même principe que element-evenement / eventAccessUsersModal) -->
+<ng-template #wallEventAccessUsersModal let-c="close" let-d="dismiss">
+    <div class="modal-header bg-info text-white border border-2 border-white rounded-top">
+        <h5 class="modal-title" style="font-size: calc(1.25rem - 2px);">
+            <i class="fa fa-users me-2"></i> {{ 'EVENTELEM.USERS_WITH_ACCESS' | translate }}
+            <ng-container *ngIf="wallAccessModalHeaderSuffix() as wallAccessSuffix">
+                <span class="ms-2">- {{ wallAccessSuffix }}</span>
+            </ng-container>
+        </h5>
+        <button type="button" class="btn btn-outline-light btn-sm rounded-circle ms-auto border border-2 border-white"
+                (click)="d('Cross click')"
+                [attr.aria-label]="'COMMUN.CLOSE' | translate">
+            <i class="fa fa-times"></i>
+        </button>
+    </div>
+    <div class="modal-body">
+        <p class="text-muted small mb-3" *ngIf="wallEventAccessContextGroup as ctx">
+            <a href="#"
+               class="text-primary"
+               (click)="wallNavigateToEventDetailFromAccessModal(ctx.eventId, $event)">{{ ctx.eventName }}</a>
+        </p>
+        <div *ngIf="wallEventAccessLoading" class="text-center py-4">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2">{{ 'COMMUN.LOADING' | translate }}...</p>
+        </div>
+        <div *ngIf="!wallEventAccessLoading">
+            <div *ngIf="wallEventAccessUsers.length === 0" class="text-center text-muted py-4">
+                <i class="fa fa-info-circle fa-3x mb-3"></i>
+                <p>{{ 'EVENTELEM.NO_ACCESS_USERS' | translate }}</p>
+            </div>
+            <div *ngIf="wallEventAccessUsers.length > 0" class="users-list">
+                <div class="mb-3">
+                    <strong>{{ 'EVENTELEM.TOTAL_USERS' | translate }}: {{ wallEventAccessUsers.length }}</strong>
+                </div>
+                <div class="row g-2">
+                    <div *ngFor="let user of wallEventAccessUsers; trackBy: wallTrackByAccessUserId"
+                         class="col-12 col-md-6">
+                        <div class="list-group-item d-flex justify-content-between align-items-center h-100">
+                            <div class="d-flex align-items-center flex-grow-1">
+                                <i class="fa fa-user ms-2 me-2"></i>
+                                <div class="flex-grow-1">
+                                    <strong>{{ user.firstName }} {{ user.lastName }}</strong>
+                                    <div class="text-muted small">{{ user.userName }}</div>
+                                    <div class="text-muted small" *ngIf="user.addressEmail">{{ user.addressEmail }}</div>
+                                </div>
+                            </div>
+                            <div class="d-flex align-items-center" *ngIf="user.whatsappLink">
+                                <button type="button"
+                                        class="btn btn-sm btn-outline-success"
+                                        (click)="wallOpenUserWhatsAppFromAccessModal(user); $event.stopPropagation()"
+                                        [title]="'FRIENDS.OPEN_WHATSAPP' | translate">
+                                    <i class="fa fa-whatsapp"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="c('Close click')">
+            <i class="fa fa-times"></i> {{ 'COMMUN.CLOSE' | translate }}
         </button>
     </div>
 </ng-template>

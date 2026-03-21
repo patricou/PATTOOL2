@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 import { SlideshowModalModule } from '../../shared/slideshow-modal/slideshow-modal.module';
@@ -17,11 +17,12 @@ import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { forkJoin, of, Subscription } from 'rxjs';
-import { map, distinctUntilChanged, catchError } from 'rxjs/operators';
+import { map, distinctUntilChanged, catchError, take } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { EvenementsService } from '../../services/evenements.service';
 import { Member } from '../../model/member';
+import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
 
 const BUFFER_AHEAD = 3;
 /** Nombre de groupes (activités) à charger par requête API. */
@@ -54,7 +55,8 @@ const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HE
         SlideshowModalModule,
         VideoshowModalModule,
         TraceViewerModalComponent,
-        EventCardOverlayComponent
+        EventCardOverlayComponent,
+        ScaleRowToFitDirective
     ]
 })
 export class PhotoTimelineComponent implements OnInit, OnDestroy {
@@ -66,6 +68,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
     @ViewChild('wallWhatsappShareModal') wallWhatsappShareModal!: TemplateRef<any>;
     @ViewChild('wallShareByEmailModal') wallShareByEmailModal!: TemplateRef<any>;
+    @ViewChild('wallEventAccessUsersModal') wallEventAccessUsersModal!: TemplateRef<any>;
 
     visibleGroups: TimelineGroup[] = [];
     bufferedGroups: TimelineGroup[] = [];
@@ -112,6 +115,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
     /** Mur de photos : partage (propriétaire uniquement), même flux que détail événement */
     shareWallContextGroup: TimelineGroup | null = null;
+
+    /** Per-event refresh: eventIds with an in-flight timeline refetch */
+    private readonly refreshingGroupEventIds = new Set<string>();
     wallWhatsappShareMessage = '';
     private wallWhatsappShareModalRef: NgbModalRef | null = null;
     private wallShareByEmailModalRef: NgbModalRef | null = null;
@@ -141,6 +147,15 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     wallShareByEmailSuccess: string | null = null;
     wallShareEmailEventAccessUsers: Member[] = [];
 
+    /** Modale « utilisateurs ayant accès » (clic sur badge visibilité), même API que détail événement */
+    wallEventAccessUsers: Member[] = [];
+    wallEventAccessLoading = false;
+    wallEventAccessContextGroup: TimelineGroup | null = null;
+    private wallEventAccessModalRef: NgbModalRef | null = null;
+    /** Incrémenté à chaque clic badge ; ignore les réponses HTTP obsolètes (évite double ouverture). */
+    private wallEventAccessLoadSeq = 0;
+    private wallEventAccessOpenTimer: ReturnType<typeof setTimeout> | null = null;
+
     constructor(
         private photoTimelineService: PhotoTimelineService,
         private membersService: MembersService,
@@ -151,7 +166,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         private translate: TranslateService,
         private cdr: ChangeDetectorRef,
         private sanitizer: DomSanitizer,
-        private route: ActivatedRoute
+        private route: ActivatedRoute,
+        private router: Router
     ) {}
 
     ngOnInit(): void {
@@ -201,6 +217,14 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         if (this.wallShareByEmailModalRef) {
             try { this.wallShareByEmailModalRef.dismiss(); } catch (_) {}
             this.wallShareByEmailModalRef = null;
+        }
+        if (this.wallEventAccessModalRef) {
+            try { this.wallEventAccessModalRef.dismiss(); } catch (_) {}
+            this.wallEventAccessModalRef = null;
+        }
+        if (this.wallEventAccessOpenTimer != null) {
+            clearTimeout(this.wallEventAccessOpenTimer);
+            this.wallEventAccessOpenTimer = null;
         }
         this.thumbnailCache.forEach(url => {
             if (url.startsWith('blob:')) URL.revokeObjectURL(url);
@@ -522,6 +546,97 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             this.searchDebounceId = null;
         }
         this.loadTimeline();
+    }
+
+    isTimelineGroupRefreshing(group: TimelineGroup): boolean {
+        return !!(group?.eventId && this.refreshingGroupEventIds.has(group.eventId));
+    }
+
+    /**
+     * Recharge photos/vidéos d'un seul événement (API timeline filtrée par eventId), sans recharger tout le mur.
+     */
+    refreshTimelineGroup(group: TimelineGroup): void {
+        const eventId = group?.eventId;
+        if (!eventId || this.refreshingGroupEventIds.has(eventId)) return;
+
+        this.refreshingGroupEventIds.add(eventId);
+        this.cdr.markForCheck();
+
+        const search = this.searchFilter.trim() || undefined;
+        const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
+        const size = 200;
+        const emptyRes = (): TimelineResponse => ({
+            groups: [],
+            totalPhotos: 0,
+            totalGroups: 0,
+            page: 0,
+            pageSize: size,
+            hasMore: false,
+            onThisDay: []
+        });
+
+        const sub = forkJoin({
+            photos: this.photoTimelineService
+                .getTimeline(this.userId, 0, size, search, visibility, eventId)
+                .pipe(catchError(() => of(emptyRes()))),
+            videos: this.photoTimelineService
+                .getVideoTimeline(this.userId, 0, size, search, visibility, eventId)
+                .pipe(catchError(() => of(emptyRes())))
+        }).subscribe({
+            next: ({ photos, videos }) => {
+                if (this.destroyed) return;
+                const idx = this.visibleGroups.findIndex(g => g.eventId === eventId);
+                if (idx >= 0) {
+                    const updated = this.mergeRefetchedTimelineGroup(photos, videos, eventId, group);
+                    this.visibleGroups = [
+                        ...this.visibleGroups.slice(0, idx),
+                        updated,
+                        ...this.visibleGroups.slice(idx + 1)
+                    ];
+                    this.preloadThumbnailsForGroup(updated);
+                }
+                this.refreshingGroupEventIds.delete(eventId);
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                if (this.destroyed) return;
+                this.refreshingGroupEventIds.delete(eventId);
+                this.cdr.markForCheck();
+            }
+        });
+        this.subscriptions.push(sub);
+    }
+
+    private mergeRefetchedTimelineGroup(
+        photoRes: TimelineResponse,
+        videoRes: TimelineResponse,
+        eventId: string,
+        fallback: TimelineGroup
+    ): TimelineGroup {
+        const pick = (res: TimelineResponse) =>
+            res.groups?.find(g => g.eventId === eventId) ?? res.groups?.[0];
+
+        const photoGroup = pick(photoRes);
+        if (photoGroup && (photoGroup.photos?.length ?? 0) > 0) {
+            return { ...photoGroup };
+        }
+
+        const videoGroup = pick(videoRes);
+        if (videoGroup && (videoGroup.photos?.length ?? 0) > 0) {
+            return {
+                ...videoGroup,
+                photos: [],
+                videos: videoGroup.photos || [],
+                fsPhotoLinks: videoGroup.fsPhotoLinks || []
+            };
+        }
+
+        return {
+            ...fallback,
+            photos: [],
+            videos: [],
+            fsPhotoLinks: photoGroup?.fsPhotoLinks ?? fallback.fsPhotoLinks ?? []
+        };
     }
 
     /** Média d'un groupe : photos et vidéos en parallèle (entrelacés), pas les vidéos en premier. */
@@ -950,7 +1065,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     }
 
     wallShareOnWhatsApp(group: TimelineGroup): void {
-        if (!this.isTimelineGroupOwner(group) || !group.eventId) return;
+        if (!group.eventId) return;
         this.shareWallContextGroup = group;
         this.wallWhatsappShareMessage = this.translate.instant('EVENTELEM.DEFAULT_SHARE_MESSAGE');
         if (this.wallWhatsappShareModal) {
@@ -1056,7 +1171,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     }
 
     wallOpenShareByEmailModal(group: TimelineGroup): void {
-        if (!this.isTimelineGroupOwner(group) || !group.eventId) return;
+        if (!group.eventId) return;
         this.shareWallContextGroup = group;
         this.wallShareByEmailExternalEmails = '';
         this.wallShareByEmailMessage = '';
@@ -1219,6 +1334,138 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             '15': 'EVENTCREATION.TYPE.VISIT'
         };
         return typeMap[type] || 'EVENTCREATION.TYPE.OTHER';
+    }
+
+    /**
+     * Clic sur le badge de visibilité du mur : liste des utilisateurs pouvant voir l’événement (comme element-evenement).
+     */
+    wallShowEventAccessUsers(group: TimelineGroup, ev?: Event): void {
+        if (ev) {
+            ev.stopPropagation();
+            ev.preventDefault();
+        }
+        if (!group?.eventId) {
+            return;
+        }
+        const seq = ++this.wallEventAccessLoadSeq;
+        this.wallEventAccessContextGroup = group;
+        this.wallEventAccessLoading = true;
+        this.wallEventAccessUsers = [];
+        this.cdr.markForCheck();
+
+        const sub = this.evenementsService.getEventAccessUsers(group.eventId).pipe(take(1)).subscribe({
+            next: (users: any[]) => {
+                if (seq !== this.wallEventAccessLoadSeq) {
+                    return;
+                }
+                this.wallEventAccessUsers = this.wallMapAccessUsersToMembers(users || []);
+                this.wallEventAccessLoading = false;
+                this.wallOpenEventAccessUsersModal();
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                if (seq !== this.wallEventAccessLoadSeq) {
+                    return;
+                }
+                this.wallEventAccessUsers = [];
+                this.wallEventAccessLoading = false;
+                this.wallOpenEventAccessUsersModal();
+                this.cdr.markForCheck();
+            }
+        });
+        this.subscriptions.push(sub);
+    }
+
+    wallAccessModalHeaderSuffix(): string {
+        const g = this.wallEventAccessContextGroup;
+        if (!g) return '';
+        const v = (g.visibility || '').trim().toLowerCase();
+        if (v === 'public' || v === 'private' || v === 'friends') {
+            return '';
+        }
+        const badges = this.getVisibilityBadges(g);
+        if (badges.length === 0) return '';
+        return badges.map(b => b.text).join(', ');
+    }
+
+    wallOpenUserWhatsAppFromAccessModal(user: Member): void {
+        const url = user?.whatsappLink?.trim();
+        if (url) {
+            window.open(url, '_blank');
+        }
+    }
+
+    wallTrackByAccessUserId(_index: number, u: Member): string {
+        return u.id || u.addressEmail || '';
+    }
+
+    /**
+     * Ne pas utiliser routerLink dans la modale : la navigation immédiate casse le teardown ng-bootstrap (removeChild sur null).
+     * On ferme d’abord la modale, puis on navigue quand la promesse du modal est terminée.
+     */
+    wallNavigateToEventDetailFromAccessModal(eventId: string | undefined, ev: Event): void {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (!eventId) {
+            return;
+        }
+        const target = ['/details-evenement', eventId] as const;
+        const ref = this.wallEventAccessModalRef;
+        if (ref) {
+            ref.result.finally(() => {
+                void this.router.navigate(target);
+            });
+            try {
+                ref.dismiss('navigate-detail');
+            } catch {
+                void this.router.navigate(target);
+            }
+        } else {
+            void this.router.navigate(target);
+        }
+    }
+
+    private wallOpenEventAccessUsersModal(): void {
+        if (!this.wallEventAccessUsersModal) {
+            return;
+        }
+
+        const doOpen = () => {
+            if (!this.wallEventAccessUsersModal) {
+                return;
+            }
+            const modalRef = this.modalService.open(this.wallEventAccessUsersModal, {
+                size: 'lg',
+                centered: true,
+                backdrop: 'static',
+                keyboard: true,
+                animation: true
+            });
+            this.wallEventAccessModalRef = modalRef;
+            modalRef.result.finally(() => {
+                if (this.wallEventAccessModalRef === modalRef) {
+                    this.wallEventAccessModalRef = null;
+                }
+            });
+        };
+
+        const prev = this.wallEventAccessModalRef;
+        if (prev) {
+            try {
+                prev.dismiss();
+            } catch (_) {
+                /* déjà démontée */
+            }
+            if (this.wallEventAccessOpenTimer != null) {
+                clearTimeout(this.wallEventAccessOpenTimer);
+            }
+            this.wallEventAccessOpenTimer = setTimeout(() => {
+                this.wallEventAccessOpenTimer = null;
+                doOpen();
+            }, 0);
+        } else {
+            doOpen();
+        }
     }
 
     private wallMapAccessUsersToMembers(users: any[]): Member[] {

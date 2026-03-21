@@ -1639,6 +1639,7 @@
         "VIEW_ALL_EVENTS": "Voir tous les événements",
         "EVENT_CARD": "Fiche événement",
         "EVENT_DETAILS": "Détail de l'événement",
+        "REFRESH_EVENT": "Actualiser",
         "ON_THIS_DAY": "Ce jour-là",
         "ON_THIS_DAY_DESC": "{{count}} photo(s) de ce jour les années précédentes",
         "PHOTOS": "photo(s)",

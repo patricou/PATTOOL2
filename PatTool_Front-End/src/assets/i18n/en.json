@@ -1650,6 +1650,7 @@
         "VIEW_ALL_EVENTS": "View all events",
         "EVENT_CARD": "Event card",
         "EVENT_DETAILS": "Event details",
+        "REFRESH_EVENT": "Refresh",
         "ON_THIS_DAY": "On This Day",
         "ON_THIS_DAY_DESC": "{{count}} photo(s) from this day in previous years",
         "PHOTOS": "photo(s)",

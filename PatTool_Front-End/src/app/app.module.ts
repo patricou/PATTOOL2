@@ -78,7 +78,7 @@ export function HttpLoaderFactory(http: HttpClient) {
 			}
 		}),
 		RouterModule.forRoot([
-			{ path: '', redirectTo: 'even', pathMatch: 'full' },
+			{ path: '', redirectTo: 'photos', pathMatch: 'full' },
 			{ path: 'even', component: HomeEvenementsComponent },
 			{ path: 'neweven', component: CreateEvenementComponent },
 			{ path: 'updeven/:id', component: UpdateEvenementComponent, canDeactivate: [UnsavedChangesGuard] },
