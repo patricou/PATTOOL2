@@ -278,7 +278,9 @@ export class FriendsComponent implements OnInit {
   loadData() {
     this.loading = true;
     this.errorMessage = '';
-    this.cdr.detectChanges();
+    // Defer so we are not inside an in-flight CD pass; synchronous HTTP/token emits can
+    // otherwise update allUsers.length before dev-mode verify and trigger NG0100.
+    setTimeout(() => this.cdr.detectChanges(), 0);
 
     // Refresh currentUser from service to ensure we have the latest data including whatsappLink
     const serviceUser = this._memberService.getUser();
@@ -916,6 +918,29 @@ export class FriendsComponent implements OnInit {
       const nameB = ((b.requester.firstName || '') + ' ' + (b.requester.lastName || '')).toLowerCase().trim();
       return nameA.localeCompare(nameB);
     });
+  }
+
+  /**
+   * All users + Mes amis — last connection: ≤2 days green, >30 days red, otherwise orange.
+   */
+  getLastConnectionRecencyClass(lastConnectionDate: Date | string | undefined | null): string {
+    if (lastConnectionDate == null) {
+      return 'last-connection-unknown';
+    }
+    const t = new Date(lastConnectionDate).getTime();
+    if (Number.isNaN(t)) {
+      return 'last-connection-unknown';
+    }
+    const ageMs = Date.now() - t;
+    const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+    const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+    if (ageMs <= twoDaysMs) {
+      return 'last-connection-recent';
+    }
+    if (ageMs > thirtyDaysMs) {
+      return 'last-connection-stale';
+    }
+    return 'last-connection-medium';
   }
   
   getSortedFriends(): Friend[] {

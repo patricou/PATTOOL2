@@ -262,9 +262,11 @@
               <strong class="profile-label">{{ 'FRIENDS.REGISTERED_ON' | translate }}:</strong> 
               <span class="profile-value">{{ user.registrationDate | date:'short' }}</span>
             </p>
-            <p class="text-muted compact-text mb-2" *ngIf="user.lastConnectionDate">
-              <i class="fa fa-clock-o profile-icon"></i> 
-              <strong class="profile-label">{{ 'FRIENDS.LAST_CONNECTION' | translate }}:</strong> 
+            <p class="compact-text mb-2 last-connection-line"
+               *ngIf="user.lastConnectionDate"
+               [ngClass]="getLastConnectionRecencyClass(user.lastConnectionDate)">
+              <i class="fa fa-clock-o profile-icon"></i>
+              <strong class="profile-label">{{ 'FRIENDS.LAST_CONNECTION' | translate }}:</strong>
               <span class="profile-value">{{ user.lastConnectionDate | date:'short' }}</span>
             </p>
             <div class="text-muted compact-text mb-2" *ngIf="getUserRoles(user) && getUserRoles(user).length > 0">
@@ -579,11 +581,15 @@
               <span class="profile-value">{{ getOtherUser(friend).userName }}</span>
             </p>
             <p class="text-muted compact-text mb-2" *ngIf="getOtherUser(friend).registrationDate">
-              <i class="fa fa-calendar-plus-o profile-icon"></i> 
+              <i class="fa fa-calendar-plus-o profile-icon"></i>
+              <strong class="profile-label">{{ 'FRIENDS.REGISTERED_ON' | translate }}:</strong>
               <span class="profile-value">{{ getOtherUser(friend).registrationDate | date:'short' }}</span>
             </p>
-            <p class="text-muted compact-text mb-2" *ngIf="getOtherUser(friend).lastConnectionDate">
-              <i class="fa fa-clock-o profile-icon"></i> 
+            <p class="compact-text mb-2 last-connection-line"
+               *ngIf="getOtherUser(friend).lastConnectionDate"
+               [ngClass]="getLastConnectionRecencyClass(getOtherUser(friend).lastConnectionDate)">
+              <i class="fa fa-clock-o profile-icon"></i>
+              <strong class="profile-label">{{ 'FRIENDS.LAST_CONNECTION' | translate }}:</strong>
               <span class="profile-value">{{ getOtherUser(friend).lastConnectionDate | date:'short' }}</span>
             </p>
             <p class="text-muted compact-text mb-2">

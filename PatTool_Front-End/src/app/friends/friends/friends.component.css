@@ -550,6 +550,56 @@
   width: 100%;
 }
 
+/* Tous les utilisateurs + Mes amis — dernière connexion (libellé = même taille que la date) */
+.users-list .last-connection-line,
+.friends-list .last-connection-line {
+  color: #495057;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.users-list .last-connection-line .profile-label,
+.friends-list .last-connection-line .profile-label {
+  color: inherit;
+  font-weight: 600;
+  font-size: inherit;
+}
+
+.users-list .last-connection-line .profile-value,
+.friends-list .last-connection-line .profile-value {
+  font-size: inherit;
+}
+
+@media (max-width: 575.98px) {
+  .users-list .last-connection-line,
+  .friends-list .last-connection-line {
+    font-size: 0.85rem;
+  }
+}
+
+.users-list .last-connection-line.last-connection-recent .profile-value,
+.friends-list .last-connection-line.last-connection-recent .profile-value {
+  color: #198754;
+  font-weight: 600;
+}
+
+.users-list .last-connection-line.last-connection-medium .profile-value,
+.friends-list .last-connection-line.last-connection-medium .profile-value {
+  color: #fd7e14;
+  font-weight: 600;
+}
+
+.users-list .last-connection-line.last-connection-stale .profile-value,
+.friends-list .last-connection-line.last-connection-stale .profile-value {
+  color: #dc3545;
+  font-weight: 600;
+}
+
+.users-list .last-connection-line.last-connection-unknown .profile-value,
+.friends-list .last-connection-line.last-connection-unknown .profile-value {
+  color: #6c757d;
+}
+
 .friend-card.selected {
   border: 2px solid #007bff;
   box-shadow: 0 4px 8px rgba(0, 123, 255, 0.3);
