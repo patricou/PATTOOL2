@@ -674,46 +674,6 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         this.videoshowModalComponent.open([source], eventName || '', true);
     }
 
-    /**
-     * Plein écran système (tout l’écran), pas le mode « agrandi dans la page » souvent déclenché
-     * par le bouton natif avec playsinline (notamment iOS / Safari).
-     */
-    enterTimelineVideoFullscreen(video: HTMLVideoElement, event: MouseEvent): void {
-        event.preventDefault();
-        event.stopPropagation();
-        if (this.destroyed || !video) {
-            return;
-        }
-
-        video.muted = false;
-
-        const v = video as any;
-        const requestFs =
-            v.requestFullscreen ||
-            v.webkitRequestFullscreen ||
-            v.mozRequestFullScreen ||
-            v.msRequestFullscreen;
-
-        const webkitEnter = (): void => {
-            if (typeof v.webkitEnterFullscreen === 'function') {
-                try {
-                    v.webkitEnterFullscreen();
-                } catch {
-                    /* ignore */
-                }
-            }
-        };
-
-        if (requestFs) {
-            const p = requestFs.call(v);
-            if (p && typeof p.catch === 'function') {
-                p.catch(() => webkitEnter());
-            }
-        } else {
-            webkitEnter();
-        }
-    }
-
     openOnThisDaySlideshow(index: number): void {
         if (!this.slideshowModalComponent) return;
         const images: SlideshowImageSource[] = this.onThisDay.map(p => ({

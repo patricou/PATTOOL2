@@ -229,15 +229,13 @@
                     </div>
                     <!-- Vidéo : lecture auto (autoplay muted loop) comme dans détail -->
                     <div class="masonry-item video-card-inline" *ngIf="media.type === 'video'">
-                        <div class="photo-card video-card-inner timeline-video-card-wrap">
+                        <div class="photo-card video-card-inner">
                             <div *ngIf="!getVideoUrl(media.item)" class="video-placeholder">
                                 <i class="fa fa-spinner fa-spin fa-2x"></i>
                             </div>
                             <ng-container *ngIf="getVideoUrl(media.item)">
-                                <video #tlWallVideo
-                                       [src]="getVideoUrl(media.item)"
+                                <video [src]="getVideoUrl(media.item)"
                                        controls
-                                       controlsList="nofullscreen"
                                        autoplay
                                        [muted]="true"
                                        loop
@@ -247,13 +245,6 @@
                                        [attr.alt]="media.item.fileName">
                                     {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
                                 </video>
-                                <button type="button"
-                                        class="timeline-video-fullscreen-btn"
-                                        (click)="enterTimelineVideoFullscreen(tlWallVideo, $event)"
-                                        [title]="'EVENTELEM.FULLSCREEN' | translate"
-                                        [attr.aria-label]="'EVENTELEM.FULLSCREEN' | translate">
-                                    <i class="fa fa-arrows-alt" aria-hidden="true"></i>
-                                </button>
                             </ng-container>
                         </div>
                     </div>
