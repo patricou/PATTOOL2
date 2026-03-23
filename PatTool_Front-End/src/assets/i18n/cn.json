@@ -448,6 +448,8 @@
         "TYPE.VISIT": "访问",
         "TYPE.WORK": "工作",
         "TYPE.FAMILY": "家庭",
+        "TYPE.CINEMA": "电影",
+        "TYPE.MUSIQUE": "音乐",
         "ISSUE": "问题",
         "ISSUEDETAIL": "保存活动时出错：",
         "ISSUEDELDETAIL": "删除活动时出错：",

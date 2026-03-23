@@ -432,6 +432,8 @@
         "TYPE.VISIT": "Visite",
         "TYPE.WORK": "Travaux",
         "TYPE.FAMILY": "Famille",
+        "TYPE.CINEMA": "Cinéma",
+        "TYPE.MUSIQUE": "Musique",
         "ISSUE": "Probleme",
         "ISSUEDETAIL": "Probléme en voulant enregistrer l'Activité : ",
         "ISSUEDELDETAIL": "Probléme en voulant supprimer l'Activité : ",

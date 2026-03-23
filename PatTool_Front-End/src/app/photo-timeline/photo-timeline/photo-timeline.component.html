@@ -147,15 +147,6 @@
                 </div>
                 <div class="group-header-actions group-header-actions-fit">
                     <div class="group-header-actions-fit-inner" ptScaleRowToFit>
-                    <div class="group-fs-buttons" *ngIf="group.fsPhotoLinks && group.fsPhotoLinks.length > 0">
-                        <button class="btn btn-sm group-action-btn group-action-btn--fs"
-                                *ngFor="let fsLink of group.fsPhotoLinks"
-                                (click)="openFsSlideshow(fsLink, group)"
-                                [title]="fsLink.description || fsLink.path">
-                            <i class="fa fa-desktop"></i>
-                            <span class="group-action-btn-text">{{ fsLink.description || 'Photos' }}</span>
-                        </button>
-                    </div>
                     <a class="btn btn-sm group-action-btn group-action-btn--card"
                        [routerLink]="['/details-evenement', group.eventId]"
                        [title]="'PHOTO_TIMELINE.EVENT_DETAILS' | translate">
@@ -249,13 +240,13 @@
                                 <i class="fa fa-spinner fa-spin fa-2x"></i>
                             </div>
                             <ng-container *ngIf="getVideoUrl(media.item)">
-                                <video [src]="getVideoUrl(media.item)"
+                                <video #wallTimelineVideo
+                                       [src]="getVideoUrl(media.item)"
                                        controls
-                                       autoplay
                                        [muted]="true"
                                        loop
                                        playsinline
-                                       preload="auto"
+                                       preload="metadata"
                                        class="photo-img timeline-video"
                                        [attr.alt]="media.item.fileName">
                                     {{ 'EVENTELEM.VIDEO_NOT_SUPPORTED' | translate }}
@@ -264,6 +255,22 @@
                         </div>
                     </div>
                 </ng-container>
+            </div>
+
+            <!-- Badges : tous les liens de l’événement (site web, carte, photos disque, etc.) -->
+            <div class="group-fs-link-badges"
+                 *ngIf="group.fsPhotoLinks && group.fsPhotoLinks.length > 0">
+                <span class="badge group-fs-link-badge text-wrap text-start"
+                      *ngFor="let fsLink of group.fsPhotoLinks; trackBy: trackByFsLink"
+                      [class.group-fs-link-badge--external]="!isPhotoWallFsFromDiskLink(fsLink)"
+                      role="button"
+                      tabindex="0"
+                      (click)="onPhotoWallFooterLinkClick(fsLink, group)"
+                      (keydown.enter)="onPhotoWallFooterLinkClick(fsLink, group)"
+                      [title]="fsLink.description || fsLink.path">
+                    <i class="fa me-1" [ngClass]="getPhotoWallLinkIcon(fsLink)" aria-hidden="true"></i>
+                    <span>{{ fsLink.description || fsLink.path }}</span>
+                </span>
             </div>
         </div>
     </div>

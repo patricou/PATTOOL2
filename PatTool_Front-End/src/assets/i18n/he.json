@@ -438,6 +438,8 @@
         "TYPE.VISIT": "ביקור",
         "TYPE.WORK": "עבודה",
         "TYPE.FAMILY": "משפחה",
+        "TYPE.CINEMA": "קולנוע",
+        "TYPE.MUSIQUE": "מוזיקה",
         "ISSUEDETAIL": "בעיה בניסיון לשמור את הפעילות:",
         "ISSUEDELDETAIL": "בעיה בניסיון למחוק את הפעילות:",
         "VISIBILITY": "נראות",

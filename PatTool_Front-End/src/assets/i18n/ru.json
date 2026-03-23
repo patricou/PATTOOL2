@@ -450,6 +450,8 @@
         "TYPE.VISIT": "Визит",
         "TYPE.WORK": "Работы",
         "TYPE.FAMILY": "Семья",
+        "TYPE.CINEMA": "Кино",
+        "TYPE.MUSIQUE": "Музыка",
         "ISSUEDETAIL": "Ошибка при сохранении мероприятия:",
         "ISSUEDELDETAIL": "Ошибка при удалении мероприятия:",
         "VISIBILITY": "Видимость",

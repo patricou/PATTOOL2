@@ -232,7 +232,7 @@ public class EvenementRestController {
                     
                     // If filter resolves to a type number, add type filter
                     if (resolvedTypeNumber != null) {
-                        filterCriteriaList.add(Criteria.where("type").is(resolvedTypeNumber));
+                        filterCriteriaList.add(criteriaForEventTypeCanonicalId(resolvedTypeNumber));
                     }
                     
                     // Combine all filters with OR (match if text matches OR type matches)
@@ -969,11 +969,27 @@ public class EvenementRestController {
         return new Criteria().orOperator(authorCriteria.toArray(new Criteria[0]));
     }
     
-    private String normalizeFilter(String filter) {
-        if (filter == null || filter.trim().isEmpty() || "*".equals(filter.trim())) {
+    /**
+     * Trim Unicode whitespace (NBSP, BOM, etc.) — {@link String#trim()} does not remove U+00A0.
+     */
+    private String sanitizeFilterInput(String filter) {
+        if (filter == null) {
             return "";
         }
-        return normalizeForSearch(filter.trim());
+        String s = filter.strip()
+                .replace('\u00a0', ' ')
+                .replace('\u202f', ' ')
+                .replace('\ufeff', ' ');
+        s = s.replaceAll("\\s+", " ").trim();
+        return s;
+    }
+    
+    private String normalizeFilter(String filter) {
+        String s = sanitizeFilterInput(filter);
+        if (s.isEmpty() || "*".equals(s)) {
+            return "";
+        }
+        return normalizeForSearch(s);
     }
     
     private String normalizeForSearch(String value) {
@@ -994,6 +1010,33 @@ public class EvenementRestController {
         }
         // Escape special regex characters: . ^ $ * + ? { } [ ] \ | ( )
         return pattern.replaceAll("([\\\\\\[\\]{}()*+?.^$|])", "\\\\$1");
+    }
+    
+    /**
+     * Match {@code type} whether MongoDB stores it as a String ("19") or a
+     * numeric BSON type (legacy / imports). {@code Criteria.is("19")} does not
+     * match documents with {@code type: 19}, which breaks keyword filters on the
+     * SSE stream (e.g. "musique" → type 19).
+     */
+    private Criteria criteriaForEventTypeCanonicalId(String canonicalTypeId) {
+        if (canonicalTypeId == null || canonicalTypeId.isEmpty()) {
+            return Criteria.where("type").is(canonicalTypeId);
+        }
+        List<Object> variants = new ArrayList<>();
+        variants.add(canonicalTypeId);
+        if (canonicalTypeId.matches("\\d+")) {
+            try {
+                variants.add(Integer.parseInt(canonicalTypeId));
+            } catch (NumberFormatException ignored) {
+                // ignore
+            }
+            try {
+                variants.add(Long.parseLong(canonicalTypeId));
+            } catch (NumberFormatException ignored) {
+                // ignore
+            }
+        }
+        return Criteria.where("type").in(variants);
     }
     
     private boolean matchesFilter(Evenement event, String normalizedFilter) {
@@ -1060,6 +1103,10 @@ public class EvenementRestController {
                 "16", "WORK", "TRAVAUX", "EVENTCREATION.TYPE.WORK");
         registerType("17", new String[]{"family", "famille", "familia", "famiglia", "familie", "家庭", "家族", "عائلة", "משפחה", "परिवार", "Семья", "Οικογένεια"},
                 "17", "FAMILY", "FAMILLE", "EVENTCREATION.TYPE.FAMILY");
+        registerType("18", new String[]{"cinema", "cine", "cinematographe", "movie", "film", "kino", "pelicula", "película", "кино", "映画", "电影"},
+                "18", "CINEMA", "CINÉMA", "EVENTCREATION.TYPE.CINEMA");
+        registerType("19", new String[]{"music", "musique", "musiques", "musiquem", "musica", "musik", "concert", "музыка", "音楽", "音乐"},
+                "19", "MUSIQUE", "MUSIC", "EVENTCREATION.TYPE.MUSIQUE");
     }
     
     private static void registerType(String canonicalKey, String[] keywords, String... aliases) {
@@ -1108,29 +1155,53 @@ public class EvenementRestController {
     }
     
     private String resolveCanonicalType(String value) {
-        if (value == null || value.trim().isEmpty()) {
+        if (value == null || value.isBlank()) {
             return null;
         }
-        
-        String trimmed = value.trim();
-        
-        String canonical = TYPE_ALIAS_LOOKUP.get(trimmed);
+        String sanitized = sanitizeFilterInput(value);
+        if (sanitized.isEmpty()) {
+            return null;
+        }
+        // Stored event type may be "19" or "19.0" (BSON number) — normalize to canonical id string
+        if (sanitized.matches("^\\d+(\\.\\d+)?$")) {
+            try {
+                String numericId = new java.math.BigDecimal(sanitized.trim()).stripTrailingZeros().toPlainString();
+                String byNum = TYPE_ALIAS_LOOKUP.get(numericId);
+                return byNum != null ? byNum : numericId;
+            } catch (Exception ignored) {
+                // fall through to keyword resolution
+            }
+        }
+        String normalized = normalizeForSearch(sanitized);
+        if (!normalized.isEmpty()) {
+            String canonical = TYPE_ALIAS_LOOKUP.get(normalized);
+            if (canonical != null) {
+                return canonical;
+            }
+        }
+        String canonical = TYPE_ALIAS_LOOKUP.get(sanitized);
         if (canonical != null) {
             return canonical;
         }
-        
-        canonical = TYPE_ALIAS_LOOKUP.get(trimmed.toUpperCase(java.util.Locale.ROOT));
+        canonical = TYPE_ALIAS_LOOKUP.get(sanitized.toUpperCase(java.util.Locale.ROOT));
         if (canonical != null) {
             return canonical;
         }
-        
-        canonical = TYPE_ALIAS_LOOKUP.get(trimmed.toLowerCase(java.util.Locale.ROOT));
+        canonical = TYPE_ALIAS_LOOKUP.get(sanitized.toLowerCase(java.util.Locale.ROOT));
         if (canonical != null) {
             return canonical;
         }
-        
-        String normalized = normalizeForSearch(value);
-        return TYPE_ALIAS_LOOKUP.get(normalized);
+        // Defensive fallbacks if lookup missed (encoding / invisible chars / stale deploy)
+        if (!normalized.isEmpty()) {
+            if ("musique".equals(normalized) || "musiques".equals(normalized) || "music".equals(normalized)
+                    || "musiquem".equals(normalized)) {
+                return "19";
+            }
+            if ("cinema".equals(normalized) || "cine".equals(normalized)) {
+                return "18";
+            }
+        }
+        return null;
     }
     
     private boolean matchesType(String type, String normalizedFilter) {
@@ -1151,11 +1222,28 @@ public class EvenementRestController {
         
         // If the filter resolves to a type number, check if the event's type equals that number
         // e.g., if filter "velo" resolves to "5", check if event.type == "5"
-        if (canonicalFilterType != null && typeTrimmed.equals(canonicalFilterType)) {
-            return true;
+        if (canonicalFilterType != null) {
+            if (typeTrimmed.equals(canonicalFilterType)) {
+                return true;
+            }
+            if (numericTypeIdsEqual(typeTrimmed, canonicalFilterType)) {
+                return true;
+            }
         }
         
         return false;
+    }
+    
+    /** True if both represent the same numeric activity type id (e.g. "19" vs "19.0"). */
+    private boolean numericTypeIdsEqual(String a, String b) {
+        if (a == null || b == null) {
+            return false;
+        }
+        try {
+            return new java.math.BigDecimal(a.trim()).compareTo(new java.math.BigDecimal(b.trim())) == 0;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     @RequestMapping(value = "/{id}", method = RequestMethod.GET)

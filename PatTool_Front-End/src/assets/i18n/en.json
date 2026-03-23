@@ -448,6 +448,8 @@
         "TYPE.VISIT": "Visit",
         "TYPE.WORK": "Work",
         "TYPE.FAMILY": "Family",
+        "TYPE.CINEMA": "Cinema",
+        "TYPE.MUSIQUE": "Music",
         "ISSUEDETAIL": "Issue when save the evenement :",
         "ISSUEDELDETAIL": "Issue when deleting the evenement :",
         "VISIBILITY": "Visibilty",

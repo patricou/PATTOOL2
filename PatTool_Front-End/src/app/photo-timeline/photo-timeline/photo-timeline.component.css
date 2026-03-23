@@ -400,15 +400,6 @@
     max-width: none;
 }
 
-.group-header-actions-fit-inner .group-fs-buttons {
-    display: inline-flex;
-    flex-direction: row;
-    flex-wrap: nowrap;
-    align-items: center;
-    gap: 0.4rem;
-    flex-shrink: 0;
-}
-
 /* Une seule ligne : les boutons ne rétrécissent pas dans la barre d’actions */
 .group-header-actions .group-action-btn {
     flex-shrink: 0;
@@ -444,14 +435,6 @@
 .group-action-btn:active {
     transform: translateY(0);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-.group-action-btn--fs {
-    color: #0d6efd;
-}
-.group-action-btn--fs:hover {
-    background: #0d6efd;
-    color: #fff;
-    border-color: #0d6efd;
 }
 .group-action-btn--card:hover {
     color: #495057;
@@ -566,6 +549,54 @@
 .wall-visibility-badge-btn:focus-visible {
     outline: 2px solid rgba(13, 110, 253, 0.5);
     outline-offset: 2px;
+}
+
+/* Badges liens dossier (fin de bloc événement, sous la grille) */
+.group-fs-link-badges {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.4rem 0.5rem;
+    margin-top: 0.75rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.group-fs-link-badge {
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 0.8rem;
+    max-width: 100%;
+    padding: 0.45em 0.65em;
+    background-color: #5c6bc0 !important;
+    color: #fff !important;
+    transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+.group-fs-link-badge:hover {
+    filter: brightness(1.08);
+    transform: translateY(-1px);
+}
+
+.group-fs-link-badge:focus-visible {
+    outline: 2px solid rgba(92, 107, 192, 0.55);
+    outline-offset: 2px;
+}
+
+/* Liens URL (site, carte, galerie web, …) — pas dossier disque */
+.group-fs-link-badge--external {
+    background-color: #546e7a !important;
+}
+
+.group-fs-link-badge--external:hover {
+    filter: brightness(1.08);
+}
+
+.group-fs-link-badge--external:focus-visible {
+    outline-color: rgba(84, 110, 122, 0.55);
 }
 
 /* Masonry Grid */

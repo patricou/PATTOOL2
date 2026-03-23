@@ -329,6 +329,8 @@
         "TYPE.VISIT": "訪問",
         "TYPE.WORK": "作業",
         "TYPE.FAMILY": "家族",
+        "TYPE.CINEMA": "映画",
+        "TYPE.MUSIQUE": "音楽",
         "ISSUEDETAIL": "活動の保存中に問題が発生しました：",
         "ISSUEDELDETAIL": "活動の削除中に問題が発生しました：",
         "VISIBILITY": "可視性",

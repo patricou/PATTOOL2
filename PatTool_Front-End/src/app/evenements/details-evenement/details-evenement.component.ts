@@ -3277,7 +3277,9 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
       '14': 'EVENTCREATION.TYPE.OTHER',
       '15': 'EVENTCREATION.TYPE.VISIT',
       '16': 'EVENTCREATION.TYPE.WORK',
-      '17': 'EVENTCREATION.TYPE.FAMILY'
+      '17': 'EVENTCREATION.TYPE.FAMILY',
+      '18': 'EVENTCREATION.TYPE.CINEMA',
+      '19': 'EVENTCREATION.TYPE.MUSIQUE'
     };
     
     return typeMap[type] || 'EVENTCREATION.TYPE.OTHER';

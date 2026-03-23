@@ -451,6 +451,8 @@
         "TYPE.VISIT": "Visita",
         "TYPE.WORK": "Lavori",
         "TYPE.FAMILY": "Famiglia",
+        "TYPE.CINEMA": "Cinema",
+        "TYPE.MUSIQUE": "Musica",
         "ISSUEDETAIL": "Problema durante il salvataggio dell'Attività:",
         "ISSUEDELDETAIL": "Problema durante l'eliminazione dell'Attività:",
         "VISIBILITY": "Visibilità",

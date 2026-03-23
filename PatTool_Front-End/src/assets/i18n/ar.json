@@ -448,6 +448,8 @@
         "TYPE.VISIT": "زيارة",
         "TYPE.WORK": "أعمال",
         "TYPE.FAMILY": "عائلة",
+        "TYPE.CINEMA": "سينما",
+        "TYPE.MUSIQUE": "موسيقى",
         "ISSUE": "مشكلة",
         "ISSUEDETAIL": "مشكلة عند محاولة تسجيل النشاط : ",
         "ISSUEDELDETAIL": "مشكلة عند محاولة حذف النشاط : ",

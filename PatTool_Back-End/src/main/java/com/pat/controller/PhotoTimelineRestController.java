@@ -108,8 +108,12 @@ public class PhotoTimelineRestController {
     }
 
     public static class FsPhotoLink {
+        /** Type de lien (WEBSITE, MAP, PHOTOS, PHOTOFROMFS, TRACK, …) — voir normalizeUrlEventTypeForTimeline. */
+        private String typeUrl;
         private String path;
         private String description;
+        /** GridFS / fichier joint : id pour ouvrir la trace dans le viewer (type {@code TRACK}). */
+        private String fieldId;
 
         public FsPhotoLink() {}
         public FsPhotoLink(String path, String description) {
@@ -117,10 +121,14 @@ public class PhotoTimelineRestController {
             this.description = description;
         }
 
+        public String getTypeUrl() { return typeUrl; }
+        public void setTypeUrl(String typeUrl) { this.typeUrl = typeUrl; }
         public String getPath() { return path; }
         public void setPath(String path) { this.path = path; }
         public String getDescription() { return description; }
         public void setDescription(String description) { this.description = description; }
+        public String getFieldId() { return fieldId; }
+        public void setFieldId(String fieldId) { this.fieldId = fieldId; }
     }
 
     public static class TimelineGroup {
@@ -246,6 +254,8 @@ public class PhotoTimelineRestController {
                     .include("fileUploadeds")
                     .include("thumbnail")
                     .include("urlEvents")
+                    .include("photosUrl")
+                    .include("map")
                     .include("visibility")
                     .include("friendGroupId")
                     .include("friendGroupIds")
@@ -351,6 +361,9 @@ public class PhotoTimelineRestController {
                     .include("comments")
                     .include("beginEventDate")
                     .include("fileUploadeds")
+                    .include("urlEvents")
+                    .include("photosUrl")
+                    .include("map")
                     .include("visibility")
                     .include("friendGroupId")
                     .include("friendGroupIds")
@@ -379,7 +392,7 @@ public class PhotoTimelineRestController {
                     group.setFriendGroupId(e.getFriendGroupId());
                     group.setFriendGroupIds(e.getFriendGroupIds());
                     group.setPhotos(videos);
-                    group.setFsPhotoLinks(Collections.emptyList());
+                    group.setFsPhotoLinks(extractFsPhotoLinks(e));
                     Member owner = resolveEventAuthor(e);
                     if (owner != null) {
                         group.setOwnerFirstName(owner.getFirstName());
@@ -426,17 +439,116 @@ public class PhotoTimelineRestController {
         }
     }
 
+    /**
+     * Liens affichés dans le footer du mur : {@code urlEvents} + fichiers trace ({@link FileUploaded} GPX/KML/…)
+     * + anciennes URLs {@code photosUrl} + champ {@code map} lorsqu’il contient une URL http(s).
+     * Déduplication par URL normalisée ou par {@code fieldId} pour les traces.
+     * Seul PHOTOFROMFS est un chemin disque côté front ; TRACK ouvre le viewer trace ; le reste ouvre une URL.
+     */
     private List<FsPhotoLink> extractFsPhotoLinks(Evenement e) {
         List<FsPhotoLink> links = new ArrayList<>();
-        if (e.getUrlEvents() == null) return links;
-        for (var urlEvent : e.getUrlEvents()) {
-            if (urlEvent.getTypeUrl() != null
-                    && "PHOTOFROMFS".equalsIgnoreCase(urlEvent.getTypeUrl().trim())
-                    && urlEvent.getLink() != null && !urlEvent.getLink().isEmpty()) {
-                links.add(new FsPhotoLink(urlEvent.getLink(), urlEvent.getUrlDescription()));
+        Set<String> seenUrls = new LinkedHashSet<>();
+
+        if (e.getUrlEvents() != null) {
+            for (var urlEvent : e.getUrlEvents()) {
+                if (urlEvent == null || urlEvent.getLink() == null || urlEvent.getLink().trim().isEmpty()) {
+                    continue;
+                }
+                String raw = urlEvent.getLink().trim();
+                if (!seenUrls.add(normalizeLinkKey(raw))) {
+                    continue;
+                }
+                String rawType = urlEvent.getTypeUrl() != null ? urlEvent.getTypeUrl().trim() : "";
+                String canonical = normalizeUrlEventTypeForTimeline(rawType);
+                FsPhotoLink f = new FsPhotoLink(raw, urlEvent.getUrlDescription());
+                f.setTypeUrl(canonical);
+                links.add(f);
+            }
+        }
+        // Fichiers trace (GPX, KML, …) dans fileUploadeds — même logique que la carte événement
+        if (e.getFileUploadeds() != null) {
+            for (FileUploaded file : e.getFileUploadeds()) {
+                if (file == null || file.getFieldId() == null || file.getFieldId().trim().isEmpty()) {
+                    continue;
+                }
+                String fn = file.getFileName();
+                if (!isUploadedTrackFileName(fn)) {
+                    continue;
+                }
+                String dedupKey = "track:" + file.getFieldId().trim().toLowerCase(Locale.ROOT);
+                if (!seenUrls.add(dedupKey)) {
+                    continue;
+                }
+                String display = fn != null ? fn.trim() : file.getFieldId();
+                FsPhotoLink f = new FsPhotoLink(display, display);
+                f.setTypeUrl("TRACK");
+                f.setFieldId(file.getFieldId().trim());
+                links.add(f);
+            }
+        }
+        if (e.getPhotosUrl() != null) {
+            for (String url : e.getPhotosUrl()) {
+                if (url == null || url.trim().isEmpty()) {
+                    continue;
+                }
+                String raw = url.trim();
+                if (!seenUrls.add(normalizeLinkKey(raw))) {
+                    continue;
+                }
+                FsPhotoLink f = new FsPhotoLink(raw, null);
+                f.setTypeUrl("PHOTOS");
+                links.add(f);
+            }
+        }
+        String mapField = e.getMap();
+        if (mapField != null && !mapField.trim().isEmpty()) {
+            String raw = mapField.trim();
+            if (isHttpOrHttpsUrl(raw) && seenUrls.add(normalizeLinkKey(raw))) {
+                FsPhotoLink f = new FsPhotoLink(raw, null);
+                f.setTypeUrl("MAP");
+                links.add(f);
             }
         }
         return links;
+    }
+
+    private static String normalizeLinkKey(String url) {
+        return url == null ? "" : url.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean isHttpOrHttpsUrl(String s) {
+        if (s == null) {
+            return false;
+        }
+        String lower = s.trim().toLowerCase(Locale.ROOT);
+        return lower.startsWith("http://") || lower.startsWith("https://");
+    }
+
+    /** Aligné sur le front (element-evenement isTrackFile). */
+    private static boolean isUploadedTrackFileName(String fileName) {
+        if (fileName == null || fileName.isEmpty()) {
+            return false;
+        }
+        String lower = fileName.toLowerCase(Locale.ROOT);
+        return lower.endsWith(".gpx") || lower.endsWith(".kml") || lower.endsWith(".geojson") || lower.endsWith(".tcx");
+    }
+
+    /** Alias FR/EN → identifiants stables pour l’UI (icônes). */
+    private static String normalizeUrlEventTypeForTimeline(String rawType) {
+        if (rawType == null || rawType.isEmpty()) {
+            return "OTHER";
+        }
+        String u = rawType.toUpperCase(Locale.ROOT);
+        if ("PHOTO".equals(u)) return "PHOTOS";
+        if ("SITE".equals(u) || "WEB".equals(u) || "SITIO".equals(u)) return "WEBSITE";
+        if ("CARTE".equals(u) || "MAPA".equals(u)) return "MAP";
+        if ("DOC".equals(u) || "DOCUMENT".equals(u) || "DOCS".equals(u)) return "DOCUMENTATION";
+        if ("VIDÉO".equals(u) || "YOUTUBE".equals(u) || "VIMEO".equals(u)) return "VIDEO";
+        if ("WA".equals(u)) return "WHATSAPP";
+        if ("TRACE".equals(u) || "TRACÉ".equals(u) || "TRACK".equals(u) || "GPS".equals(u) || "GPX".equals(u)) {
+            return "TRACK";
+        }
+        return u;
     }
 
     private static final String[] VIDEO_EXTENSIONS = { ".mp4", ".webm", ".ogg", ".ogv", ".mov", ".avi", ".mkv", ".m4v", ".3gp" };

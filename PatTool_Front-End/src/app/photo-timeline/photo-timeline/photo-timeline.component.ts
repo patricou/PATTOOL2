@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ViewChildren, QueryList, ElementRef, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -59,7 +59,7 @@ const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HE
         ScaleRowToFitDirective
     ]
 })
-export class PhotoTimelineComponent implements OnInit, OnDestroy {
+export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit {
 
     @ViewChild('slideshowModalComponent') slideshowModalComponent!: SlideshowModalComponent;
     @ViewChild('traceViewerModalComponent') traceViewerModalComponent!: TraceViewerModalComponent;
@@ -69,6 +69,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     @ViewChild('wallWhatsappShareModal') wallWhatsappShareModal!: TemplateRef<any>;
     @ViewChild('wallShareByEmailModal') wallShareByEmailModal!: TemplateRef<any>;
     @ViewChild('wallEventAccessUsersModal') wallEventAccessUsersModal!: TemplateRef<any>;
+    /** Vidéos du mur masonry : lecture seulement quand visibles (viewport). */
+    @ViewChildren('wallTimelineVideo', { read: ElementRef }) wallTimelineVideos!: QueryList<ElementRef<HTMLVideoElement>>;
 
     visibleGroups: TimelineGroup[] = [];
     bufferedGroups: TimelineGroup[] = [];
@@ -103,6 +105,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     private subscriptions: Subscription[] = [];
     private waitInterval: any;
     private intersectionObserver: IntersectionObserver | null = null;
+    private wallVideoIntersectionObserver: IntersectionObserver | null = null;
+    private wallVideoQuerySub: Subscription | null = null;
     private imageCompressionModalRef: NgbModalRef | null = null;
     private currentFsSlideshowEventId = '';
     /** True when at least one photo was added to DB during the current slideshow session; used to refresh timeline on close */
@@ -237,6 +241,42 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         this.videoUrlCache.clear();
         this.videoSafeUrlCache.clear();
         this.loadingVideos.clear();
+        if (this.wallVideoIntersectionObserver) {
+            this.wallVideoIntersectionObserver.disconnect();
+            this.wallVideoIntersectionObserver = null;
+        }
+        if (this.wallVideoQuerySub) {
+            this.wallVideoQuerySub.unsubscribe();
+            this.wallVideoQuerySub = null;
+        }
+    }
+
+    ngAfterViewInit(): void {
+        this.wallVideoIntersectionObserver = new IntersectionObserver(
+            (entries) => {
+                if (this.destroyed) return;
+                for (const entry of entries) {
+                    const v = entry.target as HTMLVideoElement;
+                    if (entry.isIntersecting) {
+                        v.play().catch(() => { /* autoplay / politiques navigateur */ });
+                    } else if (document.fullscreenElement !== v && document.pictureInPictureElement !== v) {
+                        v.pause();
+                    }
+                }
+            },
+            { root: null, rootMargin: '0px', threshold: 0.15 }
+        );
+        this.observeWallTimelineVideos();
+        this.wallVideoQuerySub = this.wallTimelineVideos.changes.subscribe(() => this.observeWallTimelineVideos());
+    }
+
+    /** Ré-enregistre toutes les vidéos du mur auprès de l’observer (liste masonry dynamique). */
+    private observeWallTimelineVideos(): void {
+        if (this.destroyed || !this.wallVideoIntersectionObserver) return;
+        this.wallVideoIntersectionObserver.disconnect();
+        this.wallTimelineVideos.forEach((ref) => {
+            this.wallVideoIntersectionObserver!.observe(ref.nativeElement);
+        });
     }
 
     private waitForUser(): void {
@@ -810,6 +850,48 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
         return user.userName.toLowerCase() === group.ownerUserName.toLowerCase();
     }
 
+    /** Seul PHOTOFROMFS (ou type absent = legacy) ouvre le diaporama depuis le disque. */
+    isPhotoWallFsFromDiskLink(link: FsPhotoLink): boolean {
+        const t = (link.typeUrl || '').trim().toUpperCase();
+        return t === '' || t === 'PHOTOFROMFS';
+    }
+
+    /** Icônes Font Awesome 4, alignées sur la page détail événement. */
+    getPhotoWallLinkIcon(link: FsPhotoLink): string {
+        if (this.isPhotoWallFsFromDiskLink(link)) {
+            return 'fa-desktop';
+        }
+        const t = (link.typeUrl || '').trim().toUpperCase() || 'OTHER';
+        if (t === 'MAP' || t === 'CARTE') return 'fa-map-marker';
+        if (t === 'WEBSITE' || t === 'SITE' || t === 'WEB') return 'fa-globe';
+        if (t === 'DOCUMENTATION' || t === 'DOC' || t === 'FICHE') return 'fa-file-text';
+        if (t === 'PHOTOS' || t === 'PHOTO') return 'fa-picture-o';
+        if (t === 'VIDEO' || t === 'VIDÉO' || t === 'YOUTUBE' || t === 'VIMEO') return 'fa-video-camera';
+        if (t === 'WHATSAPP' || t === 'WA') return 'fa-whatsapp';
+        if (t === 'TRACK' || t === 'TRACE' || t === 'GPX') return 'fa-road';
+        return 'fa-external-link';
+    }
+
+    /** Clic footer : diaporama disque uniquement pour PHOTOFROMFS ; trace Mongo → viewer ; sinon nouvel onglet. */
+    onPhotoWallFooterLinkClick(fsLink: FsPhotoLink, group: TimelineGroup): void {
+        const t = (fsLink.typeUrl || '').trim().toUpperCase();
+        if ((t === 'TRACK' || t === 'TRACE' || t === 'GPX') && fsLink.fieldId) {
+            const fileName = (fsLink.path || fsLink.description || 'track').trim();
+            if (this.traceViewerModalComponent) {
+                this.traceViewerModalComponent.openFromFile(fsLink.fieldId, fileName);
+            }
+            return;
+        }
+        if (this.isPhotoWallFsFromDiskLink(fsLink)) {
+            this.openFsSlideshow(fsLink, group);
+            return;
+        }
+        const url = (fsLink.path || '').trim();
+        if (url) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    }
+
     openFsSlideshow(fsLink: FsPhotoLink, group: TimelineGroup): void {
         if (!this.slideshowModalComponent) return;
 
@@ -1021,7 +1103,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             'Visit': 'fa-map-marker',
             'Work': 'fa-briefcase',
             'Family': 'fa-home',
-            'Fiche': 'fa-file-text-o'
+            'Fiche': 'fa-file-text-o',
+            '18': 'fa-film',
+            '19': 'fa-music'
         };
         return icons[type] || 'fa-calendar';
     }
@@ -1319,6 +1403,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
     private wallGetEventTypeLabelKey(type: string): string {
         const typeMap: { [key: string]: string } = {
             '11': 'EVENTCREATION.TYPE.DOCUMENTS',
+            '12': 'EVENTCREATION.TYPE.FICHE',
             '3': 'EVENTCREATION.TYPE.RUN',
             '6': 'EVENTCREATION.TYPE.PARTY',
             '4': 'EVENTCREATION.TYPE.WALK',
@@ -1331,7 +1416,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
             '1': 'EVENTCREATION.TYPE.VTT',
             '13': 'EVENTCREATION.TYPE.WINE',
             '14': 'EVENTCREATION.TYPE.OTHER',
-            '15': 'EVENTCREATION.TYPE.VISIT'
+            '15': 'EVENTCREATION.TYPE.VISIT',
+            '16': 'EVENTCREATION.TYPE.WORK',
+            '17': 'EVENTCREATION.TYPE.FAMILY',
+            '18': 'EVENTCREATION.TYPE.CINEMA',
+            '19': 'EVENTCREATION.TYPE.MUSIQUE'
         };
         return typeMap[type] || 'EVENTCREATION.TYPE.OTHER';
     }
@@ -1505,5 +1594,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy {
 
     trackByMediaId(index: number, media: GroupMediaItem): string {
         return media.item.fileId;
+    }
+
+    trackByFsLink(_index: number, link: FsPhotoLink): string {
+        return `${link.typeUrl || ''}::${link.fieldId || ''}::${link.path}::${link.description || ''}`;
     }
 }

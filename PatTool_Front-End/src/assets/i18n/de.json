@@ -451,6 +451,8 @@
         "TYPE.VISIT": "Besuch",
         "TYPE.WORK": "Arbeiten",
         "TYPE.FAMILY": "Familie",
+        "TYPE.CINEMA": "Kino",
+        "TYPE.MUSIQUE": "Musik",
         "ISSUEDETAIL": "Problem beim Speichern der Veranstaltung:",
         "ISSUEDELDETAIL": "Problem beim Löschen der Veranstaltung:",
         "VISIBILITY": "Sichtbarkeit",

@@ -258,7 +258,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		'14': 'EVENTCREATION.TYPE.OTHER',
 		'15': 'EVENTCREATION.TYPE.VISIT',
 		'16': 'EVENTCREATION.TYPE.WORK',
-		'17': 'EVENTCREATION.TYPE.FAMILY'
+		'17': 'EVENTCREATION.TYPE.FAMILY',
+		'18': 'EVENTCREATION.TYPE.CINEMA',
+		'19': 'EVENTCREATION.TYPE.MUSIQUE'
 	};
 
 	@ViewChild('jsonModal')
@@ -8374,7 +8376,9 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			{ value: "14", label: this.eventTypeLabels['14'] },
 			{ value: "15", label: this.eventTypeLabels['15'] },
 			{ value: "16", label: this.eventTypeLabels['16'] },
-			{ value: "17", label: this.eventTypeLabels['17'] }
+			{ value: "17", label: this.eventTypeLabels['17'] },
+			{ value: "18", label: this.eventTypeLabels['18'] },
+			{ value: "19", label: this.eventTypeLabels['19'] }
 		];
 		
 		// Sort by translated label
@@ -8512,8 +8516,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		if (!this.isAuthor()) {
 			return;
 		}
-		
+		if (this.evenement.type === newType) {
+			return;
+		}
 		this.evenement.type = newType;
+		// Same pattern as changeVisibility: parent (e.g. home-evenements) persists via putEvenement
+		this.updateEvenement.emit(this.evenement);
 	}
 	
 	// List of users with access to this event (for modal display)

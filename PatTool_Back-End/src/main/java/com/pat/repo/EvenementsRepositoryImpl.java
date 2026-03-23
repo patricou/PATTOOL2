@@ -291,11 +291,24 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		return new Criteria().orOperator(authorCriteria.toArray(new Criteria[0]));
 	}
 
-	private String normalizeFilter(String filter) {
-		if (!StringUtils.hasText(filter) || "*".equals(filter.trim())) {
+	private String sanitizeFilterInput(String filter) {
+		if (filter == null) {
 			return "";
 		}
-		return normalizeForSearch(filter.trim());
+		String s = filter.strip()
+				.replace('\u00a0', ' ')
+				.replace('\u202f', ' ')
+				.replace('\ufeff', ' ');
+		s = s.replaceAll("\\s+", " ").trim();
+		return s;
+	}
+
+	private String normalizeFilter(String filter) {
+		String s = sanitizeFilterInput(filter);
+		if (!StringUtils.hasText(s) || "*".equals(s)) {
+			return "";
+		}
+		return normalizeForSearch(s);
 	}
 
 	private boolean matchesFilter(Evenement event, String normalizedFilter) {
@@ -322,7 +335,7 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		}
 
 		String canonicalFilter = resolveCanonicalType(normalizedFilter);
-		if (canonicalFilter != null && canonicalType.equals(canonicalFilter)) {
+		if (canonicalFilter != null && (canonicalType.equals(canonicalFilter) || numericTypeIdsEqual(canonicalType, canonicalFilter))) {
 			return true;
 		}
 
@@ -338,6 +351,17 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		}
 
 		return false;
+	}
+
+	private boolean numericTypeIdsEqual(String a, String b) {
+		if (a == null || b == null) {
+			return false;
+		}
+		try {
+			return new java.math.BigDecimal(a.trim()).compareTo(new java.math.BigDecimal(b.trim())) == 0;
+		} catch (Exception e) {
+			return false;
+		}
 	}
 
 	private List<EvenementScore> scoreEvents(List<Evenement> events, String normalizedFilter) {
@@ -427,6 +451,10 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 				"16", "WORK", "TRAVAUX", "EVENTCREATION.TYPE.WORK");
 		registerType(map, "17", new String[]{"family", "famille", "familia", "famiglia", "familie", "家庭", "家族", "عائلة", "משפחה", "परिवार", "Семья", "Οικογένεια"},
 				"17", "FAMILY", "FAMILLE", "EVENTCREATION.TYPE.FAMILY");
+		registerType(map, "18", new String[]{"cinema", "cine", "cinematographe", "movie", "film", "kino", "pelicula", "película", "кино", "映画", "电影"},
+				"18", "CINEMA", "CINÉMA", "EVENTCREATION.TYPE.CINEMA");
+		registerType(map, "19", new String[]{"music", "musique", "musiques", "musiquem", "musica", "musik", "concert", "музыка", "音楽", "音乐"},
+				"19", "MUSIQUE", "MUSIC", "EVENTCREATION.TYPE.MUSIQUE");
 
 		return map;
 	}
@@ -471,26 +499,48 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 		if (!StringUtils.hasText(value)) {
 			return null;
 		}
-
-		String trimmed = value.trim();
-
-		String canonical = TYPE_ALIAS_LOOKUP.get(trimmed);
+		String sanitized = sanitizeFilterInput(value);
+		if (!StringUtils.hasText(sanitized)) {
+			return null;
+		}
+		if (sanitized.matches("^\\d+(\\.\\d+)?$")) {
+			try {
+				String numericId = new java.math.BigDecimal(sanitized.trim()).stripTrailingZeros().toPlainString();
+				String byNum = TYPE_ALIAS_LOOKUP.get(numericId);
+				return byNum != null ? byNum : numericId;
+			} catch (Exception ignored) {
+				// fall through
+			}
+		}
+		String normalized = normalizeForSearch(sanitized);
+		if (!normalized.isEmpty()) {
+			String canonical = TYPE_ALIAS_LOOKUP.get(normalized);
+			if (canonical != null) {
+				return canonical;
+			}
+		}
+		String canonical = TYPE_ALIAS_LOOKUP.get(sanitized);
 		if (canonical != null) {
 			return canonical;
 		}
-
-		canonical = TYPE_ALIAS_LOOKUP.get(trimmed.toUpperCase(Locale.ROOT));
+		canonical = TYPE_ALIAS_LOOKUP.get(sanitized.toUpperCase(Locale.ROOT));
 		if (canonical != null) {
 			return canonical;
 		}
-
-		canonical = TYPE_ALIAS_LOOKUP.get(trimmed.toLowerCase(Locale.ROOT));
+		canonical = TYPE_ALIAS_LOOKUP.get(sanitized.toLowerCase(Locale.ROOT));
 		if (canonical != null) {
 			return canonical;
 		}
-
-		String normalized = normalizeForSearch(trimmed);
-		return TYPE_ALIAS_LOOKUP.get(normalized);
+		if (!normalized.isEmpty()) {
+			if ("musique".equals(normalized) || "musiques".equals(normalized) || "music".equals(normalized)
+					|| "musiquem".equals(normalized)) {
+				return "19";
+			}
+			if ("cinema".equals(normalized) || "cine".equals(normalized)) {
+				return "18";
+			}
+		}
+		return null;
 	}
 
 	private static class EvenementScore {

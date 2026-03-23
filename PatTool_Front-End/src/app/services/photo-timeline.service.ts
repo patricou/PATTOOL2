@@ -17,8 +17,15 @@ export interface TimelinePhoto {
 }
 
 export interface FsPhotoLink {
+    /**
+     * Type de lien (WEBSITE, MAP, PHOTOS, PHOTOFROMFS, VIDEO, TRACK, …).
+     * Absent = réponse legacy : traité comme PHOTOFROMFS (dossier disque).
+     */
+    typeUrl?: string;
     path: string;
     description: string;
+    /** Présent pour les traces GPX/KML stockées en base (ouvre le viewer trace). */
+    fieldId?: string;
 }
 
 export interface TimelineGroup {
