@@ -707,6 +707,8 @@
         "TRACK_SHARE_LOCATION": "Κοινοποίηση Τοποθεσίας",
         "CARTES_GOUV_FR": "Όλοι οι χάρτες IGN",
         "CARTES_GOUV_FR_TITLE": "Άνοιγμα της δημόσιας υπηρεσίας χαρτών σε νέα καρτέλα",
+        "SWISSSTOPO_PIXELKARTE": "Εθνικός χάρτης Ελβετίας (swisstopo)",
+        "SWISSSTOPO_SWISSIMAGE": "Ορθοφωτογραφία SWISSIMAGE",
 		"SHOW_GPS_COORDINATES": "Εμφάνιση συντεταγμένων GPS",
 		"SHOW_ADDRESS": "Εμφάνιση διεύθυνσης",
 		"SHOW_WEATHER": "Εμφάνιση καιρού",

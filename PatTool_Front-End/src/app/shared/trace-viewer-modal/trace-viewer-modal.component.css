@@ -1060,6 +1060,16 @@
 	white-space: nowrap;
 }
 
+/* Plein écran carte : la modale IGN est montée dans .map-wrapper (pas body) — z-index au-dessus des overlays (≈1000) */
+::ng-deep .map-wrapper:fullscreen ngb-modal-backdrop,
+::ng-deep .map-wrapper:-webkit-full-screen ngb-modal-backdrop {
+	z-index: 10040 !important;
+}
+::ng-deep .map-wrapper:fullscreen ngb-modal-window.modal,
+::ng-deep .map-wrapper:-webkit-full-screen ngb-modal-window.modal {
+	z-index: 10050 !important;
+}
+
 /* Modale embed cartes.gouv.fr – même taille que le trace viewer (65vw, 90vh) */
 ::ng-deep .cartes-gouv-embed-modal .modal-dialog {
 	max-width: 65vw !important;

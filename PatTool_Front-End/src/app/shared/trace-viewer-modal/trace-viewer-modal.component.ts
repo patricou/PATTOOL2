@@ -2,7 +2,7 @@ import { ChangeDetectorRef, Component, ElementRef, EventEmitter, HostListener, I
 import { CommonModule, DOCUMENT } from '@angular/common';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { FormsModule } from '@angular/forms';
-import { NgbModule, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
+import { NgbModule, NgbModal, NgbModalOptions, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { FileService } from '../../services/file.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
@@ -107,14 +107,18 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private locationSelectionClickHandler?: (e: L.LeafletMouseEvent) => void;
 
 	private static leafletIconsConfigured = false;
+	private static leafletPassiveTouchRoots = new Set<HTMLElement>();
+	private static leafletControlPassiveTouchOriginal: typeof HTMLElement.prototype.addEventListener | null = null;
+	/** Conteneur enregistré pour ce patch (désinscription au destroy). */
+	private leafletMapPassivePatchContainer: HTMLElement | null = null;
 	private fullscreenChangeHandler?: () => void;
 	private orientationMediaQuery: MediaQueryList | null = null;
 	private orientationChangeHandler?: () => void;
 	private baseLayers: Record<string, L.TileLayer | L.LayerGroup> = {};
 	public availableBaseLayers: Array<{ id: string; label: string; labelKey?: string }> = [];
 	public selectedBaseLayerId: string = '';
-	/** Dernier fond de carte affiché avant d’ouvrir « Toutes les cartes IGN », pour le rétablir à la fermeture de la modale. */
-	private lastBaseLayerBeforeCartesGouv: string = 'ign-classic';
+	/** Dernier fond de carte affiché avant d’ouvrir « Toutes les cartes IGN » depuis la liste (pas le bouton IGN). */
+	private lastBaseLayerBeforeCartesGouv: string = 'opentopomap';
 	private activeBaseLayer?: L.TileLayer | L.LayerGroup;
 	/** Niveau de zoom actuel de la carte (affiché dans un coin). */
 	public currentZoom: number = 6;
@@ -128,6 +132,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private thunderforestApiKey: string = '';
 	public isFullscreenInfoVisible = false;
 	private trackBounds: L.LatLngBounds | null = null;
+	private trackBoundsRefitTimeouts: ReturnType<typeof setTimeout>[] = [];
 	private rightMouseZoomActive = false;
 	private rightMouseStartLatLng?: L.LatLng;
 	private rightMouseRectangle?: L.Rectangle;
@@ -361,18 +366,33 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 		this.updateCartesGouvEmbedUrl(lat, lng, z);
 		this.cdr.detectChanges();
-		this.cartesGouvModalRef = this.modalService.open(this.cartesGouvModal, {
+		const cartesOpts: NgbModalOptions = {
 			size: 'xl',
 			centered: true,
 			backdrop: 'static',
 			windowClass: 'cartes-gouv-embed-modal'
-		});
+		};
+		const mountEl = this.getCartesGouvModalMountElement();
+		if (mountEl) {
+			cartesOpts.container = mountEl;
+		}
+		this.cartesGouvModalRef = this.modalService.open(this.cartesGouvModal, cartesOpts);
 		this.cartesGouvFullscreenChangeListener = () => this.onCartesGouvFullscreenChange();
 		this.document.addEventListener('fullscreenchange', this.cartesGouvFullscreenChangeListener);
 		this.cartesGouvModalRef.result.catch(() => {
 			this.cartesGouvEmbedUrl = null;
 			this.cleanupCartesGouvFullscreenListener();
+			this.restoreBaseLayerAfterCartesGouvIfNeeded();
 		});
+	}
+
+	/** Ne réapplique le fond que si l’utilisateur avait choisi « cartes.gouv » dans la liste (sinon le bouton IGN ne doit pas modifier la carte). */
+	private restoreBaseLayerAfterCartesGouvIfNeeded(): void {
+		if (this.selectedBaseLayerId !== 'cartes-gouv') {
+			return;
+		}
+		this.selectedBaseLayerId = this.lastBaseLayerBeforeCartesGouv;
+		this.applySelectedBaseLayer();
 	}
 
 	/** Met à jour l’URL d’embed cartes.gouv.fr (position + zoom). Utilisé à l’ouverture et quand « Suivre ma position » recentre. */
@@ -391,9 +411,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.cartesGouvModalRef = undefined;
 		this.cartesGouvEmbedUrl = null;
 		this.cleanupCartesGouvFullscreenListener();
-		// Remettre le fond de carte précédent pour que resélectionner « Toutes les cartes IGN » rouvre la modale
-		this.selectedBaseLayerId = this.lastBaseLayerBeforeCartesGouv;
-		this.applySelectedBaseLayer();
+		this.restoreBaseLayerAfterCartesGouvIfNeeded();
 		this.cdr.detectChanges();
 	}
 
@@ -637,81 +655,88 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	/**
-	 * Patches an element's addEventListener to use passive listeners for touchstart events.
-	 * Note: We do NOT make wheel events passive because Leaflet needs to call preventDefault()
-	 * on wheel events to prevent page scrolling when zooming the map.
+	 * Leaflet enregistre touchstart avec { passive: false } sur les barres de contrôle (zoom, etc.)
+	 * via DomEvent.disableClickPropagation — ce n’est utile que pour stopPropagation, pas pour
+	 * preventDefault, donc passive: true suffit et supprime l’avertissement Chrome.
+	 * On ne touche pas au fond de carte (drag / pinch) ni au wheel (zoom molette → preventDefault).
 	 */
-	private patchElementForPassiveListeners(element: Element): void {
-		// Skip if already patched
-		if ((element as any).__passivePatched) {
+	private holdLeafletControlPassiveTouchPatch(container: HTMLElement): void {
+		if (this.leafletMapPassivePatchContainer === container) {
 			return;
 		}
+		if (this.leafletMapPassivePatchContainer) {
+			this.releaseLeafletControlPassiveTouchPatch();
+		}
+		this.leafletMapPassivePatchContainer = container;
+		TraceViewerModalComponent.registerLeafletPassiveTouchRoot(container);
+	}
 
-		const elementAddEventListener = element.addEventListener.bind(element);
-		element.addEventListener = function (
+	private releaseLeafletControlPassiveTouchPatch(): void {
+		const c = this.leafletMapPassivePatchContainer;
+		if (!c) {
+			return;
+		}
+		TraceViewerModalComponent.unregisterLeafletPassiveTouchRoot(c);
+		this.leafletMapPassivePatchContainer = null;
+	}
+
+	private static registerLeafletPassiveTouchRoot(container: HTMLElement): void {
+		const wasEmpty = TraceViewerModalComponent.leafletPassiveTouchRoots.size === 0;
+		TraceViewerModalComponent.leafletPassiveTouchRoots.add(container);
+		if (wasEmpty) {
+			TraceViewerModalComponent.installLeafletControlPassiveTouchPatch();
+		}
+	}
+
+	private static unregisterLeafletPassiveTouchRoot(container: HTMLElement): void {
+		TraceViewerModalComponent.leafletPassiveTouchRoots.delete(container);
+		if (TraceViewerModalComponent.leafletPassiveTouchRoots.size === 0) {
+			TraceViewerModalComponent.uninstallLeafletControlPassiveTouchPatch();
+		}
+	}
+
+	private static installLeafletControlPassiveTouchPatch(): void {
+		const original = HTMLElement.prototype.addEventListener;
+		TraceViewerModalComponent.leafletControlPassiveTouchOriginal = original;
+		HTMLElement.prototype.addEventListener = function (
 			type: string,
 			listener: EventListenerOrEventListenerObject,
 			options?: boolean | AddEventListenerOptions
 		) {
-			// Only make touchstart events passive (not wheel - Leaflet needs preventDefault for wheel)
-			if (type === 'touchstart') {
-				if (typeof options === 'object' && options !== null) {
-					// If passive is not explicitly set to false, make it true
-					if (options.passive === undefined) {
-						options = { ...options, passive: true };
+			const el = this as HTMLElement;
+			let usePassiveTouchOnControl = false;
+			if (type === 'touchstart' && el.closest('.leaflet-control')) {
+				for (const root of TraceViewerModalComponent.leafletPassiveTouchRoots) {
+					if (root.contains(el)) {
+						usePassiveTouchOnControl = true;
+						break;
 					}
-				} else if (options === undefined || options === false) {
-					// Convert to object with passive: true, capture: false
-					options = { passive: true, capture: false };
-				}
-				// If options is explicitly true (capture only), keep it but add passive
-				else if (options === true) {
-					options = { passive: true, capture: true };
 				}
 			}
-
-			return elementAddEventListener.call(this, type, listener, options);
+			if (usePassiveTouchOnControl) {
+				let opts: boolean | AddEventListenerOptions;
+				if (typeof options === 'object' && options !== null) {
+					opts = {
+						passive: true,
+						capture: !!options.capture,
+						...(options.once !== undefined ? { once: options.once } : {}),
+						...(options.signal !== undefined ? { signal: options.signal } : {})
+					};
+				} else if (options === true) {
+					opts = { passive: true, capture: true };
+				} else {
+					opts = { passive: true, capture: false };
+				}
+				return original.call(this, type, listener, opts);
+			}
+			return original.call(this, type, listener, options as AddEventListenerOptions | boolean);
 		};
-
-		(element as any).__passivePatched = true;
 	}
 
-	/**
-	 * Patches addEventListener on the container and all its children to use passive listeners
-	 * for touchstart events to avoid browser console violations.
-	 * Note: Wheel events are NOT made passive because Leaflet needs preventDefault() for zooming.
-	 * This should be called before creating the map.
-	 */
-	private patchContainerForPassiveListeners(container: HTMLElement): void {
-		// Patch the container itself
-		this.patchElementForPassiveListeners(container);
-
-		// Patch all existing child elements
-		const allElements = container.querySelectorAll('*');
-		allElements.forEach((el) => this.patchElementForPassiveListeners(el));
-
-		// Use MutationObserver to patch dynamically added elements (only if not already observing)
-		if (!(container as any).__passiveObserver) {
-			const observer = new MutationObserver((mutations) => {
-				mutations.forEach((mutation) => {
-					mutation.addedNodes.forEach((node) => {
-						if (node.nodeType === Node.ELEMENT_NODE) {
-							this.patchElementForPassiveListeners(node as Element);
-							// Also patch children of added nodes
-							const children = (node as Element).querySelectorAll('*');
-							children.forEach((el) => this.patchElementForPassiveListeners(el));
-						}
-					});
-				});
-			});
-
-			observer.observe(container, {
-				childList: true,
-				subtree: true
-			});
-
-			// Store observer for cleanup if needed
-			(container as any).__passiveObserver = observer;
+	private static uninstallLeafletControlPassiveTouchPatch(): void {
+		if (TraceViewerModalComponent.leafletControlPassiveTouchOriginal) {
+			HTMLElement.prototype.addEventListener = TraceViewerModalComponent.leafletControlPassiveTouchOriginal;
+			TraceViewerModalComponent.leafletControlPassiveTouchOriginal = null;
 		}
 	}
 
@@ -740,32 +765,27 @@ export class TraceViewerModalComponent implements OnDestroy {
 			return;
 		}
 
-		// Patch container for passive listeners BEFORE creating the map
-		// This ensures Leaflet's event listeners will use passive mode
-		this.patchContainerForPassiveListeners(container);
-
 		container.innerHTML = '';
 
-		this.map = L.map(container, {
-			zoomControl: true,
-			attributionControl: true,
-			zoomDelta: 1.5,
-			zoomSnap: 0.5,
-			scrollWheelZoom: true
-		});
-
-		// Ensure all Leaflet-created elements are patched for passive listeners
-		// Use a small delay to let Leaflet finish its DOM initialization
-		setTimeout(() => {
-			const allElements = container.querySelectorAll('*');
-			allElements.forEach((el) => this.patchElementForPassiveListeners(el));
-		}, 0);
+		this.holdLeafletControlPassiveTouchPatch(container);
+		try {
+			this.map = L.map(container, {
+				zoomControl: true,
+				attributionControl: true,
+				zoomDelta: 1.5,
+				zoomSnap: 0.5,
+				scrollWheelZoom: true
+			});
+		} catch (e) {
+			this.releaseLeafletControlPassiveTouchPatch();
+			throw e;
+		}
 
 		// Force crosshair cursor on map container
 		this.forceCrosshairCursor();
 
 		this.overlayLayer = L.layerGroup().addTo(this.map);
-		this.map.setView([46.2, 2.2], 6);
+		this.applyInitialMapViewForPendingTrackData();
 		this.applySelectedBaseLayer();
 		this.registerRightClickZoom();
 
@@ -899,7 +919,69 @@ export class TraceViewerModalComponent implements OnDestroy {
 		this.hasError = false;
 		this.pendingTrackPoints = points;
 		this.ensureMapInitialization();
+		// Si la carte vient d’être créée, recentrer tout de suite sur les points en attente
+		if (this.map && this.overlayLayer) {
+			this.applyInitialMapViewForPendingTrackData();
+		}
 		this.tryRenderPendingTrack();
+	}
+
+	/** Vue par défaut France, ou emprise de la trace déjà chargée (évite d’afficher la France puis la trace). */
+	private applyInitialMapViewForPendingTrackData(): void {
+		if (!this.map) {
+			return;
+		}
+		if (!this.pendingTrackPoints?.length) {
+			this.map.setView([46.2, 2.2], 6);
+			return;
+		}
+		const bounds = L.latLngBounds(this.pendingTrackPoints);
+		if (!bounds.isValid()) {
+			this.map.setView([46.2, 2.2], 6);
+			return;
+		}
+		this.fitMapToTrackBounds(bounds);
+	}
+
+	/** Ajuste la vue sur l’emprise ; gère le cas d’un seul point. */
+	private fitMapToTrackBounds(bounds: L.LatLngBounds): void {
+		if (!this.map || !bounds.isValid()) {
+			return;
+		}
+		const ne = bounds.getNorthEast();
+		const sw = bounds.getSouthWest();
+		if (ne.equals(sw)) {
+			this.map.setView(bounds.getCenter(), Math.min(this.map.getMaxZoom(), 15));
+		} else {
+			this.map.fitBounds(bounds, { padding: [32, 32], maxZoom: 18 });
+		}
+	}
+
+	private clearTrackBoundsRefitTimeouts(): void {
+		for (const t of this.trackBoundsRefitTimeouts) {
+			clearTimeout(t);
+		}
+		this.trackBoundsRefitTimeouts = [];
+	}
+
+	/**
+	 * Après ouverture modale / tuiles, le conteneur change de taille : fitBounds trop tôt reste incorrect.
+	 * Re-fit quelques fois pour verrouiller la trace au centre.
+	 */
+	private scheduleTrackBoundsRefit(bounds: L.LatLngBounds): void {
+		this.clearTrackBoundsRefitTimeouts();
+		const delays = [120, 350, 750];
+		for (const d of delays) {
+			this.trackBoundsRefitTimeouts.push(
+				setTimeout(() => {
+					if (!this.map || !bounds.isValid()) {
+						return;
+					}
+					this.map.invalidateSize();
+					this.fitMapToTrackBounds(bounds);
+				}, d)
+			);
+		}
 	}
 
 	private tryRenderPendingTrack(): void {
@@ -939,7 +1021,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 		const bounds = polyline.getBounds();
 		this.trackBounds = bounds;
-		this.map.fitBounds(bounds, { padding: [24, 24] });
+		this.fitMapToTrackBounds(bounds);
+		this.scheduleTrackBoundsRefit(bounds);
 
 		// Force multiple invalidateSize calls to ensure map renders correctly
 		this.map.invalidateSize();
@@ -1367,6 +1450,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private destroyMap(): void {
 		this.isMapReady = false;
+		this.clearTrackBoundsRefitTimeouts();
 		if (this.map) {
 			this.cleanupRightClickZoom();
 			this.cleanupLocationSelection();
@@ -1375,6 +1459,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 			this.map.remove();
 			this.map = undefined;
 		}
+		this.releaseLeafletControlPassiveTouchPatch();
 		this.overlayLayer = undefined;
 		this.hikingTrailsOverlay = undefined;
 		this.cyclingTrailsOverlay = undefined;
@@ -1541,6 +1626,22 @@ export class TraceViewerModalComponent implements OnDestroy {
 	private getFullscreenWrapper(): HTMLElement | null {
 		const container = this.mapContainerRef?.nativeElement ?? this.findMapContainerElement();
 		return container?.closest('.map-wrapper') ?? container?.parentElement ?? null;
+	}
+
+	/**
+	 * En plein écran navigateur sur la carte, seul le sous-arbre de l’élément fullscreen est visible :
+	 * une modale ouverte sur `body` reste derrière. On attache alors l’embed IGN au conteneur fullscreen.
+	 */
+	private getCartesGouvModalMountElement(): HTMLElement | undefined {
+		const fs = this.document.fullscreenElement as HTMLElement | null;
+		if (!fs) {
+			return undefined;
+		}
+		const mapEl = this.mapContainerRef?.nativeElement ?? this.findMapContainerElement();
+		if (mapEl && fs.contains(mapEl)) {
+			return fs;
+		}
+		return undefined;
 	}
 
 	private initializeBaseLayers(): void {
@@ -1730,7 +1831,24 @@ export class TraceViewerModalComponent implements OnDestroy {
 				maxZoom: 18,
 				subdomains: 'abc',
 				attribution: '&copy; <a href="https://www.cyclosm.org">CyclOSM</a> | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-			})
+			}),
+			// Suisse — WMTS Web Mercator (EPSG:3857), voir https://wmts.geo.admin.ch/
+			'swisstopo-pixelkarte': L.tileLayer(
+				'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
+				{
+					maxZoom: 19,
+					attribution:
+						'&copy; <a href="https://www.swisstopo.admin.ch/" target="_blank" rel="noopener noreferrer">swisstopo</a> — <a href="https://www.geo.admin.ch/" target="_blank" rel="noopener noreferrer">geo.admin.ch</a>'
+				}
+			),
+			'swisstopo-swissimage': L.tileLayer(
+				'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.swissimage/default/current/3857/{z}/{x}/{y}.jpeg',
+				{
+					maxZoom: 20,
+					attribution:
+						'&copy; <a href="https://www.swisstopo.admin.ch/" target="_blank" rel="noopener noreferrer">swisstopo</a> — <a href="https://www.geo.admin.ch/" target="_blank" rel="noopener noreferrer">geo.admin.ch</a>'
+				}
+			)
 		};
 
 		this.availableBaseLayers = [
@@ -1744,7 +1862,9 @@ export class TraceViewerModalComponent implements OnDestroy {
 			{ id: 'ign-ortho', label: 'IGN Ortho' },
 			{ id: 'ign-cadastre', label: 'IGN Cadastre' },
 			{ id: 'ign-topo', label: 'IGN Topo' },
-			{ id: 'cyclosm', label: 'CyclOSM' }
+			{ id: 'cyclosm', label: 'CyclOSM' },
+			{ id: 'swisstopo-pixelkarte', label: 'Swiss Topo', labelKey: 'EVENTELEM.SWISSSTOPO_PIXELKARTE' },
+			{ id: 'swisstopo-swissimage', label: 'SWISSIMAGE', labelKey: 'EVENTELEM.SWISSSTOPO_SWISSIMAGE' }
 		].sort((a, b) => a.label.localeCompare(b.label));
 
 		this.selectedBaseLayerId = 'opentopomap';
@@ -1891,7 +2011,7 @@ export class TraceViewerModalComponent implements OnDestroy {
 		if (!this.map || !this.trackBounds) {
 			return;
 		}
-		this.map.fitBounds(this.trackBounds, { padding: [24, 24] });
+		this.fitMapToTrackBounds(this.trackBounds);
 	}
 
 	/** Active/désactive le suivi de la position GPS de l'appareil (recentrage carte toutes les 10 s). */

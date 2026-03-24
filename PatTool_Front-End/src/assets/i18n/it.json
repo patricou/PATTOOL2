@@ -831,6 +831,8 @@
         "TRACK_SHARE_LOCATION": "Condividi Posizione",
         "CARTES_GOUV_FR": "Tutte le carte IGN",
         "CARTES_GOUV_FR_TITLE": "Apri il servizio cartografico pubblico in una nuova scheda",
+        "SWISSSTOPO_PIXELKARTE": "Carta nazionale svizzera (swisstopo)",
+        "SWISSSTOPO_SWISSIMAGE": "Ortofoto SWISSIMAGE",
 		"SHOW_GPS_COORDINATES": "Mostra coordinate GPS",
 		"SHOW_ADDRESS": "Mostra indirizzo",
 		"SHOW_WEATHER": "Mostra meteo",

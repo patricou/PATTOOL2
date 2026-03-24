@@ -808,6 +808,8 @@
         "TRACK_SHARE_LOCATION": "स्थान साझा करें",
         "CARTES_GOUV_FR": "सभी IGN मानचित्र",
         "CARTES_GOUV_FR_TITLE": "नए टैब में सार्वजनिक मानचित्र सेवा खोलें",
+        "SWISSSTOPO_PIXELKARTE": "स्विस राष्ट्रीय मानचित्र (swisstopo)",
+        "SWISSSTOPO_SWISSIMAGE": "SWISSIMAGE वायु फोटो",
 		"SHOW_GPS_COORDINATES": "GPS निर्देशांक दिखाएं",
 		"SHOW_ADDRESS": "पता दिखाएं",
 		"SHOW_WEATHER": "मौसम दिखाएं",

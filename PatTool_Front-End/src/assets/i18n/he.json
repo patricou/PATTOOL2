@@ -821,6 +821,8 @@
         "TRACK_SHARE_LOCATION": "שתף מיקום",
         "CARTES_GOUV_FR": "כל מפות IGN",
         "CARTES_GOUV_FR_TITLE": "פתח את שירות המפות הציבורי בטאב חדש",
+        "SWISSSTOPO_PIXELKARTE": "מפה לאומית שווייצרית (swisstopo)",
+        "SWISSSTOPO_SWISSIMAGE": "צילום אוויר SWISSIMAGE",
 		"SHOW_GPS_COORDINATES": "הצג קואורדינטות GPS",
 		"SHOW_ADDRESS": "הצג כתובת",
 		"SHOW_WEATHER": "הצג מזג אוויר",

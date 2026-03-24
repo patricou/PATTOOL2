@@ -822,6 +822,8 @@
 		"TRACK_FOLLOW_DEVICE": "Suivre ma position",
 		"CARTES_GOUV_FR": "Toutes les cartes IGN",
 		"CARTES_GOUV_FR_TITLE": "Ouvrir le service public des cartes dans un nouvel onglet",
+		"SWISSSTOPO_PIXELKARTE": "Carte nationale suisse (swisstopo)",
+		"SWISSSTOPO_SWISSIMAGE": "Orthophoto SWISSIMAGE",
 		"SHOW_GPS_COORDINATES": "Afficher les coordonnées GPS",
 		"SHOW_ADDRESS": "Afficher l'adresse",
 		"SHOW_WEATHER": "Afficher la météo",

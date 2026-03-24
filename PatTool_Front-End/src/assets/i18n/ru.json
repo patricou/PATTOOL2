@@ -823,6 +823,8 @@
         "TRACK_SHARE_LOCATION": "Поделиться местоположением",
         "CARTES_GOUV_FR": "Все карты IGN",
         "CARTES_GOUV_FR_TITLE": "Открыть сервис публичных карт в новой вкладке",
+        "SWISSSTOPO_PIXELKARTE": "Национальная карта Швейцарии (swisstopo)",
+        "SWISSSTOPO_SWISSIMAGE": "Аэрофотосъёмка SWISSIMAGE",
 		"SHOW_GPS_COORDINATES": "Показать GPS координаты",
 		"SHOW_ADDRESS": "Показать адрес",
 		"SHOW_WEATHER": "Показать погоду",

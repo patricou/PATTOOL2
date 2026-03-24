@@ -829,6 +829,8 @@
         "TRACK_SHARE_LOCATION": "分享位置",
         "CARTES_GOUV_FR": "所有 IGN 地图",
         "CARTES_GOUV_FR_TITLE": "在新标签页中打开公共地图服务",
+        "SWISSSTOPO_PIXELKARTE": "瑞士国家地图（swisstopo）",
+        "SWISSSTOPO_SWISSIMAGE": "SWISSIMAGE 正射影像",
 		"SHOW_GPS_COORDINATES": "显示GPS坐标",
 		"SHOW_ADDRESS": "显示地址",
 		"SHOW_WEATHER": "显示天气",

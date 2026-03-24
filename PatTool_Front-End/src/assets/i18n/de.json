@@ -827,6 +827,8 @@
         "TRACK_SHARE_LOCATION": "Position teilen",
         "CARTES_GOUV_FR": "Alle IGN-Karten",
         "CARTES_GOUV_FR_TITLE": "Öffentlichen Kartendienst in neuem Tab öffnen",
+        "SWISSSTOPO_PIXELKARTE": "Schweizer Landeskarte (swisstopo)",
+        "SWISSSTOPO_SWISSIMAGE": "Luftbild SWISSIMAGE",
 		"SHOW_GPS_COORDINATES": "GPS-Koordinaten anzeigen",
 		"SHOW_ADDRESS": "Adresse anzeigen",
 		"SHOW_WEATHER": "Wetter anzeigen",

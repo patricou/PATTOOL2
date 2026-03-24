@@ -828,6 +828,8 @@
         "TRACK_SHARE_LOCATION": "مشاركة الموقع",
         "CARTES_GOUV_FR": "جميع خرائط IGN",
         "CARTES_GOUV_FR_TITLE": "فتح خدمة الخرائط العامة في تبويب جديد",
+        "SWISSSTOPO_PIXELKARTE": "الخريطة الوطنية السويسرية (swisstopo)",
+        "SWISSSTOPO_SWISSIMAGE": "صور جوية SWISSIMAGE",
 		"SHOW_GPS_COORDINATES": "إظهار إحداثيات GPS",
 		"SHOW_ADDRESS": "إظهار العنوان",
 		"SHOW_WEATHER": "إظهار الطقس",
