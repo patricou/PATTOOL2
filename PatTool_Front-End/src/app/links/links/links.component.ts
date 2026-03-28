@@ -1,13 +1,19 @@
-import { Component, OnInit } from '@angular/core';
-import { take } from 'rxjs/operators';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  OnDestroy,
+  OnInit
+} from '@angular/core';
+import { debounceTime, take } from 'rxjs/operators';
+import { Subject, Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
-import { TranslateModule } from '@ngx-translate/core';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Category } from '../../model/Category';
 import { Member } from '../../model/member';
 import { urllink } from '../../model/urllink';
-import { CommonvaluesService } from '../../services/commonvalues.service';
 import { MembersService } from '../../services/members.service';
 import { UrllinkService } from '../../services/urllink.service';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
@@ -17,6 +23,7 @@ import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigat
   templateUrl: './links.component.html',
   styleUrls: ['./links.component.css'],
   standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     CommonModule,
     FormsModule,
@@ -25,28 +32,89 @@ import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigat
     NavigationButtonsModule
   ]
 })
-export class LinksComponent implements OnInit {
+export class LinksComponent implements OnInit, OnDestroy {
 
   public urllinks: urllink[] = [];
   public categories: Category[] = [];
   public user: Member = this._memberService.getUser();
   public expandedCategoryIndex: number | null = null;
-  public searchFilter: string = '';
+  public searchFilter = '';
   public searchSuggestions: urllink[] = [];
-  public showSuggestions: boolean = false;
-  public openUrlOnClick: boolean = true;
-  public loading: boolean = true;
+  public showSuggestions = false;
+  public openUrlOnClick = true;
+  public loading = true;
+  public statsCategoriesText = '';
+  public statsLinksText = '';
+  /** Precomputed category header (no translate pipe per row / per CD). */
+  public categoryUi: Record<string, { title: string; iconClass: string }> = {};
+  /** Visibility button tooltips (no translate pipe per link row). */
+  public visibilityTitlePublic = '';
+  public visibilityTitlePrivate = '';
+  public visibilityTitleFriends = '';
 
-  /** Pre-computed for template: categoryLinkID -> list of filtered links (category + visible + search). */
   filteredLinksByCategoryId: Record<string, urllink[]> = {};
-  /** Pre-computed for template: categoryLinkID -> count of visible links (category + visible, no search). */
   categoryLinkCountById: Record<string, number> = {};
-  /** Links grouped by category from backend (single GET). Used by refreshFilteredLinks. */
   linksByCategoryId: Record<string, urllink[]> = {};
 
-  constructor(private _memberService: MembersService, private _urlLinkService: UrllinkService, private _commonValuesService: CommonvaluesService, private router: Router) { }
+  private langChangeSub?: Subscription;
+  private searchInput$ = new Subject<void>();
+  private searchDebounceSub?: Subscription;
 
-  ngOnInit() {
+  private static readonly CATEGORY_TITLE_KEYS: Record<string, string> = {
+    administratif: 'LINKS.CATEGORIES.ADMINISTRATIF'
+  };
+
+  private static readonly CATEGORY_ICONS: Record<string, string> = {
+    administratif: 'fa-file-text-o',
+    commerce: 'fa-shopping-cart',
+    finance: 'fa-money',
+    ia: 'fa-cogs',
+    ai: 'fa-cogs',
+    'intelligence artificielle': 'fa-cogs',
+    'artificial intelligence': 'fa-cogs',
+    it: 'fa-laptop',
+    'it knowledge': 'fa-graduation-cap',
+    iot: 'fa-microchip',
+    'internet of things': 'fa-microchip',
+    languages: 'fa-language',
+    langues: 'fa-language',
+    maison: 'fa-home',
+    home: 'fa-home',
+    media: 'fa-play-circle',
+    méditation: 'fa-leaf',
+    meditation: 'fa-leaf',
+    photo: 'fa-camera',
+    photography: 'fa-camera',
+    privé: 'fa-lock',
+    private: 'fa-lock',
+    professional: 'fa-briefcase',
+    professionnel: 'fa-briefcase',
+    'social media': 'fa-share-alt',
+    sport: 'fa-trophy',
+    sports: 'fa-trophy'
+  };
+
+  constructor(
+    private _memberService: MembersService,
+    private _urlLinkService: UrllinkService,
+    private router: Router,
+    private translate: TranslateService,
+    private cdr: ChangeDetectorRef
+  ) { }
+
+  ngOnInit(): void {
+    this.langChangeSub = this.translate.onLangChange.subscribe(() => {
+      this.refreshAllStaticLabels();
+      this.cdr.markForCheck();
+    });
+
+    this.searchDebounceSub = this.searchInput$.pipe(debounceTime(120)).subscribe(() => {
+      this.applySearchFromModel();
+      this.cdr.markForCheck();
+    });
+
+    this.refreshVisibilityTitles();
+
     this.loading = true;
     const loadLinks = () => {
       this.user = this._memberService.getUser();
@@ -56,11 +124,17 @@ export class LinksComponent implements OnInit {
           this.linksByCategoryId = res.linksByCategoryId ?? {};
           this.urllinks = Object.values(this.linksByCategoryId).flat();
           this.refreshFilteredLinks();
+          this.refreshAllStaticLabels();
           this.loading = false;
+          this.cdr.markForCheck();
         },
         error: (err) => {
           alert('Error loading links: ' + err);
+          this.statsCategoriesText = '';
+          this.statsLinksText = '';
+          this.categoryUi = {};
           this.loading = false;
+          this.cdr.markForCheck();
         }
       });
     };
@@ -75,154 +149,165 @@ export class LinksComponent implements OnInit {
     }
   }
 
-  submitVisibilityChange(urllink: any, event?: Event) {
-    // Prevent any default behavior and stop propagation
+  ngOnDestroy(): void {
+    this.langChangeSub?.unsubscribe();
+    this.searchDebounceSub?.unsubscribe();
+  }
+
+  /** Debounced — bind to search (input). */
+  onSearchInput(): void {
+    this.searchInput$.next();
+  }
+
+  /** Immediate — focus, clear, after picking a suggestion. */
+  applySearchFromModel(): void {
+    const term = this.searchFilter?.trim() ?? '';
+    this.refreshFilteredLinks();
+
+    if (term.length < 2) {
+      this.searchSuggestions = [];
+      this.showSuggestions = false;
+      return;
+    }
+
+    const lower = term.toLowerCase();
+    this.searchSuggestions = this.urllinks.filter(u => {
+      if (!this.isVisible(u)) {
+        return false;
+      }
+      const linkName = (u.linkName || '').toLowerCase();
+      const linkDescription = (u.linkDescription || '').toLowerCase();
+      return linkName.includes(lower) || linkDescription.includes(lower);
+    }).slice(0, 10);
+
+    this.showSuggestions = this.searchSuggestions.length > 0;
+  }
+
+  clearSearch(): void {
+    this.searchFilter = '';
+    this.applySearchFromModel();
+    this.cdr.markForCheck();
+  }
+
+  private refreshAllStaticLabels(): void {
+    this.refreshStatsLabels();
+    this.refreshCategoryUi();
+    this.refreshVisibilityTitles();
+  }
+
+  private refreshStatsLabels(): void {
+    this.statsCategoriesText = this.translate.instant('LINKS.N_CATEGORIES', { count: this.categories.length });
+    this.statsLinksText = this.translate.instant('LINKS.N_LINKS', { count: this.urllinks.length });
+  }
+
+  private refreshVisibilityTitles(): void {
+    this.visibilityTitlePublic = this.translate.instant('LINKSADMIN.PUBLIC');
+    this.visibilityTitlePrivate = this.translate.instant('LINKSADMIN.PRIVATE');
+    this.visibilityTitleFriends = this.translate.instant('LINKSADMIN.FRIENDS');
+  }
+
+  private refreshCategoryUi(): void {
+    const ui: Record<string, { title: string; iconClass: string }> = {};
+    for (const c of this.categories) {
+      const id = c.categoryLinkID;
+      const norm = (c.categoryName || '').trim().toLowerCase();
+      const key = LinksComponent.CATEGORY_TITLE_KEYS[norm];
+      const title = key ? this.translate.instant(key) : (c.categoryName || '');
+      const iconClass = LinksComponent.CATEGORY_ICONS[norm] ?? 'fa-folder';
+      ui[id] = { title, iconClass };
+    }
+    this.categoryUi = ui;
+  }
+
+  submitVisibilityChange(urllinkItem: urllink, event?: Event): void {
     if (event) {
       event.preventDefault();
       event.stopPropagation();
     }
-    
-    // Cycle through visibility: public -> private -> friends -> public
-    // Handle null/undefined as public (default)
-    const currentVisibility = urllink.visibility || 'public';
-    
+
+    const currentVisibility = urllinkItem.visibility || 'public';
+
     if (currentVisibility === 'public') {
-      urllink.visibility = 'private';
+      urllinkItem.visibility = 'private';
     } else if (currentVisibility === 'private') {
-      urllink.visibility = 'friends';
+      urllinkItem.visibility = 'friends';
     } else {
-      // friends or any other value -> public
-      urllink.visibility = 'public';
+      urllinkItem.visibility = 'public';
     }
 
-    // Call your service to update the visibility in the database
-    this._urlLinkService.updateVisibility(urllink).subscribe(
-      response => {
+    this._urlLinkService.updateVisibility(urllinkItem).subscribe({
+      next: () => {
         this.refreshFilteredLinks();
-        console.log('Visibility updated to:', urllink.visibility);
+        this.cdr.markForCheck();
       },
-      error => {
-        console.error('An error occurred while updating visibility', error);
-        // Revert on error
-        urllink.visibility = currentVisibility;
-        // Don't navigate on error - just show error in console
+      error: (err) => {
+        console.error('An error occurred while updating visibility', err);
+        urllinkItem.visibility = currentVisibility;
+        this.cdr.markForCheck();
       }
-    );
-    
-    // Explicitly return false to prevent any navigation
-    return false;
+    });
   }
 
   canEdit(u: urllink): boolean {
-    return u.author.id === this.user.id;
+    return u.author?.id === this.user.id;
   }
 
   isVisible(u: urllink): boolean {
-    if (!u || !u.author) {
+    if (!u?.author) {
       return false;
     }
-    // Backend already filters links, so if a link is in the list, it's visible
-    // This is just a safety check - links with friends visibility are already filtered by backend
     return u.author.id === this.user.id || u.visibility === 'public' || u.visibility === 'friends';
   }
 
-  getCategoryLinks(category: Category): urllink[] {
-    const filtered = this.urllinks.filter(u => {
-      const categoryMatch = u.categoryLinkID === category.categoryLinkID;
-      const visible = this.isVisible(u);
-      const matchesSearch = this.matchesSearchFilter(u);
-      return categoryMatch && visible && matchesSearch;
-    });
-    return filtered;
-  }
-
-  getCategoryLinksCount(category: Category): number {
-    // Count all visible links in this category (not filtered by search)
-    return this.urllinks.filter(u => {
-      const categoryMatch = u.categoryLinkID === category.categoryLinkID;
-      const visible = this.isVisible(u);
-      return categoryMatch && visible;
-    }).length;
-  }
-
-  /** Recompute filtered links and counts; call when linksByCategoryId, categories, or searchFilter change. */
   refreshFilteredLinks(): void {
     const countById: Record<string, number> = {};
     const linksById: Record<string, urllink[]> = {};
+    const term = this.searchFilter?.trim();
+
     for (const c of this.categories) {
       const id = c.categoryLinkID;
       const visibleLinks = this.linksByCategoryId[id] ?? [];
       countById[id] = visibleLinks.length;
-      linksById[id] = this.searchFilter?.trim()
-        ? visibleLinks.filter(u => this.matchesSearchFilter(u))
-        : visibleLinks;
+      if (term) {
+        const lower = term.toLowerCase();
+        linksById[id] = visibleLinks.filter(u => {
+          const linkName = (u.linkName || '').toLowerCase();
+          const linkDescription = (u.linkDescription || '').toLowerCase();
+          return linkName.includes(lower) || linkDescription.includes(lower);
+        });
+      } else {
+        linksById[id] = visibleLinks;
+      }
     }
     this.categoryLinkCountById = countById;
     this.filteredLinksByCategoryId = linksById;
   }
 
-  isCategoryVisible(category: Category): boolean {
-    // Categories are already filtered by the backend
-    // Just return true for all categories received
+  isCategoryVisible(_category: Category): boolean {
     return true;
   }
 
-  matchesSearchFilter(link: urllink): boolean {
-    if (!this.searchFilter || !this.searchFilter.trim()) {
-      return true;
-    }
-    
-    const searchTerm = this.searchFilter.toLowerCase().trim();
-    const linkName = (link.linkName || '').toLowerCase();
-    const linkDescription = (link.linkDescription || '').toLowerCase();
-    
-    // Recherche sur le nom ET la description
-    return linkName.includes(searchTerm) || linkDescription.includes(searchTerm);
-  }
-
-  onSearchChange(): void {
-    // This method will be called when the search input changes
-    this.refreshFilteredLinks();
-
-    if (!this.searchFilter || this.searchFilter.trim().length < 2) {
-      this.searchSuggestions = [];
-      this.showSuggestions = false;
-      return;
-    }
-    
-    // Generate suggestions
-    this.searchSuggestions = this.urllinks.filter(u => {
-      const isVisible = this.isVisible(u);
-      const matchesFilter = this.matchesSearchFilter(u);
-      return isVisible && matchesFilter;
-    }).slice(0, 10); // Limit to 10 suggestions
-    
-    this.showSuggestions = this.searchSuggestions.length > 0;
-  }
-
   selectSuggestion(suggestion: urllink): void {
-    // Open the URL in a new tab only if checkbox is checked
     if (this.openUrlOnClick) {
       window.open(String(suggestion.url), '_blank');
     }
-    
-    // Find the category index for this link
+
     const categoryIndex = this.categories.findIndex(c => c.categoryLinkID === suggestion.categoryLinkID);
-    
+
     if (categoryIndex !== -1) {
-      // Open the corresponding card
       this.expandedCategoryIndex = categoryIndex;
-      // Clear search
       this.searchFilter = '';
       this.showSuggestions = false;
       this.searchSuggestions = [];
+      this.refreshFilteredLinks();
     }
+    this.cdr.markForCheck();
   }
 
   hideSuggestions(): void {
-    // Delay hiding to allow click events to fire
     setTimeout(() => {
       this.showSuggestions = false;
+      this.cdr.markForCheck();
     }, 200);
   }
 
@@ -233,12 +318,11 @@ export class LinksComponent implements OnInit {
 
   toggleCategory(categoryIndex: number): void {
     if (this.expandedCategoryIndex === categoryIndex) {
-      // Si la catégorie est déjà ouverte, la fermer
       this.expandedCategoryIndex = null;
     } else {
-      // Ouvrir cette catégorie et fermer toutes les autres
       this.expandedCategoryIndex = categoryIndex;
     }
+    this.cdr.markForCheck();
   }
 
   isCategoryExpanded(categoryIndex: number): boolean {
@@ -253,56 +337,22 @@ export class LinksComponent implements OnInit {
     return u.id ?? `${u.url}-${u.linkName}`;
   }
 
-  /** Returns translation key for category name if one exists, otherwise the raw name (displayed as-is). */
-  getCategoryTranslationKey(categoryName: string): string {
-    const normalizedName = (categoryName || '').trim().toLowerCase();
-    const keyMap: { [key: string]: string } = {
-      'administratif': 'LINKS.CATEGORIES.ADMINISTRATIF'
-    };
-    return keyMap[normalizedName] || categoryName || '';
+  trackBySuggestion(_index: number, u: urllink): string {
+    return this.trackByLinkId(_index, u);
   }
 
-  getCategoryIcon(categoryName: string): string {
-    // Normalize the category name (trim whitespace and convert to lowercase for comparison)
-    const normalizedName = categoryName ? categoryName.trim().toLowerCase() : '';
-    
-    const iconMap: { [key: string]: string } = {
-      'administratif': 'fa-file-text-o',
-      'commerce': 'fa-shopping-cart',
-      'finance': 'fa-money',
-      'ia': 'fa-cogs',
-      'ai': 'fa-cogs',
-      'intelligence artificielle': 'fa-cogs',
-      'artificial intelligence': 'fa-cogs',
-      'it': 'fa-laptop',
-      'it knowledge': 'fa-graduation-cap',
-      'iot': 'fa-microchip',
-      'internet of things': 'fa-microchip',
-      'languages': 'fa-language',
-      'langues': 'fa-language',
-      'maison': 'fa-home',
-      'home': 'fa-home',
-      'media': 'fa-play-circle',
-      'méditation': 'fa-leaf',
-      'meditation': 'fa-leaf',
-      'photo': 'fa-camera',
-      'photography': 'fa-camera',
-      'privé': 'fa-lock',
-      'private': 'fa-lock',
-      'professional': 'fa-briefcase',
-      'professionnel': 'fa-briefcase',
-      'social media': 'fa-share-alt',
-      'sport': 'fa-trophy',
-      'sports': 'fa-trophy'
-    };
-    
-    const icon = iconMap[normalizedName] || 'fa-folder';
-    
-    return icon;
+  visibilityTitle(u: urllink): string {
+    const v = u.visibility || 'public';
+    if (v === 'public') {
+      return this.visibilityTitlePublic;
+    }
+    if (v === 'private') {
+      return this.visibilityTitlePrivate;
+    }
+    return this.visibilityTitleFriends;
   }
 
   navigateToLinksAdmin(): void {
     this.router.navigate(['links-admin']);
   }
-
 }

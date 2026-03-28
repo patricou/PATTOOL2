@@ -1090,6 +1090,8 @@
         "NO_SEARCH_RESULTS": "इस खोज के लिए कोई परिणाम नहीं मिला",
         "OPEN_URL_ON_CLICK": "क्लिक पर URL खोलें",
         "ADMIN_BUTTON": "प्रशासन",
+        "N_CATEGORIES": "{{count}} श्रेणियाँ",
+        "N_LINKS": "{{count}} लिंक",
         "CATEGORIES": {
             "ADMINISTRATIF": "प्रशासनिक"
         }

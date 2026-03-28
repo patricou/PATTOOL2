@@ -1109,6 +1109,8 @@
         "NO_SEARCH_RESULTS": "Aucun résultat trouvé pour cette recherche",
         "OPEN_URL_ON_CLICK": "Ouvrir l'URL au clic",
         "ADMIN_BUTTON": "Administration",
+        "N_CATEGORIES": "{{count}} catégories",
+        "N_LINKS": "{{count}} liens",
         "CATEGORIES": {
             "ADMINISTRATIF": "Administratif"
         }

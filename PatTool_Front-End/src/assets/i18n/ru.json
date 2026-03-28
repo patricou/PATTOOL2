@@ -76,6 +76,8 @@
         "NO_SEARCH_RESULTS": "Результаты для этого поиска не найдены",
         "OPEN_URL_ON_CLICK": "Открыть URL при клике",
         "ADMIN_BUTTON": "Администрирование",
+        "N_CATEGORIES": "{{count}} категорий",
+        "N_LINKS": "{{count}} ссылок",
         "CATEGORIES": {
             "ADMINISTRATIF": "Администрирование"
         }

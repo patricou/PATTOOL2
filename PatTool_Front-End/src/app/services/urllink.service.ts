@@ -51,14 +51,15 @@ export class UrllinkService {
 	 * Use this for the links page for faster load (one round-trip).
 	 */
 	getLinksView(user: Member): Observable<{ categories: Category[]; linksByCategoryId: Record<string, urllink[]> }> {
-		return this.getHeaderWithToken().pipe(
-			switchMap(headers => {
-				const headersWithUser = headers.set('user-id', user.id || '');
-				return this._http.get<{ categories: Category[]; linksByCategoryId: Record<string, urllink[]> }>(
-					this.API_URL + "links-view",
-					{ headers: headersWithUser }
-				);
-			})
+		// Let KeycloakHttpInterceptor attach Authorization — avoids an extra getToken() before this GET.
+		const headers = new HttpHeaders({
+			'Accept': 'application/json',
+			'Content-Type': 'application/json',
+			'user-id': user.id || ''
+		});
+		return this._http.get<{ categories: Category[]; linksByCategoryId: Record<string, urllink[]> }>(
+			this.API_URL + 'links-view',
+			{ headers }
 		);
 	}
 

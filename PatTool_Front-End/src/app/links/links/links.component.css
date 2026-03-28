@@ -9,6 +9,34 @@
 
 /* Hero Section - Now using global .pat-title class */
 
+.links-stats {
+    margin: 0.35rem 0 0;
+    font-size: 0.95rem;
+    color: #6c757d;
+    font-weight: 500;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem 0.5rem;
+}
+
+.links-stats-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.links-stats-item .fa {
+    opacity: 0.85;
+    color: #007bff;
+}
+
+.links-stats-sep {
+    color: #adb5bd;
+    user-select: none;
+}
+
 /* Search Container */
 .search-container {
     margin-bottom: 30px;

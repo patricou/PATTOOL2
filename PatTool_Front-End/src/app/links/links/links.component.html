@@ -2,6 +2,17 @@
     <!-- Hero Section -->
     <div class="pat-title">
         <h2>{{ "LINKS.TITLE" | translate }}</h2>
+        <p class="links-stats" *ngIf="!loading && statsCategoriesText">
+            <span class="links-stats-item">
+                <i class="fa fa-folder-open" aria-hidden="true"></i>
+                {{ statsCategoriesText }}
+            </span>
+            <span class="links-stats-sep" aria-hidden="true">·</span>
+            <span class="links-stats-item">
+                <i class="fa fa-link" aria-hidden="true"></i>
+                {{ statsLinksText }}
+            </span>
+        </p>
     </div>
 
     <!-- Main Content -->
@@ -28,13 +39,14 @@
                 <input type="text" 
                        class="search-input" 
                        [(ngModel)]="searchFilter"
-                       (input)="onSearchChange()"
+                       (input)="onSearchInput()"
                        (blur)="hideSuggestions()"
-                       (focus)="onSearchChange()"
+                       (focus)="applySearchFromModel()"
                        placeholder="{{ 'LINKS.SEARCH_PLACEHOLDER' | translate }}">
                 <button class="clear-search" 
                         *ngIf="searchFilter" 
-                        (click)="searchFilter = ''; onSearchChange()">
+                        type="button"
+                        (click)="clearSearch()">
                     <i class="fa fa-times"></i>
                 </button>
                 
@@ -42,7 +54,7 @@
                 <div class="suggestions-dropdown" 
                      *ngIf="showSuggestions && searchSuggestions.length > 0">
                     <div class="suggestion-item" 
-                         *ngFor="let suggestion of searchSuggestions"
+                         *ngFor="let suggestion of searchSuggestions; trackBy: trackBySuggestion"
                          (click)="selectSuggestion(suggestion)">
                         <div class="suggestion-icon">
                             <i class="fa fa-external-link"></i>
@@ -77,10 +89,10 @@
                      [class.expanded]="isCategoryExpanded(i)">
                 <div class="card-header" (click)="toggleCategory(i)">
                     <div class="category-icon">
-                        <i class="fa" [ngClass]="getCategoryIcon(c.categoryName)"></i>
+                        <i class="fa" [ngClass]="categoryUi[c.categoryLinkID]?.iconClass || 'fa-folder'"></i>
                     </div>
                     <h3 class="category-title">
-                        {{ getCategoryTranslationKey(c.categoryName) | translate }}
+                        {{ categoryUi[c.categoryLinkID]?.title ?? c.categoryName }}
                         <span class="category-count">({{ categoryLinkCountById[c.categoryLinkID] }})</span>
                     </h3>
                     <div class="expand-icon">
@@ -114,7 +126,7 @@
                                                     [class.btn-warning]="u.visibility === 'private'"
                                                     [class.btn-info]="u.visibility === 'friends'"
                                                     (click)="submitVisibilityChange(u, $event)"
-                                                    [title]="(u.visibility === 'public' ? ('LINKSADMIN.PUBLIC' | translate) : u.visibility === 'private' ? ('LINKSADMIN.PRIVATE' | translate) : ('LINKSADMIN.FRIENDS' | translate))">
+                                                    [title]="visibilityTitle(u)">
                                                 <i class="fa fa-globe" *ngIf="u.visibility === 'public'"></i>
                                                 <i class="fa fa-lock" *ngIf="u.visibility === 'private'"></i>
                                                 <i class="fa fa-users" *ngIf="u.visibility === 'friends'"></i>
