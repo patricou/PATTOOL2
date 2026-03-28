@@ -166,8 +166,58 @@ public class MongoIndexConfig {
 
             // Create indexes for UserConnectionLog collection
             createUserConnectionLogIndexes();
+
+            // Links page: categorylink + urllink + friends lookups
+            createLinksViewIndexes();
         } catch (Exception e) {
             log.error("Error creating MongoDB indexes", e);
+        }
+    }
+
+    /**
+     * Indexes for /links-view: sorted reads on categorylink & urllink, and friend list by member.
+     */
+    private void createLinksViewIndexes() {
+        try {
+            log.debug("========================================");
+            log.debug("Creating MongoDB indexes for links-view (categorylink, urllink, friends)");
+            log.debug("========================================");
+
+            listExistingIndexes("categorylink");
+            // Sort-only path (legacy full collection read)
+            createIndexIfNotExists("categorylink", "categoryName", Sort.Direction.ASC,
+                    "Links: sort categories by name");
+            // Filter + sort when visibility is pushed to the query
+            createCompoundIndexIfNotExists("categorylink",
+                    new String[]{"visibility", "categoryName"},
+                    new Sort.Direction[]{Sort.Direction.ASC, Sort.Direction.ASC},
+                    "Links: filter by visibility then sort by categoryName");
+
+            listExistingIndexes("urllink");
+            createIndexIfNotExists("urllink", "linkName", Sort.Direction.ASC,
+                    "Links: sort links by name");
+            createCompoundIndexIfNotExists("urllink",
+                    new String[]{"visibility", "linkName"},
+                    new Sort.Direction[]{Sort.Direction.ASC, Sort.Direction.ASC},
+                    "Links: filter by visibility then sort by linkName");
+            createIndexIfNotExists("urllink", "author.$id", Sort.Direction.ASC,
+                    "Links: author DBRef for private/friends visibility");
+
+            listExistingIndexes("friends");
+            createIndexIfNotExists("friends", "user1.$id", Sort.Direction.ASC,
+                    "Friends: lookup friendships by user1");
+            createIndexIfNotExists("friends", "user2.$id", Sort.Direction.ASC,
+                    "Friends: lookup friendships by user2");
+
+            log.debug("========================================");
+            log.debug("MongoDB indexes for links-view collections created successfully");
+            log.debug("========================================");
+
+            listExistingIndexes("categorylink");
+            listExistingIndexes("urllink");
+            listExistingIndexes("friends");
+        } catch (Exception e) {
+            log.error("Error creating links-view MongoDB indexes", e);
         }
     }
 
@@ -343,31 +393,41 @@ public class MongoIndexConfig {
      * Create a compound index if it doesn't already exist
      */
     private void createCompoundIndexIfNotExists(String[] fields, Sort.Direction[] directions, String description) {
+        createCompoundIndexIfNotExists("evenements", fields, directions, description);
+    }
+
+    /**
+     * Create a compound index on a specific collection if it doesn't already exist
+     */
+    private void createCompoundIndexIfNotExists(String collectionName, String[] fields, Sort.Direction[] directions, String description) {
         try {
             if (fields.length != directions.length) {
                 log.error("Fields and directions arrays must have the same length");
                 return;
             }
 
-            IndexOperations indexOps = mongoTemplate.indexOps("evenements");
+            IndexOperations indexOps = mongoTemplate.indexOps(collectionName);
             Index index = new Index();
             for (int i = 0; i < fields.length; i++) {
                 index.on(fields[i], directions[i]);
             }
-            
-            // Create index name from fields
-            String indexName = String.join("_", fields).replace(".", "_") + "_idx";
+
+            // evenements: keep legacy names (e.g. visibility_beginEventDate_idx) — DB may already have them;
+            // a different name on the same keys causes IndexOptionsConflict (code 85).
+            String indexName = "evenements".equals(collectionName)
+                    ? String.join("_", fields).replace(".", "_") + "_idx"
+                    : collectionName + "_" + String.join("_", fields).replace(".", "_") + "_idx";
             index.named(indexName);
-            
+
             String createdIndexName = indexOps.ensureIndex(index);
             if (createdIndexName != null && !createdIndexName.isEmpty()) {
-                log.debug("✓ Created compound index: {} ({})", createdIndexName, description);
+                log.debug("✓ Created compound index on '{}': {} ({})", collectionName, createdIndexName, description);
             } else {
-                log.debug("✓ Compound index on {} already exists or was created ({})", String.join(", ", fields), description);
+                log.debug("✓ Compound index on '{}'.{} already exists or was created ({})", collectionName, String.join(", ", fields), description);
             }
         } catch (Exception e) {
-            log.error("Error creating compound index on {}: {}", 
-                String.join(", ", fields), e.getMessage(), e);
+            log.error("Error creating compound index on '{}'.{}: {}",
+                    collectionName, String.join(", ", fields), e.getMessage(), e);
         }
     }
 

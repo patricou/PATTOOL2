@@ -7,8 +7,15 @@ import { Member } from '../model/member';
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { CommonvaluesService } from './commonvalues.service';
-import { PositionService } from './position.service';
+import { PositionCoordinates, PositionService } from './position.service';
 
+/** Options for {@link MembersService.getUserId}. */
+export interface GetUserIdOptions {
+    /**
+     * When true, POST /memb/user immediately without waiting for GPS (saves ~2s on routes like Links).
+     */
+    skipGeolocation?: boolean;
+}
 
 @Injectable()
 export class MembersService {
@@ -28,13 +35,11 @@ export class MembersService {
         this.user = member;
     };
 
-    getUserId(): Observable<Member> {
+    getUserId(options?: GetUserIdOptions): Observable<Member> {
 
         if (this.user.id == "") {            
             return from(this._keycloakService.getToken()).pipe(
                 map((token: string) => {
-                    let now = new Date();
-                    // console.log("1|------------------> GetToken : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds());
                     return new HttpHeaders({
                         'Accept': 'application/json',
                         'Content-Type': 'application/json',
@@ -44,92 +49,80 @@ export class MembersService {
                     });
                 }),
                 switchMap(headers => {
-                    let now = new Date();
-                    // Set the user's language preference before sending
                     this.user.locale = this._commonValuesService.getLang();
-                    
-                    // Don't block on geolocation: user may take time to Allow/Block, and home-evenements
-                    // needs user.id quickly to load non-public events. Wait max 2s for position, then POST.
-                    const positionWithTimeout = race(
-                        this._positionService.getCurrentPosition().pipe(catchError(() => of(null))),
-                        timer(2000).pipe(map(() => null))
-                    ).pipe(take(1));
-                    
+
+                    const positionWithTimeout = options?.skipGeolocation
+                        ? of(null)
+                        : race(
+                            this._positionService.getCurrentPosition().pipe(catchError(() => of(null))),
+                            timer(400).pipe(map(() => null))
+                        ).pipe(take(1));
+
                     return positionWithTimeout.pipe(
-                        switchMap(position => {
-                            // Convert roles array to comma-separated string for backend (backend expects String, not array)
-                            const userToSend: any = { ...this.user };
-                            if (userToSend.roles && Array.isArray(userToSend.roles)) {
-                                userToSend.roles = userToSend.roles.join(', ');
-                            } else if (!userToSend.roles || (typeof userToSend.roles !== 'string')) {
-                                // If roles is not an array or string, set to empty string
-                                userToSend.roles = '';
-                            }
-                            // Remove visible from request - backend will preserve existing value from DB
-                            // This prevents the visible flag from being reset when user logs in/connects
-                            delete userToSend.visible;
-                            
-                            // Add GPS coordinates if available (within the 2s window)
-                            if (position && position.latitude != null && position.longitude != null) {
-                                userToSend.requestLatitude = position.latitude;
-                                userToSend.requestLongitude = position.longitude;
-                            }
-                            
-                            return this._http.post<any>(this.API_URL + 'memb/user', userToSend, { headers: headers }).pipe(
-                        map((res: any) => {
-                            let now = new Date();
-                            // console.log("3|------------------> OK : "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds() );
-                            // Create a proper Member object with all fields including whatsappLink and positions
-                            const rolesArray = res.roles ? (typeof res.roles === 'string' ? res.roles.split(',').map((r: string) => r.trim()) : res.roles) : [];
-                            
-                            // Parse positions array if present
-                            let positions = undefined;
-                            if (res.positions && Array.isArray(res.positions)) {
-                                positions = res.positions.map((p: any) => ({
-                                    datetime: p.datetime ? new Date(p.datetime) : undefined,
-                                    dateFrom: p.dateFrom ? new Date(p.dateFrom) : undefined,
-                                    dateTo: p.dateTo ? new Date(p.dateTo) : undefined,
-                                    type: p.type,
-                                    latitude: p.latitude,
-                                    longitude: p.longitude
-                                }));
-                            }
-                            
-                            const member = new Member(
-                                res.id || '',
-                                res.addressEmail || '',
-                                res.firstName || '',
-                                res.lastName || '',
-                                res.userName || '',
-                                rolesArray,
-                                res.keycloakId || '',
-                                res.registrationDate ? new Date(res.registrationDate) : undefined,
-                                res.lastConnectionDate ? new Date(res.lastConnectionDate) : undefined,
-                                res.locale || undefined,
-                                res.whatsappLink || undefined,
-                                (res.visible !== undefined && res.visible !== null) ? res.visible : true,
-                                positions
-                            );
-                            // Update the internal user object
-                            this.user = member;
-                            return member;
-                        }),
-                        catchError((error: any) => {
-                            console.error("¦=================> Error:", error);
-                            alert("Issue to get the Id of the user : " + error);
-                            throw error;
-                        })
-                    );
-                        })
+                        switchMap(position => this.postMembUserRegister(headers, position))
                     );
                 })
             );
         } else {
-            let now = new Date();
-            console.log("4|------------------> user.id was alreday set : "+this.user.id+ " at "+now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds()+'.'+now.getMilliseconds() );
             return from([this.user]);
         }
-    };
+    }
+
+    private postMembUserRegister(headers: HttpHeaders, position: PositionCoordinates | null): Observable<Member> {
+        const userToSend: any = { ...this.user };
+        if (userToSend.roles && Array.isArray(userToSend.roles)) {
+            userToSend.roles = userToSend.roles.join(', ');
+        } else if (!userToSend.roles || (typeof userToSend.roles !== 'string')) {
+            userToSend.roles = '';
+        }
+        delete userToSend.visible;
+
+        if (position && position.latitude != null && position.longitude != null) {
+            userToSend.requestLatitude = position.latitude;
+            userToSend.requestLongitude = position.longitude;
+        }
+
+        return this._http.post<any>(this.API_URL + 'memb/user', userToSend, { headers: headers }).pipe(
+            map((res: any) => {
+                const rolesArray = res.roles ? (typeof res.roles === 'string' ? res.roles.split(',').map((r: string) => r.trim()) : res.roles) : [];
+
+                let positions = undefined;
+                if (res.positions && Array.isArray(res.positions)) {
+                    positions = res.positions.map((p: any) => ({
+                        datetime: p.datetime ? new Date(p.datetime) : undefined,
+                        dateFrom: p.dateFrom ? new Date(p.dateFrom) : undefined,
+                        dateTo: p.dateTo ? new Date(p.dateTo) : undefined,
+                        type: p.type,
+                        latitude: p.latitude,
+                        longitude: p.longitude
+                    }));
+                }
+
+                const member = new Member(
+                    res.id || '',
+                    res.addressEmail || '',
+                    res.firstName || '',
+                    res.lastName || '',
+                    res.userName || '',
+                    rolesArray,
+                    res.keycloakId || '',
+                    res.registrationDate ? new Date(res.registrationDate) : undefined,
+                    res.lastConnectionDate ? new Date(res.lastConnectionDate) : undefined,
+                    res.locale || undefined,
+                    res.whatsappLink || undefined,
+                    (res.visible !== undefined && res.visible !== null) ? res.visible : true,
+                    positions
+                );
+                this.user = member;
+                return member;
+            }),
+            catchError((error: any) => {
+                console.error("¦=================> Error:", error);
+                alert("Issue to get the Id of the user : " + error);
+                throw error;
+            })
+        );
+    }
 
     getUser(): Member {
         return this.user;

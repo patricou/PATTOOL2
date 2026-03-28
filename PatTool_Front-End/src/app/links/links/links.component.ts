@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { take } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterModule, Router } from '@angular/router';
@@ -47,7 +48,8 @@ export class LinksComponent implements OnInit {
 
   ngOnInit() {
     this.loading = true;
-    this.waitForNonEmptyValue().then(() => {
+    const loadLinks = () => {
+      this.user = this._memberService.getUser();
       this._urlLinkService.getLinksView(this.user).subscribe({
         next: (res) => {
           this.categories = res.categories ?? [];
@@ -61,25 +63,16 @@ export class LinksComponent implements OnInit {
           this.loading = false;
         }
       });
-    });
-  }
+    };
 
-  private waitForNonEmptyValue(): Promise<void> {
-    const maxWaitMs = 4000; // Don't block forever if user load is slow
-    const pollIntervalMs = 100;
-    const start = Date.now();
-    return new Promise<void>((resolve) => {
-      const checkValue = () => {
-        if (this.user.id !== "") {
-          resolve();
-        } else if (Date.now() - start >= maxWaitMs) {
-          resolve(); // Timeout: continue with empty user (APIs may return limited data)
-        } else {
-          setTimeout(checkValue, pollIntervalMs);
-        }
-      };
-      checkValue();
-    });
+    if (this._memberService.getUser().id) {
+      loadLinks();
+    } else {
+      this._memberService.getUserId({ skipGeolocation: true }).pipe(take(1)).subscribe({
+        next: () => loadLinks(),
+        error: () => loadLinks()
+      });
+    }
   }
 
   submitVisibilityChange(urllink: any, event?: Event) {
