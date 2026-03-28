@@ -409,12 +409,12 @@ public class FileRestController {
     @RequestMapping( value = "/api/file/{fileId}", method = RequestMethod.GET )
     public ResponseEntity< InputStreamResource> getFile(@PathVariable String fileId, HttpServletRequest request, HttpServletResponse response){
         
-        log.info("[GET_FILE] Request received: fileId={}", fileId);
+        log.debug("[GET_FILE] Request received: fileId={}", fileId);
 
         try {
             // Check if GridFsTemplate is available
             if (gridFsTemplate == null) {
-                log.info("[GET_FILE] Rejected: GridFsTemplate is null (GridFS not configured)");
+                log.debug("[GET_FILE] Rejected: GridFsTemplate is null (GridFS not configured)");
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
                     .body(new InputStreamResource(new java.io.ByteArrayInputStream("GridFS not configured".getBytes())));
             }
@@ -424,21 +424,21 @@ public class FileRestController {
             try {
                 objectId = new ObjectId(fileId);
             } catch (IllegalArgumentException e) {
-                log.info("[GET_FILE] Rejected: invalid ObjectId format, fileId={}", fileId);
+                log.debug("[GET_FILE] Rejected: invalid ObjectId format, fileId={}", fileId);
                 return ResponseEntity.badRequest()
                     .body(new InputStreamResource(new java.io.ByteArrayInputStream("Invalid file ID format".getBytes())));
             }
             
             // Try to find the file by ObjectId using findOne
-            log.info("[GET_FILE] Looking up GridFS document for _id={}", fileId);
+            log.debug("[GET_FILE] Looking up GridFS document for _id={}", fileId);
             GridFSFile gridFsFile = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(objectId)));
             
             if (gridFsFile == null) {
-                log.info("[GET_FILE] File not found in GridFS: fileId={}", fileId);
+                log.debug("[GET_FILE] File not found in GridFS: fileId={}", fileId);
                 return ResponseEntity.notFound().build();
             }
             
-            log.info("[GET_FILE] GridFS document found: fileId={}, filename={}, length={}",
+            log.debug("[GET_FILE] GridFS document found: fileId={}, filename={}, length={}",
                     fileId, gridFsFile.getFilename(), gridFsFile.getLength());
             // Get the resource from the found file
             GridFsResource gridFsResource = gridFsTemplate.getResource(gridFsFile);
@@ -459,9 +459,9 @@ public class FileRestController {
                 // Try to determine content type from filename extension
                 String filename = gridFsResource.getFilename();
                 contentType = getContentTypeFromFilename(filename);
-                log.info("[GET_FILE] No contentType metadata for fileId={}, filename={}, using: {}", fileId, filename, contentType);
+                log.debug("[GET_FILE] No contentType metadata for fileId={}, filename={}, using: {}", fileId, filename, contentType);
             } catch (Exception e) {
-                log.info("[GET_FILE] Error getting content type for fileId={}, using fallback: {}", fileId, e.getMessage());
+                log.debug("[GET_FILE] Error getting content type for fileId={}, using fallback: {}", fileId, e.getMessage());
                 contentType = "application/octet-stream";
             }
             
@@ -475,7 +475,7 @@ public class FileRestController {
             // Spring's MediaType.parseMediaType() rejects wildcards (e.g. image/*). Resolve to concrete type from filename.
             if (contentType != null && contentType.contains("*")) {
                 String resolved = getContentTypeFromFilename(filename);
-                log.info("[GET_FILE] Resolving wildcard contentType '{}' from filename to: {}", contentType, resolved);
+                log.debug("[GET_FILE] Resolving wildcard contentType '{}' from filename to: {}", contentType, resolved);
                 contentType = resolved != null && !resolved.isEmpty() ? resolved : "application/octet-stream";
             }
             
@@ -531,7 +531,7 @@ public class FileRestController {
                     }
                 }
                 
-                log.info("[GET_FILE] Returning 200 OK: fileId={}, filename={}, contentType={}", fileId, filename, contentType);
+                log.debug("[GET_FILE] Returning 200 OK: fileId={}, filename={}, contentType={}", fileId, filename, contentType);
                 return ResponseEntity.ok()
                         .headers(headers)
                         .body(new InputStreamResource(gridFsResource.getInputStream()));
@@ -542,19 +542,19 @@ public class FileRestController {
                                          errorMsg.contains("Broken pipe") ||
                                          errorMsg.contains("Connection closed") ||
                                          errorMsg.contains("An established connection was aborted by the software in your host machine"))) {
-                    log.info("[GET_FILE] Client closed connection during transfer: fileId={}", fileId);
+                    log.debug("[GET_FILE] Client closed connection during transfer: fileId={}", fileId);
                     return null; // Connection already closed, can't send response
                 }
                 
-                log.info("[GET_FILE] IOException when reading file content -> 500: fileId={}, message={}", fileId, errorMsg);
+                log.debug("[GET_FILE] IOException when reading file content -> 500: fileId={}, message={}", fileId, errorMsg);
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new InputStreamResource(new java.io.ByteArrayInputStream("Error accessing file content".getBytes())));
             }
         } catch (IllegalStateException e) {
-            log.info("[GET_FILE] IllegalStateException (file does not exist) -> 404: fileId={}, message={}", fileId, e.getMessage());
+            log.debug("[GET_FILE] IllegalStateException (file does not exist) -> 404: fileId={}, message={}", fileId, e.getMessage());
             return ResponseEntity.notFound().build();
         } catch (com.mongodb.MongoGridFSException e) {
-            log.info("[GET_FILE] MongoGridFSException -> 500: fileId={}, message={}", fileId, e.getMessage());
+            log.debug("[GET_FILE] MongoGridFSException -> 500: fileId={}, message={}", fileId, e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new InputStreamResource(new java.io.ByteArrayInputStream(("GridFS error: " + e.getMessage()).getBytes())));
         } catch (Exception e) {
@@ -565,12 +565,12 @@ public class FileRestController {
                 if (causeMsg != null && (causeMsg.contains("Connection reset") || 
                                          causeMsg.contains("Broken pipe") ||
                                          causeMsg.contains("An established connection was aborted by the software in your host machine"))) {
-                    log.info("[GET_FILE] Client closed connection (wrapped) for fileId={}", fileId);
+                    log.debug("[GET_FILE] Client closed connection (wrapped) for fileId={}", fileId);
                     return null; // Connection already closed
                 }
             }
             
-            log.info("[GET_FILE] Exception -> 500: fileId={}, exception={}, message={}", fileId, e.getClass().getSimpleName(), e.getMessage());
+            log.debug("[GET_FILE] Exception -> 500: fileId={}, exception={}, message={}", fileId, e.getClass().getSimpleName(), e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new InputStreamResource(new java.io.ByteArrayInputStream(("Error: " + (e.getMessage() != null ? e.getMessage() : "unknown")).getBytes())));
         }
@@ -720,12 +720,12 @@ public class FileRestController {
                                                         @RequestParam(value = "allowOriginal", required = false, defaultValue = "false") boolean allowOriginal,
                                                         @PathVariable String userId, 
                                                         @PathVariable String evenementid  ){
-        log.info("[UPLOAD] postFile received: userId={}, evenementid={}, filesCount={}, allowOriginal={}",
+        log.debug("[UPLOAD] postFile received: userId={}, evenementid={}, filesCount={}, allowOriginal={}",
                 userId, evenementid, files != null ? files.length : 0, allowOriginal);
         if (files != null) {
             for (int i = 0; i < files.length; i++) {
                 MultipartFile f = files[i];
-                log.info("[UPLOAD]   file[{}]: name={}, size={} bytes, empty={}, contentType={}",
+                log.debug("[UPLOAD]   file[{}]: name={}, size={} bytes, empty={}, contentType={}",
                         i, f.getOriginalFilename(), f.getSize(), f.isEmpty(), f.getContentType());
             }
         }
@@ -770,14 +770,14 @@ public class FileRestController {
         try {
             Member uploaderMember = membersRepository.findById(userId).orElse(null);
             if (uploaderMember == null) {
-                log.info("[UPLOAD] Rejected: user not found, userId={}", userId);
+                log.debug("[UPLOAD] Rejected: user not found, userId={}", userId);
                 return new ResponseEntity<>(null, null, HttpStatus.BAD_REQUEST);
             }
 
             // Find the evenement
             Evenement evenement = evenementsRepository.findById(evenementid).orElse(null);
             if (evenement == null) {
-                log.info("[UPLOAD] Rejected: event not found, evenementid={}", evenementid);
+                log.debug("[UPLOAD] Rejected: event not found, evenementid={}", evenementid);
                 return new ResponseEntity<>(null, null, HttpStatus.BAD_REQUEST);
             }
             
@@ -797,7 +797,7 @@ public class FileRestController {
                     log.warn("[UPLOAD] Skipping empty file at index {}", fileIndex);
                     continue;
                 }
-                log.info("[UPLOAD] Processing file {}/{}: {} ({} bytes) -> will store in GridFS then add metadata to event",
+                log.debug("[UPLOAD] Processing file {}/{}: {} ({} bytes) -> will store in GridFS then add metadata to event",
                         fileIndex + 1, files.length, filedata.getOriginalFilename(), filedata.getSize());
 
                 if (finalSessionId != null) {
@@ -834,7 +834,7 @@ public class FileRestController {
                 }
                 // Wildcard types (e.g. image/*) are stored by GridFS but rejected when serving; normalize to concrete type
                 if (contentType != null && contentType.contains("*")) {
-                    log.info("[UPLOAD] Resolving wildcard contentType '{}' from filename to: {}", contentType, correctContentType);
+                    log.debug("[UPLOAD] Resolving wildcard contentType '{}' from filename to: {}", contentType, correctContentType);
                     contentType = (correctContentType != null && !correctContentType.isEmpty()) ? correctContentType : "application/octet-stream";
                 }
 
@@ -857,12 +857,12 @@ public class FileRestController {
                     }
                     try (java.io.InputStream inputStream = filedata.getInputStream()) {
                         fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
-                        log.info("[UPLOAD] GridFS store (stream, file too large for compression): fieldId={}, filename={}, bytes sent via stream",
+                        log.debug("[UPLOAD] GridFS store (stream, file too large for compression): fieldId={}, filename={}, bytes sent via stream",
                                 fieldId, filedata.getOriginalFilename());
                     }
                 } else if (imageCompressionService.isImageType(contentType) && !allowOriginal) {
                     // Image compression path (switch ON in UI: allowOriginal=false)
-                    log.info("[UPLOAD] Compression applied (allowOriginal=false): filename={}, originalSize={} bytes", filedata.getOriginalFilename(), fileSize);
+                    log.debug("[UPLOAD] Compression applied (allowOriginal=false): filename={}, originalSize={} bytes", filedata.getOriginalFilename(), fileSize);
                     if (finalSessionId != null) {
                         addUploadLog(finalSessionId, String.format("⚙️ Image detected (%d KB) - Compression in progress... (allowOriginal=%s)", 
                             fileSize / 1024, allowOriginal));
@@ -904,7 +904,7 @@ public class FileRestController {
                                 fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
                             }
                             long compressedSize = compressedBytes.length;
-                            log.info("[UPLOAD] GridFS store (compressed image): fieldId={}, filename={}, originalSize={} bytes, compressedSize={} bytes (switch ON)",
+                            log.debug("[UPLOAD] GridFS store (compressed image): fieldId={}, filename={}, originalSize={} bytes, compressedSize={} bytes (switch ON)",
                                     fieldId, filedata.getOriginalFilename(), fileSize, compressedSize);
                             if (finalSessionId != null) {
                                 addUploadLog(finalSessionId, String.format("✅ Compression completed: %d KB → %d KB", 
@@ -916,7 +916,7 @@ public class FileRestController {
                             try (java.io.InputStream inputStream = new ByteArrayInputStream(fileBytes)) {
                                 fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
                             }
-                            log.info("[UPLOAD] GridFS store (original bytes, ImageIO could not read): fieldId={}, filename={}, size={} bytes",
+                            log.debug("[UPLOAD] GridFS store (original bytes, ImageIO could not read): fieldId={}, filename={}, size={} bytes",
                                     fieldId, filedata.getOriginalFilename(), fileBytes.length);
                         }
                     } catch (OutOfMemoryError oom) {
@@ -929,17 +929,17 @@ public class FileRestController {
                         }
                         try (java.io.InputStream inputStream = filedata.getInputStream()) {
                             fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
-                            log.info("[UPLOAD] GridFS store (OOM fallback stream): fieldId={}, filename={}", fieldId, filedata.getOriginalFilename());
+                            log.debug("[UPLOAD] GridFS store (OOM fallback stream): fieldId={}, filename={}", fieldId, filedata.getOriginalFilename());
                         }
                     } catch (Exception e) {
                         if (finalSessionId != null) {
                             addUploadLog(finalSessionId, "⚠️ Compression error, using original file");
                         }
-                        log.info("[UPLOAD] Compression error for {}: {}, storing original via stream", filedata.getOriginalFilename(), e.getMessage());
+                        log.debug("[UPLOAD] Compression error for {}: {}, storing original via stream", filedata.getOriginalFilename(), e.getMessage());
                         // Fallback to original file bytes
                         try (java.io.InputStream inputStream = filedata.getInputStream()) {
                             fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
-                            log.info("[UPLOAD] GridFS store (compression fallback): fieldId={}, filename={}", fieldId, filedata.getOriginalFilename());
+                            log.debug("[UPLOAD] GridFS store (compression fallback): fieldId={}, filename={}", fieldId, filedata.getOriginalFilename());
                         }
                     }
                 } else if (imageCompressionService.isImageType(contentType) && allowOriginal) {
@@ -947,11 +947,11 @@ public class FileRestController {
                     if (finalSessionId != null) {
                         addUploadLog(finalSessionId, String.format("✓ O button upload: Allowing original quality image (%d KB)", fileSize / 1024));
                     }
-                    log.info("[UPLOAD] O button / allowOriginal: storing original image ({} bytes) in GridFS", fileSize);
+                    log.debug("[UPLOAD] O button / allowOriginal: storing original image ({} bytes) in GridFS", fileSize);
                     // Use try-with-resources to ensure InputStream from MultipartFile is properly closed
                     try (java.io.InputStream inputStream = filedata.getInputStream()) {
                         fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
-                        log.info("[UPLOAD] GridFS store (original image): fieldId={}, filename={}, size={} bytes",
+                        log.debug("[UPLOAD] GridFS store (original image): fieldId={}, filename={}, size={} bytes",
                                 fieldId, filedata.getOriginalFilename(), fileSize);
                     }
                 } else {
@@ -963,7 +963,7 @@ public class FileRestController {
                     try (java.io.InputStream inputStream = filedata.getInputStream()) {
                         fieldId = gridFsTemplate.store(inputStream, filedata.getOriginalFilename(), contentType, metaData).toString();
                     }
-                    log.info("[UPLOAD] GridFS store (non-image or no compression): fieldId={}, filename={}, size={} bytes",
+                    log.debug("[UPLOAD] GridFS store (non-image or no compression): fieldId={}, filename={}, size={} bytes",
                             fieldId, filedata.getOriginalFilename(), fileSize);
                 }
 
@@ -979,7 +979,7 @@ public class FileRestController {
                 
                 // Add file metadata to evenement (binary is already in GridFS under fieldId)
                 evenement.getFileUploadeds().add(fileUploaded);
-                log.info("[UPLOAD] Metadata added to event: eventId={}, fieldId={}, fileName={}, totalFilesInEvent={}",
+                log.debug("[UPLOAD] Metadata added to event: eventId={}, fieldId={}, fileName={}, totalFilesInEvent={}",
                         evenementid, fieldId, filedata.getOriginalFilename(), evenement.getFileUploadeds().size());
                 
                 // If file name contains "thumbnail", also set it as the thumbnail
@@ -1001,7 +1001,7 @@ public class FileRestController {
             
             // Save the evenement (with updated fileUploadeds metadata list) to MongoDB
             int fileUploadedsSize = evenement.getFileUploadeds() != null ? evenement.getFileUploadeds().size() : 0;
-            log.info("[UPLOAD] Saving event to DB: eventId={}, fileUploadedsCount={} (was {} before this upload)",
+            log.debug("[UPLOAD] Saving event to DB: eventId={}, fileUploadedsCount={} (was {} before this upload)",
                     evenementid, fileUploadedsSize, filesBeforeUpload);
             
             Evenement eventSaved = evenementsRepository.save(evenement);
@@ -1012,7 +1012,7 @@ public class FileRestController {
                 ? verifyEvent.getFileUploadeds().size() : 0;
             int expectedFileCount = filesBeforeUpload + uploadedFiles.size();
             String fieldIds = uploadedFiles.stream().map(FileUploaded::getFieldId).reduce("", (a, b) -> a.isEmpty() ? b : a + "," + b);
-            log.info("[UPLOAD] Event saved. Verification: eventId={}, filesInEventAfterSave={}, expected={} ({} existing + {} new). GridFS binaries stored under fieldIds: {}",
+            log.debug("[UPLOAD] Event saved. Verification: eventId={}, filesInEventAfterSave={}, expected={} ({} existing + {} new). GridFS binaries stored under fieldIds: {}",
                     evenementid, savedFileCount, expectedFileCount, filesBeforeUpload, uploadedFiles.size(), fieldIds);
             
             if (savedFileCount != expectedFileCount) {
@@ -1039,7 +1039,7 @@ public class FileRestController {
                     .fromCurrentRequest().path("/{id}")
                     .buildAndExpand(eventSaved.getId()).toUri());
 
-            log.info("[UPLOAD] Returning 201 CREATED with {} file(s) for event {}", uploadedFiles.size(), evenementid);
+            log.debug("[UPLOAD] Returning 201 CREATED with {} file(s) for event {}", uploadedFiles.size(), evenementid);
             return new ResponseEntity<List<FileUploaded>>(uploadedFiles, httpHeaders, HttpStatus.CREATED);
 
         } catch (com.mongodb.MongoException mongoEx) {
@@ -1181,7 +1181,7 @@ public class FileRestController {
                     log.debug("✅ [{}] Successfully deleted from GridFS: ID={}, Name={}, Size={} bytes", 
                             fileType, fileId, fileName, fileSize);
                 } else {
-                    log.warn("⚠️  [{}] File not found in GridFS (may already be deleted): ID={}, Name={}", 
+                    log.warn("⚠️  [{}] File not found in GridFS (may already be deleted): ID={}, Name={}",
                             fileType, fileId, fileName);
                 }
             } catch (IllegalArgumentException e) {
@@ -1192,10 +1192,10 @@ public class FileRestController {
                     GridFSFile fileToDelete = gridFsTemplate.findOne(new Query(Criteria.where("_id").is(fileId)));
                     if (fileToDelete != null) {
                         gridFsTemplate.delete(new Query(Criteria.where("_id").is(fileId)));
-                        log.info("✅ [{}] Deleted from GridFS using string ID: ID={}, Name={}", 
+                        log.debug("✅ [{}] Deleted from GridFS using string ID: ID={}, Name={}", 
                                 fileType, fileId, fileName);
                     } else {
-                        log.warn("⚠️  [{}] File not found in GridFS (string ID): ID={}, Name={}", 
+                        log.warn("⚠️  [{}] File not found in GridFS (string ID): ID={}, Name={}",
                                 fileType, fileId, fileName);
                     }
                 } catch (Exception e2) {

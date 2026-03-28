@@ -1,12 +1,12 @@
 // Discussion Component - Replaced Firebase with MongoDB backend
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { NgbModule, NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { Subscription, forkJoin, of, Observable, Subject } from 'rxjs';
 import { catchError, debounceTime, distinctUntilChanged } from 'rxjs/operators';
-import { DiscussionService, Discussion, DiscussionMessage, StreamedDiscussion } from '../../services/discussion.service';
+import { DiscussionService, Discussion, DiscussionMessage, StreamedDiscussion, DiscussionItem as StreamDiscussionItem } from '../../services/discussion.service';
 import { Member } from '../../model/member';
 import { MembersService } from '../../services/members.service';
 import { EvenementsService } from '../../services/evenements.service';
@@ -34,6 +34,7 @@ export interface DiscussionItem {
   selector: 'app-chat',
   templateUrl: './chat.component.html',
   styleUrls: ['./chat.component.css'],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   standalone: true,
   imports: [
     CommonModule,
@@ -80,6 +81,9 @@ export class ChatComponent implements OnInit, OnDestroy {
   private filterSubscription: Subscription | null = null;
   // Pre-computed properties for template optimization
   public hasAdminRoleValue: boolean = false;
+  /** Precomputed sort keys — avoids Date parsing inside Array.sort comparator. */
+  private sortKeyCache = new Map<string, { c: number; l: number; t: string; ty: string }>();
+  private friendGroupIdsInList = new Set<string>();
 
   @ViewChild('messagesList', { static: false }) messagesList!: ElementRef;
   @ViewChild('fileInput', { static: false }) fileInput!: ElementRef;
@@ -88,6 +92,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   private messageSubscription: Subscription | null = null;
   private discussionsSubscription: Subscription | null = null;
   private isLoadingDiscussions: boolean = false; // Prevent duplicate requests
+  /** Coalesce SSE updates to one sort + CD cycle per animation frame (avoids O(n²) sorts). */
+  private streamUiRafId: number | null = null;
 
   constructor(
     private discussionService: DiscussionService,
@@ -148,6 +154,7 @@ export class ChatComponent implements OnInit, OnDestroy {
     if (this.discussionsSubscription) {
       this.discussionsSubscription.unsubscribe();
     }
+    this.cancelScheduledDiscussionStreamUi();
     // Disconnect WebSocket
     if (this.currentDiscussion?.id) {
       this.discussionService.disconnectWebSocket();
@@ -175,12 +182,14 @@ export class ChatComponent implements OnInit, OnDestroy {
       this.availableDiscussions = [];
       this.filteredDiscussions = [];
       this.allFriendGroups = [];
+      this.friendGroupIdsInList.clear();
       // Clear cache when reloading
       this.clearDiscussionCache();
       
       // Use SSE streaming endpoint - discussions arrive as they're processed (truly reactive)
       this.discussionService.streamAccessibleDiscussions().pipe(
         catchError(error => {
+          this.cancelScheduledDiscussionStreamUi();
           console.error('Error streaming discussions:', error);
           this.connectionStatus = 'Error loading discussions';
           this.isLoading = false;
@@ -189,72 +198,10 @@ export class ChatComponent implements OnInit, OnDestroy {
         })
       ).subscribe({
         next: (streamed: StreamedDiscussion) => {
-          if (streamed.type === 'discussion' && streamed.data) {
-            // Convert backend DiscussionItem to frontend DiscussionItem format
-            const discussionItem: DiscussionItem = {
-              id: streamed.data.id,
-              title: streamed.data.title,
-              type: streamed.data.type,
-              discussion: streamed.data.discussion,
-              event: streamed.data.event,
-              friendGroup: streamed.data.friendGroup,
-              messageCount: streamed.data.messageCount,
-              lastMessageDate: streamed.data.lastMessageDate
-            };
-            
-            // Pre-compute and cache values to avoid method calls in template
-            this.cacheDiscussionValues(discussionItem);
-            
-            // Display immediately - first one appears instantly, then insert others in sorted position
-            if (this.availableDiscussions.length === 0) {
-              // First discussion - add immediately without sorting (instant display)
-              this.availableDiscussions.push(discussionItem);
-            } else {
-              // Subsequent discussions - insert in sorted position (by creation date, newest first)
-              const creationDate = discussionItem.discussion?.creationDate 
-                ? new Date(discussionItem.discussion.creationDate).getTime() 
-                : 0;
-              
-              // Find insertion index to maintain sorted order (newest first)
-              let insertIndex = this.availableDiscussions.length;
-              for (let i = 0; i < this.availableDiscussions.length; i++) {
-                const existingDiscussion = this.availableDiscussions[i].discussion;
-                const existingDate = existingDiscussion?.creationDate 
-                  ? new Date(existingDiscussion.creationDate).getTime() 
-                  : 0;
-                if (creationDate > existingDate) {
-                  insertIndex = i;
-                  break;
-                }
-              }
-              
-              // Insert at the correct position
-              this.availableDiscussions.splice(insertIndex, 0, discussionItem);
-            }
-            
-            // Only update filtered list if no filter is active (more efficient)
-            // If filter is active, we'll apply it at the end to avoid re-filtering on every addition
-            if (!this.dataFIlter || this.dataFIlter.trim() === '') {
-              this.filteredDiscussions = this.applySort([...this.availableDiscussions]);
-              // Use change detection optimization - only mark for check, don't trigger full change detection
-              this.cdr.markForCheck();
-            }
-            
-            // Extract friend groups for other uses
-            if (discussionItem.friendGroup) {
-              const existingIndex = this.allFriendGroups.findIndex(g => g.id === discussionItem.friendGroup!.id);
-              if (existingIndex === -1) {
-                this.allFriendGroups.push(discussionItem.friendGroup);
-              }
-            }
-            
-            // Hide loading spinner as soon as first item appears
-            if (this.availableDiscussions.length === 1) {
-              this.isLoading = false;
-              this.connectionStatus = '';
-              this.cdr.markForCheck(); // Trigger change detection for first item
-            }
+          if (streamed.type === 'discussions' && streamed.data.length > 0) {
+            this.ingestDiscussionsFromStream(streamed.data);
           } else if (streamed.type === 'complete') {
+            this.cancelScheduledDiscussionStreamUi();
             // All discussions loaded - they're already sorted as they arrived
             this.isLoading = false;
             this.connectionStatus = '';
@@ -264,12 +211,14 @@ export class ChatComponent implements OnInit, OnDestroy {
             // Trigger change detection once at the end
             this.cdr.markForCheck();
           } else if (streamed.type === 'error') {
+            this.cancelScheduledDiscussionStreamUi();
             this.isLoading = false;
             this.isLoadingDiscussions = false;
             this.connectionStatus = 'Error loading discussions';
           }
         },
         error: (error) => {
+          this.cancelScheduledDiscussionStreamUi();
           console.error('Error in discussion stream:', error);
           this.isLoading = false;
           this.isLoadingDiscussions = false;
@@ -287,6 +236,69 @@ export class ChatComponent implements OnInit, OnDestroy {
     }
   }
 
+  private cancelScheduledDiscussionStreamUi(): void {
+    if (this.streamUiRafId !== null) {
+      cancelAnimationFrame(this.streamUiRafId);
+      this.streamUiRafId = null;
+    }
+  }
+
+  private scheduleDiscussionStreamUiUpdate(): void {
+    if (this.streamUiRafId !== null) {
+      return;
+    }
+    this.streamUiRafId = requestAnimationFrame(() => {
+      this.streamUiRafId = null;
+      if (!this.dataFIlter || this.dataFIlter.trim() === '') {
+        this.filteredDiscussions = this.applySort([...this.availableDiscussions]);
+      }
+      this.cdr.markForCheck();
+    });
+  }
+
+  private ingestDiscussionsFromStream(rows: StreamDiscussionItem[]): void {
+    const hadNone = this.availableDiscussions.length === 0;
+    for (const row of rows) {
+      const discussionItem: DiscussionItem = {
+        id: row.id,
+        title: row.title,
+        type: row.type,
+        discussion: row.discussion,
+        event: row.event as Evenement | undefined,
+        friendGroup: row.friendGroup as FriendGroup | undefined,
+        messageCount: row.messageCount,
+        lastMessageDate: row.lastMessageDate
+      };
+      this.cacheDiscussionValues(discussionItem);
+      this.availableDiscussions.push(discussionItem);
+      const gid = discussionItem.friendGroup?.id;
+      if (gid && !this.friendGroupIdsInList.has(gid)) {
+        this.friendGroupIdsInList.add(gid);
+        this.allFriendGroups.push(discussionItem.friendGroup!);
+      }
+    }
+    if (hadNone && this.availableDiscussions.length > 0) {
+      this.isLoading = false;
+      this.connectionStatus = '';
+    }
+    if (!this.dataFIlter || this.dataFIlter.trim() === '') {
+      if (hadNone) {
+        this.filteredDiscussions = this.applySort([...this.availableDiscussions]);
+      } else {
+        this.scheduleDiscussionStreamUiUpdate();
+      }
+    }
+    this.cdr.markForCheck();
+  }
+
+  private buildSortKeys(item: DiscussionItem): { c: number; l: number; t: string; ty: string } {
+    return {
+      c: item.discussion?.creationDate ? new Date(item.discussion.creationDate).getTime() : 0,
+      l: item.lastMessageDate != null ? new Date(item.lastMessageDate).getTime() : 0,
+      t: (item.title || '').toLowerCase(),
+      ty: item.type || ''
+    };
+  }
 
   /**
    * Cache computed values for a discussion to avoid method calls in template
@@ -308,6 +320,8 @@ export class ChatComponent implements OnInit, OnDestroy {
     // Cache isOwner check
     const isOwner = this.computeIsDiscussionOwner(discussionItem);
     this.isOwnerCache.set(discussionItem.id, isOwner);
+
+    this.sortKeyCache.set(discussionItem.id, this.buildSortKeys(discussionItem));
   }
 
   /**
@@ -318,7 +332,9 @@ export class ChatComponent implements OnInit, OnDestroy {
     this.memberListCache.clear();
     this.memberCountCache.clear();
     this.isOwnerCache.clear();
-    this.hasAdminRoleCache = null;
+    this.sortKeyCache.clear();
+    this.hasAdminRoleCache = this.keycloakService.hasAdminRole();
+    this.hasAdminRoleValue = this.hasAdminRoleCache;
   }
 
   /**
@@ -437,47 +453,30 @@ export class ChatComponent implements OnInit, OnDestroy {
    */
   private applySort(discussions: DiscussionItem[]): DiscussionItem[] {
     const sorted = [...discussions];
-    
+    const sb = this.sortBy;
+    const dir = this.sortDirection === 'asc' ? 1 : -1;
+
     sorted.sort((a, b) => {
+      const ka = this.sortKeyCache.get(a.id) ?? this.buildSortKeys(a);
+      const kb = this.sortKeyCache.get(b.id) ?? this.buildSortKeys(b);
       let comparison = 0;
-      
-      switch (this.sortBy) {
+      switch (sb) {
         case 'creationDate':
-          const dateA = a.discussion?.creationDate 
-            ? new Date(a.discussion.creationDate).getTime() 
-            : 0;
-          const dateB = b.discussion?.creationDate 
-            ? new Date(b.discussion.creationDate).getTime() 
-            : 0;
-          comparison = dateA - dateB;
+          comparison = ka.c - kb.c;
           break;
-          
         case 'lastMessageDate':
-          const lastDateA = a.lastMessageDate 
-            ? new Date(a.lastMessageDate).getTime() 
-            : 0;
-          const lastDateB = b.lastMessageDate 
-            ? new Date(b.lastMessageDate).getTime() 
-            : 0;
-          comparison = lastDateA - lastDateB;
+          comparison = ka.l - kb.l;
           break;
-          
         case 'title':
-          const titleA = (a.title || '').toLowerCase();
-          const titleB = (b.title || '').toLowerCase();
-          comparison = titleA.localeCompare(titleB);
+          comparison = ka.t.localeCompare(kb.t);
           break;
-          
         case 'type':
-          const typeA = a.type || '';
-          const typeB = b.type || '';
-          comparison = typeA.localeCompare(typeB);
+          comparison = ka.ty.localeCompare(kb.ty);
           break;
       }
-      
-      return this.sortDirection === 'asc' ? comparison : -comparison;
+      return comparison * dir;
     });
-    
+
     return sorted;
   }
 

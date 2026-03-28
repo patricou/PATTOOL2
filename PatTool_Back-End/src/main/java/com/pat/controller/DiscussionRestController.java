@@ -132,16 +132,15 @@ public class DiscussionRestController {
                     java.util.concurrent.atomic.AtomicBoolean connectionAlive = new java.util.concurrent.atomic.AtomicBoolean(true);
                     
                     // Stream discussions - default discussion will be sent FIRST and IMMEDIATELY
-                    discussionService.streamAccessibleDiscussions(user, (discussion) -> {
-                        // Only send if connection is still alive
-                        if (!connectionAlive.get()) {
+                    discussionService.streamAccessibleDiscussions(user, (batch) -> {
+                        if (!connectionAlive.get() || batch == null || batch.isEmpty()) {
                             return;
                         }
                         
                         try {
                             emitter.send(SseEmitter.event()
-                                .name("discussion")
-                                .data(discussion));
+                                .name("discussions")
+                                .data(batch));
                         } catch (org.springframework.web.context.request.async.AsyncRequestNotUsableException e) {
                             // Connection aborted - client disconnected, this is normal
                             connectionAlive.set(false);

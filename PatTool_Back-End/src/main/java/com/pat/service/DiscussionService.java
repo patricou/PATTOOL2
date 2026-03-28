@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.aggregation.Aggregation;
+import org.springframework.data.mongodb.core.aggregation.AggregationOperation;
 import org.springframework.data.mongodb.core.aggregation.AggregationResults;
 import org.springframework.data.mongodb.core.aggregation.ArrayOperators;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -256,6 +257,9 @@ public class DiscussionService {
         }
     }
 
+    /**
+     * Count + last message date in one aggregation (single round-trip vs two).
+     */
     private java.util.Map<String, MessageStats> batchGetMessageStats(java.util.Set<String> discussionIds) {
         java.util.Map<String, MessageStats> result = new java.util.HashMap<>();
         
@@ -263,27 +267,32 @@ public class DiscussionService {
             return result;
         }
         
+        for (String id : discussionIds) {
+            result.put(id, new MessageStats(0L, null));
+        }
+        
+        java.util.List<String> discussionIdList = new java.util.ArrayList<>(discussionIds);
+        
         try {
-            // Initialize all discussions with 0/null first
-            for (String id : discussionIds) {
-                result.put(id, new MessageStats(0L, null));
-            }
-            
-            // Use aggregation to get message count and last message date for all discussions at once
-            java.util.List<String> discussionIdList = new java.util.ArrayList<>(discussionIds);
-            
-            // First, get count for all discussions (including empty ones)
-            Aggregation countAggregation = Aggregation.newAggregation(
-                Aggregation.match(Criteria.where("_id").in(discussionIdList)),
-                Aggregation.project()
-                    .and("_id").as("discussionId")
-                    .and(ArrayOperators.Size.lengthOfArray("$messages")).as("count")
+            Document mapSpec = new Document("input",
+                    new Document("$ifNull", java.util.Arrays.asList("$messages", java.util.Collections.emptyList())))
+                .append("as", "m")
+                .append("in", "$$m.dateTime");
+            AggregationOperation projectStats = context -> new Document("$project",
+                new Document("discussionId", "$_id")
+                    .append("count", new Document("$size",
+                        new Document("$ifNull", java.util.Arrays.asList("$messages", java.util.Collections.emptyList()))))
+                    .append("lastMessageDate", new Document("$max", new Document("$map", mapSpec)))
             );
             
-            AggregationResults<Document> countResults = mongoTemplate.aggregate(countAggregation, "discussions", Document.class);
-            if (countResults.getMappedResults() != null) {
-                for (Document doc : countResults.getMappedResults()) {
-                    // Handle ObjectId conversion - _id can be ObjectId or String
+            Aggregation aggregation = Aggregation.newAggregation(
+                Aggregation.match(Criteria.where("_id").in(discussionIdList)),
+                projectStats
+            );
+            
+            AggregationResults<Document> aggResults = mongoTemplate.aggregate(aggregation, "discussions", Document.class);
+            if (aggResults.getMappedResults() != null) {
+                for (Document doc : aggResults.getMappedResults()) {
                     Object idObj = doc.get("discussionId");
                     String discussionId = null;
                     if (idObj instanceof String) {
@@ -305,53 +314,16 @@ public class DiscussionService {
                             count = ((Number) countObj).longValue();
                         }
                         result.get(discussionId).count = count;
-                    }
-                }
-            }
-            
-            // Then, get last message date only for discussions that have messages
-            Aggregation dateAggregation = Aggregation.newAggregation(
-                Aggregation.match(Criteria.where("_id").in(discussionIdList)
-                    .and("messages").exists(true).ne(java.util.Collections.emptyList())),
-                Aggregation.unwind("messages"),
-                Aggregation.group("_id")
-                    .max("messages.dateTime").as("lastMessageDate"),
-                Aggregation.project("lastMessageDate")
-                    .and("_id").as("discussionId")
-            );
-            
-            AggregationResults<Document> dateResults = mongoTemplate.aggregate(dateAggregation, "discussions", Document.class);
-            if (dateResults.getMappedResults() != null) {
-                for (Document doc : dateResults.getMappedResults()) {
-                    // Handle ObjectId conversion - _id can be ObjectId or String
-                    Object idObj = doc.get("discussionId");
-                    String discussionId = null;
-                    if (idObj instanceof String) {
-                        discussionId = (String) idObj;
-                    } else if (idObj instanceof org.bson.types.ObjectId) {
-                        discussionId = ((org.bson.types.ObjectId) idObj).toString();
-                    } else if (idObj != null) {
-                        discussionId = idObj.toString();
-                    }
-                    
-                    if (discussionId != null && result.containsKey(discussionId)) {
+                        
                         Object dateObj = doc.get("lastMessageDate");
                         if (dateObj instanceof Date) {
                             result.get(discussionId).lastMessageDate = (Date) dateObj;
-                        } else if (dateObj != null) {
-                            try {
-                                result.get(discussionId).lastMessageDate = (Date) dateObj;
-                            } catch (Exception e) {
-                                log.debug("Could not parse lastMessageDate for discussion {}: {}", discussionId, e.getMessage());
-                            }
                         }
                     }
                 }
             }
-            
         } catch (Exception e) {
             log.error("Error batch getting message stats: {}", e.getMessage(), e);
-            // Ensure all discussions have stats (even on error)
             for (String id : discussionIds) {
                 if (!result.containsKey(id)) {
                     result.put(id, new MessageStats(0L, null));
@@ -389,6 +361,32 @@ public class DiscussionService {
             // Fallback to normal load if projection fails
             return discussionRepository.findById(discussionId).orElse(null);
         }
+    }
+
+    /**
+     * Batch-load discussions without the messages array (single round-trip per chunk).
+     */
+    private java.util.Map<String, Discussion> batchGetDiscussionsWithoutMessages(java.util.Set<String> discussionIds) {
+        java.util.Map<String, Discussion> map = new java.util.HashMap<>();
+        if (discussionIds == null || discussionIds.isEmpty()) {
+            return map;
+        }
+        java.util.List<String> idList = new java.util.ArrayList<>(discussionIds);
+        final int chunkSize = 500;
+        for (int i = 0; i < idList.size(); i += chunkSize) {
+            int end = Math.min(i + chunkSize, idList.size());
+            java.util.List<String> chunk = idList.subList(i, end);
+            Query query = new Query(Criteria.where("_id").in(chunk));
+            query.fields().exclude("messages");
+            java.util.List<Discussion> found = mongoTemplate.find(query, Discussion.class, "discussions");
+            for (Discussion d : found) {
+                if (d != null && d.getId() != null) {
+                    d.setMessages(new java.util.ArrayList<>());
+                    map.put(d.getId(), d);
+                }
+            }
+        }
+        return map;
     }
 
     /**
@@ -877,7 +875,7 @@ public class DiscussionService {
      * Uses indexed queries to minimize database load
      * PERFORMANCE: Batch loads discussions and message counts for better efficiency
      */
-    public void streamAccessibleDiscussions(Member user, Consumer<DiscussionItemDTO> onDiscussion) {
+    public void streamAccessibleDiscussions(Member user, Consumer<java.util.List<DiscussionItemDTO>> onDiscussionBatch) {
         // Track discussion IDs already added to avoid duplicates
         java.util.Set<String> addedDiscussionIds = new java.util.HashSet<>();
         
@@ -910,7 +908,7 @@ public class DiscussionService {
                         defaultDiscussion
                     );
                     defaultItem.setMessageCount(messageCount); // Set the actual count
-                    onDiscussion.accept(defaultItem); // Send IMMEDIATELY - appears instantly!
+                    onDiscussionBatch.accept(java.util.Collections.singletonList(defaultItem));
                     addedDiscussionIds.add(defaultDiscussion.getId());
                 }
             }
@@ -919,60 +917,185 @@ public class DiscussionService {
         // CRITICAL OPTIMIZATION: Stream discussions as soon as they're found (truly reactive)
         // Send discussions immediately to provide instant feedback
         
-        // 1. Stream user's own events IMMEDIATELY (no dependencies, fastest path, uses index)
+        // 1. User's own events — batched Mongo round-trips (stats + metadata per chunk, not per discussion)
         List<com.pat.repo.domain.Evenement> userOwnEvents = evenementsRepository.findByAuthorId(user.getId());
-        for (com.pat.repo.domain.Evenement event : userOwnEvents) {
-            if (event.getDiscussionId() != null && !event.getDiscussionId().trim().isEmpty() 
-                && !addedDiscussionIds.contains(event.getDiscussionId())) {
-                processAndStreamEventDiscussion(event, user, onDiscussion, addedDiscussionIds);
-            }
-        }
+        streamEventDiscussionsInBatches(userOwnEvents, onDiscussionBatch, addedDiscussionIds);
         
-        // 2. Stream public events IMMEDIATELY (no dependencies, uses visibility index)
+        // 2. Public events — same batching
         Query publicQuery = new Query();
         publicQuery.addCriteria(Criteria.where("visibility").is("public")
             .and("discussionId").exists(true).ne(null).ne(""));
         List<com.pat.repo.domain.Evenement> publicEvents = mongoTemplate.find(publicQuery, com.pat.repo.domain.Evenement.class);
+        streamEventDiscussionsInBatches(publicEvents, onDiscussionBatch, addedDiscussionIds);
         
-        for (com.pat.repo.domain.Evenement event : publicEvents) {
-            String discussionId = event.getDiscussionId();
-            if (discussionId != null && !discussionId.trim().isEmpty() 
-                && !addedDiscussionIds.contains(discussionId)) {
-                processAndStreamEventDiscussion(event, user, onDiscussion, addedDiscussionIds);
-            }
-        }
-        
-        // 3. NOW load friend/friendGroup data (can be done in parallel, but we do it here)
-        // After the fast queries above, this doesn't block the initial display
+        // 3. Friend / friend-group data
         java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroupsMap = loadAccessibleFriendGroups(user);
         java.util.Set<String> friendIds = loadFriendIds(user);
         
-        // 4. Stream events from friends (requires friendIds) - uses batch query optimization
+        // 4. Friend events — filter access then batch stream
         if (!friendIds.isEmpty()) {
             java.util.List<String> friendIdList = new java.util.ArrayList<>(friendIds);
             Query friendEventsQuery = new Query();
             friendEventsQuery.addCriteria(Criteria.where("authorId").in(friendIdList)
                 .and("discussionId").exists(true).ne(null).ne(""));
             List<com.pat.repo.domain.Evenement> friendEvents = mongoTemplate.find(friendEventsQuery, com.pat.repo.domain.Evenement.class);
-            
+            java.util.List<com.pat.repo.domain.Evenement> accessibleFriendEvents = new java.util.ArrayList<>();
             for (com.pat.repo.domain.Evenement event : friendEvents) {
                 String discussionId = event.getDiscussionId();
-                if (discussionId != null && !discussionId.trim().isEmpty() 
-                    && !addedDiscussionIds.contains(discussionId)) {
-                    // Check access (friends visibility or group visibility)
-                    if (canUserAccessEvent(event, user, friendIds, accessibleGroupsMap)) {
-                        processAndStreamEventDiscussion(event, user, onDiscussion, addedDiscussionIds);
-                    }
+                if (discussionId != null && !discussionId.trim().isEmpty()
+                    && !addedDiscussionIds.contains(discussionId)
+                    && canUserAccessEvent(event, user, friendIds, accessibleGroupsMap)) {
+                    accessibleFriendEvents.add(event);
                 }
             }
+            streamEventDiscussionsInBatches(accessibleFriendEvents, onDiscussionBatch, addedDiscussionIds);
         }
         
-        // 5. Stream friend group discussions (requires accessibleGroupsMap)
-        for (com.pat.repo.domain.FriendGroup group : accessibleGroupsMap.values()) {
-            if (group.getDiscussionId() != null && !group.getDiscussionId().trim().isEmpty() 
-                && !addedDiscussionIds.contains(group.getDiscussionId())) {
-                processAndStreamGroupDiscussion(group, user, onDiscussion, addedDiscussionIds);
+        // 5. Friend group discussions — batched
+        streamGroupDiscussionsInBatches(new java.util.ArrayList<>(accessibleGroupsMap.values()), onDiscussionBatch, addedDiscussionIds);
+    }
+
+    private static final int STREAM_DISCUSSIONS_BATCH_SIZE = 400;
+
+    private void streamEventDiscussionsInBatches(List<com.pat.repo.domain.Evenement> events,
+                                                  Consumer<java.util.List<DiscussionItemDTO>> onDiscussionBatch,
+                                                  java.util.Set<String> addedDiscussionIds) {
+        if (events == null || events.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < events.size(); i += STREAM_DISCUSSIONS_BATCH_SIZE) {
+            int end = Math.min(i + STREAM_DISCUSSIONS_BATCH_SIZE, events.size());
+            flushEventDiscussionChunk(events.subList(i, end), onDiscussionBatch, addedDiscussionIds);
+        }
+    }
+
+    private void flushEventDiscussionChunk(List<com.pat.repo.domain.Evenement> eventsChunk,
+                                          Consumer<java.util.List<DiscussionItemDTO>> onDiscussionBatch,
+                                          java.util.Set<String> addedDiscussionIds) {
+        if (eventsChunk == null || eventsChunk.isEmpty()) {
+            return;
+        }
+        java.util.LinkedHashSet<String> idOrder = new java.util.LinkedHashSet<>();
+        for (com.pat.repo.domain.Evenement event : eventsChunk) {
+            String did = event.getDiscussionId();
+            if (did != null && !did.trim().isEmpty() && !addedDiscussionIds.contains(did)) {
+                idOrder.add(did);
             }
+        }
+        if (idOrder.isEmpty()) {
+            return;
+        }
+        java.util.Map<String, MessageStats> statsMap = batchGetMessageStats(new java.util.HashSet<>(idOrder));
+        java.util.Set<String> toLoad = new java.util.HashSet<>();
+        for (String id : idOrder) {
+            MessageStats ms = statsMap.get(id);
+            if (ms != null && ms.count > 0) {
+                toLoad.add(id);
+            }
+        }
+        if (toLoad.isEmpty()) {
+            return;
+        }
+        java.util.Map<String, Discussion> discMap = batchGetDiscussionsWithoutMessages(toLoad);
+        java.util.List<DiscussionItemDTO> batchOut = new java.util.ArrayList<>();
+        for (com.pat.repo.domain.Evenement event : eventsChunk) {
+            String discussionId = event.getDiscussionId();
+            if (discussionId == null || discussionId.trim().isEmpty() || addedDiscussionIds.contains(discussionId)) {
+                continue;
+            }
+            MessageStats ms = statsMap.get(discussionId);
+            if (ms == null || ms.count == 0) {
+                continue;
+            }
+            Discussion discussion = discMap.get(discussionId);
+            if (discussion == null) {
+                continue;
+            }
+            DiscussionItemDTO item = createDiscussionItemDTOFast(
+                discussion.getId(),
+                "Discussion - " + (event.getEvenementName() != null ? event.getEvenementName() : "Event"),
+                "event",
+                discussion
+            );
+            item.setEvent(event);
+            item.setMessageCount(ms.count);
+            item.setLastMessageDate(ms.lastMessageDate);
+            batchOut.add(item);
+            addedDiscussionIds.add(discussion.getId());
+        }
+        if (!batchOut.isEmpty()) {
+            onDiscussionBatch.accept(batchOut);
+        }
+    }
+
+    private void streamGroupDiscussionsInBatches(List<com.pat.repo.domain.FriendGroup> groups,
+                                                   Consumer<java.util.List<DiscussionItemDTO>> onDiscussionBatch,
+                                                   java.util.Set<String> addedDiscussionIds) {
+        if (groups == null || groups.isEmpty()) {
+            return;
+        }
+        for (int i = 0; i < groups.size(); i += STREAM_DISCUSSIONS_BATCH_SIZE) {
+            int end = Math.min(i + STREAM_DISCUSSIONS_BATCH_SIZE, groups.size());
+            flushGroupDiscussionChunk(groups.subList(i, end), onDiscussionBatch, addedDiscussionIds);
+        }
+    }
+
+    private void flushGroupDiscussionChunk(List<com.pat.repo.domain.FriendGroup> groupsChunk,
+                                          Consumer<java.util.List<DiscussionItemDTO>> onDiscussionBatch,
+                                          java.util.Set<String> addedDiscussionIds) {
+        if (groupsChunk == null || groupsChunk.isEmpty()) {
+            return;
+        }
+        java.util.LinkedHashSet<String> idOrder = new java.util.LinkedHashSet<>();
+        for (com.pat.repo.domain.FriendGroup group : groupsChunk) {
+            String did = group.getDiscussionId();
+            if (did != null && !did.trim().isEmpty() && !addedDiscussionIds.contains(did)) {
+                idOrder.add(did);
+            }
+        }
+        if (idOrder.isEmpty()) {
+            return;
+        }
+        java.util.Map<String, MessageStats> statsMap = batchGetMessageStats(new java.util.HashSet<>(idOrder));
+        java.util.Set<String> toLoad = new java.util.HashSet<>();
+        for (String id : idOrder) {
+            MessageStats ms = statsMap.get(id);
+            if (ms != null && ms.count > 0) {
+                toLoad.add(id);
+            }
+        }
+        if (toLoad.isEmpty()) {
+            return;
+        }
+        java.util.Map<String, Discussion> discMap = batchGetDiscussionsWithoutMessages(toLoad);
+        java.util.List<DiscussionItemDTO> batchOut = new java.util.ArrayList<>();
+        for (com.pat.repo.domain.FriendGroup group : groupsChunk) {
+            String discussionId = group.getDiscussionId();
+            if (discussionId == null || discussionId.trim().isEmpty() || addedDiscussionIds.contains(discussionId)) {
+                continue;
+            }
+            MessageStats ms = statsMap.get(discussionId);
+            if (ms == null || ms.count == 0) {
+                continue;
+            }
+            Discussion discussion = discMap.get(discussionId);
+            if (discussion == null) {
+                continue;
+            }
+            DiscussionItemDTO item = createDiscussionItemDTOFast(
+                discussion.getId(),
+                "Discussion - " + (group.getName() != null ? group.getName() : "Friend Group"),
+                "friendGroup",
+                discussion
+            );
+            item.setFriendGroup(group);
+            item.setMessageCount(ms.count);
+            item.setLastMessageDate(ms.lastMessageDate);
+            batchOut.add(item);
+            addedDiscussionIds.add(discussion.getId());
+        }
+        if (!batchOut.isEmpty()) {
+            onDiscussionBatch.accept(batchOut);
         }
     }
     
@@ -1025,7 +1148,7 @@ public class DiscussionService {
     /**
      * Stream user's own events immediately (optimized with index on authorId)
      */
-    private void streamUserOwnEvents(Member user, Consumer<DiscussionItemDTO> onDiscussion, java.util.Set<String> addedDiscussionIds) {
+    private void streamUserOwnEvents(Member user, Consumer<java.util.List<DiscussionItemDTO>> onDiscussion, java.util.Set<String> addedDiscussionIds) {
         List<com.pat.repo.domain.Evenement> userOwnEvents = evenementsRepository.findByAuthorId(user.getId());
         for (com.pat.repo.domain.Evenement event : userOwnEvents) {
             if (event.getDiscussionId() != null && !event.getDiscussionId().trim().isEmpty() 
@@ -1039,7 +1162,7 @@ public class DiscussionService {
      * Stream public events with discussionId (optimized query for public visibility)
      * Uses MongoTemplate to query public events with discussionId exists (uses indexes)
      */
-    private void streamPublicEventsWithDiscussion(Member user, Consumer<DiscussionItemDTO> onDiscussion, java.util.Set<String> addedDiscussionIds) {
+    private void streamPublicEventsWithDiscussion(Member user, Consumer<java.util.List<DiscussionItemDTO>> onDiscussion, java.util.Set<String> addedDiscussionIds) {
         // Use MongoTemplate to query public events with discussionId exists (uses visibility index)
         Query query = new Query();
         query.addCriteria(Criteria.where("visibility").is("public")
@@ -1060,7 +1183,7 @@ public class DiscussionService {
      */
     private void streamFriendEvents(Member user, java.util.Set<String> friendIds, 
                                    java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroupsMap,
-                                   Consumer<DiscussionItemDTO> onDiscussion, java.util.Set<String> addedDiscussionIds) {
+                                   Consumer<java.util.List<DiscussionItemDTO>> onDiscussion, java.util.Set<String> addedDiscussionIds) {
         if (friendIds.isEmpty()) {
             return; // No friends, skip
         }
@@ -1093,7 +1216,7 @@ public class DiscussionService {
      * Stream friend group discussions immediately
      */
     private void streamFriendGroupDiscussions(java.util.Map<String, com.pat.repo.domain.FriendGroup> accessibleGroupsMap,
-                                             Member user, Consumer<DiscussionItemDTO> onDiscussion, 
+                                             Member user, Consumer<java.util.List<DiscussionItemDTO>> onDiscussion, 
                                              java.util.Set<String> addedDiscussionIds) {
         for (com.pat.repo.domain.FriendGroup group : accessibleGroupsMap.values()) {
             if (group.getDiscussionId() != null && !group.getDiscussionId().trim().isEmpty() 
@@ -1108,7 +1231,7 @@ public class DiscussionService {
      * OPTIMIZED: Only sends discussions that have messages (NOT empty)
      */
     private void processAndStreamEventDiscussion(com.pat.repo.domain.Evenement event, Member user,
-                                                Consumer<DiscussionItemDTO> onDiscussion, 
+                                                Consumer<java.util.List<DiscussionItemDTO>> onDiscussion, 
                                                 java.util.Set<String> addedDiscussionIds) {
         String discussionId = event.getDiscussionId();
         if (discussionId == null || discussionId.trim().isEmpty()) {
@@ -1146,7 +1269,7 @@ public class DiscussionService {
         item.setEvent(event);
         item.setMessageCount(messageCount); // Set the actual count from aggregation
         item.setLastMessageDate(lastMessageDate); // Set last message date if available
-        onDiscussion.accept(item); // Send IMMEDIATELY
+        onDiscussion.accept(java.util.Collections.singletonList(item));
         addedDiscussionIds.add(discussion.getId());
     }
     
@@ -1155,7 +1278,7 @@ public class DiscussionService {
      * OPTIMIZED: Only sends discussions that have messages (NOT empty)
      */
     private void processAndStreamGroupDiscussion(com.pat.repo.domain.FriendGroup group, Member user,
-                                                Consumer<DiscussionItemDTO> onDiscussion, 
+                                                Consumer<java.util.List<DiscussionItemDTO>> onDiscussion, 
                                                 java.util.Set<String> addedDiscussionIds) {
         String discussionId = group.getDiscussionId();
         if (discussionId == null || discussionId.trim().isEmpty()) {
@@ -1193,7 +1316,7 @@ public class DiscussionService {
         item.setFriendGroup(group);
         item.setMessageCount(messageCount); // Set the actual count from aggregation
         item.setLastMessageDate(lastMessageDate); // Set last message date if available
-        onDiscussion.accept(item); // Send IMMEDIATELY
+        onDiscussion.accept(java.util.Collections.singletonList(item));
         addedDiscussionIds.add(discussion.getId());
     }
     

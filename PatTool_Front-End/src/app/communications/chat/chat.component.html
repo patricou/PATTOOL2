@@ -175,15 +175,15 @@
                             <i class="fa fa-clock-o"></i>
                             {{ discussion.lastMessageDate | date:'short' }}
                         </span>
-                        <span class="discussion-id" *ngIf="hasAdminRole()">
+                        <span class="discussion-id" *ngIf="hasAdminRoleValue">
                             <i class="fa fa-hashtag"></i>
                             <strong>{{ "CHAT.ID" | translate }}:</strong> {{ discussion.id }}
                         </span>
-                        <span class="discussion-id" *ngIf="hasAdminRole() && discussion.type === 'event' && discussion.event && discussion.event.id">
+                        <span class="discussion-id" *ngIf="hasAdminRoleValue && discussion.type === 'event' && discussion.event && discussion.event.id">
                             <i class="fa fa-calendar"></i>
                             <strong>{{ "CHAT.EVENT_ID" | translate }}:</strong> {{ discussion.event.id }}
                         </span>
-                        <span class="discussion-id" *ngIf="hasAdminRole() && discussion.type === 'friendGroup' && discussion.friendGroup && discussion.friendGroup.id">
+                        <span class="discussion-id" *ngIf="hasAdminRoleValue && discussion.type === 'friendGroup' && discussion.friendGroup && discussion.friendGroup.id">
                             <i class="fa fa-users"></i>
                             <strong>{{ "CHAT.GROUP_ID" | translate }}:</strong> {{ discussion.friendGroup.id }}
                         </span>

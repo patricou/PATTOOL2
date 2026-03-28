@@ -6,10 +6,11 @@ import { Observable, from, Subject, of } from 'rxjs';
 import { map, switchMap, catchError } from 'rxjs/operators';
 import { firstValueFrom } from 'rxjs';
 
-export interface StreamedDiscussion {
-  type: 'discussion' | 'complete' | 'error';
-  data: DiscussionItem | null;
-}
+/** One SSE payload: batch of discussion cards (fewer events, less JSON overhead). */
+export type StreamedDiscussion =
+  | { type: 'discussions'; data: DiscussionItem[] }
+  | { type: 'complete'; data: null }
+  | { type: 'error'; data: null };
 
 // WebSocket imports - using dynamic require to avoid build-time issues
 const getSockJS = () => {
@@ -272,19 +273,17 @@ export class DiscussionService {
   }
 
   private processSSEDiscussionEvent(eventType: string, data: string, subject: Subject<StreamedDiscussion>): void {
-    if (eventType === 'discussion') {
+    if (eventType === 'discussions') {
       try {
         const parsed = JSON.parse(data);
-        subject.next({
-          type: 'discussion',
-          data: parsed
-        });
+        if (Array.isArray(parsed)) {
+          subject.next({ type: 'discussions', data: parsed });
+        } else {
+          subject.next({ type: 'error', data: null });
+        }
       } catch (e) {
-        console.error('Error parsing discussion data:', e);
-        subject.next({
-          type: 'error',
-          data: null
-        });
+        console.error('Error parsing discussions batch:', e);
+        subject.next({ type: 'error', data: null });
       }
     } else if (eventType === 'complete') {
       subject.next({

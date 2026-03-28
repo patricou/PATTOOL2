@@ -110,9 +110,8 @@ public class GlobalExceptionHandler {
             .anyMatch(pattern -> resourcePath != null && resourcePath.contains(pattern));
         
         if (shouldIgnore) {
-            // Log at info level for scanner/bot requests
             String logMessage = "Ignored scanner/bot request from IP [" + clientIp + "]: " + resourcePath;
-            log.info(logMessage);
+            log.debug(logMessage);
             exceptionTrackingService.addLog(clientIp, logMessage);
         } else {
             String logMessage = "Static resource not found from IP [" + clientIp + "]: " + resourcePath;
@@ -173,7 +172,7 @@ public class GlobalExceptionHandler {
             log.debug(logMessage); // Log as debug - normal client disconnection, no need to log at INFO level
         } else {
             logMessage = "AsyncRequestNotUsableException from IP [" + clientIp + "]: " + message;
-            log.info(logMessage); // Log as info WITHOUT stack trace
+            log.error(logMessage);
         }
         // Don't track normal connection closures in exception tracking service
         if (!isConnectionAbort) {
@@ -320,7 +319,7 @@ public class GlobalExceptionHandler {
             
             if (shouldIgnore) {
                 String logMessage = "Ignored scanner/bot static resource request from IP [" + clientIp + "]: " + message;
-                log.info(logMessage);
+                log.debug(logMessage);
                 exceptionTrackingService.addLog(clientIp, logMessage);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Not found");
             }
