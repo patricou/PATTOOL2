@@ -29,7 +29,6 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
 
@@ -247,7 +246,7 @@ public class MemberRestController {
                 ipAddress = request.getRemoteAddr();
             }
 
-            String subject = "Connection User " + member.getUserName() + " ( "+ member.getFirstName()+ " "+member.getLastName() +" )";
+            String subject = "PatTool - User login: " + member.getUserName() + " ( "+ member.getFirstName()+ " "+member.getLastName() +" )";
             
             String userAgent = request.getHeader("User-Agent");
             String referer = request.getHeader("Referer");
@@ -677,121 +676,114 @@ public class MemberRestController {
         StringBuilder bodyBuilder = new StringBuilder();
         bodyBuilder.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
         bodyBuilder.append("<style>");
-        bodyBuilder.append("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 15px; line-height: 1.8; color: #2c3e50; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin: 0; padding: 20px; }");
-        bodyBuilder.append(".container { max-width: 800px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); overflow: hidden; }");
-        bodyBuilder.append(".header { background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 25px; text-align: center; border-bottom: 4px solid #1e7e34; }");
-        bodyBuilder.append(".header-new { background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%); color: white; padding: 25px; text-align: center; border-bottom: 4px solid #ff8c00; }");
-        bodyBuilder.append(".header h1 { margin: 0; font-size: 24px; font-weight: 700; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); letter-spacing: 1px; }");
-        bodyBuilder.append(".header-icon { font-size: 32px; margin-bottom: 10px; }");
-        bodyBuilder.append(".section { background: white; margin: 20px; padding: 0; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); overflow: hidden; border: 2px solid #e0e0e0; }");
-        bodyBuilder.append(".section-header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; font-weight: 700; font-size: 16px; border-bottom: 3px solid #5568d3; display: flex; align-items: center; gap: 10px; }");
-        bodyBuilder.append(".section-content { padding: 20px; background: #fafafa; }");
-        bodyBuilder.append(".info-item { margin: 12px 0; padding: 12px; background: white; border-radius: 6px; border-left: 4px solid #667eea; box-shadow: 0 2px 4px rgba(0,0,0,0.05); display: flex; align-items: center; }");
-        bodyBuilder.append(".label { font-weight: 700; color: #495057; min-width: 140px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }");
-        bodyBuilder.append(".value { color: #212529; font-weight: 500; flex: 1; font-size: 15px; }");
-        bodyBuilder.append(".new-user-badge { background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%); color: #000; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; display: inline-block; margin-left: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }");
-        bodyBuilder.append(".ip-highlight { color: #007bff; font-weight: bold !important; font-size: 16px; background: #e7f3ff; padding: 4px 8px; border-radius: 4px; display: inline-block; }");
-        bodyBuilder.append(".domain-highlight { color: #28a745; font-weight: bold !important; font-size: 15px; background: #d4edda; padding: 4px 8px; border-radius: 4px; display: inline-block; }");
-        bodyBuilder.append(".location-highlight { color: #dc3545; font-weight: bold !important; font-size: 15px; background: #f8d7da; padding: 4px 8px; border-radius: 4px; display: inline-block; }");
-        bodyBuilder.append(".separator { height: 3px; background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #667eea 100%); margin: 20px 0; border-radius: 2px; }");
-        bodyBuilder.append(".icon { font-size: 20px; margin-right: 8px; }");
+        bodyBuilder.append("body { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333; background: #f4f4f4; margin: 0; padding: 16px; }");
+        bodyBuilder.append(".container { max-width: 700px; margin: 0 auto; background: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 20px; }");
+        bodyBuilder.append("h1 { font-size: 20px; margin-top: 0; color: #2c3e50; }");
+        bodyBuilder.append("h2 { font-size: 16px; margin-top: 20px; color: #2c3e50; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }");
+        bodyBuilder.append("table { border-collapse: collapse; width: 100%; max-width: 100%; }");
+        bodyBuilder.append("th, td { text-align: left; padding: 6px 8px; font-size: 13px; }");
+        bodyBuilder.append("th { width: 160px; color: #555; background: #f8f9fa; }");
+        bodyBuilder.append("tr:nth-child(even) td { background: #fafafa; }");
+        bodyBuilder.append(".footer { margin-top: 18px; font-size: 11px; color: #777; }");
         bodyBuilder.append("</style></head><body>");
         bodyBuilder.append("<div class='container'>");
-        
-        // Header
-        if (isNewUser) {
-            bodyBuilder.append("<div class='header-new'>");
-            bodyBuilder.append("<div class='header-icon'>🆕</div>");
-            bodyBuilder.append("<h1>NEW USER CONNECTION</h1>");
-            bodyBuilder.append("</div>");
-        } else {
-            bodyBuilder.append("<div class='header'>");
-            bodyBuilder.append("<div class='header-icon'>👤</div>");
-            bodyBuilder.append("<h1>USER CONNECTION</h1>");
-            bodyBuilder.append("</div>");
-        }
-        
-        // User Information Section
-        bodyBuilder.append("<div class='section'>");
-        bodyBuilder.append("<div class='section-header'><span class='icon'>" + (isNewUser ? "🆕" : "👤") + "</span>USER INFORMATION" + (isNewUser ? " <span class='new-user-badge'>NEW</span>" : "") + "</div>");
-        bodyBuilder.append("<div class='section-content'>");
+
+        bodyBuilder.append("<h1>")
+                .append(isNewUser ? "New user connection" : "User connection")
+                .append("</h1>");
+
+        // User Information Section (summary only)
+        bodyBuilder.append("<h2>User</h2>");
+        bodyBuilder.append("<table>");
         if (member.getId() != null && !isNewUser) {
-            bodyBuilder.append("<div class='info-item'><span class='label'>🆔 ID:</span> <span class='value'>").append(escapeHtml(member.getId())).append("</span></div>");
+            bodyBuilder.append("<tr><th>ID</th><td>")
+                    .append(escapeHtml(member.getId()))
+                    .append("</td></tr>");
         }
-        bodyBuilder.append("<div class='info-item'><span class='label'>👤 Username:</span> <span class='value'>").append(escapeHtml(member.getUserName() != null ? member.getUserName() : "N/A")).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>📝 First Name:</span> <span class='value'>").append(escapeHtml(member.getFirstName() != null ? member.getFirstName() : "N/A")).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>📝 Last Name:</span> <span class='value'>").append(escapeHtml(member.getLastName() != null ? member.getLastName() : "N/A")).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>📧 Email:</span> <span class='value'>").append(escapeHtml(member.getAddressEmail() != null ? member.getAddressEmail() : "N/A")).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🔑 Keycloak ID:</span> <span class='value'>").append(escapeHtml(member.getKeycloakId() != null ? member.getKeycloakId() : "N/A")).append("</span></div>");
+        bodyBuilder.append("<tr><th>Username</th><td>")
+                .append(escapeHtml(member.getUserName() != null ? member.getUserName() : "N/A"))
+                .append("</td></tr>");
+        bodyBuilder.append("<tr><th>First name</th><td>")
+                .append(escapeHtml(member.getFirstName() != null ? member.getFirstName() : "N/A"))
+                .append("</td></tr>");
+        bodyBuilder.append("<tr><th>Last name</th><td>")
+                .append(escapeHtml(member.getLastName() != null ? member.getLastName() : "N/A"))
+                .append("</td></tr>");
+        bodyBuilder.append("<tr><th>Email</th><td>")
+                .append(escapeHtml(member.getAddressEmail() != null ? member.getAddressEmail() : "N/A"))
+                .append("</td></tr>");
         if (member.getRoles() != null && !member.getRoles().isEmpty()) {
-            bodyBuilder.append("<div class='info-item'><span class='label'>🎭 Roles:</span> <span class='value'>").append(escapeHtml(member.getRoles())).append("</span></div>");
+            bodyBuilder.append("<tr><th>Roles</th><td>")
+                    .append(escapeHtml(member.getRoles()))
+                    .append("</td></tr>");
         }
-        bodyBuilder.append("</div></div>");
-        
-        bodyBuilder.append("<div class='separator'></div>");
-        
-        // Connection Information Section
-        bodyBuilder.append("<div class='section'>");
-        bodyBuilder.append("<div class='section-header'><span class='icon'>🌐</span>CONNECTION INFORMATION</div>");
-        bodyBuilder.append("<div class='section-content'>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🕐 Timestamp:</span> <span class='value'>").append(escapeHtml(formatDateTime(LocalDateTime.now()))).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🖥️ <strong>Server IP:</strong></span> <span class='value'><span class='ip-highlight'>").append(escapeHtml(getIp())).append("</span></span></div>");
-        
-        // Get IP geolocation information
-        IpGeolocationService.IPInfo ipInfo = ipGeolocationService.getCompleteIpInfo(ipAddress);
-        bodyBuilder.append("<div class='info-item'><span class='label'>📍 <strong>Client IP:</strong></span> <span class='value'><span class='ip-highlight'>").append(escapeHtml(ipAddress)).append("</span></span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🌍 <strong>Domain Name:</strong></span> <span class='value'><span class='domain-highlight'>").append(escapeHtml(ipInfo.getDomainName() != null && !ipInfo.getDomainName().isEmpty() ? ipInfo.getDomainName() : "N/A")).append("</span></span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🗺️ <strong>Location:</strong></span> <span class='value'><span class='location-highlight'>").append(escapeHtml(ipInfo.getLocation())).append("</span></span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>⚡ Request Method:</span> <span class='value'>").append(escapeHtml(request.getMethod())).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🔗 Request URI:</span> <span class='value'>").append(escapeHtml(request.getRequestURI())).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🔗 Request URL:</span> <span class='value'>").append(escapeHtml(request.getRequestURL().toString())).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>❓ Query String:</span> <span class='value'>").append(escapeHtml(request.getQueryString() != null ? request.getQueryString() : "N/A")).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🔒 Protocol:</span> <span class='value'>").append(escapeHtml(request.getProtocol())).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🌐 Scheme:</span> <span class='value'>").append(escapeHtml(request.getScheme())).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🖥️ Server Name:</span> <span class='value'>").append(escapeHtml(request.getServerName())).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🔌 Server Port:</span> <span class='value'>").append(request.getServerPort()).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🏠 Remote Host:</span> <span class='value'>").append(escapeHtml(request.getRemoteHost())).append("</span></div>");
-        bodyBuilder.append("<div class='info-item'><span class='label'>🔌 Remote Port:</span> <span class='value'>").append(request.getRemotePort()).append("</span></div>");
-        bodyBuilder.append("</div></div>");
-        
-        bodyBuilder.append("<div class='separator'></div>");
-        
-        // Request Headers Section
-        bodyBuilder.append("<div class='section'>");
-        bodyBuilder.append("<div class='section-header'><span class='icon'>📋</span>REQUEST HEADERS</div>");
-        bodyBuilder.append("<div class='section-content'>");
-        Enumeration<String> headerNames = request.getHeaderNames();
-        while (headerNames.hasMoreElements()) {
-            String headerName = headerNames.nextElement();
-            String headerValue = request.getHeader(headerName);
-            if (!"authorization".equalsIgnoreCase(headerName)) {
-                bodyBuilder.append("<div class='info-item'><span class='label'>📄 ").append(escapeHtml(headerName)).append(":</span> <span class='value'>").append(escapeHtml(headerValue)).append("</span></div>");
-            }
+        bodyBuilder.append("</table>");
+
+        // Connection Information Section (reduced)
+        bodyBuilder.append("<h2>Connection</h2>");
+        IpGeolocationService.ExtendedIPInfo ipInfo = ipGeolocationService.getCompleteIpInfoWithCoordinates(ipAddress);
+
+        // Try to use GPS coordinates from request if available
+        Double lat = member.getRequestLatitude();
+        Double lon = member.getRequestLongitude();
+        String gpsCoords = null;
+        String googleMapsLink = null;
+        String coordsSourceLabel = null;
+        if (lat != null && lon != null) {
+            gpsCoords = String.format(java.util.Locale.ENGLISH, "%.6f, %.6f", lat, lon);
+            googleMapsLink = "https://www.google.com/maps?q=" + lat + "," + lon;
+            coordsSourceLabel = "GPS from browser";
+        } else if (ipInfo != null && ipInfo.getLatitude() != null && ipInfo.getLongitude() != null) {
+            lat = ipInfo.getLatitude();
+            lon = ipInfo.getLongitude();
+            gpsCoords = String.format(java.util.Locale.ENGLISH, "%.6f, %.6f", lat, lon);
+            googleMapsLink = "https://www.google.com/maps?q=" + lat + "," + lon;
+            coordsSourceLabel = "Approximate location from IP";
         }
-        bodyBuilder.append("</div></div>");
-        
-        // User-Agent Information
-        String userAgent = request.getHeader("User-Agent");
-        if (userAgent != null) {
-            bodyBuilder.append("<div class='separator'></div>");
-            bodyBuilder.append("<div class='section'>");
-            bodyBuilder.append("<div class='section-header'><span class='icon'>🌐</span>BROWSER/CLIENT INFORMATION</div>");
-            bodyBuilder.append("<div class='section-content'>");
-            bodyBuilder.append("<div class='info-item'><span class='label'>🌐 User-Agent:</span> <span class='value'>").append(escapeHtml(userAgent)).append("</span></div>");
-            bodyBuilder.append("</div></div>");
+
+        bodyBuilder.append("<table>");
+        bodyBuilder.append("<tr><th>Timestamp</th><td>")
+                .append(escapeHtml(formatDateTime(LocalDateTime.now())))
+                .append("</td></tr>");
+        bodyBuilder.append("<tr><th>Server IP</th><td>")
+                .append(escapeHtml(getIp()))
+                .append("</td></tr>");
+        bodyBuilder.append("<tr><th>Client IP</th><td>")
+                .append(escapeHtml(ipAddress))
+                .append("</td></tr>");
+        String domainName = ipInfo != null ? ipInfo.getDomainName() : null;
+        String locationText = ipInfo != null ? ipInfo.getLocation() : null;
+        bodyBuilder.append("<tr><th>Domain</th><td>")
+                .append(escapeHtml(domainName != null && !domainName.isEmpty() ? domainName : "N/A"))
+                .append("</td></tr>");
+        bodyBuilder.append("<tr><th>Location</th><td>")
+                .append(escapeHtml(locationText != null ? locationText : "N/A"))
+                .append("</td></tr>");
+        if (gpsCoords != null && googleMapsLink != null && coordsSourceLabel != null) {
+            bodyBuilder.append("<tr><th>Coordinates</th><td>")
+                    .append(escapeHtml(gpsCoords))
+                    .append(" <span style='color:#777;font-size:11px;'>(")
+                    .append(escapeHtml(coordsSourceLabel))
+                    .append(")</span></td></tr>");
+            bodyBuilder.append("<tr><th>Google Maps</th><td><a href='")
+                    .append(escapeHtml(googleMapsLink))
+                    .append("' target='_blank'>Open map at user location</a></td></tr>");
         }
-        
-        // Referer Information
-        String referer = request.getHeader("Referer");
-        if (referer != null) {
-            bodyBuilder.append("<div class='separator'></div>");
-            bodyBuilder.append("<div class='section'>");
-            bodyBuilder.append("<div class='section-header'><span class='icon'>🔗</span>REFERRER INFORMATION</div>");
-            bodyBuilder.append("<div class='section-content'>");
-            bodyBuilder.append("<div class='info-item'><span class='label'>🔗 Referer:</span> <span class='value'>").append(escapeHtml(referer)).append("</span></div>");
-            bodyBuilder.append("</div></div>");
+        bodyBuilder.append("<tr><th>Method</th><td>")
+                .append(escapeHtml(request.getMethod()))
+                .append("</td></tr>");
+        bodyBuilder.append("<tr><th>Request URI</th><td>")
+                .append(escapeHtml(request.getRequestURI()))
+                .append("</td></tr>");
+        bodyBuilder.append("</table>");
+
+        bodyBuilder.append("<div class='footer'>");
+        bodyBuilder.append("This is an automated notification from the PatTool application.");
+        if (isNewUser) {
+            bodyBuilder.append(" User was created on first connection.");
         }
-        
+        bodyBuilder.append("</div>");
+
         bodyBuilder.append("</div></body></html>");
         return bodyBuilder.toString();
     }
