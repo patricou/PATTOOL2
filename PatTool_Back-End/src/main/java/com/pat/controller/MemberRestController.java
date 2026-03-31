@@ -246,8 +246,7 @@ public class MemberRestController {
                 ipAddress = request.getRemoteAddr();
             }
 
-            String subject = "PatTool - User login - " + formatDateTime(LocalDateTime.now())
-                    + " - " + member.getUserName() + " ( "+ member.getFirstName()+ " "+member.getLastName() +" )";
+            String subject = "PatTool - User Connection - " + formatDateTime(LocalDateTime.now());
             
             String userAgent = request.getHeader("User-Agent");
             String referer = request.getHeader("Referer");
@@ -314,8 +313,7 @@ public class MemberRestController {
                 ipAddress = request.getRemoteAddr();
             }
 
-            String subject = "PatTool - New user login - " + formatDateTime(LocalDateTime.now())
-                    + " - " + member.getUserName() + " ( "+ member.getFirstName()+ " "+member.getLastName() +" )";
+            String subject = "PatTool - User Connection - " + formatDateTime(LocalDateTime.now());
             
             String userAgent = request.getHeader("User-Agent");
             String referer = request.getHeader("Referer");
