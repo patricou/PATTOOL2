@@ -824,14 +824,11 @@ public class MemberRestController {
     }
 
     /**
-     * Whether connection email should not be sent for this user (e.g. to avoid self-notification).
-     * When true, no connection email is sent when this user connects.
+     * Whether connection email should not be sent for this user.
+     * Currently, connection emails are sent for all users.
      */
     private boolean isConnectionEmailExcludedForUser(Member member) {
-        if (member == null || member.getUserName() == null) {
-            return false;
-        }
-        return "Patricou".equalsIgnoreCase(member.getUserName().trim());
+        return false;
     }
 
     /**
