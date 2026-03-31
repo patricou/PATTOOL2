@@ -246,17 +246,19 @@ public class MemberRestController {
                 ipAddress = request.getRemoteAddr();
             }
 
-            String subject = "PatTool - User login: " + member.getUserName() + " ( "+ member.getFirstName()+ " "+member.getLastName() +" )";
+            String subject = "PatTool - User login - " + formatDateTime(LocalDateTime.now())
+                    + " - " + member.getUserName() + " ( "+ member.getFirstName()+ " "+member.getLastName() +" )";
             
             String userAgent = request.getHeader("User-Agent");
             String referer = request.getHeader("Referer");
-            String body = generateConnectionEmailHtml(member, request, ipAddress, false);
+            String body = generateConnectionEmailBody(member, request, ipAddress, false);
             
             // Check if IP should be excluded from email notifications (client or server IP)
             if (connectionEmailEnabled) {
                 if (!isConnectionEmailExcludedForUser(member) && !shouldExcludeEmail(ipAddress)) {
                     log.debug("Attempting to send connection email for user: {}", member.getUserName());
-                    mailController.sendMail(subject, body, true); // true = HTML format
+                    // Plain text body is less likely to be flagged as spam than heavy HTML
+                    mailController.sendMail(subject, body, false);
                     log.debug("Connection notification - Subject: '{}' From IP: {}", subject, getIp());
                 } else {
                     if (isConnectionEmailExcludedForUser(member)) {
@@ -312,17 +314,19 @@ public class MemberRestController {
                 ipAddress = request.getRemoteAddr();
             }
 
-            String subject = "NEW USER Connection " + member.getUserName() + " ( "+ member.getFirstName()+ " "+member.getLastName() +" )";
+            String subject = "PatTool - New user login - " + formatDateTime(LocalDateTime.now())
+                    + " - " + member.getUserName() + " ( "+ member.getFirstName()+ " "+member.getLastName() +" )";
             
             String userAgent = request.getHeader("User-Agent");
             String referer = request.getHeader("Referer");
-            String body = generateConnectionEmailHtml(member, request, ipAddress, true);
+            String body = generateConnectionEmailBody(member, request, ipAddress, true);
             
             // Check if IP should be excluded from email notifications (client or server IP)
             if (connectionEmailEnabled) {
                 if (!isConnectionEmailExcludedForUser(member) && !shouldExcludeEmail(ipAddress)) {
                     log.debug("Attempting to send NEW USER connection email for: {}", member.getUserName());
-                    mailController.sendMail(subject, body, true); // true = HTML format
+                    // Plain text body is less likely to be flagged as spam than heavy HTML
+                    mailController.sendMail(subject, body, false);
                     log.debug("NEW USER connection notification - Subject: '{}' From IP: {}", subject, getIp());
                 } else {
                     if (isConnectionEmailExcludedForUser(member)) {
@@ -670,57 +674,34 @@ public class MemberRestController {
     }
 
     /**
-     * Generate HTML email body for user connection notifications
+     * Generate plain text email body for user connection notifications.
+     * Plain text emails are typically less likely to be classified as spam
+     * than heavily formatted HTML with lots of technical details.
      */
-    private String generateConnectionEmailHtml(Member member, HttpServletRequest request, String ipAddress, boolean isNewUser) {
+    private String generateConnectionEmailBody(Member member, HttpServletRequest request, String ipAddress, boolean isNewUser) {
         StringBuilder bodyBuilder = new StringBuilder();
-        bodyBuilder.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
-        bodyBuilder.append("<style>");
-        bodyBuilder.append("body { font-family: Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #333; background: #f4f4f4; margin: 0; padding: 16px; }");
-        bodyBuilder.append(".container { max-width: 700px; margin: 0 auto; background: #ffffff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); padding: 20px; }");
-        bodyBuilder.append("h1 { font-size: 20px; margin-top: 0; color: #2c3e50; }");
-        bodyBuilder.append("h2 { font-size: 16px; margin-top: 20px; color: #2c3e50; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }");
-        bodyBuilder.append("table { border-collapse: collapse; width: 100%; max-width: 100%; }");
-        bodyBuilder.append("th, td { text-align: left; padding: 6px 8px; font-size: 13px; }");
-        bodyBuilder.append("th { width: 160px; color: #555; background: #f8f9fa; }");
-        bodyBuilder.append("tr:nth-child(even) td { background: #fafafa; }");
-        bodyBuilder.append(".footer { margin-top: 18px; font-size: 11px; color: #777; }");
-        bodyBuilder.append("</style></head><body>");
-        bodyBuilder.append("<div class='container'>");
 
-        bodyBuilder.append("<h1>")
-                .append(isNewUser ? "New user connection" : "User connection")
-                .append("</h1>");
+        bodyBuilder.append(isNewUser ? "NEW USER CONNECTION" : "USER CONNECTION").append("\n");
+        bodyBuilder.append("====================================\n\n");
 
         // User Information Section (summary only)
-        bodyBuilder.append("<h2>User</h2>");
-        bodyBuilder.append("<table>");
+        bodyBuilder.append("User\n");
+        bodyBuilder.append("----\n");
         if (member.getId() != null && !isNewUser) {
-            bodyBuilder.append("<tr><th>ID</th><td>")
-                    .append(escapeHtml(member.getId()))
-                    .append("</td></tr>");
+            bodyBuilder.append("ID          : ").append(member.getId()).append("\n");
         }
-        bodyBuilder.append("<tr><th>Username</th><td>")
-                .append(escapeHtml(member.getUserName() != null ? member.getUserName() : "N/A"))
-                .append("</td></tr>");
-        bodyBuilder.append("<tr><th>First name</th><td>")
-                .append(escapeHtml(member.getFirstName() != null ? member.getFirstName() : "N/A"))
-                .append("</td></tr>");
-        bodyBuilder.append("<tr><th>Last name</th><td>")
-                .append(escapeHtml(member.getLastName() != null ? member.getLastName() : "N/A"))
-                .append("</td></tr>");
-        bodyBuilder.append("<tr><th>Email</th><td>")
-                .append(escapeHtml(member.getAddressEmail() != null ? member.getAddressEmail() : "N/A"))
-                .append("</td></tr>");
+        bodyBuilder.append("Username    : ").append(member.getUserName() != null ? member.getUserName() : "N/A").append("\n");
+        bodyBuilder.append("First name  : ").append(member.getFirstName() != null ? member.getFirstName() : "N/A").append("\n");
+        bodyBuilder.append("Last name   : ").append(member.getLastName() != null ? member.getLastName() : "N/A").append("\n");
+        bodyBuilder.append("Email       : ").append(member.getAddressEmail() != null ? member.getAddressEmail() : "N/A").append("\n");
         if (member.getRoles() != null && !member.getRoles().isEmpty()) {
-            bodyBuilder.append("<tr><th>Roles</th><td>")
-                    .append(escapeHtml(member.getRoles()))
-                    .append("</td></tr>");
+            bodyBuilder.append("Roles       : ").append(member.getRoles()).append("\n");
         }
-        bodyBuilder.append("</table>");
+        bodyBuilder.append("\n");
 
         // Connection Information Section (reduced)
-        bodyBuilder.append("<h2>Connection</h2>");
+        bodyBuilder.append("Connection\n");
+        bodyBuilder.append("----------\n");
         IpGeolocationService.ExtendedIPInfo ipInfo = ipGeolocationService.getCompleteIpInfoWithCoordinates(ipAddress);
 
         // Try to use GPS coordinates from request if available
@@ -741,50 +722,28 @@ public class MemberRestController {
             coordsSourceLabel = "Approximate location from IP";
         }
 
-        bodyBuilder.append("<table>");
-        bodyBuilder.append("<tr><th>Timestamp</th><td>")
-                .append(escapeHtml(formatDateTime(LocalDateTime.now())))
-                .append("</td></tr>");
-        bodyBuilder.append("<tr><th>Server IP</th><td>")
-                .append(escapeHtml(getIp()))
-                .append("</td></tr>");
-        bodyBuilder.append("<tr><th>Client IP</th><td>")
-                .append(escapeHtml(ipAddress))
-                .append("</td></tr>");
+        bodyBuilder.append("Timestamp   : ").append(formatDateTime(LocalDateTime.now())).append("\n");
+        bodyBuilder.append("Server IP   : ").append(getIp()).append("\n");
+        bodyBuilder.append("Client IP   : ").append(ipAddress).append("\n");
+
         String domainName = ipInfo != null ? ipInfo.getDomainName() : null;
         String locationText = ipInfo != null ? ipInfo.getLocation() : null;
-        bodyBuilder.append("<tr><th>Domain</th><td>")
-                .append(escapeHtml(domainName != null && !domainName.isEmpty() ? domainName : "N/A"))
-                .append("</td></tr>");
-        bodyBuilder.append("<tr><th>Location</th><td>")
-                .append(escapeHtml(locationText != null ? locationText : "N/A"))
-                .append("</td></tr>");
+        bodyBuilder.append("Domain      : ").append(domainName != null && !domainName.isEmpty() ? domainName : "N/A").append("\n");
+        bodyBuilder.append("Location    : ").append(locationText != null ? locationText : "N/A").append("\n");
         if (gpsCoords != null && googleMapsLink != null && coordsSourceLabel != null) {
-            bodyBuilder.append("<tr><th>Coordinates</th><td>")
-                    .append(escapeHtml(gpsCoords))
-                    .append(" <span style='color:#777;font-size:11px;'>(")
-                    .append(escapeHtml(coordsSourceLabel))
-                    .append(")</span></td></tr>");
-            bodyBuilder.append("<tr><th>Google Maps</th><td><a href='")
-                    .append(escapeHtml(googleMapsLink))
-                    .append("' target='_blank'>Open map at user location</a></td></tr>");
+            bodyBuilder.append("Coordinates : ").append(gpsCoords)
+                    .append("  (").append(coordsSourceLabel).append(")").append("\n");
+            bodyBuilder.append("Google Maps : ").append(googleMapsLink).append("\n");
         }
-        bodyBuilder.append("<tr><th>Method</th><td>")
-                .append(escapeHtml(request.getMethod()))
-                .append("</td></tr>");
-        bodyBuilder.append("<tr><th>Request URI</th><td>")
-                .append(escapeHtml(request.getRequestURI()))
-                .append("</td></tr>");
-        bodyBuilder.append("</table>");
+        bodyBuilder.append("Method      : ").append(request.getMethod()).append("\n");
+        bodyBuilder.append("Request URI : ").append(request.getRequestURI()).append("\n");
 
-        bodyBuilder.append("<div class='footer'>");
+        bodyBuilder.append("\n");
         bodyBuilder.append("This is an automated notification from the PatTool application.");
         if (isNewUser) {
             bodyBuilder.append(" User was created on first connection.");
         }
-        bodyBuilder.append("</div>");
 
-        bodyBuilder.append("</div></body></html>");
         return bodyBuilder.toString();
     }
 
@@ -799,20 +758,6 @@ public class MemberRestController {
         String zone = zoneId.toString();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
         return dateTime.format(formatter) + " +" + zone;
-    }
-
-    /**
-     * Escape HTML special characters
-     */
-    private String escapeHtml(String text) {
-        if (text == null) {
-            return "";
-        }
-        return text.replace("&", "&amp;")
-                   .replace("<", "&lt;")
-                   .replace(">", "&gt;")
-                   .replace("\"", "&quot;")
-                   .replace("'", "&#39;");
     }
 
     /**
