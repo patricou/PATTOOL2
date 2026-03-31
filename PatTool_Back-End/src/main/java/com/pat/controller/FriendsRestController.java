@@ -648,6 +648,38 @@ public class FriendsRestController {
             }
 
             List<com.pat.repo.domain.FriendGroup> groups = friendsService.getFriendGroups(currentUser);
+            // Do not expose member positions in friend groups list
+            if (groups != null) {
+                for (com.pat.repo.domain.FriendGroup g : groups) {
+                    if (g == null) {
+                        continue;
+                    }
+                    Member owner = g.getOwner();
+                    if (owner != null) {
+                        owner.setPositions(null);
+                        owner.setRequestLatitude(null);
+                        owner.setRequestLongitude(null);
+                    }
+                    if (g.getMembers() != null) {
+                        for (Member m : g.getMembers()) {
+                            if (m != null) {
+                                m.setPositions(null);
+                                m.setRequestLatitude(null);
+                                m.setRequestLongitude(null);
+                            }
+                        }
+                    }
+                    if (g.getAuthorizedUsers() != null) {
+                        for (Member m : g.getAuthorizedUsers()) {
+                            if (m != null) {
+                                m.setPositions(null);
+                                m.setRequestLatitude(null);
+                                m.setRequestLongitude(null);
+                            }
+                        }
+                    }
+                }
+            }
             return ResponseEntity.ok(groups);
         } catch (Exception e) {
             log.error("Error getting friend groups", e);

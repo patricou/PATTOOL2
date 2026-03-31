@@ -146,6 +146,10 @@ public class PhotoTimelineRestController {
         private String ownerFirstName;
         private String ownerLastName;
         private String ownerUserName;
+        /** Nombre de votes positifs pour l'événement (mur de photos). */
+        private Integer ratingPlus;
+        /** Nombre de votes négatifs pour l'événement (mur de photos). */
+        private Integer ratingMinus;
 
         public TimelineGroup() {}
 
@@ -177,6 +181,10 @@ public class PhotoTimelineRestController {
         public void setOwnerLastName(String ownerLastName) { this.ownerLastName = ownerLastName; }
         public String getOwnerUserName() { return ownerUserName; }
         public void setOwnerUserName(String ownerUserName) { this.ownerUserName = ownerUserName; }
+        public Integer getRatingPlus() { return ratingPlus; }
+        public void setRatingPlus(Integer ratingPlus) { this.ratingPlus = ratingPlus; }
+        public Integer getRatingMinus() { return ratingMinus; }
+        public void setRatingMinus(Integer ratingMinus) { this.ratingMinus = ratingMinus; }
     }
 
     public static class TimelineResponse {
@@ -251,6 +259,8 @@ public class PhotoTimelineRestController {
                     .include("type")
                     .include("comments")
                     .include("beginEventDate")
+                    .include("ratingPlus")
+                    .include("ratingMinus")
                     .include("fileUploadeds")
                     .include("thumbnail")
                     .include("urlEvents")
@@ -288,6 +298,8 @@ public class PhotoTimelineRestController {
                     group.setPhotos(photos);
                     group.setVideos(videos != null ? videos : Collections.emptyList());
                     group.setFsPhotoLinks(fsLinks);
+                    group.setRatingPlus(e.getRatingPlus());
+                    group.setRatingMinus(e.getRatingMinus());
                     Member owner = resolveEventAuthor(e);
                     if (owner != null) {
                         group.setOwnerFirstName(owner.getFirstName());
@@ -360,6 +372,8 @@ public class PhotoTimelineRestController {
                     .include("type")
                     .include("comments")
                     .include("beginEventDate")
+                    .include("ratingPlus")
+                    .include("ratingMinus")
                     .include("fileUploadeds")
                     .include("urlEvents")
                     .include("photosUrl")
@@ -393,6 +407,8 @@ public class PhotoTimelineRestController {
                     group.setFriendGroupIds(e.getFriendGroupIds());
                     group.setPhotos(videos);
                     group.setFsPhotoLinks(extractFsPhotoLinks(e));
+                    group.setRatingPlus(e.getRatingPlus());
+                    group.setRatingMinus(e.getRatingMinus());
                     Member owner = resolveEventAuthor(e);
                     if (owner != null) {
                         group.setOwnerFirstName(owner.getFirstName());

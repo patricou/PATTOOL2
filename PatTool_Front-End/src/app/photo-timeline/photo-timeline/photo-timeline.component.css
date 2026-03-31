@@ -528,6 +528,35 @@
     margin-right: 0.2rem;
 }
 
+/* Rating line for each event in the wall */
+.group-rating {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    margin-left: auto;
+    font-size: 0.8rem;
+}
+
+.group-rating .rating-badge {
+    cursor: pointer;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #ffc107, #ff9800);
+    color: #212529;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    min-width: 1.4rem;
+    text-align: center;
+}
+
+.group-rating .rating-badge:hover {
+    filter: brightness(1.05);
+}
+
+.group-rating ngb-rating {
+    color: #ffc107;
+}
+
 .group-visibility-badges {
     display: inline-flex;
     flex-wrap: wrap;

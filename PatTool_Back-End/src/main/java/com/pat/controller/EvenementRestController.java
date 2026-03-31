@@ -1316,7 +1316,25 @@ public class EvenementRestController {
                 evenement.setFileUploadeds(withThumbnail);
             }
         }
-        
+        // Do not expose positions (GPS / IP) for author and members in event detail response
+        if (evenement.getAuthor() != null) {
+            Member author = evenement.getAuthor();
+            author.setPositions(null);
+            author.setRequestLatitude(null);
+            author.setRequestLongitude(null);
+        }
+        if (evenement.getMembers() != null) {
+            for (Member m : evenement.getMembers()) {
+                if (m != null) {
+                    m.setPositions(null);
+                    m.setRequestLatitude(null);
+                    m.setRequestLongitude(null);
+                }
+            }
+        }
+        // Also clear positions on uploader members attached to files, if any
+        clearUploaderMemberPositions(evenement.getFileUploadeds());
+
         return ResponseEntity.ok(evenement);
     }
     

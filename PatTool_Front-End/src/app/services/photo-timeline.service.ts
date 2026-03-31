@@ -43,6 +43,10 @@ export interface TimelineGroup {
     ownerFirstName?: string;
     ownerLastName?: string;
     ownerUserName?: string;
+    /** Nombre de votes positifs pour l'événement (mur de photos). */
+    ratingPlus?: number;
+    /** Nombre de votes négatifs pour l'événement (mur de photos). */
+    ratingMinus?: number;
 }
 
 export interface TimelineResponse {

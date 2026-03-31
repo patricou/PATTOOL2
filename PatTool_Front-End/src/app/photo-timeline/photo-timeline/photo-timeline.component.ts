@@ -17,7 +17,7 @@ import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
 import { forkJoin, of, Subscription } from 'rxjs';
-import { map, distinctUntilChanged, catchError, take } from 'rxjs/operators';
+import { map, distinctUntilChanged, catchError, take, switchMap } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { EvenementsService } from '../../services/evenements.service';
@@ -1108,6 +1108,63 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             '19': 'fa-music'
         };
         return icons[type] || 'fa-calendar';
+    }
+
+    /** Note courante (0–10) à partir des likes/dislikes de l'événement. */
+    getGroupCurrentRate(group: TimelineGroup): number {
+        const plus = group.ratingPlus ?? 0;
+        const minus = group.ratingMinus ?? 0;
+        const total = plus + minus;
+        if (!total) {
+            return 0;
+        }
+        return (plus / total) * 10;
+    }
+
+    onTimelineRatePlus(group: TimelineGroup, ev: Event): void {
+        ev.stopPropagation();
+        this.rateTimelineEvent(group, true);
+    }
+
+    onTimelineRateMinus(group: TimelineGroup, ev: Event): void {
+        ev.stopPropagation();
+        this.rateTimelineEvent(group, false);
+    }
+
+    private rateTimelineEvent(group: TimelineGroup, isPlus: boolean): void {
+        const eventId = group?.eventId;
+        if (!eventId) {
+            return;
+        }
+        const sub = this.evenementsService.getEvenement(eventId).pipe(
+            take(1),
+            switchMap(e => {
+                if (!e) {
+                    return of(null);
+                }
+                if (isPlus) {
+                    e.ratingPlus = (e.ratingPlus || 0) + 1;
+                } else {
+                    e.ratingMinus = (e.ratingMinus || 0) + 1;
+                }
+                return this.evenementsService.putEvenement(e).pipe(
+                    map(() => e)
+                );
+            })
+        ).subscribe({
+            next: updated => {
+                if (!updated) {
+                    return;
+                }
+                group.ratingPlus = updated.ratingPlus ?? 0;
+                group.ratingMinus = updated.ratingMinus ?? 0;
+                this.cdr.markForCheck();
+            },
+            error: err => {
+                console.error('Error updating event rating from photo timeline:', err);
+            }
+        });
+        this.subscriptions.push(sub);
     }
 
     trackByIndex(index: number): number {
