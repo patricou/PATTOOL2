@@ -832,24 +832,19 @@ public class MemberRestController {
     }
 
     /**
-     * Check if USER CONNECTION email should be excluded based on client IP or server IP
-     * NOTE: This method is ONLY used for user connection emails, NOT for exception reports
-     * Exception reports are sent independently and are not affected by this check
+     * Check if USER CONNECTION email should be excluded based on client IP.
+     * NOTE: This method is ONLY used for user connection emails, NOT for exception reports.
+     * Exception reports are sent independently and are not affected by this check.
+     *
      * @param clientIpAddress The client IP address to check (may contain multiple IPs separated by commas)
      * @return true if email should be excluded, false otherwise
      */
     private boolean shouldExcludeEmail(String clientIpAddress) {
-        // Check server IP first
-        String serverIp = getIp();
-        if ("192.168.1.33".equals(serverIp)) {
-            return true; // Exclude connection emails only, not reports
-        }
-        
         // Check client IP
         if (clientIpAddress == null || clientIpAddress.isEmpty()) {
             return false;
         }
-        
+
         // Handle X-Forwarded-For which may contain multiple IPs separated by commas
         String[] ips = clientIpAddress.split(",");
         for (String ip : ips) {
@@ -859,7 +854,7 @@ public class MemberRestController {
                 return true; // Exclude connection emails only, not reports
             }
         }
-        
+
         return false;
     }
 
