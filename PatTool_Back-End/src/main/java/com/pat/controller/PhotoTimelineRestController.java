@@ -713,23 +713,18 @@ public class PhotoTimelineRestController {
         ACCENT_REGEX_MAP.put('n', "[nñNÑ]");
     }
 
-    /** When visibility filter is set and not "all", use filtered criteria (no cache). Otherwise use cached full access. */
+    /**
+     * When a specific visibility filter is set (and not "all"), use the same
+     * per-visibility access logic as {@link EvenementRestController}, without caching.
+     * For "all" (or no filter), always rebuild access criteria for the user so
+     * changes in friends / groups / visibilities are immediately reflected,
+     * matching the behaviour of the home-evenements feed.
+     */
     private Criteria getAccessCriteria(String userId, String visibility) {
         if (visibility != null && !visibility.trim().isEmpty() && !"all".equals(visibility.trim())) {
             return buildAccessCriteriaForVisibility(visibility.trim(), userId);
         }
-        return getCachedAccessCriteria(userId);
-    }
-
-    private Criteria getCachedAccessCriteria(String userId) {
-        String cacheKey = userId != null ? userId : "__anon__";
-        CachedAccessCriteria cached = accessCriteriaCache.get(cacheKey);
-        if (cached != null && !cached.isExpired()) {
-            return cached.criteria;
-        }
-        Criteria criteria = buildAccessCriteria(userId);
-        accessCriteriaCache.put(cacheKey, new CachedAccessCriteria(criteria));
-        return criteria;
+        return buildAccessCriteria(userId);
     }
 
     /**
@@ -949,37 +944,95 @@ public class PhotoTimelineRestController {
 
     private Criteria buildFriendGroupVisibilityCriteria(String userId) {
         try {
-            Member currentUser = membersRepository.findById(userId).orElse(null);
-            if (currentUser == null) return null;
+            java.util.Optional<Member> currentUserOpt = membersRepository.findById(userId);
+            if (currentUserOpt.isEmpty()) {
+                return null;
+            }
+            Member currentUser = currentUserOpt.get();
 
-            List<FriendGroup> userFriendGroups = friendGroupRepository.findByMembersContaining(currentUser);
-            if (userFriendGroups.isEmpty()) return null;
+            // Groups where user is a member
+            java.util.List<FriendGroup> userFriendGroups = friendGroupRepository.findByMembersContaining(currentUser);
+            // Groups where user is the owner
+            java.util.List<FriendGroup> ownedFriendGroups = friendGroupRepository.findByOwner(currentUser);
+            // Groups where user is explicitly authorized
+            java.util.List<FriendGroup> authorizedFriendGroups = friendGroupRepository.findByAuthorizedUsersContaining(currentUser);
 
-            List<String> friendGroupIds = new ArrayList<>();
+            java.util.List<Criteria> groupCriteriaList = new java.util.ArrayList<>();
+            java.util.Set<String> friendGroupIds = new java.util.HashSet<>();
+            java.util.Map<String, String> groupIdToName = new java.util.HashMap<>();
+
             for (FriendGroup group : userFriendGroups) {
                 if (group.getId() != null) {
                     friendGroupIds.add(group.getId());
+                    if (group.getName() != null) {
+                        groupIdToName.put(group.getId(), group.getName());
+                    }
                 }
             }
-            if (friendGroupIds.isEmpty()) return null;
+            for (FriendGroup group : ownedFriendGroups) {
+                if (group.getId() != null) {
+                    friendGroupIds.add(group.getId());
+                    if (group.getName() != null) {
+                        groupIdToName.put(group.getId(), group.getName());
+                    }
+                }
+            }
+            for (FriendGroup group : authorizedFriendGroups) {
+                if (group.getId() != null) {
+                    friendGroupIds.add(group.getId());
+                    if (group.getName() != null) {
+                        groupIdToName.put(group.getId(), group.getName());
+                    }
+                }
+            }
 
-            List<Criteria> friendGroupCriteriaList = new ArrayList<>();
             for (String groupId : friendGroupIds) {
-                friendGroupCriteriaList.add(Criteria.where("friendGroupId").is(groupId));
-            }
-            for (FriendGroup group : userFriendGroups) {
-                if (group.getName() != null && !group.getName().trim().isEmpty()) {
-                    friendGroupCriteriaList.add(Criteria.where("visibility").is(group.getName()));
+                try {
+                    groupCriteriaList.add(Criteria.where("friendGroupId").is(groupId));
+                } catch (Exception ignored) {
                 }
             }
-            if (friendGroupCriteriaList.isEmpty()) return null;
+            for (String groupId : friendGroupIds) {
+                try {
+                    groupCriteriaList.add(Criteria.where("friendGroupIds").is(groupId));
+                } catch (Exception ignored) {
+                }
+            }
+            for (String groupName : groupIdToName.values()) {
+                if (groupName != null && !groupName.trim().isEmpty()) {
+                    groupCriteriaList.add(Criteria.where("visibility").is(groupName));
+                }
+            }
 
-            Criteria friendGroupMatch = new Criteria().orOperator(friendGroupCriteriaList.toArray(new Criteria[0]));
-            return new Criteria().andOperator(
+            // Always include events created by the user with friend-group visibility
+            Criteria authorCriteria = buildAuthorCriteria(userId);
+            Criteria userCreatedFriendGroupEvents = new Criteria().andOperator(
                     Criteria.where("visibility").nin("public", "private", "friends"),
-                    friendGroupMatch
+                    authorCriteria
             );
+
+            java.util.List<Criteria> finalCriteriaList = new java.util.ArrayList<>();
+            if (!groupCriteriaList.isEmpty()) {
+                Criteria groupMatch = groupCriteriaList.size() == 1
+                        ? groupCriteriaList.get(0)
+                        : new Criteria().orOperator(groupCriteriaList.toArray(new Criteria[0]));
+                finalCriteriaList.add(
+                        new Criteria().andOperator(
+                                Criteria.where("visibility").nin("public", "private", "friends"),
+                                groupMatch
+                        )
+                );
+            }
+            finalCriteriaList.add(userCreatedFriendGroupEvents);
+
+            if (finalCriteriaList.isEmpty()) {
+                return null;
+            }
+            return finalCriteriaList.size() == 1
+                    ? finalCriteriaList.get(0)
+                    : new Criteria().orOperator(finalCriteriaList.toArray(new Criteria[0]));
         } catch (Exception e) {
+            log.debug("Error building friend group access criteria in photo timeline: {}", e.getMessage());
             return null;
         }
     }

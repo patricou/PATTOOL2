@@ -532,10 +532,15 @@
 .group-rating {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
     gap: 0.35rem;
-    margin-left: auto;
     font-size: 0.8rem;
+}
+
+/* Rating spécifique en haut de la carte, centré horizontalement */
+.group-rating-top {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 0.4rem;
 }
 
 .group-rating .rating-badge {

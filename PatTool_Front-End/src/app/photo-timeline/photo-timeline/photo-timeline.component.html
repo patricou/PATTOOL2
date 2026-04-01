@@ -134,7 +134,26 @@
     <!-- Photo Groups (displayed as they stream in) -->
     <div class="timeline-groups" *ngIf="!isLoading && filteredGroups.length > 0">
         <div class="timeline-group" *ngFor="let group of filteredGroups; trackBy: trackByGroupId">
-            
+
+            <!-- Rating tout en haut du bloc événement, centré horizontalement -->
+            <div class="group-rating group-rating-top d-flex align-items-center gap-1">
+                <span class="badge rounded-pill rating-badge"
+                      (click)="onTimelineRateMinus(group, $event)"
+                      [title]="'COMMUN.IDONTLIKE' | translate">
+                    {{ group.ratingMinus || 0 }}
+                </span>
+                <ngb-rating class="ms-1 me-1"
+                            [rate]="getGroupCurrentRate(group)"
+                            [max]="10"
+                            [readonly]="true">
+                </ngb-rating>
+                <span class="badge rounded-pill rating-badge"
+                      (click)="onTimelineRatePlus(group, $event)"
+                      [title]="'COMMUN.ILIKE' | translate">
+                    {{ group.ratingPlus || 0 }}
+                </span>
+            </div>
+
             <!-- Group Header -->
             <div class="group-header">
                 <div class="group-header-title-line">
@@ -207,24 +226,6 @@
                             </span>
                         </span>
                     </ng-container>
-                    <!-- Rating: on the same line as owner, aligned to the right -->
-                    <div class="group-rating d-flex align-items-center gap-1">
-                        <span class="badge rounded-pill rating-badge"
-                              (click)="onTimelineRateMinus(group, $event)"
-                              [title]="'COMMUN.IDONTLIKE' | translate">
-                            {{ group.ratingMinus || 0 }}
-                        </span>
-                        <ngb-rating class="ms-1 me-1"
-                                    [rate]="getGroupCurrentRate(group)"
-                                    [max]="10"
-                                    [readonly]="true">
-                        </ngb-rating>
-                        <span class="badge rounded-pill rating-badge"
-                              (click)="onTimelineRatePlus(group, $event)"
-                              [title]="'COMMUN.ILIKE' | translate">
-                            {{ group.ratingPlus || 0 }}
-                        </span>
-                    </div>
                 </div>
             </div>
 
