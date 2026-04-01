@@ -26,11 +26,14 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.Duration;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Created by patricou on 4/20/2017.
@@ -67,6 +70,12 @@ public class MemberRestController {
 
     @Value("${app.connection.email.enabled:false}")
     private boolean connectionEmailEnabled;
+
+    @Value("${app.connection.email.min-interval-minutes:30}")
+    private long connectionEmailMinIntervalMinutes;
+
+    // In-memory throttling: last time a connection email was sent per username
+    private final Map<String, LocalDateTime> lastConnectionEmailByUser = new ConcurrentHashMap<>();
 
     /**
      * Check if the current user has Admin role (case-insensitive)
@@ -246,32 +255,12 @@ public class MemberRestController {
                 ipAddress = request.getRemoteAddr();
             }
 
-            String subject = "PatTool - User Connection - " + formatDateTime(LocalDateTime.now());
-            
-            String userAgent = request.getHeader("User-Agent");
-            String referer = request.getHeader("Referer");
-            String body = generateConnectionEmailBody(member, request, ipAddress, false);
-            
-            // Check if IP should be excluded from email notifications (client or server IP)
-            if (connectionEmailEnabled) {
-                if (!isConnectionEmailExcludedForUser(member) && !shouldExcludeEmail(ipAddress)) {
-                    log.debug("Attempting to send connection email for user: {}", member.getUserName());
-                    // Plain text body is less likely to be flagged as spam than heavy HTML
-                    mailController.sendMail(subject, body, false);
-                    log.debug("Connection notification - Subject: '{}' From IP: {}", subject, getIp());
-                } else {
-                    if (isConnectionEmailExcludedForUser(member)) {
-                        log.debug("Connection email skipped for excluded user: {}", member.getUserName());
-                    } else {
-                        log.debug("Email notification skipped - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
-                    }
-                }
-            } else {
-                log.debug("Connection email disabled via configuration - skipping send for user: {}", member.getUserName());
-            }
+            maybeSendConnectionEmail(member, ipAddress, false);
             
             // Track connection for periodic reporting
             String rolesStr = (member.getRoles() != null && !member.getRoles().isEmpty()) ? member.getRoles().toString() : null;
+            String userAgent = request.getHeader("User-Agent");
+            String referer = request.getHeader("Referer");
             exceptionTrackingService.addConnection(
                 ipAddress,
                 member.getUserName(),
@@ -313,32 +302,12 @@ public class MemberRestController {
                 ipAddress = request.getRemoteAddr();
             }
 
-            String subject = "PatTool - User Connection - " + formatDateTime(LocalDateTime.now());
-            
-            String userAgent = request.getHeader("User-Agent");
-            String referer = request.getHeader("Referer");
-            String body = generateConnectionEmailBody(member, request, ipAddress, true);
-            
-            // Check if IP should be excluded from email notifications (client or server IP)
-            if (connectionEmailEnabled) {
-                if (!isConnectionEmailExcludedForUser(member) && !shouldExcludeEmail(ipAddress)) {
-                    log.debug("Attempting to send NEW USER connection email for: {}", member.getUserName());
-                    // Plain text body is less likely to be flagged as spam than heavy HTML
-                    mailController.sendMail(subject, body, false);
-                    log.debug("NEW USER connection notification - Subject: '{}' From IP: {}", subject, getIp());
-                } else {
-                    if (isConnectionEmailExcludedForUser(member)) {
-                        log.debug("NEW USER connection email skipped for excluded user: {}", member.getUserName());
-                    } else {
-                        log.debug("Email notification skipped for NEW USER - Client IP: {}, Server IP: {} (excluded IP)", ipAddress, getIp());
-                    }
-                }
-            } else {
-                log.debug("Connection email disabled via configuration - skipping NEW USER notification for: {}", member.getUserName());
-            }
+            maybeSendConnectionEmail(member, ipAddress, true);
             
             // Track connection for periodic reporting
             String rolesStr = (member.getRoles() != null && !member.getRoles().isEmpty()) ? member.getRoles().toString() : null;
+            String userAgent = request.getHeader("User-Agent");
+            String referer = request.getHeader("Referer");
             exceptionTrackingService.addConnection(
                 ipAddress,
                 member.getUserName(),
@@ -672,46 +641,93 @@ public class MemberRestController {
     }
 
     /**
-     * Generate plain text email body for user connection notifications.
-     * Plain text emails are typically less likely to be classified as spam
-     * than heavily formatted HTML with lots of technical details.
+     * Decide if we should actually send a connection email and do throttling.
      */
-    private String generateConnectionEmailBody(Member member, HttpServletRequest request, String ipAddress, boolean isNewUser) {
+    private void maybeSendConnectionEmail(Member member, String ipAddress, boolean isNewUser) {
+        if (!connectionEmailEnabled) {
+            log.debug("Connection email disabled via configuration - skipping send for user: {}", member != null ? member.getUserName() : "null");
+            return;
+        }
+
+        if (member == null || member.getUserName() == null) {
+            log.debug("Connection email skipped - member or username is null");
+            return;
+        }
+
+        if (isConnectionEmailExcludedForUser(member)) {
+            log.debug("Connection email skipped for excluded user: {}", member.getUserName());
+            return;
+        }
+
+        if (shouldExcludeEmail(ipAddress)) {
+            log.debug("Connection email skipped for user {} - excluded IP: {}", member.getUserName(), ipAddress);
+            return;
+        }
+
+        String username = member.getUserName();
+        LocalDateTime nowTime = LocalDateTime.now();
+        LocalDateTime lastSent = lastConnectionEmailByUser.get(username);
+
+        if (!isNewUser && lastSent != null) {
+            long minutesSinceLast = Duration.between(lastSent, nowTime).toMinutes();
+            if (minutesSinceLast < connectionEmailMinIntervalMinutes) {
+                log.debug("Connection email throttled for user {} (last sent {} minutes ago, min interval {} minutes)",
+                        username, minutesSinceLast, connectionEmailMinIntervalMinutes);
+                return;
+            }
+        }
+
+        String subjectPrefix = isNewUser ? "PatTool - New User Connection - " : "PatTool - User Connection - ";
+        String subject = subjectPrefix + formatDateTime(nowTime);
+        String body = generateConnectionEmailBody(member, ipAddress, isNewUser);
+
+        log.debug("Attempting to send connection email for user: {}", username);
+        mailController.sendMail(subject, body, false);
+        lastConnectionEmailByUser.put(username, nowTime);
+        log.debug("Connection notification sent for user {} - Subject: '{}'", username, subject);
+    }
+
+    /**
+     * Generate a simplified plain text email body for user connection notifications.
+     */
+    private String generateConnectionEmailBody(Member member, String ipAddress, boolean isNewUser) {
         StringBuilder bodyBuilder = new StringBuilder();
 
         bodyBuilder.append(isNewUser ? "NEW USER CONNECTION" : "USER CONNECTION").append("\n");
         bodyBuilder.append("====================================\n\n");
 
-        // User Information Section (summary only)
+        // User Information Section (short)
         bodyBuilder.append("User\n");
         bodyBuilder.append("----\n");
-        if (member.getId() != null && !isNewUser) {
-            bodyBuilder.append("ID          : ").append(member.getId()).append("\n");
-        }
-        bodyBuilder.append("Username    : ").append(member.getUserName() != null ? member.getUserName() : "N/A").append("\n");
-        bodyBuilder.append("First name  : ").append(member.getFirstName() != null ? member.getFirstName() : "N/A").append("\n");
-        bodyBuilder.append("Last name   : ").append(member.getLastName() != null ? member.getLastName() : "N/A").append("\n");
-        bodyBuilder.append("Email       : ").append(member.getAddressEmail() != null ? member.getAddressEmail() : "N/A").append("\n");
-        if (member.getRoles() != null && !member.getRoles().isEmpty()) {
-            bodyBuilder.append("Roles       : ").append(member.getRoles()).append("\n");
-        }
+        bodyBuilder.append("Username : ").append(member.getUserName() != null ? member.getUserName() : "N/A").append("\n");
+        bodyBuilder.append("First    : ").append(member.getFirstName() != null ? member.getFirstName() : "N/A").append("\n");
+        bodyBuilder.append("Last     : ").append(member.getLastName() != null ? member.getLastName() : "N/A").append("\n");
+        bodyBuilder.append("Email    : ").append(member.getAddressEmail() != null ? member.getAddressEmail() : "N/A").append("\n");
         bodyBuilder.append("\n");
 
-        // Connection Information Section (reduced)
+        // Connection Information Section (condensed, no Google Maps link)
         bodyBuilder.append("Connection\n");
         bodyBuilder.append("----------\n");
+        bodyBuilder.append("Timestamp : ").append(formatDateTime(LocalDateTime.now())).append("\n");
+        bodyBuilder.append("Client IP : ").append(ipAddress).append("\n");
+        
         IpGeolocationService.ExtendedIPInfo ipInfo = ipGeolocationService.getCompleteIpInfoWithCoordinates(ipAddress);
+        String locationText = ipInfo != null ? ipInfo.getLocation() : null;
+        String domainName = ipInfo != null ? ipInfo.getDomainName() : null;
+        bodyBuilder.append("Location  : ").append(locationText != null ? locationText : "N/A").append("\n");
+        bodyBuilder.append("Domain    : ").append(domainName != null && !domainName.isEmpty() ? domainName : "N/A").append("\n");
 
-        // Try to use GPS coordinates from request if available
+        // GPS / coordinates details: prefer smartphone GPS, fallback to IP-based coordinates
         Double lat = member.getRequestLatitude();
         Double lon = member.getRequestLongitude();
         String gpsCoords = null;
         String googleMapsLink = null;
         String coordsSourceLabel = null;
+
         if (lat != null && lon != null) {
             gpsCoords = String.format(java.util.Locale.ENGLISH, "%.6f, %.6f", lat, lon);
             googleMapsLink = "https://www.google.com/maps?q=" + lat + "," + lon;
-            coordsSourceLabel = "GPS from browser";
+            coordsSourceLabel = "GPS from browser (smartphone)";
         } else if (ipInfo != null && ipInfo.getLatitude() != null && ipInfo.getLongitude() != null) {
             lat = ipInfo.getLatitude();
             lon = ipInfo.getLongitude();
@@ -720,24 +736,19 @@ public class MemberRestController {
             coordsSourceLabel = "Approximate location from IP";
         }
 
-        bodyBuilder.append("Timestamp   : ").append(formatDateTime(LocalDateTime.now())).append("\n");
-        bodyBuilder.append("Server IP   : ").append(getIp()).append("\n");
-        bodyBuilder.append("Client IP   : ").append(ipAddress).append("\n");
-
-        String domainName = ipInfo != null ? ipInfo.getDomainName() : null;
-        String locationText = ipInfo != null ? ipInfo.getLocation() : null;
-        bodyBuilder.append("Domain      : ").append(domainName != null && !domainName.isEmpty() ? domainName : "N/A").append("\n");
-        bodyBuilder.append("Location    : ").append(locationText != null ? locationText : "N/A").append("\n");
         if (gpsCoords != null && googleMapsLink != null && coordsSourceLabel != null) {
-            bodyBuilder.append("Coordinates : ").append(gpsCoords)
+            bodyBuilder.append("Coords   : ").append(gpsCoords)
                     .append("  (").append(coordsSourceLabel).append(")").append("\n");
-            bodyBuilder.append("Google Maps : ").append(googleMapsLink).append("\n");
-        }
-        bodyBuilder.append("Method      : ").append(request.getMethod()).append("\n");
-        bodyBuilder.append("Request URI : ").append(request.getRequestURI()).append("\n");
+            bodyBuilder.append("Map     : ").append(googleMapsLink).append("\n");
 
-        bodyBuilder.append("\n");
-        bodyBuilder.append("This is an automated notification from the PatTool application.");
+            // Try to reverse geocode GPS coordinates to a human readable address
+            String fullAddress = ipGeolocationService.getAddressFromCoordinates(lat, lon);
+            if (fullAddress != null && !fullAddress.isEmpty()) {
+                bodyBuilder.append("Address  : ").append(fullAddress).append("\n");
+            }
+        }
+
+        bodyBuilder.append("\nThis is an automated notification from the PatTool application.");
         if (isNewUser) {
             bodyBuilder.append(" User was created on first connection.");
         }

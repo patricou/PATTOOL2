@@ -20,11 +20,12 @@ public class IpGeolocationService {
     
     private final RestTemplate restTemplate;
     
-    // Cache to avoid repeated lookups for the same IP
+    // Cache to avoid repeated lookups for the same IP / coordinates
     // Using CacheEntry to store value with timestamp
     private final Map<String, CacheEntry> locationCache = new ConcurrentHashMap<>();
     private final Map<String, CacheEntry> domainCache = new ConcurrentHashMap<>();
     private final Map<String, CoordinatesCacheEntry> coordinatesCache = new ConcurrentHashMap<>();
+    private final Map<String, CacheEntry> reverseGeocodeCache = new ConcurrentHashMap<>();
     
     // Maximum cache size to prevent memory leak
     @Value("${app.ip.geolocation.cache.max-size:5000}")
@@ -329,6 +330,7 @@ public class IpGeolocationService {
         locationCache.clear();
         domainCache.clear();
         coordinatesCache.clear();
+        reverseGeocodeCache.clear();
     }
     
     /**
@@ -363,6 +365,7 @@ public class IpGeolocationService {
         locationCache.entrySet().removeIf(entry -> entry.getValue().isExpired(ttlMillis));
         domainCache.entrySet().removeIf(entry -> entry.getValue().isExpired(ttlMillis));
         coordinatesCache.entrySet().removeIf(entry -> entry.getValue().isExpired(ttlMillis));
+        reverseGeocodeCache.entrySet().removeIf(entry -> entry.getValue().isExpired(ttlMillis));
     }
 
     /**
@@ -384,6 +387,56 @@ public class IpGeolocationService {
         public Double getLongitude() {
             return longitude;
         }
+    }
+
+    /**
+     * Reverse geocode GPS coordinates to a human readable address.
+     * Uses OpenStreetMap Nominatim public API (best effort, no guarantee).
+     */
+    public String getAddressFromCoordinates(Double latitude, Double longitude) {
+        if (latitude == null || longitude == null) {
+            return null;
+        }
+
+        String key = String.format(java.util.Locale.ENGLISH, "%.6f,%.6f", latitude, longitude);
+
+        // Check cache first
+        CacheEntry cached = reverseGeocodeCache.get(key);
+        if (cached != null) {
+            long ttlMillis = cacheTtlHours * 60 * 60 * 1000;
+            if (!cached.isExpired(ttlMillis)) {
+                return cached.value;
+            } else {
+                reverseGeocodeCache.remove(key);
+            }
+        }
+
+        // Enforce cache size limit
+        enforceCacheSizeLimit(reverseGeocodeCache);
+
+        try {
+            String url = String.format(java.util.Locale.ENGLISH,
+                    "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=%f&lon=%f",
+                    latitude, longitude);
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+
+            if (response != null) {
+                Object displayNameObj = response.get("display_name");
+                if (displayNameObj instanceof String) {
+                    String displayName = (String) displayNameObj;
+                    reverseGeocodeCache.put(key, new CacheEntry(displayName));
+                    log.debug("Reverse geocode for {} -> {}", key, displayName);
+                    return displayName;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Error during reverse geocoding for {}: {}", key, e.getMessage());
+            // Do not cache errors (could be temporary)
+        }
+
+        return null;
     }
 
     /**
