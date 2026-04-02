@@ -31,6 +31,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -679,43 +680,44 @@ public class MemberRestController {
 
         String subjectPrefix = isNewUser ? "PatTool - New User Connection - " : "PatTool - User Connection - ";
         String subject = subjectPrefix + formatDateTime(nowTime);
-        String body = generateConnectionEmailBody(member, ipAddress, isNewUser);
+        ConnectionEmailPayload payload = buildConnectionEmailPayload(member, ipAddress, isNewUser);
 
         log.debug("Attempting to send connection email for user: {}", username);
-        mailController.sendMail(subject, body, false);
+        mailController.sendMailPlainAndHtml(subject, connectionEmailPlain(payload), connectionEmailHtml(payload));
         lastConnectionEmailByUser.put(username, nowTime);
         log.debug("Connection notification sent for user {} - Subject: '{}'", username, subject);
     }
 
-    /**
-     * Generate a simplified plain text email body for user connection notifications.
-     */
-    private String generateConnectionEmailBody(Member member, String ipAddress, boolean isNewUser) {
-        StringBuilder bodyBuilder = new StringBuilder();
+    /** Immutable content for connection notification (plain + HTML). */
+    private record ConnectionEmailPayload(
+            String headline,
+            String userName,
+            String firstName,
+            String lastName,
+            String email,
+            String timestamp,
+            String clientIp,
+            String location,
+            String domain,
+            String coordsLine,
+            String mapUrl,
+            String extraAddress,
+            String footer
+    ) {}
 
-        bodyBuilder.append(isNewUser ? "NEW USER CONNECTION" : "USER CONNECTION").append("\n");
-        bodyBuilder.append("====================================\n\n");
+    private ConnectionEmailPayload buildConnectionEmailPayload(Member member, String ipAddress, boolean isNewUser) {
+        String headline = isNewUser ? "NEW USER CONNECTION" : "USER CONNECTION";
+        String userName = nz(member.getUserName());
+        String firstName = nz(member.getFirstName());
+        String lastName = nz(member.getLastName());
+        String email = nz(member.getAddressEmail());
+        String timestamp = formatDateTime(LocalDateTime.now());
+        String clientIp = ipAddress != null ? ipAddress : "N/A";
 
-        // User Information Section (short)
-        bodyBuilder.append("User\n");
-        bodyBuilder.append("----\n");
-        bodyBuilder.append("Username : ").append(member.getUserName() != null ? member.getUserName() : "N/A").append("\n");
-        bodyBuilder.append("First    : ").append(member.getFirstName() != null ? member.getFirstName() : "N/A").append("\n");
-        bodyBuilder.append("Last     : ").append(member.getLastName() != null ? member.getLastName() : "N/A").append("\n");
-        bodyBuilder.append("Email    : ").append(member.getAddressEmail() != null ? member.getAddressEmail() : "N/A").append("\n");
-        bodyBuilder.append("\n");
-
-        // Connection Information Section (condensed, no Google Maps link)
-        bodyBuilder.append("Connection\n");
-        bodyBuilder.append("----------\n");
-        bodyBuilder.append("Timestamp : ").append(formatDateTime(LocalDateTime.now())).append("\n");
-        bodyBuilder.append("Client IP : ").append(ipAddress).append("\n");
-        
         IpGeolocationService.ExtendedIPInfo ipInfo = ipGeolocationService.getCompleteIpInfoWithCoordinates(ipAddress);
         String ipLocationText = ipInfo != null ? ipInfo.getLocation() : null;
         String domainName = ipInfo != null ? ipInfo.getDomainName() : null;
 
-        // Prefer same reverse-geocoded address as address-geocode when browser sent GPS on connect
         Double reqLat = member.getRequestLatitude();
         Double reqLon = member.getRequestLongitude();
         String addressFromGps = null;
@@ -723,47 +725,169 @@ public class MemberRestController {
             addressFromGps = ipGeolocationService.getAddressFromCoordinates(reqLat, reqLon);
         }
         String locationText = (addressFromGps != null && !addressFromGps.isEmpty()) ? addressFromGps : ipLocationText;
-        bodyBuilder.append("Location  : ").append(locationText != null ? locationText : "N/A").append("\n");
-        bodyBuilder.append("Domain    : ").append(domainName != null && !domainName.isEmpty() ? domainName : "N/A").append("\n");
+        String location = locationText != null ? locationText : "N/A";
+        String domain = (domainName != null && !domainName.isEmpty()) ? domainName : "N/A";
 
-        // GPS / coordinates details: prefer smartphone GPS, fallback to IP-based coordinates
         Double lat = reqLat;
         Double lon = reqLon;
-        String gpsCoords = null;
-        String googleMapsLink = null;
-        String coordsSourceLabel = null;
+        String coordsLine = null;
+        String mapUrl = null;
 
         if (lat != null && lon != null) {
-            gpsCoords = String.format(java.util.Locale.ENGLISH, "%.6f, %.6f", lat, lon);
-            googleMapsLink = "https://www.google.com/maps?q=" + lat + "," + lon;
-            coordsSourceLabel = "GPS from browser (smartphone)";
+            coordsLine = String.format(java.util.Locale.ENGLISH, "%.6f, %.6f  (GPS from browser (smartphone))", lat, lon);
+            mapUrl = "https://www.google.com/maps?q=" + lat + "," + lon;
         } else if (ipInfo != null && ipInfo.getLatitude() != null && ipInfo.getLongitude() != null) {
             lat = ipInfo.getLatitude();
             lon = ipInfo.getLongitude();
-            gpsCoords = String.format(java.util.Locale.ENGLISH, "%.6f, %.6f", lat, lon);
-            googleMapsLink = "https://www.google.com/maps?q=" + lat + "," + lon;
-            coordsSourceLabel = "Approximate location from IP";
+            coordsLine = String.format(java.util.Locale.ENGLISH, "%.6f, %.6f  (Approximate location from IP)", lat, lon);
+            mapUrl = "https://www.google.com/maps?q=" + lat + "," + lon;
         }
 
-        if (gpsCoords != null && googleMapsLink != null && coordsSourceLabel != null) {
-            bodyBuilder.append("Coords   : ").append(gpsCoords)
-                    .append("  (").append(coordsSourceLabel).append(")").append("\n");
-            bodyBuilder.append("Map     : ").append(googleMapsLink).append("\n");
-
-            // Extra address line only if different from Location (avoids duplicate when Location already used GPS reverse)
-            String fullAddress = ipGeolocationService.getAddressFromCoordinates(lat, lon);
+        String extraAddress = null;
+        if (coordsLine != null && mapUrl != null && lat != null && lon != null) {
+            String fullAddress;
+            if (reqLat != null && reqLon != null
+                    && Objects.equals(lat, reqLat) && Objects.equals(lon, reqLon)
+                    && addressFromGps != null && !addressFromGps.isEmpty()) {
+                fullAddress = addressFromGps;
+            } else {
+                fullAddress = ipGeolocationService.getAddressFromCoordinates(lat, lon);
+            }
             if (fullAddress != null && !fullAddress.isEmpty()
                     && (locationText == null || !fullAddress.equals(locationText))) {
-                bodyBuilder.append("Address  : ").append(fullAddress).append("\n");
+                extraAddress = fullAddress;
             }
         }
 
-        bodyBuilder.append("\nThis is an automated notification from the PatTool application.");
-        if (isNewUser) {
-            bodyBuilder.append(" User was created on first connection.");
+        String footer = "This is an automated notification from the PatTool application."
+                + (isNewUser ? " User was created on first connection." : "");
+
+        return new ConnectionEmailPayload(
+                headline, userName, firstName, lastName, email,
+                timestamp, clientIp, location, domain, coordsLine, mapUrl, extraAddress, footer);
+    }
+
+    private static String nz(String s) {
+        return (s != null && !s.isEmpty()) ? s : "N/A";
+    }
+
+    private String connectionEmailPlain(ConnectionEmailPayload p) {
+        StringBuilder b = new StringBuilder();
+        b.append(p.headline()).append("\n");
+        b.append("====================================\n\n");
+        b.append("User\n----\n");
+        b.append("Username : ").append(p.userName()).append("\n");
+        b.append("First    : ").append(p.firstName()).append("\n");
+        b.append("Last     : ").append(p.lastName()).append("\n");
+        b.append("Email    : ").append(p.email()).append("\n\n");
+        b.append("Connection\n----------\n");
+        b.append("Timestamp : ").append(p.timestamp()).append("\n");
+        b.append("Client IP : ").append(p.clientIp()).append("\n");
+        b.append("Location  : ").append(p.location()).append("\n");
+        b.append("Domain    : ").append(p.domain()).append("\n");
+        if (p.coordsLine() != null) {
+            b.append("Coords   : ").append(p.coordsLine()).append("\n");
+        }
+        if (p.mapUrl() != null) {
+            b.append("Map     : ").append(p.mapUrl()).append("\n");
+        }
+        if (p.extraAddress() != null) {
+            b.append("Address  : ").append(p.extraAddress()).append("\n");
+        }
+        b.append("\n").append(p.footer());
+        return b.toString();
+    }
+
+    /**
+     * Mobile-friendly HTML: single column, readable font size, tap target for map link.
+     */
+    private String connectionEmailHtml(ConnectionEmailPayload p) {
+        String mapButton = "";
+        if (p.mapUrl() != null) {
+            String safeUrl = escapeHtml(p.mapUrl());
+            mapButton = "<a href=\"" + safeUrl + "\" style=\"display:inline-block;margin-top:12px;padding:14px 22px;"
+                    + "background-color:#2563eb;color:#ffffff !important;text-decoration:none;border-radius:10px;"
+                    + "font-size:16px;font-weight:600;line-height:1.2;\">Open in Maps</a>";
+        }
+        String coordsBlock = "";
+        if (p.coordsLine() != null) {
+            coordsBlock = "<tr><td style=\"padding:6px 0 0 0;font-size:15px;line-height:1.45;color:#374151;\">"
+                    + "<strong style=\"color:#111827;\">Coordinates</strong><br/>"
+                    + "<span style=\"word-break:break-all;\">" + escapeHtml(p.coordsLine()) + "</span></td></tr>";
+        }
+        String extraAddrBlock = "";
+        if (p.extraAddress() != null) {
+            extraAddrBlock = "<tr><td style=\"padding:10px 0 0 0;font-size:15px;line-height:1.45;color:#374151;\">"
+                    + "<strong style=\"color:#111827;\">Address</strong><br/>"
+                    + "<span style=\"word-break:break-word;\">" + escapeHtml(p.extraAddress()) + "</span></td></tr>";
         }
 
-        return bodyBuilder.toString();
+        return "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"/>"
+                + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>"
+                + "<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>"
+                + "<title>" + escapeHtml(p.headline()) + "</title></head>"
+                + "<body style=\"margin:0;padding:0;background-color:#f3f4f6;"
+                + "-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;\">"
+                + "<div style=\"display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;\">"
+                + escapeHtml(p.userName() + " — " + p.headline()) + "</div>"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"background-color:#f3f4f6;padding:16px 12px;\">"
+                + "<tr><td align=\"center\">"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" "
+                + "style=\"max-width:560px;margin:0 auto;background-color:#ffffff;border-radius:12px;"
+                + "overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);\">"
+                + "<tr><td style=\"padding:20px 20px 16px 20px;background:linear-gradient(135deg,#1e40af 0%,#2563eb 100%);\">"
+                + "<h1 style=\"margin:0;font-size:20px;line-height:1.3;color:#ffffff;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;\">"
+                + escapeHtml(p.headline()) + "</h1>"
+                + "<p style=\"margin:8px 0 0 0;font-size:14px;line-height:1.4;color:#e0e7ff;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;\">"
+                + "PatTool</p></td></tr>"
+                + "<tr><td style=\"padding:20px 20px 8px 20px;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;\">"
+                + "<h2 style=\"margin:0 0 12px 0;font-size:15px;line-height:1.3;color:#6b7280;text-transform:uppercase;"
+                + "letter-spacing:0.04em;\">User</h2>"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">"
+                + rowLabelValue("Username", p.userName())
+                + rowLabelValue("First name", p.firstName())
+                + rowLabelValue("Last name", p.lastName())
+                + rowLabelValue("Email", p.email())
+                + "</table></td></tr>"
+                + "<tr><td style=\"padding:8px 20px 20px 20px;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;\">"
+                + "<h2 style=\"margin:0 0 12px 0;font-size:15px;line-height:1.3;color:#6b7280;text-transform:uppercase;"
+                + "letter-spacing:0.04em;\">Connection</h2>"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">"
+                + rowLabelValue("Timestamp", p.timestamp())
+                + rowLabelValue("Client IP", p.clientIp())
+                + rowLabelValue("Location", p.location())
+                + rowLabelValue("Domain", p.domain())
+                + "</table>"
+                + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin-top:8px;\">"
+                + coordsBlock
+                + extraAddrBlock
+                + "</table>"
+                + (p.mapUrl() != null
+                        ? "<div style=\"margin-top:16px;text-align:left;\">" + mapButton + "</div>"
+                        : "")
+                + "<p style=\"margin:20px 0 0 0;font-size:13px;line-height:1.5;color:#9ca3af;\">"
+                + escapeHtml(p.footer()) + "</p>"
+                + "</td></tr></table></td></tr></table></body></html>";
+    }
+
+    private String rowLabelValue(String label, String value) {
+        return "<tr><td style=\"padding:8px 0;border-bottom:1px solid #f3f4f6;\">"
+                + "<span style=\"display:block;font-size:13px;color:#6b7280;margin-bottom:2px;\">"
+                + escapeHtml(label) + "</span>"
+                + "<span style=\"display:block;font-size:16px;line-height:1.4;color:#111827;word-break:break-word;\">"
+                + escapeHtml(value) + "</span></td></tr>";
+    }
+
+    private static String escapeHtml(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&#39;");
     }
 
     /**

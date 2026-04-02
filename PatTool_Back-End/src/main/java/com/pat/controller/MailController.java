@@ -61,6 +61,34 @@ public class MailController {
         return null;
     };
 
+    /**
+     * Send to {@code app.mailsentto} with explicit plain + HTML parts (multipart/alternative).
+     */
+    public String sendMailPlainAndHtml(String subject, String plainText, String htmlBody) {
+        log.debug("=== MAIL SENDING ATTEMPT (PLAIN + HTML) ===");
+        log.debug("Subject: {}", subject);
+        log.debug("To: {}", mailSentTo);
+        log.debug("From: {}", mailSentFrom);
+        log.debug("Mail enabled (app.sendmail): {}", sendmail);
+        try {
+            if (sendmail) {
+                String[] recipients = parseRecipients(mailSentTo);
+                for (String recipient : recipients) {
+                    smtpMailSender.sendMailPlainAndHtml(mailSentFrom, recipient, null, null, subject, plainText, htmlBody);
+                    log.debug("✓ Mail sent successfully to {} - Subject: '{}'", recipient, subject);
+                }
+            } else {
+                log.warn("✗ Mail sending skipped - app.sendmail is set to false");
+            }
+        } catch (Exception e) {
+            log.error("✗ ERROR sending mail to {} - Subject: '{}' - Error: {}",
+                    mailSentTo, subject, e.getMessage(), e);
+            e.printStackTrace();
+        }
+        log.debug("=== END MAIL SENDING ATTEMPT (PLAIN + HTML) ===\n");
+        return null;
+    }
+
     // Internal method for sending emails to a specific recipient (called from other controllers)
     public String sendMailToRecipient(String recipientEmail, String subject, String body, boolean isHtml){
         return sendMailToRecipient(recipientEmail, subject, body, isHtml, null);

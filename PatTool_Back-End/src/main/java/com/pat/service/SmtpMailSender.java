@@ -134,6 +134,60 @@ public class SmtpMailSender {
     }
 
     /**
+     * Multipart/alternative email with an explicit plain-text part and an HTML part.
+     * Prefer this over {@link #sendMail(String, String, String, String, boolean)} with {@code isHtml=true}
+     * when the HTML is complex, so text clients get a readable body instead of tag-stripped noise.
+     */
+    @Async
+    public void sendMailPlainAndHtml(String from, String to, String cc, String bcc, String subject,
+            String plainText, String htmlBody) {
+        String[] recipients = parseRecipients(to);
+        for (String recipient : recipients) {
+            MimeMessage mail = javaMailSender.createMimeMessage();
+            try {
+                MimeMessageHelper helper = new MimeMessageHelper(mail, true, "UTF-8");
+                helper.setTo(recipient);
+                if (cc != null && !cc.trim().isEmpty()) {
+                    helper.setCc(parseRecipients(cc));
+                }
+                if (bcc != null && !bcc.trim().isEmpty()) {
+                    helper.setBcc(parseRecipients(bcc));
+                }
+                helper.setReplyTo(from);
+                helper.setFrom(from, "PatTool Application");
+                helper.setSubject(subject);
+                String plain = (plainText != null && !plainText.isEmpty()) ? plainText : htmlToPlainText(htmlBody);
+                helper.setText(plain, htmlBody);
+
+                mail.setHeader("X-Mailer", "PatTool Application");
+                mail.setHeader("X-Priority", "3");
+                mail.setHeader("Importance", "Normal");
+                mail.setHeader("List-Unsubscribe", "<mailto:" + from + "?subject=Unsubscribe>");
+                mail.setHeader("List-Unsubscribe-Post", "List-Unsubscribe=One-Click");
+                if (mail.getMessageID() == null) {
+                    mail.setHeader("Message-ID", generateMessageId());
+                }
+
+                log.debug("Sending multipart email via SMTP - From: {}, To: {}, Subject: {}", from, recipient, subject);
+                javaMailSender.send(mail);
+                log.debug("Email sent successfully to {} - Subject: '{}'", recipient, subject);
+            } catch (MailAuthenticationException e) {
+                log.error("MailAuthenticationException - SMTP authentication failed for {}: {}", recipient, e.getMessage(), e);
+                throw new RuntimeException("SMTP authentication failed: " + e.getMessage(), e);
+            } catch (MailSendException e) {
+                log.error("MailSendException - Failed to send email to {}: {}", recipient, e.getMessage(), e);
+                throw new RuntimeException("Failed to send email: " + e.getMessage(), e);
+            } catch (MailException e) {
+                log.error("MailException while sending email to {}: {}", recipient, e.getMessage(), e);
+                throw new RuntimeException("Failed to send email: " + e.getMessage(), e);
+            } catch (Exception e) {
+                log.error("Unexpected exception while sending email to {}: {}", recipient, e.getMessage(), e);
+                throw new RuntimeException("Failed to send email: " + e.getMessage(), e);
+            }
+        }
+    }
+
+    /**
      * Send HTML email to one or more recipients (comma-separated) with an inline image.
      * HTML body should reference the image with src="cid:contentId".
      */
