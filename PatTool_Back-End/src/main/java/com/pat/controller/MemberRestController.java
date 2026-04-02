@@ -712,14 +712,23 @@ public class MemberRestController {
         bodyBuilder.append("Client IP : ").append(ipAddress).append("\n");
         
         IpGeolocationService.ExtendedIPInfo ipInfo = ipGeolocationService.getCompleteIpInfoWithCoordinates(ipAddress);
-        String locationText = ipInfo != null ? ipInfo.getLocation() : null;
+        String ipLocationText = ipInfo != null ? ipInfo.getLocation() : null;
         String domainName = ipInfo != null ? ipInfo.getDomainName() : null;
+
+        // Prefer same reverse-geocoded address as address-geocode when browser sent GPS on connect
+        Double reqLat = member.getRequestLatitude();
+        Double reqLon = member.getRequestLongitude();
+        String addressFromGps = null;
+        if (reqLat != null && reqLon != null) {
+            addressFromGps = ipGeolocationService.getAddressFromCoordinates(reqLat, reqLon);
+        }
+        String locationText = (addressFromGps != null && !addressFromGps.isEmpty()) ? addressFromGps : ipLocationText;
         bodyBuilder.append("Location  : ").append(locationText != null ? locationText : "N/A").append("\n");
         bodyBuilder.append("Domain    : ").append(domainName != null && !domainName.isEmpty() ? domainName : "N/A").append("\n");
 
         // GPS / coordinates details: prefer smartphone GPS, fallback to IP-based coordinates
-        Double lat = member.getRequestLatitude();
-        Double lon = member.getRequestLongitude();
+        Double lat = reqLat;
+        Double lon = reqLon;
         String gpsCoords = null;
         String googleMapsLink = null;
         String coordsSourceLabel = null;
@@ -741,9 +750,10 @@ public class MemberRestController {
                     .append("  (").append(coordsSourceLabel).append(")").append("\n");
             bodyBuilder.append("Map     : ").append(googleMapsLink).append("\n");
 
-            // Try to reverse geocode GPS coordinates to a human readable address
+            // Extra address line only if different from Location (avoids duplicate when Location already used GPS reverse)
             String fullAddress = ipGeolocationService.getAddressFromCoordinates(lat, lon);
-            if (fullAddress != null && !fullAddress.isEmpty()) {
+            if (fullAddress != null && !fullAddress.isEmpty()
+                    && (locationText == null || !fullAddress.equals(locationText))) {
                 bodyBuilder.append("Address  : ").append(fullAddress).append("\n");
             }
         }

@@ -19,6 +19,7 @@ public class IpGeolocationService {
     private static final Logger log = LoggerFactory.getLogger(IpGeolocationService.class);
     
     private final RestTemplate restTemplate;
+    private final GeocodeService geocodeService;
     
     // Cache to avoid repeated lookups for the same IP / coordinates
     // Using CacheEntry to store value with timestamp
@@ -73,8 +74,9 @@ public class IpGeolocationService {
         "172.30.", "172.31.", "unknown"
     };
 
-    public IpGeolocationService(RestTemplate restTemplate) {
+    public IpGeolocationService(RestTemplate restTemplate, GeocodeService geocodeService) {
         this.restTemplate = restTemplate;
+        this.geocodeService = geocodeService;
     }
 
     /**
@@ -391,7 +393,9 @@ public class IpGeolocationService {
 
     /**
      * Reverse geocode GPS coordinates to a human readable address.
-     * Uses OpenStreetMap Nominatim public API (best effort, no guarantee).
+     * Delegates to {@link GeocodeService} so requests use a valid User-Agent and rate limiting
+     * per <a href="https://operations.osmfoundation.org/policies/nominatim/">OSMF Nominatim policy</a>.
+     * Raw {@code RestTemplate.getForObject} to nominatim.openstreetmap.org without headers gets 403 Forbidden.
      */
     public String getAddressFromCoordinates(Double latitude, Double longitude) {
         if (latitude == null || longitude == null) {
@@ -415,17 +419,17 @@ public class IpGeolocationService {
         enforceCacheSizeLimit(reverseGeocodeCache);
 
         try {
-            String url = String.format(java.util.Locale.ENGLISH,
-                    "https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=%f&lon=%f",
-                    latitude, longitude);
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
-
-            if (response != null) {
-                Object displayNameObj = response.get("display_name");
-                if (displayNameObj instanceof String) {
-                    String displayName = (String) displayNameObj;
+            Map<String, Object> response = geocodeService.reverse(latitude, longitude);
+            if (response == null) {
+                return null;
+            }
+            Object displayNameObj = response.get("display_name");
+            if (!(displayNameObj instanceof String)) {
+                displayNameObj = response.get("displayName");
+            }
+            if (displayNameObj instanceof String) {
+                String displayName = ((String) displayNameObj).trim();
+                if (!displayName.isEmpty()) {
                     reverseGeocodeCache.put(key, new CacheEntry(displayName));
                     log.debug("Reverse geocode for {} -> {}", key, displayName);
                     return displayName;

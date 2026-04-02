@@ -51,8 +51,9 @@ export class PositionService {
                 },
                 {
                     enableHighAccuracy: true,
-                    timeout: 10000, // 10 seconds timeout
-                    maximumAge: 0 // Don't use cached position
+                    timeout: 15000,
+                    // Match address-geocode "Ma Position" so a recent fix is reused and POST /memb/user often gets coords quickly
+                    maximumAge: 60000
                 }
             );
         });

@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { Observable, from, race, timer, of } from 'rxjs';
-import { map, switchMap, catchError, take } from 'rxjs/operators';
+import { Observable, from, of } from 'rxjs';
+import { map, switchMap, catchError } from 'rxjs/operators';
 
 import { Member } from '../model/member';
 import { environment } from '../../environments/environment';
@@ -12,7 +12,9 @@ import { PositionCoordinates, PositionService } from './position.service';
 /** Options for {@link MembersService.getUserId}. */
 export interface GetUserIdOptions {
     /**
-     * When true, POST /memb/user immediately without waiting for GPS (saves ~2s on routes like Links).
+     * When true, POST /memb/user immediately without waiting for GPS (e.g. Links route).
+     * When false, waits for browser geolocation (same API/options as address-geocode "Ma Position"),
+     * up to the timeout in {@link PositionService#getGpsPosition}.
      */
     skipGeolocation?: boolean;
 }
@@ -51,14 +53,11 @@ export class MembersService {
                 switchMap(headers => {
                     this.user.locale = this._commonValuesService.getLang();
 
-                    const positionWithTimeout = options?.skipGeolocation
+                    const position$ = options?.skipGeolocation
                         ? of(null)
-                        : race(
-                            this._positionService.getCurrentPosition().pipe(catchError(() => of(null))),
-                            timer(400).pipe(map(() => null))
-                        ).pipe(take(1));
+                        : this._positionService.getCurrentPosition().pipe(catchError(() => of(null)));
 
-                    return positionWithTimeout.pipe(
+                    return position$.pipe(
                         switchMap(position => this.postMembUserRegister(headers, position))
                     );
                 })
