@@ -21,6 +21,7 @@ import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.gridfs.GridFsTemplate;
 import org.springframework.data.mongodb.gridfs.GridFsResource;
 import org.bson.types.ObjectId;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -53,6 +54,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 
 
 
@@ -522,6 +524,7 @@ public class FileRestController {
                             "X-Pat-Wall-Preview, X-Pat-Compression, X-Pat-Image-Size-Before, X-Pat-Image-Size-After, X-Pat-Exif");
                     log.debug("[GET_FILE] Wall preview: fileId={}, maxEdge={}, jpegBytes={}", fileId, maxEdge, jpeg.length);
                     return ResponseEntity.ok()
+                            .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES).cachePrivate())
                             .headers(prevHeaders)
                             .body(new InputStreamResource(new ByteArrayInputStream(jpeg)));
                 } catch (Exception e) {

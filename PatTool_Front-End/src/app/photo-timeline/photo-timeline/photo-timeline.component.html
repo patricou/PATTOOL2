@@ -51,7 +51,8 @@
                     <img *ngIf="getThumbnailUrl(photo)" 
                          [src]="getThumbnailUrl(photo)" 
                          [alt]="photo.fileName"
-                         loading="lazy">
+                         loading="lazy"
+                         decoding="async">
                     <div class="otd-placeholder" *ngIf="!getThumbnailUrl(photo)">
                         <i class="fa fa-image"></i>
                     </div>
@@ -245,6 +246,7 @@
                                  [src]="getThumbnailUrl(media.item)" 
                                  [alt]="media.item.fileName"
                                  loading="lazy"
+                                 decoding="async"
                                  class="photo-img">
                             <div class="photo-placeholder" *ngIf="!getThumbnailUrl(media.item)">
                                 <div class="placeholder-spinner">
@@ -257,7 +259,10 @@
                         </div>
                     </div>
                     <!-- Vidéo : lecture auto (autoplay muted loop) comme dans détail -->
-                    <div class="masonry-item video-card-inline" *ngIf="media.type === 'video'">
+                    <div class="masonry-item video-card-inline wall-video-file-host"
+                         *ngIf="media.type === 'video'"
+                         [attr.data-file-id]="media.item.fileId"
+                         [attr.data-file-type]="media.item.fileType || 'video/mp4'">
                         <div class="photo-card video-card-inner">
                             <div *ngIf="!getVideoUrl(media.item)" class="video-placeholder">
                                 <i class="fa fa-spinner fa-spin fa-2x"></i>
