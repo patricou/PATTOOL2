@@ -95,6 +95,19 @@ export class FileService {
         );
     }
 
+    /** Downscaled JPEG preview for grids (photo wall). Backend supports ?maxEdge= (longest side in px). */
+    getFileWallPreview(fileId: string, maxEdge: number): Observable<ArrayBuffer> {
+        const edge = Math.min(1200, Math.max(64, Math.floor(maxEdge)));
+        return this.getHeaderWithTokenMinimal().pipe(
+            switchMap(headers =>
+                this._http.get(`${this.API_URL}file/${fileId}?maxEdge=${edge}`, {
+                    headers,
+                    responseType: 'arraybuffer'
+                })
+            )
+        );
+    }
+
     getFileWithMetadata(fileId: string): Observable<ImageDownloadResult> {
         return this.getHeaderWithTokenMinimal().pipe(
             switchMap(headers =>

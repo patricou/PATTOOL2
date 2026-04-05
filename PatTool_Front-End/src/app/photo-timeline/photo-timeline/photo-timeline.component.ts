@@ -39,6 +39,8 @@ export interface GroupMediaItem {
     photoIndex?: number; // index parmi les photos uniquement (pour le slideshow)
 }
 const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HEIGHT_PX);
+/** Longest side (px) for server-generated wall thumbnails (?maxEdge=). */
+const WALL_THUMB_MAX_EDGE = 512;
 
 @Component({
     selector: 'app-photo-timeline',
@@ -107,6 +109,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private intersectionObserver: IntersectionObserver | null = null;
     private wallVideoIntersectionObserver: IntersectionObserver | null = null;
     private wallVideoQuerySub: Subscription | null = null;
+    /** Loads masonry / on-this-day photo thumbs only when near the viewport. */
+    private wallThumbObserver: IntersectionObserver | null = null;
     private imageCompressionModalRef: NgbModalRef | null = null;
     private currentFsSlideshowEventId = '';
     /** True when at least one photo was added to DB during the current slideshow session; used to refresh timeline on close */
@@ -249,6 +253,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.wallVideoQuerySub.unsubscribe();
             this.wallVideoQuerySub = null;
         }
+        if (this.wallThumbObserver) {
+            this.wallThumbObserver.disconnect();
+            this.wallThumbObserver = null;
+        }
     }
 
     ngAfterViewInit(): void {
@@ -386,6 +394,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     if (this.destroyed) return;
                     this.onThisDay = photos || [];
                     this.cdr.markForCheck();
+                    setTimeout(() => { if (!this.destroyed) this.scanWallThumbHosts(); }, 0);
                 }, 0);
             },
             error: () => {
@@ -528,6 +537,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (this.hasMore && this.bufferedGroups.length < BUFFER_AHEAD) this.fetchNext();
         if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) this.fetchNextVideos();
         setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
+        setTimeout(() => { if (!this.destroyed) this.scanWallThumbHosts(); }, 0);
     }
 
     private setupIntersectionObserver(): void {
@@ -705,13 +715,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     getThumbnailUrl(photo: TimelinePhoto): string | null {
-        if (this.thumbnailCache.has(photo.fileId)) {
-            return this.thumbnailCache.get(photo.fileId)!;
-        }
-        if (!this.loadingThumbnails.has(photo.fileId)) {
-            this.loadThumbnail(photo);
-        }
-        return null;
+        return this.thumbnailCache.get(photo.fileId) ?? null;
     }
 
     getVideoUrl(video: TimelinePhoto): SafeUrl | null {
@@ -762,11 +766,14 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     private loadThumbnail(photo: TimelinePhoto): void {
+        if (this.loadingThumbnails.has(photo.fileId) || this.thumbnailCache.has(photo.fileId)) {
+            return;
+        }
         this.loadingThumbnails.add(photo.fileId);
-        const sub = this.fileService.getFile(photo.fileId).subscribe({
+        const sub = this.fileService.getFileWallPreview(photo.fileId, WALL_THUMB_MAX_EDGE).subscribe({
             next: (data: ArrayBuffer) => {
                 if (this.destroyed) return;
-                const blob = new Blob([data], { type: photo.fileType });
+                const blob = new Blob([data], { type: 'image/jpeg' });
                 const url = URL.createObjectURL(blob);
                 this.thumbnailCache.set(photo.fileId, url);
                 this.loadingThumbnails.delete(photo.fileId);
@@ -781,13 +788,60 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.subscriptions.push(sub);
     }
 
-    private preloadThumbnailsForGroup(group: TimelineGroup): void {
-        for (const photo of group.photos || []) {
-            this.getThumbnailUrl(photo);
+    private ensureWallThumbObserver(): void {
+        if (this.destroyed || this.wallThumbObserver) {
+            return;
         }
+        this.wallThumbObserver = new IntersectionObserver(
+            (entries) => {
+                if (this.destroyed) return;
+                for (const entry of entries) {
+                    if (!entry.isIntersecting) continue;
+                    const el = entry.target as HTMLElement;
+                    const fid = el.dataset['fileId']?.trim();
+                    const ft = el.dataset['fileType']?.trim();
+                    this.wallThumbObserver?.unobserve(el);
+                    if (fid) {
+                        this.loadWallThumbnail(fid, ft || 'image/jpeg');
+                    }
+                }
+            },
+            { root: null, rootMargin: '500px', threshold: 0.01 }
+        );
+    }
+
+    private scanWallThumbHosts(): void {
+        if (this.destroyed || typeof document === 'undefined') return;
+        this.ensureWallThumbObserver();
+        if (!this.wallThumbObserver) return;
+        document.querySelectorAll('.wall-photo-thumb-host[data-file-id]:not([data-wall-thumb-observed])').forEach((el) => {
+            el.setAttribute('data-wall-thumb-observed', '1');
+            this.wallThumbObserver!.observe(el);
+        });
+    }
+
+    private loadWallThumbnail(fileId: string, fileType: string): void {
+        if (!fileId || this.thumbnailCache.has(fileId) || this.loadingThumbnails.has(fileId)) {
+            return;
+        }
+        const photo = {
+            fileId,
+            fileName: '',
+            fileType: fileType || 'image/jpeg',
+            uploaderName: '',
+            eventId: '',
+            eventName: '',
+            eventType: '',
+            eventDate: ''
+        } as TimelinePhoto;
+        this.loadThumbnail(photo);
+    }
+
+    private preloadThumbnailsForGroup(group: TimelineGroup): void {
         for (const video of group.videos || []) {
             this.getVideoUrl(video);
         }
+        setTimeout(() => { if (!this.destroyed) this.scanWallThumbHosts(); }, 0);
     }
 
     /** Returns the first photo's thumbnail URL for the group, or null. Used as background image for the group container. */

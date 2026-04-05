@@ -45,7 +45,9 @@
             <div class="on-this-day-photo" 
                  *ngFor="let photo of onThisDay; let i = index; trackBy: trackByPhotoId"
                  (click)="openOnThisDaySlideshow(i)">
-                <div class="otd-image-wrapper">
+                <div class="otd-image-wrapper wall-photo-thumb-host"
+                     [attr.data-file-id]="photo.fileId"
+                     [attr.data-file-type]="photo.fileType">
                     <img *ngIf="getThumbnailUrl(photo)" 
                          [src]="getThumbnailUrl(photo)" 
                          [alt]="photo.fileName"
@@ -233,8 +235,10 @@
             <div class="masonry-grid">
                 <ng-container *ngFor="let media of getGroupMedia(group); trackBy: trackByMediaId">
                     <!-- Photo -->
-                    <div class="masonry-item" 
+                    <div class="masonry-item wall-photo-thumb-host"
                          *ngIf="media.type === 'photo'"
+                         [attr.data-file-id]="media.item.fileId"
+                         [attr.data-file-type]="media.item.fileType"
                          (click)="openSlideshow(group, media.photoIndex ?? 0)">
                         <div class="photo-card">
                             <img *ngIf="getThumbnailUrl(media.item)" 

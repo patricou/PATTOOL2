@@ -34,8 +34,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -92,6 +94,9 @@ public class FileRestController {
     
     // Maximum age for upload logs in milliseconds (default: 5 minutes)
     private static final long MAX_LOG_AGE_MS = 5 * 60 * 1000;
+
+    /** Max bytes read into memory when generating optional wall preview (?maxEdge=). */
+    private static final long MAX_READ_BYTES_FOR_WALL_PREVIEW = 45L * 1024 * 1024;
     
     /**
      * Internal class to store upload log entry with timestamp
@@ -156,6 +161,32 @@ public class FileRestController {
         uploadLogs.remove(sessionId);
     }
     
+    private static byte[] readInputStreamWithLimit(InputStream in, long maxBytes) throws IOException {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        byte[] buf = new byte[65536];
+        long total = 0;
+        int n;
+        while ((n = in.read(buf)) >= 0) {
+            total += n;
+            if (total > maxBytes) {
+                throw new IOException("stream exceeds max bytes for preview");
+            }
+            baos.write(buf, 0, n);
+        }
+        return baos.toByteArray();
+    }
+
+    private static String wallPreviewDispositionName(String filename) {
+        if (filename == null || filename.isEmpty()) {
+            return "wall-preview.jpg";
+        }
+        int dot = filename.lastIndexOf('.');
+        if (dot <= 0) {
+            return filename + "_wall.jpg";
+        }
+        return filename.substring(0, dot) + "_wall.jpg";
+    }
+
     /**
      * Build Content-Disposition header value with proper RFC 5987 encoding for Unicode filenames
      * @param disposition "inline" or "attachment"
@@ -407,7 +438,9 @@ public class FileRestController {
     }
 
     @RequestMapping( value = "/api/file/{fileId}", method = RequestMethod.GET )
-    public ResponseEntity< InputStreamResource> getFile(@PathVariable String fileId, HttpServletRequest request, HttpServletResponse response){
+    public ResponseEntity< InputStreamResource> getFile(@PathVariable String fileId,
+            @RequestParam(value = "maxEdge", required = false) Integer maxEdgeParam,
+            HttpServletRequest request, HttpServletResponse response){
         
         log.debug("[GET_FILE] Request received: fileId={}", fileId);
 
@@ -470,6 +503,31 @@ public class FileRestController {
             if (filename == null || filename.isEmpty()) {
                 filename = "file_" + fileId; // Fallback filename
                 log.debug("No filename found for file: " + fileId + ", using fallback: " + filename);
+            }
+
+            if (maxEdgeParam != null && maxEdgeParam > 0 && imageCompressionService.isImageType(contentType)) {
+                int maxEdge = Math.min(1200, Math.max(64, maxEdgeParam));
+                try {
+                    byte[] fileBytes = readInputStreamWithLimit(gridFsResource.getInputStream(), MAX_READ_BYTES_FOR_WALL_PREVIEW);
+                    String cacheKey = "gfs-wall:" + fileId + ":" + maxEdge;
+                    ImageCompressionService.CompressionResult preview = imageCompressionService.buildMaxEdgeJpegPreview(
+                            cacheKey, fileBytes, filename, contentType, maxEdge, null);
+                    byte[] jpeg = preview.getData();
+                    HttpHeaders prevHeaders = new HttpHeaders();
+                    prevHeaders.setContentType(MediaType.IMAGE_JPEG);
+                    prevHeaders.setContentLength(jpeg.length);
+                    prevHeaders.set("Content-Disposition", buildContentDispositionHeader("inline", wallPreviewDispositionName(filename)));
+                    prevHeaders.set("X-Pat-Wall-Preview", "maxEdge=" + maxEdge);
+                    prevHeaders.set("Access-Control-Expose-Headers",
+                            "X-Pat-Wall-Preview, X-Pat-Compression, X-Pat-Image-Size-Before, X-Pat-Image-Size-After, X-Pat-Exif");
+                    log.debug("[GET_FILE] Wall preview: fileId={}, maxEdge={}, jpegBytes={}", fileId, maxEdge, jpeg.length);
+                    return ResponseEntity.ok()
+                            .headers(prevHeaders)
+                            .body(new InputStreamResource(new ByteArrayInputStream(jpeg)));
+                } catch (Exception e) {
+                    log.debug("[GET_FILE] Wall preview failed for fileId={}, streaming original: {}", fileId, e.getMessage());
+                    gridFsResource = gridFsTemplate.getResource(gridFsFile);
+                }
             }
             
             // Spring's MediaType.parseMediaType() rejects wildcards (e.g. image/*). Resolve to concrete type from filename.

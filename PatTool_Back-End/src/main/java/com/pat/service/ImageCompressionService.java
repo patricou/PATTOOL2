@@ -22,6 +22,7 @@ import javax.imageio.ImageWriteParam;
 import javax.imageio.ImageWriter;
 import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
+import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -190,6 +191,97 @@ public class ImageCompressionService {
             if (permitAcquired) {
                 compressionSemaphore.release();
                 log.debug("Compression permit released for '{}'. Available permits after release: {}", filename, compressionSemaphore.availablePermits());
+            }
+        }
+    }
+
+    /**
+     * GridFS / timeline wall preview: scale image so max(width, height) &lt;= maxEdgePixels and encode as JPEG.
+     * Uses the same semaphore and cache as other compression paths.
+     */
+    public CompressionResult buildMaxEdgeJpegPreview(
+        String cacheKey,
+        byte[] fileBytes,
+        String filename,
+        String contentType,
+        int maxEdgePixels,
+        Consumer<String> logConsumer
+    ) throws IOException {
+        if (fileBytes == null || fileBytes.length == 0) {
+            throw new IOException("Empty image bytes");
+        }
+        if (!isImageType(contentType)) {
+            throw new IOException("Not an image content type");
+        }
+        int edge = Math.min(1600, Math.max(32, maxEdgePixels));
+        long originalSize = fileBytes.length;
+
+        boolean permitAcquired = false;
+        try {
+            compressionSemaphore.acquire();
+            permitAcquired = true;
+
+            CompressionResult cached = getFromCache(cacheKey, logConsumer);
+            if (cached != null) {
+                return cached;
+            }
+
+            int[] dims = getImageDimensions(fileBytes);
+            if (dims != null && (dims[0] > MAX_IMAGE_WIDTH || dims[1] > MAX_IMAGE_HEIGHT)) {
+                throw new IOException("Image dimensions too large for wall preview");
+            }
+
+            if (memoryMonitoringService != null && !memoryMonitoringService.checkMemoryUsage()) {
+                throw new IOException("Memory usage critical, skip wall preview");
+            }
+
+            BufferedImage raw = ImageIO.read(new ByteArrayInputStream(fileBytes));
+            if (raw == null) {
+                throw new IOException("Cannot decode image");
+            }
+
+            BufferedImage oriented = applyOrientation(raw, fileBytes);
+            if (oriented != raw) {
+                raw.flush();
+            }
+
+            int w = oriented.getWidth();
+            int h = oriented.getHeight();
+            int maxDim = Math.max(w, h);
+            int tw = w;
+            int th = h;
+            if (maxDim > edge) {
+                double sc = (double) edge / maxDim;
+                tw = Math.max(1, (int) Math.round(w * sc));
+                th = Math.max(1, (int) Math.round(h * sc));
+            }
+
+            BufferedImage target = new BufferedImage(tw, th, BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = target.createGraphics();
+            try {
+                g.setColor(Color.WHITE);
+                g.fillRect(0, 0, tw, th);
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g.drawImage(oriented, 0, 0, tw, th, null);
+            } finally {
+                g.dispose();
+            }
+            oriented.flush();
+
+            byte[] jpeg = compressWithQuality(target, "jpeg", 0.85f);
+            target.flush();
+
+            CompressionResult result = new CompressionResult(jpeg, originalSize, Collections.emptyMap());
+            storeInCache(cacheKey, result);
+            return result;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Wall preview interrupted", e);
+        } finally {
+            if (permitAcquired) {
+                compressionSemaphore.release();
             }
         }
     }
