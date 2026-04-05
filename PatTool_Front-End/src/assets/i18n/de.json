@@ -815,6 +815,7 @@
         "LOCATION_VIEW_TRACE": "Im Strecken-Viewer anzeigen",
         "MAP_LOADING": "Karte wird geladen...",
         "VIEW_TRACK": "Strecke anzeigen",
+        "TRACK_DISPLAY_NAME_PLACEHOLDER": "Anzeigename (Fotowand, Listen)",
         "TRACK_VIEWER_TITLE": "GPS-Track - {{ fileName }}",
         "TRACK_LOADING": "Track wird geladen...",
         "TRACK_LOAD_ERROR": "GPS-Track konnte nicht geladen werden.",

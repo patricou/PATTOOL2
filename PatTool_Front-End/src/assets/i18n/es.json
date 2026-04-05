@@ -822,6 +822,7 @@
         "LOCATION_VIEW_TRACE": "Mostrar en el visor de trazas",
         "MAP_LOADING": "Cargando mapa...",
         "VIEW_TRACK": "Ver traza",
+        "TRACK_DISPLAY_NAME_PLACEHOLDER": "Nombre mostrado (muro de fotos, listas)",
         "TRACK_VIEWER_TITLE": "Traza GPS - {{ fileName }}",
         "TRACK_LOADING": "Cargando traza...",
         "TRACK_LOAD_ERROR": "No se pudo cargar la traza GPS.",

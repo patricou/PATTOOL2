@@ -817,6 +817,7 @@
         "LOCATION_VIEW_TRACE": "在轨迹查看器中显示",
         "MAP_LOADING": "正在加载地图...",
         "VIEW_TRACK": "查看轨迹",
+        "TRACK_DISPLAY_NAME_PLACEHOLDER": "显示名称（照片墙、列表）",
         "TRACK_VIEWER_TITLE": "GPS 轨迹 - {{ fileName }}",
         "TRACK_LOADING": "轨迹加载中...",
         "TRACK_LOAD_ERROR": "无法加载 GPS 轨迹。",

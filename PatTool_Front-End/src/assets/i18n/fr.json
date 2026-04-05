@@ -806,6 +806,7 @@
 		"LOCATION_VIEW_TRACE": "Trace Viewer",
 		"MAP_LOADING": "Chargement de la carte...",
 		"VIEW_TRACK": "Voir la trace",
+		"TRACK_DISPLAY_NAME_PLACEHOLDER": "Nom affiché (mur de photos, listes)",
 		"TRACK_VIEWER_TITLE": "Trace GPS - {{ fileName }}",
 		"TRACK_LOADING": "Chargement de la trace...",
 		"TRACK_LOAD_ERROR": "Impossible de charger la trace GPS.",

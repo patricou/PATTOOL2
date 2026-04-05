@@ -14,6 +14,8 @@ public class FileUploaded {
     private String fieldId;
     private String fileName;
     private String fileType;
+    /** Nom affiché optionnel (ex. trace GPX / KML sur le mur de photos et dans les listes). */
+    private String displayName;
     @DBRef
     private Member uploaderMember;
 
@@ -39,6 +41,14 @@ public class FileUploaded {
 
     public void setFileType(String fileType) {
         this.fileType = fileType;
+    }
+
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
     }
 
     public Member getUploaderMember() {

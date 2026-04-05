@@ -5,7 +5,9 @@ import { Member } from '../model/member';
         public fieldId: string,
         public fileName: string,
         public fileType: string,
-        public uploaderMember : Member
+        public uploaderMember : Member,
+        /** Nom affiché pour les traces GPX/KML/… (mur de photos, cartes). */
+        public displayName?: string
     )
     {}
 }

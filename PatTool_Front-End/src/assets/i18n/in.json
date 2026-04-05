@@ -794,6 +794,7 @@
         "LOCATION_VIEW_TRACE": "ट्रेस व्यूअर में दिखाएँ",
         "MAP_LOADING": "मानचित्र लोड हो रहा है...",
         "VIEW_TRACK": "ट्रैक देखें",
+        "TRACK_DISPLAY_NAME_PLACEHOLDER": "प्रदर्शित नाम (फ़ोटो दीवार, सूचियाँ)",
         "TRACK_VIEWER_TITLE": "GPS ट्रैक - {{ fileName }}",
         "TRACK_LOADING": "ट्रैक लोड हो रहा है...",
         "TRACK_LOAD_ERROR": "GPS ट्रैक लोड नहीं हो सका।",

@@ -495,8 +495,12 @@ public class PhotoTimelineRestController {
                 if (!seenUrls.add(dedupKey)) {
                     continue;
                 }
-                String display = fn != null ? fn.trim() : file.getFieldId();
-                FsPhotoLink f = new FsPhotoLink(display, display);
+                String fileNameDisplay = fn != null ? fn.trim() : file.getFieldId();
+                String custom = file.getDisplayName();
+                String linkDescription = (custom != null && !custom.trim().isEmpty())
+                    ? custom.trim()
+                    : fileNameDisplay;
+                FsPhotoLink f = new FsPhotoLink(fileNameDisplay, linkDescription);
                 f.setTypeUrl("TRACK");
                 f.setFieldId(file.getFieldId().trim());
                 links.add(f);

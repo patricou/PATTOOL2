@@ -695,6 +695,7 @@
         "LOCATION_VIEW_TRACE": "Εμφάνιση στον προβολέα διαδρομής",
         "MAP_LOADING": "Φόρτωση χάρτη...",
         "VIEW_TRACK": "Προβολή διαδρομής",
+        "TRACK_DISPLAY_NAME_PLACEHOLDER": "Εμφανιζόμενο όνομα (τοίχος φωτογραφιών, λίστες)",
         "TRACK_VIEWER_TITLE": "Διαδρομή GPS - {{ fileName }}",
         "TRACK_LOADING": "Φόρτωση διαδρομής...",
         "TRACK_LOAD_ERROR": "Αδύνατη η φόρτωση της διαδρομής GPS.",

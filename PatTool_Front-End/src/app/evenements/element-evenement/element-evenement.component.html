@@ -661,6 +661,16 @@
                               [style.cursor]="(isImageFile(uploadedFile.fileName) || isVideoFile(uploadedFile.fileName) || isPdfFile(uploadedFile.fileName) || isTrackFile(uploadedFile.fileName)) ? 'pointer' : 'default'">
                             {{getTruncatedFileName(uploadedFile.fileName)}}
                         </span>
+                        <input *ngIf="isTrackFile(uploadedFile.fileName) && isAuthor()"
+                               type="text"
+                               class="form-control form-control-sm track-display-name-input ms-2"
+                               [(ngModel)]="uploadedFile.displayName"
+                               (focus)="onTrackDisplayNameFocus(uploadedFile)"
+                               (blur)="onTrackDisplayNameBlur(uploadedFile)"
+                               [placeholder]="'EVENTELEM.TRACK_DISPLAY_NAME_PLACEHOLDER' | translate"
+                               (click)="$event.stopPropagation()" />
+                        <span *ngIf="isTrackFile(uploadedFile.fileName) && !isAuthor() && uploadedFile.displayName"
+                              class="text-muted ms-2 small">{{ uploadedFile.displayName }}</span>
                         <small class="text-muted ms-2 clickable-user" [style.color]="getInverseTextColor()" 
                                (click)="openUserModal(uploadedFile.uploaderMember)"
                                title="Cliquer pour voir les détails de l'utilisateur">

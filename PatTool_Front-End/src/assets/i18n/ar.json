@@ -816,6 +816,7 @@
         "LOCATION_VIEW_TRACE": "العرض في عارض المسار",
         "MAP_LOADING": "جارٍ تحميل الخريطة...",
         "VIEW_TRACK": "عرض المسار",
+        "TRACK_DISPLAY_NAME_PLACEHOLDER": "الاسم المعروض (جدار الصور، القوائم)",
         "TRACK_VIEWER_TITLE": "مسار GPS - {{ fileName }}",
         "TRACK_LOADING": "جارٍ تحميل المسار...",
         "TRACK_LOAD_ERROR": "تعذّر تحميل مسار GPS.",

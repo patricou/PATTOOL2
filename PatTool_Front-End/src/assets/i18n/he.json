@@ -809,6 +809,7 @@
         "LOCATION_VIEW_TRACE": "הצג במציג המסלול",
         "MAP_LOADING": "מטעין מפה...",
         "VIEW_TRACK": "הצג מסלול",
+        "TRACK_DISPLAY_NAME_PLACEHOLDER": "שם תצוגה (קיר תמונות, רשימות)",
         "TRACK_VIEWER_TITLE": "מסלול GPS - {{ fileName }}",
         "TRACK_LOADING": "טוען את המסלול...",
         "TRACK_LOAD_ERROR": "לא ניתן לטעון את מסלול ה-GPS.",

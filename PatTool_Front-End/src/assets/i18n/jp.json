@@ -697,6 +697,7 @@
         "LOCATION_VIEW_TRACE": "トレースビューアで表示",
         "MAP_LOADING": "マップを読み込み中...",
         "VIEW_TRACK": "トラックを表示",
+        "TRACK_DISPLAY_NAME_PLACEHOLDER": "表示名（写真の壁、一覧）",
         "TRACK_VIEWER_TITLE": "GPS トラック - {{ fileName }}",
         "TRACK_LOADING": "トラックを読み込み中...",
         "TRACK_LOAD_ERROR": "GPS トラックを読み込めませんでした。",

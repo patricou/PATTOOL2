@@ -854,7 +854,7 @@
           <div class="track-item-compact" *ngFor="let trackFile of getTrackFiles()">
             <div class="track-name-compact">
               <i class="fa" [ngClass]="getTrackFileIcon(trackFile.fileName)"></i>
-              {{ trackFile.fileName }}
+              {{ trackFile.displayName || trackFile.fileName }}
             </div>
             <div class="track-meta-compact" *ngIf="trackFile.uploaderMember.userName || getUploadedFileDate($any(trackFile))">
               <ng-container *ngIf="trackFile.uploaderMember.userName">

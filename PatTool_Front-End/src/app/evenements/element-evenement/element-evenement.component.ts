@@ -2376,7 +2376,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						fileData.fieldId || fileData.id || this.generateFileId(),
 						fileData.fileName || fileData.name,
 						fileData.fileType || fileData.type || 'unknown',
-						this.user
+						this.user,
+						fileData.displayName
 					);
 					
 					// Check if this file contains "thumbnail" in its name
@@ -2428,7 +2429,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						fileData.fieldId || fileData.id || this.generateFileId(),
 						fileData.fileName || fileData.name,
 						fileData.fileType || fileData.type || 'unknown',
-						this.user
+						this.user,
+						fileData.displayName
 					);
 					
 					const existingFile = this.evenement.fileUploadeds.find(f => f.fieldId === uploadedFile.fieldId);
@@ -6374,6 +6376,40 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return this.translateService.instant('EVENTELEM.VIEW_TRACK');
 		}
 		return null;
+	}
+
+	private trackDisplayNameEditStart = new Map<string, string>();
+
+	private normalizeTrackDisplayName(v: string | undefined | null): string {
+		return (typeof v === 'string' ? v.trim() : '') || '';
+	}
+
+	/** Début d’édition du nom affiché (trace) : valeur normalisée pour comparer au blur. */
+	public onTrackDisplayNameFocus(uploadedFile: UploadedFile): void {
+		if (uploadedFile?.fieldId) {
+			this.trackDisplayNameEditStart.set(
+				uploadedFile.fieldId,
+				this.normalizeTrackDisplayName(uploadedFile.displayName)
+			);
+		}
+	}
+
+	/** Enregistre le nom affiché d’une trace (GPX/KML/…) si modifié. */
+	public onTrackDisplayNameBlur(uploadedFile: UploadedFile): void {
+		if (!this.evenement?.id || !this.isAuthor() || !uploadedFile?.fieldId || !this.isTrackFile(uploadedFile.fileName)) {
+			return;
+		}
+		const normNow = this.normalizeTrackDisplayName(uploadedFile.displayName);
+		uploadedFile.displayName = normNow || undefined;
+		const start = this.trackDisplayNameEditStart.get(uploadedFile.fieldId) ?? '';
+		this.trackDisplayNameEditStart.delete(uploadedFile.fieldId);
+		if (normNow === start) {
+			return;
+		}
+		this._evenementsService.putEvenement(this.evenement).subscribe({
+			next: () => this.updateEvenement.emit(this.evenement),
+			error: (err) => console.error('Error saving track display name', err)
+		});
 	}
 
 	public openTrackFile(uploadedFile: UploadedFile): void {

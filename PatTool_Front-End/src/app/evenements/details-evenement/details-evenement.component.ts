@@ -6505,7 +6505,8 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         fileData.fieldId || fileData.id || this.generateFileId(),
         fileData.fileName || fileData.name,
         fileData.fileType || fileData.type || 'unknown',
-        this.user!
+        this.user!,
+        fileData.displayName
       );
 
       // Preserve backend metadata if present (not typed on UploadedFile model)

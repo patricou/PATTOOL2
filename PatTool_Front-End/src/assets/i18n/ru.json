@@ -811,6 +811,7 @@
         "LOCATION_VIEW_TRACE": "Показать в просмотрщике треков",
         "MAP_LOADING": "Загрузка карты...",
         "VIEW_TRACK": "Показать трек",
+        "TRACK_DISPLAY_NAME_PLACEHOLDER": "Отображаемое имя (стена фото, списки)",
         "TRACK_VIEWER_TITLE": "GPS-трек - {{ fileName }}",
         "TRACK_LOADING": "Загрузка трека...",
         "TRACK_LOAD_ERROR": "Не удалось загрузить GPS-трек.",

@@ -4486,7 +4486,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				fileData.fieldId || fileData.id || this.generateFileId(),
 				fileData.fileName || fileData.name,
 				fileData.fileType || fileData.type || 'unknown',
-				this.user
+				this.user,
+				fileData.displayName
 			);
 			
 			// Check if this file contains "thumbnail" in its name

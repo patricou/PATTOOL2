@@ -816,6 +816,7 @@
         "LOCATION_VIEW_TRACE": "Show in trace viewer",
         "MAP_LOADING": "Loading map...",
         "VIEW_TRACK": "View track",
+        "TRACK_DISPLAY_NAME_PLACEHOLDER": "Display name (photo wall, lists)",
         "TRACK_VIEWER_TITLE": "GPS Track - {{ fileName }}",
         "TRACK_LOADING": "Loading track...",
         "TRACK_LOAD_ERROR": "Unable to load the GPS track.",
