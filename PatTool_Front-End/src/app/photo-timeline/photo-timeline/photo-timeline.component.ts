@@ -42,7 +42,7 @@ const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HE
 /** Longest side (px) for server-generated wall thumbnails (?maxEdge=). */
 const WALL_THUMB_MAX_EDGE = 400;
 /** Max concurrent wall media HTTP fetches (thumbs + inline videos) to avoid stampedes. */
-const WALL_MEDIA_MAX_PARALLEL = 8;
+const WALL_MEDIA_MAX_PARALLEL = 12;
 
 @Component({
     selector: 'app-photo-timeline',
@@ -107,7 +107,6 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private nextPage = 0;
     private nextPageVideos = 0;
     private subscriptions: Subscription[] = [];
-    private waitInterval: any;
     private intersectionObserver: IntersectionObserver | null = null;
     private wallVideoIntersectionObserver: IntersectionObserver | null = null;
     private wallVideoQuerySub: Subscription | null = null;
@@ -208,10 +207,6 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.subscriptions = [];
         this.fsSlideshowSubs.forEach(s => { if (s && !s.closed) s.unsubscribe(); });
         this.fsSlideshowSubs = [];
-        if (this.waitInterval) {
-            clearInterval(this.waitInterval);
-            this.waitInterval = null;
-        }
         if (this.searchDebounceId != null) {
             clearTimeout(this.searchDebounceId);
             this.searchDebounceId = null;
@@ -294,19 +289,44 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         });
     }
 
+    /**
+     * Démarre le mur dès que l’id membre est disponible (sans attendre le GPS, comme links).
+     * Évite le setInterval(200 ms) qui retardait systématiquement le premier chargement.
+     */
     private waitForUser(): void {
         const eventId = this.route.snapshot.queryParamMap.get('eventId');
         this.filterEventId = (eventId != null && eventId.trim() !== '') ? eventId.trim() : undefined;
 
-        this.waitInterval = setInterval(() => {
-            const user = this.membersService.getUser();
-            if (user && user.id) {
-                clearInterval(this.waitInterval);
-                this.userId = user.id;
+        const user = this.membersService.getUser();
+        if (user?.id) {
+            this.userId = user.id;
+            this.loadFriendGroups();
+            this.startStreaming();
+            return;
+        }
+
+        const sub = this.membersService.getUserId({ skipGeolocation: true }).pipe(take(1)).subscribe({
+            next: (member) => {
+                if (this.destroyed) return;
+                if (!member?.id) {
+                    this.isLoading = false;
+                    this.errorMessage = 'Error loading photos';
+                    this.cdr.markForCheck();
+                    return;
+                }
+                this.userId = member.id;
                 this.loadFriendGroups();
                 this.startStreaming();
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                if (this.destroyed) return;
+                this.isLoading = false;
+                this.errorMessage = 'Error loading photos';
+                this.cdr.markForCheck();
             }
-        }, 200);
+        });
+        this.subscriptions.push(sub);
     }
 
     private loadFriendGroups(): void {
