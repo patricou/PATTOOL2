@@ -21,6 +21,7 @@ import { map, distinctUntilChanged, catchError, take, switchMap, finalize } from
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { EvenementsService } from '../../services/evenements.service';
+import { KeycloakService } from '../../keycloak/keycloak.service';
 import { DiscussionService } from '../../services/discussion.service';
 import { EventColorService } from '../../services/event-color.service';
 import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
@@ -49,6 +50,9 @@ const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HE
 const WALL_THUMB_MAX_EDGE = 400;
 /** Max concurrent wall media HTTP fetches (thumbs + inline videos) to avoid stampedes. */
 const WALL_MEDIA_MAX_PARALLEL = 12;
+/** First-screen thumbnail preload per group (rest via IntersectionObserver, like home-evenements lazy batches). */
+const WALL_PRELOAD_THUMBS_FIRST_SCREEN = 10;
+const WALL_PRELOAD_THUMBS_AFTER = 6;
 
 @Component({
     selector: 'app-photo-timeline',
@@ -135,6 +139,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private timelineLoadGeneration = 0;
     /** After first photo-timeline response is handled, start on-this-day (avoids competing with wall thumbnails on the shared fetch queue). */
     private onThisDayApiScheduled = false;
+    /**
+     * Home-evenements n’ouvre qu’un flux puis affiche les cartes au fil de l’eau ; ici on évite de lancer en parallèle
+     * deux grosses requêtes Mongo (photos + vidéos-only) au cold start.
+     */
+    private videoTimelineFetchStarted = false;
     private searchDebounceId: ReturnType<typeof setTimeout> | null = null;
     /** When set, timeline shows only photos/videos for this event (from query param eventId). */
     filterEventId: string | undefined;
@@ -195,7 +204,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private cdr: ChangeDetectorRef,
         private sanitizer: DomSanitizer,
         private route: ActivatedRoute,
-        private router: Router
+        private router: Router,
+        private keycloakService: KeycloakService
     ) {}
 
     ngOnInit(): void {
@@ -312,6 +322,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const eventId = this.route.snapshot.queryParamMap.get('eventId');
         this.filterEventId = (eventId != null && eventId.trim() !== '') ? eventId.trim() : undefined;
 
+        this.keycloakService.getToken().then(() => {}).catch(() => {});
+
         const user = this.membersService.getUser();
         if (user?.id) {
             this.userId = user.id;
@@ -418,6 +430,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.hasMoreVideos = true;
         this.onThisDay = [];
         this.onThisDayApiScheduled = false;
+        this.videoTimelineFetchStarted = false;
         this.resetWallMediaObserverForTimelineReload();
         this.wallFetchQueue = [];
         const prevThumbUrls = new Map(this.thumbnailCache);
@@ -449,10 +462,18 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     private startStreaming(): void {
+        // Une seule requête timeline au départ ; la timeline « vidéos seules » démarre après la 1ʳᵉ réponse
+        // photos (comme la home qui n’ouvre pas deux backends lourds en même temps au premier écran).
         this.fetchNext();
+    }
+
+    /** Démarre getVideoTimeline une fois la première page photos reçue (ou en cas d’erreur photos). */
+    private scheduleVideoTimelineFetchOnce(): void {
+        if (this.destroyed || this.videoTimelineFetchStarted) {
+            return;
+        }
+        this.videoTimelineFetchStarted = true;
         this.fetchNextVideos();
-        // On-this-day API is started from fetchNext after the first timeline chunk is handled
-        // so wall thumbnails queue first (same 12-slot limit as OTD).
     }
 
     private loadOnThisDay(): void {
@@ -496,6 +517,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     this.isFetching = false;
                     this.hasMore = response.hasMore;
                     this.nextPage = response.page + 1;
+                    this.scheduleVideoTimelineFetchOnce();
 
                     if (response.groups.length > 0) {
                         response.groups.forEach(g => this.bufferedGroups.push(g));
@@ -523,6 +545,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 setTimeout(() => {
                     if (this.destroyed || gen !== this.timelineLoadGeneration) return;
                     this.isFetching = false;
+                    this.scheduleVideoTimelineFetchOnce();
                     if (this.isLoading) {
                         this.errorMessage = 'Error loading photos';
                         this.isLoading = false;
@@ -983,8 +1006,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private preloadThumbnailsForGroup(group: TimelineGroup): void {
         const photos = group.photos || [];
         const isFirstScreen = this.visibleGroups.length <= INITIAL_VISIBLE_GROUPS;
-        // Cap per group so one huge album does not enqueue hundreds of requests ahead of other events’ thumbs.
-        const limit = isFirstScreen ? Math.min(photos.length, 36) : Math.min(photos.length, 24);
+        // Peu de requêtes immédiates : le reste passe par IntersectionObserver (comme les cartes home).
+        const limit = isFirstScreen
+            ? Math.min(photos.length, WALL_PRELOAD_THUMBS_FIRST_SCREEN)
+            : Math.min(photos.length, WALL_PRELOAD_THUMBS_AFTER);
         for (let i = 0; i < limit; i++) {
             this.loadThumbnail(photos[i]);
         }

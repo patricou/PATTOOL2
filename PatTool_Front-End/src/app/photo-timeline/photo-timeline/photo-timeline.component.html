@@ -266,7 +266,7 @@
                             <img *ngIf="getThumbnailUrl(media.item)" 
                                  [src]="getThumbnailUrl(media.item)" 
                                  [alt]="media.item.fileName"
-                                 loading="eager"
+                                 loading="lazy"
                                  decoding="async"
                                  class="photo-img">
                             <div class="photo-placeholder" *ngIf="!getThumbnailUrl(media.item)">
