@@ -186,6 +186,22 @@
                     <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--card"
                             *ngIf="group.eventId"
+                            (click)="openWallCommentary(group); $event.stopPropagation()"
+                            [title]="'EVENTHOME.ADD_COMMENTARY' | translate">
+                        <i class="fa fa-comment"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTHOME.COMMENTARIES' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--card"
+                            *ngIf="group.eventId"
+                            (click)="openWallDiscussion(group); $event.stopPropagation()"
+                            [title]="'EVENTELEM.OPEN_DISCUSSION' | translate">
+                        <i class="fa fa-comments"></i>
+                        <span class="group-action-btn-text">{{ 'EVENTELEM.CHAT' | translate }}</span>
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm group-action-btn group-action-btn--card"
+                            *ngIf="group.eventId"
                             (click)="refreshTimelineGroup(group); $event.stopPropagation()"
                             [disabled]="isTimelineGroupRefreshing(group)"
                             [title]="'PHOTO_TIMELINE.REFRESH_EVENT' | translate">
@@ -574,6 +590,21 @@
         </button>
     </div>
 </ng-template>
+
+<app-commentary-editor
+    *ngIf="wallCommentaryEvent"
+    #wallCommentaryEditor
+    [showAddButton]="false"
+    style="display: none;"
+    [commentaries]="wallCommentaryEvent.commentaries || []"
+    [currentUser]="getWallCommentaryCurrentUser()"
+    [eventId]="wallCommentaryEvent.id"
+    [eventColor]="getWallCommentaryEventColor()"
+    [useCalculatedColorsForModal]="true"
+    (commentaryAdded)="onWallCommentaryAdded($event)"
+    (commentaryUpdated)="onWallCommentaryUpdated($event)"
+    (commentaryDeleted)="onWallCommentaryDeleted($event)">
+</app-commentary-editor>
 
 <!-- Slideshow Modal Component (always available) -->
 <app-slideshow-modal #slideshowModalComponent 

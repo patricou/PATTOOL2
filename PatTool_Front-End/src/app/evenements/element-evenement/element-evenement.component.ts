@@ -6427,7 +6427,12 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				document.body.scrollTop || 0;
 			this.savedScrollPosition = savedScrollY;
 			
-			this.traceViewerModalComponent.openFromFile(uploadedFile.fieldId, uploadedFile.fileName);
+			this.traceViewerModalComponent.openFromFile(
+				uploadedFile.fieldId,
+				uploadedFile.fileName,
+				undefined,
+				uploadedFile.displayName
+			);
 			
 			// Immediately maintain scroll position after modal opens to prevent any movement
 			requestAnimationFrame(() => {

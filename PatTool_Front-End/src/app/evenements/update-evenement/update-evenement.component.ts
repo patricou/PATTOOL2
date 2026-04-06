@@ -1240,7 +1240,8 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		this.traceViewerModalComponent.openFromFile(
 			uploadedFile.fieldId,
 			uploadedFile.fileName,
-			color ?? undefined
+			color ?? undefined,
+			uploadedFile.displayName
 		);
 	}
 

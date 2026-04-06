@@ -21,6 +21,12 @@ import { map, distinctUntilChanged, catchError, take, switchMap, finalize } from
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
 import { environment } from '../../../environments/environment';
 import { EvenementsService } from '../../services/evenements.service';
+import { DiscussionService } from '../../services/discussion.service';
+import { EventColorService } from '../../services/event-color.service';
+import { DiscussionModalComponent } from '../../communications/discussion-modal/discussion-modal.component';
+import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
+import { Evenement } from '../../model/evenement';
+import { Commentary } from '../../model/commentary';
 import { Member } from '../../model/member';
 import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
 
@@ -60,7 +66,8 @@ const WALL_MEDIA_MAX_PARALLEL = 12;
         VideoshowModalModule,
         TraceViewerModalComponent,
         EventCardOverlayComponent,
-        ScaleRowToFitDirective
+        ScaleRowToFitDirective,
+        CommentaryEditor
     ]
 })
 export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit {
@@ -73,6 +80,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     @ViewChild('wallWhatsappShareModal') wallWhatsappShareModal!: TemplateRef<any>;
     @ViewChild('wallShareByEmailModal') wallShareByEmailModal!: TemplateRef<any>;
     @ViewChild('wallEventAccessUsersModal') wallEventAccessUsersModal!: TemplateRef<any>;
+    @ViewChild('wallCommentaryEditor') wallCommentaryEditor?: CommentaryEditor;
+
+    /** Loaded on demand when opening « Commentaires » from the wall (same editor as détail événement). */
+    wallCommentaryEvent: Evenement | null = null;
     /** Vidéos du mur masonry : lecture seulement quand visibles (viewport). */
     @ViewChildren('wallTimelineVideo', { read: ElementRef }) wallTimelineVideos!: QueryList<ElementRef<HTMLVideoElement>>;
 
@@ -175,6 +186,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private fileService: FileService,
         private friendsService: FriendsService,
         private evenementsService: EvenementsService,
+        private discussionService: DiscussionService,
+        private eventColorService: EventColorService,
         private modalService: NgbModal,
         private translate: TranslateService,
         private cdr: ChangeDetectorRef,
@@ -1044,9 +1057,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     onPhotoWallFooterLinkClick(fsLink: FsPhotoLink, group: TimelineGroup): void {
         const t = (fsLink.typeUrl || '').trim().toUpperCase();
         if ((t === 'TRACK' || t === 'TRACE' || t === 'GPX') && fsLink.fieldId) {
-            const fileName = (fsLink.path || fsLink.description || 'track').trim();
+            const pathPart = (fsLink.path || '').trim();
+            const descPart = (fsLink.description || '').trim();
+            const fileName = pathPart || descPart || 'track';
+            const displayTitle = descPart && descPart !== pathPart ? descPart : undefined;
             if (this.traceViewerModalComponent) {
-                this.traceViewerModalComponent.openFromFile(fsLink.fieldId, fileName);
+                this.traceViewerModalComponent.openFromFile(fsLink.fieldId, fileName, undefined, displayTitle);
             }
             return;
         }
@@ -1779,6 +1795,175 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             }, 0);
         } else {
             doOpen();
+        }
+    }
+
+    /** Commentaires : charge l'événement puis ouvre la même modale Quill que le détail. */
+    openWallCommentary(group: TimelineGroup): void {
+        if (!group?.eventId) {
+            return;
+        }
+        const sub = this.evenementsService.getEvenement(group.eventId).pipe(take(1)).subscribe({
+            next: (ev) => {
+                this.wallCommentaryEvent = ev;
+                if (!ev.commentaries) {
+                    ev.commentaries = [];
+                }
+                this.cdr.detectChanges();
+                setTimeout(() => this.wallCommentaryEditor?.openAddModal(), 0);
+            },
+            error: (err) => {
+                console.error('Photo wall: load event for commentary', err);
+                const msg = err?.error?.message || err?.message || '';
+                alert(this.translate.instant('COMMUN.ERROR') + (msg ? ': ' + msg : ''));
+            }
+        });
+        this.subscriptions.push(sub);
+    }
+
+    getWallCommentaryCurrentUser(): Member {
+        return this.membersService.getUser();
+    }
+
+    getWallCommentaryEventColor(): { r: number; g: number; b: number } | null {
+        const ev = this.wallCommentaryEvent;
+        if (!ev) {
+            return null;
+        }
+        return this.eventColorService.getEventColor(ev.id || '')
+            || this.eventColorService.getEventColor(ev.evenementName || '')
+            || null;
+    }
+
+    onWallCommentaryAdded(commentary: Commentary): void {
+        const ev = this.wallCommentaryEvent;
+        if (!ev?.id) {
+            return;
+        }
+        const sub = this.evenementsService.addCommentary(ev.id, commentary).subscribe({
+            next: (updated) => {
+                if (updated?.commentaries) {
+                    ev.commentaries = updated.commentaries;
+                }
+                this.cdr.markForCheck();
+            },
+            error: () => alert(this.translate.instant('EVENTELEM.ERROR_ADDING_COMMENTARY'))
+        });
+        this.subscriptions.push(sub);
+    }
+
+    onWallCommentaryUpdated(evt: { commentId: string; commentary: Commentary }): void {
+        const ev = this.wallCommentaryEvent;
+        if (!ev?.id) {
+            return;
+        }
+        const sub = this.evenementsService.updateCommentary(ev.id, evt.commentId, evt.commentary).subscribe({
+            next: (updated) => {
+                if (updated?.commentaries) {
+                    ev.commentaries = updated.commentaries;
+                }
+                this.cdr.markForCheck();
+            },
+            error: () => alert(this.translate.instant('EVENTELEM.ERROR_UPDATING_COMMENTARY'))
+        });
+        this.subscriptions.push(sub);
+    }
+
+    onWallCommentaryDeleted(commentId: string): void {
+        const ev = this.wallCommentaryEvent;
+        if (!ev?.id) {
+            return;
+        }
+        const sub = this.evenementsService.deleteCommentary(ev.id, commentId).subscribe({
+            next: (updated) => {
+                if (updated?.commentaries) {
+                    ev.commentaries = updated.commentaries;
+                }
+                this.cdr.markForCheck();
+            },
+            error: () => alert(this.translate.instant('EVENTELEM.ERROR_DELETING_COMMENTARY'))
+        });
+        this.subscriptions.push(sub);
+    }
+
+    /** Discussion live : même flux que détail événement. */
+    openWallDiscussion(group: TimelineGroup): void {
+        if (!group?.eventId) {
+            return;
+        }
+        const sub = this.evenementsService.getEvenement(group.eventId).pipe(take(1)).subscribe({
+            next: (ev) => this.wallOpenDiscussionForLoadedEvent(ev),
+            error: (err) => {
+                console.error('Photo wall: load event for discussion', err);
+                const msg = err?.error?.message || err?.message || '';
+                alert(this.translate.instant('COMMUN.ERROR') + (msg ? ': ' + msg : ''));
+            }
+        });
+        this.subscriptions.push(sub);
+    }
+
+    private wallOpenDiscussionForLoadedEvent(evenement: Evenement): void {
+        if (!evenement.discussionId) {
+            const discussionTitle = evenement.evenementName || 'Discussion';
+            const createSub = this.discussionService.createDiscussion(discussionTitle).subscribe({
+                next: (discussion) => {
+                    if (discussion?.id) {
+                        const discussionId = discussion.id;
+                        evenement.discussionId = discussionId;
+                        const putSub = this.evenementsService.putEvenement(evenement).subscribe({
+                            next: () => this.wallOpenDiscussionModal(discussionId, evenement),
+                            error: (error: any) => {
+                                const errorMessage = String(error?.error?.message || error?.message || '');
+                                if (errorMessage.includes('Photo from File System') || errorMessage.includes('PHOTOFROMFS')) {
+                                    evenement.discussionId = undefined;
+                                } else {
+                                    evenement.discussionId = undefined;
+                                }
+                                this.wallOpenDiscussionModal(discussionId, evenement);
+                            }
+                        });
+                        this.subscriptions.push(putSub);
+                    } else {
+                        alert(this.translate.instant('EVENTELEM.ERROR_CREATING_DISCUSSION'));
+                    }
+                },
+                error: (error) => {
+                    console.error('Error creating discussion:', error);
+                    const errorMessage = error?.error?.message || error?.message || this.translate.instant('COMMUN.ERROR');
+                    alert(this.translate.instant('EVENTELEM.ERROR_CREATING_DISCUSSION') + ':\n' + errorMessage);
+                }
+            });
+            this.subscriptions.push(createSub);
+        } else {
+            this.wallOpenDiscussionModal(evenement.discussionId, evenement);
+        }
+    }
+
+    private wallOpenDiscussionModal(discussionId: string, evenement: Evenement): void {
+        try {
+            const modalRef = this.modalService.open(DiscussionModalComponent, {
+                size: 'lg',
+                centered: true,
+                backdrop: 'static',
+                keyboard: true,
+                windowClass: 'discussion-modal-window'
+            });
+            if (modalRef?.componentInstance) {
+                modalRef.componentInstance.discussionId = discussionId;
+                modalRef.componentInstance.title = evenement.evenementName || 'Discussion';
+                const eventColor = this.eventColorService.getEventColor(evenement.id || '');
+                if (eventColor) {
+                    modalRef.componentInstance.eventColor = eventColor;
+                }
+                setTimeout(() => {
+                    modalRef.componentInstance?.applyEventColorToModal();
+                }, 300);
+            }
+            const closedSub = modalRef.closed.subscribe(() => this.cdr.markForCheck());
+            this.subscriptions.push(closedSub);
+        } catch (e) {
+            console.error('Error opening discussion modal from photo wall', e);
+            alert(this.translate.instant('EVENTELEM.ERROR_OPENING_DISCUSSION'));
         }
     }
 

@@ -5515,7 +5515,12 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     const eventColor = this.getCalculatedColor();
 
     // Open trace viewer with file
-    this.traceViewerModalComponent.openFromFile(trackFile.fieldId, trackFile.fileName, eventColor || undefined);
+    this.traceViewerModalComponent.openFromFile(
+      trackFile.fieldId,
+      trackFile.fileName,
+      eventColor || undefined,
+      trackFile.displayName
+    );
   }
 
   // Download track file

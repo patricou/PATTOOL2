@@ -14,7 +14,10 @@ import * as L from 'leaflet';
 interface TraceViewerSource {
 	fileId?: string;
 	blob?: Blob;
+	/** Real file name (extension used for GPX/KML/… parsing). */
 	fileName: string;
+	/** Optional title in the modal header (e.g. user description); falls back to fileName. */
+	titleLabel?: string;
 	location?: { lat: number; lng: number; label?: string };
 	positions?: Array<{ lat: number; lng: number; type?: string; datetime?: Date; label?: string }>;
 }
@@ -248,14 +251,20 @@ export class TraceViewerModalComponent implements OnDestroy {
 		}
 	}
 
-	public openFromFile(fileId: string, fileName: string, eventColor?: { r: number; g: number; b: number }): void {
+	public openFromFile(
+		fileId: string,
+		fileName: string,
+		eventColor?: { r: number; g: number; b: number },
+		displayTitle?: string | null
+	): void {
 		// Store event color if provided
 		if (eventColor) {
 			this.eventColor = eventColor;
 		} else {
 			this.eventColor = null;
 		}
-		this.open({ fileId, fileName });
+		const trimmedTitle = displayTitle != null && String(displayTitle).trim().length > 0 ? String(displayTitle).trim() : undefined;
+		this.open({ fileId, fileName, titleLabel: trimmedTitle });
 	}
 
 	public openFromBlob(blob: Blob, fileName: string, eventColor?: { r: number; g: number; b: number }): void {
@@ -481,7 +490,8 @@ export class TraceViewerModalComponent implements OnDestroy {
 
 	private open(source: TraceViewerSource): void {
 		this.resetState();
-		this.trackFileName = source.fileName;
+		const label = source.titleLabel != null && source.titleLabel.trim().length > 0 ? source.titleLabel.trim() : '';
+		this.trackFileName = label.length > 0 ? label : source.fileName;
 		this.initializeBaseLayers();
 		this.pendingLocation = source.location ?? null;
 		this.pendingPositions = source.positions ?? null;
