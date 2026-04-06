@@ -16,12 +16,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="dns-prefetch" href="https://maxcdn.bootstrapcdn.com">
-    <!-- Préchargement maximal avant main.js (voir aussi prefetch-static-assets.ts + fetch). -->
-    <link rel="preload" as="video" type="video/mp4" href="assets/video/auroreboreale.mp4">
-    <link rel="preload" as="video" type="video/mp4"
-        href="assets/video/240_F_554249302_yxUSqtMZs3HPEjrGEHLGCU5rMXgtPOHD_ST.mp4">
+    <!-- MP4 / i18n / manifest : fetch() dans prefetch-static-assets.ts (évite as=video non supporté et mismatch preload/fetch). -->
     <link rel="preload" as="image" href="assets/images/pat.png">
-    <link rel="preload" as="fetch" href="manifest.webmanifest" crossorigin="anonymous">
     <link rel="icon" type="image/x-icon" href="assets/images/pat.png">
     <link rel="manifest" href="manifest.webmanifest">
     <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
