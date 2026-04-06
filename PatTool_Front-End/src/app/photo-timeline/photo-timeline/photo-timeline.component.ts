@@ -133,6 +133,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private destroyed = false;
     /** Incremented on each full wall reset so stale HTTP / fetch callbacks do not mutate state or retain blobs. */
     private timelineLoadGeneration = 0;
+    /** After first photo-timeline response is handled, start on-this-day (avoids competing with wall thumbnails on the shared fetch queue). */
+    private onThisDayApiScheduled = false;
     private searchDebounceId: ReturnType<typeof setTimeout> | null = null;
     /** When set, timeline shows only photos/videos for this event (from query param eventId). */
     filterEventId: string | undefined;
@@ -415,6 +417,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.hasMore = true;
         this.hasMoreVideos = true;
         this.onThisDay = [];
+        this.onThisDayApiScheduled = false;
         this.resetWallMediaObserverForTimelineReload();
         this.wallFetchQueue = [];
         const prevThumbUrls = new Map(this.thumbnailCache);
@@ -448,9 +451,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private startStreaming(): void {
         this.fetchNext();
         this.fetchNextVideos();
-        if (!this.filterEventId) {
-            this.loadOnThisDay();
-        }
+        // On-this-day API is started from fetchNext after the first timeline chunk is handled
+        // so wall thumbnails queue first (same 12-slot limit as OTD).
     }
 
     private loadOnThisDay(): void {
@@ -462,10 +464,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 setTimeout(() => {
                     if (this.destroyed || gen !== this.timelineLoadGeneration) return;
                     this.onThisDay = photos || [];
-                    for (const p of this.onThisDay) {
-                        this.loadThumbnail(p);
-                    }
                     this.cdr.markForCheck();
+                    // Miniatures OTD : IntersectionObserver uniquement (pas de boucle loadThumbnail) pour ne pas
+                    // saturer la file partagée avec le mur (WALL_MEDIA_MAX_PARALLEL).
                     setTimeout(() => { if (!this.destroyed) this.scanWallMediaHosts(); }, 0);
                 }, 0);
             },
@@ -509,6 +510,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     }
                     if (this.hasMoreVideos && this.bufferedVideoGroups.length < BUFFER_AHEAD) {
                         this.fetchNextVideos();
+                    }
+                    if (!this.filterEventId && !this.onThisDayApiScheduled) {
+                        this.onThisDayApiScheduled = true;
+                        this.loadOnThisDay();
                     }
                     this.cdr.markForCheck();
                 }, 0);
@@ -978,7 +983,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private preloadThumbnailsForGroup(group: TimelineGroup): void {
         const photos = group.photos || [];
         const isFirstScreen = this.visibleGroups.length <= INITIAL_VISIBLE_GROUPS;
-        const limit = isFirstScreen ? photos.length : Math.min(photos.length, 24);
+        // Cap per group so one huge album does not enqueue hundreds of requests ahead of other events’ thumbs.
+        const limit = isFirstScreen ? Math.min(photos.length, 36) : Math.min(photos.length, 24);
         for (let i = 0; i < limit; i++) {
             this.loadThumbnail(photos[i]);
         }

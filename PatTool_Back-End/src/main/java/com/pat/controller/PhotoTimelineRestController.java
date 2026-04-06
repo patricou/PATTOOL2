@@ -214,14 +214,17 @@ public class PhotoTimelineRestController {
         public void setOnThisDay(List<TimelinePhoto> onThisDay) { this.onThisDay = onThisDay; }
     }
 
-    /** Resolve event author (owner). With projection, DBRef is often not populated — load from repository if needed. */
-    private Member resolveEventAuthor(Evenement e) {
+    /**
+     * Resolve event author (owner). With projection, DBRef is often not populated — load from repository if needed.
+     * {@code authorCache} avoids N identical {@code findById} calls per timeline page.
+     */
+    private Member resolveEventAuthor(Evenement e, Map<String, Member> authorCache) {
         if (e == null || e.getAuthor() == null) return null;
         Member author = e.getAuthor();
         String id = author.getId();
         if (id == null || id.isBlank()) return null;
         if (author.getUserName() != null && !author.getUserName().isBlank()) return author;
-        return membersRepository.findById(id).orElse(null);
+        return authorCache.computeIfAbsent(id, k -> membersRepository.findById(k).orElse(null));
     }
 
     @GetMapping(value = "/timeline", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -280,6 +283,7 @@ public class PhotoTimelineRestController {
 
             List<TimelineGroup> groups = new ArrayList<>();
             int totalPhotosInPage = 0;
+            Map<String, Member> authorCache = new HashMap<>();
 
             for (Evenement e : events) {
                 List<TimelinePhoto> photos = extractPhotos(e);
@@ -300,7 +304,7 @@ public class PhotoTimelineRestController {
                     group.setFsPhotoLinks(fsLinks);
                     group.setRatingPlus(e.getRatingPlus());
                     group.setRatingMinus(e.getRatingMinus());
-                    Member owner = resolveEventAuthor(e);
+                    Member owner = resolveEventAuthor(e, authorCache);
                     if (owner != null) {
                         group.setOwnerFirstName(owner.getFirstName());
                         group.setOwnerLastName(owner.getLastName());
@@ -392,6 +396,7 @@ public class PhotoTimelineRestController {
 
             List<TimelineGroup> groups = new ArrayList<>();
             int totalVideosInPage = 0;
+            Map<String, Member> authorCache = new HashMap<>();
 
             for (Evenement e : events) {
                 List<TimelinePhoto> videos = extractVideos(e);
@@ -409,7 +414,7 @@ public class PhotoTimelineRestController {
                     group.setFsPhotoLinks(extractFsPhotoLinks(e));
                     group.setRatingPlus(e.getRatingPlus());
                     group.setRatingMinus(e.getRatingMinus());
-                    Member owner = resolveEventAuthor(e);
+                    Member owner = resolveEventAuthor(e, authorCache);
                     if (owner != null) {
                         group.setOwnerFirstName(owner.getFirstName());
                         group.setOwnerLastName(owner.getLastName());
