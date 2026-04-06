@@ -1102,6 +1102,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "Управление ссылками",
+        "BACK_TO_LINKS": "Назад к ссылкам",
         "CATEGORIES": "Категории",
         "LINKS_URL": "URL-ссылки",
         "CATEGORIES_MANAGEMENT": "Управление категориями",

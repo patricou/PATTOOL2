@@ -1,3 +1,47 @@
+/* Aligné sur home-evenements : titre centré, bouton outline-primary à droite (comme Mur de photos) */
+.links-admin-wrapper .pat-title.title-with-photo-wall-btn {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.links-admin-wrapper .pat-title.title-with-photo-wall-btn .pat-title-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.links-admin-wrapper .pat-title.title-with-photo-wall-btn h2 {
+  flex: 0 0 auto !important;
+  white-space: nowrap;
+  text-align: center;
+  margin: 0;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.links-admin-wrapper .pat-title.title-with-photo-wall-btn .pat-title-actions {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.links-admin-wrapper .pat-title.title-with-photo-wall-btn .pat-title-actions a {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .links-admin-wrapper .pat-title.title-with-photo-wall-btn {
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+  }
+}
+
 .container {
   max-width: 98% !important;
 }

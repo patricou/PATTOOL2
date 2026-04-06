@@ -1099,6 +1099,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "लिंक प्रशासन",
+        "BACK_TO_LINKS": "लिंक पर वापस जाएं",
         "CATEGORIES": "श्रेणियाँ",
         "LINKS_URL": "URL लिंक",
         "CATEGORIES_MANAGEMENT": "श्रेणी प्रबंधन",

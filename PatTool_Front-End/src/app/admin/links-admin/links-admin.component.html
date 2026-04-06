@@ -1,8 +1,17 @@
-<!-- Standard Title Section -->
-<div class="pat-title">
+<div class="links-admin-wrapper">
+<!-- Même disposition que la liste d'événements + bouton Mur de photos : titre centré, action à droite -->
+<div class="pat-title title-with-photo-wall-btn">
+  <span class="pat-title-spacer"></span>
   <h2>
     <i class="fa fa-cog"></i> {{ 'LINKSADMIN.TITLE' | translate }}
   </h2>
+  <span class="pat-title-actions">
+    <a class="btn btn-sm btn-outline-primary"
+       routerLink="/links"
+       [title]="'LINKSADMIN.BACK_TO_LINKS' | translate">
+      <i class="fa fa-arrow-left me-0 me-md-1"></i><span class="d-none d-md-inline">{{ 'LINKSADMIN.BACK_TO_LINKS' | translate }}</span>
+    </a>
+  </span>
 </div>
 
 <!-- Main Content -->
@@ -416,6 +425,7 @@
 
     </div>
   </div>
+</div>
 </div>
 <div *ngIf="showJSONModal" class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5); position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 1050;" tabindex="-1" role="dialog" (click)="closeJSONModal()">
   <div class="modal-dialog modal-lg modal-dialog-centered" role="document" (click)="$event.stopPropagation()" style="z-index: 1055;">

@@ -1108,6 +1108,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "链接管理",
+        "BACK_TO_LINKS": "返回链接",
         "CATEGORIES": "分类",
         "LINKS_URL": "URL链接",
         "CATEGORIES_MANAGEMENT": "分类管理",

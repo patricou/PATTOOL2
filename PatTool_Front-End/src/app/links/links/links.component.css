@@ -7,7 +7,59 @@
     margin: 0;
 }
 
-/* Hero Section - Now using global .pat-title class */
+/* Hero Section - titre + stats centrés, bouton Administration à droite (comme links-admin) */
+.links-container .pat-title.title-with-photo-wall-btn {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.links-container .pat-title.title-with-photo-wall-btn .pat-title-spacer {
+    flex: 1;
+    min-width: 0;
+}
+
+.links-container .pat-title.title-with-photo-wall-btn .links-title-center {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.links-container .pat-title.title-with-photo-wall-btn .links-title-center h2 {
+    flex: 0 0 auto !important;
+    margin: 0;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    text-align: center;
+}
+
+.links-container .pat-title.title-with-photo-wall-btn .pat-title-actions {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    min-width: 0;
+}
+
+.links-container .pat-title.title-with-photo-wall-btn .pat-title-actions a {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .links-container .pat-title.title-with-photo-wall-btn {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        align-items: center !important;
+    }
+}
 
 .links-stats {
     margin: 0.35rem 0 0;
@@ -45,11 +97,6 @@
     align-items: center;
     justify-content: center;
     gap: 20px;
-}
-
-.admin-button {
-    flex-shrink: 0;
-    white-space: nowrap;
 }
 
 .search-input-wrapper {

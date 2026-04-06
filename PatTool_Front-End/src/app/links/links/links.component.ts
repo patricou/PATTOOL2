@@ -9,7 +9,7 @@ import { debounceTime, take } from 'rxjs/operators';
 import { Subject, Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { Category } from '../../model/Category';
 import { Member } from '../../model/member';
@@ -97,7 +97,6 @@ export class LinksComponent implements OnInit, OnDestroy {
   constructor(
     private _memberService: MembersService,
     private _urlLinkService: UrllinkService,
-    private router: Router,
     private translate: TranslateService,
     private cdr: ChangeDetectorRef
   ) { }
@@ -352,7 +351,4 @@ export class LinksComponent implements OnInit, OnDestroy {
     return this.visibilityTitleFriends;
   }
 
-  navigateToLinksAdmin(): void {
-    this.router.navigate(['links-admin']);
-  }
 }

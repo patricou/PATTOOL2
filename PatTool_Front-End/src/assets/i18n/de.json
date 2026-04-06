@@ -1106,6 +1106,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "Verwaltung von Links",
+        "BACK_TO_LINKS": "Zurück zu Links",
         "CATEGORIES": "Kategorien",
         "LINKS_URL": "URL-Links",
         "CATEGORIES_MANAGEMENT": "Verwaltung der Kategorien",

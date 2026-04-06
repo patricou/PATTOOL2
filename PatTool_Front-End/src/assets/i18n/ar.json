@@ -1107,6 +1107,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "إدارة الروابط",
+        "BACK_TO_LINKS": "العودة إلى الروابط",
         "CATEGORIES": "الفئات",
         "LINKS_URL": "الروابط",
         "CATEGORIES_MANAGEMENT": "إدارة الفئات",

@@ -1128,6 +1128,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "Links Administration",
+        "BACK_TO_LINKS": "Back to links",
         "CATEGORIES": "Categories",
         "LINKS_URL": "URL Links",
         "CATEGORIES_MANAGEMENT": "Categories Management",

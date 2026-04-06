@@ -1,18 +1,28 @@
 <div class="links-container">
-    <!-- Hero Section -->
-    <div class="pat-title">
-        <h2>{{ "LINKS.TITLE" | translate }}</h2>
-        <p class="links-stats" *ngIf="!loading && statsCategoriesText">
-            <span class="links-stats-item">
-                <i class="fa fa-folder-open" aria-hidden="true"></i>
-                {{ statsCategoriesText }}
-            </span>
-            <span class="links-stats-sep" aria-hidden="true">·</span>
-            <span class="links-stats-item">
-                <i class="fa fa-link" aria-hidden="true"></i>
-                {{ statsLinksText }}
-            </span>
-        </p>
+    <!-- Hero Section : titre + stats centrés, Administration à droite (comme links-admin) -->
+    <div class="pat-title title-with-photo-wall-btn">
+        <span class="pat-title-spacer"></span>
+        <div class="links-title-center">
+            <h2>{{ "LINKS.TITLE" | translate }}</h2>
+            <p class="links-stats" *ngIf="!loading && statsCategoriesText">
+                <span class="links-stats-item">
+                    <i class="fa fa-folder-open" aria-hidden="true"></i>
+                    {{ statsCategoriesText }}
+                </span>
+                <span class="links-stats-sep" aria-hidden="true">·</span>
+                <span class="links-stats-item">
+                    <i class="fa fa-link" aria-hidden="true"></i>
+                    {{ statsLinksText }}
+                </span>
+            </p>
+        </div>
+        <span class="pat-title-actions">
+            <a class="btn btn-sm btn-outline-primary"
+               routerLink="/links-admin"
+               [title]="'LINKS.ADMIN_BUTTON' | translate">
+                <i class="fa fa-cog me-0 me-md-1"></i><span class="d-none d-md-inline">{{ 'LINKS.ADMIN_BUTTON' | translate }}</span>
+            </a>
+        </span>
     </div>
 
     <!-- Main Content -->
@@ -29,12 +39,6 @@
         <ng-container *ngIf="!loading">
         <!-- Search Filter -->
         <div class="search-container">
-            <button class="btn btn-primary btn-sm admin-button" 
-                    (click)="navigateToLinksAdmin()"
-                    title="{{ 'LINKS.ADMIN_BUTTON' | translate }}">
-                <i class="fa fa-cog"></i>
-                <span>{{ 'LINKS.ADMIN_BUTTON' | translate }}</span>
-            </button>
             <div class="search-input-wrapper">
                 <input type="text" 
                        class="search-input" 

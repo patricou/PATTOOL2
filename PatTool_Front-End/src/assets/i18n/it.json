@@ -1110,6 +1110,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "Amministrazione dei Collegamenti",
+        "BACK_TO_LINKS": "Torna ai collegamenti",
         "CATEGORIES": "Categorie",
         "LINKS_URL": "Collegamenti URL",
         "CATEGORIES_MANAGEMENT": "Gestione delle Categorie",

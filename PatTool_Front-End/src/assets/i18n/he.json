@@ -1100,6 +1100,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "ניהול קישורים",
+        "BACK_TO_LINKS": "חזרה לקישורים",
         "CATEGORIES": "קטגוריות",
         "LINKS_URL": "קישורי URL",
         "CATEGORIES_MANAGEMENT": "ניהול קטגוריות",

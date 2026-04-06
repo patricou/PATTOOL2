@@ -1118,6 +1118,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "Administration des Liens",
+        "BACK_TO_LINKS": "Retour aux liens",
         "CATEGORIES": "Catégories",
         "LINKS_URL": "Liens URL",
         "CATEGORIES_MANAGEMENT": "Gestion des Catégories",

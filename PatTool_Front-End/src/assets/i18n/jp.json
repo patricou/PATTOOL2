@@ -988,6 +988,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "リンク管理",
+        "BACK_TO_LINKS": "リンク一覧に戻る",
         "CATEGORIES": "カテゴリ",
         "LINKS_URL": "URLリンク",
         "CATEGORIES_MANAGEMENT": "カテゴリ管理",

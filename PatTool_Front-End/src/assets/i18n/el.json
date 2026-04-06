@@ -986,6 +986,7 @@
     },
     "LINKSADMIN": {
         "TITLE": "Διαχείριση Συνδέσμων",
+        "BACK_TO_LINKS": "Επιστροφή στους συνδέσμους",
         "CATEGORIES": "Κατηγορίες",
         "LINKS_URL": "Σύνδεσμοι URL",
         "CATEGORIES_MANAGEMENT": "Διαχείριση Κατηγοριών",

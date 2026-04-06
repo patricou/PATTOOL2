@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { TranslateModule } from '@ngx-translate/core';
 import { Category } from '../../model/Category';
 import { urllink } from '../../model/urllink';
@@ -12,7 +13,7 @@ import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigat
 @Component({
   selector: 'app-links-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, TranslateModule, NavigationButtonsModule],
+  imports: [CommonModule, FormsModule, RouterModule, TranslateModule, NavigationButtonsModule],
   providers: [UrllinkService],
   templateUrl: './links-admin.component.html',
   styleUrls: ['./links-admin.component.css']
