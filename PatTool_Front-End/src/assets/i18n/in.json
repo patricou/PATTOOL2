@@ -1619,6 +1619,7 @@
         "VIEW_ALL_EVENTS": "सभी कार्यक्रम देखें",
         "EVENT_CARD": "कार्यक्रम कार्ड",
         "EVENT_DETAILS": "कार्यक्रम विवरण",
+        "REFRESH_EVENT": "रीफ़्रेश करें",
         "ON_THIS_DAY": "आज के दिन",
         "ON_THIS_DAY_DESC": "पिछले वर्षों में इस दिन की {{count}} तस्वीर(ें)",
         "PHOTOS": "तस्वीर(ें)",

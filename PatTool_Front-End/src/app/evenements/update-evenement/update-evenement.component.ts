@@ -9,6 +9,7 @@ import { Evenement } from '../../model/evenement';
 import { EvenementsService } from '../../services/evenements.service';
 import { SlideshowModalComponent, SlideshowImageSource } from '../../shared/slideshow-modal/slideshow-modal.component';
 import { VideoshowModalComponent, VideoshowVideoSource } from '../../shared/videoshow-modal/videoshow-modal.component';
+import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { NavigationButtonsModule } from '../../shared/navigation-buttons/navigation-buttons.module';
 
 // Removed ngx-mydatepicker imports - using native HTML date inputs
@@ -39,6 +40,7 @@ import { EventColorService } from '../../services/event-color.service';
 		NgbModule,
 		SlideshowModalComponent,
 		VideoshowModalComponent,
+		TraceViewerModalComponent,
 		NavigationButtonsModule,
 		CommentaryEditor
 	],
@@ -166,6 +168,10 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
     
     // Videoshow modal component
     @ViewChild('videoshowModalComponent') videoshowModalComponent!: VideoshowModalComponent;
+
+    @ViewChild('traceViewerModalComponent') traceViewerModalComponent!: TraceViewerModalComponent;
+
+    private trackDisplayNameEditStart = new Map<string, string>();
 
     // FS Photos slideshow loading control
     private fsSlideshowLoadingActive: boolean = false;
@@ -1183,6 +1189,59 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 
 	public isPdfFile(fileName: string): boolean {
 		return fileName.toLowerCase().endsWith('.pdf');
+	}
+
+	/** GPS / trace files (same extensions as event file upload + geojson). */
+	public isTrackFile(fileName: string): boolean {
+		if (!fileName) {
+			return false;
+		}
+		const lower = fileName.toLowerCase();
+		const trackExtensions = ['.gpx', '.kml', '.kmz', '.gdb', '.tcx', '.geojson'];
+		return trackExtensions.some(ext => lower.endsWith(ext));
+	}
+
+	private normalizeTrackDisplayName(v: string | undefined | null): string {
+		return (typeof v === 'string' ? v.trim() : '') || '';
+	}
+
+	public onTrackDisplayNameFocus(uploadedFile: UploadedFile): void {
+		if (uploadedFile?.fieldId) {
+			this.trackDisplayNameEditStart.set(
+				uploadedFile.fieldId,
+				this.normalizeTrackDisplayName(uploadedFile.displayName)
+			);
+		}
+	}
+
+	/** Save trace display name (description) when changed — same behaviour as file management modal. */
+	public onTrackDisplayNameBlur(uploadedFile: UploadedFile): void {
+		if (!this.evenement?.id || !this.canEditEventFields() || !uploadedFile?.fieldId || !this.isTrackFile(uploadedFile.fileName)) {
+			return;
+		}
+		const normNow = this.normalizeTrackDisplayName(uploadedFile.displayName);
+		uploadedFile.displayName = normNow || undefined;
+		const start = this.trackDisplayNameEditStart.get(uploadedFile.fieldId) ?? '';
+		this.trackDisplayNameEditStart.delete(uploadedFile.fieldId);
+		if (normNow === start) {
+			return;
+		}
+		this._evenementsService.putEvenement(this.evenement).subscribe({
+			next: () => { },
+			error: (err) => console.error('Error saving track display name', err)
+		});
+	}
+
+	public openTrackFile(uploadedFile: UploadedFile): void {
+		if (!uploadedFile?.fieldId || !this.traceViewerModalComponent) {
+			return;
+		}
+		const color = this.getCalculatedColor();
+		this.traceViewerModalComponent.openFromFile(
+			uploadedFile.fieldId,
+			uploadedFile.fileName,
+			color ?? undefined
+		);
 	}
 
 	// Get file blob URL - returns original file

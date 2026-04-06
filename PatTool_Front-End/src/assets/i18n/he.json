@@ -1619,6 +1619,7 @@
         "VIEW_ALL_EVENTS": "הצג את כל האירועים",
         "EVENT_CARD": "כרטיס אירוע",
         "EVENT_DETAILS": "פרטי האירוע",
+        "REFRESH_EVENT": "רענן",
         "ON_THIS_DAY": "היום בהיסטוריה",
         "ON_THIS_DAY_DESC": "{{count}} תמונות מהיום הזה בשנים קודמות",
         "PHOTOS": "תמונות",

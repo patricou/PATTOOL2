@@ -86,20 +86,15 @@ export class AppComponent implements OnInit {
     }
 
     ngOnInit() {
-        this.getUserInfo();
-        // Check Iot role for menu visibility
-        this.checkIotRole();
-        // init translator
+        // Translator before getUserInfo() so POST /memb/user sends correct UI locale (connection email, profile).
         this._translate.addLangs(environment.langs);
         this._translate.setDefaultLang('fr');
-        // set the lang stored in the commnValue service
         this._translate.use(this._commonValuesServices.getLang());
-        // catch in all modules when lang is changed
-
         this._translate.onLangChange.subscribe((event: LangChangeEvent) => {
             this._commonValuesServices.setLang(event.lang);
-            //console.log("Change language : " + event.lang + " / c.v.s. getLang : " + this._commonValuesServices.getLang());
         });
+        this.getUserInfo();
+        this.checkIotRole();
     }
 
     /**

@@ -1630,6 +1630,7 @@
         "VIEW_ALL_EVENTS": "Vedi tutti gli eventi",
         "EVENT_CARD": "Scheda evento",
         "EVENT_DETAILS": "Dettaglio evento",
+        "REFRESH_EVENT": "Aggiorna",
         "ON_THIS_DAY": "In questo giorno",
         "ON_THIS_DAY_DESC": "{{count}} foto di questo giorno negli anni precedenti",
         "PHOTOS": "foto",

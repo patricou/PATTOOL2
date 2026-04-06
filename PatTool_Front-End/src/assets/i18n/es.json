@@ -1634,6 +1634,7 @@
         "VIEW_ALL_EVENTS": "Ver todos los eventos",
         "EVENT_CARD": "Ficha del evento",
         "EVENT_DETAILS": "Detalle del evento",
+        "REFRESH_EVENT": "Actualizar",
         "ON_THIS_DAY": "Un día como hoy",
         "ON_THIS_DAY_DESC": "{{count}} foto(s) de este día en años anteriores",
         "PHOTOS": "foto(s)",

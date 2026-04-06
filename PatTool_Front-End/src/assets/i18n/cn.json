@@ -1628,6 +1628,7 @@
         "VIEW_ALL_EVENTS": "查看所有活动",
         "EVENT_CARD": "活动卡片",
         "EVENT_DETAILS": "活动详情",
+        "REFRESH_EVENT": "刷新",
         "ON_THIS_DAY": "历史上的今天",
         "ON_THIS_DAY_DESC": "往年今日的 {{count}} 张照片",
         "PHOTOS": "张照片",

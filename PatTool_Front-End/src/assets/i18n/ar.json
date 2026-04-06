@@ -1626,6 +1626,7 @@
         "VIEW_ALL_EVENTS": "عرض جميع الأحداث",
         "EVENT_CARD": "بطاقة الحدث",
         "EVENT_DETAILS": "تفاصيل الحدث",
+        "REFRESH_EVENT": "تحديث",
         "ON_THIS_DAY": "في مثل هذا اليوم",
         "ON_THIS_DAY_DESC": "{{count}} صورة من هذا اليوم في السنوات السابقة",
         "PHOTOS": "صورة",

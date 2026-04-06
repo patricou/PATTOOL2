@@ -28,9 +28,11 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.Duration;
 import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Map;
@@ -77,6 +79,9 @@ public class MemberRestController {
 
     // In-memory throttling: last time a connection email was sent per username
     private final Map<String, LocalDateTime> lastConnectionEmailByUser = new ConcurrentHashMap<>();
+
+    /** Per-username lock so parallel POST /memb/user cannot send two connection emails in the same burst. */
+    private final Map<String, Object> connectionEmailLocks = new ConcurrentHashMap<>();
 
     /**
      * Check if the current user has Admin role (case-insensitive)
@@ -256,7 +261,9 @@ public class MemberRestController {
                 ipAddress = request.getRemoteAddr();
             }
 
-            maybeSendConnectionEmail(member, ipAddress, false);
+            if (!isAdminUpdate) {
+                maybeSendConnectionEmail(member, ipAddress, false, request);
+            }
             
             // Track connection for periodic reporting
             String rolesStr = (member.getRoles() != null && !member.getRoles().isEmpty()) ? member.getRoles().toString() : null;
@@ -303,7 +310,7 @@ public class MemberRestController {
                 ipAddress = request.getRemoteAddr();
             }
 
-            maybeSendConnectionEmail(member, ipAddress, true);
+            maybeSendConnectionEmail(member, ipAddress, true, request);
             
             // Track connection for periodic reporting
             String rolesStr = (member.getRoles() != null && !member.getRoles().isEmpty()) ? member.getRoles().toString() : null;
@@ -642,9 +649,36 @@ public class MemberRestController {
     }
 
     /**
-     * Decide if we should actually send a connection email and do throttling.
+     * Locale for the connection email: member profile first, then browser Accept-Language.
      */
-    private void maybeSendConnectionEmail(Member member, String ipAddress, boolean isNewUser) {
+    private static String resolveMailLocale(Member member, HttpServletRequest request) {
+        if (member != null && member.getLocale() != null && !member.getLocale().isBlank()) {
+            return member.getLocale().trim();
+        }
+        return parseAcceptLanguageFirstTag(request);
+    }
+
+    /**
+     * First language tag from Accept-Language (e.g. {@code fr-FR,fr;q=0.9} → {@code fr-FR}).
+     */
+    private static String parseAcceptLanguageFirstTag(HttpServletRequest request) {
+        if (request == null) {
+            return null;
+        }
+        String al = request.getHeader("Accept-Language");
+        if (al == null || al.isBlank()) {
+            return null;
+        }
+        String first = al.split(",")[0].trim().split(";")[0].trim();
+        return first.isEmpty() ? null : first;
+    }
+
+    /**
+     * Decide if we should actually send a connection email and do throttling.
+     * Serialized per username so concurrent logins cannot produce duplicate emails; throttling applies to new and returning users.
+     */
+    private void maybeSendConnectionEmail(Member member, String ipAddress, boolean isNewUser,
+            HttpServletRequest request) {
         if (!connectionEmailEnabled) {
             log.debug("Connection email disabled via configuration - skipping send for user: {}", member != null ? member.getUserName() : "null");
             return;
@@ -666,30 +700,37 @@ public class MemberRestController {
         }
 
         String username = member.getUserName();
-        LocalDateTime nowTime = LocalDateTime.now();
-        LocalDateTime lastSent = lastConnectionEmailByUser.get(username);
-
-        if (!isNewUser && lastSent != null) {
-            long minutesSinceLast = Duration.between(lastSent, nowTime).toMinutes();
-            if (minutesSinceLast < connectionEmailMinIntervalMinutes) {
-                log.debug("Connection email throttled for user {} (last sent {} minutes ago, min interval {} minutes)",
-                        username, minutesSinceLast, connectionEmailMinIntervalMinutes);
-                return;
+        Object lock = connectionEmailLocks.computeIfAbsent(username, k -> new Object());
+        synchronized (lock) {
+            LocalDateTime nowTime = LocalDateTime.now();
+            LocalDateTime lastSent = lastConnectionEmailByUser.get(username);
+            if (lastSent != null) {
+                long minutesSinceLast = Duration.between(lastSent, nowTime).toMinutes();
+                if (minutesSinceLast < connectionEmailMinIntervalMinutes) {
+                    log.debug("Connection email throttled for user {} (last sent {} minutes ago, min interval {} minutes)",
+                            username, minutesSinceLast, connectionEmailMinIntervalMinutes);
+                    return;
+                }
             }
+            lastConnectionEmailByUser.put(username, nowTime);
+
+            String mailLocale = resolveMailLocale(member, request);
+            ConnectionEmailI18n.Bundle emailI18n = ConnectionEmailI18n.bundleForMemberLocale(mailLocale);
+            ConnectionEmailI18n.Texts t = emailI18n.texts();
+            String subjectPrefix = isNewUser ? t.subjectPrefixNewUser() : t.subjectPrefixExistingUser();
+            String subject = subjectPrefix + formatDateTime(nowTime, emailI18n.dateLocale(), t.na());
+            ConnectionEmailPayload payload = buildConnectionEmailPayload(member, ipAddress, isNewUser, emailI18n, mailLocale);
+
+            log.debug("Attempting to send connection email for user: {} (mailLocale={})", username, mailLocale);
+            mailController.sendMailPlainAndHtml(subject, connectionEmailPlain(payload), connectionEmailHtml(payload));
+            log.debug("Connection notification sent for user {} - Subject: '{}'", username, subject);
         }
-
-        String subjectPrefix = isNewUser ? "PatTool - New User Connection - " : "PatTool - User Connection - ";
-        String subject = subjectPrefix + formatDateTime(nowTime);
-        ConnectionEmailPayload payload = buildConnectionEmailPayload(member, ipAddress, isNewUser);
-
-        log.debug("Attempting to send connection email for user: {}", username);
-        mailController.sendMailPlainAndHtml(subject, connectionEmailPlain(payload), connectionEmailHtml(payload));
-        lastConnectionEmailByUser.put(username, nowTime);
-        log.debug("Connection notification sent for user {} - Subject: '{}'", username, subject);
     }
 
     /** Immutable content for connection notification (plain + HTML). */
     private record ConnectionEmailPayload(
+            ConnectionEmailI18n.Texts texts,
+            String htmlLang,
             String headline,
             String userName,
             String firstName,
@@ -705,14 +746,17 @@ public class MemberRestController {
             String footer
     ) {}
 
-    private ConnectionEmailPayload buildConnectionEmailPayload(Member member, String ipAddress, boolean isNewUser) {
-        String headline = isNewUser ? "NEW USER CONNECTION" : "USER CONNECTION";
-        String userName = nz(member.getUserName());
-        String firstName = nz(member.getFirstName());
-        String lastName = nz(member.getLastName());
-        String email = nz(member.getAddressEmail());
-        String timestamp = formatDateTime(LocalDateTime.now());
-        String clientIp = ipAddress != null ? ipAddress : "N/A";
+    private ConnectionEmailPayload buildConnectionEmailPayload(Member member, String ipAddress, boolean isNewUser,
+            ConnectionEmailI18n.Bundle emailI18n, String mailLocale) {
+        ConnectionEmailI18n.Texts t = emailI18n.texts();
+        String na = t.na();
+        String headline = isNewUser ? t.headlineNewUser() : t.headlineExistingUser();
+        String userName = nz(member.getUserName(), na);
+        String firstName = nz(member.getFirstName(), na);
+        String lastName = nz(member.getLastName(), na);
+        String email = nz(member.getAddressEmail(), na);
+        String timestamp = formatDateTime(LocalDateTime.now(), emailI18n.dateLocale(), na);
+        String clientIp = ipAddress != null ? ipAddress : na;
 
         IpGeolocationService.ExtendedIPInfo ipInfo = ipGeolocationService.getCompleteIpInfoWithCoordinates(ipAddress);
         String ipLocationText = ipInfo != null ? ipInfo.getLocation() : null;
@@ -725,8 +769,20 @@ public class MemberRestController {
             addressFromGps = ipGeolocationService.getAddressFromCoordinates(reqLat, reqLon);
         }
         String locationText = (addressFromGps != null && !addressFromGps.isEmpty()) ? addressFromGps : ipLocationText;
-        String location = locationText != null ? locationText : "N/A";
-        String domain = (domainName != null && !domainName.isEmpty()) ? domainName : "N/A";
+        String location = locationText != null ? locationText : na;
+        String domain;
+        if (domainName != null && !domainName.isEmpty()) {
+            String trimmedDomain = domainName.trim();
+            if (ConnectionEmailI18n.shouldReplaceConnectionEmailDomain(trimmedDomain)) {
+                String lang = ConnectionEmailI18n.normalizeLangCode(mailLocale);
+                domain = ConnectionEmailI18n.CONNECTION_EMAIL_PUBLIC_DOMAIN + " "
+                        + ConnectionEmailI18n.domainReplacementNote(lang);
+            } else {
+                domain = trimmedDomain;
+            }
+        } else {
+            domain = na;
+        }
 
         Double lat = reqLat;
         Double lon = reqLon;
@@ -734,12 +790,12 @@ public class MemberRestController {
         String mapUrl = null;
 
         if (lat != null && lon != null) {
-            coordsLine = String.format(java.util.Locale.ENGLISH, "%.6f, %.6f  (GPS from browser (smartphone))", lat, lon);
+            coordsLine = String.format(Locale.ENGLISH, "%.6f, %.6f  (%s)", lat, lon, t.coordsGpsBrowser());
             mapUrl = "https://www.google.com/maps?q=" + lat + "," + lon;
         } else if (ipInfo != null && ipInfo.getLatitude() != null && ipInfo.getLongitude() != null) {
             lat = ipInfo.getLatitude();
             lon = ipInfo.getLongitude();
-            coordsLine = String.format(java.util.Locale.ENGLISH, "%.6f, %.6f  (Approximate location from IP)", lat, lon);
+            coordsLine = String.format(Locale.ENGLISH, "%.6f, %.6f  (%s)", lat, lon, t.coordsApproxFromIp());
             mapUrl = "https://www.google.com/maps?q=" + lat + "," + lon;
         }
 
@@ -759,40 +815,40 @@ public class MemberRestController {
             }
         }
 
-        String footer = "This is an automated notification from the PatTool application."
-                + (isNewUser ? " User was created on first connection." : "");
+        String footer = t.footerAutomated() + (isNewUser ? t.footerNewUserSuffix() : "");
 
         return new ConnectionEmailPayload(
-                headline, userName, firstName, lastName, email,
+                t, emailI18n.htmlLang(), headline, userName, firstName, lastName, email,
                 timestamp, clientIp, location, domain, coordsLine, mapUrl, extraAddress, footer);
     }
 
-    private static String nz(String s) {
-        return (s != null && !s.isEmpty()) ? s : "N/A";
+    private static String nz(String s, String naLiteral) {
+        return (s != null && !s.isEmpty()) ? s : naLiteral;
     }
 
     private String connectionEmailPlain(ConnectionEmailPayload p) {
+        ConnectionEmailI18n.Texts t = p.texts();
         StringBuilder b = new StringBuilder();
         b.append(p.headline()).append("\n");
         b.append("====================================\n\n");
-        b.append("User\n----\n");
-        b.append("Username : ").append(p.userName()).append("\n");
-        b.append("First    : ").append(p.firstName()).append("\n");
-        b.append("Last     : ").append(p.lastName()).append("\n");
-        b.append("Email    : ").append(p.email()).append("\n\n");
-        b.append("Connection\n----------\n");
-        b.append("Timestamp : ").append(p.timestamp()).append("\n");
-        b.append("Client IP : ").append(p.clientIp()).append("\n");
-        b.append("Location  : ").append(p.location()).append("\n");
-        b.append("Domain    : ").append(p.domain()).append("\n");
+        b.append(t.sectionUser()).append("\n----\n");
+        b.append(t.labelUsername()).append(" : ").append(p.userName()).append("\n");
+        b.append(t.labelFirstName()).append(" : ").append(p.firstName()).append("\n");
+        b.append(t.labelLastName()).append(" : ").append(p.lastName()).append("\n");
+        b.append(t.labelEmail()).append(" : ").append(p.email()).append("\n\n");
+        b.append(t.sectionConnection()).append("\n----------\n");
+        b.append(t.labelTimestamp()).append(" : ").append(p.timestamp()).append("\n");
+        b.append(t.labelClientIp()).append(" : ").append(p.clientIp()).append("\n");
+        b.append(t.labelLocation()).append(" : ").append(p.location()).append("\n");
+        b.append(t.labelDomain()).append(" : ").append(p.domain()).append("\n");
         if (p.coordsLine() != null) {
-            b.append("Coords   : ").append(p.coordsLine()).append("\n");
+            b.append(t.labelCoordinates()).append(" : ").append(p.coordsLine()).append("\n");
         }
         if (p.mapUrl() != null) {
-            b.append("Map     : ").append(p.mapUrl()).append("\n");
+            b.append(t.labelMap()).append(" : ").append(p.mapUrl()).append("\n");
         }
         if (p.extraAddress() != null) {
-            b.append("Address  : ").append(p.extraAddress()).append("\n");
+            b.append(t.labelAddress()).append(" : ").append(p.extraAddress()).append("\n");
         }
         b.append("\n").append(p.footer());
         return b.toString();
@@ -802,27 +858,28 @@ public class MemberRestController {
      * Mobile-friendly HTML: single column, readable font size, tap target for map link.
      */
     private String connectionEmailHtml(ConnectionEmailPayload p) {
+        ConnectionEmailI18n.Texts t = p.texts();
         String mapButton = "";
         if (p.mapUrl() != null) {
             String safeUrl = escapeHtml(p.mapUrl());
             mapButton = "<a href=\"" + safeUrl + "\" style=\"display:inline-block;margin-top:12px;padding:14px 22px;"
                     + "background-color:#2563eb;color:#ffffff !important;text-decoration:none;border-radius:10px;"
-                    + "font-size:16px;font-weight:600;line-height:1.2;\">Open in Maps</a>";
+                    + "font-size:16px;font-weight:600;line-height:1.2;\">" + escapeHtml(t.mapButton()) + "</a>";
         }
         String coordsBlock = "";
         if (p.coordsLine() != null) {
             coordsBlock = "<tr><td style=\"padding:6px 0 0 0;font-size:15px;line-height:1.45;color:#374151;\">"
-                    + "<strong style=\"color:#111827;\">Coordinates</strong><br/>"
+                    + "<strong style=\"color:#111827;\">" + escapeHtml(t.labelCoordinates()) + "</strong><br/>"
                     + "<span style=\"word-break:break-all;\">" + escapeHtml(p.coordsLine()) + "</span></td></tr>";
         }
         String extraAddrBlock = "";
         if (p.extraAddress() != null) {
             extraAddrBlock = "<tr><td style=\"padding:10px 0 0 0;font-size:15px;line-height:1.45;color:#374151;\">"
-                    + "<strong style=\"color:#111827;\">Address</strong><br/>"
+                    + "<strong style=\"color:#111827;\">" + escapeHtml(t.labelAddress()) + "</strong><br/>"
                     + "<span style=\"word-break:break-word;\">" + escapeHtml(p.extraAddress()) + "</span></td></tr>";
         }
 
-        return "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"/>"
+        return "<!DOCTYPE html><html lang=\"" + escapeHtml(p.htmlLang()) + "\"><head><meta charset=\"UTF-8\"/>"
                 + "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>"
                 + "<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>"
                 + "<title>" + escapeHtml(p.headline()) + "</title></head>"
@@ -843,21 +900,21 @@ public class MemberRestController {
                 + "PatTool</p></td></tr>"
                 + "<tr><td style=\"padding:20px 20px 8px 20px;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;\">"
                 + "<h2 style=\"margin:0 0 12px 0;font-size:15px;line-height:1.3;color:#6b7280;text-transform:uppercase;"
-                + "letter-spacing:0.04em;\">User</h2>"
+                + "letter-spacing:0.04em;\">" + escapeHtml(t.sectionUser()) + "</h2>"
                 + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">"
-                + rowLabelValue("Username", p.userName())
-                + rowLabelValue("First name", p.firstName())
-                + rowLabelValue("Last name", p.lastName())
-                + rowLabelValue("Email", p.email())
+                + rowLabelValue(t.labelUsername(), p.userName())
+                + rowLabelValue(t.labelFirstName(), p.firstName())
+                + rowLabelValue(t.labelLastName(), p.lastName())
+                + rowLabelValue(t.labelEmail(), p.email())
                 + "</table></td></tr>"
                 + "<tr><td style=\"padding:8px 20px 20px 20px;font-family:Segoe UI,Roboto,Helvetica,Arial,sans-serif;\">"
                 + "<h2 style=\"margin:0 0 12px 0;font-size:15px;line-height:1.3;color:#6b7280;text-transform:uppercase;"
-                + "letter-spacing:0.04em;\">Connection</h2>"
+                + "letter-spacing:0.04em;\">" + escapeHtml(t.sectionConnection()) + "</h2>"
                 + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">"
-                + rowLabelValue("Timestamp", p.timestamp())
-                + rowLabelValue("Client IP", p.clientIp())
-                + rowLabelValue("Location", p.location())
-                + rowLabelValue("Domain", p.domain())
+                + rowLabelValue(t.labelTimestamp(), p.timestamp())
+                + rowLabelValue(t.labelClientIp(), p.clientIp())
+                + rowLabelValue(t.labelLocation(), p.location())
+                + rowLabelValue(t.labelDomain(), p.domain())
                 + "</table>"
                 + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin-top:8px;\">"
                 + coordsBlock
@@ -891,16 +948,17 @@ public class MemberRestController {
     }
 
     /**
-     * Format date and time as dd-MM-yyyy hh:mm:ss + zone
+     * Format date and time using the user's locale (server timezone suffix preserved).
      */
-    private String formatDateTime(LocalDateTime dateTime) {
+    private String formatDateTime(LocalDateTime dateTime, Locale locale, String naLiteral) {
         if (dateTime == null) {
-            return "N/A";
+            return naLiteral;
         }
         ZoneId zoneId = ZoneId.systemDefault();
         String zone = zoneId.toString();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm:ss");
-        return dateTime.format(formatter) + " +" + zone;
+        DateTimeFormatter formatter = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.MEDIUM)
+                .withLocale(locale);
+        return dateTime.atZone(zoneId).format(formatter) + " +" + zone;
     }
 
     /**

@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable, from, of } from 'rxjs';
-import { map, switchMap, catchError } from 'rxjs/operators';
+import { map, switchMap, catchError, finalize, shareReplay } from 'rxjs/operators';
+import { TranslateService } from '@ngx-translate/core';
 
 import { Member } from '../model/member';
 import { environment } from '../../environments/environment';
@@ -25,12 +26,25 @@ export class MembersService {
     private API_URL: string = environment.API_URL;
     private user: Member = new Member("", "", "", "", "", [], "");
 
+    /** Coalesces parallel getUserId() calls (e.g. app shell + photo wall) into a single POST /memb/user. */
+    private registration$: Observable<Member> | null = null;
+
     constructor(
         private _http: HttpClient, 
         private _keycloakService: KeycloakService,
         private _commonValuesService: CommonvaluesService,
-        private _positionService: PositionService
+        private _positionService: PositionService,
+        private _translate: TranslateService
     ) { }
+
+    /** Locale actually shown in the app (TranslateService), then CommonvaluesService (browser). */
+    private resolveLocaleForBackend(): string {
+        const fromTranslate = (this._translate.currentLang || this._translate.getDefaultLang() || '').trim();
+        if (fromTranslate.length > 0) {
+            return fromTranslate;
+        }
+        return this._commonValuesService.getLang();
+    }
 
     // GET  + {userName}
     setUser(member: Member) {
@@ -39,8 +53,8 @@ export class MembersService {
 
     getUserId(options?: GetUserIdOptions): Observable<Member> {
 
-        if (this.user.id == "") {            
-            return from(this._keycloakService.getToken()).pipe(
+        if (this.user.id == "") {
+            this.registration$ ??= from(this._keycloakService.getToken()).pipe(
                 map((token: string) => {
                     return new HttpHeaders({
                         'Accept': 'application/json',
@@ -51,7 +65,7 @@ export class MembersService {
                     });
                 }),
                 switchMap(headers => {
-                    this.user.locale = this._commonValuesService.getLang();
+                    this.user.locale = this.resolveLocaleForBackend();
 
                     const position$ = options?.skipGeolocation
                         ? of(null)
@@ -60,11 +74,15 @@ export class MembersService {
                     return position$.pipe(
                         switchMap(position => this.postMembUserRegister(headers, position))
                     );
-                })
+                }),
+                finalize(() => {
+                    this.registration$ = null;
+                }),
+                shareReplay({ bufferSize: 1, refCount: false })
             );
-        } else {
-            return from([this.user]);
+            return this.registration$;
         }
+        return from([this.user]);
     }
 
     private postMembUserRegister(headers: HttpHeaders, position: PositionCoordinates | null): Observable<Member> {
