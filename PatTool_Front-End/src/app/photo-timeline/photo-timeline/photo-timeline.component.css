@@ -112,7 +112,6 @@
 
 .on-this-day-photo {
     flex-shrink: 0;
-    cursor: pointer;
     transition: transform 0.2s ease;
 }
 
@@ -126,6 +125,7 @@
     border-radius: 10px;
     overflow: hidden;
     position: relative;
+    cursor: pointer;
 }
 
 .otd-image-wrapper img {
@@ -159,7 +159,6 @@
 }
 
 .otd-caption {
-    color: rgba(255, 255, 255, 0.8);
     font-size: 0.75rem;
     text-align: center;
     margin-top: 0.4rem;
@@ -167,6 +166,16 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.otd-caption a {
+    color: rgba(255, 255, 255, 0.9);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.otd-caption a:hover {
+    color: #fff;
 }
 
 /* Toolbar */

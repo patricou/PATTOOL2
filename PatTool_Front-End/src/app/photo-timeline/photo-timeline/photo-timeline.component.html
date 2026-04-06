@@ -43,9 +43,9 @@
         </div>
         <div class="on-this-day-photos">
             <div class="on-this-day-photo" 
-                 *ngFor="let photo of onThisDay; let i = index; trackBy: trackByPhotoId"
-                 (click)="openOnThisDaySlideshow(i)">
+                 *ngFor="let photo of onThisDay; let i = index; trackBy: trackByPhotoId">
                 <div class="otd-image-wrapper wall-photo-thumb-host"
+                     (click)="openOnThisDaySlideshow(i)"
                      [attr.data-file-id]="photo.fileId"
                      [attr.data-file-type]="photo.fileType">
                     <img *ngIf="getThumbnailUrl(photo)" 
@@ -58,7 +58,10 @@
                     </div>
                     <div class="otd-year-badge">{{ getYearFromDate(photo.eventDate) }}</div>
                 </div>
-                <div class="otd-caption">{{ photo.eventName }}</div>
+                <div class="otd-caption">
+                    <a [routerLink]="['/details-evenement', photo.eventId]"
+                       [title]="'PHOTO_TIMELINE.EVENT_DETAILS' | translate">{{ photo.eventName }}</a>
+                </div>
             </div>
         </div>
     </div>
