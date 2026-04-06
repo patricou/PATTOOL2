@@ -3,9 +3,12 @@ package com.pat.config;
 import com.pat.converter.StringToMemberConverter;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.format.FormatterRegistry;
+import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import java.util.concurrent.TimeUnit;
 
 /**
  * Web configuration to register custom converters
@@ -20,6 +23,19 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Large background clips: long cache so refresh reuses disk cache (URL is stable under assets/video/).
+        registry.addResourceHandler("/assets/video/**")
+                .addResourceLocations("classpath:/static/assets/video/")
+                .setCacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic());
+
+        registry.addResourceHandler("/assets/i18n/**")
+                .addResourceLocations("classpath:/static/assets/i18n/")
+                .setCacheControl(CacheControl.maxAge(14, TimeUnit.DAYS).cachePublic());
+
+        registry.addResourceHandler("/assets/images/**")
+                .addResourceLocations("classpath:/static/assets/images/")
+                .setCacheControl(CacheControl.maxAge(30, TimeUnit.DAYS).cachePublic());
+
         // Register static resource handlers for Angular app
         // Note: We use specific patterns to avoid interfering with API endpoints
         // API endpoints (/api/**) are handled by controllers and should not be intercepted here

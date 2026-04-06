@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { Observable, from, of } from 'rxjs';
-import { map, switchMap, catchError, finalize, shareReplay } from 'rxjs/operators';
+import { Observable, from, of, EMPTY } from 'rxjs';
+import { map, switchMap, catchError, finalize, shareReplay, take } from 'rxjs/operators';
 import { TranslateService } from '@ngx-translate/core';
 
 import { Member } from '../model/member';
@@ -143,6 +143,40 @@ export class MembersService {
 
     getUser(): Member {
         return this.user;
+    }
+
+    /**
+     * After fast POST /memb/user (no GPS), sends GPS when the browser provides it — does not block the UI.
+     * Uses POST /memb/user/gps so we do not re-run connection email / connection log / lastConnectionDate.
+     */
+    pushGpsPositionWhenAvailable(): void {
+        if (!this.user?.id) {
+            return;
+        }
+        this._positionService.getCurrentPosition().pipe(
+            take(1),
+            switchMap((pos) => {
+                if (!pos || pos.latitude == null || pos.longitude == null) {
+                    return EMPTY;
+                }
+                return from(this._keycloakService.getToken()).pipe(
+                    switchMap((token: string) =>
+                        this._http.post(
+                            this.API_URL + 'memb/user/gps',
+                            { latitude: pos.latitude, longitude: pos.longitude },
+                            {
+                                headers: new HttpHeaders({
+                                    Accept: 'application/json',
+                                    'Content-Type': 'application/json',
+                                    Authorization: 'Bearer ' + token
+                                })
+                            }
+                        )
+                    )
+                );
+            }),
+            catchError(() => EMPTY)
+        ).subscribe({ error: () => { /* silent */ } });
     }
 
     /**

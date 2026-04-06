@@ -4,10 +4,14 @@ import { platformBrowserDynamic } from '@angular/platform-browser-dynamic';
 import { AppModule } from './app/app.module';
 import { environment } from './environments/environment';
 import { KeycloakService } from './app/keycloak/keycloak.service';
+import { prefetchPatStaticAssets } from './prefetch-static-assets';
 
 if (environment.production) {
   enableProdMode();
 }
+
+// Précharge + fetch cache pour les assets publics (i18n, vidéos accueil, ffmpeg, etc.) avant Keycloak.init.
+prefetchPatStaticAssets();
 
 // Suppress Google Maps diagnostic requests blocked by ad blockers
 // These are harmless telemetry requests that don't affect functionality

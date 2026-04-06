@@ -22,6 +22,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 
 import jakarta.servlet.http.HttpServletRequest;
+import java.util.concurrent.CompletableFuture;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.LocalDateTime;
@@ -427,45 +428,100 @@ public class MemberRestController {
         Member newMember = membersRepository.save(member);
         log.debug("Member saved - ID: {}", newMember.getId());
         
-        // Save connection log to MongoDB (skip if IP contains 0:0:0:0:0:0 or similar invalid patterns)
+        // Save connection log to MongoDB after response path is fast: geo lookup runs off the request thread.
         try {
-            // Skip saving connection log for excluded users (e.g., patricou)
             if (!userConnectionLogPolicy.shouldLog(newMember)) {
                 log.debug("Skipping connection log save for excluded user: {}", newMember.getUserName());
             } else {
-            String ipAddress = request.getHeader("X-Forwarded-For");
-            if (ipAddress == null) {
-                ipAddress = request.getRemoteAddr();
-            }
-            
-            // Skip saving connection log if IP contains invalid patterns (0:0:0:0:0:0, ::, etc.)
-            if (shouldSkipConnectionLog(ipAddress)) {
-                log.debug("Skipping connection log save for user: {} - Invalid IP pattern: {}", newMember.getUserName(), ipAddress);
-            } else {
-                // Get IP information (domain name and location)
-                IpGeolocationService.IPInfo ipInfo = ipGeolocationService.getCompleteIpInfo(ipAddress);
-                String domainName = ipInfo.getDomainName() != null ? ipInfo.getDomainName() : "N/A";
-                String location = ipInfo.getLocation() != null ? ipInfo.getLocation() : "N/A";
-                
-                // Create and save connection log
-                UserConnectionLog connectionLog = new UserConnectionLog(
-                    newMember,
-                    now,
-                    ipAddress,
-                    domainName,
-                    location
-                );
-                userConnectionLogRepository.save(connectionLog);
-                log.debug("Connection log saved for user: {}", newMember.getUserName());
-            }
+                String ipAddress = request.getHeader("X-Forwarded-For");
+                if (ipAddress == null) {
+                    ipAddress = request.getRemoteAddr();
+                }
+                if (shouldSkipConnectionLog(ipAddress)) {
+                    log.debug("Skipping connection log save for user: {} - Invalid IP pattern: {}", newMember.getUserName(), ipAddress);
+                } else {
+                    final String ipForLog = ipAddress;
+                    final Date connectionTime = now;
+                    final String memberId = newMember.getId();
+                    final String logUserName = newMember.getUserName();
+                    CompletableFuture.runAsync(() -> saveUserConnectionLogAsync(memberId, logUserName, connectionTime, ipForLog));
+                }
             }
         } catch (Exception e) {
-            log.error("Error saving connection log for user: {}", newMember.getUserName(), e);
-            // Don't fail the connection if logging fails
+            log.error("Error scheduling connection log for user: {}", newMember.getUserName(), e);
         }
         
         log.debug("=== END USER CONNECTION REQUEST ===\n");
         return newMember;
+    }
+
+    /**
+     * JSON body for {@link #appendGpsForCurrentUser}.
+     */
+    public record GpsPingRequest(Double latitude, Double longitude) {
+    }
+
+    /**
+     * Append GPS coordinates for the authenticated user only (no connection email, no connection log, no lastConnectionDate refresh).
+     */
+    @RequestMapping(
+            value = "/user/gps",
+            method = RequestMethod.POST,
+            consumes = {"application/json"},
+            produces = {"application/json"}
+    )
+    public ResponseEntity<Void> appendGpsForCurrentUser(@RequestBody GpsPingRequest body) {
+        if (body == null || body.latitude() == null || body.longitude() == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        String keycloakId = getKeycloakSubject();
+        if (keycloakId == null || keycloakId.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        Member m = membersRepository.findByKeycloakId(keycloakId);
+        if (m == null) {
+            return ResponseEntity.notFound().build();
+        }
+        try {
+            positionService.addGpsPosition(m, body.latitude(), body.longitude());
+            membersRepository.save(m);
+            return ResponseEntity.noContent().build();
+        } catch (Exception e) {
+            log.warn("appendGpsForCurrentUser failed for {}: {}", m.getUserName(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    private void saveUserConnectionLogAsync(String memberId, String userNameForLog, Date connectionDate, String ipAddress) {
+        try {
+            Member m = membersRepository.findById(memberId).orElse(null);
+            if (m == null) {
+                log.warn("Connection log async: member not found id={}", memberId);
+                return;
+            }
+            IpGeolocationService.IPInfo ipInfo = ipGeolocationService.getCompleteIpInfo(ipAddress);
+            String domainName = ipInfo.getDomainName() != null ? ipInfo.getDomainName() : "N/A";
+            String location = ipInfo.getLocation() != null ? ipInfo.getLocation() : "N/A";
+            UserConnectionLog connectionLog = new UserConnectionLog(
+                    m,
+                    connectionDate,
+                    ipAddress,
+                    domainName,
+                    location
+            );
+            userConnectionLogRepository.save(connectionLog);
+            log.debug("Connection log saved (async) for user: {}", userNameForLog);
+        } catch (Exception e) {
+            log.error("Error saving connection log async for user: {}", userNameForLog, e);
+        }
+    }
+
+    private String getKeycloakSubject() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof Jwt jwt) {
+            return jwt.getSubject();
+        }
+        return null;
     }
 
     @RequestMapping(

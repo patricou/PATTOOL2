@@ -1,13 +1,16 @@
 <div>
     <div class="pat-display">
         <div>
-            <video autoplay="" preload="auto" muted loop id="pat-bg-video" class="d-none d-md-block fullscreen-video">
-                <source src="assets/video/auroreboreale.mp4" type="video/mp4">
+            <!-- Sources are injected in ngAfterViewInit so the shell paints first; avoids competing with preload=auto on every navigation/refresh. -->
+            <video #videoDesktop autoplay muted loop playsinline preload="none"
+                id="pat-bg-video-desktop"
+                class="d-none d-md-block fullscreen-video">
             </video>
 
             <!-- Video for smartphones (< 992px) -->
-            <video autoplay="" preload="auto" muted loop id="pat-bg-video" class="d-block d-md-none fullscreen-video">
-                <source src="assets/video/240_F_554249302_yxUSqtMZs3HPEjrGEHLGCU5rMXgtPOHD_ST.mp4" type="video/mp4">
+            <video #videoMobile autoplay muted loop playsinline preload="none"
+                id="pat-bg-video-mobile"
+                class="d-block d-md-none fullscreen-video">
             </video>
         </div>
         <div>

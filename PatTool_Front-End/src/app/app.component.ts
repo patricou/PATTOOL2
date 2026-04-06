@@ -146,7 +146,7 @@ export class AppComponent implements OnInit {
         // the folowing add the user.id and return it through an Observanle
         let now = new Date();
         // console.log("0/1|------------------> UserId from AppComponent : " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
-        this._membersService.getUserId().subscribe(member => {
+        this._membersService.getUserId({ skipGeolocation: true }).subscribe(member => {
             // console.log("1/1|------------------> UserId from AppComponent ok : user.is :  " + member.id + " / " + now.getHours() + ':' + now.getMinutes() + ':' + now.getSeconds() + '.' + now.getMilliseconds());
             this.user.id = member.id;
             // Update user object with member data (including roles)
@@ -170,6 +170,7 @@ export class AppComponent implements OnInit {
             this.hasIotRole = this._kc.hasIotRole();
             // reset the user in the service ( with id ) otherwyse it is not present ( which is strange )
             this._membersService.setUser(this.user);
+            this._membersService.pushGpsPositionWhenAvailable();
         },
             err => alert("Error when retieving MLB user id " + err)
         );
