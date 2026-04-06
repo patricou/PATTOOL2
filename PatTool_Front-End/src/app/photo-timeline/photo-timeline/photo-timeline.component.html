@@ -51,7 +51,7 @@
                     <img *ngIf="getThumbnailUrl(photo)" 
                          [src]="getThumbnailUrl(photo)" 
                          [alt]="photo.fileName"
-                         loading="lazy"
+                         loading="eager"
                          decoding="async">
                     <div class="otd-placeholder" *ngIf="!getThumbnailUrl(photo)">
                         <i class="fa fa-image"></i>
@@ -195,7 +195,7 @@
                         <span class="group-action-btn-text">{{ 'EVENTHOME.COMMENTARIES' | translate }}</span>
                     </button>
                     <button type="button"
-                            class="btn btn-sm group-action-btn group-action-btn--card"
+                            class="btn btn-sm group-action-btn group-action-btn--discussion"
                             *ngIf="group.eventId"
                             (click)="openWallDiscussion(group); $event.stopPropagation()"
                             [title]="'EVENTELEM.OPEN_DISCUSSION' | translate">
@@ -266,7 +266,7 @@
                             <img *ngIf="getThumbnailUrl(media.item)" 
                                  [src]="getThumbnailUrl(media.item)" 
                                  [alt]="media.item.fileName"
-                                 loading="lazy"
+                                 loading="eager"
                                  decoding="async"
                                  class="photo-img">
                             <div class="photo-placeholder" *ngIf="!getThumbnailUrl(media.item)">

@@ -339,6 +339,20 @@ export class CommentaryEditor implements OnInit, OnChanges, AfterViewInit {
     this.openModal();
   }
 
+  /**
+   * Raccourci (ex. mur de photos) : éditer le premier commentaire de l’utilisateur courant
+   * s’il en existe au moins un (ordre du tableau), sinon ouvrir la création.
+   */
+  openAddOrEditFirstOwned(): void {
+    const list = this.commentaries || [];
+    const idx = list.findIndex(c => this.isOwner(c));
+    if (idx >= 0) {
+      this.openEditModal(idx);
+    } else {
+      this.openAddModal();
+    }
+  }
+
   openEditModal(index: number) {
     if (index < 0 || index >= this.commentaries.length) {
       return;

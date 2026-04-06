@@ -113,7 +113,7 @@
           </div>
           <div class="add-discussion-wrapper" *ngIf="evenement">
             <button type="button"
-                    class="btn-compact btn-primary-compact"
+                    class="btn-compact btn-discussion-live-compact"
                     (click)="openDiscussion(); $event.stopPropagation()"
                     [title]="'EVENTELEM.OPEN_DISCUSSION' | translate">
               <i class="fa fa-comments"></i> <span class="btn-text">{{ 'EVENTELEM.CHAT' | translate }}</span>
@@ -395,7 +395,7 @@
         <div class="card-header-compact">
           <i class="fa fa-comments"></i>
           <span>{{ 'EVENTELEM.CHAT' | translate }}</span>
-          <button type="button" class="btn-compact btn-primary-compact ms-auto" (click)="openDiscussion(); $event.stopPropagation()" [title]="'EVENTELEM.OPEN_DISCUSSION' | translate">
+          <button type="button" class="btn-compact btn-discussion-live-compact ms-auto" (click)="openDiscussion(); $event.stopPropagation()" [title]="'EVENTELEM.OPEN_DISCUSSION' | translate">
             <i class="fa fa-external-link"></i>
           </button>
         </div>

@@ -460,6 +460,19 @@
     border-color: #128c46;
 }
 
+.group-action-btn--discussion {
+    background: rgba(220, 53, 69, 0.95);
+    color: #fff;
+    border-color: rgba(167, 31, 48, 0.55);
+}
+.group-action-btn--discussion:hover {
+    background: #dc3545;
+    color: #fff;
+    border-color: #b02a37;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.45);
+}
+
 .fs-slideshow-btn {
     font-size: 0.75rem;
     padding: 0.2rem 0.6rem;

@@ -462,6 +462,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 setTimeout(() => {
                     if (this.destroyed || gen !== this.timelineLoadGeneration) return;
                     this.onThisDay = photos || [];
+                    for (const p of this.onThisDay) {
+                        this.loadThumbnail(p);
+                    }
                     this.cdr.markForCheck();
                     setTimeout(() => { if (!this.destroyed) this.scanWallMediaHosts(); }, 0);
                 }, 0);
@@ -967,7 +970,18 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.loadVideoUrl(video);
     }
 
-    private preloadThumbnailsForGroup(_group: TimelineGroup): void {
+    /**
+     * Démarre le fetch des miniatures tout de suite pour les groupes révélés, sans attendre l’IntersectionObserver
+     * (sinon délai d’une frame + callback observer avant la 1ʳᵉ requête HTTP).
+     * Les vidéos restent chargées à la demande (observer) pour éviter de télécharger des fichiers lourds hors viewport.
+     */
+    private preloadThumbnailsForGroup(group: TimelineGroup): void {
+        const photos = group.photos || [];
+        const isFirstScreen = this.visibleGroups.length <= INITIAL_VISIBLE_GROUPS;
+        const limit = isFirstScreen ? photos.length : Math.min(photos.length, 24);
+        for (let i = 0; i < limit; i++) {
+            this.loadThumbnail(photos[i]);
+        }
         setTimeout(() => { if (!this.destroyed) this.scanWallMediaHosts(); }, 0);
     }
 
@@ -1810,7 +1824,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     ev.commentaries = [];
                 }
                 this.cdr.detectChanges();
-                setTimeout(() => this.wallCommentaryEditor?.openAddModal(), 0);
+                setTimeout(() => this.wallCommentaryEditor?.openAddOrEditFirstOwned(), 0);
             },
             error: (err) => {
                 console.error('Photo wall: load event for commentary', err);
