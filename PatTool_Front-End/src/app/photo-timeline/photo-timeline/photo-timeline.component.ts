@@ -52,6 +52,24 @@ const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HE
 const WALL_THUMB_MAX_EDGE = 400;
 /** Max concurrent wall media HTTP fetches (thumbs + inline videos) to avoid stampedes. */
 const WALL_MEDIA_MAX_PARALLEL = 12;
+
+/** Returns the thumbnail max-edge adapted to the current viewport width (mobile = smaller = faster). */
+function getAdaptiveThumbMaxEdge(): number {
+    if (typeof window === 'undefined') return WALL_THUMB_MAX_EDGE;
+    const w = window.innerWidth;
+    if (w <= 480) return 180;
+    if (w <= 768) return 260;
+    return WALL_THUMB_MAX_EDGE;
+}
+
+/** Returns the max concurrent fetch parallelism adapted to the network connection quality. */
+function getAdaptiveMaxParallel(): number {
+    const conn = (navigator as any)?.connection;
+    if (!conn) return WALL_MEDIA_MAX_PARALLEL;
+    if (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g') return 3;
+    if (conn.effectiveType === '3g') return 6;
+    return WALL_MEDIA_MAX_PARALLEL;
+}
 /** First-screen thumbnail preload per group (rest via IntersectionObserver, like home-evenements lazy batches). */
 const WALL_PRELOAD_THUMBS_FIRST_SCREEN = 10;
 const WALL_PRELOAD_THUMBS_AFTER = 6;
@@ -131,6 +149,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     private wallMediaObserver: IntersectionObserver | null = null;
     private wallFetchActive = 0;
     private wallFetchQueue: Array<() => void> = [];
+    /** Debounce handle: batches rapid markForCheck() calls from thumbnail/video load callbacks into one CD cycle. */
+    private cdrScheduleId: ReturnType<typeof setTimeout> | null = null;
+    /** WeakMap cache so getGroupMedia() does not rebuild arrays on every Angular CD cycle. */
+    private groupMediaCache = new WeakMap<TimelineGroup, GroupMediaItem[]>();
     private imageCompressionModalRef: NgbModalRef | null = null;
     private currentFsSlideshowEventId = '';
     /** True when at least one photo was added to DB during the current slideshow session; used to refresh timeline on close */
@@ -238,6 +260,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             clearTimeout(this.searchDebounceId);
             this.searchDebounceId = null;
         }
+        if (this.cdrScheduleId != null) {
+            clearTimeout(this.cdrScheduleId);
+            this.cdrScheduleId = null;
+        }
         if (this.intersectionObserver) {
             this.intersectionObserver.disconnect();
             this.intersectionObserver = null;
@@ -314,6 +340,18 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.wallTimelineVideos.forEach((ref) => {
             this.wallVideoIntersectionObserver!.observe(ref.nativeElement);
         });
+    }
+
+    /**
+     * Batches rapid markForCheck() calls (one per thumbnail) into a single CD cycle.
+     * Without this, loading 10 thumbnails in parallel triggers 10 full Angular CD passes.
+     */
+    private scheduleCdr(): void {
+        if (this.cdrScheduleId !== null) return;
+        this.cdrScheduleId = setTimeout(() => {
+            this.cdrScheduleId = null;
+            if (!this.destroyed) this.cdr.markForCheck();
+        }, 50);
     }
 
     /**
@@ -805,6 +843,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     /** Média d'un groupe : photos et vidéos en parallèle (entrelacés), pas les vidéos en premier. */
     getGroupMedia(group: TimelineGroup): GroupMediaItem[] {
+        const cached = this.groupMediaCache.get(group);
+        if (cached) return cached;
+
         const photos = group.photos || [];
         const videos = group.videos || [];
         const list: GroupMediaItem[] = [];
@@ -818,6 +859,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 list.push({ type: 'video', item: videos[i] });
             }
         }
+        this.groupMediaCache.set(group, list);
         return list;
     }
 
@@ -848,7 +890,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     private acquireWallFetchSlot(job: () => void): void {
         if (this.destroyed) return;
-        if (this.wallFetchActive < WALL_MEDIA_MAX_PARALLEL) {
+        if (this.wallFetchActive < getAdaptiveMaxParallel()) {
             this.wallFetchActive++;
             job();
         } else {
@@ -862,7 +904,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             return;
         }
         this.wallFetchActive--;
-        while (this.wallFetchActive < WALL_MEDIA_MAX_PARALLEL && this.wallFetchQueue.length > 0) {
+        while (this.wallFetchActive < getAdaptiveMaxParallel() && this.wallFetchQueue.length > 0) {
             const next = this.wallFetchQueue.shift()!;
             this.wallFetchActive++;
             next();
@@ -896,12 +938,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     const safe = this.sanitizer.bypassSecurityTrustUrl(url);
                     this.videoSafeUrlCache.set(id, safe);
                     this.loadingVideos.delete(id);
-                    this.cdr.markForCheck();
+                    this.scheduleCdr();
                 },
                 error: () => {
                     if (this.destroyed) return;
                     this.loadingVideos.delete(id);
-                    this.cdr.markForCheck();
+                    this.scheduleCdr();
                 }
             });
             this.subscriptions.push(sub);
@@ -915,7 +957,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.loadingThumbnails.add(photo.fileId);
         this.acquireWallFetchSlot(() => {
             const gen = this.timelineLoadGeneration;
-            const sub = this.fileService.getFileWallPreview(photo.fileId, WALL_THUMB_MAX_EDGE).pipe(
+            const sub = this.fileService.getFileWallPreview(photo.fileId, getAdaptiveThumbMaxEdge()).pipe(
                 finalize(() => this.releaseWallFetchSlot())
             ).subscribe({
                 next: (data: ArrayBuffer) => {
@@ -927,12 +969,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     const url = URL.createObjectURL(blob);
                     this.thumbnailCache.set(photo.fileId, url);
                     this.loadingThumbnails.delete(photo.fileId);
-                    this.cdr.markForCheck();
+                    this.scheduleCdr();
                 },
                 error: () => {
                     if (this.destroyed) return;
                     this.loadingThumbnails.delete(photo.fileId);
-                    this.cdr.markForCheck();
+                    this.scheduleCdr();
                 }
             });
             this.subscriptions.push(sub);
