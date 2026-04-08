@@ -34,6 +34,8 @@ import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
 const BUFFER_AHEAD = 3;
 /** Nombre de groupes (activités) à charger par requête API. */
 const PAGE_SIZE = 12;
+/** Nombre de groupes demandés pour la toute première page (réponse rapide = premier rendu immédiat). */
+const FIRST_PAGE_SIZE = 3;
 /** Nombre d'activités affichées dès l'ouverture (comme home-evenements affiche 8 cartes). */
 const INITIAL_VISIBLE_GROUPS = 8;
 /** Hauteur approximative d'un bloc événement (px) pour précharger 3 événements en avance. */
@@ -357,13 +359,15 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     private loadFriendGroups(): void {
-        this.friendsService.getFriendGroups().subscribe({
+        const sub = this.friendsService.getFriendGroups().subscribe({
             next: (groups) => {
+                if (this.destroyed) return;
                 this.friendGroups = groups && Array.isArray(groups) ? groups : [];
                 this.cdr.markForCheck();
             },
             error: () => { this.friendGroups = []; }
         });
+        this.subscriptions.push(sub);
     }
 
     /** Sorted friend groups for the visibility filter dropdown (same as home-evenements). */
@@ -441,7 +445,6 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.loadingThumbnails.clear();
         this.loadingVideos.clear();
         requestAnimationFrame(() => {
-            if (this.destroyed) return;
             this.revokeBlobUrlsInMap(prevThumbUrls);
             this.revokeBlobUrlsInMap(prevVideoUrls);
         });
@@ -459,6 +462,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         idToUrl.forEach(url => {
             if (url.startsWith('blob:')) URL.revokeObjectURL(url);
         });
+    }
+
+    /** Prune closed subscriptions from the tracking array to avoid unbounded growth. */
+    private pruneClosedSubscriptions(): void {
+        if (this.subscriptions.length > 50) {
+            this.subscriptions = this.subscriptions.filter(s => !s.closed);
+        }
     }
 
     private startStreaming(): void {
@@ -509,7 +519,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
         const gen = this.timelineLoadGeneration;
-        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, PAGE_SIZE, search, visibility, this.filterEventId).subscribe({
+        const pageSize = this.nextPage === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE;
+        const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, pageSize, search, visibility, this.filterEventId).subscribe({
             next: (response: TimelineResponse) => {
                 // Defer state updates to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError (NG0100)
                 setTimeout(() => {
@@ -564,7 +575,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
         const gen = this.timelineLoadGeneration;
-        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, PAGE_SIZE, search, visibility, this.filterEventId).subscribe({
+        const pageSize = this.nextPageVideos === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE;
+        const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, pageSize, search, visibility, this.filterEventId).subscribe({
             next: (response: TimelineResponse) => {
                 setTimeout(() => {
                     if (this.destroyed || gen !== this.timelineLoadGeneration) return;
@@ -855,6 +867,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.wallFetchActive++;
             next();
         }
+        this.pruneClosedSubscriptions();
     }
 
     private loadVideoUrl(video: TimelinePhoto): void {
