@@ -66,8 +66,8 @@
         </div>
     </div>
 
-    <!-- Search & Stats Bar (hidden when viewing a single event by id) -->
-    <div class="timeline-toolbar" *ngIf="!isLoading && !filterEventId">
+    <!-- Search & Stats Bar (shown immediately, even during initial load) -->
+    <div class="timeline-toolbar" *ngIf="!filterEventId">
         <div class="timeline-stats">
             <span class="badge bg-secondary">
                 <i class="fa fa-folder-o"></i>
@@ -115,12 +115,18 @@
         </div>
     </div>
 
-    <!-- Loading State (initial load — waiting for first activity) -->
-    <div class="timeline-loading" *ngIf="isLoading">
-        <div class="spinner-border text-primary" role="status">
-            <span class="visually-hidden">{{ 'COMMUN.LOADING' | translate }}</span>
+    <!-- Skeleton loading (initial load — waiting for first activity) -->
+    <div class="timeline-skeleton" *ngIf="isLoading && filteredGroups.length === 0" aria-busy="true" aria-label="{{ 'COMMUN.LOADING' | translate }}">
+        <div class="skeleton-group" *ngFor="let n of [0,1]">
+            <div class="skeleton-header">
+                <div class="skeleton-bar skeleton-icon"></div>
+                <div class="skeleton-bar skeleton-title"></div>
+                <div class="skeleton-bar skeleton-actions"></div>
+            </div>
+            <div class="skeleton-masonry">
+                <div class="skeleton-photo" *ngFor="let p of [0,1,2,3,4,5]"></div>
+            </div>
         </div>
-        <p>{{ 'PHOTO_TIMELINE.LOADING' | translate }}</p>
     </div>
 
     <!-- Error State -->

@@ -35,7 +35,7 @@ const BUFFER_AHEAD = 3;
 /** Nombre de groupes (activités) à charger par requête API. */
 const PAGE_SIZE = 12;
 /** Nombre de groupes demandés pour la toute première page (réponse rapide = premier rendu immédiat). */
-const FIRST_PAGE_SIZE = 3;
+const FIRST_PAGE_SIZE = 1;
 /** Nombre d'activités affichées dès l'ouverture (comme home-evenements affiche 8 cartes). */
 const INITIAL_VISIBLE_GROUPS = 8;
 /** Hauteur approximative d'un bloc événement (px) pour précharger 3 événements en avance. */
