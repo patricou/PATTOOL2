@@ -1409,10 +1409,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return names ? `${names} (${group.ownerUserName})` : group.ownerUserName;
     }
 
+    /** Lien partagé (WhatsApp, e-mail) : mur de photos filtré sur l’activité, pas la fiche détail événement. */
     getWallShareEventUrl(): string {
         const g = this.shareWallContextGroup;
         if (!g?.eventId) return '';
-        return `${window.location.origin}/#/details-evenement/${g.eventId}`;
+        const id = encodeURIComponent(g.eventId.trim());
+        return `${window.location.origin}/#/photos?eventId=${id}`;
     }
 
     getWallShareMainImageUrl(): SafeUrl {
