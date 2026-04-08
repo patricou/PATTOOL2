@@ -1,5 +1,4 @@
-Contact: mailto:security@example.com
-Expires: 2026-12-31T23:59:59.000Z
+Contact: mailto:patrick@patrickdeschamps.com
+Expires: 2027-12-31T23:59:59.000Z
 Preferred-Languages: en, fr
-Canonical: https://www.example.com/.well-known/security.txt
-
+Canonical: https://www.patrickdeschamps.com/.well-known/security.txt

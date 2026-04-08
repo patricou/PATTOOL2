@@ -39,9 +39,15 @@ public class WebConfig implements WebMvcConfigurer {
         // Register static resource handlers for Angular app
         // Note: We use specific patterns to avoid interfering with API endpoints
         // API endpoints (/api/**) are handled by controllers and should not be intercepted here
-        registry.addResourceHandler("/assets/**", "/*.js", "/*.js.map", "/*.css", "/*.css.map", 
-                                    "/favicon.ico", "/robots.txt", "/i18n/**", "/.well-known/**")
+        registry.addResourceHandler("/assets/**", "/*.js", "/*.js.map", "/*.css", "/*.css.map",
+                                    "/favicon.ico", "/robots.txt", "/i18n/**")
                 .addResourceLocations("classpath:/static/assets/", "classpath:/static/")
+                .resourceChain(false);
+
+        // .well-known needs its own handler: the path prefix is stripped when resolving,
+        // so /.well-known/security.txt must map to classpath:/static/.well-known/
+        registry.addResourceHandler("/.well-known/**")
+                .addResourceLocations("classpath:/static/.well-known/")
                 .resourceChain(false);
         
         // Note: We don't add a catch-all /** handler here because:
