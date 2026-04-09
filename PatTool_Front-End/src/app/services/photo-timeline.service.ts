@@ -18,13 +18,13 @@ export interface TimelinePhoto {
 
 export interface FsPhotoLink {
     /**
-     * Type de lien (WEBSITE, MAP, PHOTOS, PHOTOFROMFS, VIDEO, TRACK, …).
-     * Absent = réponse legacy : traité comme PHOTOFROMFS (dossier disque).
+     * Link type (WEBSITE, MAP, PHOTOS, PHOTOFROMFS, VIDEO, TRACK, …).
+     * Absent = legacy response: treated as PHOTOFROMFS (server disk folder).
      */
     typeUrl?: string;
     path: string;
     description: string;
-    /** Présent pour les traces GPX/KML stockées en base (ouvre le viewer trace). */
+    /** Present for GPX/KML tracks stored in the database (opens the track viewer). */
     fieldId?: string;
 }
 
@@ -43,9 +43,9 @@ export interface TimelineGroup {
     ownerFirstName?: string;
     ownerLastName?: string;
     ownerUserName?: string;
-    /** Nombre de votes positifs pour l'événement (mur de photos). */
+    /** Number of positive votes for the event (photo wall). */
     ratingPlus?: number;
-    /** Nombre de votes négatifs pour l'événement (mur de photos). */
+    /** Number of negative votes for the event (photo wall). */
     ratingMinus?: number;
 }
 

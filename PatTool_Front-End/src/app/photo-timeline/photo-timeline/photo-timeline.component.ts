@@ -32,18 +32,18 @@ import { Member } from '../../model/member';
 import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
 
 const BUFFER_AHEAD = 3;
-/** Nombre de groupes (activités) à charger par requête API. */
+/** Number of groups (activities) to load per API request. */
 const PAGE_SIZE = 12;
-/** Nombre d'activités affichées dès l'ouverture (comme home-evenements affiche 8 cartes). */
+/** Number of activities shown on open (same as home-evenements showing 8 cards). */
 const INITIAL_VISIBLE_GROUPS = 8;
-/** Hauteur approximative d'un bloc événement (px) pour précharger 3 événements en avance. */
+/** Approximate height of an event block (px) to preload 3 events ahead. */
 const EVENT_BLOCK_HEIGHT_PX = 500;
 const PREFETCH_EVENTS_AHEAD = 3;
 
 export interface GroupMediaItem {
     type: 'photo' | 'video';
     item: TimelinePhoto;
-    photoIndex?: number; // index parmi les photos uniquement (pour le slideshow)
+    photoIndex?: number; // index among photos only (for the slideshow)
 }
 const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HEIGHT_PX);
 /** Longest side (px) for server-generated wall thumbnails (?maxEdge=). */
@@ -106,7 +106,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     /** Loaded on demand when opening « Commentaires » from the wall (same editor as détail événement). */
     wallCommentaryEvent: Evenement | null = null;
-    /** Vidéos du mur masonry : lecture seulement quand visibles (viewport). */
+    /** Masonry wall videos: playback only when visible in the viewport. */
     @ViewChildren('wallTimelineVideo', { read: ElementRef }) wallTimelineVideos!: QueryList<ElementRef<HTMLVideoElement>>;
 
     visibleGroups: TimelineGroup[] = [];
@@ -133,7 +133,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     thumbnailCache: Map<string, string> = new Map();
     loadingThumbnails: Set<string> = new Set();
     videoUrlCache: Map<string, string> = new Map();
-    videoSafeUrlCache: Map<string, SafeUrl> = new Map(); // même instance SafeUrl pour éviter rechargements
+    videoSafeUrlCache: Map<string, SafeUrl> = new Map(); // same SafeUrl instance to avoid reloads
     loadingVideos: Set<string> = new Set();
 
     private userId = '';
@@ -162,15 +162,15 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     /** After first photo-timeline response is handled, start on-this-day (avoids competing with wall thumbnails on the shared fetch queue). */
     private onThisDayApiScheduled = false;
     /**
-     * Home-evenements n’ouvre qu’un flux puis affiche les cartes au fil de l’eau ; ici on évite de lancer en parallèle
-     * deux grosses requêtes Mongo (photos + vidéos-only) au cold start.
+     * Home-evenements opens a single stream and displays cards as they arrive; here we avoid launching
+     * two heavy Mongo queries (photos + videos-only) in parallel at cold start.
      */
     private videoTimelineFetchStarted = false;
     private searchDebounceId: ReturnType<typeof setTimeout> | null = null;
     /** When set, timeline shows only photos/videos for this event (from query param eventId). */
     filterEventId: string | undefined;
 
-    /** Mur de photos : partage (propriétaire uniquement), même flux que détail événement */
+    /** Photo wall: sharing (owner only), same flow as event detail */
     shareWallContextGroup: TimelineGroup | null = null;
 
     /** Per-event refresh: eventIds with an in-flight timeline refetch */
@@ -204,12 +204,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     wallShareByEmailSuccess: string | null = null;
     wallShareEmailEventAccessUsers: Member[] = [];
 
-    /** Modale « utilisateurs ayant accès » (clic sur badge visibilité), même API que détail événement */
+    /** "Users with access" modal (click on visibility badge), same API as event detail */
     wallEventAccessUsers: Member[] = [];
     wallEventAccessLoading = false;
     wallEventAccessContextGroup: TimelineGroup | null = null;
     private wallEventAccessModalRef: NgbModalRef | null = null;
-    /** Incrémenté à chaque clic badge ; ignore les réponses HTTP obsolètes (évite double ouverture). */
+    /** Incremented on each badge click; ignores stale HTTP responses (prevents double-open). */
     private wallEventAccessLoadSeq = 0;
     private wallEventAccessOpenTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -331,7 +331,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.wallVideoQuerySub = this.wallTimelineVideos.changes.subscribe(() => this.observeWallTimelineVideos());
     }
 
-    /** Ré-enregistre toutes les vidéos du mur auprès de l’observer (liste masonry dynamique). */
+    /** Re-registers all wall videos with the observer (dynamic masonry list). */
     private observeWallTimelineVideos(): void {
         if (this.destroyed || !this.wallVideoIntersectionObserver) return;
         this.wallVideoIntersectionObserver.disconnect();
@@ -353,8 +353,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     /**
-     * Démarre le mur dès que l’id membre est disponible (sans attendre le GPS, comme links).
-     * Évite le setInterval(200 ms) qui retardait systématiquement le premier chargement.
+     * Starts the wall as soon as the member id is available (without waiting for GPS, like links).
+     * Avoids the setInterval(200 ms) that was systematically delaying the first load.
      */
     private waitForUser(): void {
         const eventId = this.route.snapshot.queryParamMap.get('eventId');
@@ -418,7 +418,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.loadTimeline();
     }
 
-    /** Liste des badges de visibilité à afficher (un ou plusieurs groupes possibles). */
+    /** List of visibility badges to display (one or more groups possible). */
     getVisibilityBadges(group: TimelineGroup): Array<{ text: string; badgeClass: string }> {
         const result: Array<{ text: string; badgeClass: string }> = [];
         const v = group.visibility;
@@ -508,12 +508,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     private startStreaming(): void {
-        // Une seule requête timeline au départ ; la timeline « vidéos seules » démarre après la 1ʳᵉ réponse
-        // photos (comme la home qui n’ouvre pas deux backends lourds en même temps au premier écran).
+        // Single timeline request at startup; the "videos only" timeline starts after the first photo response
+        // (same as home which doesn’t open two heavy backends simultaneously at the first screen).
         this.fetchNext();
     }
 
-    /** Démarre getVideoTimeline une fois la première page photos reçue (ou en cas d’erreur photos). */
+    /** Starts getVideoTimeline once the first photo page is received (or on photo error). */
     private scheduleVideoTimelineFetchOnce(): void {
         if (this.destroyed || this.videoTimelineFetchStarted) {
             return;
@@ -527,13 +527,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const gen = this.timelineLoadGeneration;
         const sub = this.photoTimelineService.getOnThisDay(this.userId, visibility).subscribe({
             next: (photos) => {
-                // Différer pour éviter NG0100 sur *ngIf="onThisDay.length > 0" (même cycle que la 1re vérif du template)
+                // Defer to avoid NG0100 on *ngIf="onThisDay.length > 0" (same cycle as the first template check)
                 setTimeout(() => {
                     if (this.destroyed || gen !== this.timelineLoadGeneration) return;
                     this.onThisDay = photos || [];
                     this.cdr.markForCheck();
-                    // Miniatures OTD : IntersectionObserver uniquement (pas de boucle loadThumbnail) pour ne pas
-                    // saturer la file partagée avec le mur (WALL_MEDIA_MAX_PARALLEL).
+                    // OTD thumbnails: IntersectionObserver only (no loadThumbnail loop) to avoid
+                    // saturating the shared queue with the wall (WALL_MEDIA_MAX_PARALLEL).
                     setTimeout(() => { if (!this.destroyed) this.scanWallMediaHosts(); }, 0);
                 }, 0);
             },
@@ -643,8 +643,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     /**
-     * Révèle des groupes jusqu'à INITIAL_VISIBLE_GROUPS au premier chargement,
-     * pour afficher plusieurs activités dès l'ouverture (comme home-evenements).
+     * Reveals groups up to INITIAL_VISIBLE_GROUPS on first load,
+     * to display several activities immediately on open (same as home-evenements).
      */
     private revealInitialBatch(): void {
         while (this.visibleGroups.length < INITIAL_VISIBLE_GROUPS &&
@@ -654,8 +654,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     /**
-     * Révèle un groupe (le plus ancien par date) depuis les buffers photo/vidéo,
-     * le normalise si c'est un groupe vidéo seul, et le met dans visibleGroups.
+     * Reveals one group (oldest by date) from the photo/video buffers,
+     * normalizes it if it is a video-only group, and adds it to visibleGroups.
      */
     private revealMore(): void {
         if (this.bufferedGroups.length === 0 && this.bufferedVideoGroups.length === 0 &&
@@ -722,7 +722,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
     }
 
-    /** Groupes visibles ; le filtre est appliqué côté backend via le paramètre search. */
+    /** Visible groups; filtering is applied server-side via the search parameter. */
     get filteredGroups(): TimelineGroup[] {
         return this.visibleGroups;
     }
@@ -753,7 +753,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     /**
-     * Recharge photos/vidéos d'un seul événement (API timeline filtrée par eventId), sans recharger tout le mur.
+     * Reloads photos/videos for a single event (timeline API filtered by eventId), without reloading the whole wall.
      */
     refreshTimelineGroup(group: TimelineGroup): void {
         const eventId = group?.eventId;
@@ -839,7 +839,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         };
     }
 
-    /** Média d'un groupe : photos et vidéos en parallèle (entrelacés), pas les vidéos en premier. */
+    /** Group media: photos and videos interleaved, not videos first. */
     getGroupMedia(group: TimelineGroup): GroupMediaItem[] {
         const cached = this.groupMediaCache.get(group);
         if (cached) return cached;
@@ -1052,14 +1052,14 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     /**
-     * Démarre le fetch des miniatures tout de suite pour les groupes révélés, sans attendre l’IntersectionObserver
-     * (sinon délai d’une frame + callback observer avant la 1ʳᵉ requête HTTP).
-     * Les vidéos restent chargées à la demande (observer) pour éviter de télécharger des fichiers lourds hors viewport.
+     * Starts thumbnail fetching immediately for revealed groups, without waiting for IntersectionObserver
+     * (otherwise there is a one-frame delay + observer callback before the first HTTP request).
+     * Videos remain loaded on demand (observer) to avoid downloading large files outside the viewport.
      */
     private preloadThumbnailsForGroup(group: TimelineGroup): void {
         const photos = group.photos || [];
         const isFirstScreen = this.visibleGroups.length <= INITIAL_VISIBLE_GROUPS;
-        // Peu de requêtes immédiates : le reste passe par IntersectionObserver (comme les cartes home).
+        // Few immediate requests: the rest go through IntersectionObserver (like home cards).
         const limit = isFirstScreen
             ? Math.min(photos.length, WALL_PRELOAD_THUMBS_FIRST_SCREEN)
             : Math.min(photos.length, WALL_PRELOAD_THUMBS_AFTER);
@@ -1092,7 +1092,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.slideshowModalComponent.open(images, group.eventName, true, 0, undefined, startIndex);
     }
 
-    /** Ouvre la fiche événement en overlay (sans NgbModal pour éviter les erreurs removeChild à la fermeture). */
+    /** Opens the event card in an overlay (without NgbModal to avoid removeChild errors on close). */
     eventIdForCard: string | null = null;
     openEventCardModal(group: TimelineGroup): void {
         this.eventIdForCard = group.eventId;
@@ -1101,7 +1101,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.eventIdForCard = null;
     }
 
-    /** Ouvre la vidéo dans le modal lecteur (mur de photos). */
+    /** Opens the video in the player modal (photo wall). */
     openVideoInVideoshow(fileId: string, fileName: string, eventName: string): void {
         if (!this.videoshowModalComponent) return;
         const source: VideoshowVideoSource = { fileId, fileName };
@@ -1129,13 +1129,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return user.userName.toLowerCase() === group.ownerUserName.toLowerCase();
     }
 
-    /** Seul PHOTOFROMFS (ou type absent = legacy) ouvre le diaporama depuis le disque. */
+    /** Only PHOTOFROMFS (or absent type = legacy) opens the slideshow from disk. */
     isPhotoWallFsFromDiskLink(link: FsPhotoLink): boolean {
         const t = (link.typeUrl || '').trim().toUpperCase();
         return t === '' || t === 'PHOTOFROMFS';
     }
 
-    /** Icônes Font Awesome 4, alignées sur la page détail événement. */
+    /** Font Awesome 4 icons, aligned with the event detail page. */
     getPhotoWallLinkIcon(link: FsPhotoLink): string {
         if (this.isPhotoWallFsFromDiskLink(link)) {
             return 'fa-desktop';
@@ -1151,7 +1151,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return 'fa-external-link';
     }
 
-    /** Clic footer : diaporama disque uniquement pour PHOTOFROMFS ; trace Mongo → viewer ; sinon nouvel onglet. */
+    /** Footer click: disk slideshow only for PHOTOFROMFS; Mongo track → viewer; otherwise new tab. */
     onPhotoWallFooterLinkClick(fsLink: FsPhotoLink, group: TimelineGroup): void {
         const t = (fsLink.typeUrl || '').trim().toUpperCase();
         if ((t === 'TRACK' || t === 'TRACE' || t === 'GPX') && fsLink.fieldId) {
@@ -1392,7 +1392,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return icons[type] || 'fa-calendar';
     }
 
-    /** Note courante (0–10) à partir des likes/dislikes de l'événement. */
+    /** Current rating (0–10) computed from the event's likes/dislikes. */
     getGroupCurrentRate(group: TimelineGroup): number {
         const plus = group.ratingPlus ?? 0;
         const minus = group.ratingMinus ?? 0;
@@ -1462,7 +1462,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return names ? `${names} (${group.ownerUserName})` : group.ownerUserName;
     }
 
-    /** Lien partagé (WhatsApp, e-mail) : mur de photos filtré sur l’activité, pas la fiche détail événement. */
+    /** Shared link (WhatsApp, email): photo wall filtered to the activity, not the event detail page. */
     getWallShareEventUrl(): string {
         const g = this.shareWallContextGroup;
         if (!g?.eventId) return '';
@@ -1767,7 +1767,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     /**
-     * Clic sur le badge de visibilité du mur : liste des utilisateurs pouvant voir l’événement (comme element-evenement).
+     * Click on the wall visibility badge: list of users who can see the event (same as element-evenement).
      */
     wallShowEventAccessUsers(group: TimelineGroup, ev?: Event): void {
         if (ev) {
@@ -1830,8 +1830,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     /**
-     * Ne pas utiliser routerLink dans la modale : la navigation immédiate casse le teardown ng-bootstrap (removeChild sur null).
-     * On ferme d’abord la modale, puis on navigue quand la promesse du modal est terminée.
+     * Do not use routerLink inside the modal: immediate navigation breaks ng-bootstrap teardown (removeChild on null).
+     * Close the modal first, then navigate once the modal promise is settled.
      */
     wallNavigateToEventDetailFromAccessModal(eventId: string | undefined, ev: Event): void {
         ev.preventDefault();
@@ -1884,7 +1884,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             try {
                 prev.dismiss();
             } catch (_) {
-                /* déjà démontée */
+                /* already unmounted */
             }
             if (this.wallEventAccessOpenTimer != null) {
                 clearTimeout(this.wallEventAccessOpenTimer);
@@ -1898,7 +1898,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
     }
 
-    /** Commentaires : charge l'événement puis ouvre la même modale Quill que le détail. */
+    /** Comments: loads the event then opens the same Quill modal as the event detail. */
     openWallCommentary(group: TimelineGroup): void {
         if (!group?.eventId) {
             return;
@@ -1986,7 +1986,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.subscriptions.push(sub);
     }
 
-    /** Discussion live : même flux que détail événement. */
+    /** Live discussion: same flow as event detail. */
     openWallDiscussion(group: TimelineGroup): void {
         if (!group?.eventId) {
             return;

@@ -35,7 +35,7 @@ public class PhotoTimelineRestController {
     private static final Logger log = LoggerFactory.getLogger(PhotoTimelineRestController.class);
     private static final long ACCESS_CACHE_TTL_MS = 2 * 60 * 1000;
 
-    /** Mongo regex (flag i) + Java {@link #looksLikeImageFileName}: fichiers image quand {@code fileType} est absent ou incorrect. */
+    /** Mongo regex (flag i) + Java {@link #looksLikeImageFileName}: image files when {@code fileType} is absent or incorrect. */
     private static final String IMAGE_FILENAME_MONGO_REGEX =
             ".*\\.(jpe?g|png|gif|webp|bmp|heic|avif|tif|tiff)$";
     private static final Pattern IMAGE_FILENAME_PATTERN = Pattern.compile(
@@ -53,12 +53,12 @@ public class PhotoTimelineRestController {
         return new Criteria().orOperator(byType, byName);
     }
 
-    /** Au moins une entrée {@code photosUrl} non vide (évite les tableaux avec chaînes vides). */
+    /** At least one non-empty {@code photosUrl} entry (avoids arrays containing only empty strings). */
     private static Criteria criteriaNonEmptyPhotosUrl() {
         return Criteria.where("photosUrl").regex(".+");
     }
 
-    /** Lien photo FS / album avec {@code link} non vide (aligné sur {@link #extractFsPhotoLinks}). */
+    /** FS photo / album link with a non-empty {@code link} field (aligned with {@link #extractFsPhotoLinks}). */
     private static Criteria criteriaFsPhotoLinkWithNonemptyLink() {
         return Criteria.where("urlEvents").elemMatch(new Criteria().andOperator(
                 Criteria.where("typeUrl").in("PHOTOFROMFS", "PHOTOS", "PHOTO"),
