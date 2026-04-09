@@ -34,8 +34,6 @@ import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
 const BUFFER_AHEAD = 3;
 /** Nombre de groupes (activités) à charger par requête API. */
 const PAGE_SIZE = 12;
-/** Nombre de groupes demandés pour la toute première page (réponse rapide = premier rendu immédiat). */
-const FIRST_PAGE_SIZE = 1;
 /** Nombre d'activités affichées dès l'ouverture (comme home-evenements affiche 8 cartes). */
 const INITIAL_VISIBLE_GROUPS = 8;
 /** Hauteur approximative d'un bloc événement (px) pour précharger 3 événements en avance. */
@@ -557,7 +555,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
         const gen = this.timelineLoadGeneration;
-        const pageSize = this.nextPage === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE;
+        const pageSize = PAGE_SIZE;
         const sub = this.photoTimelineService.getTimeline(this.userId, this.nextPage, pageSize, search, visibility, this.filterEventId).subscribe({
             next: (response: TimelineResponse) => {
                 // Defer state updates to next tick to avoid ExpressionChangedAfterItHasBeenCheckedError (NG0100)
@@ -613,7 +611,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const search = this.searchFilter.trim() || undefined;
         const visibility = this.selectedVisibilityFilter.trim() !== 'all' ? this.selectedVisibilityFilter : undefined;
         const gen = this.timelineLoadGeneration;
-        const pageSize = this.nextPageVideos === 0 ? FIRST_PAGE_SIZE : PAGE_SIZE;
+        const pageSize = PAGE_SIZE;
         const sub = this.photoTimelineService.getVideoTimeline(this.userId, this.nextPageVideos, pageSize, search, visibility, this.filterEventId).subscribe({
             next: (response: TimelineResponse) => {
                 setTimeout(() => {

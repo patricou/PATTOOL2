@@ -35,6 +35,44 @@ public class PhotoTimelineRestController {
     private static final Logger log = LoggerFactory.getLogger(PhotoTimelineRestController.class);
     private static final long ACCESS_CACHE_TTL_MS = 2 * 60 * 1000;
 
+    /** Mongo regex (flag i) + Java {@link #looksLikeImageFileName}: fichiers image quand {@code fileType} est absent ou incorrect. */
+    private static final String IMAGE_FILENAME_MONGO_REGEX =
+            ".*\\.(jpe?g|png|gif|webp|bmp|heic|avif|tif|tiff)$";
+    private static final Pattern IMAGE_FILENAME_PATTERN = Pattern.compile(
+            IMAGE_FILENAME_MONGO_REGEX, Pattern.CASE_INSENSITIVE);
+
+    private static Criteria criteriaUploadedImageSignal() {
+        Criteria byType = Criteria.where("fileUploadeds.fileType").regex("^image/");
+        Criteria byName = Criteria.where("fileUploadeds.fileName").regex(IMAGE_FILENAME_MONGO_REGEX, "i");
+        return new Criteria().orOperator(byType, byName);
+    }
+
+    private static Criteria criteriaThumbnailImageSignal() {
+        Criteria byType = Criteria.where("thumbnail.fileType").regex("^image/");
+        Criteria byName = Criteria.where("thumbnail.fileName").regex(IMAGE_FILENAME_MONGO_REGEX, "i");
+        return new Criteria().orOperator(byType, byName);
+    }
+
+    /** Au moins une entrée {@code photosUrl} non vide (évite les tableaux avec chaînes vides). */
+    private static Criteria criteriaNonEmptyPhotosUrl() {
+        return Criteria.where("photosUrl").regex(".+");
+    }
+
+    /** Lien photo FS / album avec {@code link} non vide (aligné sur {@link #extractFsPhotoLinks}). */
+    private static Criteria criteriaFsPhotoLinkWithNonemptyLink() {
+        return Criteria.where("urlEvents").elemMatch(new Criteria().andOperator(
+                Criteria.where("typeUrl").in("PHOTOFROMFS", "PHOTOS", "PHOTO"),
+                Criteria.where("link").regex(".+")));
+    }
+
+    private static Criteria criteriaTimelineHasAnyPhotoContent() {
+        return new Criteria().orOperator(
+                criteriaUploadedImageSignal(),
+                criteriaNonEmptyPhotosUrl(),
+                criteriaFsPhotoLinkWithNonemptyLink(),
+                criteriaThumbnailImageSignal());
+    }
+
     @Autowired
     private MongoTemplate mongoTemplate;
 
@@ -108,11 +146,11 @@ public class PhotoTimelineRestController {
     }
 
     public static class FsPhotoLink {
-        /** Type de lien (WEBSITE, MAP, PHOTOS, PHOTOFROMFS, TRACK, …) — voir normalizeUrlEventTypeForTimeline. */
+        /** Link type (WEBSITE, MAP, PHOTOS, PHOTOFROMFS, TRACK, …) — see normalizeUrlEventTypeForTimeline. */
         private String typeUrl;
         private String path;
         private String description;
-        /** GridFS / fichier joint : id pour ouvrir la trace dans le viewer (type {@code TRACK}). */
+        /** GridFS / attached file: id used to open the track in the viewer (type {@code TRACK}). */
         private String fieldId;
 
         public FsPhotoLink() {}
@@ -146,9 +184,9 @@ public class PhotoTimelineRestController {
         private String ownerFirstName;
         private String ownerLastName;
         private String ownerUserName;
-        /** Nombre de votes positifs pour l'événement (mur de photos). */
+        /** Number of positive votes for the event (photo wall). */
         private Integer ratingPlus;
-        /** Nombre de votes négatifs pour l'événement (mur de photos). */
+        /** Number of negative votes for the event (photo wall). */
         private Integer ratingMinus;
 
         public TimelineGroup() {}
@@ -245,13 +283,14 @@ public class PhotoTimelineRestController {
                 // This avoids missing events with one photo (e.g. regex/deserialization edge cases).
                 mainCriteria = new Criteria().andOperator(accessCriteria, eventIdCriteria(eventId.trim()));
             } else {
-                Criteria hasImage = Criteria.where("fileUploadeds.fileType").regex("^image/");
-                mainCriteria = new Criteria().andOperator(accessCriteria, hasImage);
+                Criteria hasAnyPhotoContent = criteriaTimelineHasAnyPhotoContent();
+                mainCriteria = new Criteria().andOperator(accessCriteria, hasAnyPhotoContent);
             }
             if (search != null && !search.trim().isEmpty()) {
                 mainCriteria = new Criteria().andOperator(mainCriteria, buildSearchCriteria(search.trim()));
             }
 
+            log.info("[PhotoTimeline] userId={} visibility={} page={} query={}", userId, visibility, page, mainCriteria.getCriteriaObject().toJson());
             Query pagedQuery = new Query(mainCriteria);
             pagedQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
             pagedQuery.skip((long) page * size);
@@ -289,7 +328,7 @@ public class PhotoTimelineRestController {
                 List<TimelinePhoto> photos = extractPhotos(e);
                 List<TimelinePhoto> videos = extractVideos(e);
                 List<FsPhotoLink> fsLinks = extractFsPhotoLinks(e);
-                if (!photos.isEmpty()) {
+                if (!photos.isEmpty() || !fsLinks.isEmpty()) {
                     TimelineGroup group = new TimelineGroup();
                     group.setEventId(e.getId());
                     group.setEventName(e.getEvenementName());
@@ -354,8 +393,17 @@ public class PhotoTimelineRestController {
             Criteria hasVideo = new Criteria().orOperator(
                     Criteria.where("fileUploadeds.fileType").regex("^video/"),
                     Criteria.where("fileUploadeds.fileName").regex(".*\\.(mp4|webm|ogg|ogv|mov|avi|mkv|m4v|3gp)$", "i"));
-            // Only events that have no image files → avoid duplicating events that already appear in the main photo timeline (with photos+videos)
-            Criteria hasNoPhotos = new Criteria().norOperator(Criteria.where("fileUploadeds.fileType").regex("^image/"));
+            // Exclude events that would already appear on the photo timeline (same signals as criteriaTimelineHasAnyPhotoContent)
+            Criteria hasNoUploadedImage = new Criteria().andOperator(
+                    new Criteria().norOperator(Criteria.where("fileUploadeds.fileType").regex("^image/")),
+                    new Criteria().norOperator(Criteria.where("fileUploadeds.fileName").regex(IMAGE_FILENAME_MONGO_REGEX, "i")));
+            Criteria hasNoPhotosUrl = new Criteria().norOperator(Criteria.where("photosUrl").regex(".+"));
+            Criteria hasNoFsPhotoLink = new Criteria().norOperator(criteriaFsPhotoLinkWithNonemptyLink());
+            Criteria hasNoThumbnailImage = new Criteria().andOperator(
+                    new Criteria().norOperator(Criteria.where("thumbnail.fileType").regex("^image/")),
+                    new Criteria().norOperator(Criteria.where("thumbnail.fileName").regex(IMAGE_FILENAME_MONGO_REGEX, "i")));
+            Criteria hasNoPhotos = new Criteria().andOperator(
+                    hasNoUploadedImage, hasNoPhotosUrl, hasNoFsPhotoLink, hasNoThumbnailImage);
             Criteria combined;
             if (eventId != null && !eventId.trim().isEmpty()) {
                 // Single-event wall: same rule — only return this event in video timeline if it has videos and NO photos (otherwise it is already shown once in photo timeline)
@@ -461,10 +509,10 @@ public class PhotoTimelineRestController {
     }
 
     /**
-     * Liens affichés dans le footer du mur : {@code urlEvents} + fichiers trace ({@link FileUploaded} GPX/KML/…)
-     * + anciennes URLs {@code photosUrl} + champ {@code map} lorsqu’il contient une URL http(s).
-     * Déduplication par URL normalisée ou par {@code fieldId} pour les traces.
-     * Seul PHOTOFROMFS est un chemin disque côté front ; TRACK ouvre le viewer trace ; le reste ouvre une URL.
+     * Links displayed in the wall footer: {@code urlEvents} + track files ({@link FileUploaded} GPX/KML/…)
+     * + legacy {@code photosUrl} entries + the {@code map} field when it contains an http(s) URL.
+     * Deduplication is done by normalized URL or by {@code fieldId} for track files.
+     * Only PHOTOFROMFS is a server-side disk path; TRACK opens the track viewer; all others open a URL.
      */
     private List<FsPhotoLink> extractFsPhotoLinks(Evenement e) {
         List<FsPhotoLink> links = new ArrayList<>();
@@ -486,7 +534,7 @@ public class PhotoTimelineRestController {
                 links.add(f);
             }
         }
-        // Fichiers trace (GPX, KML, …) dans fileUploadeds — même logique que la carte événement
+        // Track files (GPX, KML, …) in fileUploadeds — same logic as the event map
         if (e.getFileUploadeds() != null) {
             for (FileUploaded file : e.getFileUploadeds()) {
                 if (file == null || file.getFieldId() == null || file.getFieldId().trim().isEmpty()) {
@@ -549,7 +597,7 @@ public class PhotoTimelineRestController {
         return lower.startsWith("http://") || lower.startsWith("https://");
     }
 
-    /** Aligné sur le front (element-evenement isTrackFile). */
+    /** Aligned with the frontend (element-evenement isTrackFile). */
     private static boolean isUploadedTrackFileName(String fileName) {
         if (fileName == null || fileName.isEmpty()) {
             return false;
@@ -558,7 +606,7 @@ public class PhotoTimelineRestController {
         return lower.endsWith(".gpx") || lower.endsWith(".kml") || lower.endsWith(".geojson") || lower.endsWith(".tcx");
     }
 
-    /** Alias FR/EN → identifiants stables pour l’UI (icônes). */
+    /** Normalize raw URL event type aliases to stable UI identifiers (icons). */
     private static String normalizeUrlEventTypeForTimeline(String rawType) {
         if (rawType == null || rawType.isEmpty()) {
             return "OTHER";
@@ -595,10 +643,17 @@ public class PhotoTimelineRestController {
         return photos;
     }
 
+    private static boolean looksLikeImageFileName(String fileName) {
+        return fileName != null && !fileName.isEmpty() && IMAGE_FILENAME_PATTERN.matcher(fileName).matches();
+    }
+
     private static boolean isImageFile(FileUploaded file) {
         if (file == null) return false;
         String type = file.getFileType();
-        return type != null && (type.toLowerCase(Locale.ROOT).startsWith("image/"));
+        if (type != null && type.toLowerCase(Locale.ROOT).startsWith("image/")) {
+            return true;
+        }
+        return looksLikeImageFileName(file.getFileName());
     }
 
     private static TimelinePhoto buildTimelinePhoto(FileUploaded file, Evenement e) {
@@ -666,8 +721,8 @@ public class PhotoTimelineRestController {
     }
 
     /**
-     * Critère de recherche texte (nom, description, type) — comme home-evenements.
-     * Insensible à la casse et aux accents (normalisation NFD), mot à n'importe quelle position.
+     * Text search criteria (name, description, type) — same as home-evenements.
+     * Case-insensitive and accent-insensitive (NFD normalization), word at any position.
      */
     private Criteria buildSearchCriteria(String search) {
         if (search == null || search.trim().isEmpty()) {
@@ -684,7 +739,7 @@ public class PhotoTimelineRestController {
         return new Criteria().orOperator(nameMatch, commentsMatch, typeMatch);
     }
 
-    /** Normalisation comme EvenementsRepositoryImpl : minuscules + NFD sans accents. */
+    /** Normalization matching EvenementsRepositoryImpl: lowercase + NFD without accents. */
     private static String normalizeForSearch(String value) {
         if (value == null || value.isEmpty()) return "";
         String lower = value.toLowerCase(Locale.ROOT);
@@ -692,7 +747,7 @@ public class PhotoTimelineRestController {
         return nfd.replaceAll("\\p{M}", "");
     }
 
-    /** Construit une regex où chaque lettre peut matcher ses variantes accentuées (a → [aàâäáå], etc.). */
+    /** Builds a regex where each letter can match its accented variants (a → [aàâäáå], etc.). */
     private static String buildAccentInsensitiveRegex(String normalized) {
         if (normalized == null || normalized.isEmpty()) return "";
         StringBuilder sb = new StringBuilder();
@@ -834,7 +889,7 @@ public class PhotoTimelineRestController {
                     filterValue, matchedGroupId, matchedGroupName, groupCriteriaList.size());
                 return groupCriteria;
             } catch (Exception e) {
-                log.debug("Error building friend group access criteria: {}", e.getMessage());
+                log.warn("[PhotoTimeline] buildAccessCriteriaForVisibility failed for userId={} filter={}: {}", userId, visibilityFilter, e.getMessage(), e);
                 return Criteria.where("_id").is("__NO_MATCH__");
             }
         }
@@ -850,15 +905,17 @@ public class PhotoTimelineRestController {
         // Only fetch events with matching month/day from previous years
         // MongoDB can't filter by month/day directly on Date, so we use a
         // lightweight query that only returns date + file metadata
-        Query query = new Query();
-        query.addCriteria(accessCriteria);
-        query.addCriteria(Criteria.where("fileUploadeds.fileType").regex("^image/"));
+        Criteria hasPhotoSignal = new Criteria().orOperator(
+                criteriaUploadedImageSignal(), criteriaThumbnailImageSignal());
+        // Single andOperator: two addCriteria() calls both using $or break BasicDocument merge in Spring Data MongoDB
+        Query query = new Query(new Criteria().andOperator(accessCriteria, hasPhotoSignal));
         query.fields()
                 .include("id")
                 .include("evenementName")
                 .include("type")
                 .include("beginEventDate")
-                .include("fileUploadeds");
+                .include("fileUploadeds")
+                .include("thumbnail");
 
         List<Evenement> events = mongoTemplate.find(query, Evenement.class);
 
@@ -886,12 +943,18 @@ public class PhotoTimelineRestController {
             Criteria friendsCriteria = buildFriendsVisibilityCriteria(userId);
             if (friendsCriteria != null) {
                 accessCriteria.add(friendsCriteria);
+            } else {
+                log.info("[PhotoTimeline] buildFriendsVisibilityCriteria returned null for userId={}", userId);
             }
 
             Criteria friendGroupCriteria = buildFriendGroupVisibilityCriteria(userId);
             if (friendGroupCriteria != null) {
                 accessCriteria.add(friendGroupCriteria);
+            } else {
+                log.info("[PhotoTimeline] buildFriendGroupVisibilityCriteria returned null for userId={}", userId);
             }
+        } else {
+            log.warn("[PhotoTimeline] buildAccessCriteria called with null/empty userId — only public events will be returned");
         }
 
         if (accessCriteria.size() == 1) {
@@ -931,22 +994,45 @@ public class PhotoTimelineRestController {
             }
             if (friendIds.isEmpty()) return null;
 
+            // Build criteria: visibility="friends" AND author is in friend list.
+            // The author field is stored as DBRef: { "$ref": "members", "$id": "..." }
+            // The $id can be stored as ObjectId or as string, so we try both — same logic as EvenementRestController.
             List<Criteria> friendAuthorCriteria = new ArrayList<>();
             for (String friendId : friendIds) {
+                List<Criteria> friendIdCriteria = new ArrayList<>();
                 try {
-                    friendAuthorCriteria.add(Criteria.where("author.$id").is(new ObjectId(friendId)));
+                    ObjectId friendObjectId = new ObjectId(friendId);
+                    friendIdCriteria.add(Criteria.where("author.$id").is(friendObjectId));
+                    friendIdCriteria.add(new Criteria().andOperator(
+                            Criteria.where("author.$ref").is("members"),
+                            Criteria.where("author.$id").is(friendObjectId)
+                    ));
                 } catch (IllegalArgumentException ex) {
-                    friendAuthorCriteria.add(Criteria.where("author.id").is(friendId));
+                    // not a valid ObjectId
                 }
+                // Also try string format (in case $id is stored as string)
+                friendIdCriteria.add(Criteria.where("author.$id").is(friendId));
+                friendIdCriteria.add(new Criteria().andOperator(
+                        Criteria.where("author.$ref").is("members"),
+                        Criteria.where("author.$id").is(friendId)
+                ));
+                friendAuthorCriteria.add(
+                        friendIdCriteria.size() == 1
+                                ? friendIdCriteria.get(0)
+                                : new Criteria().orOperator(friendIdCriteria.toArray(new Criteria[0]))
+                );
             }
             if (friendAuthorCriteria.isEmpty()) return null;
 
-            Criteria authorInFriends = new Criteria().orOperator(friendAuthorCriteria.toArray(new Criteria[0]));
+            Criteria authorInFriends = friendAuthorCriteria.size() == 1
+                    ? friendAuthorCriteria.get(0)
+                    : new Criteria().orOperator(friendAuthorCriteria.toArray(new Criteria[0]));
             return new Criteria().andOperator(
                     Criteria.where("visibility").is("friends"),
                     authorInFriends
             );
         } catch (Exception e) {
+            log.warn("[PhotoTimeline] buildFriendsVisibilityCriteria failed for userId={}: {}", userId, e.getMessage(), e);
             return null;
         }
     }
@@ -1041,7 +1127,7 @@ public class PhotoTimelineRestController {
                     ? finalCriteriaList.get(0)
                     : new Criteria().orOperator(finalCriteriaList.toArray(new Criteria[0]));
         } catch (Exception e) {
-            log.debug("Error building friend group access criteria in photo timeline: {}", e.getMessage());
+            log.warn("[PhotoTimeline] buildFriendGroupVisibilityCriteria failed for userId={}: {}", userId, e.getMessage(), e);
             return null;
         }
     }
