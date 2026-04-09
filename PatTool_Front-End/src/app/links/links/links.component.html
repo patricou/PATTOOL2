@@ -43,7 +43,7 @@
                 <input type="text" 
                        class="search-input" 
                        [(ngModel)]="searchFilter"
-                       (input)="onSearchInput()"
+                       (ngModelChange)="onSearchFilterChange()"
                        (blur)="hideSuggestions()"
                        (focus)="applySearchFromModel()"
                        placeholder="{{ 'LINKS.SEARCH_PLACEHOLDER' | translate }}">
@@ -90,8 +90,8 @@
             <ng-container *ngFor="let c of categories; let i = index; trackBy: trackByCategoryId">
                 <div class="category-card" 
                      *ngIf="isCategoryVisible(c)"
-                     [class.expanded]="isCategoryExpanded(i)">
-                <div class="card-header" (click)="toggleCategory(i)">
+                     [class.expanded]="isCategoryExpanded(i, c)">
+                <div class="card-header" (click)="toggleCategory(i, c)">
                     <div class="category-icon">
                         <i class="fa" [ngClass]="categoryUi[c.categoryLinkID]?.iconClass || 'fa-folder'"></i>
                     </div>
@@ -100,10 +100,10 @@
                         <span class="category-count">({{ categoryLinkCountById[c.categoryLinkID] }})</span>
                     </h3>
                     <div class="expand-icon">
-                        <i class="fa" [ngClass]="isCategoryExpanded(i) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                        <i class="fa" [ngClass]="isCategoryExpanded(i, c) ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
                     </div>
                 </div>
-                <div class="card-content" *ngIf="isCategoryExpanded(i)">
+                <div class="card-content" *ngIf="isCategoryExpanded(i, c)">
                     <div class="links-list">
                         <ng-container *ngFor="let u of filteredLinksByCategoryId[c.categoryLinkID]; trackBy: trackByLinkId">
                             <div class="link-item">

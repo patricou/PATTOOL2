@@ -153,8 +153,8 @@ export class LinksComponent implements OnInit, OnDestroy {
     this.searchDebounceSub?.unsubscribe();
   }
 
-  /** Debounced — bind to search (input). */
-  onSearchInput(): void {
+  /** Debounced — fired after ngModel has updated (avoids stale reads vs raw input). */
+  onSearchFilterChange(): void {
     this.searchInput$.next();
   }
 
@@ -163,21 +163,17 @@ export class LinksComponent implements OnInit, OnDestroy {
     const term = this.searchFilter?.trim() ?? '';
     this.refreshFilteredLinks();
 
-    if (term.length < 2) {
+    if (term.length < 1) {
       this.searchSuggestions = [];
       this.showSuggestions = false;
       return;
     }
 
     const lower = term.toLowerCase();
-    this.searchSuggestions = this.urllinks.filter(u => {
-      if (!this.isVisible(u)) {
-        return false;
-      }
-      const linkName = (u.linkName || '').toLowerCase();
-      const linkDescription = (u.linkDescription || '').toLowerCase();
-      return linkName.includes(lower) || linkDescription.includes(lower);
-    }).slice(0, 10);
+    // Links list is already visibility-filtered by the API; do not require author here (avoids empty suggestions).
+    this.searchSuggestions = this.urllinks
+      .filter(u => LinksComponent.linkMatchesTerm(u, lower))
+      .slice(0, 10);
 
     this.showSuggestions = this.searchSuggestions.length > 0;
   }
@@ -251,13 +247,6 @@ export class LinksComponent implements OnInit, OnDestroy {
     return u.author?.id === this.user.id;
   }
 
-  isVisible(u: urllink): boolean {
-    if (!u?.author) {
-      return false;
-    }
-    return u.author.id === this.user.id || u.visibility === 'public' || u.visibility === 'friends';
-  }
-
   refreshFilteredLinks(): void {
     const countById: Record<string, number> = {};
     const linksById: Record<string, urllink[]> = {};
@@ -266,20 +255,25 @@ export class LinksComponent implements OnInit, OnDestroy {
     for (const c of this.categories) {
       const id = c.categoryLinkID;
       const visibleLinks = this.linksByCategoryId[id] ?? [];
-      countById[id] = visibleLinks.length;
       if (term) {
         const lower = term.toLowerCase();
-        linksById[id] = visibleLinks.filter(u => {
-          const linkName = (u.linkName || '').toLowerCase();
-          const linkDescription = (u.linkDescription || '').toLowerCase();
-          return linkName.includes(lower) || linkDescription.includes(lower);
-        });
+        const matched = visibleLinks.filter(u => LinksComponent.linkMatchesTerm(u, lower));
+        linksById[id] = matched;
+        countById[id] = matched.length;
       } else {
         linksById[id] = visibleLinks;
+        countById[id] = visibleLinks.length;
       }
     }
     this.categoryLinkCountById = countById;
     this.filteredLinksByCategoryId = linksById;
+  }
+
+  private static linkMatchesTerm(u: urllink, lower: string): boolean {
+    const linkName = (u.linkName || '').toLowerCase();
+    const linkDescription = (u.linkDescription || '').toLowerCase();
+    const url = (u.url || '').toLowerCase();
+    return linkName.includes(lower) || linkDescription.includes(lower) || url.includes(lower);
   }
 
   isCategoryVisible(_category: Category): boolean {
@@ -315,7 +309,17 @@ export class LinksComponent implements OnInit, OnDestroy {
     return category ? String(category.categoryName) : '';
   }
 
-  toggleCategory(categoryIndex: number): void {
+  toggleCategory(categoryIndex: number, _category: Category): void {
+    const term = (this.searchFilter ?? '').trim();
+    if (term.length > 0) {
+      this.searchFilter = '';
+      this.searchSuggestions = [];
+      this.showSuggestions = false;
+      this.refreshFilteredLinks();
+      this.expandedCategoryIndex = categoryIndex;
+      this.cdr.markForCheck();
+      return;
+    }
     if (this.expandedCategoryIndex === categoryIndex) {
       this.expandedCategoryIndex = null;
     } else {
@@ -324,7 +328,16 @@ export class LinksComponent implements OnInit, OnDestroy {
     this.cdr.markForCheck();
   }
 
-  isCategoryExpanded(categoryIndex: number): boolean {
+  /**
+   * While searching, expand every category that has at least one match so results are visible
+   * without clicking each section (single expandedCategoryIndex is not enough).
+   */
+  isCategoryExpanded(categoryIndex: number, category: Category): boolean {
+    const term = (this.searchFilter ?? '').trim();
+    if (term.length > 0) {
+      const n = this.filteredLinksByCategoryId[category.categoryLinkID]?.length ?? 0;
+      return n > 0;
+    }
     return this.expandedCategoryIndex === categoryIndex;
   }
 
@@ -336,9 +349,9 @@ export class LinksComponent implements OnInit, OnDestroy {
     return u.id ?? `${u.url}-${u.linkName}`;
   }
 
-  trackBySuggestion(_index: number, u: urllink): string {
-    return this.trackByLinkId(_index, u);
-  }
+  /** Arrow: Angular calls trackBy without component `this`; must not delegate via `this.method`. */
+  readonly trackBySuggestion = (_index: number, u: urllink): string =>
+    this.trackByLinkId(_index, u);
 
   visibilityTitle(u: urllink): string {
     const v = u.visibility || 'public';
