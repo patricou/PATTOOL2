@@ -290,7 +290,7 @@ public class PhotoTimelineRestController {
                 mainCriteria = new Criteria().andOperator(mainCriteria, buildSearchCriteria(search.trim()));
             }
 
-            log.info("[PhotoTimeline] userId={} visibility={} page={} query={}", userId, visibility, page, mainCriteria.getCriteriaObject().toJson());
+            log.debug("[PhotoTimeline] userId={} visibility={} page={} query={}", userId, visibility, page, mainCriteria.getCriteriaObject().toJson());
             Query pagedQuery = new Query(mainCriteria);
             pagedQuery.with(Sort.by(Sort.Direction.DESC, "beginEventDate"));
             pagedQuery.skip((long) page * size);
@@ -889,7 +889,7 @@ public class PhotoTimelineRestController {
                     filterValue, matchedGroupId, matchedGroupName, groupCriteriaList.size());
                 return groupCriteria;
             } catch (Exception e) {
-                log.warn("[PhotoTimeline] buildAccessCriteriaForVisibility failed for userId={} filter={}: {}", userId, visibilityFilter, e.getMessage(), e);
+                log.error("[PhotoTimeline] buildAccessCriteriaForVisibility failed for userId={} filter={}: {}", userId, visibilityFilter, e.getMessage(), e);
                 return Criteria.where("_id").is("__NO_MATCH__");
             }
         }
@@ -944,17 +944,17 @@ public class PhotoTimelineRestController {
             if (friendsCriteria != null) {
                 accessCriteria.add(friendsCriteria);
             } else {
-                log.info("[PhotoTimeline] buildFriendsVisibilityCriteria returned null for userId={}", userId);
+                log.debug("[PhotoTimeline] buildFriendsVisibilityCriteria returned null for userId={}", userId);
             }
 
             Criteria friendGroupCriteria = buildFriendGroupVisibilityCriteria(userId);
             if (friendGroupCriteria != null) {
                 accessCriteria.add(friendGroupCriteria);
             } else {
-                log.info("[PhotoTimeline] buildFriendGroupVisibilityCriteria returned null for userId={}", userId);
+                log.debug("[PhotoTimeline] buildFriendGroupVisibilityCriteria returned null for userId={}", userId);
             }
         } else {
-            log.warn("[PhotoTimeline] buildAccessCriteria called with null/empty userId — only public events will be returned");
+            log.debug("[PhotoTimeline] buildAccessCriteria called with null/empty userId — only public events will be returned");
         }
 
         if (accessCriteria.size() == 1) {
@@ -1032,7 +1032,7 @@ public class PhotoTimelineRestController {
                     authorInFriends
             );
         } catch (Exception e) {
-            log.warn("[PhotoTimeline] buildFriendsVisibilityCriteria failed for userId={}: {}", userId, e.getMessage(), e);
+            log.error("[PhotoTimeline] buildFriendsVisibilityCriteria failed for userId={}: {}", userId, e.getMessage(), e);
             return null;
         }
     }
@@ -1127,7 +1127,7 @@ public class PhotoTimelineRestController {
                     ? finalCriteriaList.get(0)
                     : new Criteria().orOperator(finalCriteriaList.toArray(new Criteria[0]));
         } catch (Exception e) {
-            log.warn("[PhotoTimeline] buildFriendGroupVisibilityCriteria failed for userId={}: {}", userId, e.getMessage(), e);
+            log.error("[PhotoTimeline] buildFriendGroupVisibilityCriteria failed for userId={}: {}", userId, e.getMessage(), e);
             return null;
         }
     }
