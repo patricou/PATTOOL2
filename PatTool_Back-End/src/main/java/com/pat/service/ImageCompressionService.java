@@ -213,7 +213,7 @@ public class ImageCompressionService {
         if (!isImageType(contentType)) {
             throw new IOException("Not an image content type");
         }
-        int edge = Math.min(1600, Math.max(32, maxEdgePixels));
+        int edge = Math.min(2048, Math.max(32, maxEdgePixels));
         long originalSize = fileBytes.length;
 
         boolean permitAcquired = false;
@@ -261,7 +261,7 @@ public class ImageCompressionService {
             try {
                 g.setColor(Color.WHITE);
                 g.fillRect(0, 0, tw, th);
-                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+                g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
                 g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g.drawImage(oriented, 0, 0, tw, th, null);
@@ -270,7 +270,7 @@ public class ImageCompressionService {
             }
             oriented.flush();
 
-            byte[] jpeg = compressWithQuality(target, "jpeg", 0.85f);
+            byte[] jpeg = compressWithQuality(target, "jpeg", 0.94f);
             target.flush();
 
             CompressionResult result = new CompressionResult(jpeg, originalSize, Collections.emptyMap());

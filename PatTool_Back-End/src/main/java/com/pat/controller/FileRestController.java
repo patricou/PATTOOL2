@@ -44,6 +44,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -70,6 +71,10 @@ public class FileRestController {
     
     @Value("${app.imagemaxsizekb:500}")
     private int imagemaxsizekb;
+
+    /** Same TTL as {@link ImageCompressionService} wall / compression cache (HTTP revalidation hint for browsers). */
+    @Value("${app.image.compression.cache.ttl:PT2H}")
+    private Duration imageCompressionCacheTtl;
     
     @Autowired
     private EvenementsRepository evenementsRepository;
@@ -99,6 +104,34 @@ public class FileRestController {
 
     /** Max bytes read into memory when generating optional wall preview (?maxEdge=). */
     private static final long MAX_READ_BYTES_FOR_WALL_PREVIEW = 45L * 1024 * 1024;
+
+    /**
+     * Buckets for wall preview cache keys: same canonical size for nearby {@code maxEdge} requests
+     * so all users share one JPEG entry in {@link ImageCompressionService}'s compression cache.
+     * Always {@code >= requested} (never worse than asked).
+     */
+    private static final int[] WALL_PREVIEW_MAX_EDGE_BUCKETS = {
+        400, 480, 560, 640, 720, 800, 960, 1120, 1280, 1440, 1600, 1920, 2048
+    };
+
+    private static int canonicalWallMaxEdge(int requested) {
+        int e = Math.min(2048, Math.max(64, requested));
+        for (int b : WALL_PREVIEW_MAX_EDGE_BUCKETS) {
+            if (e <= b) {
+                return b;
+            }
+        }
+        return 2048;
+    }
+
+    private long wallPreviewHttpCacheMaxAgeSeconds() {
+        Duration ttl = imageCompressionCacheTtl != null ? imageCompressionCacheTtl : Duration.ofHours(2);
+        long seconds = (long) Math.ceil(ttl.toMillis() / 1000.0);
+        if (seconds <= 0) {
+            return TimeUnit.MINUTES.toSeconds(5);
+        }
+        return Math.min(TimeUnit.DAYS.toSeconds(1), Math.max(TimeUnit.MINUTES.toSeconds(1), seconds));
+    }
     
     /**
      * Internal class to store upload log entry with timestamp
@@ -508,23 +541,32 @@ public class FileRestController {
             }
 
             if (maxEdgeParam != null && maxEdgeParam > 0 && imageCompressionService.isImageType(contentType)) {
-                int maxEdge = Math.min(1200, Math.max(64, maxEdgeParam));
+                int requestedMaxEdge = Math.min(2048, Math.max(64, maxEdgeParam));
+                int canonicalMaxEdge = canonicalWallMaxEdge(requestedMaxEdge);
+                String wallCacheKey = "gfs-wall:" + fileId + ":" + canonicalMaxEdge;
                 try {
-                    byte[] fileBytes = readInputStreamWithLimit(gridFsResource.getInputStream(), MAX_READ_BYTES_FOR_WALL_PREVIEW);
-                    String cacheKey = "gfs-wall:" + fileId + ":" + maxEdge;
-                    ImageCompressionService.CompressionResult preview = imageCompressionService.buildMaxEdgeJpegPreview(
-                            cacheKey, fileBytes, filename, contentType, maxEdge, null);
+                    ImageCompressionService.CompressionResult preview = imageCompressionService.getFromCache(wallCacheKey);
+                    if (preview == null) {
+                        byte[] fileBytes = readInputStreamWithLimit(
+                                gridFsResource.getInputStream(), MAX_READ_BYTES_FOR_WALL_PREVIEW);
+                        preview = imageCompressionService.buildMaxEdgeJpegPreview(
+                                wallCacheKey, fileBytes, filename, contentType, canonicalMaxEdge, null);
+                        log.debug("[GET_FILE] Wall preview generated: fileId={}, canonicalMaxEdge={}, req={}, jpegBytes={}",
+                                fileId, canonicalMaxEdge, requestedMaxEdge, preview.getData().length);
+                    } else {
+                        log.debug("[GET_FILE] Wall preview JVM cache hit (shared): fileId={}, canonicalMaxEdge={}, req={}",
+                                fileId, canonicalMaxEdge, requestedMaxEdge);
+                    }
                     byte[] jpeg = preview.getData();
                     HttpHeaders prevHeaders = new HttpHeaders();
                     prevHeaders.setContentType(MediaType.IMAGE_JPEG);
                     prevHeaders.setContentLength(jpeg.length);
                     prevHeaders.set("Content-Disposition", buildContentDispositionHeader("inline", wallPreviewDispositionName(filename)));
-                    prevHeaders.set("X-Pat-Wall-Preview", "maxEdge=" + maxEdge);
+                    prevHeaders.set("X-Pat-Wall-Preview", "maxEdge=" + canonicalMaxEdge + ";req=" + requestedMaxEdge);
                     prevHeaders.set("Access-Control-Expose-Headers",
                             "X-Pat-Wall-Preview, X-Pat-Compression, X-Pat-Image-Size-Before, X-Pat-Image-Size-After, X-Pat-Exif");
-                    log.debug("[GET_FILE] Wall preview: fileId={}, maxEdge={}, jpegBytes={}", fileId, maxEdge, jpeg.length);
                     return ResponseEntity.ok()
-                            .cacheControl(CacheControl.maxAge(5, TimeUnit.MINUTES).cachePrivate())
+                            .cacheControl(CacheControl.maxAge(wallPreviewHttpCacheMaxAgeSeconds(), TimeUnit.SECONDS).cachePrivate())
                             .headers(prevHeaders)
                             .body(new InputStreamResource(new ByteArrayInputStream(jpeg)));
                 } catch (Exception e) {

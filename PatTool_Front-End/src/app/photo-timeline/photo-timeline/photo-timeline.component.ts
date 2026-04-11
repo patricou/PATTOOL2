@@ -46,18 +46,40 @@ export interface GroupMediaItem {
     photoIndex?: number; // index among photos only (for the slideshow)
 }
 const SCROLL_THRESHOLD_PX = Math.max(400, PREFETCH_EVENTS_AHEAD * EVENT_BLOCK_HEIGHT_PX);
-/** Longest side (px) for server-generated wall thumbnails (?maxEdge=). */
-const WALL_THUMB_MAX_EDGE = 400;
+/** Max longest side (px) for server wall previews; must stay in sync with API clamp in FileRestController / file.service. */
+const WALL_THUMB_MAX_EDGE_CAP = 2048;
 /** Max concurrent wall media HTTP fetches (thumbs + inline videos) to avoid stampedes. */
 const WALL_MEDIA_MAX_PARALLEL = 12;
 
-/** Returns the thumbnail max-edge adapted to the current viewport width (mobile = smaller = faster). */
+/**
+ * Longest side for wall thumbnails: masonry tiles are column-wide, but portrait photos are often
+ * much taller than the column — the longest on-screen edge must drive resolution, not width alone.
+ */
 function getAdaptiveThumbMaxEdge(): number {
-    if (typeof window === 'undefined') return WALL_THUMB_MAX_EDGE;
+    if (typeof window === 'undefined') {
+        return 1024;
+    }
     const w = window.innerWidth;
-    if (w <= 480) return 180;
-    if (w <= 768) return 260;
-    return WALL_THUMB_MAX_EDGE;
+    const h = window.innerHeight;
+    const dpr = Math.min(Math.max(window.devicePixelRatio || 1, 1), 3.5);
+
+    let columnCss: number;
+    if (w <= 480) {
+        columnCss = Math.max(220, w - 20);
+    } else if (w <= 768) {
+        columnCss = Math.max(240, (w - 28) / 2 + 32);
+    } else if (w <= 1200) {
+        columnCss = Math.max(280, (w - 36) / 3 + 28);
+    } else {
+        columnCss = Math.max(300, (w - 44) / 4 + 28);
+    }
+
+    // Portrait / tall tiles: longest displayed side often ≈ column × aspect; bound by viewport height.
+    const tallTileGuess = Math.min(h * 0.82, columnCss * 3.6);
+    const approxCssMaxEdge = Math.max(columnCss, tallTileGuess);
+
+    const requested = Math.ceil(approxCssMaxEdge * dpr);
+    return Math.min(WALL_THUMB_MAX_EDGE_CAP, Math.max(480, requested));
 }
 
 /** Returns the max concurrent fetch parallelism adapted to the network connection quality. */
