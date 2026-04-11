@@ -138,9 +138,15 @@
           <div class="wall-photos-event-wrapper" *ngIf="evenement">
             <a [routerLink]="['/photos']"
                [queryParams]="{ eventId: evenement.id }"
-               class="btn-compact btn-primary-compact"
+               class="btn-compact btn-primary-compact wall-photos-event-link"
                [title]="'EVENTELEM.WALL_PHOTOS_EVENT' | translate">
-              <i class="fa fa-th-large"></i> <span class="btn-text">{{ 'MENU.PHOTOS' | translate }}</span>
+              <svg class="photo-wall-icon-4c" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false">
+                <rect x="1" y="1" width="8" height="8" rx="1.75" fill="#5c6bc0"/>
+                <rect x="11" y="1" width="8" height="8" rx="1.75" fill="#ec407a"/>
+                <rect x="1" y="11" width="8" height="8" rx="1.75" fill="#ffb300"/>
+                <rect x="11" y="11" width="8" height="8" rx="1.75" fill="#26c6da"/>
+              </svg>
+              <span class="btn-text">{{ 'MENU.PHOTOS' | translate }}</span>
             </a>
           </div>
           <div class="add-web-link-wrapper" *ngIf="user && evenement">
@@ -153,7 +159,7 @@
           </div>
           <div class="edit-event-wrapper" *ngIf="isEventOwner()">
             <button type="button"
-                    class="btn-compact btn-primary-compact"
+                    class="btn-compact btn-primary-compact btn-compact--edit-event"
                     (click)="navigateToUpdateEvent()"
                     [title]="'EVENTHOME.EDIT_EVENT' | translate">
               <i class="fa fa-edit"></i><span class="btn-text">{{ 'EVENTHOME.EDIT_EVENT' | translate }}</span>

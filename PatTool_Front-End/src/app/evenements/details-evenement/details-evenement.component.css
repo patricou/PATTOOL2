@@ -2514,6 +2514,24 @@ select.compact-input:focus {
   transform: scale(0.95);
 }
 
+/* Icône mur de photos (détail événement) : mosaïque 4 couleurs — taille en rem (parent peut être font-size: 0 sur mobile) */
+.photo-wall-icon-4c {
+  display: block;
+  width: 0.9rem;
+  height: 0.9rem;
+  flex-shrink: 0;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+}
+
+.text-light-mode .photo-wall-icon-4c {
+  filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.35));
+}
+
+.wall-photos-event-link .photo-wall-icon-4c {
+  width: 1rem;
+  height: 1rem;
+}
+
 /* ============================================
    COMPACT BUTTONS
    ============================================ */
@@ -3270,6 +3288,11 @@ select.compact-input:focus {
   .action-container .btn-compact i {
     font-size: 0.65rem !important; /* Restore icon size */
   }
+
+  .action-container .btn-compact .photo-wall-icon-4c {
+    width: 0.65rem !important;
+    height: 0.65rem !important;
+  }
   
   .action-container label.btn-compact {
     font-size: 0 !important; /* Hide text in label buttons */
@@ -3306,6 +3329,11 @@ select.compact-input:focus {
   .action-container .btn-compact i {
     font-size: 0.75rem !important;
     margin: 0;
+  }
+
+  .action-container .btn-compact .photo-wall-icon-4c {
+    width: 0.75rem !important;
+    height: 0.75rem !important;
   }
   
   /* Hide text in label buttons (file upload) */
@@ -4053,6 +4081,35 @@ select.compact-input:focus {
     font-size: 0.75rem !important;
   }
 
+  .action-container .wall-photos-event-wrapper a.btn-compact .photo-wall-icon-4c {
+    width: 0.75rem !important;
+    height: 0.75rem !important;
+  }
+
+  /* Mur de photos : ~2× la largeur des autres pills (barre d’actions ≥769px) */
+  .action-container .wall-photos-event-wrapper a.btn-compact.wall-photos-event-link {
+    min-width: 14.5rem !important;
+    max-width: none !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    justify-content: center !important;
+  }
+
+  /* Modifier la fiche : plus compact que les autres actions */
+  .action-container .edit-event-wrapper .btn-compact--edit-event {
+    padding: 0.26rem 0.42rem !important;
+    min-height: 28px !important;
+    font-size: 0.62rem !important;
+    font-weight: 600 !important;
+    border-width: 1px !important;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(255, 255, 255, 0.08) inset !important;
+  }
+
+  .action-container .edit-event-wrapper .btn-compact--edit-event i {
+    font-size: 0.68rem !important;
+  }
+
   /* Notes on same line, truncate if long */
   .action-container .notes-section {
     flex: 0 1 auto !important;
@@ -4313,6 +4370,31 @@ select.compact-input:focus {
   
   .action-container .btn-compact i {
     font-size: 0.75rem !important; /* Restore icon size */
+  }
+
+  .action-container .btn-compact .photo-wall-icon-4c {
+    width: 0.75rem !important;
+    height: 0.75rem !important;
+  }
+
+  /* Mur de photos : 2× la largeur fixe des autres icônes (32px → 64px) */
+  .action-container .wall-photos-event-wrapper a.btn-compact.wall-photos-event-link {
+    min-width: 64px !important;
+    max-width: none !important;
+    width: auto !important;
+    padding-left: 0.45rem !important;
+    padding-right: 0.45rem !important;
+  }
+
+  .action-container .edit-event-wrapper .btn-compact--edit-event {
+    min-width: 26px !important;
+    max-width: 26px !important;
+    min-height: 26px !important;
+    padding: 0.18rem !important;
+  }
+
+  .action-container .edit-event-wrapper .btn-compact--edit-event i {
+    font-size: 0.62rem !important;
   }
   
   .action-container label.btn-compact {

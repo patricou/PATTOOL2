@@ -260,6 +260,15 @@
     color: inherit !important;
 }
 
+/* Icône mur de photos (mosaïque 4 couleurs), même palette que la fiche détail */
+.card-footer .photo-wall-icon-4c {
+    display: block;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.25));
+}
+
 .card-footer .file-upload-wrapper {
     display: flex !important;
     align-items: center !important;
@@ -303,15 +312,40 @@
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease, border-color 0.2s ease, filter 0.2s ease !important;
 }
 
-/* Make "Voir les détails" (eye) button intentionally 2x wider than other footer buttons */
-.card-footer .eye-button.dynamic-footer-btn {
-    width: 62px !important;      /* 2 * 31px */
+/* Mur de photos : ~2× la largeur d’un bouton icône seul (31px de côté → ~62px) */
+.card-footer .footer-btn-photo-wall.dynamic-footer-btn {
     min-width: 62px !important;
-    max-width: 62px !important;
+    width: auto !important;
+    max-width: none !important;
+    padding-left: 0.55rem !important;
+    padding-right: 0.55rem !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
     box-sizing: border-box !important;
+}
+
+.card-footer .footer-btn-photo-wall .photo-wall-icon-4c {
+    width: 1.05rem !important;
+    height: 1.05rem !important;
+}
+
+/* Détail événement (œil) : moitié de l’ancienne largeur fixe (62px → 31px), icône seule */
+.card-footer .eye-button.footer-btn-event-detail.dynamic-footer-btn {
+    width: 31px !important;
+    min-width: 31px !important;
+    max-width: 31px !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-sizing: border-box !important;
+}
+
+.card-footer .eye-button.footer-btn-event-detail.dynamic-footer-btn i {
+    font-size: 0.8rem !important;
+    line-height: 31px !important;
 }
 
 .card-footer .dynamic-footer-btn:hover,
