@@ -1535,6 +1535,45 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return 'fa-external-link';
     }
 
+    /**
+     * Libellé court d’action (clé i18n PHOTO_TIMELINE.*) pour les badges sous le mur.
+     */
+    getPhotoWallLinkActionLabelKey(link: FsPhotoLink): string {
+        if (this.isPhotoWallFsFromDiskLink(link)) {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_DISK_PHOTOS';
+        }
+        const t = (link.typeUrl || '').trim().toUpperCase() || 'OTHER';
+        const path = (link.path || '').trim().toLowerCase();
+        if (t === 'TRACK' || t === 'TRACE' || t === 'GPX') {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_TRACE';
+        }
+        if (t === 'MAP' || t === 'CARTE') {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_MAP';
+        }
+        if (t === 'WEBSITE' || t === 'SITE' || t === 'WEB') {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_WEBSITE';
+        }
+        if (t === 'VIDEO' || t === 'VIDÉO' || t === 'YOUTUBE' || t === 'VIMEO') {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_VIDEO';
+        }
+        if (t === 'WHATSAPP' || t === 'WA') {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_WHATSAPP';
+        }
+        if (t === 'PHOTOS' || t === 'PHOTO') {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_PHOTO_GALLERY';
+        }
+        if (t === 'DOCUMENTATION' || t === 'DOC' || t === 'FICHE') {
+            return path.endsWith('.pdf') ? 'PHOTO_TIMELINE.LINK_ACTION_OPEN_PDF' : 'PHOTO_TIMELINE.LINK_ACTION_OPEN_DOCUMENT';
+        }
+        if (path.endsWith('.pdf')) {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_PDF';
+        }
+        if (path.startsWith('http://') || path.startsWith('https://')) {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_LINK';
+        }
+        return 'PHOTO_TIMELINE.LINK_ACTION_OPEN';
+    }
+
     /** Footer click: disk slideshow only for PHOTOFROMFS; Mongo track → viewer; otherwise new tab. */
     onPhotoWallFooterLinkClick(fsLink: FsPhotoLink, group: TimelineGroup): void {
         const t = (fsLink.typeUrl || '').trim().toUpperCase();
@@ -1556,6 +1595,35 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (url) {
             window.open(url, '_blank', 'noopener,noreferrer');
         }
+    }
+
+    /** Télécharge le fichier trace (GridFS) depuis l’API fichier. */
+    onWallTrackFileDownloadClick(tr: FsPhotoLink, ev?: Event): void {
+        ev?.stopPropagation();
+        const id = (tr.fieldId || '').trim();
+        if (!id) {
+            return;
+        }
+        const fileName = (tr.path || '').trim() || 'track.gpx';
+        const sub = this.fileService.getFile(id).subscribe({
+            next: (buffer: ArrayBuffer) => {
+                const blob = new Blob([buffer], { type: 'application/octet-stream' });
+                if ((navigator as any).msSaveBlob) {
+                    (navigator as any).msSaveBlob(blob, fileName);
+                    return;
+                }
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            },
+            error: (err) => console.error('Wall track download failed', err)
+        });
+        this.subscriptions.push(sub);
     }
 
     openFsSlideshow(fsLink: FsPhotoLink, group: TimelineGroup): void {

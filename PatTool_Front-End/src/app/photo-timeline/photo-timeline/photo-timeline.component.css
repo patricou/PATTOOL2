@@ -364,6 +364,8 @@
 
 .timeline-group .group-header,
 .timeline-group .group-fs-link-badges,
+.timeline-group .photo-wall-tracks-wrap,
+.timeline-group .photo-wall-tracks-table-responsive,
 .timeline-group .masonry-grid {
     position: relative;
     z-index: 1;
@@ -653,6 +655,9 @@
 .photo-wall-tracks-wrap {
     position: relative;
     z-index: 1;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
 }
 
 .photo-wall-tracks-title-row {
@@ -672,7 +677,12 @@
 
 .photo-wall-tracks-table-responsive {
     border-radius: 6px;
-    overflow: hidden;
+    /* horizontal scroll (overflow:hidden cassait le scroll tactile sur mobile) */
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    max-width: 100%;
     border: 1px solid rgba(0, 0, 0, 0.08);
     background: rgba(255, 255, 255, 0.94);
 }
@@ -683,6 +693,9 @@
 
 .photo-wall-tracks-table {
     font-size: 0.75rem;
+    width: 100%;
+    min-width: 38rem;
+    margin-bottom: 0;
     --photo-tracks-head-bg: #3d5a80;
     --photo-tracks-head-color: #f8f9fa;
 }
@@ -761,14 +774,45 @@
     border-width: 0.12em;
 }
 
+.photo-wall-tracks-download-btn {
+    font-size: 0.68rem;
+    line-height: 1.2;
+}
+
 .photo-wall-tracks-open-btn {
     font-size: 0.7rem;
     line-height: 1.25;
+    white-space: nowrap;
 }
 
-.photo-wall-tracks-col-open {
-    width: 1%;
+/* Colonne « Ouvrir » : sticky à droite pour rester visible au scroll horizontal (mobile). */
+.photo-wall-tracks-table thead th.photo-wall-tracks-col-open,
+.photo-wall-tracks-table tbody td.photo-wall-tracks-col-open {
+    position: sticky;
+    right: 0;
+    min-width: 4.85rem;
+    width: auto;
     white-space: nowrap;
+    box-shadow: -8px 0 14px -6px rgba(0, 0, 0, 0.2);
+}
+
+.photo-wall-tracks-table thead th.photo-wall-tracks-col-open {
+    z-index: 4;
+    background-color: var(--photo-tracks-head-bg) !important;
+    color: var(--photo-tracks-head-color);
+}
+
+.photo-wall-tracks-table tbody td.photo-wall-tracks-col-open {
+    z-index: 2;
+    background-color: rgba(255, 255, 255, 0.99);
+}
+
+.photo-wall-tracks-table.table-striped > tbody > tr:nth-of-type(odd) > td.photo-wall-tracks-col-open {
+    background-color: rgba(248, 250, 252, 0.99);
+}
+
+.photo-wall-tracks-table tbody tr:hover > td.photo-wall-tracks-col-open {
+    background-color: rgba(236, 244, 255, 0.99);
 }
 
 .timeline-group.has-thumbnail .photo-wall-tracks-title {
@@ -787,13 +831,86 @@
     background-color: rgba(255, 255, 255, 0.12);
 }
 
+.timeline-group.has-thumbnail .photo-wall-tracks-download-btn {
+    color: rgba(255, 255, 255, 0.95);
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.timeline-group.has-thumbnail .photo-wall-tracks-download-btn:hover {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.75);
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Table traces : mobile / petit écran */
+@media (max-width: 767.98px) {
+    .photo-wall-tracks-title-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .photo-wall-tracks-expand-btn {
+        align-self: flex-start;
+    }
+
+    /* Sous md : colonnes fichier / déposant / date masquées → tableau plus étroit */
+    .photo-wall-tracks-table {
+        font-size: 0.7rem;
+        min-width: 20rem;
+    }
+
+    .photo-wall-tracks-col-name {
+        max-width: 10rem;
+    }
+
+    .photo-wall-tracks-col-file,
+    .photo-wall-tracks-col-owner {
+        max-width: 7rem;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .photo-wall-tracks-table {
+        min-width: 17rem;
+        font-size: 0.66rem;
+    }
+
+    .photo-wall-tracks-table thead th,
+    .photo-wall-tracks-table tbody td {
+        padding: 0.12rem 0.22rem;
+    }
+
+    .photo-wall-tracks-th-sort span {
+        margin-right: 0.08rem;
+    }
+
+    .photo-wall-tracks-th-sort i {
+        font-size: 0.6rem;
+    }
+
+    .photo-wall-tracks-col-name {
+        max-width: 7rem;
+    }
+
+    .photo-wall-tracks-open-btn {
+        font-size: 0.65rem;
+        padding-left: 0.35rem !important;
+        padding-right: 0.35rem !important;
+    }
+
+    .photo-wall-tracks-table thead th.photo-wall-tracks-col-open,
+    .photo-wall-tracks-table tbody td.photo-wall-tracks-col-open {
+        min-width: 4.25rem;
+    }
+}
+
 /* Badges liens (photos disque, PDF, site, …) — au-dessus de la grille */
 .group-fs-link-badges {
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-start;
-    align-items: center;
-    gap: 0.4rem 0.5rem;
+    align-items: flex-start;
+    gap: 0.55rem 0.65rem;
     margin-bottom: 0.65rem;
     padding-bottom: 0.5rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.08);
@@ -805,38 +922,131 @@
     border-bottom-color: rgba(255, 255, 255, 0.22);
 }
 
+/* Boutons-liens : style « chip » avec relief (dossier local vs lien externe) */
 .group-fs-link-badge {
     cursor: pointer;
     font-weight: 500;
-    font-size: 0.8rem;
+    font-size: 0.8125rem;
     max-width: 100%;
-    padding: 0.45em 0.65em;
-    background-color: #5c6bc0 !important;
+    min-width: 0;
+    min-height: 2.65rem;
+    padding: 0.5rem 0.85rem 0.45rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
     color: #fff !important;
-    transition: filter 0.15s ease, transform 0.15s ease;
+    background: linear-gradient(165deg, #8b9af0 0%, #5c6bc0 42%, #4a56b0 100%) !important;
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.18) inset,
+        0 1px 2px rgba(0, 0, 0, 0.06),
+        0 4px 14px rgba(63, 81, 181, 0.22);
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.12);
+    transition:
+        box-shadow 0.2s ease,
+        transform 0.2s ease,
+        border-color 0.2s ease,
+        filter 0.2s ease;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.group-fs-link-badge--stack {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    text-align: start;
+}
+
+.group-fs-link-badge-action {
+    line-height: 1.25;
+}
+
+.group-fs-link-badge-action .fa {
+    font-size: 0.95em;
+    opacity: 0.95;
+}
+
+.group-fs-link-badge-verb {
+    font-weight: 700;
+    font-size: 0.8rem;
+    line-height: 1.25;
+    letter-spacing: 0.02em;
+}
+
+.group-fs-link-badge-target {
+    display: block;
+    width: 100%;
+    font-weight: 400;
+    font-size: 0.68rem;
+    line-height: 1.35;
+    opacity: 0.94;
+    word-break: break-word;
+    max-width: 100%;
+    margin-top: 0.1rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.2);
+    text-shadow: none;
 }
 
 .group-fs-link-badge:hover {
-    filter: brightness(1.08);
-    transform: translateY(-1px);
+    filter: brightness(1.05);
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.32);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.22) inset,
+        0 2px 4px rgba(0, 0, 0, 0.08),
+        0 8px 22px rgba(63, 81, 181, 0.28);
+}
+
+.group-fs-link-badge:active {
+    transform: translateY(0);
+    filter: brightness(0.97);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.12) inset,
+        0 1px 3px rgba(0, 0, 0, 0.12) inset,
+        0 2px 8px rgba(63, 81, 181, 0.18);
 }
 
 .group-fs-link-badge:focus-visible {
-    outline: 2px solid rgba(92, 107, 192, 0.55);
-    outline-offset: 2px;
+    outline: 2px solid #fff;
+    outline-offset: 3px;
+    box-shadow:
+        0 0 0 3px rgba(92, 107, 192, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.18) inset,
+        0 4px 14px rgba(63, 81, 181, 0.22);
 }
 
-/* Liens URL (site, carte, galerie web, …) — pas dossier disque */
+/* Liens URL (site, carte, galerie web, …) — teinte ardoise distincte */
 .group-fs-link-badge--external {
-    background-color: #546e7a !important;
+    background: linear-gradient(165deg, #7d9aa8 0%, #546e7a 42%, #435966 100%) !important;
+    border-color: rgba(255, 255, 255, 0.2);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.14) inset,
+        0 1px 2px rgba(0, 0, 0, 0.07),
+        0 4px 14px rgba(38, 50, 56, 0.28);
 }
 
 .group-fs-link-badge--external:hover {
-    filter: brightness(1.08);
+    filter: brightness(1.05);
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.2) inset,
+        0 2px 4px rgba(0, 0, 0, 0.08),
+        0 8px 22px rgba(38, 50, 56, 0.32);
 }
 
 .group-fs-link-badge--external:focus-visible {
-    outline-color: rgba(84, 110, 122, 0.55);
+    box-shadow:
+        0 0 0 3px rgba(84, 110, 122, 0.55),
+        0 1px 0 rgba(255, 255, 255, 0.14) inset,
+        0 4px 14px rgba(38, 50, 56, 0.28);
+}
+
+.timeline-group.has-thumbnail .group-fs-link-badge {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+}
+
+.timeline-group.has-thumbnail .group-fs-link-badge-target {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 /* Masonry Grid */

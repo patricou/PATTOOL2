@@ -262,7 +262,7 @@
             <!-- Badges : liens (site, carte, photos disque, PDF, …) — au-dessus de la grille -->
             <div class="group-fs-link-badges"
                  *ngIf="getGroupBadgeLinks(group).length > 0">
-                <span class="badge group-fs-link-badge text-wrap text-start"
+                <span class="badge group-fs-link-badge group-fs-link-badge--stack text-wrap text-start"
                       *ngFor="let fsLink of getGroupBadgeLinks(group); trackBy: trackByFsLink"
                       [class.group-fs-link-badge--external]="!isPhotoWallFsFromDiskLink(fsLink)"
                       role="button"
@@ -270,8 +270,11 @@
                       (click)="onPhotoWallFooterLinkClick(fsLink, group)"
                       (keydown.enter)="onPhotoWallFooterLinkClick(fsLink, group)"
                       [title]="fsLink.description || fsLink.path">
-                    <i class="fa me-1" [ngClass]="getPhotoWallLinkIcon(fsLink)" aria-hidden="true"></i>
-                    <span>{{ fsLink.description || fsLink.path }}</span>
+                    <span class="group-fs-link-badge-action d-inline-flex align-items-center gap-1 flex-wrap">
+                        <i class="fa flex-shrink-0" [ngClass]="getPhotoWallLinkIcon(fsLink)" aria-hidden="true"></i>
+                        <span class="group-fs-link-badge-verb">{{ getPhotoWallLinkActionLabelKey(fsLink) | translate }}</span>
+                    </span>
+                    <span class="group-fs-link-badge-target">{{ fsLink.description || fsLink.path }}</span>
                 </span>
             </div>
 
@@ -341,9 +344,10 @@
                             type="button"
                             class="btn btn-sm btn-outline-secondary photo-wall-tracks-expand-btn py-0 px-2"
                             [attr.aria-expanded]="isWallTrackTableExpanded(group)"
+                            [attr.aria-label]="(isWallTrackTableExpanded(group) ? 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_LESS' : 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_ALL') | translate"
                             (click)="onWallTrackTableToggleExpand(group, $event)">
-                        <i class="fa me-1" [ngClass]="isWallTrackTableExpanded(group) ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
-                        <span>{{ (isWallTrackTableExpanded(group) ? 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_LESS' : 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_ALL') | translate }}</span>
+                        <i class="fa me-sm-1" [ngClass]="isWallTrackTableExpanded(group) ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+                        <span class="d-none d-sm-inline">{{ (isWallTrackTableExpanded(group) ? 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_LESS' : 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_ALL') | translate }}</span>
                     </button>
                 </div>
                 <div class="table-responsive photo-wall-tracks-table-responsive">
@@ -361,7 +365,7 @@
                                     <i [ngClass]="wallTrackSortIconClass(group, 'name')" aria-hidden="true"></i>
                                 </th>
                                 <th scope="col"
-                                    class="photo-wall-tracks-th-sort"
+                                    class="photo-wall-tracks-th-sort d-none d-md-table-cell"
                                     role="button"
                                     tabindex="0"
                                     (click)="onWallTrackSortClick(group, 'file', $event)"
@@ -371,7 +375,7 @@
                                     <i [ngClass]="wallTrackSortIconClass(group, 'file')" aria-hidden="true"></i>
                                 </th>
                                 <th scope="col"
-                                    class="photo-wall-tracks-th-sort"
+                                    class="photo-wall-tracks-th-sort d-none d-md-table-cell"
                                     role="button"
                                     tabindex="0"
                                     (click)="onWallTrackSortClick(group, 'owner', $event)"
@@ -381,7 +385,7 @@
                                     <i [ngClass]="wallTrackSortIconClass(group, 'owner')" aria-hidden="true"></i>
                                 </th>
                                 <th scope="col"
-                                    class="photo-wall-tracks-th-sort"
+                                    class="photo-wall-tracks-th-sort d-none d-md-table-cell"
                                     role="button"
                                     tabindex="0"
                                     (click)="onWallTrackSortClick(group, 'date', $event)"
@@ -415,10 +419,34 @@
                         </thead>
                         <tbody>
                             <tr *ngFor="let tr of getDisplayedMongoTrackLinks(group); trackBy: trackByTrackFieldId">
-                                <td class="text-wrap photo-wall-tracks-col-name">{{ tr.description || tr.path }}</td>
-                                <td class="text-wrap photo-wall-tracks-col-file">{{ tr.path || '—' }}</td>
-                                <td class="text-wrap photo-wall-tracks-col-owner">{{ tr.uploaderUserName || '—' }}</td>
-                                <td class="photo-wall-tracks-col-date">
+                                <td class="text-wrap photo-wall-tracks-col-name">
+                                    <div class="d-flex align-items-center gap-1 min-w-0">
+                                        <span class="flex-grow-1 min-w-0">{{ tr.description || tr.path }}</span>
+                                        <button *ngIf="tr.fieldId"
+                                                type="button"
+                                                class="btn btn-outline-secondary btn-sm py-0 px-1 photo-wall-tracks-download-btn d-md-none flex-shrink-0"
+                                                (click)="onWallTrackFileDownloadClick(tr, $event)"
+                                                [title]="'PHOTO_TIMELINE.TRACK_TABLE_DOWNLOAD' | translate">
+                                            <i class="fa fa-download" aria-hidden="true"></i>
+                                            <span class="visually-hidden">{{ 'PHOTO_TIMELINE.TRACK_TABLE_DOWNLOAD' | translate }}</span>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="text-wrap photo-wall-tracks-col-file d-none d-md-table-cell">
+                                    <div class="d-flex align-items-center gap-1 min-w-0">
+                                        <span class="flex-grow-1 min-w-0 text-break">{{ tr.path || '—' }}</span>
+                                        <button *ngIf="tr.fieldId"
+                                                type="button"
+                                                class="btn btn-outline-secondary btn-sm py-0 px-1 photo-wall-tracks-download-btn flex-shrink-0"
+                                                (click)="onWallTrackFileDownloadClick(tr, $event)"
+                                                [title]="'PHOTO_TIMELINE.TRACK_TABLE_DOWNLOAD' | translate">
+                                            <i class="fa fa-download" aria-hidden="true"></i>
+                                            <span class="visually-hidden">{{ 'PHOTO_TIMELINE.TRACK_TABLE_DOWNLOAD' | translate }}</span>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="text-wrap photo-wall-tracks-col-owner d-none d-md-table-cell">{{ tr.uploaderUserName || '—' }}</td>
+                                <td class="photo-wall-tracks-col-date d-none d-md-table-cell">
                                     <span *ngIf="isManualTrackActivityDateSet(tr)">{{ formatWallTrackManualDate(tr.manualActivityDate) }}</span>
                                     <ng-container *ngIf="!isManualTrackActivityDateSet(tr)">
                                         <span *ngIf="getWallTrackStat(tr.fieldId)?.loading" class="text-muted">
