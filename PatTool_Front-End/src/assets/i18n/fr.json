@@ -807,6 +807,11 @@
 		"MAP_LOADING": "Chargement de la carte...",
 		"VIEW_TRACK": "Voir la trace",
 		"TRACK_DISPLAY_NAME_PLACEHOLDER": "Nom affiché (mur de photos, listes)",
+		"TRACK_MANUAL_DATE": "Date (trace)",
+		"TRACK_MANUAL_KM": "km",
+		"TRACK_MANUAL_KM_PH": "ex. 42.5",
+		"TRACK_MANUAL_DPLUS": "D+ (m)",
+		"TRACK_MANUAL_DPLUS_PH": "ex. 850",
 		"TRACK_VIEWER_TITLE": "Trace GPS - {{ fileName }}",
 		"TRACK_LOADING": "Chargement de la trace...",
 		"TRACK_LOAD_ERROR": "Impossible de charger la trace GPS.",
@@ -1662,7 +1667,18 @@
         "UPLOAD_ERROR": "Erreur lors de l'ajout de la photo.",
         "TOAST_SUCCESS_TITLE": "Succès",
         "TOAST_ERROR_TITLE": "Erreur",
-        "OWNER": "Propriétaire"
+        "OWNER": "Propriétaire",
+        "TRACKS_TABLE_TITLE": "Tracés GPS",
+        "TRACK_TABLE_NAME": "Nom",
+        "TRACK_TABLE_FILE_NAME": "Nom du fichier",
+        "TRACK_TABLE_OWNER": "Déposé par",
+        "TRACK_TABLE_DATE": "Date du fichier",
+        "TRACK_TABLE_DISTANCE": "Distance",
+        "TRACK_TABLE_ELEVATION": "D+",
+        "TRACK_TABLE_OPEN": "Ouvrir",
+        "TRACK_TABLE_ERROR": "Erreur",
+        "TRACK_TABLE_SHOW_ALL": "Voir toutes les traces",
+        "TRACK_TABLE_SHOW_LESS": "Replier"
     }
 }
 

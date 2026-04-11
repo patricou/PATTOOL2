@@ -30,6 +30,7 @@ import { Evenement } from '../../model/evenement';
 import { Commentary } from '../../model/commentary';
 import { Member } from '../../model/member';
 import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
+import { computeTrackStatsFromFileContent } from '../track-route-stats.util';
 
 const BUFFER_AHEAD = 3;
 /** Number of groups (activities) to load per API request. */
@@ -153,6 +154,22 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     uploadSuccess = false;
 
     thumbnailCache: Map<string, string> = new Map();
+    /** Parsed distance / D+ for Mongo-backed tracks (photo wall table), keyed by GridFS id. */
+    wallTrackStats: Map<string, {
+        loading: boolean;
+        error?: boolean;
+        distanceKm: number | null;
+        elevationGainM: number | null;
+        /** From trace file (GPX time, TCX Time, …), ISO string */
+        fileDateIso: string | null;
+    }> = new Map();
+    /** Tri du tableau des traces GPS (clé = eventId). */
+    private wallTrackTableSort = new Map<string, {
+        col: 'name' | 'file' | 'owner' | 'date' | 'km' | 'elev';
+        asc: boolean;
+    }>();
+    /** Tableau traces : déplié = toutes les lignes ; sinon une seule (clé = eventId). */
+    private wallTrackTableExpanded = new Map<string, boolean>();
     loadingThumbnails: Set<string> = new Set();
     videoUrlCache: Map<string, string> = new Map();
     videoSafeUrlCache: Map<string, SafeUrl> = new Map(); // same SafeUrl instance to avoid reloads
@@ -498,6 +515,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const prevThumbUrls = new Map(this.thumbnailCache);
         const prevVideoUrls = new Map(this.videoUrlCache);
         this.thumbnailCache.clear();
+        this.wallTrackStats.clear();
+        this.wallTrackTableSort.clear();
+        this.wallTrackTableExpanded.clear();
         this.videoUrlCache.clear();
         this.videoSafeUrlCache.clear();
         this.loadingThumbnails.clear();
@@ -701,6 +721,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
         this.visibleGroups.push(group);
         this.preloadThumbnailsForGroup(group);
+        this.requestWallTrackStatsForGroup(group);
         if (this.visibleGroups.length === 1) {
             this.isLoading = false;
             setTimeout(() => { if (!this.destroyed) this.setupIntersectionObserver(); }, 50);
@@ -816,6 +837,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                         ...this.visibleGroups.slice(idx + 1)
                     ];
                     this.preloadThumbnailsForGroup(updated);
+                    this.requestWallTrackStatsForGroup(updated);
                 }
                 this.refreshingGroupEventIds.delete(eventId);
                 this.cdr.markForCheck();
@@ -1155,6 +1177,346 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     isPhotoWallFsFromDiskLink(link: FsPhotoLink): boolean {
         const t = (link.typeUrl || '').trim().toUpperCase();
         return t === '' || t === 'PHOTOFROMFS';
+    }
+
+    /** GPX/KML/… stored in GridFS (opens trace viewer); shown in the wall track table, not as a badge. */
+    isMongoTrackLink(link: FsPhotoLink): boolean {
+        const t = (link.typeUrl || '').trim().toUpperCase();
+        const id = (link.fieldId || '').trim();
+        if (!id) {
+            return false;
+        }
+        return t === 'TRACK' || t === 'TRACE' || t === 'GPX';
+    }
+
+    getGroupMongoTrackLinks(group: TimelineGroup): FsPhotoLink[] {
+        if (!group?.fsPhotoLinks?.length) {
+            return [];
+        }
+        return group.fsPhotoLinks.filter(l => this.isMongoTrackLink(l));
+    }
+
+    /** Traces triées pour le tableau (état par événement). */
+    getSortedMongoTrackLinks(group: TimelineGroup): FsPhotoLink[] {
+        const list = this.getGroupMongoTrackLinks(group);
+        if (list.length <= 1) {
+            return list;
+        }
+        const evId = group?.eventId || '';
+        const cur = this.wallTrackTableSort.get(evId) ?? { col: 'date' as const, asc: false };
+        const mul = cur.asc ? 1 : -1;
+        const copy = [...list];
+        copy.sort((a, b) => {
+            const c = cur.col === 'date'
+                ? this.compareWallTrackDate(a, b, cur.asc)
+                : mul * this.compareWallTrackRows(a, b, cur.col);
+            if (c !== 0) {
+                return c;
+            }
+            return (a.fieldId || '').localeCompare(b.fieldId || '');
+        });
+        return copy;
+    }
+
+    /** Lignes affichées : par défaut la plus récente seule ; déplié = liste complète triée. */
+    getDisplayedMongoTrackLinks(group: TimelineGroup): FsPhotoLink[] {
+        const sorted = this.getSortedMongoTrackLinks(group);
+        if (sorted.length <= 1) {
+            return sorted;
+        }
+        if (this.isWallTrackTableExpanded(group)) {
+            return sorted;
+        }
+        return sorted.slice(0, 1);
+    }
+
+    isWallTrackTableExpanded(group: TimelineGroup): boolean {
+        return this.wallTrackTableExpanded.get(group?.eventId || '') === true;
+    }
+
+    wallTrackTableHasMultipleRows(group: TimelineGroup): boolean {
+        return this.getGroupMongoTrackLinks(group).length > 1;
+    }
+
+    onWallTrackTableToggleExpand(group: TimelineGroup, ev?: Event): void {
+        ev?.stopPropagation();
+        const id = group?.eventId || '';
+        if (!id) {
+            return;
+        }
+        const next = !this.isWallTrackTableExpanded(group);
+        this.wallTrackTableExpanded.set(id, next);
+        this.scheduleCdr();
+    }
+
+    getWallTrackTableSort(group: TimelineGroup): {
+        col: 'name' | 'file' | 'owner' | 'date' | 'km' | 'elev';
+        asc: boolean;
+    } {
+        return this.wallTrackTableSort.get(group?.eventId || '') ?? { col: 'date', asc: false };
+    }
+
+    onWallTrackSortClick(group: TimelineGroup, col: 'name' | 'file' | 'owner' | 'date' | 'km' | 'elev', ev?: Event): void {
+        ev?.stopPropagation();
+        const id = group?.eventId || '';
+        const prev = this.wallTrackTableSort.get(id) ?? { col: 'date', asc: false };
+        const asc = prev.col === col ? !prev.asc : true;
+        this.wallTrackTableSort.set(id, { col, asc });
+        this.scheduleCdr();
+    }
+
+    wallTrackSortIconClass(group: TimelineGroup, col: 'name' | 'file' | 'owner' | 'date' | 'km' | 'elev'): string {
+        const s = this.getWallTrackTableSort(group);
+        if (s.col !== col) {
+            return 'fa fa-sort opacity-50';
+        }
+        return s.asc ? 'fa fa-sort-asc' : 'fa fa-sort-desc';
+    }
+
+    /**
+     * Tri par date : sans date en dernier ; asc = ancien d’abord, asc = false = récent d’abord.
+     */
+    private compareWallTrackDate(a: FsPhotoLink, b: FsPhotoLink, asc: boolean): number {
+        const am = this.getTrackSortDateMs(a);
+        const bm = this.getTrackSortDateMs(b);
+        const aMiss = am === Number.POSITIVE_INFINITY;
+        const bMiss = bm === Number.POSITIVE_INFINITY;
+        if (aMiss && bMiss) {
+            return 0;
+        }
+        if (aMiss) {
+            return 1;
+        }
+        if (bMiss) {
+            return -1;
+        }
+        const diff = am - bm;
+        return asc ? diff : -diff;
+    }
+
+    private compareWallTrackRows(a: FsPhotoLink, b: FsPhotoLink, col: 'name' | 'file' | 'owner' | 'km' | 'elev'): number {
+        switch (col) {
+            case 'name':
+                return (a.description || a.path).localeCompare(b.description || b.path, undefined, { sensitivity: 'base' });
+            case 'file':
+                return (a.path || '').localeCompare(b.path || '', undefined, { sensitivity: 'base' });
+            case 'owner':
+                return (a.uploaderUserName || '').localeCompare(b.uploaderUserName || '', undefined, { sensitivity: 'base' });
+            case 'km':
+                return this.getTrackSortKm(a) - this.getTrackSortKm(b);
+            case 'elev':
+                return this.getTrackSortElev(a) - this.getTrackSortElev(b);
+            default:
+                return 0;
+        }
+    }
+
+    private getTrackSortDateMs(tr: FsPhotoLink): number {
+        if (this.isManualTrackActivityDateSet(tr)) {
+            const t = (tr.manualActivityDate || '').trim();
+            const ms = new Date(t.includes('T') ? t : `${t}T12:00:00`).getTime();
+            return Number.isFinite(ms) ? ms : Number.POSITIVE_INFINITY;
+        }
+        const iso = this.getWallTrackStat(tr.fieldId)?.fileDateIso;
+        if (!iso) {
+            return Number.POSITIVE_INFINITY;
+        }
+        const ms = new Date(iso).getTime();
+        return Number.isFinite(ms) ? ms : Number.POSITIVE_INFINITY;
+    }
+
+    private getTrackSortKm(tr: FsPhotoLink): number {
+        if (this.isManualTrackDistanceSet(tr)) {
+            return Number(tr.manualDistanceKm);
+        }
+        const st = this.getWallTrackStat(tr.fieldId);
+        if (!st || st.loading) {
+            return Number.POSITIVE_INFINITY;
+        }
+        if (st.error || st.distanceKm == null || !Number.isFinite(st.distanceKm)) {
+            return Number.POSITIVE_INFINITY;
+        }
+        return st.distanceKm;
+    }
+
+    private getTrackSortElev(tr: FsPhotoLink): number {
+        if (this.isManualTrackElevationSet(tr)) {
+            return Number(tr.manualElevationGainM);
+        }
+        const st = this.getWallTrackStat(tr.fieldId);
+        if (!st || st.loading) {
+            return Number.POSITIVE_INFINITY;
+        }
+        if (st.error || st.elevationGainM == null || !Number.isFinite(st.elevationGainM)) {
+            return Number.POSITIVE_INFINITY;
+        }
+        return st.elevationGainM;
+    }
+
+    /** Footer badges: all links except Mongo-backed tracks (those use the table). */
+    getGroupBadgeLinks(group: TimelineGroup): FsPhotoLink[] {
+        if (!group?.fsPhotoLinks?.length) {
+            return [];
+        }
+        return group.fsPhotoLinks.filter(l => !this.isMongoTrackLink(l));
+    }
+
+    trackByTrackFieldId(_index: number, link: FsPhotoLink): string {
+        return (link.fieldId || '').trim() || link.path;
+    }
+
+    getWallTrackStat(fieldId: string | undefined | null): {
+        loading: boolean;
+        error?: boolean;
+        distanceKm: number | null;
+        elevationGainM: number | null;
+        fileDateIso: string | null;
+    } | undefined {
+        const id = (fieldId || '').trim();
+        if (!id) {
+            return undefined;
+        }
+        return this.wallTrackStats.get(id);
+    }
+
+    formatWallTrackKm(km: number | null | undefined): string {
+        if (km == null || !Number.isFinite(km)) {
+            return '—';
+        }
+        if (km <= 0) {
+            return '-';
+        }
+        return `${km} km`;
+    }
+
+    formatWallTrackDplus(m: number | null | undefined): string {
+        if (m == null || !Number.isFinite(m)) {
+            return '—';
+        }
+        if (m <= 0) {
+            return '-';
+        }
+        return `${m} m`;
+    }
+
+    /** Date read from the trace file (not the activity event date). */
+    formatWallTrackFileDate(iso: string | null | undefined): string {
+        if (!iso) {
+            return '—';
+        }
+        return this.formatEventDate(iso);
+    }
+
+    /** Date saisie à la main (yyyy-MM-dd) ou ISO. */
+    formatWallTrackManualDate(s: string | null | undefined): string {
+        const t = (s || '').trim();
+        if (!t) {
+            return '—';
+        }
+        const iso = t.includes('T') ? t : `${t}T12:00:00`;
+        return this.formatEventDate(iso);
+    }
+
+    isManualTrackDistanceSet(tr: FsPhotoLink): boolean {
+        return tr.manualDistanceKm != null && Number.isFinite(Number(tr.manualDistanceKm));
+    }
+
+    isManualTrackElevationSet(tr: FsPhotoLink): boolean {
+        return tr.manualElevationGainM != null && Number.isFinite(Number(tr.manualElevationGainM));
+    }
+
+    isManualTrackActivityDateSet(tr: FsPhotoLink): boolean {
+        return !!(tr.manualActivityDate || '').trim();
+    }
+
+    /** Les trois valeurs sont renseignées : pas de téléchargement du fichier pour les stats. */
+    private isTrackStatsFullyManual(tr: FsPhotoLink): boolean {
+        return this.isManualTrackDistanceSet(tr)
+            && this.isManualTrackElevationSet(tr)
+            && this.isManualTrackActivityDateSet(tr);
+    }
+
+    private requestWallTrackStatsForGroup(group: TimelineGroup): void {
+        const tracks = this.getGroupMongoTrackLinks(group);
+        if (!tracks.length) {
+            return;
+        }
+        const gen = this.timelineLoadGeneration;
+        for (const link of tracks) {
+            const id = (link.fieldId || '').trim();
+            if (!id || this.wallTrackStats.has(id)) {
+                continue;
+            }
+            if (this.isTrackStatsFullyManual(link)) {
+                const dStr = (link.manualActivityDate || '').trim();
+                const fileDateIso = dStr
+                    ? new Date(dStr.includes('T') ? dStr : `${dStr}T12:00:00`).toISOString()
+                    : null;
+                this.wallTrackStats.set(id, {
+                    loading: false,
+                    distanceKm: Number(link.manualDistanceKm),
+                    elevationGainM: Math.round(Number(link.manualElevationGainM)),
+                    fileDateIso
+                });
+                continue;
+            }
+            this.wallTrackStats.set(id, {
+                loading: true,
+                distanceKm: null,
+                elevationGainM: null,
+                fileDateIso: null
+            });
+            const fileName = (link.path || '').trim() || 'track.gpx';
+            const sub = this.fileService.getFile(id).subscribe({
+                next: (buffer: ArrayBuffer) => {
+                    if (this.destroyed || gen !== this.timelineLoadGeneration) {
+                        return;
+                    }
+                    try {
+                        const text = new TextDecoder('utf-8').decode(buffer);
+                        const stats = computeTrackStatsFromFileContent(fileName, text);
+                        const dManual = (link.manualActivityDate || '').trim();
+                        const fileDateIso = dManual
+                            ? new Date(dManual.includes('T') ? dManual : `${dManual}T12:00:00`).toISOString()
+                            : stats.fileDateIso;
+                        this.wallTrackStats.set(id, {
+                            loading: false,
+                            distanceKm: this.isManualTrackDistanceSet(link)
+                                ? Number(link.manualDistanceKm)
+                                : stats.distanceKm,
+                            elevationGainM: this.isManualTrackElevationSet(link)
+                                ? Math.round(Number(link.manualElevationGainM))
+                                : stats.elevationGainM,
+                            fileDateIso
+                        });
+                    } catch {
+                        this.wallTrackStats.set(id, {
+                            loading: false,
+                            error: true,
+                            distanceKm: null,
+                            elevationGainM: null,
+                            fileDateIso: null
+                        });
+                    }
+                    this.scheduleCdr();
+                },
+                error: () => {
+                    if (this.destroyed || gen !== this.timelineLoadGeneration) {
+                        return;
+                    }
+                    this.wallTrackStats.set(id, {
+                        loading: false,
+                        error: true,
+                        distanceKm: null,
+                        elevationGainM: null,
+                        fileDateIso: null
+                    });
+                    this.scheduleCdr();
+                }
+            });
+            this.subscriptions.push(sub);
+        }
+        this.scheduleCdr();
     }
 
     /** Font Awesome 4 icons, aligned with the event detail page. */

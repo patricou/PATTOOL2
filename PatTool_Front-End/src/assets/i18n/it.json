@@ -1646,6 +1646,17 @@
         "UPLOAD_ERROR": "Errore nell'aggiunta della foto al database.",
         "TOAST_SUCCESS_TITLE": "Successo",
         "TOAST_ERROR_TITLE": "Errore",
-        "OWNER": "Proprietario"
+        "OWNER": "Proprietario",
+        "TRACKS_TABLE_TITLE": "Tracce GPS",
+        "TRACK_TABLE_NAME": "Nome",
+        "TRACK_TABLE_FILE_NAME": "Nome file",
+        "TRACK_TABLE_OWNER": "Caricato da",
+        "TRACK_TABLE_DATE": "Data file",
+        "TRACK_TABLE_DISTANCE": "Distanza",
+        "TRACK_TABLE_ELEVATION": "Dislivello (D+)",
+        "TRACK_TABLE_OPEN": "Apri",
+        "TRACK_TABLE_ERROR": "Errore",
+        "TRACK_TABLE_SHOW_ALL": "Mostra tutte le tracce",
+        "TRACK_TABLE_SHOW_LESS": "Comprimi"
     }
 }

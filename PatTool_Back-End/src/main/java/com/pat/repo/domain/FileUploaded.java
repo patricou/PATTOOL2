@@ -16,6 +16,12 @@ public class FileUploaded {
     private String fileType;
     /** Nom affiché optionnel (ex. trace GPX / KML sur le mur de photos et dans les listes). */
     private String displayName;
+    /** Distance (km) saisie à la main pour une trace ; prioritaire sur le calcul auto (mur de photos). */
+    private Double manualDistanceKm;
+    /** Dénivelé positif (m) saisi à la main ; prioritaire sur le calcul auto. */
+    private Double manualElevationGainM;
+    /** Date d’activité liée au fichier (ex. yyyy-MM-dd), affichée sur le mur à la place de l’extraction GPX. */
+    private String manualActivityDate;
     @DBRef
     private Member uploaderMember;
 
@@ -49,6 +55,30 @@ public class FileUploaded {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public Double getManualDistanceKm() {
+        return manualDistanceKm;
+    }
+
+    public void setManualDistanceKm(Double manualDistanceKm) {
+        this.manualDistanceKm = manualDistanceKm;
+    }
+
+    public Double getManualElevationGainM() {
+        return manualElevationGainM;
+    }
+
+    public void setManualElevationGainM(Double manualElevationGainM) {
+        this.manualElevationGainM = manualElevationGainM;
+    }
+
+    public String getManualActivityDate() {
+        return manualActivityDate;
+    }
+
+    public void setManualActivityDate(String manualActivityDate) {
+        this.manualActivityDate = manualActivityDate;
     }
 
     public Member getUploaderMember() {

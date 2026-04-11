@@ -817,6 +817,11 @@
         "MAP_LOADING": "Loading map...",
         "VIEW_TRACK": "View track",
         "TRACK_DISPLAY_NAME_PLACEHOLDER": "Display name (photo wall, lists)",
+        "TRACK_MANUAL_DATE": "Date (track)",
+        "TRACK_MANUAL_KM": "km",
+        "TRACK_MANUAL_KM_PH": "e.g. 42.5",
+        "TRACK_MANUAL_DPLUS": "Ascent (m)",
+        "TRACK_MANUAL_DPLUS_PH": "e.g. 850",
         "TRACK_VIEWER_TITLE": "GPS Track - {{ fileName }}",
         "TRACK_LOADING": "Loading track...",
         "TRACK_LOAD_ERROR": "Unable to load the GPS track.",
@@ -1673,7 +1678,18 @@
         "UPLOAD_ERROR": "Error adding photo to database.",
         "TOAST_SUCCESS_TITLE": "Success",
         "TOAST_ERROR_TITLE": "Error",
-        "OWNER": "Owner"
+        "OWNER": "Owner",
+        "TRACKS_TABLE_TITLE": "GPS tracks",
+        "TRACK_TABLE_NAME": "Name",
+        "TRACK_TABLE_FILE_NAME": "File name",
+        "TRACK_TABLE_OWNER": "Uploader",
+        "TRACK_TABLE_DATE": "File date",
+        "TRACK_TABLE_DISTANCE": "Distance",
+        "TRACK_TABLE_ELEVATION": "Ascent (D+)",
+        "TRACK_TABLE_OPEN": "Open",
+        "TRACK_TABLE_ERROR": "Error",
+        "TRACK_TABLE_SHOW_ALL": "Show all tracks",
+        "TRACK_TABLE_SHOW_LESS": "Show less"
     }
 }
 

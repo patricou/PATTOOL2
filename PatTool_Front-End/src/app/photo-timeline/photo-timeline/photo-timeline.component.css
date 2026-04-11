@@ -363,6 +363,7 @@
 }
 
 .timeline-group .group-header,
+.timeline-group .group-fs-link-badges,
 .timeline-group .masonry-grid {
     position: relative;
     z-index: 1;
@@ -648,18 +649,160 @@
     outline-offset: 2px;
 }
 
-/* Badges liens dossier (fin de bloc événement, sous la grille) */
+/* Table tracés GPX / KML sous la grille */
+.photo-wall-tracks-wrap {
+    position: relative;
+    z-index: 1;
+}
+
+.photo-wall-tracks-title-row {
+    min-width: 0;
+}
+
+.photo-wall-tracks-expand-btn {
+    font-size: 0.72rem;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.photo-wall-tracks-title {
+    font-weight: 600;
+    color: rgba(33, 37, 41, 0.68);
+}
+
+.photo-wall-tracks-table-responsive {
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.94);
+}
+
+.timeline-group.has-thumbnail .photo-wall-tracks-table-responsive {
+    background: rgba(255, 255, 255, 0.96);
+}
+
+.photo-wall-tracks-table {
+    font-size: 0.75rem;
+    --photo-tracks-head-bg: #3d5a80;
+    --photo-tracks-head-color: #f8f9fa;
+}
+
+.photo-wall-tracks-table thead th {
+    padding: 0.2rem 0.35rem;
+    font-weight: 600;
+    background: var(--photo-tracks-head-bg);
+    color: var(--photo-tracks-head-color);
+    border-color: rgba(255, 255, 255, 0.12);
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.photo-wall-tracks-th-sort {
+    cursor: pointer;
+    user-select: none;
+}
+
+.photo-wall-tracks-th-sort:hover {
+    filter: brightness(1.08);
+}
+
+.photo-wall-tracks-th-sort span {
+    margin-right: 0.2rem;
+}
+
+.photo-wall-tracks-th-sort i {
+    font-size: 0.68rem;
+    vertical-align: middle;
+}
+
+.photo-wall-tracks-table tbody td {
+    padding: 0.2rem 0.4rem;
+    vertical-align: middle;
+}
+
+.photo-wall-tracks-table.table-striped > tbody > tr:nth-of-type(odd) > * {
+    --bs-table-accent-bg: rgba(13, 110, 253, 0.045);
+}
+
+.photo-wall-tracks-table tbody tr:hover > * {
+    --bs-table-hover-bg: rgba(61, 90, 128, 0.09);
+}
+
+.photo-wall-tracks-col-name {
+    max-width: 11rem;
+}
+
+.photo-wall-tracks-col-file {
+    max-width: 9rem;
+}
+
+.photo-wall-tracks-col-owner {
+    max-width: 8rem;
+}
+
+.photo-wall-tracks-col-date {
+    color: rgba(33, 37, 41, 0.72);
+    white-space: nowrap;
+}
+
+.photo-wall-tracks-col-km {
+    color: #0a58ca;
+    font-variant-numeric: tabular-nums;
+}
+
+.photo-wall-tracks-col-elev {
+    color: #0f5132;
+    font-variant-numeric: tabular-nums;
+}
+
+.photo-wall-tracks-spinner {
+    width: 0.65rem;
+    height: 0.65rem;
+    border-width: 0.12em;
+}
+
+.photo-wall-tracks-open-btn {
+    font-size: 0.7rem;
+    line-height: 1.25;
+}
+
+.photo-wall-tracks-col-open {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.timeline-group.has-thumbnail .photo-wall-tracks-title {
+    color: rgba(255, 255, 255, 0.95) !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.timeline-group.has-thumbnail .photo-wall-tracks-expand-btn {
+    color: rgba(255, 255, 255, 0.95);
+    border-color: rgba(255, 255, 255, 0.45);
+}
+
+.timeline-group.has-thumbnail .photo-wall-tracks-expand-btn:hover {
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.75);
+    background-color: rgba(255, 255, 255, 0.12);
+}
+
+/* Badges liens (photos disque, PDF, site, …) — au-dessus de la grille */
 .group-fs-link-badges {
     display: flex;
     flex-wrap: wrap;
-    justify-content: flex-end;
+    justify-content: flex-start;
     align-items: center;
     gap: 0.4rem 0.5rem;
-    margin-top: 0.75rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
     width: 100%;
     box-sizing: border-box;
+}
+
+.timeline-group.has-thumbnail .group-fs-link-badges {
+    border-bottom-color: rgba(255, 255, 255, 0.22);
 }
 
 .group-fs-link-badge {

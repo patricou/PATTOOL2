@@ -259,6 +259,22 @@
                 </div>
             </div>
 
+            <!-- Badges : liens (site, carte, photos disque, PDF, …) — au-dessus de la grille -->
+            <div class="group-fs-link-badges"
+                 *ngIf="getGroupBadgeLinks(group).length > 0">
+                <span class="badge group-fs-link-badge text-wrap text-start"
+                      *ngFor="let fsLink of getGroupBadgeLinks(group); trackBy: trackByFsLink"
+                      [class.group-fs-link-badge--external]="!isPhotoWallFsFromDiskLink(fsLink)"
+                      role="button"
+                      tabindex="0"
+                      (click)="onPhotoWallFooterLinkClick(fsLink, group)"
+                      (keydown.enter)="onPhotoWallFooterLinkClick(fsLink, group)"
+                      [title]="fsLink.description || fsLink.path">
+                    <i class="fa me-1" [ngClass]="getPhotoWallLinkIcon(fsLink)" aria-hidden="true"></i>
+                    <span>{{ fsLink.description || fsLink.path }}</span>
+                </span>
+            </div>
+
             <!-- Masonry Grid : photos et vidéos mélangés, vidéos en autoplay comme détail -->
             <div class="masonry-grid">
                 <ng-container *ngFor="let media of getGroupMedia(group); trackBy: trackByMediaId">
@@ -312,20 +328,146 @@
                 </ng-container>
             </div>
 
-            <!-- Badges : tous les liens de l’événement (site web, carte, photos disque, etc.) -->
-            <div class="group-fs-link-badges"
-                 *ngIf="group.fsPhotoLinks && group.fsPhotoLinks.length > 0">
-                <span class="badge group-fs-link-badge text-wrap text-start"
-                      *ngFor="let fsLink of group.fsPhotoLinks; trackBy: trackByFsLink"
-                      [class.group-fs-link-badge--external]="!isPhotoWallFsFromDiskLink(fsLink)"
-                      role="button"
-                      tabindex="0"
-                      (click)="onPhotoWallFooterLinkClick(fsLink, group)"
-                      (keydown.enter)="onPhotoWallFooterLinkClick(fsLink, group)"
-                      [title]="fsLink.description || fsLink.path">
-                    <i class="fa me-1" [ngClass]="getPhotoWallLinkIcon(fsLink)" aria-hidden="true"></i>
-                    <span>{{ fsLink.description || fsLink.path }}</span>
-                </span>
+            <!-- Tracés GPX/KML (fichiers GridFS) : stats calculées depuis le fichier -->
+            <div class="photo-wall-tracks-wrap mt-2"
+                 *ngIf="getGroupMongoTrackLinks(group).length > 0">
+                <div class="photo-wall-tracks-title-row d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+                    <div class="photo-wall-tracks-title small mb-0">
+                        <i class="fa fa-road me-1" aria-hidden="true"></i>
+                        {{ 'PHOTO_TIMELINE.TRACKS_TABLE_TITLE' | translate }}
+                        <span *ngIf="wallTrackTableHasMultipleRows(group)" class="text-muted ms-1">({{ getGroupMongoTrackLinks(group).length }})</span>
+                    </div>
+                    <button *ngIf="wallTrackTableHasMultipleRows(group)"
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary photo-wall-tracks-expand-btn py-0 px-2"
+                            [attr.aria-expanded]="isWallTrackTableExpanded(group)"
+                            (click)="onWallTrackTableToggleExpand(group, $event)">
+                        <i class="fa me-1" [ngClass]="isWallTrackTableExpanded(group) ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+                        <span>{{ (isWallTrackTableExpanded(group) ? 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_LESS' : 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_ALL') | translate }}</span>
+                    </button>
+                </div>
+                <div class="table-responsive photo-wall-tracks-table-responsive">
+                    <table class="table table-sm table-striped photo-wall-tracks-table mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col"
+                                    class="photo-wall-tracks-th-sort"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallTrackSortClick(group, 'name', $event)"
+                                    (keydown.enter)="onWallTrackSortClick(group, 'name', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallTrackSortClick(group, 'name', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_NAME' | translate }}</span>
+                                    <i [ngClass]="wallTrackSortIconClass(group, 'name')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col"
+                                    class="photo-wall-tracks-th-sort"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallTrackSortClick(group, 'file', $event)"
+                                    (keydown.enter)="onWallTrackSortClick(group, 'file', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallTrackSortClick(group, 'file', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_FILE_NAME' | translate }}</span>
+                                    <i [ngClass]="wallTrackSortIconClass(group, 'file')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col"
+                                    class="photo-wall-tracks-th-sort"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallTrackSortClick(group, 'owner', $event)"
+                                    (keydown.enter)="onWallTrackSortClick(group, 'owner', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallTrackSortClick(group, 'owner', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_OWNER' | translate }}</span>
+                                    <i [ngClass]="wallTrackSortIconClass(group, 'owner')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col"
+                                    class="photo-wall-tracks-th-sort"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallTrackSortClick(group, 'date', $event)"
+                                    (keydown.enter)="onWallTrackSortClick(group, 'date', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallTrackSortClick(group, 'date', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_DATE' | translate }}</span>
+                                    <i [ngClass]="wallTrackSortIconClass(group, 'date')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col"
+                                    class="text-end photo-wall-tracks-th-sort"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallTrackSortClick(group, 'km', $event)"
+                                    (keydown.enter)="onWallTrackSortClick(group, 'km', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallTrackSortClick(group, 'km', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_DISTANCE' | translate }}</span>
+                                    <i [ngClass]="wallTrackSortIconClass(group, 'km')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col"
+                                    class="text-end photo-wall-tracks-th-sort"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallTrackSortClick(group, 'elev', $event)"
+                                    (keydown.enter)="onWallTrackSortClick(group, 'elev', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallTrackSortClick(group, 'elev', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_ELEVATION' | translate }}</span>
+                                    <i [ngClass]="wallTrackSortIconClass(group, 'elev')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col" class="text-end photo-wall-tracks-col-open">{{ 'PHOTO_TIMELINE.TRACK_TABLE_OPEN' | translate }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let tr of getDisplayedMongoTrackLinks(group); trackBy: trackByTrackFieldId">
+                                <td class="text-wrap photo-wall-tracks-col-name">{{ tr.description || tr.path }}</td>
+                                <td class="text-wrap photo-wall-tracks-col-file">{{ tr.path || '—' }}</td>
+                                <td class="text-wrap photo-wall-tracks-col-owner">{{ tr.uploaderUserName || '—' }}</td>
+                                <td class="photo-wall-tracks-col-date">
+                                    <span *ngIf="isManualTrackActivityDateSet(tr)">{{ formatWallTrackManualDate(tr.manualActivityDate) }}</span>
+                                    <ng-container *ngIf="!isManualTrackActivityDateSet(tr)">
+                                        <span *ngIf="getWallTrackStat(tr.fieldId)?.loading" class="text-muted">
+                                            <span class="spinner-border spinner-border-sm photo-wall-tracks-spinner" role="status"></span>
+                                        </span>
+                                        <span *ngIf="!getWallTrackStat(tr.fieldId)?.loading && getWallTrackStat(tr.fieldId)?.error"
+                                              class="text-danger">—</span>
+                                        <span *ngIf="!getWallTrackStat(tr.fieldId)?.loading && !getWallTrackStat(tr.fieldId)?.error">
+                                            {{ formatWallTrackFileDate(getWallTrackStat(tr.fieldId)?.fileDateIso) }}
+                                        </span>
+                                    </ng-container>
+                                </td>
+                                <td class="text-end photo-wall-tracks-col-km">
+                                    <span *ngIf="isManualTrackDistanceSet(tr)">{{ formatWallTrackKm(tr.manualDistanceKm) }}</span>
+                                    <ng-container *ngIf="!isManualTrackDistanceSet(tr)">
+                                        <span *ngIf="getWallTrackStat(tr.fieldId)?.loading" class="text-muted">
+                                            <span class="spinner-border spinner-border-sm photo-wall-tracks-spinner" role="status"></span>
+                                        </span>
+                                        <span *ngIf="!getWallTrackStat(tr.fieldId)?.loading && getWallTrackStat(tr.fieldId)?.error"
+                                              class="text-danger">{{ 'PHOTO_TIMELINE.TRACK_TABLE_ERROR' | translate }}</span>
+                                        <span *ngIf="!getWallTrackStat(tr.fieldId)?.loading && !getWallTrackStat(tr.fieldId)?.error">
+                                            {{ formatWallTrackKm(getWallTrackStat(tr.fieldId)?.distanceKm) }}
+                                        </span>
+                                    </ng-container>
+                                </td>
+                                <td class="text-end photo-wall-tracks-col-elev">
+                                    <span *ngIf="isManualTrackElevationSet(tr)">{{ formatWallTrackDplus(tr.manualElevationGainM) }}</span>
+                                    <ng-container *ngIf="!isManualTrackElevationSet(tr)">
+                                        <span *ngIf="getWallTrackStat(tr.fieldId)?.loading" class="text-muted">
+                                            <span class="spinner-border spinner-border-sm photo-wall-tracks-spinner" role="status"></span>
+                                        </span>
+                                        <span *ngIf="!getWallTrackStat(tr.fieldId)?.loading && getWallTrackStat(tr.fieldId)?.error"
+                                              class="text-danger">—</span>
+                                        <span *ngIf="!getWallTrackStat(tr.fieldId)?.loading && !getWallTrackStat(tr.fieldId)?.error">
+                                            {{ formatWallTrackDplus(getWallTrackStat(tr.fieldId)?.elevationGainM) }}
+                                        </span>
+                                    </ng-container>
+                                </td>
+                                <td class="text-end photo-wall-tracks-col-open">
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm py-0 px-2 photo-wall-tracks-open-btn"
+                                            (click)="onPhotoWallFooterLinkClick(tr, group); $event.stopPropagation()">
+                                        {{ 'PHOTO_TIMELINE.TRACK_TABLE_OPEN' | translate }}
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>

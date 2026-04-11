@@ -1638,6 +1638,17 @@
         "UPLOAD_ERROR": "Ошибка при добавлении фото в базу данных.",
         "TOAST_SUCCESS_TITLE": "Успех",
         "TOAST_ERROR_TITLE": "Ошибка",
-        "OWNER": "Владелец"
+        "OWNER": "Владелец",
+        "TRACKS_TABLE_TITLE": "GPS-треки",
+        "TRACK_TABLE_NAME": "Название",
+        "TRACK_TABLE_FILE_NAME": "Имя файла",
+        "TRACK_TABLE_OWNER": "Загрузил",
+        "TRACK_TABLE_DATE": "Дата файла",
+        "TRACK_TABLE_DISTANCE": "Дистанция",
+        "TRACK_TABLE_ELEVATION": "Набор высоты (D+)",
+        "TRACK_TABLE_OPEN": "Открыть",
+        "TRACK_TABLE_ERROR": "Ошибка",
+        "TRACK_TABLE_SHOW_ALL": "Показать все треки",
+        "TRACK_TABLE_SHOW_LESS": "Свернуть"
     }
 }

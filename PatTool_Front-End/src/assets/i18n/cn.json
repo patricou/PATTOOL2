@@ -1644,6 +1644,17 @@
         "UPLOAD_ERROR": "添加照片到数据库时出错。",
         "TOAST_SUCCESS_TITLE": "成功",
         "TOAST_ERROR_TITLE": "错误",
-        "OWNER": "所有者"
+        "OWNER": "所有者",
+        "TRACKS_TABLE_TITLE": "GPS 轨迹",
+        "TRACK_TABLE_NAME": "名称",
+        "TRACK_TABLE_FILE_NAME": "文件名",
+        "TRACK_TABLE_OWNER": "上传者",
+        "TRACK_TABLE_DATE": "文件日期",
+        "TRACK_TABLE_DISTANCE": "距离",
+        "TRACK_TABLE_ELEVATION": "爬升 (D+)",
+        "TRACK_TABLE_OPEN": "打开",
+        "TRACK_TABLE_ERROR": "错误",
+        "TRACK_TABLE_SHOW_ALL": "显示全部轨迹",
+        "TRACK_TABLE_SHOW_LESS": "收起"
     }
 }

@@ -1642,6 +1642,17 @@
         "UPLOAD_ERROR": "خطأ في إضافة الصورة إلى قاعدة البيانات.",
         "TOAST_SUCCESS_TITLE": "نجاح",
         "TOAST_ERROR_TITLE": "خطأ",
-        "OWNER": "المالك"
+        "OWNER": "المالك",
+        "TRACKS_TABLE_TITLE": "مسارات GPS",
+        "TRACK_TABLE_NAME": "الاسم",
+        "TRACK_TABLE_FILE_NAME": "اسم الملف",
+        "TRACK_TABLE_OWNER": "رَفَعَه",
+        "TRACK_TABLE_DATE": "تاريخ الملف",
+        "TRACK_TABLE_DISTANCE": "المسافة",
+        "TRACK_TABLE_ELEVATION": "الصعود (D+)",
+        "TRACK_TABLE_OPEN": "فتح",
+        "TRACK_TABLE_ERROR": "خطأ",
+        "TRACK_TABLE_SHOW_ALL": "عرض كل المسارات",
+        "TRACK_TABLE_SHOW_LESS": "طي"
     }
 }

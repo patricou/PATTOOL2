@@ -1518,22 +1518,21 @@ export class TraceViewerModalComponent implements OnDestroy {
 	}
 
 	private getElementsByTagNameFlexible(element: Element | Document, tagName: string): Element[] {
+		const seen = new Set<Element>();
 		const results: Element[] = [];
-		const exactMatches = element.getElementsByTagName(tagName);
-		for (let i = 0; i < exactMatches.length; i++) {
-			results.push(exactMatches.item(i)!);
-		}
-
-		const upperMatches = element.getElementsByTagName(tagName.toUpperCase());
-		for (let i = 0; i < upperMatches.length; i++) {
-			results.push(upperMatches.item(i)!);
-		}
-
-		const lowerMatches = element.getElementsByTagName(tagName.toLowerCase());
-		for (let i = 0; i < lowerMatches.length; i++) {
-			results.push(lowerMatches.item(i)!);
-		}
-
+		const appendUnique = (col: HTMLCollectionOf<Element>) => {
+			for (let i = 0; i < col.length; i++) {
+				const el = col.item(i)!;
+				if (!seen.has(el)) {
+					seen.add(el);
+					results.push(el);
+				}
+			}
+		};
+		// XML tags are often lowercase; exact/upper/lower lookups can return the same live list twice → dedupe by node.
+		appendUnique(element.getElementsByTagName(tagName));
+		appendUnique(element.getElementsByTagName(tagName.toUpperCase()));
+		appendUnique(element.getElementsByTagName(tagName.toLowerCase()));
 		return results;
 	}
 

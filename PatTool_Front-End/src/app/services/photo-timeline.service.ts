@@ -26,6 +26,12 @@ export interface FsPhotoLink {
     description: string;
     /** Present for GPX/KML tracks stored in the database (opens the track viewer). */
     fieldId?: string;
+    /** Saisie manuelle (événement) : prioritaire sur le calcul depuis le fichier dans le mur. */
+    manualDistanceKm?: number | null;
+    manualElevationGainM?: number | null;
+    manualActivityDate?: string | null;
+    /** Pour les traces (TRACK) : login du membre qui a déposé le fichier. */
+    uploaderUserName?: string | null;
 }
 
 export interface TimelineGroup {

@@ -28,6 +28,7 @@ import { KeycloakService } from '../../keycloak/keycloak.service';
 import { VideoCompressionService, CompressionProgress } from '../../services/video-compression.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { EventColorService } from '../../services/event-color.service';
+import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-route-stats.util';
 
 @Component({
 	selector: 'update-evenement',
@@ -171,7 +172,10 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 
     @ViewChild('traceViewerModalComponent') traceViewerModalComponent!: TraceViewerModalComponent;
 
-    private trackDisplayNameEditStart = new Map<string, string>();
+    /** Snapshot JSON of track metadata (display name + stats manuelles) au focus, pour PUT seulement si changé au blur. */
+    private trackFileMetaSnapshot = new Map<string, string>();
+    /** Ignore les réponses GET fichier obsolètes après rechargement / navigation. */
+    private trackStatsHydrateGeneration = 0;
 
     // FS Photos slideshow loading control
     private fsSlideshowLoadingActive: boolean = false;
@@ -285,6 +289,11 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 						this.evenement.visibility = 'friendGroups';
 					}
 				}
+				if (!this.evenement.fileUploadeds) {
+					this.evenement.fileUploadeds = [];
+				}
+				/* Même logique que le mur : km / D+ / date depuis le fichier si absents en base. */
+				this.hydrateTrackManualFieldsFromServerFiles();
 				this.isLoading = false;
 				// Force change detection to ensure UI updates, especially in mobile mode
 				this.ngZone.run(() => {
@@ -1174,6 +1183,7 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 				if (!this.evenement.fileUploadeds) {
 					this.evenement.fileUploadeds = [];
 				}
+				this.hydrateTrackManualFieldsFromServerFiles();
 			},
 			error => {
 				console.error('Error reloading event:', error);
@@ -1201,34 +1211,194 @@ export class UpdateEvenementComponent implements OnInit, OnDestroy, CanDeactivat
 		return trackExtensions.some(ext => lower.endsWith(ext));
 	}
 
+	private isManualTrackDistanceSetFile(f: UploadedFile): boolean {
+		return f.manualDistanceKm != null && Number.isFinite(Number(f.manualDistanceKm));
+	}
+
+	private isManualTrackElevationSetFile(f: UploadedFile): boolean {
+		return f.manualElevationGainM != null && Number.isFinite(Number(f.manualElevationGainM));
+	}
+
+	private isManualTrackActivityDateSetFile(f: UploadedFile): boolean {
+		return !!(f.manualActivityDate || '').trim();
+	}
+
+	private isTrackStatsFullyManualFile(f: UploadedFile): boolean {
+		return this.isManualTrackDistanceSetFile(f)
+			&& this.isManualTrackElevationSetFile(f)
+			&& this.isManualTrackActivityDateSetFile(f);
+	}
+
+	private fileDateIsoToDateInputLocal(iso: string): string | undefined {
+		const d = new Date(iso);
+		if (!Number.isFinite(d.getTime())) {
+			return undefined;
+		}
+		const y = d.getFullYear();
+		const m = String(d.getMonth() + 1).padStart(2, '0');
+		const day = String(d.getDate()).padStart(2, '0');
+		return `${y}-${m}-${day}`;
+	}
+
+	/** Aligne l’original utilisé pour « modifications non sauvegardées » après remplissage auto. */
+	private patchOriginalUploadedFileTrackMeta(fieldId: string): void {
+		if (!this.originalEvenement?.fileUploadeds || !this.evenement?.fileUploadeds) {
+			return;
+		}
+		const cur = this.evenement.fileUploadeds.find(u => u.fieldId === fieldId);
+		const orig = this.originalEvenement.fileUploadeds.find(u => u.fieldId === fieldId);
+		if (!cur || !orig) {
+			return;
+		}
+		orig.manualDistanceKm = cur.manualDistanceKm;
+		orig.manualElevationGainM = cur.manualElevationGainM;
+		orig.manualActivityDate = cur.manualActivityDate;
+		orig.displayName = cur.displayName;
+	}
+
+	/**
+	 * Remplit date / km / D+ depuis le contenu GridFS (comme le mur de photos), uniquement pour les champs vides en base.
+	 */
+	private hydrateTrackManualFieldsFromServerFiles(): void {
+		if (!this.evenement?.fileUploadeds?.length) {
+			return;
+		}
+		this.trackStatsHydrateGeneration++;
+		const gen = this.trackStatsHydrateGeneration;
+
+		for (const f of this.evenement.fileUploadeds) {
+			if (!this.isTrackFile(f.fileName) || !f.fieldId) {
+				continue;
+			}
+			if (this.isTrackStatsFullyManualFile(f)) {
+				this.trackFileMetaSnapshot.set(f.fieldId, this.trackFileMetaKey(f));
+				continue;
+			}
+
+			const fieldId = f.fieldId;
+			const sub = this._fileService.getFile(fieldId).subscribe({
+				next: (buffer: ArrayBuffer) => {
+					if (gen !== this.trackStatsHydrateGeneration) {
+						return;
+					}
+					const current = this.evenement?.fileUploadeds?.find(x => x.fieldId === fieldId);
+					if (!current) {
+						return;
+					}
+					try {
+						const text = new TextDecoder('utf-8').decode(buffer);
+						const stats = computeTrackStatsFromFileContent(current.fileName, text);
+						if (gen !== this.trackStatsHydrateGeneration) {
+							return;
+						}
+						if (!this.isManualTrackDistanceSetFile(current) && stats.distanceKm != null && Number.isFinite(stats.distanceKm)) {
+							current.manualDistanceKm = Math.round(stats.distanceKm * 100) / 100;
+						}
+						if (!this.isManualTrackElevationSetFile(current) && stats.elevationGainM != null && Number.isFinite(stats.elevationGainM)) {
+							current.manualElevationGainM = Math.round(stats.elevationGainM);
+						}
+						if (!this.isManualTrackActivityDateSetFile(current) && stats.fileDateIso) {
+							const di = this.fileDateIsoToDateInputLocal(stats.fileDateIso);
+							if (di) {
+								current.manualActivityDate = di;
+							}
+						}
+						this.normalizeTrackManualNumbers(current);
+					} catch {
+						/* binaire / KMZ non décodé en UTF-8 : pas de stats, comme le mur */
+					}
+					if (gen !== this.trackStatsHydrateGeneration) {
+						return;
+					}
+					this.trackFileMetaSnapshot.set(fieldId, this.trackFileMetaKey(current));
+					this.patchOriginalUploadedFileTrackMeta(fieldId);
+					this.updateUnsavedChangesFlag();
+					this.ngZone.run(() => this.cdr.detectChanges());
+				},
+				error: () => {
+					if (gen !== this.trackStatsHydrateGeneration) {
+						return;
+					}
+					const current = this.evenement?.fileUploadeds?.find(x => x.fieldId === fieldId);
+					if (current) {
+						this.trackFileMetaSnapshot.set(fieldId, this.trackFileMetaKey(current));
+					}
+					this.ngZone.run(() => this.cdr.detectChanges());
+				}
+			});
+			this.activeSubscriptions.add(sub);
+		}
+	}
+
 	private normalizeTrackDisplayName(v: string | undefined | null): string {
 		return (typeof v === 'string' ? v.trim() : '') || '';
 	}
 
-	public onTrackDisplayNameFocus(uploadedFile: UploadedFile): void {
-		if (uploadedFile?.fieldId) {
-			this.trackDisplayNameEditStart.set(
-				uploadedFile.fieldId,
-				this.normalizeTrackDisplayName(uploadedFile.displayName)
-			);
-		}
+	private trackFileMetaKey(f: UploadedFile): string {
+		return JSON.stringify({
+			d: this.normalizeTrackDisplayName(f.displayName),
+			km: f.manualDistanceKm ?? null,
+			el: f.manualElevationGainM ?? null,
+			dt: (f.manualActivityDate || '').trim() || null
+		});
 	}
 
-	/** Save trace display name (description) when changed — same behaviour as file management modal. */
-	public onTrackDisplayNameBlur(uploadedFile: UploadedFile): void {
+	private normalizeTrackManualNumbers(f: UploadedFile): void {
+		const km = f.manualDistanceKm;
+		const kmEmptyStr = typeof km === 'string' && `${km}`.trim() === '';
+		if (km === null || km === undefined || kmEmptyStr || (typeof km === 'number' && Number.isNaN(km))) {
+			f.manualDistanceKm = undefined;
+		} else {
+			f.manualDistanceKm = Math.round(Number(km) * 100) / 100;
+		}
+		const el = f.manualElevationGainM;
+		const elEmptyStr = typeof el === 'string' && `${el}`.trim() === '';
+		if (el === null || el === undefined || elEmptyStr || (typeof el === 'number' && Number.isNaN(el))) {
+			f.manualElevationGainM = undefined;
+		} else {
+			f.manualElevationGainM = Math.round(Number(el));
+		}
+		const dt = (f.manualActivityDate || '').trim();
+		f.manualActivityDate = dt || undefined;
+	}
+
+	public onTrackFileMetaFocus(uploadedFile: UploadedFile): void {
+		if (!uploadedFile?.fieldId || !this.isTrackFile(uploadedFile.fileName)) {
+			return;
+		}
+		this.trackFileMetaSnapshot.set(uploadedFile.fieldId, this.trackFileMetaKey(uploadedFile));
+	}
+
+	/** Enregistre nom + date / km / D+ manuels de la trace si modifiés (PUT événement). */
+	public onTrackFileMetaBlur(uploadedFile: UploadedFile): void {
 		if (!this.evenement?.id || !this.canEditEventFields() || !uploadedFile?.fieldId || !this.isTrackFile(uploadedFile.fileName)) {
 			return;
 		}
-		const normNow = this.normalizeTrackDisplayName(uploadedFile.displayName);
-		uploadedFile.displayName = normNow || undefined;
-		const start = this.trackDisplayNameEditStart.get(uploadedFile.fieldId) ?? '';
-		this.trackDisplayNameEditStart.delete(uploadedFile.fieldId);
-		if (normNow === start) {
-			return;
-		}
-		this._evenementsService.putEvenement(this.evenement).subscribe({
-			next: () => { },
-			error: (err) => console.error('Error saving track display name', err)
+		const fieldId = uploadedFile.fieldId;
+		/*
+		 * [(ngModel)] met souvent à jour le modèle après l’événement blur du navigateur.
+		 * Sans microtask, on comparait l’ancienne valeur → pas de PUT alors que l’utilisateur a modifié le champ.
+		 */
+		queueMicrotask(() => {
+			this.ngZone.run(() => {
+				const f = this.evenement?.fileUploadeds?.find(u => u.fieldId === fieldId);
+				if (!this.evenement?.id || !this.canEditEventFields() || !f || !this.isTrackFile(f.fileName)) {
+					return;
+				}
+				this.normalizeTrackManualNumbers(f);
+				const now = this.trackFileMetaKey(f);
+				const before = this.trackFileMetaSnapshot.get(fieldId);
+				if (before === now) {
+					return;
+				}
+				this.trackFileMetaSnapshot.set(fieldId, now);
+				const normName = this.normalizeTrackDisplayName(f.displayName);
+				f.displayName = normName || undefined;
+				this._evenementsService.putEvenement(this.evenement).subscribe({
+					next: () => { },
+					error: (err) => console.error('Error saving track metadata', err)
+				});
+			});
 		});
 	}
 

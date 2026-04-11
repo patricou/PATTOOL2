@@ -1647,6 +1647,17 @@
         "UPLOAD_ERROR": "Σφάλμα κατά την προσθήκη της φωτογραφίας στη βάση δεδομένων.",
         "TOAST_SUCCESS_TITLE": "Επιτυχία",
         "TOAST_ERROR_TITLE": "Σφάλμα",
-        "OWNER": "Ιδιοκτήτης"
+        "OWNER": "Ιδιοκτήτης",
+        "TRACKS_TABLE_TITLE": "Διαδρομές GPS",
+        "TRACK_TABLE_NAME": "Όνομα",
+        "TRACK_TABLE_FILE_NAME": "Όνομα αρχείου",
+        "TRACK_TABLE_OWNER": "Ανέβασε",
+        "TRACK_TABLE_DATE": "Ημερομηνία αρχείου",
+        "TRACK_TABLE_DISTANCE": "Απόσταση",
+        "TRACK_TABLE_ELEVATION": "Ανάβαση (D+)",
+        "TRACK_TABLE_OPEN": "Άνοιγμα",
+        "TRACK_TABLE_ERROR": "Σφάλμα",
+        "TRACK_TABLE_SHOW_ALL": "Εμφάνιση όλων των ιχνών",
+        "TRACK_TABLE_SHOW_LESS": "Σύμπτυξη"
     }
 }

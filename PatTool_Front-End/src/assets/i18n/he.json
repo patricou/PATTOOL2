@@ -1635,6 +1635,17 @@
         "UPLOAD_ERROR": "שגיאה בהוספת התמונה למסד הנתונים.",
         "TOAST_SUCCESS_TITLE": "הצלחה",
         "TOAST_ERROR_TITLE": "שגיאה",
-        "OWNER": "בעלים"
+        "OWNER": "בעלים",
+        "TRACKS_TABLE_TITLE": "מסלולי GPS",
+        "TRACK_TABLE_NAME": "שם",
+        "TRACK_TABLE_FILE_NAME": "שם הקובץ",
+        "TRACK_TABLE_OWNER": "הועלה על ידי",
+        "TRACK_TABLE_DATE": "תאריך הקובץ",
+        "TRACK_TABLE_DISTANCE": "מרחק",
+        "TRACK_TABLE_ELEVATION": "עלייה (D+)",
+        "TRACK_TABLE_OPEN": "פתח",
+        "TRACK_TABLE_ERROR": "שגיאה",
+        "TRACK_TABLE_SHOW_ALL": "הצג את כל המסלולים",
+        "TRACK_TABLE_SHOW_LESS": "כווץ"
     }
 }

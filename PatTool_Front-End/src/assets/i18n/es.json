@@ -1650,6 +1650,17 @@
         "UPLOAD_ERROR": "Error al añadir la foto a la base de datos.",
         "TOAST_SUCCESS_TITLE": "Éxito",
         "TOAST_ERROR_TITLE": "Error",
-        "OWNER": "Propietario"
+        "OWNER": "Propietario",
+        "TRACKS_TABLE_TITLE": "Rutas GPS",
+        "TRACK_TABLE_NAME": "Nombre",
+        "TRACK_TABLE_FILE_NAME": "Nombre del archivo",
+        "TRACK_TABLE_OWNER": "Subido por",
+        "TRACK_TABLE_DATE": "Fecha del archivo",
+        "TRACK_TABLE_DISTANCE": "Distancia",
+        "TRACK_TABLE_ELEVATION": "Desnivel (D+)",
+        "TRACK_TABLE_OPEN": "Abrir",
+        "TRACK_TABLE_ERROR": "Error",
+        "TRACK_TABLE_SHOW_ALL": "Ver todas las rutas",
+        "TRACK_TABLE_SHOW_LESS": "Contraer"
     }
 }

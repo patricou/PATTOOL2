@@ -152,6 +152,14 @@ public class PhotoTimelineRestController {
         private String description;
         /** GridFS / attached file: id used to open the track in the viewer (type {@code TRACK}). */
         private String fieldId;
+        /** Saisie manuelle (événement) : km — prioritaire sur le calcul depuis le fichier. */
+        private Double manualDistanceKm;
+        /** Saisie manuelle : D+ (m). */
+        private Double manualElevationGainM;
+        /** Saisie manuelle : date d’activité (ex. yyyy-MM-dd). */
+        private String manualActivityDate;
+        /** Pour les traces ({@code TRACK}) : auteur du dépôt (login). */
+        private String uploaderUserName;
 
         public FsPhotoLink() {}
         public FsPhotoLink(String path, String description) {
@@ -167,6 +175,14 @@ public class PhotoTimelineRestController {
         public void setDescription(String description) { this.description = description; }
         public String getFieldId() { return fieldId; }
         public void setFieldId(String fieldId) { this.fieldId = fieldId; }
+        public Double getManualDistanceKm() { return manualDistanceKm; }
+        public void setManualDistanceKm(Double manualDistanceKm) { this.manualDistanceKm = manualDistanceKm; }
+        public Double getManualElevationGainM() { return manualElevationGainM; }
+        public void setManualElevationGainM(Double manualElevationGainM) { this.manualElevationGainM = manualElevationGainM; }
+        public String getManualActivityDate() { return manualActivityDate; }
+        public void setManualActivityDate(String manualActivityDate) { this.manualActivityDate = manualActivityDate; }
+        public String getUploaderUserName() { return uploaderUserName; }
+        public void setUploaderUserName(String uploaderUserName) { this.uploaderUserName = uploaderUserName; }
     }
 
     public static class TimelineGroup {
@@ -556,6 +572,15 @@ public class PhotoTimelineRestController {
                 FsPhotoLink f = new FsPhotoLink(fileNameDisplay, linkDescription);
                 f.setTypeUrl("TRACK");
                 f.setFieldId(file.getFieldId().trim());
+                f.setManualDistanceKm(file.getManualDistanceKm());
+                f.setManualElevationGainM(file.getManualElevationGainM());
+                f.setManualActivityDate(file.getManualActivityDate());
+                if (file.getUploaderMember() != null && file.getUploaderMember().getUserName() != null) {
+                    String un = file.getUploaderMember().getUserName().trim();
+                    if (!un.isEmpty()) {
+                        f.setUploaderUserName(un);
+                    }
+                }
                 links.add(f);
             }
         }

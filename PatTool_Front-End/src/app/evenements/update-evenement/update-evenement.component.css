@@ -1968,6 +1968,16 @@ textarea.form-control {
 }
 
 /* Trace (GPX/KML/…) display name — align with element-evenement file modal */
+.track-manual-stats .track-manual-input-date {
+    min-width: 10.5rem;
+    max-width: 12rem;
+}
+
+.track-manual-stats .track-manual-input-num {
+    width: 5.5rem;
+    max-width: 7rem;
+}
+
 .track-display-name-input {
     max-width: 240px;
     min-width: 140px;

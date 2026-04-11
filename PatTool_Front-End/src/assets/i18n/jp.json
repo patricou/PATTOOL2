@@ -1650,6 +1650,17 @@
         "UPLOAD_ERROR": "写真のデータベースへの追加中にエラーが発生しました。",
         "TOAST_SUCCESS_TITLE": "成功",
         "TOAST_ERROR_TITLE": "エラー",
-        "OWNER": "所有者"
+        "OWNER": "所有者",
+        "TRACKS_TABLE_TITLE": "GPSトラック",
+        "TRACK_TABLE_NAME": "名前",
+        "TRACK_TABLE_FILE_NAME": "ファイル名",
+        "TRACK_TABLE_OWNER": "アップロード者",
+        "TRACK_TABLE_DATE": "ファイル日付",
+        "TRACK_TABLE_DISTANCE": "距離",
+        "TRACK_TABLE_ELEVATION": "獲得標高（D+）",
+        "TRACK_TABLE_OPEN": "開く",
+        "TRACK_TABLE_ERROR": "エラー",
+        "TRACK_TABLE_SHOW_ALL": "すべてのトラックを表示",
+        "TRACK_TABLE_SHOW_LESS": "折りたたむ"
     }
 }
