@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ViewChildren, QueryList, ElementRef, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ViewChildren, QueryList, ElementRef, HostListener, TemplateRef, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -16,6 +16,8 @@ import { FileService } from '../../services/file.service';
 import { FriendsService } from '../../services/friends.service';
 import { FriendGroup } from '../../model/friend';
 import { NgbModal, NgbModalRef, NgbModule } from '@ng-bootstrap/ng-bootstrap';
+import { VideoCompressionService } from '../../services/video-compression.service';
+import { VideoUploadProcessingService } from '../../services/video-upload-processing.service';
 import { forkJoin, of, Subscription } from 'rxjs';
 import { map, distinctUntilChanged, catchError, take, switchMap, finalize } from 'rxjs/operators';
 import { DomSanitizer, SafeUrl, SafeStyle } from '@angular/platform-browser';
@@ -122,6 +124,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     @ViewChild('videoshowModalComponent') videoshowModalComponent!: VideoshowModalComponent;
     @ViewChild('scrollSentinel') scrollSentinel!: ElementRef;
     @ViewChild('imageCompressionModal') imageCompressionModal!: TemplateRef<any>;
+    @ViewChild('wallUploadLogsModal') wallUploadLogsModal!: TemplateRef<any>;
+    @ViewChild('wallQualitySelectionModal') wallQualitySelectionModal!: TemplateRef<any>;
+    @ViewChild('wallUploadLogContent') wallUploadLogContent?: ElementRef<HTMLElement>;
     @ViewChild('wallWhatsappShareModal') wallWhatsappShareModal!: TemplateRef<any>;
     @ViewChild('wallShareByEmailModal') wallShareByEmailModal!: TemplateRef<any>;
     @ViewChild('wallEventAccessUsersModal') wallEventAccessUsersModal!: TemplateRef<any>;
@@ -149,9 +154,23 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     hasMoreVideos = true;
 
     compressImages = true;
+    /** Image compression modal: count shown in translated message (slideshow + mur). */
+    imageCountForModal = 1;
     isUploading = false;
+    /** True while a multi-file wall upload (with progress modal) is running — overlay wording. */
+    wallBulkFileUploadActive = false;
     uploadMessage = '';
     uploadSuccess = false;
+
+    /** Mur : upload multi-fichiers (même accept que détail événement). */
+    wallUploadLogs: string[] = [];
+    wallUploadLogsModalRef: NgbModalRef | null = null;
+    wallUploadLastError: string | null = null;
+    wallUploadLastErrorDetail = '';
+    wallUploadPollIntervalId: ReturnType<typeof setInterval> | null = null;
+    videoCountForModal = 0;
+    selectedCompressionQuality: 'low' | 'medium' | 'high' | 'very-high' | 'original' = 'very-high';
+    private qualityModalRef: NgbModalRef | null = null;
 
     thumbnailCache: Map<string, string> = new Map();
     /** Parsed distance / D+ for Mongo-backed tracks (photo wall table), keyed by GridFS id. */
@@ -175,7 +194,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     videoSafeUrlCache: Map<string, SafeUrl> = new Map(); // same SafeUrl instance to avoid reloads
     loadingVideos: Set<string> = new Set();
 
-    private userId = '';
+    userId = '';
     private nextPage = 0;
     private nextPageVideos = 0;
     private subscriptions: Subscription[] = [];
@@ -266,7 +285,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         private sanitizer: DomSanitizer,
         private route: ActivatedRoute,
         private router: Router,
-        private keycloakService: KeycloakService
+        private keycloakService: KeycloakService,
+        private ngZone: NgZone,
+        private videoCompressionService: VideoCompressionService,
+        private videoUploadProcessingService: VideoUploadProcessingService
     ) {}
 
     ngOnInit(): void {
@@ -308,6 +330,18 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (this.imageCompressionModalRef) {
             try { this.imageCompressionModalRef.dismiss(); } catch (_) {}
             this.imageCompressionModalRef = null;
+        }
+        if (this.wallUploadPollIntervalId != null) {
+            clearInterval(this.wallUploadPollIntervalId);
+            this.wallUploadPollIntervalId = null;
+        }
+        if (this.qualityModalRef) {
+            try { this.qualityModalRef.dismiss(); } catch (_) {}
+            this.qualityModalRef = null;
+        }
+        if (this.wallUploadLogsModalRef) {
+            try { this.wallUploadLogsModalRef.dismiss(); } catch (_) {}
+            this.wallUploadLogsModalRef = null;
         }
         if (this.wallWhatsappShareModalRef) {
             try { this.wallWhatsappShareModalRef.dismiss(); } catch (_) {}
@@ -1694,16 +1728,343 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     onAddToDb(event: SlideshowAddToDbEvent): void {
-        this.askForImageCompression().then(shouldCompress => {
+        this.askForImageCompression(1).then(shouldCompress => {
             if (shouldCompress === null) return;
             // Switch ON (compress) → shouldCompress=true → allowOriginal=false → backend compresses
             this.uploadImageToEvent(event.blob, event.fileName, event.eventId, !shouldCompress);
         });
     }
 
-    private askForImageCompression(): Promise<boolean | null> {
+    /** Mur : même `accept` que le détail événement — tout visiteur qui voit le mur a déjà accès côté API. */
+    onWallGroupFilesSelected(event: Event, group: TimelineGroup): void {
+        const input = event.target as HTMLInputElement;
+        const files = input?.files;
+        if (!files?.length || !group?.eventId || !this.userId) {
+            if (input) input.value = '';
+            return;
+        }
+        const list = Array.from(files);
+        void this.runWallGroupFilesUpload(group, list).finally(() => {
+            if (input) input.value = '';
+        });
+    }
+
+    private async runWallGroupFilesUpload(group: TimelineGroup, initialFiles: File[]): Promise<void> {
+        const user = this.membersService.getUser();
+        if (!user?.id || !group.eventId || initialFiles.length === 0) {
+            return;
+        }
+
+        let workingFiles = [...initialFiles];
+        this.isUploading = true;
+        this.wallBulkFileUploadActive = true;
+        this.wallUploadLogs = [];
+        this.wallUploadLastError = null;
+        this.wallUploadLastErrorDetail = '';
+
+        let logsModal: NgbModalRef | null = null;
+        if (this.wallUploadLogsModal) {
+            logsModal = this.modalService.open(this.wallUploadLogsModal, {
+                centered: true,
+                backdrop: 'static',
+                keyboard: false,
+                size: 'xl',
+                windowClass: 'upload-logs-modal'
+            });
+            this.wallUploadLogsModalRef = logsModal;
+            logsModal.result.finally(() => {
+                this.wallUploadLogsModalRef = null;
+            }).catch(() => {});
+        }
+
+        const sessionId = this.generateWallUploadSessionId();
+        this.addWallUploadLog(`📤 Starting upload of ${workingFiles.length} file(s)...`);
+
+        const imageFiles = workingFiles.filter(f => this.isWallImageFileByMimeType(f));
+        if (imageFiles.length > 0) {
+            this.compressImages = true;
+            const shouldCompress = await this.askForImageCompression(imageFiles.length);
+            if (shouldCompress === null) {
+                this.finishWallUploadCancelled(logsModal);
+                return;
+            }
+            this.compressImages = shouldCompress;
+        }
+
+        if (imageFiles.length > 0 && workingFiles.length === 1) {
+            const imageFile = imageFiles[0];
+            const useAsThumbnail = confirm(
+                this.translate.instant('EVENTELEM.USE_AS_THUMBNAIL', { fileName: imageFile.name })
+            );
+            if (useAsThumbnail) {
+                const modified = new File(
+                    [imageFile],
+                    this.addThumbnailToWallFileName(imageFile.name),
+                    { type: imageFile.type }
+                );
+                workingFiles = [modified];
+            }
+        }
+
+        let processedFiles: File[] = [];
+        const videoFiles = workingFiles.filter(f => this.videoUploadProcessingService.isVideoFile(f.name));
+        try {
+            if (videoFiles.length > 0 && this.videoCompressionService.isSupported()) {
+                const qualityPromise = this.askWallCompressionQuality(videoFiles.length);
+                const quality = await this.videoUploadProcessingService.withQualityTimeout(
+                    qualityPromise,
+                    this.qualityModalRef,
+                    () => this.addWallUploadLog('⚠️ Compression quality selection timed out, uploading original files')
+                );
+                const result = await this.videoUploadProcessingService.processVideoFiles(
+                    workingFiles,
+                    quality,
+                    (message: string) => this.addWallUploadLog(message)
+                );
+                processedFiles = result.files;
+                result.errors.forEach(err => this.addWallUploadErrorLog(`❌ ${err}`));
+            } else {
+                processedFiles = [...workingFiles];
+                if (videoFiles.length > 0 && !this.videoCompressionService.isSupported()) {
+                    this.addWallUploadLog('⚠️ Video compression not supported in this browser, uploading original files');
+                }
+            }
+        } catch (e: any) {
+            console.error('Wall video compression flow:', e);
+            this.addWallUploadLog(`⚠️ Error in compression process: ${e?.message || 'Unknown error'}. Uploading original files.`);
+            processedFiles = [...workingFiles];
+        }
+
+        if (processedFiles.length === 0) {
+            this.addWallUploadErrorLog('❌ No files to upload.');
+            this.isUploading = false;
+            this.wallBulkFileUploadActive = false;
+            if (this.wallUploadPollIntervalId != null) {
+                clearInterval(this.wallUploadPollIntervalId);
+                this.wallUploadPollIntervalId = null;
+            }
+            this.cdr.markForCheck();
+            return;
+        }
+
+        const formData = new FormData();
+        processedFiles.forEach(file => formData.append('file', file, file.name));
+        formData.append('sessionId', sessionId);
+        if (imageFiles.length > 0) {
+            formData.append('allowOriginal', (!this.compressImages).toString());
+        }
+
+        const uploadUrl = `${environment.API_URL4FILE}/${user.id}/${group.eventId}`;
+
+        if (this.wallUploadPollIntervalId != null) {
+            clearInterval(this.wallUploadPollIntervalId);
+            this.wallUploadPollIntervalId = null;
+        }
+        let lastLogCount = 0;
+        let consecutiveErrors = 0;
+        this.wallUploadPollIntervalId = setInterval(() => {
+            if (consecutiveErrors >= 5) {
+                if (this.wallUploadPollIntervalId != null) {
+                    clearInterval(this.wallUploadPollIntervalId);
+                    this.wallUploadPollIntervalId = null;
+                }
+                return;
+            }
+            const logSub = this.fileService.getUploadLogs(sessionId).subscribe({
+                next: (serverLogs: string[]) => {
+                    consecutiveErrors = 0;
+                    this.ngZone.run(() => {
+                        if (serverLogs.length > lastLogCount) {
+                            for (let i = lastLogCount; i < serverLogs.length; i++) {
+                                this.addWallUploadLog(serverLogs[i]);
+                            }
+                            lastLogCount = serverLogs.length;
+                        }
+                    });
+                },
+                error: () => {
+                    consecutiveErrors++;
+                }
+            });
+            this.subscriptions.push(logSub);
+        }, 1500);
+
+        const uploadSub = this.fileService.postFileToUrl(formData, user, uploadUrl, sessionId).subscribe({
+            next: () => {
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    if (this.wallUploadPollIntervalId != null) {
+                        clearInterval(this.wallUploadPollIntervalId);
+                        this.wallUploadPollIntervalId = null;
+                    }
+                    const fileCount = processedFiles.length;
+                    this.addWallUploadSuccessLog(`✅ Upload successful! ${fileCount} file(s) processed`);
+                    this.refreshTimelineGroup(group);
+                    this.isUploading = false;
+                    this.wallBulkFileUploadActive = false;
+                    this.cdr.markForCheck();
+                }, 500);
+            },
+            error: (err: any) => {
+                if (this.wallUploadPollIntervalId != null) {
+                    clearInterval(this.wallUploadPollIntervalId);
+                    this.wallUploadPollIntervalId = null;
+                }
+                const uploadError = err?.headers?.get('X-Upload-Error');
+                let errorMessage = this.translate.instant('EVENTELEM.ERROR_UPLOADING');
+                if (err?.status === 0) {
+                    errorMessage = this.translate.instant('EVENTELEM.ERROR_CONNECTING');
+                } else if (err?.status === 401) {
+                    errorMessage = this.translate.instant('EVENTELEM.ERROR_AUTHENTICATION');
+                } else if (err?.status === 403) {
+                    errorMessage = this.translate.instant('EVENTELEM.ERROR_ACCESS_DENIED');
+                } else if (err?.status === 413) {
+                    errorMessage = this.translate.instant('EVENTELEM.ERROR_FILE_TOO_LARGE');
+                } else if (err?.status === 507) {
+                    errorMessage = uploadError || this.translate.instant('EVENTELEM.ERROR_UPLOADING');
+                } else if (err?.status >= 500) {
+                    errorMessage = this.translate.instant('EVENTELEM.ERROR_SERVER');
+                } else if (err?.error?.message) {
+                    errorMessage = err.error.message;
+                }
+                if (uploadError && !String(errorMessage).includes(uploadError)) {
+                    errorMessage += ` (${uploadError})`;
+                }
+                this.addWallUploadErrorLog(`❌ Upload error: ${errorMessage}`);
+                this.wallUploadLastError = errorMessage;
+                this.wallUploadLastErrorDetail = `HTTP ${err?.status || '?'} ${err?.statusText || ''}`;
+                this.isUploading = false;
+                this.wallBulkFileUploadActive = false;
+                this.ngZone.run(() => this.cdr.detectChanges());
+            }
+        });
+        this.subscriptions.push(uploadSub);
+    }
+
+    private finishWallUploadCancelled(logsModal: NgbModalRef | null): void {
+        if (this.wallUploadPollIntervalId != null) {
+            clearInterval(this.wallUploadPollIntervalId);
+            this.wallUploadPollIntervalId = null;
+        }
+        this.isUploading = false;
+        this.wallBulkFileUploadActive = false;
+        if (logsModal) {
+            try { logsModal.close(); } catch (_) {}
+        }
+        this.wallUploadLogsModalRef = null;
+        this.cdr.markForCheck();
+    }
+
+    closeWallUploadLogsModal(): void {
+        if (this.wallUploadLogsModalRef) {
+            try { this.wallUploadLogsModalRef.close(); } catch (_) {}
+            this.wallUploadLogsModalRef = null;
+        }
+    }
+
+    clearWallUploadLastError(): void {
+        this.wallUploadLastError = null;
+        this.wallUploadLastErrorDetail = '';
+    }
+
+    private generateWallUploadSessionId(): string {
+        return 'upload-' + Date.now() + '-' + Math.random().toString(36).substring(7);
+    }
+
+    private addWallUploadLog(message: string): void {
+        this.ngZone.run(() => {
+            this.wallUploadLogs.unshift(`[${new Date().toLocaleTimeString()}] ${message}`);
+            this.cdr.detectChanges();
+            requestAnimationFrame(() => {
+                const el = this.wallUploadLogContent?.nativeElement;
+                if (el) el.scrollTop = 0;
+            });
+        });
+    }
+
+    private addWallUploadSuccessLog(message: string): void {
+        this.wallUploadLogs.unshift(`SUCCESS: [${new Date().toLocaleTimeString()}] ${message}`);
+        this.cdr.detectChanges();
+        requestAnimationFrame(() => {
+            const el = this.wallUploadLogContent?.nativeElement;
+            if (el) el.scrollTop = 0;
+        });
+    }
+
+    private addWallUploadErrorLog(message: string): void {
+        this.ngZone.run(() => {
+            this.wallUploadLogs.unshift(`ERROR: [${new Date().toLocaleTimeString()}] ${message}`);
+            this.cdr.detectChanges();
+            requestAnimationFrame(() => {
+                const el = this.wallUploadLogContent?.nativeElement;
+                if (el) el.scrollTop = 0;
+            });
+        });
+    }
+
+    private isWallImageFileByMimeType(file: File): boolean {
+        const imageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/bmp', 'image/webp', 'image/svg+xml'];
+        return imageTypes.includes((file.type || '').toLowerCase());
+    }
+
+    private addThumbnailToWallFileName(originalName: string): string {
+        const lastDotIndex = originalName.lastIndexOf('.');
+        if (lastDotIndex === -1) {
+            return originalName + '_thumbnail';
+        }
+        const nameWithoutExtension = originalName.substring(0, lastDotIndex);
+        const extension = originalName.substring(lastDotIndex);
+        const middleIndex = Math.floor(nameWithoutExtension.length / 2);
+        return nameWithoutExtension.substring(0, middleIndex) +
+            'thumbnail' +
+            nameWithoutExtension.substring(middleIndex) +
+            extension;
+    }
+
+    private askWallCompressionQuality(videoCount: number): Promise<'low' | 'medium' | 'high' | 'very-high' | 'original' | null> {
+        return new Promise(resolve => {
+            this.selectedCompressionQuality = 'very-high';
+            this.videoCountForModal = videoCount;
+            if (this.wallQualitySelectionModal) {
+                this.qualityModalRef = this.modalService.open(this.wallQualitySelectionModal, {
+                    centered: true,
+                    backdrop: 'static',
+                    keyboard: false,
+                    size: 'md',
+                    windowClass: 'compression-quality-modal'
+                });
+                this.qualityModalRef.result.then(
+                    (result: 'low' | 'medium' | 'high' | 'very-high' | 'original') => {
+                        this.qualityModalRef = null;
+                        resolve(result);
+                    },
+                    () => {
+                        this.qualityModalRef = null;
+                        resolve(null);
+                    }
+                );
+            } else {
+                resolve('very-high');
+            }
+        });
+    }
+
+    confirmWallQualitySelection(): void {
+        if (this.qualityModalRef) {
+            this.qualityModalRef.close(this.selectedCompressionQuality);
+        }
+    }
+
+    cancelWallQualitySelection(): void {
+        if (this.qualityModalRef) {
+            this.qualityModalRef.dismiss();
+        }
+    }
+
+    private askForImageCompression(imageCount: number): Promise<boolean | null> {
         return new Promise((resolve) => {
             this.compressImages = true;
+            this.imageCountForModal = imageCount;
 
             if (this.imageCompressionModal) {
                 this.imageCompressionModalRef = this.modalService.open(this.imageCompressionModal, {
@@ -1725,7 +2086,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     }
                 );
             } else {
-                const choice = confirm(this.translate.instant('EVENTELEM.IMAGE_COMPRESSION_MESSAGE', { count: 1 }));
+                const choice = confirm(
+                    this.translate.instant('EVENTELEM.IMAGE_COMPRESSION_MESSAGE', { count: imageCount })
+                );
                 resolve(choice);
             }
         });

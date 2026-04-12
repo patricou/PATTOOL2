@@ -1658,6 +1658,9 @@
         "TRACK_TABLE_DOWNLOAD": "הורד קובץ מסלול",
         "TRACK_TABLE_ERROR": "שגיאה",
         "TRACK_TABLE_SHOW_ALL": "הצג את כל המסלולים",
-        "TRACK_TABLE_SHOW_LESS": "כווץ"
+        "TRACK_TABLE_SHOW_LESS": "כווץ",
+        "WALL_UPLOAD_BTN": "הוספת קבצים לפעילות (תמונות, וידאו, מסלולי GPS, PDF…)",
+        "WALL_UPLOADING": "מעלה קבצים…",
+        "WALL_UPLOAD_LOG_WAITING": "ממתין לתחילת ההעלאה…"
     }
 }

@@ -1673,6 +1673,9 @@
         "TRACK_TABLE_DOWNLOAD": "Descargar archivo de ruta",
         "TRACK_TABLE_ERROR": "Error",
         "TRACK_TABLE_SHOW_ALL": "Ver todas las rutas",
-        "TRACK_TABLE_SHOW_LESS": "Contraer"
+        "TRACK_TABLE_SHOW_LESS": "Contraer",
+        "WALL_UPLOAD_BTN": "Añadir archivos a esta actividad (fotos, vídeos, trazas GPS, PDF…)",
+        "WALL_UPLOADING": "Subiendo archivos…",
+        "WALL_UPLOAD_LOG_WAITING": "Esperando el inicio de la subida…"
     }
 }

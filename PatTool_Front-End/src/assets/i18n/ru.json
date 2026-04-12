@@ -1661,6 +1661,9 @@
         "TRACK_TABLE_DOWNLOAD": "Скачать файл трека",
         "TRACK_TABLE_ERROR": "Ошибка",
         "TRACK_TABLE_SHOW_ALL": "Показать все треки",
-        "TRACK_TABLE_SHOW_LESS": "Свернуть"
+        "TRACK_TABLE_SHOW_LESS": "Свернуть",
+        "WALL_UPLOAD_BTN": "Добавить файлы к активности (фото, видео, GPS-треки, PDF…)",
+        "WALL_UPLOADING": "Загрузка файлов…",
+        "WALL_UPLOAD_LOG_WAITING": "Ожидание начала загрузки…"
     }
 }

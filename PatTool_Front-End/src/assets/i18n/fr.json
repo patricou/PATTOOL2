@@ -1690,7 +1690,10 @@
         "TRACK_TABLE_DOWNLOAD": "Télécharger le fichier trace",
         "TRACK_TABLE_ERROR": "Erreur",
         "TRACK_TABLE_SHOW_ALL": "Voir toutes les traces",
-        "TRACK_TABLE_SHOW_LESS": "Replier"
+        "TRACK_TABLE_SHOW_LESS": "Replier",
+        "WALL_UPLOAD_BTN": "Ajouter des fichiers à cette activité (photos, vidéos, traces GPS, PDF…)",
+        "WALL_UPLOADING": "Envoi des fichiers en cours…",
+        "WALL_UPLOAD_LOG_WAITING": "En attente du début de l'envoi…"
     }
 }
 

@@ -1670,6 +1670,9 @@
         "TRACK_TABLE_DOWNLOAD": "Λήψη αρχείου διαδρομής",
         "TRACK_TABLE_ERROR": "Σφάλμα",
         "TRACK_TABLE_SHOW_ALL": "Εμφάνιση όλων των ιχνών",
-        "TRACK_TABLE_SHOW_LESS": "Σύμπτυξη"
+        "TRACK_TABLE_SHOW_LESS": "Σύμπτυξη",
+        "WALL_UPLOAD_BTN": "Προσθήκη αρχείων στη δραστηριότητα (φωτογραφίες, βίντεο, ίχνη GPS, PDF…)",
+        "WALL_UPLOADING": "Μεταφόρτωση αρχείων…",
+        "WALL_UPLOAD_LOG_WAITING": "Αναμονή έναρξης μεταφόρτωσης…"
     }
 }

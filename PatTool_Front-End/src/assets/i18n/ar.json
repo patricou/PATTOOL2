@@ -1665,6 +1665,9 @@
         "TRACK_TABLE_DOWNLOAD": "تنزيل ملف المسار",
         "TRACK_TABLE_ERROR": "خطأ",
         "TRACK_TABLE_SHOW_ALL": "عرض كل المسارات",
-        "TRACK_TABLE_SHOW_LESS": "طي"
+        "TRACK_TABLE_SHOW_LESS": "طي",
+        "WALL_UPLOAD_BTN": "إضافة ملفات إلى هذا النشاط (صور، فيديو، مسارات GPS، PDF…)",
+        "WALL_UPLOADING": "جاري رفع الملفات…",
+        "WALL_UPLOAD_LOG_WAITING": "في انتظار بدء الرفع…"
     }
 }
