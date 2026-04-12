@@ -56,6 +56,11 @@
 
 <!-- Artistic Event Details Page -->
 <div *ngIf="evenement && !loading && !error" class="artistic-event-page" [ngClass]="getTextColorClass()">
+    <app-event-card-overlay
+        *ngIf="eventIdForCard"
+        [eventId]="eventIdForCard"
+        (closed)="closeEventCardOverlay()">
+    </app-event-card-overlay>
   
   <!-- Background Image Layer -->
   <div class="background-image-layer" [style.background-image]="getMainBackgroundImage()"></div>
@@ -148,6 +153,15 @@
               </svg>
               <span class="btn-text">{{ 'MENU.PHOTOS' | translate }}</span>
             </a>
+          </div>
+          <div class="event-card-overlay-trigger-wrapper" *ngIf="evenement?.id">
+            <button type="button"
+                    class="btn-compact btn-primary-compact"
+                    (click)="openEventCardOverlay(); $event.stopPropagation()"
+                    [title]="'PHOTO_TIMELINE.EVENT_CARD' | translate">
+              <i class="fa fa-id-card"></i>
+              <span class="btn-text">{{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}</span>
+            </button>
           </div>
           <div class="add-web-link-wrapper" *ngIf="user && evenement">
             <button type="button"

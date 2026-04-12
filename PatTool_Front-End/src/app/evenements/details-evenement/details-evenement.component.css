@@ -2891,6 +2891,7 @@ select.compact-input:focus {
   .action-container .share-whatsapp-wrapper,
   .action-container .share-email-wrapper,
   .action-container .wall-photos-event-wrapper,
+  .action-container .event-card-overlay-trigger-wrapper,
   .action-container .add-web-link-wrapper,
   .action-container .edit-event-wrapper,
   .action-container .notes-section {
@@ -2908,6 +2909,7 @@ select.compact-input:focus {
   .action-container .share-whatsapp-wrapper > *,
   .action-container .share-email-wrapper > *,
   .action-container .wall-photos-event-wrapper > *,
+  .action-container .event-card-overlay-trigger-wrapper > *,
   .action-container .add-web-link-wrapper > *,
   .action-container .edit-event-wrapper > *,
   .action-container .notes-section > * {
@@ -4023,6 +4025,7 @@ select.compact-input:focus {
   .action-container .share-whatsapp-wrapper,
   .action-container .share-email-wrapper,
   .action-container .wall-photos-event-wrapper,
+  .action-container .event-card-overlay-trigger-wrapper,
   .action-container .add-web-link-wrapper,
   .action-container .edit-event-wrapper,
   .action-container .file-upload-wrapper,
@@ -4060,6 +4063,7 @@ select.compact-input:focus {
   .action-container .share-whatsapp-wrapper .btn-compact,
   .action-container .share-email-wrapper .btn-compact,
   .action-container .wall-photos-event-wrapper a.btn-compact,
+  .action-container .event-card-overlay-trigger-wrapper .btn-compact,
   .action-container .add-web-link-wrapper .btn-compact,
   .action-container .edit-event-wrapper .btn-compact,
   .action-container .file-upload-wrapper label.btn-compact {
@@ -4075,6 +4079,7 @@ select.compact-input:focus {
   .action-container .share-whatsapp-wrapper .btn-compact i,
   .action-container .share-email-wrapper .btn-compact i,
   .action-container .wall-photos-event-wrapper a.btn-compact i,
+  .action-container .event-card-overlay-trigger-wrapper .btn-compact i,
   .action-container .add-web-link-wrapper .btn-compact i,
   .action-container .edit-event-wrapper .btn-compact i,
   .action-container .file-upload-wrapper label.btn-compact i {
@@ -4246,6 +4251,7 @@ select.compact-input:focus {
   .action-container .share-whatsapp-wrapper,
   .action-container .share-email-wrapper,
   .action-container .wall-photos-event-wrapper,
+  .action-container .event-card-overlay-trigger-wrapper,
   .action-container .add-web-link-wrapper,
   .action-container .edit-event-wrapper,
   .action-container .notes-section {
@@ -4263,6 +4269,7 @@ select.compact-input:focus {
   .action-container .share-whatsapp-wrapper > *,
   .action-container .share-email-wrapper > *,
   .action-container .wall-photos-event-wrapper > *,
+  .action-container .event-card-overlay-trigger-wrapper > *,
   .action-container .add-web-link-wrapper > *,
   .action-container .edit-event-wrapper > *,
   .action-container .notes-section > * {

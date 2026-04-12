@@ -37,7 +37,9 @@ import { ElementEvenementComponent } from '../../evenements/element-evenement/el
                         [evenement]="evenement"
                         [user]="user"
                         [friendGroups]="friendGroups"
-                        [titleOnly]="false">
+                        [titleOnly]="false"
+                        (addMember)="onOverlayAddMember($event)"
+                        (delMember)="onOverlayDelMember($event)">
                     </element-evenement>
                 </div>
             </div>
@@ -115,7 +117,6 @@ import { ElementEvenementComponent } from '../../evenements/element-evenement/el
             overflow: hidden;
         }
     `],
-    providers: [EvenementsService]
 })
 export class EventCardOverlayComponent implements OnDestroy, OnChanges {
     private evenementsService = inject(EvenementsService);
@@ -237,5 +238,52 @@ export class EventCardOverlayComponent implements OnDestroy, OnChanges {
             }
         });
         this.subscriptions.push(fileSub);
+    }
+
+    /** Même flux que home-evenements.addMemberInEvent — la carte n’avait pas de parent qui écoutait addMember. */
+    onOverlayAddMember(ev: Evenement): void {
+        const u = this.membersService.getUser();
+        const target = this.evenement;
+        if (!target || !ev || ev.id !== target.id || !u?.userName) {
+            return;
+        }
+        if (!target.members) {
+            target.members = [];
+        }
+        if (target.members.some(m => m.userName?.toLowerCase() === u.userName.toLowerCase())) {
+            return;
+        }
+        target.members.push(u);
+        const sub = this.evenementsService.putEvenement(target).subscribe({
+            next: () => this.cdr.markForCheck(),
+            error: (err) => {
+                target.members = (target.members || []).filter(
+                    m => m.userName?.toLowerCase() !== u.userName.toLowerCase()
+                );
+                console.error('Error joining event', err);
+                this.cdr.markForCheck();
+            }
+        });
+        this.subscriptions.push(sub);
+    }
+
+    /** Même flux que home-evenements.delMemberInEvent. */
+    onOverlayDelMember(ev: Evenement): void {
+        const u = this.membersService.getUser();
+        const target = this.evenement;
+        if (!target || !ev || ev.id !== target.id || !u?.id) {
+            return;
+        }
+        const prev = [...(target.members || [])];
+        target.members = (target.members || []).filter(m => m.id !== u.id);
+        const sub = this.evenementsService.putEvenement(target).subscribe({
+            next: () => this.cdr.markForCheck(),
+            error: (err) => {
+                target.members = prev;
+                console.error('Error leaving event', err);
+                this.cdr.markForCheck();
+            }
+        });
+        this.subscriptions.push(sub);
     }
 }

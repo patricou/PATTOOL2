@@ -33,6 +33,7 @@ import { EventColorService } from '../../services/event-color.service';
 import { AddToDbLayerService } from '../../services/add-to-db-layer.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { KeycloakService } from '../../keycloak/keycloak.service';
+import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-route-stats.util';
 
 @Component({
 	selector: 'element-evenement',
@@ -4888,6 +4889,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		
 		// Clean up subscription when modal is closed
 		modalRef.result.finally(() => {
+			this.trackStatsHydrateGeneration++;
 			if (this.fileStreamSubscription) {
 				this.fileStreamSubscription.unsubscribe();
 				this.fileStreamSubscription = null;
@@ -4915,7 +4917,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					if (this.isImageFile(f.fileName)) this.loadFileThumbnail(f);
 					else if (this.isVideoFile(f.fileName)) this.loadVideoThumbnail(f);
 				});
-				setTimeout(() => this.autoExpandFileTypesWithLessThanFour(), 100);
+				setTimeout(() => {
+					this.autoExpandFileTypesWithLessThanFour();
+					this.hydrateTrackManualFieldsFromServerFiles();
+				}, 100);
 			}, 50);
 			return;
 		}
@@ -4995,6 +5000,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 						// Auto-expand types with less than 4 elements
 						setTimeout(() => {
 							this.autoExpandFileTypesWithLessThanFour();
+							this.hydrateTrackManualFieldsFromServerFiles();
 						}, 100);
 					} else if (streamedFile.type === 'error') {
 						// Error received from server - try REST fallback in case stream-specific issue
@@ -5028,6 +5034,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					// Auto-expand types with less than 4 elements
 					setTimeout(() => {
 						this.autoExpandFileTypesWithLessThanFour();
+						this.hydrateTrackManualFieldsFromServerFiles();
 					}, 100);
 				}
 			});
@@ -5077,6 +5084,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 					// Auto-expand types with less than 4 elements
 					setTimeout(() => {
 						this.autoExpandFileTypesWithLessThanFour();
+						this.hydrateTrackManualFieldsFromServerFiles();
 					}, 100);
 				} else {
 					setTimeout(() => {
@@ -6332,13 +6340,14 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return lowerFileName.endsWith('.pdf');
 	}
 
-	// Check if file is a GPS track (GPX, KML, GeoJSON, TCX)
+	// Check if file is a GPS track (same extensions as update-evenement / upload)
 	public isTrackFile(fileName: string): boolean {
-		if (!fileName) return false;
-
-		const trackExtensions = ['.gpx', '.kml', '.geojson', '.tcx'];
-		const lowerFileName = fileName.toLowerCase();
-		return trackExtensions.some(ext => lowerFileName.endsWith(ext));
+		if (!fileName) {
+			return false;
+		}
+		const lower = fileName.toLowerCase();
+		const trackExtensions = ['.gpx', '.kml', '.kmz', '.gdb', '.tcx', '.geojson'];
+		return trackExtensions.some(ext => lower.endsWith(ext));
 	}
 
 	// Check if file is a video based on extension
@@ -6378,37 +6387,175 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		return null;
 	}
 
-	private trackDisplayNameEditStart = new Map<string, string>();
+	private trackFileMetaSnapshot = new Map<string, string>();
+	private trackStatsHydrateGeneration = 0;
 
 	private normalizeTrackDisplayName(v: string | undefined | null): string {
 		return (typeof v === 'string' ? v.trim() : '') || '';
 	}
 
-	/** Début d’édition du nom affiché (trace) : valeur normalisée pour comparer au blur. */
-	public onTrackDisplayNameFocus(uploadedFile: UploadedFile): void {
-		if (uploadedFile?.fieldId) {
-			this.trackDisplayNameEditStart.set(
-				uploadedFile.fieldId,
-				this.normalizeTrackDisplayName(uploadedFile.displayName)
-			);
+	private isManualTrackDistanceSetFile(f: UploadedFile): boolean {
+		return f.manualDistanceKm != null && Number.isFinite(Number(f.manualDistanceKm));
+	}
+
+	private isManualTrackElevationSetFile(f: UploadedFile): boolean {
+		return f.manualElevationGainM != null && Number.isFinite(Number(f.manualElevationGainM));
+	}
+
+	private isManualTrackActivityDateSetFile(f: UploadedFile): boolean {
+		return !!(f.manualActivityDate || '').trim();
+	}
+
+	private isTrackStatsFullyManualFile(f: UploadedFile): boolean {
+		return this.isManualTrackDistanceSetFile(f)
+			&& this.isManualTrackElevationSetFile(f)
+			&& this.isManualTrackActivityDateSetFile(f);
+	}
+
+	private fileDateIsoToDateInputLocal(iso: string): string | undefined {
+		const d = new Date(iso);
+		if (!Number.isFinite(d.getTime())) {
+			return undefined;
+		}
+		const y = d.getFullYear();
+		const m = String(d.getMonth() + 1).padStart(2, '0');
+		const day = String(d.getDate()).padStart(2, '0');
+		return `${y}-${m}-${day}`;
+	}
+
+	private trackFileMetaKey(f: UploadedFile): string {
+		return JSON.stringify({
+			d: this.normalizeTrackDisplayName(f.displayName),
+			km: f.manualDistanceKm ?? null,
+			el: f.manualElevationGainM ?? null,
+			dt: (f.manualActivityDate || '').trim() || null
+		});
+	}
+
+	private normalizeTrackManualNumbers(f: UploadedFile): void {
+		const km = f.manualDistanceKm;
+		const kmEmptyStr = typeof km === 'string' && `${km}`.trim() === '';
+		if (km === null || km === undefined || kmEmptyStr || (typeof km === 'number' && Number.isNaN(km))) {
+			f.manualDistanceKm = undefined;
+		} else {
+			f.manualDistanceKm = Math.round(Number(km) * 100) / 100;
+		}
+		const el = f.manualElevationGainM;
+		const elEmptyStr = typeof el === 'string' && `${el}`.trim() === '';
+		if (el === null || el === undefined || elEmptyStr || (typeof el === 'number' && Number.isNaN(el))) {
+			f.manualElevationGainM = undefined;
+		} else {
+			f.manualElevationGainM = Math.round(Number(el));
+		}
+		const dt = (f.manualActivityDate || '').trim();
+		f.manualActivityDate = dt || undefined;
+	}
+
+	/**
+	 * Remplit date / km / D+ depuis le fichier (GridFS) pour les champs vides en base — même logique que update-evenement.
+	 */
+	private hydrateTrackManualFieldsFromServerFiles(): void {
+		if (!this.evenement?.fileUploadeds?.length) {
+			return;
+		}
+		this.trackStatsHydrateGeneration++;
+		const gen = this.trackStatsHydrateGeneration;
+
+		for (const f of this.evenement.fileUploadeds) {
+			if (!this.isTrackFile(f.fileName) || !f.fieldId) {
+				continue;
+			}
+			if (this.isTrackStatsFullyManualFile(f)) {
+				this.trackFileMetaSnapshot.set(f.fieldId, this.trackFileMetaKey(f));
+				continue;
+			}
+
+			const fieldId = f.fieldId;
+			const sub = this._fileService.getFile(fieldId).subscribe({
+				next: (buffer: ArrayBuffer) => {
+					if (gen !== this.trackStatsHydrateGeneration) {
+						return;
+					}
+					const current = this.evenement?.fileUploadeds?.find(x => x.fieldId === fieldId);
+					if (!current) {
+						return;
+					}
+					try {
+						const text = new TextDecoder('utf-8').decode(buffer);
+						const stats = computeTrackStatsFromFileContent(current.fileName, text);
+						if (gen !== this.trackStatsHydrateGeneration) {
+							return;
+						}
+						if (!this.isManualTrackDistanceSetFile(current) && stats.distanceKm != null && Number.isFinite(stats.distanceKm)) {
+							current.manualDistanceKm = Math.round(stats.distanceKm * 100) / 100;
+						}
+						if (!this.isManualTrackElevationSetFile(current) && stats.elevationGainM != null && Number.isFinite(stats.elevationGainM)) {
+							current.manualElevationGainM = Math.round(stats.elevationGainM);
+						}
+						if (!this.isManualTrackActivityDateSetFile(current) && stats.fileDateIso) {
+							const di = this.fileDateIsoToDateInputLocal(stats.fileDateIso);
+							if (di) {
+								current.manualActivityDate = di;
+							}
+						}
+						this.normalizeTrackManualNumbers(current);
+					} catch {
+						/* binaire / KMZ non décodé en UTF-8 : pas de stats */
+					}
+					if (gen !== this.trackStatsHydrateGeneration) {
+						return;
+					}
+					this.trackFileMetaSnapshot.set(fieldId, this.trackFileMetaKey(current));
+					this.ngZone.run(() => this.cdr.markForCheck());
+				},
+				error: () => {
+					if (gen !== this.trackStatsHydrateGeneration) {
+						return;
+					}
+					const current = this.evenement?.fileUploadeds?.find(x => x.fieldId === fieldId);
+					if (current) {
+						this.trackFileMetaSnapshot.set(fieldId, this.trackFileMetaKey(current));
+					}
+					this.ngZone.run(() => this.cdr.markForCheck());
+				}
+			});
+			this.allSubscriptions.push(sub);
 		}
 	}
 
-	/** Enregistre le nom affiché d’une trace (GPX/KML/…) si modifié. */
-	public onTrackDisplayNameBlur(uploadedFile: UploadedFile): void {
+	public onTrackFileMetaFocus(uploadedFile: UploadedFile): void {
+		if (!uploadedFile?.fieldId || !this.isTrackFile(uploadedFile.fileName)) {
+			return;
+		}
+		this.trackFileMetaSnapshot.set(uploadedFile.fieldId, this.trackFileMetaKey(uploadedFile));
+	}
+
+	/** Enregistre nom + date / km / D+ manuels de la trace si modifiés (PUT événement), comme update-evenement. */
+	public onTrackFileMetaBlur(uploadedFile: UploadedFile): void {
 		if (!this.evenement?.id || !this.isAuthor() || !uploadedFile?.fieldId || !this.isTrackFile(uploadedFile.fileName)) {
 			return;
 		}
-		const normNow = this.normalizeTrackDisplayName(uploadedFile.displayName);
-		uploadedFile.displayName = normNow || undefined;
-		const start = this.trackDisplayNameEditStart.get(uploadedFile.fieldId) ?? '';
-		this.trackDisplayNameEditStart.delete(uploadedFile.fieldId);
-		if (normNow === start) {
-			return;
-		}
-		this._evenementsService.putEvenement(this.evenement).subscribe({
-			next: () => this.updateEvenement.emit(this.evenement),
-			error: (err) => console.error('Error saving track display name', err)
+		const fieldId = uploadedFile.fieldId;
+		queueMicrotask(() => {
+			this.ngZone.run(() => {
+				const f = this.evenement?.fileUploadeds?.find(u => u.fieldId === fieldId);
+				if (!this.evenement?.id || !this.isAuthor() || !f || !this.isTrackFile(f.fileName)) {
+					return;
+				}
+				this.normalizeTrackManualNumbers(f);
+				const now = this.trackFileMetaKey(f);
+				const before = this.trackFileMetaSnapshot.get(fieldId);
+				if (before === now) {
+					return;
+				}
+				this.trackFileMetaSnapshot.set(fieldId, now);
+				const normName = this.normalizeTrackDisplayName(f.displayName);
+				f.displayName = normName || undefined;
+				this._evenementsService.putEvenement(this.evenement).subscribe({
+					next: () => this.updateEvenement.emit(this.evenement),
+					error: (err) => console.error('Error saving track metadata', err)
+				});
+			});
 		});
 	}
 

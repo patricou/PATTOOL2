@@ -33,6 +33,7 @@ import { EventColorService } from '../../services/event-color.service';
 import { EventVideoPreloadService } from '../../services/event-video-preload.service';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
+import { EventCardOverlayComponent } from '../../shared/event-card-modal/event-card-overlay.component';
 
 @Component({
   selector: 'app-details-evenement',
@@ -50,12 +51,15 @@ import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
     DiscussionModalComponent,
     ElementEvenementComponent,
     NavigationButtonsModule,
-    CommentaryEditor
+    CommentaryEditor,
+    EventCardOverlayComponent
   ]
 })
 export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestroy {
 
   public evenement: Evenement | null = null;
+  /** Fiche événement (overlay comme sur le mur de photos) */
+  public eventIdForCard: string | null = null;
   public user: Member | null = null;
   public loading: boolean = true;
   public error: string | null = null;
@@ -3527,6 +3531,17 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     if (this.evenement && this.evenement.id) {
       this.router.navigate(['/updeven', this.evenement.id]);
     }
+  }
+
+  /** Ouvre la fiche événement (carte) comme sur le mur de photos. */
+  public openEventCardOverlay(): void {
+    if (this.evenement?.id) {
+      this.eventIdForCard = this.evenement.id;
+    }
+  }
+
+  public closeEventCardOverlay(): void {
+    this.eventIdForCard = null;
   }
 
   // Open WhatsApp share modal
