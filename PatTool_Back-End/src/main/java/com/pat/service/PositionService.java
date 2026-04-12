@@ -20,6 +20,13 @@ public class PositionService {
 
     private static final Logger log = LoggerFactory.getLogger(PositionService.class);
 
+    /**
+     * When the client registers with {@code POST /memb/user} without GPS, an IP position is stored,
+     * then {@code POST /memb/user/gps} sends the real fix. Without this window, both would remain.
+     * Only trailing IP entries newer than this are dropped before appending GPS.
+     */
+    private static final long RECENT_IP_SUPERSEDED_BY_GPS_MS = 300_000L; // 5 minutes
+
     @Autowired
     private IpGeolocationService ipGeolocationService;
 
@@ -44,7 +51,9 @@ public class PositionService {
         if (member.getPositions() == null) {
             member.setPositions(new java.util.ArrayList<>());
         }
-        
+
+        stripRecentTrailingIpSupersededByGps(member);
+
         // Remove consecutive previous positions with the same address (compare coordinates rounded to 4 decimals)
         // dateFrom = datetime of the immediate previous position (first one we remove)
         Date dateFrom = null;
@@ -198,5 +207,29 @@ public class PositionService {
         }
         return Double.compare(roundTo4Decimals(lat1), roundTo4Decimals(lat2)) == 0
             && Double.compare(roundTo4Decimals(lon1), roundTo4Decimals(lon2)) == 0;
+    }
+
+    /**
+     * Drops trailing {@code IP} positions still "fresh" so a GPS fix from the same app session
+     * replaces the placeholder IP instead of stacking a second point.
+     */
+    private void stripRecentTrailingIpSupersededByGps(Member member) {
+        if (member.getPositions() == null || member.getPositions().isEmpty()) {
+            return;
+        }
+        long now = System.currentTimeMillis();
+        while (!member.getPositions().isEmpty()) {
+            Position last = member.getPositions().get(member.getPositions().size() - 1);
+            if (!"IP".equals(last.getType())) {
+                break;
+            }
+            Date ref = last.getDateTo() != null ? last.getDateTo() : last.getDatetime();
+            if (ref == null || now - ref.getTime() > RECENT_IP_SUPERSEDED_BY_GPS_MS) {
+                break;
+            }
+            member.getPositions().remove(member.getPositions().size() - 1);
+            log.debug("Removed recent IP position for member {} (superseded by GPS in same connection window)",
+                member.getUserName());
+        }
     }
 }
