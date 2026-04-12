@@ -185,6 +185,9 @@ public class SecurityConfig {
                 // Geo: geocode and altitudes (no sensitive data, allow without login for address/map tools)
                 .requestMatchers(HttpMethod.GET, "/api/external/geocode/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/external/weather/altitudes").permitAll()
+
+                // Calendar month view: activities use optional user-id header; personal appointments only when authenticated (see controller)
+                .requestMatchers(HttpMethod.GET, "/api/calendar/entries").permitAll()
                 
                 // Stream event files (SSE): require authentication so SecurityContext has user and getCurrentUserId() works
                 .requestMatchers(HttpMethod.GET, "/api/even/*/files/stream").authenticated()
@@ -211,7 +214,7 @@ public class SecurityConfig {
                 // Note: /iot is protected above and requires Iot role
                 .requestMatchers("/even", "/neweven", "/updeven/**", "/details-evenement/**", 
                                 "/results", "/maps", "/links", "/links-admin",
-                                "/friends", "/patgpt", "/system").permitAll()
+                                "/friends", "/patgpt", "/system", "/calendrier").permitAll()
                 
                 // ============================================
                 // DEFAULT - Permit for Angular SPA routing

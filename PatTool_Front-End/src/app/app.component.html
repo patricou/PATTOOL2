@@ -89,6 +89,15 @@
                 </a>
             </li>
 
+            <!-- Calendar (appointments + activities) -->
+            <li class="nav-item">
+                <a class="nav-link"
+                   [routerLink]="['calendrier']"
+                   (click)="closeMenu()">
+                    <i class="fa fa-calendar-check-o"></i> {{ 'MENU.CALENDAR' | translate }}
+                </a>
+            </li>
+
             <!-- Geo Dropdown (position, weather, map) -->
             <li class="nav-item dropdown">
                 <a class="nav-link dropdown-toggle" 
@@ -111,63 +120,6 @@
                            [routerLink]="['api/address-geocode']" 
                            (click)="closeMenu()">
                         <i class="fa fa-map-marker"></i> {{ 'MENU.ADDRESS_TO_MAP' | translate }}
-                    </a></li>
-                </ul>
-            </li>
-
-            <!-- AI Dropdown -->
-            <li class="nav-item dropdown">
-                <a class="nav-link dropdown-toggle" 
-                   href="#" 
-                   id="aiDropdown" 
-                   role="button"
-                   (click)="toggleIADropdown($event)" 
-                   [attr.aria-expanded]="showIADropdown">
-                    <i class="fa fa-magic"></i> {{ 'MENU.IA' | translate }}
-                </a>
-                <ul class="dropdown-menu" 
-                    [class.show]="showIADropdown" 
-                    aria-labelledby="aiDropdown">
-                    <li><a class="dropdown-item" 
-                           href="https://search.brave.com/?lang=fr-fr" 
-                           target="_blank" 
-                           (click)="closeMenuOnly(); $event.stopPropagation()">
-                        <i class="fa fa-magic"></i> Brave
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           href="https://chatgpt.com/?oai-dm=1" 
-                           target="_blank" 
-                           (click)="closeMenuOnly(); $event.stopPropagation()">
-                        <i class="fa fa-comments"></i> ChatGPT
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           href="https://claude.com/" 
-                           target="_blank" 
-                           (click)="closeMenuOnly(); $event.stopPropagation()">
-                        <i class="fa fa-commenting"></i> Claude
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           href="https://cursor.com/" 
-                           target="_blank" 
-                           (click)="closeMenuOnly(); $event.stopPropagation()">
-                        <i class="fa fa-code"></i> Cursor
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           href="https://www.deepseek.com/" 
-                           target="_blank" 
-                           (click)="closeMenuOnly(); $event.stopPropagation()">
-                        <i class="fa fa-lightbulb-o"></i> Deepseek
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           href="https://chat.mistral.ai/chat" 
-                           target="_blank" 
-                           (click)="closeMenuOnly(); $event.stopPropagation()">
-                        <i class="fa fa-cloud"></i> Mistral AI
-                    </a></li>
-                    <li><a class="dropdown-item" 
-                           [routerLink]="['patgpt']" 
-                           (click)="closeMenu(); $event.stopPropagation()">
-                        <i class="fa fa-magic"></i> {{ 'MENU.PATGPT' | translate }}
                     </a></li>
                 </ul>
             </li>
@@ -229,6 +181,68 @@
                            (click)="closeMenu()">
                         <i class="fa fa-map"></i> {{ 'MENU.MAPS' | translate }}
                     </a></li>
+                    <li class="dropdown-submenu"
+                        #iaSubmenuItem
+                        (mouseenter)="showIASubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false; showDocumentationSubmenu = false; positionIASubmenu()"
+                        (mouseleave)="checkCloseIASubmenu($event)">
+                        <a class="dropdown-item ia-toggle"
+                           href="#"
+                           id="iaSubmenu"
+                           (click)="toggleIASubmenuOnClick($event)">
+                            <i class="fa fa-magic"></i> {{ 'MENU.IA' | translate }}
+                        </a>
+                        <ul class="dropdown-menu ai-submenu-list"
+                            #iaSubmenuList
+                            [class.show]="showIASubmenu"
+                            [style.display]="showIASubmenu ? 'block' : 'none'"
+                            [style.opacity]="showIASubmenu ? '1' : '0'"
+                            [style.visibility]="showIASubmenu ? 'visible' : 'hidden'"
+                            aria-labelledby="iaSubmenu"
+                            (mouseenter)="showIASubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false; showDocumentationSubmenu = false"
+                            (mouseleave)="checkCloseIASubmenu($event)">
+                            <li><a class="dropdown-item"
+                                   href="https://search.brave.com/?lang=fr-fr"
+                                   target="_blank"
+                                   (click)="closeMenuOnly(); $event.stopPropagation()">
+                                <i class="fa fa-magic"></i> Brave
+                            </a></li>
+                            <li><a class="dropdown-item"
+                                   href="https://chatgpt.com/?oai-dm=1"
+                                   target="_blank"
+                                   (click)="closeMenuOnly(); $event.stopPropagation()">
+                                <i class="fa fa-comments"></i> ChatGPT
+                            </a></li>
+                            <li><a class="dropdown-item"
+                                   href="https://claude.com/"
+                                   target="_blank"
+                                   (click)="closeMenuOnly(); $event.stopPropagation()">
+                                <i class="fa fa-commenting"></i> Claude
+                            </a></li>
+                            <li><a class="dropdown-item"
+                                   href="https://cursor.com/"
+                                   target="_blank"
+                                   (click)="closeMenuOnly(); $event.stopPropagation()">
+                                <i class="fa fa-code"></i> Cursor
+                            </a></li>
+                            <li><a class="dropdown-item"
+                                   href="https://www.deepseek.com/"
+                                   target="_blank"
+                                   (click)="closeMenuOnly(); $event.stopPropagation()">
+                                <i class="fa fa-lightbulb-o"></i> Deepseek
+                            </a></li>
+                            <li><a class="dropdown-item"
+                                   href="https://chat.mistral.ai/chat"
+                                   target="_blank"
+                                   (click)="closeMenuOnly(); $event.stopPropagation()">
+                                <i class="fa fa-cloud"></i> Mistral AI
+                            </a></li>
+                            <li><a class="dropdown-item"
+                                   [routerLink]="['patgpt']"
+                                   (click)="closeMenu(); $event.stopPropagation()">
+                                <i class="fa fa-magic"></i> {{ 'MENU.PATGPT' | translate }}
+                            </a></li>
+                        </ul>
+                    </li>
                     <li [hidden]="!isAuthenticated()"><a class="dropdown-item" 
                            (click)="open(uploadfilecontent); closeMenu(); $event.preventDefault()">
                         <i class="fa fa-cloud-upload"></i> {{ "UPLOADFILE.MENU" | translate }}
@@ -239,7 +253,7 @@
                     </a></li>
                     <li class="dropdown-submenu" 
                         #documentationSubmenuItem
-                        (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false; positionDocumentationSubmenu()"
+                        (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false; showIASubmenu = false; positionDocumentationSubmenu()"
                         (mouseleave)="checkCloseDocumentationSubmenu($event)">
                         <a class="dropdown-item documentation-toggle" 
                            href="#" 
@@ -254,7 +268,7 @@
                             [style.opacity]="showDocumentationSubmenu ? '1' : '0'"
                             [style.visibility]="showDocumentationSubmenu ? 'visible' : 'hidden'"
                             aria-labelledby="documentationSubmenu"
-                            (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false"
+                            (mouseenter)="showDocumentationSubmenu = true; showToolsDropdown = true; showLanguageSubmenu = false; showIASubmenu = false"
                             (mouseleave)="checkCloseDocumentationSubmenu($event)">
                             <li>
                                 <a class="dropdown-item" 
@@ -272,7 +286,7 @@
                     </li>
                     <li class="dropdown-submenu" 
                         #languageSubmenuItem
-                        (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; showDocumentationSubmenu = false; positionLanguageSubmenu()"
+                        (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; showDocumentationSubmenu = false; showIASubmenu = false; positionLanguageSubmenu()"
                         (mouseleave)="checkCloseLanguageSubmenu($event)">
                         <a class="dropdown-item language-toggle" 
                            href="#" 
@@ -287,7 +301,7 @@
                             [style.opacity]="showLanguageSubmenu ? '1' : '0'"
                             [style.visibility]="showLanguageSubmenu ? 'visible' : 'hidden'"
                             aria-labelledby="languageSubmenu"
-                            (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; showDocumentationSubmenu = false"
+                            (mouseenter)="showLanguageSubmenu = true; showToolsDropdown = true; showDocumentationSubmenu = false; showIASubmenu = false"
                             (mouseleave)="checkCloseLanguageSubmenu($event)">
                             <li *ngFor="let lang of _translate.getLangs()">
                                 <a class="dropdown-item" 

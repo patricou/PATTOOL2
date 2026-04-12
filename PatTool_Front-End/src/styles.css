@@ -40,6 +40,16 @@ img, video, canvas {
     border-radius: 0.5rem !important;
 }
 
+/* Calendrier — création / modification RDV (même traitement bordure que les autres modales) */
+::ng-deep .calendar-appointment-modal.modal-dialog .modal-content,
+::ng-deep .modal-dialog.calendar-appointment-modal .modal-content,
+::ng-deep .modal.show .calendar-appointment-modal.modal-dialog .modal-content,
+::ng-deep .modal.show .modal-dialog.calendar-appointment-modal .modal-content {
+    border: 3px solid #ffffff !important;
+    border-radius: 0.5rem !important;
+    overflow: hidden !important;
+}
+
 /* Global style for discussion modal with white border */
 ::ng-deep .discussion-modal-window .modal-content,
 ::ng-deep .modal-dialog.discussion-modal-window .modal-content,

@@ -35,6 +35,7 @@ import java.time.format.DateTimeFormatter;
     excludeFilters = @ComponentScan.Filter(
         type = FilterType.ASSIGNABLE_TYPE,
         classes = {
+            com.pat.repo.CalendarAppointmentRepository.class,
             com.pat.repo.CategoryLinkRepository.class,
             com.pat.repo.DiscussionRepository.class,
             com.pat.repo.EvenementsRepository.class,

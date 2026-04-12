@@ -1,0 +1,71 @@
+<!-- Standard Title Section (same pattern as System, API, Maps) -->
+<div class="pat-title">
+  <h2>{{ 'CALENDAR.TITLE' | translate }}</h2>
+</div>
+
+<div class="calendar-page container-fluid mt-0 px-2 px-md-3 py-3">
+  <p class="text-secondary small mb-2">{{ 'CALENDAR.SUBTITLE' | translate }}</p>
+
+  <div *ngIf="errorMessage" class="alert alert-danger py-2 mb-2">{{ errorMessage | translate }}</div>
+
+  <div class="calendar-fc-wrap">
+    <full-calendar #fc [options]="calendarOptions">
+      <ng-template #eventContent let-arg>
+        <div
+          class="fc-event-custom d-flex align-items-center gap-1 w-100 min-w-0 overflow-hidden px-1 rounded-1"
+          [style.background-color]="calendarRowBg(arg)"
+          [style.border-left]="calendarRowBorderLeft(arg)">
+          <img *ngIf="eventThumbSrc(arg) as src" [src]="src" class="fc-event-thumb flex-shrink-0" alt="" />
+          <i *ngIf="showAppointmentIcon(arg)" class="fa fa-calendar-check-o fc-event-appointment-icon flex-shrink-0" aria-hidden="true"></i>
+          @if (eventTimeLabel(arg); as startLabel) {
+            <span class="fc-event-time flex-shrink-0 text-nowrap fw-semibold">{{ startLabel }}</span>
+          }
+          <span class="text-truncate">{{ arg.event.title }}</span>
+        </div>
+      </ng-template>
+    </full-calendar>
+  </div>
+
+  <div *ngIf="!isAuthenticated()" class="alert alert-info mt-3 mb-0">
+    {{ 'CALENDAR.LOGIN_HINT' | translate }}
+  </div>
+</div>
+
+<ng-template #appointmentModal let-modal>
+  <div class="modal-header bg-primary text-white border border-2 border-white rounded-top">
+    <h5 class="modal-title d-flex align-items-center">
+      <i class="fa me-2" [ngClass]="editingId ? 'fa-pencil' : 'fa-calendar-plus-o'" aria-hidden="true"></i>
+      <span>{{ editingId ? ('CALENDAR.EDIT_APPOINTMENT' | translate) : ('CALENDAR.NEW_APPOINTMENT' | translate) }}</span>
+    </h5>
+    <button type="button" class="btn-close btn-close-white" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body">
+    <div class="mb-2">
+      <label class="form-label">{{ 'CALENDAR.FIELD_TITLE' | translate }}</label>
+      <input class="form-control" [(ngModel)]="formTitle" name="formTitle" />
+    </div>
+    <div class="row g-2 mb-2">
+      <div class="col-md-6">
+        <label class="form-label">{{ 'CALENDAR.FIELD_START' | translate }}</label>
+        <input type="datetime-local" class="form-control" [(ngModel)]="formStart" name="formStart" />
+      </div>
+      <div class="col-md-6">
+        <label class="form-label">{{ 'CALENDAR.FIELD_END' | translate }}</label>
+        <input type="datetime-local" class="form-control" [(ngModel)]="formEnd" name="formEnd" />
+      </div>
+    </div>
+    <div class="mb-2">
+      <label class="form-label">{{ 'CALENDAR.FIELD_NOTES' | translate }}</label>
+      <textarea class="form-control" rows="3" [(ngModel)]="formNotes" name="formNotes"></textarea>
+    </div>
+  </div>
+  <div class="modal-footer d-flex justify-content-between border-top">
+    <div>
+      <button *ngIf="editingId" type="button" class="btn btn-outline-danger" (click)="deleteEditingAppointment()">{{ 'CALENDAR.DELETE' | translate }}</button>
+    </div>
+    <div>
+      <button type="button" class="btn btn-secondary me-2" (click)="modal.dismiss()">{{ 'COMMUN.CANCEL' | translate }}</button>
+      <button type="button" class="btn btn-primary" (click)="saveAppointment()">{{ 'CALENDAR.SAVE' | translate }}</button>
+    </div>
+  </div>
+</ng-template>

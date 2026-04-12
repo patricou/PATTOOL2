@@ -125,6 +125,10 @@ export function HttpLoaderFactory(http: HttpClient) {
 				path: 'api/address-geocode', 
 				loadComponent: () => import('./address-geocode/address-geocode.component').then(m => m.AddressGeocodeComponent)
 			},
+			{
+				path: 'calendrier',
+				loadComponent: () => import('./calendar/calendar.component').then(m => m.CalendarComponent)
+			},
 			{ path: '**', redirectTo: 'home', pathMatch: 'full' }
 		], { onSameUrlNavigation: 'reload' }),
 		NgbModule,

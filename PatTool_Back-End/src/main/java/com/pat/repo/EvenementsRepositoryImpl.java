@@ -91,6 +91,23 @@ public class EvenementsRepositoryImpl implements EvenementsRepositoryCustom {
 	}
 
 	@Override
+	public List<Evenement> findAccessibleOverlappingRange(Date rangeStart, Date rangeEnd, String userId) {
+		if (rangeStart == null || rangeEnd == null || rangeStart.after(rangeEnd)) {
+			return new ArrayList<>();
+		}
+		Query query = new Query();
+		query.addCriteria(buildAccessCriteria(userId));
+		query.addCriteria(Criteria.where("beginEventDate").lte(rangeEnd));
+		query.addCriteria(Criteria.where("endEventDate").gte(rangeStart));
+		query.fields().exclude("fileUploadeds");
+		List<Evenement> events = mongoTemplate.find(query, Evenement.class);
+		events.sort(Comparator
+				.comparing(Evenement::getBeginEventDate, Comparator.nullsLast(Comparator.naturalOrder()))
+				.thenComparing(e -> e.getEvenementName(), Comparator.nullsLast(String::compareToIgnoreCase)));
+		return events;
+	}
+
+	@Override
 	public List<Evenement> searchByFilterStream(String filter, String userId) {
 		String normalizedFilter = normalizeFilter(filter);
 
