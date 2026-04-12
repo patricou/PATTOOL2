@@ -34,6 +34,7 @@ import { EventVideoPreloadService } from '../../services/event-video-preload.ser
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { EventCardOverlayComponent } from '../../shared/event-card-modal/event-card-overlay.component';
+import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
 
 @Component({
   selector: 'app-details-evenement',
@@ -3287,6 +3288,11 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     };
     
     return typeMap[type] || 'EVENTCREATION.TYPE.OTHER';
+  }
+
+  /** Icône FA 4.7 (même logique que mur de photos / carte événement). */
+  public getEventTypeIcon(type: string | number | undefined | null): string {
+    return getEventTypeFaIconSuffix(type);
   }
 
   // Get difficulty label

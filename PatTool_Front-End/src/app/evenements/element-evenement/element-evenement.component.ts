@@ -34,6 +34,7 @@ import { AddToDbLayerService } from '../../services/add-to-db-layer.service';
 import { CommentaryEditor } from '../../commentary-editor/commentary-editor';
 import { KeycloakService } from '../../keycloak/keycloak.service';
 import { computeTrackStatsFromFileContent } from '../../photo-timeline/track-route-stats.util';
+import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
 
 @Component({
 	selector: 'element-evenement',
@@ -3464,6 +3465,11 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 		const key = String(type);
 		const labelKey = this.eventTypeLabels[key];
 		return labelKey ? this.translateService.instant(labelKey) : key;
+	}
+
+	/** Icône FA 4.7 alignée sur le mur de photos (`getEventTypeFaIconSuffix`). */
+	public getEventTypeIcon(type: string | number | undefined | null): string {
+		return getEventTypeFaIconSuffix(type);
 	}
 
 	private adjustColorComponent(value: number, delta: number): number {

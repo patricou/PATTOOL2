@@ -33,6 +33,7 @@ import { Commentary } from '../../model/commentary';
 import { Member } from '../../model/member';
 import { ScaleRowToFitDirective } from './scale-row-to-fit.directive';
 import { computeTrackStatsFromFileContent } from '../track-route-stats.util';
+import { getEventTypeFaIconSuffix } from '../../shared/event-type-icon.util';
 
 const BUFFER_AHEAD = 3;
 /** Number of groups (activities) to load per API request. */
@@ -2373,30 +2374,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return new Date(dateStr).getFullYear();
     }
 
-    getEventTypeIcon(type: string): string {
-        const icons: { [key: string]: string } = {
-            'Vtt': 'fa-bicycle',
-            'Running': 'fa-running',
-            'Walk': 'fa-walking',
-            'Ski': 'fa-snowflake-o',
-            'Bike': 'fa-bicycle',
-            'Party': 'fa-glass',
-            'Vacation': 'fa-plane',
-            'Travel': 'fa-globe',
-            'Hiking': 'fa-tree',
-            'Rando': 'fa-tree',
-            'Photos': 'fa-camera',
-            'Documents': 'fa-file-text',
-            'Wine': 'fa-glass',
-            'Other': 'fa-star',
-            'Visit': 'fa-map-marker',
-            'Work': 'fa-briefcase',
-            'Family': 'fa-home',
-            'Fiche': 'fa-file-text-o',
-            '18': 'fa-film',
-            '19': 'fa-music'
-        };
-        return icons[type] || 'fa-calendar';
+    /** Icône FA 4.7 pour le type d’activité (même logique que la carte `element-evenement`). */
+    getEventTypeIcon(type: string | undefined | null): string {
+        return getEventTypeFaIconSuffix(type);
     }
 
     /** Current rating (0–10) computed from the event's likes/dislikes. */

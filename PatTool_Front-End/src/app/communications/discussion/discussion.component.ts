@@ -730,6 +730,37 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
     }
   }
 
+  /** Enter = envoyer ; Shift+Enter = nouvelle ligne (ne pas perdre le focus après envoi). */
+  onMessageEnterKeydown(ev: Event): void {
+    const event = ev as KeyboardEvent;
+    if (event.shiftKey) {
+      return;
+    }
+    event.preventDefault();
+    void this.Send();
+  }
+
+  /** Replacer le focus dans la zone de saisie après `isLoading` (le disabled enlève le focus). */
+  private scheduleFocusMessageInput(): void {
+    const timeoutId = setTimeout(() => {
+      const el = this.messageInput?.nativeElement as HTMLTextAreaElement | undefined;
+      if (el && !this.destroy$.closed) {
+        el.focus();
+        const len = el.value?.length ?? 0;
+        try {
+          el.setSelectionRange(len, len);
+        } catch {
+          // ignore
+        }
+      }
+      const index = this.activeTimeouts.indexOf(timeoutId);
+      if (index > -1) {
+        this.activeTimeouts.splice(index, 1);
+      }
+    }, 0);
+    this.activeTimeouts.push(timeoutId);
+  }
+
   /**
    * Send a message
    */
@@ -771,12 +802,14 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
               this.clearFileSelection();
               this.isLoading = false;
               this.cdr.detectChanges();
+              this.scheduleFocusMessageInput();
               resolve();
             },
             error: (error) => {
               alert('Error updating message: ' + (error.message || error));
               this.isLoading = false;
               this.cdr.detectChanges();
+              this.scheduleFocusMessageInput();
               reject(error);
             }
           });
@@ -842,12 +875,14 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
               this.clearFileSelection();
               this.isLoading = false;
               this.cdr.detectChanges();
+              this.scheduleFocusMessageInput();
               resolve();
             },
             error: (error) => {
               alert('Error sending message: ' + (error.message || error));
               this.isLoading = false;
               this.cdr.detectChanges();
+              this.scheduleFocusMessageInput();
               reject(error);
             }
           });
@@ -858,6 +893,7 @@ export class DiscussionComponent implements OnInit, OnDestroy, OnChanges {
       // Silent error handling
       this.isLoading = false;
       this.cdr.detectChanges();
+      this.scheduleFocusMessageInput();
     }
   }
 

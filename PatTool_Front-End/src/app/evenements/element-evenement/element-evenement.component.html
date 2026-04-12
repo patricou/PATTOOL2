@@ -228,7 +228,7 @@
     <div class="card-info-box" [style.background-color]="getSolidColor(0.22)" [style.border-color]="getSolidColor(0.35)" *ngIf="!titleOnly">
         <ul class="card-info-list">
             <li class="card-info-item">
-                {{"EVENTELEM.TYPE" | translate }} : {{ getEventTypeLabel(evenement.type) }}
+                <i class="fa me-1" [ngClass]="getEventTypeIcon(evenement.type)" aria-hidden="true"></i>{{"EVENTELEM.TYPE" | translate }} : {{ getEventTypeLabel(evenement.type) }}
             </li>
             <li class="card-info-item" [ngSwitch]="+evenement.diffculty">
                 {{"EVENTELEM.DIFF" | translate }} :
