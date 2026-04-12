@@ -180,25 +180,11 @@
                 </div>
                 <div class="group-header-actions group-header-actions-fit">
                     <div class="group-header-actions-fit-inner" ptScaleRowToFit>
-                    <a class="btn btn-sm group-action-btn group-action-btn--card"
-                       [routerLink]="['/details-evenement', group.eventId]"
-                       [title]="'PHOTO_TIMELINE.EVENT_DETAILS' | translate">
-                        <i class="fa fa-external-link"></i>
-                        <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_DETAILS' | translate }}</span>
-                    </a>
                     <button class="btn btn-sm group-action-btn group-action-btn--card"
                             (click)="openEventCardModal(group)"
                             [title]="'PHOTO_TIMELINE.EVENT_CARD' | translate">
                         <i class="fa fa-id-card"></i>
                         <span class="group-action-btn-text">{{ 'PHOTO_TIMELINE.EVENT_CARD' | translate }}</span>
-                    </button>
-                    <button type="button"
-                            class="btn btn-sm group-action-btn group-action-btn--card"
-                            *ngIf="group.eventId"
-                            (click)="openWallCommentary(group); $event.stopPropagation()"
-                            [title]="'EVENTHOME.ADD_COMMENTARY' | translate">
-                        <i class="fa fa-comment"></i>
-                        <span class="group-action-btn-text">{{ 'EVENTHOME.COMMENTARIES' | translate }}</span>
                     </button>
                     <button type="button"
                             class="btn btn-sm group-action-btn group-action-btn--discussion"
@@ -224,14 +210,6 @@
                             [title]="'EVENTELEM.SHARE_WHATSAPP' | translate">
                         <i class="fa fa-whatsapp"></i>
                         <span class="group-action-btn-text">{{ 'EVENTELEM.SHARE_WHATSAPP' | translate }}</span>
-                    </button>
-                    <button type="button"
-                            class="btn btn-sm group-action-btn group-action-btn--card"
-                            *ngIf="group.eventId"
-                            (click)="wallOpenShareByEmailModal(group); $event.stopPropagation()"
-                            [title]="'EVENTELEM.SHARE_BY_MAIL' | translate">
-                        <i class="fa fa-envelope"></i>
-                        <span class="group-action-btn-text">{{ 'EVENTELEM.SHARE_BY_MAIL' | translate }}</span>
                     </button>
                     </div>
                 </div>
