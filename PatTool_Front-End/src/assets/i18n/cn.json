@@ -43,6 +43,7 @@
     },
     "CALENDAR": {
         "TITLE": "日程",
+        "HELP_BUTTON": "Help",
         "SUBTITLE": "日程：周、日、月与列表视图。您的约会和您有权查看的活动（含缩略图）。拖动时间段以创建约会。",
         "LOADING": "正在加载日历…",
         "LOAD_ERROR": "无法加载日历，请稍后再试。",
@@ -62,6 +63,8 @@
         "EMPTY_DAY": "当天无安排。",
         "KIND_ACTIVITY": "活动",
         "KIND_APPOINTMENT": "约会",
+        "KIND_PUBLIC_HOLIDAY": "公共假日",
+        "MONGODB_ENTRY_HINT": "来自 calendar_appointments 集合的个人约会（MongoDB）",
         "OPEN_ACTIVITY": "在照片墙中打开",
         "EDIT": "编辑",
         "DELETE": "删除",
@@ -69,7 +72,13 @@
         "FIELD_START": "开始",
         "FIELD_END": "结束",
         "FIELD_NOTES": "备注",
-        "SAVE": "保存"
+        "SAVE": "保存",
+        "HOLIDAYS_COUNTRY_LABEL": "公共假日 — 国家/地区",
+        "ACTIVITY_OPEN_HINT": "提示：双击某条活动即可打开照片墙。",
+        "HOLIDAY_NAMES_SWITCH_LABEL": "公共假日名称：",
+        "HOLIDAY_NAMES_MODE_COUNTRY": "国家/地区语言",
+        "HOLIDAY_NAMES_MODE_APP": "程序语言",
+        "HOLIDAY_NAMES_MODE_APP_HELP": "PatTool 服务器（MyMemory）将 API 的英文假日名译为界面语言（带缓存）。失败时显示英文。关闭：app.holiday-ui-translate.enabled=false。"
     },
     "NAVIGATION": {
         "BACK": "返回",

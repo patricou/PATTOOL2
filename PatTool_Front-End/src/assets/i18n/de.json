@@ -43,6 +43,7 @@
     },
     "CALENDAR": {
         "TITLE": "Agenda",
+        "HELP_BUTTON": "Help",
         "SUBTITLE": "Agenda: Wochen-, Tages-, Monats- und Listenansicht. Ihre Termine und Aktivitäten, auf die Sie Zugriff haben (Vorschaubilder). Ziehen Sie einen Zeitbereich, um einen Termin anzulegen.",
         "LOADING": "Kalender wird geladen…",
         "LOAD_ERROR": "Der Kalender konnte nicht geladen werden. Bitte versuchen Sie es später erneut.",
@@ -62,6 +63,8 @@
         "EMPTY_DAY": "An diesem Tag ist nichts geplant.",
         "KIND_ACTIVITY": "Aktivität",
         "KIND_APPOINTMENT": "Termin",
+        "KIND_PUBLIC_HOLIDAY": "Feiertag",
+        "MONGODB_ENTRY_HINT": "Persönlicher Termin aus der Sammlung calendar_appointments (MongoDB)",
         "OPEN_ACTIVITY": "In der Fotowand öffnen",
         "EDIT": "Bearbeiten",
         "DELETE": "Löschen",
@@ -69,7 +72,13 @@
         "FIELD_START": "Beginn",
         "FIELD_END": "Ende",
         "FIELD_NOTES": "Notizen",
-        "SAVE": "Speichern"
+        "SAVE": "Speichern",
+        "HOLIDAYS_COUNTRY_LABEL": "Feiertage — Land",
+        "ACTIVITY_OPEN_HINT": "Tipp: Doppelklick auf eine Aktivität öffnet die Fotowand.",
+        "HOLIDAY_NAMES_SWITCH_LABEL": "Feiertagsnamen:",
+        "HOLIDAY_NAMES_MODE_COUNTRY": "Landessprache",
+        "HOLIDAY_NAMES_MODE_APP": "Programmsprache",
+        "HOLIDAY_NAMES_MODE_APP_HELP": "Englische Namen der Feiertags-API werden auf dem PatTool-Server (MyMemory) in Ihre Menüsprache übersetzt (mit Cache). Bei Fehlern bleibt der englische Name. Abschalten: app.holiday-ui-translate.enabled=false."
     },
     "NAVIGATION": {
         "BACK": "Zurück",

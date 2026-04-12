@@ -43,6 +43,7 @@
     },
     "CALENDAR": {
         "TITLE": "Agenda",
+        "HELP_BUTTON": "Help",
         "SUBTITLE": "Agenda: week, day, month, and list views. Your appointments and activities you can access (thumbnails). Drag a time range to create an appointment.",
         "LOADING": "Loading calendar…",
         "LOAD_ERROR": "Could not load the calendar. Please try again later.",
@@ -62,6 +63,8 @@
         "EMPTY_DAY": "Nothing scheduled that day.",
         "KIND_ACTIVITY": "Activity",
         "KIND_APPOINTMENT": "Appointment",
+        "KIND_PUBLIC_HOLIDAY": "Public holiday",
+        "MONGODB_ENTRY_HINT": "Personal appointment from the calendar_appointments collection (MongoDB)",
         "OPEN_ACTIVITY": "Open in photo wall",
         "EDIT": "Edit",
         "DELETE": "Delete",
@@ -69,7 +72,13 @@
         "FIELD_START": "Start",
         "FIELD_END": "End",
         "FIELD_NOTES": "Notes",
-        "SAVE": "Save"
+        "SAVE": "Save",
+        "HOLIDAYS_COUNTRY_LABEL": "Public holidays — country",
+        "ACTIVITY_OPEN_HINT": "Tip: double-click an activity to open the photo wall.",
+        "HOLIDAY_NAMES_SWITCH_LABEL": "Holiday names:",
+        "HOLIDAY_NAMES_MODE_COUNTRY": "Country language",
+        "HOLIDAY_NAMES_MODE_APP": "Program language",
+        "HOLIDAY_NAMES_MODE_APP_HELP": "English names from the holidays API are translated on the PatTool server into your menu language (cached). If that fails, the English name is shown. Server setting: app.holiday-ui-translate.enabled."
     },
     "NAVIGATION": {
         "BACK": "Back",

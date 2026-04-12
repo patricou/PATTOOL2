@@ -55,6 +55,7 @@
     },
     "CALENDAR": {
         "TITLE": "Расписание",
+        "HELP_BUTTON": "Help",
         "SUBTITLE": "Расписание: виды «неделя», «день», «месяц» и «список». Ваши встречи и доступные вам активности (с миниатюрами). Перетащите диапазон времени, чтобы создать встречу.",
         "LOADING": "Загрузка календаря…",
         "LOAD_ERROR": "Не удалось загрузить календарь. Попробуйте позже.",
@@ -74,6 +75,8 @@
         "EMPTY_DAY": "На этот день ничего не запланировано.",
         "KIND_ACTIVITY": "Активность",
         "KIND_APPOINTMENT": "Встреча",
+        "KIND_PUBLIC_HOLIDAY": "Государственный праздник",
+        "MONGODB_ENTRY_HINT": "Личная встреча из коллекции calendar_appointments (MongoDB)",
         "OPEN_ACTIVITY": "Открыть в фотовитрине",
         "EDIT": "Изменить",
         "DELETE": "Удалить",
@@ -81,7 +84,13 @@
         "FIELD_START": "Начало",
         "FIELD_END": "Конец",
         "FIELD_NOTES": "Заметки",
-        "SAVE": "Сохранить"
+        "SAVE": "Сохранить",
+        "HOLIDAYS_COUNTRY_LABEL": "Государственные праздники — страна",
+        "ACTIVITY_OPEN_HINT": "Подсказка: дважды щёлкните по активности, чтобы открыть фотовитрину.",
+        "HOLIDAY_NAMES_SWITCH_LABEL": "Названия праздников:",
+        "HOLIDAY_NAMES_MODE_COUNTRY": "Язык страны",
+        "HOLIDAY_NAMES_MODE_APP": "Язык программы",
+        "HOLIDAY_NAMES_MODE_APP_HELP": "Сервер PatTool (MyMemory) переводит английские названия API на язык меню (кэш). При сбое — английский. Отключить: app.holiday-ui-translate.enabled=false."
     },
     "NAVIGATION": {
         "BACK": "Назад",

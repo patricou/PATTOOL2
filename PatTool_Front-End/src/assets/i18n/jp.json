@@ -43,6 +43,7 @@
     },
     "CALENDAR": {
         "TITLE": "アジェンダ",
+        "HELP_BUTTON": "Help",
         "SUBTITLE": "スケジュール：週・日・月・リスト表示。あなたの予定とアクセスできる活動（サムネイル付き）。時間範囲をドラッグして個人の予定を作成します。",
         "LOADING": "カレンダーを読み込み中…",
         "LOAD_ERROR": "カレンダーを読み込めませんでした。しばらくしてから再試行してください。",
@@ -62,6 +63,8 @@
         "EMPTY_DAY": "その日の予定はありません。",
         "KIND_ACTIVITY": "活動",
         "KIND_APPOINTMENT": "予定",
+        "KIND_PUBLIC_HOLIDAY": "祝日・休日（公的）",
+        "MONGODB_ENTRY_HINT": "MongoDB の calendar_appointments コレクション由来の個人予定",
         "OPEN_ACTIVITY": "写真の壁で開く",
         "EDIT": "編集",
         "DELETE": "削除",
@@ -69,7 +72,13 @@
         "FIELD_START": "開始",
         "FIELD_END": "終了",
         "FIELD_NOTES": "メモ",
-        "SAVE": "保存"
+        "SAVE": "保存",
+        "HOLIDAYS_COUNTRY_LABEL": "祝日・休日 — 国/地域",
+        "ACTIVITY_OPEN_HINT": "ヒント：活動をダブルクリックすると写真の壁が開きます。",
+        "HOLIDAY_NAMES_SWITCH_LABEL": "祝日の名称：",
+        "HOLIDAY_NAMES_MODE_COUNTRY": "国の言語",
+        "HOLIDAY_NAMES_MODE_APP": "プログラムの言語",
+        "HOLIDAY_NAMES_MODE_APP_HELP": "PatToolサーバー（MyMemory）がAPIの英語名をメニュー言語に翻訳します（キャッシュ）。失敗時は英語。無効化: app.holiday-ui-translate.enabled=false。"
     },
     "NAVIGATION": {
         "BACK": "戻る",

@@ -43,6 +43,7 @@
     },
     "CALENDAR": {
         "TITLE": "Agenda",
+        "HELP_BUTTON": "Help",
         "SUBTITLE": "Agenda: vistas de semana, día, mes y lista. Sus citas y las actividades a las que tiene acceso (miniaturas). Arrastre un rango horario para crear una cita.",
         "LOADING": "Cargando calendario…",
         "LOAD_ERROR": "No se pudo cargar el calendario. Inténtelo más tarde.",
@@ -62,6 +63,8 @@
         "EMPTY_DAY": "No hay nada programado ese día.",
         "KIND_ACTIVITY": "Actividad",
         "KIND_APPOINTMENT": "Cita",
+        "KIND_PUBLIC_HOLIDAY": "Festivo oficial",
+        "MONGODB_ENTRY_HINT": "Cita personal de la colección calendar_appointments (MongoDB)",
         "OPEN_ACTIVITY": "Abrir en el muro de fotos",
         "EDIT": "Editar",
         "DELETE": "Eliminar",
@@ -69,7 +72,13 @@
         "FIELD_START": "Inicio",
         "FIELD_END": "Fin",
         "FIELD_NOTES": "Notas",
-        "SAVE": "Guardar"
+        "SAVE": "Guardar",
+        "HOLIDAYS_COUNTRY_LABEL": "Festivos — país",
+        "ACTIVITY_OPEN_HINT": "Consejo: doble clic en una actividad para abrir el muro de fotos.",
+        "HOLIDAY_NAMES_SWITCH_LABEL": "Nombres de festivos:",
+        "HOLIDAY_NAMES_MODE_COUNTRY": "Idioma del país",
+        "HOLIDAY_NAMES_MODE_APP": "Idioma del programa",
+        "HOLIDAY_NAMES_MODE_APP_HELP": "El servidor PatTool (MyMemory) traduce los nombres en inglés de la API al idioma de los menús, con caché. Si falla, se muestra el inglés. Desactivar: app.holiday-ui-translate.enabled=false."
     },
     "NAVIGATION": {
         "BACK": "Atrás",

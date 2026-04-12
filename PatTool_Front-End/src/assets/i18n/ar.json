@@ -43,6 +43,7 @@
     },
     "CALENDAR": {
         "TITLE": "أجندة",
+        "HELP_BUTTON": "Help",
         "SUBTITLE": "جدول الأعمال: عروض الأسبوع واليوم والشهر والقائمة. مواعيدك والأنشطة التي يمكنك الوصول إليها (مع الصور المصغّرة). اسحب نطاقًا زمنيًا لإنشاء موعد.",
         "LOADING": "جاري تحميل التقويم…",
         "LOAD_ERROR": "تعذّر تحميل التقويم. يُرجى المحاولة لاحقًا.",
@@ -62,6 +63,8 @@
         "EMPTY_DAY": "لا يوجد شيء مجدول في ذلك اليوم.",
         "KIND_ACTIVITY": "نشاط",
         "KIND_APPOINTMENT": "موعد",
+        "KIND_PUBLIC_HOLIDAY": "عطلة رسمية",
+        "MONGODB_ENTRY_HINT": "موعد شخصي من مجموعة calendar_appointments (MongoDB)",
         "OPEN_ACTIVITY": "فتح في جدار الصور",
         "EDIT": "تعديل",
         "DELETE": "حذف",
@@ -69,7 +72,13 @@
         "FIELD_START": "البداية",
         "FIELD_END": "النهاية",
         "FIELD_NOTES": "ملاحظات",
-        "SAVE": "حفظ"
+        "SAVE": "حفظ",
+        "HOLIDAYS_COUNTRY_LABEL": "العطل الرسمية — البلد",
+        "ACTIVITY_OPEN_HINT": "نصيحة: انقر نقرًا مزدوجًا على نشاط لفتح جدار الصور.",
+        "HOLIDAY_NAMES_SWITCH_LABEL": "أسماء العطل:",
+        "HOLIDAY_NAMES_MODE_COUNTRY": "لغة البلد",
+        "HOLIDAY_NAMES_MODE_APP": "لغة البرنامج",
+        "HOLIDAY_NAMES_MODE_APP_HELP": "يترجم خادم PatTool (MyMemory) الأسماء الإنجليزية من واجهة العطل إلى لغة القوائم مع تخزين مؤقت. عند الفشل يُعرض الإنجليزية. التعطيل: app.holiday-ui-translate.enabled=false."
     },
     "NAVIGATION": {
         "BACK": "رجوع",

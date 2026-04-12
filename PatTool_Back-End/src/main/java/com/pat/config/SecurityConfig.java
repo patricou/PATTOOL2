@@ -188,6 +188,8 @@ public class SecurityConfig {
 
                 // Calendar month view: activities use optional user-id header; personal appointments only when authenticated (see controller)
                 .requestMatchers(HttpMethod.GET, "/api/calendar/entries").permitAll()
+                // Public holidays proxy (Nager.Date) — données publiques, sans auth
+                .requestMatchers(HttpMethod.GET, "/api/calendar/public-holidays/**").permitAll()
                 
                 // Stream event files (SSE): require authentication so SecurityContext has user and getCurrentUserId() works
                 .requestMatchers(HttpMethod.GET, "/api/even/*/files/stream").authenticated()

@@ -43,6 +43,7 @@
     },
     "CALENDAR": {
         "TITLE": "Agenda",
+        "HELP_BUTTON": "Aide",
         "SUBTITLE": "Agenda : vues semaine, jour, mois et liste. Vos rendez-vous et les activités auxquelles vous avez accès (miniatures). Glisser une plage pour créer un rendez-vous.",
         "LOADING": "Chargement du calendrier…",
         "LOAD_ERROR": "Impossible de charger le calendrier. Réessayez plus tard.",
@@ -62,6 +63,8 @@
         "EMPTY_DAY": "Aucun événement ce jour-là.",
         "KIND_ACTIVITY": "Activité",
         "KIND_APPOINTMENT": "Rendez-vous",
+        "KIND_PUBLIC_HOLIDAY": "Jour férié",
+        "MONGODB_ENTRY_HINT": "Rendez-vous personnel issu de la collection calendar_appointments (MongoDB)",
         "OPEN_ACTIVITY": "Ouvrir dans le mur de photos",
         "EDIT": "Modifier",
         "DELETE": "Supprimer",
@@ -69,7 +72,13 @@
         "FIELD_START": "Début",
         "FIELD_END": "Fin",
         "FIELD_NOTES": "Notes",
-        "SAVE": "Enregistrer"
+        "SAVE": "Enregistrer",
+        "HOLIDAYS_COUNTRY_LABEL": "Jours fériés — pays",
+        "ACTIVITY_OPEN_HINT": "Astuce : double-cliquez sur une activité pour ouvrir le mur de photos.",
+        "HOLIDAY_NAMES_SWITCH_LABEL": "Noms des jours fériés :",
+        "HOLIDAY_NAMES_MODE_COUNTRY": "Langue du pays",
+        "HOLIDAY_NAMES_MODE_APP": "Langue du programme",
+        "HOLIDAY_NAMES_MODE_APP_HELP": "Les noms anglais de l’API sont traduits sur le serveur PatTool (MyMemory) vers la langue des menus, avec mise en cache. Si la traduction échoue, le nom anglais s’affiche. Désactivation : app.holiday-ui-translate.enabled=false côté serveur."
     },
     "NAVIGATION": {
         "BACK": "Retour",

@@ -55,6 +55,7 @@
     },
     "CALENDAR": {
         "TITLE": "एजेंडा",
+        "HELP_BUTTON": "Help",
         "SUBTITLE": "एजेंडा: सप्ताह, दिन, महीना और सूची दृश्य। आपकी नियुक्तियाँ और वे गतिविधियाँ जिन तक आपकी पहुँच है (थंबनेल)। नियुक्ति बनाने के लिए समय सीमा खींचें।",
         "LOADING": "कैलेंडर लोड हो रहा है…",
         "LOAD_ERROR": "कैलेंडर लोड नहीं हो सका। बाद में पुनः प्रयास करें।",
@@ -74,6 +75,8 @@
         "EMPTY_DAY": "उस दिन कुछ निर्धारित नहीं है।",
         "KIND_ACTIVITY": "गतिविधि",
         "KIND_APPOINTMENT": "नियुक्ति",
+        "KIND_PUBLIC_HOLIDAY": "सार्वजनिक अवकाश",
+        "MONGODB_ENTRY_HINT": "calendar_appointments संग्रह से व्यक्तिगत नियुक्ति (MongoDB)",
         "OPEN_ACTIVITY": "फोटो वॉल में खोलें",
         "EDIT": "संपादित करें",
         "DELETE": "हटाएँ",
@@ -81,7 +84,13 @@
         "FIELD_START": "प्रारंभ",
         "FIELD_END": "समाप्ति",
         "FIELD_NOTES": "नोट्स",
-        "SAVE": "सहेजें"
+        "SAVE": "सहेजें",
+        "HOLIDAYS_COUNTRY_LABEL": "सार्वजनिक अवकाश — देश",
+        "ACTIVITY_OPEN_HINT": "संकेत: फोटो वॉल खोलने के लिए किसी गतिविधि पर दो बार क्लिक करें।",
+        "HOLIDAY_NAMES_SWITCH_LABEL": "छुट्टियों के नाम:",
+        "HOLIDAY_NAMES_MODE_COUNTRY": "देश की भाषा",
+        "HOLIDAY_NAMES_MODE_APP": "प्रोग्राम भाषा",
+        "HOLIDAY_NAMES_MODE_APP_HELP": "PatTool सर्वर (MyMemory) अंग्रेज़ी नामों को मेनू भाषा में अनुवाद करता है (कैश)। विफल होने पर अंग्रेज़ी। बंद: app.holiday-ui-translate.enabled=false।"
     },
     "NAVIGATION": {
         "BACK": "वापस",

@@ -1,11 +1,19 @@
-<!-- Standard Title Section (same pattern as System, API, Maps) -->
-<div class="pat-title">
-  <h2>{{ 'CALENDAR.TITLE' | translate }}</h2>
+<!-- Même disposition que la liste d'événements + Mur de photos : titre centré, bouton outline-primary à droite -->
+<div class="pat-title title-with-photo-wall-btn">
+  <span class="pat-title-spacer" aria-hidden="true"></span>
+  <h2 class="mb-0">{{ 'CALENDAR.TITLE' | translate }}</h2>
+  <span class="pat-title-actions">
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-primary"
+      [title]="'CALENDAR.HELP_BUTTON' | translate"
+      (click)="openCalendarHelp()">
+      <i class="fa fa-info-circle me-0 me-md-1" aria-hidden="true"></i><span class="d-none d-md-inline">{{ 'CALENDAR.HELP_BUTTON' | translate }}</span>
+    </button>
+  </span>
 </div>
 
 <div class="calendar-page container-fluid mt-0 px-2 px-md-3 py-3">
-  <p class="text-secondary small mb-2">{{ 'CALENDAR.SUBTITLE' | translate }}</p>
-
   <div *ngIf="errorMessage" class="alert alert-danger py-2 mb-2">{{ errorMessage | translate }}</div>
 
   <div class="calendar-fc-wrap">
@@ -13,8 +21,16 @@
       <ng-template #eventContent let-arg>
         <div
           class="fc-event-custom d-flex align-items-center gap-1 w-100 min-w-0 overflow-hidden px-1 rounded-1"
+          [attr.title]="calendarEventTooltip(arg)"
           [style.background-color]="calendarRowBg(arg)"
           [style.border-left]="calendarRowBorderLeft(arg)">
+          <i
+            *ngIf="showMongoEntryIcon(arg)"
+            class="fa fa-exclamation-triangle fc-event-mongo-icon flex-shrink-0"
+            role="img"
+            [attr.title]="'CALENDAR.MONGODB_ENTRY_HINT' | translate"
+            [attr.aria-label]="'CALENDAR.MONGODB_ENTRY_HINT' | translate"></i>
+          <i *ngIf="showHolidayIcon(arg)" class="fa fa-flag fc-event-holiday-icon flex-shrink-0" aria-hidden="true"></i>
           <img *ngIf="eventThumbSrc(arg) as src" [src]="src" class="fc-event-thumb flex-shrink-0" alt="" />
           <i *ngIf="showAppointmentIcon(arg)" class="fa fa-calendar-check-o fc-event-appointment-icon flex-shrink-0" aria-hidden="true"></i>
           @if (eventTimeLabel(arg); as startLabel) {
@@ -26,10 +42,55 @@
     </full-calendar>
   </div>
 
+  <div class="d-flex flex-wrap align-items-center gap-1 gap-md-2 mt-2 mb-0 pat-cal-holidays-bar">
+    <label class="form-label mb-0 text-secondary pat-cal-holidays-label" for="pat-cal-holiday-country">{{ 'CALENDAR.HOLIDAYS_COUNTRY_LABEL' | translate }}</label>
+    <select
+      id="pat-cal-holiday-country"
+      name="holidayCountryCode"
+      class="form-select form-select-sm pat-cal-holiday-select"
+      [(ngModel)]="holidayCountryCode"
+      (ngModelChange)="onHolidayCountryChange()">
+      <option *ngFor="let c of holidayCountries" [value]="c.key">{{ c.name }} ({{ c.key }})</option>
+    </select>
+    <div class="d-flex flex-wrap align-items-center gap-1 ms-md-1 pat-cal-holidays-names">
+      <span id="pat-cal-holiday-names-hint" class="text-secondary mb-0 pat-cal-holidays-label">{{ 'CALENDAR.HOLIDAY_NAMES_SWITCH_LABEL' | translate }}</span>
+      <div class="form-check form-switch m-0 pat-cal-holidays-switch">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          id="pat-cal-holiday-names-country"
+          name="holidayNamesUseCountryLanguage"
+          [(ngModel)]="holidayNamesUseCountryLanguage"
+          (ngModelChange)="onHolidayNamesModeChange()"
+          [attr.aria-labelledby]="'pat-cal-holiday-names-hint pat-cal-holiday-names-country-lbl'" />
+        <label class="form-check-label pat-cal-holidays-label" for="pat-cal-holiday-names-country" id="pat-cal-holiday-names-country-lbl">
+          {{ (holidayNamesUseCountryLanguage ? 'CALENDAR.HOLIDAY_NAMES_MODE_COUNTRY' : 'CALENDAR.HOLIDAY_NAMES_MODE_APP') | translate }}
+        </label>
+      </div>
+    </div>
+  </div>
+
   <div *ngIf="!isAuthenticated()" class="alert alert-info mt-3 mb-0">
     {{ 'CALENDAR.LOGIN_HINT' | translate }}
   </div>
 </div>
+
+<ng-template #calendarHelpModal let-modal>
+  <div class="modal-header border-bottom">
+    <h5 class="modal-title mb-0" id="pat-cal-help-title">Aide — Help</h5>
+    <button type="button" class="btn-close" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body">
+    <h6 class="text-secondary text-uppercase small mb-2">Français</h6>
+    <div class="pat-cal-help-block small mb-4">{{ calendarHelpFr }}</div>
+    <h6 class="text-secondary text-uppercase small mb-2">English</h6>
+    <div class="pat-cal-help-block small">{{ calendarHelpEn }}</div>
+  </div>
+  <div class="modal-footer border-top">
+    <button type="button" class="btn btn-primary" (click)="modal.close()">{{ 'COMMUN.CLOSE' | translate }}</button>
+  </div>
+</ng-template>
 
 <ng-template #appointmentModal let-modal>
   <div class="modal-header bg-primary text-white border border-2 border-white rounded-top">

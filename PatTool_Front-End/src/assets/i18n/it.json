@@ -41,6 +41,7 @@
     },
     "CALENDAR": {
         "TITLE": "Agenda",
+        "HELP_BUTTON": "Help",
         "SUBTITLE": "Agenda: viste settimana, giorno, mese ed elenco. I tuoi appuntamenti e le attività a cui hai accesso (miniature). Trascina una fascia oraria per creare un appuntamento.",
         "LOADING": "Caricamento calendario…",
         "LOAD_ERROR": "Impossibile caricare il calendario. Riprova più tardi.",
@@ -60,6 +61,8 @@
         "EMPTY_DAY": "Niente di programmato quel giorno.",
         "KIND_ACTIVITY": "Attività",
         "KIND_APPOINTMENT": "Appuntamento",
+        "KIND_PUBLIC_HOLIDAY": "Festività pubblica",
+        "MONGODB_ENTRY_HINT": "Appuntamento personale dalla raccolta calendar_appointments (MongoDB)",
         "OPEN_ACTIVITY": "Apri nel muro di foto",
         "EDIT": "Modifica",
         "DELETE": "Elimina",
@@ -67,7 +70,13 @@
         "FIELD_START": "Inizio",
         "FIELD_END": "Fine",
         "FIELD_NOTES": "Note",
-        "SAVE": "Salva"
+        "SAVE": "Salva",
+        "HOLIDAYS_COUNTRY_LABEL": "Festività — paese",
+        "ACTIVITY_OPEN_HINT": "Suggerimento: doppio clic su un’attività per aprire il muro di foto.",
+        "HOLIDAY_NAMES_SWITCH_LABEL": "Nomi dei festivi:",
+        "HOLIDAY_NAMES_MODE_COUNTRY": "Lingua del paese",
+        "HOLIDAY_NAMES_MODE_APP": "Lingua del programma",
+        "HOLIDAY_NAMES_MODE_APP_HELP": "Il server PatTool (MyMemory) traduce i nomi inglesi dell’API nella lingua dei menu, con cache. Se fallisce, resta l’inglese. Disattivare: app.holiday-ui-translate.enabled=false."
     },
     "NAVIGATION": {
         "BACK": "Indietro",

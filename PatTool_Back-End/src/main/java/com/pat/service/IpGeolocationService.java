@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.InetAddress;
 import java.util.Map;
@@ -27,6 +28,8 @@ public class IpGeolocationService {
     private final Map<String, CacheEntry> domainCache = new ConcurrentHashMap<>();
     private final Map<String, CoordinatesCacheEntry> coordinatesCache = new ConcurrentHashMap<>();
     private final Map<String, CacheEntry> reverseGeocodeCache = new ConcurrentHashMap<>();
+    /** Cache ISO 3166-1 alpha-2 (ip-api {@code countryCode}) par IP publique. */
+    private final Map<String, CacheEntry> isoCountryCache = new ConcurrentHashMap<>();
     
     // Maximum cache size to prevent memory leak
     @Value("${app.ip.geolocation.cache.max-size:5000}")
@@ -77,6 +80,85 @@ public class IpGeolocationService {
     public IpGeolocationService(RestTemplate restTemplate, GeocodeService geocodeService) {
         this.restTemplate = restTemplate;
         this.geocodeService = geocodeService;
+    }
+
+    /**
+     * True si l’IP ne doit pas être interrogée auprès d’ip-api (loopback, RFC1918, etc.).
+     */
+    private boolean isPrivateOrLocalIp(String ip) {
+        if (ip == null || ip.isEmpty()) {
+            return true;
+        }
+        String normalized = ip.trim().toLowerCase();
+        if ("::1".equals(normalized) || "0:0:0:0:0:0:0:1".equals(normalized)) {
+            return true;
+        }
+        for (String pattern : PRIVATE_IP_PATTERNS) {
+            if (normalized.startsWith(pattern)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Code pays ISO alpha-2 pour une IP publique (ip-api.com). Null si IP privée / lookup impossible.
+     */
+    public String getIsoCountryCodeForIp(String rawIp) {
+        if (rawIp == null || rawIp.isBlank()) {
+            return null;
+        }
+        String ip = rawIp.trim();
+        if (ip.startsWith("[") && ip.contains("]")) {
+            ip = ip.substring(1, ip.indexOf(']')).trim();
+        }
+        int zone = ip.indexOf('%');
+        if (zone > 0) {
+            ip = ip.substring(0, zone).trim();
+        }
+        if (isPrivateOrLocalIp(ip)) {
+            return null;
+        }
+
+        CacheEntry cached = isoCountryCache.get(ip);
+        if (cached != null) {
+            long ttlMillis = cacheTtlHours * 60 * 60 * 1000;
+            if (!cached.isExpired(ttlMillis)) {
+                return cached.value;
+            }
+            isoCountryCache.remove(ip);
+        }
+        enforceCacheSizeLimit(isoCountryCache);
+
+        try {
+            java.net.URI uri = UriComponentsBuilder.fromHttpUrl("http://ip-api.com/json/")
+                    .pathSegment(ip)
+                    .queryParam("fields", "status,message,countryCode")
+                    .encode()
+                    .build()
+                    .toUri();
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = restTemplate.getForObject(uri, Map.class);
+
+            if (response != null && "success".equals(response.get("status"))) {
+                Object ccObj = response.get("countryCode");
+                if (ccObj instanceof String) {
+                    String cc = ((String) ccObj).trim().toUpperCase();
+                    if (cc.length() == 2 && cc.chars().allMatch(Character::isLetter)) {
+                        isoCountryCache.put(ip, new CacheEntry(cc));
+                        log.debug("IP {} countryCode: {}", ip, cc);
+                        return cc;
+                    }
+                }
+            } else if (response != null) {
+                log.debug("IP country lookup non-success for {}: {}", ip, response.get("message"));
+            }
+        } catch (Exception e) {
+            log.warn("Error looking up country code for {}: {}", ip, e.getMessage());
+        }
+
+        return null;
     }
 
     /**
@@ -333,6 +415,7 @@ public class IpGeolocationService {
         domainCache.clear();
         coordinatesCache.clear();
         reverseGeocodeCache.clear();
+        isoCountryCache.clear();
     }
     
     /**
