@@ -1756,8 +1756,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
 
         let workingFiles = [...initialFiles];
-        this.isUploading = true;
-        this.wallBulkFileUploadActive = true;
+        /* Ne pas mettre isUploading avant les modales : l’overlay global recouvre la compression image / qualité vidéo. */
         this.wallUploadLogs = [];
         this.wallUploadLastError = null;
         this.wallUploadLastErrorDetail = '';
@@ -1816,6 +1815,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     this.qualityModalRef,
                     () => this.addWallUploadLog('⚠️ Compression quality selection timed out, uploading original files')
                 );
+                this.isUploading = true;
+                this.wallBulkFileUploadActive = true;
+                this.cdr.markForCheck();
                 const result = await this.videoUploadProcessingService.processVideoFiles(
                     workingFiles,
                     quality,
@@ -1846,6 +1848,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.cdr.markForCheck();
             return;
         }
+
+        this.isUploading = true;
+        this.wallBulkFileUploadActive = true;
+        this.cdr.markForCheck();
 
         const formData = new FormData();
         processedFiles.forEach(file => formData.append('file', file, file.name));
