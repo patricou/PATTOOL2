@@ -9,7 +9,7 @@ import { SlideshowModalComponent, SlideshowImageSource, SlideshowLocationEvent }
 import { TraceViewerModalComponent } from '../../shared/trace-viewer-modal/trace-viewer-modal.component';
 import { PhotosSelectorModalComponent, PhotosSelectionResult } from '../../shared/photos-selector-modal/photos-selector-modal.component';
 import { Observable, Subscription, fromEvent, firstValueFrom, forkJoin, of, Subject, from } from 'rxjs';
-import { debounceTime, map, catchError, switchMap } from 'rxjs/operators';
+import { debounceTime, map, catchError, switchMap, take } from 'rxjs/operators';
 import * as JSZip from 'jszip';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 
@@ -159,6 +159,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	// Track which modals are currently open (only modals that should block scroll)
 	private openBlockingModals: Set<string> = new Set();
 	private pollIntervalId: ReturnType<typeof setInterval> | null = null;
+	/** Dernière requête getUploadLogs du polling upload (une seule à la fois). */
+	private uploadLogsPollSub: Subscription | null = null;
 	private activeTimeouts: Set<ReturnType<typeof setTimeout>> = new Set();
 	private debugInfoUpdateInterval?: ReturnType<typeof setInterval>;
 	private memoryAutoRefreshInterval?: ReturnType<typeof setInterval>;
@@ -719,16 +721,16 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		setTimeout(() => this.updateFilterStuck(), 0);
 		// used to not have to press enter when filter
 		// Listen to both mobile and desktop inputs
-		this.searchterms.changes.subscribe(() => {
+		this.allSubscriptions.push(this.searchterms.changes.subscribe(() => {
 			this.setupSearchInputs();
-		});
+		}));
 		this.setupSearchInputs();
 		this.setupInfiniteScrollObserver();
 		this.initializeThumbnailBatchLoader();
 		this.setupThumbnailLazyLoading();
 		
 		// Écouter les changements des cards pour déclencher l'animation
-				this.patCards.changes.subscribe(() => {
+				this.allSubscriptions.push(this.patCards.changes.subscribe(() => {
 					if (this.patCards.length > 0 && !this.cardsReady) {
 						// Use requestAnimationFrame for better performance, then do DOM operations
 						requestAnimationFrame(() => {
@@ -754,7 +756,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 						// Cards are already ready, check for stored card
 						this.checkAndScrollToStoredCard();
 					}
-				});
+				}));
 		
 		// Also check after a delay in case cards are already loaded
 		setTimeout(() => {
@@ -1691,21 +1693,23 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	public addMemberInEvent(evenement: Evenement) {
 		evenement.members.push(this.user);
-		this._evenementsService.putEvenement(evenement).subscribe(
+		const sub = this._evenementsService.putEvenement(evenement).subscribe(
 			() => {},
 			(err: any) => alert("Error when deleting participant " + err));
+		this.allSubscriptions.push(sub);
 	}
 
 	public delMemberInEvent(evenement: Evenement) {
 		evenement.members = evenement.members.filter(memb => !(memb.id == this.user.id));
-		this._evenementsService.putEvenement(evenement).subscribe(
+		const sub = this._evenementsService.putEvenement(evenement).subscribe(
 			() => {},
 			(err: any) => alert("Error when deleting participant " + err));
+		this.allSubscriptions.push(sub);
 	}
 
 	public async delEvent(evenement: Evenement) {
 		// Delete the event from backend
-		this._evenementsService.delEvenement(evenement.id)
+		const sub = this._evenementsService.delEvenement(evenement.id)
 			.subscribe(
 				(res: any) => {  //  update evenements for screen update			
 					this.resetAndLoadEvents();
@@ -1715,13 +1719,15 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					alert("Issue when deleting the event : " + err);
 				}
 			);
+		this.allSubscriptions.push(sub);
 	}
 
 	public updEvent(evenement: Evenement) {
-		this._evenementsService.putEvenement(evenement)
+		const sub = this._evenementsService.putEvenement(evenement)
 			.subscribe(
 				() => {},
 				(err: any) => alert("Update Status Error : " + err));
+		this.allSubscriptions.push(sub);
 	}
 
 	public changeStatusEvent(evenement: Evenement) {
@@ -1746,7 +1752,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	
 	// Load friend groups for visibility selection
 	private loadFriendGroups(): void {
-		this._friendsService.getFriendGroups().subscribe(
+		const sub = this._friendsService.getFriendGroups().subscribe(
 			groups => {
 				if (groups && Array.isArray(groups)) {
 					this.friendGroups = groups;
@@ -1759,6 +1765,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				this.friendGroups = [];
 			}
 		);
+		this.allSubscriptions.push(sub);
 	}
 	
 	// Get sorted friend groups
@@ -2002,7 +2009,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			return;
 		}
 		
-		this._evenementsService.getEventFiles(evenement.id).subscribe({
+		const filesListSub = this._evenementsService.getEventFiles(evenement.id).subscribe({
 			next: (files: UploadedFile[]) => {
 				// Create a new Evenement object with all files loaded
 				// This ensures Angular's change detection works properly with OnPush strategy
@@ -2053,6 +2060,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				this.cdr.markForCheck();
 			}
 		});
+		this.allSubscriptions.push(filesListSub);
 	}
 	
 	// Load thumbnails for image files
@@ -2334,10 +2342,11 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	}
 
 	public updateFileUploadedInEvent(evenement: Evenement) {
-		this._evenementsService.put4FileEvenement(evenement)
+		const sub = this._evenementsService.put4FileEvenement(evenement)
 			.subscribe(
 				() => {},
 				(err: any) => alert("Delete File Error : " + err));
+		this.allSubscriptions.push(sub);
 	}
 	// Clear all caches when filter changes
 	private clearCaches(): void {
@@ -2657,7 +2666,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				
 				if ('requestIdleCallback' in window) {
 					(window as any).requestIdleCallback(() => {
-						forkJoin(batch).subscribe({
+						const fjSub = forkJoin(batch).subscribe({
 							next: (results) => {
 								// Process results - subscribe callbacks are already async, no need for Promise.resolve()
 								if (trackLoading) {
@@ -2681,11 +2690,12 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 								scheduleNext();
 							}
 						});
+						this.allSubscriptions.push(fjSub);
 					}, { timeout: 1000 });
 				} else {
 					// Fallback to setTimeout
 					setTimeout(() => {
-						forkJoin(batch).subscribe({
+						const fjSub2 = forkJoin(batch).subscribe({
 							next: (results) => {
 								// Process results - subscribe callbacks are already async, no need for Promise.resolve()
 								if (trackLoading) {
@@ -2709,6 +2719,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 								scheduleNext();
 							}
 						});
+						this.allSubscriptions.push(fjSub2);
 					}, 0);
 				}
 			};
@@ -2921,7 +2932,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		if (!eventId || this.eventIdsWithFilesRequested.has(eventId)) return;
 		if (event.fileUploadeds != null && event.fileUploadeds.length > 0) return; // Already have files (e.g. from details)
 		this.eventIdsWithFilesRequested.add(eventId);
-		this._evenementsService.getEventFiles(eventId).subscribe({
+		const sub = this._evenementsService.getEventFiles(eventId).subscribe({
 			next: (files) => {
 				event.fileUploadeds = files || [];
 				this._videoPreloadService.preloadForEvent(event);
@@ -2932,6 +2943,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				this.eventIdsWithFilesRequested.delete(eventId);
 			}
 		});
+		this.allSubscriptions.push(sub);
 	}
 
 	// Queue an event's thumbnail for batch loading
@@ -3168,7 +3180,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		sessionStorage.removeItem('lastViewedEventId');
 		
 		// Fetch the specific event from backend
-		this._evenementsService.getEvenement(eventId).subscribe({
+		const loadFirstSub = this._evenementsService.getEvenement(eventId).subscribe({
 			next: (evenement: Evenement) => {
 				const eventIdToMatch = evenement.id || this.getEventKey(evenement) || eventId;
 				
@@ -3220,6 +3232,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				console.error('Error loading event for first position:', error);
 			}
 		});
+		this.allSubscriptions.push(loadFirstSub);
 	}
 
 	public onImageError(event: any) {
@@ -3302,11 +3315,8 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			this.debugInfoUpdateInterval = undefined;
 		}
 		
-		// Clear poll interval (e.g. upload logs polling)
-		if (this.pollIntervalId) {
-			clearInterval(this.pollIntervalId);
-			this.pollIntervalId = null;
-		}
+		// Clear poll interval + dernière requête getUploadLogs (upload)
+		this.stopUploadLogPolling();
 		
 		// Close upload logs modal if open
 		if (this.uploadLogsModalRef) {
@@ -3728,7 +3738,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			}
 		});
 		this.allSubscriptions.push(listImagesSubscription);
-		this.allSubscriptions.push(listImagesSubscription);
 	}
 	// Unified photos opener (uploaded photos or FS photos)
 	public openPhotos(evenement: Evenement): void {
@@ -3824,7 +3833,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	
 	// Open window when click on download button
 	public openWindows(fileId: string, fileName: string) {
-		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
+		const sub = this.getFileBlobUrl(fileId).subscribe((blob: any) => {
 			//IE11 & Edge
 			if ((navigator as any).msSaveBlob) {
 				(navigator as any).msSaveBlob(blob, fileName);
@@ -3845,6 +3854,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				}, 5000);
 			}
 		});
+		this.allSubscriptions.push(sub);
 	}
 	
 	// Delete a file uploaded linked to the evenement
@@ -3890,7 +3900,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 	
 	// Open PDF file in new tab
 	public openPdfFile(fileId: string, fileName: string): void {
-		this.getFileBlobUrl(fileId).subscribe((blob: any) => {
+		const sub = this.getFileBlobUrl(fileId).subscribe((blob: any) => {
 			const pdfBlob = new Blob([blob], { type: 'application/pdf' });
 			const objectUrl = URL.createObjectURL(pdfBlob);
 			
@@ -3910,12 +3920,13 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			console.error('Error loading PDF file:', error);
 			alert('Erreur lors du chargement du fichier PDF');
 		});
+		this.allSubscriptions.push(sub);
 	}
 	
 	// Open file image in modal
 	public openFileImageModal(fileId: string, fileName: string): void {
 		// Use getFile for display (with image resizing)
-		this._fileService.getFile(fileId).pipe(
+		const sub = this._fileService.getFile(fileId).pipe(
 			map((res: any) => {
 				let blob = new Blob([res], { type: 'application/octet-stream' });
 				return URL.createObjectURL(blob);
@@ -3942,6 +3953,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 			console.error('Error loading file:', error);
 			alert('Erreur lors du chargement du fichier');
 		});
+		this.allSubscriptions.push(sub);
 	}
 	
 	// Truncate file name to 15 characters for display
@@ -4313,24 +4325,18 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 		// Build the correct upload URL with user ID and event ID
 		const uploadUrl = `${this.API_URL4FILE}/${this.user.id}/${evenement.id}`;
 
-		// Clear any existing poll interval
-		if (this.pollIntervalId) {
-			clearInterval(this.pollIntervalId);
-			this.pollIntervalId = null;
-		}
+		this.stopUploadLogPolling();
 		
 		// Start polling for server logs
 		let lastLogCount = 0;
 		let consecutiveErrors = 0;
 		this.pollIntervalId = setInterval(() => {
 			if (consecutiveErrors >= 5) {
-				if (this.pollIntervalId) {
-					clearInterval(this.pollIntervalId);
-					this.pollIntervalId = null;
-				}
+				this.stopUploadLogPolling();
 				return;
 			}
-			const logSubscription = this._fileService.getUploadLogs(sessionId).subscribe(
+			this.uploadLogsPollSub?.unsubscribe();
+			this.uploadLogsPollSub = this._fileService.getUploadLogs(sessionId).pipe(take(1)).subscribe(
 				(serverLogs: string[]) => {
 					consecutiveErrors = 0;
 					if (serverLogs.length > lastLogCount) {
@@ -4344,7 +4350,6 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					consecutiveErrors++;
 				}
 			);
-			this.allSubscriptions.push(logSubscription);
 		}, 1500); // Poll every 1.5s to avoid flooding the server
 
 		const uploadSubscription = this._fileService.postFileToUrl(formData, this.user, uploadUrl, sessionId)
@@ -4352,10 +4357,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 				next: (response: any) => {
 					// Wait a bit for final logs
 					const cleanupTimeout = setTimeout(() => {
-						if (this.pollIntervalId) {
-							clearInterval(this.pollIntervalId);
-							this.pollIntervalId = null;
-						}
+						this.stopUploadLogPolling();
 						
 						const fileCount = Array.isArray(response) ? response.length : 1;
 						this.addSuccessLog(`✅ Upload successful! ${fileCount} file(s) processed`);
@@ -4388,10 +4390,7 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 					setTimeout(() => this.activeTimeouts.delete(cleanupTimeout), 600);
 				},
 				error: (error: any) => {
-					if (this.pollIntervalId) {
-						clearInterval(this.pollIntervalId);
-						this.pollIntervalId = null;
-					}
+					this.stopUploadLogPolling();
 					console.error('File upload error:', error);
 					
 					let errorMessage = "Error uploading files.";
@@ -4453,6 +4452,17 @@ export class HomeEvenementsComponent implements OnInit, AfterViewInit, OnDestroy
 
 	private generateSessionId(): string {
 		return 'upload-' + Date.now() + '-' + Math.random().toString(36).substring(7);
+	}
+
+	private stopUploadLogPolling(): void {
+		if (this.pollIntervalId != null) {
+			clearInterval(this.pollIntervalId);
+			this.pollIntervalId = null;
+		}
+		if (this.uploadLogsPollSub) {
+			this.uploadLogsPollSub.unsubscribe();
+			this.uploadLogsPollSub = null;
+		}
 	}
 
 	private handleUploadResponse(response: any, evenement: Evenement): void {

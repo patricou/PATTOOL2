@@ -2498,7 +2498,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
     this.isLoadingDiscussion = true;
     this.discussionError = null;
 
-    this.discussionService.getMessages(this.evenement.discussionId).pipe(
+    const discussionMessagesSub = this.discussionService.getMessages(this.evenement.discussionId).pipe(
       catchError((error) => {
         // Log to localStorage FIRST so it persists even if redirect happens
         const errorInfo = {
@@ -2551,6 +2551,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         this.discussionMessages = [];
       }
     });
+    this.trackSubscription(discussionMessagesSub);
   }
 
   // Load images for discussion messages
@@ -2592,7 +2593,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         }
 
         // Load image with authentication using the real filename from URL
-        this.discussionService.getFileUrl(discussionId, 'images', realFilename).pipe(
+        const discussionImageSub = this.discussionService.getFileUrl(discussionId, 'images', realFilename).pipe(
           catchError((error) => {
             // Catch ALL errors in the pipe to prevent interceptor from redirecting
             const errorInfo = {
@@ -2662,6 +2663,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
             // But just in case, handle silently
           }
         });
+        this.trackSubscription(discussionImageSub);
       }
       
       if (message.videoUrl) {
@@ -2694,7 +2696,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
         }
 
         // Load video with authentication using the real filename from URL
-        this.discussionService.getFileUrl(discussionId, 'videos', realFilename).pipe(
+        const discussionVideoSub = this.discussionService.getFileUrl(discussionId, 'videos', realFilename).pipe(
           catchError((error) => {
             // Catch ALL errors in the pipe to prevent interceptor from redirecting
             const errorInfo = {
@@ -2749,6 +2751,7 @@ export class DetailsEvenementComponent implements OnInit, AfterViewInit, OnDestr
             // But just in case, handle silently
           }
         });
+        this.trackSubscription(discussionVideoSub);
       }
     });
   }

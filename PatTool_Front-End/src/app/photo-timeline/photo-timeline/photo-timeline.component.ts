@@ -169,6 +169,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     wallUploadLastError: string | null = null;
     wallUploadLastErrorDetail = '';
     wallUploadPollIntervalId: ReturnType<typeof setInterval> | null = null;
+    /** Dernière requête getUploadLogs du polling mur (une seule à la fois, évite d’empiler des centaines de Subscription). */
+    private wallUploadLogsPollSub: Subscription | null = null;
     videoCountForModal = 0;
     selectedCompressionQuality: 'low' | 'medium' | 'high' | 'very-high' | 'original' = 'very-high';
     private qualityModalRef: NgbModalRef | null = null;
@@ -339,10 +341,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             try { this.imageCompressionModalRef.dismiss(); } catch (_) {}
             this.imageCompressionModalRef = null;
         }
-        if (this.wallUploadPollIntervalId != null) {
-            clearInterval(this.wallUploadPollIntervalId);
-            this.wallUploadPollIntervalId = null;
-        }
+        this.stopWallUploadLogPolling();
         if (this.qualityModalRef) {
             try { this.qualityModalRef.dismiss(); } catch (_) {}
             this.qualityModalRef = null;
@@ -1879,7 +1878,6 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             }
         });
         this.fsSlideshowSubs.push(listSub);
-        this.subscriptions.push(listSub);
     }
 
     onSlideshowClosed(): void {
@@ -2028,10 +2026,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             this.addWallUploadErrorLog('❌ No files to upload.');
             this.isUploading = false;
             this.wallBulkFileUploadActive = false;
-            if (this.wallUploadPollIntervalId != null) {
-                clearInterval(this.wallUploadPollIntervalId);
-                this.wallUploadPollIntervalId = null;
-            }
+            this.stopWallUploadLogPolling();
             this.cdr.markForCheck();
             return;
         }
@@ -2049,21 +2044,16 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
         const uploadUrl = `${environment.API_URL4FILE}/${user.id}/${group.eventId}`;
 
-        if (this.wallUploadPollIntervalId != null) {
-            clearInterval(this.wallUploadPollIntervalId);
-            this.wallUploadPollIntervalId = null;
-        }
+        this.stopWallUploadLogPolling();
         let lastLogCount = 0;
         let consecutiveErrors = 0;
         this.wallUploadPollIntervalId = setInterval(() => {
             if (consecutiveErrors >= 5) {
-                if (this.wallUploadPollIntervalId != null) {
-                    clearInterval(this.wallUploadPollIntervalId);
-                    this.wallUploadPollIntervalId = null;
-                }
+                this.stopWallUploadLogPolling();
                 return;
             }
-            const logSub = this.fileService.getUploadLogs(sessionId).subscribe({
+            this.wallUploadLogsPollSub?.unsubscribe();
+            this.wallUploadLogsPollSub = this.fileService.getUploadLogs(sessionId).pipe(take(1)).subscribe({
                 next: (serverLogs: string[]) => {
                     consecutiveErrors = 0;
                     this.ngZone.run(() => {
@@ -2079,17 +2069,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                     consecutiveErrors++;
                 }
             });
-            this.subscriptions.push(logSub);
         }, 1500);
 
         const uploadSub = this.fileService.postFileToUrl(formData, user, uploadUrl, sessionId).subscribe({
             next: () => {
                 setTimeout(() => {
                     if (this.destroyed) return;
-                    if (this.wallUploadPollIntervalId != null) {
-                        clearInterval(this.wallUploadPollIntervalId);
-                        this.wallUploadPollIntervalId = null;
-                    }
+                    this.stopWallUploadLogPolling();
                     const fileCount = processedFiles.length;
                     this.addWallUploadSuccessLog(`✅ Upload successful! ${fileCount} file(s) processed`);
                     this.refreshTimelineGroup(group);
@@ -2099,10 +2085,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 }, 500);
             },
             error: (err: any) => {
-                if (this.wallUploadPollIntervalId != null) {
-                    clearInterval(this.wallUploadPollIntervalId);
-                    this.wallUploadPollIntervalId = null;
-                }
+                this.stopWallUploadLogPolling();
                 const uploadError = err?.headers?.get('X-Upload-Error');
                 let errorMessage = this.translate.instant('EVENTELEM.ERROR_UPLOADING');
                 if (err?.status === 0) {
@@ -2135,10 +2118,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     private finishWallUploadCancelled(logsModal: NgbModalRef | null): void {
-        if (this.wallUploadPollIntervalId != null) {
-            clearInterval(this.wallUploadPollIntervalId);
-            this.wallUploadPollIntervalId = null;
-        }
+        this.stopWallUploadLogPolling();
         this.isUploading = false;
         this.wallBulkFileUploadActive = false;
         if (logsModal) {
@@ -2162,6 +2142,17 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
     private generateWallUploadSessionId(): string {
         return 'upload-' + Date.now() + '-' + Math.random().toString(36).substring(7);
+    }
+
+    private stopWallUploadLogPolling(): void {
+        if (this.wallUploadPollIntervalId != null) {
+            clearInterval(this.wallUploadPollIntervalId);
+            this.wallUploadPollIntervalId = null;
+        }
+        if (this.wallUploadLogsPollSub) {
+            this.wallUploadLogsPollSub.unsubscribe();
+            this.wallUploadLogsPollSub = null;
+        }
     }
 
     private addWallUploadLog(message: string): void {

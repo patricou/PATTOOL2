@@ -1207,8 +1207,8 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 			return;
 		}
 		
-		// Stream files using Server-Sent Events (SSE)
-		this._evenementsService.streamEventFiles(this.evenement.id).subscribe({
+		// Stream files using Server-Sent Events (SSE) — doit être désabonné au destroy
+		const streamSub = this._evenementsService.streamEventFiles(this.evenement.id).subscribe({
 			next: (streamedFile) => {
 				if (streamedFile.type === 'file') {
 					// File received - add to array
@@ -1243,6 +1243,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				alert('Erreur lors du chargement des fichiers.');
 			}
 		});
+		this.allSubscriptions.push(streamSub);
 	}
 
 	// =========================
@@ -8096,7 +8097,10 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 	}
 
 	private showSlideshowMessage(translationKey: string): void {
-		this.translateService.get(translationKey).subscribe((translation: string) => {
+		const sub = this.translateService.get(translationKey).pipe(take(1)).subscribe((translation: string) => {
+			if (this.componentDestroyed) {
+				return;
+			}
 			const toast = document.createElement('div');
 			toast.textContent = translation;
 			toast.style.cssText = 'position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: white; padding: 10px 20px; border-radius: 5px; z-index: 9999; font-size: 16px;';
@@ -8105,6 +8109,7 @@ export class ElementEvenementComponent implements OnInit, AfterViewInit, OnDestr
 				toast.remove();
 			}, 2000);
 		});
+		this.allSubscriptions.push(sub);
 	}
 
 	// Toggle fullscreen mode
