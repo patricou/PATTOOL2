@@ -1670,6 +1670,8 @@
         "TRACK_TABLE_ERROR": "Errore",
         "TRACK_TABLE_SHOW_ALL": "Mostra tutte le tracce",
         "TRACK_TABLE_SHOW_LESS": "Comprimi",
+        "PDFS_WALL_TABLE_TITLE": "Documenti PDF",
+        "PDF_TABLE_DOWNLOAD": "Scarica PDF",
         "WALL_UPLOAD_BTN": "Aggiungi file a questa attività (foto, video, tracce GPS, PDF…)",
         "WALL_UPLOADING": "Caricamento file in corso…",
         "WALL_UPLOAD_LOG_WAITING": "In attesa dell’avvio del caricamento…"

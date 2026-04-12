@@ -1666,6 +1666,8 @@
         "TRACK_TABLE_ERROR": "Fehler",
         "TRACK_TABLE_SHOW_ALL": "Alle Strecken anzeigen",
         "TRACK_TABLE_SHOW_LESS": "Einklappen",
+        "PDFS_WALL_TABLE_TITLE": "PDF-Dokumente",
+        "PDF_TABLE_DOWNLOAD": "PDF herunterladen",
         "WALL_UPLOAD_BTN": "Dateien zu dieser Aktivität hinzufügen (Fotos, Videos, GPS-Tracks, PDF …)",
         "WALL_UPLOADING": "Dateien werden hochgeladen …",
         "WALL_UPLOAD_LOG_WAITING": "Warte auf Start des Uploads …"

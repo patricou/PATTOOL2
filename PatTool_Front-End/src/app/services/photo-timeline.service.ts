@@ -18,13 +18,13 @@ export interface TimelinePhoto {
 
 export interface FsPhotoLink {
     /**
-     * Link type (WEBSITE, MAP, PHOTOS, PHOTOFROMFS, VIDEO, TRACK, …).
+     * Link type (WEBSITE, MAP, PHOTOS, PHOTOFROMFS, VIDEO, TRACK, PDF, …).
      * Absent = legacy response: treated as PHOTOFROMFS (server disk folder).
      */
     typeUrl?: string;
     path: string;
     description: string;
-    /** Present for GPX/KML tracks stored in the database (opens the track viewer). */
+    /** Present for GPX/KML tracks or PDF uploads stored in the database (opens viewer / blob). */
     fieldId?: string;
     /** Saisie manuelle (événement) : prioritaire sur le calcul depuis le fichier dans le mur. */
     manualDistanceKm?: number | null;

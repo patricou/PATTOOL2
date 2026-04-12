@@ -65,12 +65,32 @@ public class PhotoTimelineRestController {
                 Criteria.where("link").regex(".+")));
     }
 
+    /** PDFs in {@code fileUploadeds} — must match {@link #extractFsPhotoLinks} so the event appears on the photo wall. */
+    private static Criteria criteriaUploadedPdfSignal() {
+        return Criteria.where("fileUploadeds.fileName").regex(".*\\.pdf$", "i");
+    }
+
+    /** GPX/KML/… in {@code fileUploadeds} (aligned with {@link #isUploadedTrackFileName}). */
+    private static Criteria criteriaUploadedTrackSignal() {
+        return new Criteria().orOperator(
+                Criteria.where("fileUploadeds.fileName").regex(".*\\.gpx$", "i"),
+                Criteria.where("fileUploadeds.fileName").regex(".*\\.kml$", "i"),
+                Criteria.where("fileUploadeds.fileName").regex(".*\\.geojson$", "i"),
+                Criteria.where("fileUploadeds.fileName").regex(".*\\.tcx$", "i"));
+    }
+
+    /**
+     * Signals used to decide whether an event belongs on the main photo timeline.
+     * Includes images / thumbnails / FS links / photosUrl, and attached PDF or trace files (mur de photos).
+     */
     private static Criteria criteriaTimelineHasAnyPhotoContent() {
         return new Criteria().orOperator(
                 criteriaUploadedImageSignal(),
                 criteriaNonEmptyPhotosUrl(),
                 criteriaFsPhotoLinkWithNonemptyLink(),
-                criteriaThumbnailImageSignal());
+                criteriaThumbnailImageSignal(),
+                criteriaUploadedPdfSignal(),
+                criteriaUploadedTrackSignal());
     }
 
     @Autowired
@@ -150,7 +170,7 @@ public class PhotoTimelineRestController {
         private String typeUrl;
         private String path;
         private String description;
-        /** GridFS / attached file: id used to open the track in the viewer (type {@code TRACK}). */
+        /** GridFS / attached file: id used to open the track (type {@code TRACK}) or PDF (type {@code PDF}). */
         private String fieldId;
         /** Saisie manuelle (événement) : km — prioritaire sur le calcul depuis le fichier. */
         private Double manualDistanceKm;
@@ -526,9 +546,10 @@ public class PhotoTimelineRestController {
 
     /**
      * Links displayed in the wall footer: {@code urlEvents} + track files ({@link FileUploaded} GPX/KML/…)
-     * + legacy {@code photosUrl} entries + the {@code map} field when it contains an http(s) URL.
-     * Deduplication is done by normalized URL or by {@code fieldId} for track files.
-     * Only PHOTOFROMFS is a server-side disk path; TRACK opens the track viewer; all others open a URL.
+     * + PDF files in {@code fileUploadeds} (GridFS, type {@code PDF}) + legacy {@code photosUrl} entries
+     * + the {@code map} field when it contains an http(s) URL.
+     * Deduplication is done by normalized URL or by {@code fieldId} for track / PDF files.
+     * Only PHOTOFROMFS is a server-side disk path; TRACK opens the track viewer; PDF opens the blob viewer; all others open a URL.
      */
     private List<FsPhotoLink> extractFsPhotoLinks(Evenement e) {
         List<FsPhotoLink> links = new ArrayList<>();
@@ -575,6 +596,35 @@ public class PhotoTimelineRestController {
                 f.setManualDistanceKm(file.getManualDistanceKm());
                 f.setManualElevationGainM(file.getManualElevationGainM());
                 f.setManualActivityDate(file.getManualActivityDate());
+                if (file.getUploaderMember() != null && file.getUploaderMember().getUserName() != null) {
+                    String un = file.getUploaderMember().getUserName().trim();
+                    if (!un.isEmpty()) {
+                        f.setUploaderUserName(un);
+                    }
+                }
+                links.add(f);
+            }
+            // PDF documents in fileUploadeds (GridFS) — shown in the photo wall table like tracks
+            for (FileUploaded file : e.getFileUploadeds()) {
+                if (file == null || file.getFieldId() == null || file.getFieldId().trim().isEmpty()) {
+                    continue;
+                }
+                String fn = file.getFileName();
+                if (fn == null || !fn.toLowerCase(Locale.ROOT).endsWith(".pdf")) {
+                    continue;
+                }
+                String dedupKey = "pdf:" + file.getFieldId().trim().toLowerCase(Locale.ROOT);
+                if (!seenUrls.add(dedupKey)) {
+                    continue;
+                }
+                String fileNameDisplay = fn.trim();
+                String custom = file.getDisplayName();
+                String linkDescription = (custom != null && !custom.trim().isEmpty())
+                    ? custom.trim()
+                    : fileNameDisplay;
+                FsPhotoLink f = new FsPhotoLink(fileNameDisplay, linkDescription);
+                f.setTypeUrl("PDF");
+                f.setFieldId(file.getFieldId().trim());
                 if (file.getUploaderMember() != null && file.getUploaderMember().getUserName() != null) {
                     String un = file.getUploaderMember().getUserName().trim();
                     if (!un.isEmpty()) {

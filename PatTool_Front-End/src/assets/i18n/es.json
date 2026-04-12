@@ -1674,6 +1674,8 @@
         "TRACK_TABLE_ERROR": "Error",
         "TRACK_TABLE_SHOW_ALL": "Ver todas las rutas",
         "TRACK_TABLE_SHOW_LESS": "Contraer",
+        "PDFS_WALL_TABLE_TITLE": "Documentos PDF",
+        "PDF_TABLE_DOWNLOAD": "Descargar PDF",
         "WALL_UPLOAD_BTN": "Añadir archivos a esta actividad (fotos, vídeos, trazas GPS, PDF…)",
         "WALL_UPLOADING": "Subiendo archivos…",
         "WALL_UPLOAD_LOG_WAITING": "Esperando el inicio de la subida…"

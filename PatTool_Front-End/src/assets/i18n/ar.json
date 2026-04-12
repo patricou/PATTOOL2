@@ -1666,6 +1666,8 @@
         "TRACK_TABLE_ERROR": "خطأ",
         "TRACK_TABLE_SHOW_ALL": "عرض كل المسارات",
         "TRACK_TABLE_SHOW_LESS": "طي",
+        "PDFS_WALL_TABLE_TITLE": "مستندات PDF",
+        "PDF_TABLE_DOWNLOAD": "تنزيل PDF",
         "WALL_UPLOAD_BTN": "إضافة ملفات إلى هذا النشاط (صور، فيديو، مسارات GPS، PDF…)",
         "WALL_UPLOADING": "جاري رفع الملفات…",
         "WALL_UPLOAD_LOG_WAITING": "في انتظار بدء الرفع…"

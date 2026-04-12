@@ -1702,6 +1702,8 @@
         "TRACK_TABLE_ERROR": "Error",
         "TRACK_TABLE_SHOW_ALL": "Show all tracks",
         "TRACK_TABLE_SHOW_LESS": "Show less",
+        "PDFS_WALL_TABLE_TITLE": "PDF documents",
+        "PDF_TABLE_DOWNLOAD": "Download PDF",
         "WALL_UPLOAD_BTN": "Add files to this activity (photos, videos, GPS tracks, PDF…)",
         "WALL_UPLOADING": "Uploading files…",
         "WALL_UPLOAD_LOG_WAITING": "Waiting for upload to start…"

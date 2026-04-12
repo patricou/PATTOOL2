@@ -1671,6 +1671,8 @@
         "TRACK_TABLE_ERROR": "Σφάλμα",
         "TRACK_TABLE_SHOW_ALL": "Εμφάνιση όλων των ιχνών",
         "TRACK_TABLE_SHOW_LESS": "Σύμπτυξη",
+        "PDFS_WALL_TABLE_TITLE": "Έγγραφα PDF",
+        "PDF_TABLE_DOWNLOAD": "Λήψη PDF",
         "WALL_UPLOAD_BTN": "Προσθήκη αρχείων στη δραστηριότητα (φωτογραφίες, βίντεο, ίχνη GPS, PDF…)",
         "WALL_UPLOADING": "Μεταφόρτωση αρχείων…",
         "WALL_UPLOAD_LOG_WAITING": "Αναμονή έναρξης μεταφόρτωσης…"

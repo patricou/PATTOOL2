@@ -489,6 +489,104 @@
                     </table>
                 </div>
             </div>
+
+            <!-- Documents PDF (fichiers GridFS liés à l’activité) : même principe que le tableau des traces -->
+            <div class="photo-wall-tracks-wrap mt-2"
+                 *ngIf="getGroupWallPdfLinks(group).length > 0">
+                <div class="photo-wall-tracks-title-row d-flex flex-wrap align-items-center justify-content-between gap-2 mb-1">
+                    <div class="photo-wall-tracks-title small mb-0">
+                        <i class="fa fa-file-pdf-o me-1" aria-hidden="true"></i>
+                        {{ 'PHOTO_TIMELINE.PDFS_WALL_TABLE_TITLE' | translate }}
+                        <span *ngIf="wallPdfTableHasMultipleRows(group)" class="text-muted ms-1">({{ getGroupWallPdfLinks(group).length }})</span>
+                    </div>
+                    <button *ngIf="wallPdfTableHasMultipleRows(group)"
+                            type="button"
+                            class="btn btn-sm btn-outline-secondary photo-wall-tracks-expand-btn py-0 px-2"
+                            [attr.aria-expanded]="isWallPdfTableExpanded(group)"
+                            [attr.aria-label]="(isWallPdfTableExpanded(group) ? 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_LESS' : 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_ALL') | translate"
+                            (click)="onWallPdfTableToggleExpand(group, $event)">
+                        <i class="fa me-sm-1" [ngClass]="isWallPdfTableExpanded(group) ? 'fa-chevron-up' : 'fa-chevron-down'" aria-hidden="true"></i>
+                        <span class="d-none d-sm-inline">{{ (isWallPdfTableExpanded(group) ? 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_LESS' : 'PHOTO_TIMELINE.TRACK_TABLE_SHOW_ALL') | translate }}</span>
+                    </button>
+                </div>
+                <div class="table-responsive photo-wall-tracks-table-responsive">
+                    <table class="table table-sm table-striped photo-wall-tracks-table mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col"
+                                    class="photo-wall-tracks-th-sort"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallPdfSortClick(group, 'name', $event)"
+                                    (keydown.enter)="onWallPdfSortClick(group, 'name', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallPdfSortClick(group, 'name', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_NAME' | translate }}</span>
+                                    <i [ngClass]="wallPdfSortIconClass(group, 'name')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col"
+                                    class="photo-wall-tracks-th-sort d-none d-md-table-cell"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallPdfSortClick(group, 'file', $event)"
+                                    (keydown.enter)="onWallPdfSortClick(group, 'file', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallPdfSortClick(group, 'file', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_FILE_NAME' | translate }}</span>
+                                    <i [ngClass]="wallPdfSortIconClass(group, 'file')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col"
+                                    class="photo-wall-tracks-th-sort d-none d-md-table-cell"
+                                    role="button"
+                                    tabindex="0"
+                                    (click)="onWallPdfSortClick(group, 'owner', $event)"
+                                    (keydown.enter)="onWallPdfSortClick(group, 'owner', $event)"
+                                    (keydown.space)="$event.preventDefault(); onWallPdfSortClick(group, 'owner', $event)">
+                                    <span>{{ 'PHOTO_TIMELINE.TRACK_TABLE_OWNER' | translate }}</span>
+                                    <i [ngClass]="wallPdfSortIconClass(group, 'owner')" aria-hidden="true"></i>
+                                </th>
+                                <th scope="col" class="text-end photo-wall-tracks-col-open">{{ 'PHOTO_TIMELINE.TRACK_TABLE_OPEN' | translate }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr *ngFor="let pdf of getDisplayedWallPdfLinks(group); trackBy: trackByTrackFieldId">
+                                <td class="text-wrap photo-wall-tracks-col-name">
+                                    <div class="d-flex align-items-center gap-1 min-w-0">
+                                        <span class="flex-grow-1 min-w-0">{{ pdf.description || pdf.path }}</span>
+                                        <button *ngIf="pdf.fieldId"
+                                                type="button"
+                                                class="btn btn-outline-secondary btn-sm py-0 px-1 photo-wall-tracks-download-btn d-md-none flex-shrink-0"
+                                                (click)="onWallPdfFileDownloadClick(pdf, $event)"
+                                                [title]="'PHOTO_TIMELINE.PDF_TABLE_DOWNLOAD' | translate">
+                                            <i class="fa fa-download" aria-hidden="true"></i>
+                                            <span class="visually-hidden">{{ 'PHOTO_TIMELINE.PDF_TABLE_DOWNLOAD' | translate }}</span>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="text-wrap photo-wall-tracks-col-file d-none d-md-table-cell">
+                                    <div class="d-flex align-items-center gap-1 min-w-0">
+                                        <span class="flex-grow-1 min-w-0 text-break">{{ pdf.path || '—' }}</span>
+                                        <button *ngIf="pdf.fieldId"
+                                                type="button"
+                                                class="btn btn-outline-secondary btn-sm py-0 px-1 photo-wall-tracks-download-btn flex-shrink-0"
+                                                (click)="onWallPdfFileDownloadClick(pdf, $event)"
+                                                [title]="'PHOTO_TIMELINE.PDF_TABLE_DOWNLOAD' | translate">
+                                            <i class="fa fa-download" aria-hidden="true"></i>
+                                            <span class="visually-hidden">{{ 'PHOTO_TIMELINE.PDF_TABLE_DOWNLOAD' | translate }}</span>
+                                        </button>
+                                    </div>
+                                </td>
+                                <td class="text-wrap photo-wall-tracks-col-owner d-none d-md-table-cell">{{ pdf.uploaderUserName || '—' }}</td>
+                                <td class="text-end photo-wall-tracks-col-open">
+                                    <button type="button"
+                                            class="btn btn-outline-primary btn-sm py-0 px-2 photo-wall-tracks-open-btn"
+                                            (click)="onPhotoWallFooterLinkClick(pdf, group); $event.stopPropagation()">
+                                        {{ 'PHOTO_TIMELINE.TRACK_TABLE_OPEN' | translate }}
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 

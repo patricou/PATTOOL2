@@ -1659,6 +1659,8 @@
         "TRACK_TABLE_ERROR": "त्रुटि",
         "TRACK_TABLE_SHOW_ALL": "सभी ट्रैक दिखाएं",
         "TRACK_TABLE_SHOW_LESS": "संक्षिप्त करें",
+        "PDFS_WALL_TABLE_TITLE": "PDF दस्तावेज़",
+        "PDF_TABLE_DOWNLOAD": "PDF डाउनलोड करें",
         "WALL_UPLOAD_BTN": "इस गतिविधि में फ़ाइलें जोड़ें (फ़ोटो, वीडियो, GPS ट्रैक, PDF…)",
         "WALL_UPLOADING": "फ़ाइलें अपलोड हो रही हैं…",
         "WALL_UPLOAD_LOG_WAITING": "अपलोड शुरू होने की प्रतीक्षा…"

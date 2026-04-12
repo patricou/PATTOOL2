@@ -189,6 +189,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }>();
     /** Tableau traces : déplié = toutes les lignes ; sinon une seule (clé = eventId). */
     private wallTrackTableExpanded = new Map<string, boolean>();
+    /** Tri du tableau des PDF (clé = eventId). */
+    private wallPdfTableSort = new Map<string, {
+        col: 'name' | 'file' | 'owner';
+        asc: boolean;
+    }>();
+    /** Tableau PDF : déplié = toutes les lignes ; sinon une seule (clé = eventId). */
+    private wallPdfTableExpanded = new Map<string, boolean>();
     loadingThumbnails: Set<string> = new Set();
     videoUrlCache: Map<string, string> = new Map();
     videoSafeUrlCache: Map<string, SafeUrl> = new Map(); // same SafeUrl instance to avoid reloads
@@ -552,6 +559,8 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         this.wallTrackStats.clear();
         this.wallTrackTableSort.clear();
         this.wallTrackTableExpanded.clear();
+        this.wallPdfTableSort.clear();
+        this.wallPdfTableExpanded.clear();
         this.videoUrlCache.clear();
         this.videoSafeUrlCache.clear();
         this.loadingThumbnails.clear();
@@ -895,7 +904,10 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             res.groups?.find(g => g.eventId === eventId) ?? res.groups?.[0];
 
         const photoGroup = pick(photoRes);
-        if (photoGroup && (photoGroup.photos?.length ?? 0) > 0) {
+        const photoHasWallContent =
+            (photoGroup?.photos?.length ?? 0) > 0
+            || (photoGroup?.fsPhotoLinks?.length ?? 0) > 0;
+        if (photoGroup && photoHasWallContent) {
             return { ...photoGroup };
         }
 
@@ -1223,11 +1235,115 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return t === 'TRACK' || t === 'TRACE' || t === 'GPX';
     }
 
+    /** PDF déposé sur l’activité (GridFS) : tableau mur, pas badge. */
+    isMongoWallPdfLink(link: FsPhotoLink): boolean {
+        const t = (link.typeUrl || '').trim().toUpperCase();
+        const id = (link.fieldId || '').trim();
+        if (!id || t !== 'PDF') {
+            return false;
+        }
+        return true;
+    }
+
     getGroupMongoTrackLinks(group: TimelineGroup): FsPhotoLink[] {
         if (!group?.fsPhotoLinks?.length) {
             return [];
         }
         return group.fsPhotoLinks.filter(l => this.isMongoTrackLink(l));
+    }
+
+    getGroupWallPdfLinks(group: TimelineGroup): FsPhotoLink[] {
+        if (!group?.fsPhotoLinks?.length) {
+            return [];
+        }
+        return group.fsPhotoLinks.filter(l => this.isMongoWallPdfLink(l));
+    }
+
+    /** PDF triés pour le tableau (état par événement). */
+    getSortedWallPdfLinks(group: TimelineGroup): FsPhotoLink[] {
+        const list = this.getGroupWallPdfLinks(group);
+        if (list.length <= 1) {
+            return list;
+        }
+        const evId = group?.eventId || '';
+        const cur = this.wallPdfTableSort.get(evId) ?? { col: 'name' as const, asc: true };
+        const mul = cur.asc ? 1 : -1;
+        const copy = [...list];
+        copy.sort((a, b) => {
+            const c = mul * this.compareWallPdfRows(a, b, cur.col);
+            if (c !== 0) {
+                return c;
+            }
+            return (a.fieldId || '').localeCompare(b.fieldId || '');
+        });
+        return copy;
+    }
+
+    getDisplayedWallPdfLinks(group: TimelineGroup): FsPhotoLink[] {
+        const sorted = this.getSortedWallPdfLinks(group);
+        if (sorted.length <= 1) {
+            return sorted;
+        }
+        if (this.isWallPdfTableExpanded(group)) {
+            return sorted;
+        }
+        return sorted.slice(0, 1);
+    }
+
+    isWallPdfTableExpanded(group: TimelineGroup): boolean {
+        return this.wallPdfTableExpanded.get(group?.eventId || '') === true;
+    }
+
+    wallPdfTableHasMultipleRows(group: TimelineGroup): boolean {
+        return this.getGroupWallPdfLinks(group).length > 1;
+    }
+
+    onWallPdfTableToggleExpand(group: TimelineGroup, ev?: Event): void {
+        ev?.stopPropagation();
+        const id = group?.eventId || '';
+        if (!id) {
+            return;
+        }
+        const next = !this.isWallPdfTableExpanded(group);
+        this.wallPdfTableExpanded.set(id, next);
+        this.scheduleCdr();
+    }
+
+    getWallPdfTableSort(group: TimelineGroup): {
+        col: 'name' | 'file' | 'owner';
+        asc: boolean;
+    } {
+        return this.wallPdfTableSort.get(group?.eventId || '') ?? { col: 'name', asc: true };
+    }
+
+    onWallPdfSortClick(group: TimelineGroup, col: 'name' | 'file' | 'owner', ev?: Event): void {
+        ev?.stopPropagation();
+        const id = group?.eventId || '';
+        const prev = this.wallPdfTableSort.get(id) ?? { col: 'name' as const, asc: true };
+        const asc = prev.col === col ? !prev.asc : true;
+        this.wallPdfTableSort.set(id, { col, asc });
+        this.scheduleCdr();
+    }
+
+    wallPdfSortIconClass(group: TimelineGroup, col: 'name' | 'file' | 'owner'): string {
+        const s = this.getWallPdfTableSort(group);
+        if (s.col !== col) {
+            return 'fa fa-sort opacity-50';
+        }
+        return s.asc ? 'fa fa-sort-asc' : 'fa fa-sort-desc';
+    }
+
+    private compareWallPdfRows(a: FsPhotoLink, b: FsPhotoLink, col: 'name' | 'file' | 'owner'): number {
+        switch (col) {
+            case 'name':
+                return (a.description || a.path).localeCompare(b.description || b.path, undefined, { sensitivity: 'base' });
+            case 'file':
+                return (a.path || '').localeCompare(b.path || '', undefined, { sensitivity: 'base' });
+            case 'owner':
+                return (a.uploaderUserName || '').localeCompare(b.uploaderUserName || '', undefined, { sensitivity: 'base' });
+            default:
+                return 0;
+        }
     }
 
     /** Traces triées pour le tableau (état par événement). */
@@ -1387,12 +1503,12 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return st.elevationGainM;
     }
 
-    /** Footer badges: all links except Mongo-backed tracks (those use the table). */
+    /** Footer badges: all links except Mongo-backed tracks and PDFs (those use the tables). */
     getGroupBadgeLinks(group: TimelineGroup): FsPhotoLink[] {
         if (!group?.fsPhotoLinks?.length) {
             return [];
         }
-        return group.fsPhotoLinks.filter(l => !this.isMongoTrackLink(l));
+        return group.fsPhotoLinks.filter(l => !this.isMongoTrackLink(l) && !this.isMongoWallPdfLink(l));
     }
 
     trackByTrackFieldId(_index: number, link: FsPhotoLink): string {
@@ -1559,6 +1675,7 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
             return 'fa-desktop';
         }
         const t = (link.typeUrl || '').trim().toUpperCase() || 'OTHER';
+        if (t === 'PDF') return 'fa-file-pdf-o';
         if (t === 'MAP' || t === 'CARTE') return 'fa-map-marker';
         if (t === 'WEBSITE' || t === 'SITE' || t === 'WEB') return 'fa-globe';
         if (t === 'DOCUMENTATION' || t === 'DOC' || t === 'FICHE') return 'fa-file-text';
@@ -1578,6 +1695,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
         const t = (link.typeUrl || '').trim().toUpperCase() || 'OTHER';
         const path = (link.path || '').trim().toLowerCase();
+        if (t === 'PDF') {
+            return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_PDF';
+        }
         if (t === 'TRACK' || t === 'TRACE' || t === 'GPX') {
             return 'PHOTO_TIMELINE.LINK_ACTION_OPEN_TRACE';
         }
@@ -1608,9 +1728,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return 'PHOTO_TIMELINE.LINK_ACTION_OPEN';
     }
 
-    /** Footer click: disk slideshow only for PHOTOFROMFS; Mongo track → viewer; otherwise new tab. */
+    /** Footer click: disk slideshow only for PHOTOFROMFS; Mongo track → viewer; PDF → blob; otherwise new tab. */
     onPhotoWallFooterLinkClick(fsLink: FsPhotoLink, group: TimelineGroup): void {
         const t = (fsLink.typeUrl || '').trim().toUpperCase();
+        if (t === 'PDF' && (fsLink.fieldId || '').trim()) {
+            this.openWallPdfInNewTab(fsLink);
+            return;
+        }
         if ((t === 'TRACK' || t === 'TRACE' || t === 'GPX') && fsLink.fieldId) {
             const pathPart = (fsLink.path || '').trim();
             const descPart = (fsLink.description || '').trim();
@@ -1629,6 +1753,68 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         if (url) {
             window.open(url, '_blank', 'noopener,noreferrer');
         }
+    }
+
+    /** Ouvre un PDF GridFS dans un nouvel onglet (même principe que le détail événement). */
+    private openWallPdfInNewTab(fsLink: FsPhotoLink): void {
+        const id = (fsLink.fieldId || '').trim();
+        if (!id) {
+            return;
+        }
+        const fileName = (fsLink.path || '').trim() || 'document.pdf';
+        const sub = this.fileService.getFile(id).subscribe({
+            next: (buffer: ArrayBuffer) => {
+                if (this.destroyed) {
+                    return;
+                }
+                try {
+                    const pdfBlob = new Blob([buffer], { type: 'application/pdf' });
+                    const objectUrl = URL.createObjectURL(pdfBlob);
+                    const newWindow = window.open(objectUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes,toolbar=yes,menubar=yes');
+                    if (newWindow) {
+                        newWindow.focus();
+                    }
+                    setTimeout(() => URL.revokeObjectURL(objectUrl), 10000);
+                } catch (e) {
+                    console.error('Wall PDF open failed', e);
+                    alert(this.translate.instant('EVENTELEM.ERROR_LOADING_PDF'));
+                }
+            },
+            error: (err) => {
+                console.error('Wall PDF load failed', err);
+                alert(this.translate.instant('EVENTELEM.ERROR_LOADING_PDF'));
+            }
+        });
+        this.subscriptions.push(sub);
+    }
+
+    /** Télécharge un PDF lié au mur (GridFS). */
+    onWallPdfFileDownloadClick(pdf: FsPhotoLink, ev?: Event): void {
+        ev?.stopPropagation();
+        const id = (pdf.fieldId || '').trim();
+        if (!id) {
+            return;
+        }
+        const fileName = (pdf.path || '').trim() || 'document.pdf';
+        const sub = this.fileService.getFile(id).subscribe({
+            next: (buffer: ArrayBuffer) => {
+                const blob = new Blob([buffer], { type: 'application/pdf' });
+                if ((navigator as any).msSaveBlob) {
+                    (navigator as any).msSaveBlob(blob, fileName);
+                    return;
+                }
+                const url = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = fileName;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(url);
+            },
+            error: (err) => console.error('Wall PDF download failed', err)
+        });
+        this.subscriptions.push(sub);
     }
 
     /** Télécharge le fichier trace (GridFS) depuis l’API fichier. */
