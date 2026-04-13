@@ -1378,6 +1378,7 @@
         "FRIEND": "Ami",
         "APPROVE": "Accepter",
         "REJECT": "Refuser",
+        "REQUEST_DATE": "Reçue le",
         "REMOVE_FRIEND": "Retirer l'Ami",
         "NO_USERS_FOUND": "Aucun utilisateur trouvé",
         "NO_PENDING_REQUESTS": "Aucune demande d'amis en attente",

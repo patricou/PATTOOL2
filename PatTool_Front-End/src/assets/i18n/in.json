@@ -1350,6 +1350,7 @@
         "FRIEND": "दोस्त",
         "APPROVE": "अनुमोदन",
         "REJECT": "अस्वीकार",
+        "REQUEST_DATE": "प्राप्त",
         "REMOVE_FRIEND": "दोस्त हटाएं",
         "NO_USERS_FOUND": "कोई उपयोगकर्ता नहीं मिला",
         "NO_PENDING_REQUESTS": "कोई लंबित मित्र अनुरोध नहीं",

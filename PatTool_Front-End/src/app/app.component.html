@@ -340,7 +340,39 @@
     </div>
 </nav>
 
-<div class="pat-div"></div>
+<!-- Demandes d'amis en attente : bannière (plus de modale / pas de double cadre Bootstrap) -->
+<div *ngIf="showFriendRequestsPromptBanner()"
+     class="friend-requests-app-banner"
+     role="region"
+     [attr.aria-label]="'FRIEND_REQUESTS_PROMPT.TITLE' | translate">
+    <div class="friend-requests-app-banner-inner">
+        <div class="friend-requests-app-banner-accent" aria-hidden="true">
+            <i class="fa fa-user-plus"></i>
+        </div>
+        <div class="friend-requests-app-banner-main">
+            <div class="friend-requests-app-banner-head">
+                <strong class="friend-requests-app-banner-title">{{ 'FRIEND_REQUESTS_PROMPT.TITLE' | translate }}</strong>
+                <span class="friend-requests-app-banner-badge">{{ pendingFriendRequestCount }}</span>
+            </div>
+            <p class="friend-requests-app-banner-msg mb-0">{{ 'FRIEND_REQUESTS_PROMPT.MESSAGE' | translate:{ count: pendingFriendRequestCount } }}</p>
+        </div>
+        <div class="friend-requests-app-banner-actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" (click)="friendRequestsBannerDismiss()">
+                {{ 'FRIEND_REQUESTS_PROMPT.LATER' | translate }}
+            </button>
+            <button type="button" class="btn btn-sm btn-primary" (click)="friendRequestsBannerGo()">
+                <i class="fa fa-users me-1" aria-hidden="true"></i>{{ 'FRIEND_REQUESTS_PROMPT.GO' | translate }}
+            </button>
+        </div>
+        <button type="button"
+                class="btn-close friend-requests-app-banner-close"
+                (click)="friendRequestsBannerDismiss()"
+                [attr.aria-label]="'COMMUN.CLOSE' | translate"></button>
+    </div>
+</div>
+
+<!-- Sans bannière : marge sous la navbar ; avec bannière : la bannière occupe déjà le dégagement → évite ~80px de vide avant le contenu -->
+<div class="pat-div" [class.pat-div--with-friend-requests-banner]="showFriendRequestsPromptBanner()"></div>
 <router-outlet></router-outlet>
 
 <!-- Modal window for user information -->
@@ -456,44 +488,6 @@
             <button type="button" class="user-modal-btn user-modal-btn-close" (click)="c('Close click')">
                 <i class="fa fa-times"></i>
                 {{"COMMUN.CLOSE" | translate}}
-            </button>
-        </div>
-    </div>
-</ng-template>
-
-<!-- Pending friend requests (async after login; does not block photo wall) -->
-<ng-template #friendRequestsPromptModal let-c="close" let-d="dismiss">
-    <div class="modal-content pat-frq-dialog">
-        <div class="pat-frq-hero">
-            <div class="pat-frq-hero-bg" aria-hidden="true"></div>
-            <div class="pat-frq-hero-orbs" aria-hidden="true">
-                <span class="pat-frq-orb pat-frq-orb--1"></span>
-                <span class="pat-frq-orb pat-frq-orb--2"></span>
-                <span class="pat-frq-orb pat-frq-orb--3"></span>
-            </div>
-            <img class="pat-frq-brand-watermark" src="assets/images/pat.png" alt="" width="120" height="120" />
-            <button type="button" class="pat-frq-close" (click)="friendRequestsPromptLater(d)" [attr.aria-label]="'COMMUN.CLOSE' | translate">
-                <i class="fa fa-times"></i>
-            </button>
-            <div class="pat-frq-hero-content">
-                <div class="pat-frq-icon-ring">
-                    <i class="fa fa-user-plus pat-frq-icon-main" aria-hidden="true"></i>
-                </div>
-                <div class="pat-frq-title-block">
-                    <h2 class="pat-frq-title">{{ 'FRIEND_REQUESTS_PROMPT.TITLE' | translate }}</h2>
-                    <span class="pat-frq-count-badge" *ngIf="pendingFriendRequestCount > 0">{{ pendingFriendRequestCount }}</span>
-                </div>
-            </div>
-        </div>
-        <div class="pat-frq-body">
-            <div class="pat-frq-card-glass">
-                <p class="pat-frq-message mb-0">{{ 'FRIEND_REQUESTS_PROMPT.MESSAGE' | translate:{ count: pendingFriendRequestCount } }}</p>
-            </div>
-        </div>
-        <div class="pat-frq-actions">
-            <button type="button" class="pat-frq-btn pat-frq-btn--ghost" (click)="friendRequestsPromptLater(d)">{{ 'FRIEND_REQUESTS_PROMPT.LATER' | translate }}</button>
-            <button type="button" class="pat-frq-btn pat-frq-btn--primary" (click)="friendRequestsPromptGo(c)">
-                <i class="fa fa-users me-2" aria-hidden="true"></i>{{ 'FRIEND_REQUESTS_PROMPT.GO' | translate }}
             </button>
         </div>
     </div>

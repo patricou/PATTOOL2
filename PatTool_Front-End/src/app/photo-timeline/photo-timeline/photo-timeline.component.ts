@@ -433,6 +433,21 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     /**
+     * Writes wall thumbnail / video blob caches outside the Angular zone so Zone does not emit an
+     * extra ApplicationRef notification that races with dev-mode checkNoChanges (NG0100 on [src] /
+     * getThumbnailUrl). CD is then requested explicitly via {@link scheduleCdr}.
+     */
+    private commitWallMediaCachesAndScheduleCdr(fn: () => void): void {
+        if (this.destroyed) return;
+        this.ngZone.runOutsideAngular(() => {
+            if (this.destroyed) return;
+            fn();
+        });
+        if (this.destroyed) return;
+        this.ngZone.run(() => this.scheduleCdr());
+    }
+
+    /**
      * Starts the wall as soon as the member id is available (without waiting for GPS, like links).
      * Avoids the setInterval(200 ms) that was systematically delaying the first load.
      */
@@ -786,9 +801,13 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
 
         this.intersectionObserver = new IntersectionObserver(
             (entries) => {
-                if (entries[0].isIntersecting && (this.bufferedGroups.length > 0 || this.hasMore || this.bufferedVideoGroups.length > 0 || this.hasMoreVideos)) {
-                    this.revealMore();
-                }
+                // Defer: observe() can call this synchronously; revealMore → preload → Http can emit sync → NG0100.
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    if (entries[0].isIntersecting && (this.bufferedGroups.length > 0 || this.hasMore || this.bufferedVideoGroups.length > 0 || this.hasMoreVideos)) {
+                        this.revealMore();
+                    }
+                }, 0);
             },
             { rootMargin: `${SCROLL_THRESHOLD_PX}px` }
         );
@@ -804,7 +823,11 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         const documentHeight = document.documentElement.scrollHeight;
 
         if (documentHeight - scrollPosition < SCROLL_THRESHOLD_PX) {
-            this.revealMore();
+            setTimeout(() => {
+                if (this.destroyed) return;
+                if (this.bufferedGroups.length === 0 && !this.hasMore && this.bufferedVideoGroups.length === 0 && !this.hasMoreVideos) return;
+                this.revealMore();
+            }, 0);
         }
     }
 
@@ -962,18 +985,9 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         return this.thumbnailCache.get(photo.fileId) ?? null;
     }
 
+    /** Read-only: safe URL is always written with blob URL in {@link loadVideoUrl} (no lazy fill here — avoids NG0100). */
     getVideoUrl(video: TimelinePhoto): SafeUrl | null {
-        const id = video.fileId;
-        if (this.videoSafeUrlCache.has(id)) {
-            return this.videoSafeUrlCache.get(id)!;
-        }
-        if (this.videoUrlCache.has(id)) {
-            const url = this.videoUrlCache.get(id)!;
-            const safe = this.sanitizer.bypassSecurityTrustUrl(url);
-            this.videoSafeUrlCache.set(id, safe);
-            return safe;
-        }
-        return null;
+        return this.videoSafeUrlCache.get(video.fileId) ?? null;
     }
 
     private acquireWallFetchSlot(job: () => void): void {
@@ -1012,26 +1026,28 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 finalize(() => this.releaseWallFetchSlot())
             ).subscribe({
                 next: (data: ArrayBuffer) => {
-                    if (this.destroyed || gen !== this.timelineLoadGeneration) {
+                    this.commitWallMediaCachesAndScheduleCdr(() => {
+                        if (this.destroyed || gen !== this.timelineLoadGeneration) {
+                            this.loadingVideos.delete(id);
+                            return;
+                        }
+                        if (this.videoUrlCache.has(id)) {
+                            this.loadingVideos.delete(id);
+                            return;
+                        }
+                        const blob = new Blob([data], { type: video.fileType || 'video/mp4' });
+                        const url = URL.createObjectURL(blob);
+                        this.videoUrlCache.set(id, url);
+                        const safe = this.sanitizer.bypassSecurityTrustUrl(url);
+                        this.videoSafeUrlCache.set(id, safe);
                         this.loadingVideos.delete(id);
-                        return;
-                    }
-                    if (this.videoUrlCache.has(id)) {
-                        this.loadingVideos.delete(id);
-                        return;
-                    }
-                    const blob = new Blob([data], { type: video.fileType || 'video/mp4' });
-                    const url = URL.createObjectURL(blob);
-                    this.videoUrlCache.set(id, url);
-                    const safe = this.sanitizer.bypassSecurityTrustUrl(url);
-                    this.videoSafeUrlCache.set(id, safe);
-                    this.loadingVideos.delete(id);
-                    this.scheduleCdr();
+                    });
                 },
                 error: () => {
-                    if (this.destroyed) return;
-                    this.loadingVideos.delete(id);
-                    this.scheduleCdr();
+                    this.commitWallMediaCachesAndScheduleCdr(() => {
+                        if (this.destroyed) return;
+                        this.loadingVideos.delete(id);
+                    });
                 }
             });
             this.subscriptions.push(sub);
@@ -1049,20 +1065,22 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
                 finalize(() => this.releaseWallFetchSlot())
             ).subscribe({
                 next: (data: ArrayBuffer) => {
-                    if (this.destroyed || gen !== this.timelineLoadGeneration) {
+                    this.commitWallMediaCachesAndScheduleCdr(() => {
+                        if (this.destroyed || gen !== this.timelineLoadGeneration) {
+                            this.loadingThumbnails.delete(photo.fileId);
+                            return;
+                        }
+                        const blob = new Blob([data], { type: 'image/jpeg' });
+                        const url = URL.createObjectURL(blob);
+                        this.thumbnailCache.set(photo.fileId, url);
                         this.loadingThumbnails.delete(photo.fileId);
-                        return;
-                    }
-                    const blob = new Blob([data], { type: 'image/jpeg' });
-                    const url = URL.createObjectURL(blob);
-                    this.thumbnailCache.set(photo.fileId, url);
-                    this.loadingThumbnails.delete(photo.fileId);
-                    this.scheduleCdr();
+                    });
                 },
                 error: () => {
-                    if (this.destroyed) return;
-                    this.loadingThumbnails.delete(photo.fileId);
-                    this.scheduleCdr();
+                    this.commitWallMediaCachesAndScheduleCdr(() => {
+                        if (this.destroyed) return;
+                        this.loadingThumbnails.delete(photo.fileId);
+                    });
                 }
             });
             this.subscriptions.push(sub);
@@ -1075,20 +1093,24 @@ export class PhotoTimelineComponent implements OnInit, OnDestroy, AfterViewInit 
         }
         this.wallMediaObserver = new IntersectionObserver(
             (entries) => {
-                if (this.destroyed) return;
-                for (const entry of entries) {
-                    if (!entry.isIntersecting) continue;
-                    const el = entry.target as HTMLElement;
-                    const fid = el.dataset['fileId']?.trim();
-                    const ft = el.dataset['fileType']?.trim();
-                    this.wallMediaObserver?.unobserve(el);
-                    if (!fid) continue;
-                    if (el.classList.contains('wall-video-file-host')) {
-                        this.loadWallVideo(fid, ft || 'video/mp4');
-                    } else {
-                        this.loadWallThumbnail(fid, ft || 'image/jpeg');
+                // Defer: observe() can deliver callbacks synchronously while Angular is still checking
+                // bindings — a sync HTTP emit would flip *ngIf="!getVideoUrl(...)" and trigger NG0100.
+                setTimeout(() => {
+                    if (this.destroyed) return;
+                    for (const entry of entries) {
+                        if (!entry.isIntersecting) continue;
+                        const el = entry.target as HTMLElement;
+                        const fid = el.dataset['fileId']?.trim();
+                        const ft = el.dataset['fileType']?.trim();
+                        this.wallMediaObserver?.unobserve(el);
+                        if (!fid) continue;
+                        if (el.classList.contains('wall-video-file-host')) {
+                            this.loadWallVideo(fid, ft || 'video/mp4');
+                        } else {
+                            this.loadWallThumbnail(fid, ft || 'image/jpeg');
+                        }
                     }
-                }
+                }, 0);
             },
             { root: null, rootMargin: '500px', threshold: 0.01 }
         );

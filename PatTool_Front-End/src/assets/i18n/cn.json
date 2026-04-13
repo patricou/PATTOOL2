@@ -1359,6 +1359,7 @@
         "FRIEND": "好友",
         "APPROVE": "批准",
         "REJECT": "拒绝",
+        "REQUEST_DATE": "收到于",
         "REMOVE_FRIEND": "移除好友",
         "NO_USERS_FOUND": "未找到用户",
         "NO_PENDING_REQUESTS": "没有待处理的好友请求",

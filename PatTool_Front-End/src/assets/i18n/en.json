@@ -1388,6 +1388,7 @@
         "FRIEND": "Friend",
         "APPROVE": "Approve",
         "REJECT": "Reject",
+        "REQUEST_DATE": "Received on",
         "REMOVE_FRIEND": "Remove Friend",
         "NO_USERS_FOUND": "No users found",
         "NO_PENDING_REQUESTS": "No pending friend requests",

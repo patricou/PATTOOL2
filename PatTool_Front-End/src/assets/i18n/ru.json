@@ -1353,6 +1353,7 @@
         "FRIEND": "Друг",
         "APPROVE": "Одобрить",
         "REJECT": "Отклонить",
+        "REQUEST_DATE": "Получено",
         "REMOVE_FRIEND": "Удалить друга",
         "NO_USERS_FOUND": "Пользователи не найдены",
         "NO_PENDING_REQUESTS": "Нет ожидающих запросов в друзья",

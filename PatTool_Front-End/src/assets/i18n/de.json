@@ -1357,6 +1357,7 @@
         "FRIEND": "Freund",
         "APPROVE": "Genehmigen",
         "REJECT": "Ablehnen",
+        "REQUEST_DATE": "Erhalten am",
         "REMOVE_FRIEND": "Freund Entfernen",
         "NO_USERS_FOUND": "Keine Benutzer gefunden",
         "NO_PENDING_REQUESTS": "Keine ausstehenden Freundschaftsanfragen",

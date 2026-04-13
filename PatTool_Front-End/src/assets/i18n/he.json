@@ -1351,6 +1351,7 @@
         "FRIEND": "חבר",
         "APPROVE": "אשר",
         "REJECT": "דחה",
+        "REQUEST_DATE": "התקבלה ב־",
         "REMOVE_FRIEND": "הסר חבר",
         "NO_USERS_FOUND": "לא נמצאו משתמשים",
         "NO_PENDING_REQUESTS": "אין בקשות חברות ממתינות",

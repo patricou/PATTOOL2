@@ -1358,6 +1358,7 @@
         "FRIEND": "صديق",
         "APPROVE": "موافقة",
         "REJECT": "رفض",
+        "REQUEST_DATE": "تاريخ الاستلام",
         "REMOVE_FRIEND": "إزالة الصديق",
         "NO_USERS_FOUND": "لم يتم العثور على مستخدمين",
         "NO_PENDING_REQUESTS": "لا توجد طلبات صداقة قيد الانتظار",

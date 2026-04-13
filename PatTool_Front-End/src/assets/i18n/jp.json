@@ -1239,6 +1239,7 @@
         "FRIEND": "友達",
         "APPROVE": "承認",
         "REJECT": "拒否",
+        "REQUEST_DATE": "受信日時",
         "REMOVE_FRIEND": "友達を削除",
         "NO_USERS_FOUND": "ユーザーが見つかりません",
         "NO_PENDING_REQUESTS": "保留中の友達リクエストはありません",

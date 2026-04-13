@@ -2940,19 +2940,48 @@
   margin-bottom: 0.2rem;
 }
 
-.requests-tab .requests-container-pending .request-actions {
-  padding-top: 0.5rem;
-  gap: 0.4rem;
+.requests-tab .requests-container-pending .request-actions.request-actions-pending {
+  padding-top: 0.65rem;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: stretch;
 }
 
-.requests-tab .requests-container-pending .request-actions button,
+/* Approve / Refuse : pleine largeur lisible (évite le 32px global + texte tronqué « Accep » / « Refus ») */
+.requests-tab .requests-container-pending .request-actions.request-actions-pending .btn-request-pending-action {
+  flex: 1 1 calc(50% - 0.25rem);
+  min-width: min(100%, 8.5rem);
+  width: auto !important;
+  min-height: 2.5rem;
+  height: auto !important;
+  padding: 0.5rem 0.75rem !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem !important;
+  font-weight: 600;
+  line-height: 1.25;
+  white-space: normal;
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.requests-tab .requests-container-pending .request-actions.request-actions-pending .btn-request-pending-action i {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+}
+
+.requests-tab .requests-container-pending .request-actions.request-actions-pending .btn-request-pending-action span {
+  text-align: center;
+}
+
 .requests-tab .requests-container-pending .friend-actions button {
   font-size: 0.75rem !important;
   padding: 0.25rem 0.5rem !important;
   min-width: 26px;
 }
 
-.requests-tab .requests-container-pending .request-actions button i,
 .requests-tab .requests-container-pending .friend-actions button i {
   font-size: 0.7rem;
 }
@@ -2961,9 +2990,20 @@
   font-size: 0.7rem;
 }
 
-.requests-tab .requests-container-pending .alert {
+.requests-tab .requests-container-pending .alert.request-pending-message {
   font-size: 0.75rem;
-  padding: 0.4rem 0.6rem;
+  padding: 0.5rem 0.65rem;
+}
+
+.requests-tab .requests-container-pending .request-pending-message-label {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.requests-tab .requests-container-pending .request-pending-message-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
 /* ========== Modale Envoyer des demandes d'amis ========== */

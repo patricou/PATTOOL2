@@ -26,7 +26,6 @@ import { FriendsService } from './services/friends.service';
 export class AppComponent implements OnInit {
 
     @ViewChild('usercontent') usercontent!: TemplateRef<any>;
-    @ViewChild('friendRequestsPromptModal') friendRequestsPromptModal?: TemplateRef<unknown>;
 
     public user: Member = new Member("", "", "", "", "", [], "");
     public userRoles: string[] = []; // User roles from Keycloak
@@ -62,7 +61,10 @@ export class AppComponent implements OnInit {
 
     /** Pending incoming friend requests count (login prompt). */
     public pendingFriendRequestCount = 0;
-    private pendingFriendRequestsPromptShown = false;
+    /** True after the first pending-requests check this session (avoids duplicate HTTP). */
+    private friendRequestsPendingCheckStarted = false;
+    /** User dismissed the banner or opened Friends from it. */
+    private friendRequestsBannerDismissed = false;
     
     // Share files properties
     public shareFiles: File[] = []; // Files to share
@@ -191,21 +193,22 @@ export class AppComponent implements OnInit {
      * (photo wall and router-outlet render first; HTTP runs on the next macrotask).
      */
     private schedulePendingFriendRequestsPrompt(): void {
-        if (!this.isAuthenticated() || this.pendingFriendRequestsPromptShown) {
+        if (!this.isAuthenticated() || this.friendRequestsPendingCheckStarted) {
             return;
         }
         setTimeout(() => this.runPendingFriendRequestsPromptCheck(), 0);
     }
 
     private runPendingFriendRequestsPromptCheck(): void {
-        if (!this.isAuthenticated() || this.pendingFriendRequestsPromptShown) {
+        if (!this.isAuthenticated() || this.friendRequestsPendingCheckStarted) {
             return;
         }
+        this.friendRequestsPendingCheckStarted = true;
         this._friendsService.getPendingRequests().pipe(
             take(1),
             catchError(() => of([]))
         ).subscribe((list) => {
-            if (!this.isAuthenticated() || this.pendingFriendRequestsPromptShown) {
+            if (!this.isAuthenticated()) {
                 return;
             }
             if (!list?.length) {
@@ -213,39 +216,25 @@ export class AppComponent implements OnInit {
             }
             this.pendingFriendRequestCount = list.length;
             this.cdr.markForCheck();
-            this.openFriendRequestsPromptModalWhenReady();
         });
     }
 
-    private openFriendRequestsPromptModalWhenReady(attempt = 0): void {
-        if (!this.friendRequestsPromptModal) {
-            if (attempt < 20) {
-                setTimeout(() => this.openFriendRequestsPromptModalWhenReady(attempt + 1), 50);
-            }
-            return;
-        }
-        if (this.pendingFriendRequestsPromptShown) {
-            return;
-        }
-        this.pendingFriendRequestsPromptShown = true;
-        this.modalService.open(this.friendRequestsPromptModal, {
-            centered: true,
-            backdrop: true,
-            keyboard: true,
-            windowClass: 'friend-requests-prompt-modal'
-        }).result.then(
-            () => {},
-            () => {}
-        );
+    /** Bannière sous le menu (remplace l’ancienne modale). */
+    showFriendRequestsPromptBanner(): boolean {
+        return this.isAuthenticated()
+            && this.pendingFriendRequestCount > 0
+            && !this.friendRequestsBannerDismissed;
     }
 
-    friendRequestsPromptGo(close: (result?: string) => void): void {
-        close('go');
+    friendRequestsBannerDismiss(): void {
+        this.friendRequestsBannerDismissed = true;
+        this.cdr.markForCheck();
+    }
+
+    friendRequestsBannerGo(): void {
+        this.friendRequestsBannerDismissed = true;
         void this.router.navigate(['/friends'], { queryParams: { tab: 'requests' } });
-    }
-
-    friendRequestsPromptLater(dismiss: (reason?: string) => void): void {
-        dismiss('later');
+        this.cdr.markForCheck();
     }
     // for modal chat
     public closeResult: string = "";
