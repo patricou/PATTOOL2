@@ -7,7 +7,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 
-public interface CalendarAppointmentRepository extends MongoRepository<CalendarAppointment, String> {
+public interface CalendarAppointmentRepository extends MongoRepository<CalendarAppointment, String>,
+        CalendarAppointmentRepositoryCustom {
 
     List<CalendarAppointment> findByOwnerMemberIdAndStartDateBeforeAndEndDateAfter(
             String ownerMemberId, Date rangeEndExclusive, Date rangeStartExclusive);

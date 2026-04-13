@@ -29,5 +29,8 @@ public interface FriendGroupRepository extends MongoRepository<FriendGroup, Stri
      * Find all friend groups with a specific discussionId
      */
     List<FriendGroup> findByDiscussionId(String discussionId);
+
+    /** Match {@link FriendGroup#getName()} (e.g. legacy calendar / event visibility stored as group name). */
+    List<FriendGroup> findByName(String name);
 }
 

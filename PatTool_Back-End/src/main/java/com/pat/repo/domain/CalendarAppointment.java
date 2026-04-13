@@ -6,6 +6,7 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.util.Date;
+import java.util.List;
 
 @Document(collection = "calendar_appointments")
 public class CalendarAppointment {
@@ -29,6 +30,18 @@ public class CalendarAppointment {
 
     @NotNull
     private Date createdAt;
+
+    /**
+     * Same values as {@link Evenement#getVisibility()}: {@code public}, {@code private}, {@code friends},
+     * {@code friendGroups}, or a friend group display name (legacy).
+     */
+    private String visibility;
+
+    /** Friend group id when visibility targets a specific group (legacy / single group). */
+    private String friendGroupId;
+
+    /** When visibility is {@code friendGroups}, ids of groups that may see the appointment. */
+    private List<String> friendGroupIds;
 
     public String getId() {
         return id;
@@ -84,5 +97,29 @@ public class CalendarAppointment {
 
     public void setCreatedAt(Date createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public String getVisibility() {
+        return visibility;
+    }
+
+    public void setVisibility(String visibility) {
+        this.visibility = visibility;
+    }
+
+    public String getFriendGroupId() {
+        return friendGroupId;
+    }
+
+    public void setFriendGroupId(String friendGroupId) {
+        this.friendGroupId = friendGroupId;
+    }
+
+    public List<String> getFriendGroupIds() {
+        return friendGroupIds;
+    }
+
+    public void setFriendGroupIds(List<String> friendGroupIds) {
+        this.friendGroupIds = friendGroupIds;
     }
 }

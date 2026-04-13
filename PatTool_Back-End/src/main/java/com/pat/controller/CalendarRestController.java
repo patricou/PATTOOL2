@@ -2,11 +2,13 @@ package com.pat.controller;
 
 import com.pat.controller.dto.CalendarAppointmentRequest;
 import com.pat.controller.dto.CalendarEntryDTO;
+import com.pat.controller.dto.CalendarReminderMailResult;
 import com.pat.repo.CalendarAppointmentRepository;
 import com.pat.repo.EvenementsRepository;
 import com.pat.repo.domain.CalendarAppointment;
 import com.pat.repo.domain.Evenement;
 import com.pat.repo.domain.FileUploaded;
+import com.pat.service.CalendarAppointmentReminderMailService;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -23,6 +25,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/calendar")
@@ -35,6 +38,9 @@ public class CalendarRestController {
 
     @Autowired
     private EvenementsRepository evenementsRepository;
+
+    @Autowired
+    private CalendarAppointmentReminderMailService calendarAppointmentReminderMailService;
 
     @GetMapping("/entries")
     public ResponseEntity<List<CalendarEntryDTO>> entries(
@@ -50,7 +56,6 @@ public class CalendarRestController {
         boolean loggedIn = authentication != null
                 && authentication.isAuthenticated()
                 && !(authentication instanceof AnonymousAuthenticationToken);
-        String appointmentOwnerId = loggedIn && StringUtils.hasText(userId) ? userId : null;
 
         /*
          * Activités : même logique d’accès que la liste / stream (EvenementsRepositoryImpl.buildAccessCriteria).
@@ -77,10 +82,16 @@ public class CalendarRestController {
             out.add(row);
         }
 
-        if (StringUtils.hasText(appointmentOwnerId)) {
-            List<CalendarAppointment> mine = calendarAppointmentRepository
-                    .findByOwnerMemberIdAndStartDateBeforeAndEndDateAfter(appointmentOwnerId, to, from);
-            for (CalendarAppointment a : mine) {
+        String appointmentAccessUserId = null;
+        if (loggedIn && StringUtils.hasText(userId)) {
+            appointmentAccessUserId = userId;
+        } else if (!loggedIn) {
+            appointmentAccessUserId = null;
+        }
+        if (appointmentAccessUserId != null || !loggedIn) {
+            List<CalendarAppointment> appointments = calendarAppointmentRepository
+                    .findAccessibleOverlappingRange(from, to, appointmentAccessUserId);
+            for (CalendarAppointment a : appointments) {
                 CalendarEntryDTO row = new CalendarEntryDTO();
                 row.setKind(CalendarEntryDTO.KIND_APPOINTMENT);
                 row.setId(a.getId());
@@ -89,6 +100,10 @@ public class CalendarRestController {
                 row.setEnd(a.getEndDate());
                 row.setNotes(a.getNotes());
                 row.setThumbnailFileId(null);
+                row.setOwnerMemberId(a.getOwnerMemberId());
+                row.setVisibility(a.getVisibility());
+                row.setFriendGroupId(a.getFriendGroupId());
+                row.setFriendGroupIds(a.getFriendGroupIds());
                 out.add(row);
             }
         }
@@ -116,6 +131,7 @@ public class CalendarRestController {
         a.setStartDate(body.getStartDate());
         a.setEndDate(body.getEndDate());
         a.setCreatedAt(new Date());
+        applyAppointmentSharing(a, body);
         CalendarAppointment saved = calendarAppointmentRepository.save(a);
         return ResponseEntity.status(HttpStatus.CREATED).body(saved);
     }
@@ -140,7 +156,28 @@ public class CalendarRestController {
         a.setNotes(body.getNotes() != null ? body.getNotes().trim() : null);
         a.setStartDate(body.getStartDate());
         a.setEndDate(body.getEndDate());
+        applyAppointmentSharing(a, body);
         return ResponseEntity.ok(calendarAppointmentRepository.save(a));
+    }
+
+    /**
+     * Sends the same reminder e-mails as the morning job (owner + visibility recipients) for this
+     * appointment. Only the owner may trigger it.
+     */
+    @PostMapping("/appointments/{id}/reminder-mail")
+    public ResponseEntity<CalendarReminderMailResult> sendAppointmentReminderMail(
+            @PathVariable String id,
+            @RequestHeader(value = "user-id", required = false) String userId) {
+        if (!StringUtils.hasText(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        Optional<CalendarAppointment> existing = calendarAppointmentRepository.findByIdAndOwnerMemberId(id, userId);
+        if (existing.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        CalendarAppointment fresh = calendarAppointmentRepository.findById(id).orElse(existing.get());
+        CalendarReminderMailResult result = calendarAppointmentReminderMailService.sendReminderForAppointment(fresh);
+        return ResponseEntity.ok(result);
     }
 
     @DeleteMapping("/appointments/{id}")
@@ -156,5 +193,53 @@ public class CalendarRestController {
         }
         calendarAppointmentRepository.delete(existing.get());
         return ResponseEntity.noContent().build();
+    }
+
+    private void applyAppointmentSharing(CalendarAppointment entity, CalendarAppointmentRequest body) {
+        String raw = body.getVisibility();
+        if (!StringUtils.hasText(raw)) {
+            entity.setVisibility("private");
+        } else {
+            entity.setVisibility(raw.trim());
+        }
+        String v = entity.getVisibility();
+        if ("public".equals(v) || "private".equals(v) || "friends".equals(v)) {
+            entity.setFriendGroupId(null);
+            entity.setFriendGroupIds(null);
+            return;
+        }
+        if ("friendGroups".equals(v)) {
+            List<String> ids = normalizeIdList(body.getFriendGroupIds());
+            if (!ids.isEmpty()) {
+                entity.setFriendGroupIds(ids);
+                entity.setFriendGroupId(ids.get(0));
+            } else if (StringUtils.hasText(body.getFriendGroupId())) {
+                String one = body.getFriendGroupId().trim();
+                entity.setFriendGroupId(one);
+                entity.setFriendGroupIds(List.of(one));
+            } else {
+                entity.setVisibility("private");
+                entity.setFriendGroupId(null);
+                entity.setFriendGroupIds(null);
+            }
+            return;
+        }
+        if (StringUtils.hasText(body.getFriendGroupId())) {
+            entity.setFriendGroupId(body.getFriendGroupId().trim());
+        } else {
+            entity.setFriendGroupId(null);
+        }
+        entity.setFriendGroupIds(null);
+    }
+
+    private static List<String> normalizeIdList(List<String> ids) {
+        if (ids == null) {
+            return List.of();
+        }
+        return ids.stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .distinct()
+                .collect(Collectors.toList());
     }
 }

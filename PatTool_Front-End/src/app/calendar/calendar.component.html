@@ -95,38 +95,68 @@
 <ng-template #appointmentModal let-modal>
   <div class="modal-header bg-primary text-white border border-2 border-white rounded-top">
     <h5 class="modal-title d-flex align-items-center">
-      <i class="fa me-2" [ngClass]="editingId ? 'fa-pencil' : 'fa-calendar-plus-o'" aria-hidden="true"></i>
-      <span>{{ editingId ? ('CALENDAR.EDIT_APPOINTMENT' | translate) : ('CALENDAR.NEW_APPOINTMENT' | translate) }}</span>
+      <i class="fa me-2" [ngClass]="editingId ? (appointmentCanEdit ? 'fa-pencil' : 'fa-eye') : 'fa-calendar-plus-o'" aria-hidden="true"></i>
+      <span>{{ editingId ? (appointmentCanEdit ? ('CALENDAR.EDIT_APPOINTMENT' | translate) : ('CALENDAR.VIEW_APPOINTMENT' | translate)) : ('CALENDAR.NEW_APPOINTMENT' | translate) }}</span>
     </h5>
     <button type="button" class="btn-close btn-close-white" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss()"></button>
   </div>
   <div class="modal-body">
+    <div *ngIf="reminderMailSuccessMessage" class="alert alert-success py-2 mb-2">{{ reminderMailSuccessMessage }}</div>
+    <div *ngIf="reminderMailErrorMessage" class="alert alert-danger py-2 mb-2">{{ reminderMailErrorMessage | translate }}</div>
+    <p *ngIf="editingId && !appointmentCanEdit" class="small text-muted mb-2">{{ 'CALENDAR.READ_ONLY_APPOINTMENT' | translate }}</p>
     <div class="mb-2">
       <label class="form-label">{{ 'CALENDAR.FIELD_TITLE' | translate }}</label>
-      <input class="form-control" [(ngModel)]="formTitle" name="formTitle" />
+      <input class="form-control" [(ngModel)]="formTitle" name="formTitle" [readonly]="!appointmentCanEdit" />
     </div>
     <div class="row g-2 mb-2">
       <div class="col-md-6">
         <label class="form-label">{{ 'CALENDAR.FIELD_START' | translate }}</label>
-        <input type="datetime-local" class="form-control" [(ngModel)]="formStart" name="formStart" />
+        <input type="datetime-local" class="form-control" [(ngModel)]="formStart" name="formStart" [readonly]="!appointmentCanEdit" />
       </div>
       <div class="col-md-6">
         <label class="form-label">{{ 'CALENDAR.FIELD_END' | translate }}</label>
-        <input type="datetime-local" class="form-control" [(ngModel)]="formEnd" name="formEnd" />
+        <input type="datetime-local" class="form-control" [(ngModel)]="formEnd" name="formEnd" [readonly]="!appointmentCanEdit" />
       </div>
+    </div>
+    <div class="mb-2" *ngIf="appointmentCanEdit">
+      <label class="form-label" for="pat-cal-appointment-visibility">{{ 'CALENDAR.VISIBILITY_LABEL' | translate }}</label>
+      <select
+        id="pat-cal-appointment-visibility"
+        class="form-select"
+        name="formVisibilityValue"
+        [(ngModel)]="formVisibilityValue">
+        <option value="private">{{ 'EVENTCREATION.PRIVATE' | translate }}</option>
+        <option value="public">{{ 'EVENTCREATION.PUBLIC' | translate }}</option>
+        <option value="friends">{{ 'EVENTCREATION.FRIENDS' | translate }}</option>
+        <option *ngFor="let g of sortedFriendGroups" [value]="friendGroupOptionValue(g)">{{ g.name }}</option>
+      </select>
+    </div>
+    <div class="mb-2" *ngIf="!appointmentCanEdit && editingId">
+      <span class="form-label d-block text-secondary small">{{ 'CALENDAR.VISIBILITY_LABEL' | translate }}</span>
+      <span class="small">{{ appointmentVisibilityReadOnlyLabel() }}</span>
     </div>
     <div class="mb-2">
       <label class="form-label">{{ 'CALENDAR.FIELD_NOTES' | translate }}</label>
-      <textarea class="form-control" rows="3" [(ngModel)]="formNotes" name="formNotes"></textarea>
+      <textarea class="form-control" rows="3" [(ngModel)]="formNotes" name="formNotes" [readonly]="!appointmentCanEdit"></textarea>
     </div>
   </div>
-  <div class="modal-footer d-flex justify-content-between border-top">
-    <div>
-      <button *ngIf="editingId" type="button" class="btn btn-outline-danger" (click)="deleteEditingAppointment()">{{ 'CALENDAR.DELETE' | translate }}</button>
+  <div class="modal-footer d-flex justify-content-between border-top flex-wrap gap-2">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <button *ngIf="editingId && appointmentCanEdit" type="button" class="btn btn-outline-danger" (click)="deleteEditingAppointment()">{{ 'CALENDAR.DELETE' | translate }}</button>
+      <button
+        *ngIf="editingId && appointmentCanEdit"
+        type="button"
+        class="btn btn-outline-secondary"
+        [disabled]="reminderMailLoading"
+        (click)="sendAppointmentReminderMail()">
+        <i class="fa fa-envelope-o me-1" aria-hidden="true"></i>
+        <span *ngIf="!reminderMailLoading">{{ 'CALENDAR.REMINDER_MAIL' | translate }}</span>
+        <span *ngIf="reminderMailLoading">{{ 'CALENDAR.REMINDER_MAIL_SENDING' | translate }}</span>
+      </button>
     </div>
     <div>
       <button type="button" class="btn btn-secondary me-2" (click)="modal.dismiss()">{{ 'COMMUN.CANCEL' | translate }}</button>
-      <button type="button" class="btn btn-primary" (click)="saveAppointment()">{{ 'CALENDAR.SAVE' | translate }}</button>
+      <button *ngIf="appointmentCanEdit" type="button" class="btn btn-primary" (click)="saveAppointment()">{{ 'CALENDAR.SAVE' | translate }}</button>
     </div>
   </div>
 </ng-template>

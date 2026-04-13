@@ -34,6 +34,9 @@ import { catchError, finalize, map } from 'rxjs/operators';
 import { forkJoin, of } from 'rxjs';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { FileService } from '../services/file.service';
+import { FriendsService } from '../services/friends.service';
+import { MembersService } from '../services/members.service';
+import { FriendGroup } from '../model/friend';
 import { CalendarEntry, CalendarAppointmentPayload, CalendarService } from './calendar.service';
 import { CALENDAR_HELP_TEXT_EN, CALENDAR_HELP_TEXT_FR } from './calendar-help-text';
 import { NagerPublicHoliday, PublicHolidayService } from './public-holiday.service';
@@ -60,6 +63,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
     private calendarService = inject(CalendarService);
     private publicHolidayService = inject(PublicHolidayService);
+    private friendsService = inject(FriendsService);
+    private membersService = inject(MembersService);
     private keycloak = inject(KeycloakService);
     private translate = inject(TranslateService);
     private modal = inject(NgbModal);
@@ -78,11 +83,19 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
     calendarOptions!: CalendarOptions;
     errorMessage = '';
+    reminderMailSuccessMessage = '';
+    reminderMailErrorMessage = '';
+    reminderMailLoading = false;
     editingId: string | null = null;
     formTitle = '';
     formNotes = '';
     formStart = '';
     formEnd = '';
+    /** public | private | friends | fg:{groupId} */
+    formVisibilityValue = 'private';
+    friendGroups: FriendGroup[] = [];
+    currentMemberId = '';
+    appointmentCanEdit = true;
 
     /** Pays pour les jours fériés (API Nager.Date), défaut France. */
     holidayCountryCode = 'FR';
@@ -121,6 +134,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
             /* ignore */
         }
         this.calendarOptions = this.buildCalendarOptions();
+        this.loadFriendGroupsForCalendar();
         this.translate.onLangChange.subscribe(() => {
             const api = this.fullCalendar?.getApi();
             if (api) {
@@ -257,6 +271,19 @@ export class CalendarComponent implements OnInit, OnDestroy {
         return this.keycloak.getAuth().authenticated;
     }
 
+    /** Friend groups sorted by name for the visibility dropdown. */
+    get sortedFriendGroups(): FriendGroup[] {
+        return [...this.friendGroups].sort((a, b) => {
+            const na = (a.name || '').toLowerCase();
+            const nb = (b.name || '').toLowerCase();
+            return na.localeCompare(nb, 'fr', { sensitivity: 'base' });
+        });
+    }
+
+    friendGroupOptionValue(g: FriendGroup): string {
+        return g?.id ? `fg:${g.id}` : '';
+    }
+
     /** Thumbnail in custom event template (blob after load). */
     eventThumbSrc(arg: { event: { extendedProps: Record<string, unknown> } }): string | null {
         const id = (arg.event.extendedProps['thumbnailFileId'] as string | undefined)?.trim();
@@ -326,14 +353,46 @@ export class CalendarComponent implements OnInit, OnDestroy {
         }
     }
 
+    sendAppointmentReminderMail(): void {
+        if (!this.editingId || !this.appointmentCanEdit || this.reminderMailLoading) {
+            return;
+        }
+        this.reminderMailSuccessMessage = '';
+        this.reminderMailErrorMessage = '';
+        this.reminderMailLoading = true;
+        this.calendarService.sendAppointmentReminderMail(this.editingId).pipe(
+            finalize(() => {
+                this.reminderMailLoading = false;
+                this.cdr.markForCheck();
+            })
+        ).subscribe({
+            next: r => {
+                this.reminderMailErrorMessage = '';
+                this.reminderMailSuccessMessage = this.translate.instant('CALENDAR.REMINDER_MAIL_OK', {
+                    sent: r.emailsSent,
+                    skipped: r.skippedNoEmail
+                });
+            },
+            error: () => {
+                this.reminderMailSuccessMessage = '';
+                this.reminderMailErrorMessage = 'CALENDAR.REMINDER_MAIL_ERROR';
+            }
+        });
+    }
+
     saveAppointment(): void {
+        if (!this.appointmentCanEdit) {
+            return;
+        }
         const start = new Date(this.formStart);
         const end = this.clampEndToSameLocalDay(start, new Date(this.formEnd));
+        const vis = this.buildAppointmentVisibilityPayload();
         const payload: CalendarAppointmentPayload = {
             title: this.formTitle.trim(),
             notes: this.formNotes.trim() || null,
             startDate: start.toISOString(),
-            endDate: end.toISOString()
+            endDate: end.toISOString(),
+            ...vis
         };
         this.formEnd = this.toDatetimeLocal(end);
         if (!payload.title) {
@@ -345,6 +404,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
         req.subscribe({
             next: () => {
                 this.errorMessage = '';
+                this.reminderMailSuccessMessage = '';
+                this.reminderMailErrorMessage = '';
                 this.modal.dismissAll();
                 this.fullCalendar?.getApi().refetchEvents();
             },
@@ -355,12 +416,14 @@ export class CalendarComponent implements OnInit, OnDestroy {
     }
 
     deleteEditingAppointment(): void {
-        if (!this.editingId) {
+        if (!this.editingId || !this.appointmentCanEdit) {
             return;
         }
         this.calendarService.deleteAppointment(this.editingId).subscribe({
             next: () => {
                 this.errorMessage = '';
+                this.reminderMailSuccessMessage = '';
+                this.reminderMailErrorMessage = '';
                 this.modal.dismissAll();
                 this.fullCalendar?.getApi().refetchEvents();
             },
@@ -457,6 +520,10 @@ export class CalendarComponent implements OnInit, OnDestroy {
         this.editingId = null;
         this.formTitle = '';
         this.formNotes = '';
+        this.formVisibilityValue = 'private';
+        this.appointmentCanEdit = true;
+        this.reminderMailSuccessMessage = '';
+        this.reminderMailErrorMessage = '';
         this.formStart = this.toDatetimeLocal(start);
         this.formEnd = this.toDatetimeLocal(end);
         this.openAppointmentModalDebounced();
@@ -578,12 +645,28 @@ export class CalendarComponent implements OnInit, OnDestroy {
             }
             return;
         } else if (kind === 'APPOINTMENT' && this.isAuthenticated()) {
-            this.editingId = arg.event.id;
-            this.formTitle = arg.event.title;
-            this.formNotes = (arg.event.extendedProps['notes'] as string) || '';
-            this.formStart = this.toDatetimeLocal(arg.event.start!);
-            this.formEnd = this.toDatetimeLocal(arg.event.end!);
-            this.openAppointmentModalImmediate();
+            this.membersService.getUserId({ skipGeolocation: true }).subscribe({
+                next: m => {
+                    this.currentMemberId = (m.id || '').trim();
+                    this.reminderMailSuccessMessage = '';
+                    this.reminderMailErrorMessage = '';
+                    const ext = arg.event.extendedProps;
+                    const owner = String(ext['ownerMemberId'] ?? '').trim();
+                    this.editingId = arg.event.id;
+                    this.formTitle = arg.event.title;
+                    this.formNotes = (ext['notes'] as string) || '';
+                    this.formStart = this.toDatetimeLocal(arg.event.start!);
+                    this.formEnd = this.toDatetimeLocal(arg.event.end!);
+                    this.syncVisibilityFormFromExtendedProps(ext);
+                    this.appointmentCanEdit =
+                        this.currentMemberId.length > 0 && owner.length > 0 && owner === this.currentMemberId;
+                    this.openAppointmentModalImmediate();
+                    this.cdr.markForCheck();
+                },
+                error: () => {
+                    this.errorMessage = 'CALENDAR.SAVE_ERROR';
+                }
+            });
         }
     }
 
@@ -594,6 +677,10 @@ export class CalendarComponent implements OnInit, OnDestroy {
         this.editingId = null;
         this.formTitle = '';
         this.formNotes = '';
+        this.formVisibilityValue = 'private';
+        this.appointmentCanEdit = true;
+        this.reminderMailSuccessMessage = '';
+        this.reminderMailErrorMessage = '';
         const start = arg.start;
         const end = this.clampEndToSameLocalDay(start, arg.end);
         this.formStart = this.toDatetimeLocal(start);
@@ -700,20 +787,27 @@ export class CalendarComponent implements OnInit, OnDestroy {
                     ? this.translate.instant('CALENDAR.KIND_APPOINTMENT')
                     : this.translate.instant('CALENDAR.KIND_ACTIVITY');
             const eventTooltip = [kindLabel + ': ' + titleLine, rangeLine, notesLine].filter(s => s.length > 0).join('\n');
+            const ext: Record<string, unknown> = {
+                kind: e.kind,
+                thumbnailFileId: e.thumbnailFileId ?? null,
+                notes: e.notes ?? null,
+                calBg: colors.backgroundColor,
+                calBorder: colors.borderColor,
+                eventTooltip
+            };
+            if (e.kind === 'APPOINTMENT') {
+                ext['ownerMemberId'] = e.ownerMemberId ?? null;
+                ext['visibility'] = e.visibility ?? null;
+                ext['friendGroupId'] = e.friendGroupId ?? null;
+                ext['friendGroupIds'] = e.friendGroupIds ?? null;
+            }
             return {
                 id: e.id,
                 title: e.title,
                 start: e.start,
                 end: e.end,
                 allDay: false,
-                extendedProps: {
-                    kind: e.kind,
-                    thumbnailFileId: e.thumbnailFileId ?? null,
-                    notes: e.notes ?? null,
-                    calBg: colors.backgroundColor,
-                    calBorder: colors.borderColor,
-                    eventTooltip
-                },
+                extendedProps: ext,
                 backgroundColor: colors.backgroundColor,
                 borderColor: colors.borderColor,
                 textColor: '#2a3138'
@@ -857,6 +951,104 @@ export class CalendarComponent implements OnInit, OnDestroy {
                 this.cdr.markForCheck();
             }
         });
+    }
+
+    private loadFriendGroupsForCalendar(): void {
+        if (!this.isAuthenticated()) {
+            this.friendGroups = [];
+            return;
+        }
+        this.friendsService.getFriendGroups().subscribe({
+            next: groups => {
+                this.friendGroups = groups || [];
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                this.friendGroups = [];
+            }
+        });
+        this.membersService.getUserId({ skipGeolocation: true }).subscribe({
+            next: m => {
+                this.currentMemberId = (m.id || '').trim();
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                this.currentMemberId = '';
+            }
+        });
+    }
+
+    private syncVisibilityFormFromExtendedProps(ext: Record<string, unknown>): void {
+        const vis = String(ext['visibility'] ?? '').trim();
+        const fgId = String(ext['friendGroupId'] ?? '').trim();
+        const fgIds = ext['friendGroupIds'] as string[] | undefined;
+        if (!vis || vis === 'private') {
+            this.formVisibilityValue = 'private';
+            return;
+        }
+        if (vis === 'public') {
+            this.formVisibilityValue = 'public';
+            return;
+        }
+        if (vis === 'friends') {
+            this.formVisibilityValue = 'friends';
+            return;
+        }
+        if (vis === 'friendGroups' && fgIds && fgIds.length > 0) {
+            this.formVisibilityValue = `fg:${String(fgIds[0]).trim()}`;
+            return;
+        }
+        if (fgId) {
+            this.formVisibilityValue = `fg:${fgId}`;
+            return;
+        }
+        const byName = this.friendGroups.find(g => g.name === vis);
+        if (byName?.id) {
+            this.formVisibilityValue = `fg:${byName.id}`;
+            return;
+        }
+        this.formVisibilityValue = 'private';
+    }
+
+    private buildAppointmentVisibilityPayload(): Pick<
+        CalendarAppointmentPayload,
+        'visibility' | 'friendGroupId' | 'friendGroupIds'
+    > {
+        const v = (this.formVisibilityValue || 'private').trim();
+        if (v === 'public' || v === 'private' || v === 'friends') {
+            return { visibility: v, friendGroupId: null, friendGroupIds: null };
+        }
+        if (v.startsWith('fg:')) {
+            const id = v.slice(3).trim();
+            const g = this.friendGroups.find(x => x.id === id);
+            if (g?.name) {
+                return {
+                    visibility: g.name,
+                    friendGroupId: g.id,
+                    friendGroupIds: null
+                };
+            }
+        }
+        return { visibility: 'private', friendGroupId: null, friendGroupIds: null };
+    }
+
+    appointmentVisibilityReadOnlyLabel(): string {
+        const v = (this.formVisibilityValue || 'private').trim();
+        if (v === 'public') {
+            return this.translate.instant('EVENTCREATION.PUBLIC');
+        }
+        if (v === 'private') {
+            return this.translate.instant('EVENTCREATION.PRIVATE');
+        }
+        if (v === 'friends') {
+            return this.translate.instant('EVENTCREATION.FRIENDS');
+        }
+        if (v.startsWith('fg:')) {
+            const id = v.slice(3).trim();
+            const g = this.friendGroups.find(x => x.id === id);
+            return g?.name || this.translate.instant('CALENDAR.VISIBILITY_GROUP_FALLBACK');
+        }
+        return this.translate.instant('EVENTCREATION.PRIVATE');
     }
 
     private toDatetimeLocal(d: Date): string {

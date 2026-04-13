@@ -13,6 +13,15 @@ export interface CalendarEntry {
     end: string;
     thumbnailFileId?: string | null;
     notes?: string | null;
+    ownerMemberId?: string | null;
+    visibility?: string | null;
+    friendGroupId?: string | null;
+    friendGroupIds?: string[] | null;
+}
+
+export interface CalendarReminderMailResult {
+    emailsSent: number;
+    skippedNoEmail: number;
 }
 
 export interface CalendarAppointmentPayload {
@@ -20,6 +29,9 @@ export interface CalendarAppointmentPayload {
     notes?: string | null;
     startDate: string;
     endDate: string;
+    visibility?: string;
+    friendGroupId?: string | null;
+    friendGroupIds?: string[] | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -85,6 +97,18 @@ export class CalendarService {
         return this.withUserHeaders().pipe(
             switchMap(headers =>
                 this.http.delete(`${environment.API_URL}calendar/appointments/${id}`, { headers })
+            )
+        );
+    }
+
+    sendAppointmentReminderMail(id: string): Observable<CalendarReminderMailResult> {
+        return this.withUserHeaders().pipe(
+            switchMap(headers =>
+                this.http.post<CalendarReminderMailResult>(
+                    `${environment.API_URL}calendar/appointments/${id}/reminder-mail`,
+                    {},
+                    { headers }
+                )
             )
         );
     }
