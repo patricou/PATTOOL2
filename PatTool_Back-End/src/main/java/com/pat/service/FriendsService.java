@@ -248,6 +248,10 @@ public class FriendsService {
         log.debug("Friend request approved: {} <-> {}", 
                 request.getRequester().getUserName(), 
                 request.getRecipient().getUserName());
+
+        // Notify the original requester (e-mail must not block approval if sending fails)
+        sendFriendRequestApprovedEmail(request.getRecipient(), request.getRequester());
+
         return saved;
     }
 
@@ -442,6 +446,162 @@ public class FriendsService {
             log.error("Error sending friend request email to {}: {}", recipient.getAddressEmail(), e.getMessage(), e);
             // Don't throw exception - email failure shouldn't break the friend request
         }
+    }
+
+    /**
+     * Notify the original requester that the recipient accepted their friend request.
+     *
+     * @param accepter  member who approved (recipient of the pending request)
+     * @param requester member who had sent the request (receives this e-mail)
+     */
+    private void sendFriendRequestApprovedEmail(Member accepter, Member requester) {
+        try {
+            if (requester.getAddressEmail() == null || requester.getAddressEmail().trim().isEmpty()) {
+                log.debug("Cannot send friend-request-approved email — requester {} has no e-mail",
+                        requester.getUserName());
+                return;
+            }
+            if (!mailController.isValidEmail(requester.getAddressEmail().trim())) {
+                log.warn("Cannot send friend-request-approved email — invalid e-mail for requester {}",
+                        requester.getUserName());
+                return;
+            }
+
+            boolean isFrench = requester.getLocale() != null
+                    && requester.getLocale().toLowerCase().startsWith("fr");
+            String accepterLabel = formatMemberDisplayName(accepter);
+            String subject = isFrench
+                    ? "Demande d'ami acceptée — " + accepterLabel
+                    : "Friend request accepted — " + accepterLabel;
+            String body = generateFriendRequestApprovedEmailHtml(accepter, requester, isFrench);
+
+            mailController.sendMailToRecipient(
+                    requester.getAddressEmail().trim(),
+                    subject,
+                    body,
+                    true,
+                    null,
+                    mailController.getMailSentTo());
+            log.debug("Friend request approved e-mail sent to {} (language fr={})", requester.getAddressEmail(), isFrench);
+        } catch (Exception e) {
+            log.error("Error sending friend-request-approved e-mail: {}", e.getMessage(), e);
+        }
+    }
+
+    private static String formatMemberDisplayName(Member m) {
+        if (m == null) {
+            return "";
+        }
+        String fn = m.getFirstName() != null ? m.getFirstName() : "";
+        String ln = m.getLastName() != null ? m.getLastName() : "";
+        String full = (fn + " " + ln).trim();
+        if (!full.isEmpty()) {
+            return full;
+        }
+        if (m.getUserName() != null && !m.getUserName().isBlank()) {
+            return m.getUserName().trim();
+        }
+        return "?";
+    }
+
+    /**
+     * HTML body: friend request was accepted (requester is the audience).
+     */
+    private String generateFriendRequestApprovedEmailHtml(Member accepter, Member requester, boolean isFrench) {
+        String headerTitle = isFrench ? "Demande d'ami acceptée" : "Friend request accepted";
+        String greeting = isFrench ? "Bonjour" : "Hello";
+        String line1 = isFrench
+                ? " a accepté votre demande d'ami."
+                : " has accepted your friend request.";
+        String line2 = isFrench
+                ? "Vous êtes maintenant amis sur PatTool."
+                : "You are now friends on PatTool.";
+        String userInfoTitle = isFrench ? "Profil de votre nouvel ami" : "Your new friend's profile";
+        String nameLabel = isFrench ? "Nom :" : "Name:";
+        String usernameLabel = isFrench ? "Nom d'utilisateur :" : "Username:";
+        String emailLabel = isFrench ? "E-mail :" : "Email:";
+        String callToAction = isFrench
+                ? "Ouvrez PatTool pour voir vos amis et échanger."
+                : "Open PatTool to see your friends and stay in touch.";
+        String siteUrl = "https://www.patrickdeschamps.com/#/friends";
+        String buttonText = isFrench ? "Ouvrir PatTool — Amis" : "Open PatTool — Friends";
+        String footerText1 = isFrench
+                ? "Cet e-mail a été envoyé automatiquement par PatTool."
+                : "This email was automatically sent by PatTool.";
+        String footerText2 = isFrench
+                ? "Vous le recevez parce que votre demande d'ami a été acceptée."
+                : "You are receiving this because your friend request was accepted.";
+
+        StringBuilder bodyBuilder = new StringBuilder();
+        bodyBuilder.append("<!DOCTYPE html><html><head><meta charset='UTF-8'>");
+        bodyBuilder.append("<style>");
+        bodyBuilder.append("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 15px; line-height: 1.8; color: #2c3e50; background: linear-gradient(135deg, #0d9488 0%, #059669 100%); margin: 0; padding: 20px; }");
+        bodyBuilder.append(".container { max-width: 600px; margin: 0 auto; background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); overflow: hidden; }");
+        bodyBuilder.append(".header { background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; padding: 25px; text-align: center; border-bottom: 4px solid #065f46; }");
+        bodyBuilder.append(".header h1 { margin: 0; font-size: 24px; font-weight: 700; text-shadow: 2px 2px 4px rgba(0,0,0,0.2); letter-spacing: 1px; }");
+        bodyBuilder.append(".header-icon { font-size: 32px; margin-bottom: 10px; }");
+        bodyBuilder.append(".content { padding: 30px; background: #fafafa; }");
+        bodyBuilder.append(".message { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #059669; }");
+        bodyBuilder.append(".user-info { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }");
+        bodyBuilder.append(".user-info h3 { margin: 0 0 15px 0; color: #333; font-weight: 600; }");
+        bodyBuilder.append(".info-item { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 6px; }");
+        bodyBuilder.append(".info-label { font-weight: 700; color: #495057; margin-right: 10px; }");
+        bodyBuilder.append(".info-value { color: #212529; }");
+        bodyBuilder.append(".button-container { text-align: center; margin-top: 30px; }");
+        bodyBuilder.append(".button { display: inline-block; padding: 12px 30px; background: linear-gradient(135deg, #059669 0%, #047857 100%); color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }");
+        bodyBuilder.append(".button:hover { background: linear-gradient(135deg, #047857 0%, #065f46 100%); }");
+        bodyBuilder.append(".footer { background: #e9ecef; padding: 20px; text-align: center; color: #6c757d; font-size: 12px; }");
+        bodyBuilder.append("</style></head><body>");
+        bodyBuilder.append("<div class='container'>");
+
+        bodyBuilder.append("<div class='header'>");
+        bodyBuilder.append("<div class='header-icon'>✓</div>");
+        bodyBuilder.append("<h1>").append(escapeHtml(headerTitle)).append("</h1>");
+        bodyBuilder.append("</div>");
+
+        bodyBuilder.append("<div class='content'>");
+        bodyBuilder.append("<div class='message'>");
+        bodyBuilder.append("<p>").append(escapeHtml(greeting)).append(" <strong>")
+                .append(escapeHtml(formatMemberDisplayName(requester))).append("</strong>,</p>");
+        bodyBuilder.append("<p><strong>").append(escapeHtml(formatMemberDisplayName(accepter))).append("</strong>")
+                .append(escapeHtml(line1)).append("</p>");
+        bodyBuilder.append("<p>").append(escapeHtml(line2)).append("</p>");
+        bodyBuilder.append("</div>");
+
+        bodyBuilder.append("<div class='user-info'>");
+        bodyBuilder.append("<h3>").append(escapeHtml(userInfoTitle)).append("</h3>");
+        bodyBuilder.append("<div class='info-item'>");
+        bodyBuilder.append("<span class='info-label'>").append(escapeHtml(nameLabel)).append("</span>");
+        bodyBuilder.append("<span class='info-value'>")
+                .append(escapeHtml(accepter.getFirstName())).append(" ")
+                .append(escapeHtml(accepter.getLastName())).append("</span>");
+        bodyBuilder.append("</div>");
+        bodyBuilder.append("<div class='info-item'>");
+        bodyBuilder.append("<span class='info-label'>").append(escapeHtml(usernameLabel)).append("</span>");
+        bodyBuilder.append("<span class='info-value'>")
+                .append(escapeHtml(accepter.getUserName() != null ? accepter.getUserName() : "N/A")).append("</span>");
+        bodyBuilder.append("</div>");
+        if (accepter.getAddressEmail() != null && !accepter.getAddressEmail().isBlank()) {
+            bodyBuilder.append("<div class='info-item'>");
+            bodyBuilder.append("<span class='info-label'>").append(escapeHtml(emailLabel)).append("</span>");
+            bodyBuilder.append("<span class='info-value'>").append(escapeHtml(accepter.getAddressEmail())).append("</span>");
+            bodyBuilder.append("</div>");
+        }
+        bodyBuilder.append("</div>");
+
+        bodyBuilder.append("<div class='button-container'>");
+        bodyBuilder.append("<p>").append(escapeHtml(callToAction)).append("</p>");
+        bodyBuilder.append("<a href='").append(siteUrl).append("' class='button'>").append(escapeHtml(buttonText)).append("</a>");
+        bodyBuilder.append("</div>");
+        bodyBuilder.append("</div>");
+
+        bodyBuilder.append("<div class='footer'>");
+        bodyBuilder.append("<p>").append(escapeHtml(footerText1)).append("</p>");
+        bodyBuilder.append("<p>").append(escapeHtml(footerText2)).append("</p>");
+        bodyBuilder.append("</div>");
+
+        bodyBuilder.append("</div></body></html>");
+        return bodyBuilder.toString();
     }
 
     /**

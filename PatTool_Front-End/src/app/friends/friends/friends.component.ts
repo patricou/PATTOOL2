@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { NgbModule, NgbDropdown, NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
 import { forkJoin } from 'rxjs';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Member } from '../../model/member';
 import { FriendRequest, FriendRequestStatus, Friend, FriendGroup } from '../../model/friend';
 import { FriendsService } from '../../services/friends.service';
@@ -250,7 +251,9 @@ export class FriendsComponent implements OnInit {
     private modalService: NgbModal,
     private _discussionService: DiscussionService,
     private cdr: ChangeDetectorRef,
-    private _keycloakService: KeycloakService
+    private _keycloakService: KeycloakService,
+    private route: ActivatedRoute,
+    private router: Router
   ) { }
 
   ngOnInit() {
@@ -258,8 +261,28 @@ export class FriendsComponent implements OnInit {
     
     // Wait for user ID to be set
     this.waitForNonEmptyValue().then(() => {
+      this.applyFriendTabFromRouteQuery();
       this.ngZone.run(() => this.loadData());
+      if (this.route.snapshot.queryParamMap.get('tab')) {
+        void this.router.navigate([], { relativeTo: this.route, replaceUrl: true, queryParams: {} });
+      }
     });
+  }
+
+  /** Deep-link from login prompt: /friends?tab=requests (or demandes). */
+  private applyFriendTabFromRouteQuery(): void {
+    const t = (this.route.snapshot.queryParamMap.get('tab') || '').toLowerCase();
+    if (t === 'requests' || t === 'demandes') {
+      this.activeTab = 'requests';
+    } else if (t === 'users') {
+      this.activeTab = 'users';
+    } else if (t === 'friends') {
+      this.activeTab = 'friends';
+    } else if (t === 'groups') {
+      this.activeTab = 'groups';
+    } else if (t === 'myuser') {
+      this.activeTab = 'myuser';
+    }
   }
 
   private waitForNonEmptyValue(): Promise<void> {

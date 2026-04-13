@@ -461,6 +461,44 @@
     </div>
 </ng-template>
 
+<!-- Pending friend requests (async after login; does not block photo wall) -->
+<ng-template #friendRequestsPromptModal let-c="close" let-d="dismiss">
+    <div class="modal-content pat-frq-dialog">
+        <div class="pat-frq-hero">
+            <div class="pat-frq-hero-bg" aria-hidden="true"></div>
+            <div class="pat-frq-hero-orbs" aria-hidden="true">
+                <span class="pat-frq-orb pat-frq-orb--1"></span>
+                <span class="pat-frq-orb pat-frq-orb--2"></span>
+                <span class="pat-frq-orb pat-frq-orb--3"></span>
+            </div>
+            <img class="pat-frq-brand-watermark" src="assets/images/pat.png" alt="" width="120" height="120" />
+            <button type="button" class="pat-frq-close" (click)="friendRequestsPromptLater(d)" [attr.aria-label]="'COMMUN.CLOSE' | translate">
+                <i class="fa fa-times"></i>
+            </button>
+            <div class="pat-frq-hero-content">
+                <div class="pat-frq-icon-ring">
+                    <i class="fa fa-user-plus pat-frq-icon-main" aria-hidden="true"></i>
+                </div>
+                <div class="pat-frq-title-block">
+                    <h2 class="pat-frq-title">{{ 'FRIEND_REQUESTS_PROMPT.TITLE' | translate }}</h2>
+                    <span class="pat-frq-count-badge" *ngIf="pendingFriendRequestCount > 0">{{ pendingFriendRequestCount }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="pat-frq-body">
+            <div class="pat-frq-card-glass">
+                <p class="pat-frq-message mb-0">{{ 'FRIEND_REQUESTS_PROMPT.MESSAGE' | translate:{ count: pendingFriendRequestCount } }}</p>
+            </div>
+        </div>
+        <div class="pat-frq-actions">
+            <button type="button" class="pat-frq-btn pat-frq-btn--ghost" (click)="friendRequestsPromptLater(d)">{{ 'FRIEND_REQUESTS_PROMPT.LATER' | translate }}</button>
+            <button type="button" class="pat-frq-btn pat-frq-btn--primary" (click)="friendRequestsPromptGo(c)">
+                <i class="fa fa-users me-2" aria-hidden="true"></i>{{ 'FRIEND_REQUESTS_PROMPT.GO' | translate }}
+            </button>
+        </div>
+    </div>
+</ng-template>
+
 <!-- Modal window for Upload files -->
 <ng-template #uploadfilecontent let-c="close" let-d="dismiss">
     <div class="modal-content pat-upload-modal">

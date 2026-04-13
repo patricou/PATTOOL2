@@ -3,6 +3,8 @@ package com.pat.controller;
 import com.pat.controller.dto.CalendarAppointmentRequest;
 import com.pat.controller.dto.CalendarEntryDTO;
 import com.pat.controller.dto.CalendarReminderMailResult;
+import com.pat.controller.dto.CalendarVisibilityPreviewRequest;
+import com.pat.controller.dto.CalendarVisibilityRecipientDTO;
 import com.pat.repo.CalendarAppointmentRepository;
 import com.pat.repo.EvenementsRepository;
 import com.pat.repo.domain.CalendarAppointment;
@@ -180,6 +182,46 @@ public class CalendarRestController {
         return ResponseEntity.ok(result);
     }
 
+    /**
+     * Who can see this saved appointment (owner + visibility). Only the owner may query.
+     */
+    @GetMapping("/appointments/{id}/visibility-recipients")
+    public ResponseEntity<List<CalendarVisibilityRecipientDTO>> listVisibilityRecipients(
+            @PathVariable String id,
+            @RequestHeader(value = "user-id", required = false) String userId) {
+        if (!StringUtils.hasText(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        if (calendarAppointmentRepository.findByIdAndOwnerMemberId(id, userId).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Optional<CalendarAppointment> loaded = calendarAppointmentRepository.findById(id);
+        if (loaded.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(calendarAppointmentReminderMailService.listVisibilityRecipients(loaded.get()));
+    }
+
+    /**
+     * Same as {@link #listVisibilityRecipients} for a new appointment (form not saved yet).
+     */
+    @PostMapping("/appointments/visibility-recipients-preview")
+    public ResponseEntity<List<CalendarVisibilityRecipientDTO>> previewVisibilityRecipients(
+            @RequestBody(required = false) CalendarVisibilityPreviewRequest body,
+            @RequestHeader(value = "user-id", required = false) String userId) {
+        if (!StringUtils.hasText(userId)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+        CalendarAppointment probe = new CalendarAppointment();
+        probe.setOwnerMemberId(userId);
+        if (body == null) {
+            applySharingFields(probe, null, null, null);
+        } else {
+            applySharingFields(probe, body.getVisibility(), body.getFriendGroupId(), body.getFriendGroupIds());
+        }
+        return ResponseEntity.ok(calendarAppointmentReminderMailService.listVisibilityRecipients(probe));
+    }
+
     @DeleteMapping("/appointments/{id}")
     public ResponseEntity<Void> deleteAppointment(
             @PathVariable String id,
@@ -196,11 +238,15 @@ public class CalendarRestController {
     }
 
     private void applyAppointmentSharing(CalendarAppointment entity, CalendarAppointmentRequest body) {
-        String raw = body.getVisibility();
-        if (!StringUtils.hasText(raw)) {
+        applySharingFields(entity, body.getVisibility(), body.getFriendGroupId(), body.getFriendGroupIds());
+    }
+
+    private void applySharingFields(CalendarAppointment entity, String visibilityRaw, String friendGroupIdRaw,
+            List<String> friendGroupIdsRaw) {
+        if (!StringUtils.hasText(visibilityRaw)) {
             entity.setVisibility("private");
         } else {
-            entity.setVisibility(raw.trim());
+            entity.setVisibility(visibilityRaw.trim());
         }
         String v = entity.getVisibility();
         if ("public".equals(v) || "private".equals(v) || "friends".equals(v)) {
@@ -209,12 +255,12 @@ public class CalendarRestController {
             return;
         }
         if ("friendGroups".equals(v)) {
-            List<String> ids = normalizeIdList(body.getFriendGroupIds());
+            List<String> ids = normalizeIdList(friendGroupIdsRaw);
             if (!ids.isEmpty()) {
                 entity.setFriendGroupIds(ids);
                 entity.setFriendGroupId(ids.get(0));
-            } else if (StringUtils.hasText(body.getFriendGroupId())) {
-                String one = body.getFriendGroupId().trim();
+            } else if (StringUtils.hasText(friendGroupIdRaw)) {
+                String one = friendGroupIdRaw.trim();
                 entity.setFriendGroupId(one);
                 entity.setFriendGroupIds(List.of(one));
             } else {
@@ -224,8 +270,8 @@ public class CalendarRestController {
             }
             return;
         }
-        if (StringUtils.hasText(body.getFriendGroupId())) {
-            entity.setFriendGroupId(body.getFriendGroupId().trim());
+        if (StringUtils.hasText(friendGroupIdRaw)) {
+            entity.setFriendGroupId(friendGroupIdRaw.trim());
         } else {
             entity.setFriendGroupId(null);
         }

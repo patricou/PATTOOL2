@@ -906,3 +906,22 @@ input#message {
         padding-right: 1rem;
     }
 }
+
+/* Friend requests prompt (ng-bootstrap sur body) : cadre blanc + coins arrondis */
+::ng-deep .friend-requests-prompt-modal .modal-dialog {
+    max-width: min(480px, calc(100vw - 1.25rem)) !important;
+    border-radius: 26px !important;
+    overflow: hidden !important;
+    padding: 4px !important;
+    background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%) !important;
+    box-shadow: 0 20px 50px rgba(15, 23, 42, 0.28) !important;
+}
+
+::ng-deep .friend-requests-prompt-modal .modal-content.pat-frq-dialog {
+    border-radius: 22px !important;
+    overflow: hidden !important;
+    border: 3px solid #ffffff !important;
+    box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.9) inset,
+        0 12px 32px rgba(15, 23, 42, 0.12) !important;
+}

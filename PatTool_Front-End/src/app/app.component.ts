@@ -1,4 +1,6 @@
 import { Component, ElementRef, OnInit, ViewChild, HostListener, TemplateRef, ChangeDetectorRef } from '@angular/core';
+import { of } from 'rxjs';
+import { take, catchError } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -12,6 +14,7 @@ import { environment } from '../environments/environment';
 import { FileService } from './services/file.service';
 import * as piexif from 'piexifjs';
 import { NavigationButtonsComponent } from './shared/navigation-buttons/navigation-buttons.component';
+import { FriendsService } from './services/friends.service';
 
 @Component({
     selector: 'app-root',
@@ -23,6 +26,7 @@ import { NavigationButtonsComponent } from './shared/navigation-buttons/navigati
 export class AppComponent implements OnInit {
 
     @ViewChild('usercontent') usercontent!: TemplateRef<any>;
+    @ViewChild('friendRequestsPromptModal') friendRequestsPromptModal?: TemplateRef<unknown>;
 
     public user: Member = new Member("", "", "", "", "", [], "");
     public userRoles: string[] = []; // User roles from Keycloak
@@ -55,6 +59,10 @@ export class AppComponent implements OnInit {
         return Array.from(this.fileUploadStatus.entries()).map(([key, value]) => ({ key, value }));
     }
     public filePreviewUrls: Map<string, string> = new Map(); // Store preview URLs for images
+
+    /** Pending incoming friend requests count (login prompt). */
+    public pendingFriendRequestCount = 0;
+    private pendingFriendRequestsPromptShown = false;
     
     // Share files properties
     public shareFiles: File[] = []; // Files to share
@@ -80,6 +88,7 @@ export class AppComponent implements OnInit {
         public _commonValuesServices: CommonvaluesService,
         public modalService: NgbModal,
         public _fileService: FileService,
+        private _friendsService: FriendsService,
         private router: Router,
         private cdr: ChangeDetectorRef) {
         this.selectedFiles = [];
@@ -171,9 +180,72 @@ export class AppComponent implements OnInit {
             // reset the user in the service ( with id ) otherwyse it is not present ( which is strange )
             this._membersService.setUser(this.user);
             this._membersService.pushGpsPositionWhenAvailable();
+            this.schedulePendingFriendRequestsPrompt();
         },
             err => alert("Error when retieving MLB user id " + err)
         );
+    }
+
+    /**
+     * After member id is known, check pending friend requests without blocking the UI thread
+     * (photo wall and router-outlet render first; HTTP runs on the next macrotask).
+     */
+    private schedulePendingFriendRequestsPrompt(): void {
+        if (!this.isAuthenticated() || this.pendingFriendRequestsPromptShown) {
+            return;
+        }
+        setTimeout(() => this.runPendingFriendRequestsPromptCheck(), 0);
+    }
+
+    private runPendingFriendRequestsPromptCheck(): void {
+        if (!this.isAuthenticated() || this.pendingFriendRequestsPromptShown) {
+            return;
+        }
+        this._friendsService.getPendingRequests().pipe(
+            take(1),
+            catchError(() => of([]))
+        ).subscribe((list) => {
+            if (!this.isAuthenticated() || this.pendingFriendRequestsPromptShown) {
+                return;
+            }
+            if (!list?.length) {
+                return;
+            }
+            this.pendingFriendRequestCount = list.length;
+            this.cdr.markForCheck();
+            this.openFriendRequestsPromptModalWhenReady();
+        });
+    }
+
+    private openFriendRequestsPromptModalWhenReady(attempt = 0): void {
+        if (!this.friendRequestsPromptModal) {
+            if (attempt < 20) {
+                setTimeout(() => this.openFriendRequestsPromptModalWhenReady(attempt + 1), 50);
+            }
+            return;
+        }
+        if (this.pendingFriendRequestsPromptShown) {
+            return;
+        }
+        this.pendingFriendRequestsPromptShown = true;
+        this.modalService.open(this.friendRequestsPromptModal, {
+            centered: true,
+            backdrop: true,
+            keyboard: true,
+            windowClass: 'friend-requests-prompt-modal'
+        }).result.then(
+            () => {},
+            () => {}
+        );
+    }
+
+    friendRequestsPromptGo(close: (result?: string) => void): void {
+        close('go');
+        void this.router.navigate(['/friends'], { queryParams: { tab: 'requests' } });
+    }
+
+    friendRequestsPromptLater(dismiss: (reason?: string) => void): void {
+        dismiss('later');
     }
     // for modal chat
     public closeResult: string = "";

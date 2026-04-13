@@ -24,6 +24,18 @@ export interface CalendarReminderMailResult {
     skippedNoEmail: number;
 }
 
+export interface CalendarVisibilityRecipient {
+    memberId: string;
+    displayName: string;
+    hasEmail: boolean;
+}
+
+export interface CalendarVisibilityPreviewPayload {
+    visibility?: string;
+    friendGroupId?: string | null;
+    friendGroupIds?: string[] | null;
+}
+
 export interface CalendarAppointmentPayload {
     title: string;
     notes?: string | null;
@@ -107,6 +119,29 @@ export class CalendarService {
                 this.http.post<CalendarReminderMailResult>(
                     `${environment.API_URL}calendar/appointments/${id}/reminder-mail`,
                     {},
+                    { headers }
+                )
+            )
+        );
+    }
+
+    getVisibilityRecipients(appointmentId: string): Observable<CalendarVisibilityRecipient[]> {
+        return this.withUserHeaders().pipe(
+            switchMap(headers =>
+                this.http.get<CalendarVisibilityRecipient[]>(
+                    `${environment.API_URL}calendar/appointments/${appointmentId}/visibility-recipients`,
+                    { headers }
+                )
+            )
+        );
+    }
+
+    previewVisibilityRecipients(body: CalendarVisibilityPreviewPayload): Observable<CalendarVisibilityRecipient[]> {
+        return this.withUserHeaders().pipe(
+            switchMap(headers =>
+                this.http.post<CalendarVisibilityRecipient[]>(
+                    `${environment.API_URL}calendar/appointments/visibility-recipients-preview`,
+                    body,
                     { headers }
                 )
             )

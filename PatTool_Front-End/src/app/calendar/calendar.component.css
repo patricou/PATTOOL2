@@ -124,6 +124,17 @@
     border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
+/* Fériés : 1re ligne = statut court, 2e = nom du jour */
+.pat-cal-holiday-kind {
+    font-size: 0.65rem;
+    line-height: 1.15;
+    letter-spacing: 0.01em;
+}
+
+.pat-cal-event-text {
+    gap: 1px;
+}
+
 .fc-event-thumb {
     width: 22px;
     height: 22px;
