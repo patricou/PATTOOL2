@@ -44,16 +44,18 @@
             class="fa fa-calendar-check-o fc-event-appointment-icon flex-shrink-0"
             aria-hidden="true"></i>
           <div class="pat-cal-event-stack flex-grow-1 min-w-0">
-            @if (patCalCellTimeLabel(arg); as startLabel) {
-              <span class="fc-event-time text-nowrap fw-semibold">{{ startLabel }}</span>
-            }
-            <div
-              class="pat-cal-event-body lh-sm"
-              [class.pat-cal-event-body--holiday]="ext['kind'] === 'PUBLIC_HOLIDAY'">
-              <span class="pat-cal-event-title-line d-block">
-                <ng-container *ngIf="ext['kind'] === 'PUBLIC_HOLIDAY' && ext['holidayKindKey']">
-                  <span class="pat-cal-holiday-kind-prefix text-muted me-1">{{ ext['holidayKindKey'] | translate }}</span>
-                </ng-container>{{ arg.event.title }}
+            <div class="pat-cal-event-oneflow">
+              @if (patCalCellTimeLabel(arg); as startLabel) {
+                <span class="fc-event-time text-nowrap fw-semibold">{{ startLabel }}</span>
+              }
+              <span
+                class="pat-cal-event-body lh-sm"
+                [class.pat-cal-event-body--holiday]="ext['kind'] === 'PUBLIC_HOLIDAY'">
+                <span class="pat-cal-event-title-line">
+                  <ng-container *ngIf="ext['kind'] === 'PUBLIC_HOLIDAY' && ext['holidayKindKey']">
+                    <span class="pat-cal-holiday-kind-prefix text-muted me-1">{{ ext['holidayKindKey'] | translate }}</span>
+                  </ng-container>{{ arg.event.title }}
+                </span>
               </span>
             </div>
           </div>

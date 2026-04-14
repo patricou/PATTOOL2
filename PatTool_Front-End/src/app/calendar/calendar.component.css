@@ -227,6 +227,11 @@
     min-width: 0;
 }
 
+/* Desktop : wrapper transparent pour garder heure + corps en flex sur la même ligne */
+.pat-cal-event-oneflow {
+    display: contents;
+}
+
 .fc-event-time {
     flex: 0 0 auto;
     font-size: 0.72rem;
@@ -257,55 +262,73 @@
     white-space: nowrap;
 }
 
-/* Mobile : titres (2 lignes max), pas de notes ; icône fériée conservée (préfixe férié / pas férié avant le nom) */
+/* Mobile : pas d’icônes ; heure + libellé sur 2 lignes max au total */
 @media (max-width: 767.98px) {
     .fc-event-mongo-icon,
+    .fc-event-holiday-icon,
     .fc-event-thumb,
     .fc-event-appointment-icon {
         display: none !important;
     }
 
     .fc-event-custom {
-        flex-direction: column;
+        flex-direction: row;
         align-items: stretch;
-        overflow: visible !important;
+        overflow: hidden !important;
+        min-width: 0;
     }
 
     .pat-cal-event-stack {
-        flex-direction: column;
-        align-items: stretch;
+        display: block;
         width: 100%;
-        gap: 0.2rem;
-    }
-
-    .fc-event-time {
         min-width: 0;
-        align-self: flex-start;
     }
 
-    .pat-cal-event-body,
-    .pat-cal-event-body--holiday {
+    .pat-cal-event-oneflow {
+        display: block;
+        line-height: 1.35;
+        max-height: 2.7em; /* 2 × line-height (1.35) : heure + titre sur 2 lignes max */
+        overflow: hidden;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        font-size: 0.78rem;
+        min-width: 0;
+    }
+
+    .pat-cal-event-oneflow .fc-event-time {
+        display: inline;
+        margin-right: 0.25em;
+        white-space: normal;
+        min-width: 0;
         flex: none;
-        width: 100%;
+        vertical-align: baseline;
+    }
+
+    .pat-cal-event-oneflow .pat-cal-event-body,
+    .pat-cal-event-oneflow .pat-cal-event-body--holiday {
+        display: inline;
+        flex: none;
+        width: auto;
         max-height: none !important;
         overflow: visible !important;
-        font-size: 0.78rem;
-        line-height: 1.35;
+        font-size: inherit;
+        line-height: inherit;
     }
 
-    /* Titre (RDV / activité / férié) : 2 lignes max, texte complet depuis extendedProps sur mobile */
-    .pat-cal-event-body .pat-cal-event-title-line {
-        display: -webkit-box !important;
-        -webkit-box-orient: vertical !important;
-        -webkit-line-clamp: 2 !important;
-        line-clamp: 2 !important;
-        overflow: hidden !important;
-        white-space: normal !important;
-        text-overflow: unset !important;
+    .pat-cal-event-oneflow .pat-cal-event-title-line {
+        display: inline;
+        font-weight: 600;
+        overflow: visible;
+        white-space: normal;
+    }
+
+    .pat-cal-event-oneflow .pat-cal-holiday-kind-prefix {
+        white-space: normal;
     }
 
     .pat-cal-event-root {
-        overflow: visible !important;
+        overflow: hidden !important;
+        min-width: 0;
     }
 
     :host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-event,
