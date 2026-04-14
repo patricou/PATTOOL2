@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public class CalendarAppointmentRepositoryImpl implements CalendarAppointmentRepositoryCustom {
@@ -49,6 +50,18 @@ public class CalendarAppointmentRepositoryImpl implements CalendarAppointmentRep
                 .comparing(CalendarAppointment::getStartDate, Comparator.nullsLast(Comparator.naturalOrder()))
                 .thenComparing(CalendarAppointment::getTitle, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)));
         return list;
+    }
+
+    @Override
+    public Optional<CalendarAppointment> findAccessibleByIdAndMember(String id, String memberId) {
+        if (!StringUtils.hasText(id)) {
+            return Optional.empty();
+        }
+        Query query = new Query();
+        query.addCriteria(Criteria.where("_id").is(id));
+        query.addCriteria(buildAccessCriteria(memberId));
+        CalendarAppointment one = mongoTemplate.findOne(query, CalendarAppointment.class);
+        return Optional.ofNullable(one);
     }
 
     private Criteria buildAccessCriteria(String userId) {

@@ -50,6 +50,41 @@ img, video, canvas {
     overflow: hidden !important;
 }
 
+/* Agenda : détail (infos), RDV (création / modification), aide — mobile ≤768px, icônes seules sur les boutons */
+@media (max-width: 768px) {
+    ::ng-deep .pat-cal-agenda-modal-buttons .pat-cal-modal-btn-label {
+        display: none !important;
+    }
+
+    ::ng-deep .pat-cal-agenda-modal-buttons .modal-footer .btn,
+    ::ng-deep .pat-cal-agenda-modal-buttons .modal-body .btn:not(.btn-close):not(.btn-close-white) {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+    }
+
+    ::ng-deep .pat-cal-agenda-modal-buttons .modal-footer .btn .fa,
+    ::ng-deep .pat-cal-agenda-modal-buttons .modal-body .btn:not(.btn-close):not(.btn-close-white) .fa,
+    ::ng-deep .pat-cal-agenda-modal-buttons .btn-link .fa {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+
+    ::ng-deep .pat-cal-agenda-modal-buttons .modal-footer .btn:not(.btn-link),
+    ::ng-deep .pat-cal-agenda-modal-buttons .modal-body .btn:not(.btn-close):not(.btn-close-white):not(.btn-link) {
+        min-width: 2.35rem;
+    }
+
+    ::ng-deep .pat-cal-agenda-modal-buttons .modal-body .btn-link.btn-sm {
+        min-width: 2.25rem;
+        min-height: 2rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+}
+
 /* Global style for discussion modal with white border */
 ::ng-deep .discussion-modal-window .modal-content,
 ::ng-deep .modal-dialog.discussion-modal-window .modal-content,

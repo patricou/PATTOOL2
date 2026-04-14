@@ -4,6 +4,7 @@ import com.pat.repo.domain.CalendarAppointment;
 
 import java.util.Date;
 import java.util.List;
+import java.util.Optional;
 
 public interface CalendarAppointmentRepositoryCustom {
 
@@ -12,6 +13,11 @@ public interface CalendarAppointmentRepositoryCustom {
      * When {@code userId} is null, only {@code visibility == "public"} entries are returned.
      */
     List<CalendarAppointment> findAccessibleOverlappingRange(Date rangeStart, Date rangeEnd, String userId);
+
+    /**
+     * Appointment by id if {@code memberId} may see it (same rules as {@link #findAccessibleOverlappingRange}).
+     */
+    Optional<CalendarAppointment> findAccessibleByIdAndMember(String id, String memberId);
 
     /**
      * All appointments whose time range intersects [{@code rangeStart}, {@code rangeEnd}] (inclusive intent:

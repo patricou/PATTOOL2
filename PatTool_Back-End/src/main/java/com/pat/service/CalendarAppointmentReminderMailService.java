@@ -45,6 +45,9 @@ public class CalendarAppointmentReminderMailService {
     private static final DateTimeFormatter REMINDER_DATE_LABEL =
             DateTimeFormatter.ofPattern("EEEE d MMMM yyyy", Locale.FRENCH);
 
+    /** Keep reminder subjects readable in clients that truncate aggressively. */
+    private static final int MAX_REMINDER_SUBJECT_LENGTH = 220;
+
     @Autowired
     private MembersRepository membersRepository;
 
@@ -158,7 +161,7 @@ public class CalendarAppointmentReminderMailService {
                 continue;
             }
 
-            String subject = "PatTool — Rendez-vous du " + dateLabel;
+            String subject = buildReminderSubject(appts, dateLabel);
             Map<String, Member> ownerCache = loadOwnersFor(appts);
             String html = buildHtmlBody(member, appts, zone, dateLabel, ownerCache, calendarAgendaHref());
             mailController.sendMailToRecipient(email.trim(), subject, html, true);
@@ -314,6 +317,61 @@ public class CalendarAppointmentReminderMailService {
             base = "https://" + base;
         }
         return base + "/#/calendrier";
+    }
+
+    /**
+     * Subject line includes RDV title(s): one appointment → title + date; digest → date + comma-separated titles.
+     */
+    private static String buildReminderSubject(List<CalendarAppointment> appts, String dateLabel) {
+        String dateSegment = "Rendez-vous du " + dateLabel;
+        String base = "PatTool — " + dateSegment;
+        if (appts == null || appts.isEmpty()) {
+            return truncateSubject(base);
+        }
+        if (appts.size() == 1) {
+            String title = sanitizedTitleForSubject(appts.get(0));
+            String out = StringUtils.hasText(title)
+                    ? "PatTool — " + title + " — " + dateSegment
+                    : base;
+            return truncateSubject(out);
+        }
+        List<String> titles = new ArrayList<>();
+        for (CalendarAppointment a : appts) {
+            String t = sanitizedTitleForSubject(a);
+            if (StringUtils.hasText(t)) {
+                titles.add(t);
+            }
+        }
+        if (titles.isEmpty()) {
+            return truncateSubject(base);
+        }
+        return truncateSubject(base + " — " + String.join(", ", titles));
+    }
+
+    private static String sanitizedTitleForSubject(CalendarAppointment a) {
+        if (a == null) {
+            return "";
+        }
+        return sanitizeSubjectFragment(a.getTitle());
+    }
+
+    private static String sanitizeSubjectFragment(String raw) {
+        if (raw == null) {
+            return "";
+        }
+        String s = raw.replace('\r', ' ').replace('\n', ' ').replace('\t', ' ');
+        return s.trim().replaceAll("\\s+", " ");
+    }
+
+    private static String truncateSubject(String subject) {
+        if (subject == null) {
+            return "";
+        }
+        int max = MAX_REMINDER_SUBJECT_LENGTH;
+        if (subject.length() <= max) {
+            return subject;
+        }
+        return subject.substring(0, Math.max(0, max - 1)) + "…";
     }
 
     private static String escapeHtml(String raw) {

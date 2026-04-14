@@ -21,7 +21,7 @@
       <ng-template #eventContent let-arg>
         @let ext = $any(arg.event.extendedProps);
         <div
-          class="fc-event-custom d-flex align-items-center gap-1 w-100 min-w-0 overflow-hidden px-1 rounded-1"
+          class="fc-event-custom pat-cal-event-root w-100 min-w-0 px-1 rounded-1"
           [attr.title]="patCalTooltip(arg)"
           [style.background-color]="ext['calBg'] || 'transparent'"
           [style.border-left]="ext['displayBorderLeft'] || '3px solid transparent'">
@@ -43,17 +43,20 @@
             *ngIf="ext['kind'] === 'APPOINTMENT' && !ext['thumbSrc']"
             class="fa fa-calendar-check-o fc-event-appointment-icon flex-shrink-0"
             aria-hidden="true"></i>
-          @if (patCalCellTimeLabel(arg); as startLabel) {
-            <span class="fc-event-time flex-shrink-0 text-nowrap fw-semibold">{{ startLabel }}</span>
-          }
-          @if (ext['holidayKindShort']) {
-            <div class="pat-cal-event-text flex-grow-1 min-w-0 d-flex flex-column justify-content-center lh-sm">
-              <span class="text-truncate fw-semibold pat-cal-holiday-kind">{{ ext['holidayKindShort'] }}</span>
-              <span class="text-truncate">{{ arg.event.title }}</span>
+          <div class="pat-cal-event-stack flex-grow-1 min-w-0">
+            @if (patCalCellTimeLabel(arg); as startLabel) {
+              <span class="fc-event-time text-nowrap fw-semibold">{{ startLabel }}</span>
+            }
+            <div
+              class="pat-cal-event-body lh-sm"
+              [class.pat-cal-event-body--holiday]="ext['kind'] === 'PUBLIC_HOLIDAY'">
+              <span class="pat-cal-event-title-line d-block">
+                <ng-container *ngIf="ext['kind'] === 'PUBLIC_HOLIDAY' && ext['holidayKindKey']">
+                  <span class="pat-cal-holiday-kind-prefix text-muted me-1">{{ ext['holidayKindKey'] | translate }}</span>
+                </ng-container>{{ arg.event.title }}
+              </span>
             </div>
-          } @else {
-            <span class="text-truncate flex-grow-1 min-w-0">{{ arg.event.title }}</span>
-          }
+          </div>
         </div>
       </ng-template>
     </full-calendar>
@@ -93,6 +96,177 @@
   </div>
 </div>
 
+<ng-template #mobileEntryDetailModal let-modal>
+  <div class="modal-header border-bottom py-2">
+    <h5 class="modal-title mb-0 fs-6" id="pat-cal-mobile-entry-title">{{ 'CALENDAR.MOBILE_ENTRY_DETAIL_TITLE' | translate }}</h5>
+    <button type="button" class="btn-close" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss()"></button>
+  </div>
+  <div class="modal-body" *ngIf="mobileEntryDetail as d">
+    <div *ngIf="reminderMailSuccessMessage" class="alert alert-success py-2 mb-2">{{ reminderMailSuccessMessage }}</div>
+    <div *ngIf="reminderMailErrorMessage" class="alert alert-danger py-2 mb-2">{{ reminderMailErrorMessage | translate }}</div>
+    <p class="text-muted small mb-1">{{ d.kindI18nKey | translate }}</p>
+    <p class="fw-semibold mb-2">{{ d.headline }}</p>
+    <p *ngIf="d.kind === 'APPOINTMENT' && !isAuthenticated()" class="small text-muted mb-2">{{ 'CALENDAR.LOGIN_HINT' | translate }}</p>
+    <p *ngIf="d.kind === 'ACTIVITY' && !isAuthenticated()" class="small text-muted mb-2">{{ 'CALENDAR.ACTIVITY_MAIL_LOGIN_HINT' | translate }}</p>
+    <div *ngIf="d.kind === 'APPOINTMENT' && isAuthenticated()" class="mb-3">
+      <div class="d-flex flex-wrap gap-1">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          (click)="loadVisibilityRecipientsFromEntryDetail()"
+          [disabled]="visibilityRecipientsLoading"
+          [attr.aria-label]="
+            (visibilityRecipientsLoading ? 'COMMUN.LOADING' : 'CALENDAR.VIEW_VISIBILITY_RECIPIENTS') | translate
+          ">
+          <i
+            class="fa small"
+            [class.fa-spinner]="visibilityRecipientsLoading"
+            [class.fa-spin]="visibilityRecipientsLoading"
+            [class.fa-users]="!visibilityRecipientsLoading"
+            aria-hidden="true"></i>
+          <span class="pat-cal-modal-btn-label ms-1">{{
+            (visibilityRecipientsLoading ? 'COMMUN.LOADING' : 'CALENDAR.VIEW_VISIBILITY_RECIPIENTS') | translate
+          }}</span>
+        </button>
+      </div>
+      <div *ngIf="visibilityRecipientsShown" class="mt-2 p-2 border rounded bg-light small" style="max-height: 220px; overflow-y: auto">
+        <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
+          <span class="fw-semibold text-secondary">{{ 'CALENDAR.VISIBILITY_RECIPIENTS_TITLE' | translate }}</span>
+          <button
+            type="button"
+            class="btn btn-link btn-sm py-0 px-1 text-secondary"
+            (click)="hideVisibilityRecipientsPanel()"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+            <span class="pat-cal-modal-btn-label ms-1">{{ 'COMMUN.CLOSE' | translate }}</span>
+          </button>
+        </div>
+        <ul class="list-unstyled mb-0 ps-0" *ngIf="visibilityRecipientsList.length > 0">
+          <li *ngFor="let r of visibilityRecipientsList" class="py-1 border-bottom border-white">
+            <span class="text-dark">{{ r.displayName }}</span>
+            <span *ngIf="!r.hasEmail" class="text-muted ms-1">({{ 'CALENDAR.NO_EMAIL_BADGE' | translate }})</span>
+          </li>
+        </ul>
+        <p *ngIf="!visibilityRecipientsLoading && visibilityRecipientsList.length === 0" class="text-muted mb-0 fst-italic">
+          {{ 'CALENDAR.VISIBILITY_RECIPIENTS_EMPTY' | translate }}
+        </p>
+      </div>
+    </div>
+    <div *ngIf="d.kind === 'ACTIVITY' && isAuthenticated()" class="mb-3">
+      <div *ngIf="eventAccessUsersErrorMessage" class="alert alert-danger py-2 mb-2">{{ eventAccessUsersErrorMessage | translate }}</div>
+      <div class="d-flex flex-wrap gap-1">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          (click)="loadEventAccessUsersFromEntryDetail()"
+          [disabled]="eventAccessUsersLoading"
+          [attr.aria-label]="
+            (eventAccessUsersLoading ? 'COMMUN.LOADING' : 'CALENDAR.VIEW_VISIBILITY_RECIPIENTS') | translate
+          ">
+          <i
+            class="fa small"
+            [class.fa-spinner]="eventAccessUsersLoading"
+            [class.fa-spin]="eventAccessUsersLoading"
+            [class.fa-users]="!eventAccessUsersLoading"
+            aria-hidden="true"></i>
+          <span class="pat-cal-modal-btn-label ms-1">{{
+            (eventAccessUsersLoading ? 'COMMUN.LOADING' : 'CALENDAR.VIEW_VISIBILITY_RECIPIENTS') | translate
+          }}</span>
+        </button>
+      </div>
+      <div *ngIf="eventAccessUsersShown" class="mt-2 p-2 border rounded bg-light small" style="max-height: 220px; overflow-y: auto">
+        <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
+          <span class="fw-semibold text-secondary">{{ 'EVENTELEM.USERS_WITH_ACCESS' | translate }}</span>
+          <button
+            type="button"
+            class="btn btn-link btn-sm py-0 px-1 text-secondary"
+            (click)="hideEventAccessUsersPanel()"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+            <span class="pat-cal-modal-btn-label ms-1">{{ 'COMMUN.CLOSE' | translate }}</span>
+          </button>
+        </div>
+        <ul class="list-unstyled mb-0 ps-0" *ngIf="eventAccessUsersList.length > 0">
+          <li *ngFor="let u of eventAccessUsersList; trackBy: trackByEventAccessUserId" class="py-1 border-bottom border-white">
+            <span class="text-dark">{{ eventAccessUserDisplayName(u) }}</span>
+            <span *ngIf="u.userName?.trim()" class="text-muted small ms-1">@{{ u.userName }}</span>
+          </li>
+        </ul>
+        <p *ngIf="!eventAccessUsersLoading && eventAccessUsersList.length === 0" class="text-muted mb-0 fst-italic">
+          {{ 'EVENTELEM.NO_ACCESS_USERS' | translate }}
+        </p>
+      </div>
+    </div>
+    <pre class="pat-cal-mobile-entry-detail-text mb-0">{{ d.detailText }}</pre>
+  </div>
+  <div class="modal-footer border-top gap-1 py-2 px-2 pat-cal-entry-detail-footer" *ngIf="mobileEntryDetail as d">
+    <button
+      *ngIf="d.kind === 'ACTIVITY' && d.eventId"
+      type="button"
+      class="btn btn-sm btn-primary"
+      (click)="openMobileEntryInPhotoWall(modal)"
+      [attr.aria-label]="'CALENDAR.OPEN_ACTIVITY' | translate">
+      <i class="fa fa-picture-o pat-cal-entry-detail-footer-icon" aria-hidden="true"></i>
+      <span class="pat-cal-modal-btn-label ms-1">{{ 'CALENDAR.OPEN_ACTIVITY' | translate }}</span>
+    </button>
+    <button
+      *ngIf="d.kind === 'ACTIVITY' && d.activityCanSendDetailsMail"
+      type="button"
+      class="btn btn-sm btn-outline-secondary"
+      [disabled]="reminderMailLoading"
+      (click)="sendActivityDetailsMailToSelf()"
+      [attr.aria-label]="
+        (reminderMailLoading ? 'CALENDAR.REMINDER_MAIL_SENDING' : 'CALENDAR.ACTIVITY_DETAILS_MAIL') | translate
+      ">
+      <i
+        class="fa pat-cal-entry-detail-footer-icon"
+        [class.fa-spinner]="reminderMailLoading"
+        [class.fa-spin]="reminderMailLoading"
+        [class.fa-envelope-o]="!reminderMailLoading"
+        aria-hidden="true"></i>
+      <span class="pat-cal-modal-btn-label ms-1">{{
+        (reminderMailLoading ? 'CALENDAR.REMINDER_MAIL_SENDING' : 'CALENDAR.ACTIVITY_DETAILS_MAIL') | translate
+      }}</span>
+    </button>
+    <button
+      *ngIf="d.kind === 'APPOINTMENT' && d.appointmentCanSendReminder"
+      type="button"
+      class="btn btn-sm btn-outline-secondary"
+      [disabled]="reminderMailLoading"
+      (click)="sendMobileEntryAppointmentReminderMail()"
+      [attr.aria-label]="
+        (reminderMailLoading ? 'CALENDAR.REMINDER_MAIL_SENDING' : 'CALENDAR.REMINDER_MAIL') | translate
+      ">
+      <i
+        class="fa pat-cal-entry-detail-footer-icon"
+        [class.fa-spinner]="reminderMailLoading"
+        [class.fa-spin]="reminderMailLoading"
+        [class.fa-envelope-o]="!reminderMailLoading"
+        aria-hidden="true"></i>
+      <span class="pat-cal-modal-btn-label ms-1">{{
+        (reminderMailLoading ? 'CALENDAR.REMINDER_MAIL_SENDING' : 'CALENDAR.REMINDER_MAIL') | translate
+      }}</span>
+    </button>
+    <button
+      *ngIf="d.kind === 'APPOINTMENT' && isAuthenticated()"
+      type="button"
+      class="btn btn-sm btn-outline-primary"
+      (click)="openMobileEntryAppointmentEditor(modal)"
+      [attr.aria-label]="'CALENDAR.EDIT_APPOINTMENT' | translate">
+      <i class="fa fa-pencil pat-cal-entry-detail-footer-icon" aria-hidden="true"></i>
+      <span class="pat-cal-modal-btn-label ms-1">{{ 'CALENDAR.EDIT_APPOINTMENT' | translate }}</span>
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-secondary"
+      (click)="modal.close()"
+      [attr.aria-label]="'COMMUN.CLOSE' | translate">
+      <i class="fa fa-times pat-cal-entry-detail-footer-icon" aria-hidden="true"></i>
+      <span class="pat-cal-modal-btn-label ms-1">{{ 'COMMUN.CLOSE' | translate }}</span>
+    </button>
+  </div>
+</ng-template>
+
 <ng-template #calendarHelpModal let-modal>
   <div class="modal-header border-bottom">
     <h5 class="modal-title mb-0" id="pat-cal-help-title">Aide — Help</h5>
@@ -105,7 +279,14 @@
     <div class="pat-cal-help-block small">{{ calendarHelpEn }}</div>
   </div>
   <div class="modal-footer border-top">
-    <button type="button" class="btn btn-primary" (click)="modal.close()">{{ 'COMMUN.CLOSE' | translate }}</button>
+    <button
+      type="button"
+      class="btn btn-primary"
+      (click)="modal.close()"
+      [attr.aria-label]="'COMMUN.CLOSE' | translate">
+      <i class="fa fa-times" aria-hidden="true"></i>
+      <span class="pat-cal-modal-btn-label ms-1">{{ 'COMMUN.CLOSE' | translate }}</span>
+    </button>
   </div>
 </ng-template>
 
@@ -118,7 +299,6 @@
     <button type="button" class="btn-close btn-close-white btn-close-sm" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss()"></button>
   </div>
   <div class="modal-body px-3 py-2">
-    <div *ngIf="reminderMailSuccessMessage" class="alert alert-success py-2 mb-2">{{ reminderMailSuccessMessage }}</div>
     <div *ngIf="reminderMailErrorMessage" class="alert alert-danger py-2 mb-2">{{ reminderMailErrorMessage | translate }}</div>
     <p *ngIf="editingId && !appointmentCanEdit" class="small text-muted mb-2">{{ 'CALENDAR.READ_ONLY_APPOINTMENT' | translate }}</p>
     <div class="mb-2">
@@ -152,17 +332,31 @@
           type="button"
           class="btn btn-sm btn-outline-primary"
           (click)="loadVisibilityRecipients()"
-          [disabled]="visibilityRecipientsLoading">
-          <i class="fa fa-users me-1 small" aria-hidden="true"></i>
-          <span *ngIf="!visibilityRecipientsLoading">{{ 'CALENDAR.VIEW_VISIBILITY_RECIPIENTS' | translate }}</span>
-          <span *ngIf="visibilityRecipientsLoading">{{ 'COMMUN.LOADING' | translate }}</span>
+          [disabled]="visibilityRecipientsLoading"
+          [attr.aria-label]="
+            (visibilityRecipientsLoading ? 'COMMUN.LOADING' : 'CALENDAR.VIEW_VISIBILITY_RECIPIENTS') | translate
+          ">
+          <i
+            class="fa small"
+            [class.fa-spinner]="visibilityRecipientsLoading"
+            [class.fa-spin]="visibilityRecipientsLoading"
+            [class.fa-users]="!visibilityRecipientsLoading"
+            aria-hidden="true"></i>
+          <span class="pat-cal-modal-btn-label ms-1">{{
+            (visibilityRecipientsLoading ? 'COMMUN.LOADING' : 'CALENDAR.VIEW_VISIBILITY_RECIPIENTS') | translate
+          }}</span>
         </button>
       </div>
       <div *ngIf="visibilityRecipientsShown" class="mt-2 p-2 border rounded bg-light small" style="max-height: 220px; overflow-y: auto">
         <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
           <span class="fw-semibold text-secondary">{{ 'CALENDAR.VISIBILITY_RECIPIENTS_TITLE' | translate }}</span>
-          <button type="button" class="btn btn-link btn-sm py-0 px-1 text-secondary" (click)="hideVisibilityRecipientsPanel()">
-            {{ 'COMMUN.CLOSE' | translate }}
+          <button
+            type="button"
+            class="btn btn-link btn-sm py-0 px-1 text-secondary"
+            (click)="hideVisibilityRecipientsPanel()"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+            <span class="pat-cal-modal-btn-label ms-1">{{ 'COMMUN.CLOSE' | translate }}</span>
           </button>
         </div>
         <ul class="list-unstyled mb-0 ps-0" *ngIf="visibilityRecipientsList.length > 0">
@@ -179,6 +373,48 @@
     <div class="mb-2" *ngIf="!appointmentCanEdit && editingId">
       <span class="form-label d-block text-secondary small">{{ 'CALENDAR.VISIBILITY_LABEL' | translate }}</span>
       <span class="small">{{ appointmentVisibilityReadOnlyLabel() }}</span>
+      <div class="d-flex flex-wrap gap-1 mt-2">
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-primary"
+          (click)="loadVisibilityRecipients()"
+          [disabled]="visibilityRecipientsLoading"
+          [attr.aria-label]="
+            (visibilityRecipientsLoading ? 'COMMUN.LOADING' : 'CALENDAR.VIEW_VISIBILITY_RECIPIENTS') | translate
+          ">
+          <i
+            class="fa small"
+            [class.fa-spinner]="visibilityRecipientsLoading"
+            [class.fa-spin]="visibilityRecipientsLoading"
+            [class.fa-users]="!visibilityRecipientsLoading"
+            aria-hidden="true"></i>
+          <span class="pat-cal-modal-btn-label ms-1">{{
+            (visibilityRecipientsLoading ? 'COMMUN.LOADING' : 'CALENDAR.VIEW_VISIBILITY_RECIPIENTS') | translate
+          }}</span>
+        </button>
+      </div>
+      <div *ngIf="visibilityRecipientsShown" class="mt-2 p-2 border rounded bg-light small" style="max-height: 220px; overflow-y: auto">
+        <div class="d-flex justify-content-between align-items-center mb-1 gap-2">
+          <span class="fw-semibold text-secondary">{{ 'CALENDAR.VISIBILITY_RECIPIENTS_TITLE' | translate }}</span>
+          <button
+            type="button"
+            class="btn btn-link btn-sm py-0 px-1 text-secondary"
+            (click)="hideVisibilityRecipientsPanel()"
+            [attr.aria-label]="'COMMUN.CLOSE' | translate">
+            <i class="fa fa-times" aria-hidden="true"></i>
+            <span class="pat-cal-modal-btn-label ms-1">{{ 'COMMUN.CLOSE' | translate }}</span>
+          </button>
+        </div>
+        <ul class="list-unstyled mb-0 ps-0" *ngIf="visibilityRecipientsList.length > 0">
+          <li *ngFor="let r of visibilityRecipientsList" class="py-1 border-bottom border-white">
+            <span class="text-dark">{{ r.displayName }}</span>
+            <span *ngIf="!r.hasEmail" class="text-muted ms-1">({{ 'CALENDAR.NO_EMAIL_BADGE' | translate }})</span>
+          </li>
+        </ul>
+        <p *ngIf="!visibilityRecipientsLoading && visibilityRecipientsList.length === 0" class="text-muted mb-0 fst-italic">
+          {{ 'CALENDAR.VISIBILITY_RECIPIENTS_EMPTY' | translate }}
+        </p>
+      </div>
     </div>
     <div class="mb-2">
       <label class="form-label small mb-1">{{ 'CALENDAR.FIELD_NOTES' | translate }}</label>
@@ -187,21 +423,34 @@
   </div>
   <div class="modal-footer d-flex justify-content-between border-top flex-wrap gap-2 py-2 px-3">
     <div class="d-flex flex-wrap gap-1 align-items-center">
-      <button *ngIf="editingId && appointmentCanEdit" type="button" class="btn btn-sm btn-outline-danger" (click)="deleteEditingAppointment()">{{ 'CALENDAR.DELETE' | translate }}</button>
       <button
         *ngIf="editingId && appointmentCanEdit"
         type="button"
-        class="btn btn-sm btn-outline-secondary"
-        [disabled]="reminderMailLoading"
-        (click)="sendAppointmentReminderMail()">
-        <i class="fa fa-envelope-o me-1 small" aria-hidden="true"></i>
-        <span *ngIf="!reminderMailLoading">{{ 'CALENDAR.REMINDER_MAIL' | translate }}</span>
-        <span *ngIf="reminderMailLoading">{{ 'CALENDAR.REMINDER_MAIL_SENDING' | translate }}</span>
+        class="btn btn-sm btn-outline-danger"
+        (click)="deleteEditingAppointment()"
+        [attr.aria-label]="'CALENDAR.DELETE' | translate">
+        <i class="fa fa-trash" aria-hidden="true"></i>
+        <span class="pat-cal-modal-btn-label ms-1">{{ 'CALENDAR.DELETE' | translate }}</span>
       </button>
     </div>
     <div class="d-flex gap-1">
-      <button type="button" class="btn btn-sm btn-secondary" (click)="modal.dismiss()">{{ 'COMMUN.CANCEL' | translate }}</button>
-      <button *ngIf="appointmentCanEdit" type="button" class="btn btn-sm btn-primary" (click)="saveAppointment()">{{ 'CALENDAR.SAVE' | translate }}</button>
+      <button
+        type="button"
+        class="btn btn-sm btn-secondary"
+        (click)="modal.dismiss()"
+        [attr.aria-label]="'COMMUN.CANCEL' | translate">
+        <i class="fa fa-times" aria-hidden="true"></i>
+        <span class="pat-cal-modal-btn-label ms-1">{{ 'COMMUN.CANCEL' | translate }}</span>
+      </button>
+      <button
+        *ngIf="appointmentCanEdit"
+        type="button"
+        class="btn btn-sm btn-primary"
+        (click)="saveAppointment()"
+        [attr.aria-label]="'CALENDAR.SAVE' | translate">
+        <i class="fa fa-floppy-o" aria-hidden="true"></i>
+        <span class="pat-cal-modal-btn-label ms-1">{{ 'CALENDAR.SAVE' | translate }}</span>
+      </button>
     </div>
   </div>
 </ng-template>

@@ -76,7 +76,7 @@ public class CalendarRestController {
             row.setTitle(ev.getEvenementName());
             row.setStart(ev.getBeginEventDate());
             row.setEnd(ev.getEndEventDate());
-            row.setNotes(null);
+            row.setNotes(StringUtils.hasText(ev.getComments()) ? ev.getComments().trim() : null);
             FileUploaded thumb = ev.getThumbnail();
             if (thumb != null && StringUtils.hasText(thumb.getFieldId())) {
                 row.setThumbnailFileId(thumb.getFieldId());
@@ -183,7 +183,8 @@ public class CalendarRestController {
     }
 
     /**
-     * Who can see this saved appointment (owner + visibility). Only the owner may query.
+     * Who can see this saved appointment (owner + visibility). Owner or any member who may see the appointment
+     * (same access as calendar entries) may query.
      */
     @GetMapping("/appointments/{id}/visibility-recipients")
     public ResponseEntity<List<CalendarVisibilityRecipientDTO>> listVisibilityRecipients(
@@ -192,12 +193,15 @@ public class CalendarRestController {
         if (!StringUtils.hasText(userId)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        if (calendarAppointmentRepository.findByIdAndOwnerMemberId(id, userId).isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
         Optional<CalendarAppointment> loaded = calendarAppointmentRepository.findById(id);
         if (loaded.isEmpty()) {
             return ResponseEntity.notFound().build();
+        }
+        boolean owner = calendarAppointmentRepository.findByIdAndOwnerMemberId(id, userId).isPresent();
+        if (!owner) {
+            if (calendarAppointmentRepository.findAccessibleByIdAndMember(id, userId).isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
         }
         return ResponseEntity.ok(calendarAppointmentReminderMailService.listVisibilityRecipients(loaded.get()));
     }

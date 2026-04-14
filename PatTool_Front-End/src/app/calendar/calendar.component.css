@@ -51,6 +51,66 @@
     white-space: pre-line;
 }
 
+/* Modale détail entrée agenda : boutons compacts */
+.calendar-mobile-entry-detail-modal .pat-cal-entry-detail-footer .btn,
+.calendar-mobile-entry-detail-modal .modal-body .btn:not(.btn-close):not(.btn-link) {
+    font-size: 0.8125rem;
+    padding: 0.2rem 0.45rem;
+    line-height: 1.3;
+}
+
+.calendar-mobile-entry-detail-modal .pat-cal-entry-detail-footer-icon {
+    font-size: 0.85em;
+}
+
+.calendar-mobile-entry-detail-modal .modal-body {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+/* Pied : une seule ligne ; retour à la ligne si besoin sur grand écran */
+.calendar-mobile-entry-detail-modal .pat-cal-entry-detail-footer {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}
+
+@media (max-width: 768px) {
+    .calendar-mobile-entry-detail-modal .pat-cal-entry-detail-footer {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        justify-content: flex-start;
+        gap: 0.3rem;
+    }
+
+    .calendar-mobile-entry-detail-modal .pat-cal-entry-detail-footer .btn {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 576px) {
+    .calendar-mobile-entry-detail-modal .pat-cal-entry-detail-footer .btn {
+        font-size: 0.78rem;
+        padding: 0.18rem 0.4rem;
+    }
+}
+
+.pat-cal-mobile-entry-detail-text {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: inherit;
+    margin: 0;
+    padding: 0.65rem 0.75rem;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 0.35rem;
+    max-height: min(55vh, 22rem);
+    overflow-y: auto;
+}
+
 .calendar-page {
     min-height: calc(100vh - 120px);
 }
@@ -124,17 +184,6 @@
     border: 1px solid rgba(0, 0, 0, 0.1);
 }
 
-/* Fériés : 1re ligne = statut court, 2e = nom du jour */
-.pat-cal-holiday-kind {
-    font-size: 0.65rem;
-    line-height: 1.15;
-    letter-spacing: 0.01em;
-}
-
-.pat-cal-event-text {
-    gap: 1px;
-}
-
 .fc-event-thumb {
     width: 22px;
     height: 22px;
@@ -157,15 +206,137 @@
     border: 1px solid rgba(0, 0, 0, 0.12);
 }
 
+/* —— Pastille événement : desktop rangée compacte ; mobile texte intégral —— */
+
 .fc-event-custom {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.12rem;
     font-size: 0.8rem;
-    line-height: 1.2;
+    line-height: 1.25;
+}
+
+.pat-cal-event-stack {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 0.2rem;
+    min-width: 0;
 }
 
 .fc-event-time {
+    flex: 0 0 auto;
     font-size: 0.72rem;
     opacity: 0.95;
-    min-width: 2.75rem;
+    min-width: 2.35rem;
+    line-height: 1.2;
+}
+
+.pat-cal-event-body {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.pat-cal-event-title-line {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.pat-cal-event-body .pat-cal-event-title-line {
+    font-weight: 600;
+}
+
+/* Jours fériés Nager : férié / pas férié / banque… immédiatement avant le titre */
+.pat-cal-holiday-kind-prefix {
+    font-size: 0.88em;
+    font-weight: 600;
+    line-height: inherit;
+    white-space: nowrap;
+}
+
+/* Mobile : titres (2 lignes max), pas de notes ; icône fériée conservée (préfixe férié / pas férié avant le nom) */
+@media (max-width: 767.98px) {
+    .fc-event-mongo-icon,
+    .fc-event-thumb,
+    .fc-event-appointment-icon {
+        display: none !important;
+    }
+
+    .fc-event-custom {
+        flex-direction: column;
+        align-items: stretch;
+        overflow: visible !important;
+    }
+
+    .pat-cal-event-stack {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        gap: 0.2rem;
+    }
+
+    .fc-event-time {
+        min-width: 0;
+        align-self: flex-start;
+    }
+
+    .pat-cal-event-body,
+    .pat-cal-event-body--holiday {
+        flex: none;
+        width: 100%;
+        max-height: none !important;
+        overflow: visible !important;
+        font-size: 0.78rem;
+        line-height: 1.35;
+    }
+
+    /* Titre (RDV / activité / férié) : 2 lignes max, texte complet depuis extendedProps sur mobile */
+    .pat-cal-event-body .pat-cal-event-title-line {
+        display: -webkit-box !important;
+        -webkit-box-orient: vertical !important;
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        overflow: hidden !important;
+        white-space: normal !important;
+        text-overflow: unset !important;
+    }
+
+    .pat-cal-event-root {
+        overflow: visible !important;
+    }
+
+    :host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-event,
+    :host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-event .fc-event-main,
+    :host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-event .fc-event-main-frame {
+        max-height: none !important;
+        overflow: visible !important;
+        white-space: normal !important;
+    }
+
+    :host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-dot-event .fc-event-main,
+    :host ::ng-deep .calendar-fc-wrap .fc .fc-daygrid-dot-event .fc-event-main-frame {
+        max-height: none !important;
+        min-height: 0 !important;
+        white-space: normal !important;
+    }
+}
+
+/* Desktop / tablette : titre complet (retours à la ligne possibles) */
+@media (min-width: 768px) {
+    .fc-event-custom,
+    .pat-cal-event-root {
+        overflow: visible;
+    }
+
+    .pat-cal-event-title-line {
+        display: block;
+        white-space: normal;
+        overflow: visible;
+        line-height: 1.25;
+    }
 }
 
 /* FullCalendar (scoped to this page): variables + barre d’outils plus compacte */

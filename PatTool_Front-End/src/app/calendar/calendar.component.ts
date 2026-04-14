@@ -1,7 +1,9 @@
 import {
+    AfterViewInit,
     ChangeDetectionStrategy,
     ChangeDetectorRef,
     Component,
+    HostListener,
     OnDestroy,
     OnInit,
     TemplateRef,
@@ -12,7 +14,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
 import { TranslateModule, TranslateService } from '@ngx-translate/core';
-import { NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap';
+import { NgbActiveModal, NgbModal, NgbModalModule } from '@ng-bootstrap/ng-bootstrap';
 import { FullCalendarComponent, FullCalendarModule } from '@fullcalendar/angular';
 import { CalendarOptions, DateSelectArg, EventClickArg, EventInput, LocaleInput } from '@fullcalendar/core';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -31,13 +33,15 @@ import itLocale from '@fullcalendar/core/locales/it';
 import jaLocale from '@fullcalendar/core/locales/ja';
 import ruLocale from '@fullcalendar/core/locales/ru';
 import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
-import { catchError, finalize, map } from 'rxjs/operators';
+import { catchError, finalize, map, take } from 'rxjs/operators';
 import { forkJoin, of, Subscription } from 'rxjs';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { FileService } from '../services/file.service';
 import { FriendsService } from '../services/friends.service';
 import { MembersService } from '../services/members.service';
+import { EvenementsService } from '../services/evenements.service';
 import { FriendGroup } from '../model/friend';
+import { Member } from '../model/member';
 import {
     CalendarEntry,
     CalendarAppointmentPayload,
@@ -50,18 +54,33 @@ import { NagerPublicHoliday, PublicHolidayService } from './public-holiday.servi
 const HOLIDAY_COUNTRY_STORAGE = 'pat-tool-calendar-holiday-country';
 const HOLIDAY_NAMES_MODE_STORAGE = 'pat-tool-calendar-holiday-names-mode';
 
+/** Résumé affiché dans la modale « détail » (clic sur une entrée). */
+interface MobileCalendarEntryDetail {
+    kind: 'ACTIVITY' | 'APPOINTMENT' | 'PUBLIC_HOLIDAY';
+    kindI18nKey: string;
+    eventId: string;
+    headline: string;
+    detailText: string;
+    /** RDV : seul le propriétaire peut envoyer le mail de rappel. */
+    appointmentCanSendReminder?: boolean;
+    /** Activité : utilisateur connecté avec une adresse e-mail (envoi des détails à soi-même). */
+    activityCanSendDetailsMail?: boolean;
+}
+
 @Component({
     selector: 'app-calendar',
     standalone: true,
     imports: [CommonModule, FormsModule, RouterModule, TranslateModule, NgbModalModule, FullCalendarModule],
     templateUrl: './calendar.component.html',
     styleUrls: ['./calendar.component.css'],
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    providers: [EvenementsService]
 })
-export class CalendarComponent implements OnInit, OnDestroy {
+export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
 
     @ViewChild('appointmentModal') appointmentModal!: TemplateRef<unknown>;
     @ViewChild('calendarHelpModal') calendarHelpModal!: TemplateRef<unknown>;
+    @ViewChild('mobileEntryDetailModal') mobileEntryDetailModal!: TemplateRef<unknown>;
     @ViewChild('fc') fullCalendar!: FullCalendarComponent;
 
     /** Textes d’aide (FR / EN) pour la modale — hors ngx-translate. */
@@ -78,15 +97,14 @@ export class CalendarComponent implements OnInit, OnDestroy {
     private router = inject(Router);
     private fileService = inject(FileService);
     private cdr = inject(ChangeDetectorRef);
+    private evenementsService = inject(EvenementsService);
 
     private thumbnailBlobUrls = new Map<string, string>();
     private thumbnailLoadsInFlight = new Set<string>();
     /** File IDs still needed for the last merged calendar range (avoids revoking blobs during a refetch / render). */
     private thumbnailNeededIds = new Set<string>();
     private langChangeSub?: Subscription;
-
-    /** Détecte double-clic sur une activité pour ouvrir le mur (un simple clic ne navigue plus). */
-    private lastActivityClick: { id: string; t: number } | null = null;
+    private layoutResizeTimer?: ReturnType<typeof setTimeout>;
 
     /** Évite double ouverture si {@code select} et {@code dateClick} se déclenchent de près (mobile). */
     private lastNewAppointmentModalOpenedAt = 0;
@@ -99,6 +117,11 @@ export class CalendarComponent implements OnInit, OnDestroy {
     visibilityRecipientsShown = false;
     visibilityRecipientsLoading = false;
     visibilityRecipientsList: CalendarVisibilityRecipient[] = [];
+    /** Activité (événement) : panneau « qui a accès » (API even/.../access-users). */
+    eventAccessUsersShown = false;
+    eventAccessUsersLoading = false;
+    eventAccessUsersList: Member[] = [];
+    eventAccessUsersErrorMessage = '';
     editingId: string | null = null;
     formTitle = '';
     formNotes = '';
@@ -125,6 +148,15 @@ export class CalendarComponent implements OnInit, OnDestroy {
      */
     holidayNamesUseCountryLanguage = false;
 
+    /** Largeur ≤768px : pastille titre sur 2 lignes max à partir du libellé complet. */
+    calendarMobileUi = false;
+
+    /** Modale mobile : entrée sélectionnée (clic sur une pastille). */
+    mobileEntryDetail: MobileCalendarEntryDetail | null = null;
+
+    /** Conserve l’événement FullCalendar pour « Modifier le RDV » après fermeture de la modale détail. */
+    private mobileEntryClickArg: EventClickArg | null = null;
+
     ngOnInit(): void {
         try {
             const mode = localStorage.getItem(HOLIDAY_NAMES_MODE_STORAGE)?.trim().toLowerCase();
@@ -149,6 +181,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
             /* ignore */
         }
         this.calendarOptions = this.buildCalendarOptions();
+        this.calendarMobileUi = this.isCalendarMobileViewport();
         this.loadFriendGroupsForCalendar();
         this.langChangeSub = this.translate.onLangChange.subscribe(() => {
             const api = this.fullCalendar?.getApi();
@@ -249,7 +282,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
             scrollable: true,
             centered: true,
             container: 'body',
-            windowClass: 'calendar-help-modal'
+            windowClass: 'calendar-help-modal pat-cal-agenda-modal-buttons'
         });
     }
 
@@ -280,7 +313,47 @@ export class CalendarComponent implements OnInit, OnDestroy {
         return title.length > 0 ? title : null;
     }
 
+    ngAfterViewInit(): void {
+        queueMicrotask(() => this.applyCalendarLayoutForViewport());
+    }
+
+    @HostListener('window:resize')
+    onCalendarWindowResize(): void {
+        if (this.layoutResizeTimer !== undefined) {
+            clearTimeout(this.layoutResizeTimer);
+        }
+        this.layoutResizeTimer = setTimeout(() => {
+            this.layoutResizeTimer = undefined;
+            this.applyCalendarLayoutForViewport();
+        }, 150);
+    }
+
+    /** Largeur ≤ 768px : même logique que les media queries du template agenda. */
+    private isCalendarMobileViewport(): boolean {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+        return window.innerWidth <= 768;
+    }
+
+    /**
+     * Vue mois mobile : {@code dayMaxEvents: false} évite les pastilles « point » (souvent limitées à l’heure).
+     * Desktop : comportement compact d’origine.
+     */
+    private applyCalendarLayoutForViewport(): void {
+        this.calendarMobileUi = this.isCalendarMobileViewport();
+        const api = this.fullCalendar?.getApi();
+        if (api) {
+            api.setOption('dayMaxEvents', this.calendarMobileUi ? false : true);
+        }
+        this.cdr.markForCheck();
+    }
+
     ngOnDestroy(): void {
+        if (this.layoutResizeTimer !== undefined) {
+            clearTimeout(this.layoutResizeTimer);
+            this.layoutResizeTimer = undefined;
+        }
         this.langChangeSub?.unsubscribe();
         this.langChangeSub = undefined;
         this.revokeThumbnailBlobs();
@@ -338,7 +411,11 @@ export class CalendarComponent implements OnInit, OnDestroy {
     }
 
     loadVisibilityRecipients(): void {
-        if (!this.appointmentCanEdit || this.visibilityRecipientsLoading) {
+        if (this.visibilityRecipientsLoading) {
+            return;
+        }
+        const savedId = (this.editingId || '').trim();
+        if (!savedId && !this.appointmentCanEdit) {
             return;
         }
         this.visibilityRecipientsShown = true;
@@ -351,8 +428,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
             friendGroupId: vis.friendGroupId ?? null,
             friendGroupIds: vis.friendGroupIds ?? null
         };
-        const req = this.editingId
-            ? this.calendarService.getVisibilityRecipients(this.editingId)
+        const req = savedId
+            ? this.calendarService.getVisibilityRecipients(savedId)
             : this.calendarService.previewVisibilityRecipients(previewBody);
         req.pipe(
             finalize(() => {
@@ -374,14 +451,127 @@ export class CalendarComponent implements OnInit, OnDestroy {
         this.visibilityRecipientsShown = false;
     }
 
-    sendAppointmentReminderMail(): void {
-        if (!this.editingId || !this.appointmentCanEdit || this.reminderMailLoading) {
+    hideEventAccessUsersPanel(): void {
+        this.eventAccessUsersShown = false;
+    }
+
+    /** Membres ayant accès à l’activité (modale détail), même API que le mur. */
+    loadEventAccessUsersFromEntryDetail(): void {
+        const id =
+            this.mobileEntryDetail?.kind === 'ACTIVITY' ? (this.mobileEntryDetail.eventId || '').trim() : '';
+        if (!id || !this.isAuthenticated() || this.eventAccessUsersLoading) {
+            return;
+        }
+        this.eventAccessUsersShown = true;
+        this.eventAccessUsersLoading = true;
+        this.eventAccessUsersList = [];
+        this.eventAccessUsersErrorMessage = '';
+        this.evenementsService
+            .getEventAccessUsers(id)
+            .pipe(
+                take(1),
+                finalize(() => {
+                    this.eventAccessUsersLoading = false;
+                    this.cdr.markForCheck();
+                })
+            )
+            .subscribe({
+                next: users => {
+                    this.eventAccessUsersList = this.mapAccessUsersApiResponse(users || []);
+                },
+                error: () => {
+                    this.eventAccessUsersList = [];
+                    this.eventAccessUsersErrorMessage = 'CALENDAR.VISIBILITY_RECIPIENTS_ERROR';
+                }
+            });
+    }
+
+    eventAccessUserDisplayName(u: Member): string {
+        const name = `${u.firstName || ''} ${u.lastName || ''}`.trim();
+        return name || (u.userName || '').trim() || (u.id || '').trim() || '—';
+    }
+
+    trackByEventAccessUserId(_index: number, u: Member): string {
+        return (u.id || '').trim() || String(_index);
+    }
+
+    private mapAccessUsersApiResponse(users: any[]): Member[] {
+        return (users || []).map((user: any) => {
+            let rolesArray: string[] = [];
+            if (user.roles) {
+                if (typeof user.roles === 'string') {
+                    rolesArray = user.roles
+                        .split(',')
+                        .map((r: string) => r.trim())
+                        .filter((r: string) => r.length > 0);
+                } else if (Array.isArray(user.roles)) {
+                    rolesArray = user.roles;
+                }
+            }
+            return new Member(
+                user.id || '',
+                user.addressEmail || '',
+                user.firstName || '',
+                user.lastName || '',
+                user.userName || '',
+                rolesArray,
+                user.keycloakId || '',
+                user.registrationDate ? new Date(user.registrationDate) : undefined,
+                user.lastConnectionDate ? new Date(user.lastConnectionDate) : undefined,
+                user.locale || undefined,
+                user.whatsappLink || undefined,
+                user.visible !== undefined ? user.visible : true
+            );
+        });
+    }
+
+    /** Liste « qui peut voir ce RDV » depuis la modale détail (RDV déjà enregistré). */
+    loadVisibilityRecipientsFromEntryDetail(): void {
+        const id = this.mobileEntryDetail?.kind === 'APPOINTMENT' ? (this.mobileEntryDetail.eventId || '').trim() : '';
+        if (!id || !this.isAuthenticated() || this.visibilityRecipientsLoading) {
+            return;
+        }
+        this.visibilityRecipientsShown = true;
+        this.visibilityRecipientsLoading = true;
+        this.visibilityRecipientsList = [];
+        this.reminderMailErrorMessage = '';
+        this.calendarService
+            .getVisibilityRecipients(id)
+            .pipe(
+                finalize(() => {
+                    this.visibilityRecipientsLoading = false;
+                    this.cdr.markForCheck();
+                })
+            )
+            .subscribe({
+                next: rows => {
+                    this.visibilityRecipientsList = rows || [];
+                },
+                error: () => {
+                    this.visibilityRecipientsList = [];
+                    this.reminderMailErrorMessage = 'CALENDAR.VISIBILITY_RECIPIENTS_ERROR';
+                }
+            });
+    }
+
+    /** Rappel par mail depuis la modale « détail ». */
+    sendMobileEntryAppointmentReminderMail(): void {
+        const d = this.mobileEntryDetail;
+        if (d?.kind !== 'APPOINTMENT' || !d.appointmentCanSendReminder) {
+            return;
+        }
+        this.invokeSendAppointmentReminderMail(d.eventId, true);
+    }
+
+    private invokeSendAppointmentReminderMail(appointmentId: string | null | undefined, allowed: boolean): void {
+        const id = (appointmentId ?? '').trim();
+        if (!id || !allowed || this.reminderMailLoading) {
             return;
         }
         this.reminderMailSuccessMessage = '';
         this.reminderMailErrorMessage = '';
         this.reminderMailLoading = true;
-        this.calendarService.sendAppointmentReminderMail(this.editingId).pipe(
+        this.calendarService.sendAppointmentReminderMail(id).pipe(
             finalize(() => {
                 this.reminderMailLoading = false;
                 this.cdr.markForCheck();
@@ -403,6 +593,70 @@ export class CalendarComponent implements OnInit, OnDestroy {
             error: () => {
                 this.reminderMailSuccessMessage = '';
                 this.reminderMailErrorMessage = 'CALENDAR.REMINDER_MAIL_ERROR';
+            }
+        });
+    }
+
+    /**
+     * Envoie un e-mail (API partage existante) à l’adresse du membre connecté avec les détails de l’activité
+     * (HTML généré côté serveur, lien vers le mur).
+     */
+    sendActivityDetailsMailToSelf(): void {
+        const d = this.mobileEntryDetail;
+        const evId = d?.kind === 'ACTIVITY' ? d.eventId : '';
+        if (!evId || !d?.activityCanSendDetailsMail || this.reminderMailLoading) {
+            return;
+        }
+        this.reminderMailSuccessMessage = '';
+        this.reminderMailErrorMessage = '';
+        this.reminderMailLoading = true;
+        this.cdr.markForCheck();
+        this.membersService.getUserId({ skipGeolocation: true }).pipe(take(1)).subscribe({
+            next: member => {
+                const email = (member.addressEmail || '').trim();
+                if (!email) {
+                    this.reminderMailLoading = false;
+                    this.reminderMailErrorMessage = 'CALENDAR.ACTIVITY_DETAILS_MAIL_NO_EMAIL';
+                    this.cdr.markForCheck();
+                    return;
+                }
+                const origin = typeof window !== 'undefined' ? window.location.origin : '';
+                const eventUrl = `${origin}/#/photos?eventId=${encodeURIComponent(evId)}`;
+                const senderParts = [member.firstName, member.lastName].filter(x => !!(x || '').trim());
+                const mergedSender = senderParts.join(' ').trim() || (member.userName || '').trim();
+                const senderName = mergedSender.length > 0 ? mergedSender : undefined;
+                const mailLang = (this.translate.currentLang || 'fr').trim();
+                this.evenementsService
+                    .shareEventByEmail(evId, [email], undefined, undefined, eventUrl, undefined, senderName, mailLang)
+                    .pipe(
+                        finalize(() => {
+                            this.reminderMailLoading = false;
+                            this.cdr.markForCheck();
+                        })
+                    )
+                    .subscribe({
+                        next: r => {
+                            this.reminderMailErrorMessage = '';
+                            if (r.sent > 0) {
+                                this.reminderMailSuccessMessage = this.translate.instant(
+                                    'CALENDAR.ACTIVITY_DETAILS_MAIL_OK',
+                                    { sent: r.sent }
+                                );
+                            } else {
+                                this.reminderMailSuccessMessage = '';
+                                this.reminderMailErrorMessage = 'CALENDAR.ACTIVITY_DETAILS_MAIL_ERROR';
+                            }
+                        },
+                        error: () => {
+                            this.reminderMailSuccessMessage = '';
+                            this.reminderMailErrorMessage = 'CALENDAR.ACTIVITY_DETAILS_MAIL_ERROR';
+                        }
+                    });
+            },
+            error: () => {
+                this.reminderMailLoading = false;
+                this.reminderMailErrorMessage = 'CALENDAR.ACTIVITY_DETAILS_MAIL_ERROR';
+                this.cdr.markForCheck();
             }
         });
     }
@@ -481,13 +735,13 @@ export class CalendarComponent implements OnInit, OnDestroy {
             selectMirror: true,
             longPressDelay: 280,
             selectLongPressDelay: 280,
-            dayMaxEvents: true,
+            dayMaxEvents: !this.isCalendarMobileViewport(),
             nowIndicator: true,
             slotMinTime: '06:00:00',
             slotMaxTime: '22:00:00',
             scrollTime: '08:00:00',
             height: 'auto',
-            contentHeight: 640,
+            contentHeight: this.isCalendarMobileViewport() ? undefined : 640,
             allDaySlot: true,
             events: (info, successCallback, failureCallback) => {
                 this.errorMessage = '';
@@ -571,7 +825,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
         this.lastNewAppointmentModalOpenedAt = now;
         this.modal.open(this.appointmentModal, {
             size: 'md',
-            windowClass: 'calendar-appointment-modal',
+            windowClass: 'calendar-appointment-modal pat-cal-agenda-modal-buttons',
             scrollable: true,
             centered: true,
             container: 'body'
@@ -581,7 +835,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
     private openAppointmentModalImmediate(): void {
         this.modal.open(this.appointmentModal, {
             size: 'md',
-            windowClass: 'calendar-appointment-modal',
+            windowClass: 'calendar-appointment-modal pat-cal-agenda-modal-buttons',
             scrollable: true,
             centered: true,
             container: 'body'
@@ -643,51 +897,158 @@ export class CalendarComponent implements OnInit, OnDestroy {
     }
 
     private onEventClick(arg: EventClickArg): void {
-        const kind = arg.event.extendedProps['kind'] as string | undefined;
-        if (kind === 'PUBLIC_HOLIDAY') {
-            return;
-        }
-        if (kind === 'ACTIVITY') {
-            arg.jsEvent.preventDefault();
-            const id = arg.event.id;
-            const now = Date.now();
-            if (
-                this.lastActivityClick &&
-                this.lastActivityClick.id === id &&
-                now - this.lastActivityClick.t < 550
-            ) {
-                this.lastActivityClick = null;
-                this.router.navigate(['/photos'], { queryParams: { eventId: id } });
-            } else {
-                this.lastActivityClick = { id, t: now };
+        arg.jsEvent?.preventDefault?.();
+        this.openEntryDetailModal(arg);
+    }
+
+    /** Modale détail : toutes les infos (texte = même contenu que l’infobulle). */
+    private openEntryDetailModal(arg: EventClickArg): void {
+        const rawKind = (arg.event.extendedProps?.['kind'] as string) || '';
+        const kind: MobileCalendarEntryDetail['kind'] =
+            rawKind === 'ACTIVITY' || rawKind === 'APPOINTMENT' || rawKind === 'PUBLIC_HOLIDAY'
+                ? rawKind
+                : 'ACTIVITY';
+        const kindI18nKey =
+            kind === 'ACTIVITY'
+                ? 'CALENDAR.KIND_ACTIVITY'
+                : kind === 'APPOINTMENT'
+                  ? 'CALENDAR.KIND_APPOINTMENT'
+                  : 'CALENDAR.KIND_PUBLIC_HOLIDAY';
+        const headline = ((arg.event.title ?? '') as string).trim() || '—';
+        const detailText =
+            this.patCalTooltip({ event: arg.event })?.trim() ||
+            headline;
+        this.reminderMailSuccessMessage = '';
+        this.reminderMailErrorMessage = '';
+        this.hideVisibilityRecipientsPanel();
+        this.visibilityRecipientsList = [];
+        this.hideEventAccessUsersPanel();
+        this.eventAccessUsersList = [];
+        this.eventAccessUsersErrorMessage = '';
+        let appointmentCanSendReminder: boolean | undefined;
+        let activityCanSendDetailsMail: boolean | undefined;
+        if (kind === 'APPOINTMENT' && this.isAuthenticated()) {
+            const owner = String(arg.event.extendedProps?.['ownerMemberId'] ?? '').trim();
+            appointmentCanSendReminder =
+                owner.length > 0 &&
+                this.currentMemberId.length > 0 &&
+                owner === this.currentMemberId;
+            if (owner.length > 0) {
+                this.membersService.getUserId({ skipGeolocation: true }).subscribe({
+                    next: m => {
+                        this.currentMemberId = (m.id || '').trim();
+                        const can = owner === this.currentMemberId;
+                        if (
+                            this.mobileEntryDetail?.eventId === arg.event.id &&
+                            this.mobileEntryDetail.kind === 'APPOINTMENT'
+                        ) {
+                            this.mobileEntryDetail = { ...this.mobileEntryDetail, appointmentCanSendReminder: can };
+                            this.cdr.markForCheck();
+                        }
+                    },
+                    error: () => {
+                        /* garde appointmentCanSendReminder tel quel */
+                    }
+                });
             }
-            return;
-        } else if (kind === 'APPOINTMENT' && this.isAuthenticated()) {
+        }
+        if (kind === 'ACTIVITY' && this.isAuthenticated()) {
+            activityCanSendDetailsMail = false;
             this.membersService.getUserId({ skipGeolocation: true }).subscribe({
                 next: m => {
-                    this.currentMemberId = (m.id || '').trim();
-                    this.reminderMailSuccessMessage = '';
-                    this.reminderMailErrorMessage = '';
-                    this.visibilityRecipientsShown = false;
-                    this.visibilityRecipientsList = [];
-                    const ext = arg.event.extendedProps;
-                    const owner = String(ext['ownerMemberId'] ?? '').trim();
-                    this.editingId = arg.event.id;
-                    this.formTitle = arg.event.title;
-                    this.formNotes = (ext['notes'] as string) || '';
-                    this.formStart = this.toDatetimeLocal(arg.event.start!);
-                    this.formEnd = this.toDatetimeLocal(arg.event.end!);
-                    this.syncVisibilityFormFromExtendedProps(ext);
-                    this.appointmentCanEdit =
-                        this.currentMemberId.length > 0 && owner.length > 0 && owner === this.currentMemberId;
-                    this.openAppointmentModalImmediate();
-                    this.cdr.markForCheck();
+                    const has = !!(m.addressEmail || '').trim();
+                    if (
+                        this.mobileEntryDetail?.eventId === arg.event.id &&
+                        this.mobileEntryDetail.kind === 'ACTIVITY'
+                    ) {
+                        this.mobileEntryDetail = { ...this.mobileEntryDetail, activityCanSendDetailsMail: has };
+                        this.cdr.markForCheck();
+                    }
                 },
                 error: () => {
-                    this.errorMessage = 'CALENDAR.SAVE_ERROR';
+                    /* inchangé */
                 }
             });
         }
+        this.mobileEntryClickArg = arg;
+        this.mobileEntryDetail = {
+            kind,
+            kindI18nKey,
+            eventId: arg.event.id,
+            headline,
+            detailText,
+            appointmentCanSendReminder,
+            activityCanSendDetailsMail
+        };
+        this.cdr.markForCheck();
+        const ref = this.modal.open(this.mobileEntryDetailModal, {
+            size: 'lg',
+            scrollable: true,
+            centered: true,
+            container: 'body',
+            windowClass: 'calendar-mobile-entry-detail-modal pat-cal-agenda-modal-buttons'
+        });
+        ref.result
+            .then(
+                () => undefined,
+                () => undefined
+            )
+            .finally(() => {
+                this.mobileEntryDetail = null;
+                this.mobileEntryClickArg = null;
+                this.hideVisibilityRecipientsPanel();
+                this.visibilityRecipientsList = [];
+                this.hideEventAccessUsersPanel();
+                this.eventAccessUsersList = [];
+                this.eventAccessUsersErrorMessage = '';
+                this.cdr.markForCheck();
+            });
+    }
+
+    openMobileEntryInPhotoWall(modal: NgbActiveModal): void {
+        const id = this.mobileEntryDetail?.eventId;
+        modal.close('photo-wall');
+        if (id) {
+            this.router.navigate(['/photos'], { queryParams: { eventId: id } });
+        }
+    }
+
+    openMobileEntryAppointmentEditor(modal: NgbActiveModal): void {
+        const saved = this.mobileEntryClickArg;
+        modal.close('edit-appointment');
+        if (saved && this.isAuthenticated()) {
+            queueMicrotask(() => this.openAppointmentEditorFromEvent(saved));
+        }
+    }
+
+    private openAppointmentEditorFromEvent(arg: EventClickArg): void {
+        this.membersService.getUserId({ skipGeolocation: true }).subscribe({
+            next: m => {
+                this.currentMemberId = (m.id || '').trim();
+                this.reminderMailSuccessMessage = '';
+                this.reminderMailErrorMessage = '';
+                this.visibilityRecipientsShown = false;
+                this.visibilityRecipientsList = [];
+                this.hideEventAccessUsersPanel();
+                this.eventAccessUsersList = [];
+                this.eventAccessUsersErrorMessage = '';
+                const ext = arg.event.extendedProps;
+                const owner = String(ext['ownerMemberId'] ?? '').trim();
+                this.editingId = arg.event.id;
+                this.formTitle = arg.event.title as string;
+                this.formNotes = (ext['notes'] as string) || '';
+                this.formStart = this.toDatetimeLocal(arg.event.start!);
+                this.formEnd = this.toDatetimeLocal(arg.event.end!);
+                this.syncVisibilityFormFromExtendedProps(ext);
+                this.appointmentCanEdit =
+                    this.currentMemberId.length > 0 && owner.length > 0 && owner === this.currentMemberId;
+                this.openAppointmentModalImmediate();
+                this.cdr.markForCheck();
+            },
+            error: () => {
+                this.errorMessage = 'CALENDAR.SAVE_ERROR';
+            }
+        });
     }
 
     private onCalendarSelect(arg: DateSelectArg): void {
@@ -832,7 +1193,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
             }
             return {
                 id: e.id,
-                title: e.title,
+                title: titleLine,
                 start: e.start,
                 end: e.end,
                 allDay: false,
@@ -870,7 +1231,6 @@ export class CalendarComponent implements OnInit, OnDestroy {
             const baseTitle = this.holidayNamesUseCountryLanguage
                 ? (local || en || '').trim() || '—'
                 : (tr || en || local || '').trim() || '—';
-            const holidayKindShort = this.holidayKindShortLabel(h);
             let holidayTip: string;
             if (this.holidayNamesUseCountryLanguage) {
                 holidayTip = local && en && local !== en ? `${local} — ${en}` : local || en || baseTitle;
@@ -900,6 +1260,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
                 .filter(s => s.length > 0)
                 .join('\n');
             const colors = this.holidayEventColors(h);
+            const holidayKindKey = this.holidayShortKindI18nKey(h);
             out.push({
                 id: this.holidayStableEventId(cc, h),
                 title: baseTitle,
@@ -912,9 +1273,9 @@ export class CalendarComponent implements OnInit, OnDestroy {
                     calBorder: colors.border,
                     displayBorderLeft: `4px solid ${colors.border}`,
                     cellTimeLabel: '',
-                    holidayKindShort,
                     enName: h.name,
-                    eventTooltip
+                    eventTooltip,
+                    ...(holidayKindKey ? { holidayKindKey } : {})
                 },
                 backgroundColor: colors.bg,
                 borderColor: colors.border,
@@ -947,38 +1308,6 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
     private holidayHasType(h: NagerPublicHoliday, type: string): boolean {
         return (h.types ?? []).includes(type);
-    }
-
-    /** Libellé court (1re ligne dans la case) selon le type Nager. */
-    private holidayKindShortLabel(h: NagerPublicHoliday): string {
-        const key = this.holidayKindShortKey(h);
-        if (!key) {
-            return '';
-        }
-        const t = this.translate.instant(key).trim();
-        return t.length > 0 && !t.startsWith('CALENDAR.') ? t : '';
-    }
-
-    private holidayKindShortKey(h: NagerPublicHoliday): string | null {
-        if (this.holidayHasType(h, 'Public')) {
-            return 'CALENDAR.HOLIDAY_KIND_PUBLIC';
-        }
-        if (this.holidayHasType(h, 'Observance')) {
-            return 'CALENDAR.HOLIDAY_KIND_OBSERVANCE';
-        }
-        if (this.holidayHasType(h, 'Bank')) {
-            return 'CALENDAR.HOLIDAY_KIND_BANK';
-        }
-        if (this.holidayHasType(h, 'Optional')) {
-            return 'CALENDAR.HOLIDAY_KIND_OPTIONAL';
-        }
-        if (this.holidayHasType(h, 'School')) {
-            return 'CALENDAR.HOLIDAY_KIND_SCHOOL';
-        }
-        if (this.holidayHasType(h, 'Authorities')) {
-            return 'CALENDAR.HOLIDAY_KIND_AUTHORITIES';
-        }
-        return null;
     }
 
     private holidayMetaTooltipLines(h: NagerPublicHoliday): string[] {
@@ -1016,6 +1345,29 @@ export class CalendarComponent implements OnInit, OnDestroy {
         }
         if (this.holidayHasType(h, 'Bank')) {
             return 'CALENDAR.HOLIDAY_TYPE_HELP_BANK';
+        }
+        return null;
+    }
+
+    /** Libellé court (ligne sous le titre) : férié / pas férié / banque / etc. */
+    private holidayShortKindI18nKey(h: NagerPublicHoliday): string | null {
+        if (this.holidayHasType(h, 'Public')) {
+            return 'CALENDAR.HOLIDAY_KIND_PUBLIC';
+        }
+        if (this.holidayHasType(h, 'Observance')) {
+            return 'CALENDAR.HOLIDAY_KIND_OBSERVANCE';
+        }
+        if (this.holidayHasType(h, 'Bank')) {
+            return 'CALENDAR.HOLIDAY_KIND_BANK';
+        }
+        if (this.holidayHasType(h, 'School')) {
+            return 'CALENDAR.HOLIDAY_KIND_SCHOOL';
+        }
+        if (this.holidayHasType(h, 'Authorities')) {
+            return 'CALENDAR.HOLIDAY_KIND_AUTHORITIES';
+        }
+        if (this.holidayHasType(h, 'Optional')) {
+            return 'CALENDAR.HOLIDAY_KIND_OPTIONAL';
         }
         return null;
     }
