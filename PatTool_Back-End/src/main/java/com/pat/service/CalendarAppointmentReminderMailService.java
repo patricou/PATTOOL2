@@ -126,9 +126,11 @@ public class CalendarAppointmentReminderMailService {
                 continue;
             }
             Member m = opt.get();
+            String userName = StringUtils.hasText(m.getUserName()) ? m.getUserName().trim() : null;
             out.add(new CalendarVisibilityRecipientDTO(
                     memberId,
                     organizerLabel(m),
+                    userName,
                     StringUtils.hasText(m.getAddressEmail())));
         }
         out.sort(Comparator.comparing(CalendarVisibilityRecipientDTO::getDisplayName, String.CASE_INSENSITIVE_ORDER));

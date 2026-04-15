@@ -34,7 +34,7 @@ import jaLocale from '@fullcalendar/core/locales/ja';
 import ruLocale from '@fullcalendar/core/locales/ru';
 import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
 import { catchError, finalize, map, take } from 'rxjs/operators';
-import { forkJoin, of, Subscription } from 'rxjs';
+import { forkJoin, Observable, of, Subscription } from 'rxjs';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { FileService } from '../services/file.service';
 import { FriendsService } from '../services/friends.service';
@@ -53,6 +53,8 @@ import { NagerPublicHoliday, PublicHolidayService } from './public-holiday.servi
 
 const HOLIDAY_COUNTRY_STORAGE = 'pat-tool-calendar-holiday-country';
 const HOLIDAY_NAMES_MODE_STORAGE = 'pat-tool-calendar-holiday-names-mode';
+
+type AppointmentVisibilityPreset = 'private' | 'public' | 'friends' | 'friendGroups';
 
 /** Résumé affiché dans la modale « détail » (clic sur une entrée). */
 interface MobileCalendarEntryDetail {
@@ -83,9 +85,25 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     @ViewChild('mobileEntryDetailModal') mobileEntryDetailModal!: TemplateRef<unknown>;
     @ViewChild('fc') fullCalendar!: FullCalendarComponent;
 
-    /** Textes d’aide (FR / EN) pour la modale — hors ngx-translate. */
+    /** Texte d’aide FR / EN (un seul affiché selon la langue UI). */
     readonly calendarHelpFr = CALENDAR_HELP_TEXT_FR;
     readonly calendarHelpEn = CALENDAR_HELP_TEXT_EN;
+
+    /** Titre modale Aide : « Aide » si UI française, sinon « Help ». */
+    get calendarHelpModalTitle(): string {
+        return this.isCalendarHelpFrench() ? 'Aide' : 'Help';
+    }
+
+    /** Corps modale : français si langue UI = français, sinon anglais. */
+    get calendarHelpModalBody(): string {
+        return this.isCalendarHelpFrench() ? this.calendarHelpFr : this.calendarHelpEn;
+    }
+
+    private isCalendarHelpFrench(): boolean {
+        const raw = (this.translate.currentLang || '').trim().toLowerCase().replace(/_/g, '-');
+        const primary = raw.split('-')[0] || '';
+        return primary === 'fr';
+    }
 
     private calendarService = inject(CalendarService);
     private publicHolidayService = inject(PublicHolidayService);
@@ -103,6 +121,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     private thumbnailLoadsInFlight = new Set<string>();
     /** File IDs still needed for the last merged calendar range (avoids revoking blobs during a refetch / render). */
     private thumbnailNeededIds = new Set<string>();
+    /** Regroupe les {@code markForCheck} après chargement de miniatures (évite N cycles Angular). */
+    private thumbUiRafId: number | null = null;
     private langChangeSub?: Subscription;
     private layoutResizeTimer?: ReturnType<typeof setTimeout>;
 
@@ -127,8 +147,9 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     formNotes = '';
     formStart = '';
     formEnd = '';
-    /** public | private | friends | fg:{groupId} */
-    formVisibilityValue = 'private';
+    formVisibilityPreset: AppointmentVisibilityPreset = 'private';
+    /** Ids de groupes lorsque {@code formVisibilityPreset} vaut {@code friendGroups}. */
+    formVisibilityGroupIds: string[] = [];
     friendGroups: FriendGroup[] = [];
     /** Copie triée pour le template (évite un tri à chaque cycle de détection). */
     friendGroupsSorted: FriendGroup[] = [];
@@ -189,6 +210,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                 api.setOption('locale', this.pickLocale());
                 api.refetchEvents();
             }
+            this.cdr.markForCheck();
         });
         this.publicHolidayService.getAvailableCountries().subscribe(list => {
             const valid = [...list].filter(c => c.key && /^[A-Za-z]{2}$/.test(c.key));
@@ -354,6 +376,10 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             clearTimeout(this.layoutResizeTimer);
             this.layoutResizeTimer = undefined;
         }
+        if (this.thumbUiRafId !== null && typeof cancelAnimationFrame !== 'undefined') {
+            cancelAnimationFrame(this.thumbUiRafId);
+            this.thumbUiRafId = null;
+        }
         this.langChangeSub?.unsubscribe();
         this.langChangeSub = undefined;
         this.revokeThumbnailBlobs();
@@ -371,8 +397,21 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
-    friendGroupOptionValue(g: FriendGroup): string {
-        return g?.id ? `fg:${g.id}` : '';
+    trackByFriendGroupId(_index: number, g: FriendGroup): string {
+        return (g.id || '').trim() || String(_index);
+    }
+
+    /** Nom d’utilisateur affiché après le libellé dans « qui peut voir ce RDV » (vide si déjà utilisé comme libellé seul). */
+    visibilityRecipientUsername(r: CalendarVisibilityRecipient): string {
+        const u = (r.userName ?? '').trim();
+        if (!u) {
+            return '';
+        }
+        const label = (r.displayName ?? '').trim();
+        if (label && u.localeCompare(label, undefined, { sensitivity: 'accent' }) === 0) {
+            return '';
+        }
+        return u;
     }
 
     /** True si début et fin ne sont pas le même jour (local) — pas d’heure affichée dans ce cas. */
@@ -743,42 +782,42 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             height: 'auto',
             contentHeight: this.isCalendarMobileViewport() ? undefined : 640,
             allDaySlot: true,
-            events: (info, successCallback, failureCallback) => {
-                this.errorMessage = '';
-                const years = this.yearsOverlapping(info.start, info.end);
-                const rawCc = (this.holidayCountryCode || 'FR').trim().toUpperCase();
-                const cc = /^[A-Z]{2}$/.test(rawCc) ? rawCc : 'FR';
-                const uiLangForHolidays =
-                    this.holidayNamesUseCountryLanguage
-                        ? undefined
-                        : (this.translate.currentLang || '').trim().toLowerCase() || undefined;
-                const holiday$ =
-                    years.length > 0
-                        ? forkJoin(
-                              years.map(y =>
-                                  this.publicHolidayService.getPublicHolidays(y, cc, uiLangForHolidays)
-                              )
-                          ).pipe(map(arrays => arrays.flat()))
-                        : of([] as NagerPublicHoliday[]);
-                forkJoin({
-                    entries: this.calendarService.getEntries(info.start, info.end),
-                    holidays: holiday$
-                }).subscribe({
-                    next: ({ entries, holidays }) => {
-                        this.applyThumbnailNeededIdsFromEntries(entries);
-                        this.scheduleActivityThumbnailLoads(entries);
-                        const merged = [
-                            ...this.mapEntriesToEvents(entries),
-                            ...this.mapPublicHolidaysToEvents(holidays, cc)
-                        ];
-                        successCallback(merged);
-                    },
-                    error: () => {
-                        this.errorMessage = 'CALENDAR.LOAD_ERROR';
-                        failureCallback(new Error('calendar load'));
-                    }
-                });
-            },
+            /*
+             * Deux sources : les entrées API s’affichent dès qu’elles arrivent (sans attendre Nager),
+             * les jours fériés se superposent ensuite. + cache des fériés côté PublicHolidayService.
+             */
+            eventSources: [
+                (info, successCallback, failureCallback) => {
+                    this.calendarService.getEntries(info.start, info.end).subscribe({
+                        next: entries => {
+                            this.errorMessage = '';
+                            this.applyThumbnailNeededIdsFromEntries(entries);
+                            this.scheduleActivityThumbnailLoads(entries);
+                            successCallback(this.mapEntriesToEvents(entries));
+                            this.cdr.markForCheck();
+                        },
+                        error: () => {
+                            this.errorMessage = 'CALENDAR.LOAD_ERROR';
+                            this.cdr.markForCheck();
+                            failureCallback(new Error('calendar entries'));
+                        }
+                    });
+                },
+                (info, successCallback, _failureCallback) => {
+                    const rawCc = (this.holidayCountryCode || 'FR').trim().toUpperCase();
+                    const cc = /^[A-Z]{2}$/.test(rawCc) ? rawCc : 'FR';
+                    this.holidaysForCalendarRange$(info.start, info.end).subscribe({
+                        next: holidays => {
+                            successCallback(this.mapPublicHolidaysToEvents(holidays, cc));
+                            this.cdr.markForCheck();
+                        },
+                        error: () => {
+                            successCallback([]);
+                            this.cdr.markForCheck();
+                        }
+                    });
+                }
+            ],
             eventClick: (arg: EventClickArg) => this.onEventClick(arg),
             select: (arg: DateSelectArg) => this.onCalendarSelect(arg),
             dateClick: (arg) => this.onCalendarDateClick(arg)
@@ -805,7 +844,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         this.editingId = null;
         this.formTitle = '';
         this.formNotes = '';
-        this.formVisibilityValue = 'private';
+        this.resetAppointmentVisibilityForm();
         this.appointmentCanEdit = true;
         this.reminderMailSuccessMessage = '';
         this.reminderMailErrorMessage = '';
@@ -1058,7 +1097,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         this.editingId = null;
         this.formTitle = '';
         this.formNotes = '';
-        this.formVisibilityValue = 'private';
+        this.resetAppointmentVisibilityForm();
         this.appointmentCanEdit = true;
         this.reminderMailSuccessMessage = '';
         this.reminderMailErrorMessage = '';
@@ -1157,6 +1196,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     private mapEntriesToEvents(entries: CalendarEntry[]): EventInput[] {
+        const kindAppointment = this.translate.instant('CALENDAR.KIND_APPOINTMENT');
+        const kindActivity = this.translate.instant('CALENDAR.KIND_ACTIVITY');
         return entries.map(e => {
             const colors =
                 e.kind === 'APPOINTMENT'
@@ -1165,10 +1206,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             const titleLine = (e.title || '').trim() || '—';
             const rangeLine = this.formatEventRangeForTooltip(e.start, e.end);
             const notesLine = (e.notes || '').trim();
-            const kindLabel =
-                e.kind === 'APPOINTMENT'
-                    ? this.translate.instant('CALENDAR.KIND_APPOINTMENT')
-                    : this.translate.instant('CALENDAR.KIND_ACTIVITY');
+            const kindLabel = e.kind === 'APPOINTMENT' ? kindAppointment : kindActivity;
             const eventTooltip = [kindLabel + ': ' + titleLine, rangeLine, notesLine].filter(s => s.length > 0).join('\n');
             const tid = (e.thumbnailFileId || '').trim();
             const thumbCached = tid ? this.thumbnailBlobUrls.get(tid) : undefined;
@@ -1215,10 +1253,27 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         return out;
     }
 
+    private holidaysForCalendarRange$(start: Date, end: Date): Observable<NagerPublicHoliday[]> {
+        const years = this.yearsOverlapping(start, end);
+        const rawCc = (this.holidayCountryCode || 'FR').trim().toUpperCase();
+        const cc = /^[A-Z]{2}$/.test(rawCc) ? rawCc : 'FR';
+        const uiLangForHolidays =
+            this.holidayNamesUseCountryLanguage
+                ? undefined
+                : (this.translate.currentLang || '').trim().toLowerCase() || undefined;
+        if (years.length === 0) {
+            return of([] as NagerPublicHoliday[]);
+        }
+        return forkJoin(
+            years.map(y => this.publicHolidayService.getPublicHolidays(y, cc, uiLangForHolidays))
+        ).pipe(map(arrays => arrays.flat()));
+    }
+
     private mapPublicHolidaysToEvents(rows: NagerPublicHoliday[], countryCode: string): EventInput[] {
         const seen = new Set<string>();
         const out: EventInput[] = [];
         const cc = countryCode.toUpperCase();
+        const kindHolidayLabel = this.translate.instant('CALENDAR.KIND_PUBLIC_HOLIDAY');
         for (const h of rows) {
             const key = this.holidayDedupeKey(h);
             if (seen.has(key)) {
@@ -1251,7 +1306,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
             const dateLine = this.formatAllDayDateForTooltip(h.date);
             const metaLines = this.holidayMetaTooltipLines(h);
             const eventTooltip = [
-                this.translate.instant('CALENDAR.KIND_PUBLIC_HOLIDAY'),
+                kindHolidayLabel,
                 dateLine,
                 holidayTip,
                 ...metaLines
@@ -1449,9 +1504,15 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                 ids.add(e.thumbnailFileId.trim());
             }
         }
-        for (const fileId of ids) {
-            this.ensureThumbnailLoaded(fileId);
-        }
+        const list = [...ids];
+        const staggerMs = 28;
+        list.forEach((fileId, index) => {
+            if (index === 0) {
+                this.ensureThumbnailLoaded(fileId);
+            } else {
+                window.setTimeout(() => this.ensureThumbnailLoaded(fileId), index * staggerMs);
+            }
+        });
     }
 
     private ensureThumbnailLoaded(fileId: string): void {
@@ -1478,6 +1539,20 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
                 }
             }
+            this.scheduleThumbnailUiRefresh();
+        });
+    }
+
+    private scheduleThumbnailUiRefresh(): void {
+        if (typeof requestAnimationFrame === 'undefined') {
+            this.cdr.markForCheck();
+            return;
+        }
+        if (this.thumbUiRafId !== null) {
+            return;
+        }
+        this.thumbUiRafId = requestAnimationFrame(() => {
+            this.thumbUiRafId = null;
             this.cdr.markForCheck();
         });
     }
@@ -1510,77 +1585,143 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
+    private resetAppointmentVisibilityForm(): void {
+        this.formVisibilityPreset = 'private';
+        this.formVisibilityGroupIds = [];
+    }
+
+    onAppointmentVisibilityPresetChange(): void {
+        if (this.formVisibilityPreset !== 'friendGroups') {
+            this.formVisibilityGroupIds = [];
+        }
+        this.cdr.markForCheck();
+    }
+
+    onAppointmentVisibilityGroupToggle(groupId: string, checked: boolean): void {
+        const id = (groupId || '').trim();
+        if (!id) {
+            return;
+        }
+        const set = new Set(this.formVisibilityGroupIds.map(x => x.trim()).filter(Boolean));
+        if (checked) {
+            set.add(id);
+        } else {
+            set.delete(id);
+        }
+        this.formVisibilityGroupIds = [...set];
+        this.cdr.markForCheck();
+    }
+
+    appointmentVisibilityGroupChecked(groupId: string | undefined): boolean {
+        const id = (groupId || '').trim();
+        return id.length > 0 && this.formVisibilityGroupIds.some(x => x.trim() === id);
+    }
+
     private syncVisibilityFormFromExtendedProps(ext: Record<string, unknown>): void {
         const vis = String(ext['visibility'] ?? '').trim();
         const fgId = String(ext['friendGroupId'] ?? '').trim();
         const fgIds = ext['friendGroupIds'] as string[] | undefined;
         if (!vis || vis === 'private') {
-            this.formVisibilityValue = 'private';
+            this.resetAppointmentVisibilityForm();
             return;
         }
         if (vis === 'public') {
-            this.formVisibilityValue = 'public';
+            this.formVisibilityPreset = 'public';
+            this.formVisibilityGroupIds = [];
             return;
         }
         if (vis === 'friends') {
-            this.formVisibilityValue = 'friends';
+            this.formVisibilityPreset = 'friends';
+            this.formVisibilityGroupIds = [];
             return;
         }
-        if (vis === 'friendGroups' && fgIds && fgIds.length > 0) {
-            this.formVisibilityValue = `fg:${String(fgIds[0]).trim()}`;
+        if (vis === 'friendGroups') {
+            const ids = this.normalizeAppointmentGroupIdList(fgIds);
+            this.formVisibilityPreset = 'friendGroups';
+            this.formVisibilityGroupIds = ids.length > 0 ? ids : fgId ? [fgId] : [];
             return;
         }
         if (fgId) {
-            this.formVisibilityValue = `fg:${fgId}`;
+            this.formVisibilityPreset = 'friendGroups';
+            this.formVisibilityGroupIds = [fgId];
             return;
         }
         const byName = this.friendGroups.find(g => g.name === vis);
         if (byName?.id) {
-            this.formVisibilityValue = `fg:${byName.id}`;
+            this.formVisibilityPreset = 'friendGroups';
+            this.formVisibilityGroupIds = [byName.id];
             return;
         }
-        this.formVisibilityValue = 'private';
+        this.resetAppointmentVisibilityForm();
     }
 
     private buildAppointmentVisibilityPayload(): Pick<
         CalendarAppointmentPayload,
         'visibility' | 'friendGroupId' | 'friendGroupIds'
     > {
-        const v = (this.formVisibilityValue || 'private').trim();
-        if (v === 'public' || v === 'private' || v === 'friends') {
-            return { visibility: v, friendGroupId: null, friendGroupIds: null };
+        const preset = this.formVisibilityPreset;
+        if (preset === 'public' || preset === 'private' || preset === 'friends') {
+            return { visibility: preset, friendGroupId: null, friendGroupIds: null };
         }
-        if (v.startsWith('fg:')) {
-            const id = v.slice(3).trim();
-            const g = this.friendGroups.find(x => x.id === id);
-            if (g?.name) {
-                return {
-                    visibility: g.name,
-                    friendGroupId: g.id,
-                    friendGroupIds: null
-                };
+        if (preset === 'friendGroups') {
+            const known = this.knownFriendGroupIdsForPayload(this.formVisibilityGroupIds);
+            if (known.length === 0) {
+                return { visibility: 'private', friendGroupId: null, friendGroupIds: null };
             }
+            return {
+                visibility: 'friendGroups',
+                friendGroupId: known[0],
+                friendGroupIds: known
+            };
         }
         return { visibility: 'private', friendGroupId: null, friendGroupIds: null };
     }
 
     appointmentVisibilityReadOnlyLabel(): string {
-        const v = (this.formVisibilityValue || 'private').trim();
-        if (v === 'public') {
+        const preset = this.formVisibilityPreset;
+        if (preset === 'public') {
             return this.translate.instant('EVENTCREATION.PUBLIC');
         }
-        if (v === 'private') {
+        if (preset === 'private') {
             return this.translate.instant('EVENTCREATION.PRIVATE');
         }
-        if (v === 'friends') {
+        if (preset === 'friends') {
             return this.translate.instant('EVENTCREATION.FRIENDS');
         }
-        if (v.startsWith('fg:')) {
-            const id = v.slice(3).trim();
-            const g = this.friendGroups.find(x => x.id === id);
-            return g?.name || this.translate.instant('CALENDAR.VISIBILITY_GROUP_FALLBACK');
+        if (preset === 'friendGroups') {
+            const names = this.formVisibilityGroupIds
+                .map(id => this.friendGroups.find(x => x.id === id)?.name)
+                .filter((n): n is string => !!(n || '').trim());
+            if (names.length === 0) {
+                return this.translate.instant('CALENDAR.VISIBILITY_GROUP_FALLBACK');
+            }
+            return names.join(', ');
         }
         return this.translate.instant('EVENTCREATION.PRIVATE');
+    }
+
+    private normalizeAppointmentGroupIdList(raw: string[] | undefined | null): string[] {
+        if (!raw || raw.length === 0) {
+            return [];
+        }
+        const out: string[] = [];
+        const seen = new Set<string>();
+        for (const x of raw) {
+            const id = String(x ?? '').trim();
+            if (id && !seen.has(id)) {
+                seen.add(id);
+                out.push(id);
+            }
+        }
+        return out;
+    }
+
+    /** Ids connus (chargés dans {@code friendGroups}), ordre stable pour l’API. */
+    private knownFriendGroupIdsForPayload(ids: string[]): string[] {
+        const known = new Set(this.friendGroups.map(g => (g.id || '').trim()).filter(Boolean));
+        const picked = ids.map(x => x.trim()).filter(id => id && known.has(id));
+        const order = new Map(this.friendGroupsSorted.map((g, i) => [(g.id || '').trim(), i]));
+        return [...new Set(picked)].sort((a, b) => (order.get(a) ?? 999) - (order.get(b) ?? 999));
     }
 
     private toDatetimeLocal(d: Date): string {

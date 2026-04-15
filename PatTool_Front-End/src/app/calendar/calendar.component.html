@@ -54,7 +54,12 @@
                 <span class="pat-cal-event-title-line">
                   <ng-container *ngIf="ext['kind'] === 'PUBLIC_HOLIDAY' && ext['holidayKindKey']">
                     <span class="pat-cal-holiday-kind-prefix text-muted me-1">{{ ext['holidayKindKey'] | translate }}</span>
-                  </ng-container>{{ arg.event.title }}
+                  </ng-container>
+                  @if (ext['kind'] === 'PUBLIC_HOLIDAY') {
+                    <span class="pat-cal-event-holiday-name">{{ arg.event.title }}</span>
+                  } @else {
+                    {{ arg.event.title }}
+                  }
                 </span>
               </span>
             </div>
@@ -146,6 +151,7 @@
         <ul class="list-unstyled mb-0 ps-0" *ngIf="visibilityRecipientsList.length > 0">
           <li *ngFor="let r of visibilityRecipientsList" class="py-1 border-bottom border-white">
             <span class="text-dark">{{ r.displayName }}</span>
+            <span *ngIf="visibilityRecipientUsername(r)" class="text-muted small ms-1">@{{ visibilityRecipientUsername(r) }}</span>
             <span *ngIf="!r.hasEmail" class="text-muted ms-1">({{ 'CALENDAR.NO_EMAIL_BADGE' | translate }})</span>
           </li>
         </ul>
@@ -191,7 +197,7 @@
         <ul class="list-unstyled mb-0 ps-0" *ngIf="eventAccessUsersList.length > 0">
           <li *ngFor="let u of eventAccessUsersList; trackBy: trackByEventAccessUserId" class="py-1 border-bottom border-white">
             <span class="text-dark">{{ eventAccessUserDisplayName(u) }}</span>
-            <span *ngIf="u.userName?.trim()" class="text-muted small ms-1">@{{ u.userName }}</span>
+            <span *ngIf="u.userName.trim()" class="text-muted small ms-1">@{{ u.userName }}</span>
           </li>
         </ul>
         <p *ngIf="!eventAccessUsersLoading && eventAccessUsersList.length === 0" class="text-muted mb-0 fst-italic">
@@ -271,14 +277,11 @@
 
 <ng-template #calendarHelpModal let-modal>
   <div class="modal-header border-bottom">
-    <h5 class="modal-title mb-0" id="pat-cal-help-title">Aide — Help</h5>
+    <h5 class="modal-title mb-0" id="pat-cal-help-title">{{ calendarHelpModalTitle }}</h5>
     <button type="button" class="btn-close" [attr.aria-label]="'COMMUN.CLOSE' | translate" (click)="modal.dismiss()"></button>
   </div>
   <div class="modal-body">
-    <h6 class="text-secondary text-uppercase small mb-2">Français</h6>
-    <div class="pat-cal-help-block small mb-4">{{ calendarHelpFr }}</div>
-    <h6 class="text-secondary text-uppercase small mb-2">English</h6>
-    <div class="pat-cal-help-block small">{{ calendarHelpEn }}</div>
+    <div class="pat-cal-help-block small">{{ calendarHelpModalBody }}</div>
   </div>
   <div class="modal-footer border-top">
     <button
@@ -322,13 +325,35 @@
       <select
         id="pat-cal-appointment-visibility"
         class="form-select form-select-sm"
-        name="formVisibilityValue"
-        [(ngModel)]="formVisibilityValue">
+        name="formVisibilityPreset"
+        [(ngModel)]="formVisibilityPreset"
+        (ngModelChange)="onAppointmentVisibilityPresetChange()">
         <option value="private">{{ 'EVENTCREATION.PRIVATE' | translate }}</option>
         <option value="public">{{ 'EVENTCREATION.PUBLIC' | translate }}</option>
         <option value="friends">{{ 'EVENTCREATION.FRIENDS' | translate }}</option>
-        <option *ngFor="let g of friendGroupsSorted" [value]="friendGroupOptionValue(g)">{{ g.name }}</option>
+        <option value="friendGroups">{{ 'CALENDAR.VISIBILITY_FRIEND_GROUPS' | translate }}</option>
       </select>
+      <div *ngIf="formVisibilityPreset === 'friendGroups'" class="mt-2 small">
+        <p class="text-secondary mb-1">{{ 'CALENDAR.VISIBILITY_GROUPS_HINT' | translate }}</p>
+        <div
+          class="border rounded px-2 py-2 bg-light"
+          style="max-height: 200px; overflow-y: auto"
+          role="group"
+          [attr.aria-label]="'CALENDAR.VISIBILITY_GROUPS_HINT' | translate">
+          <p *ngIf="friendGroupsSorted.length === 0" class="text-muted fst-italic mb-0">
+            {{ 'CALENDAR.VISIBILITY_GROUPS_EMPTY' | translate }}
+          </p>
+          <div *ngFor="let g of friendGroupsSorted; trackBy: trackByFriendGroupId" class="form-check mb-1">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              [id]="'pat-cal-vis-g-' + g.id"
+              [checked]="appointmentVisibilityGroupChecked(g.id)"
+              (change)="onAppointmentVisibilityGroupToggle(g.id, $any($event.target).checked)" />
+            <label class="form-check-label" [for]="'pat-cal-vis-g-' + g.id">{{ g.name }}</label>
+          </div>
+        </div>
+      </div>
       <div class="d-flex flex-wrap gap-1 mt-2">
         <button
           type="button"
@@ -364,6 +389,7 @@
         <ul class="list-unstyled mb-0 ps-0" *ngIf="visibilityRecipientsList.length > 0">
           <li *ngFor="let r of visibilityRecipientsList" class="py-1 border-bottom border-white">
             <span class="text-dark">{{ r.displayName }}</span>
+            <span *ngIf="visibilityRecipientUsername(r)" class="text-muted small ms-1">@{{ visibilityRecipientUsername(r) }}</span>
             <span *ngIf="!r.hasEmail" class="text-muted ms-1">({{ 'CALENDAR.NO_EMAIL_BADGE' | translate }})</span>
           </li>
         </ul>
@@ -410,6 +436,7 @@
         <ul class="list-unstyled mb-0 ps-0" *ngIf="visibilityRecipientsList.length > 0">
           <li *ngFor="let r of visibilityRecipientsList" class="py-1 border-bottom border-white">
             <span class="text-dark">{{ r.displayName }}</span>
+            <span *ngIf="visibilityRecipientUsername(r)" class="text-muted small ms-1">@{{ visibilityRecipientUsername(r) }}</span>
             <span *ngIf="!r.hasEmail" class="text-muted ms-1">({{ 'CALENDAR.NO_EMAIL_BADGE' | translate }})</span>
           </li>
         </ul>

@@ -7,14 +7,17 @@ public class CalendarVisibilityRecipientDTO {
 
     private String memberId;
     private String displayName;
+    /** Nom d’utilisateur PatTool (login), si renseigné. */
+    private String userName;
     private boolean hasEmail;
 
     public CalendarVisibilityRecipientDTO() {
     }
 
-    public CalendarVisibilityRecipientDTO(String memberId, String displayName, boolean hasEmail) {
+    public CalendarVisibilityRecipientDTO(String memberId, String displayName, String userName, boolean hasEmail) {
         this.memberId = memberId;
         this.displayName = displayName;
+        this.userName = userName;
         this.hasEmail = hasEmail;
     }
 
@@ -32,6 +35,14 @@ public class CalendarVisibilityRecipientDTO {
 
     public void setDisplayName(String displayName) {
         this.displayName = displayName;
+    }
+
+    public String getUserName() {
+        return userName;
+    }
+
+    public void setUserName(String userName) {
+        this.userName = userName;
     }
 
     public boolean isHasEmail() {

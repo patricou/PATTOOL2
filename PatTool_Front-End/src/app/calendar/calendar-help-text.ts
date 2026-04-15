@@ -1,5 +1,5 @@
 /**
- * Textes d’aide du calendrier (FR / EN uniquement), affichés dans la modale « Aide ».
+ * Textes d’aide du calendrier : la modale affiche le FR si la langue UI est le français, sinon l’EN.
  * Regroupe l’ancien sous-titre, l’astuce activités, les jours fériés, la connexion, l’icône MongoDB et l’usage mobile.
  */
 export const CALENDAR_HELP_TEXT_FR = `Agenda : vues semaine, jour, mois et liste. Vos rendez-vous et les activités auxquelles vous avez accès (miniatures). Glissez une plage horaire pour créer un rendez-vous ; en vue mois, un simple appui sur un jour ouvre aussi la fenêtre de création (pratique sur mobile).

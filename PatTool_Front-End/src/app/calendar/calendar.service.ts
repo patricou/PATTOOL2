@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, from, switchMap, map } from 'rxjs';
+import { Observable, from, forkJoin, switchMap, map } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { KeycloakService } from '../keycloak/keycloak.service';
 import { MembersService } from '../services/members.service';
@@ -27,6 +27,7 @@ export interface CalendarReminderMailResult {
 export interface CalendarVisibilityRecipient {
     memberId: string;
     displayName: string;
+    userName?: string | null;
     hasEmail: boolean;
 }
 
@@ -56,22 +57,21 @@ export class CalendarService {
     ) { }
 
     private withUserHeaders(): Observable<HttpHeaders> {
-        return this.membersService.getUserId({ skipGeolocation: true }).pipe(
-            switchMap(member =>
-                from(this.keycloak.getToken()).pipe(
-                    map(token => {
-                        let h = new HttpHeaders({
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json',
-                            'user-id': member.id || ''
-                        });
-                        if (token) {
-                            h = h.set('Authorization', 'Bearer ' + token);
-                        }
-                        return h;
-                    })
-                )
-            )
+        return forkJoin({
+            member: this.membersService.getUserId({ skipGeolocation: true }),
+            token: from(this.keycloak.getToken())
+        }).pipe(
+            map(({ member, token }) => {
+                let h = new HttpHeaders({
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'user-id': member.id || ''
+                });
+                if (token) {
+                    h = h.set('Authorization', 'Bearer ' + token);
+                }
+                return h;
+            })
         );
     }
 
