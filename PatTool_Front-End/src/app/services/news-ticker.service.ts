@@ -17,16 +17,33 @@ export interface TickerArticle {
  * but rendered by the <app-news-ticker> component injected in AppComponent
  * so the scrolling banner appears on every route.
  *
- * Persistence: the enabled flag is stored in localStorage so the banner
- * survives reloads. Article fetches are also memoized for REFRESH_MS to
- * stay friendly to NewsAPI's 100-requests-per-day free tier.
+ * Persistence policy: the ticker is DELIBERATELY NOT persisted across page
+ * reloads. It always starts OFF so that a fresh page load never triggers an
+ * automatic NewsAPI call (the free plan is capped at 100 requests/day, and
+ * the user might just be browsing unrelated pages). The user re-enables it
+ * per-session via the switch on the News page.
  */
 @Injectable({ providedIn: 'root' })
 export class NewsTickerService implements OnDestroy {
-
-  private static readonly STORAGE_KEY = 'pat.news.ticker.enabled';
-  /** Refresh cadence (ms) while the ticker is enabled. */
-  private static readonly REFRESH_MS = 15 * 60 * 1000;
+  /**
+   * Refresh cadence (ms) while the ticker is enabled. The free NewsAPI
+   * plan is capped at 100 requests/day, so we refresh only once an hour
+   * (24 requests/day from the ticker worst-case, still room for the News
+   * page + /status probe + manual refreshes).
+   */
+  private static readonly REFRESH_MS = 60 * 60 * 1000;
+  /**
+   * Minimum delay between two real network fetches (ms). Protects against
+   * thrashing when enable/disable toggles rapidly or multiple subscribers
+   * trigger refreshes back-to-back: we serve the cached articles instead.
+   */
+  private static readonly MIN_FETCH_GAP_MS = 2 * 60 * 1000;
+  /**
+   * Same pageSize the News page uses for its first page, so both end up
+   * hitting the SAME backend cache entry (shared /top-headlines URL).
+   * NewsAPI counts unique URL per request; aligning this saves a request.
+   */
+  private static readonly PAGE_SIZE = 12;
 
   /** Same map the News page uses to synthesize /everything queries from a country code. */
   private static readonly COUNTRY_MAP: Record<string, { name: string; language?: string }> = {
@@ -78,24 +95,25 @@ export class NewsTickerService implements OnDestroy {
     za: { name: 'South Africa', language: 'en' }
   };
 
-  private readonly _enabled$ = new BehaviorSubject<boolean>(this.readEnabled());
+  private readonly _enabled$ = new BehaviorSubject<boolean>(false);
   private readonly _articles$ = new BehaviorSubject<TickerArticle[]>([]);
   private readonly _loading$ = new BehaviorSubject<boolean>(false);
 
   /**
    * True once the user has explicitly toggled the switch at least once
-   * (localStorage key present). When false, the server-provided default
-   * (from /api/external/news/status) is still allowed to override the
-   * initial value.
+   * in THIS session. Guards against a late-arriving server default
+   * silently flipping a switch the user just turned off.
    */
-  private userHasOverridden: boolean = this.hasStoredPreference();
+  private userHasOverridden = false;
 
   private refreshSub?: Subscription;
+  /** Wall-clock timestamp (ms) of the last successful or failed network call. */
+  private lastFetchAt: number = 0;
 
   constructor(private api: ApiService) {
-    if (this._enabled$.value) {
-      this.startAutoRefresh();
-    }
+    // Ticker starts OFF on every page load — intentional. No auto-fetch here.
+    // See class-level comment for rationale (quota protection).
+    this.clearLegacyPreference();
   }
 
   ngOnDestroy(): void {
@@ -122,8 +140,8 @@ export class NewsTickerService implements OnDestroy {
 
   setEnabled(enabled: boolean): void {
     // User-driven change always wins and locks out the server default.
+    // No persistence: next reload starts OFF again (by design, quota-safe).
     this.userHasOverridden = true;
-    this.persistEnabled(enabled);
     if (this._enabled$.value === enabled) {
       return;
     }
@@ -137,20 +155,14 @@ export class NewsTickerService implements OnDestroy {
   }
 
   /**
-   * Apply the default value coming from the backend
-   * ({@code newsapi.ticker.enabled.default}). This has no effect once the
-   * user has touched the switch (localStorage preference exists).
+   * Historically applied the backend's {@code newsapi.ticker.enabled.default}
+   * on first boot. Kept for API compatibility with callers, but is now a
+   * no-op: the ticker is always OFF on page load and only the user's
+   * explicit toggle turns it on (per-session). This prevents a fresh page
+   * load from ever triggering an automatic NewsAPI call via the ticker.
    */
-  applyServerDefault(enabled: boolean): void {
-    if (this.userHasOverridden) return;
-    if (this._enabled$.value === enabled) return;
-    this._enabled$.next(enabled);
-    if (enabled) {
-      this.startAutoRefresh();
-    } else {
-      this.stopAutoRefresh();
-      this._articles$.next([]);
-    }
+  applyServerDefault(_enabled: boolean): void {
+    /* intentionally empty — see class-level comment */
   }
 
   toggle(): void {
@@ -160,14 +172,14 @@ export class NewsTickerService implements OnDestroy {
   /** Force-refresh the ticker contents (only when enabled). */
   refresh(): void {
     if (!this._enabled$.value) return;
-    this.fetchLatest();
+    this.fetchLatest(true);
   }
 
   // ---------- Internal ----------
 
   private startAutoRefresh(): void {
     this.stopAutoRefresh();
-    this.refreshSub = timer(0, NewsTickerService.REFRESH_MS).subscribe(() => this.fetchLatest());
+    this.refreshSub = timer(0, NewsTickerService.REFRESH_MS).subscribe(() => this.fetchLatest(false));
   }
 
   private stopAutoRefresh(): void {
@@ -175,14 +187,31 @@ export class NewsTickerService implements OnDestroy {
     this.refreshSub = undefined;
   }
 
-  private fetchLatest(): void {
+  /**
+   * Hit NewsAPI (through the backend proxy) only when worth it.
+   *
+   * Guards:
+   *   - If we already have articles AND the last fetch is more recent
+   *     than {@link MIN_FETCH_GAP_MS}, reuse them (no network call).
+   *   - Forced=true bypasses the gap guard (for explicit user refresh),
+   *     but the backend TTL cache still de-duplicates.
+   */
+  private fetchLatest(forced: boolean): void {
+    const now = Date.now();
+    const haveArticles = this._articles$.value.length > 0;
+    const withinCooldown = (now - this.lastFetchAt) < NewsTickerService.MIN_FETCH_GAP_MS;
+    if (!forced && haveArticles && withinCooldown) {
+      return; // serve cached articles; save a quota slot
+    }
+    this.lastFetchAt = now;
+
     const { country, language } = this.readUserPrefs();
     this._loading$.next(true);
 
     // Headlines first: richer "breaking news" flavor for the marquee.
     this.api.getTopHeadlines({
       country,
-      pageSize: 24,
+      pageSize: NewsTickerService.PAGE_SIZE,
       page: 1
     }).subscribe({
       next: (resp) => {
@@ -210,7 +239,7 @@ export class NewsTickerService implements OnDestroy {
       q,
       language: lang,
       sortBy: 'publishedAt',
-      pageSize: 24,
+      pageSize: NewsTickerService.PAGE_SIZE,
       page: 1
     }).subscribe({
       next: (resp) => {
@@ -257,25 +286,15 @@ export class NewsTickerService implements OnDestroy {
     return { country: 'fr', language: 'fr' };
   }
 
-  private readEnabled(): boolean {
+  /**
+   * Earlier versions of the app persisted the ticker state under
+   * {@code pat.news.ticker.enabled}. We no longer honor it (ticker always
+   * starts OFF to protect the 100-req/day NewsAPI quota), but we still
+   * purge the key on boot so it stops cluttering the user's localStorage.
+   */
+  private clearLegacyPreference(): void {
     try {
-      return localStorage.getItem(NewsTickerService.STORAGE_KEY) === '1';
-    } catch {
-      return false;
-    }
-  }
-
-  private hasStoredPreference(): boolean {
-    try {
-      return localStorage.getItem(NewsTickerService.STORAGE_KEY) !== null;
-    } catch {
-      return false;
-    }
-  }
-
-  private persistEnabled(enabled: boolean): void {
-    try {
-      localStorage.setItem(NewsTickerService.STORAGE_KEY, enabled ? '1' : '0');
+      localStorage.removeItem('pat.news.ticker.enabled');
     } catch {
       // localStorage may be unavailable (private mode, quota); non-fatal.
     }

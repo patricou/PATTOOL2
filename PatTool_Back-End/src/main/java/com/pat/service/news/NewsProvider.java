@@ -47,4 +47,13 @@ public interface NewsProvider {
      * Light health-check returning a small map with status + masked key info.
      */
     Map<String, Object> getStatus();
+
+    /**
+     * Drop every cached NewsAPI response so the next call forcefully hits the
+     * network. Does NOT reset the rolling-window request counter (which tracks
+     * real quota consumption and must remain accurate across cache flushes).
+     *
+     * @return a small status map: {@code { cleared: N }}.
+     */
+    Map<String, Object> clearCache();
 }

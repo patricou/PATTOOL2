@@ -284,4 +284,17 @@ export class ApiService {
       )
     );
   }
+
+  /**
+   * Drop every cached NewsAPI response on the server (bypasses the 30-min
+   * TTL). The next call will hit the network and burn one quota slot.
+   * Used by the "force refresh" button on the News page.
+   */
+  clearNewsApiCache(): Observable<any> {
+    return this.getHeaderWithToken().pipe(
+      switchMap(headers =>
+        this._http.post(this.API_URL + 'external/news/cache/clear', {}, { headers })
+      )
+    );
+  }
 }

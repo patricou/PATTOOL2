@@ -217,6 +217,12 @@
     margin-left: auto;
 }
 
+/* "Force" sits right next to the regular refresh button, not pushed to the
+   edge like the first one (which owns `margin-left: auto`). */
+.news-mode-toggle .refresh-btn.refresh-btn-force {
+    margin-left: 0;
+}
+
 /* ---------- Status badges ---------- */
 .news-status {
     display: flex;
@@ -232,6 +238,19 @@
     font-weight: 500;
     font-size: 0.7rem;
     padding: 3px 7px;
+}
+
+/* Quota badge: draws attention as it fills up. `bg-warning` / `bg-danger`
+   Bootstrap classes already flip the color; we just bump the emphasis. */
+.news-status .news-quota-badge {
+    cursor: help;
+    letter-spacing: 0.2px;
+}
+.news-status .news-quota-badge.bg-warning {
+    color: #6b4d00;
+}
+.news-status .news-quota-badge.bg-danger {
+    box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.15);
 }
 
 /* ---------- Filters card ---------- */

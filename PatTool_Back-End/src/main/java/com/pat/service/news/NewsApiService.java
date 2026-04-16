@@ -16,9 +16,12 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Implementation of {@link NewsProvider} backed by https://newsapi.org.
@@ -58,7 +61,25 @@ public class NewsApiService implements NewsProvider {
     @Value("${newsapi.default.language:fr}")
     private String defaultLanguage;
 
+    /**
+     * Daily quota of the NewsAPI plan, purely informative (displayed on the
+     * News page). Override via {@code newsapi.quota.daily} if you upgrade.
+     */
+    @Value("${newsapi.quota.daily:100}")
+    private int dailyQuota;
+
     private final Map<String, CachedEntry> cache = new ConcurrentHashMap<>();
+
+    /**
+     * Timestamps of every real (cache-miss) HTTP call made to NewsAPI.
+     * We keep a rolling 24h window here: entries older than 24h are pruned
+     * on every access. This is what feeds the "requests used today" counter
+     * exposed via {@link #getStatus()}.
+     */
+    private final ConcurrentLinkedDeque<Instant> requestLog = new ConcurrentLinkedDeque<>();
+
+    /** Cumulative count since the app started (never pruned). */
+    private final AtomicLong totalRequests = new AtomicLong();
 
     public NewsApiService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -149,6 +170,23 @@ public class NewsApiService implements NewsProvider {
         status.put("tickerEnabledDefault", tickerEnabledDefault);
         status.put("defaultCountry", defaultCountry == null ? "" : defaultCountry.toLowerCase());
         status.put("defaultLanguage", defaultLanguage == null ? "" : defaultLanguage.toLowerCase());
+        // Quota counters (informative). {@code requestsLast24h} is the real
+        // network-call count over the rolling 24h window (cache hits do NOT
+        // contribute). {@code totalRequestsSinceStartup} is cumulative.
+        int used = countRequestsLast24h();
+        status.put("requestsLast24h", used);
+        status.put("quotaDaily", dailyQuota);
+        if (dailyQuota > 0) {
+            status.put("requestsRemaining", Math.max(0, dailyQuota - used));
+        }
+        Instant oldest = oldestRequestInWindow();
+        if (oldest != null) {
+            // Tell the UI when the oldest request in the current window will
+            // "fall off" — that's when a slot becomes free again.
+            status.put("oldestRequestAt", oldest.toString());
+            status.put("windowResetsAt", oldest.plus(Duration.ofHours(24)).toString());
+        }
+        status.put("totalRequestsSinceStartup", totalRequests.get());
         if (!configured) {
             status.put("status", "unavailable");
             status.put("message", "API key is not configured (newsapi.api.key).");
@@ -169,6 +207,26 @@ public class NewsApiService implements NewsProvider {
             if (ts != null) status.put("probeTotalResults", ts);
         }
         return status;
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * Note: this does not reset {@link #requestLog} on purpose. Cached
+     * responses and quota consumption are orthogonal concerns — the 24h
+     * counter must keep reflecting what was actually billed by NewsAPI,
+     * so that the user cannot accidentally hide their quota usage by
+     * flushing the cache.
+     */
+    @Override
+    public Map<String, Object> clearCache() {
+        int before = cache.size();
+        cache.clear();
+        log.info("NewsAPI cache cleared ({} entries dropped)", before);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("cleared", before);
+        result.put("requestsLast24h", countRequestsLast24h());
+        return result;
     }
 
     // ---------------------------------------------------------------------
@@ -210,8 +268,13 @@ public class NewsApiService implements NewsProvider {
                     (Class<Map<String, Object>>) (Class<?>) Map.class);
             Map<String, Object> body = resp.getBody() != null ? resp.getBody() : new HashMap<>();
             cache.put(url, new CachedEntry(body, Instant.now()));
+            recordRequest();
             return body;
         } catch (HttpClientErrorException e) {
+            // Still count quota-burning errors (400/429/...): the request
+            // *was* sent and NewsAPI debits the quota regardless of the
+            // response status, so the user deserves to see it.
+            recordRequest();
             log.warn("NewsAPI HTTP error ({}): {}", e.getStatusCode(), e.getResponseBodyAsString());
             Map<String, Object> err = new HashMap<>();
             err.put("error", "NewsAPI HTTP " + e.getStatusCode() + ": " + e.getStatusText());
@@ -227,6 +290,51 @@ public class NewsApiService implements NewsProvider {
             err.put("error", "Failed to call NewsAPI: " + e.getMessage());
             return err;
         }
+    }
+
+    /**
+     * Append the current instant to the rolling log and prune anything
+     * older than 24h. Also bumps the lifetime counter. Called once per
+     * real network call (cache miss), regardless of HTTP status.
+     */
+    private void recordRequest() {
+        Instant now = Instant.now();
+        requestLog.addLast(now);
+        totalRequests.incrementAndGet();
+        pruneRequestLog(now);
+        int used = requestLog.size();
+        if (dailyQuota > 0) {
+            log.info("NewsAPI request #{} in the last 24h (quota {}/{})",
+                    used, used, dailyQuota);
+        } else {
+            log.info("NewsAPI request #{} in the last 24h", used);
+        }
+    }
+
+    /** Drop every timestamp older than 24 hours. */
+    private void pruneRequestLog(Instant now) {
+        Instant cutoff = now.minus(Duration.ofHours(24));
+        Iterator<Instant> it = requestLog.iterator();
+        while (it.hasNext()) {
+            if (it.next().isBefore(cutoff)) {
+                it.remove();
+            } else {
+                // Timestamps are appended in order, so stop at first fresh one.
+                break;
+            }
+        }
+    }
+
+    /** Current count of NewsAPI requests made in the last 24 hours. */
+    private int countRequestsLast24h() {
+        pruneRequestLog(Instant.now());
+        return requestLog.size();
+    }
+
+    /** Instant of the oldest request still inside the 24h window, or {@code null}. */
+    private Instant oldestRequestInWindow() {
+        pruneRequestLog(Instant.now());
+        return requestLog.peekFirst();
     }
 
     private static boolean notBlank(String s) {

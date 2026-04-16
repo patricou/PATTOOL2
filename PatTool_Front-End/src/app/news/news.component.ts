@@ -90,6 +90,8 @@ export class NewsComponent implements OnInit, OnDestroy {
   newsTitle = '';
   apiStatus: any = null;
   isLoadingStatus = false;
+  /** Spinner flag for the "Force refresh" button (cache flush + refetch). */
+  isClearingCache = false;
 
   /**
    * When headlines come back empty for a non-US country (a common free-tier
@@ -446,6 +448,84 @@ export class NewsComponent implements OnInit, OnDestroy {
   refreshAll(): void {
     this.loadStatus();
     this.runQuery();
+  }
+
+  /**
+   * "Force refresh" — flushes the backend NewsAPI cache first, then runs
+   * the current query. This bypasses the 30-minute TTL and guarantees the
+   * next call hits NewsAPI (costing one quota slot).
+   *
+   * The existing {@link refreshAll} button just re-runs the query and will
+   * usually serve cached data; this one is for when the user really wants
+   * the very latest articles.
+   */
+  forceRefresh(): void {
+    if (this.isClearingCache) return;
+    this.isClearingCache = true;
+    this.cdr.markForCheck();
+    this.apiService.clearNewsApiCache().subscribe({
+      next: (resp) => {
+        const cleared = Number(resp?.cleared) || 0;
+        this.successMessage = this.translate.instant('NEWS.CACHE_CLEARED', { count: cleared });
+        this.isClearingCache = false;
+        this.refreshAll();
+        setTimeout(() => { this.successMessage = ''; this.cdr.markForCheck(); }, 3000);
+      },
+      error: () => {
+        this.isClearingCache = false;
+        this.errorMessage = this.translate.instant('NEWS.CACHE_CLEAR_FAILED');
+        this.cdr.markForCheck();
+      }
+    });
+  }
+
+  // ---------------- Quota meter helpers (displayed in the status badge) ----------------
+
+  /**
+   * Severity bucket for the quota badge color.
+   *  - 'ok'     : < 60% used
+   *  - 'warn'   : 60% - 89% used
+   *  - 'danger' : >= 90% used (or over quota)
+   * Falls back to 'ok' when the server hasn't reported {@code quotaDaily}.
+   */
+  getQuotaLevel(): 'ok' | 'warn' | 'danger' {
+    const used = Number(this.apiStatus?.requestsLast24h);
+    const quota = Number(this.apiStatus?.quotaDaily);
+    if (!Number.isFinite(used)) return 'ok';
+    if (!Number.isFinite(quota) || quota <= 0) return 'ok';
+    const ratio = used / quota;
+    if (ratio >= 0.9) return 'danger';
+    if (ratio >= 0.6) return 'warn';
+    return 'ok';
+  }
+
+  /**
+   * Tooltip for the quota badge: shows raw counts, remaining, and when the
+   * rolling window will free up its oldest slot. Safe against missing fields.
+   */
+  getQuotaTooltip(): string {
+    const s = this.apiStatus || {};
+    const used = Number(s.requestsLast24h);
+    const quota = Number(s.quotaDaily);
+    const remaining = Number(s.requestsRemaining);
+    const parts: string[] = [];
+    if (Number.isFinite(used) && Number.isFinite(quota) && quota > 0) {
+      parts.push(`${used} / ${quota} ${this.translate.instant('NEWS.QUOTA_REQUESTS_IN_24H')}`);
+    } else if (Number.isFinite(used)) {
+      parts.push(`${used} ${this.translate.instant('NEWS.QUOTA_REQUESTS_IN_24H')}`);
+    }
+    if (Number.isFinite(remaining)) {
+      parts.push(`${this.translate.instant('NEWS.QUOTA_REMAINING')}: ${remaining}`);
+    }
+    if (s.windowResetsAt) {
+      try {
+        const reset = new Date(s.windowResetsAt);
+        if (!isNaN(reset.getTime())) {
+          parts.push(`${this.translate.instant('NEWS.QUOTA_NEXT_SLOT')}: ${reset.toLocaleString()}`);
+        }
+      } catch (_) { /* ignore */ }
+    }
+    return parts.join(' — ');
   }
 
   /**

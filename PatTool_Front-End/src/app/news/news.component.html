@@ -89,6 +89,14 @@
                     <i class="fa" [class.fa-refresh]="!isLoading" [class.fa-spinner]="isLoading" [class.fa-spin]="isLoading"></i>
                     <span class="btn-text">{{ 'NEWS.REFRESH' | translate }}</span>
                 </button>
+                <button type="button"
+                        class="btn btn-outline-danger refresh-btn refresh-btn-force"
+                        (click)="forceRefresh()"
+                        [disabled]="isLoading || isClearingCache"
+                        [title]="'NEWS.FORCE_REFRESH_HINT' | translate">
+                    <i class="fa" [class.fa-bolt]="!isClearingCache" [class.fa-spinner]="isClearingCache" [class.fa-spin]="isClearingCache"></i>
+                    <span class="btn-text">{{ 'NEWS.FORCE_REFRESH' | translate }}</span>
+                </button>
             </div>
 
             <!-- API status badge -->
@@ -103,6 +111,16 @@
                     <i class="fa fa-database"></i>
                     {{ 'NEWS.CACHE_ENTRIES' | translate }}: {{ apiStatus.cacheEntries }}
                     <span *ngIf="apiStatus.cacheTtlMinutes !== undefined"> ({{ apiStatus.cacheTtlMinutes }} min)</span>
+                </span>
+                <span class="badge news-quota-badge"
+                      *ngIf="apiStatus.requestsLast24h !== undefined"
+                      [class.bg-success]="getQuotaLevel() === 'ok'"
+                      [class.bg-warning]="getQuotaLevel() === 'warn'"
+                      [class.bg-danger]="getQuotaLevel() === 'danger'"
+                      [title]="getQuotaTooltip()">
+                    <i class="fa fa-tachometer"></i>
+                    {{ 'NEWS.QUOTA_USED' | translate }}:
+                    {{ apiStatus.requestsLast24h }}<ng-container *ngIf="apiStatus.quotaDaily"> / {{ apiStatus.quotaDaily }}</ng-container>
                 </span>
                 <span class="badge bg-danger" *ngIf="apiStatus.configured === false">
                     <i class="fa fa-key"></i> {{ 'NEWS.KEY_MISSING' | translate }}

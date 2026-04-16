@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -78,6 +79,18 @@ public class NewsApiController {
     public Map<String, Object> getStatus() {
         log.debug("News /status");
         return newsProvider.getStatus();
+    }
+
+    /**
+     * Flush the NewsAPI response cache. The frontend calls this when the user
+     * wants fresh data at the cost of a quota slot (bypasses the 30-min TTL).
+     * POST on purpose: it is a state-changing operation that must not be
+     * replayed automatically by browsers / proxies.
+     */
+    @PostMapping(value = "/cache/clear", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Map<String, Object> clearCache() {
+        log.info("News /cache/clear requested");
+        return newsProvider.clearCache();
     }
 
     /**
