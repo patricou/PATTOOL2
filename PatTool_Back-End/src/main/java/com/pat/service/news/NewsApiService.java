@@ -1,7 +1,9 @@
 package com.pat.service.news;
 
+import com.pat.service.AppParameterService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -15,9 +17,12 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -81,6 +86,17 @@ public class NewsApiService implements NewsProvider {
     /** Cumulative count since the app started (never pruned). */
     private final AtomicLong totalRequests = new AtomicLong();
 
+    /**
+     * Key under which the 24h request log is persisted in the generic
+     * {@code appParameters} collection. Bump the suffix if the value
+     * format ever changes (currently: JSON array of ISO-8601 strings).
+     */
+    private static final String PARAM_KEY_REQUEST_LOG = "newsapi.requests.log.v1";
+
+    /** DB-backed storage so the counter survives backend restarts. */
+    @Autowired
+    private AppParameterService appParameterService;
+
     public NewsApiService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
     }
@@ -93,6 +109,39 @@ public class NewsApiService implements NewsProvider {
                     apiKey.length() > 4 ? apiKey.substring(0, 4) + "..." : "***");
         } else {
             log.warn("NewsAPI key is empty or not configured (newsapi.api.key).");
+        }
+        hydrateRequestLogFromDb();
+    }
+
+    /**
+     * Rebuild the in-memory {@link #requestLog} from its persisted copy so
+     * the 24h counter is accurate right after a backend restart.
+     */
+    private void hydrateRequestLogFromDb() {
+        try {
+            String raw = appParameterService.getString(PARAM_KEY_REQUEST_LOG, null);
+            if (raw == null || raw.isEmpty()) {
+                log.info("NewsAPI request log: no persisted entries found.");
+                return;
+            }
+            List<Instant> parsed = parseJsonInstantArray(raw);
+            Instant cutoff = Instant.now().minus(Duration.ofHours(24));
+            int loaded = 0;
+            for (Instant t : parsed) {
+                if (t != null && !t.isBefore(cutoff)) {
+                    requestLog.addLast(t);
+                    loaded++;
+                }
+            }
+            log.info("NewsAPI request log: restored {} entries from the last 24h (out of {} persisted).",
+                    loaded, parsed.size());
+            // Persist the pruned list so we don't keep stale 25h+ timestamps around.
+            if (loaded != parsed.size()) {
+                persistRequestLog();
+            }
+        } catch (Exception e) {
+            // Never fail startup because of a corrupted parameter blob.
+            log.warn("NewsAPI request log: failed to restore from DB, starting fresh. Reason: {}", e.getMessage());
         }
     }
 
@@ -267,14 +316,28 @@ public class NewsApiService implements NewsProvider {
                     req,
                     (Class<Map<String, Object>>) (Class<?>) Map.class);
             Map<String, Object> body = resp.getBody() != null ? resp.getBody() : new HashMap<>();
+
+            // Some "200 OK" responses from NewsAPI still wrap a logical error
+            // ({@code {"status":"error","code":"...","message":"..."}}). Treat
+            // those as failures too: surface the error to the caller AND do
+            // NOT record the call in the 24h counter (the user should not be
+            // penalized for quota-level or auth-level failures).
+            if (isProviderError(body)) {
+                log.warn("NewsAPI logical error: {}", body);
+                Map<String, Object> err = new HashMap<>();
+                err.put("error", "NewsAPI error: " + body.getOrDefault("message", body.getOrDefault("code", "unknown")));
+                err.put("providerMessage", body.toString());
+                return err;
+            }
+
             cache.put(url, new CachedEntry(body, Instant.now()));
             recordRequest();
             return body;
         } catch (HttpClientErrorException e) {
-            // Still count quota-burning errors (400/429/...): the request
-            // *was* sent and NewsAPI debits the quota regardless of the
-            // response status, so the user deserves to see it.
-            recordRequest();
+            // 429 / 401 / 400 / ... the request reached NewsAPI but came back
+            // as an error. We deliberately do NOT bump the 24h counter: the
+            // user asked that only successful calls be counted, so error
+            // responses don't inflate the "used" number on the UI.
             log.warn("NewsAPI HTTP error ({}): {}", e.getStatusCode(), e.getResponseBodyAsString());
             Map<String, Object> err = new HashMap<>();
             err.put("error", "NewsAPI HTTP " + e.getStatusCode() + ": " + e.getStatusText());
@@ -285,6 +348,8 @@ public class NewsApiService implements NewsProvider {
             } catch (Exception ignore) { /* noop */ }
             return err;
         } catch (Exception e) {
+            // Network / timeout / unexpected failure: never reached NewsAPI
+            // successfully, do not count it either.
             log.error("Error calling NewsAPI: ", e);
             Map<String, Object> err = new HashMap<>();
             err.put("error", "Failed to call NewsAPI: " + e.getMessage());
@@ -293,9 +358,22 @@ public class NewsApiService implements NewsProvider {
     }
 
     /**
+     * NewsAPI sometimes returns 200 OK with a logical error body. Detect
+     * that here so we can treat it exactly like an HTTP error.
+     */
+    private static boolean isProviderError(Map<String, Object> body) {
+        if (body == null) return false;
+        Object status = body.get("status");
+        return status != null && "error".equalsIgnoreCase(status.toString());
+    }
+
+    /**
      * Append the current instant to the rolling log and prune anything
      * older than 24h. Also bumps the lifetime counter. Called once per
-     * real network call (cache miss), regardless of HTTP status.
+     * SUCCESSFUL cache-miss response (2xx AND not a logical NewsAPI
+     * error body). Failed calls (HTTP 4xx/5xx, network errors, provider
+     * errors returned as 200 OK) are NOT counted — they did not deliver
+     * usable data to the user.
      */
     private void recordRequest() {
         Instant now = Instant.now();
@@ -309,6 +387,67 @@ public class NewsApiService implements NewsProvider {
         } else {
             log.info("NewsAPI request #{} in the last 24h", used);
         }
+        persistRequestLog();
+    }
+
+    /**
+     * Serialize {@link #requestLog} to JSON and upsert it in
+     * {@code appParameters}. Cheap enough (≤ 100 ISO strings, a few KB) to
+     * be safe to call on every request.
+     */
+    private void persistRequestLog() {
+        try {
+            String json = serializeInstantsToJson(requestLog);
+            appParameterService.setJson(
+                    PARAM_KEY_REQUEST_LOG,
+                    json,
+                    "Rolling 24h log of successful NewsAPI requests (timestamps, ISO-8601).");
+        } catch (Exception e) {
+            // Persistence is best-effort: the in-memory counter is still
+            // correct for this session even if the DB write fails.
+            log.warn("NewsAPI request log: failed to persist to DB. Reason: {}", e.getMessage());
+        }
+    }
+
+    /** Tiny ad-hoc serializer for a list of Instants (avoids a Jackson dependency here). */
+    private static String serializeInstantsToJson(Iterable<Instant> instants) {
+        StringBuilder sb = new StringBuilder(256);
+        sb.append('[');
+        boolean first = true;
+        for (Instant i : instants) {
+            if (!first) sb.append(',');
+            first = false;
+            sb.append('"').append(i.toString()).append('"');
+        }
+        sb.append(']');
+        return sb.toString();
+    }
+
+    /**
+     * Parse {@code ["2026-04-16T10:14:32Z", ...]} into a list of Instants.
+     * Lenient: malformed entries are skipped, not fatal.
+     */
+    private static List<Instant> parseJsonInstantArray(String json) {
+        List<Instant> out = new ArrayList<>();
+        if (json == null) return out;
+        String trimmed = json.trim();
+        if (trimmed.isEmpty() || trimmed.equals("[]")) return out;
+        if (trimmed.charAt(0) != '[' || trimmed.charAt(trimmed.length() - 1) != ']') return out;
+        String body = trimmed.substring(1, trimmed.length() - 1);
+        if (body.trim().isEmpty()) return out;
+        for (String raw : body.split(",")) {
+            String s = raw.trim();
+            if (s.length() < 2) continue;
+            // Strip the surrounding quotes.
+            if (s.charAt(0) == '"') s = s.substring(1);
+            if (!s.isEmpty() && s.charAt(s.length() - 1) == '"') s = s.substring(0, s.length() - 1);
+            try {
+                out.add(Instant.parse(s));
+            } catch (DateTimeParseException ex) {
+                // ignore malformed entries
+            }
+        }
+        return out;
     }
 
     /** Drop every timestamp older than 24 hours. */
