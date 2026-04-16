@@ -115,13 +115,21 @@ public class NewsApiService implements NewsProvider {
 
     /**
      * Rebuild the in-memory {@link #requestLog} from its persisted copy so
-     * the 24h counter is accurate right after a backend restart.
+     * the 24h counter is accurate right after a backend restart. If no
+     * persisted entry exists yet, create an empty seed row: this materializes
+     * the {@code appParameters} MongoDB collection so it becomes visible to
+     * anyone inspecting the database, even before the very first NewsAPI
+     * call has been made.
      */
     private void hydrateRequestLogFromDb() {
         try {
             String raw = appParameterService.getString(PARAM_KEY_REQUEST_LOG, null);
             if (raw == null || raw.isEmpty()) {
-                log.info("NewsAPI request log: no persisted entries found.");
+                log.info("NewsAPI request log: no persisted entries found, creating empty seed row.");
+                // Seed so the collection is created in MongoDB right now. An
+                // empty "[]" is a valid pruned log and means "0 requests in
+                // the last 24h" — identical semantics to a missing row.
+                persistRequestLog();
                 return;
             }
             List<Instant> parsed = parseJsonInstantArray(raw);
